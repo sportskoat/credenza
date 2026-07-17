@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Credenza",
+  "version": "1.0.0",
+  "description": "Everything you meant to come back to.",
+  "permissions": ["sidePanel", "storage", "contextMenus", "tabs"],
+  "host_permissions": ["https://credenza-kyle.netlify.app/*"],
+  "side_panel": { "default_path": "sidepanel.html" },
+  "action": { "default_title": "Open Credenza" },
+  "background": { "service_worker": "background.js" },
+  "icons": {
+    "16": "icon-16.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  }
+}
