@@ -676,6 +676,8 @@ function migrateItem(old) {
 // Local-only imports. No scraping, passwords, cookies, or network connections.
 // ═══════════════════════════════════════════════════════════════════════════════════
 
+const SAMPLE_COUNT = 18;
+
 const IMPORT_PROVIDERS = [
   {
     id: "paste_list",
@@ -939,8 +941,6 @@ function buildImportItems(candidates, existing, source) {
   }
   return { fresh, dupes };
 }
-
-const SAMPLE_COUNT = 18;
 
 function buildSampleItems() {
   const now = Date.now();
@@ -2068,6 +2068,9 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           transition: reduced ? "none" : "grid-template-rows 220ms " + EASE,
         }}
       >
+        {/* Propagation guard, not a control: keeps clicks on the expanded
+            details from re-toggling the card. No action is denied to keyboard. */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -2118,6 +2121,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       </div>
 
       {expanded && editing && ed && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- propagation guard around the edit form, not a control
         <div
           onClick={(e) => e.stopPropagation()}
           style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 8 }}
@@ -2226,6 +2230,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
   );
 
   const back = (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- propagation guard on the card back, not a control
     <div
       aria-hidden={!flipped}
       inert={!flipped ? "" : undefined}
@@ -2358,6 +2363,7 @@ function ModalShell({ title, onClose, children, maxWidth = 720 }) {
   }, []);
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click-to-close; keyboard users close via Escape (onCancel)
     <dialog
       ref={dialogRef}
       className="cz-modal"
@@ -2502,7 +2508,7 @@ function DigestDeck({ slides, onClose, onOpen }) {
                   margin: "0 auto",
                   borderRadius: 999,
                   background: index === i ? ACTION_FILL : HAIR,
-                  transition: "width 160ms " + EASE + ", background-color 160ms " + EASE,
+                  transition: "background-color 160ms " + EASE,
                 }}
               />
             </button>
@@ -3925,6 +3931,7 @@ export default function Credenza() {
             <input
               className="cz-search-input"
               ref={searchRef}
+              type="search"
               aria-label="Search your shelf"
               disabled={interactionLocked}
               value={search}
