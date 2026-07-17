@@ -3780,7 +3780,7 @@ export default function Credenza() {
 
   const localStatus = (() => {
     if (storageState.status === "loading") return { label: "Opening shelf", color: FAINT };
-    if (storageState.status === "load-error") return { label: "Shelf needs recovery", color: "var(--cz-error-text)" };
+    if (storageState.status === "load-error") return { label: "Needs recovery", color: "var(--cz-error-text)" };
     if (storageState.status === "save-error") return { label: "Changes not saved", color: "var(--cz-error-text)" };
     if (storageState.status === "session-only") return { label: "Session only", color: "var(--cz-error-text)" };
     if (storageState.status === "saving") return { label: "Saving", color: BLUE_DK };

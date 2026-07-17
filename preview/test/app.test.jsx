@@ -55,7 +55,7 @@ describe("first load", () => {
   it("shows the recovery state on malformed storage and never auto-saves an empty shelf", async () => {
     const data = installShim({ [STORE_KEY]: "{corrupted" });
     render(<Credenza />);
-    expect(await screen.findByText(/shelf needs recovery/i)).toBeInTheDocument();
+    expect(await screen.findByText(/needs recovery/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /download recovery data/i })).toBeInTheDocument();
     await new Promise((r) => setTimeout(r, 50));
     expect(data[STORE_KEY]).toBe("{corrupted");
