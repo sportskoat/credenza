@@ -1,5 +1,23 @@
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 
+// Mirror of the client-side serializeAskCandidates bounds — the function must
+// hold the line even if a modified client sends more.
+const MAX_SHELF_ITEMS = 25;
+const FIELD_LIMITS = {
+  id: 80,
+  title: 160,
+  summary: 360,
+  note: 500,
+  extractedIntent: 240,
+  project: 120,
+  useCase: 240,
+  host: 160,
+  type: 40,
+  url: 500,
+};
+const LIST_LIMITS = { tags: 8, people: 8 };
+const LIST_ITEM_MAX = 60;
+
 function response(statusCode, payload) {
   return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(payload) };
 }
@@ -35,9 +53,32 @@ exports.handler = async (event) => {
   if (!Array.isArray(input.shelf)) {
     return response(400, { error: "shelf must be an array" });
   }
+  if (input.shelf.length > MAX_SHELF_ITEMS) {
+    return response(400, { error: `shelf may contain at most ${MAX_SHELF_ITEMS} items` });
+  }
   if (input.shelf.some((item) => !item || typeof item !== "object" || typeof item.id !== "string")) {
     return response(400, { error: "every shelf item must have a string id" });
   }
+
+  const clamp = (value, max) => (typeof value === "string" ? value.slice(0, max) : undefined);
+  const shelf = input.shelf.map((item) => {
+    const compact = {};
+    for (const [field, max] of Object.entries(FIELD_LIMITS)) {
+      const value = clamp(item[field], max);
+      if (value) compact[field] = value;
+    }
+    for (const [field, max] of Object.entries(LIST_LIMITS)) {
+      if (Array.isArray(item[field])) {
+        const list = item[field]
+          .filter((entry) => typeof entry === "string" && entry)
+          .slice(0, max)
+          .map((entry) => entry.slice(0, LIST_ITEM_MAX));
+        if (list.length) compact[field] = list;
+      }
+    }
+    compact.id = item.id.slice(0, FIELD_LIMITS.id);
+    return compact;
+  });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30000);
@@ -63,7 +104,7 @@ exports.handler = async (event) => {
               "Query:\n" +
               input.query.trim() +
               "\n\nCompact shelf:\n" +
-              JSON.stringify(input.shelf),
+              JSON.stringify(shelf),
           },
         ],
         tools: [
@@ -127,7 +168,7 @@ exports.handler = async (event) => {
       (block) => block && block.type === "tool_use" && block.name === "return_credenza_matches"
     );
   const result = toolUse && toolUse.input;
-  const validIds = new Set(input.shelf.map((item) => item.id));
+  const validIds = new Set(shelf.map((item) => item.id));
   const valid =
     result &&
     typeof result.answer === "string" &&

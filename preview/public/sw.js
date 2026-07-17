@@ -1,8 +1,32 @@
-// Credenza service worker: network-first with offline fallback. Fresh app when
-// online, working shelf when not. Bump CACHE to invalidate after big releases.
-const CACHE = "credenza-v2";
+// Credenza service worker: precached app shell + network-first runtime cache.
+// PRECACHE below is stamped with the hashed build assets at build time
+// (see swPrecache in vite.config.js), so the shell, fonts, and icons are
+// available offline immediately after install. A new build produces a new
+// worker (different asset hashes), which waits until the app posts
+// SKIP_WAITING — the app surfaces that as an explicit "Update ready · Restart"
+// notification instead of swapping code mid-session.
+const PRECACHE = self.__PRECACHE_MANIFEST__;
+const CACHE = "credenza-" + (Array.isArray(PRECACHE) ? hashOf(PRECACHE.join("|")) : "dev");
 
-self.addEventListener("install", () => self.skipWaiting());
+function hashOf(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+self.addEventListener("install", (e) => {
+  if (!Array.isArray(PRECACHE)) return; // dev: placeholder not stamped
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => Promise.allSettled(PRECACHE.map((url) => cache.add(url))))
+  );
+});
+
+self.addEventListener("message", (e) => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
+});
+
 self.addEventListener("activate", (e) =>
   e.waitUntil(
     caches

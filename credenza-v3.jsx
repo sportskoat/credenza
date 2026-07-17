@@ -2797,6 +2797,19 @@ export default function Credenza() {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", mode === "dark" ? "#0F1114" : "#F4F4F0");
   }, [mode]);
+  // A waiting service worker (see preview/src/main.jsx) means a new build is
+  // staged; swapping code mid-session is the user's call, not ours.
+  useEffect(() => {
+    const onUpdateReady = () =>
+      notify("Update ready.", {
+        actionLabel: "Restart",
+        onAction: () => window.dispatchEvent(new CustomEvent("credenza:apply-update")),
+        persistent: true,
+      });
+    window.addEventListener("credenza:update-ready", onUpdateReady);
+    return () => window.removeEventListener("credenza:update-ready", onUpdateReady);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const captureRef = useRef(null);
   const searchRef = useRef(null);
   const askControllerRef = useRef(null);
