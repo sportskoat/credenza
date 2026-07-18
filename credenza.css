@@ -333,8 +333,19 @@ button {
     padding-inline: 12px;
   }
 
-  .cz-local-label {
-    max-width: 132px;
+  .cz-app[data-fashion="true"] .cz-local-label {
+    max-width: 14px;
+    overflow: hidden;
+  }
+
+  .cz-app[data-fashion="true"] .cz-local-label > span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .cz-modal {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
-import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Check, ChevronLeft, ChevronRight, Moon, Pen, Search, Star, Sun, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -37,6 +37,8 @@ const PALETTES = {
     "--cz-accent": "#ff38cc",
     "--cz-accent-bg": "rgba(255, 56, 204, 0.18)",
     "--cz-accent-deep": "#ff7ae8",
+    "--cz-favorite": "#60a5fa",
+    "--cz-favorite-bg": "rgba(96, 165, 250, 0.16)",
     "--cz-action-fill": "linear-gradient(135deg, #ff38cc 0%, #00f5ff 100%)",
     "--cz-action-text": "#050208",
     "--cz-action-muted-bg": "rgba(255, 56, 204, 0.14)",
@@ -70,6 +72,8 @@ const PALETTES = {
     "--cz-accent": "#00d4ff",
     "--cz-accent-bg": "rgba(0, 212, 255, 0.18)",
     "--cz-accent-deep": "#5ce1ff",
+    "--cz-favorite": "#60a5fa",
+    "--cz-favorite-bg": "rgba(96, 165, 250, 0.16)",
     "--cz-action-fill": "linear-gradient(135deg, #ff2d55 0%, #ff9500 50%, #00a8e8 100%)",
     "--cz-action-text": "#050208",
     "--cz-action-muted-bg": "rgba(0, 212, 255, 0.14)",
@@ -318,9 +322,12 @@ function normalizeLinks(links, primaryUrl) {
     const key = canonicalKey(classify(url), url);
     if (key === primaryKey || seen.has(key)) continue;
     seen.add(key);
-    const role = entry && typeof entry === "object" && ["photos", "buy", "alt"].includes(entry.role)
-      ? entry.role
-      : inferLinkRole(url);
+    const inferredRole = inferLinkRole(url);
+    const role = inferredRole === "photos"
+      ? "photos"
+      : entry && typeof entry === "object" && ["photos", "buy", "alt"].includes(entry.role)
+        ? entry.role
+        : inferredRole;
     const label = entry && typeof entry === "object" && typeof entry.label === "string"
       ? entry.label.trim().slice(0, 40)
       : "";
@@ -772,6 +779,7 @@ function createItem(parsed, rawText, extra) {
     albumId: "",
     sellerAccount: "",
     error: null,
+    favorite: false,
   };
   return extra ? { ...base, ...extra } : base;
 }
@@ -863,6 +871,7 @@ function migrateItem(old) {
     albumId: old.albumId || "",
     sellerAccount: old.sellerAccount || "",
     error: null,
+    favorite: old.favorite === true,
   };
   const wasUnready = old.pending || (old.status && old.status !== "ready");
   if (!item.title || wasUnready) {
@@ -1861,6 +1870,65 @@ function Pill({ children, onClick, primary, subtle, style, title, disabled = fal
   );
 }
 
+function MorphButton({ label, icon: Icon, activeIcon: ActiveIcon, onClick, ariaLabel, disabled = false, className = "", title }) {
+  const reduced = usePrefersReducedMotion();
+  const [engaged, setEngaged] = useState(false);
+  const CurrentIcon = engaged ? ActiveIcon : Icon;
+  return (
+    <motion.button
+      type="button"
+      className={("cz-morph-button " + className).trim()}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel || label}
+      title={title}
+      onMouseEnter={() => setEngaged(true)}
+      onMouseLeave={() => setEngaged(false)}
+      onFocus={() => setEngaged(true)}
+      onBlur={() => setEngaged(false)}
+      whileHover={reduced || disabled ? undefined : { scale: 1.02 }}
+      whileTap={reduced || disabled ? undefined : { scale: 0.96 }}
+      transition={{ duration: reduced ? 0 : 0.16 }}
+    >
+      <span className="cz-morph-icon" aria-hidden="true">
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span
+            key={engaged ? "active" : "idle"}
+            initial={reduced ? false : { opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={reduced ? undefined : { opacity: 0, scale: 0.5 }}
+            transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 600, damping: 25 }}
+          >
+            <CurrentIcon size={16} strokeWidth={2.2} />
+          </motion.span>
+        </AnimatePresence>
+      </span>
+      <span>{label}</span>
+    </motion.button>
+  );
+}
+
+function FavoriteButton({ item, onToggle, className = "" }) {
+  const favorite = item.favorite === true;
+  return (
+    <button
+      type="button"
+      className={("cz-favorite-button " + className + (favorite ? " is-favorite" : "")).trim()}
+      aria-pressed={favorite}
+      aria-label={(favorite ? "Remove " : "Add ") + item.title + (favorite ? " from favorites" : " to favorites")}
+      title={favorite ? "Remove from favorites" : "Add to favorites"}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onToggle(item.id);
+      }}
+    >
+      <Star aria-hidden="true" size={18} strokeWidth={2} />
+    </button>
+  );
+}
+
 function Caption({ children, style }) {
   return (
     <div
@@ -2332,25 +2400,31 @@ function Field({ label, value, onChange, placeholder, rows }) {
 // ═══ COMPONENTS ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
 
-// Open-button list for a card: primary URL first (labeled by its role), then each
-// paired link. Colliding labels get numbered so two "Alt" buttons stay tellable.
-const LINK_ROLE_LABELS = { photos: "Photos", buy: "Buy", alt: "Alt" };
+// Open-button list for a card. Every Yupoo URL remains an external photo action,
+// even if stale stored data claims another role. Buy is stable-first and is the
+// only action rendered with dominant styling. Duplicate labels stay tellable.
+const LINK_ROLE_LABELS = { photos: "More Photos", buy: "Buy", alt: "Alt" };
 function linkButtons(item) {
   const btns = [];
-  function labelFor(url, role) {
+  function roleFor(url, storedRole) {
+    const inferred = inferLinkRole(url);
+    return inferred === "photos" ? "photos" : storedRole || inferred;
+  }
+  function labelFor(role) {
     if (role === "alt") return "Open";
-    // A Yupoo album link is surfaced by the Photos orbit; label it Album so the
-    // back face doesn't show two Photos buttons.
-    if (role === "photos" && /yupoo\.com/i.test(url || "")) return "Album";
     return LINK_ROLE_LABELS[role] || "Alt";
   }
   if (item.url) {
-    const role = inferLinkRole(item.url);
-    btns.push({ url: item.url, role, label: labelFor(item.url, role) });
+    const role = roleFor(item.url);
+    btns.push({ url: item.url, role, label: labelFor(role) });
   }
   for (const l of item.links || []) {
-    if (l && l.url) btns.push({ url: l.url, role: l.role, label: labelFor(l.url, l.role) });
+    if (l && l.url) {
+      const role = roleFor(l.url, l.role);
+      btns.push({ url: l.url, role, label: labelFor(role) });
+    }
   }
+  btns.sort((a, b) => Number(b.role === "buy") - Number(a.role === "buy"));
   const counts = {};
   for (const b of btns) counts[b.label] = (counts[b.label] || 0) + 1;
   const seen = {};
@@ -2363,7 +2437,7 @@ function linkButtons(item) {
   return btns;
 }
 
-function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, featured, flipSignal, editSignal, mode }) {
+function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, onToggleFavorite, featured, flipSignal, editSignal, mode }) {
   const [flipped, setFlipped] = useState(false);
   const [animateFlip, setAnimateFlip] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -2603,21 +2677,16 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               letterSpacing: "-0.03em",
               color: INK,
               lineHeight: 1.25,
-              marginBottom: item.summary || item.seller || item.batch ? 6 : 0,
+              marginBottom: item.summary || item.seller || item.size ? 6 : 0,
             }}
           >
             {item.title}
           </div>
-          {(item.seller || item.batch) && (
+          {(item.seller || item.size) && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: item.summary ? 6 : 0 }}>
               {item.seller && (
                 <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
                   {item.seller}
-                </span>
-              )}
-              {item.batch && (
-                <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
-                  {item.batch}
                 </span>
               )}
               {item.size && (
@@ -2723,6 +2792,10 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       )}
       </button>
 
+      {!flipped && (
+        <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-grid-favorite" />
+      )}
+
       <div
         id={"card-details-" + item.id}
         aria-hidden={!expanded || editing}
@@ -2770,7 +2843,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
             )}
 
             {/* Fashion find metadata */}
-            {(item.findStatus !== "want" || item.price != null || item.seller || item.batch || item.size || item.colorway || item.agentLink || CATEGORIES[item.category] || sizeRunLabel(item)) && (
+            {(item.findStatus !== "want" || item.price != null || item.seller || item.size || item.colorway || item.agentLink || CATEGORIES[item.category] || sizeRunLabel(item)) && (
               <div
                 style={{
                   display: "flex",
@@ -2807,7 +2880,6 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                   </span>
                 )}
                 {item.seller && <span>{item.seller}</span>}
-                {item.batch && <span>{item.batch}</span>}
                 {item.size && <span>Size {item.size}</span>}
                 {item.colorway && <span>{item.colorway}</span>}
                 {CATEGORIES[item.category] && (
@@ -2875,8 +2947,8 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
             )}
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {linkButtons(item).map((btn, i) => (
-                <Pill key={btn.url} primary={i === 0} onClick={() => onOpen(item, btn.url)}>
+              {linkButtons(item).map((btn) => (
+                <Pill key={btn.url} primary={btn.role === "buy"} onClick={() => onOpen(item, btn.url)}>
                   {btn.label}
                 </Pill>
               ))}
@@ -3380,13 +3452,28 @@ function CarouselSizeInfo({ item }) {
 
 function CardCornerFan({ item, images, onOpenPhotos, reduced }) {
   const [isHovered, setIsHovered] = useState(false);
-  // Cover + 3 previews: 4 × 64px at 70px spacing stays inside the 284px back face.
+  const fanRef = useRef(null);
+  const [fanWidth, setFanWidth] = useState(284);
+  useEffect(() => {
+    const fan = fanRef.current;
+    if (!fan) return;
+    const update = () => setFanWidth(fan.clientWidth || 284);
+    update();
+    if (!window.ResizeObserver) return;
+    const observer = new window.ResizeObserver(update);
+    observer.observe(fan);
+    return () => observer.disconnect();
+  }, []);
+  // Cover + 3 previews. The step contracts as needed so the fourth card never
+  // escapes a narrow back face.
   const displayed = images.slice(0, 4);
   const total = displayed.length;
+  const spreadStep = total > 1 ? Math.min(70, Math.max(0, (fanWidth - 64) / (total - 1))) : 0;
   if (total === 0) return null;
 
   return (
     <div
+      ref={fanRef}
       className="cz-corner-fan"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -3408,8 +3495,8 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced }) {
       {displayed.map((src, i) => {
         // Cover photo (i = 0) stays put; the rest slide out to its right in a
         // flat row on hover. Collapsed, they stack behind the cover.
-        const spread = isHovered && !reduced;
-        const x = spread ? i * 70 : i * 2;
+        const spread = isHovered;
+        const x = spread ? i * spreadStep : i * 2;
         const angle = spread ? 0 : i * 1.5;
         return (
           <motion.div
@@ -3448,6 +3535,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onSaveEdit,
     onOpen,
     onOpenPhotos,
+    onToggleFavorite,
     onActivate,
     onDeactivate,
     onScrollTo,
@@ -3460,6 +3548,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   const [ed, setEd] = useState(null);
   const [bubble, setBubble] = useState(null);
   const bubbleRef = useRef(null);
+  const rootRef = useRef(null);
 
   useEffect(() => {
     setFlipped(Boolean(expanded));
@@ -3499,6 +3588,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
         agentLink: item.agentLink || "",
         findSource: item.findSource || "",
       });
+      setBubble(null);
       setEditing(true);
     }
   }, [editSignal, item]);
@@ -3514,6 +3604,36 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     if (onDeactivate) onDeactivate();
   };
 
+  const discardEdit = useCallback(() => {
+    setEditing(false);
+    setEd(null);
+  }, []);
+
+  const dismissTopLayer = useCallback(() => {
+    if (editing) {
+      discardEdit();
+      return true;
+    }
+    if (bubble) {
+      setBubble(null);
+      return true;
+    }
+    if (flipped) {
+      onDeactivate?.();
+      return true;
+    }
+    return false;
+  }, [editing, bubble, flipped, discardEdit, onDeactivate]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      dismissTopLayer,
+      contains: (target) => Boolean(rootRef.current?.contains(target)),
+    }),
+    [dismissTopLayer]
+  );
+
   const openBubble = (key, title, content) => {
     setBubble({ key, title, content });
   };
@@ -3521,26 +3641,26 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   const saveEdit = () => {
     if (!ed) return;
     onSaveEdit(item.id, {
-      title: ed.title,
-      summary: ed.summary,
+      title: ed.title.trim() || item.title,
+      summary: ed.summary.trim(),
       tags: ed.tags
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean)
         .slice(0, 5),
-      project: ed.project,
+      project: ed.project.trim(),
       importance: ed.importance,
-      linksText: ed.linksText,
+      links: normalizeLinks(extractUrls(ed.linksText || ""), item.url),
       findStatus: ed.findStatus,
       category: ed.category,
       price: ed.price === "" ? null : Number(ed.price),
-      currency: ed.currency,
-      seller: ed.seller,
-      batch: ed.batch,
-      size: ed.size,
-      colorway: ed.colorway,
-      agentLink: ed.agentLink,
-      findSource: ed.findSource,
+      currency: ed.currency.trim() || "CNY",
+      seller: ed.seller.trim(),
+      batch: ed.batch.trim(),
+      size: ed.size.trim(),
+      colorway: ed.colorway.trim(),
+      agentLink: ed.agentLink.trim(),
+      findSource: ed.findSource.trim(),
     });
     setEditing(false);
     setEd(null);
@@ -3565,6 +3685,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
       agentLink: item.agentLink || "",
       findSource: item.findSource || "",
     });
+    setBubble(null);
     setEditing(true);
   };
 
@@ -3578,7 +3699,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   }, [flipped]);
 
   return (
-    <div ref={ref} style={{ width: "100%", height: "100%", transformStyle: "preserve-3d" }}>
+    <div ref={rootRef} style={{ width: "100%", height: "100%", transformStyle: "preserve-3d" }}>
       <motion.div
         className={"cz-carousel-card-inner" + (flipped ? " is-flipped" : "")}
         animate={{ rotateY: flipped ? 180 : 0 }}
@@ -3642,8 +3763,13 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
           </div>
         </div>
 
-        {/* Back face: click empty space to close bubble, or flip back if no bubble */}
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- empty-area dismissal on a visual card; keyboard users use the explicit close button */}
+        {!flipped && (
+          <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-carousel-favorite" />
+        )}
+
+        {/* Back-face content is inert for dismissal; only an exact outside-card
+            click or an explicit navigation control removes one layer. */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- propagation boundary, not a control */}
         <div
           className="cz-carousel-face cz-carousel-back"
           onClick={(e) => {
@@ -3652,67 +3778,77 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               delete carousel.dataset.dragging;
               return;
             }
-            const interactive = e.target.closest(
-              "button, a, input, textarea, .cz-info-bubble, [role='button']"
-            );
-            if (interactive) return;
             e.stopPropagation();
-            if (bubble) setBubble(null);
-            else deactivate();
           }}
         >
-          <button
-            type="button"
-            className="cz-carousel-close"
-            ref={backCloseRef}
-            onClick={(e) => {
-              e.stopPropagation();
-              deactivate();
-            }}
-            aria-label="Flip back"
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M19 12H5" />
-              <path d="M12 19l-7-7 7-7" />
-            </svg>
-          </button>
+          <div className="cz-carousel-back-header">
+            <button
+              type="button"
+              className="cz-icon-button cz-carousel-close"
+              ref={backCloseRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (editing) discardEdit();
+                else if (bubble) setBubble(null);
+                else deactivate();
+              }}
+              aria-label={editing ? "Back to card details" : bubble ? "Close details" : "Flip back"}
+            >
+              <ChevronLeft aria-hidden="true" size={20} strokeWidth={2.2} />
+            </button>
+            <h3>{editing ? "Edit card" : "Card details"}</h3>
+            {!editing && (
+              <MorphButton
+                label="Edit"
+                icon={Pen}
+                activeIcon={Check}
+                onClick={startEdit}
+                ariaLabel="Edit card"
+                className="cz-card-edit-morph"
+              />
+            )}
+          </div>
 
           {editing && ed ? (
+            <div className="cz-carousel-edit-shell">
             <div className="cz-carousel-edit">
               <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
               <Field label="Summary" value={ed.summary} onChange={(v) => setEd({ ...ed, summary: v })} placeholder="A short reminder" rows={2} />
               <Field label="Tags" value={ed.tags} onChange={(v) => setEd({ ...ed, tags: v })} placeholder="Separated by commas" />
               <Field label="Project / haul" value={ed.project} onChange={(v) => setEd({ ...ed, project: v })} placeholder="e.g., Summer haul" />
               <Field label="Agent link" value={ed.agentLink} onChange={(v) => setEd({ ...ed, agentLink: v })} placeholder="https://..." />
-              <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ flex: 1 }}>
+              <Field label="Source Reddit post" value={ed.findSource} onChange={(v) => setEd({ ...ed, findSource: v })} placeholder="https://reddit.com/r/..." />
+              <div className="cz-carousel-field-grid price-grid">
+                <div>
                   <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
                 </div>
-                <div style={{ width: 90 }}>
+                <div>
                   <Field label="Currency" value={ed.currency} onChange={(v) => setEd({ ...ed, currency: v })} placeholder="CNY" />
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ flex: 1 }}>
+              <div className="cz-carousel-field-grid">
+                <div>
                   <Field label="Seller" value={ed.seller} onChange={(v) => setEd({ ...ed, seller: v })} placeholder="Store name" />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div>
                   <Field label="Batch" value={ed.batch} onChange={(v) => setEd({ ...ed, batch: v })} placeholder="e.g., M Batch" />
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ flex: 1 }}>
+              <div className="cz-carousel-field-grid">
+                <div>
                   <Field label="Size" value={ed.size} onChange={(v) => setEd({ ...ed, size: v })} placeholder="EU 42" />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div>
                   <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <Field label="Paired links" value={ed.linksText} onChange={(v) => setEd({ ...ed, linksText: v })} placeholder="One URL per line" rows={2} />
+            </div>
+              <div className="cz-carousel-edit-footer">
                 <Pill primary onClick={saveEdit}>
                   Save
                 </Pill>
-                <Pill subtle onClick={() => { setEditing(false); setEd(null); }}>
+                <Pill subtle onClick={discardEdit}>
                   Cancel
                 </Pill>
               </div>
@@ -3788,8 +3924,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
 
               <div className="cz-carousel-actions">
                 {linkButtons(item)
-                  .filter((button) => button.role !== "photos")
-                  .sort((a, b) => (a.role === "buy" ? -1 : 0) - (b.role === "buy" ? -1 : 0))
                   .map((button, index) => (
                     <button
                       key={button.url + index}
@@ -3873,6 +4007,7 @@ function CoverFlowCarousel({
   onOpen,
   onSetPrimaryImage,
   onLoadPhotos,
+  onToggleFavorite,
   onActivate,
   onDeactivate,
   onSelect,
@@ -3883,9 +4018,36 @@ function CoverFlowCarousel({
   const [cardSize, setCardSize] = useState({ width: 320, height: 460 });
   const reduced = usePrefersReducedMotion();
   const [gallery, setGallery] = useState(null);
+  const galleryTriggerRef = useRef(null);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const wheelAcc = useRef(0);
   const wheelTimer = useRef(null);
+  const cardRefs = useRef(new Map());
+  const outsideDismissedRef = useRef(false);
+
+  const dismissActiveLayer = useCallback(() => {
+    const item = items[activeIndexRef.current];
+    return item ? cardRefs.current.get(item.id)?.dismissTopLayer?.() === true : false;
+  }, [items]);
+
+  useEffect(() => {
+    if (!expandedId || gallery) return;
+    const onPointerDown = (event) => {
+      if (event.button != null && event.button !== 0) return;
+      const item = items[activeIndexRef.current];
+      const card = item ? cardRefs.current.get(item.id) : null;
+      if (!card || card.contains?.(event.target)) return;
+      if (event.target.closest?.("dialog, .cz-photo-coverflow-backdrop")) return;
+      if (card.dismissTopLayer?.()) {
+        outsideDismissedRef.current = true;
+        setTimeout(() => {
+          outsideDismissedRef.current = false;
+        }, 0);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [expandedId, gallery, items]);
 
   const setActiveIndex = useCallback((index) => {
     const next = Math.max(0, Math.min(items.length - 1, index));
@@ -3976,11 +4138,9 @@ function CoverFlowCarousel({
   const onKeyDown = useCallback((event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
-    if (event.key === "Escape" && expandedId) {
-      event.preventDefault();
-      onDeactivate?.();
-      return;
-    }
+    // Gallery owns Escape while open; layered card dismiss is handled by the
+    // capture-phase window listener so it still works when focus is elsewhere.
+    if (event.key === "Escape") return;
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       goPrev();
@@ -3988,7 +4148,20 @@ function CoverFlowCarousel({
       event.preventDefault();
       goNext();
     }
-  }, [expandedId, onDeactivate, goPrev, goNext]);
+  }, [goPrev, goNext]);
+
+  useEffect(() => {
+    const onEscape = (event) => {
+      if (event.key !== "Escape" || !expandedId || gallery) return;
+      if (document.querySelector("dialog[open]")) return;
+      if (dismissActiveLayer()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("keydown", onEscape, true);
+    return () => window.removeEventListener("keydown", onEscape, true);
+  }, [expandedId, gallery, dismissActiveLayer]);
 
   const markDragging = useCallback((info) => {
     // Only mark as a drag if the pointer actually moved enough to be a swipe.
@@ -4019,7 +4192,7 @@ function CoverFlowCarousel({
     const onWheel = (event) => {
       // Wheel over a flipped card's scrollable content must scroll that
       // content, not page the carousel — never preventDefault there.
-      if (event.target.closest?.(".cz-carousel-back-content, .cz-carousel-edit")) return;
+      if (event.target.closest?.(".cz-carousel-back-content, .cz-carousel-edit, .cz-carousel-edit-shell")) return;
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
       if (Math.abs(delta) < 1) return;
       event.preventDefault();
@@ -4039,9 +4212,17 @@ function CoverFlowCarousel({
     };
   }, [goNext, goPrev]);
 
-  const openPhotos = useCallback(async (item, _trigger) => {
+  const closeGallery = useCallback(() => {
+    const trigger = galleryTriggerRef.current;
+    galleryTriggerRef.current = null;
+    setGallery(null);
+    requestAnimationFrame(() => trigger?.isConnected && trigger.focus?.());
+  }, []);
+
+  const openPhotos = useCallback(async (item, trigger) => {
     const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
     const shouldLoad = !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
+    galleryTriggerRef.current = trigger || null;
     setGallery({ item, images: seed, startIndex: 0 });
     if (!shouldLoad) return;
     const controller = new AbortController();
@@ -4075,7 +4256,12 @@ function CoverFlowCarousel({
           // Fallback for clicks that land on the track/container rather than a
           // transformed side-card front face (e.g. some 3D hit-testing scenarios).
           if (e.defaultPrevented) return;
-          if (e.target.closest("button, a, input, textarea, [role='button'], .cz-carousel-back")) return;
+          if (outsideDismissedRef.current) {
+            outsideDismissedRef.current = false;
+            return;
+          }
+          if (e.target.closest(".cz-carousel-card")) return;
+          if (e.target.closest("button, a, input, textarea, [role='button']")) return;
           const box = containerRef.current?.getBoundingClientRect();
           if (!box || items.length < 2) return;
           const x = e.clientX - box.left;
@@ -4143,6 +4329,10 @@ function CoverFlowCarousel({
                 }}
               >
                 <CoverFlowCard
+                  ref={(handle) => {
+                    if (handle) cardRefs.current.set(item.id, handle);
+                    else cardRefs.current.delete(item.id);
+                  }}
                   item={item}
                   expanded={expandedId === item.id}
                   selected={index === activeIndex}
@@ -4153,6 +4343,7 @@ function CoverFlowCarousel({
                   onSaveEdit={onSaveEdit}
                   onOpen={onOpen}
                   onOpenPhotos={openPhotos}
+                  onToggleFavorite={onToggleFavorite}
                   onActivate={onActivate}
                   onDeactivate={onDeactivate}
                   onScrollTo={(id) => {
@@ -4206,7 +4397,7 @@ function CoverFlowCarousel({
           images={gallery.images}
           startIndex={gallery.startIndex}
           stageSize={stageSize}
-          onClose={() => setGallery(null)}
+          onClose={closeGallery}
           onSetPrimaryImage={onSetPrimaryImage}
           onLoadPhotos={onLoadPhotos}
         />
@@ -5260,6 +5451,7 @@ export default function Credenza() {
   };
 
   const saveEdit = (id, patch) => updateItem(id, patch);
+  const toggleFavorite = (id) => updateItem(id, (item) => ({ favorite: item.favorite !== true }));
 
   // Manual image attach: compress then store. Manual always wins over auto-fetch.
   const attachImage = async (id, file) => {
@@ -6099,6 +6291,7 @@ export default function Credenza() {
         onAttachGalleryImage={attachGalleryImage}
         onRemoveGalleryImage={removeGalleryImage}
         onSetPrimaryImage={setPrimaryImage}
+        onToggleFavorite={toggleFavorite}
         mode={mode}
       />
     );
@@ -6270,7 +6463,7 @@ export default function Credenza() {
           )}
         </div>
 
-        {/* Search — native-feeling field: filled, glyph, clear button, ⌘K badge */}
+        {/* Search — native field plus a labeled Search → X morph control. */}
         <div
           style={{
             display: "flex",
@@ -6280,24 +6473,6 @@ export default function Credenza() {
           }}
         >
           <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center" }}>
-            <svg
-              viewBox="0 0 24 24"
-              width={13}
-              height={13}
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                left: 12,
-                pointerEvents: "none",
-                stroke: SUB,
-                fill: "none",
-                strokeWidth: 2.4,
-                strokeLinecap: "round",
-              }}
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="M20.5 20.5l-4.8-4.8" />
-            </svg>
             <input
               className="cz-search-input"
               ref={searchRef}
@@ -6332,54 +6507,23 @@ export default function Credenza() {
                 borderRadius: 999,
                 color: INK,
                 fontSize: 13.5,
-                padding: "9px 40px 9px 33px",
+                padding: "9px 104px 9px 14px",
                 fontFamily: FONT,
               }}
             />
-            {search ? (
-              <button
-                type="button"
-                className="cz-icon-button"
-                onClick={() => {
-                  setSearch("");
-                  searchRef.current && searchRef.current.focus();
-                }}
-                aria-label="Clear search"
-                style={{
-                  position: "absolute",
-                  right: 2,
-                  width: 40,
-                  height: 40,
-                  borderRadius: 999,
-                  background: "transparent",
-                  color: FAINT,
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  lineHeight: "40px",
-                  padding: 0,
-                  textAlign: "center",
-                }}
-              >
-                ✕
-              </button>
-            ) : (
-              <span
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  fontFamily: FONT,
-                  fontSize: 10.5,
-                  color: FAINT,
-                  border: "1px solid " + HAIR,
-                  borderRadius: 999,
-                  padding: "1px 5px",
-                  pointerEvents: "none",
-                }}
-              >
-                ⌘K
-              </span>
-            )}
+            <MorphButton
+              label="Search"
+              icon={Search}
+              activeIcon={X}
+              disabled={interactionLocked}
+              ariaLabel={search ? "Clear search" : "Focus search"}
+              title={search ? "Clear search" : "Search your shelf · ⌘K"}
+              className="cz-search-morph"
+              onClick={() => {
+                if (search) setSearch("");
+                searchRef.current?.focus();
+              }}
+            />
           </div>
           {CLOUD_ASK_ENABLED && (
             <Pill
@@ -6870,6 +7014,7 @@ export default function Credenza() {
                 onOpen={recordOpen}
                 onSetPrimaryImage={setPrimaryImage}
                 onLoadPhotos={loadAlbumPhotos}
+                onToggleFavorite={toggleFavorite}
                 onActivate={(id) => {
                   setSelectedId(id);
                   setExpandedId(id);
@@ -6999,29 +7144,14 @@ export default function Credenza() {
             <span>{localStatus.label}</span>
           </span>
           <span style={{ flex: 1 }} />
-          <button
-            type="button"
-            className="cz-icon-button"
+          <MorphButton
+            label="Theme"
+            icon={Moon}
+            activeIcon={Sun}
             onClick={() => setTheme(mode === "rainbow" ? "light" : "rainbow")}
             title={mode === "rainbow" ? "Switch to light" : "Switch to rainbow"}
-            aria-label="Toggle rainbow theme"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 999,
-              background: SEG,
-              color: SUB,
-              border: "none",
-              cursor: "pointer",
-              fontSize: 14,
-              lineHeight: "40px",
-              padding: 0,
-              textAlign: "center",
-              fontFamily: FONT,
-            }}
-          >
-            {mode === "rainbow" ? "☀" : "🌈"}
-          </button>
+            ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
+          />
           <Pill subtle onClick={() => setImportOpen(true)}>
             Import
           </Pill>

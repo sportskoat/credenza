@@ -6,18 +6,55 @@ verified; the working tree is clean. **Read
 `docs/carousel-canonical-state.md` before touching any carousel code** — it
 is the approved-state contract and this file only summarizes the session.
 
+> **Later 2026-07-18 addendum:** Kyle intentionally superseded this handoff's
+> “Photos button removed” rule. Every Yupoo album now routes to an external
+> **More Photos** action, while the fan remains the separate in-app gallery.
+> The card back also gained layered outside-click/Escape navigation, a structured
+> header/scroll body/sticky edit footer, labeled Search/Theme/Edit morph controls,
+> and persisted icon-only favorite stars. The current contract is documented in
+> `docs/carousel-canonical-state.md`; the commit table and session notes below are
+> retained as historical context.
+>
+> **Session recovery (same day, later):** The follow-up implementation of those
+> addendum features landed in the working tree, but the multi-agent `/code-review`
+> pass died mid-flight on `gpt-5.6-sol` **429 cool-downs** (Codex provider).
+> Nothing was “half-coded” — the feature work and tests were already present;
+> only the adversarial review + final commit were incomplete. Recovery verified
+> the suite, removed leftover `console.log` noise in tests, and stopped the
+> carousel container’s Escape handler from double-handling Escape (gallery +
+> layered dismiss already own it). **Still uncommitted until Kyle says commit.**
+
 ## Where things stand
+
+Branch: `credenza-fashion-yupoo-carousel`  
+Last commit: `32b8613` (handoff doc only).  
+**Uncommitted (post-handoff feature pack):** `credenza-fashion.jsx`,
+`credenza-fashion.css`, `credenza.css`, `docs/carousel-canonical-state.md`,
+`docs/session-2026-07-18-card-back-handoff.md`, `preview/test/fashion-app.test.jsx`.  
+Also untracked (separate strategy work): `docs/Monetization.md`.
 
 Branch history (newest first):
 
 | Commit | What it did |
 |---|---|
+| `32b8613` | This handoff doc (card-back rework summary) |
 | `08065b0` | Card back rework: flat right-spread photo previews, explicit-only cover swap, scrollable back/edit, Photos button removed, Batch tile removed |
 | `c4aa584` | Wrote `docs/carousel-canonical-state.md` (the DO-NOT-REGRESS contract) |
 | `08f48c2` | Rebuilt carousel as declarative CoverFlow; fixed idle-oscillation loop and invisible-card bug. **Kyle approved this visual state: "these look beautiful"** |
 | `ff5be73` | (pre-session) Netlify functions under dev, Ask auth fix |
 
-Files that matter: `credenza-fashion.jsx` (~6900 lines, the whole app),
+### Uncommitted feature pack (what “finish it” means)
+
+Already implemented in the dirty tree — treat as one logical commit when Kyle asks:
+
+1. **More Photos** — `linkButtons()` forces Yupoo → external “More Photos” / “More Photos 2…”, Buy stable-first.
+2. **Layered dismiss** — `CoverFlowCard.dismissTopLayer()` via `useImperativeHandle`: bubble → discard edit → unflip. Outside `pointerdown` + capture-phase Escape.
+3. **Edit chrome** — fixed header, scroll body, sticky Save/Cancel footer; back chevron is one-layer.
+4. **MorphButton** — labeled Search / Theme / Edit morph controls.
+5. **FavoriteButton** — persisted `favorite: boolean` (strict migrate; string `"true"` is not truthy), icon-only star, stopPropagation so it never centers/drags/flips.
+6. **Tests** — fashion-app suite covers More Photos order, outside-click layers, Escape priority, batch save/discard, search morph, theme morph, favorites migrate/persist. **63 tests green.**
+
+Files that matter: `credenza-fashion.jsx` (~7k lines, the whole app),
 `credenza-fashion.css`, `preview/` (Vite workspace: tests, lint, build).
 Dev server: `cd preview && npm run dev` → `http://localhost:5173` (port strict).
 

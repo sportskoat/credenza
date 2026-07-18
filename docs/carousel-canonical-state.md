@@ -49,7 +49,9 @@ diff against `08f48c2` and re-read this file before rewriting anything.
 |---|---|
 | Click side card | Centers it, does **not** flip |
 | Click settled center card | Flips to back face |
-| Second click / Escape | Unflips; Escape also closes the photo gallery |
+| Click outside the active card | Moves back exactly one layer: close info bubble → discard edit draft and return to details → unflip to the front |
+| Escape | Uses the same one-layer priority; the photo gallery owns Escape while open |
+| Click inside back/edit content | Does not dismiss the current layer unless an explicit control is used |
 | ArrowLeft / ArrowRight | Global (no focus needed), one card per press |
 | Trackpad wheel (either axis) | Accumulates deltas, steps exactly **one** card per gesture (110 ms quiet window, ±40 threshold) |
 | Wheel over flipped card's content (`.cz-carousel-back-content` / `.cz-carousel-edit`) | Scrolls that content — the carousel wheel handler bails out for those targets, never `preventDefault`s there |
@@ -70,10 +72,20 @@ compositor-only, keeps the impeccable design hook green.
   (full-screen gallery, same offset math). **Clicking a fan photo must never
   change the item's cover image** — the gallery's "Use as cover" button is the
   only path that sets the primary image.
-- Card back has **no Photos button and no Batch tile** — the fan is the photo
-  affordance, Buy sorts first in the actions (directly under the fan), and
-  batch lives only in the edit form.
-- Deps: `framer-motion` (v12), `lucide-react` (chevrons) in `preview/package.json`.
+- The fan and **More Photos** are intentionally separate photo affordances:
+  the fan opens the in-app gallery, while every Yupoo album URL is normalized
+  to an external **More Photos** action. Buy remains first and dominant. Neither
+  path changes the cover without the gallery's explicit **Use as cover** action.
+- Card faces have **no Batch tile** — Batch lives only in the edit form.
+- The card back uses a fixed header, one scrollable body, and a sticky Save /
+  Cancel footer. The 40px Lucide back control exits Edit to details before it
+  unflips the card. Click-away and Escape discard an unfinished edit by design.
+- Each carousel/card front has an icon-only persisted favorite star. The star is
+  a sibling control and must never center, drag, or flip a card; hover/active
+  state uses the dedicated blue favorite token.
+- Search, Theme, and Edit use the shared labeled morph-button vocabulary from
+  the supplied references, with keyboard-focus and reduced-motion equivalents.
+- Deps: `framer-motion` (v12), `lucide-react` in `preview/package.json`.
 
 ## How to verify after any carousel change
 
@@ -84,7 +96,7 @@ compositor-only, keeps the impeccable design hook green.
    interacting — zero changes is the only passing result.
 3. A ready-made drive script pattern lives in git history of this session:
    seed 5 items, then test visibility → idle → keys → wheel → dots → flip →
-   idle again.
+   click-away/edit layers → More Photos → favorite/Search/Theme → idle again.
 
 ## Red flags that mean someone is about to re-break it
 

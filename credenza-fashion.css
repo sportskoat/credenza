@@ -484,6 +484,28 @@
   background: var(--cz-card);
 }
 
+.cz-carousel-back-header {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.cz-carousel-back-header h3 {
+  margin: 0;
+  min-width: 0;
+  color: var(--cz-ink);
+  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
 .cz-carousel-back::before {
   content: "";
   position: absolute;
@@ -504,16 +526,16 @@
 
 .cz-carousel-close {
   align-self: flex-start;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: 50%;
   border: 1px solid var(--cz-hair);
   background: var(--cz-seg);
   color: var(--cz-ink);
   cursor: pointer;
-  margin-bottom: 10px;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -536,9 +558,9 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: 1;
-  padding-right: 4px;
-  padding-bottom: 24px;
+  padding: 2px 6px 24px 2px;
 }
 
 .cz-carousel-back-title {
@@ -855,11 +877,40 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-right: 4px;
+  padding-bottom: 14px;
+}
+
+.cz-carousel-edit-shell {
+  display: flex;
   flex: 1;
   min-height: 0;
+  flex-direction: column;
   overflow-y: auto;
-  padding-right: 4px;
-  padding-bottom: 24px;
+  overscroll-behavior: contain;
+  padding: 2px 6px 0 2px;
+  z-index: 1;
+}
+
+.cz-carousel-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cz-carousel-field-grid.price-grid {
+  grid-template-columns: minmax(0, 1fr) 90px;
+}
+
+.cz-carousel-edit-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 0 0;
+  margin-top: auto;
+  background: linear-gradient(to bottom, transparent, var(--cz-card) 14px);
+  z-index: 2;
 }
 
 .cz-carousel-edit .cz-field-label input,
@@ -1184,6 +1235,110 @@
   opacity: 0;
 }
 
+/* Reusable 36px icon-label morph pill. */
+.cz-morph-button {
+  min-height: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: var(--cz-seg);
+  color: var(--cz-sub);
+  font: 650 12px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.cz-morph-button:hover:not(:disabled) {
+  color: var(--cz-ink);
+  border-color: var(--cz-hair-strong);
+}
+
+.cz-morph-button:focus-visible,
+.cz-favorite-button:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+.cz-morph-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.cz-morph-icon,
+.cz-morph-icon > span {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 16px;
+}
+
+.cz-search-morph {
+  position: absolute;
+  right: 3px;
+  background: color-mix(in srgb, var(--cz-card-solid) 76%, transparent);
+}
+
+.cz-card-edit-morph {
+  min-width: 70px;
+}
+
+.cz-favorite-button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--cz-hair);
+  background: color-mix(in srgb, var(--cz-card-solid) 76%, transparent);
+  color: var(--cz-sub);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition: color 140ms var(--ease-out), background 140ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.cz-favorite-button:hover,
+.cz-favorite-button:focus-visible,
+.cz-favorite-button.is-favorite {
+  color: var(--cz-favorite);
+  background: var(--cz-favorite-bg);
+}
+
+.cz-favorite-button:hover svg,
+.cz-favorite-button:focus-visible svg,
+.cz-favorite-button.is-favorite svg {
+  fill: currentColor;
+}
+
+.cz-favorite-button:active {
+  transform: scale(0.93);
+}
+
+.cz-grid-favorite,
+.cz-carousel-favorite {
+  position: absolute;
+  right: 14px;
+  z-index: 8;
+}
+
+.cz-carousel-favorite {
+  top: 14px;
+}
+
+.cz-grid-favorite {
+  top: 48px;
+  right: 26px;
+}
+
 /* Frosted control bar under the carousel: chevrons + stretch dots */
 .cz-coverflow-controls {
   display: flex;
@@ -1425,6 +1580,12 @@
     min-width: 44px;
     font-size: 12px;
   }
+
+  .cz-carousel-field-grid,
+  .cz-carousel-field-grid.price-grid {
+    grid-template-columns: 1fr;
+  }
+
 }
 
 /* Reduced motion: flatten carousel */
@@ -1449,7 +1610,6 @@
 
   .cz-corner-fan-card {
     transition: none !important;
-    transform: none !important;
   }
 
   .cz-photo-coverflow-card {
