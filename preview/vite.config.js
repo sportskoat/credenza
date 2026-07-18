@@ -1,9 +1,19 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import { copyFileSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import {
+  copyFileSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { runInThisContext } from "node:vm";
 
 const FASHION = process.env.VITE_CREDENZA_FASHION === "true";
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Stamps the built asset list into dist/sw.js after each build so the app
 // shell, fonts, and icons are precached on install — the PWA works offline
@@ -62,8 +72,113 @@ function fashionEntryPlugin() {
   };
 }
 
+// Load a CommonJS Netlify function file even though this package is ESM.
+// Reading + vm-evaluating on every request means edits are reflected immediately.
+function loadFunction(filePath) {
+  const code = readFileSync(filePath, "utf8");
+  const module = { exports: {} };
+  const wrapper = runInThisContext(
+    `(function(exports, require, module, __filename, __dirname) {\n${code}\n})`,
+    { filename: filePath, lineOffset: -1 }
+  );
+  wrapper(
+    module.exports,
+    createRequire(filePath),
+    module,
+    filePath,
+    dirname(filePath)
+  );
+  return module.exports;
+}
+
+// Dev-only plugin that serves `/.netlify/functions/:name` by invoking the
+// existing Netlify function handlers directly. This lets `npm run dev` run the
+// full app (album/Yupoo enrichment, image relay, Weidian resolver, Ask) without
+// needing `netlify-cli`.
+function netlifyFunctionsDev() {
+  const functionsDir = resolve(__dirname, "netlify/functions");
+  return {
+    name: "netlify-functions-dev",
+    apply: "serve",
+    config(_, { mode }) {
+      const env = loadEnv(mode, __dirname, "");
+      for (const [key, value] of Object.entries(env)) {
+        if (process.env[key] === undefined) process.env[key] = value;
+      }
+      if (!process.env.CREDENZA_SEARCH_SECRET && env.VITE_CREDENZA_SEARCH_SECRET) {
+        process.env.CREDENZA_SEARCH_SECRET = env.VITE_CREDENZA_SEARCH_SECRET;
+      }
+    },
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/.netlify/functions/")) return next();
+
+        const name = req.url.slice("/.netlify/functions/".length).split(/[/?]/)[0];
+        if (!name || !/^[a-z0-9_-]+$/i.test(name)) return next();
+
+        const filePath = resolve(functionsDir, `${name}.js`);
+        if (!existsSync(filePath)) return next();
+
+        try {
+          const chunks = [];
+          for await (const chunk of req) chunks.push(chunk);
+          const body = Buffer.concat(chunks).toString("utf8");
+
+          const mod = loadFunction(filePath);
+          const handler = mod && mod.handler;
+          if (typeof handler !== "function") {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json");
+            res.end(JSON.stringify({ error: "Function has no handler" }));
+            return;
+          }
+
+          const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+          const event = {
+            httpMethod: req.method,
+            headers: { ...req.headers },
+            body,
+            path: url.pathname,
+            queryStringParameters: Object.fromEntries(url.searchParams),
+            multiValueHeaders: {},
+            multiValueQueryStringParameters: {},
+            isBase64Encoded: false,
+          };
+
+          const result = await handler(event);
+          if (!result || typeof result !== "object") {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json");
+            res.end(JSON.stringify({ error: "Invalid function response" }));
+            return;
+          }
+
+          res.statusCode = result.statusCode || 200;
+          if (result.headers) {
+            for (const [key, value] of Object.entries(result.headers)) {
+              if (value != null) res.setHeader(key, String(value));
+            }
+          }
+          if (result.isBase64Encoded) {
+            res.end(Buffer.from(result.body || "", "base64"));
+          } else {
+            res.end(result.body ?? "");
+          }
+        } catch (err) {
+          console.error(`[netlify-functions-dev] ${name} failed:`, err);
+          if (!res.headersSent) {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json");
+            res.end(JSON.stringify({ error: "Function invocation failed" }));
+          }
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), fashionEntryPlugin(), swPrecache()],
+  plugins: [react(), fashionEntryPlugin(), swPrecache(), netlifyFunctionsDev()],
   server: { port: 5173, strictPort: true, fs: { allow: [".."] } },
   build: {
     rollupOptions: {

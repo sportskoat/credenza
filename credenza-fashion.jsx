@@ -5886,7 +5886,7 @@ export default function Credenza() {
     try {
       const res = await fetch(ASK_ENDPOINT, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
         body: JSON.stringify({ query, shelf }),
         signal: controller.signal,
       });

@@ -40,16 +40,24 @@
 
 ## Known remaining issue / limitation
 
-**Album / Yupoo image enrichment does not work in `npm run dev`.**
+**`ask` and `resolve` require an Anthropic API key for full enrichment.**
 
-- It depends on Netlify functions: `/.netlify/functions/yupoo`, `preview`, `resolve`.
-- Vite on `localhost:5173` does not serve these.
-- To test locally, run `netlify dev` (requires `netlify-cli`).
-- In the deployed Netlify environment these endpoints exist and enrichment works.
+- `ask` and `resolve` call `api.anthropic.com`, which needs `ANTHROPIC_API_KEY` in your environment.
+- `yupoo` and `preview` (album/Yupoo image enrichment and image relay) work fully under `npm run dev` with the existing `VITE_CREDENZA_SEARCH_SECRET`.
+- Add `ANTHROPIC_API_KEY` to `preview/.env.local` if you want to test Ask or Weidian translation locally.
 
----
+## Local development
 
-## Verification commands
+`npm run dev` now serves the Netlify functions directly via a dev-only Vite plugin:
+
+```bash
+cd ~/credenza/preview
+npm run dev
+```
+
+The app is then fully functional at `http://localhost:5173`, including album/Yupoo enrichment.
+
+### Verification commands
 
 ```bash
 cd ~/credenza/preview
@@ -59,7 +67,25 @@ npm run typecheck # passed
 npm run build     # succeeds
 ```
 
-Playwright verification lived in temp scripts under `/tmp/test-*.mjs`; they can be recreated if needed.
+Function endpoints can be exercised directly:
+
+```bash
+SECRET=$(grep VITE_CREDENZA_SEARCH_SECRET .env | cut -d= -f2)
+
+# Yupoo album scraper
+curl -s -X POST http://localhost:5173/.netlify/functions/yupoo \
+  -H 'content-type: application/json' \
+  -H "x-credenza-key: $SECRET" \
+  -d '{"url":"https://<seller>.x.yupoo.com/albums/<id>"}' | jq .
+
+# Image relay (returns binary image bytes)
+curl -s -X POST http://localhost:5173/.netlify/functions/preview \
+  -H 'content-type: application/json' \
+  -H "x-credenza-key: $SECRET" \
+  -d '{"url":"https://example.com/image.png","referer":"https://example.com"}' \
+  -o /tmp/preview.bin
+file /tmp/preview.bin
+```
 
 ---
 
