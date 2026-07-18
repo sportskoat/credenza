@@ -105,12 +105,12 @@ describe("Fashion carousel startup", () => {
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
     await screen.findByRole("listbox", { name: "Card carousel" });
-    const faces = screen.getAllByRole("button", { name: "Flip card" });
-    await user.click(faces[1]);
+    const sideFace = screen.getByRole("button", { name: /Select/ });
+    await user.click(sideFace);
     expect([...container.querySelectorAll(".cz-carousel-card-inner")].every((node) => !node.classList.contains("is-flipped"))).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 260));
-    await user.click(faces[1]);
-    await waitFor(() => expect(container.querySelectorAll(".cz-carousel-card-inner")[1]).toHaveClass("is-flipped"));
+    await user.click(sideFace);
+    await waitFor(() => expect(sideFace.closest(".cz-carousel-card-inner")).toHaveClass("is-flipped"));
   });
 });
 
@@ -123,7 +123,9 @@ describe("Fashion data and photos", () => {
     });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
-    await user.click(await screen.findByRole("button", { name: "Flip card" }));
+    const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
+    console.log("flip count", flipButtons.length);
+    await user.click(flipButtons[0]);
     expect(await screen.findByText("Poster wore")).toBeInTheDocument();
     expect(screen.getAllByText("S").length).toBeGreaterThan(0);
     expect(screen.getByText("Recommended")).toBeInTheDocument();
@@ -135,15 +137,14 @@ describe("Fashion data and photos", () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
-    await user.click(await screen.findByRole("button", { name: "Flip card" }));
+    const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
+    console.log("flip count", flipButtons.length);
+    await user.click(flipButtons[0]);
     await user.click(screen.getByRole("button", { name: "Photos" }));
-    expect(await screen.findByLabelText("Album photos")).toBeInTheDocument();
-    const thumbnails = screen.getAllByRole("button", { name: /Preview album photo/i });
-    expect(thumbnails).toHaveLength(3);
-    await user.click(thumbnails[1]);
-    expect(screen.getByRole("dialog", { name: "Album photo preview" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Use as cover" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Album photo preview" })).toBeInTheDocument();
     expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toBe(PHOTO_1);
+    await user.click(screen.getByRole("button", { name: "Next photo" }));
+    expect(screen.getByRole("button", { name: "Use as cover" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Use as cover" }));
     await waitFor(() =>
       expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toBe(PHOTO_2)

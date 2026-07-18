@@ -1078,6 +1078,340 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ═══ COVERFLOW CAROUSEL OVERRIDES + FAN + PHOTO GALLERY ═══
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.cz-carousel {
+  overflow: visible;
+  scroll-snap-type: none;
+  padding: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cz-carousel-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 520px;
+  min-height: auto;
+  margin: 0;
+  padding: 0;
+  perspective: 1400px;
+  perspective-origin: center center;
+  transform-style: preserve-3d;
+}
+
+.cz-carousel-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(72vw, 320px);
+  height: 460px;
+  margin: 0;
+  scroll-snap-align: unset;
+  transform: translate(-50%, -50%);
+  transform-style: preserve-3d;
+  transition: none;
+  cursor: grab;
+}
+
+.cz-carousel-card:active {
+  cursor: grabbing;
+}
+
+.cz-carousel.is-dragging .cz-carousel-card {
+  cursor: grabbing;
+}
+
+/* The coverflow card wrapper sets translate3d; inner handles the flip. */
+.cz-carousel-card-inner {
+  transform-style: preserve-3d;
+  border-radius: 24px;
+}
+
+/* Corner fan on the back of a card */
+.cz-corner-fan {
+  position: relative;
+  width: 64px;
+  height: 86px;
+  margin: 10px 0 14px;
+  cursor: pointer;
+}
+
+.cz-corner-fan-card {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--cz-hair-strong);
+  background: var(--cz-card-solid);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+.cz-corner-fan-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cz-corner-fan-more {
+  position: absolute;
+  right: -6px;
+  bottom: -4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+  color: var(--cz-sub);
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid var(--cz-hair);
+}
+
+/* Frosted control bar under the carousel: chevrons + stretch dots */
+.cz-coverflow-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 14px auto 0;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+  border: 1px solid var(--cz-hair);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  position: relative;
+  z-index: 20;
+}
+
+.cz-coverflow-arrow {
+  display: grid;
+  place-items: center;
+  padding: 5px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: background 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+
+.cz-coverflow-arrow:hover:not(:disabled) {
+  background: var(--cz-hair);
+  color: var(--cz-ink);
+}
+
+.cz-coverflow-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.cz-coverflow-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(48vw, 220px);
+  overflow: hidden;
+}
+
+/* Fixed-size button so the row never reflows; the inner pill stretches with a
+   transform, which stays on the compositor. */
+.cz-coverflow-dot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cz-coverflow-dot::after {
+  content: "";
+  width: 16px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--cz-hair-strong);
+  transform: scaleX(0.25);
+  transition: transform 300ms var(--ease-out), background 300ms var(--ease-out);
+}
+
+.cz-coverflow-dot:hover::after {
+  background: var(--cz-sub);
+}
+
+.cz-coverflow-dot.is-active::after {
+  transform: scaleX(1);
+  background: linear-gradient(90deg, var(--cz-accent), var(--cz-accent-2));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-coverflow-dot::after {
+    transition: none;
+  }
+}
+
+/* Full-screen photo coverflow gallery */
+.cz-photo-coverflow-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 2, 12, 0.78);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+
+.cz-photo-coverflow {
+  position: relative;
+  width: min(92vw, 980px);
+  height: min(84vh, 640px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.cz-photo-coverflow-stage {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+.cz-photo-coverflow-track {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.cz-photo-coverflow-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(70vw, 300px);
+  aspect-ratio: 3 / 4;
+  transform: translate(-50%, -50%);
+  transform-style: preserve-3d;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
+
+.cz-photo-coverflow-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.cz-photo-coverflow-card:active {
+  cursor: grabbing;
+}
+
+.cz-photo-coverflow-caption {
+  position: absolute;
+  bottom: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--cz-ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.cz-photo-coverflow-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 0 22px;
+  z-index: 2;
+}
+
+.cz-photo-coverflow-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--cz-hair-strong);
+  background: var(--cz-seg);
+  color: var(--cz-ink);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.cz-photo-coverflow-controls button:hover {
+  background: var(--cz-hair-strong);
+}
+
+.cz-photo-coverflow-controls button.primary {
+  width: auto;
+  padding: 0 16px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  border-color: transparent;
+  font-weight: 700;
+}
+
+.cz-photo-coverflow-controls .cz-photo-coverflow-counter {
+  min-width: 54px;
+  text-align: center;
+  color: var(--cz-sub);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cz-photo-coverflow-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--cz-hair-strong);
+  background: var(--cz-seg);
+  color: var(--cz-ink);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 480px) {
+  .cz-carousel-track {
+    height: 500px;
+  }
+
+  .cz-carousel-card {
+    width: 80vw;
+    height: 440px;
+  }
+
+  .cz-photo-coverflow-card {
+    width: 74vw;
+  }
+
+  .cz-photo-coverflow-controls .cz-photo-coverflow-counter {
+    min-width: 44px;
+    font-size: 12px;
+  }
+}
+
 /* Reduced motion: flatten carousel */
 @media (prefers-reduced-motion: reduce) {
   .cz-app[data-fashion="true"]::before {
@@ -1086,7 +1420,6 @@
 
   .cz-carousel-card {
     transition: none !important;
-    transform: none !important;
   }
 
   .cz-carousel-card-inner {
@@ -1097,5 +1430,14 @@
   .cz-info-bubble-line,
   .cz-info-bubble-card {
     animation: none !important;
+  }
+
+  .cz-corner-fan-card {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .cz-photo-coverflow-card {
+    transition: none !important;
   }
 }

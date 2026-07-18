@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
+import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -3376,7 +3378,69 @@ function CarouselSizeInfo({ item }) {
   );
 }
 
-const CarouselCard = forwardRef(function CarouselCard(
+function CardCornerFan({ item, images, onOpenPhotos, onSetPrimaryImage, reduced }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const displayed = images.slice(0, 5);
+  const total = displayed.length;
+  if (total === 0) return null;
+  const fanAngle = 90;
+  const startAngle = -fanAngle / 2;
+
+  return (
+    <div
+      className="cz-corner-fan"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      onClick={(e) => {
+        if (onOpenPhotos) onOpenPhotos(item, e.currentTarget);
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Open photo gallery"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (onOpenPhotos) onOpenPhotos(item, e.currentTarget);
+        }
+      }}
+    >
+      {displayed.map((src, i) => {
+        const ratio = total > 1 ? i / (total - 1) : 0.5;
+        const angle = isHovered && !reduced ? startAngle + ratio * fanAngle : 0;
+        const x = isHovered && !reduced ? (ratio - 0.5) * 70 : 0;
+        const y = isHovered && !reduced ? -16 - ratio * 14 : 0;
+        return (
+          <motion.div
+            key={src + i}
+            className="cz-corner-fan-card"
+            animate={{
+              rotate: angle,
+              x,
+              y,
+              scale: isHovered ? 1.06 : 1,
+              zIndex: 5 - i,
+            }}
+            transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 240, damping: 22 }}
+            style={{ originX: 0.5, originY: 1, pointerEvents: isHovered ? "auto" : "none" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSetPrimaryImage) onSetPrimaryImage(item.id, src);
+            }}
+          >
+            <img src={src} alt={"Gallery image " + (i + 1)} draggable={false} />
+          </motion.div>
+        );
+      })}
+      {images.length > 5 && (
+        <span className="cz-corner-fan-more">+{images.length - 5}</span>
+      )}
+    </div>
+  );
+}
+
+const CoverFlowCard = forwardRef(function CoverFlowCard(
   {
     item,
     expanded,
@@ -3401,9 +3465,6 @@ const CarouselCard = forwardRef(function CarouselCard(
   const [ed, setEd] = useState(null);
   const [bubble, setBubble] = useState(null);
   const bubbleRef = useRef(null);
-  const innerRef = useRef(null);
-
-  useImperativeHandle(ref, () => innerRef.current);
 
   useEffect(() => {
     setFlipped(Boolean(expanded));
@@ -3512,20 +3573,26 @@ const CarouselCard = forwardRef(function CarouselCard(
     setEditing(true);
   };
 
+  const galleryImages = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []);
+
+  const backCloseRef = useRef(null);
+  useEffect(() => {
+    if (flipped && backCloseRef.current) {
+      backCloseRef.current.focus();
+    }
+  }, [flipped]);
+
   return (
-    <div
-      className="cz-carousel-card"
-      id={"card-" + item.id}
-      ref={innerRef}
-      role="option"
-      aria-current={selected ? "true" : undefined}
-      aria-selected={selected ? "true" : "false"}
-    >
-      <div
+    <div ref={ref} style={{ width: "100%", height: "100%", transformStyle: "preserve-3d" }}>
+      <motion.div
         className={"cz-carousel-card-inner" + (flipped ? " is-flipped" : "")}
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 26 }}
         style={{
-          transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-          transition: !reduced ? "transform 420ms " + EASE : "none",
+          width: "100%",
+          height: "100%",
+          transformStyle: "preserve-3d",
+          borderRadius: 24,
         }}
       >
         {/* Front face */}
@@ -3533,7 +3600,7 @@ const CarouselCard = forwardRef(function CarouselCard(
           className="cz-carousel-face cz-carousel-front"
           role="button"
           tabIndex={0}
-          aria-label="Flip card"
+          aria-label={isCenter ? `Flip ${item.title}` : `Select ${item.title}`}
           onClick={(e) => {
             const carousel = e.currentTarget.closest(".cz-carousel");
             if (carousel && carousel.dataset.dragging === "true") {
@@ -3602,6 +3669,7 @@ const CarouselCard = forwardRef(function CarouselCard(
           <button
             type="button"
             className="cz-carousel-close"
+            ref={backCloseRef}
             onClick={(e) => {
               e.stopPropagation();
               deactivate();
@@ -3720,19 +3788,14 @@ const CarouselCard = forwardRef(function CarouselCard(
                 </div>
               )}
 
-              {(item.gallery || []).length > 0 && (
-                <div className="cz-carousel-gallery">
-                  {(item.gallery || []).map((src, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => onSetPrimaryImage(item.id, src)}
-                      title="Set as primary image"
-                    >
-                      <img src={src} alt={"Gallery image " + (idx + 1)} />
-                    </button>
-                  ))}
-                </div>
+              {galleryImages.length > 0 && (
+                <CardCornerFan
+                  item={item}
+                  images={galleryImages}
+                  onOpenPhotos={onOpenPhotos}
+                  onSetPrimaryImage={onSetPrimaryImage}
+                  reduced={reduced}
+                />
               )}
 
               <div className="cz-carousel-actions">
@@ -3765,7 +3828,11 @@ const CarouselCard = forwardRef(function CarouselCard(
                   type="button"
                   className="cz-carousel-action-btn"
                   onClick={() =>
-                    openBubble("sizes", "Size info", <CarouselSizeInfo item={item} />)
+                    openBubble(
+                      "sizes",
+                      "Size info",
+                      <CarouselSizeInfo item={item} />
+                    )
                   }
                 >
                   Sizes
@@ -3814,11 +3881,12 @@ const CarouselCard = forwardRef(function CarouselCard(
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 });
-function CarouselView({
+
+function CoverFlowCarousel({
   items,
   expandedId,
   selectedId,
@@ -3833,486 +3901,178 @@ function CarouselView({
   onDeactivate,
   onSelect,
 }) {
-  const stageRef = useRef(null);
   const containerRef = useRef(null);
-  const trackRef = useRef(null);
-  const cardRefs = useRef([]);
-  const metricsRef = useRef({ centers: [], widths: [], containerWidth: 0 });
-  const foregroundRef = useRef(0);
-  const programmaticTargetRef = useRef(null);
-  const wheelActiveRef = useRef(false);
-  const scrollRafRef = useRef(null);
-  const settleTimerRef = useRef(null);
-  const [foregroundIndex, setForegroundIndex] = useState(0);
-  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
-  const [orbit, setOrbit] = useState(null);
-  const orbitRef = useRef(null);
-  const orbitRequestRef = useRef(null);
-  const orbitTriggerRef = useRef(null);
+  const [activeIndex, setActiveIndexState] = useState(0);
+  const activeIndexRef = useRef(0);
+  const [cardSize, setCardSize] = useState({ width: 320, height: 460 });
   const reduced = usePrefersReducedMotion();
-  const expandedIdRef = useRef(expandedId);
-  const selectedIdRef = useRef(selectedId);
-  const itemsRef = useRef(items);
-  const lastItemsKeyRef = useRef("");
-  const lastSelectedIdRef = useRef(null);
-  const finishMovementRef = useRef(null);
-  const scrollToIndexRef = useRef(null);
+  const [gallery, setGallery] = useState(null);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const wheelAcc = useRef(0);
+  const wheelTimer = useRef(null);
 
-  expandedIdRef.current = expandedId;
-  selectedIdRef.current = selectedId;
-  itemsRef.current = items;
-  orbitRef.current = orbit;
-
-  const closeOrbit = useCallback((restoreFocus = true) => {
-    if (orbitRequestRef.current) orbitRequestRef.current.abort();
-    orbitRequestRef.current = null;
-    setOrbit(null);
-    if (restoreFocus) {
-      requestAnimationFrame(() => orbitTriggerRef.current?.focus());
-    }
-  }, []);
-
-  const openPhotos = useCallback(async (item, trigger) => {
-    closeOrbit(false);
-    orbitTriggerRef.current = trigger || null;
-    const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
-    const shouldLoad = !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
-    setOrbit({ itemId: item.id, images: seed, loading: shouldLoad, previewIndex: null });
-    if (!shouldLoad) return;
-
-    const controller = new AbortController();
-    orbitRequestRef.current = controller;
-    const images = await onLoadPhotos(item, { signal: controller.signal });
-    if (controller.signal.aborted || orbitRequestRef.current !== controller) return;
-    orbitRequestRef.current = null;
-    setOrbit((current) =>
-      current && current.itemId === item.id
-        ? { ...current, images: mergeFashionImages(images || [], current.images).slice(0, 8), loading: false }
-        : current
-    );
-  }, [closeOrbit, onLoadPhotos]);
-
-  const setForeground = useCallback((index) => {
+  const setActiveIndex = useCallback((index) => {
     const next = Math.max(0, Math.min(items.length - 1, index));
-    if (!Number.isFinite(next) || foregroundRef.current === next) return next;
-    foregroundRef.current = next;
-    setForegroundIndex(next);
-    return next;
+    activeIndexRef.current = next;
+    setActiveIndexState(next);
   }, [items.length]);
 
-  // Read layout geometry, never projected/transformed geometry. Negative margins
-  // remain part of offsetLeft, so the intentional card overlap is measured exactly.
-  const measure = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const centers = [];
-    const widths = [];
-    for (const card of cardRefs.current) {
-      if (!card) {
-        centers.push(0);
-        widths.push(0);
-        continue;
-      }
-      const width = card.offsetWidth;
-      centers.push(card.offsetLeft + width / 2);
-      widths.push(width);
-    }
-    metricsRef.current = { centers, widths, containerWidth: container.clientWidth };
-  }, []);
-
-  const nearestIndex = useCallback(() => {
-    const container = containerRef.current;
-    const { centers, containerWidth } = metricsRef.current;
-    if (!container || centers.length === 0) return 0;
-    const scrollCenter = container.scrollLeft + containerWidth / 2;
-    return findNearestCarouselIndex(centers, scrollCenter);
-  }, []);
-
-  const updateCards = useCallback(() => {
-    const container = containerRef.current;
-    const cards = cardRefs.current;
-    const { centers, widths, containerWidth } = metricsRef.current;
-    if (!container || cards.length === 0 || centers.length === 0) return;
-
-    const scrollCenter = container.scrollLeft + containerWidth / 2;
-    let foreground = programmaticTargetRef.current;
-    if (foreground == null) {
-      foreground = carouselForegroundWithHysteresis(
-        centers,
-        foregroundRef.current,
-        scrollCenter
-      );
-      if (foreground !== foregroundRef.current) setForeground(foreground);
-    }
-
-    for (let i = 0; i < cards.length; i++) {
-      const card = cards[i];
-      if (!card) continue;
-      const px = scrollCenter - centers[i];
-      const dist = Math.abs(px);
-      const isForeground = i === foreground;
-      // The right-hand card loses exact-distance ties, preventing paint-order
-      // oscillation when two overlapped cards straddle the midpoint.
-      const zIndex = carouselLayerZ(cards.length, i, foreground);
-
-      card.dataset.foreground = String(isForeground);
-      card.setAttribute("aria-selected", String(isForeground));
-      card.style.zIndex = String(zIndex);
-      // Real opacity fade plus a variable-driven dim overlay makes overlapping
-      // cards read as layered instead of melted together.
-      const side = Math.min(1, dist / Math.max(widths[i] || 1, 1));
-      card.style.opacity = String(Math.max(0.52, 1 - side * 0.48));
-      card.style.setProperty("--cz-card-side", String(side));
-
-      if (reduced) {
-        card.style.transform = "none";
-        card.style.transformOrigin = "center center";
-        continue;
-      }
-
-      const maxRotateDeg = 9;
-      const rotateDeg = Math.max(-maxRotateDeg, Math.min(maxRotateDeg, -px * 0.018));
-      const frontEdgeZ = ((widths[i] || 0) / 2) * Math.sin(Math.abs(rotateDeg * Math.PI / 180));
-      const z = -Math.min(dist * 0.13 + frontEdgeZ + (isForeground ? 0 : 10), 96);
-      const scale = Math.max(0.88, 1 - dist * 0.00032);
-      card.style.transformOrigin = "center center";
-      card.style.transform =
-        "translate3d(0,0," + z + "px) rotateY(" + rotateDeg + "deg) scale(" + scale + ")";
-    }
-  }, [reduced, setForeground]);
-
-  const finishMovement = useCallback(() => {
-    const container = containerRef.current;
-    if (!container || items.length === 0 || wheelActiveRef.current) return;
-    const index = nearestIndex();
-    programmaticTargetRef.current = null;
-    setForeground(index);
-    container.classList.remove("is-moving", "is-dragging");
-    container.style.scrollSnapType = "";
-    container.style.scrollBehavior = "";
-    container.style.cursor = "";
-    updateCards();
-    if (onSelect && items[index]) onSelect(items[index].id);
-  }, [items, nearestIndex, onSelect, setForeground, updateCards]);
-
-  finishMovementRef.current = finishMovement;
-
-  const queueMovementEnd = useCallback((delay = 150) => {
-    if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
-    settleTimerRef.current = setTimeout(() => {
-      settleTimerRef.current = null;
-      finishMovementRef.current();
-    }, delay);
-  }, []);
-
-  const handleScroll = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    if (orbitRef.current) closeOrbit(false);
-    container.classList.add("is-moving");
-    if (expandedId && programmaticTargetRef.current == null) {
-      const { centers, containerWidth } = metricsRef.current;
-      const current = foregroundRef.current;
-      const center = container.scrollLeft + containerWidth / 2;
-      if (centers[current] != null && Math.abs(center - centers[current]) > 10 && onDeactivate) {
-        onDeactivate();
-      }
-    }
-    if (scrollRafRef.current == null) {
-      scrollRafRef.current = requestAnimationFrame(() => {
-        scrollRafRef.current = null;
-        updateCards();
-      });
-    }
-    queueMovementEnd();
-  }, [closeOrbit, expandedId, onDeactivate, queueMovementEnd, updateCards]);
-
-  const scrollToIndex = useCallback((index, options = {}) => {
-    const container = containerRef.current;
-    if (!container || items.length === 0) return;
-    if (metricsRef.current.centers.length !== items.length) measure();
-    const target = Math.max(0, Math.min(items.length - 1, index));
-    const center = metricsRef.current.centers[target];
-    if (!Number.isFinite(center)) return;
-    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-    const left = Math.max(0, Math.min(maxScroll, center - container.clientWidth / 2));
-    const behavior = options.behavior || (reduced ? "auto" : "smooth");
-
-    // Only collapse the expanded card when navigation explicitly moves to a
-    // different item. Index changes caused by adds/removes/reorders preserve the
-    // active card so the photo orbit and back-face controls stay reachable.
-    const targetId = itemsRef.current[target]?.id;
-    if (expandedId && targetId !== expandedId && onDeactivate) onDeactivate();
-    programmaticTargetRef.current = target;
-    setForeground(target);
-    container.classList.add("is-moving");
-    // Suspend CSS snap during programmatic scrolls so the browser never fights
-    // the JS-driven target. Snap restores in finishMovement / scrollend.
-    container.style.scrollSnapType = "none";
-    container.style.scrollBehavior = behavior === "auto" ? "auto" : "smooth";
-    container.scrollTo({ left, behavior });
-    updateCards();
-
-    if (behavior === "auto") finishMovementRef.current();
-    else queueMovementEnd(320);
-  }, [expandedId, items.length, measure, onDeactivate, queueMovementEnd, reduced, setForeground, updateCards]);
-
-  scrollToIndexRef.current = scrollToIndex;
-
   useEffect(() => {
-    const idsKey = items.map((item) => item.id).join(",");
-    if (idsKey === lastItemsKeyRef.current) return;
-    const prevIds = lastItemsKeyRef.current ? lastItemsKeyRef.current.split(",") : [];
-    const lengthChanged = prevIds.length !== items.length;
-    lastItemsKeyRef.current = idsKey;
-
-    cardRefs.current.length = items.length;
-    measure();
-    const container = containerRef.current;
-    if (items.length === 0 || !container) {
-      return () => {
-        if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
-        if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
-      };
-    }
-    const expandedIndex = expandedIdRef.current
-      ? items.findIndex((item) => item.id === expandedIdRef.current)
-      : -1;
-    const selectedIndex = selectedIdRef.current
-      ? items.findIndex((item) => item.id === selectedIdRef.current)
-      : -1;
-    const initial =
-      expandedIndex >= 0
-        ? expandedIndex
-        : lengthChanged && selectedIndex >= 0
-          ? selectedIndex
-          : 0;
-    const target = Math.max(0, Math.min(items.length - 1, initial));
-    scrollToIndexRef.current(target, { behavior: "auto" });
-    return () => {
-      if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
-      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+    const update = () => {
+      const w = typeof window !== "undefined" ? window.innerWidth : 320;
+      const width = w <= 480 ? w * 0.8 : Math.min(w * 0.72, 320);
+      const height = w <= 480 ? 440 : 460;
+      setCardSize({ width, height });
     };
-    // This runs every render but bails out unless the item id list changed;
-    // expanded/selected ids are read through refs so selection changes alone
-    // do not trigger a re-center.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, measure, setForeground, updateCards]);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   useEffect(() => {
-    const stage = stageRef.current;
-    const container = containerRef.current;
-    const track = trackRef.current;
-    if (!container || typeof window === "undefined" || typeof window.ResizeObserver === "undefined") return;
-    const observer = new window.ResizeObserver(() => {
-      measure();
-      updateCards();
-      if (stage) setStageSize({ width: stage.clientWidth, height: stage.clientHeight });
+    const stage = containerRef.current?.parentElement;
+    if (!stage || typeof window === "undefined" || !window.ResizeObserver) return;
+    const obs = new window.ResizeObserver((entries) => {
+      const cr = entries[0].contentRect;
+      setStageSize({ width: cr.width, height: cr.height });
     });
-    if (stage) observer.observe(stage);
-    observer.observe(container);
-    if (track) observer.observe(track);
-    return () => observer.disconnect();
-  }, [measure, updateCards]);
+    obs.observe(stage);
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (selectedId === lastSelectedIdRef.current) return;
-    lastSelectedIdRef.current = selectedId;
-    const index = itemsRef.current.findIndex((item) => item.id === selectedId);
-    if (index >= 0 && index !== foregroundRef.current) scrollToIndexRef.current(index);
-    // Reacts only to actual selection changes, not to list reorders or callback
-    // identity changes. Reorders are handled by the items effect above.
+    if (items.length === 0) return;
+    const expandedIdx = expandedId ? items.findIndex((i) => i.id === expandedId) : -1;
+    if (expandedIdx >= 0) {
+      setActiveIndex(expandedIdx);
+      return;
+    }
+    const selectedIdx = selectedId ? items.findIndex((i) => i.id === selectedId) : -1;
+    if (selectedIdx >= 0) {
+      setActiveIndex(selectedIdx);
+      return;
+    }
+    setActiveIndex(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((i) => i.id).join(",")]);
+
+  // Selection sync must be one-directional per event or the two effects echo
+  // each other forever (select → center → select…). lastEmittedSelectRef marks
+  // selection changes that originated here so the selectedId effect ignores
+  // its own echo; only genuinely external selection (keyboard nav, grid view)
+  // moves the carousel.
+  const lastEmittedSelectRef = useRef(null);
+
+  useEffect(() => {
+    if (selectedId === lastEmittedSelectRef.current) return;
+    const idx = items.findIndex((item) => item.id === selectedId);
+    if (idx >= 0 && idx !== activeIndexRef.current) {
+      setActiveIndex(idx);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   useEffect(() => {
-    if (!orbit) return;
-    const foregroundItem = items[foregroundIndex];
-    if (!foregroundItem || foregroundItem.id !== orbit.itemId || expandedId !== orbit.itemId) {
-      closeOrbit(false);
+    const item = items[activeIndex];
+    if (item && item.id !== selectedId && onSelect) {
+      lastEmittedSelectRef.current = item.id;
+      onSelect(item.id);
     }
-  }, [closeOrbit, expandedId, foregroundIndex, items, orbit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex]);
 
   useEffect(() => {
-    if (!orbit) return;
-    const onKeyDown = (event) => {
-      if (event.key !== "Escape") return;
+    const item = items[activeIndex];
+    if (expandedId && item && item.id !== expandedId && onDeactivate) {
+      onDeactivate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex]);
+
+  const goNext = useCallback(() => {
+    setActiveIndex(Math.min(activeIndexRef.current + 1, items.length - 1));
+  }, [items.length, setActiveIndex]);
+
+  const goPrev = useCallback(() => {
+    setActiveIndex(Math.max(activeIndexRef.current - 1, 0));
+  }, [setActiveIndex]);
+
+  const onKeyDown = useCallback((event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
+    if (event.key === "Escape" && expandedId) {
       event.preventDefault();
-      if (orbit.previewIndex != null) {
-        setOrbit((current) => (current ? { ...current, previewIndex: null } : current));
-      } else {
-        closeOrbit();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeOrbit, orbit]);
+      onDeactivate?.();
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      goPrev();
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      goNext();
+    }
+  }, [expandedId, onDeactivate, goPrev, goNext]);
+
+  const markDragging = useCallback((info) => {
+    // Only mark as a drag if the pointer actually moved enough to be a swipe.
+    // This prevents quick taps/clicks on side cards from being suppressed.
+    if (Math.abs(info.offset.x) <= 4 && Math.abs(info.velocity.x) <= 50) return;
+    const container = containerRef.current;
+    if (!container) return;
+    container.dataset.dragging = "true";
+    if (container._dragClear) clearTimeout(container._dragClear);
+    container._dragClear = setTimeout(() => {
+      delete container.dataset.dragging;
+    }, 50);
+  }, []);
+
+  const onPanEnd = useCallback((event, info) => {
+    const threshold = cardSize.width * 0.25;
+    if (info.offset.x < -threshold || info.velocity.x < -500) {
+      goNext();
+    } else if (info.offset.x > threshold || info.velocity.x > 500) {
+      goPrev();
+    }
+    markDragging(info);
+  }, [cardSize.width, goNext, goPrev, markDragging]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const onScrollEnd = () => {
-      if (!wheelActiveRef.current) finishMovement();
-    };
-    container.addEventListener("scrollend", onScrollEnd);
-    return () => container.removeEventListener("scrollend", onScrollEnd);
-  }, [finishMovement]);
-
-  // Keep native wheel/trackpad movement, but suspend CSS snap while wheel events
-  // are arriving. One deliberate settle runs after the gesture goes quiet, so the
-  // browser cannot start a competing snap between tiny reverse-direction deltas.
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    let wheelEndTimer = null;
     const onWheel = (event) => {
-      if (!event.shiftKey && Math.abs(event.deltaX) < Math.abs(event.deltaY)) return;
-      wheelActiveRef.current = true;
-      programmaticTargetRef.current = null;
-      if (settleTimerRef.current) {
-        clearTimeout(settleTimerRef.current);
-        settleTimerRef.current = null;
-      }
-      container.style.scrollSnapType = "none";
-      container.style.scrollBehavior = "auto";
-      container.scrollTo({ left: container.scrollLeft, behavior: "auto" });
-      container.classList.add("is-moving");
-      if (wheelEndTimer) clearTimeout(wheelEndTimer);
-      wheelEndTimer = setTimeout(() => {
-        wheelEndTimer = null;
-        wheelActiveRef.current = false;
-        container.style.scrollSnapType = "";
-        container.style.scrollBehavior = "";
-        scrollToIndex(nearestIndex(), { behavior: "auto" });
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (Math.abs(delta) < 1) return;
+      event.preventDefault();
+      wheelAcc.current += delta;
+      if (wheelTimer.current) clearTimeout(wheelTimer.current);
+      wheelTimer.current = setTimeout(() => {
+        wheelTimer.current = null;
+        if (wheelAcc.current > 40) goNext();
+        else if (wheelAcc.current < -40) goPrev();
+        wheelAcc.current = 0;
       }, 110);
     };
-    container.addEventListener("wheel", onWheel, { passive: true });
+    container.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       container.removeEventListener("wheel", onWheel);
-      wheelActiveRef.current = false;
-      if (wheelEndTimer) clearTimeout(wheelEndTimer);
+      if (wheelTimer.current) clearTimeout(wheelTimer.current);
     };
-  }, [nearestIndex, scrollToIndex]);
+  }, [goNext, goPrev]);
 
-  // Native trackpad/touch scrolling remains untouched. Pointer capture is used
-  // only for mouse/pen dragging, and only after the gesture clears the threshold.
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    let pointerId = null;
-    let startX = 0;
-    let startScroll = 0;
-    let latestScroll = 0;
-    let dragging = false;
-    let moveRaf = null;
-
-    const interactiveTarget = (target) => {
-      if (!target || !target.closest) return false;
-      // The carousel card front face is clickable, but it should not block a
-      // horizontal drag gesture. Real buttons/links/inputs inside a card still do.
-      const withinCard = target.closest(".cz-carousel-card");
-      if (withinCard) {
-        return !!target.closest(
-          "button, a, input, textarea, select, .cz-carousel-close, .cz-carousel-action-btn, .cz-info-bubble, [role='button']:not(.cz-carousel-front)"
-        );
-      }
-      return !!target.closest("button, a, input, textarea, select, [role='button']");
-    };
-
-    const restore = () => {
-      if (moveRaf != null) {
-        cancelAnimationFrame(moveRaf);
-        moveRaf = null;
-        container.scrollLeft = latestScroll;
-      }
-      const capturedPointer = pointerId;
-      pointerId = null;
-      if (capturedPointer != null && container.hasPointerCapture?.(capturedPointer)) {
-        container.releasePointerCapture(capturedPointer);
-      }
-      container.style.scrollSnapType = "";
-      container.style.scrollBehavior = "";
-      container.style.cursor = "";
-      container.classList.remove("is-dragging");
-    };
-
-    const onPointerDown = (event) => {
-      if (event.pointerType === "touch") {
-        programmaticTargetRef.current = null;
-        if (settleTimerRef.current) {
-          clearTimeout(settleTimerRef.current);
-          settleTimerRef.current = null;
-        }
-        container.style.scrollBehavior = "auto";
-        container.scrollTo({ left: container.scrollLeft, behavior: "auto" });
-        return;
-      }
-      if ((event.pointerType !== "mouse" && event.pointerType !== "pen") || event.button !== 0) return;
-      if (interactiveTarget(event.target)) return;
-      pointerId = event.pointerId;
-      startX = event.clientX;
-      startScroll = container.scrollLeft;
-      latestScroll = startScroll;
-      dragging = false;
-    };
-
-    const onPointerMove = (event) => {
-      if (event.pointerId !== pointerId) return;
-      const dx = startX - event.clientX;
-      if (!dragging && Math.abs(dx) <= 5) return;
-      if (!dragging) {
-        dragging = true;
-        programmaticTargetRef.current = null;
-        if (settleTimerRef.current) {
-          clearTimeout(settleTimerRef.current);
-          settleTimerRef.current = null;
-        }
-        container.setPointerCapture?.(pointerId);
-        container.style.scrollSnapType = "none";
-        container.style.scrollBehavior = "auto";
-        container.style.cursor = "grabbing";
-        container.classList.add("is-dragging", "is-moving");
-        if (expandedId && onDeactivate) onDeactivate();
-      }
-      event.preventDefault();
-      latestScroll = startScroll + dx;
-      if (moveRaf == null) {
-        moveRaf = requestAnimationFrame(() => {
-          moveRaf = null;
-          container.scrollLeft = latestScroll;
-        });
-      }
-    };
-
-    const endPointer = (event, cancelled = false) => {
-      if (event.pointerId !== pointerId) return;
-      const didDrag = dragging;
-      restore();
-      dragging = false;
-      if (!didDrag) return;
-      container.dataset.dragging = "true";
-      setTimeout(() => delete container.dataset.dragging, 0);
-      if (cancelled) finishMovement();
-      else scrollToIndex(nearestIndex(), { behavior: "auto" });
-    };
-
-    const onPointerUp = (event) => endPointer(event, false);
-    const onPointerCancel = (event) => endPointer(event, true);
-
-    container.addEventListener("pointerdown", onPointerDown);
-    container.addEventListener("pointermove", onPointerMove, { passive: false });
-    container.addEventListener("pointerup", onPointerUp);
-    container.addEventListener("pointercancel", onPointerCancel);
-    container.addEventListener("lostpointercapture", onPointerCancel);
-    return () => {
-      container.removeEventListener("pointerdown", onPointerDown);
-      container.removeEventListener("pointermove", onPointerMove);
-      container.removeEventListener("pointerup", onPointerUp);
-      container.removeEventListener("pointercancel", onPointerCancel);
-      container.removeEventListener("lostpointercapture", onPointerCancel);
-      if (moveRaf != null) cancelAnimationFrame(moveRaf);
-    };
-  }, [expandedId, finishMovement, nearestIndex, onDeactivate, scrollToIndex]);
+  const openPhotos = useCallback(async (item, _trigger) => {
+    const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
+    const shouldLoad = !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
+    setGallery({ item, images: seed, startIndex: 0 });
+    if (!shouldLoad) return;
+    const controller = new AbortController();
+    const images = await onLoadPhotos(item, { signal: controller.signal });
+    setGallery((current) =>
+      current && current.item.id === item.id
+        ? { ...current, images: mergeFashionImages(images || [], current.images).slice(0, 8) }
+        : current
+    );
+  }, [onLoadPhotos]);
 
   if (items.length === 0) {
     return (
@@ -4322,178 +4082,348 @@ function CarouselView({
     );
   }
 
-  const orbitWidth = stageSize.width || 720;
-  const orbitHeight = stageSize.height || 560;
-  const orbitPhotoSize = orbitWidth <= 480 ? 54 : 68;
-  const orbitRadiusX = Math.max(72, Math.min(360, (orbitWidth - orbitPhotoSize - 24) / 2));
-  const orbitRadiusY = Math.max(138, Math.min(228, (orbitHeight - orbitPhotoSize - 56) / 2));
-  const previewImage =
-    orbit && orbit.previewIndex != null ? orbit.images[orbit.previewIndex] : null;
-
   return (
-    <div className="cz-carousel-stage" ref={stageRef}>
-      <div
+    <div className="cz-carousel-stage">
+      <motion.div
         className="cz-carousel"
         ref={containerRef}
-        onScroll={handleScroll}
-        onClick={(event) => {
-          if (event.target !== event.currentTarget && !event.target.classList.contains("cz-carousel-track")) return;
-          if (event.currentTarget.dataset.dragging === "true") {
-            delete event.currentTarget.dataset.dragging;
-            return;
-          }
-          if (onDeactivate) onDeactivate();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && expandedId) {
-            event.preventDefault();
-            if (onDeactivate) onDeactivate();
-            return;
-          }
-          if (event.metaKey || event.ctrlKey || event.altKey) return;
-          if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
-          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-            event.preventDefault();
-            event.stopPropagation();
-            scrollToIndex(foregroundRef.current + (event.key === "ArrowRight" ? 1 : -1));
-          }
-        }}
         tabIndex={0}
         role="listbox"
         aria-label="Card carousel"
+        onKeyDown={onKeyDown}
+        onPanEnd={onPanEnd}
+        onClick={(e) => {
+          // Fallback for clicks that land on the track/container rather than a
+          // transformed side-card front face (e.g. some 3D hit-testing scenarios).
+          if (e.defaultPrevented) return;
+          if (e.target.closest("button, a, input, textarea, [role='button'], .cz-carousel-back")) return;
+          const box = containerRef.current?.getBoundingClientRect();
+          if (!box || items.length < 2) return;
+          const x = e.clientX - box.left;
+          // Dead zone equals the active card width; clicks outside it navigate.
+          const threshold = cardSize.width * 0.55;
+          const center = box.width / 2;
+          if (x < center - threshold) goPrev();
+          else if (x > center + threshold) goNext();
+        }}
+        style={{ touchAction: "pan-y" }}
       >
-        <div className="cz-carousel-track" ref={trackRef}>
-          {items.map((item, index) => (
-            <CarouselCard
+        <div className="cz-carousel-track">
+          {items.map((item, index) => {
+            const offset = index - activeIndex;
+            const abs = Math.abs(offset);
+            const isPast = index < activeIndex;
+            const x = offset * (cardSize.width * 0.62);
+            const rotateY = offset === 0 ? 0 : isPast ? 38 : -38;
+            const scale = 1 - Math.min(abs * 0.08, 0.22);
+            const z = -Math.min(abs * 80, 240);
+            const opacity = Math.max(0.52, 1 - abs * 0.16);
+            const zIndex = carouselLayerZ(items.length, index, activeIndex);
+            return (
+              <motion.div
+                key={item.id}
+                className="cz-carousel-card"
+                id={"card-" + item.id}
+                data-foreground={String(index === activeIndex)}
+                role="option"
+                aria-selected={String(index === activeIndex)}
+                animate={{
+                  x,
+                  rotateY,
+                  z,
+                  scale,
+                  opacity,
+                  zIndex,
+                }}
+                transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 28 }}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  marginLeft: -cardSize.width / 2,
+                  marginTop: -cardSize.height / 2,
+                  transformOrigin: "center center",
+                }}
+                onClick={(e) => {
+                  if (index === activeIndexRef.current) return;
+                  if (e.target.closest("button, a, input, textarea, [role='button']")) return;
+                  e.stopPropagation();
+                  setActiveIndex(index);
+                }}
+                onPointerDown={(e) => {
+                  if (index === activeIndexRef.current) return;
+                  if (e.target.closest("button, a, input, textarea, [role='button']")) return;
+                  e.stopPropagation();
+                  setActiveIndex(index);
+                }}
+                onPointerDownCapture={(e) => {
+                  if (index === activeIndexRef.current) return;
+                  if (e.target.closest("button, a, input, textarea, [role='button']")) return;
+                  e.stopPropagation();
+                  setActiveIndex(index);
+                }}
+              >
+                <CoverFlowCard
+                  item={item}
+                  expanded={expandedId === item.id}
+                  selected={index === activeIndex}
+                  isCenter={index === activeIndex}
+                  flipSignal={flipRequest}
+                  editSignal={editRequest}
+                  onDelete={onDelete}
+                  onSaveEdit={onSaveEdit}
+                  onOpen={onOpen}
+                  onSetPrimaryImage={onSetPrimaryImage}
+                  onOpenPhotos={openPhotos}
+                  onActivate={onActivate}
+                  onDeactivate={onDeactivate}
+                  onScrollTo={(id) => {
+                    const idx = items.findIndex((c) => c.id === id);
+                    if (idx >= 0) setActiveIndex(idx);
+                  }}
+                  reduced={reduced}
+                />
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      <div className="cz-coverflow-controls" role="group" aria-label="Carousel navigation">
+        <button
+          type="button"
+          className="cz-coverflow-arrow"
+          aria-label="Previous card"
+          disabled={activeIndex === 0}
+          onClick={goPrev}
+        >
+          <ChevronLeft aria-hidden="true" size={14} />
+        </button>
+        <div className="cz-coverflow-dots">
+          {items.map((item, i) => (
+            <button
               key={item.id}
-              ref={(element) => { cardRefs.current[index] = element; }}
-              item={item}
-              expanded={expandedId === item.id}
-              selected={foregroundIndex === index}
-              isCenter={foregroundIndex === index}
-              flipSignal={flipRequest}
-              editSignal={editRequest}
-              onDelete={onDelete}
-              onSaveEdit={onSaveEdit}
-              onOpen={onOpen}
-              onSetPrimaryImage={onSetPrimaryImage}
-              onOpenPhotos={openPhotos}
-              onActivate={onActivate}
-              onDeactivate={onDeactivate}
-              onScrollTo={(id) => {
-                const target = items.findIndex((candidate) => candidate.id === id);
-                if (target >= 0) scrollToIndex(target);
-              }}
-              reduced={reduced}
+              type="button"
+              className={"cz-coverflow-dot" + (i === activeIndex ? " is-active" : "")}
+              aria-label={"Go to " + (item.title || "card " + (i + 1))}
+              aria-current={i === activeIndex ? "true" : undefined}
+              onClick={() => setActiveIndex(i)}
             />
           ))}
         </div>
+        <button
+          type="button"
+          className="cz-coverflow-arrow"
+          aria-label="Next card"
+          disabled={activeIndex === items.length - 1}
+          onClick={goNext}
+        >
+          <ChevronRight aria-hidden="true" size={14} />
+        </button>
       </div>
 
-      {orbit && (
-        <div className="cz-carousel-orbit" aria-label="Album photos">
-          <button
-            type="button"
-            className="cz-carousel-orbit-close"
-            onClick={() => closeOrbit()}
-            aria-label="Close album photos"
-          >
-            ×
-          </button>
-          {orbit.images.map((src, index) => {
-            const angle = -Math.PI / 2 + (Math.PI * 2 * index) / Math.max(orbit.images.length, 1);
-            const x = Math.cos(angle) * orbitRadiusX;
-            const y = Math.sin(angle) * orbitRadiusY;
-            return (
-              <button
-                key={src + index}
-                type="button"
-                className="cz-carousel-orbit-photo"
-                style={{
-                  "--orbit-x": x + "px",
-                  "--orbit-y": y + "px",
-                  "--orbit-delay": index * 35 + "ms",
-                }}
-                onClick={() => setOrbit((current) => (current ? { ...current, previewIndex: index } : current))}
-                aria-label={"Preview album photo " + (index + 1)}
-              >
-                <img src={src} alt={"Album photo " + (index + 1)} draggable={false} />
-              </button>
-            );
-          })}
-          {orbit.loading && <div className="cz-carousel-orbit-loading">Loading album…</div>}
-          {orbit.images.length === 0 && !orbit.loading && (
-            <div className="cz-carousel-orbit-empty">No photos loaded.</div>
-          )}
-        </div>
+      {gallery && (
+        <PhotoCoverFlow
+          item={gallery.item}
+          images={gallery.images}
+          startIndex={gallery.startIndex}
+          stageSize={stageSize}
+          onClose={() => setGallery(null)}
+          onSetPrimaryImage={onSetPrimaryImage}
+          onLoadPhotos={onLoadPhotos}
+        />
       )}
+    </div>
+  );
+}
 
-      {orbit && previewImage && (
-        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- backdrop click dismisses; dialog has explicit close and Escape support
-        <div
-          className="cz-photo-preview-backdrop"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setOrbit((current) => (current ? { ...current, previewIndex: null } : current));
-            }
-          }}
-        >
-          <div className="cz-photo-preview" role="dialog" aria-modal="true" aria-label="Album photo preview">
-            <button
-              type="button"
-              className="cz-photo-preview-close"
-              onClick={() => setOrbit((current) => (current ? { ...current, previewIndex: null } : current))}
-              aria-label="Close photo preview"
-            >
-              ×
-            </button>
-            <img src={previewImage} alt={"Album photo " + (orbit.previewIndex + 1)} />
-            <div className="cz-photo-preview-controls">
-              <button
-                type="button"
-                onClick={() =>
-                  setOrbit((current) =>
-                    current
-                      ? {
-                          ...current,
-                          previewIndex:
-                            (current.previewIndex - 1 + current.images.length) % current.images.length,
-                        }
-                      : current
-                  )
-                }
-                aria-label="Previous photo"
-              >
-                ←
-              </button>
-              <span>{orbit.previewIndex + 1} / {orbit.images.length}</span>
-              <button
-                type="button"
-                onClick={() =>
-                  setOrbit((current) =>
-                    current
-                      ? { ...current, previewIndex: (current.previewIndex + 1) % current.images.length }
-                      : current
-                  )
-                }
-                aria-label="Next photo"
-              >
-                →
-              </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={() => {
-                  onSetPrimaryImage(orbit.itemId, previewImage);
-                  closeOrbit();
-                }}
-              >
-                Use as cover
-              </button>
-            </div>
-          </div>
+function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPrimaryImage, onLoadPhotos }) {
+  const [activeIndex, setActiveIndex] = useState(startIndex || 0);
+  const [loadedImages, setLoadedImages] = useState(images);
+  const [loading, setLoading] = useState(false);
+  const reduced = usePrefersReducedMotion();
+  const containerRef = useRef(null);
+  const closeRef = useRef(null);
+  const [cardSize, setCardSize] = useState({ width: 300, height: 400 });
+
+  useEffect(() => {
+    // Focus the close button when the gallery opens so keyboard users land inside.
+    const t = setTimeout(() => closeRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const w = typeof window !== "undefined" ? window.innerWidth : 300;
+    const width = w <= 480 ? w * 0.74 : Math.min(w * 0.7, 300);
+    const height = width * (4 / 3);
+    setCardSize({ width, height });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!!yupooAlbumUrl(item) && loadedImages.length < 8 && onLoadPhotos) {
+        setLoading(true);
+        const imgs = await onLoadPhotos(item, { signal: new AbortController().signal });
+        if (!cancelled) {
+          setLoadedImages((cur) => mergeFashionImages(imgs || [], cur).slice(0, 8));
+          setLoading(false);
+        }
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setActiveIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setActiveIndex((i) => Math.min(loadedImages.length - 1, i + 1));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [loadedImages.length, onClose]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const goNext = useCallback(() => setActiveIndex((i) => Math.min(loadedImages.length - 1, i + 1)), [loadedImages.length]);
+  const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const wheelAcc = { current: 0 };
+    let wheelTimer = null;
+    const onWheel = (event) => {
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (Math.abs(delta) < 1) return;
+      event.preventDefault();
+      wheelAcc.current += delta;
+      if (wheelTimer) clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => {
+        if (wheelAcc.current > 40) goNext();
+        else if (wheelAcc.current < -40) goPrev();
+        wheelAcc.current = 0;
+      }, 110);
+    };
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", onWheel);
+      if (wheelTimer) clearTimeout(wheelTimer);
+    };
+  }, [goNext, goPrev]);
+
+  const markDragging = (info) => {
+    if (Math.abs(info.offset.x) <= 4 && Math.abs(info.velocity.x) <= 50) return;
+    const container = containerRef.current;
+    if (!container) return;
+    container.dataset.dragging = "true";
+    if (container._dragClear) clearTimeout(container._dragClear);
+    container._dragClear = setTimeout(() => delete container.dataset.dragging, 50);
+  };
+
+  const onPanEnd = useCallback((event, info) => {
+    const threshold = cardSize.width * 0.25;
+    if (info.offset.x < -threshold || info.velocity.x < -500) goNext();
+    else if (info.offset.x > threshold || info.velocity.x > 500) goPrev();
+    markDragging(info);
+  }, [cardSize.width, goNext, goPrev]);
+
+  const isDragClick = () => containerRef.current?.dataset.dragging === "true";
+
+  if (loadedImages.length === 0 && !loading) {
+    return (
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- backdrop click dismisses; dialog has explicit close and Escape support
+      <div className="cz-photo-coverflow-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="cz-photo-coverflow" role="dialog" aria-label="Album photo preview">
+          <button className="cz-photo-coverflow-close" ref={closeRef} onClick={onClose} aria-label="Close photo preview">✕</button>
+          <div style={{ color: "var(--cz-sub)" }}>No photos loaded.</div>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- backdrop click dismisses; dialog has explicit close and Escape support
+    <div className="cz-photo-coverflow-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="cz-photo-coverflow" role="dialog" aria-modal="true" aria-label="Album photo preview">
+        <button className="cz-photo-coverflow-close" ref={closeRef} onClick={onClose} aria-label="Close photo preview">✕</button>
+        <motion.div
+          className="cz-photo-coverflow-stage"
+          ref={containerRef}
+          onPanEnd={onPanEnd}
+        >
+          <div className="cz-photo-coverflow-track">
+            {loadedImages.map((src, index) => {
+              const offset = index - activeIndex;
+              const abs = Math.abs(offset);
+              const isPast = index < activeIndex;
+              const x = offset * (cardSize.width * 0.55);
+              const rotateY = offset === 0 ? 0 : isPast ? 35 : -35;
+              const scale = 1 - Math.min(abs * 0.08, 0.22);
+              const z = -Math.min(abs * 70, 210);
+              const opacity = abs > 3 ? 0 : Math.max(0.5, 1 - abs * 0.2);
+              return (
+                <motion.div
+                  key={src + index}
+                  className="cz-photo-coverflow-card"
+                  initial={false}
+                  animate={{ x, rotateY, z, scale, opacity }}
+                  transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 240, damping: 26 }}
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    marginLeft: -cardSize.width / 2,
+                    marginTop: -cardSize.height / 2,
+                    zIndex: 100 - abs,
+                  }}
+                  onClick={() => {
+                    if (isDragClick()) {
+                      delete containerRef.current.dataset.dragging;
+                      return;
+                    }
+                    setActiveIndex(index);
+                  }}
+                >
+                  <img src={src} alt={"Album photo " + (index + 1)} draggable={false} />
+                  {index === activeIndex && (
+                    <div className="cz-photo-coverflow-caption">{item.title}</div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+        <div className="cz-photo-coverflow-controls">
+          <button onClick={goPrev} aria-label="Previous photo"><ChevronLeft size={18} /></button>
+          <span className="cz-photo-coverflow-counter">{activeIndex + 1} / {loadedImages.length}</span>
+          <button onClick={goNext} aria-label="Next photo"><ChevronRight size={18} /></button>
+          <button
+            className="primary"
+            onClick={() => {
+              onSetPrimaryImage(item.id, loadedImages[activeIndex]);
+              onClose();
+            }}
+          >
+            Use as cover
+          </button>
+        </div>
+        {loading && <div style={{ color: "var(--cz-sub)", fontSize: 12 }}>Loading album…</div>}
+      </div>
     </div>
   );
 }
@@ -6031,6 +5961,8 @@ export default function Credenza() {
     };
     const onKey = (e) => {
       if (e.defaultPrevented) return;
+      // Let the full-screen photo gallery own its own keyboard navigation.
+      if (document.querySelector('[role="dialog"][aria-label="Album photo preview"]')) return;
       const ctx = kb.current;
       if (e.metaKey || e.ctrlKey) {
         if (ctx.digest || ctx.importOpen) return;
@@ -6949,7 +6881,7 @@ export default function Credenza() {
                 </div>
               )
             ) : viewMode === "carousel" ? (
-              <CarouselView
+              <CoverFlowCarousel
                 items={shelfItems}
                 expandedId={expandedId}
                 selectedId={selectedId}
