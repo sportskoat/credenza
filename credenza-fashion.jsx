@@ -2104,6 +2104,7 @@ function coverTint(item) {
 }
 
 function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }) {
+  const loading = item.status === "enriching";
   return (
     <div
       className="cz-cover-placeholder"
@@ -2113,8 +2114,10 @@ function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }) {
         aspectRatio,
         maxHeight,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        gap: 10,
         background: `
           ${coverTint(item)},
           linear-gradient(135deg, var(--cz-seg) 0%, var(--cz-bg-elevated) 100%)
@@ -2125,7 +2128,12 @@ function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }) {
         ...style,
       }}
     >
-      <CoverIcon item={item} size={48} />
+      <CoverIcon item={item} size={loading ? 36 : 48} />
+      {loading && (
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.02em" }}>
+          Loading photos…
+        </span>
+      )}
     </div>
   );
 }
@@ -3842,7 +3850,17 @@ function CarouselView({
   const orbitRequestRef = useRef(null);
   const orbitTriggerRef = useRef(null);
   const reduced = usePrefersReducedMotion();
+  const expandedIdRef = useRef(expandedId);
+  const selectedIdRef = useRef(selectedId);
+  const itemsRef = useRef(items);
+  const lastItemsKeyRef = useRef("");
+  const lastSelectedIdRef = useRef(null);
+  const finishMovementRef = useRef(null);
+  const scrollToIndexRef = useRef(null);
 
+  expandedIdRef.current = expandedId;
+  selectedIdRef.current = selectedId;
+  itemsRef.current = items;
   orbitRef.current = orbit;
 
   const closeOrbit = useCallback((restoreFocus = true) => {
@@ -3940,8 +3958,11 @@ function CarouselView({
       card.dataset.foreground = String(isForeground);
       card.setAttribute("aria-selected", String(isForeground));
       card.style.zIndex = String(zIndex);
-      card.style.opacity = "1";
-      card.style.setProperty("--cz-card-side", String(Math.min(1, dist / Math.max(widths[i] || 1, 1))));
+      // Real opacity fade plus a variable-driven dim overlay makes overlapping
+      // cards read as layered instead of melted together.
+      const side = Math.min(1, dist / Math.max(widths[i] || 1, 1));
+      card.style.opacity = String(Math.max(0.52, 1 - side * 0.48));
+      card.style.setProperty("--cz-card-side", String(side));
 
       if (reduced) {
         card.style.transform = "none";
@@ -3949,11 +3970,11 @@ function CarouselView({
         continue;
       }
 
-      const maxRotateDeg = 11;
-      const rotateDeg = Math.max(-maxRotateDeg, Math.min(maxRotateDeg, -px * 0.023));
+      const maxRotateDeg = 9;
+      const rotateDeg = Math.max(-maxRotateDeg, Math.min(maxRotateDeg, -px * 0.018));
       const frontEdgeZ = ((widths[i] || 0) / 2) * Math.sin(Math.abs(rotateDeg * Math.PI / 180));
-      const z = -Math.min(dist * 0.1 + frontEdgeZ + (isForeground ? 0 : 5), 76);
-      const scale = Math.max(0.915, 1 - dist * 0.00025);
+      const z = -Math.min(dist * 0.13 + frontEdgeZ + (isForeground ? 0 : 10), 96);
+      const scale = Math.max(0.88, 1 - dist * 0.00032);
       card.style.transformOrigin = "center center";
       card.style.transform =
         "translate3d(0,0," + z + "px) rotateY(" + rotateDeg + "deg) scale(" + scale + ")";
@@ -3974,13 +3995,15 @@ function CarouselView({
     if (onSelect && items[index]) onSelect(items[index].id);
   }, [items, nearestIndex, onSelect, setForeground, updateCards]);
 
+  finishMovementRef.current = finishMovement;
+
   const queueMovementEnd = useCallback((delay = 150) => {
     if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
     settleTimerRef.current = setTimeout(() => {
       settleTimerRef.current = null;
-      finishMovement();
+      finishMovementRef.current();
     }, delay);
-  }, [finishMovement]);
+  }, []);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -4015,31 +4038,66 @@ function CarouselView({
     const left = Math.max(0, Math.min(maxScroll, center - container.clientWidth / 2));
     const behavior = options.behavior || (reduced ? "auto" : "smooth");
 
-    if (expandedId && target !== foregroundRef.current && onDeactivate) onDeactivate();
+    // Only collapse the expanded card when navigation explicitly moves to a
+    // different item. Index changes caused by adds/removes/reorders preserve the
+    // active card so the photo orbit and back-face controls stay reachable.
+    const targetId = itemsRef.current[target]?.id;
+    if (expandedId && targetId !== expandedId && onDeactivate) onDeactivate();
     programmaticTargetRef.current = target;
     setForeground(target);
     container.classList.add("is-moving");
+    // Suspend CSS snap during programmatic scrolls so the browser never fights
+    // the JS-driven target. Snap restores in finishMovement / scrollend.
+    container.style.scrollSnapType = "none";
+    container.style.scrollBehavior = behavior === "auto" ? "auto" : "smooth";
     container.scrollTo({ left, behavior });
     updateCards();
 
-    if (behavior === "auto") finishMovement();
-    else queueMovementEnd(220);
-  }, [expandedId, finishMovement, items.length, measure, onDeactivate, queueMovementEnd, reduced, setForeground, updateCards]);
+    if (behavior === "auto") finishMovementRef.current();
+    else queueMovementEnd(320);
+  }, [expandedId, items.length, measure, onDeactivate, queueMovementEnd, reduced, setForeground, updateCards]);
+
+  scrollToIndexRef.current = scrollToIndex;
 
   useEffect(() => {
+    const idsKey = items.map((item) => item.id).join(",");
+    if (idsKey === lastItemsKeyRef.current) return;
+    const prevIds = lastItemsKeyRef.current ? lastItemsKeyRef.current.split(",") : [];
+    const lengthChanged = prevIds.length !== items.length;
+    lastItemsKeyRef.current = idsKey;
+
     cardRefs.current.length = items.length;
     measure();
-    const selected = items.findIndex((item) => item.id === selectedId);
-    const initial = selected >= 0 ? selected : Math.min(foregroundRef.current, items.length - 1);
-    if (items.length > 0) scrollToIndex(Math.max(0, initial), { behavior: "auto" });
+    const container = containerRef.current;
+    if (items.length === 0 || !container) {
+      return () => {
+        if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
+        if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+      };
+    }
+    const expandedIndex = expandedIdRef.current
+      ? items.findIndex((item) => item.id === expandedIdRef.current)
+      : -1;
+    const selectedIndex = selectedIdRef.current
+      ? items.findIndex((item) => item.id === selectedIdRef.current)
+      : -1;
+    const initial =
+      expandedIndex >= 0
+        ? expandedIndex
+        : lengthChanged && selectedIndex >= 0
+          ? selectedIndex
+          : 0;
+    const target = Math.max(0, Math.min(items.length - 1, initial));
+    scrollToIndexRef.current(target, { behavior: "auto" });
     return () => {
       if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
       if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
     };
-    // Item content/order updates are handled by the selectedId effect below; this
-    // mount path intentionally runs only when the number of rendered cards changes.
+    // This runs every render but bails out unless the item id list changed;
+    // expanded/selected ids are read through refs so selection changes alone
+    // do not trigger a re-center.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, measure]);
+  }, [items, measure, setForeground, updateCards]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -4058,9 +4116,14 @@ function CarouselView({
   }, [measure, updateCards]);
 
   useEffect(() => {
-    const index = items.findIndex((item) => item.id === selectedId);
-    if (index >= 0 && index !== foregroundRef.current) scrollToIndex(index);
-  }, [items, scrollToIndex, selectedId]);
+    if (selectedId === lastSelectedIdRef.current) return;
+    lastSelectedIdRef.current = selectedId;
+    const index = itemsRef.current.findIndex((item) => item.id === selectedId);
+    if (index >= 0 && index !== foregroundRef.current) scrollToIndexRef.current(index);
+    // Reacts only to actual selection changes, not to list reorders or callback
+    // identity changes. Reorders are handled by the items effect above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   useEffect(() => {
     if (!orbit) return;
@@ -4120,7 +4183,7 @@ function CarouselView({
         wheelActiveRef.current = false;
         container.style.scrollSnapType = "";
         container.style.scrollBehavior = "";
-        scrollToIndex(nearestIndex());
+        scrollToIndex(nearestIndex(), { behavior: "auto" });
       }, 110);
     };
     container.addEventListener("wheel", onWheel, { passive: true });
@@ -4143,8 +4206,18 @@ function CarouselView({
     let dragging = false;
     let moveRaf = null;
 
-    const interactiveTarget = (target) =>
-      target && target.closest && target.closest("button, a, input, textarea, select, [role='button']");
+    const interactiveTarget = (target) => {
+      if (!target || !target.closest) return false;
+      // The carousel card front face is clickable, but it should not block a
+      // horizontal drag gesture. Real buttons/links/inputs inside a card still do.
+      const withinCard = target.closest(".cz-carousel-card");
+      if (withinCard) {
+        return !!target.closest(
+          "button, a, input, textarea, select, .cz-carousel-close, .cz-carousel-action-btn, .cz-info-bubble, [role='button']:not(.cz-carousel-front)"
+        );
+      }
+      return !!target.closest("button, a, input, textarea, select, [role='button']");
+    };
 
     const restore = () => {
       if (moveRaf != null) {
@@ -4220,7 +4293,7 @@ function CarouselView({
       container.dataset.dragging = "true";
       setTimeout(() => delete container.dataset.dragging, 0);
       if (cancelled) finishMovement();
-      else scrollToIndex(nearestIndex());
+      else scrollToIndex(nearestIndex(), { behavior: "auto" });
     };
 
     const onPointerUp = (event) => endPointer(event, false);
@@ -5898,7 +5971,7 @@ export default function Credenza() {
     toolbarActive && typeFilter !== "all"
       ? visible.filter((x) => itemCategory(x) === typeFilter)
       : visible;
-  const shelfItems = (() => {
+  const shelfItems = useMemo(() => {
     const a = [...typed];
     if (q) return a;
     if (!toolbarActive || sortMode === "recent") a.sort((x, y) => y.createdAt - x.createdAt);
@@ -5914,7 +5987,7 @@ export default function Credenza() {
         (x, y) => (x.lastOpenedAt ? 1 : 0) - (y.lastOpenedAt ? 1 : 0) || y.createdAt - x.createdAt
       );
     return a;
-  })();
+  }, [typed, q, toolbarActive, sortMode]);
 
   // Time buckets give the scroll a spine — recent sort only, and not mid-search.
   let sections = null;
@@ -5987,6 +6060,28 @@ export default function Credenza() {
         setSelectedId(id);
         const el = document.getElementById("card-" + id);
         if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
+        return;
+      }
+      // Carousel view: left/right move the foreground card globally so the user
+      // does not have to focus the scroll container first. When nothing is
+      // explicitly selected, derive the current position from the foreground card
+      // already centered in the carousel.
+      if (ctx.viewMode === "carousel" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+        if (list.length === 0) return;
+        let currentIdx = idx;
+        if (currentIdx < 0) {
+          const foreground = document.querySelector(".cz-carousel-card[data-foreground='true']");
+          const match = foreground && foreground.id.match(/^card-(.+)$/);
+          currentIdx = match ? list.findIndex((x) => x.id === match[1]) : 0;
+        }
+        if (currentIdx < 0) currentIdx = 0;
+        const nextIdx =
+          e.key === "ArrowRight"
+            ? Math.min(currentIdx + 1, list.length - 1)
+            : Math.max(currentIdx - 1, 0);
+        const id = list[nextIdx].id;
+        setSelectedId(id);
         return;
       }
       if (e.key === "Escape") {

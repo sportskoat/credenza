@@ -275,7 +275,7 @@
   flex: 0 0 auto;
   width: min(72vw, 320px);
   height: 460px;
-  margin: 0 -4vw;
+  margin: 0 -2.5vw;
   scroll-snap-align: center;
   transform-style: preserve-3d;
   user-select: none;
@@ -283,9 +283,13 @@
   cursor: grab;
   pointer-events: auto;
   contain: layout style;
+  /* A very short transition smooths the last few frames of a settle without
+     making the cards feel laggy during an active drag or fling. */
+  transition: opacity 90ms linear, transform 90ms linear;
 }
 
 .cz-carousel.is-moving .cz-carousel-card {
+  transition: none;
   will-change: transform;
 }
 
@@ -342,13 +346,17 @@
   z-index: 5;
   border-radius: inherit;
   background: rgba(5, 2, 12, 0.28);
-  opacity: calc(var(--cz-card-side) * 0.48);
+  opacity: calc(var(--cz-card-side) * 0.35);
   pointer-events: none;
   transition: opacity 140ms linear;
 }
 
 .cz-carousel.is-moving .cz-carousel-face::after {
   transition: none;
+}
+
+.cz-carousel-card[data-foreground="false"] .cz-carousel-face {
+  background: color-mix(in srgb, var(--cz-card) 74%, var(--cz-card-solid) 26%);
 }
 
 .cz-carousel-front {
