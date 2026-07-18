@@ -220,11 +220,26 @@ exports.handler = async (event) => {
     return response(400, { error: "Invalid JSON body" });
   }
   const pageUrl = input && typeof input.url === "string" ? input.url.trim() : "";
+  const refererUrl = input && typeof input.referer === "string" ? input.referer.trim() : "";
   if (!pageUrl || pageUrl.length > 2048) return response(400, { error: "url must be a non-empty string" });
+  if (refererUrl.length > 2048) return response(400, { error: "referer is too long" });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
+    // Album media can reject hotlinks. An explicit, validated page referer lets
+    // Credenza relay a specific gallery image without scraping the page again.
+    if (refererUrl) {
+      await assertSafeUrl(refererUrl);
+      const { buf, mime } = await fetchImage(pageUrl, refererUrl, controller.signal);
+      return {
+        statusCode: 200,
+        headers: { "content-type": mime, "cache-control": "private, max-age=300" },
+        body: buf.toString("base64"),
+        isBase64Encoded: true,
+      };
+    }
+
     const pageRes = await safeFetch(
       pageUrl,
       { "user-agent": UA, accept: "text/html,application/xhtml+xml,image/*;q=0.9" },

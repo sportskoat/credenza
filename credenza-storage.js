@@ -84,7 +84,7 @@ export async function saveStoredItems({ backend, storeKey, items, pruneBatch = 3
 
   while (true) {
     const withImages = current
-      .filter((item) => item.image)
+      .filter((item) => typeof item.image === "string" && item.image.startsWith("data:image/"))
       .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
 
     if (!withImages.length) {

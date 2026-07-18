@@ -1,7 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { copyFileSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+
+const FASHION = process.env.VITE_CREDENZA_FASHION === "true";
 
 // Stamps the built asset list into dist/sw.js after each build so the app
 // shell, fonts, and icons are precached on install — the PWA works offline
@@ -19,6 +21,7 @@ function swPrecache() {
       const precache = [
         "/",
         "/index.html",
+        ...(FASHION ? ["/index-fashion.html"] : []),
         "/manifest.webmanifest",
         "/icon-180.png",
         "/icon-192.png",
@@ -36,7 +39,35 @@ function swPrecache() {
   };
 }
 
+function fashionEntryPlugin() {
+  let outDir = "dist";
+  return {
+    name: "credenza-fashion-entry",
+    configResolved(config) {
+      outDir = config.build.outDir;
+    },
+    configureServer(server) {
+      if (!FASHION) return;
+      server.middlewares.use((req, res, next) => {
+        if (req.url === "/" || req.url === "/index.html") {
+          req.url = "/index-fashion.html";
+        }
+        next();
+      });
+    },
+    closeBundle() {
+      if (!FASHION) return;
+      copyFileSync(join(outDir, "index-fashion.html"), join(outDir, "index.html"));
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), swPrecache()],
+  plugins: [react(), fashionEntryPlugin(), swPrecache()],
   server: { port: 5173, strictPort: true, fs: { allow: [".."] } },
+  build: {
+    rollupOptions: {
+      input: FASHION ? resolve(__dirname, "index-fashion.html") : resolve(__dirname, "index.html"),
+    },
+  },
 });

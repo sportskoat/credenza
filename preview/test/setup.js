@@ -31,3 +31,10 @@ if (!HTMLDialogElement.prototype.showModal) {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = function ({ left = 0, top = 0 } = {}) {
+    this.scrollLeft = left;
+    this.scrollTop = top;
+  };
+}

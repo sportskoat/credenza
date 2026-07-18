@@ -122,17 +122,19 @@ describe("saveStoredItems quota recovery", () => {
       return realSet(key, value);
     };
     const items = [
-      { id: "old", image: "data:x", note: "keep", links: [{ url: "u", role: "buy" }], updatedAt: 1 },
-      { id: "new", image: "data:y", updatedAt: 2 },
+      { id: "old", image: "data:image/webp;base64,x", note: "keep", links: [{ url: "u", role: "buy" }], updatedAt: 1 },
+      { id: "new", image: "data:image/webp;base64,y", updatedAt: 2 },
+      { id: "remote", image: "https://photo.yupoo.com/account/hash/medium.jpg", updatedAt: 0 },
       { id: "plain", note: "also keep" },
     ];
     const result = await saveStoredItems({ backend, storeKey: "k", items, pruneBatch: 3 });
     expect(result.prunedImages).toBeGreaterThan(0);
     const saved = JSON.parse(data.k);
-    expect(saved).toHaveLength(3);
+    expect(saved).toHaveLength(4);
     expect(saved.find((i) => i.id === "old").note).toBe("keep");
     expect(saved.find((i) => i.id === "old").links).toEqual([{ url: "u", role: "buy" }]);
     expect(saved.find((i) => i.id === "old").image).toBeNull();
+    expect(saved.find((i) => i.id === "remote").image).toContain("photo.yupoo.com");
   });
 
   it("rethrows non-quota save errors untouched", async () => {

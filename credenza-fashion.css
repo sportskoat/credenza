@@ -1,0 +1,1093 @@
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Fashion variant: product-card hover lift */
+.cz-app[data-fashion="true"] article {
+  transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-app[data-fashion="true"] article:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 20px 40px oklch(0 0 0 / 0.12),
+      0 6px 12px oklch(0 0 0 / 0.08);
+  }
+}
+
+/* Image zoom on card hover */
+.cz-app[data-fashion="true"] .cz-card-image {
+  transition: transform 400ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-app[data-fashion="true"] article:hover .cz-card-image {
+    transform: scale(1.03);
+  }
+}
+
+/* Staggered list entrance */
+@keyframes cz-fashion-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cz-app[data-fashion="true"] .cz-time-section-grid > div,
+.cz-app[data-fashion="true"] .cz-shelf-grid > div {
+  animation: cz-fashion-enter 350ms var(--ease-out) both;
+}
+
+.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(1),
+.cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(1) { animation-delay: 0ms; }
+.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(2),
+.cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(2) { animation-delay: 40ms; }
+.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(3),
+.cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(3) { animation-delay: 80ms; }
+.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(4),
+.cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(4) { animation-delay: 120ms; }
+.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(5),
+.cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(5) { animation-delay: 160ms; }
+.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(6),
+.cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(6) { animation-delay: 200ms; }
+
+/* Hero title entrance */
+@keyframes cz-hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cz-app[data-fashion="true"] .cz-masthead,
+.cz-app[data-fashion="true"] .cz-hero-title,
+.cz-app[data-fashion="true"] .cz-capture-shell {
+  animation: cz-hero-enter 500ms var(--ease-out) both;
+}
+
+.cz-app[data-fashion="true"] .cz-hero-title { animation-delay: 60ms; }
+.cz-app[data-fashion="true"] .cz-capture-shell { animation-delay: 120ms; }
+
+/* Smoother expanded card details */
+.cz-app[data-fashion="true"] .cz-card-toggle + div {
+  transition-timing-function: var(--ease-out);
+}
+
+/* Better pill press */
+.cz-app[data-fashion="true"] .cz-pill:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* Row hover lift */
+@media (hover: hover) and (pointer: fine) {
+  .cz-app[data-fashion="true"] .cz-row:hover {
+    transform: translateX(2px);
+  }
+}
+
+/* Toast entrance polish */
+.cz-app[data-fashion="true"] .cz-toast[data-entering="true"] {
+  transform: translateY(8px) scale(0.98);
+}
+
+/* Status radio group in edit */
+.cz-app[data-fashion="true"] [role="radiogroup"][aria-label="Status"] button {
+  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+
+.cz-app[data-fashion="true"] [role="radiogroup"][aria-label="Status"] button:active {
+  transform: scale(0.94);
+}
+
+/* Gallery thumbnail hover */
+.cz-app[data-fashion="true"] button:has(> img) {
+  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-app[data-fashion="true"] button:has(> img):hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+    z-index: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-app[data-fashion="true"] article,
+  .cz-app[data-fashion="true"] .cz-card-image,
+  .cz-app[data-fashion="true"] .cz-row,
+  .cz-app[data-fashion="true"] .cz-time-section-grid > div,
+  .cz-app[data-fashion="true"] .cz-shelf-grid > div,
+  .cz-app[data-fashion="true"] .cz-masthead,
+  .cz-app[data-fashion="true"] .cz-hero-title,
+  .cz-app[data-fashion="true"] .cz-capture-shell {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ═══ LIQUID-GLASS NOIR THEME (Fashion default) ═══
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Ambient background glow orbs — light theme only; rainbow theme renders its own arc. */
+.cz-app[data-fashion="true"][data-theme="light"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 46, 199, 0.14) 0%, transparent 35%),
+    radial-gradient(circle at 80% 30%, rgba(0, 240, 255, 0.12) 0%, transparent 30%),
+    radial-gradient(circle at 50% 85%, rgba(120, 0, 255, 0.14) 0%, transparent 40%);
+  opacity: 0.8;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cz-app[data-fashion="true"][data-theme="light"]::before {
+    animation: cz-ambient-drift 18s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes cz-ambient-drift {
+  from { transform: scale(1) translate(0, 0); }
+  to { transform: scale(1.08) translate(-1%, 1%); }
+}
+
+/* Lift the app chrome above the ambient layer */
+.cz-app[data-fashion="true"] > .cz-shell {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hero title kept solid to maintain readability; gradients appear on borders,
+   ambient background, and accent surfaces per the futuristic direction. */
+.cz-app[data-fashion="true"] .cz-hero-title {
+  color: var(--cz-ink);
+}
+
+/* Glass cards for the existing grid/row views */
+.cz-app[data-fashion="true"] article > div,
+.cz-app[data-fashion="true"] .cz-row,
+.cz-app[data-fashion="true"] .cz-capture-shell,
+.cz-app[data-fashion="true"] .cz-toast,
+.cz-app[data-fashion="true"] .cz-modal-surface {
+  background: var(--cz-card);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--cz-hair);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.cz-app[data-fashion="true"] .cz-row {
+  border-radius: 12px;
+}
+
+.cz-app[data-fashion="true"] article > div {
+  border-radius: 16px;
+}
+
+/* Focus rings with glow */
+.cz-app[data-fashion="true"] .cz-interactive:focus-visible,
+.cz-app[data-fashion="true"] .cz-pill:focus-visible,
+.cz-app[data-fashion="true"] .cz-chip:focus-visible,
+.cz-app[data-fashion="true"] .cz-icon-button:focus-visible,
+.cz-app[data-fashion="true"] .cz-row:focus-visible,
+.cz-app[data-fashion="true"] .cz-card-toggle:focus-visible,
+.cz-app[data-fashion="true"] .cz-tab:focus-visible,
+.cz-app[data-fashion="true"] .cz-view-button:focus-visible,
+.cz-app[data-fashion="true"] .cz-sort-select:focus-visible,
+.cz-app[data-fashion="true"] .cz-field:focus-visible,
+.cz-app[data-fashion="true"] .cz-capture:focus-visible,
+.cz-app[data-fashion="true"] .cz-search-input:focus-visible,
+.cz-app[data-fashion="true"] .cz-note-field:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--cz-focus), 0 0 0 5px var(--cz-glow-weak), 0 0 18px var(--cz-glow);
+}
+
+/* Bottom bar glass */
+.cz-app[data-fashion="true"] > div[style*="position: fixed"][style*="bottom: 0"] {
+  background: color-mix(in srgb, var(--cz-card) 92%, transparent) !important;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--cz-hair);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ═══ CAROUSEL VIEW ═══
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.cz-carousel-stage {
+  position: relative;
+  width: 100%;
+  isolation: isolate;
+  overflow: visible;
+}
+
+.cz-carousel {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 40px 0 60px;
+  perspective: 1400px;
+  perspective-origin: center center;
+  transform-style: preserve-3d;
+  outline: none;
+}
+
+.cz-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-carousel-track {
+  display: flex;
+  align-items: center;
+  gap: 3vw;
+  padding: 0 calc(50% - min(36vw, 160px));
+  transform-style: preserve-3d;
+  min-height: 480px;
+  pointer-events: none;
+}
+
+.cz-carousel-card {
+  --cz-card-side: 0;
+  flex: 0 0 auto;
+  width: min(72vw, 320px);
+  height: 460px;
+  margin: 0 -4vw;
+  scroll-snap-align: center;
+  transform-style: preserve-3d;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab;
+  pointer-events: auto;
+  contain: layout style;
+}
+
+.cz-carousel.is-moving .cz-carousel-card {
+  will-change: transform;
+}
+
+/* Native trackpad scroll and pointer drag use the same cheaper compositing path. */
+.cz-carousel.is-moving .cz-carousel-face {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.cz-carousel.is-dragging .cz-carousel-card {
+  cursor: grabbing;
+}
+
+.cz-carousel-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  border-radius: 24px;
+}
+
+.cz-carousel-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 24px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: var(--cz-card);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--cz-hair-strong);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 14px 34px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+  transition: box-shadow 180ms var(--ease-out), border-color 180ms var(--ease-out);
+}
+
+.cz-carousel-card[data-foreground="true"] .cz-carousel-face {
+  border-color: color-mix(in srgb, var(--cz-hair-strong) 82%, white 18%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    0 28px 70px rgba(0, 0, 0, 0.48),
+    0 0 28px var(--cz-glow-weak);
+}
+
+.cz-carousel-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  background: rgba(5, 2, 12, 0.28);
+  opacity: calc(var(--cz-card-side) * 0.48);
+  pointer-events: none;
+  transition: opacity 140ms linear;
+}
+
+.cz-carousel.is-moving .cz-carousel-face::after {
+  transition: none;
+}
+
+.cz-carousel-front {
+  display: flex;
+  flex-direction: column;
+}
+
+.cz-carousel-front::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  padding: 1px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.18) 0%, transparent 40%, transparent 60%, rgba(255, 46, 199, 0.28) 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.cz-carousel.is-moving .cz-carousel-front::before,
+.cz-carousel.is-moving .cz-carousel-back::before {
+  padding: 0;
+  opacity: 0.34;
+  -webkit-mask: none;
+  mask: none;
+}
+
+.cz-carousel-image-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cz-carousel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Shared cover placeholder used by both grid cards and carousel cards. */
+.cz-cover-placeholder {
+  contain: layout style paint;
+}
+
+.cz-carousel-status {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  box-shadow: 0 4px 14px var(--cz-glow-weak);
+}
+
+.cz-carousel-price {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(11, 11, 13, 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--cz-ink);
+  border: 1px solid var(--cz-hair);
+}
+
+.cz-carousel-front-meta {
+  padding: 16px 18px 18px;
+  background: linear-gradient(to top, var(--cz-card-solid) 0%, transparent 100%);
+}
+
+.cz-carousel-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+  margin-bottom: 6px;
+}
+
+.cz-carousel-title {
+  margin: 0;
+  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--cz-ink);
+}
+
+.cz-carousel-sub {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--cz-sub);
+  letter-spacing: 0.02em;
+}
+
+/* Back face */
+.cz-carousel-back {
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  background: var(--cz-card);
+}
+
+.cz-carousel-back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  padding: 1px;
+  background: linear-gradient(200deg, rgba(255, 46, 199, 0.26) 0%, transparent 40%, transparent 60%, rgba(0, 240, 255, 0.18) 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.cz-carousel-close {
+  align-self: flex-start;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--cz-hair);
+  background: var(--cz-seg);
+  color: var(--cz-ink);
+  cursor: pointer;
+  margin-bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 1;
+  flex-shrink: 0;
+  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), border-color 120ms var(--ease-out);
+}
+
+.cz-carousel-close svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+.cz-carousel-close:active {
+  transform: scale(0.94);
+}
+
+.cz-carousel-back-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  z-index: 1;
+  padding-right: 4px;
+  padding-bottom: 24px;
+}
+
+.cz-carousel-back-title {
+  margin: 0 0 12px;
+  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--cz-ink);
+  line-height: 1.2;
+}
+
+.cz-carousel-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.cz-carousel-meta-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--cz-seg);
+  border: 1px solid var(--cz-hair);
+}
+
+.cz-carousel-meta-grid > div span:first-child {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-carousel-meta-grid > div span:last-child {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-carousel-note {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--cz-seg);
+  border: 1px solid var(--cz-hair);
+}
+
+.cz-carousel-note span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  margin-bottom: 4px;
+}
+
+.cz-carousel-note p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  font-style: italic;
+}
+
+.cz-carousel-gallery {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.cz-carousel-gallery button {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-seg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+.cz-carousel-gallery button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-carousel-gallery button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 2px var(--cz-glow-weak);
+  }
+}
+
+.cz-carousel-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: auto;
+}
+
+.cz-carousel-action-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--cz-hair);
+  background: var(--cz-seg);
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), color 120ms var(--ease-out), border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  text-align: center;
+  justify-content: center;
+}
+
+.cz-carousel-action-btn:hover {
+  background: var(--cz-hair);
+  color: var(--cz-ink);
+}
+
+.cz-carousel-action-btn:active {
+  transform: scale(0.96);
+}
+
+.cz-carousel-action-btn.primary {
+  grid-column: 1 / -1;
+  min-height: 42px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  border-color: transparent;
+  box-shadow: 0 4px 16px var(--cz-glow-weak);
+}
+
+.cz-carousel-action-btn.danger {
+  color: var(--cz-error-text);
+  border-color: var(--cz-error-bg);
+  background: var(--cz-error-bg);
+}
+
+.cz-size-info {
+  display: grid;
+  gap: 8px;
+}
+
+.cz-size-info-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cz-size-info-row span,
+.cz-size-axis > span {
+  color: var(--cz-faint);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cz-size-info-row strong {
+  color: var(--cz-ink);
+  font-size: 12px;
+  text-align: right;
+}
+
+.cz-size-info p {
+  margin: 2px 0;
+  color: var(--cz-sub);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cz-size-axis {
+  display: grid;
+  gap: 3px;
+  padding-top: 7px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-size-axis div {
+  color: var(--cz-ink);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* Info bubble */
+.cz-info-bubble {
+  position: relative;
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  animation: cz-bubble-enter 280ms var(--ease-out) both;
+}
+
+@keyframes cz-bubble-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.cz-info-bubble-line {
+  width: 24px;
+  height: 2px;
+  margin-top: 18px;
+  background: linear-gradient(90deg, var(--cz-gradient-1) 0%, var(--cz-gradient-3) 100%);
+  border-radius: 2px;
+  transform-origin: left center;
+  animation: cz-line-out 240ms var(--ease-out) both;
+}
+
+@keyframes cz-line-out {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.cz-info-bubble-card {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--cz-card);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--cz-hair-strong);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    0 12px 28px rgba(0, 0, 0, 0.35);
+  animation: cz-bubble-card 260ms var(--ease-out) 60ms both;
+  transform-origin: left center;
+}
+
+@keyframes cz-bubble-card {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.cz-info-bubble-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.cz-info-bubble-header span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cz-gradient-2);
+}
+
+.cz-info-bubble-header button {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--cz-seg);
+  color: var(--cz-sub);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.cz-info-bubble-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+}
+
+.cz-info-bubble-body a {
+  color: var(--cz-accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.cz-info-bubble-body a:hover {
+  text-decoration: underline;
+}
+
+/* Carousel empty state */
+.cz-carousel-empty {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  color: var(--cz-sub);
+  font-size: 14px;
+}
+
+/* Carousel edit form */
+.cz-carousel-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cz-carousel-edit .cz-field-label input,
+.cz-carousel-edit .cz-field-label textarea {
+  background: var(--cz-seg);
+  border-color: var(--cz-hair);
+  color: var(--cz-ink);
+}
+
+/* Responsive carousel */
+@media (max-width: 480px) {
+  .cz-carousel-track {
+    gap: 2vw;
+    padding: 0 calc(50% - 40vw);
+  }
+
+  .cz-carousel-card {
+    width: 80vw;
+    height: 440px;
+    margin: 0 -6vw;
+  }
+}
+
+/* Album photos spread from the settled card into a viewport-clamped ellipse. */
+.cz-carousel-orbit {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.cz-carousel-orbit-photo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--cz-hair-strong);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 18px 46px rgba(0, 0, 0, 0.5),
+    0 0 22px var(--cz-glow-weak);
+  background: var(--cz-card-solid);
+  transform: translate(-50%, -50%) translate(var(--orbit-x, 0), var(--orbit-y, 0));
+  animation: cz-orbit-enter 420ms var(--ease-out) var(--orbit-delay, 0ms) both;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.cz-carousel-orbit-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-app[data-fashion="true"] .cz-carousel-orbit-photo:hover {
+    transform: translate(-50%, -50%) translate(var(--orbit-x, 0), var(--orbit-y, 0)) scale(1.05);
+  }
+}
+
+.cz-carousel-orbit-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.cz-carousel-orbit-loading,
+.cz-carousel-orbit-empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cz-sub);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--cz-card-solid);
+  border: 1px solid var(--cz-hair);
+  pointer-events: auto;
+}
+
+@keyframes cz-orbit-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(0, 0) scale(0.45);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(var(--orbit-x, 0), var(--orbit-y, 0)) scale(1);
+  }
+}
+
+.cz-photo-preview-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 34px;
+  background: rgba(5, 2, 12, 0.68);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.cz-photo-preview {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  width: min(86vw, 620px);
+  height: min(78vh, 520px);
+  padding: 14px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 22px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.62);
+}
+
+.cz-photo-preview > img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.cz-photo-preview-close {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: rgba(12, 8, 22, 0.82);
+  color: var(--cz-ink);
+  cursor: pointer;
+}
+
+.cz-photo-preview-controls {
+  display: grid;
+  grid-template-columns: 42px auto 42px minmax(120px, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.cz-photo-preview-controls button {
+  min-height: 40px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: var(--cz-seg);
+  color: var(--cz-ink);
+  cursor: pointer;
+}
+
+.cz-photo-preview-controls button.primary {
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  border-color: transparent;
+  font-weight: 800;
+}
+
+.cz-photo-preview-controls span {
+  color: var(--cz-sub);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .cz-carousel-orbit-photo {
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
+  }
+
+  .cz-photo-preview-backdrop {
+    padding: 18px 12px;
+  }
+
+  .cz-photo-preview {
+    width: 100%;
+    height: min(76vh, 500px);
+    padding: 10px;
+    border-radius: 18px;
+  }
+
+  .cz-photo-preview-controls {
+    grid-template-columns: 40px 1fr 40px;
+  }
+
+  .cz-photo-preview-controls button.primary {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-carousel-orbit-photo {
+    animation: none !important;
+  }
+}
+
+/* Reduced motion: flatten carousel */
+@media (prefers-reduced-motion: reduce) {
+  .cz-app[data-fashion="true"]::before {
+    animation: none !important;
+  }
+
+  .cz-carousel-card {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .cz-carousel-card-inner {
+    transition: none !important;
+  }
+
+  .cz-info-bubble,
+  .cz-info-bubble-line,
+  .cz-info-bubble-card {
+    animation: none !important;
+  }
+}

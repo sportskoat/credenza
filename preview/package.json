@@ -3,10 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "VITE_CREDENZA_FASHION=true vite",
+    "dev:fashion": "VITE_CREDENZA_FASHION=true vite",
+    "dev:generic": "VITE_CREDENZA_FASHION=false vite",
+    "build": "VITE_CREDENZA_FASHION=true vite build",
+    "build:fashion": "VITE_CREDENZA_FASHION=true vite build",
+    "build:generic": "VITE_CREDENZA_FASHION=false vite build",
     "test": "vitest run",
-    "lint": "eslint ../credenza-v3.jsx ../credenza-storage.js ../credenza-search.js src netlify/functions",
+    "lint": "eslint ../credenza-v3.jsx ../credenza-fashion.jsx ../credenza-storage.js ../credenza-search.js ../credenza-search-fashion.js src netlify/functions",
     "typecheck": "tsc -p jsconfig.json"
   },
   "dependencies": {
