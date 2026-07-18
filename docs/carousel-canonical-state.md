@@ -52,6 +52,7 @@ diff against `08f48c2` and re-read this file before rewriting anything.
 | Second click / Escape | Unflips; Escape also closes the photo gallery |
 | ArrowLeft / ArrowRight | Global (no focus needed), one card per press |
 | Trackpad wheel (either axis) | Accumulates deltas, steps exactly **one** card per gesture (110 ms quiet window, ±40 threshold) |
+| Wheel over flipped card's content (`.cz-carousel-back-content` / `.cz-carousel-edit`) | Scrolls that content — the carousel wheel handler bails out for those targets, never `preventDefault`s there |
 | Mouse/pen drag | Pans; release past 25% width or velocity 500 advances; small movements (≤4 px, ≤50 v) still count as clicks |
 | Drag then release over card | Flip suppressed via `container.dataset.dragging` |
 | Chevron / dot controls | Frosted pill below carousel; chevrons step, dots jump; active dot stretches with pink→cyan gradient |
@@ -62,8 +63,16 @@ compositor-only, keeps the impeccable design hook green.
 
 ## Companion pieces
 
-- `CardCornerFan` — Amicro-style hover fan on the card back for gallery
-  images; click opens `PhotoCoverFlow` (full-screen gallery, same offset math).
+- `CardCornerFan` — photo previews on the card back (updated 2026-07-18):
+  cover photo at the left with the rest stacked behind it; hover slides them
+  out **to the right in a flat row** (70 px steps, no rotation — Kyle
+  explicitly rejected the arc/rotate fan). Any click opens `PhotoCoverFlow`
+  (full-screen gallery, same offset math). **Clicking a fan photo must never
+  change the item's cover image** — the gallery's "Use as cover" button is the
+  only path that sets the primary image.
+- Card back has **no Photos button and no Batch tile** — the fan is the photo
+  affordance, Buy sorts first in the actions (directly under the fan), and
+  batch lives only in the edit form.
 - Deps: `framer-motion` (v12), `lucide-react` (chevrons) in `preview/package.json`.
 
 ## How to verify after any carousel change

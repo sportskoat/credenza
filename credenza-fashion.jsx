@@ -3378,13 +3378,12 @@ function CarouselSizeInfo({ item }) {
   );
 }
 
-function CardCornerFan({ item, images, onOpenPhotos, onSetPrimaryImage, reduced }) {
+function CardCornerFan({ item, images, onOpenPhotos, reduced }) {
   const [isHovered, setIsHovered] = useState(false);
-  const displayed = images.slice(0, 5);
+  // Cover + 3 previews: 4 × 64px at 70px spacing stays inside the 284px back face.
+  const displayed = images.slice(0, 4);
   const total = displayed.length;
   if (total === 0) return null;
-  const fanAngle = 90;
-  const startAngle = -fanAngle / 2;
 
   return (
     <div
@@ -3407,10 +3406,11 @@ function CardCornerFan({ item, images, onOpenPhotos, onSetPrimaryImage, reduced 
       }}
     >
       {displayed.map((src, i) => {
-        const ratio = total > 1 ? i / (total - 1) : 0.5;
-        const angle = isHovered && !reduced ? startAngle + ratio * fanAngle : 0;
-        const x = isHovered && !reduced ? (ratio - 0.5) * 70 : 0;
-        const y = isHovered && !reduced ? -16 - ratio * 14 : 0;
+        // Cover photo (i = 0) stays put; the rest slide out to its right in a
+        // flat row on hover. Collapsed, they stack behind the cover.
+        const spread = isHovered && !reduced;
+        const x = spread ? i * 70 : i * 2;
+        const angle = spread ? 0 : i * 1.5;
         return (
           <motion.div
             key={src + i}
@@ -3418,23 +3418,19 @@ function CardCornerFan({ item, images, onOpenPhotos, onSetPrimaryImage, reduced 
             animate={{
               rotate: angle,
               x,
-              y,
-              scale: isHovered ? 1.06 : 1,
+              y: 0,
+              scale: spread && i === 0 ? 1.04 : 1,
               zIndex: 5 - i,
             }}
             transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 240, damping: 22 }}
-            style={{ originX: 0.5, originY: 1, pointerEvents: isHovered ? "auto" : "none" }}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onSetPrimaryImage) onSetPrimaryImage(item.id, src);
-            }}
+            style={{ originX: 0.5, originY: 1 }}
           >
             <img src={src} alt={"Gallery image " + (i + 1)} draggable={false} />
           </motion.div>
         );
       })}
-      {images.length > 5 && (
-        <span className="cz-corner-fan-more">+{images.length - 5}</span>
+      {images.length > 4 && (
+        <span className="cz-corner-fan-more">+{images.length - 4}</span>
       )}
     </div>
   );
@@ -3451,7 +3447,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onDelete,
     onSaveEdit,
     onOpen,
-    onSetPrimaryImage,
     onOpenPhotos,
     onActivate,
     onDeactivate,
@@ -3639,9 +3634,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               <span>{(TYPES[item.type] || TYPES.note).label}</span>
             </div>
             <h3 className="cz-carousel-title">{item.title}</h3>
-            {(item.seller || item.batch || item.size) && (
+            {(item.seller || item.size) && (
               <div className="cz-carousel-sub">
-                {[item.seller, item.batch, item.size].filter(Boolean).join(" · ")}
+                {[item.seller, item.size].filter(Boolean).join(" · ")}
               </div>
             )}
           </div>
@@ -3749,12 +3744,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                     <span>{item.seller}</span>
                   </div>
                 )}
-                {item.batch && (
-                  <div>
-                    <span>Batch</span>
-                    <span>{item.batch}</span>
-                  </div>
-                )}
                 {item.size && (
                   <div>
                     <span>Size</span>
@@ -3793,7 +3782,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                   item={item}
                   images={galleryImages}
                   onOpenPhotos={onOpenPhotos}
-                  onSetPrimaryImage={onSetPrimaryImage}
                   reduced={reduced}
                 />
               )}
@@ -3801,6 +3789,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               <div className="cz-carousel-actions">
                 {linkButtons(item)
                   .filter((button) => button.role !== "photos")
+                  .sort((a, b) => (a.role === "buy" ? -1 : 0) - (b.role === "buy" ? -1 : 0))
                   .map((button, index) => (
                     <button
                       key={button.url + index}
@@ -3811,19 +3800,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                       {button.label}
                     </button>
                   ))}
-                <button
-                  type="button"
-                  className="cz-carousel-action-btn"
-                  onClick={(event) => {
-                    if (!yupooAlbumUrl(item) && !(item.gallery || []).length && !item.image) {
-                      openBubble("photos", "Photos", "No gallery or Yupoo album yet.");
-                      return;
-                    }
-                    if (onOpenPhotos) onOpenPhotos(item, event.currentTarget);
-                  }}
-                >
-                  Photos
-                </button>
                 <button
                   type="button"
                   className="cz-carousel-action-btn"
@@ -4041,6 +4017,9 @@ function CoverFlowCarousel({
     const container = containerRef.current;
     if (!container) return;
     const onWheel = (event) => {
+      // Wheel over a flipped card's scrollable content must scroll that
+      // content, not page the carousel — never preventDefault there.
+      if (event.target.closest?.(".cz-carousel-back-content, .cz-carousel-edit")) return;
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
       if (Math.abs(delta) < 1) return;
       event.preventDefault();
@@ -4173,7 +4152,6 @@ function CoverFlowCarousel({
                   onDelete={onDelete}
                   onSaveEdit={onSaveEdit}
                   onOpen={onOpen}
-                  onSetPrimaryImage={onSetPrimaryImage}
                   onOpenPhotos={openPhotos}
                   onActivate={onActivate}
                   onDeactivate={onDeactivate}

@@ -140,7 +140,7 @@ describe("Fashion data and photos", () => {
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     console.log("flip count", flipButtons.length);
     await user.click(flipButtons[0]);
-    await user.click(screen.getByRole("button", { name: "Photos" }));
+    await user.click(screen.getByRole("button", { name: "Open photo gallery" }));
     expect(await screen.findByRole("dialog", { name: "Album photo preview" })).toBeInTheDocument();
     expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toBe(PHOTO_1);
     await user.click(screen.getByRole("button", { name: "Next photo" }));
