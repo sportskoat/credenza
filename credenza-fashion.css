@@ -143,7 +143,7 @@
    ═══ LIQUID-GLASS NOIR THEME (Fashion default) ═══
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-/* Ambient background glow orbs — light theme only; rainbow theme renders its own arc. */
+/* Ambient background glow orbs — Horizon light only; Moonwalker renders its own bg. */
 .cz-app[data-fashion="true"][data-theme="light"]::before {
   content: "";
   position: fixed;
@@ -151,10 +151,10 @@
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(circle at 20% 20%, rgba(255, 46, 199, 0.14) 0%, transparent 35%),
-    radial-gradient(circle at 80% 30%, rgba(0, 240, 255, 0.12) 0%, transparent 30%),
-    radial-gradient(circle at 50% 85%, rgba(120, 0, 255, 0.14) 0%, transparent 40%);
-  opacity: 0.8;
+    radial-gradient(circle at 18% 18%, rgba(229, 229, 190, 0.16) 0%, transparent 38%),
+    radial-gradient(circle at 82% 28%, rgba(26, 107, 176, 0.35) 0%, transparent 36%),
+    radial-gradient(circle at 50% 88%, rgba(0, 30, 70, 0.45) 0%, transparent 42%);
+  opacity: 0.9;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -180,10 +180,11 @@
   color: var(--cz-ink);
 }
 
-/* Glass cards for the existing grid/row views */
+/* Glass cards for the existing grid/row views.
+   Capture shell is intentionally NOT here — it uses the rounded pill language
+   shared with search (see .cz-capture-shell below). */
 .cz-app[data-fashion="true"] article > div,
 .cz-app[data-fashion="true"] .cz-row,
-.cz-app[data-fashion="true"] .cz-capture-shell,
 .cz-app[data-fashion="true"] .cz-toast,
 .cz-app[data-fashion="true"] .cz-modal-surface {
   background: var(--cz-card);
@@ -221,12 +222,19 @@
   box-shadow: 0 0 0 2px var(--cz-focus), 0 0 0 5px var(--cz-glow-weak), 0 0 18px var(--cz-glow);
 }
 
-/* Bottom bar glass */
+/* Bottom bar glass + safe-area padding (home indicator) */
+.cz-app[data-fashion="true"] > .cz-bottom-bar,
 .cz-app[data-fashion="true"] > div[style*="position: fixed"][style*="bottom: 0"] {
-  background: color-mix(in srgb, var(--cz-card) 92%, transparent) !important;
+  background: color-mix(in srgb, var(--cz-card-solid) 88%, transparent) !important;
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border-top: 1px solid var(--cz-hair);
+}
+
+/* Fashion: keep shared .cz-bottom-bar-inner safe-area padding from credenza.css;
+   just ensure a comfortable tap row height. */
+.cz-app[data-fashion="true"] .cz-bottom-bar-inner {
+  min-height: 52px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -243,17 +251,16 @@
 .cz-carousel {
   position: relative;
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  /* Declarative CoverFlow — no native horizontal scroll. overflow-x:auto was a
+     leftover that made iOS treat the stage as a nested scroller and leave
+     capture-chrome layers stranded while the page scrolled. */
+  overflow: hidden;
   padding: 40px 0 60px;
   perspective: 1400px;
   perspective-origin: center center;
   transform-style: preserve-3d;
   outline: none;
+  touch-action: pan-y;
 }
 
 .cz-carousel::-webkit-scrollbar {
@@ -276,9 +283,10 @@
   width: min(72vw, 320px);
   height: 460px;
   margin: 0 -2.5vw;
-  scroll-snap-align: center;
   transform-style: preserve-3d;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
   -webkit-tap-highlight-color: transparent;
   cursor: grab;
   pointer-events: auto;
@@ -318,11 +326,14 @@
   height: 100%;
   border-radius: 24px;
   overflow: hidden;
+  /* Solid faces only — glass + animated opacity let side cards flash through
+     the center card while CoverFlow springs settle. */
+  isolation: isolate;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  background: var(--cz-card);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  background: var(--cz-card-solid);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border: 1px solid var(--cz-hair-strong);
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
@@ -339,16 +350,17 @@
     0 0 28px var(--cz-glow-weak);
 }
 
+/* Side dimming via --cz-card-side (set in JS from |offset|). Center = 0. */
 .cz-carousel-face::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 5;
   border-radius: inherit;
-  background: rgba(5, 2, 12, 0.28);
-  opacity: calc(var(--cz-card-side) * 0.35);
+  background: rgba(5, 2, 12, 0.42);
+  opacity: calc(var(--cz-card-side, 0) * 0.22);
   pointer-events: none;
-  transition: opacity 140ms linear;
+  transition: opacity 180ms var(--ease-out);
 }
 
 .cz-carousel.is-moving .cz-carousel-face::after {
@@ -356,7 +368,7 @@
 }
 
 .cz-carousel-card[data-foreground="false"] .cz-carousel-face {
-  background: color-mix(in srgb, var(--cz-card) 74%, var(--cz-card-solid) 26%);
+  background: var(--cz-card-solid);
 }
 
 .cz-carousel-front {
@@ -392,16 +404,36 @@
 
 .cz-carousel-image-wrap {
   position: relative;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  /* Fixed share of the face so price chips sit on one baseline across cards,
+     regardless of title length / missing seller. Meta block owns the rest. */
+  height: calc(100% - 118px);
   overflow: hidden;
+  -webkit-user-drag: none;
 }
 
-.cz-carousel-image {
+/* Cover photos only — never brand/favicons in the meta row. */
+.cz-carousel-image,
+.cz-carousel-image-wrap img,
+.cz-carousel-image-wrap .cz-cover-placeholder {
   width: 100%;
   height: 100%;
+  max-height: none !important;
+  aspect-ratio: auto !important;
   object-fit: cover;
   display: block;
+  /* Kill native image ghost-drag so mouse swipes own the gesture. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.cz-carousel-card img {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* Shared cover placeholder used by both grid cards and carousel cards. */
@@ -426,23 +458,36 @@
 
 .cz-carousel-price {
   position: absolute;
-  bottom: 14px;
-  right: 14px;
+  bottom: 12px;
+  right: 12px;
+  z-index: 2;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
-  padding: 6px 12px;
+  padding: 6px 11px;
   border-radius: 999px;
-  background: rgba(11, 11, 13, 0.72);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  color: var(--cz-ink);
-  border: 1px solid var(--cz-hair);
+  /* High-contrast chip so price reads on any photo / theme (not theme ink on glass). */
+  background: rgba(0, 0, 0, 0.78);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cz-carousel-front-meta {
-  padding: 16px 18px 18px;
-  background: linear-gradient(to top, var(--cz-card-solid) 0%, transparent 100%);
+  flex: 0 0 118px;
+  height: 118px;
+  box-sizing: border-box;
+  padding: 12px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  background: linear-gradient(to top, var(--cz-card-solid) 0%, color-mix(in srgb, var(--cz-card-solid) 92%, transparent) 100%);
 }
 
 .cz-carousel-type {
@@ -453,57 +498,318 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--cz-sub);
-  margin-bottom: 6px;
+  /* Solid ink-ish sub, not washed blue/steel that dies on dark faces */
+  color: color-mix(in srgb, var(--cz-ink) 72%, transparent);
+  margin-bottom: 5px;
+  flex-shrink: 0;
 }
 
 .cz-carousel-title {
   margin: 0;
   font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 500;
   letter-spacing: -0.03em;
-  line-height: 1.15;
+  line-height: 1.2;
   color: var(--cz-ink);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+  /* Clamp so every card's meta block is the same height → price baseline shared */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-height: calc(1.2em * 2);
 }
 
 .cz-carousel-sub {
-  margin-top: 6px;
+  margin-top: auto;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
-  color: var(--cz-sub);
+  line-height: 1.25;
+  min-height: 1.25em;
+  /* Stronger than faint steel — readable on Moonwalker + Horizon */
+  color: color-mix(in srgb, var(--cz-ink) 82%, transparent);
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Back face */
+.cz-carousel-sub-empty {
+  visibility: hidden;
+}
+
+/* Inline only — never stretch to the meta tile width (border-bottom did that). */
+.cz-carousel-sub a.cz-seller-link,
+.cz-carousel-meta-grid a.cz-seller-link,
+.cz-seller-link {
+  display: inline;
+  width: fit-content;
+  max-width: 100%;
+  align-self: flex-start;
+  /* Prefer ink over weak blue tints for contrast on dark card faces */
+  color: color-mix(in srgb, var(--cz-ink) 92%, var(--cz-accent) 8%);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--cz-ink) 45%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  border-bottom: 0;
+  transition: color 140ms var(--ease-out), text-decoration-color 140ms var(--ease-out);
+}
+
+.cz-carousel-sub a.cz-seller-link:hover,
+.cz-carousel-meta-grid a.cz-seller-link:hover,
+.cz-seller-link:hover {
+  color: var(--cz-ink);
+  text-decoration-color: var(--cz-ink);
+}
+
+/* Back face — same solid fill as front (never translucent glass). */
 .cz-carousel-back {
   transform: rotateY(180deg);
   display: flex;
   flex-direction: column;
-  padding: 18px;
-  background: var(--cz-card);
+  /* Tighter shell so content + Buy fit without clipping the pill. */
+  padding: 14px 14px 12px;
+  background: var(--cz-card-solid);
 }
 
+/* Quiet chrome: back chevron + trailing ⋯ / pencil. No "Card details" title. */
 .cz-carousel-back-header {
   position: relative;
   z-index: 2;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  margin-bottom: 12px;
+  gap: 8px;
+  min-height: 36px;
+  margin-bottom: 4px;
   flex-shrink: 0;
 }
 
-.cz-carousel-back-header h3 {
-  margin: 0;
+.cz-carousel-back-header.is-editing {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+
+.cz-carousel-back-spacer {
   min-width: 0;
+}
+
+.cz-carousel-back-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  justify-self: end;
+}
+
+.cz-card-menu-trigger {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
   color: var(--cz-ink);
-  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  cursor: pointer;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 120ms var(--ease-out), color 120ms var(--ease-out), background 120ms var(--ease-out);
+}
+
+.cz-card-menu-trigger:hover,
+.cz-card-menu-trigger.is-open {
+  color: var(--cz-accent-deep);
+  background: color-mix(in srgb, var(--cz-accent) 10%, transparent);
+}
+
+.cz-card-menu-trigger:active {
+  transform: scale(0.94);
+}
+
+/* Full-face actions / haul picker — replaces floating menus + browser prompts. */
+.cz-card-details-panel,
+.cz-card-actions-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 100%;
+}
+
+.cz-card-actions-heading h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: var(--cz-ink);
+}
+
+.cz-card-actions-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-sub);
+}
+
+.cz-card-actions-list {
+  display: grid;
+  gap: 6px;
+  padding: 2px 1px 4px;
+}
+
+.cz-card-action-row {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cz-card-solid) 86%, white 4%);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 140ms var(--ease-out),
+    background 140ms var(--ease-out),
+    border-color 140ms var(--ease-out);
+}
+
+.cz-card-action-row:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--cz-accent) 38%, var(--cz-hair));
+  background: color-mix(in srgb, var(--cz-accent) 10%, var(--cz-card-solid));
+}
+
+.cz-card-action-row:active {
+  transform: scale(0.98);
+}
+
+.cz-card-action-row.is-current {
+  border-color: color-mix(in srgb, var(--cz-accent) 48%, var(--cz-hair));
+  background: color-mix(in srgb, var(--cz-accent) 14%, var(--cz-card-solid));
+}
+
+.cz-card-action-row.danger {
+  color: var(--cz-error-text);
+  border-color: color-mix(in srgb, var(--cz-error-text) 24%, var(--cz-hair));
+  background: color-mix(in srgb, var(--cz-error-bg) 55%, transparent);
+}
+
+.cz-card-action-row.danger:hover {
+  background: color-mix(in srgb, var(--cz-error-bg) 80%, transparent);
+}
+
+.cz-card-action-meta {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--cz-sub);
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-card-actions-done {
+  appearance: none;
+  width: 100%;
+  min-height: 48px;
+  margin-top: auto;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-ink) 92%, white 8%);
+  color: var(--cz-card-solid);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: transform 140ms var(--ease-out), opacity 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.cz-card-actions-done:hover {
+  transform: translateY(-1px);
+}
+
+.cz-card-actions-done:active {
+  transform: scale(0.98);
+}
+
+.cz-card-actions-done.primary {
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
+.cz-card-actions-done.subtle {
+  background: transparent;
+  color: var(--cz-ink);
+  border: 1px solid var(--cz-hair-strong);
+}
+
+.cz-card-actions-done:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cz-card-haul-field {
+  display: grid;
+  gap: 8px;
+  /* Room so focus ring / hover lift never kisses the card edge. */
+  padding: 2px 1px 4px;
+}
+
+.cz-card-haul-field > span {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-card-haul-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--cz-hair-strong);
+  background: color-mix(in srgb, var(--cz-card-solid) 88%, white 4%);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.cz-card-haul-field input:focus {
+  /* Inset ring — outer outline was clipped by the card face overflow. */
+  outline: none;
+  border-color: color-mix(in srgb, var(--cz-focus) 70%, var(--cz-hair-strong));
+  box-shadow: inset 0 0 0 2px var(--cz-focus);
+}
+
+.cz-card-action-row:focus-visible,
+.cz-card-actions-done:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--cz-focus);
+}
+
+.cz-card-haul-footer {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
 }
 
 .cz-carousel-back::before {
@@ -531,8 +837,8 @@
   min-width: 40px;
   min-height: 40px;
   border-radius: 50%;
-  border: 1px solid var(--cz-hair);
-  background: var(--cz-seg);
+  border: 0;
+  background: transparent;
   color: var(--cz-ink);
   cursor: pointer;
   margin: 0;
@@ -542,7 +848,12 @@
   padding: 0;
   z-index: 1;
   flex-shrink: 0;
-  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), border-color 120ms var(--ease-out);
+  transition: transform 120ms var(--ease-out), color 120ms var(--ease-out), background 120ms var(--ease-out);
+}
+
+.cz-carousel-close:hover {
+  color: var(--cz-accent-deep);
+  background: color-mix(in srgb, var(--cz-accent) 10%, transparent);
 }
 
 .cz-carousel-close svg {
@@ -560,31 +871,227 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   z-index: 1;
-  padding: 2px 6px 24px 2px;
+  /* Side inset for focus rings; bottom clears the Buy pill inside overflow:hidden. */
+  padding: 2px 6px 6px;
+  /* Keep scroll; hide the ugly gutter bar. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cz-carousel-back-content::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .cz-carousel-back-title {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--cz-ink);
-  line-height: 1.2;
+  line-height: 1.15;
+}
+
+/* ── Product-sheet hierarchy (CARD_BACK_PRODUCT_SHEET) ── */
+.cz-card-details-panel--sheet .cz-carousel-back-title {
+  margin-bottom: 6px;
+}
+
+.cz-carousel-price-hero {
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #4ade80;
+  line-height: 1.15;
+  margin: 0 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cz-seller-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: 650;
+  /* Ink-forward, not washed blue/steel — still reads as a link via underline */
+  color: color-mix(in srgb, var(--cz-ink) 90%, var(--cz-accent) 10%);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--cz-ink) 40%, transparent);
+  text-underline-offset: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 140ms var(--ease-out), text-decoration-color 140ms var(--ease-out);
+}
+
+a.cz-seller-quiet:hover {
+  color: var(--cz-ink);
+  text-decoration-color: var(--cz-ink);
+}
+
+a.cz-seller-quiet:focus,
+a.cz-seller-quiet:focus-visible {
+  outline: none;
+  color: var(--cz-ink);
+  text-decoration-color: var(--cz-ink);
+}
+
+/* Non-link seller (no store URL) stays quieter but still readable. */
+.cz-seller-quiet.is-text {
+  color: color-mix(in srgb, var(--cz-ink) 70%, transparent);
+  text-decoration: none;
+  font-weight: 600;
+  cursor: default;
+}
+
+.cz-carousel-meta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.cz-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+  border: 1px solid var(--cz-hair);
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--cz-sub);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Quiet assigned-haul chip (expand to full accordion on click). */
+.cz-haul-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-haul-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--cz-hair);
+  background: var(--cz-seg);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  text-align: left;
+  transition: background 140ms var(--ease-out), border-color 140ms var(--ease-out);
+}
+
+.cz-haul-chip:hover {
+  border-color: color-mix(in srgb, var(--cz-hair-strong) 70%, var(--cz-ink));
+  background: color-mix(in srgb, var(--cz-seg) 70%, var(--cz-card-solid));
+}
+
+.cz-haul-chip:focus,
+.cz-haul-chip:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.cz-haul-chip-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  flex-shrink: 0;
+}
+
+.cz-haul-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-haul-chip-clear {
+  appearance: none;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-faint);
+  cursor: pointer;
+  padding: 0;
+  transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.cz-haul-chip-clear:hover {
+  color: var(--cz-ink);
+  background: color-mix(in srgb, var(--cz-ink) 8%, transparent);
+}
+
+.cz-haul-chip-clear:focus,
+.cz-haul-chip-clear:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Flat equal-thumb photo strip (product sheet). */
+.cz-corner-fan.is-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: auto;
+  min-height: 64px;
+  margin: 4px 0 0;
+}
+
+.cz-corner-fan-card.is-strip-card {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 52px;
+  height: 64px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+}
+
+.cz-corner-fan-more.is-strip-more {
+  position: static;
+  transform: none;
+  left: auto;
+  top: auto;
+  flex-shrink: 0;
 }
 
 .cz-carousel-meta-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .cz-carousel-meta-grid > div {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
+  gap: 1px;
+  padding: 7px 9px;
   border-radius: 10px;
   background: var(--cz-seg);
   border: 1px solid var(--cz-hair);
@@ -604,9 +1111,14 @@
   color: var(--cz-ink);
 }
 
+/* Match the shelf total-cost reel green. */
+.cz-carousel-meta-grid > div span.cz-carousel-price-value {
+  color: #4ade80;
+}
+
 .cz-carousel-note {
-  margin-bottom: 14px;
-  padding: 10px 12px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
   border-radius: 10px;
   background: var(--cz-seg);
   border: 1px solid var(--cz-hair);
@@ -666,48 +1178,110 @@
 .cz-carousel-actions {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-top: auto;
+  gap: 6px;
+  /* Comfortable breath under the photo fan — not pinned, not a void. */
+  margin-top: 14px;
+  padding-top: 0;
+  /* Keep the full pill (incl. shadow) inside the overflow:hidden face. */
+  padding-bottom: 2px;
+  flex-shrink: 0;
 }
 
 .cz-carousel-action-btn {
+  position: relative;
   font: inherit;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: -0.01em;
   padding: 9px 12px;
   border-radius: 999px;
-  border: 1px solid var(--cz-hair);
-  background: var(--cz-seg);
-  color: var(--cz-sub);
+  border: 1px solid var(--cz-hair-strong);
+  background: color-mix(in srgb, var(--cz-card-solid) 70%, transparent);
+  color: var(--cz-ink);
   cursor: pointer;
-  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), color 120ms var(--ease-out), border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  transition:
+    transform 160ms var(--ease-out),
+    background 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
   text-align: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .cz-carousel-action-btn:hover {
-  background: var(--cz-hair);
+  background: color-mix(in srgb, var(--cz-accent) 12%, var(--cz-card-solid));
+  border-color: color-mix(in srgb, var(--cz-accent) 40%, var(--cz-hair-strong));
   color: var(--cz-ink);
+  transform: translateY(-1px);
 }
 
 .cz-carousel-action-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.97) translateY(0);
 }
 
 .cz-carousel-action-btn.primary {
   grid-column: 1 / -1;
   min-height: 42px;
-  background: var(--cz-action-fill);
+  border: 0;
   color: var(--cz-action-text);
-  border-color: transparent;
-  box-shadow: 0 4px 16px var(--cz-glow-weak);
+  isolation: isolate;
+  /* Animated gradient shift — follows the active theme colorway. */
+  background-image: linear-gradient(
+    115deg,
+    var(--cz-gradient-1) 0%,
+    var(--cz-gradient-2) 42%,
+    var(--cz-gradient-3) 78%,
+    var(--cz-accent-deep) 100%
+  );
+  background-size: 220% 220%;
+  animation: cz-buy-sheen 5.5s ease-in-out infinite;
+  /* Soft oval drop only — no glow ring / filter that squares off around the pill. */
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.24),
+    0 2px 6px color-mix(in srgb, var(--cz-accent) 18%, transparent);
+  filter: none;
+  outline: none;
+}
+
+.cz-carousel-action-btn.primary:hover {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.28),
+    0 4px 12px color-mix(in srgb, var(--cz-accent) 28%, transparent);
+  animation-duration: 2.4s;
+}
+
+.cz-carousel-action-btn.primary:active {
+  transform: scale(0.98);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 1px 4px color-mix(in srgb, var(--cz-accent) 18%, transparent);
+}
+
+@keyframes cz-buy-sheen {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-carousel-action-btn.primary {
+    animation: none;
+    background-image: var(--cz-action-fill);
+    background-size: auto;
+  }
 }
 
 .cz-carousel-action-btn.danger {
   color: var(--cz-error-text);
-  border-color: var(--cz-error-bg);
-  background: var(--cz-error-bg);
+  border-color: color-mix(in srgb, var(--cz-error-text) 28%, var(--cz-hair));
+  background: color-mix(in srgb, var(--cz-error-bg) 70%, transparent);
 }
 
 .cz-size-info {
@@ -758,13 +1332,33 @@
 }
 
 /* Info bubble */
+/* Shell is a PURE clip wrapper — no padding, no margin. The 12px gap lives on
+   the bubble's margin (contained by overflow:hidden), so framer's height: 0
+   exit collapses the shell to a true 0 and unmount leaves zero residual
+   space — no one-frame scroll-clamp snap. */
+.cz-bubble-shell {
+  overflow: hidden;
+  /* The whole exit runs here in CSS (see closeBubble): close pins the measured
+     height inline, .is-closing fades/drifts, and height transitions to 0 before
+     unmount — framer's exit opacity freezes on this shell, so it owns nothing. */
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out),
+    height 240ms var(--ease-out),
+    margin-bottom 240ms var(--ease-out);
+}
+.cz-bubble-shell.is-closing {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
 .cz-info-bubble {
   position: relative;
-  margin-top: 12px;
+  padding-top: 12px;
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  animation: cz-bubble-enter 280ms var(--ease-out) both;
+  animation: cz-bubble-enter 280ms var(--ease-out) backwards;
 }
 
 @keyframes cz-bubble-enter {
@@ -785,7 +1379,7 @@
   background: linear-gradient(90deg, var(--cz-gradient-1) 0%, var(--cz-gradient-3) 100%);
   border-radius: 2px;
   transform-origin: left center;
-  animation: cz-line-out 240ms var(--ease-out) both;
+  animation: cz-line-out 240ms var(--ease-out) backwards;
 }
 
 @keyframes cz-line-out {
@@ -805,7 +1399,7 @@
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
     0 12px 28px rgba(0, 0, 0, 0.35);
-  animation: cz-bubble-card 260ms var(--ease-out) 60ms both;
+  animation: cz-bubble-card 260ms var(--ease-out) 60ms backwards;
   transform-origin: left center;
 }
 
@@ -840,11 +1434,18 @@
   height: 22px;
   border-radius: 50%;
   border: none;
-  background: var(--cz-seg);
-  color: var(--cz-sub);
+  /* Bare × — no circle chip; ink color for real contrast against the card. */
+  background: transparent;
+  color: var(--cz-ink);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1;
+  transition: color 120ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.cz-info-bubble-header button:hover {
+  color: var(--cz-accent-deep);
+  transform: scale(1.08);
 }
 
 .cz-info-bubble-body {
@@ -890,6 +1491,14 @@
   overscroll-behavior: contain;
   padding: 2px 6px 0 2px;
   z-index: 1;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cz-carousel-edit-shell::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .cz-carousel-field-grid {
@@ -909,7 +1518,7 @@
   gap: 8px;
   padding: 10px 0 0;
   margin-top: auto;
-  background: linear-gradient(to bottom, transparent, var(--cz-card) 14px);
+  background: linear-gradient(to bottom, transparent, var(--cz-card-solid) 14px);
   z-index: 2;
 }
 
@@ -1089,8 +1698,14 @@
 .cz-photo-preview-controls button.primary {
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
-  border-color: transparent;
+  border: 0;
   font-weight: 800;
+  /* Soft oval drop only — no glow ring that squares off around the pill. */
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.24),
+    0 2px 6px color-mix(in srgb, var(--cz-accent) 18%, transparent);
+  filter: none;
+  outline: none;
 }
 
 .cz-photo-preview-controls span {
@@ -1167,8 +1782,25 @@
   scroll-snap-align: unset;
   transform: translate(-50%, -50%);
   transform-style: preserve-3d;
-  transition: none;
+  /* t-resize (transitions.dev): tween width + centering margin when the card
+     enters edit mode. transform stays JS-driven; is-moving still kills it. */
+  transition:
+    width var(--resize-dur, 300ms) var(--resize-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    margin-left var(--resize-dur, 300ms) var(--resize-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  will-change: width;
   cursor: grab;
+}
+
+/* ~20% wider while the card is in edit mode (442px ≈ another 15% past the
+   first widen). margin-left !important beats the inline -cardWidth/2 so the
+   card grows symmetrically around its center. */
+.cz-carousel-card.is-editing {
+  width: min(94vw, 442px);
+  margin-left: calc(min(94vw, 442px) / -2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-carousel-card { transition: none; }
 }
 
 .cz-carousel-card:active {
@@ -1191,17 +1823,20 @@
 .cz-corner-fan {
   position: relative;
   width: 100%;
-  height: 86px;
-  margin: 10px 0 14px;
+  height: 80px;
+  margin: 4px 0 0;
   cursor: pointer;
+  /* No focus rectangle — the spread-on-focus is already the keyboard cue. */
+  outline: none;
+  flex-shrink: 0;
 }
 
 .cz-corner-fan-card {
   position: absolute;
   top: 0;
   left: 0;
-  width: 64px;
-  height: 86px;
+  width: 60px;
+  height: 80px;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--cz-hair-strong);
@@ -1217,7 +1852,7 @@
 
 .cz-corner-fan-more {
   position: absolute;
-  left: 76px;
+  left: 72px;
   top: 50%;
   transform: translateY(-50%);
   padding: 2px 6px;
@@ -1235,7 +1870,7 @@
   opacity: 0;
 }
 
-/* Reusable 36px icon-label morph pill. */
+/* Reusable 36px icon-label morph pill — outline, not filled black. */
 .cz-morph-button {
   min-height: 36px;
   height: 36px;
@@ -1244,20 +1879,39 @@
   justify-content: center;
   gap: 7px;
   padding: 0 12px;
-  border: 1px solid var(--cz-hair);
+  border: 1px solid var(--cz-hair-strong);
   border-radius: 999px;
-  background: var(--cz-seg);
-  color: var(--cz-sub);
+  background: transparent;
+  color: var(--cz-ink);
   font: 650 12px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   white-space: nowrap;
   cursor: pointer;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.cz-morph-button.is-icon-only {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
 }
 
 .cz-morph-button:hover:not(:disabled) {
   color: var(--cz-ink);
-  border-color: var(--cz-hair-strong);
+  border-color: color-mix(in srgb, var(--cz-accent) 55%, var(--cz-hair-strong));
+  background: color-mix(in srgb, var(--cz-accent) 10%, transparent);
+}
+
+.cz-morph-button.is-icon-only:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--cz-accent-deep);
+  background: color-mix(in srgb, var(--cz-accent) 10%, transparent);
 }
 
 .cz-morph-button:focus-visible,
@@ -1280,16 +1934,300 @@
   flex: 0 0 16px;
 }
 
+/* Capture + search: same rounded “field + action” language. */
+.cz-app[data-fashion="true"] .cz-capture-shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-card-solid) 90%, black 10%);
+  border: 1px solid var(--cz-hair-strong);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 12px 30px rgba(0, 0, 0, 0.30);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  /* Keep the pill + field in one paint layer on iOS so scroll never detaches them. */
+  overflow: hidden;
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
+.cz-app[data-fashion="true"] .cz-capture-shell .cz-capture {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  resize: none;
+  /* rows=1 capture: wrapping placeholder/text must never spawn a scrollbar —
+     hidden overflow still auto-scrolls to follow the caret. */
+  overflow: hidden;
+  scrollbar-width: none;
+  color: var(--cz-ink);
+  font-size: 14px;
+  line-height: 1.45;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 8px 4px;
+  outline: none;
+  box-shadow: none;
+}
+
+.cz-app[data-fashion="true"] .cz-capture-shell .cz-capture::placeholder {
+  color: var(--cz-faint);
+}
+
+.cz-app[data-fashion="true"] .cz-capture-shell .cz-pill,
+.cz-app[data-fashion="true"] .cz-capture-shell .cz-capture-pill {
+  flex-shrink: 0;
+  border-radius: 999px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Empty shelf CTA */
+.cz-empty-shelf {
+  background: var(--cz-card);
+  border: 1px solid var(--cz-hair);
+  border-radius: 18px;
+  padding: 36px 28px 32px;
+  text-align: center;
+}
+
+.cz-empty-shelf-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--cz-ink);
+  margin-bottom: 6px;
+}
+
+.cz-empty-shelf-copy {
+  font-size: 13px;
+  color: var(--cz-sub);
+  line-height: 1.6;
+  max-width: 390px;
+  margin: 0 auto 18px;
+}
+
+.cz-empty-shelf-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* Phone: shared CSS stacks capture column-wise — don't keep a 999px sausage.
+   Soft card shell, full-width action, real breathing room between field + button. */
+@media (max-width: 480px) {
+  .cz-app[data-fashion="true"] .cz-capture-shell {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 20px;
+    min-height: 0;
+  }
+
+  .cz-app[data-fashion="true"] .cz-capture-shell .cz-capture {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 4px 4px;
+    font-size: 16px; /* prevent iOS focus zoom */
+    line-height: 1.4;
+  }
+
+  .cz-app[data-fashion="true"] .cz-capture-shell .cz-pill,
+  .cz-app[data-fashion="true"] .cz-capture-shell .cz-capture-pill {
+    align-self: stretch !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .cz-empty-shelf {
+    padding: 28px 16px 24px;
+    border-radius: 16px;
+  }
+
+  .cz-empty-shelf-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cz-empty-shelf-actions .cz-pill {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.cz-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.cz-search-shell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 12px 4px 14px;
+  border-radius: 999px;
+  /* Solid fill so the field punches through the gradient (was transparent). */
+  border: 1px solid var(--cz-hair-strong);
+  background: color-mix(in srgb, var(--cz-card-solid) 88%, black 12%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.cz-search-shell.has-clear {
+  padding-right: 4px;
+}
+
+.cz-search-shell:focus-within {
+  border-color: color-mix(in srgb, var(--cz-accent) 65%, var(--cz-hair-strong));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    0 0 0 3px var(--cz-glow-weak),
+    0 12px 28px rgba(0, 0, 0, 0.32);
+}
+
+.cz-search-leading {
+  flex-shrink: 0;
+  color: var(--cz-sub);
+  pointer-events: none;
+}
+
+.cz-search-shell:focus-within .cz-search-leading {
+  color: var(--cz-accent-deep);
+}
+
+.cz-app[data-fashion="true"] .cz-search-input {
+  flex: 1;
+  min-width: 0;
+  width: auto !important;
+  height: 36px;
+  margin: 0;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: var(--cz-ink);
+  font-size: 13.5px;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.cz-app[data-fashion="true"] .cz-search-input::placeholder {
+  color: color-mix(in srgb, var(--cz-sub) 82%, transparent);
+}
+
+.cz-app[data-fashion="true"] .cz-search-input:focus-visible {
+  box-shadow: none !important;
+}
+
+/* Clear only — never shown when the field is empty. */
 .cz-search-morph {
-  position: absolute;
-  right: 3px;
-  background: color-mix(in srgb, var(--cz-card-solid) 76%, transparent);
+  position: static;
+  flex-shrink: 0;
+  margin: 0;
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--cz-sub) !important;
+}
+
+.cz-search-morph:hover:not(:disabled),
+.cz-search-morph.is-clear:hover:not(:disabled) {
+  color: var(--cz-ink) !important;
+  background: color-mix(in srgb, var(--cz-accent) 10%, transparent) !important;
+  border-color: transparent !important;
+}
+
+.cz-app[data-fashion="true"] .cz-hero-title {
+  color: var(--cz-ink);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.28);
+}
+
+/* Hide page scrollbars that shove the layout and fight the carousel.
+   Clip horizontal overflow so transformed CoverFlow cards + capture chrome
+   never paint outside the app shell while the page scrolls on iOS. */
+.cz-app[data-fashion="true"] {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+.cz-app[data-fashion="true"],
+.cz-app[data-fashion="true"] .cz-shell {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cz-app[data-fashion="true"] .cz-shell {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+.cz-app[data-fashion="true"]::-webkit-scrollbar,
+.cz-app[data-fashion="true"] .cz-shell::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+html:has(.cz-app[data-fashion="true"]),
+body:has(.cz-app[data-fashion="true"]) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+  background: var(--cz-bg, #000);
+}
+
+html:has(.cz-app[data-fashion="true"])::-webkit-scrollbar,
+body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .cz-card-edit-morph {
-  min-width: 70px;
+  min-width: 40px !important;
+  width: 40px;
+  height: 40px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--cz-ink) !important;
 }
 
+.cz-card-edit-morph:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cz-accent) 10%, transparent) !important;
+  color: var(--cz-accent-deep) !important;
+}
+
+/* Save-check on the edit sheet: the detail view's check, permanently lit. */
+.cz-card-save-check,
+.cz-card-save-check:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cz-accent) 16%, transparent) !important;
+  color: var(--cz-accent-deep) !important;
+}
+
+.cz-card-save-check:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cz-accent) 24%, transparent) !important;
+}
+
+/* Outline star only — no filled bubble. Hit target stays ~38px. */
 .cz-favorite-button {
   width: 38px;
   height: 38px;
@@ -1297,37 +2235,155 @@
   place-items: center;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid var(--cz-hair);
-  background: color-mix(in srgb, var(--cz-card-solid) 76%, transparent);
-  color: var(--cz-sub);
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
   cursor: pointer;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  transition: color 140ms var(--ease-out), background 140ms var(--ease-out), transform 120ms var(--ease-out);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  /* Soft halo so the outline reads on light and dark covers. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  transition: color 160ms var(--ease-out), transform 120ms var(--ease-out), filter 160ms var(--ease-out);
 }
 
 .cz-favorite-button:hover,
-.cz-favorite-button:focus-visible,
-.cz-favorite-button.is-favorite {
+.cz-favorite-button:focus-visible {
   color: var(--cz-favorite);
-  background: var(--cz-favorite-bg);
+  transform: scale(1.04);
 }
 
-.cz-favorite-button:hover svg,
-.cz-favorite-button:focus-visible svg,
-.cz-favorite-button.is-favorite svg {
-  fill: currentColor;
+.cz-favorite-button.is-favorite {
+  color: var(--cz-favorite);
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
 }
 
 .cz-favorite-button:active {
-  transform: scale(0.93);
+  transform: scale(0.94);
+}
+
+/* Heart like-button (transitions.dev-style): fill + spring pop + 8-dot burst.
+   No position here — the placement classes (.cz-grid-favorite etc.) already
+   make the button a positioned ancestor for the particles. */
+.cz-favorite-button.t-like {
+  --like-color: #f40051;
+}
+
+/* Hover previews the like red instead of the legacy star blue. */
+.cz-favorite-button.t-like:hover,
+.cz-favorite-button.t-like:focus-visible {
+  color: var(--like-color);
+}
+
+.t-like-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+.t-like-heart {
+  color: currentColor;
+  transition: color 150ms var(--ease-out);
+}
+
+.t-like-heart path {
+  fill: transparent;
+  stroke: currentColor;
+  transition: fill 150ms var(--ease-out), stroke 150ms var(--ease-out);
+}
+
+.t-like[data-liked="true"] .t-like-heart {
+  color: var(--like-color);
+}
+
+.t-like[data-liked="true"] .t-like-heart path {
+  fill: currentColor;
+}
+
+/* Pop scale lives on the HTML wrapper, never the <svg> (keeps hi-DPI crisp). */
+.t-like.is-bursting .t-like-icon {
+  animation: t-like-pop 350ms cubic-bezier(0.34, 1.96, 0.64, 1);
+}
+
+@keyframes t-like-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.82); }
+  100% { transform: scale(1); }
+}
+
+.t-like-particles {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  color: var(--like-color);
+}
+
+.t-like-particles i {
+  position: absolute;
+  left: calc(2.5px * var(--psize, 1) / -2);
+  top: calc(2.5px * var(--psize, 1) / -2);
+  width: calc(2.5px * var(--psize, 1));
+  height: calc(2.5px * var(--psize, 1));
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+}
+
+@keyframes t-like-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  20% { opacity: 1; transform: translate(calc(var(--px) * 0.25), calc(var(--py) * 0.25)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(var(--p-end-scale, 0.6)); }
+}
+
+.t-like.is-bursting .t-like-particles i {
+  animation: t-like-burst var(--pdur, 600ms) ease-out var(--pdelay, 0ms) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-like-icon,
+  .t-like-particles i {
+    animation: none !important;
+  }
+}
+
+/* Toolbar starred filter — icon only, no sort-mode text. */
+.cz-starred-filter {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: color 140ms var(--ease-out), background 140ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.cz-starred-filter:hover,
+.cz-starred-filter:focus-visible {
+  color: var(--cz-favorite);
+  background: color-mix(in srgb, var(--cz-favorite) 12%, transparent);
+}
+
+.cz-starred-filter.is-active {
+  color: var(--cz-favorite);
+  background: color-mix(in srgb, var(--cz-favorite) 16%, transparent);
+}
+
+.cz-starred-filter:active {
+  transform: scale(0.94);
 }
 
 .cz-grid-favorite,
 .cz-carousel-favorite {
   position: absolute;
-  right: 14px;
-  z-index: 8;
+  right: 10px;
+  top: 10px;
+  z-index: 12;
+  pointer-events: auto;
 }
 
 .cz-carousel-favorite {
@@ -1339,7 +2395,8 @@
   right: 26px;
 }
 
-/* Frosted control bar under the carousel: chevrons + stretch dots */
+/* Control bar under the carousel: chevrons + stretch dots.
+   No oval — bare controls floating under the stage, dots in a soft white. */
 .cz-coverflow-controls {
   display: flex;
   align-items: center;
@@ -1348,11 +2405,8 @@
   margin: 14px auto 0;
   padding: 3px 7px;
   border-radius: 999px;
-  background: var(--cz-seg);
-  border: 1px solid var(--cz-hair);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  background: transparent;
+  border: 0;
   position: relative;
   z-index: 20;
 }
@@ -1406,18 +2460,18 @@
   width: 16px;
   height: 4px;
   border-radius: 999px;
-  background: var(--cz-hair-strong);
+  background: color-mix(in srgb, var(--cz-ink) 60%, transparent);
   transform: scaleX(0.25);
   transition: transform 300ms var(--ease-out), background 300ms var(--ease-out);
 }
 
 .cz-coverflow-dot:hover::after {
-  background: var(--cz-sub);
+  background: var(--cz-ink);
 }
 
 .cz-coverflow-dot.is-active::after {
   transform: scaleX(1);
-  background: linear-gradient(90deg, var(--cz-accent), var(--cz-accent-2));
+  background: linear-gradient(90deg, var(--cz-gradient-1), var(--cz-gradient-2), var(--cz-gradient-3));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1515,14 +2569,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   border: 1px solid var(--cz-hair-strong);
   background: var(--cz-seg);
   color: var(--cz-ink);
   cursor: pointer;
   transition: background 150ms ease;
+  touch-action: manipulation;
 }
 
 .cz-photo-coverflow-controls button:hover {
@@ -1531,11 +2586,25 @@
 
 .cz-photo-coverflow-controls button.primary {
   width: auto;
+  min-height: 44px;
   padding: 0 16px;
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
-  border-color: transparent;
+  border: 0;
   font-weight: 700;
+  /* Soft oval drop only — no glow ring that squares off around the pill. */
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.24),
+    0 2px 6px color-mix(in srgb, var(--cz-accent) 18%, transparent);
+  filter: none;
+  outline: none;
+}
+
+.cz-photo-coverflow-controls button.primary:hover {
+  background: var(--cz-action-fill);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.28),
+    0 3px 8px color-mix(in srgb, var(--cz-accent) 22%, transparent);
 }
 
 .cz-photo-coverflow-controls .cz-photo-coverflow-counter {
@@ -1564,12 +2633,12 @@
 
 @media (max-width: 480px) {
   .cz-carousel-track {
-    height: 500px;
+    height: min(500px, calc(100dvh - 280px));
   }
 
   .cz-carousel-card {
     width: 80vw;
-    height: 440px;
+    height: min(440px, calc(100dvh - 320px));
   }
 
   .cz-photo-coverflow-card {
@@ -1586,6 +2655,40 @@
     grid-template-columns: 1fr;
   }
 
+  /* Tighter shell on phone so chrome + carousel fit without horizontal scroll */
+  .cz-app[data-fashion="true"] .cz-shell {
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 16px;
+  }
+
+  .cz-search-shell {
+    min-height: 48px;
+  }
+
+  .cz-photo-coverflow-close {
+    top: max(12px, env(safe-area-inset-top, 12px));
+    right: max(12px, env(safe-area-inset-right, 12px));
+    width: 44px;
+    height: 44px;
+  }
+
+  .cz-photo-coverflow-controls {
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .cz-photo-coverflow-controls button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent iOS rubber-band from exposing raw body under fixed chrome */
+  .cz-app[data-fashion="true"] {
+    overscroll-behavior-y: none;
+  }
 }
 
 /* Reduced motion: flatten carousel */
@@ -1615,4 +2718,1162 @@
   .cz-photo-coverflow-card {
     transition: none !important;
   }
+}
+
+/* ═══ Shelf / Hauls tabs + haul directory ═══ */
+.cz-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid var(--cz-hair);
+  margin-bottom: 16px;
+}
+
+.cz-view-tabs .cz-tab {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cz-sub);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 9px 0 11px;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+}
+
+.cz-view-tabs .cz-tab[aria-selected="true"] {
+  font-weight: 650;
+  color: var(--cz-ink);
+  border-bottom-color: var(--cz-accent);
+}
+
+.cz-hauls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cz-hauls-title {
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--cz-ink);
+}
+
+.cz-hauls-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-sub);
+}
+
+.cz-hauls-empty {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 28px 20px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 20px;
+  background: var(--cz-card-solid);
+}
+
+.cz-hauls-empty-title {
+  font-size: 17px;
+  font-weight: 750;
+  color: var(--cz-ink);
+}
+
+.cz-hauls-empty p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  max-width: 42ch;
+}
+
+.cz-hauls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 12px;
+}
+
+.cz-haul-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  text-align: left;
+  padding: 14px 12px 12px;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+  color: var(--cz-ink);
+  cursor: pointer;
+  transition: transform 150ms var(--ease-out);
+}
+
+.cz-haul-card:hover {
+  transform: translateY(-2px);
+}
+
+.cz-haul-card:active {
+  transform: scale(0.99);
+}
+
+/* Stack of clothing cards — separate from the name/price label below. */
+.cz-haul-fan {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  max-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.cz-haul-fan-card {
+  position: absolute;
+  inset: 8% 12%;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--cz-card-solid);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+  will-change: transform;
+}
+
+.cz-haul-fan-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.cz-haul-fan-card.is-empty {
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--cz-accent) 18%, transparent), transparent 55%),
+    color-mix(in srgb, var(--cz-card-solid) 88%, #120c1c);
+  border-style: dashed;
+  border-color: var(--cz-hair-strong);
+}
+
+.cz-haul-fan-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 750;
+  color: var(--cz-faint);
+}
+
+.cz-haul-fan-more {
+  position: absolute;
+  right: 10%;
+  bottom: 10%;
+  z-index: 20;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(11, 11, 13, 0.78);
+  color: var(--cz-ink);
+  border: 1px solid var(--cz-hair);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Name + price live in their own pill — not glued to the clothing stack. */
+.cz-haul-card-label {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--cz-card-solid);
+  border: 1px solid var(--cz-hair);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.cz-haul-card-name {
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-haul-card-meta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-sub);
+}
+
+/* One clean horizontal row: back pill + haul title.
+   Opacity-only fade on mount — no translate hop, no blur. */
+.cz-haul-open-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  min-height: 36px;
+  animation: cz-haul-head-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes cz-haul-head-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Shared with .cz-total-count / .cz-total-chip-label: remounting on a `key`
+   change (item count, haul/shelf label) plays the same quiet opacity-only
+   settle as the haul title above it, instead of snapping to new text. */
+.cz-fade-text-in {
+  animation: cz-haul-head-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.cz-haul-back {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 6px 12px 6px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-card-solid) 72%, transparent);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.cz-haul-back:hover {
+  background: color-mix(in srgb, var(--cz-accent) 14%, var(--cz-card-solid));
+}
+
+.cz-haul-back:active {
+  transform: scale(0.97);
+}
+
+.cz-haul-back:focus,
+.cz-haul-back:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.cz-haul-open-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--cz-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Totals row never restyles on haul open — only its text/reel values change. */
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-haul-open-head,
+  .cz-fade-text-in {
+    animation: none !important;
+  }
+}
+
+/* ─── Total-cost chip + spinning reel counter (transitions.dev-style) ─── */
+.cz-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 12px;
+  margin: -8px 0 14px;
+}
+
+.cz-total-count {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cz-total-sep {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--cz-faint);
+  user-select: none;
+}
+
+/* Bare text, no pill — reads like quiet shelf chrome, same ink + weight as
+   the active Shelf tab. */
+.cz-total-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.cz-total-chip-label {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-total-chip .t-reel {
+  color: #4ade80;
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.t-reel {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+}
+
+.t-reel-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.t-reel-col {
+  position: relative;
+  overflow: hidden;
+  /* Soft-fade the window edges instead of hard-cropping. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 78%, transparent 100%);
+}
+
+.t-reel-strip {
+  display: flex;
+  flex-direction: column;
+  will-change: transform, filter;
+}
+
+.t-reel-digit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.t-reel-static {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+}
+
+.t-reel-filter-def {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-reel-strip {
+    transition: none !important;
+    filter: none !important;
+  }
+}
+
+/* ═══ Transitions.dev dropdown + combobox (haul / size) ═══ */
+:root {
+  --dropdown-open-dur: 250ms;
+  --dropdown-close-dur: 150ms;
+  --dropdown-pre-scale: 0.97;
+  --dropdown-closing-scale: 0.99;
+  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-dropdown {
+  transform-origin: top left;
+  transform: scale(var(--dropdown-pre-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dropdown-open-dur) var(--dropdown-ease),
+    opacity var(--dropdown-open-dur) var(--dropdown-ease);
+  will-change: transform, opacity;
+}
+.t-dropdown[data-origin="top-right"] { transform-origin: top right; }
+.t-dropdown[data-origin="top-center"] { transform-origin: top center; }
+.t-dropdown[data-origin="bottom-left"] { transform-origin: bottom left; }
+.t-dropdown[data-origin="bottom-center"] { transform-origin: bottom center; }
+.t-dropdown[data-origin="bottom-right"] { transform-origin: bottom right; }
+.t-dropdown.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.t-dropdown.is-closing {
+  transform: scale(var(--dropdown-closing-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dropdown-close-dur) var(--dropdown-ease),
+    opacity var(--dropdown-close-dur) var(--dropdown-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-dropdown { transition: none !important; }
+}
+
+.cz-combobox {
+  width: 100%;
+  position: relative;
+}
+
+.cz-combobox .cz-field-label {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.cz-combobox-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.cz-combobox-input.cz-field,
+.cz-combobox-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cz-ink) !important;
+  background: var(--cz-seg) !important;
+  border: 1px solid var(--cz-hair) !important;
+  border-radius: 12px;
+  padding: 10px 62px 10px 12px;
+  outline: none !important;
+  box-shadow: none !important;
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    border-color 140ms var(--ease-out),
+    background 140ms var(--ease-out);
+}
+
+.cz-combobox-input::placeholder {
+  color: var(--cz-placeholder);
+  opacity: 1;
+}
+
+/* No outer focus ring — open state is the chevron/menu, not a blue outline. */
+.cz-combobox-control.is-open .cz-combobox-input,
+.cz-combobox-input:focus,
+.cz-combobox-input:focus-visible,
+.cz-app[data-fashion="true"] .cz-combobox-input:focus-visible {
+  border-color: color-mix(in srgb, var(--cz-hair-strong) 70%, var(--cz-ink)) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.cz-combobox-clear {
+  position: absolute;
+  right: 34px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cz-faint);
+  cursor: pointer;
+  padding: 0;
+  transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.cz-combobox-clear:hover {
+  color: var(--cz-ink);
+  background: color-mix(in srgb, var(--cz-ink) 8%, transparent);
+}
+
+.cz-combobox-clear:focus,
+.cz-combobox-clear:focus-visible,
+.cz-combobox-chevron:focus,
+.cz-combobox-chevron:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.cz-combobox-chevron {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  padding: 0;
+  transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.cz-combobox-control.is-open .cz-combobox-chevron {
+  color: var(--cz-ink);
+  background: color-mix(in srgb, var(--cz-ink) 8%, transparent);
+}
+
+.cz-combobox-menu.t-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--cz-card-solid) 94%, #0a0612);
+  border: 1px solid var(--cz-hair-strong);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+/* Fixed-position menus (card-back haul/size) escape overflow:auto parents so
+   they never clip the photo fan under the field. */
+.cz-combobox-menu.t-dropdown.is-fixed {
+  right: auto;
+}
+
+.cz-combobox-option {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 10px;
+  cursor: pointer;
+  transition: background 120ms var(--ease-out);
+}
+
+.cz-combobox-option:hover,
+.cz-combobox-option:focus-visible {
+  background: color-mix(in srgb, var(--cz-accent) 14%, transparent);
+  outline: none;
+}
+
+.cz-combobox-option.is-current {
+  background: color-mix(in srgb, var(--cz-accent) 18%, transparent);
+  color: var(--cz-ink);
+}
+
+.cz-combobox-option.is-create,
+.cz-combobox-option.is-add-new {
+  color: var(--cz-accent-deep);
+  border-top: 1px solid var(--cz-hair);
+  border-radius: 0 0 10px 10px;
+  margin-top: 2px;
+}
+
+.cz-combobox-option.is-clear {
+  color: var(--cz-sub);
+  border-top: 1px solid var(--cz-hair);
+  margin-top: 2px;
+}
+
+.cz-combobox-option.is-clear:hover,
+.cz-combobox-option.is-clear:focus-visible {
+  color: var(--cz-error-text, #ff7ae8);
+  background: color-mix(in srgb, var(--cz-error-text, #ff7ae8) 12%, transparent);
+}
+
+.cz-combobox-option.is-empty {
+  color: var(--cz-faint);
+  font-weight: 550;
+  cursor: default;
+}
+
+/* Kill browser/default focus outlines inside the card-back modal chrome. */
+.cz-carousel-back button:focus,
+.cz-carousel-back button:focus-visible,
+.cz-carousel-edit button:focus,
+.cz-carousel-edit button:focus-visible,
+.cz-carousel-back input:focus,
+.cz-carousel-back input:focus-visible,
+.cz-carousel-edit input:focus,
+.cz-carousel-edit input:focus-visible,
+.cz-carousel-back select:focus,
+.cz-carousel-edit select:focus,
+.cz-carousel-back textarea:focus,
+.cz-carousel-edit textarea:focus {
+  outline: none !important;
+}
+
+.cz-app[data-fashion="true"] .cz-carousel-back .cz-field:focus-visible,
+.cz-app[data-fashion="true"] .cz-carousel-edit .cz-field:focus-visible,
+.cz-app[data-fashion="true"] .cz-carousel-back .cz-note-field:focus-visible,
+.cz-app[data-fashion="true"] .cz-carousel-edit .cz-note-field:focus-visible {
+  box-shadow: none !important;
+  outline: none !important;
+  border-color: color-mix(in srgb, var(--cz-hair-strong) 70%, var(--cz-ink)) !important;
+}
+
+/* ─── Accordion (transitions.dev) — used for haul expand ─── */
+.t-acc-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-acc[data-open="true"] .t-acc-panel {
+  grid-template-rows: 1fr;
+}
+.t-acc-panel-inner {
+  overflow: hidden;
+  opacity: 0;
+  filter: blur(2px);
+  transition:
+    opacity 250ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-acc[data-open="true"] .t-acc-panel-inner {
+  opacity: 1;
+  filter: blur(0);
+}
+.t-acc-chevron {
+  display: inline-flex;
+  transform: scaleY(1);
+  transform-origin: center;
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  color: var(--cz-sub);
+}
+.t-acc-chevron path { vector-effect: non-scaling-stroke; }
+.t-acc[data-open="true"] .t-acc-chevron {
+  transform: scaleY(-1);
+  color: var(--cz-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-acc-panel, .t-acc-panel-inner, .t-acc-chevron {
+    transition: none !important;
+  }
+}
+
+.cz-haul-acc {
+  width: 100%;
+}
+
+.cz-haul-acc .cz-field-label {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.cz-haul-acc-head {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-seg);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+/* Card-back haul field: slightly denser so Buy has room. */
+.cz-carousel-haul-block .cz-haul-acc .cz-field-label {
+  gap: 4px;
+}
+.cz-carousel-haul-block .cz-haul-acc-head {
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+
+.cz-haul-acc-head:hover {
+  border-color: color-mix(in srgb, var(--cz-hair-strong) 70%, var(--cz-ink));
+}
+
+.cz-haul-acc-head:focus,
+.cz-haul-acc-head:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.cz-haul-acc[data-open="true"] .cz-haul-acc-head {
+  border-color: color-mix(in srgb, var(--cz-hair-strong) 70%, var(--cz-ink));
+}
+
+.cz-haul-acc-value.is-empty {
+  color: var(--cz-placeholder);
+  font-weight: 550;
+}
+
+.cz-haul-acc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--cz-card-solid) 94%, #0a0612);
+  border: 1px solid var(--cz-hair-strong);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.cz-haul-acc-option {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 10px;
+  cursor: pointer;
+  transition: background 120ms var(--ease-out);
+}
+
+.cz-haul-acc-option:hover,
+.cz-haul-acc-option:focus-visible {
+  background: color-mix(in srgb, var(--cz-accent) 14%, transparent);
+  outline: none;
+}
+
+.cz-haul-acc-option.is-current {
+  background: color-mix(in srgb, var(--cz-accent) 18%, transparent);
+}
+
+.cz-haul-acc-option.is-create {
+  color: var(--cz-accent-deep);
+  border-top: 1px solid var(--cz-hair);
+  margin-top: 2px;
+  border-radius: 0 0 10px 10px;
+}
+
+.cz-haul-acc-option.is-clear {
+  color: var(--cz-sub);
+  border-top: 1px solid var(--cz-hair);
+  margin-top: 2px;
+}
+
+.cz-haul-acc-option.is-clear:hover {
+  color: var(--cz-error-text, #ff7ae8);
+  background: color-mix(in srgb, var(--cz-error-text, #ff7ae8) 12%, transparent);
+}
+
+.cz-haul-acc-empty {
+  padding: 8px 10px;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--cz-faint);
+}
+
+.cz-haul-acc-create {
+  display: flex;
+  gap: 6px;
+  padding: 6px 4px 4px;
+  border-top: 1px solid var(--cz-hair);
+  margin-top: 2px;
+}
+
+.cz-haul-acc-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cz-ink) !important;
+  background: var(--cz-seg) !important;
+  border: 1px solid var(--cz-hair) !important;
+  border-radius: 10px;
+  padding: 8px 10px;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.cz-haul-acc-create-btn {
+  appearance: none;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--cz-action-text);
+  background: var(--cz-action-fill);
+  opacity: 1;
+}
+
+.cz-haul-acc-create-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ─── Edit-mode photo manager ─── */
+.cz-edit-photos {
+  display: grid;
+  gap: 8px;
+  margin: 2px 0 4px;
+}
+
+.cz-edit-photos-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-edit-photos-count {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.cz-edit-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.cz-edit-photo-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--cz-hair);
+  background: var(--cz-card-solid);
+}
+
+.cz-edit-photo-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.cz-edit-photo-tile.is-cover {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cz-accent) 45%, transparent);
+}
+
+.cz-edit-photo-cover-badge {
+  position: absolute;
+  left: 5px;
+  bottom: 5px;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(11, 11, 13, 0.78);
+  color: var(--cz-ink);
+  border: 1px solid var(--cz-hair);
+}
+
+.cz-edit-photo-delete {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(12, 10, 16, 0.72);
+  color: #f87171;
+  cursor: pointer;
+  padding: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 140ms var(--ease-out);
+}
+
+.cz-edit-photo-delete:hover {
+  background: rgba(40, 12, 18, 0.88);
+}
+
+.cz-edit-photo-delete:focus,
+.cz-edit-photo-delete:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.cz-edit-photo-delete-icon {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.cz-edit-photo-add {
+  appearance: none;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px dashed var(--cz-hair-strong);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cz-seg) 70%, transparent);
+  color: var(--cz-sub);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.cz-edit-photo-add:hover {
+  border-color: color-mix(in srgb, var(--cz-accent) 40%, var(--cz-hair));
+  color: var(--cz-ink);
+  background: color-mix(in srgb, var(--cz-accent) 10%, transparent);
+}
+
+.cz-edit-photo-add:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.cz-edit-photo-add:focus,
+.cz-edit-photo-add:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.cz-carousel-haul-block {
+  margin: 0;
+  position: relative;
+  z-index: 5;
+  flex-shrink: 0;
+}
+
+.cz-carousel-haul-block .cz-field-label > span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* Buy glare shine — hover-triggered sweep over the primary action. */
+.cz-carousel-action-btn.primary {
+  overflow: hidden;
+}
+
+.cz-btn-glare {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 48px;
+  transform: translateX(-160%) skewX(-20deg);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 35%,
+    rgba(255, 255, 255, 0.34) 50%,
+    rgba(255, 255, 255, 0.08) 65%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+}
+
+.cz-carousel-action-btn.primary:hover .cz-btn-glare,
+.cz-carousel-action-btn.primary:focus-visible .cz-btn-glare {
+  opacity: 1;
+  animation: cz-btn-glare-sweep 0.85s ease-in-out infinite;
+  animation-delay: 0.05s;
+}
+
+@keyframes cz-btn-glare-sweep {
+  0% { transform: translateX(-160%) skewX(-20deg); }
+  100% { transform: translateX(420%) skewX(-20deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-btn-glare,
+  .cz-carousel-action-btn.primary:hover .cz-btn-glare {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
+
+/* Indexing chip row next to Shelf / Hauls / Inbox tabs. */
+.cz-view-tabs-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-view-tabs-row .cz-view-tabs {
+  margin-bottom: 0;
+  border-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.cz-index-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.cz-index-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 132px;
+  max-width: 180px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-card-solid) 88%, #0a0612);
+  border: 1px solid var(--cz-hair);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  color: var(--cz-ink);
+}
+
+.cz-index-chip-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #4ade80;
+  flex-shrink: 0;
+}
+
+.cz-index-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--cz-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cz-accent) 22%, transparent);
+  animation: cz-index-pulse 1.1s ease-in-out infinite;
+}
+
+.cz-index-chip-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+  flex-shrink: 0;
+}
+
+.cz-index-chip.is-done .cz-index-chip-label {
+  color: #4ade80;
+}
+
+.cz-index-chip-bar {
+  flex: 1;
+  min-width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-ink) 10%, transparent);
+  overflow: hidden;
+}
+
+.cz-index-chip-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--cz-gradient-1), var(--cz-gradient-2), var(--cz-gradient-3));
+  transition: width 160ms var(--ease-out);
+}
+
+.cz-index-chip.is-done .cz-index-chip-fill {
+  background: #4ade80;
+}
+
+@keyframes cz-index-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-index-chip-dot { animation: none; }
+  .cz-index-chip-fill { transition: none; }
 }

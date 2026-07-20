@@ -64,7 +64,7 @@ describe("Yupoo function", () => {
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
     expect(body).toMatchObject({
-      url: "https://mook-official.x.yupoo.com/albums/244505824",
+      url: "https://mook-official.x.yupoo.com/albums/244505824?uid=1",
       albumId: "244505824",
       sourceTitle: "￥229 M32126-109E",
       title: "M32126-109E",
@@ -98,6 +98,14 @@ describe("Yupoo function", () => {
     expect(_test.parseAlbumUrl(ALBUM)).toMatchObject({
       albumId: "244505824",
       sellerAccount: "mook-official",
+      url: "https://mook-official.x.yupoo.com/albums/244505824?uid=1",
+      requestUrl: "https://mook-official.x.yupoo.com/albums/244505824?uid=1",
+    });
+    // Missing uid must default to 1 so open links don't 404 in-browser.
+    expect(_test.parseAlbumUrl("https://mook-official.x.yupoo.com/albums/239021655")).toMatchObject({
+      albumId: "239021655",
+      url: "https://mook-official.x.yupoo.com/albums/239021655?uid=1",
+      requestUrl: "https://mook-official.x.yupoo.com/albums/239021655?uid=1",
     });
   });
 });

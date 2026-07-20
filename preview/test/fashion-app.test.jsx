@@ -39,6 +39,7 @@ function fashionItem(overrides = {}) {
     price: 229,
     currency: "CNY",
     seller: "Mook-official",
+    sellerAccount: "mook-official",
     batch: "M32126-109E",
     size: "XL",
     posterSize: "S",
@@ -125,9 +126,9 @@ describe("Fashion data and photos", () => {
     const { container } = render(<Credenza />);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    expect(await screen.findByText("Poster wore")).toBeInTheDocument();
-    expect(screen.getAllByText("S").length).toBeGreaterThan(0);
-    expect(screen.getByText("Recommended")).toBeInTheDocument();
+    // Product-sheet back: sizing is quiet chips ("Poster S" / "Rec XL"), not tile labels.
+    expect(await screen.findByText("Poster S")).toBeInTheDocument();
+    expect(screen.getByText("Rec XL")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Buy" })).toBeInTheDocument();
     expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toContain("photo.yupoo.com");
   });
@@ -191,21 +192,27 @@ describe("Fashion card-back navigation and editing", () => {
     expect(screen.getByText("Size info")).toBeInTheDocument();
     fireEvent.pointerDown(outside);
     fireEvent.click(outside);
-    expect(screen.queryByText("Size info")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Card details" })).toBeInTheDocument();
+    // Bubble close is animated; wait for the shell to unmount.
+    await waitFor(() => expect(screen.queryByText("Size info")).not.toBeInTheDocument());
+    // Still on the back face (no "Card details" title anymore).
+    expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
+    expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("heading", { name: "Edit card" }));
-    await user.clear(screen.getByLabelText("Batch"));
-    await user.type(screen.getByLabelText("Batch"), "Discard me");
+    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    const batchField = await screen.findByLabelText("Batch");
+    await user.clear(batchField);
+    await user.type(batchField, "Discard me");
+    // Outside click flushes write-through edit and returns to details (still flipped).
     fireEvent.pointerDown(outside);
     fireEvent.click(outside);
-    expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Card details" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
+    expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByLabelText("Batch")).toHaveValue("Original");
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    // Write-through: the typed batch is kept, not discarded.
+    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    expect(await screen.findByLabelText("Batch")).toHaveValue("Discard me");
+    await user.click(screen.getByRole("button", { name: "Back to card" }));
     fireEvent.pointerDown(outside);
     fireEvent.click(outside);
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
@@ -219,44 +226,129 @@ describe("Fashion card-back navigation and editing", () => {
     await user.click(screen.getByRole("button", { name: "Sizes" }));
 
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.queryByText("Size info")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Card details" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Size info")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
+    expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    await screen.findByLabelText("Batch");
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Card details" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
+    expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
   });
 
-  it("saves Batch only from edit and discards Cancel and header-back drafts", async () => {
+  it("write-through saves Batch from edit and keeps it after exit paths", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ batch: "Original" })]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     expect(screen.queryByText("Original")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.clear(screen.getByLabelText("Batch"));
-    await user.type(screen.getByLabelText("Batch"), "Saved batch");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(screen.queryByText("Saved batch")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByLabelText("Batch")).toHaveValue("Saved batch");
-    await user.clear(screen.getByLabelText("Batch"));
-    await user.type(screen.getByLabelText("Batch"), "Cancelled");
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByLabelText("Batch")).toHaveValue("Saved batch");
-    await user.clear(screen.getByLabelText("Batch"));
-    await user.type(screen.getByLabelText("Batch"), "Back discarded");
-    await user.click(screen.getByRole("button", { name: "Back to card details" }));
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByLabelText("Batch")).toHaveValue("Saved batch");
+    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    let batchField = await screen.findByLabelText("Batch");
+    await user.clear(batchField);
+    await user.type(batchField, "Saved batch");
+    // Save-check (header) commits write-through and exits edit.
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Saved batch"));
+
+    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    batchField = await screen.findByLabelText("Batch");
+    expect(batchField).toHaveValue("Saved batch");
+    await user.clear(batchField);
+    await user.type(batchField, "Also kept");
+    // Back chevron also flushes write-through — nothing is discarded.
+    await user.click(screen.getByRole("button", { name: "Back to card" }));
+    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    expect(await screen.findByLabelText("Batch")).toHaveValue("Also kept");
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Also kept"));
+  });
+
+  it("lists hauls and opens one to browse only its cards", async () => {
+    installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({
+          id: "fashion-1",
+          title: "Summer tee",
+          project: "Summer Europe",
+          weidianUrl: "https://weidian.com/item.html?itemID=1",
+        }),
+        fashionItem({
+          id: "fashion-2",
+          title: "Winter jacket",
+          project: "Winter dump",
+          weidianUrl: "https://weidian.com/item.html?itemID=2",
+        }),
+        fashionItem({
+          id: "fashion-3",
+          title: "Loose find",
+          project: "",
+          weidianUrl: "https://weidian.com/item.html?itemID=3",
+        }),
+      ]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("tab", { name: /Hauls/i }));
+    expect(await screen.findByText("Your hauls")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Summer Europe/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Winter dump/i })).toBeInTheDocument();
+    // Unsorted was removed — items without a haul stay on the shelf only.
+    expect(screen.queryByRole("button", { name: /Unsorted/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Summer Europe/i }));
+    expect(await screen.findByRole("heading", { name: "Summer Europe" })).toBeInTheDocument();
+    // Morph may keep the carousel briefly hidden; wait for the open-haul card.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Flip Summer tee/i })).toBeInTheDocument()
+    );
+    expect(screen.queryByRole("button", { name: /Flip Winter jacket/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /All hauls/i }));
+    expect(await screen.findByText("Your hauls")).toBeInTheDocument();
+  });
+
+  it("opens a full-face actions panel from the dots and never uses a browser prompt", async () => {
+    const promptSpy = vi.spyOn(window, "prompt").mockImplementation(() => "Nope");
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ project: "Summer haul" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
+
+    const edit = screen.getByRole("button", { name: "Edit card" });
+    expect(edit).toBeInTheDocument();
+    expect(edit).not.toHaveTextContent("Edit");
+    expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Buy" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Card actions" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Buy" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+    expect(promptSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("menuitem", { name: /Move to haul/i }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Move to haul" })).toBeInTheDocument());
+    const haulInput = screen.getByPlaceholderText("e.g. Summer Europe");
+    await user.clear(haulInput);
+    await user.type(haulInput, "Winter dump");
+    await user.click(screen.getByRole("button", { name: "Save haul" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].project).toBe("Winter dump"));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("menuitem", { name: "Remove from haul" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].project).toBe(""));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Buy" })).toBeInTheDocument());
+    promptSpy.mockRestore();
   });
 });
 
@@ -265,18 +357,23 @@ describe("Fashion morph controls and favorites", () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    const search = await screen.findByRole("searchbox", { name: "Search your shelf" });
+    const search = await screen.findByRole("textbox", { name: "Search your shelf" });
 
-    await user.click(screen.getByRole("button", { name: "Focus search" }));
+    // Empty field: no Clear control (only appears once there is text).
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+    await user.click(search);
     expect(search).toHaveFocus();
     await user.type(search, "Palace");
+    expect(screen.getByRole("button", { name: "Clear search" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear search" }));
     expect(search).toHaveValue("");
     expect(search).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
     await user.type(search, "Nike");
     await user.keyboard("{Escape}");
     expect(search).toHaveValue("");
     expect(search).not.toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
     await user.keyboard("{Meta>}k{/Meta}");
     expect(search).toHaveFocus();
   });
@@ -284,7 +381,13 @@ describe("Fashion morph controls and favorites", () => {
   it("toggles the labeled Theme morph without changing preference values", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([fashionItem()]),
-      [PREFS_KEY]: JSON.stringify({ viewMode: "carousel", sortMode: "recent", theme: "light" }),
+      // colorwayVersion: 4 freezes the one-shot migrate so this test can start on light.
+      [PREFS_KEY]: JSON.stringify({
+        viewMode: "carousel",
+        sortMode: "recent",
+        theme: "light",
+        colorwayVersion: 4,
+      }),
     });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
@@ -311,15 +414,20 @@ describe("Fashion morph controls and favorites", () => {
     const user = userEvent.setup();
     render(<Credenza />);
 
-    const stringFavorite = await screen.findByRole("button", { name: "Add String favorite to favorites" });
-    const realFavorite = screen.getByRole("button", { name: "Remove Real favorite from favorites" });
+    const stringFavorite = await screen.findByRole("button", { name: "Star String favorite" });
+    const realFavorite = screen.getByRole("button", { name: "Unstar Real favorite" });
     expect(stringFavorite).toHaveAttribute("aria-pressed", "false");
     expect(realFavorite).toHaveAttribute("aria-pressed", "true");
     await user.click(stringFavorite);
-    expect(screen.getByRole("button", { name: "Remove String favorite from favorites" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Unstar String favorite" })).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].favorite).toBe(true));
+    // Toggle back off — star must unstar cleanly.
+    await user.click(screen.getByRole("button", { name: "Unstar String favorite" }));
+    expect(screen.getByRole("button", { name: "Star String favorite" })).toHaveAttribute("aria-pressed", "false");
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].favorite).toBe(false));
+    await user.click(screen.getByRole("button", { name: "Star String favorite" }));
 
     await user.click(screen.getByRole("button", { name: "Card view" }));
-    expect(await screen.findByRole("button", { name: "Remove String favorite from favorites" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("button", { name: "Unstar String favorite" })).toHaveAttribute("aria-pressed", "true");
   });
 });

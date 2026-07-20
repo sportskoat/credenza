@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronLeft, ChevronRight, Moon, Pen, Search, Star, Sun, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Moon, MoreHorizontal, Pen, Plus, Search, Star, Sun, Trash2, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -19,81 +20,75 @@ import "./credenza-fashion.css";
 // ═══════════════════════════════════════════════════════════════════════════════════
 
 // Theme-driven palette: components reference CSS variables; the app root sets them
-// per theme. Two modes: light (deep violet, current default) and rainbow (dark
-// base with a luminous rainbow arc across the top).
+// per theme. Two modes:
+//   light  = Horizon #003973 + Mae #E5E5BE (deep ocean + soft sand)
+//   rainbow (prefs key) = Moonwalker dark — pure black #000000 + slate #152331
 const PALETTES = {
-  // Light variant: deep violet-black with hot-pink / cyan accents.
+  // Horizon + Mae light: deep ocean field, sand ink, warm cream surfaces.
   light: {
-    "--cz-bg": "#0d0818",
-    "--cz-bg-elevated": "#130d22",
-    "--cz-card": "rgba(26, 18, 48, 0.68)",
-    "--cz-card-solid": "#1a1330",
-    "--cz-hair": "rgba(255, 255, 255, 0.11)",
-    "--cz-hair-strong": "rgba(255, 255, 255, 0.20)",
-    "--cz-ink": "#f8f7ff",
-    "--cz-sub": "#a8a5c2",
-    "--cz-faint": "#716d8f",
-    "--cz-seg": "rgba(255, 255, 255, 0.08)",
-    "--cz-accent": "#ff38cc",
-    "--cz-accent-bg": "rgba(255, 56, 204, 0.18)",
-    "--cz-accent-deep": "#ff7ae8",
-    "--cz-favorite": "#60a5fa",
-    "--cz-favorite-bg": "rgba(96, 165, 250, 0.16)",
-    "--cz-action-fill": "linear-gradient(135deg, #ff38cc 0%, #00f5ff 100%)",
-    "--cz-action-text": "#050208",
-    "--cz-action-muted-bg": "rgba(255, 56, 204, 0.14)",
-    "--cz-action-muted-text": "#ff7ae8",
-    "--cz-focus": "#ff38cc",
-    "--cz-placeholder": "#716d8f",
-    "--cz-selection": "rgba(255, 56, 204, 0.30)",
-    "--cz-selection-text": "#f8f7ff",
-    "--cz-error-bg": "rgba(255, 56, 204, 0.12)",
-    "--cz-error-text": "#ff7ae8",
-    "--cz-glow": "rgba(255, 56, 204, 0.45)",
-    "--cz-glow-weak": "rgba(0, 245, 255, 0.18)",
-    "--cz-gradient-1": "#ff38cc",
-    "--cz-gradient-2": "#ff7ae8",
-    "--cz-gradient-3": "#00f5ff",
+    "--cz-bg": "#003973",
+    "--cz-bg-elevated": "#0a4a8a",
+    "--cz-card": "rgba(229, 229, 190, 0.14)",
+    "--cz-card-solid": "#0d4a86",
+    "--cz-hair": "rgba(229, 229, 190, 0.22)",
+    "--cz-hair-strong": "rgba(229, 229, 190, 0.38)",
+    "--cz-ink": "#E5E5BE",
+    "--cz-sub": "rgba(229, 229, 190, 0.78)",
+    "--cz-faint": "rgba(229, 229, 190, 0.52)",
+    "--cz-seg": "rgba(229, 229, 190, 0.12)",
+    "--cz-accent": "#E5E5BE",
+    "--cz-accent-bg": "rgba(229, 229, 190, 0.16)",
+    "--cz-accent-deep": "#f2f2d4",
+    "--cz-favorite": "#E5E5BE",
+    "--cz-favorite-bg": "rgba(229, 229, 190, 0.14)",
+    "--cz-action-fill": "linear-gradient(135deg, #E5E5BE 0%, #f4f4dc 100%)",
+    "--cz-action-text": "#003973",
+    "--cz-action-muted-bg": "rgba(229, 229, 190, 0.92)",
+    "--cz-action-muted-text": "#003973",
+    "--cz-focus": "#E5E5BE",
+    "--cz-placeholder": "rgba(229, 229, 190, 0.52)",
+    "--cz-selection": "rgba(229, 229, 190, 0.28)",
+    "--cz-selection-text": "#003973",
+    "--cz-error-bg": "rgba(255, 120, 120, 0.16)",
+    "--cz-error-text": "#ffc4c4",
+    "--cz-glow": "rgba(229, 229, 190, 0.35)",
+    "--cz-glow-weak": "rgba(0, 57, 115, 0.35)",
+    "--cz-gradient-1": "#003973",
+    "--cz-gradient-2": "#1a6bb0",
+    "--cz-gradient-3": "#E5E5BE",
   },
-  // Rainbow variant: very dark base with a large luminous rainbow arc across the
-  // top. Text stays white; accents pull from the arc (red → orange → yellow →
-  // green → blue).
+  // Moonwalker dark: pure black field, slate surfaces (#152331), cool steel accents.
   rainbow: {
-    "--cz-bg": "#05070a",
-    "--cz-bg-elevated": "#080b14",
-    "--cz-card": "rgba(10, 12, 22, 0.72)",
-    "--cz-card-solid": "#0a0c16",
+    "--cz-bg": "#000000",
+    "--cz-bg-elevated": "#0a1018",
+    "--cz-card": "rgba(21, 35, 49, 0.82)",
+    "--cz-card-solid": "#152331",
     "--cz-hair": "rgba(255, 255, 255, 0.10)",
     "--cz-hair-strong": "rgba(255, 255, 255, 0.18)",
-    "--cz-ink": "#f8f9ff",
-    "--cz-sub": "#a8adc2",
-    "--cz-faint": "#6b7188",
+    "--cz-ink": "#f2f5f8",
+    "--cz-sub": "#9aabba",
+    "--cz-faint": "#6a7a8a",
     "--cz-seg": "rgba(255, 255, 255, 0.07)",
-    "--cz-accent": "#00d4ff",
-    "--cz-accent-bg": "rgba(0, 212, 255, 0.18)",
-    "--cz-accent-deep": "#5ce1ff",
-    "--cz-favorite": "#60a5fa",
-    "--cz-favorite-bg": "rgba(96, 165, 250, 0.16)",
-    "--cz-action-fill": "linear-gradient(135deg, #ff2d55 0%, #ff9500 50%, #00a8e8 100%)",
-    "--cz-action-text": "#050208",
-    "--cz-action-muted-bg": "rgba(0, 212, 255, 0.14)",
-    "--cz-action-muted-text": "#5ce1ff",
-    "--cz-focus": "#00d4ff",
-    "--cz-placeholder": "#6b7188",
-    "--cz-selection": "rgba(0, 212, 255, 0.30)",
-    "--cz-selection-text": "#f8f9ff",
-    "--cz-error-bg": "rgba(255, 45, 85, 0.12)",
-    "--cz-error-text": "#ff5c7c",
-    "--cz-glow": "rgba(0, 212, 255, 0.45)",
-    "--cz-glow-weak": "rgba(255, 149, 0, 0.18)",
-    "--cz-gradient-1": "#ff2d55",
-    "--cz-gradient-2": "#ff9500",
-    "--cz-gradient-3": "#00a8e8",
-    "--cz-rainbow-red": "#ff2d55",
-    "--cz-rainbow-orange": "#ff9500",
-    "--cz-rainbow-yellow": "#ffcc00",
-    "--cz-rainbow-green": "#34c759",
-    "--cz-rainbow-blue": "#00a8e8",
+    "--cz-accent": "#8eb6d4",
+    "--cz-accent-bg": "rgba(142, 182, 212, 0.16)",
+    "--cz-accent-deep": "#b8d4ea",
+    "--cz-favorite": "#8eb6d4",
+    "--cz-favorite-bg": "rgba(142, 182, 212, 0.14)",
+    "--cz-action-fill": "linear-gradient(135deg, #1e3a52 0%, #8eb6d4 100%)",
+    "--cz-action-text": "#000000",
+    "--cz-action-muted-bg": "rgba(232, 240, 248, 0.96)",
+    "--cz-action-muted-text": "#152331",
+    "--cz-focus": "#8eb6d4",
+    "--cz-placeholder": "#6a7a8a",
+    "--cz-selection": "rgba(142, 182, 212, 0.28)",
+    "--cz-selection-text": "#f2f5f8",
+    "--cz-error-bg": "rgba(220, 80, 90, 0.14)",
+    "--cz-error-text": "#f08a92",
+    "--cz-glow": "rgba(142, 182, 212, 0.32)",
+    "--cz-glow-weak": "rgba(21, 35, 49, 0.55)",
+    "--cz-gradient-1": "#152331",
+    "--cz-gradient-2": "#2a4a66",
+    "--cz-gradient-3": "#8eb6d4",
   },
 };
 
@@ -131,23 +126,84 @@ const TYPES = {
 const CATEGORIES = {
   shirt: { label: "Shirts", dot: "#5AC8FA" },
   pants: { label: "Pants", dot: "#FF9500" },
+  shorts: { label: "Shorts", dot: "#FFB340" },
   shoes: { label: "Shoes", dot: "#34C759" },
   outerwear: { label: "Outerwear", dot: "#AF52DE" },
   accessory: { label: "Accessories", dot: "#FF4500" },
+  socks: { label: "Socks", dot: "#BF5AF2" },
   bag: { label: "Bags", dot: "#FFD60A" },
   hat: { label: "Hats", dot: "#64D2FF" },
   other: { label: "Other", dot: "#8E8E93" },
 };
 
-// "¥78 · $11.50" — original price with the resolver's USD conversion when known.
-function priceLabel(item) {
-  if (item.price == null) return "";
-  const sym = item.currency === "CNY" ? "¥" : item.currency === "USD" ? "$" : item.currency + " ";
-  let out = sym + item.price;
-  if (item.priceUsd != null && item.currency !== "USD") {
-    out += " · $" + (Number.isInteger(item.priceUsd) ? item.priceUsd : item.priceUsd.toFixed(2));
+// Local category guess from free text (Yupoo title/description, review notes).
+// Returns a CATEGORIES key or "" when nothing confident matches.
+function guessFashionCategory(text) {
+  const t = String(text || "").toLowerCase();
+  if (!t.trim()) return "";
+  if (/\b(shoe|shoes|sneaker|sneakers|jordan|dunk|af1|yeezy|boot|boots|slide|slides|sandal|loafer|trainer)\b/.test(t)) return "shoes";
+  if (/\b(hoodie|hoodies|jacket|jackets|coat|coats|parka|puffer|windbreaker|outerwear|varsity|bomber)\b/.test(t)) return "outerwear";
+  if (/\b(short|shorts|trunks|swim short)\b/.test(t)) return "shorts";
+  if (/\b(pant|pants|jean|jeans|trouser|trousers|cargo|jogger|joggers|sweatpant)\b/.test(t)) return "pants";
+  if (/\b(sock|socks|crew sock)\b/.test(t)) return "socks";
+  if (/\b(hat|hats|cap|caps|beanie|bucket hat|snapback)\b/.test(t)) return "hat";
+  if (/\b(bag|bags|backpack|tote|duffel|crossbody|sling)\b/.test(t)) return "bag";
+  if (/\b(belt|watch|sunglass|sunglasses|wallet|scarf|glove|gloves|chain|necklace|bracelet)\b/.test(t)) return "accessory";
+  if (/\b(tee|t-shirt|tshirt|shirt|shirts|jersey|jerseys|polo|top|crewneck|longsleeve|blouse)\b/.test(t)) return "shirt";
+  // Chinese marketplace crumbs that sometimes appear in Yupoo descriptions.
+  if (/鞋|运动鞋|球鞋/.test(t)) return "shoes";
+  if (/短裤/.test(t)) return "shorts";
+  if (/裤|牛仔裤/.test(t)) return "pants";
+  if (/卫衣|外套|棉服|羽绒服|夹克/.test(t)) return "outerwear";
+  if (/袜/.test(t)) return "socks";
+  if (/帽/.test(t)) return "hat";
+  if (/包|背包/.test(t)) return "bag";
+  if (/T恤|短袖|长袖|衬衫|球衣|卫衣/.test(t) && !/外套/.test(t)) return "shirt";
+  return "";
+}
+
+// USD-first display. Prefer the resolved USD conversion; fall back to a raw
+// USD price; only show CNY alone when no USD is known. Secondary currency
+// trails after a middle-dot when both are available.
+// Settings will later let people flip primary currency — see
+// docs/settings-toggles.md.
+function formatMoney(amount, currency) {
+  if (amount == null || !isFinite(Number(amount))) return "";
+  const n = Number(amount);
+  const pretty =
+    currency === "USD"
+      ? (Number.isInteger(n) ? String(n) : n.toFixed(2))
+      : Number.isInteger(n)
+        ? String(n)
+        : String(Math.round(n * 100) / 100);
+  if (currency === "USD") return "$" + pretty;
+  if (currency === "CNY") return "¥" + pretty;
+  return currency + " " + pretty;
+}
+
+function itemUsdAmount(item) {
+  if (item.priceUsd != null && isFinite(item.priceUsd)) return item.priceUsd;
+  if (item.price != null && isFinite(item.price) && (!item.currency || item.currency === "USD")) {
+    return item.price;
   }
-  return out;
+  return null;
+}
+
+function priceLabel(item) {
+  if (item.price == null && item.priceUsd == null) return "";
+  const currency = item.currency || "CNY";
+  const usd = itemUsdAmount(item);
+  const cny =
+    currency === "CNY" && item.price != null && isFinite(item.price) ? item.price : null;
+
+  if (usd != null) {
+    let out = formatMoney(usd, "USD");
+    if (cny != null) out += " · " + formatMoney(cny, "CNY");
+    return out;
+  }
+  if (cny != null) return formatMoney(cny, "CNY");
+  if (item.price != null) return formatMoney(item.price, currency);
+  return "";
 }
 
 // Compact size run from resolved variants: "S · M · L" or "S–XXL · 6 sizes".
@@ -170,6 +226,11 @@ const FIND_STATUS_COLORS = {
 
 const DAY_MS = 864e5;
 const WEEK_MS = 7 * DAY_MS;
+
+// Card-back "product sheet" hierarchy (price-forward, quiet haul chip, flat
+// photo strip). Flip to false to restore the previous form-style back face
+// without hunting through diffs — one constant, full revert.
+const CARD_BACK_PRODUCT_SHEET = true;
 const RESURFACE_MIN_AGE_MS = 14 * DAY_MS;
 const GEM_MIN_AGE_MS = 30 * DAY_MS;
 const DISMISS_COOLDOWN_MS = 7 * DAY_MS;
@@ -281,6 +342,22 @@ function yupooAlbumIdentity(raw) {
   }
 }
 
+// Yupoo album pages often 404 in the browser without ?uid=… — keep a supplied
+// uid, otherwise default to 1 so enrichment/open never drop a working paste.
+function ensureYupooAlbumUid(raw) {
+  if (!raw || typeof raw !== "string") return raw;
+  try {
+    const url = new URL(raw.trim());
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (!/(^|\.)yupoo\.com$/.test(host)) return raw;
+    if (!/\/albums\/\d+/i.test(url.pathname)) return raw;
+    if (!url.searchParams.get("uid")) url.searchParams.set("uid", "1");
+    return url.href;
+  } catch {
+    return raw;
+  }
+}
+
 // First resolvable buy URL on an item: the primary URL or any paired link.
 function resolvableBuyUrl(item) {
   if (item.url && weidianItemId(item.url)) return item.url;
@@ -301,9 +378,9 @@ function yupooAlbumUrl(item) {
       return false;
     }
   }
-  if (item.url && isYupoo(item.url)) return item.url;
+  if (item.url && isYupoo(item.url)) return ensureYupooAlbumUid(item.url);
   for (const l of item.links || []) {
-    if (l && l.url && isYupoo(l.url)) return l.url;
+    if (l && l.url && isYupoo(l.url)) return ensureYupooAlbumUid(l.url);
   }
   return null;
 }
@@ -465,15 +542,68 @@ function localTitle(parsed, rawText) {
     const m = url.match(/spotify\.com\/(track|episode|show|album|playlist|artist)/);
     return m ? "Spotify " + m[1] : "On Spotify";
   }
+  // Yupoo: prefer album/item codes over the generic path segment "Albums".
+  if (/(^|\.)yupoo\.com$/.test(host)) {
+    try {
+      const u = new URL(url);
+      const album = u.pathname.match(/\/albums\/(\d+)/i);
+      const account = (host.match(/^([^.]+)(?:\.x)?\.yupoo\.com$/) || [])[1];
+      if (album) {
+        // Placeholder until enrichment fills the real album/batch title.
+        return account ? account + " · " + album[1] : "Album " + album[1];
+      }
+      if (account) return account;
+    } catch (e) {}
+  }
   try {
     const path = new URL(url).pathname.replace(/\/+$/, "");
     const segs = path.split("/").filter(Boolean);
     for (let i = segs.length - 1; i >= 0; i--) {
       const t = prettifySlug(segs[i]);
-      if (t && t.length > 3) return t.length > 72 ? t.slice(0, 69).trimEnd() + "…" : t;
+      // Skip generic marketplace path crumbs that used to become the whole title.
+      if (!t || t.length <= 3) continue;
+      if (/^(albums?|album|collections?|categories?|items?|products?|shops?|stores?)$/i.test(t)) continue;
+      return t.length > 72 ? t.slice(0, 69).trimEnd() + "…" : t;
     }
   } catch (e) {}
   return host || "Saved link";
+}
+
+// Best display title from Yupoo/Weidian enrichment payloads. Prefer human
+// product labels over pure batch codes when both exist.
+function fashionDisplayTitle(data) {
+  if (!data || typeof data !== "object") return "";
+  const candidates = [data.translatedTitle, data.productTitle, data.title, data.sourceTitle, data.batch];
+  for (const raw of candidates) {
+    const t = String(raw || "").trim();
+    if (!t) continue;
+    // Strip leading currency markers like "￥209 M29855-51E" → keep the code,
+    // but if there's real words after price keep the words.
+    const noPrice = t.replace(/^[￥¥$€£]\s*[\d.,]+\s*/u, "").trim();
+    if (noPrice) return noPrice.length > 72 ? noPrice.slice(0, 69).trimEnd() + "…" : noPrice;
+  }
+  return "";
+}
+
+// Store homepage for a Yupoo seller (or generic host fallback).
+function sellerStoreUrl(item) {
+  if (!item) return null;
+  const account = String(item.sellerAccount || "").trim();
+  if (account) return "https://" + account + ".x.yupoo.com/";
+  const album = yupooAlbumUrl(item);
+  if (album) {
+    try {
+      const u = new URL(album);
+      return u.origin + "/";
+    } catch (e) {}
+  }
+  if (item.url) {
+    try {
+      const u = new URL(item.url);
+      if (/(^|\.)yupoo\.com$/i.test(u.hostname)) return u.origin + "/";
+    } catch (e) {}
+  }
+  return null;
 }
 
 function localSummary(parsed, rawText) {
@@ -846,7 +976,11 @@ function migrateItem(old) {
     price: typeof old.price === "number" && !isNaN(old.price) ? old.price : null,
     currency: old.currency || "CNY",
     priceUsd: typeof old.priceUsd === "number" && !isNaN(old.priceUsd) ? old.priceUsd : null,
-    category: CATEGORIES[old.category] ? old.category : "",
+    category: CATEGORIES[old.category]
+      ? old.category
+      : guessFashionCategory(
+          [old.title, old.summary, old.sizeNotes, old.batch, old.rawText, old.note].filter(Boolean).join(" ")
+        ),
     variants: Array.isArray(old.variants)
       ? old.variants.filter((g) => g && typeof g.title === "string" && Array.isArray(g.values))
       : [],
@@ -1493,7 +1627,13 @@ function mergeFashionImages(...groups) {
 function shouldReplaceFashionTitle(title, url) {
   const clean = String(title || "").trim();
   if (!clean || clean === url) return true;
-  return /^(albums?|article|read|untitled|saved link|item)$/i.test(clean);
+  if (/^(albums?|article|read|untitled|saved link|item)$/i.test(clean)) return true;
+  // Placeholder titles from localTitle for Yupoo album/store roots.
+  if (/^[a-z0-9-]+\s·\s\d+$/i.test(clean)) return true;
+  if (/^album\s+\d+$/i.test(clean)) return true;
+  // Pure numeric album ids or short batch-looking codes alone are fine to keep
+  // once enrichment has nothing better — only replace obvious path crumbs.
+  return false;
 }
 
 function mergeFashionLinks(item, { albumUrl, buyUrl } = {}) {
@@ -1604,6 +1744,7 @@ const EASE = "cubic-bezier(0.2, 0.6, 0.2, 1)";
 const KEYFRAMES = `
 *, *::before, *::after { box-sizing: border-box; }
 .cz-shell { max-width: 1080px; margin: 0 auto; padding: 28px 28px 0; }
+@media (max-width: 480px) { .cz-shell { padding: 16px 14px 0; } }
 .cz-masthead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .cz-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--cz-ink); font-size: 12px; font-weight: 800; letter-spacing: .12em; }
 .cz-brand-mark { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--cz-ink); color: var(--cz-card); font-size: 14px; line-height: 1; letter-spacing: 0; }
@@ -1721,9 +1862,8 @@ function useNotification() {
   return { notification, notify, dismiss, pause, resume };
 }
 
-// Mouse-reactive holographic background. Multiple bright gradient blooms follow
-// the cursor/touch, blended screen-style over a dark base. Keeps text readable
-// by staying behind everything and using heavy blur + low opacity.
+// Horizon + Mae ambient — deep ocean field with soft sand-light blooms that
+// gently follow cursor/touch. Stays behind content; heavy blur keeps type clean.
 function HolographicBackground() {
   const [pos, setPos] = useState({ x: 50, y: 30 });
   const raf = useRef(null);
@@ -1772,23 +1912,22 @@ function HolographicBackground() {
         zIndex: 0,
         pointerEvents: "none",
         background: `
-          radial-gradient(circle at ${x}% ${y}%, rgba(255, 0, 212, 0.28) 0%, transparent 42%),
-          radial-gradient(circle at ${100 - x}% ${100 - y}%, rgba(0, 255, 255, 0.24) 0%, transparent 42%),
-          radial-gradient(circle at ${y}% ${x}%, rgba(255, 140, 0, 0.20) 0%, transparent 46%),
-          radial-gradient(circle at 50% 110%, rgba(120, 0, 255, 0.22) 0%, transparent 55%),
-          radial-gradient(circle at 20% 20%, rgba(0, 120, 255, 0.14) 0%, transparent 35%)
+          radial-gradient(circle at ${x}% ${y}%, rgba(229, 229, 190, 0.22) 0%, transparent 42%),
+          radial-gradient(circle at ${100 - x}% ${100 - y}%, rgba(26, 107, 176, 0.45) 0%, transparent 48%),
+          radial-gradient(circle at ${y}% ${x}%, rgba(229, 229, 190, 0.14) 0%, transparent 46%),
+          radial-gradient(circle at 50% 110%, rgba(0, 40, 90, 0.55) 0%, transparent 55%),
+          radial-gradient(circle at 18% 18%, rgba(229, 229, 190, 0.10) 0%, transparent 38%),
+          #003973
         `,
-        backgroundBlendMode: "screen",
-        filter: "blur(70px)",
-        opacity: 0.85,
+        filter: "blur(60px)",
+        opacity: 0.95,
       }}
     />
   );
 }
 
-// Luminous rainbow arc background. A large, soft gradient wave spans the top of
-// the viewport (red → orange → yellow → green → blue) over a near-black base.
-// Kept behind all content with heavy blur + low opacity so text stays readable.
+// Moonwalker dark ambient — pure black field with soft #152331 slate lifts.
+// Quiet depth only; no loud color wash.
 function RainbowBackground() {
   const [phase, setPhase] = useState(0);
   const raf = useRef(null);
@@ -1798,7 +1937,7 @@ function RainbowBackground() {
     if (reduced) return;
     let t = 0;
     const update = () => {
-      t += 0.003;
+      t += 0.0016;
       setPhase(t);
       raf.current = requestAnimationFrame(update);
     };
@@ -1806,35 +1945,64 @@ function RainbowBackground() {
     return () => cancelAnimationFrame(raf.current);
   }, [reduced]);
 
-  const drift = Math.sin(phase) * 3;
-  const drift2 = Math.cos(phase * 0.7) * 4;
+  const driftX = Math.sin(phase) * 3;
+  const driftY = Math.cos(phase * 0.7) * 2.5;
 
   return (
     <div
       aria-hidden="true"
+      className="cz-gradient-bg"
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 0,
         pointerEvents: "none",
-        background: `
-          radial-gradient(ellipse 130% 90% at ${50 + drift}% ${-10 + drift2}%,
-            rgba(255, 45, 85, 0.55) 0%,
-            rgba(255, 149, 0, 0.45) 18%,
-            rgba(255, 204, 0, 0.38) 36%,
-            rgba(52, 199, 89, 0.32) 54%,
-            rgba(0, 168, 232, 0.28) 72%,
-            transparent 92%
-          ),
-          radial-gradient(ellipse 100% 60% at 80% 10%, rgba(0, 212, 255, 0.18) 0%, transparent 60%),
-          radial-gradient(ellipse 100% 60% at 20% 15%, rgba(255, 45, 85, 0.16) 0%, transparent 55%),
-          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.04) 0%, transparent 50%),
-          #05070a
-        `,
-        filter: "blur(60px)",
-        opacity: 0.9,
+        overflow: "hidden",
+        background: "#000000",
       }}
-    />
+    >
+      {/* Soft slate moons — barely-there depth from #152331 */}
+      <div
+        style={{
+          position: "absolute",
+          inset: "-10%",
+          background: `
+            radial-gradient(ellipse 70% 55% at ${42 + driftX}% ${28 + driftY}%,
+              rgba(21, 35, 49, 0.95) 0%,
+              rgba(21, 35, 49, 0.45) 40%,
+              transparent 72%
+            ),
+            radial-gradient(ellipse 55% 50% at ${72 - driftX}% ${62 + driftY}%,
+              rgba(21, 35, 49, 0.72) 0%,
+              rgba(14, 24, 34, 0.28) 45%,
+              transparent 75%
+            ),
+            radial-gradient(ellipse 50% 40% at ${22 + driftY}% ${70 - driftX}%,
+              rgba(30, 48, 66, 0.40) 0%,
+              transparent 70%
+            ),
+            radial-gradient(ellipse 90% 60% at 50% 100%,
+              rgba(0, 0, 0, 0.98) 0%,
+              transparent 55%
+            )
+          `,
+          filter: "blur(48px)",
+          opacity: 0.9,
+          transform: `scale(1.05) translate(${driftX * 0.1}%, ${driftY * 0.08}%)`,
+        }}
+      />
+      {/* Thin cool rim light at the top — moonwalk edge */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `
+            linear-gradient(180deg, rgba(142, 182, 212, 0.06) 0%, transparent 22%),
+            radial-gradient(ellipse 80% 50% at 50% 0%, rgba(21, 35, 49, 0.55) 0%, transparent 60%)
+          `,
+        }}
+      />
+    </div>
   );
 }
 
@@ -1870,18 +2038,260 @@ function Pill({ children, onClick, primary, subtle, style, title, disabled = fal
   );
 }
 
-function MorphButton({ label, icon: Icon, activeIcon: ActiveIcon, onClick, ariaLabel, disabled = false, className = "", title }) {
+// ─── Spinning reel counter (transitions.dev-style odometer) ───
+// One column per digit; a clipped strip of 0-9 cells translates up, and a
+// vertical-only SVG feGaussianBlur gives the motion streak while travelling.
+const REEL_CELL = 16; // px per digit row
+const REEL_DUR = 900; // ms per column spin
+const REEL_STAGGER = 70; // ms between column starts, left to right
+const REEL_BLUR = 2.5; // px vertical streak at full speed
+const REEL_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
+
+function ReelDigit({ digit, index, reduced }) {
+  const [pos, setPos] = useState(reduced ? digit : 0);
+  const stripRef = useRef(null);
+  const blurRef = useRef(null);
+  const spinningRef = useRef(false);
+  const fid = "reel-blur-" + useId().replace(/[^a-zA-Z0-9]/g, "");
+
+  // Spin forward to the new digit, plus one full revolution for flavor.
+  useEffect(() => {
+    const delta = (digit - (pos % 10) + 10) % 10;
+    if (delta === 0) return;
+    spinningRef.current = true;
+    setPos(pos + delta + 10);
+  }, [digit, pos]);
+
+  // Drive the tween imperatively so the transition carries a per-column stagger.
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    if (reduced) {
+      strip.style.transition = "none";
+      strip.style.transform = "translateY(" + -pos * REEL_CELL + "px)";
+      return;
+    }
+    strip.style.transition =
+      "transform " + REEL_DUR + "ms " + REEL_EASE + " " + index * REEL_STAGGER + "ms";
+    strip.style.transform = "translateY(" + -pos * REEL_CELL + "px)";
+    // Only streak while actually travelling — the settle snap re-runs this
+    // effect and must not re-arm the blur.
+    if (spinningRef.current && blurRef.current)
+      blurRef.current.setAttribute("stdDeviation", "0 " + REEL_BLUR);
+  }, [pos, index, reduced]);
+
+  // Settle: kill the streak and snap the strip back into the 0-9 window (same
+  // digit, since cells repeat) so the strip never grows without bound.
+  const settle = () => {
+    if (!spinningRef.current) return;
+    spinningRef.current = false;
+    if (blurRef.current) blurRef.current.setAttribute("stdDeviation", "0 0");
+    const strip = stripRef.current;
+    if (strip) {
+      strip.style.transition = "none";
+      strip.style.transform = "translateY(" + -(pos % 10) * REEL_CELL + "px)";
+    }
+    setPos((p) => p % 10);
+  };
+
+  const cells = [];
+  for (let i = 0; i <= pos; i++) cells.push(i % 10);
+
+  return (
+    <span className="t-reel-col" style={{ height: REEL_CELL }} aria-hidden="true">
+      <svg className="t-reel-filter-def" focusable="false">
+        <filter id={fid} x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur ref={blurRef} in="SourceGraphic" stdDeviation="0 0" />
+        </filter>
+      </svg>
+      <span
+        ref={stripRef}
+        className="t-reel-strip"
+        style={{ transform: "translateY(" + -pos * REEL_CELL + "px)", filter: "url(#" + fid + ")" }}
+        onTransitionEnd={(e) => {
+          if (e.propertyName === "transform") settle();
+        }}
+      >
+        {cells.map((d, i) => (
+          <span key={i} className="t-reel-digit" style={{ height: REEL_CELL }}>
+            {d}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+function ReelCounter({ value }) {
   const reduced = usePrefersReducedMotion();
-  const [engaged, setEngaged] = useState(false);
-  const CurrentIcon = engaged ? ActiveIcon : Icon;
+  const text =
+    "$" +
+    Math.max(0, value).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  const len = text.length;
+  return (
+    <span className="t-reel">
+      {/* Real value for AT; the reels are decorative. */}
+      <span className="t-reel-sr">{text}</span>
+      {text.split("").map((ch, i) => {
+        // Key from the right so columns keep their identity as the total
+        // grows a new leading digit on the left.
+        const keyFromRight = len - 1 - i;
+        return /\d/.test(ch) ? (
+          <ReelDigit key={keyFromRight} digit={Number(ch)} index={i} reduced={reduced} />
+        ) : (
+          <span key={keyFromRight} className="t-reel-static" aria-hidden="true">
+            {ch}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function CapturePill({
+  hasInput,
+  canStashTab,
+  onCapture,
+  onStashTab,
+  onStashClipboard,
+  disabled = false,
+}) {
+  const reduced = usePrefersReducedMotion();
+  const isPrimary = Boolean(hasInput);
+  const suffix = canStashTab ? "this tab" : "clipboard";
+
+  const handleClick = () => {
+    if (disabled) return;
+    if (isPrimary) onCapture();
+    else if (canStashTab) onStashTab();
+    else onStashClipboard();
+  };
+
   return (
     <motion.button
       type="button"
-      className={("cz-morph-button " + className).trim()}
+      className="cz-pill cz-capture-pill"
+      onClick={handleClick}
+      disabled={disabled}
+      title={isPrimary ? "Stash" : canStashTab ? "Stash this tab" : "Stash clipboard"}
+      aria-label={isPrimary ? "Stash" : canStashTab ? "Stash this tab" : "Stash clipboard"}
+      initial={false}
+      style={{
+        fontFamily: FONT,
+        fontSize: 13,
+        fontWeight: 650,
+        letterSpacing: "-0.01em",
+        border: "none",
+        borderRadius: 999,
+        minHeight: 40,
+        minWidth: 0,
+        padding: "8px 14px",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.56 : 1,
+        whiteSpace: "nowrap",
+        position: "relative",
+        overflow: "hidden",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        isolation: "isolate",
+      }}
+    >
+      {/* Muted background layer */}
+      <motion.span
+        aria-hidden="true"
+        initial={false}
+        animate={{ opacity: isPrimary ? 0 : 1 }}
+        transition={{ duration: reduced ? 0 : 0.18 }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: 999,
+          background: ACTION_MUTED_BG,
+          zIndex: -1,
+        }}
+      />
+      {/* Gradient action background layer */}
+      <motion.span
+        aria-hidden="true"
+        initial={false}
+        animate={{ opacity: isPrimary ? 1 : 0 }}
+        transition={{
+          duration: reduced ? 0 : 0.2,
+          delay: reduced ? 0 : isPrimary ? 0.08 : 0,
+        }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: 999,
+          background: ACTION_FILL,
+          zIndex: -1,
+        }}
+      />
+      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+        <motion.span
+          layout
+          animate={{ color: isPrimary ? ACTION_TEXT : ACTION_MUTED_TEXT }}
+          transition={{
+            layout: { type: "spring", stiffness: 300, damping: 30 },
+            color: { duration: reduced ? 0 : 0.15, delay: reduced ? 0 : isPrimary ? 0.06 : 0 },
+          }}
+        >
+          Stash
+        </motion.span>
+        <AnimatePresence initial={false}>
+          {!isPrimary && (
+            <motion.span
+              key={suffix}
+              initial={reduced ? false : { opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={reduced ? undefined : { opacity: 0, width: 0 }}
+              transition={{
+                width: { duration: reduced ? 0 : 0.25, ease: "easeInOut" },
+                opacity: { duration: reduced ? 0 : 0.15, ease: "easeInOut" },
+              }}
+              style={{
+                display: "inline-block",
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                color: ACTION_MUTED_TEXT,
+              }}
+            >
+              <span style={{ display: "inline-block", marginLeft: "0.32em" }}>{suffix}</span>
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </span>
+    </motion.button>
+  );
+}
+
+function MorphButton({
+  label,
+  icon: Icon,
+  activeIcon: ActiveIcon,
+  onClick,
+  ariaLabel,
+  disabled = false,
+  className = "",
+  title,
+  iconOnly = false,
+}) {
+  const reduced = usePrefersReducedMotion();
+  const [engaged, setEngaged] = useState(false);
+  const CurrentIcon = engaged ? ActiveIcon : Icon;
+  const showLabel = Boolean(label) && !iconOnly;
+  return (
+    <motion.button
+      type="button"
+      className={("cz-morph-button " + (iconOnly || !showLabel ? "is-icon-only " : "") + className).trim()}
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel || label}
-      title={title}
+      title={title || label || ariaLabel}
       onMouseEnter={() => setEngaged(true)}
       onMouseLeave={() => setEngaged(false)}
       onFocus={() => setEngaged(true)}
@@ -1899,32 +2309,86 @@ function MorphButton({ label, icon: Icon, activeIcon: ActiveIcon, onClick, ariaL
             exit={reduced ? undefined : { opacity: 0, scale: 0.5 }}
             transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 600, damping: 25 }}
           >
-            <CurrentIcon size={16} strokeWidth={2.2} />
+            <CurrentIcon size={iconOnly || !showLabel ? 18 : 16} strokeWidth={2.2} />
           </motion.span>
         </AnimatePresence>
       </span>
-      <span>{label}</span>
+      {showLabel ? <span>{label}</span> : null}
     </motion.button>
   );
 }
 
 function FavoriteButton({ item, onToggle, className = "" }) {
   const favorite = item.favorite === true;
+  const rootRef = useRef(null);
+  const burstTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(burstTimer.current), []);
+
+  // transitions.dev-style burst: re-seed each dot's vector/velocity/delay/size
+  // per like so the spray never repeats, then replay the animation.
+  const burst = () => {
+    const el = rootRef.current;
+    if (!el) return;
+    const dots = el.querySelectorAll(".t-like-particles i");
+    dots.forEach((dot, i) => {
+      const angle = (360 / dots.length) * i + (Math.random() * 2 - 1) * 16;
+      const mag = 20 * (0.68 + Math.random() * 0.5);
+      const rad = (angle * Math.PI) / 180;
+      const s = dot.style;
+      s.setProperty("--px", (Math.cos(rad) * mag).toFixed(2) + "px");
+      s.setProperty("--py", (Math.sin(rad) * mag).toFixed(2) + "px");
+      s.setProperty("--pdur", "calc(600ms * " + (0.78 + Math.random() * 0.44).toFixed(3) + ")");
+      s.setProperty("--pdelay", Math.round(Math.random() * 70) + "ms");
+      s.setProperty("--p-end-scale", (0.35 + Math.random() * 0.4).toFixed(2));
+      s.setProperty("--psize", (0.6 + Math.random() * 0.8).toFixed(2));
+    });
+    el.classList.remove("is-bursting");
+    void el.offsetWidth; // reflow so the burst replays
+    el.classList.add("is-bursting");
+    clearTimeout(burstTimer.current);
+    burstTimer.current = setTimeout(() => el.classList.remove("is-bursting"), 750);
+  };
+
   return (
     <button
+      ref={rootRef}
       type="button"
-      className={("cz-favorite-button " + className + (favorite ? " is-favorite" : "")).trim()}
+      className={("cz-favorite-button t-like " + className).trim()}
+      data-liked={favorite ? "true" : "false"}
       aria-pressed={favorite}
-      aria-label={(favorite ? "Remove " : "Add ") + item.title + (favorite ? " from favorites" : " to favorites")}
-      title={favorite ? "Remove from favorites" : "Add to favorites"}
-      onPointerDown={(event) => event.stopPropagation()}
+      aria-label={(favorite ? "Unstar " : "Star ") + (item.title || "item")}
+      title={favorite ? "Unstar" : "Star"}
+      onPointerDown={(event) => {
+        // Keep carousel pan / flip from eating the heart hit.
+        event.preventDefault();
+        event.stopPropagation();
+      }}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onToggle(item.id);
+        if (!favorite) burst();
+        onToggle?.(item.id);
       }}
     >
-      <Star aria-hidden="true" size={18} strokeWidth={2} />
+      {/* Pop scale lives on the wrapper span, never the <svg> — transforming an
+          inline SVG makes Chromium rasterise it at 1× (pixelated on hi-DPI). */}
+      <span className="t-like-icon" aria-hidden="true">
+        <svg className="t-like-heart" width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M7.99511 3.42388C6.66221 1.8656 4.4395 1.44643 2.76947 2.87334C1.09944 4.30026 0.86432 6.68598 2.17581 8.3736C3.26622 9.77674 6.56619 12.7361 7.64774 13.6939C7.76874 13.801 7.82925 13.8546 7.89982 13.8757C7.96141 13.8941 8.02881 13.8941 8.0904 13.8757C8.16097 13.8546 8.22147 13.801 8.34248 13.6939C9.42403 12.7361 12.724 9.77674 13.8144 8.3736C15.1259 6.68598 14.9195 4.28525 13.2207 2.87334C11.522 1.46144 9.32801 1.8656 7.99511 3.42388Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      <span className="t-like-particles" aria-hidden="true">
+        {Array.from({ length: 8 }, (_, i) => (
+          <i key={i} />
+        ))}
+      </span>
     </button>
   );
 }
@@ -2209,7 +2673,7 @@ function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }) {
 }
 
 // Shared cover image: handles broken/missing images and renders a category-aware placeholder.
-function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, className, style, imgStyle }) {
+function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, className, style, imgStyle, fill = false }) {
   const [imgOk, setImgOk] = useState(true);
   const imageSrc = item.image || (item.videoId ? "https://i.ytimg.com/vi/" + item.videoId + "/hqdefault.jpg" : null);
 
@@ -2217,13 +2681,40 @@ function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, className, sty
     setImgOk(true);
   }, [imageSrc]);
 
+  // Carousel/card faces pass fill so the cover always paints the full image
+  // slot — aspect-ratio + maxHeight made price chips land at different Ys when
+  // titles/sellers reflowed the meta block under a variable-height image.
+  const boxStyle = fill
+    ? {
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block",
+        userSelect: "none",
+        WebkitUserDrag: "none",
+        ...imgStyle,
+      }
+    : {
+        width: "100%",
+        aspectRatio,
+        maxHeight,
+        objectFit: "cover",
+        display: "block",
+        userSelect: "none",
+        WebkitUserDrag: "none",
+        ...imgStyle,
+      };
+
   if (!imageSrc || !imgOk) {
     return (
       <CoverPlaceholder
         item={item}
-        aspectRatio={aspectRatio}
-        maxHeight={maxHeight}
-        style={style}
+        aspectRatio={fill ? undefined : aspectRatio}
+        maxHeight={fill ? undefined : maxHeight}
+        style={{
+          ...(fill ? { width: "100%", height: "100%", aspectRatio: "auto", maxHeight: "none" } : null),
+          ...style,
+        }}
       />
     );
   }
@@ -2233,15 +2724,10 @@ function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, className, sty
       className={className}
       src={imageSrc}
       alt=""
+      draggable={false}
+      onDragStart={(event) => event.preventDefault()}
       onError={() => setImgOk(false)}
-      style={{
-        width: "100%",
-        aspectRatio,
-        maxHeight,
-        objectFit: "cover",
-        display: "block",
-        ...imgStyle,
-      }}
+      style={boxStyle}
     />
   );
 }
@@ -2309,7 +2795,9 @@ function Row({ item, selected, onClick }) {
         <img
           src={item.image}
           alt=""
-          style={{ width: 40, height: 40, objectFit: "cover", flexShrink: 0, display: "block" }}
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
+          style={{ width: 40, height: 40, objectFit: "cover", flexShrink: 0, display: "block", userSelect: "none", WebkitUserDrag: "none" }}
         />
       ) : (
         <BrandIcon type={item.type} host={item.host} size={13} />
@@ -2356,8 +2844,31 @@ function Row({ item, selected, onClick }) {
   );
 }
 
-function Field({ label, value, onChange, placeholder, rows }) {
+function Field({ label, value, onChange, placeholder, rows, suggestions, onCommit, emptyHint, listLabel, allowCreate }) {
   const id = useId();
+  // Combobox fields use the organic transitions.dev dropdown instead of the
+  // native datalist (which paints a gray OS menu on top of the card).
+  if (!rows && Array.isArray(suggestions)) {
+    const isHaul = label && /haul/i.test(label);
+    return (
+      <ComboboxField
+        label={label}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        suggestions={suggestions}
+        onCommit={onCommit}
+        emptyHint={emptyHint}
+        listLabel={listLabel}
+        allowCreate={allowCreate !== false}
+        createVerb={isHaul ? "Create" : "Use"}
+        addNewLabel={isHaul ? "+ Add new haul" : ""}
+        clearLabel={isHaul && String(value || "").trim() ? "Remove from haul" : ""}
+        onClear={isHaul ? () => { onChange(""); onCommit?.(""); } : undefined}
+        chevronLabel={listLabel ? "Show " + listLabel.toLowerCase() : "Show options"}
+      />
+    );
+  }
   const common = {
     width: "100%",
     boxSizing: "border-box",
@@ -2396,6 +2907,708 @@ function Field({ label, value, onChange, placeholder, rows }) {
   );
 }
 
+// Shared combobox — type free text or pick from suggestions with a
+// transitions.dev-style scale/fade menu (not the native OS datalist).
+function ComboboxField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  suggestions = [],
+  onCommit,
+  emptyHint = "Type a value",
+  listLabel = "Suggestions",
+  allowCreate = true,
+  // Sticky footer action: always-visible "Add new…" that focuses the input.
+  addNewLabel = "",
+  // Explicit clear / remove row when a value is set (e.g. "Remove from haul").
+  clearLabel = "",
+  onClear,
+  chevronLabel = "Show options",
+  createVerb = "Use",
+  className = "",
+}) {
+  const id = useId();
+  const rootRef = useRef(null);
+  const controlRef = useRef(null);
+  const inputRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [menuBox, setMenuBox] = useState(null); // fixed coords so overflow parents don't clip
+  const [creating, setCreating] = useState(false);
+  const closeTimer = useRef(null);
+
+  const closeMenu = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    if (!open && !closing) return;
+    setClosing(true);
+    setOpen(false);
+    setCreating(false);
+    closeTimer.current = setTimeout(() => {
+      setClosing(false);
+      closeTimer.current = null;
+    }, 160);
+  }, [open, closing]);
+
+  const placeMenu = useCallback(() => {
+    const el = controlRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 6;
+    const maxH = 260;
+    const spaceBelow = window.innerHeight - rect.bottom - gap;
+    const openUp = spaceBelow < 140 && rect.top > spaceBelow;
+    setMenuBox({
+      left: Math.max(8, rect.left),
+      width: rect.width,
+      top: openUp ? undefined : rect.bottom + gap,
+      bottom: openUp ? window.innerHeight - rect.top + gap : undefined,
+      maxHeight: Math.min(maxH, openUp ? rect.top - gap - 8 : spaceBelow - 8),
+      origin: openUp ? "bottom-left" : "top-left",
+    });
+  }, []);
+
+  const openMenu = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setClosing(false);
+    setOpen(true);
+    // Measure after paint so the menu escapes overflow:auto card backs.
+    requestAnimationFrame(placeMenu);
+  }, [placeMenu]);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    placeMenu();
+    const onDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        // Fixed menu is portaled-by-position; also ignore clicks inside the menu node.
+        const menu = document.getElementById(id + "-list");
+        if (menu && menu.contains(event.target)) return;
+        closeMenu();
+      }
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    const onReposition = () => placeMenu();
+    document.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", onReposition);
+    // Reposition on any scroll (card back is overflow:auto).
+    window.addEventListener("scroll", onReposition, true);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+    };
+  }, [open, closeMenu, placeMenu, id]);
+
+  const q = String(value || "").trim().toLowerCase();
+  // While "Add new" is active, show the full list unfiltered so people can still
+  // pick an existing haul; filtered list only applies to normal typing.
+  const filtered = creating
+    ? suggestions
+    : suggestions.filter((name) => !q || String(name).toLowerCase().includes(q));
+  const exact = suggestions.some((name) => String(name).toLowerCase() === q);
+  const showCreate = allowCreate && q && !exact;
+  const showClear = Boolean(clearLabel && String(value || "").trim());
+  const menuVisible = open || closing;
+
+  const pick = (name) => {
+    const next = String(name || "").trim();
+    onChange(next);
+    onCommit?.(next);
+    setCreating(false);
+    closeMenu();
+  };
+
+  const startCreate = () => {
+    setCreating(true);
+    onChange("");
+    openMenu();
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select?.();
+    });
+  };
+
+  const clearValue = () => {
+    onChange("");
+    onClear?.();
+    onCommit?.("");
+    setCreating(false);
+    closeMenu();
+  };
+
+  return (
+    <div className={"cz-combobox" + (className ? " " + className : "")} ref={rootRef}>
+      <label className="cz-field-label" htmlFor={id}>
+        <span>{label}</span>
+        <div
+          className={"cz-combobox-control" + (open ? " is-open" : "")}
+          ref={controlRef}
+        >
+          <input
+            ref={inputRef}
+            id={id}
+            className="cz-field cz-combobox-input"
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              if (!open) openMenu();
+            }}
+            onFocus={openMenu}
+            onBlur={() => {
+              // Don't commit-close while the fixed menu is being used — picks
+              // fire mousedown preventDefault; blur still commits typed text.
+              const next = String(value || "").trim();
+              if (next !== String(value || "")) onChange(next);
+              onCommit?.(next);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                pick(value);
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                openMenu();
+              }
+            }}
+            placeholder={creating ? "Name the new haul…" : placeholder}
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={id + "-list"}
+            aria-autocomplete="list"
+          />
+          {showClear ? (
+            <button
+              type="button"
+              className="cz-combobox-clear"
+              tabIndex={-1}
+              aria-label={clearLabel}
+              title={clearLabel}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={clearValue}
+            >
+              <X size={14} strokeWidth={2.4} aria-hidden="true" />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="cz-combobox-chevron"
+            tabIndex={-1}
+            aria-label={chevronLabel}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => (open ? closeMenu() : openMenu())}
+          >
+            <ChevronDown size={15} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </div>
+      </label>
+      {menuVisible && menuBox && (
+        <div
+          id={id + "-list"}
+          className={
+            "t-dropdown cz-combobox-menu is-fixed" +
+            (open && !closing ? " is-open" : "") +
+            (closing ? " is-closing" : "")
+          }
+          data-origin={menuBox.origin || "top-left"}
+          role="listbox"
+          aria-label={listLabel}
+          style={{
+            position: "fixed",
+            left: menuBox.left,
+            width: menuBox.width,
+            top: menuBox.top,
+            bottom: menuBox.bottom,
+            maxHeight: menuBox.maxHeight,
+            zIndex: 80,
+          }}
+        >
+          {filtered.length === 0 && !showCreate && !addNewLabel && !showClear ? (
+            <div className="cz-combobox-option is-empty">{emptyHint}</div>
+          ) : (
+            filtered.map((name) => (
+              <button
+                key={name}
+                type="button"
+                role="option"
+                aria-selected={name === value}
+                className={"cz-combobox-option" + (name === value ? " is-current" : "")}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(name)}
+              >
+                <span>{name}</span>
+                {name === value ? <Check size={14} strokeWidth={2.4} aria-hidden="true" /> : null}
+              </button>
+            ))
+          )}
+          {showCreate ? (
+            <button
+              type="button"
+              role="option"
+              className="cz-combobox-option is-create"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pick(value)}
+            >
+              {createVerb} “{String(value).trim()}”
+            </button>
+          ) : null}
+          {addNewLabel && !showCreate ? (
+            <button
+              type="button"
+              role="option"
+              className="cz-combobox-option is-create is-add-new"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={startCreate}
+            >
+              {addNewLabel}
+            </button>
+          ) : null}
+          {showClear ? (
+            <button
+              type="button"
+              role="option"
+              className="cz-combobox-option is-clear"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={clearValue}
+            >
+              {clearLabel}
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Haul directory cover: multi-item corner fan (transitions.dev CardCornerFan).
+// Name + price sit in a separate label box below — not attached to the stack.
+// Hover fan only — never force-open on click (the click handler owns opening the haul).
+function HaulCoverFan({ covers = [], name = "", count = 0 }) {
+  const [hovered, setHovered] = useState(false);
+  const reduced = usePrefersReducedMotion();
+  // Pad to at least 1, at most 5 slots so single-item hauls still look like a card.
+  const images = covers.length ? covers.slice(0, 5) : [null];
+  // For single covers, still fan 3 ghost cards so multi-item hauls feel special
+  // when they grow — but keep the real image on top.
+  const slots =
+    images.length === 1
+      ? [images[0], null, null]
+      : images;
+  const total = slots.length;
+  const angle = 36;
+  const open = hovered && !reduced;
+
+  return (
+    <div
+      className="cz-haul-fan"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      aria-hidden="true"
+    >
+      {slots.map((src, i) => {
+        const offsetRatio = total <= 1 ? 0 : i / (total - 1);
+        const startAngle = -10;
+        const targetRotate = open ? startAngle + offsetRatio * angle : 0;
+        const x = open ? (offsetRatio - 0.5) * 10 : 0;
+        return (
+          <motion.div
+            key={(src || "empty") + "-" + i}
+            className={"cz-haul-fan-card" + (src ? "" : " is-empty")}
+            animate={{
+              rotate: targetRotate,
+              x,
+              scale: open && i === Math.floor(total / 2) ? 1.03 : 1,
+            }}
+            transition={
+              reduced
+                ? { duration: 0 }
+                : { type: "spring", stiffness: 180, damping: 20, mass: 0.8 }
+            }
+            style={{
+              zIndex: total - i,
+              transformOrigin: "0% 100%",
+            }}
+          >
+            {src ? (
+              <img src={src} alt="" draggable={false} />
+            ) : (
+              <div className="cz-haul-fan-placeholder">
+                {(name || "?").slice(0, 1).toUpperCase()}
+              </div>
+            )}
+          </motion.div>
+        );
+      })}
+      {count > slots.filter(Boolean).length ? (
+        <span className="cz-haul-fan-more">+{count - slots.filter(Boolean).length}</span>
+      ) : null}
+    </div>
+  );
+}
+
+// Haul control as a transitions.dev accordion — expand to pick / create / remove.
+// Used on the card-back details face and the edit form.
+function HaulAccordionField({
+  label = "Haul",
+  value = "",
+  knownHauls = [],
+  onChange,
+  onCommit,
+  className = "",
+}) {
+  const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef(null);
+  const current = String(value || "").trim();
+
+  useEffect(() => {
+    if (open && creating && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select?.();
+    }
+  }, [open, creating]);
+
+  const commit = (next) => {
+    const cleaned = String(next || "").trim();
+    onChange?.(cleaned);
+    onCommit?.(cleaned);
+    setCreating(false);
+    setDraft("");
+    setOpen(false);
+  };
+
+  const headLabel = current || "Add to a haul…";
+
+  return (
+    <div
+      className={"t-acc cz-haul-acc" + (className ? " " + className : "")}
+      data-open={open ? "true" : "false"}
+    >
+      <div className="cz-field-label">
+        <span>{label}</span>
+        <button
+          type="button"
+          className="t-acc-head cz-haul-acc-head"
+          aria-expanded={open}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((v) => !v);
+            if (open) setCreating(false);
+          }}
+        >
+          <span className={"cz-haul-acc-value" + (current ? "" : " is-empty")}>{headLabel}</span>
+          <span className="t-acc-chevron" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="14" height="14">
+              <path
+                d="M4 6.5L8 10.5L12 6.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        </button>
+      </div>
+      <div className="t-acc-panel">
+        <div className="t-acc-panel-inner">
+          <div className="cz-haul-acc-body" role="listbox" aria-label="Hauls">
+            {knownHauls.length === 0 && !creating ? (
+              <div className="cz-haul-acc-empty">No hauls yet — create one below.</div>
+            ) : (
+              knownHauls.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  role="option"
+                  aria-selected={name === current}
+                  className={"cz-haul-acc-option" + (name === current ? " is-current" : "")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    commit(name);
+                  }}
+                >
+                  <span>{name}</span>
+                  {name === current ? <Check size={14} strokeWidth={2.4} aria-hidden="true" /> : null}
+                </button>
+              ))
+            )}
+
+            {creating ? (
+              <div className="cz-haul-acc-create">
+                <input
+                  ref={inputRef}
+                  className="cz-field cz-haul-acc-input"
+                  value={draft}
+                  placeholder="Name the new haul…"
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (draft.trim()) commit(draft);
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setCreating(false);
+                      setDraft("");
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <button
+                  type="button"
+                  className="cz-haul-acc-create-btn"
+                  disabled={!draft.trim()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (draft.trim()) commit(draft);
+                  }}
+                >
+                  Create
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="cz-haul-acc-option is-create"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCreating(true);
+                  setDraft("");
+                }}
+              >
+                + Add new haul
+              </button>
+            )}
+
+            {current ? (
+              <button
+                type="button"
+                className="cz-haul-acc-option is-clear"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  commit("");
+                }}
+              >
+                Remove from haul
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Card-back write-through wrapper around the haul accordion.
+// compact (product sheet): assigned haul is a quiet chip until the user expands it.
+function CardBackHaulField({ item, knownHauls, onSaveEdit, compact = false }) {
+  const current = String(item.project || "").trim();
+  const [expanded, setExpanded] = useState(!compact || !current);
+  useEffect(() => {
+    // Re-collapse when the assigned haul changes externally (e.g. after pick).
+    if (compact && current) setExpanded(false);
+    if (compact && !current) setExpanded(true);
+  }, [compact, current, item.id]);
+
+  const commit = (next) => {
+    const cleaned = String(next || "").trim();
+    if ((item.project || "") !== cleaned) onSaveEdit?.(item.id, { project: cleaned });
+    if (compact && cleaned) setExpanded(false);
+  };
+
+  if (compact && current && !expanded) {
+    return (
+      <div className="cz-haul-chip-row" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="cz-haul-chip"
+          onClick={() => setExpanded(true)}
+          aria-label={"Change haul, currently " + current}
+        >
+          <span className="cz-haul-chip-label">In</span>
+          <span className="cz-haul-chip-name">{current}</span>
+        </button>
+        <button
+          type="button"
+          className="cz-haul-chip-clear"
+          aria-label="Remove from haul"
+          title="Remove from haul"
+          onClick={() => commit("")}
+        >
+          <X size={13} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <HaulAccordionField
+      label="Haul"
+      value={item.project || ""}
+      knownHauls={knownHauls}
+      onChange={() => {}}
+      onCommit={commit}
+      className="cz-carousel-haul-field"
+    />
+  );
+}
+
+// Edit-mode photo strip: every indexed photo with a shake-trash delete, plus
+// a + tile to add ones the resolver missed.
+function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = 12 }) {
+  const inputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const photos = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, max);
+  const canAdd = photos.length < max;
+
+  const pickFile = async (file) => {
+    if (!file || !onAttachPhoto) return;
+    setBusy(true);
+    try {
+      await onAttachPhoto(item.id, file);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="cz-edit-photos">
+      <div className="cz-edit-photos-label">
+        <span>Photos</span>
+        <span className="cz-edit-photos-count">{photos.length}/{max}</span>
+      </div>
+      <div className="cz-edit-photos-grid">
+        {photos.map((src, idx) => (
+          <EditPhotoTile
+            key={src + "-" + idx}
+            src={src}
+            index={idx}
+            isCover={idx === 0 && item.image === src}
+            onRemove={() => onRemovePhoto?.(item.id, src)}
+          />
+        ))}
+        {canAdd ? (
+          <button
+            type="button"
+            className="cz-edit-photo-add"
+            aria-label="Add photo"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation();
+              inputRef.current?.click();
+            }}
+          >
+            <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
+            <span>{busy ? "Adding…" : "Add"}</span>
+          </button>
+        ) : null}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files && e.target.files[0];
+          e.target.value = "";
+          pickFile(file);
+        }}
+      />
+    </div>
+  );
+}
+
+function EditPhotoTile({ src, index, isCover, onRemove }) {
+  const [hovered, setHovered] = useState(false);
+  const reduced = usePrefersReducedMotion();
+  return (
+    <div
+      className={"cz-edit-photo-tile" + (isCover ? " is-cover" : "")}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <img src={src} alt={"Photo " + (index + 1)} draggable={false} />
+      {isCover ? <span className="cz-edit-photo-cover-badge">Cover</span> : null}
+      <motion.button
+        type="button"
+        className="cz-edit-photo-delete"
+        aria-label={"Delete photo " + (index + 1)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove?.();
+        }}
+        onMouseEnter={() => setHovered(true)}
+        whileHover={reduced ? undefined : { scale: 1.06 }}
+        whileTap={reduced ? undefined : { scale: 0.94 }}
+      >
+        <motion.span
+          className="cz-edit-photo-delete-icon"
+          animate={
+            reduced || !hovered
+              ? { y: 0, rotate: 0 }
+              : { y: [0, -2, 0, -2, 0], rotate: [0, -10, 10, -10, 0] }
+          }
+          transition={{ duration: 0.4 }}
+        >
+          <Trash2 size={14} strokeWidth={2.2} aria-hidden="true" />
+        </motion.span>
+      </motion.button>
+    </div>
+  );
+}
+
+// Size options: listing variants first, then common apparel/shoe sizes.
+function sizeSuggestionsFor(item) {
+  const group = (item?.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title || ""));
+  const fromVariants = group
+    ? group.values.map((v) => String(v || "").trim()).filter(Boolean)
+    : [];
+  const defaults = [
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL",
+    "EU 40",
+    "EU 41",
+    "EU 42",
+    "EU 43",
+    "EU 44",
+    "EU 45",
+    "US 8",
+    "US 9",
+    "US 10",
+    "US 11",
+  ];
+  const seen = new Set();
+  const out = [];
+  for (const s of [...fromVariants, ...defaults]) {
+    const key = s.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ COMPONENTS ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
@@ -2416,12 +3629,12 @@ function linkButtons(item) {
   }
   if (item.url) {
     const role = roleFor(item.url);
-    btns.push({ url: item.url, role, label: labelFor(role) });
+    btns.push({ url: ensureYupooAlbumUid(item.url), role, label: labelFor(role) });
   }
   for (const l of item.links || []) {
     if (l && l.url) {
       const role = roleFor(l.url, l.role);
-      btns.push({ url: l.url, role, label: labelFor(role) });
+      btns.push({ url: ensureYupooAlbumUid(l.url), role, label: labelFor(role) });
     }
   }
   btns.sort((a, b) => Number(b.role === "buy") - Number(a.role === "buy"));
@@ -2478,6 +3691,17 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
     setDraft(item.note || "");
   }, [item.note]);
 
+  // Write-through: the back-of-card note saves as you type — no Save needed.
+  const noteTouchedRef = useRef(false);
+  useEffect(() => {
+    if (!noteTouchedRef.current) return;
+    const t = setTimeout(() => {
+      const next = draft.trim();
+      if (next !== (item.note || "")) onSaveNote(item.id, next);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [draft]);
+
   useEffect(() => {
     if (!expanded) {
       setFlipped(false);
@@ -2531,6 +3755,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
         colorway: item.colorway || "",
         agentLink: item.agentLink || "",
         findSource: item.findSource || "",
+        note: item.note || "",
       });
       setEditing(true);
     }
@@ -2555,6 +3780,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       colorway: item.colorway || "",
       agentLink: item.agentLink || "",
       findSource: item.findSource || "",
+      note: item.note || "",
     });
     setEditing(true);
   };
@@ -2685,9 +3911,22 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           {(item.seller || item.size) && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: item.summary ? 6 : 0 }}>
               {item.seller && (
-                <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
-                  {item.seller}
-                </span>
+                sellerStoreUrl(item) ? (
+                  <a
+                    href={sellerStoreUrl(item)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="cz-seller-link"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }}
+                  >
+                    {item.seller}
+                  </a>
+                ) : (
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
+                    {item.seller}
+                  </span>
+                )
               )}
               {item.size && (
                 <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
@@ -2792,9 +4031,8 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       )}
       </button>
 
-      {!flipped && (
-        <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-grid-favorite" />
-      )}
+      {/* Always reachable — not only while the front face is showing. */}
+      <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-grid-favorite" />
 
       <div
         id={"card-details-" + item.id}
@@ -2879,7 +4117,21 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                     {priceLabel(item)}
                   </span>
                 )}
-                {item.seller && <span>{item.seller}</span>}
+                {item.seller && (
+                  sellerStoreUrl(item) ? (
+                    <a
+                      href={sellerStoreUrl(item)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="cz-seller-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {item.seller}
+                    </a>
+                  ) : (
+                    <span>{item.seller}</span>
+                  )
+                )}
                 {item.size && <span>Size {item.size}</span>}
                 {item.colorway && <span>{item.colorway}</span>}
                 {CATEGORIES[item.category] && (
@@ -2897,9 +4149,6 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                   </span>
                 )}
                 {sizeRunLabel(item) && <span>{sizeRunLabel(item)}</span>}
-                {item.agentLink && (
-                  <Pill subtle onClick={() => onOpen(item, item.agentLink)}>Agent</Pill>
-                )}
               </div>
             )}
 
@@ -2939,7 +4188,9 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                     <img
                       src={src}
                       alt={"Gallery image " + (idx + 1)}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      draggable={false}
+                      onDragStart={(event) => event.preventDefault()}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", userSelect: "none", WebkitUserDrag: "none" }}
                     />
                   </button>
                 ))}
@@ -2952,7 +4203,6 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                   {btn.label}
                 </Pill>
               ))}
-              <Pill onClick={() => { setAnimateFlip(true); setFlipped(true); }}>Flip</Pill>
               <Pill onClick={startEdit}>Edit</Pill>
               <Pill subtle onClick={() => onDelete(item.id)}>
                 Remove
@@ -2970,35 +4220,20 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
         >
           <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
           <Field
-            label="Summary"
-            value={ed.summary}
-            onChange={(v) => setEd({ ...ed, summary: v })}
-            placeholder="A short reminder"
-            rows={2}
-          />
-          <Field
-            label="Tags"
-            value={ed.tags}
-            onChange={(v) => setEd({ ...ed, tags: v })}
-            placeholder="Separated by commas"
+            label="Notes / links"
+            value={ed.note || ""}
+            onChange={(v) => setEd({ ...ed, note: v })}
+            placeholder="Fit notes, QC reminders, sizing, seller tips, extra links…"
+            rows={3}
           />
           <Field
             label="Project / haul"
             value={ed.project}
             onChange={(v) => setEd({ ...ed, project: v })}
             placeholder="e.g., Summer haul"
-          />
-          <Field
-            label="Agent link"
-            value={ed.agentLink}
-            onChange={(v) => setEd({ ...ed, agentLink: v })}
-            placeholder="https://..."
-          />
-          <Field
-            label="Source Reddit post"
-            value={ed.findSource}
-            onChange={(v) => setEd({ ...ed, findSource: v })}
-            placeholder="https://reddit.com/r/..."
+            suggestions={[]}
+            emptyHint="Type a new haul name"
+            listLabel="Hauls"
           />
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
@@ -3028,7 +4263,15 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <Field label="Size" value={ed.size} onChange={(v) => setEd({ ...ed, size: v })} placeholder="EU 42" />
+              <Field
+                label="Size"
+                value={ed.size}
+                onChange={(v) => setEd({ ...ed, size: v })}
+                placeholder="EU 42"
+                suggestions={sizeSuggestionsFor(item)}
+                emptyHint="Type a size"
+                listLabel="Sizes"
+              />
             </div>
             <div style={{ flex: 1 }}>
               <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
@@ -3094,13 +4337,6 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               </button>
             ))}
           </div>
-          <Field
-            label="Paired links"
-            value={ed.linksText}
-            onChange={(v) => setEd({ ...ed, linksText: v })}
-            placeholder="One URL per line"
-            rows={2}
-          />
           <div
             role="radiogroup"
             aria-label="Importance"
@@ -3179,7 +4415,9 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                     <img
                       src={src}
                       alt={"Gallery " + (idx + 1)}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", border: "1px solid " + HAIR }}
+                      draggable={false}
+                      onDragStart={(event) => event.preventDefault()}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", border: "1px solid " + HAIR, userSelect: "none", WebkitUserDrag: "none" }}
                     />
                     <button
                       type="button"
@@ -3232,6 +4470,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                   colorway: ed.colorway.trim(),
                   agentLink: ed.agentLink.trim(),
                   findSource: ed.findSource.trim(),
+                  note: (ed.note || "").trim(),
                 });
                 setEditing(false);
               }}
@@ -3276,7 +4515,10 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
         className="cz-note-field"
         ref={backTextareaRef}
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          noteTouchedRef.current = true;
+          setDraft(e.target.value);
+        }}
         placeholder="Why did you save this?"
         rows={3}
         style={{
@@ -3304,8 +4546,13 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
         >
           Save
         </Pill>
-        <Pill subtle onClick={() => { setAnimateFlip(true); setFlipped(false); }}>
-          Flip back
+        <Pill subtle onClick={() => {
+          const next = draft.trim();
+          if (next !== (item.note || "")) onSaveNote(item.id, next);
+          setAnimateFlip(true);
+          setFlipped(false);
+        }}>
+          Done
         </Pill>
       </div>
     </div>
@@ -3421,14 +4668,23 @@ function InfoBubble({ title, children, onClose }) {
 }
 
 function CarouselSizeInfo({ item }) {
+  // Keep the chart English-only: any fact row or variant axis carrying CJK
+  // (颜色 / 尺码 / 黑色…) is dropped rather than shown untranslated.
+  const hasCjk = (s) => /[㐀-䶿一-鿿豈-﫿]/.test(String(s));
   const facts = [
     ["Selected", item.size],
     ["Poster wore", item.posterSize],
     ["Recommended", item.recommendedSize],
     ["Available", sizeRunLabel(item)],
-  ].filter(([, value]) => value);
+  ].filter(([, value]) => value && !hasCjk(value));
   const axes = (item.variants || []).filter(
-    (group) => group && group.title && Array.isArray(group.values) && group.values.length
+    (group) =>
+      group &&
+      group.title &&
+      Array.isArray(group.values) &&
+      group.values.length &&
+      !hasCjk(group.title) &&
+      !group.values.some((v) => hasCjk(v))
   );
   if (!facts.length && !item.sizeNotes && !axes.length) return "No sizing information saved yet.";
   return (
@@ -3450,7 +4706,9 @@ function CarouselSizeInfo({ item }) {
   );
 }
 
-function CardCornerFan({ item, images, onOpenPhotos, reduced }) {
+// variant "fan"  — stacked corner fan that peels open on hover (classic)
+// variant "strip" — flat equal thumbs (product-sheet hierarchy)
+function CardCornerFan({ item, images, onOpenPhotos, reduced, variant = "fan", interactive = true }) {
   const [isHovered, setIsHovered] = useState(false);
   const fanRef = useRef(null);
   const [fanWidth, setFanWidth] = useState(284);
@@ -3465,11 +4723,48 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced }) {
     return () => observer.disconnect();
   }, []);
   // Cover + 3 previews. The step contracts as needed so the fourth card never
-  // escapes a narrow back face.
+  // escapes a narrow back face. Card width is 60px (see .cz-corner-fan-card).
   const displayed = images.slice(0, 4);
   const total = displayed.length;
-  const spreadStep = total > 1 ? Math.min(70, Math.max(0, (fanWidth - 64) / (total - 1))) : 0;
+  const spreadStep = total > 1 ? Math.min(66, Math.max(0, (fanWidth - 60) / (total - 1))) : 0;
   if (total === 0) return null;
+
+  const openGallery = (e) => {
+    // Side cards can still hold focus after a gallery close + scroll. Ignore
+    // keyboard/mouse open unless this fan belongs to the active center card.
+    if (!interactive) return;
+    if (onOpenPhotos) onOpenPhotos(item, e.currentTarget);
+  };
+
+  // Product-sheet strip: equal thumbs in a row — intentional, not a leftover stack.
+  if (variant === "strip") {
+    return (
+      <div
+        ref={fanRef}
+        className="cz-corner-fan is-strip"
+        onClick={openGallery}
+        role="button"
+        tabIndex={interactive ? 0 : -1}
+        aria-label="Open photo gallery"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            if (!interactive) return;
+            e.preventDefault();
+            openGallery(e);
+          }
+        }}
+      >
+        {displayed.map((src, i) => (
+          <div key={src + i} className="cz-corner-fan-card is-strip-card">
+            <img src={src} alt={"Gallery image " + (i + 1)} draggable={false} />
+          </div>
+        ))}
+        {images.length > 4 && (
+          <span className="cz-corner-fan-more is-strip-more">+{images.length - 4}</span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -3479,16 +4774,17 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced }) {
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsHovered(true)}
       onBlur={() => setIsHovered(false)}
-      onClick={(e) => {
-        if (onOpenPhotos) onOpenPhotos(item, e.currentTarget);
-      }}
+      onClick={openGallery}
       role="button"
-      tabIndex={0}
+      tabIndex={interactive ? 0 : -1}
       aria-label="Open photo gallery"
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
+          // Don't swallow Space on a side/stale fan — let the app flip the
+          // active card instead of reopening the previous card's photos.
+          if (!interactive) return;
           e.preventDefault();
-          if (onOpenPhotos) onOpenPhotos(item, e.currentTarget);
+          openGallery(e);
         }
       }}
     >
@@ -3531,10 +4827,13 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     isCenter,
     flipSignal,
     editSignal,
+    haulNames = [],
     onDelete,
     onSaveEdit,
     onOpen,
     onOpenPhotos,
+    onAttachPhoto,
+    onRemovePhoto,
     onToggleFavorite,
     onActivate,
     onDeactivate,
@@ -3546,15 +4845,74 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   const [flipped, setFlipped] = useState(false);
   const [editing, setEditing] = useState(false);
   const [ed, setEd] = useState(null);
+  // false = edit sheet drops down out (back chevron); true = it slides back
+  // up, the reverse of how it entered (save-check button).
+  const [editExitUp, setEditExitUp] = useState(false);
   const [bubble, setBubble] = useState(null);
+  // The whole exit runs in CSS on the live shell: framer's exit opacity freezes
+  // on this shell, and a 0-height overflow-hidden shell still leaks ~14px into
+  // the scroller's scrollHeight (one-frame snap at unmount). So closeBubble pins
+  // the measured height, flips on .is-closing (fade + drift + contain: size —
+  // which is why framer can't own this: size containment zeroes the box before
+  // framer can measure it), transitions height to 0, then unmounts once the
+  // shell is a contained 0-height box that leaves no residual scroll space.
+  const [bubbleClosing, setBubbleClosing] = useState(false);
+  const bubbleCloseTimer = useRef(null);
+  const closeBubble = useCallback(() => {
+    if (reduced) {
+      setBubble(null);
+      setBubbleClosing(false);
+      return;
+    }
+    const el = bubbleRef.current;
+    if (!el || bubbleClosing) {
+      setBubble(null);
+      return;
+    }
+    el.style.height = `${el.getBoundingClientRect().height}px`;
+    // Force a style pass so the height transition starts from the pinned number
+    // — without it the browser sees auto → 0, which is discrete (no transition).
+    void el.offsetHeight;
+    flushSync(() => setBubbleClosing(true));
+    requestAnimationFrame(() => {
+      el.style.height = "0px";
+      // The shell is a flex item in a gapped column — the gap survives a
+      // 0-height item and snaps shut at unmount. Collapse it alongside the
+      // height so the whole close is one continuous motion.
+      const gap = parseFloat(getComputedStyle(el.parentElement).rowGap) || 0;
+      if (gap) el.style.marginBottom = `${-gap}px`;
+    });
+    bubbleCloseTimer.current = window.setTimeout(() => {
+      setBubble(null);
+      setBubbleClosing(false);
+    }, 280);
+  }, [reduced, bubbleClosing]);
+  // details | actions | haul — actions/haul own the whole back face (no floating menus/prompts).
+  const [backView, setBackView] = useState("details");
+  const [haulDraft, setHaulDraft] = useState("");
   const bubbleRef = useRef(null);
   const rootRef = useRef(null);
+  const haulInputRef = useRef(null);
 
   useEffect(() => {
     setFlipped(Boolean(expanded));
     if (!expanded) {
+      if (bubbleCloseTimer.current) {
+        clearTimeout(bubbleCloseTimer.current);
+        bubbleCloseTimer.current = null;
+      }
       setEditing(false);
       setBubble(null);
+      setBubbleClosing(false);
+      setBackView("details");
+      setHaulDraft("");
+      // Closing the photo gallery restores focus to the fan. If the card then
+      // unflips (arrow / space elsewhere), that focused fan is invisible but
+      // still catches Space — blur it so keys go back to the active card.
+      const active = document.activeElement;
+      if (active && rootRef.current?.contains(active) && typeof active.blur === "function") {
+        active.blur();
+      }
     }
   }, [expanded]);
 
@@ -3563,6 +4921,13 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
       bubbleRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [bubble]);
+
+  useEffect(() => {
+    if (backView === "haul" && haulInputRef.current) {
+      haulInputRef.current.focus();
+      haulInputRef.current.select?.();
+    }
+  }, [backView]);
 
   useEffect(() => {
     if (flipSignal && flipSignal.startsWith(item.id + ":")) setFlipped(true);
@@ -3587,8 +4952,11 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
         colorway: item.colorway || "",
         agentLink: item.agentLink || "",
         findSource: item.findSource || "",
+        note: item.note || "",
       });
       setBubble(null);
+      setBackView("details");
+      setEditExitUp(false);
       setEditing(true);
     }
   }, [editSignal, item]);
@@ -3605,17 +4973,66 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   };
 
   const discardEdit = useCallback(() => {
+    // Write-through means there's nothing to discard — flush the last keystrokes.
+    commitEditRef.current();
+    setEditExitUp(false);
     setEditing(false);
     setEd(null);
   }, []);
+
+  // Check-button save: same commit as the back chevron, but the edit sheet
+  // leaves the way it came in (back up) instead of dropping down. flushSync
+  // commits the direction first so the exiting sheet picks up the up-exit
+  // prop in its last render before AnimatePresence removes it.
+  const saveEditAndClose = useCallback(() => {
+    commitEditRef.current();
+    flushSync(() => setEditExitUp(true));
+    setEditing(false);
+    setEd(null);
+  }, []);
+
+  const closeActions = useCallback(() => {
+    setBackView("details");
+    setHaulDraft("");
+  }, []);
+
+  const openActions = useCallback(() => {
+    setBubble(null);
+    setHaulDraft(item.project || "");
+    setBackView("actions");
+  }, [item.project]);
+
+  const openHaulPicker = useCallback(() => {
+    setBubble(null);
+    setHaulDraft(item.project || "");
+    setBackView("haul");
+  }, [item.project]);
+
+  const assignHaul = useCallback(
+    (name) => {
+      const next = String(name || "").trim();
+      onSaveEdit?.(item.id, { project: next });
+      setHaulDraft(next);
+      setBackView("actions");
+    },
+    [item.id, onSaveEdit]
+  );
 
   const dismissTopLayer = useCallback(() => {
     if (editing) {
       discardEdit();
       return true;
     }
+    if (backView === "haul") {
+      setBackView("actions");
+      return true;
+    }
+    if (backView === "actions") {
+      closeActions();
+      return true;
+    }
     if (bubble) {
-      setBubble(null);
+      closeBubble();
       return true;
     }
     if (flipped) {
@@ -3623,7 +5040,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
       return true;
     }
     return false;
-  }, [editing, bubble, flipped, discardEdit, onDeactivate]);
+  }, [editing, backView, bubble, flipped, discardEdit, closeActions, closeBubble, onDeactivate]);
 
   useImperativeHandle(
     ref,
@@ -3635,36 +5052,47 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   );
 
   const openBubble = (key, title, content) => {
+    setBackView("details");
+    setBubbleClosing(false);
     setBubble({ key, title, content });
   };
 
-  const saveEdit = () => {
-    if (!ed) return;
-    onSaveEdit(item.id, {
-      title: ed.title.trim() || item.title,
-      summary: ed.summary.trim(),
-      tags: ed.tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .slice(0, 5),
-      project: ed.project.trim(),
-      importance: ed.importance,
-      links: normalizeLinks(extractUrls(ed.linksText || ""), item.url),
-      findStatus: ed.findStatus,
-      category: ed.category,
-      price: ed.price === "" ? null : Number(ed.price),
-      currency: ed.currency.trim() || "CNY",
-      seller: ed.seller.trim(),
-      batch: ed.batch.trim(),
-      size: ed.size.trim(),
-      colorway: ed.colorway.trim(),
-      agentLink: ed.agentLink.trim(),
-      findSource: ed.findSource.trim(),
-    });
-    setEditing(false);
-    setEd(null);
+  const buildEditPatch = (draft, base) => ({
+    title: draft.title.trim() || base.title,
+    summary: draft.summary.trim(),
+    tags: draft.tags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 5),
+    project: draft.project.trim(),
+    importance: draft.importance,
+    links: normalizeLinks(extractUrls(draft.linksText || ""), base.url),
+    findStatus: draft.findStatus,
+    category: draft.category,
+    price: draft.price === "" ? null : Number(draft.price),
+    currency: draft.currency.trim() || "CNY",
+    seller: draft.seller.trim(),
+    batch: draft.batch.trim(),
+    size: draft.size.trim(),
+    colorway: draft.colorway.trim(),
+    agentLink: draft.agentLink.trim(),
+    findSource: draft.findSource.trim(),
+    note: (draft.note || "").trim(),
+  });
+
+  // Write-through commit — the edit form persists as you type, so leaving the
+  // screen (back chevron, outside click, flip) never loses notes.
+  const commitEditRef = useRef(() => {});
+  commitEditRef.current = () => {
+    if (ed) onSaveEdit(item.id, buildEditPatch(ed, item));
   };
+
+  useEffect(() => {
+    if (!editing || !ed) return;
+    const t = setTimeout(() => commitEditRef.current(), 700);
+    return () => clearTimeout(t);
+  }, [ed, editing]);
 
   const startEdit = () => {
     setEd({
@@ -3684,25 +5112,55 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
       colorway: item.colorway || "",
       agentLink: item.agentLink || "",
       findSource: item.findSource || "",
+      note: item.note || "",
     });
     setBubble(null);
+    setBackView("details");
+    setEditExitUp(false);
     setEditing(true);
   };
 
   const galleryImages = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []);
+  const knownHauls = Array.from(
+    new Set(
+      [...(haulNames || []), item.project || ""]
+        .map((name) => String(name || "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
 
-  const backCloseRef = useRef(null);
-  useEffect(() => {
-    if (flipped && backCloseRef.current) {
-      backCloseRef.current.focus();
+  // No autofocus on flip — the programmatic focus lit up the glow ring on
+  // every flip, which reads as a highlight glitch, not affordance.
+
+  // The heart rides the front face: mounting it the moment `flipped` goes
+  // false shows it mirrored over the back header for the first half of the
+  // flip-back. Gate it on the actual rotation — visible only inside the
+  // front-facing 90°, same culling the faces get from backface-visibility.
+  const [heartVisible, setHeartVisible] = useState(!flipped);
+  const heartVisibleRef = useRef(!flipped);
+  const handleCardRotate = useCallback((latest) => {
+    const show = (parseFloat(latest.rotateY) || 0) < 90;
+    if (show !== heartVisibleRef.current) {
+      heartVisibleRef.current = show;
+      setHeartVisible(show);
     }
-  }, [flipped]);
+  }, []);
+
+  // Widen the card ~20% while editing (CSS t-resize tween), so the edit
+  // form's fields aren't a squint-read.
+  useEffect(() => {
+    const card = rootRef.current && rootRef.current.closest(".cz-carousel-card");
+    if (!card) return undefined;
+    card.classList.toggle("is-editing", Boolean(editing));
+    return () => card.classList.remove("is-editing");
+  }, [editing]);
 
   return (
     <div ref={rootRef} style={{ width: "100%", height: "100%", transformStyle: "preserve-3d" }}>
       <motion.div
         className={"cz-carousel-card-inner" + (flipped ? " is-flipped" : "")}
         animate={{ rotateY: flipped ? 180 : 0 }}
+        onUpdate={handleCardRotate}
         transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 26 }}
         style={{
           width: "100%",
@@ -3736,18 +5194,19 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
           <div className="cz-carousel-image-wrap">
             <CoverImage
               item={item}
-              aspectRatio="4/5"
+              fill
               className="cz-carousel-image"
               imgStyle={{ borderRadius: 0 }}
             />
             {item.findStatus !== "want" && (
               <span className="cz-carousel-status">{item.findStatus}</span>
             )}
-            {item.price != null && (
-              <span className="cz-carousel-price">
-                {priceLabel(item)}
-              </span>
-            )}
+            {/* Always show a price slot when we have any price figure (USD or CNY).
+                Absolute to the image wrap — meta below is fixed height so chips
+                land on the same baseline across every card. */}
+            {priceLabel(item) ? (
+              <span className="cz-carousel-price">{priceLabel(item)}</span>
+            ) : null}
           </div>
           <div className="cz-carousel-front-meta">
             <div className="cz-carousel-type">
@@ -3755,15 +5214,37 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               <span>{(TYPES[item.type] || TYPES.note).label}</span>
             </div>
             <h3 className="cz-carousel-title">{item.title}</h3>
-            {(item.seller || item.size) && (
-              <div className="cz-carousel-sub">
-                {[item.seller, item.size].filter(Boolean).join(" · ")}
-              </div>
-            )}
+            {/* Always reserve the sub row so meta height is identical card-to-card
+                (missing seller used to collapse this and shove the price chip). */}
+            <div className="cz-carousel-sub">
+              {item.seller ? (
+                sellerStoreUrl(item) ? (
+                  <a
+                    href={sellerStoreUrl(item)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="cz-seller-link"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {item.seller}
+                  </a>
+                ) : (
+                  <span>{item.seller}</span>
+                )
+              ) : (
+                <span className="cz-carousel-sub-empty" aria-hidden="true">
+                  &nbsp;
+                </span>
+              )}
+              {item.seller && item.size ? " · " : null}
+              {item.size ? <span>{item.size}</span> : null}
+            </div>
           </div>
         </div>
 
-        {!flipped && (
+        {/* Heart is front-face only — gated on the live rotation so it never
+            mirrors over the back header during the first half of flip-back. */}
+        {heartVisible && (
           <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-carousel-favorite" />
         )}
 
@@ -3781,43 +5262,111 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
             e.stopPropagation();
           }}
         >
-          <div className="cz-carousel-back-header">
+          <div
+            className={
+              "cz-carousel-back-header" +
+              (editing || backView !== "details" ? " is-editing" : "")
+            }
+          >
             <button
               type="button"
               className="cz-icon-button cz-carousel-close"
-              ref={backCloseRef}
               onClick={(e) => {
                 e.stopPropagation();
                 if (editing) discardEdit();
-                else if (bubble) setBubble(null);
+                else if (backView === "haul") setBackView("actions");
+                else if (backView === "actions") closeActions();
+                else if (bubble) closeBubble();
                 else deactivate();
               }}
-              aria-label={editing ? "Back to card details" : bubble ? "Close details" : "Flip back"}
+              aria-label={
+                editing
+                  ? "Back to card"
+                  : backView === "haul"
+                    ? "Back to actions"
+                    : backView === "actions"
+                      ? "Done with actions"
+                      : bubble
+                        ? "Close details"
+                        : "Flip back"
+              }
             >
               <ChevronLeft aria-hidden="true" size={20} strokeWidth={2.2} />
             </button>
-            <h3>{editing ? "Edit card" : "Card details"}</h3>
-            {!editing && (
-              <MorphButton
-                label="Edit"
-                icon={Pen}
-                activeIcon={Check}
-                onClick={startEdit}
-                ariaLabel="Edit card"
-                className="cz-card-edit-morph"
-              />
+            <span className="cz-carousel-back-spacer" aria-hidden="true" />
+            {editing ? (
+              <div className="cz-carousel-back-actions">
+                {/* Reverse of the detail view's pen→check morph: check is idle,
+                    pen peeks in on hover. Saves + slides the sheet back up. */}
+                <MorphButton
+                  iconOnly
+                  icon={Check}
+                  activeIcon={Pen}
+                  onClick={saveEditAndClose}
+                  ariaLabel="Save changes"
+                  title="Save changes"
+                  className="cz-card-edit-morph cz-card-save-check"
+                />
+              </div>
+            ) : backView === "details" && (
+              <div className="cz-carousel-back-actions">
+                <button
+                  type="button"
+                  className={"cz-icon-button cz-card-menu-trigger" + (backView !== "details" ? " is-open" : "")}
+                  aria-label="Card actions"
+                  aria-expanded={false}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openActions();
+                  }}
+                >
+                  <MoreHorizontal aria-hidden="true" size={20} strokeWidth={2.2} />
+                </button>
+                <MorphButton
+                  iconOnly
+                  icon={Pen}
+                  activeIcon={Check}
+                  onClick={startEdit}
+                  ariaLabel="Edit card"
+                  title="Edit"
+                  className="cz-card-edit-morph"
+                />
+              </div>
             )}
           </div>
 
+          {/* Edit slides in from above — the reverse of the content below it. */}
+          <AnimatePresence mode="wait" initial={false}>
           {editing && ed ? (
-            <div className="cz-carousel-edit-shell">
+            <motion.div
+              key="edit"
+              className="cz-carousel-edit-shell"
+              initial={reduced ? false : { opacity: 0, y: -14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduced ? undefined : { opacity: 0, y: editExitUp ? -14 : 10 }}
+              transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
+            >
             <div className="cz-carousel-edit">
               <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
-              <Field label="Summary" value={ed.summary} onChange={(v) => setEd({ ...ed, summary: v })} placeholder="A short reminder" rows={2} />
-              <Field label="Tags" value={ed.tags} onChange={(v) => setEd({ ...ed, tags: v })} placeholder="Separated by commas" />
-              <Field label="Project / haul" value={ed.project} onChange={(v) => setEd({ ...ed, project: v })} placeholder="e.g., Summer haul" />
-              <Field label="Agent link" value={ed.agentLink} onChange={(v) => setEd({ ...ed, agentLink: v })} placeholder="https://..." />
-              <Field label="Source Reddit post" value={ed.findSource} onChange={(v) => setEd({ ...ed, findSource: v })} placeholder="https://reddit.com/r/..." />
+              <Field
+                label="Notes / links"
+                value={ed.note || ""}
+                onChange={(v) => setEd({ ...ed, note: v })}
+                placeholder="Fit notes, QC reminders, sizing, seller tips, extra links…"
+                rows={3}
+              />
+              <HaulAccordionField
+                label="Haul"
+                value={ed.project}
+                knownHauls={knownHauls}
+                onChange={(v) => setEd({ ...ed, project: v })}
+                onCommit={(v) => setEd((prev) => (prev ? { ...prev, project: v } : prev))}
+              />
+              <EditPhotosManager
+                item={item}
+                onAttachPhoto={onAttachPhoto}
+                onRemovePhoto={onRemovePhoto}
+              />
               <div className="cz-carousel-field-grid price-grid">
                 <div>
                   <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
@@ -3836,160 +5385,342 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               </div>
               <div className="cz-carousel-field-grid">
                 <div>
-                  <Field label="Size" value={ed.size} onChange={(v) => setEd({ ...ed, size: v })} placeholder="EU 42" />
+                  <Field
+                    label="Size"
+                    value={ed.size}
+                    onChange={(v) => setEd({ ...ed, size: v })}
+                    placeholder="EU 42"
+                    suggestions={sizeSuggestionsFor(item)}
+                    emptyHint="Type a size"
+                    listLabel="Sizes"
+                    allowCreate
+                    chevronLabel="Show sizes"
+                  />
                 </div>
                 <div>
                   <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
                 </div>
               </div>
-              <Field label="Paired links" value={ed.linksText} onChange={(v) => setEd({ ...ed, linksText: v })} placeholder="One URL per line" rows={2} />
             </div>
-              <div className="cz-carousel-edit-footer">
-                <Pill primary onClick={saveEdit}>
-                  Save
-                </Pill>
-                <Pill subtle onClick={discardEdit}>
-                  Cancel
-                </Pill>
-              </div>
-            </div>
+            </motion.div>
           ) : (
-            <div className="cz-carousel-back-content">
-              <h3 className="cz-carousel-back-title">{item.title}</h3>
-
-              <div className="cz-carousel-meta-grid">
-                {item.findStatus !== "want" && (
-                  <div>
-                    <span>Status</span>
-                    <span style={{ color: (FIND_STATUS_COLORS[item.findStatus] || {}).text || INK }}>
-                      {item.findStatus}
-                    </span>
-                  </div>
-                )}
-                {item.price != null && (
-                  <div>
-                    <span>Price</span>
-                    <span>
-                      {priceLabel(item)}
-                    </span>
-                  </div>
-                )}
-                {item.seller && (
-                  <div>
-                    <span>Seller</span>
-                    <span>{item.seller}</span>
-                  </div>
-                )}
-                {item.size && (
-                  <div>
-                    <span>Size</span>
-                    <span>{item.size}</span>
-                  </div>
-                )}
-                {item.posterSize && (
-                  <div>
-                    <span>Poster wore</span>
-                    <span>{item.posterSize}</span>
-                  </div>
-                )}
-                {item.recommendedSize && (
-                  <div>
-                    <span>Recommended</span>
-                    <span>{item.recommendedSize}</span>
-                  </div>
-                )}
-                {item.colorway && (
-                  <div>
-                    <span>Colorway</span>
-                    <span>{item.colorway}</span>
-                  </div>
-                )}
-              </div>
-
-              {item.note && (
-                <div className="cz-carousel-note">
-                  <span>Note</span>
-                  <p>{item.note}</p>
-                </div>
-              )}
-
-              {galleryImages.length > 0 && (
-                <CardCornerFan
-                  item={item}
-                  images={galleryImages}
-                  onOpenPhotos={onOpenPhotos}
-                  reduced={reduced}
-                />
-              )}
-
-              <div className="cz-carousel-actions">
-                {linkButtons(item)
-                  .map((button, index) => (
-                    <button
-                      key={button.url + index}
-                      type="button"
-                      className={"cz-carousel-action-btn" + (button.role === "buy" ? " primary" : "")}
-                      onClick={() => onOpen(item, button.url)}
-                    >
-                      {button.label}
-                    </button>
-                  ))}
-                <button
-                  type="button"
-                  className="cz-carousel-action-btn"
-                  onClick={() =>
-                    openBubble(
-                      "sizes",
-                      "Size info",
-                      <CarouselSizeInfo item={item} />
-                    )
-                  }
-                >
-                  Sizes
-                </button>
-                <button
-                  type="button"
-                  className="cz-carousel-action-btn"
-                  onClick={() =>
-                    openBubble(
-                      "seller",
-                      "Seller",
-                      item.seller ? item.seller : "No seller set."
-                    )
-                  }
-                >
-                  Seller
-                </button>
-                {item.agentLink && (
-                  <button
-                    type="button"
-                    className="cz-carousel-action-btn"
-                    onClick={() => onOpen(item, item.agentLink)}
+            <motion.div
+              key="content"
+              className="cz-carousel-back-content"
+              initial={reduced ? false : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduced ? undefined : { opacity: 0, y: -10 }}
+              transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {backView === "actions" ? (
+                  <motion.div
+                    key="actions"
+                    className="cz-card-actions-panel"
+                    initial={reduced ? false : { opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduced ? undefined : { opacity: 0, y: -10 }}
+                    transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
                   >
-                    Agent
-                  </button>
-                )}
-                <button type="button" className="cz-carousel-action-btn" onClick={startEdit}>
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="cz-carousel-action-btn danger"
-                  onClick={() => onDelete(item.id)}
-                >
-                  Remove
-                </button>
-              </div>
+                    <div className="cz-card-actions-heading">
+                      <h3>Actions</h3>
+                      {item.project ? <p className="cz-card-actions-sub">In haul · {item.project}</p> : null}
+                    </div>
+                    <div className="cz-card-actions-list" role="menu" aria-label="Card actions">
+                      <button type="button" role="menuitem" className="cz-card-action-row" onClick={openHaulPicker}>
+                        <span>{item.project ? "Move to haul" : "Add to haul"}</span>
+                        <span className="cz-card-action-meta">{item.project || "Choose"}</span>
+                      </button>
+                      {item.project ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="cz-card-action-row"
+                          onClick={() => {
+                            onSaveEdit?.(item.id, { project: "" });
+                            setHaulDraft("");
+                          }}
+                        >
+                          <span>Remove from haul</span>
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="cz-card-action-row danger"
+                        onClick={() => onDelete(item.id)}
+                      >
+                        <span>Remove card</span>
+                      </button>
+                    </div>
+                    <button type="button" className="cz-card-actions-done" onClick={closeActions}>
+                      Done
+                    </button>
+                  </motion.div>
+                ) : backView === "haul" ? (
+                  <motion.div
+                    key="haul"
+                    className="cz-card-actions-panel"
+                    initial={reduced ? false : { opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduced ? undefined : { opacity: 0, y: -10 }}
+                    transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
+                  >
+                    <div className="cz-card-actions-heading">
+                      <h3>{item.project ? "Move to haul" : "Add to haul"}</h3>
+                      <p className="cz-card-actions-sub">Pick an existing haul or name a new one.</p>
+                    </div>
+                    <label className="cz-card-haul-field">
+                      <span>Haul name</span>
+                      <input
+                        ref={haulInputRef}
+                        type="text"
+                        value={haulDraft}
+                        placeholder="e.g. Summer Europe"
+                        onChange={(e) => setHaulDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            assignHaul(haulDraft);
+                          }
+                        }}
+                      />
+                    </label>
+                    {knownHauls.length > 0 && (
+                      <div className="cz-card-actions-list" role="listbox" aria-label="Existing hauls">
+                        {knownHauls.map((name) => (
+                          <button
+                            key={name}
+                            type="button"
+                            role="option"
+                            aria-selected={item.project === name}
+                            className={"cz-card-action-row" + (item.project === name ? " is-current" : "")}
+                            onClick={() => assignHaul(name)}
+                          >
+                            <span>{name}</span>
+                            {item.project === name ? <span className="cz-card-action-meta">Current</span> : null}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="cz-card-haul-footer">
+                      <button
+                        type="button"
+                        className="cz-card-actions-done primary"
+                        onClick={() => assignHaul(haulDraft)}
+                        disabled={!haulDraft.trim()}
+                      >
+                        Save haul
+                      </button>
+                      <button type="button" className="cz-card-actions-done subtle" onClick={() => setBackView("actions")}>
+                        Back
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="details"
+                    className={
+                      "cz-card-details-panel" +
+                      (CARD_BACK_PRODUCT_SHEET ? " cz-card-details-panel--sheet" : "")
+                    }
+                    initial={reduced ? false : { opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduced ? undefined : { opacity: 0, y: -8 }}
+                    transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
+                  >
+                    <h3 className="cz-carousel-back-title">{item.title}</h3>
 
-              {bubble && (
-                <div ref={bubbleRef}>
-                  <InfoBubble title={bubble.title} onClose={() => setBubble(null)}>
-                    {bubble.content}
-                  </InfoBubble>
-                </div>
-              )}
-            </div>
+                    {CARD_BACK_PRODUCT_SHEET ? (
+                      <>
+                        {/* Product sheet: price is the secondary hero; seller is quiet. */}
+                        {item.price != null && (
+                          <div className="cz-carousel-price-hero">{priceLabel(item)}</div>
+                        )}
+                        {item.seller ? (
+                          sellerStoreUrl(item) ? (
+                            <a
+                              href={sellerStoreUrl(item)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="cz-seller-quiet"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {item.seller}
+                            </a>
+                          ) : (
+                            <span className="cz-seller-quiet is-text">{item.seller}</span>
+                          )
+                        ) : null}
+                        {(item.findStatus !== "want" ||
+                          item.posterSize ||
+                          item.recommendedSize ||
+                          item.colorway) && (
+                          <div className="cz-carousel-meta-chips">
+                            {item.findStatus !== "want" && (
+                              <span
+                                className="cz-meta-chip"
+                                style={{ color: (FIND_STATUS_COLORS[item.findStatus] || {}).text || INK }}
+                              >
+                                {item.findStatus}
+                              </span>
+                            )}
+                            {item.posterSize && (
+                              <span className="cz-meta-chip">Poster {item.posterSize}</span>
+                            )}
+                            {item.recommendedSize && (
+                              <span className="cz-meta-chip">Rec {item.recommendedSize}</span>
+                            )}
+                            {item.colorway && (
+                              <span className="cz-meta-chip">{item.colorway}</span>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="cz-carousel-meta-grid">
+                        {item.findStatus !== "want" && (
+                          <div>
+                            <span>Status</span>
+                            <span style={{ color: (FIND_STATUS_COLORS[item.findStatus] || {}).text || INK }}>
+                              {item.findStatus}
+                            </span>
+                          </div>
+                        )}
+                        {item.price != null && (
+                          <div>
+                            <span>Price</span>
+                            <span className="cz-carousel-price-value">
+                              {priceLabel(item)}
+                            </span>
+                          </div>
+                        )}
+                        {item.seller && (
+                          <div>
+                            <span>Seller</span>
+                            {sellerStoreUrl(item) ? (
+                              <a
+                                href={sellerStoreUrl(item)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="cz-seller-link"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {item.seller}
+                              </a>
+                            ) : (
+                              <span>{item.seller}</span>
+                            )}
+                          </div>
+                        )}
+                        {item.posterSize && (
+                          <div>
+                            <span>Poster wore</span>
+                            <span>{item.posterSize}</span>
+                          </div>
+                        )}
+                        {item.recommendedSize && (
+                          <div>
+                            <span>Recommended</span>
+                            <span>{item.recommendedSize}</span>
+                          </div>
+                        )}
+                        {item.colorway && (
+                          <div>
+                            <span>Colorway</span>
+                            <span>{item.colorway}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Haul: quiet chip when assigned (product sheet); full accordion otherwise. */}
+                    <div className="cz-carousel-haul-block" onClick={(e) => e.stopPropagation()}>
+                      <CardBackHaulField
+                        item={item}
+                        knownHauls={knownHauls}
+                        onSaveEdit={onSaveEdit}
+                        compact={CARD_BACK_PRODUCT_SHEET}
+                      />
+                    </div>
+
+                    {item.note && (
+                      <div className="cz-carousel-note">
+                        <span>Note</span>
+                        <p>{item.note}</p>
+                      </div>
+                    )}
+
+                    {galleryImages.length > 0 && (
+                      <CardCornerFan
+                        item={item}
+                        images={galleryImages}
+                        onOpenPhotos={onOpenPhotos}
+                        reduced={reduced}
+                        // Keep the peel-open fan — product-sheet hierarchy is
+                        // about price/haul chrome, not killing the photo motion.
+                        variant="fan"
+                        // Only the centered card may open photos via Space —
+                        // stale focus on a previous fan reopened the wrong album.
+                        interactive={isCenter}
+                      />
+                    )}
+
+                    <div className="cz-carousel-actions">
+                      {linkButtons(item)
+                        .map((button, index) => (
+                          <button
+                            key={button.url + index}
+                            type="button"
+                            className={"cz-carousel-action-btn" + (button.role === "buy" ? " primary" : "")}
+                            onClick={() => onOpen(item, button.url)}
+                          >
+                            {button.label}
+                            {button.role === "buy" ? (
+                              <span className="cz-btn-glare" aria-hidden="true" />
+                            ) : null}
+                          </button>
+                        ))}
+                      <button
+                        type="button"
+                        className="cz-carousel-action-btn"
+                        onClick={() =>
+                          openBubble(
+                            "sizes",
+                            "Size info",
+                            <CarouselSizeInfo item={item} />
+                          )
+                        }
+                      >
+                        Sizes
+                      </button>
+                    </div>
+
+                    {/* The exit is fully CSS-driven (see closeBubble): the shell
+                        stays mounted while .is-closing fades/drifts it and
+                        transitions its pinned height to 0, then unmounts — one
+                        continuous motion, no frozen-opacity blink, no unmount
+                        scroll snap. */}
+                    <AnimatePresence initial={false}>
+                      {bubble && (
+                        <motion.div
+                          key={bubble.key}
+                          ref={bubbleRef}
+                          className={"cz-bubble-shell" + (bubbleClosing ? " is-closing" : "")}
+                          initial={false}
+                        >
+                          <InfoBubble title={bubble.title} onClose={closeBubble}>
+                            {bubble.content}
+                          </InfoBubble>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>
@@ -4002,15 +5733,20 @@ function CoverFlowCarousel({
   selectedId,
   flipRequest,
   editRequest,
+  haulNames = [],
   onDelete,
   onSaveEdit,
   onOpen,
   onSetPrimaryImage,
   onLoadPhotos,
+  onAttachPhoto,
+  onRemovePhoto,
   onToggleFavorite,
   onActivate,
   onDeactivate,
   onSelect,
+  // When true, skip CoverFlow springs so a haul morph can hand off silently.
+  suppressMotion = false,
 }) {
   const containerRef = useRef(null);
   const [activeIndex, setActiveIndexState] = useState(0);
@@ -4022,8 +5758,16 @@ function CoverFlowCarousel({
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const wheelAcc = useRef(0);
   const wheelTimer = useRef(null);
+  const wheelLockUntil = useRef(0);
   const cardRefs = useRef(new Map());
   const outsideDismissedRef = useRef(false);
+  // Wrap-around (front ↔ back of rack) takes two intentional steps: first
+  // press/swipe rubber-bands with a short nudge, second within the arm window
+  // commits the wrap. Mid-shelf steps stay single-action.
+  const [edgeNudgeX, setEdgeNudgeX] = useState(0);
+  const edgeArmRef = useRef(null); // { dir: "prev"|"next", at: number }
+  const edgeNudgeBackTimer = useRef(null);
+  const edgeArmExpireTimer = useRef(null);
 
   const dismissActiveLayer = useCallback(() => {
     const item = items[activeIndexRef.current];
@@ -4051,9 +5795,33 @@ function CoverFlowCarousel({
 
   const setActiveIndex = useCallback((index) => {
     const next = Math.max(0, Math.min(items.length - 1, index));
+    // Navigation always wins: leaving a centered card unflips it immediately
+    // so arrow keys / swipes never fight a stuck flip state.
+    if (next !== activeIndexRef.current && expandedId && onDeactivate) {
+      onDeactivate();
+    }
+    // Drop focus trapped on the previous card's photo fan / back controls so
+    // Space flips the new center card instead of reopening old photos.
+    if (next !== activeIndexRef.current) {
+      const prevItem = items[activeIndexRef.current];
+      const prevCard = prevItem ? cardRefs.current.get(prevItem.id) : null;
+      const active = document.activeElement;
+      if (active && prevCard?.contains?.(active) && typeof active.blur === "function") {
+        active.blur();
+      }
+      // Prefer landing focus on the stage after a step so keyboard stays live.
+      requestAnimationFrame(() => {
+        const stage = containerRef.current;
+        if (stage && typeof stage.focus === "function" && !stage.contains(document.activeElement)) {
+          stage.focus({ preventScroll: true });
+        }
+      });
+      // Never keep an album open for a card that is no longer centered.
+      setGallery((current) => (current ? null : current));
+    }
     activeIndexRef.current = next;
     setActiveIndexState(next);
-  }, [items.length]);
+  }, [items, expandedId, onDeactivate]);
 
   useEffect(() => {
     const update = () => {
@@ -4127,28 +5895,128 @@ function CoverFlowCarousel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex]);
 
+  const clearEdgeArm = useCallback(() => {
+    edgeArmRef.current = null;
+    if (edgeNudgeBackTimer.current) {
+      clearTimeout(edgeNudgeBackTimer.current);
+      edgeNudgeBackTimer.current = null;
+    }
+    if (edgeArmExpireTimer.current) {
+      clearTimeout(edgeArmExpireTimer.current);
+      edgeArmExpireTimer.current = null;
+    }
+    setEdgeNudgeX(0);
+  }, []);
+
+  const pulseEdgeNudge = useCallback((dir) => {
+    // Pull slightly against the edge so the press still feels interactive.
+    const amount = dir === "prev" ? 22 : -22;
+    setEdgeNudgeX(amount);
+    if (edgeNudgeBackTimer.current) clearTimeout(edgeNudgeBackTimer.current);
+    edgeNudgeBackTimer.current = setTimeout(() => {
+      edgeNudgeBackTimer.current = null;
+      setEdgeNudgeX(0);
+    }, reduced ? 0 : 120);
+  }, [reduced]);
+
+  const tryEdgeStep = useCallback((dir) => {
+    const len = Math.max(items.length, 1);
+    if (len <= 1) return;
+    const idx = activeIndexRef.current;
+    const atStart = idx === 0;
+    const atEnd = idx === len - 1;
+
+    if (dir === "prev" && !atStart) {
+      clearEdgeArm();
+      setActiveIndex(idx - 1);
+      return;
+    }
+    if (dir === "next" && !atEnd) {
+      clearEdgeArm();
+      setActiveIndex(idx + 1);
+      return;
+    }
+
+    // At the edge: first attempt arms + nudges; second within the window wraps.
+    const ARM_MS = 900;
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const armed = edgeArmRef.current;
+    if (armed && armed.dir === dir && now - armed.at < ARM_MS) {
+      clearEdgeArm();
+      if (dir === "prev") setActiveIndex(len - 1);
+      else setActiveIndex(0);
+      return;
+    }
+
+    edgeArmRef.current = { dir, at: now };
+    pulseEdgeNudge(dir);
+    if (edgeArmExpireTimer.current) clearTimeout(edgeArmExpireTimer.current);
+    edgeArmExpireTimer.current = setTimeout(() => {
+      edgeArmExpireTimer.current = null;
+      // Only clear the arm if nothing re-armed it.
+      if (edgeArmRef.current && edgeArmRef.current.at === now) {
+        edgeArmRef.current = null;
+      }
+    }, ARM_MS);
+  }, [items.length, setActiveIndex, clearEdgeArm, pulseEdgeNudge]);
+
   const goNext = useCallback(() => {
-    setActiveIndex(Math.min(activeIndexRef.current + 1, items.length - 1));
-  }, [items.length, setActiveIndex]);
+    tryEdgeStep("next");
+  }, [tryEdgeStep]);
 
   const goPrev = useCallback(() => {
-    setActiveIndex(Math.max(activeIndexRef.current - 1, 0));
-  }, [setActiveIndex]);
+    tryEdgeStep("prev");
+  }, [tryEdgeStep]);
+
+  useEffect(
+    () => () => {
+      if (edgeNudgeBackTimer.current) clearTimeout(edgeNudgeBackTimer.current);
+      if (edgeArmExpireTimer.current) clearTimeout(edgeArmExpireTimer.current);
+    },
+    []
+  );
 
   const onKeyDown = useCallback((event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
+    if (event.target?.isContentEditable) return;
     // Gallery owns Escape while open; layered card dismiss is handled by the
     // capture-phase window listener so it still works when focus is elsewhere.
     if (event.key === "Escape") return;
+    if (suppressMotion) return;
     if (event.key === "ArrowLeft") {
       event.preventDefault();
+      // Navigation always unflips first so keys never feel stuck.
+      if (expandedId && onDeactivate) onDeactivate();
       goPrev();
     } else if (event.key === "ArrowRight") {
       event.preventDefault();
+      if (expandedId && onDeactivate) onDeactivate();
       goNext();
     }
-  }, [goPrev, goNext]);
+  }, [goPrev, goNext, expandedId, onDeactivate, suppressMotion]);
+
+  // Window-level arrows so keys work even when the carousel isn't focused —
+  // the global app handler also moves selection, but CoverFlow owns wrap/nudge.
+  useEffect(() => {
+    const onWindowKey = (event) => {
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
+      if (event.target?.isContentEditable) return;
+      if (document.querySelector('[role="dialog"][aria-label="Album photo preview"]')) return;
+      if (suppressMotion) return;
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      // Don't double-fire if the carousel element itself is already handling it.
+      if (containerRef.current && containerRef.current.contains(document.activeElement)) return;
+      event.preventDefault();
+      if (expandedId && onDeactivate) onDeactivate();
+      if (event.key === "ArrowLeft") goPrev();
+      else goNext();
+    };
+    window.addEventListener("keydown", onWindowKey);
+    return () => window.removeEventListener("keydown", onWindowKey);
+  }, [goPrev, goNext, expandedId, onDeactivate, suppressMotion]);
 
   useEffect(() => {
     const onEscape = (event) => {
@@ -4166,7 +6034,7 @@ function CoverFlowCarousel({
   const markDragging = useCallback((info) => {
     // Only mark as a drag if the pointer actually moved enough to be a swipe.
     // This prevents quick taps/clicks on side cards from being suppressed.
-    if (Math.abs(info.offset.x) <= 4 && Math.abs(info.velocity.x) <= 50) return;
+    if (Math.abs(info.offset.x) <= 8 && Math.abs(info.velocity.x) <= 80) return;
     const container = containerRef.current;
     if (!container) return;
     container.dataset.dragging = "true";
@@ -4177,10 +6045,12 @@ function CoverFlowCarousel({
   }, []);
 
   const onPanEnd = useCallback((event, info) => {
-    const threshold = cardSize.width * 0.25;
-    if (info.offset.x < -threshold || info.velocity.x < -500) {
+    // Mouse needs a firmer intentional swipe than trackpad; don't let tiny
+    // drags steal the card or advance the carousel.
+    const threshold = cardSize.width * 0.32;
+    if (info.offset.x < -threshold || info.velocity.x < -650) {
       goNext();
-    } else if (info.offset.x > threshold || info.velocity.x > 500) {
+    } else if (info.offset.x > threshold || info.velocity.x > 650) {
       goPrev();
     }
     markDragging(info);
@@ -4189,21 +6059,41 @@ function CoverFlowCarousel({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    // Trackpads fire a long tail of small deltas. Step as soon as the
+    // cumulative gesture crosses the threshold, then lock briefly so one
+    // flick cannot multi-page the carousel while springs settle.
+    const STEP_THRESHOLD = 36;
+    const LOCK_MS = 280;
     const onWheel = (event) => {
       // Wheel over a flipped card's scrollable content must scroll that
       // content, not page the carousel — never preventDefault there.
-      if (event.target.closest?.(".cz-carousel-back-content, .cz-carousel-edit, .cz-carousel-edit-shell")) return;
+      if (event.target.closest?.(".cz-carousel-back-content, .cz-carousel-edit, .cz-carousel-edit-shell, .cz-card-actions-panel, .cz-card-haul-field")) return;
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      if (Math.abs(delta) < 1) return;
+      if (Math.abs(delta) < 0.5) return;
       event.preventDefault();
-      wheelAcc.current += delta;
-      if (wheelTimer.current) clearTimeout(wheelTimer.current);
-      wheelTimer.current = setTimeout(() => {
-        wheelTimer.current = null;
-        if (wheelAcc.current > 40) goNext();
-        else if (wheelAcc.current < -40) goPrev();
+      const now = performance.now();
+      if (now < wheelLockUntil.current) {
         wheelAcc.current = 0;
-      }, 110);
+        return;
+      }
+      wheelAcc.current += delta;
+      if (wheelAcc.current > STEP_THRESHOLD) {
+        goNext();
+        wheelAcc.current = 0;
+        wheelLockUntil.current = now + LOCK_MS;
+      } else if (wheelAcc.current < -STEP_THRESHOLD) {
+        goPrev();
+        wheelAcc.current = 0;
+        wheelLockUntil.current = now + LOCK_MS;
+      } else {
+        // Quiet window: if the user stops mid-gesture without crossing the
+        // threshold, drop the partial accumulation so the next flick is clean.
+        if (wheelTimer.current) clearTimeout(wheelTimer.current);
+        wheelTimer.current = setTimeout(() => {
+          wheelTimer.current = null;
+          wheelAcc.current = 0;
+        }, 140);
+      }
     };
     container.addEventListener("wheel", onWheel, { passive: false });
     return () => {
@@ -4213,13 +6103,23 @@ function CoverFlowCarousel({
   }, [goNext, goPrev]);
 
   const closeGallery = useCallback(() => {
-    const trigger = galleryTriggerRef.current;
+    // Do NOT restore focus to the fan trigger. Space on that control opens
+    // the gallery; after scroll/unflip the trigger still owns focus and Space
+    // reopens the *previous* card's photos instead of flipping the active one.
+    // Land keyboard focus on the carousel stage so Space/arrows hit the right card.
     galleryTriggerRef.current = null;
     setGallery(null);
-    requestAnimationFrame(() => trigger?.isConnected && trigger.focus?.());
+    requestAnimationFrame(() => {
+      const stage = containerRef.current;
+      if (stage && typeof stage.focus === "function") stage.focus({ preventScroll: true });
+    });
   }, []);
 
   const openPhotos = useCallback(async (item, trigger) => {
+    // Only the centered/active card should open the gallery. A focused fan on a
+    // side card (stale after close + scroll) used to reopen the wrong album.
+    const center = items[activeIndexRef.current];
+    if (!center || center.id !== item.id) return;
     const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
     const shouldLoad = !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
     galleryTriggerRef.current = trigger || null;
@@ -4232,7 +6132,7 @@ function CoverFlowCarousel({
         ? { ...current, images: mergeFashionImages(images || [], current.images).slice(0, 8) }
         : current
     );
-  }, [onLoadPhotos]);
+  }, [onLoadPhotos, items]);
 
   if (items.length === 0) {
     return (
@@ -4278,12 +6178,15 @@ function CoverFlowCarousel({
             const offset = index - activeIndex;
             const abs = Math.abs(offset);
             const isPast = index < activeIndex;
-            const x = offset * (cardSize.width * 0.62);
+            const x = offset * (cardSize.width * 0.62) + edgeNudgeX;
             const rotateY = offset === 0 ? 0 : isPast ? 38 : -38;
             const scale = 1 - Math.min(abs * 0.08, 0.22);
             const z = -Math.min(abs * 80, 240);
-            const opacity = Math.max(0.52, 1 - abs * 0.16);
+            // Never animate card opacity — translucent springs made the center
+            // card see-through so neighbors flashed through it mid-swipe.
+            // Dim sides with --cz-card-side + solid faces instead.
             const zIndex = carouselLayerZ(items.length, index, activeIndex);
+            const sideAmount = Math.min(abs, 3);
             return (
               <motion.div
                 key={item.id}
@@ -4297,10 +6200,15 @@ function CoverFlowCarousel({
                   rotateY,
                   z,
                   scale,
-                  opacity,
-                  zIndex,
                 }}
-                transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 28 }}
+                transition={
+                  reduced || suppressMotion
+                    ? { duration: 0 }
+                    : edgeNudgeX !== 0
+                      // Snappier spring for the edge rubber-band press.
+                      ? { type: "spring", stiffness: 520, damping: 28 }
+                      : { type: "spring", stiffness: 260, damping: 28 }
+                }
                 style={{
                   position: "absolute",
                   left: "50%",
@@ -4308,23 +6216,30 @@ function CoverFlowCarousel({
                   marginLeft: -cardSize.width / 2,
                   marginTop: -cardSize.height / 2,
                   transformOrigin: "center center",
+                  // Snap stacking instantly; only geometry springs.
+                  zIndex,
+                  opacity: 1,
+                  ["--cz-card-side"]: String(sideAmount),
                 }}
                 onClick={(e) => {
                   if (index === activeIndexRef.current) return;
                   if (e.target.closest("button, a, input, textarea, [role='button']")) return;
                   e.stopPropagation();
+                  clearEdgeArm();
                   setActiveIndex(index);
                 }}
                 onPointerDown={(e) => {
                   if (index === activeIndexRef.current) return;
                   if (e.target.closest("button, a, input, textarea, [role='button']")) return;
                   e.stopPropagation();
+                  clearEdgeArm();
                   setActiveIndex(index);
                 }}
                 onPointerDownCapture={(e) => {
                   if (index === activeIndexRef.current) return;
                   if (e.target.closest("button, a, input, textarea, [role='button']")) return;
                   e.stopPropagation();
+                  clearEdgeArm();
                   setActiveIndex(index);
                 }}
               >
@@ -4339,10 +6254,13 @@ function CoverFlowCarousel({
                   isCenter={index === activeIndex}
                   flipSignal={flipRequest}
                   editSignal={editRequest}
+                  haulNames={haulNames}
                   onDelete={onDelete}
                   onSaveEdit={onSaveEdit}
                   onOpen={onOpen}
                   onOpenPhotos={openPhotos}
+                  onAttachPhoto={onAttachPhoto}
+                  onRemovePhoto={onRemovePhoto}
                   onToggleFavorite={onToggleFavorite}
                   onActivate={onActivate}
                   onDeactivate={onDeactivate}
@@ -4363,7 +6281,7 @@ function CoverFlowCarousel({
           type="button"
           className="cz-coverflow-arrow"
           aria-label="Previous card"
-          disabled={activeIndex === 0}
+          disabled={items.length <= 1}
           onClick={goPrev}
         >
           <ChevronLeft aria-hidden="true" size={14} />
@@ -4376,7 +6294,10 @@ function CoverFlowCarousel({
               className={"cz-coverflow-dot" + (i === activeIndex ? " is-active" : "")}
               aria-label={"Go to " + (item.title || "card " + (i + 1))}
               aria-current={i === activeIndex ? "true" : undefined}
-              onClick={() => setActiveIndex(i)}
+              onClick={() => {
+                clearEdgeArm();
+                setActiveIndex(i);
+              }}
             />
           ))}
         </div>
@@ -4384,7 +6305,7 @@ function CoverFlowCarousel({
           type="button"
           className="cz-coverflow-arrow"
           aria-label="Next card"
-          disabled={activeIndex === items.length - 1}
+          disabled={items.length <= 1}
           onClick={goNext}
         >
           <ChevronRight aria-hidden="true" size={14} />
@@ -5028,6 +6949,14 @@ export default function Credenza() {
   const interactionLocked = storageState.status === "load-error";
   const [input, setInput] = useState("");
   const [view, setView] = useState("shelf");
+  // null = haul directory; otherwise haul name string.
+  const [activeHaul, setActiveHaul] = useState(null);
+  // Set by closeHaul() and held until the exit fade finishes, so the open-haul
+  // chrome/item-filter don't snap away before the carousel is done fading out
+  // (that snap was collapsing the head's height mid-animation — cards "jumped
+  // up" as the layout above them disappeared out from under the fade).
+  const [closingHaulName, setClosingHaulName] = useState(null);
+  const reducedMotion = usePrefersReducedMotion();
   const [search, setSearch] = useState("");
   const [askState, setAskState] = useState({
     status: "idle",
@@ -5043,17 +6972,21 @@ export default function Credenza() {
   const [importOpen, setImportOpen] = useState(false);
   const [viewMode, setViewMode] = useState("carousel");
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
+  // "recent" = newest first (default). "starred" = only starred items.
   const [sortMode, setSortMode] = useState("recent");
-  const [typeFilter, setTypeFilter] = useState("all");
+  // Indexing chips next to the Inbox tab while a newly stashed item enriches.
+  const [indexingJobs, setIndexingJobs] = useState([]);
   const { notification, notify, dismiss: dismissNotification, pause: pauseNotification, resume: resumeNotification } = useNotification();
   const online = useOnlineStatus();
   const undoBatchRef = useRef([]);
   const undoExpiryRef = useRef(null);
   const [theme, setTheme] = useState(null);
-  const mode = theme || "light";
+  // New editorial gradient is the default colorway; light stays as the alt.
+  const mode = theme || "rainbow";
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", mode === "rainbow" ? "#05070a" : "#0d0818");
+    // Moonwalker black / Horizon ocean — matches the live field for iOS chrome.
+    if (meta) meta.setAttribute("content", mode === "rainbow" ? "#000000" : "#003973");
   }, [mode]);
   // A waiting service worker (see preview/src/main.jsx) means a new build is
   // staged; swapping code mid-session is the user's call, not ours.
@@ -5124,7 +7057,12 @@ export default function Credenza() {
 
   useEffect(() => {
     if (preferencesHydrated && ["ready", "saving", "save-error"].includes(storageState.status))
-      storageBackend.set("credenza-prefs-v1", JSON.stringify({ viewMode, sortMode, theme })).catch(() => {});
+      storageBackend
+        .set(
+          "credenza-prefs-v1",
+          JSON.stringify({ viewMode, sortMode, theme: theme || "rainbow", colorwayVersion: 4 })
+        )
+        .catch(() => {});
   }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme]);
 
   useEffect(() => {
@@ -5189,9 +7127,28 @@ export default function Credenza() {
       .then((raw) => {
         try {
           const p = JSON.parse(raw || "{}");
-          if (["recent", "oldest", "importance", "unopened"].includes(p.sortMode))
-            setSortMode(p.sortMode);
-          if (["light", "rainbow"].includes(p.theme)) setTheme(p.theme);
+          // Older prefs used multi-sort pills; map anything unknown back to recent,
+          // and keep only the Starred filter as a first-class mode.
+          if (p.sortMode === "starred") setSortMode("starred");
+          else setSortMode("recent");
+          // One-shot colorway migrate: land on Moonwalker dark once (Horizon light is
+          // the other toggle). After that, Theme preference is sticky again.
+          if (p.colorwayVersion !== 4) {
+            setTheme("rainbow");
+            storageBackend
+              .set(
+                "credenza-prefs-v1",
+                JSON.stringify({
+                  viewMode: p.viewMode || "carousel",
+                  sortMode: p.sortMode === "starred" ? "starred" : "recent",
+                  theme: "rainbow",
+                  colorwayVersion: 4,
+                })
+              )
+              .catch(() => {});
+          } else if (["light", "rainbow"].includes(p.theme)) {
+            setTheme(p.theme);
+          }
         } catch (e) {}
       })
       .catch(() => {})
@@ -5201,9 +7158,11 @@ export default function Credenza() {
 
   // ————— Capture: instant, local, never lost —————
   // Shared pipeline for the capture box and one-tap clipboard stash.
+  // Returns a status string; when stashed, also returns the new item id so the
+  // indexing chip can track enrichment progress next to the Inbox tab.
   const stash = (raw, extra) => {
     const text = (raw || "").trim();
-    if (!text) return "empty";
+    if (!text) return { status: "empty" };
     const parsed = classify(text);
     const key = canonicalKey(parsed, text);
     const dupItem = items.find((x) => itemMatchesCanonicalKey(x, key)) || null;
@@ -5212,7 +7171,7 @@ export default function Credenza() {
       setExpandedId(dupItem.id);
       setSelectedId(dupItem.id);
       enrichFashionItem(dupItem);
-      return "dupe";
+      return { status: "dupe", id: dupItem.id };
     }
     const item = createItem(parsed, text, extra);
     applyUpdate((list) => [item, ...list]);
@@ -5226,11 +7185,33 @@ export default function Credenza() {
         else updateItem(item.id, { status: "ready" });
       });
     }
-    return "stashed";
+    return { status: "stashed", id: item.id, title: item.title || "" };
   };
 
+  const beginIndexingJob = useCallback((result) => {
+    if (!result || result.status !== "stashed" || !result.id) return;
+    const id = result.id;
+    setIndexingJobs((jobs) => {
+      const without = jobs.filter((j) => j.id !== id);
+      return [
+        ...without,
+        {
+          id,
+          title: result.title || "New item",
+          progress: 12,
+          phase: "indexing",
+          startedAt: Date.now(),
+        },
+      ].slice(-4);
+    });
+  }, []);
+
   const capture = () => {
-    if (stash(input) !== "empty") setInput("");
+    const result = stash(input);
+    if (result.status !== "empty") {
+      setInput("");
+      beginIndexingJob(result);
+    }
   };
 
   // One tap: read the clipboard and stash it directly. Browsers guard clipboard
@@ -5263,7 +7244,11 @@ export default function Credenza() {
       flashImportResult("Clipboard's empty.");
       return;
     }
-    if (stash(text) === "stashed") flashImportResult("Stashed from the clipboard.");
+    const result = stash(text);
+    if (result.status === "stashed") {
+      beginIndexingJob(result);
+      flashImportResult("Stashed from the clipboard.");
+    }
   };
 
   // ————— Import: local parsing, local enrichment, dedupe against the shelf —————
@@ -5451,7 +7436,9 @@ export default function Credenza() {
   };
 
   const saveEdit = (id, patch) => updateItem(id, patch);
-  const toggleFavorite = (id) => updateItem(id, (item) => ({ favorite: item.favorite !== true }));
+  const toggleFavorite = (id) => {
+    updateItem(id, (item) => ({ favorite: item.favorite !== true }));
+  };
 
   // Manual image attach: compress then store. Manual always wins over auto-fetch.
   const attachImage = async (id, file) => {
@@ -5476,6 +7463,17 @@ export default function Credenza() {
   };
   const removeGalleryImage = (id, index) =>
     updateItem(id, (x) => ({ gallery: (x.gallery || []).filter((_, i) => i !== index) }));
+  // Remove by exact src so edit-mode can drop either the cover or a gallery tile.
+  // If the cover is deleted, promote the first remaining gallery image.
+  const removePhotoBySrc = (id, src) =>
+    updateItem(id, (x) => {
+      if (!src) return {};
+      if (x.image === src) {
+        const rest = (x.gallery || []).filter((g) => g !== src);
+        return { image: rest[0] || null, gallery: rest.slice(1) };
+      }
+      return { gallery: (x.gallery || []).filter((g) => g !== src) };
+    });
   const setPrimaryImage = (id, dataUrl) =>
     updateItem(id, (x) => {
       const nextGallery = (x.gallery || []).filter((g) => g !== dataUrl);
@@ -5607,17 +7605,21 @@ export default function Credenza() {
     ).slice(0, 10);
     updateEnrichedItem(item.id, token, (x) => {
       const cover = x.image || remoteImages[0] || null;
+      const resolvedTitle = fashionDisplayTitle(data) || data.title;
       return {
         status: "ready",
         title:
           preserveTitle || (yupooAlbumUrl(item) && !data.translated)
             ? x.title
-            : data.title,
+            : resolvedTitle || x.title,
         summary: data.summary || x.summary,
         price: data.priceCny != null ? data.priceCny : x.price,
         currency: "CNY",
         priceUsd: data.priceUsd != null ? data.priceUsd : x.priceUsd,
-        category: CATEGORIES[data.category] ? data.category : x.category,
+        category: CATEGORIES[data.category]
+          ? data.category
+          : x.category ||
+            guessFashionCategory([data.title, data.summary, data.sizeNotes, x.title, x.summary].filter(Boolean).join(" ")),
         variants: Array.isArray(data.variantGroups)
           ? data.variantGroups.map((group) => ({
               title: group.title || "",
@@ -5659,12 +7661,21 @@ export default function Credenza() {
             buyUrl: data.buyUrl || null,
           });
           const cover = item.image || albumImages[0] || null;
+          const enrichedTitle = fashionDisplayTitle(data);
+          const guessedCategory =
+            item.category && CATEGORIES[item.category]
+              ? item.category
+              : guessFashionCategory(
+                  [enrichedTitle, data.title, data.sourceTitle, data.description, data.batch, item.title, item.summary, item.rawText]
+                    .filter(Boolean)
+                    .join(" ")
+                );
           const albumPatch = {
             url: item.url && yupooAlbumIdentity(item.url) ? canonicalAlbum : item.url,
             canonicalKey: canonicalKey(classify(canonicalAlbum), canonicalAlbum),
             title:
-              data.title && shouldReplaceFashionTitle(item.title, item.url)
-                ? data.title
+              enrichedTitle && shouldReplaceFashionTitle(item.title, item.url)
+                ? enrichedTitle
                 : item.title,
             summary: item.summary || data.description || "",
             image: cover,
@@ -5675,6 +7686,7 @@ export default function Credenza() {
             links,
             seller: item.seller || data.seller || data.sellerAccount || "",
             batch: item.batch || data.batch || "",
+            category: guessedCategory || item.category || "",
             price: item.price != null ? item.price : data.priceCny,
             currency: "CNY",
             sourceTitle: data.sourceTitle || item.sourceTitle || "",
@@ -5760,7 +7772,7 @@ export default function Credenza() {
       lastOpenedAt: Date.now(),
       openCount: (x.openCount || 0) + 1,
     }));
-    const url = targetUrl || item.url;
+    const url = ensureYupooAlbumUid(targetUrl || item.url);
     if (url) window.open(url, "_blank", "noopener");
   };
 
@@ -5952,7 +7964,10 @@ export default function Credenza() {
         sourceImport: "tab",
         ...(tab.title ? { title: tab.title.slice(0, 72) } : {}),
       });
-      if (r === "stashed") flashImportResult("Stashed this tab.");
+      if (r.status === "stashed") {
+        beginIndexingJob(r);
+        flashImportResult("Stashed this tab.");
+      }
     });
   };
 
@@ -5962,6 +7977,58 @@ export default function Credenza() {
     [items]
   );
   const shelfAll = useMemo(() => items.filter((x) => x.status === "ready"), [items]);
+
+  // Drive indexing chips: advance while enriching, complete when ready, drop after a beat.
+  useEffect(() => {
+    if (!indexingJobs.length) return;
+    const tick = window.setInterval(() => {
+      setIndexingJobs((jobs) => {
+        if (!jobs.length) return jobs;
+        let changed = false;
+        const next = [];
+        for (const job of jobs) {
+          const item = items.find((x) => x.id === job.id);
+          if (!item) {
+            changed = true;
+            continue;
+          }
+          if (job.phase === "done") {
+            // Keep done chips briefly so the check is readable.
+            if (Date.now() - (job.doneAt || 0) > 1600) {
+              changed = true;
+              continue;
+            }
+            next.push(job);
+            continue;
+          }
+          const ready = item.status === "ready";
+          const failed = item.status === "failed";
+          if (ready || failed) {
+            changed = true;
+            next.push({
+              ...job,
+              title: item.title || job.title,
+              progress: 100,
+              phase: "done",
+              doneAt: Date.now(),
+            });
+            continue;
+          }
+          // Soft progress while still enriching — never quite finishes until ready.
+          const elapsed = Date.now() - (job.startedAt || Date.now());
+          const soft = Math.min(88, 12 + elapsed / 90);
+          if (soft > job.progress + 0.5) {
+            changed = true;
+            next.push({ ...job, progress: soft, title: item.title || job.title });
+          } else {
+            next.push(job);
+          }
+        }
+        return changed ? next : jobs;
+      });
+    }, 120);
+    return () => window.clearInterval(tick);
+  }, [indexingJobs.length, items]);
 
   const runCloudAsk = async () => {
     const query = search.trim();
@@ -6057,46 +8124,156 @@ export default function Credenza() {
   const q = search.trim().toLowerCase();
   const visible = useMemo(() => searchItems(shelfAll, q), [shelfAll, q]);
 
-  // ————— Browsing gear: appears only once the shelf earns it —————
-  const toolbarActive = shelfAll.length >= 6;
-  // Filter rail runs on garment category. Uncategorized cards (notes, posts,
-  // anything the resolver hasn't seen) live under "other" so every card stays
-  // reachable from the rail.
-  const itemCategory = (x) => (CATEGORIES[x.category] ? x.category : "other");
-  const presentCategories = useMemo(
-    () => Object.keys(CATEGORIES).filter((c) => shelfAll.some((x) => itemCategory(x) === c)),
-    [shelfAll]
-  );
-  const typed =
-    toolbarActive && typeFilter !== "all"
-      ? visible.filter((x) => itemCategory(x) === typeFilter)
-      : visible;
+  // Starred filter + view toggles only — no category chip rail.
+  const toolbarActive = shelfAll.length >= 1;
+  const typed = visible;
   const shelfItems = useMemo(() => {
-    const a = [...typed];
+    let a = [...typed];
+    // Starred mode = only favorited cards. Default = whole shelf.
+    if (sortMode === "starred") a = a.filter((x) => x.favorite === true);
     if (q) return a;
-    if (!toolbarActive || sortMode === "recent") a.sort((x, y) => y.createdAt - x.createdAt);
-    else if (sortMode === "oldest") a.sort((x, y) => x.createdAt - y.createdAt);
-    else if (sortMode === "importance") {
-      const rank = { high: 0, medium: 1, low: 2 };
-      a.sort(
-        (x, y) =>
-          (rank[x.importance] ?? 1) - (rank[y.importance] ?? 1) || y.createdAt - x.createdAt
-      );
-    } else if (sortMode === "unopened")
-      a.sort(
-        (x, y) => (x.lastOpenedAt ? 1 : 0) - (y.lastOpenedAt ? 1 : 0) || y.createdAt - x.createdAt
-      );
+    // Newest first — favoriting only marks the card, it never moves it.
+    a.sort((x, y) => y.createdAt - x.createdAt);
     return a;
-  }, [typed, q, toolbarActive, sortMode]);
+  }, [typed, q, sortMode]);
 
-  // Time buckets give the scroll a spine — recent sort only, and not mid-search.
+  // Existing haul names from project strings — used by the in-card haul picker.
+  const haulNames = useMemo(() => {
+    const names = new Set();
+    for (const item of items) {
+      const name = typeof item.project === "string" ? item.project.trim() : "";
+      if (name) names.add(name);
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  // Directory cards for the Hauls tab — named hauls only. Items without a
+  // project stay on the shelf; they are not a fake "Unsorted" haul.
+  // Collect up to 5 covers so multi-item hauls can render as a fan spread.
+  const haulDirectory = useMemo(() => {
+    const map = new Map();
+    for (const item of shelfAll) {
+      const name = typeof item.project === "string" ? item.project.trim() : "";
+      if (!name) continue;
+      const usd = itemUsdAmount(item);
+      const price = usd != null ? usd : 0;
+      const created = item.createdAt || 0;
+      const cur = map.get(name) || {
+        name,
+        count: 0,
+        value: 0,
+        latest: 0,
+        // [{ image, createdAt }] — sorted newest-first for the fan spread.
+        coverItems: [],
+      };
+      cur.count += 1;
+      cur.value += price;
+      if (created >= cur.latest) cur.latest = created;
+      if (item.image) {
+        cur.coverItems.push({ image: item.image, createdAt: created });
+      }
+      map.set(name, cur);
+    }
+    const hauls = Array.from(map.values()).map((haul) => {
+      const seen = new Set();
+      const covers = haul.coverItems
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map((c) => c.image)
+        .filter((src) => {
+          if (seen.has(src)) return false;
+          seen.add(src);
+          return true;
+        })
+        .slice(0, 5);
+      return {
+        name: haul.name,
+        count: haul.count,
+        value: haul.value,
+        latest: haul.latest,
+        covers,
+      };
+    }).sort((a, b) => {
+      if (b.latest !== a.latest) return b.latest - a.latest;
+      return a.name.localeCompare(b.name);
+    });
+    return { hauls };
+  }, [shelfAll]);
+
+  // Chrome + the shelf surface's item filter key off this, not raw
+  // `activeHaul` — while closing, `activeHaul` is already null but
+  // `closingHaulName` keeps this set until the exit fade finishes, so the
+  // carousel doesn't swap to the full unfiltered shelf mid-fade.
+  const openHaulName = view === "hauls" ? activeHaul || closingHaulName : null;
+
+  // When a haul is open (or closing), only its cards are on the shelf surface.
+  const listItems = useMemo(() => {
+    if (!openHaulName) return shelfItems;
+    return shelfItems.filter(
+      (item) => typeof item.project === "string" && item.project.trim() === openHaulName
+    );
+  }, [openHaulName, shelfItems]);
+
+  const openHaul = useCallback((haulKey) => {
+    setView("hauls");
+    setViewMode("carousel");
+    setExpandedId(null);
+    setSelectedId(null);
+    setActiveHaul(haulKey);
+  }, []);
+
+  // USD-normalized value for the total-cost reel: prefer the resolver's USD
+  // conversion, fall back to the raw price only when it's already dollars.
+  const itemUsd = useCallback((it) => {
+    if (it.priceUsd != null && isFinite(it.priceUsd)) return it.priceUsd;
+    if (it.price != null && isFinite(it.price) && (!it.currency || it.currency === "USD"))
+      return it.price;
+    return 0;
+  }, []);
+  const totalsItems = useMemo(() => {
+    if (openHaulName) {
+      return shelfItems.filter(
+        (item) => typeof item.project === "string" && item.project.trim() === openHaulName
+      );
+    }
+    return listItems;
+  }, [openHaulName, shelfItems, listItems]);
+  // Sums exactly what's on the surface — search matches, Starred-only filter,
+  // or the open haul — so the counter recalculates organically.
+  const listTotalUsd = useMemo(
+    () => totalsItems.reduce((sum, it) => sum + itemUsd(it), 0),
+    [totalsItems, itemUsd]
+  );
+  // Same context for the count chip — one consistent spot next to the total.
+  const totalCountLabel = openHaulName
+    ? totalsItems.length + (totalsItems.length === 1 ? " item" : " items")
+    : q
+      ? visible.length + " found"
+      : shelfAll.length + " saved";
+
+  const closeHaul = useCallback(() => {
+    if (!activeHaul) return;
+    // Reduced motion skips the fade entirely, so there's nothing to bridge.
+    if (!reducedMotion) setClosingHaulName(activeHaul);
+    setActiveHaul(null);
+    setExpandedId(null);
+    setSelectedId(null);
+  }, [activeHaul, reducedMotion]);
+
+  // Time buckets give the scroll a spine — default recent shelf only, not mid-search
+  // and not while filtering to Starred-only or browsing a single haul.
   let sections = null;
-  if (toolbarActive && sortMode === "recent" && !q && shelfItems.length > 0) {
+  if (
+    view === "shelf" &&
+    toolbarActive &&
+    sortMode !== "starred" &&
+    !q &&
+    listItems.length > 0
+  ) {
     const now = Date.now();
     const wk = [];
     const mo = [];
     const old = [];
-    for (const it of shelfItems) {
+    for (const it of listItems) {
       const age = now - it.createdAt;
       (age < WEEK_MS ? wk : age < 30 * DAY_MS ? mo : old).push(it);
     }
@@ -6109,6 +8286,15 @@ export default function Credenza() {
   useEffect(() => {
     if (view === "inbox" && inboxItems.length === 0) setView("shelf");
   }, [view, inboxItems.length]);
+
+  useEffect(() => {
+    if (view !== "hauls") return;
+    if (!activeHaul) return;
+    // Drop the retired Unsorted pseudo-haul, or a haul that no longer exists.
+    if (activeHaul === "__unsorted__" || !haulNames.includes(activeHaul)) {
+      setActiveHaul(null);
+    }
+  }, [view, activeHaul, haulNames]);
 
   // ————— Keyboard layer (Apple-style, all local) —————
   // Refs keep the one static listener wired to current logic; signal strings carry
@@ -6123,11 +8309,21 @@ export default function Credenza() {
   attachImageRef.current = attachImage;
   const removeRef = useRef(remove);
   removeRef.current = remove;
-  kb.current = { shelfItems, selectedId, expandedId, digest, items, importOpen, viewMode };
+  kb.current = {
+    shelfItems: listItems,
+    selectedId,
+    expandedId,
+    digest,
+    items,
+    importOpen,
+    viewMode,
+    view,
+    activeHaul,
+  };
   useEffect(() => {
     const isTyping = () => {
       const el = document.activeElement;
-      return el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT");
+      return el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.isContentEditable);
     };
     const onKey = (e) => {
       if (e.defaultPrevented) return;
@@ -6139,10 +8335,6 @@ export default function Credenza() {
         if (e.key === "k") {
           e.preventDefault();
           searchRef.current && searchRef.current.focus();
-        }
-        if (e.key === "d") {
-          e.preventDefault();
-          buildDigestRef.current();
         }
         return;
       }
@@ -6156,6 +8348,8 @@ export default function Credenza() {
       if (ctx.viewMode !== "carousel" && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
         e.preventDefault();
         if (list.length === 0) return;
+        // Navigation always wins — unflip any open card first.
+        setExpandedId(null);
         const nextIdx =
           e.key === "ArrowDown" ? Math.min(idx + 1, list.length - 1) : Math.max(idx - 1, 0);
         const id = list[nextIdx < 0 ? 0 : nextIdx].id;
@@ -6164,26 +8358,20 @@ export default function Credenza() {
         if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
         return;
       }
-      // Carousel view: left/right move the foreground card globally so the user
-      // does not have to focus the scroll container first. When nothing is
-      // explicitly selected, derive the current position from the foreground card
-      // already centered in the carousel.
+      // Resolve the active/centered carousel card when selection is empty.
+      const resolveCarouselIndex = () => {
+        if (idx >= 0) return idx;
+        if (ctx.viewMode !== "carousel" || list.length === 0) return -1;
+        const foreground = document.querySelector(".cz-carousel-card[data-foreground='true']");
+        const match = foreground && foreground.id.match(/^card-(.+)$/);
+        const found = match ? list.findIndex((x) => x.id === match[1]) : -1;
+        return found >= 0 ? found : 0;
+      };
+
+      // Carousel arrows are owned by CoverFlow's window listener (wrap/nudge +
+      // unflip). Don't also step selection here — that double-fired and felt dead
+      // at the ends. Non-carousel views still use Up/Down above.
       if (ctx.viewMode === "carousel" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-        e.preventDefault();
-        if (list.length === 0) return;
-        let currentIdx = idx;
-        if (currentIdx < 0) {
-          const foreground = document.querySelector(".cz-carousel-card[data-foreground='true']");
-          const match = foreground && foreground.id.match(/^card-(.+)$/);
-          currentIdx = match ? list.findIndex((x) => x.id === match[1]) : 0;
-        }
-        if (currentIdx < 0) currentIdx = 0;
-        const nextIdx =
-          e.key === "ArrowRight"
-            ? Math.min(currentIdx + 1, list.length - 1)
-            : Math.max(currentIdx - 1, 0);
-        const id = list[nextIdx].id;
-        setSelectedId(id);
         return;
       }
       if (e.key === "Escape") {
@@ -6191,17 +8379,25 @@ export default function Credenza() {
         setSelectedId(null);
         return;
       }
-      const sel = idx >= 0 ? list[idx] : null;
+      const activeIdx = resolveCarouselIndex();
+      const sel = activeIdx >= 0 ? list[activeIdx] : null;
       if (sel) {
         if (e.key === "Enter" || e.key === "o") {
           e.preventDefault();
           recordOpenRef.current(sel);
           return;
         }
-        if (e.key === "f") {
+        // Space / F flips the active card. Space again (or F again while open)
+        // unflips — same as clicking the center card.
+        if (e.key === " " || e.key === "Spacebar" || e.key === "f") {
           e.preventDefault();
-          setExpandedId(sel.id);
-          setFlipRequest(sel.id + ":" + Date.now());
+          setSelectedId(sel.id);
+          if (ctx.expandedId === sel.id) {
+            setExpandedId(null);
+          } else {
+            setExpandedId(sel.id);
+            setFlipRequest(sel.id + ":" + Date.now());
+          }
           return;
         }
         if (e.key === "e") {
@@ -6322,13 +8518,7 @@ export default function Credenza() {
     );
   };
 
-  const SORT_LABELS = {
-    recent: "Recent",
-    oldest: "Oldest",
-    importance: "Importance",
-    unopened: "Never opened",
-  };
-
+  
   const localStatus = (() => {
     if (storageState.status === "loading") return { label: "Opening shelf", color: FAINT };
     if (storageState.status === "load-error") return { label: "Needs recovery", color: "var(--cz-error-text)" };
@@ -6339,6 +8529,394 @@ export default function Credenza() {
     return { label: "Saved on this device", color: SUB };
   })();
 
+  // Keep selection valid for the current surface — stale ids (left behind when
+  // leaving a haul or switching tabs) make arrow keys appear dead.
+  useEffect(() => {
+    if (!selectedId) return;
+    if (listItems.some((it) => it.id === selectedId)) return;
+    setSelectedId(null);
+    setExpandedId(null);
+  }, [listItems, selectedId]);
+
+  // Any view/haul surface change forces cards face-up. Navigation wins.
+  useEffect(() => {
+    setExpandedId(null);
+  }, [view, activeHaul, viewMode]);
+
+  // Hauls directory grid. Only ever shown when no haul is open — see the
+  // AnimatePresence swap against `shelfSurface` below. Declarative crossfade:
+  // mode="wait" so the directory and the open-haul carousel are never both
+  // mounted/interactive at once (see docs/carousel-canonical-state.md).
+  const HAUL_SURFACE_TRANSITION = { duration: reducedMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] };
+  const haulDirectorySurface = (
+    <motion.section
+      key="directory"
+      role="tabpanel"
+      id="view-panel-hauls"
+      aria-labelledby="view-tab-hauls"
+      className="cz-hauls-panel"
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={HAUL_SURFACE_TRANSITION}
+    >
+      <div className="cz-section-head" style={{ justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div className="cz-hauls-title">Your hauls</div>
+          <div className="cz-hauls-sub">
+            {haulDirectory.hauls.length
+              ? haulDirectory.hauls.length +
+                (haulDirectory.hauls.length === 1 ? " haul" : " hauls")
+              : "Name hauls from the ⋯ menu on any card"}
+          </div>
+        </div>
+      </div>
+
+      {haulDirectory.hauls.length === 0 ? (
+        <div className="cz-hauls-empty">
+          <div className="cz-hauls-empty-title">No hauls yet</div>
+          <p>Stash items, flip a card, open ⋯, and add them to a named haul.</p>
+          <Pill primary onClick={() => setView("shelf")}>
+            Back to shelf
+          </Pill>
+        </div>
+      ) : (
+        <div className="cz-hauls-grid">
+          {haulDirectory.hauls.map((haul) => (
+            <button
+              key={haul.name}
+              type="button"
+              className="cz-haul-card"
+              data-haul-name={haul.name}
+              onClick={() => openHaul(haul.name)}
+            >
+              <HaulCoverFan
+                covers={haul.covers}
+                name={haul.name}
+                count={haul.count}
+              />
+              <div className="cz-haul-card-label">
+                <div className="cz-haul-card-name">{haul.name}</div>
+                <div className="cz-haul-card-meta">
+                  {haul.count} {haul.count === 1 ? "item" : "items"}
+                  {haul.value > 0 ? " · $" + Math.round(haul.value) : ""}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </motion.section>
+  );
+
+  // Plain shelf surface — also doubles as the open-haul carousel/cards/rows
+  // surface when view === "hauls" && activeHaul (branches internally on viewMode).
+  // Only fades when it's standing in for the open-haul carousel inside the
+  // Hauls-tab AnimatePresence above; plain Shelf-tab renders skip animation
+  // entirely (initial={false}) so viewMode/tab switches stay instant.
+  const shelfSurface = (
+    <motion.section
+      key={openHaulName ? "haul:" + openHaulName : "shelf"}
+      role="tabpanel"
+      id={view === "hauls" ? "view-panel-hauls" : "view-panel-shelf"}
+      aria-labelledby={view === "hauls" ? "view-tab-hauls" : "view-tab-shelf"}
+      initial={openHaulName ? { opacity: 0, scale: 0.98 } : false}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={openHaulName ? { opacity: 0, scale: 0.98 } : undefined}
+      transition={HAUL_SURFACE_TRANSITION}
+    >
+      {/* Starred filter + view toggles only (category chips removed).
+          Hidden inside an open haul — that view stays clean. */}
+      {toolbarActive && !openHaulName && (
+        <div
+          className="cz-shelf-toolbar"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 6,
+            marginBottom: 12,
+          }}
+        >
+          <div
+            className="cz-toolbar-end"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              position: "relative",
+              flexShrink: 0,
+            }}
+          >
+            <button
+              type="button"
+              className={"cz-starred-filter" + (sortMode === "starred" ? " is-active" : "")}
+              aria-pressed={sortMode === "starred"}
+              aria-label={sortMode === "starred" ? "Show all items" : "Show starred only"}
+              title={sortMode === "starred" ? "Show all" : "Starred only"}
+              onClick={() => setSortMode(sortMode === "starred" ? "recent" : "starred")}
+            >
+              <Star
+                aria-hidden="true"
+                size={16}
+                strokeWidth={2}
+                fill={sortMode === "starred" ? "currentColor" : "none"}
+              />
+            </button>
+            <span style={{ width: 1, height: 14, background: HAIR }} />
+            <button
+              type="button"
+              className="cz-view-button"
+              onClick={() => setViewMode("carousel")}
+              aria-label="Carousel view"
+              aria-pressed={viewMode === "carousel"}
+              title="Carousel"
+              style={{
+                fontFamily: FONT,
+                fontSize: 12,
+                color: viewMode === "carousel" ? INK : FAINT,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px 2px",
+              }}
+            >
+              ◈
+            </button>
+            <button
+              type="button"
+              className="cz-view-button"
+              onClick={() => setViewMode("cards")}
+              aria-label="Card view"
+              aria-pressed={viewMode === "cards"}
+              title="Cards"
+              style={{
+                fontFamily: FONT,
+                fontSize: 12,
+                color: viewMode === "cards" ? INK : FAINT,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px 2px",
+              }}
+            >
+              ▦
+            </button>
+            <button
+              type="button"
+              className="cz-view-button"
+              onClick={() => setViewMode("rows")}
+              aria-label="Row view"
+              aria-pressed={viewMode === "rows"}
+              title="Rows"
+              style={{
+                fontFamily: FONT,
+                fontSize: 12,
+                color: viewMode === "rows" ? INK : FAINT,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px 2px",
+              }}
+            >
+              ☰
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Shelf */}
+      {!loaded ? (
+        <div style={{ color: SUB, fontSize: 13, padding: "36px 0", textAlign: "center" }}>
+          Opening the credenza…
+        </div>
+      ) : storageState.status === "load-error" ? (
+        <div
+          role="alert"
+          style={{
+            background: CARD,
+            border: "1px solid " + HAIR,
+            padding: "28px 24px",
+            maxWidth: 620,
+          }}
+        >
+          <div className="cz-title-balance" style={{ fontFamily: DISPLAY, fontSize: 24, lineHeight: 1.15, marginBottom: 8 }}>
+            Credenza couldn’t open this shelf.
+          </div>
+          <div className="cz-copy-pretty" style={{ color: SUB, fontSize: 14, lineHeight: 1.6, maxWidth: "62ch" }}>
+            Nothing has been overwritten. Retry the local storage read, restore a backup, or download the unread data before starting over.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
+            <Pill primary onClick={() => window.location.reload()}>Try again</Pill>
+            {storageState.raw != null && <Pill onClick={downloadRecoveryData}>Download recovery data</Pill>}
+            <Pill onClick={() => setImportOpen(true)}>Restore a backup</Pill>
+            <Pill subtle onClick={continueSessionOnly}>Continue without saving</Pill>
+          </div>
+          <div style={{ borderTop: "1px solid " + HAIR, marginTop: 22, paddingTop: 16 }}>
+            <button
+              type="button"
+              className="cz-interactive"
+              onClick={startEmptyShelf}
+              style={{ border: 0, background: "transparent", color: SUB, padding: "10px 0", cursor: "pointer", fontWeight: 650 }}
+            >
+              Start an empty shelf…
+            </button>
+          </div>
+        </div>
+      ) : listItems.length === 0 ? (
+        items.length === 0 ? (
+          <div className="cz-empty-shelf">
+            <div className="cz-empty-shelf-title">
+              Start with what you already saved.
+            </div>
+            <div className="cz-empty-shelf-copy">
+              Export your pile, drop it in, and the shelf starts dealing it back.
+            </div>
+            <div className="cz-empty-shelf-actions">
+              <Pill primary onClick={() => setImportOpen(true)}>
+                Import your pile
+              </Pill>
+              <Pill onClick={addSamples}>Try a sample shelf</Pill>
+              <Pill
+                subtle
+                onClick={() => captureRef.current && captureRef.current.focus()}
+              >
+                Stash a thought
+              </Pill>
+            </div>
+            <div style={{ fontSize: 11.5, color: FAINT, lineHeight: 1.5 }}>
+              Raindrop · Pocket · browser bookmarks · any CSV — original dates and
+              tags come along.
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              background: CARD,
+              border: "1px solid " + HAIR,
+              borderRadius: 0,
+              padding: "40px 24px",
+              textAlign: "center",
+              color: SUB,
+              fontSize: 13.5,
+              lineHeight: 1.65,
+            }}
+          >
+            <div style={{ fontFamily: DISPLAY, fontSize: 21, color: INK, marginBottom: 7 }}>
+              {q
+                ? "No matches for “" + search.trim() + "”."
+                : sortMode === "starred"
+                  ? "No starred items yet."
+                  : openHaulName
+                    ? "This haul is empty."
+                    : "Nothing on the shelf yet."}
+            </div>
+            <div className="cz-copy-pretty" style={{ marginBottom: 14 }}>
+              {q
+                ? "Search includes titles, notes, projects, raw links, and paired Photos or Buy URLs."
+                : sortMode === "starred"
+                  ? "Star a card from the front face, then open Starred here."
+                  : openHaulName
+                    ? "Add cards from the shelf with ⋯ → Add to haul."
+                    : "Paste a Yupoo or Weidian link above to start a haul."}
+            </div>
+            {(q || sortMode === "starred" || openHaulName) && (
+              <Pill
+                primary
+                onClick={() => {
+                  if (q) setSearch("");
+                  else if (sortMode === "starred") setSortMode("recent");
+                  else closeHaul();
+                }}
+              >
+                {q
+                  ? "Clear search"
+                  : sortMode === "starred"
+                    ? "Show all cards"
+                    : "All hauls"}
+              </Pill>
+            )}
+          </div>
+        )
+      ) : viewMode === "carousel" ? (
+        <div className="cz-haul-open-stage">
+          <CoverFlowCarousel
+            items={listItems}
+            expandedId={expandedId}
+            selectedId={selectedId}
+            flipRequest={flipRequest}
+            editRequest={editRequest}
+            haulNames={haulNames}
+            onDelete={remove}
+            onSaveEdit={saveEdit}
+            onOpen={recordOpen}
+            onSetPrimaryImage={setPrimaryImage}
+            onLoadPhotos={loadAlbumPhotos}
+            onAttachPhoto={attachGalleryImage}
+            onRemovePhoto={removePhotoBySrc}
+            onToggleFavorite={toggleFavorite}
+            onActivate={(id) => {
+              setSelectedId(id);
+              setExpandedId(id);
+            }}
+            onDeactivate={() => setExpandedId(null)}
+            onSelect={setSelectedId}
+          />
+        </div>
+      ) : (
+        <div
+          className={viewMode === "cards" && !sections ? "cz-shelf-grid" : undefined}
+          style={{
+            display: viewMode === "cards" && !sections ? undefined : "flex",
+            flexDirection: viewMode === "cards" && !sections ? undefined : "column",
+            gap: viewMode === "rows" ? 6 : 10,
+          }}
+        >
+          {sections
+            ? sections.map(([label, arr], si) => (
+                <div key={label} className="cz-time-section">
+                  <Caption style={{ margin: (si === 0 ? "0" : "8px") + " 2px 0" }}>
+                    {label}
+                  </Caption>
+                  <div
+                    className={viewMode === "cards" ? "cz-time-section-grid" : undefined}
+                    style={
+                      viewMode === "rows"
+                        ? { display: "flex", flexDirection: "column", gap: 6 }
+                        : undefined
+                    }
+                  >
+                    {arr.map(renderEntry)}
+                  </div>
+                </div>
+              ))
+            : listItems.map(renderEntry)}
+        </div>
+      )}
+
+      {/* Sample cleanup */}
+      {hasSamples && (
+        <div style={{ textAlign: "center", marginTop: 24 }}>
+          <button
+            onClick={clearSamples}
+            style={{
+              fontFamily: FONT,
+              fontSize: 12,
+              fontWeight: 600,
+              color: SUB,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            Clear sample shelf
+          </button>
+        </div>
+      )}
+    </motion.section>
+  );
+
   return (
     <div
       className="cz-app"
@@ -6346,8 +8924,9 @@ export default function Credenza() {
       data-fashion="true"
       style={{
         ...PALETTES[mode],
-        colorScheme: mode,
-        minHeight: "100vh",
+        // CSS color-scheme only accepts light|dark — "rainbow" is our prefs key.
+        colorScheme: mode === "light" ? "dark" : "dark",
+        minHeight: "100dvh",
         background: BG,
         color: INK,
         fontFamily: FONT,
@@ -6367,7 +8946,7 @@ export default function Credenza() {
           onOpen={(itemId, url) => {
             const it = items.find((x) => x.id === itemId);
             if (it) recordOpen(it);
-            else if (url) window.open(url, "_blank", "noopener");
+            else if (url) window.open(ensureYupooAlbumUid(url), "_blank", "noopener");
           }}
         />
       )}
@@ -6389,33 +8968,21 @@ export default function Credenza() {
           <div className="cz-brand"><span className="cz-brand-mark">C</span> CREDENZA <span style={{ opacity: 0.65, fontWeight: 400 }}>Fashion</span></div>
         </div>
 
-        <h1 className="cz-hero-title cz-title-balance">Save the finds. Track the drip.</h1>
+        <h1 className="cz-hero-title cz-title-balance">Organize the haul.</h1>
         <p style={{
           fontFamily: FONT,
           fontSize: 15,
-          color: SUB,
+          color: "var(--cz-ink)",
           marginTop: -12,
           marginBottom: 28,
           lineHeight: 1.5,
+          opacity: 0.82,
         }}>
-          Reddit W2Cs, Weidian links, QC photos — all in one place.
+          Yupoo albums, Weidian buys, Reddit finds — one shelf for the whole haul.
         </p>
 
-        {/* Capture */}
-        <div
-          className="cz-capture-shell"
-          style={{
-            display: "flex",
-            gap: 8,
-            alignItems: "flex-end",
-            background: CARD,
-            border: "1px solid " + (mode === "dark" ? "rgba(243,244,246,0.20)" : "rgba(17,17,15,0.20)"),
-            borderRadius: 0,
-            padding: 10,
-            marginBottom: 24,
-            boxShadow: "0 10px 28px rgba(20,20,16,.055)",
-          }}
-        >
+        {/* Capture — rounded shell matching the search bar. */}
+        <div className="cz-capture-shell">
           <textarea
             ref={captureRef}
             className="cz-capture"
@@ -6434,49 +9001,30 @@ export default function Credenza() {
                 e.target.style.height = "auto";
               }
             }}
-            placeholder="Paste a link, or write what you want to remember…"
+            placeholder="Paste a link or note…"
             rows={1}
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              resize: "none",
-              color: INK,
-              fontSize: 14,
-              lineHeight: 1.45,
-              fontFamily: FONT,
-              padding: "7px 6px",
-            }}
           />
-          {input.trim() ? (
-            <Pill primary disabled={interactionLocked} onClick={capture}>
-              Stash
-            </Pill>
-          ) : canStashTab ? (
-            <Pill disabled={interactionLocked} onClick={stashCurrentTab} title="Stash the page you're looking at">
-              Stash this tab
-            </Pill>
-          ) : (
-            <Pill disabled={interactionLocked} onClick={stashClipboard} title="Stash whatever's on the clipboard, one tap">
-              Stash clipboard
-            </Pill>
-          )}
+          <CapturePill
+            hasInput={!!input.trim()}
+            canStashTab={canStashTab}
+            onCapture={capture}
+            onStashTab={stashCurrentTab}
+            onStashClipboard={stashClipboard}
+            disabled={interactionLocked}
+          />
         </div>
 
-        {/* Search — native field plus a labeled Search → X morph control. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            marginBottom: 0,
-          }}
-        >
-          <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center" }}>
+        {/* Search — quiet field; Clear morph only appears when there is text. */}
+        <div className="cz-search-row">
+          <div className={"cz-search-shell" + (search ? " has-clear" : "")}>
+            <Search className="cz-search-leading" aria-hidden="true" size={16} strokeWidth={2.2} />
             <input
               className="cz-search-input"
               ref={searchRef}
-              type="search"
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
+              autoComplete="off"
               aria-label="Search your shelf"
               disabled={interactionLocked}
               value={search}
@@ -6499,31 +9047,22 @@ export default function Credenza() {
                 }
               }}
               placeholder="Search your shelf"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                background: SEG,
-                border: "1px solid transparent",
-                borderRadius: 999,
-                color: INK,
-                fontSize: 13.5,
-                padding: "9px 104px 9px 14px",
-                fontFamily: FONT,
-              }}
             />
-            <MorphButton
-              label="Search"
-              icon={Search}
-              activeIcon={X}
-              disabled={interactionLocked}
-              ariaLabel={search ? "Clear search" : "Focus search"}
-              title={search ? "Clear search" : "Search your shelf · ⌘K"}
-              className="cz-search-morph"
-              onClick={() => {
-                if (search) setSearch("");
-                searchRef.current?.focus();
-              }}
-            />
+            {search ? (
+              <MorphButton
+                label="Clear"
+                icon={X}
+                activeIcon={X}
+                disabled={interactionLocked}
+                ariaLabel="Clear search"
+                title="Clear search"
+                className="cz-search-morph is-clear"
+                onClick={() => {
+                  setSearch("");
+                  searchRef.current?.focus();
+                }}
+              />
+            ) : null}
           </div>
           {CLOUD_ASK_ENABLED && (
             <Pill
@@ -6647,22 +9186,19 @@ export default function Credenza() {
           </div>
         )}
 
-        {/* Shelf / Inbox tabs — only when the inbox has something */}
-        {inboxItems.length > 0 && (
+        {/* Shelf / Hauls / Inbox */}
+        <div className="cz-view-tabs-row">
           <div
             role="tablist"
             aria-label="Shelf views"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 18,
-              borderBottom: "1px solid " + HAIR,
-              marginBottom: 16,
-            }}
+            className="cz-view-tabs"
           >
             {[
               ["shelf", "Shelf"],
-              ["inbox", "Inbox · " + inboxItems.length],
+              ["hauls", "Hauls · " + haulDirectory.hauls.length],
+              ...(inboxItems.length > 0
+                ? [["inbox", "Inbox · " + inboxItems.length]]
+                : []),
             ].map(([key, label]) => (
               <button
                 type="button"
@@ -6672,27 +9208,86 @@ export default function Credenza() {
                 id={"view-tab-" + key}
                 aria-selected={view === key}
                 aria-controls={"view-panel-" + key}
-                onClick={() => setView(key)}
-                style={{
-                  fontFamily: FONT,
-                  fontSize: 13,
-                  fontWeight: view === key ? 650 : 500,
-                  color: view === key ? INK : SUB,
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: view === key ? "2px solid " + BLUE : "2px solid transparent",
-                  borderRadius: 0,
-                  padding: "9px 0 11px",
-                  marginBottom: -1,
-                  cursor: "pointer",
-                  transition: "color 150ms",
+                onClick={() => {
+                  // Leaving any surface always returns cards face-up.
+                  setExpandedId(null);
+                  if (key === "hauls") {
+                    setView("hauls");
+                    // Return to the directory when re-entering Hauls from another tab.
+                    if (view !== "hauls") setActiveHaul(null);
+                  } else {
+                    setView(key);
+                    // Leaving Hauls entirely — drop open haul so Shelf is clean.
+                    if (view === "hauls") setActiveHaul(null);
+                  }
                 }}
               >
                 {label}
               </button>
             ))}
           </div>
+          {indexingJobs.length > 0 && (
+            <div className="cz-index-chip-row" aria-live="polite">
+              {indexingJobs.map((job) => (
+                <div
+                  key={job.id}
+                  className={"cz-index-chip" + (job.phase === "done" ? " is-done" : "")}
+                  title={job.title}
+                >
+                  <span className="cz-index-chip-icon" aria-hidden="true">
+                    {job.phase === "done" ? (
+                      <Check size={12} strokeWidth={2.6} />
+                    ) : (
+                      <span className="cz-index-chip-dot" />
+                    )}
+                  </span>
+                  <span className="cz-index-chip-label">
+                    {job.phase === "done" ? "Indexed" : "Indexing"}
+                  </span>
+                  <span className="cz-index-chip-bar" aria-hidden="true">
+                    <span
+                      className="cz-index-chip-fill"
+                      style={{ width: Math.max(6, Math.min(100, job.progress)) + "%" }}
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Floating total-cost chip — same chrome always; only numbers/label text change.
+            Count + label each fade in on their own key so a haul swap reads as a
+            quiet text change, not a snap — matches cz-haul-open-head below. */}
+        {view !== "inbox" && shelfAll.length > 0 && (
+          <div className="cz-total-row">
+            <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
+              {totalCountLabel}
+            </span>
+            <span className="cz-total-sep" aria-hidden="true">|</span>
+            <span className="cz-total-chip" aria-live="polite">
+              <span
+                className="cz-total-chip-label cz-fade-text-in"
+                key={openHaulName ? "haul" : "shelf"}
+              >
+                {openHaulName ? "Total Haul Cost" : "Total Shelf Cost"}
+              </span>
+              <ReelCounter value={listTotalUsd} />
+            </span>
+          </div>
         )}
+
+        {/* Haul chrome lives here (not inside the surface swap) so it can fade in
+            when a haul opens without hopping or re-skinning. */}
+        {openHaulName ? (
+          <div className="cz-haul-open-head" key={openHaulName}>
+            <button type="button" className="cz-haul-back" onClick={closeHaul}>
+              <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.2} />
+              All hauls
+            </button>
+            <h2 className="cz-haul-open-title">{openHaulName}</h2>
+          </div>
+        ) : null}
 
         {view === "inbox" ? (
           <div
@@ -6738,342 +9333,16 @@ export default function Credenza() {
               </div>
             ))}
           </div>
+        ) : view === "hauls" ? (
+          <AnimatePresence
+            mode="wait"
+            initial={false}
+            onExitComplete={() => setClosingHaulName(null)}
+          >
+            {activeHaul ? shelfSurface : haulDirectorySurface}
+          </AnimatePresence>
         ) : (
-          <section role="tabpanel" id="view-panel-shelf" aria-labelledby="view-tab-shelf">
-            <div className="cz-section-head" style={{ justifyContent: "flex-end" }}>
-              <span>{q ? visible.length + " found" : shelfAll.length + " saved"}</span>
-            </div>
-            {/* Browsing toolbar — hidden until the shelf has enough to browse */}
-            {toolbarActive && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  flexWrap: "wrap",
-                  marginBottom: 12,
-                    }}
-              >
-                <FilterChip
-                  active={typeFilter === "all"}
-                  label="All"
-                  onClick={() => setTypeFilter("all")}
-                />
-                {presentCategories.map((c) => (
-                  <FilterChip
-                    key={c}
-                    active={typeFilter === c}
-                    label={CATEGORIES[c].label}
-                    dot={CATEGORIES[c].dot}
-                    onClick={() => setTypeFilter(typeFilter === c ? "all" : c)}
-                  />
-                ))}
-                <div
-                  style={{
-                    marginLeft: "auto",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    position: "relative",
-                  }}
-                >
-                  <div
-                    role="group"
-                    aria-label="Sort shelf"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      background: SEG,
-                      borderRadius: 999,
-                      padding: 2,
-                    }}
-                  >
-                    {Object.keys(SORT_LABELS).map((key) => (
-                      <button
-                        key={key}
-                        type="button"
-                        role="radio"
-                        aria-checked={sortMode === key}
-                        onClick={() => setSortMode(key)}
-                        style={{
-                          fontFamily: FONT,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: sortMode === key ? ACTION_TEXT : SUB,
-                          background: sortMode === key ? ACTION_FILL : "transparent",
-                          border: "none",
-                          borderRadius: 999,
-                          padding: "6px 10px",
-                          cursor: "pointer",
-                          transition: "color 150ms, background 150ms",
-                        }}
-                      >
-                        {SORT_LABELS[key]}
-                      </button>
-                    ))}
-                  </div>
-                  <span style={{ width: 1, height: 14, background: HAIR }} />
-                  <button
-                    type="button"
-                    className="cz-view-button"
-                    onClick={() => setViewMode("rows")}
-                    aria-label="Row view"
-                    aria-pressed={viewMode === "rows"}
-                    title="Rows"
-                    style={{
-                      fontFamily: FONT,
-                      fontSize: 12,
-                      color: viewMode === "rows" ? INK : FAINT,
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "4px 2px",
-                    }}
-                  >
-                    ☰
-                  </button>
-                  <button
-                    type="button"
-                    className="cz-view-button"
-                    onClick={() => setViewMode("cards")}
-                    aria-label="Card view"
-                    aria-pressed={viewMode === "cards"}
-                    title="Cards"
-                    style={{
-                      fontFamily: FONT,
-                      fontSize: 12,
-                      color: viewMode === "cards" ? INK : FAINT,
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "4px 2px",
-                    }}
-                  >
-                    ▦
-                  </button>
-                  <button
-                    type="button"
-                    className="cz-view-button"
-                    onClick={() => setViewMode("carousel")}
-                    aria-label="Carousel view"
-                    aria-pressed={viewMode === "carousel"}
-                    title="Carousel"
-                    style={{
-                      fontFamily: FONT,
-                      fontSize: 12,
-                      color: viewMode === "carousel" ? INK : FAINT,
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "4px 2px",
-                    }}
-                  >
-                    ◈
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Shelf */}
-            {!loaded ? (
-              <div style={{ color: SUB, fontSize: 13, padding: "36px 0", textAlign: "center" }}>
-                Opening the credenza…
-              </div>
-            ) : storageState.status === "load-error" ? (
-              <div
-                role="alert"
-                style={{
-                  background: CARD,
-                  border: "1px solid " + HAIR,
-                  padding: "28px 24px",
-                  maxWidth: 620,
-                }}
-              >
-                <div className="cz-title-balance" style={{ fontFamily: DISPLAY, fontSize: 24, lineHeight: 1.15, marginBottom: 8 }}>
-                  Credenza couldn’t open this shelf.
-                </div>
-                <div className="cz-copy-pretty" style={{ color: SUB, fontSize: 14, lineHeight: 1.6, maxWidth: "62ch" }}>
-                  Nothing has been overwritten. Retry the local storage read, restore a backup, or download the unread data before starting over.
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
-                  <Pill primary onClick={() => window.location.reload()}>Try again</Pill>
-                  {storageState.raw != null && <Pill onClick={downloadRecoveryData}>Download recovery data</Pill>}
-                  <Pill onClick={() => setImportOpen(true)}>Restore a backup</Pill>
-                  <Pill subtle onClick={continueSessionOnly}>Continue without saving</Pill>
-                </div>
-                <div style={{ borderTop: "1px solid " + HAIR, marginTop: 22, paddingTop: 16 }}>
-                  <button
-                    type="button"
-                    className="cz-interactive"
-                    onClick={startEmptyShelf}
-                    style={{ border: 0, background: "transparent", color: SUB, padding: "10px 0", cursor: "pointer", fontWeight: 650 }}
-                  >
-                    Start an empty shelf…
-                  </button>
-                </div>
-              </div>
-            ) : shelfItems.length === 0 ? (
-              items.length === 0 ? (
-                <div
-                  style={{
-                    background: CARD,
-                    border: "1px solid " + HAIR,
-                    borderRadius: 0,
-                    padding: "36px 28px 32px",
-                    textAlign: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 17,
-                      fontWeight: 700,
-                      letterSpacing: "-0.02em",
-                      color: INK,
-                      marginBottom: 6,
-                    }}
-                  >
-                    Start with what you already saved.
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: SUB,
-                      lineHeight: 1.6,
-                      maxWidth: 390,
-                      margin: "0 auto 18px",
-                    }}
-                  >
-                    Export your pile, drop it in, and the shelf starts dealing it back.
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      marginBottom: 16,
-                    }}
-                  >
-                    <Pill primary onClick={() => setImportOpen(true)}>
-                      Import your pile
-                    </Pill>
-                    <Pill onClick={addSamples}>Try a sample shelf</Pill>
-                    <Pill
-                      subtle
-                      onClick={() => captureRef.current && captureRef.current.focus()}
-                    >
-                      Stash a thought
-                    </Pill>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: FAINT, lineHeight: 1.5 }}>
-                    Raindrop · Pocket · browser bookmarks · any CSV — original dates and
-                    tags come along.
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    background: CARD,
-                    border: "1px solid " + HAIR,
-                    borderRadius: 0,
-                    padding: "40px 24px",
-                    textAlign: "center",
-                    color: SUB,
-                    fontSize: 13.5,
-                    lineHeight: 1.65,
-                  }}
-                >
-                  <div style={{ fontFamily: DISPLAY, fontSize: 21, color: INK, marginBottom: 7 }}>
-                    {q ? "No matches for “" + search.trim() + "”." : "No " + (CATEGORIES[typeFilter]?.label.toLowerCase() || "matching") + " on the shelf yet."}
-                  </div>
-                  <div className="cz-copy-pretty" style={{ marginBottom: 14 }}>
-                    {q
-                      ? "Search includes titles, notes, projects, raw links, and paired Photos or Buy URLs."
-                      : "The rest of the shelf is still here."}
-                  </div>
-                  <Pill
-                    primary
-                    onClick={() => {
-                      if (q) setSearch("");
-                      else setTypeFilter("all");
-                    }}
-                  >
-                    {q ? "Clear search" : "Show all cards"}
-                  </Pill>
-                </div>
-              )
-            ) : viewMode === "carousel" ? (
-              <CoverFlowCarousel
-                items={shelfItems}
-                expandedId={expandedId}
-                selectedId={selectedId}
-                flipRequest={flipRequest}
-                editRequest={editRequest}
-                onDelete={remove}
-                onSaveEdit={saveEdit}
-                onOpen={recordOpen}
-                onSetPrimaryImage={setPrimaryImage}
-                onLoadPhotos={loadAlbumPhotos}
-                onToggleFavorite={toggleFavorite}
-                onActivate={(id) => {
-                  setSelectedId(id);
-                  setExpandedId(id);
-                }}
-                onDeactivate={() => setExpandedId(null)}
-                onSelect={setSelectedId}
-              />
-            ) : (
-              <div
-                className={viewMode === "cards" && !sections ? "cz-shelf-grid" : undefined}
-                style={{
-                  display: viewMode === "cards" && !sections ? undefined : "flex",
-                  flexDirection: viewMode === "cards" && !sections ? undefined : "column",
-                  gap: viewMode === "rows" ? 6 : 10,
-                }}
-              >
-                {sections
-                  ? sections.map(([label, arr], si) => (
-                      <div key={label} className="cz-time-section">
-                        <Caption style={{ margin: (si === 0 ? "0" : "8px") + " 2px 0" }}>
-                          {label}
-                        </Caption>
-                        <div
-                          className={viewMode === "cards" ? "cz-time-section-grid" : undefined}
-                          style={
-                            viewMode === "rows"
-                              ? { display: "flex", flexDirection: "column", gap: 6 }
-                              : undefined
-                          }
-                        >
-                          {arr.map(renderEntry)}
-                        </div>
-                      </div>
-                    ))
-                  : shelfItems.map(renderEntry)}
-              </div>
-            )}
-
-            {/* Sample cleanup */}
-            {hasSamples && (
-              <div style={{ textAlign: "center", marginTop: 24 }}>
-                <button
-                  onClick={clearSamples}
-                  style={{
-                    fontFamily: FONT,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: SUB,
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                >
-                  Clear sample shelf
-                </button>
-              </div>
-            )}
-          </section>
+          shelfSurface
         )}
       </div>
 
@@ -7117,6 +9386,7 @@ export default function Credenza() {
 
       {/* Fixed bottom action bar — permanent, safe-area aware */}
       <div
+        className="cz-bottom-bar"
         style={{
           position: "fixed",
           left: 0,
@@ -7125,6 +9395,7 @@ export default function Credenza() {
           zIndex: 30,
           background: CARD,
           borderTop: "1px solid " + HAIR,
+          // Safe-area lives on .cz-bottom-bar-inner (credenza.css) — don't double it.
         }}
       >
         <div className="cz-bottom-bar-inner">
@@ -7149,18 +9420,11 @@ export default function Credenza() {
             icon={Moon}
             activeIcon={Sun}
             onClick={() => setTheme(mode === "rainbow" ? "light" : "rainbow")}
-            title={mode === "rainbow" ? "Switch to light" : "Switch to rainbow"}
+            title={mode === "rainbow" ? "Switch to Horizon light" : "Switch to Moonwalker dark"}
             ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
           />
           <Pill subtle onClick={() => setImportOpen(true)}>
             Import
-          </Pill>
-          <Pill
-            onClick={buildDigest}
-            disabled={shelfAll.length === 0}
-            title={shelfAll.length > 0 ? "⌘D" : "Save a card to deal a digest"}
-          >
-            Digest
           </Pill>
         </div>
       </div>

@@ -41,9 +41,15 @@ function parseAlbumUrl(raw) {
   const album = url.pathname.match(/\/albums\/(\d+)/i);
   if (!album) return null;
   const accountMatch = host.match(/^([^.]+)(?:\.x)?\.yupoo\.com$/);
+  // Yupoo album pages commonly 404 in the browser without ?uid=… — keep the
+  // supplied uid when present, otherwise default to 1 so enrichment never
+  // rewrites a working paste into a broken open URL.
+  const uid = url.searchParams.get("uid") || "1";
+  const canonical = new URL(url.origin + url.pathname.replace(/\/+$/, ""));
+  canonical.searchParams.set("uid", uid);
   return {
-    requestUrl: url.href,
-    url: url.origin + url.pathname.replace(/\/+$/, ""),
+    requestUrl: canonical.href,
+    url: canonical.href,
     albumId: album[1],
     sellerAccount: accountMatch ? accountMatch[1] : "",
   };

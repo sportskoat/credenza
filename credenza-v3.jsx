@@ -3885,19 +3885,24 @@ export default function Credenza() {
               padding: "7px 6px",
             }}
           />
-          {input.trim() ? (
-            <Pill primary disabled={interactionLocked} onClick={capture}>
-              Stash
-            </Pill>
-          ) : canStashTab ? (
-            <Pill disabled={interactionLocked} onClick={stashCurrentTab} title="Stash the page you're looking at">
-              Stash this tab
-            </Pill>
-          ) : (
-            <Pill disabled={interactionLocked} onClick={stashClipboard} title="Stash whatever's on the clipboard, one tap">
-              Stash clipboard
-            </Pill>
-          )}
+          <Pill
+            primary={!!input.trim()}
+            disabled={interactionLocked}
+            onClick={input.trim() ? capture : canStashTab ? stashCurrentTab : stashClipboard}
+            title={
+              input.trim()
+                ? "Stash what you wrote"
+                : canStashTab
+                ? "Stash the page you're looking at"
+                : "Stash whatever's on the clipboard, one tap"
+            }
+            style={{
+              minWidth: 134,
+              transitionProperty: "color, background-color, width, min-width, box-shadow, opacity, transform",
+            }}
+          >
+            {input.trim() ? "Stash" : canStashTab ? "Stash this tab" : "Stash clipboard"}
+          </Pill>
         </div>
 
         {/* Search — native-feeling field: filled, glyph, clear button, ⌘K badge */}

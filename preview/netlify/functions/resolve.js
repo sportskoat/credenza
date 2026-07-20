@@ -12,6 +12,7 @@ const FX_API = "https://open.er-api.com/v6/latest/CNY";
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 const TIMEOUT_MS = 20000;
 const MAX_VARIANT_VALUES = 60;
+const MODEL = process.env.CREDENZA_RESOLVE_MODEL || "claude-haiku-4-5";
 
 function response(statusCode, payload) {
   return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(payload) };
@@ -151,7 +152,7 @@ async function enrichWithClaude(apiKey, facts, signal) {
     },
     signal,
     body: JSON.stringify({
-      model: "claude-opus-4-8",
+      model: MODEL,
       max_tokens: 4000,
       system:
         "You translate Chinese marketplace (Weidian) fashion listings into concise English for a personal shopping shelf. Translate faithfully, keep brand and model names recognizable, and categorize the garment. Variant values must be returned in the same order they were given.",
