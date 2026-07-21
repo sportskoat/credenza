@@ -5,7 +5,7 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-21 (A1 + A2 + mobile pass shipped; **DEPLOYED to production** — https://credenza-kyle.netlify.app)
+**Last updated:** 2026-07-22 (deep mobile UX audit complete → `docs/mobile-improvement-plan.md`; Kyle opened a colorway change, desktop included)
 **Branch:** `credenza-fashion-yupoo-carousel`
 **Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-21 via CLI (`netlify deploy --prod` from `preview/`). Env on site: `CREDENZA_SEARCH_SECRET` (pre-existing), `VITE_CREDENZA_REF_SUPERBUY=888c9Y`, `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91` (both "all context", set 2026-07-21). Smoke-tested: site 200, function auth gates pass, upstream fetch works, secrets + affiliate codes confirmed baked into bundle. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
 
@@ -54,6 +54,17 @@ Overwrite sections in place — this is current state, not a log.
     for Kyle on 2026-07-20 — COME BACK TO THIS), cssbuy 🚫, + Direct.
 - Still unshipped: A3 pipeline board, A4 body profile, A5 QC GL/RL, A6 weight
   estimator.
+- **Mobile UX audit round 2 (2026-07-22): see `docs/mobile-improvement-plan.md`**
+  — 12 quick wins + 5 component changes + 8 sequenced steps (S1–S8), all
+  carousel-freeze-safe and Monetization-compliant. Headliners: grid card-back
+  notes are touch-unreachable (flip is keyboard-only, jsx:8689); grid detail
+  expands crushed in a half-width column with Buy buried; `--cz-faint`/
+  placeholder fail WCAG in BOTH themes; hero eats ~45% of first viewport;
+  coarse-pointer 44px allowlist misses heart/star/chevrons/dots/morphs.
+  6 open questions for Kyle at the end of the plan (colorway direction, hero
+  collapse, card vocabulary, dots, Remove pattern, silent Superbuy default).
+  V3-SPEC.md formally retired as design reference. Fresh WebKit shots
+  regenerated in `docs/mobile-shots/`.
 
 ## 2. Decisions made by Kyle (2026-07-20) — do not re-litigate
 
