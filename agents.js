@@ -51,7 +51,11 @@ export const AGENTS = [
     referralParam: "promotionCode", // observed on live cssbuy links (2026-07-20)
     envKey: "VITE_CREDENZA_REF_CSSBUY",
     verified: true,
-    retired: false,
+    // RETIRED 2026-07-20: CSSBuy refuses purchasing-agent service for USA
+    // customers ("Due to USA legal reasons… you can use our forwarding
+    // service"). Kyle's call: drop them. Entry stays for stored prefs/data —
+    // retired agents fail open to the canonical link and hide from the picker.
+    retired: true,
   },
   {
     id: "kakobuy",

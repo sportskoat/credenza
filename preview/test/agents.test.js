@@ -88,13 +88,26 @@ describe("buildAgentUrl", () => {
     }
   });
 
-  it("builds cssbuy id-path links from taobao and 1688 urls", () => {
-    expect(buildAgentUrl("cssbuy", TAOBAO).url).toBe("https://www.cssbuy.com/item-856801351597.html");
-    expect(buildAgentUrl("cssbuy", ALI1688).url).toBe("https://www.cssbuy.com/item-712345678901.html");
+  it("cssbuy is retired (USA purchasing blocked): fails open, hides from picker, template mechanics intact if re-enabled", () => {
+    const cssbuy = getAgent("cssbuy");
+    expect(cssbuy.retired).toBe(true);
+    expect(listAgents().some((a) => a.id === "cssbuy")).toBe(false);
+    expect(buildAgentUrl("cssbuy", TAOBAO)).toMatchObject({ url: TAOBAO, wrapped: false, reason: "unknown-agent" });
+
+    // id-path mechanics still deserve coverage — retirement is a flag flip.
+    cssbuy.retired = false;
+    try {
+      expect(buildAgentUrl("cssbuy", TAOBAO).url).toBe("https://www.cssbuy.com/item-856801351597.html");
+      expect(buildAgentUrl("cssbuy", ALI1688).url).toBe("https://www.cssbuy.com/item-712345678901.html");
+      const withCode = buildAgentUrl("cssbuy", TAOBAO, { referralOverrides: { cssbuy: "PROMO9" } });
+      expect(withCode.url).toBe("https://www.cssbuy.com/item-856801351597.html?promotionCode=PROMO9");
+      expect(buildAgentUrl("cssbuy", WEIDIAN)).toMatchObject({ wrapped: false, reason: "unsupported-marketplace" });
+    } finally {
+      cssbuy.retired = true;
+    }
   });
 
-  it("fails open to canonical for cssbuy weidian (unsupported), unknown agents, and non-marketplace urls", () => {
-    expect(buildAgentUrl("cssbuy", WEIDIAN)).toMatchObject({ url: WEIDIAN, wrapped: false, reason: "unsupported-marketplace" });
+  it("fails open to canonical for unknown agents, non-marketplace urls, and empty input", () => {
     expect(buildAgentUrl("nope", WEIDIAN)).toMatchObject({ url: WEIDIAN, wrapped: false, reason: "unknown-agent" });
     expect(buildAgentUrl("superbuy", YUPOO)).toMatchObject({ url: YUPOO, wrapped: false, reason: "unsupported-marketplace" });
     expect(buildAgentUrl("superbuy", "")).toMatchObject({ wrapped: false, reason: "no-url" });
@@ -122,11 +135,6 @@ describe("buildAgentUrl", () => {
     // and the stored canonical URL is byte-identical either way
     expect(plain.url).toContain(encodeURIComponent(WEIDIAN));
     expect(withCode.url).toContain(encodeURIComponent(WEIDIAN));
-  });
-
-  it("appends cssbuy promotionCode with correct query separator", () => {
-    const r = buildAgentUrl("cssbuy", TAOBAO, { referralOverrides: { cssbuy: "PROMO9" } });
-    expect(r.url).toBe("https://www.cssbuy.com/item-856801351597.html?promotionCode=PROMO9");
   });
 });
 
