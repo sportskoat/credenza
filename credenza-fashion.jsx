@@ -2074,7 +2074,7 @@ function RainbowBackground() {
   );
 }
 
-function Pill({ children, onClick, primary, subtle, style, title, disabled = false, loading = false }) {
+function Pill({ children, onClick, primary, subtle, style, title, disabled = false, loading = false, ...rest }) {
   const unavailable = disabled || loading;
   return (
     <button
@@ -2084,6 +2084,7 @@ function Pill({ children, onClick, primary, subtle, style, title, disabled = fal
       disabled={unavailable}
       aria-busy={loading || undefined}
       className="cz-pill"
+      {...rest}
       style={{
         fontFamily: FONT,
         fontSize: 13,
@@ -2561,14 +2562,86 @@ function BrandIcon({ type, host, size = 14 }) {
   );
 }
 
+// Live ≤767px check — the app's phone/desktop split in one place.
+function useIsPhone() {
+  const [phone, setPhone] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia &&
+      window.matchMedia("(max-width: 767px)").matches
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = () => setPhone(mq.matches);
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
+  return phone;
+}
+
+// "Read" is v3-generic vocabulary — a Yupoo album isn't an article. Prefer the
+// platform users actually recognize; fall back to the generic type label.
+function sourceLabel(item) {
+  const h = (item.host || "").toLowerCase();
+  if (h.includes("yupoo")) return "Yupoo";
+  if (h.includes("weidian")) return "Weidian";
+  if (h.includes("taobao") || h.includes("tmall")) return "Taobao";
+  if (h.includes("1688")) return "1688";
+  if (h.includes("reddit")) return "Reddit";
+  return (TYPES[item.type] || TYPES.note).label;
+}
+
+// One-tap findStatus pipeline chips — shared by the edit forms and the mobile
+// detail sheet (audit C3). Status meanings per docs/Monetization.md §A3.
+const FIND_STATUSES = ["want", "bought", "shipped", "qc", "gl", "rl", "returned"];
+const FIND_STATUS_LABELS = { want: "Want", bought: "Bought", shipped: "Shipped", qc: "QC", gl: "GL", rl: "RL", returned: "Returned" };
+function StatusChips({ value, onChange, label = "Status" }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      style={{ display: "flex", flexWrap: "wrap", gap: 4, background: SEG, borderRadius: 12, padding: 2 }}
+    >
+      {FIND_STATUSES.map((s) => (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === s}
+          className="cz-chip"
+          key={s}
+          onClick={() => onChange(s)}
+          style={{
+            flex: "1 0 auto",
+            fontFamily: FONT,
+            fontSize: 11,
+            fontWeight: 600,
+            color: value === s ? INK : SUB,
+            background: value === s ? CARD : "transparent",
+            border: "none",
+            borderRadius: 999,
+            padding: "6px 8px",
+            cursor: "pointer",
+          }}
+        >
+          {FIND_STATUS_LABELS[s]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function TypeMark({ item }) {
-  const meta = TYPES[item.type] || TYPES.note;
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
       <BrandIcon type={item.type} host={item.host} size={13} />
       {!(item.type === "note" && item.note) && (
         <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: SUB }}>
-          {meta.label}
+          {sourceLabel(item)}
         </span>
       )}
     </span>
@@ -3730,7 +3803,7 @@ function linkButtons(item, opts = {}) {
   return btns;
 }
 
-function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, onToggleFavorite, featured, flipSignal, editSignal, mode, buyLabel }) {
+function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, onToggleFavorite, featured, flipSignal, editSignal, mode, buyLabel, sheetMode = false, phone = false }) {
   const [flipped, setFlipped] = useState(false);
   const [animateFlip, setAnimateFlip] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -4024,7 +4097,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               )}
             </div>
           )}
-          {item.summary && (
+          {item.summary && !((phone || sheetMode) && /^Saved from /.test(item.summary)) && (
             <div>
               <div
                 aria-hidden={expanded}
@@ -4286,17 +4359,20 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {linkButtons(item, { buyLabel }).map((btn) => (
-                <Pill key={btn.url} primary={btn.role === "buy"} onClick={() => onOpen(item, btn.url)}>
-                  {btn.label}
+            {/* In sheetMode the sheet owns the actions: pinned Buy footer + ⋯ menu. */}
+            {!sheetMode && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {linkButtons(item, { buyLabel }).map((btn) => (
+                  <Pill key={btn.url} primary={btn.role === "buy"} onClick={() => onOpen(item, btn.url)}>
+                    {btn.label}
+                  </Pill>
+                ))}
+                <Pill onClick={startEdit}>Edit</Pill>
+                <Pill subtle onClick={() => onDelete(item.id)}>
+                  Remove
                 </Pill>
-              ))}
-              <Pill onClick={startEdit}>Edit</Pill>
-              <Pill subtle onClick={() => onDelete(item.id)}>
-                Remove
-              </Pill>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -4366,36 +4442,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
             </div>
           </div>
-          <div
-            role="radiogroup"
-            aria-label="Status"
-            style={{ display: "flex", flexWrap: "wrap", gap: 4, background: SEG, borderRadius: 12, padding: 2 }}
-          >
-            {["want", "bought", "shipped", "qc", "gl", "rl", "returned"].map((s) => (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={ed.findStatus === s}
-                className="cz-chip"
-                key={s}
-                onClick={() => setEd({ ...ed, findStatus: s })}
-                style={{
-                  flex: "1 0 auto",
-                  fontFamily: FONT,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: ed.findStatus === s ? INK : SUB,
-                  background: ed.findStatus === s ? CARD : "transparent",
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "6px 8px",
-                  cursor: "pointer",
-                }}
-              >
-                {s === "want" ? "Want" : s === "bought" ? "Bought" : s === "shipped" ? "Shipped" : s === "qc" ? "QC" : s === "gl" ? "GL" : s === "rl" ? "RL" : "Returned"}
-              </button>
-            ))}
-          </div>
+          <StatusChips value={ed.findStatus} onChange={(s) => setEd({ ...ed, findStatus: s })} />
           <div
             role="radiogroup"
             aria-label="Category"
@@ -4738,6 +4785,141 @@ export function carouselForegroundWithHysteresis(centers, current, scrollCenter)
 export function carouselLayerZ(cardCount, index, foreground) {
   const indexDist = Math.abs(index - foreground);
   return cardCount * 2 - indexDist * 2 - (index > foreground ? 1 : 0);
+}
+
+// Mobile detail sheet (audit C1): on phones the grid card's detail view opens
+// here — full width — instead of expanding inside a half-width grid column.
+// Reuses Card (sheetMode) for all detail content; the sheet owns notes (inline,
+// write-through), one-tap status, a pinned Buy footer, and a ⋯ overflow where
+// Remove lives behind the app's existing undo toast.
+function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onSaveNote, onSaveEdit }) {
+  const [editSig, setEditSig] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(item.note || "");
+  const draftRef = useRef(noteDraft);
+  draftRef.current = noteDraft;
+
+  // Write-through autosave, same cadence as the grid back note (600ms), with a
+  // flush on every exit path so click-away never loses text.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (draftRef.current !== (item.note || "")) onSaveNote(item.id, draftRef.current);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [noteDraft, item.id, item.note, onSaveNote]);
+  const close = () => {
+    if (draftRef.current !== (item.note || "")) onSaveNote(item.id, draftRef.current);
+    onClose();
+  };
+
+  const btns = linkButtons(item, { buyLabel });
+  const buy = btns.find((b) => b.role === "buy") || null;
+  const secondary = btns.filter((b) => b !== buy);
+
+  return (
+    <ModalShell title={item.title || "Saved item"} onClose={close} maxWidth={560}>
+      <Card
+        {...cardProps}
+        item={item}
+        expanded
+        sheetMode
+        phone
+        selected={false}
+        featured={false}
+        onToggle={() => {}}
+        editSignal={editSig}
+        buyLabel={buyLabel}
+      />
+
+      <div style={{ marginTop: 14 }}>
+        <Field
+          label="Notes"
+          value={noteDraft}
+          onChange={setNoteDraft}
+          placeholder="Fit notes, QC reminders, sizing, seller tips…"
+          rows={3}
+        />
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <StatusChips
+          value={item.findStatus || "want"}
+          onChange={(s) => onSaveEdit(item.id, { findStatus: s })}
+        />
+      </div>
+
+      {/* Pinned action footer — Buy at the thumb, destructive actions behind ⋯. */}
+      <div
+        style={{
+          position: "sticky",
+          bottom: 0,
+          marginTop: 16,
+          padding: "12px 0 calc(4px + env(safe-area-inset-bottom, 0px))",
+          background: "var(--cz-card-solid)",
+          borderTop: "1px solid " + HAIR,
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+        }}
+      >
+        {buy && (
+          <Pill primary onClick={() => onOpen(item, buy.url)} style={{ flex: 1, justifyContent: "center", minHeight: 46 }}>
+            {buy.label}
+          </Pill>
+        )}
+        <Pill onClick={() => setEditSig(item.id + ":" + Date.now())}>Edit</Pill>
+        <div style={{ position: "relative" }}>
+          <Pill subtle aria-label="More actions" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
+            ⋯
+          </Pill>
+          {menuOpen && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                bottom: "calc(100% + 8px)",
+                zIndex: 5,
+                background: "var(--cz-card-solid)",
+                border: "1px solid " + HAIR,
+                borderRadius: 12,
+                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.35)",
+                padding: 6,
+                minWidth: 180,
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+              }}
+            >
+              {secondary.map((b) => (
+                <button
+                  type="button"
+                  key={b.url}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpen(item, b.url);
+                  }}
+                  style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, textAlign: "left", color: INK, background: "transparent", border: 0, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}
+                >
+                  {b.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  close();
+                  onDelete(item.id);
+                }}
+                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, textAlign: "left", color: "var(--cz-error-text)", background: "transparent", border: 0, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </ModalShell>
+  );
 }
 
 function InfoBubble({ title, children, onClose }) {
@@ -7225,6 +7407,10 @@ export default function Credenza() {
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   // "recent" = newest first (default). "starred" = only starred items.
   const [sortMode, setSortMode] = useState("recent");
+  // Phones open card details in a full-width bottom sheet (audit C1) instead of
+  // expanding inside a half-width grid column.
+  const isPhone = useIsPhone();
+  const [sheetItemId, setSheetItemId] = useState(null);
 
   // Phones: ~400px of capture/search/tab chrome sits above the carousel, so at
   // first paint the card renders under the fixed bottom bar. Scrolling the
@@ -8794,6 +8980,11 @@ export default function Credenza() {
         flipSignal={flipRequest}
         editSignal={editRequest}
         onToggle={() => {
+          if (isPhone) {
+            setSheetItemId(item.id);
+            setSelectedId(item.id);
+            return;
+          }
           setExpandedId(expandedId === item.id ? null : item.id);
           setSelectedId(item.id);
         }}
@@ -8821,6 +9012,11 @@ export default function Credenza() {
                   item={item}
                   selected={selectedId === item.id}
                   onClick={() => {
+                    if (isPhone) {
+                      setSheetItemId(item.id);
+                      setSelectedId(item.id);
+                      return;
+                    }
                     setExpandedId(item.id);
                     setSelectedId(item.id);
                   }}
@@ -9300,6 +9496,34 @@ export default function Credenza() {
           onClose={() => setAgentSheetOpen(false)}
         />
       )}
+
+      {(() => {
+        const sheetItem = sheetItemId ? items.find((x) => x.id === sheetItemId) : null;
+        return sheetItem ? (
+          <DetailSheet
+            item={sheetItem}
+            buyLabel={buyLabel}
+            onClose={() => setSheetItemId(null)}
+            onOpen={recordOpen}
+            onDelete={remove}
+            onSaveNote={saveNote}
+            onSaveEdit={saveEdit}
+            cardProps={{
+              onDelete: remove,
+              onSaveNote: saveNote,
+              onSaveEdit: saveEdit,
+              onOpen: recordOpen,
+              onAttachImage: attachImage,
+              onRemoveImage: removeImage,
+              onAttachGalleryImage: attachGalleryImage,
+              onRemoveGalleryImage: removeGalleryImage,
+              onSetPrimaryImage: setPrimaryImage,
+              onToggleFavorite: toggleFavorite,
+              mode,
+            }}
+          />
+        ) : null;
+      })()}
 
       <div className="cz-shell">
         <div className="cz-masthead">
