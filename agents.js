@@ -23,12 +23,13 @@ export const AGENTS = [
     urlTemplate: "https://www.superbuy.com/en/page/buy?url={url}",
     supports: ["weidian", "taobao", "tmall", "1688"],
     // CONFIRMED from Kyle's live affiliate dashboard (2026-07-20): the referral
-    // param is partnercode. Signup attribution link shape:
-    //   /en/page/login?partnercode=CODE&type=register
+    // param is partnercode. Signup attribution link shape (trailing slash is
+    // Superbuy's canonical normalization, verified by clicking through):
+    //   /en/page/login/?partnercode=CODE&type=register
     // partnercode on item buy URLs is unverified — Superbuy likely cookies the
     // attribution on landing; harmless if ignored.
     referralParam: "partnercode",
-    signupTemplate: "https://www.superbuy.com/en/page/login?partnercode={code}&type=register",
+    signupTemplate: "https://www.superbuy.com/en/page/login/?partnercode={code}&type=register",
     envKey: "VITE_CREDENZA_REF_SUPERBUY",
     verified: true, // format confirmed against live superbuy.com links (2026-07-20)
     retired: false,

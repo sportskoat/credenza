@@ -155,7 +155,7 @@ describe("resolveReferralCode", () => {
 describe("buildSignupUrl", () => {
   it("builds the superbuy register link with the confirmed partnercode shape", () => {
     expect(buildSignupUrl("superbuy", { referralOverrides: { superbuy: "888c9Y" } })).toBe(
-      "https://www.superbuy.com/en/page/login?partnercode=888c9Y&type=register"
+      "https://www.superbuy.com/en/page/login/?partnercode=888c9Y&type=register"
     );
   });
 
