@@ -28,14 +28,21 @@ Overwrite sections in place — this is current state, not a log.
     Reddit haul".
   - 101/101 tests, lint at baseline (9 err/65 warn — same as HEAD; §6 note
     saying "1 err" was stale), typecheck + build clean.
-  - **Needs Kyle:** verify Sugargoo + Kakobuy URL templates against a real item
-    (Agent picker → open one Weidian item via each; if wrong, fix the one-line
-    template in `agents.js`, flip `verified: true`). Superbuy + CSSBuy
-    confirmed. Sign up affiliate programs → codes go in Agent sheet or
-    `VITE_CREDENZA_REF_*` env. Sugargoo `inviteCode` param name is a guess;
-    CSSBuy `promotionCode` confirmed. Optional later: gate the Agent-sheet
-    referral fields behind an env flag before public launch (they're useful
-    for Kyle's testing now).
+  - **Needs Kyle:** ~~verify Sugargoo + Kakobuy URL templates~~ **Kakobuy +
+    CSSBuy + Superbuy CONFIRMED live (2026-07-20).** Sugargoo: template fixed
+    to canonical `/products?productLink=` (from their own login redirect);
+    item pages sit behind Sugargoo's login wall — retest while logged in,
+    then flip `verified: true`. **Sugargoo signup was failing for Kyle on
+    2026-07-20 — COME BACK TO THIS.**
+  - **Superbuy affiliate APPROVED (2026-07-20), account `wenselllc`.**
+    Invitation code: **888c9Y**. Bronze tier (V2), 14k xp to Silver. Bonus on
+    associated users' parcel totals, settled monthly on the 1st, withdraw
+    anytime (paid within 10 working days), CNY. Dashboard has a link
+    generator ("Promote Now" — paste a product link, get a promo link).
+    **TODO:** Kyle generates ONE real promo link from the dashboard → paste it
+    to Claude → set `referralParam` in `agents.js` to match exactly (`affcode`
+    is still a guess), then the code goes live for all users via
+    `VITE_CREDENZA_REF_SUPERBUY` on Netlify (or Agent sheet field locally).
 - Still unshipped: A3 pipeline board, A4 body profile, A5 QC GL/RL, A6 weight
   estimator.
 
