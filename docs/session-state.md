@@ -98,8 +98,18 @@ Overwrite sections in place — this is current state, not a log.
   channels → share-haul viral loop (B6) → Reddit only as a person / via
   modmail approval. Never spam r/FashionReps.
 - **Kyle's non-code actions this week:** ~~form AZ LLC~~ **DONE (already has an
-  Arizona LLC — 2026-07-20)**, sign up Superbuy + Sugargoo affiliate programs,
-  book 1-hr IP attorney consult (~$300–500).
+  Arizona LLC — 2026-07-20)**, ~~sign up Superbuy~~ **DONE — approved, code
+  888c9Y (`partnercode` param confirmed, wired into agents.js)**, sign up
+  Sugargoo (signup was failing 2026-07-20 — retry), book 1-hr IP attorney
+  consult (~$300–500).
+- **w2cspreadsheet KOL program (scouted 2026-07-20, Kyle has account
+  /k5wshn):** validates our Agent-sheet design (per-agent invite codes +
+  site-default backfill = our env default + prefs override). Money still
+  settles at the agent backends. Their "high-intent user" bar (5+ valid
+  agent redirects on distinct products within 7 days) is a north-star metric
+  our outbound log can already measure. **Agent candidates from their list:
+  LoongBuy (paying for placement), Oopbuy.** Strategic call: don't promote
+  it — it funnels Kyle's audience to their catalog; keep as telemetry only.
 
 ## 5. Mobile audit list (agreed scope of mobile pass)
 
