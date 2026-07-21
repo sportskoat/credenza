@@ -501,7 +501,7 @@ describe("Agent Buy plumbing (A2)", () => {
     const buy = (await screen.findAllByRole("button", { name: "Buy via Superbuy" }))[0];
     await user.click(buy);
     expect(open).toHaveBeenCalledWith(
-      "https://www.superbuy.com/en/page/buy?url=" + encodeURIComponent(WEIDIAN) + "&affcode=KYLE123",
+      "https://www.superbuy.com/en/page/buy?url=" + encodeURIComponent(WEIDIAN) + "&partnercode=KYLE123",
       "_blank",
       "noopener"
     );

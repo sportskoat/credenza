@@ -4,6 +4,7 @@ import {
   DEFAULT_AGENT_ID,
   OUTBOUND_KEY,
   buildAgentUrl,
+  buildSignupUrl,
   extractMarketplaceItemId,
   getAgent,
   hashItemId,
@@ -129,9 +130,9 @@ describe("buildAgentUrl", () => {
 
   it("attaches a referral override only when a code exists, without touching the canonical link", () => {
     const plain = buildAgentUrl("superbuy", WEIDIAN);
-    expect(plain.url).not.toContain("affcode");
+    expect(plain.url).not.toContain("partnercode");
     const withCode = buildAgentUrl("superbuy", WEIDIAN, { referralOverrides: { superbuy: "KYLE123" } });
-    expect(withCode.url).toContain("affcode=KYLE123");
+    expect(withCode.url).toContain("partnercode=KYLE123");
     // and the stored canonical URL is byte-identical either way
     expect(plain.url).toContain(encodeURIComponent(WEIDIAN));
     expect(withCode.url).toContain(encodeURIComponent(WEIDIAN));
@@ -148,6 +149,20 @@ describe("resolveReferralCode", () => {
     const agent = getAgent("superbuy");
     expect(resolveReferralCode(agent, {})).toBeNull();
     expect(resolveReferralCode(agent, null)).toBeNull();
+  });
+});
+
+describe("buildSignupUrl", () => {
+  it("builds the superbuy register link with the confirmed partnercode shape", () => {
+    expect(buildSignupUrl("superbuy", { referralOverrides: { superbuy: "888c9Y" } })).toBe(
+      "https://www.superbuy.com/en/page/login?partnercode=888c9Y&type=register"
+    );
+  });
+
+  it("returns null without a code, for agents without a signup template, and for retired agents", () => {
+    expect(buildSignupUrl("superbuy", { referralOverrides: {} })).toBeNull();
+    expect(buildSignupUrl("kakobuy", { referralOverrides: { kakobuy: "X" } })).toBeNull();
+    expect(buildSignupUrl("cssbuy", { referralOverrides: { cssbuy: "X" } })).toBeNull();
   });
 });
 
