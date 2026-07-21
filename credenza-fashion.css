@@ -2265,7 +2265,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    No position here — the placement classes (.cz-grid-favorite etc.) already
    make the button a positioned ancestor for the particles. */
 .cz-favorite-button.t-like {
-  --like-color: #f40051;
+  --like-color: var(--cz-like, #f40051);
 }
 
 /* Hover previews the like red instead of the legacy star blue. */
@@ -3341,8 +3341,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-combobox-option.is-clear:hover,
 .cz-combobox-option.is-clear:focus-visible {
-  color: var(--cz-error-text, #ff7ae8);
-  background: color-mix(in srgb, var(--cz-error-text, #ff7ae8) 12%, transparent);
+  color: var(--cz-error-text, #f08a92);
+  background: color-mix(in srgb, var(--cz-error-text, #f08a92) 12%, transparent);
 }
 
 .cz-combobox-option.is-empty {
@@ -3532,8 +3532,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-haul-acc-option.is-clear:hover {
-  color: var(--cz-error-text, #ff7ae8);
-  background: color-mix(in srgb, var(--cz-error-text, #ff7ae8) 12%, transparent);
+  color: var(--cz-error-text, #f08a92);
+  background: color-mix(in srgb, var(--cz-error-text, #f08a92) 12%, transparent);
 }
 
 .cz-haul-acc-empty {

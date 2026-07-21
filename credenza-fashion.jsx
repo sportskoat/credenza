@@ -46,8 +46,8 @@ const PALETTES = {
     "--cz-hair": "rgba(229, 229, 190, 0.22)",
     "--cz-hair-strong": "rgba(229, 229, 190, 0.38)",
     "--cz-ink": "#E5E5BE",
-    "--cz-sub": "rgba(229, 229, 190, 0.78)",
-    "--cz-faint": "rgba(229, 229, 190, 0.52)",
+    "--cz-sub": "rgba(229, 229, 190, 0.86)",
+    "--cz-faint": "rgba(229, 229, 190, 0.74)",
     "--cz-seg": "rgba(229, 229, 190, 0.12)",
     "--cz-accent": "#E5E5BE",
     "--cz-accent-bg": "rgba(229, 229, 190, 0.16)",
@@ -59,7 +59,8 @@ const PALETTES = {
     "--cz-action-muted-bg": "rgba(229, 229, 190, 0.92)",
     "--cz-action-muted-text": "#003973",
     "--cz-focus": "#E5E5BE",
-    "--cz-placeholder": "rgba(229, 229, 190, 0.52)",
+    "--cz-placeholder": "rgba(229, 229, 190, 0.74)",
+    "--cz-like": "#ff7fa8",
     "--cz-selection": "rgba(229, 229, 190, 0.28)",
     "--cz-selection-text": "#003973",
     "--cz-error-bg": "rgba(255, 120, 120, 0.16)",
@@ -80,19 +81,22 @@ const PALETTES = {
     "--cz-hair-strong": "rgba(255, 255, 255, 0.18)",
     "--cz-ink": "#f2f5f8",
     "--cz-sub": "#9aabba",
-    "--cz-faint": "#6a7a8a",
+    "--cz-faint": "#7f8fa0",
     "--cz-seg": "rgba(255, 255, 255, 0.07)",
     "--cz-accent": "#8eb6d4",
     "--cz-accent-bg": "rgba(142, 182, 212, 0.16)",
     "--cz-accent-deep": "#b8d4ea",
     "--cz-favorite": "#8eb6d4",
     "--cz-favorite-bg": "rgba(142, 182, 212, 0.14)",
-    "--cz-action-fill": "linear-gradient(135deg, #1e3a52 0%, #8eb6d4 100%)",
+    // Gradient stops must both carry the black label: ≥4.5:1 across the face
+    // (was #1e3a52 → 1.78:1 at the dark corner; audit S2).
+    "--cz-action-fill": "linear-gradient(135deg, #7aa6c8 0%, #a8cbe4 100%)",
     "--cz-action-text": "#000000",
     "--cz-action-muted-bg": "rgba(232, 240, 248, 0.96)",
     "--cz-action-muted-text": "#152331",
     "--cz-focus": "#8eb6d4",
-    "--cz-placeholder": "#6a7a8a",
+    "--cz-placeholder": "#7f8fa0",
+    "--cz-like": "#f40051",
     "--cz-selection": "rgba(142, 182, 212, 0.28)",
     "--cz-selection-text": "#f2f5f8",
     "--cz-error-bg": "rgba(220, 80, 90, 0.14)",
@@ -9224,8 +9228,10 @@ export default function Credenza() {
       data-fashion="true"
       style={{
         ...PALETTES[mode],
-        // CSS color-scheme only accepts light|dark — "rainbow" is our prefs key.
-        colorScheme: mode === "light" ? "dark" : "dark",
+        // Both themes are dark-appearing (Horizon is deep navy), so native form
+        // chrome and scrollbars should always render dark. Deliberately not a
+        // ternary — "light" here is a prefs key, not a CSS color-scheme.
+        colorScheme: "dark",
         minHeight: "100dvh",
         background: BG,
         color: INK,
