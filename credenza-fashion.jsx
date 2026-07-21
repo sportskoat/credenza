@@ -5681,6 +5681,10 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                   <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
                 </div>
               </div>
+              {/* Pipeline status was grid-edit-only; carousel dwellers could
+                  never move want → bought → QC (audit C3). Same write-through
+                  autosave as every other edit field. */}
+              <StatusChips value={ed.findStatus || "want"} onChange={(s) => setEd({ ...ed, findStatus: s })} />
             </div>
             </motion.div>
           ) : (
@@ -7411,6 +7415,7 @@ export default function Credenza() {
   // expanding inside a half-width grid column.
   const isPhone = useIsPhone();
   const [sheetItemId, setSheetItemId] = useState(null);
+  const [barMenuOpen, setBarMenuOpen] = useState(false);
 
   // Phones: ~400px of capture/search/tab chrome sits above the carousel, so at
   // first paint the card renders under the fixed bottom bar. Scrolling the
@@ -9980,30 +9985,19 @@ export default function Credenza() {
         }}
       >
         <div className="cz-bottom-bar-inner">
-          <span
-            className="cz-local-label"
-            title={localStatus.label}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 11.5,
-              fontWeight: 600,
-              color: localStatus.color,
+          {/* The pinned thumb zone belongs to high-frequency actions (audit C4):
+              capture first, then the money path. Theme + Local status moved to ⋯. */}
+          <Pill
+            primary
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              window.setTimeout(() => captureRef.current && captureRef.current.focus(), 250);
             }}
+            title="Jump to the capture box"
           >
-            <span style={{ width: 6, height: 6, borderRadius: 3, background: localStatus.color, flexShrink: 0 }} />
-            <span>{localStatus.label}</span>
-          </span>
+            Stash
+          </Pill>
           <span style={{ flex: 1 }} />
-          <MorphButton
-            label="Theme"
-            icon={Moon}
-            activeIcon={Sun}
-            onClick={() => setTheme(mode === "rainbow" ? "light" : "rainbow")}
-            title={mode === "rainbow" ? "Switch to Horizon light" : "Switch to Moonwalker dark"}
-            ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
-          />
           <Pill
             subtle
             onClick={() => setAgentSheetOpen(true)}
@@ -10016,6 +10010,59 @@ export default function Credenza() {
           <Pill subtle onClick={() => setImportOpen(true)}>
             Import
           </Pill>
+          <div style={{ position: "relative" }}>
+            <Pill
+              subtle
+              aria-label="More"
+              aria-expanded={barMenuOpen}
+              onClick={() => setBarMenuOpen((v) => !v)}
+            >
+              ⋯
+            </Pill>
+            {barMenuOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  bottom: "calc(100% + 10px)",
+                  zIndex: 31,
+                  background: "var(--cz-card-solid)",
+                  border: "1px solid " + HAIR,
+                  borderRadius: 12,
+                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.35)",
+                  padding: 10,
+                  minWidth: 200,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <MorphButton
+                  label="Theme"
+                  icon={Moon}
+                  activeIcon={Sun}
+                  onClick={() => setTheme(mode === "rainbow" ? "light" : "rainbow")}
+                  title={mode === "rainbow" ? "Switch to Horizon light" : "Switch to Moonwalker dark"}
+                  ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
+                />
+                <span
+                  className="cz-local-label"
+                  title={localStatus.label}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color: localStatus.color,
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: 3, background: localStatus.color, flexShrink: 0 }} />
+                  <span>{localStatus.label}</span>
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

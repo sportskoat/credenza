@@ -391,6 +391,9 @@ describe("Fashion morph controls and favorites", () => {
     });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
+    // Theme lives in the bottom bar's ⋯ overflow now (mobile audit C4).
+    const more = await screen.findByRole("button", { name: "More" });
+    await user.click(more);
     const theme = await screen.findByRole("button", { name: "Switch to rainbow theme" });
     expect(theme).toHaveTextContent("Theme");
     await user.click(theme);
