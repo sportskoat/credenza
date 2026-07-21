@@ -3261,10 +3261,12 @@ function ComboboxField({
 
 // Haul directory cover: multi-item corner fan (transitions.dev CardCornerFan).
 // Name + price sit in a separate label box below — not attached to the stack.
-// Hover fan only — never force-open on click (the click handler owns opening the haul).
+// Hover fan on desktop; on touch (no hover) it rests half-fanned so multi-item
+// hauls still read as stacks — tap opens the haul either way.
 function HaulCoverFan({ covers = [], name = "", count = 0 }) {
   const [hovered, setHovered] = useState(false);
   const reduced = usePrefersReducedMotion();
+  const coarse = useCoarsePointer();
   // Pad to at least 1, at most 5 slots so single-item hauls still look like a card.
   const images = covers.length ? covers.slice(0, 5) : [null];
   // For single covers, still fan 3 ghost cards so multi-item hauls feel special
@@ -3274,8 +3276,8 @@ function HaulCoverFan({ covers = [], name = "", count = 0 }) {
       ? [images[0], null, null]
       : images;
   const total = slots.length;
-  const angle = 36;
-  const open = hovered && !reduced;
+  const angle = coarse && !hovered ? 22 : 36; // resting fan is tighter than hover fan
+  const open = (hovered || coarse) && !reduced;
 
   return (
     <div
