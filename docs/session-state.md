@@ -5,7 +5,7 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-21 (A1 + A2 shipped, agent registry live-verified: superbuy/kakobuy/fansbuy ✅, sugargoo pending — all LOCAL commits, NOT pushed/deployed)
+**Last updated:** 2026-07-21 (A1 + A2 + mobile pass shipped; agent registry live-verified — all LOCAL commits, ready for phone check → deploy)
 **Branch:** `credenza-fashion-yupoo-carousel`
 
 ---
@@ -80,8 +80,8 @@ Overwrite sections in place — this is current state, not a log.
 | ~~0~~ | ~~Commit pending tree as checkpoint~~ | ✅ done | a2eda2f |
 | ~~1~~ | ~~A2 agent registry + affiliate Buy + click analytics~~ | ✅ done | d400dae (local only — do not push/deploy without Kyle) |
 | ~~2~~ | ~~A1 Reddit haul paste → N cards~~ | ✅ done | 5fe1427 (local only) |
-| 3 | Mobile-first pass (audit list, §5) | 3–5 d | user lives on phone — **NEXT** |
-| 4 | A3 pipeline board + A5 QC GL/RL | 4–5 d | retention loop |
+| 3 | ~~Mobile-first pass (audit list, §5)~~ | ✅ done | 3e3a4ac…e0f84f0 — verify on real phone, then **DEPLOY** |
+| 4 | A3 pipeline board + A5 QC GL/RL | 4–5 d | retention loop — **NEXT after deploy** |
 | 5 | B4 parcel mode (weight → ship handoff, referral-attached) | 2–3 d | highest-$ affiliate surface |
 | 6 | Supabase auth+sync + Stripe Pro | 1–2 wk | recurring revenue |
 | 7 | A4 body profile (tiers: fit math → 2.5D SVG → lazy 3D mannequin at Pro launch), A6 weight estimator | — | decision quality; A4 tiering agreed 2026-07-21, see Monetization.md §A4 |
@@ -118,19 +118,27 @@ Overwrite sections in place — this is current state, not a log.
   LoongBuy (paying for placement), Oopbuy.** Strategic call: don't promote
   it — it funnels Kyle's audience to their catalog; keep as telemetry only.
 
-## 5. Mobile audit list (agreed scope of mobile pass)
+## 5. Mobile audit list — ✅ ALL SIX DONE (2026-07-21, commits 3e3a4ac → e0f84f0)
 
-1. Only ONE breakpoint exists (480px). Add phone-first (~390px) + tablet
-   (~768px); shelf grid 2→3→4 cols (currently fixed 2 at all widths).
-2. Hover-gated features invisible on touch (haul cover fan is hover-only) —
-   every hover reveal needs a touch affordance.
-3. Carousel is a desktop showpiece — **mobile default view should be grid**,
-   not carousel (460px card + chrome too tight on phone).
-4. Disable/static-ify holographic cursor background below tablet width
-   (battery/GPU, no cursor on touch).
-5. Fixed-width chrome: ModalShell 720px, capture pill 390px, total reel —
-   modals become bottom sheets on mobile (brief already said this).
-6. Import/paste flow must be designed mobile-first (the win/lose moment).
+1. ~~Only ONE breakpoint~~ — `.cz-shelf-grid` had NO base rule (non-section
+   card view was 1-col block everywhere); now 2 cols phone / 3 ≥768px /
+   4 ≥1100px for both shelf grids; killed ≤700px 1-col override.
+2. ~~Hover-gated features~~ — haul cover fan rests half-fanned on coarse
+   pointers; carousel corner fan already tap→gallery; photo delete buttons
+   verified always-visible.
+3. ~~Carousel desktop-only~~ — first load below 768px defaults to the grid
+   ("cards"); carousel untouched on desktop (jsdom = 1024px, tests safe).
+4. ~~Holographic cursor bg~~ — new `useCoarsePointer()` hook freezes BOTH
+   rAF backgrounds (cursor-follow + drifting moons) on touch/≤767px.
+5. ~~Fixed-width chrome~~ — modals are bottom sheets ≤767px (full-width,
+   rounded top, 88dvh cap, safe-area); totals row wraps; capture pill
+   already stacked.
+6. ~~Import flow~~ — all inputs 16px on touch (no more iOS focus-zoom);
+   Import sheet is now a bottom sheet with stats preview.
+
+**Remaining mobile verification (Kyle, on a real phone):** open the site on
+his phone → confirm grid default, bottom-sheet modals, no cursor-glow lag,
+haul fans visible. THEN deploy (mobile pass → deploy was Kyle's order).
 
 ## 6. Known hygiene debt
 
