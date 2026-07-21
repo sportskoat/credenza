@@ -7188,7 +7188,17 @@ export default function Credenza() {
   const [affiliateCodes, setAffiliateCodes] = useState({});
   // One-time "Opening in X" toast per agent; re-arms when the agent changes.
   const [agentToastSeenFor, setAgentToastSeenFor] = useState(null);
-  const [viewMode, setViewMode] = useState("carousel");
+  // First-load view: carousel is the desktop showpiece; on phones the grid is
+  // the sane default (460px card + chrome doesn't fit a 390px screen). Stored
+  // viewMode prefs are intentionally not restored — every device lands on its
+  // own sane default each session.
+  const [viewMode, setViewMode] = useState(() =>
+    typeof window !== "undefined" &&
+    !!window.matchMedia &&
+    window.matchMedia("(max-width: 767px)").matches
+      ? "cards"
+      : "carousel"
+  );
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   // "recent" = newest first (default). "starred" = only starred items.
   const [sortMode, setSortMode] = useState("recent");
