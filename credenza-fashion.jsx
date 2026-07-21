@@ -12,6 +12,17 @@ import {
   selectAskCandidates,
   serializeAskCandidates,
 } from "./credenza-search-fashion.js";
+import {
+  DEFAULT_AGENT_ID,
+  buildAgentUrl,
+  getAgent,
+  hashItemId,
+  listAgents,
+  loadOutboundClicks,
+  marketplaceOf,
+  recordOutboundClick,
+  summarizeOutbound,
+} from "./agents.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
 
@@ -3613,17 +3624,27 @@ function sizeSuggestionsFor(item) {
 // ═══ COMPONENTS ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
 
+// Stored prefs may name a retired/unknown agent — fall back to the soft default
+// instead of stranding Buy buttons.
+function validStoredAgentId(id) {
+  const a = getAgent(id);
+  return a && !a.retired ? a.id : DEFAULT_AGENT_ID;
+}
+
 // Open-button list for a card. Every Yupoo URL remains an external photo action,
 // even if stale stored data claims another role. Buy is stable-first and is the
 // only action rendered with dominant styling. Duplicate labels stay tellable.
+// opts.buyLabel overrides the Buy caption (e.g. "Buy via Superbuy"); the URL is
+// untouched — the agent wrap happens in recordOpen, never in stored data.
 const LINK_ROLE_LABELS = { photos: "More Photos", buy: "Buy", alt: "Alt" };
-function linkButtons(item) {
+function linkButtons(item, opts = {}) {
   const btns = [];
   function roleFor(url, storedRole) {
     const inferred = inferLinkRole(url);
     return inferred === "photos" ? "photos" : storedRole || inferred;
   }
   function labelFor(role) {
+    if (role === "buy" && opts.buyLabel) return opts.buyLabel;
     if (role === "alt") return "Open";
     return LINK_ROLE_LABELS[role] || "Alt";
   }
@@ -3650,7 +3671,7 @@ function linkButtons(item) {
   return btns;
 }
 
-function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, onToggleFavorite, featured, flipSignal, editSignal, mode }) {
+function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, onToggleFavorite, featured, flipSignal, editSignal, mode, buyLabel }) {
   const [flipped, setFlipped] = useState(false);
   const [animateFlip, setAnimateFlip] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -4198,7 +4219,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
             )}
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {linkButtons(item).map((btn) => (
+              {linkButtons(item, { buyLabel }).map((btn) => (
                 <Pill key={btn.url} primary={btn.role === "buy"} onClick={() => onOpen(item, btn.url)}>
                   {btn.label}
                 </Pill>
@@ -4831,6 +4852,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onDelete,
     onSaveEdit,
     onOpen,
+    buyLabel,
     onOpenPhotos,
     onAttachPhoto,
     onRemovePhoto,
@@ -5667,7 +5689,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                     )}
 
                     <div className="cz-carousel-actions">
-                      {linkButtons(item)
+                      {linkButtons(item, { buyLabel })
                         .map((button, index) => (
                           <button
                             key={button.url + index}
@@ -5737,6 +5759,7 @@ function CoverFlowCarousel({
   onDelete,
   onSaveEdit,
   onOpen,
+  buyLabel,
   onSetPrimaryImage,
   onLoadPhotos,
   onAttachPhoto,
@@ -6258,6 +6281,7 @@ function CoverFlowCarousel({
                   onDelete={onDelete}
                   onSaveEdit={onSaveEdit}
                   onOpen={onOpen}
+                  buyLabel={buyLabel}
                   onOpenPhotos={openPhotos}
                   onAttachPhoto={onAttachPhoto}
                   onRemovePhoto={onRemovePhoto}
@@ -6705,6 +6729,108 @@ function DigestDeck({ slides, onClose, onOpen }) {
   );
 }
 
+// A2: buying-agent picker + referral slots + outbound-click counts. Buy keeps
+// working with empty referral slots — codes only attach at open time (recordOpen).
+function AgentSheet({ preferredAgent, onSelectAgent, affiliateCodes, onAffiliateCodeChange, storageBackend, onClose }) {
+  const [summary, setSummary] = useState(null);
+  useEffect(() => {
+    let live = true;
+    loadOutboundClicks(storageBackend).then((clicks) => {
+      if (live) setSummary(summarizeOutbound(clicks));
+    });
+    return () => {
+      live = false;
+    };
+  }, [storageBackend]);
+
+  return (
+    <ModalShell title="Buying agent" onClose={onClose} maxWidth={520}>
+      <div style={{ padding: "20px 22px 22px", fontFamily: FONT }}>
+        <Caption style={{ color: BLUE, marginBottom: 10 }}>Buy opens in</Caption>
+        <div
+          role="radiogroup"
+          aria-label="Preferred buying agent"
+          style={{ display: "grid", gap: 6 }}
+        >
+          {listAgents().map((agent) => {
+            const active = agent.id === preferredAgent;
+            const clicks = summary && summary.byAgent[agent.id];
+            return (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={active}
+                key={agent.id}
+                onClick={() => onSelectAgent(agent.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontFamily: FONT,
+                  fontSize: 13,
+                  fontWeight: active ? 700 : 600,
+                  color: active ? INK : SUB,
+                  background: active ? CARD : "transparent",
+                  border: "1px solid " + (active ? "var(--cz-hair-strong)" : HAIR),
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <span style={{ flex: 1 }}>{agent.name}</span>
+                {clicks ? (
+                  <span style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>{clicks} opened</span>
+                ) : null}
+                {active ? <Check size={15} aria-hidden="true" /> : null}
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ fontSize: 12, lineHeight: 1.5, color: SUB, margin: "12px 0 0" }}>
+          Change anytime — your saved links are never rewritten. The agent is applied only when you
+          tap Buy. Disclosure: Buy links may include a referral code; Credenza may earn a commission
+          on agent shipping fees. It never changes your item price.
+        </p>
+
+        <Caption style={{ color: BLUE, margin: "18px 0 8px" }}>Referral codes (optional)</Caption>
+        <div style={{ display: "grid", gap: 8 }}>
+          {listAgents()
+            .filter((a) => a.referralParam)
+            .map((agent) => (
+              <label key={agent.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: SUB }}>
+                <span style={{ width: 80, flexShrink: 0, fontWeight: 600 }}>{agent.name}</span>
+                <input
+                  type="text"
+                  value={affiliateCodes[agent.id] || ""}
+                  onChange={(e) => onAffiliateCodeChange(agent.id, e.target.value)}
+                  placeholder="Paste code when your affiliate account is approved"
+                  style={{
+                    flex: 1,
+                    fontFamily: FONT,
+                    fontSize: 12.5,
+                    color: INK,
+                    background: SEG,
+                    border: "1px solid " + HAIR,
+                    borderRadius: 10,
+                    padding: "8px 10px",
+                  }}
+                />
+              </label>
+            ))}
+        </div>
+
+        {summary && summary.total > 0 ? (
+          <p style={{ fontSize: 11.5, color: SUB, margin: "16px 0 0" }}>
+            {summary.total} outbound {summary.total === 1 ? "click" : "clicks"} logged locally
+            {summary.wrapped ? " · " + summary.wrapped + " through an agent" : ""}.
+          </p>
+        ) : null}
+      </div>
+    </ModalShell>
+  );
+}
+
 function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onRestore }) {
   const [text, setText] = useState("");
   const fileRef = useRef(null);
@@ -6970,6 +7096,14 @@ export default function Credenza() {
   const [resurfaced, setResurfaced] = useState(null);
   const [digest, setDigest] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [agentSheetOpen, setAgentSheetOpen] = useState(false);
+  // A2 money pipe: which buying agent Buy deep-links into. Soft default with a
+  // visible "change anytime" path; persisted in credenza-prefs-v1. Stored item
+  // links stay canonical forever — the agent wrap happens only at open time.
+  const [preferredAgent, setPreferredAgent] = useState(DEFAULT_AGENT_ID);
+  const [affiliateCodes, setAffiliateCodes] = useState({});
+  // One-time "Opening in X" toast per agent; re-arms when the agent changes.
+  const [agentToastSeenFor, setAgentToastSeenFor] = useState(null);
   const [viewMode, setViewMode] = useState("carousel");
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   // "recent" = newest first (default). "starred" = only starred items.
@@ -7060,10 +7194,18 @@ export default function Credenza() {
       storageBackend
         .set(
           "credenza-prefs-v1",
-          JSON.stringify({ viewMode, sortMode, theme: theme || "rainbow", colorwayVersion: 4 })
+          JSON.stringify({
+            viewMode,
+            sortMode,
+            theme: theme || "rainbow",
+            colorwayVersion: 4,
+            preferredAgent,
+            affiliateCodes,
+            agentToastSeenFor,
+          })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor]);
 
   useEffect(() => {
     loadStoredItems({
@@ -7143,12 +7285,21 @@ export default function Credenza() {
                   sortMode: p.sortMode === "starred" ? "starred" : "recent",
                   theme: "rainbow",
                   colorwayVersion: 4,
+                  // Agent prefs survive the one-shot colorway rewrite.
+                  preferredAgent: validStoredAgentId(p.preferredAgent),
+                  affiliateCodes: p.affiliateCodes && typeof p.affiliateCodes === "object" ? p.affiliateCodes : {},
+                  agentToastSeenFor: p.agentToastSeenFor || null,
                 })
               )
               .catch(() => {});
           } else if (["light", "rainbow"].includes(p.theme)) {
             setTheme(p.theme);
           }
+          // A2: agent prefs. Unknown/retired stored agents fall back to the
+          // soft default rather than stranding Buy buttons.
+          setPreferredAgent(validStoredAgentId(p.preferredAgent));
+          if (p.affiliateCodes && typeof p.affiliateCodes === "object") setAffiliateCodes(p.affiliateCodes);
+          if (p.agentToastSeenFor) setAgentToastSeenFor(p.agentToastSeenFor);
         } catch (e) {}
       })
       .catch(() => {})
@@ -7773,8 +7924,41 @@ export default function Credenza() {
       openCount: (x.openCount || 0) + 1,
     }));
     const url = ensureYupooAlbumUid(targetUrl || item.url);
-    if (url) window.open(url, "_blank", "noopener");
+    if (!url) return;
+    const marketplace = marketplaceOf(url);
+    // Photos/alt links (Yupoo, Reddit, anything off-marketplace) open untouched
+    // and stay out of the agent analytics.
+    if (!marketplace || marketplace === "yupoo") {
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+    // A2: the agent wrap happens here and only here — stored links stay canonical.
+    const result = buildAgentUrl(preferredAgent, url, { referralOverrides: affiliateCodes });
+    recordOutboundClick(storageBackend, {
+      ts: Date.now(),
+      agentId: result.agentId || preferredAgent,
+      marketplace,
+      wrapped: result.wrapped,
+      item: hashItemId(item.id),
+    });
+    if (result.wrapped && agentToastSeenFor !== result.agentId) {
+      setAgentToastSeenFor(result.agentId);
+      const name = (getAgent(result.agentId) || {}).name || "your agent";
+      notify("Opening in " + name + " · change anytime in the Agent menu.", { duration: 6000 });
+    } else if (!result.wrapped && (result.reason === "unsupported-marketplace" || result.reason === "no-item-id")) {
+      const name = (getAgent(preferredAgent) || {}).name || "your agent";
+      notify(name + " can't take that link — opened the original instead.", { duration: 6000 });
+    }
+    window.open(result.url, "_blank", "noopener");
   };
+
+  // Buy caption reflects the chosen agent; the URL doesn't (wrap is open-time
+  // only). Raw/no-agent keeps the plain "Buy".
+  const preferredAgentInfo = getAgent(preferredAgent);
+  const buyLabel =
+    preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate)
+      ? "Buy via " + preferredAgentInfo.name
+      : "Buy";
 
   const undoRemoved = () => {
     const batch = [...undoBatchRef.current].sort((a, b) => a.index - b.index);
@@ -8316,6 +8500,7 @@ export default function Credenza() {
     digest,
     items,
     importOpen,
+    agentSheetOpen,
     viewMode,
     view,
     activeHaul,
@@ -8331,14 +8516,14 @@ export default function Credenza() {
       if (document.querySelector('[role="dialog"][aria-label="Album photo preview"]')) return;
       const ctx = kb.current;
       if (e.metaKey || e.ctrlKey) {
-        if (ctx.digest || ctx.importOpen) return;
+        if (ctx.digest || ctx.importOpen || ctx.agentSheetOpen) return;
         if (e.key === "k") {
           e.preventDefault();
           searchRef.current && searchRef.current.focus();
         }
         return;
       }
-      if (ctx.digest || ctx.importOpen) return; // overlays handle their own keys
+      if (ctx.digest || ctx.importOpen || ctx.agentSheetOpen) return; // overlays handle their own keys
       if (isTyping()) {
         if (e.key === "Escape") document.activeElement.blur();
         return;
@@ -8418,7 +8603,7 @@ export default function Credenza() {
       }
     };
     const onPaste = (e) => {
-      if (kb.current.digest || kb.current.importOpen) return;
+      if (kb.current.digest || kb.current.importOpen || kb.current.agentSheetOpen) return;
       if (e.defaultPrevented) return; // card-level image paste already took it
       // Image on the clipboard + an expanded card → attach it there, even when
       // focus sits on the document (keyboard-driven expand).
@@ -8489,6 +8674,7 @@ export default function Credenza() {
         onSetPrimaryImage={setPrimaryImage}
         onToggleFavorite={toggleFavorite}
         mode={mode}
+        buyLabel={buyLabel}
       />
     );
     return (
@@ -8850,6 +9036,7 @@ export default function Credenza() {
             onDelete={remove}
             onSaveEdit={saveEdit}
             onOpen={recordOpen}
+            buyLabel={buyLabel}
             onSetPrimaryImage={setPrimaryImage}
             onLoadPhotos={loadAlbumPhotos}
             onAttachPhoto={attachGalleryImage}
@@ -8960,6 +9147,21 @@ export default function Credenza() {
           onClose={() => setImportOpen(false)}
           onExport={exportShelf}
           onRestore={restoreBackup}
+        />
+      )}
+      {agentSheetOpen && (
+        <AgentSheet
+          preferredAgent={preferredAgent}
+          onSelectAgent={(id) => {
+            const a = getAgent(id);
+            if (a && !a.retired) setPreferredAgent(a.id);
+          }}
+          affiliateCodes={affiliateCodes}
+          onAffiliateCodeChange={(agentId, code) =>
+            setAffiliateCodes((prev) => ({ ...prev, [agentId]: code }))
+          }
+          storageBackend={storageBackend}
+          onClose={() => setAgentSheetOpen(false)}
         />
       )}
 
@@ -9423,6 +9625,15 @@ export default function Credenza() {
             title={mode === "rainbow" ? "Switch to Horizon light" : "Switch to Moonwalker dark"}
             ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
           />
+          <Pill
+            subtle
+            onClick={() => setAgentSheetOpen(true)}
+            title="Choose which buying agent Buy opens in"
+          >
+            {preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate)
+              ? "Agent: " + preferredAgentInfo.name
+              : "Agent: Direct"}
+          </Pill>
           <Pill subtle onClick={() => setImportOpen(true)}>
             Import
           </Pill>

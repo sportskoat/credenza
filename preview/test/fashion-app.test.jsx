@@ -129,7 +129,7 @@ describe("Fashion data and photos", () => {
     // Product-sheet back: sizing is quiet chips ("Poster S" / "Rec XL"), not tile labels.
     expect(await screen.findByText("Poster S")).toBeInTheDocument();
     expect(screen.getByText("Rec XL")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Buy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
     expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toContain("photo.yupoo.com");
   });
 
@@ -327,11 +327,11 @@ describe("Fashion card-back navigation and editing", () => {
     expect(edit).toBeInTheDocument();
     expect(edit).not.toHaveTextContent("Edit");
     expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Buy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Card actions" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Buy" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Buy via Superbuy" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     expect(promptSpy).not.toHaveBeenCalled();
 
@@ -347,7 +347,7 @@ describe("Fashion card-back navigation and editing", () => {
     await user.click(screen.getByRole("menuitem", { name: "Remove from haul" }));
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].project).toBe(""));
     await user.click(screen.getByRole("button", { name: "Done" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Buy" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument());
     promptSpy.mockRestore();
   });
 });
@@ -429,5 +429,82 @@ describe("Fashion morph controls and favorites", () => {
 
     await user.click(screen.getByRole("button", { name: "Card view" }));
     expect(await screen.findByRole("button", { name: "Unstar String favorite" })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("Agent Buy plumbing (A2)", () => {
+  const WEIDIAN = "https://weidian.com/item.html?itemID=7799763843";
+
+  it("wraps Buy clicks through the preferred agent and never rewrites stored links", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const buy = (await screen.findAllByRole("button", { name: "Buy via Superbuy" }))[0];
+    await user.click(buy);
+    expect(open).toHaveBeenCalledWith(
+      "https://www.superbuy.com/en/page/buy?url=" + encodeURIComponent(WEIDIAN),
+      "_blank",
+      "noopener"
+    );
+    // Stored item keeps the canonical Weidian link — the wrap exists only at open time.
+    const stored = JSON.parse(data[STORE_KEY])[0];
+    expect(JSON.stringify(stored)).toContain(WEIDIAN);
+    expect(JSON.stringify(stored)).not.toContain("superbuy.com");
+    // Outbound click logged locally for the money-pipe metrics.
+    const log = JSON.parse(data["credenza-fashion-outbound-v1"]);
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ agentId: "superbuy", marketplace: "weidian", wrapped: true });
+  });
+
+  it("opens the canonical link directly when the agent is Direct", async () => {
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem()]),
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, theme: "rainbow", viewMode: "carousel", sortMode: "recent", preferredAgent: "raw" }),
+    });
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const buy = (await screen.findAllByRole("button", { name: "Buy" }))[0];
+    await user.click(buy);
+    expect(open).toHaveBeenCalledWith(WEIDIAN, "_blank", "noopener");
+    const log = JSON.parse(data["credenza-fashion-outbound-v1"]);
+    expect(log[0]).toMatchObject({ agentId: "raw", wrapped: false });
+  });
+
+  it("switches agent from the Agent sheet, re-labels Buy, shows the FTC disclosure, and persists", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await user.click(await screen.findByRole("button", { name: /Agent: Superbuy/ }));
+    expect(await screen.findByRole("heading", { name: "Buying agent" })).toBeInTheDocument();
+    expect(screen.getByText(/Disclosure:/)).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /Sugargoo/ }));
+    await user.click(screen.getByRole("button", { name: "Close Buying agent" }));
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Buy via Sugargoo" }).length).toBeGreaterThan(0)
+    );
+    const prefs = JSON.parse(data[PREFS_KEY]);
+    expect(prefs.preferredAgent).toBe("sugargoo");
+    // Switching agents must not touch stored item links.
+    expect(JSON.stringify(JSON.parse(data[STORE_KEY]))).not.toContain("sugargoo");
+  });
+
+  it("attaches a stored referral code at open time only", async () => {
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem()]),
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, preferredAgent: "superbuy", affiliateCodes: { superbuy: "KYLE123" } }),
+    });
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const buy = (await screen.findAllByRole("button", { name: "Buy via Superbuy" }))[0];
+    await user.click(buy);
+    expect(open).toHaveBeenCalledWith(
+      "https://www.superbuy.com/en/page/buy?url=" + encodeURIComponent(WEIDIAN) + "&affcode=KYLE123",
+      "_blank",
+      "noopener"
+    );
+    expect(JSON.stringify(JSON.parse(data[STORE_KEY]))).not.toContain("KYLE123");
   });
 });
