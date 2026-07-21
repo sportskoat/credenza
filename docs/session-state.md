@@ -5,7 +5,7 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-20 (A1 + A2 shipped, local commits d400dae/5fe1427 — NOT pushed/deployed)
+**Last updated:** 2026-07-21 (A1 + A2 shipped, agent registry live-verified: superbuy/kakobuy/fansbuy ✅, sugargoo pending — all LOCAL commits, NOT pushed/deployed)
 **Branch:** `credenza-fashion-yupoo-carousel`
 
 ---
@@ -26,7 +26,7 @@ Overwrite sections in place — this is current state, not a log.
     poster. posterStats/findSource land on each imported item (A3 hauls will
     hoist stats). Import preview shows the stats line; toast says "from your
     Reddit haul".
-  - 101/101 tests, lint at baseline (9 err/65 warn — same as HEAD; §6 note
+  - 104/104 tests, lint at baseline (9 err/65 warn — same as HEAD; §6 note
     saying "1 err" was stale), typecheck + build clean.
   - **Needs Kyle:** ~~verify Sugargoo + Kakobuy URL templates~~ **Kakobuy +
     CSSBuy + Superbuy CONFIRMED live (2026-07-20).** Sugargoo: template fixed
@@ -40,7 +40,7 @@ Overwrite sections in place — this is current state, not a log.
     anytime (paid within 10 working days), CNY. **`partnercode` param
     CONFIRMED and wired** (signup template verified live with trailing
     slash). Env for deploy: `VITE_CREDENZA_REF_SUPERBUY=888c9Y`.
-  - **Fansbuy affiliate ACTIVE (Kyle's, 2026-07-21).** Raw invite code:
+  - **Fansbuy affiliate ACTIVE (Kyle's, 2026-07-21). Signup link VERIFIED end-to-end (Agent sheet "Test sign-up link" reproduces his exact invite URL).** Raw invite code:
     **Fans-VmXrpx91** (base64'd at link-build time). Weidian item template
     confirmed live: `fansbuy.com/item-micro-<itemID>.html?url=<encoded>` —
     Weidian only; taobao/1688 path prefixes unknown (fail open until
@@ -81,7 +81,6 @@ Overwrite sections in place — this is current state, not a log.
 | ~~1~~ | ~~A2 agent registry + affiliate Buy + click analytics~~ | ✅ done | d400dae (local only — do not push/deploy without Kyle) |
 | ~~2~~ | ~~A1 Reddit haul paste → N cards~~ | ✅ done | 5fe1427 (local only) |
 | 3 | Mobile-first pass (audit list, §5) | 3–5 d | user lives on phone — **NEXT** |
-| 3 | Mobile-first pass (audit list, §5) alongside A1 | 3–5 d | user lives on phone |
 | 4 | A3 pipeline board + A5 QC GL/RL | 4–5 d | retention loop |
 | 5 | B4 parcel mode (weight → ship handoff, referral-attached) | 2–3 d | highest-$ affiliate surface |
 | 6 | Supabase auth+sync + Stripe Pro | 1–2 wk | recurring revenue |
