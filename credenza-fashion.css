@@ -3056,6 +3056,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   height: 16px;
 }
 
+/* Phone/tablet: the totals row wraps instead of pushing off-screen. */
+@media (max-width: 767px) {
+  .cz-total-row {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px 12px;
+  }
+}
+
 .t-reel-sr {
   position: absolute;
   width: 1px;

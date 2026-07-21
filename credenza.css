@@ -376,6 +376,23 @@ button {
   }
 }
 
+/* Phones: modals become bottom sheets — anchored to the thumb, full-width,
+   safe-area aware, capped so content never hides under the top notch. */
+@media (max-width: 767px) {
+  .cz-modal {
+    width: 100%;
+    max-width: 100vw;
+    max-height: 88dvh;
+    margin: auto 0 0 0;
+  }
+
+  .cz-modal-surface {
+    max-height: 88dvh;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 @media (pointer: coarse) {
   .cz-pill,
   .cz-chip,
