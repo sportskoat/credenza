@@ -7225,6 +7225,23 @@ export default function Credenza() {
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   // "recent" = newest first (default). "starred" = only starred items.
   const [sortMode, setSortMode] = useState("recent");
+
+  // Phones: ~400px of capture/search/tab chrome sits above the carousel, so at
+  // first paint the card renders under the fixed bottom bar. Scrolling the
+  // stage to the top of the viewport gives the card the full space above the
+  // bar (S3/QW10 pads the stage so it always fits). App-level scroll only —
+  // carousel internals untouched.
+  useEffect(() => {
+    if (viewMode !== "carousel") return;
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    const id = window.setTimeout(() => {
+      document
+        .querySelector(".cz-carousel-stage")
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [viewMode]);
   // Indexing chips next to the Inbox tab while a newly stashed item enriches.
   const [indexingJobs, setIndexingJobs] = useState([]);
   const { notification, notify, dismiss: dismissNotification, pause: pauseNotification, resume: resumeNotification } = useNotification();
@@ -9289,18 +9306,34 @@ export default function Credenza() {
           <div className="cz-brand"><span className="cz-brand-mark">C</span> CREDENZA <span style={{ opacity: 0.65, fontWeight: 400 }}>Fashion</span></div>
         </div>
 
-        <h1 className="cz-hero-title cz-title-balance">Organize the haul.</h1>
-        <p style={{
-          fontFamily: FONT,
-          fontSize: 15,
-          color: "var(--cz-ink)",
-          marginTop: -12,
-          marginBottom: 28,
-          lineHeight: 1.5,
-          opacity: 0.82,
-        }}>
-          Yupoo albums, Weidian buys, Reddit finds — one shelf for the whole haul.
-        </p>
+        {/* The full hero is the empty-shelf welcome; a stocked shelf is a daily
+            tool and gets its first viewport back (audit S4). */}
+        {items.length === 0 ? (
+          <>
+            <h1 className="cz-hero-title cz-title-balance">Organize the haul.</h1>
+            <p style={{
+              fontFamily: FONT,
+              fontSize: 15,
+              color: "var(--cz-ink)",
+              marginTop: -12,
+              marginBottom: 28,
+              lineHeight: 1.5,
+              opacity: 0.82,
+            }}>
+              Yupoo albums, Weidian buys, Reddit finds — one shelf for the whole haul.
+            </p>
+          </>
+        ) : (
+          <p style={{
+            fontFamily: FONT,
+            fontSize: 13,
+            color: "var(--cz-sub)",
+            margin: "2px 0 18px",
+            lineHeight: 1.4,
+          }}>
+            One shelf for the whole haul.
+          </p>
+        )}
 
         {/* Capture — rounded shell matching the search bar. */}
         <div className="cz-capture-shell">

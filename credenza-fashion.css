@@ -3942,3 +3942,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     scrollbar-width: none;
   }
 }
+
+/* ————— Mobile audit S3 (2026-07-22) —————
+   QW9: bottom sheets go opaque — the glass treatment let page content bleed
+   through option rows (agent sheet read as disabled states). Cards/rows/toasts
+   keep the glass; sheets are reading surfaces. */
+.cz-app[data-fashion="true"] .cz-modal-surface {
+  background: var(--cz-card-solid);
+}
+
+/* QW10: keep the carousel (and its controls) clear of the fixed bottom bar on
+   phones — cards were rendering underneath Theme/Agent/Import taps. */
+@media (max-width: 767px) {
+  .cz-carousel-stage {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+}
