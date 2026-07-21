@@ -84,7 +84,7 @@ Overwrite sections in place — this is current state, not a log.
 | 4 | A3 pipeline board + A5 QC GL/RL | 4–5 d | retention loop |
 | 5 | B4 parcel mode (weight → ship handoff, referral-attached) | 2–3 d | highest-$ affiliate surface |
 | 6 | Supabase auth+sync + Stripe Pro | 1–2 wk | recurring revenue |
-| 7 | A4 body profile, A6 weight estimator | — | decision quality |
+| 7 | A4 body profile (tiers: fit math → 2.5D SVG → lazy 3D mannequin at Pro launch), A6 weight estimator | — | decision quality; A4 tiering agreed 2026-07-21, see Monetization.md §A4 |
 
 ## 4. Research findings (2026-07-20, sourced in session transcript)
 

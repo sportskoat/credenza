@@ -145,6 +145,24 @@ Without these, Credenza is a Yupoo/Weidian card viewer with extra steps. Spreads
 - Card size panel shows poster size, your usual, recommendation, and why (one line).
 - Missing data → clear “need chart/poster size” empty state, not a fake answer.
 
+**Visual fit tiers (agreed 2026-07-21, Kyle):** build A4 in cheap-first tiers —
+1. **Fit math** (core A4 above; ~0 bundle cost).
+2. **2.5D SVG visual**: front/side silhouette of the user's body with the
+   garment's flat measurements overlaid (hem/sleeve/chest lines land on the
+   body). Ships with the Fit tab.
+3. **Full 3D mannequin** (Three.js / react-three-fiber, morph-target body,
+   garment shells from flat measurements): the Pro-launch delight feature.
+   MUST be lazy-loaded per-tab (~150–200 KB gz) so the main bundle never pays
+   it; geometry is trivial for phones, cloth sim is NOT in scope — drape
+   simulation needs garment patterns sellers never publish. Honesty rule:
+   accuracy = flat measurements only (chest ease, sleeve/hem landing), never
+   implied fabric behavior.
+- **Size-chart extraction** (Yupoo/Weidian listing images → structured
+  衣长/胸围/肩宽/袖长 via the resolve/vision pipeline) is the real moat and
+  gates tiers 2–3; nobody in the rep ecosystem has it.
+- **Pro gate shape:** free = one body profile; Pro = multiple profiles +
+  fit history (tier 3 rides the Pro launch).
+
 ---
 
 #### A5. QC attach + GL/RL
