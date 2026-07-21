@@ -5,7 +5,7 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-22 (deep mobile UX audit complete → `docs/mobile-improvement-plan.md`; Kyle opened a colorway change, desktop included)
+**Last updated:** 2026-07-22 (autonomous mobile-fix loop COMPLETE on branch `mobile-fix-loop` — S1–S7 shipped, S8 colorway awaiting Kyle's pick; revert tag `pre-mobile-fix-2026-07-22`; NOT deployed)
 **Branch:** `credenza-fashion-yupoo-carousel`
 **Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-21 via CLI (`netlify deploy --prod` from `preview/`). Env on site: `CREDENZA_SEARCH_SECRET` (pre-existing), `VITE_CREDENZA_REF_SUPERBUY=888c9Y`, `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91` (both "all context", set 2026-07-21). Smoke-tested: site 200, function auth gates pass, upstream fetch works, secrets + affiliate codes confirmed baked into bundle. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
 
@@ -54,6 +54,16 @@ Overwrite sections in place — this is current state, not a log.
     for Kyle on 2026-07-20 — COME BACK TO THIS), cssbuy 🚫, + Direct.
 - Still unshipped: A3 pipeline board, A4 body profile, A5 QC GL/RL, A6 weight
   estimator.
+- **Mobile-fix loop shipped (2026-07-22), branch `mobile-fix-loop`:** S1 tap
+  targets (528de1f) · S2 contrast tokens (34e2ef6) · S3+S4 opaque sheets /
+  carousel clearance / hero collapse (f1db97d) · S5 mobile detail sheet +
+  platform vocabulary (93d7fa6) · S6+S7 carousel status chips + Stash-first
+  bottom bar (41cf488). 104 tests green at every step; WebKit/iPhone harness
+  verification per step; fresh shots in docs/mobile-shots/. Revert: `git
+  checkout pre-mobile-fix-2026-07-22` (or drop the branch). Colorway (S8):
+  four mockup directions presented to Kyle in-chat — DO NOT recolor until he
+  picks. Parked Qs: Remove pattern OK as ⋯+undo? hero-collapse copy OK? dots
+  cap? Superbuy first-Buy hint?
 - **Mobile UX audit round 2 (2026-07-22): see `docs/mobile-improvement-plan.md`**
   — 12 quick wins + 5 component changes + 8 sequenced steps (S1–S8), all
   carousel-freeze-safe and Monetization-compliant. Headliners: grid card-back
