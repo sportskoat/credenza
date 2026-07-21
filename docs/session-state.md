@@ -5,8 +5,9 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-21 (A1 + A2 + mobile pass shipped; agent registry live-verified — all LOCAL commits, ready for phone check → deploy)
+**Last updated:** 2026-07-21 (A1 + A2 + mobile pass shipped; **DEPLOYED to production** — https://credenza-kyle.netlify.app)
 **Branch:** `credenza-fashion-yupoo-carousel`
+**Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-21 via CLI (`netlify deploy --prod` from `preview/`). Env on site: `CREDENZA_SEARCH_SECRET` (pre-existing), `VITE_CREDENZA_REF_SUPERBUY=888c9Y`, `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91` (both "all context", set 2026-07-21). Smoke-tested: site 200, function auth gates pass, upstream fetch works, secrets + affiliate codes confirmed baked into bundle. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
 
 ---
 
@@ -80,8 +81,9 @@ Overwrite sections in place — this is current state, not a log.
 | ~~0~~ | ~~Commit pending tree as checkpoint~~ | ✅ done | a2eda2f |
 | ~~1~~ | ~~A2 agent registry + affiliate Buy + click analytics~~ | ✅ done | d400dae (local only — do not push/deploy without Kyle) |
 | ~~2~~ | ~~A1 Reddit haul paste → N cards~~ | ✅ done | 5fe1427 (local only) |
-| 3 | ~~Mobile-first pass (audit list, §5)~~ | ✅ done | 3e3a4ac…e0f84f0 — verify on real phone, then **DEPLOY** |
-| 4 | A3 pipeline board + A5 QC GL/RL | 4–5 d | retention loop — **NEXT after deploy** |
+| 3 | ~~Mobile-first pass (audit list, §5)~~ | ✅ done | 3e3a4ac…e0f84f0 — phone check accepted by Kyle ("good enough for now") |
+| ~~3b~~ | ~~**DEPLOY**~~ | ✅ done | https://credenza-kyle.netlify.app live 2026-07-21; affiliate env vars set; smoke tests pass |
+| 4 | A3 pipeline board + A5 QC GL/RL | 4–5 d | retention loop — **NEXT** |
 | 5 | B4 parcel mode (weight → ship handoff, referral-attached) | 2–3 d | highest-$ affiliate surface |
 | 6 | Supabase auth+sync + Stripe Pro | 1–2 wk | recurring revenue |
 | 7 | A4 body profile (tiers: fit math → 2.5D SVG → lazy 3D mannequin at Pro launch), A6 weight estimator | — | decision quality; A4 tiering agreed 2026-07-21, see Monetization.md §A4 |
@@ -136,9 +138,9 @@ Overwrite sections in place — this is current state, not a log.
 6. ~~Import flow~~ — all inputs 16px on touch (no more iOS focus-zoom);
    Import sheet is now a bottom sheet with stats preview.
 
-**Remaining mobile verification (Kyle, on a real phone):** open the site on
-his phone → confirm grid default, bottom-sheet modals, no cursor-glow lag,
-haul fans visible. THEN deploy (mobile pass → deploy was Kyle's order).
+**Phone verification (2026-07-21):** Kyle loaded his real shelf on his phone via
+Import → backup restore (export on desktop, AirDrop, restore on phone) and
+accepted the result — "good enough for now, we can fix more later."
 
 ## 6. Known hygiene debt
 
