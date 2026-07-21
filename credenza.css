@@ -160,6 +160,10 @@ button {
   gap: 10px;
 }
 
+/* Shelf grids are phone-first: 2 cols on phones, 3 at tablet, 4 on desktop.
+   (.cz-shelf-grid previously had NO base rule — non-section card view fell
+   back to a 1-col block stack at every width.) */
+.cz-shelf-grid,
 .cz-time-section-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -167,14 +171,31 @@ button {
   align-items: stretch;
 }
 
+.cz-shelf-grid > div,
 .cz-time-section-grid > div {
   min-width: 0;
   display: flex;
 }
 
+.cz-shelf-grid > div > article,
+.cz-shelf-grid > div > div,
 .cz-time-section-grid > div > article,
 .cz-time-section-grid > div > div {
   width: 100%;
+}
+
+@media (min-width: 768px) {
+  .cz-shelf-grid,
+  .cz-time-section-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .cz-shelf-grid,
+  .cz-time-section-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .cz-toast-region {
@@ -286,10 +307,7 @@ button {
     padding: 18px 16px 0;
   }
 
-  .cz-shelf-grid,
-  .cz-time-section-grid {
-    grid-template-columns: 1fr;
-  }
+  /* Shelf stays 2-up on phones — 1-col wastes the whole screen on browsing. */
 
   .cz-bottom-bar-inner {
     padding-inline: 16px;
