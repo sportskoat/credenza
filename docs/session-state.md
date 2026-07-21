@@ -5,7 +5,7 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-20 (strategy review session)
+**Last updated:** 2026-07-20 (A2 shipped, local commit d400dae — NOT pushed/deployed)
 **Branch:** `credenza-fashion-yupoo-carousel`
 
 ---
@@ -14,12 +14,23 @@ Overwrite sections in place — this is current state, not a log.
 
 - Product is a polished Yupoo/Weidian shelf + enrichment (carousel, paired
   links, sizes, photos, haul directory with cost reel). Verified working.
-- **Tier A from `docs/Monetization.md` is 0/6 shipped.** No Reddit parser (A1),
-  no agent registry/affiliate Buy (A2), pipeline is edit-form-only (A3), no
-  body profile (A4), QC attach is generic photos only (A5), no weight
-  estimator (A6). **The app cannot earn money yet.**
-- Uncommitted work existed on branch as of 2026-07-20 (feature pack + polish
-  batch from 2026-07-18 sessions). **Commit as checkpoint before new work.**
+- **Tier A from `docs/Monetization.md` is 1/6 shipped.** **A2 DONE (2026-07-20,
+  commit d400dae):** `agents.js` registry (Superbuy/Sugargoo/CSSBuy/Kakobuy/
+  Direct), Buy wraps through `recordOpen` only (stored links stay canonical,
+  referral params attach at open time), Agent sheet with picker + referral-code
+  fields + FTC disclosure + per-agent open counts, local outbound click log
+  (`credenza-fashion-outbound-v1`, cap 500). 90/90 tests, lint at baseline
+  (9 err/65 warn — same as HEAD, note: §6 said 1 err, actual is 9), typecheck +
+  build clean.
+  - **Needs Kyle:** verify Sugargoo + Kakobuy URL templates against a real item
+    (open one Weidian item via each in the Agent picker; if wrong, fix the
+    one-line template in `agents.js` and flip `verified: true`). Superbuy +
+    CSSBuy formats already confirmed. Sign up affiliate programs, then drop
+    codes in the Agent sheet (or `VITE_CREDENZA_REF_*` env vars).
+  - Sugargoo referral param name (`inviteCode`) is a guess — confirm from the
+    affiliate center; CSSBuy `promotionCode` confirmed from live links.
+- No Reddit parser (A1), pipeline is edit-form-only (A3), no body profile
+  (A4), QC attach is generic photos only (A5), no weight estimator (A6).
 
 ## 2. Decisions made by Kyle (2026-07-20) — do not re-litigate
 
@@ -44,9 +55,9 @@ Overwrite sections in place — this is current state, not a log.
 
 | # | Workstream | Est. | Why |
 |---|---|---|---|
-| 0 | Commit pending tree as checkpoint | — | safety |
-| 1 | A2 agent registry + affiliate Buy + click analytics | 1–2 d | money pipe + measurement |
-| 2 | A1 Reddit haul paste → N cards (poster stats, review snippets) | 3–5 d | acquisition wedge |
+| ~~0~~ | ~~Commit pending tree as checkpoint~~ | ✅ done | a2eda2f |
+| ~~1~~ | ~~A2 agent registry + affiliate Buy + click analytics~~ | ✅ done | d400dae (local only — do not push/deploy without Kyle) |
+| 2 | A1 Reddit haul paste → N cards (poster stats, review snippets) | 3–5 d | acquisition wedge — **NEXT** |
 | 3 | Mobile-first pass (audit list, §5) alongside A1 | 3–5 d | user lives on phone |
 | 4 | A3 pipeline board + A5 QC GL/RL | 4–5 d | retention loop |
 | 5 | B4 parcel mode (weight → ship handoff, referral-attached) | 2–3 d | highest-$ affiliate surface |
