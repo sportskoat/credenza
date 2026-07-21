@@ -3867,10 +3867,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-index-chip-fill {
   display: block;
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--cz-gradient-1), var(--cz-gradient-2), var(--cz-gradient-3));
-  transition: width 160ms var(--ease-out);
+  /* Progress via scaleX, same compositor-only pattern as the carousel dots. */
+  transform-origin: left center;
+  transition: transform 160ms var(--ease-out);
 }
 
 .cz-index-chip.is-done .cz-index-chip-fill {
@@ -3885,4 +3888,57 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 @media (prefers-reduced-motion: reduce) {
   .cz-index-chip-dot { animation: none; }
   .cz-index-chip-fill { transition: none; }
+}
+
+/* ————— Mobile audit S1 (2026-07-22): touch-target completion —————
+   The pointer:coarse bump in credenza.css misses these classes; they're
+   appended here (end of file) so the overrides win the cascade against the
+   explicit sizes above. See docs/mobile-improvement-plan.md §2.1. */
+@media (pointer: coarse) {
+  .cz-morph-button,
+  .cz-morph-button.is-icon-only,
+  .cz-favorite-button,
+  .cz-starred-filter,
+  .cz-coverflow-arrow,
+  .cz-photo-coverflow-close {
+    min-height: 44px;
+  }
+
+  .cz-morph-button.is-icon-only,
+  .cz-favorite-button,
+  .cz-starred-filter,
+  .cz-coverflow-arrow,
+  .cz-photo-coverflow-close {
+    min-width: 44px;
+  }
+
+  /* The icon-only morph pins explicit 40px dims; override them outright
+     (doubled class wins without !important). */
+  .cz-morph-button.is-icon-only.is-icon-only {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Tabs are height-bumped by credenza.css but have zero horizontal padding,
+     so short labels ("Hauls") stay text-width targets. */
+  .cz-view-tabs .cz-tab {
+    padding-inline: 10px;
+  }
+
+  /* Dots: grow the hit box, not the pill (the visual is the ::after).
+     Deliberately under 44 — dots are tertiary to swipe/chevrons; 24×36
+     triples the target without spreading the row. */
+  .cz-coverflow-dot {
+    width: 24px;
+    height: 36px;
+  }
+
+  /* Overflowing dots used to clip unreachably; let the row pan instead. */
+  .cz-coverflow-dots {
+    max-width: min(60vw, 260px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
 }

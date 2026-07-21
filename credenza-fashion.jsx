@@ -3900,6 +3900,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       <button
         type="button"
         className="cz-card-toggle"
+        aria-label={(expanded ? "Collapse " : "Expand ") + (item.title || "saved item")}
         aria-expanded={expanded}
         aria-controls={"card-details-" + item.id}
         disabled={editing}
@@ -9561,7 +9562,10 @@ export default function Credenza() {
                   <span className="cz-index-chip-bar" aria-hidden="true">
                     <span
                       className="cz-index-chip-fill"
-                      style={{ width: Math.max(6, Math.min(100, job.progress)) + "%" }}
+                      style={{
+                        transform:
+                          "scaleX(" + Math.max(6, Math.min(100, job.progress)) / 100 + ")",
+                      }}
                     />
                   </span>
                 </div>
