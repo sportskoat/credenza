@@ -114,6 +114,16 @@ describe("buildAgentUrl", () => {
     expect(buildAgentUrl("superbuy", "")).toMatchObject({ wrapped: false, reason: "no-url" });
   });
 
+  it("wraps weidian for fansbuy with the id+url combined template, fails open for other marketplaces", () => {
+    const r = buildAgentUrl("fansbuy", WEIDIAN);
+    expect(r.wrapped).toBe(true);
+    expect(r.url).toBe(
+      "https://fansbuy.com/item-micro-7234567890.html?url=" + encodeURIComponent(WEIDIAN)
+    );
+    // taobao prefix unverified — must fail open, not guess
+    expect(buildAgentUrl("fansbuy", TAOBAO)).toMatchObject({ url: TAOBAO, wrapped: false, reason: "unsupported-marketplace" });
+  });
+
   it("raw agent never wraps", () => {
     expect(buildAgentUrl("raw", WEIDIAN)).toMatchObject({ url: WEIDIAN, wrapped: false, reason: "raw" });
   });
@@ -156,6 +166,12 @@ describe("buildSignupUrl", () => {
   it("builds the superbuy register link with the confirmed partnercode shape", () => {
     expect(buildSignupUrl("superbuy", { referralOverrides: { superbuy: "888c9Y" } })).toBe(
       "https://www.superbuy.com/en/page/login/?partnercode=888c9Y&type=register"
+    );
+  });
+
+  it("base64-encodes fansbuy signup codes (Fans-VmXrpx91 → RmFucy1WbVhycHg5MQ==)", () => {
+    expect(buildSignupUrl("fansbuy", { referralOverrides: { fansbuy: "Fans-VmXrpx91" } })).toBe(
+      "https://fansbuy.com/register?invite=" + encodeURIComponent("RmFucy1WbVhycHg5MQ==")
     );
   });
 

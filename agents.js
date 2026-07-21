@@ -75,6 +75,24 @@ export const AGENTS = [
     retired: false,
   },
   {
+    id: "fansbuy",
+    name: "Fansbuy",
+    // CONFIRMED live by Kyle (2026-07-20): Weidian items render as
+    //   fansbuy.com/item-micro-<itemID>.html?url=<encoded canonical>
+    // "micro" = 微店 (Weidian) — the path prefix is per-marketplace, so only
+    // Weidian is supported until the taobao/1688 prefixes are observed live.
+    idUrlTemplate: "https://fansbuy.com/item-micro-{id}.html?url={url}",
+    supports: ["weidian"],
+    // Referral is signup-only: fansbuy.com/register?invite=BASE64(code).
+    // Kyle's raw code is Fans-VmXrpx91; store it raw, base64 at link time.
+    referralParam: null,
+    signupTemplate: "https://fansbuy.com/register?invite={code}",
+    signupEncoding: "base64",
+    envKey: "VITE_CREDENZA_REF_FANSBUY",
+    verified: true,
+    retired: false,
+  },
+  {
     id: "raw",
     name: "No agent — open marketplace directly",
     urlTemplate: null,
@@ -160,12 +178,17 @@ export function resolveReferralCode(agent, overrides) {
 // Signup-attribution link (the actual conversion point for agents whose
 // referral pays on registrations, e.g. Superbuy's partnercode register URL).
 // Returns null when the agent has no signup template or no code is set.
+// signupEncoding: "base64" — some agents (Fansbuy) want the code base64'd.
 export function buildSignupUrl(agentId, { referralOverrides } = {}) {
   const agent = getAgent(agentId);
   if (!agent || agent.retired || !agent.signupTemplate) return null;
   const code = resolveReferralCode(agent, referralOverrides);
   if (!code) return null;
-  return agent.signupTemplate.replace("{code}", encodeURIComponent(code));
+  let value = code;
+  if (agent.signupEncoding === "base64") {
+    value = typeof btoa === "function" ? btoa(code) : Buffer.from(code, "utf8").toString("base64");
+  }
+  return agent.signupTemplate.replace("{code}", encodeURIComponent(value));
 }
 
 // ————— URL building ——————————————————————————————————————————————————————————
@@ -179,7 +202,7 @@ export function buildAgentUrl(agentId, canonicalUrl, { referralOverrides } = {})
 
   const agent = getAgent(agentId);
   if (!agent || agent.retired) return fail("unknown-agent");
-  if (!agent.urlTemplate && !agent.idPathTemplate) return { url: canonicalUrl, agentId: agent.id, wrapped: false, reason: "raw" };
+  if (!agent.urlTemplate && !agent.idPathTemplate && !agent.idUrlTemplate) return { url: canonicalUrl, agentId: agent.id, wrapped: false, reason: "raw" };
 
   const marketplace = marketplaceOf(canonicalUrl);
   if (!marketplace) return fail("not-marketplace"); // e.g. Yupoo photos links never wrap
@@ -187,10 +210,13 @@ export function buildAgentUrl(agentId, canonicalUrl, { referralOverrides } = {})
 
   const code = resolveReferralCode(agent, referralOverrides);
 
-  if (agent.idPathTemplate) {
+  if (agent.idPathTemplate || agent.idUrlTemplate) {
     const extracted = extractMarketplaceItemId(canonicalUrl);
     if (!extracted) return fail("no-item-id");
-    let url = agent.idPathTemplate.replace("{id}", extracted.id);
+    const template = agent.idPathTemplate || agent.idUrlTemplate;
+    let url = template
+      .replace("{id}", extracted.id)
+      .replace("{url}", encodeURIComponent(canonicalUrl));
     if (code && agent.referralParam) {
       url += (url.includes("?") ? "&" : "?") + agent.referralParam + "=" + encodeURIComponent(code);
     }

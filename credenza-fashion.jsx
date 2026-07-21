@@ -6820,7 +6820,7 @@ function AgentSheet({ preferredAgent, onSelectAgent, affiliateCodes, onAffiliate
         <Caption style={{ color: BLUE, margin: "18px 0 8px" }}>Referral codes (optional)</Caption>
         <div style={{ display: "grid", gap: 8 }}>
           {listAgents()
-            .filter((a) => a.referralParam)
+            .filter((a) => a.referralParam || a.signupTemplate)
             .map((agent) => {
               const signupUrl = buildSignupUrl(agent.id, { referralOverrides: affiliateCodes });
               return (
@@ -8011,7 +8011,7 @@ export default function Credenza() {
   // only). Raw/no-agent keeps the plain "Buy".
   const preferredAgentInfo = getAgent(preferredAgent);
   const buyLabel =
-    preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate)
+    preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate || preferredAgentInfo.idUrlTemplate)
       ? "Buy via " + preferredAgentInfo.name
       : "Buy";
 
@@ -9685,7 +9685,7 @@ export default function Credenza() {
             onClick={() => setAgentSheetOpen(true)}
             title="Choose which buying agent Buy opens in"
           >
-            {preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate)
+            {preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate || preferredAgentInfo.idUrlTemplate)
               ? "Agent: " + preferredAgentInfo.name
               : "Agent: Direct"}
           </Pill>
