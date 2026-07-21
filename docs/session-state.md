@@ -142,6 +142,28 @@ Overwrite sections in place — this is current state, not a log.
 Import → backup restore (export on desktop, AirDrop, restore on phone) and
 accepted the result — "good enough for now, we can fix more later."
 
+**Playwright mobile harness (2026-07-21):** `preview/scripts/mobile-shots.mjs`
+— WebKit (real Safari engine) + iPhone 15 Pro emulation, seeds the shelf from
+a backup export into localStorage, shoots 5 states (first-run grid, scrolled
+grid, carousel, import sheet, agent sheet) into `docs/mobile-shots/` (not
+committed). Run: `node scripts/mobile-shots.mjs [baseUrl] [backupJson]`.
+This immediately caught TWO real bugs Kyle's phone check missed:
+
+1. **WebKit mirrored card backs (CRITICAL, fixed 2026-07-21):** WebKit ignores
+   `backface-visibility` on non-composited faces — Safari painted every card
+   BACK mirrored over the front (grid + carousel). Empirically ruled out:
+   self-`perspective()`, `will-change`, `translateZ(0)` — none help.
+   Fix: manual visibility culling. Grid cards: state-driven `visibility` +
+   `visibility 0s 80ms` in the flip transition (swap at edge-on). Carousel:
+   `flipped || !frontFacing` / `!flipped || frontFacing` (see
+   carousel-canonical-state.md addendum). 4 A2 tests updated to flip the card
+   before querying back controls (matches real UX; visibility now affects the
+   a11y tree).
+2. **Dead `mode === "dark"` checks (fixed 2026-07-21):** themes are `light` +
+   `rainbow` ONLY, so `mode === "dark"` was never true — 4 spots rendered
+   light-theme variants on the dark UI (worst: white price pill + white text =
+   invisible prices on the default theme). All 4 flipped to `mode !== "light"`.
+
 ## 6. Known hygiene debt
 
 - 1 lint error (`performance` browser global config) + 65 warnings.

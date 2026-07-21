@@ -3871,7 +3871,14 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
   // flip render the front mirrored instead of showing the back. Per-face
   // perspective() in the transform keeps the depth cue without needing a 3D
   // context to survive the flattening.
-  const faceTransition = reduced || !animateFlip ? "none" : "transform 340ms " + EASE;
+  // WebKit ignores backface-visibility on these per-face flips (the faces
+  // never composite in a flat grid context), so Safari paints the back face
+  // mirrored over the front (confirmed 2026-07-21, Playwright WebKit headed +
+  // headless). Belt-and-braces: also swap visibility at the flip's edge-on
+  // midpoint (~80ms into this ease-out curve) so the hidden face is never
+  // painted regardless of engine culling.
+  const faceTransition =
+    reduced || !animateFlip ? "none" : "transform 340ms " + EASE + ", visibility 0s 80ms";
   const faceFlip = (deg) => "perspective(1200px) rotateY(" + deg + "deg)";
   const front = (
     <div
@@ -3886,6 +3893,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
         transition: faceTransition,
         backfaceVisibility: "hidden",
         WebkitBackfaceVisibility: "hidden",
+        visibility: flipped ? "hidden" : "visible",
         pointerEvents: flipped ? "none" : "auto",
       }}
     >
@@ -3923,7 +3931,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           className="cz-card-image"
           imgStyle={{
             borderRadius: 0,
-            outline: "1px solid " + (mode === "dark" ? "oklch(1 0 0 / 0.08)" : "oklch(0 0 0 / 0.08)"),
+            outline: "1px solid " + (mode !== "light" ? "oklch(1 0 0 / 0.08)" : "oklch(0 0 0 / 0.08)"),
             animation: reduced ? undefined : "credenza-fade 400ms ease-out both",
           }}
         />
@@ -3959,7 +3967,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               fontWeight: 700,
               padding: "5px 10px",
               borderRadius: 999,
-              background: mode === "dark" ? "oklch(0.15 0 0 / 0.75)" : "oklch(1 0 0 / 0.9)",
+              background: mode !== "light" ? "oklch(0.15 0 0 / 0.75)" : "oklch(1 0 0 / 0.9)",
               color: INK,
               backdropFilter: "blur(8px)",
             }}
@@ -4169,7 +4177,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                   color: SUB,
                   marginBottom: 12,
                   padding: "10px 12px",
-                  background: mode === "dark" ? "oklch(0.28 0.03 280)" : "oklch(0.96 0.01 100)",
+                  background: mode !== "light" ? "oklch(0.28 0.03 280)" : "oklch(0.96 0.01 100)",
                   borderRadius: 0,
                 }}
               >
@@ -4237,7 +4245,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                   color: SUB,
                   marginBottom: 12,
                   padding: "8px 12px",
-                  borderLeft: "2px solid " + (mode === "dark" ? "oklch(0.5 0.02 280)" : "oklch(0.8 0.01 100)"),
+                  borderLeft: "2px solid " + (mode !== "light" ? "oklch(0.5 0.02 280)" : "oklch(0.8 0.01 100)"),
                 }}
               >
                 {item.sizeNotes}
@@ -4577,6 +4585,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
         transition: faceTransition,
         backfaceVisibility: "hidden",
         WebkitBackfaceVisibility: "hidden",
+        visibility: flipped ? "visible" : "hidden",
         pointerEvents: flipped ? "auto" : "none",
       }}
     >
@@ -5209,17 +5218,20 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   // No autofocus on flip — the programmatic focus lit up the glow ring on
   // every flip, which reads as a highlight glitch, not affordance.
 
-  // The heart rides the front face: mounting it the moment `flipped` goes
-  // false shows it mirrored over the back header for the first half of the
-  // flip-back. Gate it on the actual rotation — visible only inside the
-  // front-facing 90°, same culling the faces get from backface-visibility.
-  const [heartVisible, setHeartVisible] = useState(!flipped);
-  const heartVisibleRef = useRef(!flipped);
+  // Front-facing gate, driven by the live flip rotation (true only inside the
+  // front-facing 90°). The heart rides the front face — mounting it the moment
+  // `flipped` goes false shows it mirrored over the back header for the first
+  // half of the flip-back. The faces themselves need the same manual culling:
+  // WebKit ignores backface-visibility here (confirmed 2026-07-21, Playwright
+  // WebKit headed + headless) and paints the back face mirrored over the
+  // front, so face visibility is gated on this rotation value too.
+  const [frontFacing, setFrontFacing] = useState(!flipped);
+  const frontFacingRef = useRef(!flipped);
   const handleCardRotate = useCallback((latest) => {
     const show = (parseFloat(latest.rotateY) || 0) < 90;
-    if (show !== heartVisibleRef.current) {
-      heartVisibleRef.current = show;
-      setHeartVisible(show);
+    if (show !== frontFacingRef.current) {
+      frontFacingRef.current = show;
+      setFrontFacing(show);
     }
   }, []);
 
@@ -5246,9 +5258,12 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
           borderRadius: 24,
         }}
       >
-        {/* Front face */}
+        {/* Front face. Visibility: state-driven at rest (WebKit ignores
+            backface-visibility and would paint this mirrored over the back),
+            rotation-gated mid-flip so flip-back doesn't flash it early. */}
         <div
           className="cz-carousel-face cz-carousel-front"
+          style={{ visibility: !flipped || frontFacing ? "visible" : "hidden" }}
           role="button"
           tabIndex={0}
           aria-label={isCenter ? `Flip ${item.title}` : `Select ${item.title}`}
@@ -5321,7 +5336,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
 
         {/* Heart is front-face only — gated on the live rotation so it never
             mirrors over the back header during the first half of flip-back. */}
-        {heartVisible && (
+        {frontFacing && (
           <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-carousel-favorite" />
         )}
 
@@ -5330,6 +5345,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- propagation boundary, not a control */}
         <div
           className="cz-carousel-face cz-carousel-back"
+          style={{ visibility: flipped || !frontFacing ? "visible" : "hidden" }}
           onClick={(e) => {
             const carousel = e.currentTarget.closest(".cz-carousel");
             if (carousel && carousel.dataset.dragging === "true") {

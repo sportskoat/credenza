@@ -68,6 +68,16 @@ compositor-only, keeps the impeccable design hook green.
 
 ## Companion pieces
 
+- **Face visibility is manually gated (added 2026-07-21).** WebKit ignores
+  `backface-visibility` on the card faces (confirmed via Playwright WebKit,
+  headed + headless): Safari painted the back face mirrored over the front at
+  rest. Faces now compute `visibility` from `flipped || !frontFacing` (back) /
+  `!flipped || frontFacing` (front), where `frontFacing` is the existing
+  rotation-gated state (`handleCardRotate`, true inside the front-facing 90°).
+  At rest this is purely state-driven (testable, no animation dependency);
+  mid-flip the rotation gate keeps both faces visible until edge-on, exactly
+  matching what correct backface culling shows. Do not "simplify" this back to
+  CSS-only backface-visibility — that is the bug.
 - `CardCornerFan` — photo previews on the card back (updated 2026-07-18):
   cover photo at the left with the rest stacked behind it; hover slides them
   out **to the right in a flat row** (70 px steps, no rotation — Kyle

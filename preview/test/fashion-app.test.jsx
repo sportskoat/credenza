@@ -440,6 +440,7 @@ describe("Agent Buy plumbing (A2)", () => {
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();
     render(<Credenza />);
+    await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const buy = (await screen.findAllByRole("button", { name: "Buy via Superbuy" }))[0];
     await user.click(buy);
     expect(open).toHaveBeenCalledWith(
@@ -465,6 +466,7 @@ describe("Agent Buy plumbing (A2)", () => {
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();
     render(<Credenza />);
+    await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const buy = (await screen.findAllByRole("button", { name: "Buy" }))[0];
     await user.click(buy);
     expect(open).toHaveBeenCalledWith(WEIDIAN, "_blank", "noopener");
@@ -481,6 +483,7 @@ describe("Agent Buy plumbing (A2)", () => {
     expect(screen.getByText(/Disclosure:/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Sugargoo/ }));
     await user.click(screen.getByRole("button", { name: "Close Buying agent" }));
+    await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     await waitFor(() =>
       expect(screen.getAllByRole("button", { name: "Buy via Sugargoo" }).length).toBeGreaterThan(0)
     );
@@ -498,6 +501,7 @@ describe("Agent Buy plumbing (A2)", () => {
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();
     render(<Credenza />);
+    await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const buy = (await screen.findAllByRole("button", { name: "Buy via Superbuy" }))[0];
     await user.click(buy);
     expect(open).toHaveBeenCalledWith(
