@@ -30,11 +30,13 @@ export const AGENTS = [
   {
     id: "sugargoo",
     name: "Sugargoo",
-    urlTemplate: "https://www.sugargoo.com/item/info?url={url}",
+    // SPA hash route — a path-based template 404s into the homepage with the
+    // query string dangling (observed live 2026-07-20).
+    urlTemplate: "https://www.sugargoo.com/#/home/productDetail?productLink={url}",
     supports: ["weidian", "taobao", "tmall", "1688"],
     referralParam: "inviteCode", // confirm when affiliate center access lands
     envKey: "VITE_CREDENZA_REF_SUGARGOO",
-    verified: false, // template is best-known; verify against a live item, then flip
+    verified: false, // hash-route format from converter research; flip after a live item loads
     retired: false,
   },
   {
@@ -56,7 +58,7 @@ export const AGENTS = [
     supports: ["weidian", "taobao", "tmall", "1688"],
     referralParam: "ref",
     envKey: "VITE_CREDENZA_REF_KAKOBUY",
-    verified: false,
+    verified: true, // confirmed against a live Weidian item by Kyle (2026-07-20)
     retired: false,
   },
   {
