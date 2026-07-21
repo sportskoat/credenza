@@ -30,13 +30,15 @@ export const AGENTS = [
   {
     id: "sugargoo",
     name: "Sugargoo",
-    // SPA hash route — a path-based template 404s into the homepage with the
-    // query string dangling (observed live 2026-07-20).
-    urlTemplate: "https://www.sugargoo.com/#/home/productDetail?productLink={url}",
+    // Canonical item route, observed live in Sugargoo's own login redirect:
+    //   /register?redirect=/products?productLink=<weidian url>  (2026-07-20)
+    // Note: item pages require a Sugargoo login — logged-out clicks bounce to
+    // /register with a redirect back. That's their wall, not a broken link.
+    urlTemplate: "https://www.sugargoo.com/products?productLink={url}",
     supports: ["weidian", "taobao", "tmall", "1688"],
     referralParam: "inviteCode", // confirm when affiliate center access lands
     envKey: "VITE_CREDENZA_REF_SUGARGOO",
-    verified: false, // hash-route format from converter research; flip after a live item loads
+    verified: false, // route confirmed via live redirect; flip once an item page renders logged-in
     retired: false,
   },
   {
