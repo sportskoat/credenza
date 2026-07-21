@@ -5,7 +5,7 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-20 (A2 shipped, local commit d400dae — NOT pushed/deployed)
+**Last updated:** 2026-07-20 (A1 + A2 shipped, local commits d400dae/5fe1427 — NOT pushed/deployed)
 **Branch:** `credenza-fashion-yupoo-carousel`
 
 ---
@@ -14,23 +14,30 @@ Overwrite sections in place — this is current state, not a log.
 
 - Product is a polished Yupoo/Weidian shelf + enrichment (carousel, paired
   links, sizes, photos, haul directory with cost reel). Verified working.
-- **Tier A from `docs/Monetization.md` is 1/6 shipped.** **A2 DONE (2026-07-20,
-  commit d400dae):** `agents.js` registry (Superbuy/Sugargoo/CSSBuy/Kakobuy/
-  Direct), Buy wraps through `recordOpen` only (stored links stay canonical,
-  referral params attach at open time), Agent sheet with picker + referral-code
-  fields + FTC disclosure + per-agent open counts, local outbound click log
-  (`credenza-fashion-outbound-v1`, cap 500). 90/90 tests, lint at baseline
-  (9 err/65 warn — same as HEAD, note: §6 said 1 err, actual is 9), typecheck +
-  build clean.
+- **Tier A from `docs/Monetization.md` is 2/6 shipped.**
+  - **A2 DONE (d400dae):** `agents.js` registry (Superbuy/Sugargoo/CSSBuy/
+    Kakobuy/Direct), Buy wraps through `recordOpen` only (stored links stay
+    canonical, referral params attach at open time), Agent sheet (picker,
+    referral-code fields, FTC disclosure, per-agent open counts), local
+    outbound click log (`credenza-fashion-outbound-v1`, cap 500).
+  - **A1 DONE (5fe1427):** `reddit-haul.js` — one paste → N cards. Markdown
+    links, W2C tables, stats block (height/weight/size/agent/total, imperial
+    conversions), per-item review snippets, category guess, reddit source +
+    poster. posterStats/findSource land on each imported item (A3 hauls will
+    hoist stats). Import preview shows the stats line; toast says "from your
+    Reddit haul".
+  - 101/101 tests, lint at baseline (9 err/65 warn — same as HEAD; §6 note
+    saying "1 err" was stale), typecheck + build clean.
   - **Needs Kyle:** verify Sugargoo + Kakobuy URL templates against a real item
-    (open one Weidian item via each in the Agent picker; if wrong, fix the
-    one-line template in `agents.js` and flip `verified: true`). Superbuy +
-    CSSBuy formats already confirmed. Sign up affiliate programs, then drop
-    codes in the Agent sheet (or `VITE_CREDENZA_REF_*` env vars).
-  - Sugargoo referral param name (`inviteCode`) is a guess — confirm from the
-    affiliate center; CSSBuy `promotionCode` confirmed from live links.
-- No Reddit parser (A1), pipeline is edit-form-only (A3), no body profile
-  (A4), QC attach is generic photos only (A5), no weight estimator (A6).
+    (Agent picker → open one Weidian item via each; if wrong, fix the one-line
+    template in `agents.js`, flip `verified: true`). Superbuy + CSSBuy
+    confirmed. Sign up affiliate programs → codes go in Agent sheet or
+    `VITE_CREDENZA_REF_*` env. Sugargoo `inviteCode` param name is a guess;
+    CSSBuy `promotionCode` confirmed. Optional later: gate the Agent-sheet
+    referral fields behind an env flag before public launch (they're useful
+    for Kyle's testing now).
+- Still unshipped: A3 pipeline board, A4 body profile, A5 QC GL/RL, A6 weight
+  estimator.
 
 ## 2. Decisions made by Kyle (2026-07-20) — do not re-litigate
 
@@ -57,7 +64,8 @@ Overwrite sections in place — this is current state, not a log.
 |---|---|---|---|
 | ~~0~~ | ~~Commit pending tree as checkpoint~~ | ✅ done | a2eda2f |
 | ~~1~~ | ~~A2 agent registry + affiliate Buy + click analytics~~ | ✅ done | d400dae (local only — do not push/deploy without Kyle) |
-| 2 | A1 Reddit haul paste → N cards (poster stats, review snippets) | 3–5 d | acquisition wedge — **NEXT** |
+| ~~2~~ | ~~A1 Reddit haul paste → N cards~~ | ✅ done | 5fe1427 (local only) |
+| 3 | Mobile-first pass (audit list, §5) | 3–5 d | user lives on phone — **NEXT** |
 | 3 | Mobile-first pass (audit list, §5) alongside A1 | 3–5 d | user lives on phone |
 | 4 | A3 pipeline board + A5 QC GL/RL | 4–5 d | retention loop |
 | 5 | B4 parcel mode (weight → ship handoff, referral-attached) | 2–3 d | highest-$ affiliate surface |
