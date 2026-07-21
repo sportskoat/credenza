@@ -508,3 +508,51 @@ describe("Agent Buy plumbing (A2)", () => {
     expect(JSON.stringify(JSON.parse(data[STORE_KEY]))).not.toContain("KYLE123");
   });
 });
+
+describe("Reddit haul import (A1)", () => {
+  const HAUL = `5.5kg Haul Review (Superbuy) — first time posting!
+https://www.reddit.com/r/FashionReps/comments/1abc123/55kg_haul_review/
+
+Stats: 178cm, 75kg, usually wear size M
+Agent: Superbuy
+Total: ¥2400
+
+**Nike Dunk Low Panda** — https://weidian.com/item.html?itemID=7234567890
+Fits TTS, leather is decent for ¥190.
+
+Stussy 8-ball tee [W2C](https://item.taobao.com/item.htm?id=856801351597)
+Size up once, print is thick
+
+Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
+
+  it("turns a pasted haul comment into titled cards with notes, tags, and poster stats", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Import" }));
+    const box = await screen.findByLabelText(/Paste links or notes/);
+    fireEvent.change(box, { target: { value: HAUL } });
+
+    expect(await screen.findByText(/Looks like a Reddit haul/)).toBeInTheDocument();
+    expect(screen.getByText(/178cm · 75kg · size M/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Import 3" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(3));
+
+    const items = JSON.parse(data[STORE_KEY]);
+    const titles = items.map((i) => i.title);
+    expect(titles).toContain("Nike Dunk Low Panda");
+    expect(titles).toContain("Stussy 8-ball tee");
+    expect(titles).toContain("Mook hoodie");
+
+    const tee = items.find((i) => i.title === "Stussy 8-ball tee");
+    expect(tee.note).toContain("Size up once");
+    expect(tee.tags).toContain("tees");
+    expect(tee.posterStats).toMatchObject({ heightCm: 178, weightKg: 75, usualSize: "M", agent: "superbuy" });
+    expect(tee.findSource).toContain("reddit.com/r/FashionReps/comments/");
+
+    // And the haul import shows up in the toast, not silently.
+    expect(await screen.findByText(/Imported 3 things from your Reddit haul/)).toBeInTheDocument();
+  });
+});

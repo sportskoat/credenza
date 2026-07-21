@@ -23,6 +23,7 @@ import {
   recordOutboundClick,
   summarizeOutbound,
 } from "./agents.js";
+import { parseRedditHaul } from "./reddit-haul.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
 
@@ -1102,6 +1103,7 @@ const PROVIDER_LABELS = {
   csv: "spreadsheet",
   json: "JSON list",
   paste: "pasted list",
+  "reddit-haul": "Reddit haul",
 };
 
 function parseCSV(text) {
@@ -1244,6 +1246,23 @@ function parseImport(text) {
     }
   }
 
+  // 3.5. Reddit haul pastes (A1): stats block, markdown links, W2C tables,
+  // review snippets. Conservative — returns null unless it's haul-shaped, in
+  // which case it owns the paste (richer labels/notes than the generic path).
+  const haul = parseRedditHaul(text);
+  if (haul) {
+    const stats = Object.keys(haul.stats).length ? haul.stats : undefined;
+    for (const it of haul.items) {
+      push(classify(it.url), it.rawLine, it.label, {
+        note: it.note || undefined,
+        tags: it.category ? [it.category] : undefined,
+        posterStats: stats,
+        findSource: haul.sourceUrl || undefined,
+      });
+    }
+    return { candidates, provider: "reddit-haul", posterStats: stats, poster: haul.poster };
+  }
+
   // 4. Messy lines: one per line, prose with links inside, plain notes.
   for (const lineRaw of text.split(/\n+/)) {
     const line = lineRaw.replace(/^[\s\-*•>”"]*(?:\d+[.)])?\s*/, "").trim();
@@ -1298,6 +1317,10 @@ function buildImportItems(candidates, existing, source) {
     }
     if (c.tags && c.tags.length) extra.tags = c.tags.slice(0, 5);
     if (c.note) extra.note = c.note.slice(0, 500);
+    // A1: haul pastes carry poster stats (v1: on each batch item; A3 haul
+    // objects will hoist these) and the source thread for provenance.
+    if (c.posterStats) extra.posterStats = c.posterStats;
+    if (c.findSource) extra.findSource = c.findSource;
     fresh.push(createItem(c.parsed, c.rawText, extra));
   }
   return { fresh, dupes, duplicates };
@@ -6838,11 +6861,11 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
 
   const preview = useMemo(() => {
     if (!text.trim()) return null;
-    const { candidates, provider } = parseImport(text);
+    const { candidates, provider, posterStats, poster } = parseImport(text);
     const fresh = candidates.filter((c) => !items.some((x) => itemMatchesCanonicalKey(x, c.key)));
     const dates = fresh.map((c) => c.createdAt).filter(Boolean);
     const oldest = dates.length ? Math.min(...dates) : null;
-    return { candidates, fresh, dupes: candidates.length - fresh.length, provider, oldest };
+    return { candidates, fresh, dupes: candidates.length - fresh.length, provider, oldest, posterStats, poster };
   }, [text, items]);
 
   const readFile = (file) => {
@@ -6965,6 +6988,22 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
                     ? " · back to " + new Date(preview.oldest).getFullYear()
                     : "")}
             </div>
+            {preview.posterStats && (
+              <div style={{ fontSize: 11.5, color: SUB, marginBottom: 8 }}>
+                {[
+                  preview.poster ? "u/" + preview.poster : null,
+                  preview.posterStats.heightCm ? preview.posterStats.heightCm + "cm" : null,
+                  preview.posterStats.weightKg ? preview.posterStats.weightKg + "kg" : null,
+                  preview.posterStats.usualSize ? "size " + preview.posterStats.usualSize : null,
+                  preview.posterStats.agent ? "agent: " + preview.posterStats.agent : null,
+                  preview.posterStats.budget
+                    ? "total " + (preview.posterStats.budgetCurrency === "USD" ? "$" : preview.posterStats.budgetCurrency === "EUR" ? "€" : "¥") + preview.posterStats.budget
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            )}
             {preview.fresh.slice(0, 5).map((c, i) => (
               <div
                 key={i}
