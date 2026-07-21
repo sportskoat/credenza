@@ -131,6 +131,20 @@ button {
   caret-color: var(--cz-accent);
 }
 
+/* iOS auto-zooms the viewport when a focused input is under 16px — force 16px
+   on touch, overriding inline sizes (the capture field already did this at
+   480px; now it's universal for phones/small tablets). */
+@media (max-width: 767px) {
+  .cz-field,
+  .cz-note-field,
+  .cz-capture,
+  .cz-search-input,
+  .cz-modal input,
+  .cz-modal textarea {
+    font-size: 16px !important;
+  }
+}
+
 .cz-field::placeholder,
 .cz-note-field::placeholder,
 .cz-capture::placeholder,
