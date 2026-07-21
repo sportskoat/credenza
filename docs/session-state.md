@@ -37,12 +37,20 @@ Overwrite sections in place — this is current state, not a log.
   - **Superbuy affiliate APPROVED (2026-07-20), account `wenselllc`.**
     Invitation code: **888c9Y**. Bronze tier (V2), 14k xp to Silver. Bonus on
     associated users' parcel totals, settled monthly on the 1st, withdraw
-    anytime (paid within 10 working days), CNY. Dashboard has a link
-    generator ("Promote Now" — paste a product link, get a promo link).
-    **TODO:** Kyle generates ONE real promo link from the dashboard → paste it
-    to Claude → set `referralParam` in `agents.js` to match exactly (`affcode`
-    is still a guess), then the code goes live for all users via
-    `VITE_CREDENZA_REF_SUPERBUY` on Netlify (or Agent sheet field locally).
+    anytime (paid within 10 working days), CNY. **`partnercode` param
+    CONFIRMED and wired** (signup template verified live with trailing
+    slash). Env for deploy: `VITE_CREDENZA_REF_SUPERBUY=888c9Y`.
+  - **Fansbuy affiliate ACTIVE (Kyle's, 2026-07-21).** Raw invite code:
+    **Fans-VmXrpx91** (base64'd at link-build time). Weidian item template
+    confirmed live: `fansbuy.com/item-micro-<itemID>.html?url=<encoded>` —
+    Weidian only; taobao/1688 path prefixes unknown (fail open until
+    observed). Referral is signup-only: `fansbuy.com/register?invite=`.
+    Env for deploy: `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91`.
+  - **CSSBuy RETIRED (2026-07-20):** blocks USA purchasing-agent service
+    (legal reasons, forwarding only). Entry kept with `retired: true`.
+  - Agent registry is now: superbuy ✅, kakobuy ✅, fansbuy ✅ (Weidian),
+    sugargoo ⏳ (template fixed, needs logged-in retest; signup was failing
+    for Kyle on 2026-07-20 — COME BACK TO THIS), cssbuy 🚫, + Direct.
 - Still unshipped: A3 pipeline board, A4 body profile, A5 QC GL/RL, A6 weight
   estimator.
 
