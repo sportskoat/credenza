@@ -1814,6 +1814,31 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
+// Touch devices and phone-width screens have no cursor to follow — ambient
+// backgrounds render static there (the rAF loop + blur(60px) repaint is pure
+// battery/GPU cost on mobile).
+function useCoarsePointer() {
+  const QUERY = "(pointer: coarse), (max-width: 767px)";
+  const [coarse, setCoarse] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia &&
+      window.matchMedia(QUERY).matches
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(QUERY);
+    const onChange = () => setCoarse(mq.matches);
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
+  return coarse;
+}
+
 function useOnlineStatus() {
   const [online, setOnline] = useState(
     () => typeof navigator === "undefined" || navigator.onLine !== false
@@ -1903,8 +1928,10 @@ function HolographicBackground() {
   const [pos, setPos] = useState({ x: 50, y: 30 });
   const raf = useRef(null);
   const target = useRef({ x: 50, y: 30 });
+  const calm = useCoarsePointer();
 
   useEffect(() => {
+    if (calm) return; // static gradient on touch/phone — no loop, no listeners
     const update = () => {
       setPos((p) => ({
         x: p.x + (target.current.x - p.x) * 0.08,
@@ -1935,9 +1962,9 @@ function HolographicBackground() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("touchmove", onTouch);
     };
-  }, []);
+  }, [calm]);
 
-  const { x, y } = pos;
+  const { x, y } = calm ? { x: 50, y: 30 } : pos;
   return (
     <div
       aria-hidden="true"
@@ -1967,9 +1994,11 @@ function RainbowBackground() {
   const [phase, setPhase] = useState(0);
   const raf = useRef(null);
   const reduced = usePrefersReducedMotion();
+  const coarse = useCoarsePointer();
+  const calm = reduced || coarse; // no cursor to chase on touch — freeze the drift
 
   useEffect(() => {
-    if (reduced) return;
+    if (calm) return;
     let t = 0;
     const update = () => {
       t += 0.0016;
@@ -1978,7 +2007,7 @@ function RainbowBackground() {
     };
     raf.current = requestAnimationFrame(update);
     return () => cancelAnimationFrame(raf.current);
-  }, [reduced]);
+  }, [calm]);
 
   const driftX = Math.sin(phase) * 3;
   const driftY = Math.cos(phase * 0.7) * 2.5;
