@@ -3192,6 +3192,108 @@ function Row({ item, selected, onClick }) {
   );
 }
 
+// Mobile list: swipe left to reveal a trash action. Uses the same remove()+undo
+// toast path as every other delete. Desktop and non-swipe callers just get Row.
+// Pointer-driven (not framer drag) so WebKit touch reliably reveals the action.
+const SWIPE_DELETE_WIDTH = 88;
+
+function SwipeableRow({ item, selected, onClick, onDelete, enabled }) {
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const startOffset = useRef(0);
+  const axisLock = useRef(null); // "x" | "y" | null
+  const open = offset <= -SWIPE_DELETE_WIDTH * 0.6;
+
+  if (!enabled) {
+    return <Row item={item} selected={selected} onClick={onClick} />;
+  }
+
+  const clamp = (x) => Math.max(-SWIPE_DELETE_WIDTH, Math.min(0, x));
+
+  const onPointerDown = (e) => {
+    // Only primary pointer; ignore right-click / multi-touch.
+    if (e.button != null && e.button !== 0) return;
+    startX.current = e.clientX;
+    startY.current = e.clientY;
+    startOffset.current = offset;
+    axisLock.current = null;
+    setDragging(true);
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+    if (!axisLock.current) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      axisLock.current = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+    if (axisLock.current === "y") return;
+    // Horizontal swipe owns the gesture — don't let the page scroll.
+    e.preventDefault();
+    setOffset(clamp(startOffset.current + dx));
+  };
+
+  const endDrag = () => {
+    if (!dragging) return;
+    setDragging(false);
+    setOffset((cur) => (cur < -SWIPE_DELETE_WIDTH * 0.4 ? -SWIPE_DELETE_WIDTH : 0));
+    axisLock.current = null;
+  };
+
+  return (
+    <div className={"cz-swipe-row" + (open ? " is-open" : "")}>
+      <div className="cz-swipe-row-actions" aria-hidden={!open}>
+        <button
+          type="button"
+          className="cz-swipe-row-delete"
+          tabIndex={open ? 0 : -1}
+          aria-label={"Delete " + (item.title || "item")}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOffset(0);
+            onDelete?.(item.id);
+          }}
+        >
+          <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Delete</span>
+        </button>
+      </div>
+      <div
+        className="cz-swipe-row-front"
+        style={{
+          transform: "translate3d(" + offset + "px, 0, 0)",
+          transition: dragging ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          touchAction: "pan-y",
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        <Row
+          item={item}
+          selected={selected}
+          onClick={() => {
+            if (offset < -8) {
+              setOffset(0);
+              return;
+            }
+            onClick?.();
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, value, onChange, placeholder, rows, suggestions, onCommit, emptyHint, listLabel, allowCreate }) {
   const id = useId();
   // Combobox fields use the organic transitions.dev dropdown instead of the
@@ -4213,8 +4315,17 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       )}
 
       {/* On phones the photo bleeds edge-to-edge (Kyle: "bigger picture,
-          centered") — the card's own padding is canceled by the margins. */}
-      <div style={{ position: "relative", marginBottom: 12, ...(phone ? { margin: "-14px -16px 12px", borderRadius: "15px 15px 0 0", overflow: "hidden" } : null) }}>
+          centered") — the card's own padding is canceled by the margins.
+          When the card is open (sheet or expanded midsize), tapping the cover
+          opens the swipeable album — same path as the gallery thumbs. */}
+      <div
+        className="cz-card-photo"
+        style={{
+          position: "relative",
+          marginBottom: 12,
+          ...(phone ? { margin: "-14px -16px 12px", borderRadius: "15px 15px 0 0", overflow: "hidden" } : null),
+        }}
+      >
         <CoverImage
           item={item}
           aspectRatio={phone ? "3/4" : "4/5"}
@@ -4226,12 +4337,36 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
             animation: reduced ? undefined : "credenza-fade 400ms ease-out both",
           }}
         />
+        {/* Open-gallery hit target over the cover. Nested <button> would be
+            invalid inside cz-card-toggle, so this is a role=button div that
+            stops the expand/collapse toggle and routes to PhotoCoverFlow. */}
+        {(sheetMode || expanded) && onOpenPhotos && (
+          <div
+            role="button"
+            tabIndex={0}
+            className="cz-card-photo-open"
+            aria-label={"Open photos for " + (item.title || "item")}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onOpenPhotos(item, { startIndex: 0 });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpenPhotos(item, { startIndex: 0 });
+              }
+            }}
+          />
+        )}
         {item.findStatus !== "want" && (
           <span
             style={{
               position: "absolute",
               top: 10,
               left: 10,
+              zIndex: 2,
               fontFamily: MONO,
               fontSize: 10,
               fontWeight: 700,
@@ -4255,6 +4390,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               // chip; USD-only short label so the pill stays small on phones.
               bottom: 10,
               right: 10,
+              zIndex: 2,
               maxWidth: "calc(100% - 20px)",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -4416,8 +4552,9 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       )}
       </button>
 
-      {/* Always reachable — not only while the front face is showing.
-          In sheetMode the heart lives in the sheet header next to the ✕. */}
+      {/* Sibling of the expand toggle (not nested) so the heart stays a real
+          <button>. Absolutely pinned to the photo's top-right via CSS — the
+          face is position:relative and phone photos bleed to the face edges. */}
       {!sheetMode && (
         <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-grid-favorite" />
       )}
@@ -4558,10 +4695,11 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               </div>
             )}
 
-            {/* Gallery thumbnails — tap opens the swipeable album (Kyle
-                2026-07-22: swapping the cover on every tap made the whole
+            {/* Gallery thumbnails — tap opens the swipeable album at that index
+                (Kyle 2026-07-22: swapping the cover on every tap made the whole
                 detail view jump around). Cover changes stay inside the album
-                via "Use as cover", per the canonical rule. */}
+                via "Use as cover", per the canonical rule. Index +1 because
+                mergeFashionImages seeds the cover as image 0. */}
             {(item.gallery || []).length > 0 && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                 {(item.gallery || []).map((src, idx) => (
@@ -4569,7 +4707,11 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                     key={idx}
                     type="button"
                     title="Open photo album"
-                    onClick={() => (onOpenPhotos ? onOpenPhotos(item) : onSetPrimaryImage(item.id, src))}
+                    onClick={() =>
+                      onOpenPhotos
+                        ? onOpenPhotos(item, { startIndex: (item.image ? 1 : 0) + idx })
+                        : onSetPrimaryImage(item.id, src)
+                    }
                     style={{
                       width: 56,
                       height: 56,
@@ -5274,11 +5416,75 @@ function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onS
   const buy = btns.find((b) => b.role === "buy") || null;
   const secondary = btns.filter((b) => b !== buy);
 
+  // True sheet footer (sibling of the scroll body) — sticky mid-sheet floated
+  // with the content; pin it to the modal's bottom edge instead.
+  const footer = (
+    <div className="cz-detail-sheet-footer">
+      {buy && (
+        <Pill primary onClick={() => onOpen(item, buy.url)} style={{ flex: 1, justifyContent: "center", minHeight: 46 }}>
+          {buy.label}
+        </Pill>
+      )}
+      <Pill onClick={() => setEditSig(item.id + ":" + Date.now())}>Edit</Pill>
+      <div style={{ position: "relative" }}>
+        <Pill subtle aria-label="More actions" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
+          ⋯
+        </Pill>
+        {menuOpen && (
+          <div
+            style={{
+              position: "absolute",
+              right: 0,
+              bottom: "calc(100% + 8px)",
+              zIndex: 5,
+              background: "var(--cz-card-solid)",
+              border: "1px solid " + HAIR,
+              borderRadius: 12,
+              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.35)",
+              padding: 6,
+              minWidth: 180,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            {secondary.map((b) => (
+              <button
+                type="button"
+                key={b.url}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpen(item, b.url);
+                }}
+                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, textAlign: "left", color: INK, background: "transparent", border: 0, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}
+              >
+                {b.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                close();
+                onDelete(item.id);
+              }}
+              style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, textAlign: "left", color: "var(--cz-error-text)", background: "transparent", border: 0, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}
+            >
+              Remove
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <ModalShell
       title={item.title || "Saved item"}
       onClose={close}
       maxWidth={560}
+      surfaceClassName="cz-detail-sheet"
+      footer={footer}
       trailing={
         <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           {priceLabelShort(item) && (
@@ -5321,82 +5527,11 @@ function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onS
         />
       </div>
 
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 12, marginBottom: 8 }}>
         <StatusChips
           value={item.findStatus || "want"}
           onChange={(s) => onSaveEdit(item.id, { findStatus: s })}
         />
-      </div>
-
-      {/* Pinned action footer — Buy at the thumb, destructive actions behind ⋯. */}
-      <div
-        style={{
-          position: "sticky",
-          bottom: 0,
-          marginTop: 16,
-          padding: "12px 0 calc(4px + env(safe-area-inset-bottom, 0px))",
-          background: "var(--cz-card-solid)",
-          borderTop: "1px solid " + HAIR,
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-        }}
-      >
-        {buy && (
-          <Pill primary onClick={() => onOpen(item, buy.url)} style={{ flex: 1, justifyContent: "center", minHeight: 46 }}>
-            {buy.label}
-          </Pill>
-        )}
-        <Pill onClick={() => setEditSig(item.id + ":" + Date.now())}>Edit</Pill>
-        <div style={{ position: "relative" }}>
-          <Pill subtle aria-label="More actions" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
-            ⋯
-          </Pill>
-          {menuOpen && (
-            <div
-              style={{
-                position: "absolute",
-                right: 0,
-                bottom: "calc(100% + 8px)",
-                zIndex: 5,
-                background: "var(--cz-card-solid)",
-                border: "1px solid " + HAIR,
-                borderRadius: 12,
-                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.35)",
-                padding: 6,
-                minWidth: 180,
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-              }}
-            >
-              {secondary.map((b) => (
-                <button
-                  type="button"
-                  key={b.url}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpen(item, b.url);
-                  }}
-                  style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, textAlign: "left", color: INK, background: "transparent", border: 0, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}
-                >
-                  {b.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  close();
-                  onDelete(item.id);
-                }}
-                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, textAlign: "left", color: "var(--cz-error-text)", background: "transparent", border: 0, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}
-              >
-                Remove
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     </ModalShell>
   );
@@ -6880,15 +7015,31 @@ function CoverFlowCarousel({
     });
   }, []);
 
-  const openPhotos = useCallback(async (item, trigger) => {
+  const openPhotos = useCallback(async (item, triggerOrOpts) => {
     // Only the centered/active card should open the gallery. A focused fan on a
     // side card (stale after close + scroll) used to reopen the wrong album.
     const center = items[activeIndexRef.current];
     if (!center || center.id !== item.id) return;
     const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
     const shouldLoad = !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
-    galleryTriggerRef.current = trigger || null;
-    setGallery({ item, images: seed, startIndex: 0 });
+    let trigger = null;
+    let startIndex = 0;
+    if (typeof triggerOrOpts === "number") {
+      startIndex = triggerOrOpts;
+    } else if (
+      triggerOrOpts &&
+      typeof triggerOrOpts === "object" &&
+      !(triggerOrOpts instanceof Element) &&
+      ("startIndex" in triggerOrOpts || "trigger" in triggerOrOpts)
+    ) {
+      startIndex = Number(triggerOrOpts.startIndex) || 0;
+      trigger = triggerOrOpts.trigger || null;
+    } else {
+      trigger = triggerOrOpts || null;
+    }
+    startIndex = Math.max(0, Math.min(Math.max(seed.length - 1, 0), startIndex));
+    galleryTriggerRef.current = trigger;
+    setGallery({ item, images: seed, startIndex });
     if (!shouldLoad) return;
     const controller = new AbortController();
     const images = await onLoadPhotos(item, { signal: controller.signal });
@@ -7100,10 +7251,14 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
   const reduced = usePrefersReducedMotion();
   const containerRef = useRef(null);
   const closeRef = useRef(null);
+  const dialogRef = useRef(null);
   const [cardSize, setCardSize] = useState({ width: 300, height: 400 });
 
   useEffect(() => {
-    // Focus the close button when the gallery opens so keyboard users land inside.
+    // Native <dialog>.showModal() so the gallery sits in the browser top layer
+    // above an open DetailSheet (fixed z-index cannot beat a modal dialog).
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
     const t = setTimeout(() => closeRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, []);
@@ -7202,24 +7357,46 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
 
   if (loadedImages.length === 0 && !loading) {
     return (
-      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- backdrop click dismisses; dialog has explicit close and Escape support
-      <div className="cz-photo-coverflow-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-        <div className="cz-photo-coverflow" role="dialog" aria-label="Album photo preview">
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click + Escape close
+      <dialog
+        ref={dialogRef}
+        className="cz-photo-coverflow-backdrop"
+        aria-label="Album photo preview"
+        onCancel={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <div className="cz-photo-coverflow">
           <button className="cz-photo-coverflow-close" ref={closeRef} onClick={onClose} aria-label="Close photo preview">✕</button>
           <div style={{ color: "var(--cz-sub)" }}>No photos loaded.</div>
         </div>
-      </div>
+      </dialog>
     );
   }
 
+  const multiPhoto = loadedImages.length > 1;
+
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- backdrop click dismisses; dialog has explicit close and Escape support
-    <div className="cz-photo-coverflow-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="cz-photo-coverflow" role="dialog" aria-modal="true" aria-label="Album photo preview">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click + Escape close
+    <dialog
+      ref={dialogRef}
+      className="cz-photo-coverflow-backdrop"
+      aria-modal="true"
+      aria-label="Album photo preview"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="cz-photo-coverflow">
         <button className="cz-photo-coverflow-close" ref={closeRef} onClick={onClose} aria-label="Close photo preview">✕</button>
         <motion.div
           className="cz-photo-coverflow-stage"
           ref={containerRef}
+          onPan={(_event, info) => markDragging(info)}
           onPanEnd={onPanEnd}
         >
           <div className="cz-photo-coverflow-track">
@@ -7263,11 +7440,42 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
               );
             })}
           </div>
+          {/* Frosted chevrons flanking the active photo — hidden for single-photo albums. */}
+          {multiPhoto && (
+            <>
+              <button
+                type="button"
+                className="cz-photo-coverflow-nav cz-photo-coverflow-nav-prev"
+                aria-label="Previous photo"
+                disabled={activeIndex <= 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goPrev();
+                }}
+              >
+                <ChevronLeft aria-hidden="true" size={20} strokeWidth={2.2} />
+              </button>
+              <button
+                type="button"
+                className="cz-photo-coverflow-nav cz-photo-coverflow-nav-next"
+                aria-label="Next photo"
+                disabled={activeIndex >= loadedImages.length - 1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goNext();
+                }}
+              >
+                <ChevronRight aria-hidden="true" size={20} strokeWidth={2.2} />
+              </button>
+            </>
+          )}
         </motion.div>
         <div className="cz-photo-coverflow-controls">
-          <button onClick={goPrev} aria-label="Previous photo"><ChevronLeft size={18} /></button>
-          <span className="cz-photo-coverflow-counter">{activeIndex + 1} / {loadedImages.length}</span>
-          <button onClick={goNext} aria-label="Next photo"><ChevronRight size={18} /></button>
+          {multiPhoto && (
+            <span className="cz-photo-coverflow-counter" aria-live="polite">
+              {activeIndex + 1} / {loadedImages.length}
+            </span>
+          )}
           <button
             className="primary"
             onClick={() => {
@@ -7280,11 +7488,11 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
         </div>
         {loading && <div style={{ color: "var(--cz-sub)", fontSize: 12 }}>Loading album…</div>}
       </div>
-    </div>
+    </dialog>
   );
 }
 
-function ModalShell({ title, onClose, children, maxWidth = 720, trailing }) {
+function ModalShell({ title, onClose, children, maxWidth = 720, trailing, footer = null, surfaceClassName = "" }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
   const titleId = useId();
@@ -7301,6 +7509,11 @@ function ModalShell({ title, onClose, children, maxWidth = 720, trailing }) {
     };
   }, []);
 
+  // When a footer is provided (DetailSheet), the body scrolls and the footer
+  // stays pinned to the sheet's bottom edge. Other sheets keep the old
+  // single-scroll surface.
+  const body = footer ? <div className="cz-detail-sheet-body">{children}</div> : children;
+
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click-to-close; keyboard users close via Escape (onCancel)
     <dialog
@@ -7316,8 +7529,9 @@ function ModalShell({ title, onClose, children, maxWidth = 720, trailing }) {
       }}
       style={{ maxWidth }}
     >
-      <div className="cz-modal-surface">
+      <div className={("cz-modal-surface " + surfaceClassName).trim()}>
         <div
+          className="cz-modal-header"
           style={{
             display: "flex",
             alignItems: "center",
@@ -7352,7 +7566,8 @@ function ModalShell({ title, onClose, children, maxWidth = 720, trailing }) {
             ✕
           </button>
         </div>
-        {children}
+        {body}
+        {footer}
       </div>
     </dialog>
   );
@@ -8517,9 +8732,17 @@ export default function Credenza() {
 
   // Opens the app-level album with the item's stored images as the seed;
   // PhotoCoverFlow lazily loads the full Yupoo album itself via onLoadPhotos.
-  const openPhotos = useCallback((item) => {
+  // Second arg may be a startIndex number, a trigger element (legacy), or
+  // { startIndex, trigger }.
+  const openPhotos = useCallback((item, opts) => {
     const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
-    setAppGallery({ item, images: seed, startIndex: 0 });
+    let startIndex = 0;
+    if (typeof opts === "number") startIndex = opts;
+    else if (opts && typeof opts === "object" && !(opts instanceof Element) && "startIndex" in opts) {
+      startIndex = Number(opts.startIndex) || 0;
+    }
+    startIndex = Math.max(0, Math.min(seed.length - 1, startIndex));
+    setAppGallery({ item, images: seed, startIndex });
   }, []);
 
   // Auto-fetch a preview image after stash. Best-effort enhancement: silent on
@@ -9520,9 +9743,11 @@ export default function Credenza() {
           <>
             <div style={collapseStyle(rowActive)} aria-hidden={!rowActive}>
               <div style={collapseInnerStyle(rowActive)}>
-                <Row
+                <SwipeableRow
                   item={item}
                   selected={selectedId === item.id}
+                  enabled={isPhone}
+                  onDelete={remove}
                   onClick={() => {
                     if (isPhone) {
                       setSheetItemId(item.id);
