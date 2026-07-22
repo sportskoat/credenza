@@ -34,78 +34,83 @@ import "./credenza-fashion.css";
 
 // Theme-driven palette: components reference CSS variables; the app root sets them
 // per theme. Two modes:
-//   light  = Horizon #003973 + Mae #E5E5BE (deep ocean + soft sand)
-//   rainbow (prefs key) = Moonwalker dark — pure black #000000 + slate #152331
+//   light  = Gallery — warm-white #F4F4F0 canvas, white cards, ink #17181a
+//   rainbow (prefs key) = Blackout dark — true black #000000 + neutral #1a1a1d (zero blue cast)
 const PALETTES = {
-  // Horizon + Mae light: deep ocean field, sand ink, warm cream surfaces.
+  // Gallery light: warm-white canvas, white cards, neutral ink accents.
+  // Chrome is near-monochrome so product photos own the color story;
+  // money green + heart red are the only hue in the system.
   light: {
-    "--cz-bg": "#003973",
-    "--cz-bg-elevated": "#0a4a8a",
-    "--cz-card": "rgba(229, 229, 190, 0.14)",
-    "--cz-card-solid": "#0d4a86",
-    "--cz-hair": "rgba(229, 229, 190, 0.22)",
-    "--cz-hair-strong": "rgba(229, 229, 190, 0.38)",
-    "--cz-ink": "#E5E5BE",
-    "--cz-sub": "rgba(229, 229, 190, 0.86)",
-    "--cz-faint": "rgba(229, 229, 190, 0.74)",
-    "--cz-seg": "rgba(229, 229, 190, 0.12)",
-    "--cz-accent": "#E5E5BE",
-    "--cz-accent-bg": "rgba(229, 229, 190, 0.16)",
-    "--cz-accent-deep": "#f2f2d4",
-    "--cz-favorite": "#E5E5BE",
-    "--cz-favorite-bg": "rgba(229, 229, 190, 0.14)",
-    "--cz-action-fill": "linear-gradient(135deg, #E5E5BE 0%, #f4f4dc 100%)",
-    "--cz-action-text": "#003973",
-    "--cz-action-muted-bg": "rgba(229, 229, 190, 0.92)",
-    "--cz-action-muted-text": "#003973",
-    "--cz-focus": "#E5E5BE",
-    "--cz-placeholder": "rgba(229, 229, 190, 0.74)",
-    "--cz-like": "#ff7fa8",
-    "--cz-selection": "rgba(229, 229, 190, 0.28)",
-    "--cz-selection-text": "#003973",
-    "--cz-error-bg": "rgba(255, 120, 120, 0.16)",
-    "--cz-error-text": "#ffc4c4",
-    "--cz-glow": "rgba(229, 229, 190, 0.35)",
-    "--cz-glow-weak": "rgba(0, 57, 115, 0.35)",
-    "--cz-gradient-1": "#003973",
-    "--cz-gradient-2": "#1a6bb0",
-    "--cz-gradient-3": "#E5E5BE",
+    "--cz-bg": "#F4F4F0",
+    "--cz-bg-elevated": "#ffffff",
+    "--cz-card": "rgba(255, 255, 255, 0.85)",
+    "--cz-card-solid": "#ffffff",
+    "--cz-hair": "#e2e2dc",
+    "--cz-hair-strong": "rgba(23, 24, 26, 0.18)",
+    "--cz-ink": "#17181a",
+    "--cz-sub": "#565a61",
+    "--cz-faint": "#686c73",
+    "--cz-seg": "rgba(23, 24, 26, 0.06)",
+    "--cz-accent": "#17181a",
+    "--cz-accent-bg": "rgba(23, 24, 26, 0.08)",
+    "--cz-accent-deep": "#3c3e44",
+    "--cz-favorite": "#17181a",
+    "--cz-favorite-bg": "rgba(23, 24, 26, 0.07)",
+    "--cz-action-fill": "#17181a",
+    "--cz-action-text": "#F4F4F0",
+    "--cz-action-muted-bg": "rgba(23, 24, 26, 0.92)",
+    "--cz-action-muted-text": "#F4F4F0",
+    "--cz-focus": "#17181a",
+    "--cz-placeholder": "#686c73",
+    "--cz-like": "#e11d48",
+    "--cz-money": "#15803d",
+    "--cz-selection": "rgba(23, 24, 26, 0.16)",
+    "--cz-selection-text": "#17181a",
+    "--cz-error-bg": "rgba(225, 29, 72, 0.10)",
+    "--cz-error-text": "#be123c",
+    "--cz-glow": "rgba(23, 24, 26, 0.14)",
+    "--cz-glow-weak": "rgba(244, 244, 240, 0.55)",
+    "--cz-gradient-1": "#17181a",
+    "--cz-gradient-2": "#565a61",
+    "--cz-gradient-3": "#a3a3ab",
   },
-  // Moonwalker dark: pure black field, slate surfaces (#152331), cool steel accents.
+  // Blackout dark: true-black field, neutral #1a1a1d surfaces, zero blue cast.
+  // Money green + heart red are the only hue; everything else is grayscale.
   rainbow: {
     "--cz-bg": "#000000",
-    "--cz-bg-elevated": "#0a1018",
-    "--cz-card": "rgba(21, 35, 49, 0.82)",
-    "--cz-card-solid": "#152331",
+    "--cz-bg-elevated": "#101012",
+    "--cz-card": "rgba(26, 26, 29, 0.86)",
+    "--cz-card-solid": "#1a1a1d",
     "--cz-hair": "rgba(255, 255, 255, 0.10)",
-    "--cz-hair-strong": "rgba(255, 255, 255, 0.18)",
-    "--cz-ink": "#f2f5f8",
-    "--cz-sub": "#9aabba",
-    "--cz-faint": "#7f8fa0",
+    "--cz-hair-strong": "rgba(255, 255, 255, 0.20)",
+    "--cz-ink": "#f5f5f7",
+    "--cz-sub": "#a3a3ab",
+    "--cz-faint": "#8a8a92",
     "--cz-seg": "rgba(255, 255, 255, 0.07)",
-    "--cz-accent": "#8eb6d4",
-    "--cz-accent-bg": "rgba(142, 182, 212, 0.16)",
-    "--cz-accent-deep": "#b8d4ea",
-    "--cz-favorite": "#8eb6d4",
-    "--cz-favorite-bg": "rgba(142, 182, 212, 0.14)",
-    // Gradient stops must both carry the black label: ≥4.5:1 across the face
-    // (was #1e3a52 → 1.78:1 at the dark corner; audit S2).
-    "--cz-action-fill": "linear-gradient(135deg, #7aa6c8 0%, #a8cbe4 100%)",
+    "--cz-accent": "#f5f5f7",
+    "--cz-accent-bg": "rgba(245, 245, 247, 0.12)",
+    "--cz-accent-deep": "#ffffff",
+    "--cz-favorite": "#f5f5f7",
+    "--cz-favorite-bg": "rgba(245, 245, 247, 0.10)",
+    // Near-white face carries the black label at ~17:1 (Kyle spec: Buy action
+    // fill near-white with black text; floor per audit S2 table is 4.5:1).
+    "--cz-action-fill": "#f5f5f7",
     "--cz-action-text": "#000000",
-    "--cz-action-muted-bg": "rgba(232, 240, 248, 0.96)",
-    "--cz-action-muted-text": "#152331",
-    "--cz-focus": "#8eb6d4",
-    "--cz-placeholder": "#7f8fa0",
+    "--cz-action-muted-bg": "rgba(245, 245, 247, 0.92)",
+    "--cz-action-muted-text": "#1a1a1d",
+    "--cz-focus": "#f5f5f7",
+    "--cz-placeholder": "#8a8a92",
     "--cz-like": "#f40051",
-    "--cz-selection": "rgba(142, 182, 212, 0.28)",
-    "--cz-selection-text": "#f2f5f8",
-    "--cz-error-bg": "rgba(220, 80, 90, 0.14)",
+    "--cz-money": "#4ade80",
+    "--cz-selection": "rgba(245, 245, 247, 0.22)",
+    "--cz-selection-text": "#f5f5f7",
+    "--cz-error-bg": "rgba(244, 63, 94, 0.16)",
     "--cz-error-text": "#f08a92",
-    "--cz-glow": "rgba(142, 182, 212, 0.32)",
-    "--cz-glow-weak": "rgba(21, 35, 49, 0.55)",
-    "--cz-gradient-1": "#152331",
-    "--cz-gradient-2": "#2a4a66",
-    "--cz-gradient-3": "#8eb6d4",
+    "--cz-glow": "rgba(245, 245, 247, 0.30)",
+    "--cz-glow-weak": "rgba(26, 26, 29, 0.55)",
+    "--cz-gradient-1": "#1a1a1d",
+    "--cz-gradient-2": "#3a3a40",
+    "--cz-gradient-3": "#a3a3ab",
   },
 };
 
@@ -1926,7 +1931,7 @@ function useNotification() {
   return { notification, notify, dismiss, pause, resume };
 }
 
-// Horizon + Mae ambient — deep ocean field with soft sand-light blooms that
+// Gallery ambient — warm-white field with soft paper-light blooms that
 // gently follow cursor/touch. Stays behind content; heavy blur keeps type clean.
 function HolographicBackground() {
   const [pos, setPos] = useState({ x: 50, y: 30 });
@@ -1978,12 +1983,12 @@ function HolographicBackground() {
         zIndex: 0,
         pointerEvents: "none",
         background: `
-          radial-gradient(circle at ${x}% ${y}%, rgba(229, 229, 190, 0.22) 0%, transparent 42%),
-          radial-gradient(circle at ${100 - x}% ${100 - y}%, rgba(26, 107, 176, 0.45) 0%, transparent 48%),
-          radial-gradient(circle at ${y}% ${x}%, rgba(229, 229, 190, 0.14) 0%, transparent 46%),
-          radial-gradient(circle at 50% 110%, rgba(0, 40, 90, 0.55) 0%, transparent 55%),
-          radial-gradient(circle at 18% 18%, rgba(229, 229, 190, 0.10) 0%, transparent 38%),
-          #003973
+          radial-gradient(circle at ${x}% ${y}%, rgba(255, 255, 255, 0.85) 0%, transparent 42%),
+          radial-gradient(circle at ${100 - x}% ${100 - y}%, rgba(226, 226, 220, 0.65) 0%, transparent 48%),
+          radial-gradient(circle at ${y}% ${x}%, rgba(255, 255, 255, 0.55) 0%, transparent 46%),
+          radial-gradient(circle at 50% 110%, rgba(214, 214, 207, 0.60) 0%, transparent 55%),
+          radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.45) 0%, transparent 38%),
+          #F4F4F0
         `,
         filter: "blur(60px)",
         opacity: 0.95,
@@ -1992,8 +1997,8 @@ function HolographicBackground() {
   );
 }
 
-// Moonwalker dark ambient — pure black field with soft #152331 slate lifts.
-// Quiet depth only; no loud color wash.
+// Blackout dark ambient — pure black field with soft #1a1a1d neutral lifts.
+// Quiet depth only; no loud color wash, zero blue cast.
 function RainbowBackground() {
   const [phase, setPhase] = useState(0);
   const raf = useRef(null);
@@ -2029,24 +2034,24 @@ function RainbowBackground() {
         background: "#000000",
       }}
     >
-      {/* Soft slate moons — barely-there depth from #152331 */}
+      {/* Soft neutral moons — barely-there depth from #1a1a1d */}
       <div
         style={{
           position: "absolute",
           inset: "-10%",
           background: `
             radial-gradient(ellipse 70% 55% at ${42 + driftX}% ${28 + driftY}%,
-              rgba(21, 35, 49, 0.95) 0%,
-              rgba(21, 35, 49, 0.45) 40%,
+              rgba(26, 26, 29, 0.95) 0%,
+              rgba(26, 26, 29, 0.45) 40%,
               transparent 72%
             ),
             radial-gradient(ellipse 55% 50% at ${72 - driftX}% ${62 + driftY}%,
-              rgba(21, 35, 49, 0.72) 0%,
-              rgba(14, 24, 34, 0.28) 45%,
+              rgba(26, 26, 29, 0.72) 0%,
+              rgba(15, 15, 18, 0.28) 45%,
               transparent 75%
             ),
             radial-gradient(ellipse 50% 40% at ${22 + driftY}% ${70 - driftX}%,
-              rgba(30, 48, 66, 0.40) 0%,
+              rgba(40, 40, 46, 0.40) 0%,
               transparent 70%
             ),
             radial-gradient(ellipse 90% 60% at 50% 100%,
@@ -2059,14 +2064,14 @@ function RainbowBackground() {
           transform: `scale(1.05) translate(${driftX * 0.1}%, ${driftY * 0.08}%)`,
         }}
       />
-      {/* Thin cool rim light at the top — moonwalk edge */}
+      {/* Thin neutral rim light at the top — blackout edge */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background: `
-            linear-gradient(180deg, rgba(142, 182, 212, 0.06) 0%, transparent 22%),
-            radial-gradient(ellipse 80% 50% at 50% 0%, rgba(21, 35, 49, 0.55) 0%, transparent 60%)
+            linear-gradient(180deg, rgba(245, 245, 247, 0.05) 0%, transparent 22%),
+            radial-gradient(ellipse 80% 50% at 50% 0%, rgba(26, 26, 29, 0.55) 0%, transparent 60%)
           `,
         }}
       />
@@ -7444,8 +7449,8 @@ export default function Credenza() {
   const mode = theme || "rainbow";
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
-    // Moonwalker black / Horizon ocean — matches the live field for iOS chrome.
-    if (meta) meta.setAttribute("content", mode === "rainbow" ? "#000000" : "#003973");
+    // Blackout black / Gallery warm-white — matches the live field for iOS chrome.
+    if (meta) meta.setAttribute("content", mode === "rainbow" ? "#000000" : "#F4F4F0");
   }, [mode]);
   // A waiting service worker (see preview/src/main.jsx) means a new build is
   // staged; swapping code mid-session is the user's call, not ours.
@@ -7598,7 +7603,7 @@ export default function Credenza() {
           // and keep only the Starred filter as a first-class mode.
           if (p.sortMode === "starred") setSortMode("starred");
           else setSortMode("recent");
-          // One-shot colorway migrate: land on Moonwalker dark once (Horizon light is
+          // One-shot colorway migrate: land on Blackout dark once (Gallery light is
           // the other toggle). After that, Theme preference is sticky again.
           if (p.colorwayVersion !== 4) {
             setTheme("rainbow");
@@ -9446,10 +9451,9 @@ export default function Credenza() {
       data-fashion="true"
       style={{
         ...PALETTES[mode],
-        // Both themes are dark-appearing (Horizon is deep navy), so native form
-        // chrome and scrollbars should always render dark. Deliberately not a
-        // ternary — "light" here is a prefs key, not a CSS color-scheme.
-        colorScheme: "dark",
+        // Gallery is a genuine light theme, so native form chrome and
+        // scrollbars follow the mode. ("rainbow" is the prefs key for Blackout.)
+        colorScheme: mode === "light" ? "light" : "dark",
         minHeight: "100dvh",
         background: BG,
         color: INK,
@@ -10042,7 +10046,7 @@ export default function Credenza() {
                   icon={Moon}
                   activeIcon={Sun}
                   onClick={() => setTheme(mode === "rainbow" ? "light" : "rainbow")}
-                  title={mode === "rainbow" ? "Switch to Horizon light" : "Switch to Moonwalker dark"}
+                  title={mode === "rainbow" ? "Switch to Gallery light" : "Switch to Blackout dark"}
                   ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
                 />
                 <span

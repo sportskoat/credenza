@@ -222,3 +222,23 @@ on the Claude side.
   another AI tool is exactly the failure these rules exist to prevent).
 - If Grok ever needs to write code: separate branch, separate new files only,
   Claude reviews the diff before merge.
+
+## 2026-07-21 — S8 colorway: Gallery + Blackout replace Horizon/Moonwalker (Kimi lane)
+- Kyle picked from the S8 mockups: **Gallery** (light) + **Blackout** (dark),
+  full repaint of both PALETTES. Horizon navy and Moonwalker blue-slate are gone.
+- Gallery: #F4F4F0 canvas, white cards, ink #17181a, sub #565a61, faint
+  #686c73, Buy = solid ink with light text. Blackout: #000000 field,
+  #1a1a1d surfaces, ink #f5f5f7, sub #a3a3ab, zero blue cast, Buy = near-white
+  with black text. Money green (#15803d light / #4ade80 dark) + heart red
+  (#e11d48 / #f40051) are the only hue — now a `--cz-money` token (was 6
+  hardcoded #4ade80 in the CSS).
+- Every text/icon pair recomputed against the S2 floors (4.5 text / 3 icons):
+  all pass, incl. faint on the warm canvas (4.78) and selection overlays.
+- `colorScheme` is mode-aware again (`light`/`dark`) — the S2 "always dark"
+  literal was only correct while both themes were dark. iOS theme-color meta
+  follows (#F4F4F0 / #000000). Ambient backgrounds repainted neutral
+  (Gallery paper blooms, Blackout neutral moons — no more slate/steel).
+- Verified: 104 tests, tsc, build green; WebKit shots of both themes on
+  iPhone + 1440px desktop in docs/mobile-shots/colorway-*.png.
+- Known leftover (pre-existing, not a regression): carousel card headers
+  still say "READ" — S5's platform vocabulary only reached the grid TypeMark.
