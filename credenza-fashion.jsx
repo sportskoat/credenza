@@ -236,6 +236,162 @@ function sizeRunLabel(item) {
   return group.values[0] + "–" + group.values[group.values.length - 1] + " · " + group.values.length + " sizes";
 }
 
+// ═══ SIZE CHART PARSING & RECOMMENDATION (Kyle 2026-07-22) ═══
+// Charts arrive as free text — Yupoo album descriptions (stored in summary),
+// Weidian sizeNotes, or pasted notes. Two layouts dominate:
+//   labeled:  "M: 胸围112 衣长70 肩宽48 袖长62" / "M: chest 112, length 70"
+//   table:    "Size  Chest  Length\nS 110 68\nM 114 70"
+// parseSizeChart normalizes both into rows keyed by size token.
+
+// Letter sizes plus pants waists (26–40). Free-size (均码/F) counts too.
+const SIZE_TOKEN_SRC = "(?:XXS|XS|S|M|L|XL|XXL|XXXL|[2-5]XL|F|均码|2[6-9]|3\\d|40)";
+// A token must stand alone: separator (or string edge) before, separator after.
+// The lookahead kills false hits like "M65", "300g", "30-day".
+const SIZE_MENTION_RE = new RegExp(
+  "(?:^|[\\s,;·|/（(\\[>])(" + SIZE_TOKEN_SRC + ")(?=[\\s码:：,，;·|/）)\\]<]|$)",
+  "gm"
+);
+// Label → number pairs. Longest labels first so 裤长/袖长 beat 长, and
+// "pants length" beats "length". cm values are realistically 20–250.
+const MEASURE_PAIR_RE =
+  /(胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\s*length|trouser\s*length|衣长|衣長|length)\s*[:：]?\s*(\d{2,3})/gi;
+
+function measureKeyForLabel(label) {
+  const l = label.toLowerCase();
+  if (/胸|chest|bust/.test(l)) return "chest";
+  if (/肩|shoulder/.test(l)) return "shoulder";
+  if (/袖|sleeve/.test(l)) return "sleeve";
+  if (/腰|waist/.test(l)) return "waist";
+  if (/臀|hip/.test(l)) return "hip";
+  if (/裤|褲|pants|trouser/.test(l)) return "pantsLength";
+  return "length";
+}
+
+function sizeRunHint(text) {
+  if (/runs?\s*(big|large)|偏大|版型大/i.test(text)) return "big";
+  if (/runs?\s*small|偏小|版型小/i.test(text)) return "small";
+  if (/true\s*to\s*size|fits?\s*true|正码|正常码/i.test(text)) return "true";
+  return null;
+}
+
+export function parseSizeChart(text) {
+  const src = String(text || "");
+  if (!src.trim()) return null;
+
+  // Strategy 1 — labeled: split the text at size-token mentions, then read
+  // label+number pairs out of each token's segment.
+  const rows = [];
+  const seen = new Set();
+  const mentions = [];
+  SIZE_MENTION_RE.lastIndex = 0;
+  let m;
+  while ((m = SIZE_MENTION_RE.exec(src))) mentions.push({ size: m[1], end: m.index + m[0].length, start: m.index });
+  for (let i = 0; i < mentions.length; i++) {
+    const seg = src.slice(mentions[i].end, i + 1 < mentions.length ? mentions[i + 1].start : undefined);
+    const row = { size: mentions[i].size.toUpperCase() };
+    MEASURE_PAIR_RE.lastIndex = 0;
+    let p;
+    while ((p = MEASURE_PAIR_RE.exec(seg))) {
+      const key = measureKeyForLabel(p[1]);
+      const value = parseInt(p[2], 10);
+      if (row[key] == null && value >= 20 && value <= 250) row[key] = value;
+    }
+    const measures = Object.keys(row).length - 1;
+    if (measures >= 1 && !seen.has(row.size)) {
+      seen.add(row.size);
+      rows.push(row);
+    }
+  }
+
+  // Strategy 2 — positional table: a header line naming ≥2 measurements,
+  // then rows of "<size> n n n" mapping numbers onto the header in order.
+  if (rows.length < 2) {
+    const lines = src.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    for (let h = 0; h < lines.length; h++) {
+      const labels = [];
+      MEASURE_PAIR_RE.lastIndex = 0;
+      // Header detection uses bare labels (no numbers required after them).
+      const labelOnly = new RegExp(MEASURE_PAIR_RE.source.replace("\\s*[:：]?\\s*(\\d{2,3})", ""), "gi");
+      let lm;
+      while ((lm = labelOnly.exec(lines[h]))) labels.push(measureKeyForLabel(lm[1]));
+      if (labels.length < 2) continue;
+      const tableRows = [];
+      for (let r = h + 1; r < lines.length; r++) {
+        const tm = lines[r].match(new RegExp("^(" + SIZE_TOKEN_SRC + ")\\b"));
+        if (!tm) break;
+        const nums = (lines[r].match(/\d{2,3}/g) || []).map((n) => parseInt(n, 10)).filter((n) => n >= 20 && n <= 250);
+        if (nums.length < labels.length) break;
+        const row = { size: tm[1].toUpperCase() };
+        labels.forEach((key, i) => {
+          if (row[key] == null) row[key] = nums[i];
+        });
+        if (!seen.has(row.size)) {
+          seen.add(row.size);
+          tableRows.push(row);
+        }
+      }
+      if (tableRows.length >= 2) {
+        rows.push(...tableRows);
+        break;
+      }
+    }
+  }
+
+  if (rows.length < 2) return null;
+  return { rows, runHint: sizeRunHint(src) };
+}
+
+// Pick a size from a parsed chart against a body profile (all cm; weight kg).
+// Tops key on garment chest = body chest + ease; bottoms on garment waist ≈
+// body waist + 2. Shoulder/sleeve nudge the score when both sides have them.
+// "runs big/small" shifts the target so the pick sizes down/up accordingly.
+// Returns { size, fitNote, reason, row } | { missing: "chest"|"waist" } | null.
+export function recommendSize(chart, profile, category) {
+  if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
+  const p = profile || {};
+  const rows = chart.rows;
+  const isPants =
+    category === "pants" ||
+    category === "shorts" ||
+    rows.every((r) => r.waist != null && r.chest == null);
+
+  const primaryKey = isPants ? "waist" : "chest";
+  if (p[primaryKey] == null) return { missing: primaryKey };
+  const ease = isPants ? 2 : category === "outerwear" ? 16 : 12;
+  let target = p[primaryKey] + ease;
+  // Garment runs big → the label understates it → aim smaller, and vice versa.
+  if (chart.runHint === "big") target -= 4;
+  else if (chart.runHint === "small") target += 4;
+
+  const candidates = rows.filter((r) => r[primaryKey] != null);
+  if (candidates.length < 2) return null;
+  const score = (r) => {
+    let s = Math.abs(r[primaryKey] - target);
+    if (!isPants && p.shoulder != null && r.shoulder != null) s += Math.abs(r.shoulder - (p.shoulder + 2)) * 0.4;
+    // Sleeves shorter than the arm are worse than sleeves that run long.
+    if (!isPants && p.sleeve != null && r.sleeve != null) s += Math.max(0, p.sleeve - r.sleeve) * 0.6;
+    return s;
+  };
+  let best = candidates[0];
+  for (const r of candidates) if (score(r) < score(best)) best = r;
+
+  const fitNote =
+    chart.runHint === "big"
+      ? "runs big — sized down"
+      : chart.runHint === "small"
+        ? "runs small — sized up"
+        : chart.runHint === "true"
+          ? "true to size"
+          : "";
+  const garment = best[primaryKey];
+  const body = p[primaryKey];
+  const diff = garment - body;
+  const reason =
+    (isPants ? "Waist" : "Chest") +
+    " " + garment + "cm vs your " + body + "cm (" + (diff >= 0 ? "+" : "") + diff + "cm)";
+  return { size: best.size, fitNote, reason, row: best };
+}
+
 const FIND_STATUS_COLORS = {
   want: { bg: "oklch(0.35 0.02 280)", text: "oklch(0.85 0 0)", dot: "oklch(0.7 0.02 280)" },
   bought: { bg: "oklch(0.35 0.08 250)", text: "oklch(0.9 0.1 250)", dot: "oklch(0.65 0.14 250)" },
@@ -4814,12 +4970,178 @@ export function carouselLayerZ(cardCount, index, foreground) {
   return cardCount * 2 - indexDist * 2 - (index > foreground ? 1 : 0);
 }
 
+// Size pick, "nice and in their face" (Kyle 2026-07-22). Chart text comes from
+// sizeNotes/summary/rawText; if none parses, offer a fetch that reads the Yupoo
+// album description ("look somewhere else") and caches whatever it finds back
+// into sizeNotes so the next open is instant. Garment categories only — shoes,
+// hats, bags etc. don't map body cm to a letter size.
+const SIZE_PICK_SKIP_CATEGORIES = new Set(["shoes", "hat", "bag", "accessory", "socks"]);
+
+function SizeRecommendation({ item, bodyProfile, onOpenProfile, onSaveEdit }) {
+  const [fetchState, setFetchState] = useState("idle"); // idle | loading | none
+  if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
+
+  const chartText = [item.sizeNotes, item.summary, item.rawText].filter(Boolean).join("\n");
+  const chart = parseSizeChart(chartText);
+  const rec = chart && bodyProfile ? recommendSize(chart, bodyProfile, item.category) : null;
+
+  const fetchChart = async () => {
+    const album = yupooAlbumUrl(item);
+    if (!album) {
+      setFetchState("none");
+      return;
+    }
+    setFetchState("loading");
+    const data = await fetchYupooImages(album);
+    const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
+    if (text.trim() && parseSizeChart(text)) {
+      // Cache into sizeNotes: future opens parse locally, and the carousel
+      // size-info popover picks the chart up too.
+      onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text.trim() });
+      setFetchState("idle");
+    } else {
+      setFetchState("none");
+    }
+  };
+
+  // Recommended size missing from the seller's listed run is worth a warning.
+  const runValues = ((item.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title)) || {}).values || [];
+  const inRun = rec && rec.size && runValues.length
+    ? runValues.some((v) => String(v).toUpperCase() === rec.size)
+    : true;
+
+  const box = (children) => (
+    <div
+      style={{
+        marginTop: 12,
+        padding: "12px 14px",
+        border: "1px solid " + HAIR,
+        borderRadius: 14,
+        background: BG,
+      }}
+    >
+      {children}
+    </div>
+  );
+
+  if (rec && rec.size) {
+    return box(
+      <>
+        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: SUB }}>
+          Your size
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 2, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: DISPLAY, fontSize: 34, fontWeight: 600, lineHeight: 1.05, color: INK }}>{rec.size}</span>
+          {rec.fitNote && <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: "var(--cz-money)" }}>{rec.fitNote}</span>}
+        </div>
+        <div style={{ fontFamily: FONT, fontSize: 12.5, color: SUB, marginTop: 4, lineHeight: 1.45 }}>
+          {rec.reason}
+          {!inRun && (
+            <span style={{ color: "var(--cz-error-text)" }}>
+              {" "}· heads up: {rec.size} isn’t in this seller’s listed run ({runValues.join(" · ")})
+            </span>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  if (rec && rec.missing) {
+    return box(
+      <>
+        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
+          Size chart found — add your {rec.missing} to get a pick.
+        </div>
+        <Pill subtle onClick={onOpenProfile} style={{ marginTop: 8 }}>Add measurements</Pill>
+      </>
+    );
+  }
+
+  if (chart && !bodyProfile) {
+    return box(
+      <>
+        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
+          Size chart found — add your measurements and Credenza picks your size.
+        </div>
+        <Pill subtle onClick={onOpenProfile} style={{ marginTop: 8 }}>Add measurements</Pill>
+      </>
+    );
+  }
+
+  if (!chart && fetchState !== "none" && yupooAlbumUrl(item)) {
+    return box(
+      <>
+        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
+          No size chart on file.
+        </div>
+        <Pill subtle onClick={fetchChart} disabled={fetchState === "loading"} style={{ marginTop: 8 }}>
+          {fetchState === "loading" ? "Checking the album…" : "Find size chart"}
+        </Pill>
+      </>
+    );
+  }
+
+  return null;
+}
+
+// Body measurements (cm, weight kg) — the input half of the size pick. Lives
+// in prefs, edited from the ⋯ menu. Every field optional; the recommender
+// asks for whatever it's missing.
+const BODY_PROFILE_FIELDS = [
+  ["height", "Height", "178"],
+  ["weight", "Weight (kg)", "70"],
+  ["chest", "Chest", "96"],
+  ["shoulder", "Shoulder", "45"],
+  ["sleeve", "Arm length", "62"],
+  ["waist", "Waist", "80"],
+  ["hip", "Hip", "98"],
+];
+
+function BodyProfileSheet({ value, onSave, onClose }) {
+  const [draft, setDraft] = useState(() => ({ ...(value || {}) }));
+  const set = (key) => (v) => setDraft((d) => ({ ...d, [key]: v.replace(/[^\d.]/g, "") }));
+  const save = () => {
+    const out = {};
+    for (const [key] of BODY_PROFILE_FIELDS) {
+      const n = parseFloat(draft[key]);
+      if (isFinite(n) && n > 0) out[key] = n;
+    }
+    onSave(Object.keys(out).length ? out : null);
+    onClose();
+  };
+  return (
+    <ModalShell title="Your measurements" onClose={onClose} maxWidth={560}>
+      <div style={{ padding: 16 }}>
+        <p style={{ margin: "0 0 12px", fontFamily: FONT, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
+          Centimeters, measured on your body — Credenza adds the ease. Used to
+          pick your size from seller charts.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {BODY_PROFILE_FIELDS.map(([key, label, placeholder]) => (
+            <Field
+              key={key}
+              label={label + " (cm)"}
+              value={draft[key] || ""}
+              onChange={set(key)}
+              placeholder={placeholder}
+            />
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <Pill primary onClick={save} style={{ flex: 1, justifyContent: "center", minHeight: 44 }}>Save</Pill>
+          <Pill subtle onClick={onClose}>Cancel</Pill>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 // Mobile detail sheet (audit C1): on phones the grid card's detail view opens
 // here — full width — instead of expanding inside a half-width grid column.
 // Reuses Card (sheetMode) for all detail content; the sheet owns notes (inline,
 // write-through), one-tap status, a pinned Buy footer, and a ⋯ overflow where
 // Remove lives behind the app's existing undo toast.
-function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onSaveNote, onSaveEdit }) {
+function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onSaveNote, onSaveEdit, bodyProfile, onOpenProfile }) {
   const [editSig, setEditSig] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState(item.note || "");
@@ -4856,6 +5178,13 @@ function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onS
         onToggle={() => {}}
         editSignal={editSig}
         buyLabel={buyLabel}
+      />
+
+      <SizeRecommendation
+        item={item}
+        bodyProfile={bodyProfile}
+        onOpenProfile={onOpenProfile}
+        onSaveEdit={onSaveEdit}
       />
 
       <div style={{ marginTop: 14 }}>
@@ -7447,6 +7776,10 @@ export default function Credenza() {
   // phones. This instance serves grid cards, rows, and the detail sheet.
   const [appGallery, setAppGallery] = useState(null); // { item, images, startIndex }
   const [barMenuOpen, setBarMenuOpen] = useState(false);
+  // Body measurements (cm) powering the DetailSheet size pick; persisted in
+  // credenza-prefs-v1. Null until the user fills the sheet once.
+  const [bodyProfile, setBodyProfile] = useState(null);
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
 
   // Phones: ~400px of capture/search/tab chrome sits above the carousel, so at
   // first paint the card renders under the fixed bottom bar. Scrolling the
@@ -7558,10 +7891,11 @@ export default function Credenza() {
             preferredAgent,
             affiliateCodes,
             agentToastSeenFor,
+            bodyProfile,
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile]);
 
   useEffect(() => {
     loadStoredItems({
@@ -7645,6 +7979,7 @@ export default function Credenza() {
                   preferredAgent: validStoredAgentId(p.preferredAgent),
                   affiliateCodes: p.affiliateCodes && typeof p.affiliateCodes === "object" ? p.affiliateCodes : {},
                   agentToastSeenFor: p.agentToastSeenFor || null,
+                  bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
                 })
               )
               .catch(() => {});
@@ -7656,6 +7991,7 @@ export default function Credenza() {
           setPreferredAgent(validStoredAgentId(p.preferredAgent));
           if (p.affiliateCodes && typeof p.affiliateCodes === "object") setAffiliateCodes(p.affiliateCodes);
           if (p.agentToastSeenFor) setAgentToastSeenFor(p.agentToastSeenFor);
+          if (p.bodyProfile && typeof p.bodyProfile === "object") setBodyProfile(p.bodyProfile);
         } catch (e) {}
       })
       .catch(() => {})
@@ -9552,6 +9888,8 @@ export default function Credenza() {
             onDelete={remove}
             onSaveNote={saveNote}
             onSaveEdit={saveEdit}
+            bodyProfile={bodyProfile}
+            onOpenProfile={() => setProfileSheetOpen(true)}
             cardProps={{
               onDelete: remove,
               onSaveNote: saveNote,
@@ -9578,6 +9916,14 @@ export default function Credenza() {
           onClose={() => setAppGallery(null)}
           onSetPrimaryImage={setPrimaryImage}
           onLoadPhotos={loadAlbumPhotos}
+        />
+      )}
+
+      {profileSheetOpen && (
+        <BodyProfileSheet
+          value={bodyProfile}
+          onSave={setBodyProfile}
+          onClose={() => setProfileSheetOpen(false)}
         />
       )}
 
@@ -10096,6 +10442,16 @@ export default function Credenza() {
                   title={mode === "rainbow" ? "Switch to Gallery light" : "Switch to Blackout dark"}
                   ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
                 />
+                <Pill
+                  subtle
+                  onClick={() => {
+                    setBarMenuOpen(false);
+                    setProfileSheetOpen(true);
+                  }}
+                  title="Your body measurements, for size picks"
+                >
+                  Body profile
+                </Pill>
                 <span
                   className="cz-local-label"
                   title={localStatus.label}
