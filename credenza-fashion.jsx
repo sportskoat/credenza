@@ -2753,38 +2753,55 @@ const FIND_STATUS_COLORS = {
   rl: { bg: "oklch(0.3 0.1 25)", text: "oklch(0.9 0.12 25)", dot: "oklch(0.65 0.18 25)" },
   returned: { bg: "oklch(0.32 0.06 55)", text: "oklch(0.9 0.08 55)", dot: "oklch(0.7 0.12 55)" },
 };
-function StatusChips({ value, onChange, label = "Status" }) {
+// One segmented radiogroup for every chip-style picker — pipeline status,
+// category, unit toggles. Replaces the hand-rolled radiogroups that copied
+// this markup with inline styles (audit: 5 separate implementations).
+function SegmentedControl({ value, onChange, options, label, allowUnset = false }) {
   return (
     <div
       role="radiogroup"
       aria-label={label}
       style={{ display: "flex", flexWrap: "wrap", gap: 4, background: SEG, borderRadius: 12, padding: 2 }}
     >
-      {FIND_STATUSES.map((s) => (
-        <button
-          type="button"
-          role="radio"
-          aria-checked={value === s}
-          className="cz-chip"
-          key={s}
-          onClick={() => onChange(s)}
-          style={{
-            flex: "1 0 auto",
-            fontFamily: FONT,
-            fontSize: 11,
-            fontWeight: 600,
-            color: value === s ? INK : SUB,
-            background: value === s ? CARD : "transparent",
-            border: "none",
-            borderRadius: 999,
-            padding: "6px 8px",
-            cursor: "pointer",
-          }}
-        >
-          {FIND_STATUS_LABELS[s]}
-        </button>
-      ))}
+      {options.map((opt) => {
+        const active = value === opt.value;
+        return (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={active}
+            className="cz-chip"
+            key={opt.value}
+            onClick={() => onChange(active && allowUnset ? "" : opt.value)}
+            style={{
+              flex: "1 0 auto",
+              fontFamily: FONT,
+              fontSize: 11,
+              fontWeight: 600,
+              color: active ? INK : SUB,
+              background: active ? CARD : "transparent",
+              border: "none",
+              borderRadius: 999,
+              padding: "6px 8px",
+              cursor: "pointer",
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
+  );
+}
+
+function StatusChips({ value, onChange, label = "Status" }) {
+  return (
+    <SegmentedControl
+      value={value}
+      onChange={onChange}
+      label={label}
+      options={FIND_STATUSES.map((s) => ({ value: s, label: FIND_STATUS_LABELS[s] }))}
+    />
   );
 }
 
@@ -4100,6 +4117,134 @@ function sizeSuggestionsFor(item) {
   return out;
 }
 
+// ═══ UNIFIED EDIT FORM (standardization 2026-07-22, audit workstream C) ═══
+// One draft builder, one patch builder, one write-through model (600ms
+// autosave), one field layout. Surfaces differ only in the chrome around
+// <ItemEditForm>. Draft carries only fields with inputs — summary/tags/links/
+// importance/agentLink/findSource have no editor and are left untouched.
+
+function buildEditDraft(item) {
+  return {
+    title: item.title || "",
+    note: item.note || "",
+    project: item.project || "",
+    price: item.price == null ? "" : String(item.price),
+    currency: item.currency || "CNY",
+    seller: item.seller || "",
+    batch: item.batch || "",
+    size: item.size || "",
+    colorway: item.colorway || "",
+    findStatus: item.findStatus || "want",
+    category: item.category || "",
+  };
+}
+
+function buildEditPatch(draft, base) {
+  const priceText = String(draft.price ?? "").trim();
+  const parsed = priceText === "" ? null : Number(priceText);
+  return {
+    title: String(draft.title ?? "").trim() || base.title,
+    note: String(draft.note ?? "").trim(),
+    project: String(draft.project ?? "").trim(),
+    // Guard: garbage input becomes null (cleared), never NaN in storage — the
+    // pre-unification carousel form saved Number("abc") straight through.
+    price: Number.isFinite(parsed) ? parsed : null,
+    currency: String(draft.currency ?? "").trim() || "CNY",
+    seller: String(draft.seller ?? "").trim(),
+    batch: String(draft.batch ?? "").trim(),
+    size: String(draft.size ?? "").trim(),
+    colorway: String(draft.colorway ?? "").trim(),
+    findStatus: draft.findStatus || "want",
+    category: draft.category || "",
+  };
+}
+
+// Debounced write-through: every draft change persists after `delay` ms of
+// quiet, and callers flush the trailing keystrokes via the returned ref
+// before unmount/close. Replaces three hand-rolled copies (600 vs 700ms).
+function useWriteThroughDraft(draft, onCommit, delay = 600) {
+  const commitRef = useRef(() => {});
+  commitRef.current = () => {
+    if (draft) onCommit(draft);
+  };
+  useEffect(() => {
+    if (!draft) return undefined;
+    const t = setTimeout(() => commitRef.current(), delay);
+    return () => clearTimeout(t);
+  }, [draft, delay]);
+  return commitRef;
+}
+
+// The one item edit form. Field order is the standard everywhere: identity →
+// context (haul/photos) → money → seller → variant → pipeline → category.
+function ItemEditForm({ item, ed, setEd, knownHauls, onAttachPhoto, onRemovePhoto }) {
+  return (
+    <div className="cz-carousel-edit">
+      <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
+      <Field
+        label="Notes / links"
+        value={ed.note || ""}
+        onChange={(v) => setEd({ ...ed, note: v })}
+        placeholder="Fit notes, QC reminders, sizing, seller tips, extra links…"
+        rows={3}
+      />
+      <HaulAccordionField
+        label="Haul"
+        value={ed.project}
+        knownHauls={knownHauls}
+        onChange={(v) => setEd({ ...ed, project: v })}
+        onCommit={(v) => setEd((prev) => (prev ? { ...prev, project: v } : prev))}
+      />
+      <EditPhotosManager
+        item={item}
+        onAttachPhoto={onAttachPhoto}
+        onRemovePhoto={onRemovePhoto}
+      />
+      <div className="cz-carousel-field-grid price-grid">
+        <div>
+          <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
+        </div>
+        <div>
+          <Field label="Currency" value={ed.currency} onChange={(v) => setEd({ ...ed, currency: v })} placeholder="CNY" />
+        </div>
+      </div>
+      <div className="cz-carousel-field-grid">
+        <div>
+          <Field label="Seller" value={ed.seller} onChange={(v) => setEd({ ...ed, seller: v })} placeholder="Store name" />
+        </div>
+        <div>
+          <Field label="Batch" value={ed.batch} onChange={(v) => setEd({ ...ed, batch: v })} placeholder="e.g., M Batch" />
+        </div>
+      </div>
+      <div className="cz-carousel-field-grid">
+        <div>
+          <Field
+            label="Size"
+            value={ed.size}
+            onChange={(v) => setEd({ ...ed, size: v })}
+            placeholder="EU 42"
+            suggestions={sizeSuggestionsFor(item)}
+            emptyHint="Type a size"
+            listLabel="Sizes"
+            allowCreate
+          />
+        </div>
+        <div>
+          <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
+        </div>
+      </div>
+      <StatusChips value={ed.findStatus || "want"} onChange={(s) => setEd({ ...ed, findStatus: s })} />
+      <SegmentedControl
+        label="Category"
+        value={ed.category}
+        allowUnset
+        onChange={(v) => setEd({ ...ed, category: v })}
+        options={Object.entries(CATEGORIES).map(([value, c]) => ({ value, label: c.label }))}
+      />
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ COMPONENTS ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
@@ -5289,28 +5434,16 @@ function BodyProfileSheet({ value, units = "in", onSave, onChangeUnits, onClose 
             Measured on your body — Credenza adds the ease. Seller charts are
             metric; we convert for you.
           </p>
-          <div style={{ display: "flex", gap: 4, background: SEG, borderRadius: 999, padding: 3, flexShrink: 0 }}>
-            {["in", "cm"].map((u) => (
-              <button
-                key={u}
-                type="button"
-                onClick={() => switchUnits(u)}
-                aria-pressed={units === u}
-                style={{
-                  fontFamily: FONT,
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  border: 0,
-                  borderRadius: 999,
-                  padding: "6px 14px",
-                  cursor: "pointer",
-                  background: units === u ? "var(--cz-card-solid)" : "transparent",
-                  color: units === u ? INK : SUB,
-                }}
-              >
-                {u}
-              </button>
-            ))}
+          <div style={{ flexShrink: 0, minWidth: 120 }}>
+            <SegmentedControl
+              label="Units"
+              value={units}
+              onChange={switchUnits}
+              options={[
+                { value: "in", label: "in" },
+                { value: "cm", label: "cm" },
+              ]}
+            />
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -5769,25 +5902,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
 
   useEffect(() => {
     if (editSignal && editSignal.startsWith(item.id + ":")) {
-      setEd({
-        title: item.title,
-        summary: item.summary,
-        tags: (item.tags || []).join(", "),
-        project: item.project || "",
-        importance: item.importance || "medium",
-        linksText: (item.links || []).map((l) => l.url).join("\n"),
-        findStatus: item.findStatus || "want",
-        category: item.category || "",
-        price: item.price == null ? "" : String(item.price),
-        currency: item.currency || "CNY",
-        seller: item.seller || "",
-        batch: item.batch || "",
-        size: item.size || "",
-        colorway: item.colorway || "",
-        agentLink: item.agentLink || "",
-        findSource: item.findSource || "",
-        note: item.note || "",
-      });
+      setEd(buildEditDraft(item));
       setBubble(null);
       setBackView("details");
       setEditExitUp(false);
@@ -5891,63 +6006,12 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     setBubble({ key, title, content });
   };
 
-  const buildEditPatch = (draft, base) => ({
-    title: draft.title.trim() || base.title,
-    summary: draft.summary.trim(),
-    tags: draft.tags
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .slice(0, 5),
-    project: draft.project.trim(),
-    importance: draft.importance,
-    links: normalizeLinks(extractUrls(draft.linksText || ""), base.url),
-    findStatus: draft.findStatus,
-    category: draft.category,
-    price: draft.price === "" ? null : Number(draft.price),
-    currency: draft.currency.trim() || "CNY",
-    seller: draft.seller.trim(),
-    batch: draft.batch.trim(),
-    size: draft.size.trim(),
-    colorway: draft.colorway.trim(),
-    agentLink: draft.agentLink.trim(),
-    findSource: draft.findSource.trim(),
-    note: (draft.note || "").trim(),
-  });
-
   // Write-through commit — the edit form persists as you type, so leaving the
   // screen (back chevron, outside click, flip) never loses notes.
-  const commitEditRef = useRef(() => {});
-  commitEditRef.current = () => {
-    if (ed) onSaveEdit(item.id, buildEditPatch(ed, item));
-  };
-
-  useEffect(() => {
-    if (!editing || !ed) return;
-    const t = setTimeout(() => commitEditRef.current(), 700);
-    return () => clearTimeout(t);
-  }, [ed, editing]);
+  const commitEditRef = useWriteThroughDraft(ed, (d) => onSaveEdit(item.id, buildEditPatch(d, item)));
 
   const startEdit = () => {
-    setEd({
-      title: item.title,
-      summary: item.summary,
-      tags: (item.tags || []).join(", "),
-      project: item.project || "",
-      importance: item.importance || "medium",
-      linksText: (item.links || []).map((l) => l.url).join("\n"),
-      findStatus: item.findStatus || "want",
-      category: item.category || "",
-      price: item.price == null ? "" : String(item.price),
-      currency: item.currency || "CNY",
-      seller: item.seller || "",
-      batch: item.batch || "",
-      size: item.size || "",
-      colorway: item.colorway || "",
-      agentLink: item.agentLink || "",
-      findSource: item.findSource || "",
-      note: item.note || "",
-    });
+    setEd(buildEditDraft(item));
     setBubble(null);
     setBackView("details");
     setEditExitUp(false);
@@ -6171,66 +6235,14 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               exit={reduced ? undefined : { opacity: 0, y: editExitUp ? -14 : 10 }}
               transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
             >
-            <div className="cz-carousel-edit">
-              <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
-              <Field
-                label="Notes / links"
-                value={ed.note || ""}
-                onChange={(v) => setEd({ ...ed, note: v })}
-                placeholder="Fit notes, QC reminders, sizing, seller tips, extra links…"
-                rows={3}
-              />
-              <HaulAccordionField
-                label="Haul"
-                value={ed.project}
-                knownHauls={knownHauls}
-                onChange={(v) => setEd({ ...ed, project: v })}
-                onCommit={(v) => setEd((prev) => (prev ? { ...prev, project: v } : prev))}
-              />
-              <EditPhotosManager
-                item={item}
-                onAttachPhoto={onAttachPhoto}
-                onRemovePhoto={onRemovePhoto}
-              />
-              <div className="cz-carousel-field-grid price-grid">
-                <div>
-                  <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
-                </div>
-                <div>
-                  <Field label="Currency" value={ed.currency} onChange={(v) => setEd({ ...ed, currency: v })} placeholder="CNY" />
-                </div>
-              </div>
-              <div className="cz-carousel-field-grid">
-                <div>
-                  <Field label="Seller" value={ed.seller} onChange={(v) => setEd({ ...ed, seller: v })} placeholder="Store name" />
-                </div>
-                <div>
-                  <Field label="Batch" value={ed.batch} onChange={(v) => setEd({ ...ed, batch: v })} placeholder="e.g., M Batch" />
-                </div>
-              </div>
-              <div className="cz-carousel-field-grid">
-                <div>
-                  <Field
-                    label="Size"
-                    value={ed.size}
-                    onChange={(v) => setEd({ ...ed, size: v })}
-                    placeholder="EU 42"
-                    suggestions={sizeSuggestionsFor(item)}
-                    emptyHint="Type a size"
-                    listLabel="Sizes"
-                    allowCreate
-                    chevronLabel="Show sizes"
-                  />
-                </div>
-                <div>
-                  <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
-                </div>
-              </div>
-              {/* Pipeline status was grid-edit-only; carousel dwellers could
-                  never move want → bought → QC (audit C3). Same write-through
-                  autosave as every other edit field. */}
-              <StatusChips value={ed.findStatus || "want"} onChange={(s) => setEd({ ...ed, findStatus: s })} />
-            </div>
+            <ItemEditForm
+              item={item}
+              ed={ed}
+              setEd={setEd}
+              knownHauls={knownHauls}
+              onAttachPhoto={onAttachPhoto}
+              onRemovePhoto={onRemovePhoto}
+            />
             </motion.div>
           ) : (
             <motion.div
