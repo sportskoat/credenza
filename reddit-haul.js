@@ -22,19 +22,26 @@ const URL_RE = /https?:\/\/[^\s<>"')\]]+/g;
 const REDDIT_POST_RE = /https?:\/\/(?:www\.)?reddit\.com\/r\/[\w-]+\/(?:comments|s)\/[^\s<>"')\]]+/;
 const REDDIT_USER_RE = /\bu\/([\w-]{3,20})\b/;
 
+// Wider net than the AGENTS registry in agents.js (people mention agents we
+// don't have URL templates for) — the registry stays canonical for Buy links.
 const KNOWN_AGENTS = [
   "superbuy", "sugargoo", "cssbuy", "kakobuy", "hoobuy", "cnfans",
   "mulebuy", "acbuy", "oopbuy", "basetao", "wegobuy", "pandabuy", "allchinabuy", "joyabuy",
 ];
 
+// Category guesses emit the app's CATEGORIES keys (credenza-fashion.jsx) so
+// item.category has one vocabulary end-to-end; order mirrors
+// guessFashionCategory's precedence (hoodie → outerwear, crewneck → shirt).
 const CATEGORY_KEYWORDS = [
   ["shoes", /\b(shoes?|sneakers?|jordans?|aj\s?\d{1,2}|dunks?|yeezys?|af1|air force|new balance|nb\s?\d{3}|boots?|slides?|runners?|trainers?)\b/i],
-  ["outerwear", /\b(jacket|coat|puffer|windbreaker|parka|vest|bomber|denim jacket)\b/i],
-  ["tops", /\b(hoodie|crewneck|sweatshirt|sweater|knit|cardigan)\b/i],
-  ["tees", /\b(tee|t-shirt|tshirt|shirt|polo|tank)\b/i],
-  ["bottoms", /\b(pants|jeans|trousers|shorts|cargos?|sweatpants|joggers?|track pants)\b/i],
-  ["bags", /\b(bag|backpack|tote|duffel|crossbody|shoulder bag)\b/i],
-  ["accessories", /\b(hat|cap|beanie|belt|sunglasses|glasses|watch|ring|necklace|bracelet|wallet|socks?|scarf|gloves?)\b/i],
+  ["outerwear", /\b(hoodie|jacket|coat|puffer|windbreaker|parka|bomber|denim jacket|varsity)\b/i],
+  ["shorts", /\bshorts?\b/i],
+  ["pants", /\b(pants|jeans|trousers|cargos?|sweatpants|joggers?|track pants)\b/i],
+  ["socks", /\bsocks?\b/i],
+  ["hat", /\b(hat|cap|beanie)\b/i],
+  ["bag", /\b(bag|backpack|tote|duffel|crossbody|shoulder bag)\b/i],
+  ["accessory", /\b(belt|sunglasses|glasses|watch|ring|necklace|bracelet|wallet|scarf|gloves?)\b/i],
+  ["shirt", /\b(tee|t-shirt|tshirt|shirt|polo|tank|crewneck|sweatshirt|sweater|knit|cardigan|vest)\b/i],
 ];
 
 function guessCategory(label) {

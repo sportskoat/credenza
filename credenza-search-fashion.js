@@ -1,3 +1,5 @@
+import { FIND_STATUSES } from "./credenza-find-status.js";
+
 const SEARCH_STOPWORDS = new Set(
   "the a an and or but for with from this that these those what when where how why your you our its his her they them was were are is be been i we of in on at to it as by not no so if do did save saved about remember show find watch video status shorts index html www com".split(" ")
 );
@@ -156,7 +158,7 @@ export function serializeAskCandidates(query, items, { limit = 25, now = Date.no
     colorway: clamp(item.colorway, FIELD_LIMITS.colorway),
     agentLink: clamp(item.agentLink, 240),
     findSource: clamp(item.findSource, 240),
-    findStatus: ["want", "bought", "shipped", "qc", "gl", "rl", "returned"].includes(item.findStatus)
+    findStatus: FIND_STATUSES.includes(item.findStatus)
       ? item.findStatus
       : "want",
     host: clamp(item.host, FIELD_LIMITS.host),

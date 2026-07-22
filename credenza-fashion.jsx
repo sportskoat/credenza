@@ -25,6 +25,7 @@ import {
   summarizeOutbound,
 } from "./agents.js";
 import { parseRedditHaul } from "./reddit-haul.js";
+import { FIND_STATUSES } from "./credenza-find-status.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
 
@@ -437,16 +438,6 @@ export function measureFromStorage(value, units, kind) {
   }
   return String(value);
 }
-
-const FIND_STATUS_COLORS = {
-  want: { bg: "oklch(0.35 0.02 280)", text: "oklch(0.85 0 0)", dot: "oklch(0.7 0.02 280)" },
-  bought: { bg: "oklch(0.35 0.08 250)", text: "oklch(0.9 0.1 250)", dot: "oklch(0.65 0.14 250)" },
-  shipped: { bg: "oklch(0.32 0.08 290)", text: "oklch(0.85 0.1 290)", dot: "oklch(0.6 0.14 290)" },
-  qc: { bg: "oklch(0.35 0.08 85)", text: "oklch(0.9 0.1 85)", dot: "oklch(0.7 0.14 85)" },
-  gl: { bg: "oklch(0.3 0.08 145)", text: "oklch(0.85 0.1 145)", dot: "oklch(0.6 0.14 145)" },
-  rl: { bg: "oklch(0.3 0.1 25)", text: "oklch(0.9 0.12 25)", dot: "oklch(0.65 0.18 25)" },
-  returned: { bg: "oklch(0.32 0.06 55)", text: "oklch(0.9 0.08 55)", dot: "oklch(0.7 0.12 55)" },
-};
 
 const DAY_MS = 864e5;
 const WEEK_MS = 7 * DAY_MS;
@@ -2575,7 +2566,7 @@ function FavoriteButton({ item, onToggle, className = "" }) {
     <button
       ref={rootRef}
       type="button"
-      className={("cz-favorite-button t-like " + className).trim()}
+      className={cx("cz-favorite-button t-like", className)}
       data-liked={favorite ? "true" : "false"}
       aria-pressed={favorite}
       aria-label={(favorite ? "Unstar " : "Star ") + (item.title || "item")}
@@ -2750,8 +2741,18 @@ function sourceLabel(item) {
 
 // One-tap findStatus pipeline chips — shared by the edit forms and the mobile
 // detail sheet (audit C3). Status meanings per docs/Monetization.md §A3.
-const FIND_STATUSES = ["want", "bought", "shipped", "qc", "gl", "rl", "returned"];
+// FIND_STATUSES itself lives in credenza-find-status.js (shared with the Ask
+// serializer); labels/colors are display-only and stay here.
 const FIND_STATUS_LABELS = { want: "Want", bought: "Bought", shipped: "Shipped", qc: "QC", gl: "GL", rl: "RL", returned: "Returned" };
+const FIND_STATUS_COLORS = {
+  want: { bg: "oklch(0.35 0.02 280)", text: "oklch(0.85 0 0)", dot: "oklch(0.7 0.02 280)" },
+  bought: { bg: "oklch(0.35 0.08 250)", text: "oklch(0.9 0.1 250)", dot: "oklch(0.65 0.14 250)" },
+  shipped: { bg: "oklch(0.32 0.08 290)", text: "oklch(0.85 0.1 290)", dot: "oklch(0.6 0.14 290)" },
+  qc: { bg: "oklch(0.35 0.08 85)", text: "oklch(0.9 0.1 85)", dot: "oklch(0.7 0.14 85)" },
+  gl: { bg: "oklch(0.3 0.08 145)", text: "oklch(0.85 0.1 145)", dot: "oklch(0.6 0.14 145)" },
+  rl: { bg: "oklch(0.3 0.1 25)", text: "oklch(0.9 0.12 25)", dot: "oklch(0.65 0.18 25)" },
+  returned: { bg: "oklch(0.32 0.06 55)", text: "oklch(0.9 0.08 55)", dot: "oklch(0.7 0.12 55)" },
+};
 function StatusChips({ value, onChange, label = "Status" }) {
   return (
     <div
@@ -2784,6 +2785,102 @@ function StatusChips({ value, onChange, label = "Status" }) {
         </button>
       ))}
     </div>
+  );
+}
+
+// ═══ SHARED CARD PRIMITIVES (standardization 2026-07-22, audit workstream A) ═══
+// One renderer per repeated card element. Every surface composes these instead
+// of hand-rolling its own copy — FavoriteButton (above) is the model. Positions
+// stay per-surface via className; the *content* is defined exactly once.
+
+function cx(...parts) {
+  return parts.filter(Boolean).join(" ");
+}
+
+// "Jul 21" — the one date format used on cards and rows.
+function formatItemDate(ts) {
+  return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// Deduped cover + gallery list, optionally capped. Single seed expression for
+// every photo surface (edit manager, card-back fan, both openPhotos paths).
+function itemPhotoList(item, max) {
+  const photos = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []);
+  return max == null ? photos : photos.slice(0, max);
+}
+
+// Seller name, hyperlinked to the store when we know it (Weidian/Yupoo home,
+// host fallback). The one place seller renders as a link-or-text.
+function SellerLink({ item, className = "cz-seller-link", style }) {
+  if (!item || !item.seller) return null;
+  const href = sellerStoreUrl(item);
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+        style={style}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {item.seller}
+      </a>
+    );
+  }
+  return (
+    <span className={className + " is-text"} style={style}>
+      {item.seller}
+    </span>
+  );
+}
+
+// findStatus pill. "pill" = standalone overlay chip with per-status colors;
+// "chip" = colored text riding a shared cz-meta-chip (card-back meta row).
+// "want" renders nothing anywhere — it's the default, not a fact worth space.
+function StatusPill({ status, variant = "pill", className, style }) {
+  if (!status || status === "want") return null;
+  const colors = FIND_STATUS_COLORS[status] || {};
+  if (variant === "chip") {
+    return (
+      <span className={cx("cz-meta-chip", className)} style={{ color: colors.text || INK, ...style }}>
+        {status}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cx("cz-status-pill", className)}
+      style={{ background: colors.bg || "transparent", color: colors.text || INK, ...style }}
+    >
+      {status}
+    </span>
+  );
+}
+
+// Price display. "overlay" = USD-first short pill pinned over a photo;
+// "hero" = full ¥+$ card-back hero; "meta" = inline full label in a text row.
+function PriceChip({ item, variant = "overlay", className, style }) {
+  const label = variant === "overlay" ? priceLabelShort(item) : priceLabel(item);
+  if (!label) return null;
+  if (variant === "hero") {
+    return (
+      <div className={cx("cz-carousel-price-hero", className)} style={style}>
+        {label}
+      </div>
+    );
+  }
+  if (variant === "meta") {
+    return (
+      <span className={cx("cz-price-meta", className)} style={style}>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className={cx("cz-price-chip", className)} style={style}>
+      {label}
+    </span>
   );
 }
 
@@ -3056,10 +3153,7 @@ function FilterChip({ active, label, dot, onClick }) {
 
 // Compact row — the scanning gear. Two lines when a summary is available.
 function Row({ item, selected, onClick }) {
-  const date = new Date(item.createdAt).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  const date = formatItemDate(item.createdAt);
   const summary = typeof item.summary === "string" ? item.summary.trim() : "";
   const shortHost = item.host
     ? item.host.replace(/^(www\.|open\.)/, "").split(".")[0] + " · "
@@ -3872,7 +3966,7 @@ function CardBackHaulField({ item, knownHauls, onSaveEdit, compact = false }) {
 function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = 12 }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
-  const photos = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, max);
+  const photos = itemPhotoList(item, max);
   const canAdd = photos.length < max;
 
   const pickFile = async (file) => {
@@ -4192,10 +4286,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
     setEditing(true);
   };
 
-  const date = new Date(item.createdAt).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  const date = formatItemDate(item.createdAt);
 
   // Each face rotates itself (not the parent): the wrapper's overflow:hidden is a
   // CSS "grouping property" that flattens preserve-3d, which made a parent-level
@@ -4305,54 +4396,8 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
             }}
           />
         )}
-        {item.findStatus !== "want" && (
-          <span
-            style={{
-              position: "absolute",
-              top: 10,
-              left: 10,
-              zIndex: 2,
-              fontFamily: MONO,
-              fontSize: 10,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              padding: "4px 8px",
-              borderRadius: 999,
-              background: FIND_STATUS_COLORS[item.findStatus]?.bg || "transparent",
-              color: FIND_STATUS_COLORS[item.findStatus]?.text || INK,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-            }}
-          >
-            {item.findStatus}
-          </span>
-        )}
-        {item.price != null && !sheetMode && (
-          <span
-            style={{
-              position: "absolute",
-              // Kyle 2026-07-22: bottom-right everywhere, matching the carousel
-              // chip; USD-only short label so the pill stays small on phones.
-              bottom: 10,
-              right: 10,
-              zIndex: 2,
-              maxWidth: "calc(100% - 20px)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              fontFamily: MONO,
-              fontSize: 12,
-              fontWeight: 700,
-              padding: "4px 9px",
-              borderRadius: 999,
-              background: mode !== "light" ? "oklch(0.15 0 0 / 0.75)" : "oklch(1 0 0 / 0.9)",
-              color: INK,
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            {priceLabelShort(item)}
-          </span>
-        )}
+        <StatusPill status={item.findStatus} className="cz-card-status" />
+        {!sheetMode && <PriceChip item={item} variant="overlay" />}
       </div>
 
       {!editing && (
@@ -4377,22 +4422,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           {(item.seller || item.size) && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: item.summary ? 6 : 0 }}>
               {item.seller && (
-                sellerStoreUrl(item) ? (
-                  <a
-                    href={sellerStoreUrl(item)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="cz-seller-link"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }}
-                  >
-                    {item.seller}
-                  </a>
-                ) : (
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
-                    {item.seller}
-                  </span>
-                )
+                <SellerLink item={item} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }} />
               )}
               {item.size && (
                 <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
@@ -4501,7 +4531,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           <button>. Absolutely pinned to the photo's top-right via CSS — the
           face is position:relative and phone photos bleed to the face edges. */}
       {!sheetMode && (
-        <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-grid-favorite" />
+        <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
       )}
 
       <div
@@ -4570,40 +4600,10 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
                 }}
               >
                 {item.findStatus !== "want" && (
-                  <span
-                    style={{
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                      padding: "3px 8px",
-                      borderRadius: 999,
-                      background: FIND_STATUS_COLORS[item.findStatus]?.bg || BLUE_BG,
-                      color: FIND_STATUS_COLORS[item.findStatus]?.text || INK,
-                    }}
-                  >
-                    {item.findStatus}
-                  </span>
+                  <StatusPill status={item.findStatus} style={{ padding: "3px 8px" }} />
                 )}
-                {item.price != null && (
-                  <span style={{ fontWeight: 600, color: INK }}>
-                    {priceLabel(item)}
-                  </span>
-                )}
-                {item.seller && (
-                  sellerStoreUrl(item) ? (
-                    <a
-                      href={sellerStoreUrl(item)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="cz-seller-link"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {item.seller}
-                    </a>
-                  ) : (
-                    <span>{item.seller}</span>
-                  )
-                )}
+                <PriceChip item={item} variant="meta" style={{ fontWeight: 600, color: INK }} />
+                <SellerLink item={item} />
                 {item.size && <span>Size {item.size}</span>}
                 {item.colorway && <span>{item.colorway}</span>}
                 {CATEGORIES[item.category] && (
@@ -5024,6 +5024,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       style={{ perspective: 1200, height: "100%" }}
     >
       <div
+        className="cz-card"
         onPaste={(e) => {
           if (!expanded) return;
           const file = clipboardImageFile(e);
@@ -5953,7 +5954,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     setEditing(true);
   };
 
-  const galleryImages = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []);
+  const galleryImages = itemPhotoList(item);
   const knownHauls = Array.from(
     new Set(
       [...(haulNames || []), item.project || ""]
@@ -6037,15 +6038,11 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               className="cz-carousel-image"
               imgStyle={{ borderRadius: 0 }}
             />
-            {item.findStatus !== "want" && (
-              <span className="cz-carousel-status">{item.findStatus}</span>
-            )}
+            <StatusPill status={item.findStatus} className="cz-carousel-status" />
             {/* Always show a price slot when we have any price figure (USD or CNY).
                 Absolute to the image wrap — meta below is fixed height so chips
                 land on the same baseline across every card. */}
-            {priceLabelShort(item) ? (
-              <span className="cz-carousel-price">{priceLabelShort(item)}</span>
-            ) : null}
+            <PriceChip item={item} variant="overlay" />
           </div>
           <div className="cz-carousel-front-meta">
             <div className="cz-carousel-type">
@@ -6057,19 +6054,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                 (missing seller used to collapse this and shove the price chip). */}
             <div className="cz-carousel-sub">
               {item.seller ? (
-                sellerStoreUrl(item) ? (
-                  <a
-                    href={sellerStoreUrl(item)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="cz-seller-link"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {item.seller}
-                  </a>
-                ) : (
-                  <span>{item.seller}</span>
-                )
+                <SellerLink item={item} />
               ) : (
                 <span className="cz-carousel-sub-empty" aria-hidden="true">
                   &nbsp;
@@ -6084,7 +6069,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
         {/* Heart is front-face only — gated on the live rotation so it never
             mirrors over the back header during the first half of flip-back. */}
         {frontFacing && (
-          <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-carousel-favorite" />
+          <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
         )}
 
         {/* Back-face content is inert for dismissal; only an exact outside-card
@@ -6378,37 +6363,14 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                     {CARD_BACK_PRODUCT_SHEET ? (
                       <>
                         {/* Product sheet: price is the secondary hero; seller is quiet. */}
-                        {item.price != null && (
-                          <div className="cz-carousel-price-hero">{priceLabel(item)}</div>
-                        )}
-                        {item.seller ? (
-                          sellerStoreUrl(item) ? (
-                            <a
-                              href={sellerStoreUrl(item)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="cz-seller-quiet"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {item.seller}
-                            </a>
-                          ) : (
-                            <span className="cz-seller-quiet is-text">{item.seller}</span>
-                          )
-                        ) : null}
+                        <PriceChip item={item} variant="hero" />
+                        <SellerLink item={item} className="cz-seller-quiet" />
                         {(item.findStatus !== "want" ||
                           item.posterSize ||
                           item.recommendedSize ||
                           item.colorway) && (
                           <div className="cz-carousel-meta-chips">
-                            {item.findStatus !== "want" && (
-                              <span
-                                className="cz-meta-chip"
-                                style={{ color: (FIND_STATUS_COLORS[item.findStatus] || {}).text || INK }}
-                              >
-                                {item.findStatus}
-                              </span>
-                            )}
+                            <StatusPill status={item.findStatus} variant="chip" />
                             {item.posterSize && (
                               <span className="cz-meta-chip">Poster {item.posterSize}</span>
                             )}
@@ -6965,7 +6927,7 @@ function CoverFlowCarousel({
     // side card (stale after close + scroll) used to reopen the wrong album.
     const center = items[activeIndexRef.current];
     if (!center || center.id !== item.id) return;
-    const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
+    const seed = itemPhotoList(item, 8);
     const shouldLoad = !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
     let trigger = null;
     let startIndex = 0;
@@ -8665,7 +8627,7 @@ export default function Credenza() {
   // Second arg may be a startIndex number, a trigger element (legacy), or
   // { startIndex, trigger }.
   const openPhotos = useCallback((item, opts) => {
-    const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
+    const seed = itemPhotoList(item, 8);
     let startIndex = 0;
     if (typeof opts === "number") startIndex = opts;
     else if (opts && typeof opts === "object" && !(opts instanceof Element) && "startIndex" in opts) {

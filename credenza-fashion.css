@@ -441,32 +441,48 @@
   contain: layout style paint;
 }
 
-.cz-carousel-status {
-  position: absolute;
-  top: 14px;
-  left: 14px;
+/* Status pill (shared StatusPill primitive): typography + shadow live here;
+   per-status bg/text colors come inline from FIND_STATUS_COLORS. Positioning
+   is per-surface: .cz-card-status (grid photo), .cz-carousel-status (carousel). */
+.cz-status-pill {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 5px 10px;
   border-radius: 999px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  box-shadow: 0 4px 14px var(--cz-glow-weak);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
 }
 
-.cz-carousel-price {
+.cz-card-status {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+}
+
+.cz-carousel-status {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+}
+
+/* Price overlay chip (shared PriceChip primitive, variant="overlay").
+   High-contrast so price reads on any photo / theme. One position —
+   bottom-right of the photo — on every surface. */
+.cz-price-chip {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
   z-index: 2;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12.5px;
   font-weight: 700;
   padding: 6px 11px;
   border-radius: 999px;
-  /* High-contrast chip so price reads on any photo / theme (not theme ink on glass). */
   background: rgba(0, 0, 0, 0.78);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -474,7 +490,7 @@
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
   white-space: nowrap;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - 20px);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -538,6 +554,11 @@
 
 .cz-carousel-sub-empty {
   visibility: hidden;
+}
+
+/* SellerLink without a store URL renders as plain text, not a link. */
+.cz-seller-link.is-text {
+  color: var(--cz-sub);
 }
 
 /* Inline only — never stretch to the meta tile width (border-bottom did that). */
@@ -2379,25 +2400,28 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   transform: scale(0.94);
 }
 
-.cz-grid-favorite,
-.cz-carousel-favorite {
+/* Heart: always the photo's top-right corner, one placement rule everywhere.
+   Grid cards (.cz-card) offset from the card face — the desktop host/date row
+   sits above the photo, so the desktop inset is deeper; phones and the
+   carousel anchor straight to the photo. */
+.cz-card-favorite {
   position: absolute;
+  top: 14px;
   right: 10px;
-  top: 10px;
   z-index: 12;
   pointer-events: auto;
 }
 
-.cz-carousel-favorite {
-  top: 14px;
-}
-
-/* Grid heart: desktop sits under the host/date meta row; phones (no meta
-   row, photo bleeds edge-to-edge) pin it to the photo's top-right corner so
-   it never lands mid-image over the clothing. Price pill is bottom-right. */
-.cz-grid-favorite {
+.cz-card .cz-card-favorite {
   top: 48px;
   right: 10px;
+}
+
+@media (max-width: 767px) {
+  .cz-card .cz-card-favorite {
+    top: 8px;
+    right: 8px;
+  }
 }
 
 /* Control bar under the carousel: chevrons + stretch dots.
@@ -4074,15 +4098,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-app[data-fashion="true"] .cz-toast-region {
   bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   inset-inline: 12px;
-}
-
-/* Heart on photo top-right on phones (no host/date meta row; photo bleeds
-   edge-to-edge). Desktop keeps the deeper inset under the meta row. */
-@media (max-width: 767px) {
-  .cz-grid-favorite {
-    top: 8px;
-    right: 8px;
-  }
 }
 
 /* DetailSheet only: flex column surface so the Buy footer pins to the sheet

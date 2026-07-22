@@ -36,7 +36,7 @@ describe("parseRedditHaul", () => {
 
     expect(tee.url).toBe(TAOBAO);
     expect(tee.label).toBe("Stussy 8-ball tee");
-    expect(tee.category).toBe("tees");
+    expect(tee.category).toBe("shirt");
     expect(tee.note).toContain("Size up once");
 
     // Buy link wins over the Yupoo album on the same line; album stays in rawLine

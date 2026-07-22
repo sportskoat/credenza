@@ -555,7 +555,7 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
 
     const tee = items.find((i) => i.title === "Stussy 8-ball tee");
     expect(tee.note).toContain("Size up once");
-    expect(tee.tags).toContain("tees");
+    expect(tee.tags).toContain("shirt");
     expect(tee.posterStats).toMatchObject({ heightCm: 178, weightKg: 75, usualSize: "M", agent: "superbuy" });
     expect(tee.findSource).toContain("reddit.com/r/FashionReps/comments/");
 
