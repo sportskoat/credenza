@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Credenza FAQ · agent haul planner</title>
+    <meta
+      name="description"
+      content="FAQ: What Credenza is, how size recommendations work, which shopping agents are supported, data privacy, and how the free haul planner makes money without being a W2C marketplace."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="/faq/" />
+    <meta property="og:title" content="Credenza FAQ" />
+    <meta
+      property="og:description"
+      content="Agent haul planner FAQ: stash, size, QC, Buy via your agent."
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is Credenza?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Credenza Fashion is a personal haul planner for international shopping through Chinese agents. You save finds, keep photos and buy links together, decide size, track QC, and open the item in your preferred agent."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Credenza sell products?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Purchases happen on Weidian, Taobao, and similar marketplaces via your shopping agent (Superbuy, Sugargoo, Kakobuy, and others). Credenza organizes the decision before that click."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How does size recommendation work?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "You set a body profile (chest, waist, hip, and related measures in inches or centimeters). When an item has a size chart in notes or album text, Credenza parses the rows (including hip-only charts) and suggests a size with a plain-language reason."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Which shopping agents are supported?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Credenza is agent-agnostic. Items store the canonical marketplace URL. At Buy time the app opens your preferred agent. Agents can be added without rewriting your shelf."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is my data stored on Credenza servers?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "The core shelf is local-first in the browser on your device. Optional cloud features are labeled when enabled. You can export your haul as structured JSON."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Credenza a W2C or replica search site?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Credenza does not run a product catalog of branded counterfeits, best-batch leaderboards, or paid seller rankings. You bring links from communities and stores you already use."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How does Credenza make money?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Primarily through agent affiliate referral when you open Buy on a participating agent. Optional Pro may unlock sync and workflow tools later. Credenza does not sell access to a counterfeit product database."
+            }
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Credenza Fashion",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "Web",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "description": "Agent haul planner: stash marketplace finds, recommend size from charts, track QC, open Buy in your preferred shopping agent."
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header { padding-top: 2rem; }
+      .brand {
+        font-size: 0.75rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: var(--muted);
+        margin: 0 0 0.35rem;
+      }
+      .brand span {
+        font-weight: 600;
+        color: var(--ink);
+        letter-spacing: 0.18em;
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        margin: 0 0 0.75rem;
+      }
+      .lede { color: var(--muted); margin: 0 0 1.25rem; }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.25rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      details {
+        background: var(--card);
+        border: 1px solid var(--line);
+        margin: 0 0 0.65rem;
+        padding: 0.85rem 1rem;
+      }
+      summary {
+        cursor: pointer;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 600;
+        font-size: 0.98rem;
+        list-style: none;
+      }
+      summary::-webkit-details-marker { display: none; }
+      summary::before {
+        content: "+ ";
+        color: var(--money);
+        font-weight: 700;
+      }
+      details[open] summary::before { content: "– "; }
+      details p {
+        margin: 0.65rem 0 0;
+        color: var(--muted);
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand"><span>Credenza</span></p>
+      <h1>FAQ</h1>
+      <p class="lede">
+        Straight answers for humans and answer engines. Credenza is an agent haul planner,
+        not a product marketplace.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/how/">How it works</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <details open>
+        <summary>What is Credenza?</summary>
+        <p>
+          Credenza Fashion is a personal haul planner for international shopping through Chinese
+          agents. You save finds, keep photos and buy links together, decide size, track QC, and
+          open the item in your preferred agent.
+        </p>
+      </details>
+      <details>
+        <summary>Does Credenza sell products?</summary>
+        <p>
+          No. Purchases happen on Weidian, Taobao, and similar marketplaces via your shopping agent
+          (Superbuy, Sugargoo, Kakobuy, and others). Credenza organizes the decision before that click.
+        </p>
+      </details>
+      <details>
+        <summary>How does size recommendation work?</summary>
+        <p>
+          You set a body profile (chest, waist, hip, and related measures in inches or centimeters).
+          When an item has a size chart in notes or album text, Credenza parses the rows
+          (including hip-only charts) and suggests a size with a plain-language reason.
+        </p>
+      </details>
+      <details>
+        <summary>Which shopping agents are supported?</summary>
+        <p>
+          Credenza is agent-agnostic. Items store the canonical marketplace URL. At Buy time the app
+          opens your preferred agent. Agents can be added without rewriting your shelf.
+        </p>
+      </details>
+      <details>
+        <summary>Is my data stored on Credenza servers?</summary>
+        <p>
+          The core shelf is local-first in the browser on your device. Optional cloud features are
+          labeled when enabled. You can export your haul as structured JSON.
+        </p>
+      </details>
+      <details>
+        <summary>Is Credenza a W2C or replica search site?</summary>
+        <p>
+          No. Credenza does not run a product catalog of branded counterfeits, best-batch
+          leaderboards, or paid seller rankings. You bring links from communities and stores you
+          already use.
+        </p>
+      </details>
+      <details>
+        <summary>How does Credenza make money?</summary>
+        <p>
+          Primarily through agent affiliate referral when you open Buy on a participating agent.
+          Optional Pro may unlock sync and workflow tools later. Credenza does not sell access to a
+          counterfeit product database.
+        </p>
+      </details>
+    </main>
+    <footer>
+      More detail in <a href="/how/">How it works</a>. Product strategy: agent handoff + decision layer.
+    </footer>
+  </body>
+</html>

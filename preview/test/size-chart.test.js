@@ -115,6 +115,23 @@ describe("recommendSize", () => {
     expect(rec.reason).toContain("96");
   });
 
+  it("offers the runner-up size as a fit-preference alternative", () => {
+    // target 108 → S exact (score 0), M (112) runner-up → roomier
+    const rec = recommendSize(shirtChart, { chest: 96 }, "shirt");
+    expect(rec.alt).toMatchObject({ size: "M", garment: 112, diff: 16, fit: "roomier" });
+    // body 98 + 12 = 110 → tie S(108)/M(112); both surface, alt is snugger/roomier
+    const tie = recommendSize(shirtChart, { chest: 98 }, "shirt");
+    expect(tie.alt).not.toBeNull();
+    expect(tie.alt.size).not.toBe(tie.size);
+  });
+
+  it("labels a smaller runner-up as snugger", () => {
+    // body 104 + 12 = 116 → L exact; M (112) runner-up → snugger
+    const rec = recommendSize(shirtChart, { chest: 104 }, "shirt");
+    expect(rec.size).toBe("L");
+    expect(rec.alt).toMatchObject({ size: "M", fit: "snugger" });
+  });
+
   it("uses wider ease for outerwear", () => {
     // body 96 + 16 ease = 112 target → M (112)
     const rec = recommendSize(shirtChart, { chest: 96 }, "outerwear");

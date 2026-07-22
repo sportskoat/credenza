@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How Credenza works · agent haul planner</title>
+    <meta
+      name="description"
+      content="Stash Weidian and Yupoo finds, pair photos with buy links, get a size recommendation, track QC, then open Buy in your preferred shopping agent. Credenza is the decision layer before the agent click."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="/how/" />
+    <meta property="og:title" content="How Credenza works" />
+    <meta
+      property="og:description"
+      content="One shelf for the whole haul: stash, size, QC, Buy via your agent."
+    />
+    <meta property="og:type" content="website" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Plan an agent haul with Credenza",
+        "description": "Turn Weidian, Yupoo, and Reddit finds into cards, pick a size, and open Buy in your shopping agent.",
+        "step": [
+          {
+            "@type": "HowToStep",
+            "position": 1,
+            "name": "Stash",
+            "text": "Paste a marketplace or album link (or a multi-URL line). Credenza pairs photos and buy URLs on one card."
+          },
+          {
+            "@type": "HowToStep",
+            "position": 2,
+            "name": "Review the card",
+            "text": "See cover photo, title, price, and seller in one place, not a spreadsheet row of raw URLs."
+          },
+          {
+            "@type": "HowToStep",
+            "position": 3,
+            "name": "Size with your body profile",
+            "text": "Save chest, waist, hip (in or cm). Paste or attach a size chart; Credenza recommends a size, including hip-only charts."
+          },
+          {
+            "@type": "HowToStep",
+            "position": 4,
+            "name": "Run the haul pipeline",
+            "text": "Track Want → Bought → QC → GL/RL → Shipped so the active haul stays clear."
+          },
+          {
+            "@type": "HowToStep",
+            "position": 5,
+            "name": "Open Buy in your agent",
+            "text": "One tap opens the canonical item in Superbuy, Sugargoo, Kakobuy, or your preferred agent. Credenza does not checkout for you."
+          }
+        ]
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        font-size: 0.75rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: var(--muted);
+        margin: 0 0 0.35rem;
+      }
+      .brand span {
+        font-weight: 600;
+        color: var(--ink);
+        letter-spacing: 0.18em;
+      }
+      .brand .sub {
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        text-transform: none;
+        margin-left: 0.35rem;
+        opacity: 0.85;
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .card p { margin: 0; color: var(--muted); }
+      .card .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand"><span>Credenza</span><span class="sub">Fashion</span></p>
+      <h1>How Credenza works</h1>
+      <p class="lede">
+        One shelf for the whole haul: stash finds, decide size, keep QC context,
+        open Buy in your preferred shopping agent.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <article class="card">
+        <span class="n">Step 1</span>
+        <h2>Stash the find</h2>
+        <p>
+          Paste a Weidian, Taobao, or Yupoo link, or a line with photos + buy URLs.
+          Credenza keeps them on <strong>one card</strong> so you are not juggling tabs and a spreadsheet.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Step 2</span>
+        <h2>See what you saved</h2>
+        <p>
+          Cover image, title, price, and seller in a quiet card. Flip for notes, status, and more photos.
+          The grid and the open card use the same mental model.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Step 3</span>
+        <h2>Size with confidence</h2>
+        <p>
+          Save a body profile (inches or cm). When a size chart is available (including hip-only
+          臀围 sheets), Credenza recommends a size and shows why.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Step 4</span>
+        <h2>Run the haul pipeline</h2>
+        <p>
+          Want → Bought → QC → GL / RL → Shipped. Status lives on the item so the active haul
+          stays legible when the warehouse photos land.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Step 5</span>
+        <h2>Open Buy in your agent</h2>
+        <p>
+          Items store the <strong>canonical</strong> marketplace URL. At Buy time, Credenza opens
+          Superbuy, Sugargoo, Kakobuy, or your preferred agent. Purchases happen there, not inside Credenza.
+        </p>
+      </article>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a W2C search engine.
+        You bring the links from communities and stores you already use.
+      </p>
+
+      <a class="cta" href="/">Open Credenza</a>
+      <p style="margin-top:1rem;font-size:0.95rem;color:var(--muted)">
+        Questions? See the <a href="/faq/">FAQ</a>.
+      </p>
+    </main>
+    <footer>
+      Credenza · international agent haul planner. Personal haul data stays yours.
+    </footer>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Heart, Moon, MoreHorizontal, Pen, Plus, Search, Sun, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Heart, Moon, MoreHorizontal, Pen, Plus, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -234,14 +234,6 @@ function priceLabelShort(item) {
   return "";
 }
 
-// Compact size run from resolved variants: "S · M · L" or "S–XXL · 6 sizes".
-function sizeRunLabel(item) {
-  const group = (item.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title));
-  if (!group || !group.values.length) return "";
-  if (group.values.length <= 4) return group.values.join(" · ");
-  return group.values[0] + "–" + group.values[group.values.length - 1] + " · " + group.values.length + " sizes";
-}
-
 // ═══ SIZE CHART PARSING & RECOMMENDATION (Kyle 2026-07-22) ═══
 // Charts arrive as free text — Yupoo album descriptions (stored in summary),
 // Weidian sizeNotes, or pasted notes. Two layouts dominate:
@@ -413,8 +405,9 @@ export function parseSizeChart(text) {
 // Pick a size from a parsed chart against a body profile (all cm; weight kg).
 // Tops → chest (+ease). Bottoms → waist, falling back to hip when the chart
 // only lists 臀围 (common Yupoo pants/shorts sheets). Outerwear gets more ease.
-// Returns { size, fitNote, reason, row, primaryKey, garment, body, diff }
-//   | { missing: "chest"|"waist"|"hip" } | null.
+// Returns { size, fitNote, reason, row, primaryKey, garment, body, diff,
+//   lengthCheck, alt } | { missing: "chest"|"waist"|"hip" } | null.
+// `alt` is the runner-up size (fit-preference alternative) or null.
 export function recommendSize(chart, profile, category) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
   const p = profile || {};
@@ -491,8 +484,11 @@ export function recommendSize(chart, profile, category) {
     }
     return s;
   };
-  let best = candidates[0];
-  for (const r of candidates) if (score(r) < score(best)) best = r;
+  // Score every row, not just the winner — the runner-up becomes the "also
+  // works" second option (snugger vs roomier) Kyle asked for.
+  const scored = candidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
+  const best = scored[0].row;
+  const runnerUp = scored.length > 1 ? scored[1].row : null;
 
   const fitNote =
     chart.runHint === "big"
@@ -505,9 +501,30 @@ export function recommendSize(chart, profile, category) {
   const garment = best[primaryKey];
   const body = p[bodyKey];
   const diff = garment - body;
+  // Secondary leg-length check on bottoms. Seller 裤长 is OUTSEAM (inseam +
+  // rise), so it never feeds the pick math — surfaced as info only.
+  const lengthCheck =
+    !isTop && best.pantsLength != null && p.inseam != null
+      ? { garment: best.pantsLength, body: p.inseam }
+      : null;
   const label = primaryKey === "waist" ? "Waist" : primaryKey === "hip" ? "Hip" : "Chest";
   const reason =
     label + " " + garment + "cm vs your " + body + "cm (" + (diff >= 0 ? "+" : "") + diff + "cm)";
+  // Second-best size as a fit-preference alternative: "L also works — snugger".
+  const alt =
+    runnerUp && runnerUp.size !== best.size
+      ? {
+          size: runnerUp.size,
+          garment: runnerUp[primaryKey],
+          diff: runnerUp[primaryKey] - body,
+          fit:
+            runnerUp[primaryKey] < garment
+              ? "snugger"
+              : runnerUp[primaryKey] > garment
+                ? "roomier"
+                : "same",
+        }
+      : null;
   return {
     size: best.size,
     fitNote,
@@ -518,6 +535,8 @@ export function recommendSize(chart, profile, category) {
     garment,
     body,
     diff,
+    lengthCheck,
+    alt,
   };
 }
 
@@ -570,6 +589,8 @@ const RESOLVE_ENDPOINT =
   (import.meta.env && import.meta.env.VITE_RESOLVE_ENDPOINT) || "/.netlify/functions/resolve";
 const YUPOO_ENDPOINT =
   (import.meta.env && import.meta.env.VITE_YUPOO_ENDPOINT) || "/.netlify/functions/yupoo";
+const CHART_VISION_ENDPOINT =
+  (import.meta.env && import.meta.env.VITE_CHART_VISION_ENDPOINT) || "/.netlify/functions/chart-vision";
 // Cloud actions are optional capabilities. A Vite value is only a feature flag,
 // never authentication; public enablement still requires deployment-level access.
 const CLOUD_ASK_ENABLED =
@@ -1952,6 +1973,39 @@ async function fetchYupooImages(albumUrl, { signal } = {}) {
   }
 }
 
+// Ask the vision function to read a size chart out of album PHOTOS — the
+// common Yupoo case where the chart exists only as a picture (Kyle's "the
+// chart is right there in the photos" report, 2026-07-22). Returns chart text
+// in the same format parseSizeChart reads, or null when nothing was found.
+async function fetchChartFromPhotos(imageUrls, { signal } = {}) {
+  if (!PREVIEW_SECRET) return null;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) return null;
+    signal.addEventListener("abort", abort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), 30000);
+  try {
+    const res = await fetch(CHART_VISION_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
+      body: JSON.stringify({ images: imageUrls }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.found || typeof data.chartText !== "string") return null;
+    return data.chartText.trim() || null;
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", abort);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ SCORING UTILITIES ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
@@ -2919,6 +2973,96 @@ function SellerLink({ item, className = "cz-seller-link", style }) {
   );
 }
 
+// Yupoo full album — quiet hyperlink under the seller (card back). Not an
+// action button: Kyle 2026-07-22 killed "More Photos" chrome in the Buy row.
+function AlbumLink({ item, className = "cz-album-quiet", style }) {
+  const href = item ? yupooAlbumUrl(item) : null;
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      style={style}
+      onClick={(e) => e.stopPropagation()}
+    >
+      Full Album
+    </a>
+  );
+}
+
+// Garment categories only — shoes/hats/bags etc. don't map body cm → letter size.
+// Declared here so resolveDisplaySize (and SizeRecommendation) can share it.
+const SIZE_PICK_SKIP_CATEGORIES = new Set(["shoes", "hat", "bag", "accessory", "socks"]);
+
+// Letter tokens → spoken labels for the card face (Kyle: "SIZE: LARGE", not bare "L").
+const SIZE_WORD_LABELS = {
+  xxs: "XX-Small",
+  xs: "X-Small",
+  s: "Small",
+  m: "Medium",
+  l: "Large",
+  xl: "X-Large",
+  xxl: "XX-Large",
+  "2xl": "XX-Large",
+  xxxl: "XXX-Large",
+  "3xl": "XXX-Large",
+  free: "Free size",
+  f: "Free size",
+  "均码": "Free size",
+  one: "One size",
+  os: "One size",
+};
+
+function formatSizeToken(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const key = s.toLowerCase().replace(/\s+/g, "");
+  if (SIZE_WORD_LABELS[key]) return SIZE_WORD_LABELS[key];
+  // Pants waist "32" / "W32" stays compact; letter-ish already handled.
+  if (/^w?\d{2}(\.\d)?$/i.test(s)) return s.toUpperCase().replace(/^w/i, "W");
+  return s.toUpperCase();
+}
+
+function computeRecommendedSize(item, bodyProfile) {
+  if (!item || !bodyProfile) return null;
+  if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
+  if (item.recommendedSize) return String(item.recommendedSize).trim() || null;
+  const chart = parseSizeChart(sizeChartTextFor(item));
+  const rec = chart ? recommendSize(chart, bodyProfile, item.category) : null;
+  return rec && rec.size ? String(rec.size).trim() : null;
+}
+
+// Card face / grid size line (Kyle 2026-07-22):
+//   chosen only     →  SIZE: LARGE
+//   rec only        →  SIZE: MEDIUM          (isRec)
+//   both, same      →  SIZE: LARGE
+//   both, differ    →  SIZE: LARGE (Rec M)
+function resolveDisplaySize(item, bodyProfile) {
+  if (!item) return { text: "", isRec: false };
+  const chosen = String(item.size || "").trim();
+  const rec = computeRecommendedSize(item, bodyProfile);
+  if (!chosen && !rec) return { text: "", isRec: false };
+
+  if (chosen && rec) {
+    const same = chosen.toLowerCase() === rec.toLowerCase();
+    if (same) {
+      return { text: "SIZE: " + formatSizeToken(chosen), isRec: true, size: chosen, rec };
+    }
+    return {
+      text: "SIZE: " + formatSizeToken(chosen) + " (Rec " + rec.toUpperCase() + ")",
+      isRec: true,
+      size: chosen,
+      rec,
+    };
+  }
+  if (chosen) {
+    return { text: "SIZE: " + formatSizeToken(chosen), isRec: false, size: chosen };
+  }
+  return { text: "SIZE: " + formatSizeToken(rec), isRec: true, size: rec, rec };
+}
+
 // findStatus pill. "pill" = standalone overlay chip with per-status colors;
 // "chip" = colored text riding a shared cz-meta-chip (card-back meta row).
 // "want" renders nothing anywhere — it's the default, not a fact worth space.
@@ -2945,7 +3089,9 @@ function StatusPill({ status, variant = "pill", className, style }) {
 // Price display. "overlay" = USD-first short pill pinned over a photo;
 // "hero" = full ¥+$ card-back hero; "meta" = inline full label in a text row.
 function PriceChip({ item, variant = "overlay", className, style }) {
-  const label = variant === "overlay" ? priceLabelShort(item) : priceLabel(item);
+  // Hero is USD-only (Kyle 2026-07-22: "remove the yen price, keep the
+  // dollar") — priceLabelShort is USD-first with a CNY fallback.
+  const label = variant === "meta" ? priceLabel(item) : priceLabelShort(item);
   if (!label) return null;
   if (variant === "hero") {
     return (
@@ -3470,11 +3616,20 @@ function ComboboxField({
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
+                // Keep Enter inside the combobox — do NOT bubble to the
+                // card-edit "Enter to save" handler (that closed the form
+                // before the size list could be used).
                 e.preventDefault();
+                e.stopPropagation();
                 pick(value);
               } else if (e.key === "ArrowDown") {
                 e.preventDefault();
+                e.stopPropagation();
                 openMenu();
+              } else if (e.key === "Escape" && open) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeMenu();
               }
             }}
             placeholder={creating ? "Name the new haul…" : placeholder}
@@ -3527,7 +3682,7 @@ function ComboboxField({
             top: menuBox.top,
             bottom: menuBox.bottom,
             maxHeight: menuBox.maxHeight,
-            zIndex: 80,
+            zIndex: 240,
           }}
         >
           {filtered.length === 0 && !showCreate && !addNewLabel && !showClear ? (
@@ -3940,30 +4095,35 @@ function EditPhotoTile({ src, index, isCover, onRemove }) {
     >
       <img src={src} alt={"Photo " + (index + 1)} draggable={false} />
       {isCover ? <span className="cz-edit-photo-cover-badge">Cover</span> : null}
-      <motion.button
-        type="button"
-        className="cz-edit-photo-delete"
-        aria-label={"Delete photo " + (index + 1)}
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove?.();
-        }}
-        onMouseEnter={() => setHovered(true)}
-        whileHover={reduced ? undefined : { scale: 1.06 }}
-        whileTap={reduced ? undefined : { scale: 0.94 }}
-      >
-        <motion.span
-          className="cz-edit-photo-delete-icon"
-          animate={
-            reduced || !hovered
-              ? { y: 0, rotate: 0 }
-              : { y: [0, -2, 0, -2, 0], rotate: [0, -10, 10, -10, 0] }
-          }
-          transition={{ duration: 0.4 }}
+      {/* No trash ON the cover photo (Kyle 2026-07-22: "what is this over the
+          cover photo"). Delete the cover by deleting it after another photo
+          takes over — non-cover tiles keep the quiet delete. */}
+      {isCover ? null : (
+        <motion.button
+          type="button"
+          className="cz-edit-photo-delete"
+          aria-label={"Delete photo " + (index + 1)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove?.();
+          }}
+          onMouseEnter={() => setHovered(true)}
+          whileHover={reduced ? undefined : { scale: 1.06 }}
+          whileTap={reduced ? undefined : { scale: 0.94 }}
         >
-          <Trash2 size={14} strokeWidth={2.2} aria-hidden="true" />
-        </motion.span>
-      </motion.button>
+          <motion.span
+            className="cz-edit-photo-delete-icon"
+            animate={
+              reduced || !hovered
+                ? { y: 0, rotate: 0 }
+                : { y: [0, -2, 0, -2, 0], rotate: [0, -10, 10, -10, 0] }
+            }
+            transition={{ duration: 0.4 }}
+          >
+            <Trash2 size={14} strokeWidth={2.2} aria-hidden="true" />
+          </motion.span>
+        </motion.button>
+      )}
     </div>
   );
 }
@@ -4185,15 +4345,24 @@ function linkButtons(item, opts = {}) {
 // ═══ GRID CARD (slim cover) ═══
 // Grid cards are covers only — photo, status, price, title, seller, summary,
 // heart. No flip, no inline expand, no edit form: tapping any card jumps to
-// Grid / multi-card preview. Same decision anatomy as the carousel front:
-// photo · price · heart · title · one linked seller · size · Buy.
-// No host/platform chrome up top (Kyle 2026-07-22: date + heart only).
-// No "Saved from …" summary — seller lives once under the title.
-function Card({ item, selected, onToggle, onToggleFavorite, onOpen, buyLabel, mode, phone = false }) {
+// Grid / multi-card preview (Kyle 2026-07-22 anatomy):
+// meta: seller left · date + heart right (never over the photo)
+// photo · price · title · recommended size · Buy
+function Card({
+  item,
+  selected,
+  onToggle,
+  onToggleFavorite,
+  onOpen,
+  buyLabel,
+  mode,
+  phone = false,
+  bodyProfile = null,
+}) {
   const reduced = usePrefersReducedMotion();
   const date = formatItemDate(item.createdAt);
   const buy = linkButtons(item, { buyLabel }).find((b) => b.role === "buy") || null;
-  const sizeLabel = item.recommendedSize || item.size || "";
+  const size = resolveDisplaySize(item, bodyProfile);
 
   return (
     <article
@@ -4216,10 +4385,24 @@ function Card({ item, selected, onToggle, onToggleFavorite, onOpen, buyLabel, mo
         }}
       >
         <div className="cz-card-body">
-          {/* Meta row: date left, heart right — NEVER over the photo. */}
           <div className="cz-card-meta-row">
-            <span className="cz-card-date">{date || " "}</span>
-            <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
+            <div className="cz-card-meta-left">
+              {item.seller ? (
+                <SellerLink
+                  item={item}
+                  className="cz-card-seller"
+                  style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }}
+                />
+              ) : (
+                <span className="cz-card-meta-empty" aria-hidden="true">
+                  &nbsp;
+                </span>
+              )}
+            </div>
+            <div className="cz-card-meta-right">
+              {date ? <span className="cz-card-date">{date}</span> : null}
+              <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
+            </div>
           </div>
 
           <button
@@ -4255,19 +4438,14 @@ function Card({ item, selected, onToggle, onToggleFavorite, onOpen, buyLabel, mo
             </div>
 
             <div className="cz-card-title">{item.title}</div>
-            {/* Reserved sub row — one linked seller, never host chrome. */}
-            <div className="cz-card-sub">
-              {item.seller ? (
-                <SellerLink item={item} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }} />
+            <div className={"cz-card-size-line" + (size.text ? "" : " is-empty")}>
+              {size.text ? (
+                <span className={"cz-card-size" + (size.isRec ? " is-rec" : "")}>{size.text}</span>
               ) : (
-                <span className="cz-card-sub-empty" aria-hidden="true">&nbsp;</span>
-              )}
-              {item.seller && sizeLabel ? <span className="cz-card-sub-dot"> · </span> : null}
-              {sizeLabel ? (
-                <span className="cz-card-size">
-                  {item.recommendedSize ? "Rec " + item.recommendedSize : item.size}
+                <span className="cz-card-sub-empty" aria-hidden="true">
+                  &nbsp;
                 </span>
-              ) : null}
+              )}
             </div>
           </button>
 
@@ -4335,24 +4513,68 @@ export function carouselLayerZ(cardCount, index, foreground) {
 // nothing (Kyle's "no values, no recommended size" report). If none parses,
 // offer a fetch that reads the Yupoo album description ("look somewhere else")
 // and caches whatever it finds back into sizeNotes so the next open is
-// instant. Garment categories only — shoes, hats, bags etc. don't map body cm
-// to a letter size.
-const SIZE_PICK_SKIP_CATEGORIES = new Set(["shoes", "hat", "bag", "accessory", "socks"]);
-
 // All the free-text fields a size chart can hide in, in priority order.
 export function sizeChartTextFor(item) {
   return [item.sizeNotes, item.summary, item.rawText, item.note].filter(Boolean).join("\n");
 }
 
-function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, onSaveEdit }) {
-  const [fetchState, setFetchState] = useState("idle"); // idle | loading | none
-  const [pasteOpen, setPasteOpen] = useState(false);
-  const [pasteDraft, setPasteDraft] = useState("");
+// Translated chart view (Kyle 2026-07-22: "clicking recommended size pulls up
+// the sizing sheet, or even a translation"). parseSizeChart already normalizes
+// Chinese labels into measure keys, so translation is just a header map.
+const MEASURE_COLS = [
+  ["chest", "Chest"],
+  ["shoulder", "Shoulder"],
+  ["sleeve", "Sleeve"],
+  ["waist", "Waist"],
+  ["hip", "Hip"],
+  ["pantsLength", "Pants length"],
+  ["length", "Length"],
+];
+
+function SizeChartTable({ chart, units, highlight, highlightAlt }) {
+  const cols = MEASURE_COLS.filter(([key]) => chart.rows.some((r) => r[key] != null));
+  return (
+    <table className="cz-size-chart-table">
+      <thead>
+        <tr>
+          <th scope="col">Size</th>
+          {cols.map(([key, label]) => (
+            <th scope="col" key={key}>{label}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {chart.rows.map((row) => (
+          <tr
+            key={row.size}
+            className={
+              row.size === highlight ? "is-rec" : row.size === highlightAlt ? "is-alt" : undefined
+            }
+          >
+            <th scope="row">{row.size}</th>
+            {cols.map(([key]) => (
+              <td key={key}>{row[key] != null ? formatMeasure(row[key], units) : "—"}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// Session-scoped guard: the silent chart hunt runs at most once per item per
+// session (one album-text attempt + one vision scan of the album photos).
+const chartAutoFetchTried = new Set();
+
+// Kyle 2026-07-22: "should just be a size recommendation" — NO buttons, no
+// empty states, no paste box. The box exists only when it has a pick. The
+// chart hunt runs silently in the background when the card back opens.
+function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = false, onSaveEdit }) {
+  const [chartOpen, setChartOpen] = useState(false);
   const skipped = SIZE_PICK_SKIP_CATEGORIES.has(item.category);
   const chart = skipped ? null : parseSizeChart(sizeChartTextFor(item));
   const rec = chart && bodyProfile ? recommendSize(chart, bodyProfile, item.category) : null;
   const recSize = rec && rec.size ? rec.size : null;
-  const available = sizeRunLabel(item);
   // Persist the pick so every surface agrees with this box — meta chips and
   // edit form read item.recommendedSize. Guarded: one write when it changes.
   useEffect(() => {
@@ -4360,180 +4582,122 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, on
       onSaveEdit(item.id, { recommendedSize: recSize });
     }
   }, [recSize, item.id, item.recommendedSize, onSaveEdit]);
-  if (skipped) return null;
 
-  const fetchChart = async () => {
+  // Silent chart hunt: album text first, then a vision scan of the album
+  // PHOTOS (where Yupoo charts actually live). Found charts land in sizeNotes
+  // and the pick simply appears — no "Find size chart" button anywhere.
+  // Body profile entry lives in the dock ⋯ menu; pasting a chart into Notes
+  // also works (sizeChartTextFor reads item.note).
+  useEffect(() => {
+    if (!sizeActive || skipped || chart) return;
     const album = yupooAlbumUrl(item);
-    if (!album) {
-      setFetchState("none");
-      return;
-    }
-    setFetchState("loading");
-    const data = await fetchYupooImages(album);
-    const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
-    if (text.trim() && parseSizeChart(text)) {
-      onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text.trim() });
-      setFetchState("idle");
-    } else {
-      setFetchState("none");
-    }
-  };
+    if (!album || chartAutoFetchTried.has(item.id)) return;
+    chartAutoFetchTried.add(item.id);
+    let cancelled = false;
+    (async () => {
+      const data = await fetchYupooImages(album);
+      if (cancelled) return;
+      const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
+      if (text.trim() && parseSizeChart(text)) {
+        onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text.trim() });
+        return;
+      }
+      const photos = (data && data.images) || [];
+      if (!photos.length) return;
+      // Charts are usually posted near the end of the album — tail-bias.
+      const chartText = await fetchChartFromPhotos(photos.slice(-10));
+      if (!cancelled && chartText && parseSizeChart(chartText)) {
+        onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sizeActive, skipped, chart, item, onSaveEdit]);
 
-  const savePastedChart = () => {
-    const text = pasteDraft.trim();
-    if (!text) return;
-    onSaveEdit(item.id, {
-      sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text,
-    });
-    setPasteDraft("");
-    setPasteOpen(false);
-    setFetchState("idle");
-  };
+  if (skipped || !rec || !rec.size) return null;
 
   // Recommended size missing from the seller's listed run is worth a warning.
   const runValues = ((item.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title)) || {}).values || [];
-  const inRun = rec && rec.size && runValues.length
+  const inRun = runValues.length
     ? runValues.some((v) => String(v).toUpperCase() === rec.size)
     : true;
 
   const measureLabel =
-    rec && rec.primaryKey === "waist" ? "Waist " : rec && rec.primaryKey === "hip" ? "Hip " : "Chest ";
+    rec.primaryKey === "waist" ? "Waist " : rec.primaryKey === "hip" ? "Hip " : "Chest ";
 
-  // Secondary facts that used to live in a separate "Sizes" bubble — keep them
-  // in THIS one block so the card never shows two size UIs.
-  const facts = [
-    item.size && !hasCjkText(item.size) ? ["Selected", item.size] : null,
-    item.posterSize && !hasCjkText(item.posterSize) ? ["Poster wore", item.posterSize] : null,
-    available && !hasCjkText(available) ? ["Available", available] : null,
-  ].filter(Boolean);
-
-  const factRows = facts.length ? (
-    <div className="cz-size-facts" style={{ marginTop: rec && rec.size ? 10 : 0 }}>
-      {facts.map(([label, value]) => (
-        <div className="cz-size-info-row" key={label}>
-          <span>{label}</span>
-          <strong>{value}</strong>
-        </div>
-      ))}
-    </div>
-  ) : null;
-
-  const box = (children) => (
+  return (
     <div className="cz-size-rec">
-      {children}
+      <div className="cz-size-rec-kicker">Your size</div>
+      <div className="cz-size-rec-line">
+        <button
+          type="button"
+          className="cz-size-rec-size cz-size-rec-size-btn"
+          aria-expanded={chartOpen}
+          title="Show the seller’s size chart"
+          onClick={(e) => {
+            e.stopPropagation();
+            setChartOpen((v) => !v);
+          }}
+        >
+          {rec.size}
+        </button>
+        {rec.fitNote && <span className="cz-size-rec-note">{rec.fitNote}</span>}
+      </div>
+      <div className="cz-size-rec-reason">
+        {measureLabel +
+          formatMeasure(rec.garment, units) +
+          " vs your " +
+          formatMeasure(rec.body, units) +
+          " (" + (rec.diff >= 0 ? "+" : "−") +
+          formatMeasure(Math.abs(rec.diff), units) + ")"}
+        {!inRun && (
+          <span className="cz-size-rec-warn">
+            {" "}· heads up: {rec.size} isn’t in this seller’s listed run ({runValues.join(" · ")})
+          </span>
+        )}
+      </div>
+      {rec.lengthCheck && (
+        <div className="cz-size-rec-reason">
+          {"Pants length " +
+            formatMeasure(rec.lengthCheck.garment, units) +
+            " (outseam) vs your " +
+            formatMeasure(rec.lengthCheck.body, units) +
+            " inseam"}
+        </div>
+      )}
+      {rec.alt && (
+        <div className="cz-size-rec-alt">
+          {rec.alt.size +
+            " also works — " +
+            measureLabel.toLowerCase() +
+            formatMeasure(rec.alt.garment, units) +
+            " (" +
+            (rec.alt.diff >= 0 ? "+" : "−") +
+            formatMeasure(Math.abs(rec.alt.diff), units) +
+            ")" +
+            (rec.alt.fit !== "same" ? ", " + rec.alt.fit + " fit" : "")}
+        </div>
+      )}
+      {chartOpen && (
+        <div className="cz-size-chart-wrap">
+          <SizeChartTable
+            chart={chart}
+            units={units}
+            highlight={rec.size}
+            highlightAlt={rec.alt && rec.alt.size}
+          />
+          {chart.runHint && (
+            <div className="cz-size-rec-reason">
+              {chart.runHint === "big"
+                ? "Seller says this runs big."
+                : chart.runHint === "small"
+                  ? "Seller says this runs small."
+                  : "Seller says this fits true to size."}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
-
-  if (rec && rec.size) {
-    return box(
-      <>
-        <div className="cz-size-rec-kicker">Your size</div>
-        <div className="cz-size-rec-line">
-          <span className="cz-size-rec-size">{rec.size}</span>
-          {rec.fitNote && <span className="cz-size-rec-note">{rec.fitNote}</span>}
-        </div>
-        <div className="cz-size-rec-reason">
-          {measureLabel +
-            formatMeasure(rec.garment, units) +
-            " vs your " +
-            formatMeasure(rec.body, units) +
-            " (" + (rec.diff >= 0 ? "+" : "−") +
-            formatMeasure(Math.abs(rec.diff), units) + ")"}
-          {!inRun && (
-            <span className="cz-size-rec-warn">
-              {" "}· heads up: {rec.size} isn’t in this seller’s listed run ({runValues.join(" · ")})
-            </span>
-          )}
-        </div>
-        {factRows}
-      </>
-    );
-  }
-
-  if (rec && rec.missing) {
-    return box(
-      <>
-        <div className="cz-size-rec-copy">
-          Size chart found — add your {rec.missing} to get a pick.
-        </div>
-        <Pill subtle onClick={onOpenProfile} style={{ marginTop: 8 }}>Add measurements</Pill>
-        {factRows}
-      </>
-    );
-  }
-
-  if (chart && !bodyProfile) {
-    return box(
-      <>
-        <div className="cz-size-rec-copy">
-          Size chart found — add your measurements and Credenza picks your size.
-        </div>
-        <Pill subtle onClick={onOpenProfile} style={{ marginTop: 8 }}>Add measurements</Pill>
-        {factRows}
-      </>
-    );
-  }
-
-  if (chart && bodyProfile && !rec) {
-    return box(
-      <>
-        <div className="cz-size-rec-copy">
-          Size chart found, but it doesn’t list enough chest/waist/hip measurements to make a pick.
-        </div>
-        {factRows}
-      </>
-    );
-  }
-
-  // No parseable chart — offer fetch + paste. Always show available run if we
-  // have one so the user isn't left with a dead empty panel.
-  if (!chart) {
-    const canFetch = yupooAlbumUrl(item);
-    return box(
-      <>
-        <div className="cz-size-rec-copy">
-          {fetchState === "none"
-            ? "Couldn’t find a chart in the album. Paste one below."
-            : "No size chart on file."}
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          {canFetch && fetchState !== "none" && (
-            <Pill subtle onClick={fetchChart} disabled={fetchState === "loading"}>
-              {fetchState === "loading" ? "Checking the album…" : "Find size chart"}
-            </Pill>
-          )}
-          <Pill subtle onClick={() => setPasteOpen((v) => !v)}>
-            {pasteOpen ? "Cancel" : "Paste chart"}
-          </Pill>
-          {onOpenProfile && (
-            <Pill subtle onClick={onOpenProfile}>Body profile</Pill>
-          )}
-        </div>
-        {pasteOpen && (
-          <div style={{ marginTop: 10 }}>
-            <textarea
-              className="cz-size-paste"
-              value={pasteDraft}
-              onChange={(e) => setPasteDraft(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-              placeholder={"S 100\nM 104\nL 108\n…or full chart text"}
-              rows={4}
-            />
-            <Pill primary onClick={savePastedChart} disabled={!pasteDraft.trim()} style={{ marginTop: 8 }}>
-              Save chart
-            </Pill>
-          </div>
-        )}
-        {factRows}
-      </>
-    );
-  }
-
-  return factRows ? box(factRows) : null;
-}
-
-function hasCjkText(s) {
-  return /[㐀-䶿一-鿿豈-﫿]/.test(String(s || ""));
 }
 
 // Body measurements — the input half of the size pick. Lives in prefs, edited
@@ -4550,6 +4714,7 @@ const BODY_PROFILE_FIELDS = [
   ["sleeve", "Arm length", "length", "62", "24.5"],
   ["waist", "Waist", "length", "80", "31.5"],
   ["hip", "Hip", "length", "98", "38.5"],
+  ["inseam", "Inseam (leg length)", "length", "81", "32"],
 ];
 
 function BodyProfileSheet({ value, units = "in", onSave, onChangeUnits, onClose }) {
@@ -4647,40 +4812,53 @@ function InfoBubble({ title, children, onClose }) {
 
 // Size facts live inside SizeRecommendation now — no second "Sizes" bubble.
 
-// Stacked corner fan that peels open on hover — the one photo-browse entry
-// point on every card back.
-function CardCornerFan({ item, images, onOpenPhotos, reduced, interactive = true }) {
+// Photo fan on the card back (Kyle 2026-07-22): keep the little-card fan
+// language — flat grid looked like a dump (size-chart cells etc.).
+// variant "roomy" = taller peels for the product sheet so the back isn't empty.
+// variant "compact" = original 80×60 stack (legacy / tight spots).
+// Tap opens the full-screen gallery. Carousel physics untouched.
+function CardCornerFan({
+  item,
+  images,
+  onOpenPhotos,
+  reduced,
+  interactive = true,
+  variant = "compact",
+}) {
+  const roomy = variant === "roomy";
+  const maxShow = roomy ? 6 : 4;
+  const cardW = roomy ? 88 : 60;
   const [isHovered, setIsHovered] = useState(false);
   const fanRef = useRef(null);
-  const [fanWidth, setFanWidth] = useState(284);
+  const [fanWidth, setFanWidth] = useState(roomy ? 320 : 284);
   useEffect(() => {
     const fan = fanRef.current;
     if (!fan) return;
-    const update = () => setFanWidth(fan.clientWidth || 284);
+    const update = () => setFanWidth(fan.clientWidth || (roomy ? 320 : 284));
     update();
     if (!window.ResizeObserver) return;
     const observer = new window.ResizeObserver(update);
     observer.observe(fan);
     return () => observer.disconnect();
-  }, []);
-  // Cover + 3 previews. The step contracts as needed so the fourth card never
-  // escapes a narrow back face. Card width is 60px (see .cz-corner-fan-card).
-  const displayed = images.slice(0, 4);
+  }, [roomy]);
+  const list = Array.isArray(images) ? images.filter(Boolean) : [];
+  const displayed = list.slice(0, maxShow);
   const total = displayed.length;
-  const spreadStep = total > 1 ? Math.min(66, Math.max(0, (fanWidth - 60) / (total - 1))) : 0;
+  const maxStep = roomy ? 78 : 66;
+  const spreadStep =
+    total > 1 ? Math.min(maxStep, Math.max(0, (fanWidth - cardW) / (total - 1))) : 0;
   if (total === 0) return null;
 
   const openGallery = (e) => {
-    // Side cards can still hold focus after a gallery close + scroll. Ignore
-    // keyboard/mouse open unless this fan belongs to the active center card.
     if (!interactive) return;
-    if (onOpenPhotos) onOpenPhotos(item, e.currentTarget);
+    e?.stopPropagation?.();
+    if (onOpenPhotos) onOpenPhotos(item, e?.currentTarget);
   };
 
   return (
     <div
       ref={fanRef}
-      className="cz-corner-fan"
+      className={"cz-corner-fan" + (roomy ? " is-roomy" : "")}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsHovered(true)}
@@ -4691,8 +4869,6 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced, interactive = true
       aria-label="Open photo gallery"
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
-          // Don't swallow Space on a side/stale fan — let the app flip the
-          // active card instead of reopening the previous card's photos.
           if (!interactive) return;
           e.preventDefault();
           openGallery(e);
@@ -4700,11 +4876,13 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced, interactive = true
       }}
     >
       {displayed.map((src, i) => {
-        // Cover photo (i = 0) stays put; the rest slide out to its right in a
-        // flat row on hover. Collapsed, they stack behind the cover.
-        const spread = isHovered;
-        const x = spread ? i * spreadStep : i * 2;
-        const angle = spread ? 0 : i * 1.5;
+        // Cover left; rest peel flat on hover. Roomy starts half-open so the
+        // tall product sheet already shows a fan, not a stacked stamp pile.
+        const hover = isHovered;
+        const restStep = roomy ? Math.min(spreadStep * 0.55, maxStep * 0.55) : 2;
+        const step = hover ? spreadStep : restStep;
+        const x = total <= 1 ? 0 : i * step;
+        const angle = hover ? 0 : roomy ? i * 1.1 : i * 1.5;
         return (
           <motion.div
             key={src + i}
@@ -4713,8 +4891,8 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced, interactive = true
               rotate: angle,
               x,
               y: 0,
-              scale: spread && i === 0 ? 1.04 : 1,
-              zIndex: 5 - i,
+              scale: hover && i === 0 ? 1.04 : 1,
+              zIndex: maxShow + 1 - i,
             }}
             transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 240, damping: 22 }}
             style={{ originX: 0.5, originY: 1 }}
@@ -4723,9 +4901,14 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced, interactive = true
           </motion.div>
         );
       })}
-      {images.length > 4 && (
-        <span className="cz-corner-fan-more">+{images.length - 4}</span>
+      {list.length > maxShow && (
+        <span className="cz-corner-fan-more">+{list.length - maxShow}</span>
       )}
+      {roomy && list.length > 1 ? (
+        <span className="cz-corner-fan-caption">
+          {list.length} photos · hover to fan · tap to browse
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -4746,113 +4929,138 @@ function ItemDetailBody({
   onOpenBubble,
   bodyProfile,
   measureUnits,
-  onOpenProfile,
   reduced,
   isCenter,
+  expanded,
 }) {
-  const hasChips =
-    item.findStatus !== "want" ||
+  // Size/color chips only — status + category are full pickers in the pipeline.
+  const hasFactChips =
     item.size ||
     item.posterSize ||
     item.recommendedSize ||
-    item.colorway ||
-    CATEGORIES[item.category];
+    item.colorway;
+  const buyButtons = linkButtons(item, { buyLabel }).filter((b) => b.role === "buy");
+  // Product-sheet order (Kyle 2026-07-22):
+  // head → identity → facts → context → size → PHOTOS (fills space) →
+  // pipeline (Want… / Shirts…) → Buy (pinned).
   return (
-    <>
-      <h3 className="cz-carousel-back-title">{item.title}</h3>
+    <div className="cz-product-sheet">
+      <header className="cz-sheet-head">
+        <h3 className="cz-carousel-back-title">{item.title}</h3>
+      </header>
 
-      {/* Product sheet: price is the secondary hero; seller is quiet. */}
-      <PriceChip item={item} variant="hero" />
-      <SellerLink item={item} className="cz-seller-quiet" />
-      {hasChips && (
-        <div className="cz-carousel-meta-chips">
-          <StatusPill status={item.findStatus} variant="chip" />
-          {item.size && <span className="cz-meta-chip">Size {item.size}</span>}
-          {item.posterSize && (
-            <span className="cz-meta-chip">Poster {item.posterSize}</span>
-          )}
-          {item.recommendedSize && (
-            <span className="cz-meta-chip">Rec {item.recommendedSize}</span>
-          )}
-          {item.colorway && (
-            <span className="cz-meta-chip">{item.colorway}</span>
-          )}
-          {CATEGORIES[item.category] && (
-            <span className="cz-meta-chip" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <span
-                aria-hidden="true"
-                style={{ width: 6, height: 6, borderRadius: 999, background: CATEGORIES[item.category].dot }}
-              />
-              {CATEGORIES[item.category].label}
-            </span>
-          )}
+      <section className="cz-sheet-section cz-sheet-identity" aria-label="Price and seller">
+        <PriceChip item={item} variant="hero" />
+        <div className="cz-seller-block">
+          <SellerLink item={item} className="cz-seller-quiet" />
+          <AlbumLink item={item} />
         </div>
+      </section>
+
+      {hasFactChips && (
+        <section className="cz-sheet-section cz-sheet-facts" aria-label="Item facts">
+          <div className="cz-carousel-meta-chips">
+            {item.size && (
+              <span className="cz-meta-chip">
+                SIZE: {formatSizeToken(item.size)}
+              </span>
+            )}
+            {item.posterSize && (
+              <span className="cz-meta-chip">Poster {item.posterSize}</span>
+            )}
+            {item.recommendedSize &&
+              String(item.recommendedSize).toLowerCase() !== String(item.size || "").toLowerCase() && (
+              <span className="cz-meta-chip">Rec {String(item.recommendedSize).toUpperCase()}</span>
+            )}
+            {item.colorway && (
+              <span className="cz-meta-chip">{item.colorway}</span>
+            )}
+          </div>
+        </section>
       )}
 
-      {/* Haul: quiet chip when assigned (product sheet); full accordion otherwise. */}
-      <div className="cz-carousel-haul-block" onClick={(e) => e.stopPropagation()}>
-        <CardBackHaulField
+      <section className="cz-sheet-section cz-sheet-context" aria-label="Haul and notes">
+        <div className="cz-carousel-haul-block" onClick={(e) => e.stopPropagation()}>
+          <CardBackHaulField
+            item={item}
+            knownHauls={knownHauls}
+            onSaveEdit={onSaveEdit}
+            compact
+          />
+        </div>
+        {item.note ? (
+          <div className="cz-carousel-note">
+            <span>Note</span>
+            <p>{item.note}</p>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="cz-sheet-section cz-sheet-size" aria-label="Size recommendation">
+        <SizeRecommendation
           item={item}
-          knownHauls={knownHauls}
+          bodyProfile={bodyProfile}
+          units={measureUnits}
+          sizeActive={!!(expanded && isCenter)}
           onSaveEdit={onSaveEdit}
-          compact
         />
-      </div>
-
-      {item.note && (
-        <div className="cz-carousel-note">
-          <span>Note</span>
-          <p>{item.note}</p>
-        </div>
-      )}
-
-      {/* The card back is the only detail surface, so the size pick lives
-          here — same spot on every item. */}
-      <SizeRecommendation
-        item={item}
-        bodyProfile={bodyProfile}
-        units={measureUnits}
-        onOpenProfile={onOpenProfile}
-        onSaveEdit={onSaveEdit}
-      />
+      </section>
 
       {galleryImages.length > 0 && (
-        <CardCornerFan
-          item={item}
-          images={galleryImages}
-          onOpenPhotos={onOpenPhotos}
-          reduced={reduced}
-          // Only the centered card may open photos via Space —
-          // stale focus on a previous fan reopened the wrong album.
-          interactive={isCenter}
-        />
+        <section className="cz-sheet-section cz-sheet-photos" aria-label="Photos">
+          {/* Roomy fan — same language as the little cards, just taller so the
+              tall product-sheet back isn't empty. Not a flat grid (Kyle). */}
+          <CardCornerFan
+            item={item}
+            images={galleryImages}
+            onOpenPhotos={onOpenPhotos}
+            reduced={reduced}
+            interactive={isCenter}
+            variant="roomy"
+          />
+        </section>
       )}
 
-      <div className="cz-carousel-actions">
-        {linkButtons(item, { buyLabel })
-          .map((button, index) => (
+      {/* Pipeline + category — same controls as edit, one-tap on the back face. */}
+      <section
+        className="cz-sheet-section cz-sheet-pipeline"
+        aria-label="Status and category"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="cz-sheet-pipeline-label">Status</div>
+        <StatusChips
+          value={item.findStatus || "want"}
+          onChange={(s) => onSaveEdit?.(item.id, { findStatus: s })}
+        />
+        <div className="cz-sheet-pipeline-label">Category</div>
+        <SegmentedControl
+          label="Category"
+          value={item.category || ""}
+          allowUnset
+          onChange={(v) => onSaveEdit?.(item.id, { category: v })}
+          options={Object.entries(CATEGORIES).map(([value, c]) => ({
+            value,
+            label: c.label,
+          }))}
+        />
+      </section>
+
+      {buyButtons.length > 0 && (
+        <div className="cz-carousel-actions cz-sheet-buy">
+          {buyButtons.map((button, index) => (
             <button
               key={button.url + index}
               type="button"
-              className={
-                button.role === "buy"
-                  ? "cz-buy-btn cz-border-beam cz-carousel-action-btn primary"
-                  : "cz-carousel-action-btn"
-              }
+              className="cz-buy-btn cz-border-beam cz-carousel-action-btn primary"
               onClick={() => onOpen(item, button.url)}
             >
-              {button.role === "buy" ? (
-                <>
-                  <span className="cz-buy-btn-label">{button.label}</span>
-                  <span className="cz-border-beam-glow" aria-hidden="true" />
-                </>
-              ) : (
-                button.label
-              )}
+              <span className="cz-buy-btn-label">{button.label}</span>
+              <span className="cz-border-beam-glow" aria-hidden="true" />
             </button>
           ))}
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -4878,7 +5086,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onScrollTo,
     bodyProfile,
     measureUnits,
-    onOpenProfile,
     reduced,
   },
   ref
@@ -4995,24 +5202,46 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     if (onDeactivate) onDeactivate();
   };
 
+  // Write-through commit — the edit form persists as you type, so leaving the
+  // screen (back chevron, outside click, flip) never loses notes.
+  const commitEditRef = useWriteThroughDraft(ed, (d) => onSaveEdit(item.id, buildEditPatch(d, item)));
+  // "Saved" holds the top-right slot (same size as Save) so ⋯/pen don't jump.
+  const [editSavedFlash, setEditSavedFlash] = useState(false);
+  const editSavedTimer = useRef(null);
+  useEffect(
+    () => () => {
+      if (editSavedTimer.current) clearTimeout(editSavedTimer.current);
+    },
+    []
+  );
+
   const discardEdit = useCallback(() => {
     // Write-through means there's nothing to discard — flush the last keystrokes.
+    // Leave via back chevron: no "Saved" hold — return ⋯/pen immediately.
     commitEditRef.current();
     setEditExitUp(false);
     setEditing(false);
     setEd(null);
-  }, []);
+    setEditSavedFlash(false);
+    if (editSavedTimer.current) {
+      clearTimeout(editSavedTimer.current);
+      editSavedTimer.current = null;
+    }
+  }, [commitEditRef]);
 
-  // Check-button save: same commit as the back chevron, but the edit sheet
-  // leaves the way it came in (back up) instead of dropping down. flushSync
-  // commits the direction first so the exiting sheet picks up the up-exit
-  // prop in its last render before AnimatePresence removes it.
+  // Save: commit, slide edit sheet up, keep the TOP-RIGHT slot as a green
+  // "Saved" pill (same size as Save) so ⋯/pen don't slam in and jump the
+  // header. After a short beat, crossfade to the detail tools.
+  // Enter uses this same path (handleEditKeyDown).
   const saveEditAndClose = useCallback(() => {
     commitEditRef.current();
     flushSync(() => setEditExitUp(true));
     setEditing(false);
     setEd(null);
-  }, []);
+    setEditSavedFlash(true);
+    if (editSavedTimer.current) clearTimeout(editSavedTimer.current);
+    editSavedTimer.current = setTimeout(() => setEditSavedFlash(false), 900);
+  }, [commitEditRef]);
 
   const closeActions = useCallback(() => {
     setBackView("details");
@@ -5080,17 +5309,41 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     setBubble({ key, title, content });
   };
 
-  // Write-through commit — the edit form persists as you type, so leaving the
-  // screen (back chevron, outside click, flip) never loses notes.
-  const commitEditRef = useWriteThroughDraft(ed, (d) => onSaveEdit(item.id, buildEditPatch(d, item)));
-
   const startEdit = () => {
     setEd(buildEditDraft(item));
     setBubble(null);
     setBackView("details");
     setEditExitUp(false);
+    setEditSavedFlash(false);
+    if (editSavedTimer.current) {
+      clearTimeout(editSavedTimer.current);
+      editSavedTimer.current = null;
+    }
     setEditing(true);
   };
+
+  // Enter saves from any plain field. Capture phase on the edit shell so it
+  // always fires; skip open comboboxes (size picker) and bare textarea newlines.
+  const handleEditKeyDown = useCallback(
+    (e) => {
+      if (!editing) return;
+      if (e.key !== "Enter") return;
+      const t = e.target;
+      if (!t) return;
+      // Size / haul combobox owns Enter while its menu is active.
+      if (t.closest?.(".cz-combobox, .cz-combobox-menu, [role='listbox']")) return;
+      if (t.getAttribute?.("role") === "combobox") return;
+      const tag = (t.tagName || "").toUpperCase();
+      if (tag === "TEXTAREA" && !(e.metaKey || e.ctrlKey)) return;
+      // Don't steal Enter from chip/segment buttons (they toggle selection).
+      if (tag === "BUTTON") return;
+      if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return;
+      e.preventDefault();
+      e.stopPropagation();
+      saveEditAndClose();
+    },
+    [editing, saveEditAndClose]
+  );
 
   const galleryImages = itemPhotoList(item);
   const knownHauls = Array.from(
@@ -5178,8 +5431,8 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
             <PriceChip item={item} variant="overlay" />
           </div>
           <div className="cz-carousel-front-meta">
-            {/* Rhythm: title → seller 6px → Buy 16px → Flip pinned bottom.
-                No READ/Yupoo chrome. Buy + flip only on the centered card. */}
+            {/* Rhythm: title → seller · Rec size → Buy → Flip.
+                Size is live from chart + body when stored rec is empty. */}
             <h3 className="cz-carousel-title">{item.title}</h3>
             <div className="cz-carousel-sub">
               {item.seller ? (
@@ -5189,14 +5442,18 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                   &nbsp;
                 </span>
               )}
-              {(item.recommendedSize || item.size) ? (
-                <>
-                  {item.seller ? " · " : null}
-                  <span className="cz-carousel-size">
-                    {item.recommendedSize ? "Rec " + item.recommendedSize : item.size}
-                  </span>
-                </>
-              ) : null}
+              {(() => {
+                const size = resolveDisplaySize(item, bodyProfile);
+                if (!size.text) return null;
+                return (
+                  <>
+                    {item.seller ? " · " : null}
+                    <span className={"cz-carousel-size" + (size.isRec ? " is-rec" : "")}>
+                      {size.text}
+                    </span>
+                  </>
+                );
+              })()}
             </div>
             {(() => {
               const buy = linkButtons(item, { buyLabel }).find((b) => b.role === "buy");
@@ -5217,9 +5474,32 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               );
             })()}
             {isCenter && (
-              <div className="cz-flip-cue" aria-hidden="true">
+              /* Unboxed cue (Kyle 2026-07-22): text + rotating icon, no pill
+                 chrome — the Buy button owns the only boxed/beam look. It's a
+                 real button that runs the same activate() as the face tap. */
+              <motion.button
+                type="button"
+                className="cz-flip-cue"
+                aria-label="Flip card for details"
+                initial="rest"
+                animate="rest"
+                whileHover="hover"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  activate();
+                }}
+              >
+                <motion.span
+                  className="cz-flip-cue-icon"
+                  variants={{ rest: { rotate: 0 }, hover: { rotate: 180 } }}
+                  transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 400, damping: 25 }}
+                  aria-hidden="true"
+                >
+                  <RefreshCw size={13} />
+                </motion.span>
                 <span className="cz-flip-cue-label">Flip for more</span>
-              </div>
+              </motion.button>
             )}
           </div>
         </div>
@@ -5230,9 +5510,12 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
           <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
         )}
 
-        {/* Back-face content is inert for dismissal; only an exact outside-card
-            click or an explicit navigation control removes one layer. */}
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- propagation boundary, not a control */}
+        {/* Back-face clicks: interactive elements keep their own behavior and
+            stay inert for navigation; INERT whitespace in details mode flips
+            the card back to its front (Kyle 2026-07-22 — supersedes the old
+            "all inside clicks are inert" contract). Edit/actions/bubble
+            layers keep clicks inert so a stray tap never exits them. */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- flip-back affordance, keyboard uses the header back control */}
         <div
           className="cz-carousel-face cz-carousel-back"
           style={{ visibility: flipped || !frontFacing ? "visible" : "hidden" }}
@@ -5243,6 +5526,11 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               return;
             }
             e.stopPropagation();
+            if (!flipped || editing || backView !== "details" || bubble) return;
+            if (e.target.closest("a, button, input, textarea, select, label, [role='button'], [contenteditable], dialog, img, .cz-corner-fan, .cz-photo-strip, .cz-sheet-pipeline")) return;
+            const sel = window.getSelection?.();
+            if (sel && !sel.isCollapsed) return;
+            deactivate();
           }}
         >
           <div
@@ -5277,45 +5565,83 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               <ChevronLeft aria-hidden="true" size={20} strokeWidth={2.2} />
             </button>
             <span className="cz-carousel-back-spacer" aria-hidden="true" />
-            {editing ? (
-              <div className="cz-carousel-back-actions">
-                {/* Reverse of the detail view's pen→check morph: check is idle,
-                    pen peeks in on hover. Saves + slides the sheet back up. */}
-                <MorphButton
-                  iconOnly
-                  icon={Check}
-                  activeIcon={Pen}
-                  onClick={saveEditAndClose}
-                  ariaLabel="Save changes"
-                  title="Save changes"
-                  className="cz-card-edit-morph cz-card-save-check"
-                />
-              </div>
-            ) : backView === "details" && (
-              <div className="cz-carousel-back-actions">
-                <button
-                  type="button"
-                  className={"cz-icon-button cz-card-menu-trigger" + (backView !== "details" ? " is-open" : "")}
-                  aria-label="Card actions"
-                  aria-expanded={false}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openActions();
-                  }}
-                >
-                  <MoreHorizontal aria-hidden="true" size={20} strokeWidth={2.2} />
-                </button>
-                <MorphButton
-                  iconOnly
-                  icon={Pen}
-                  activeIcon={Check}
-                  onClick={startEdit}
-                  ariaLabel="Edit card"
-                  title="Edit"
-                  className="cz-card-edit-morph"
-                />
-              </div>
-            )}
+            {/* Fixed-width actions slot: Save → Saved → ⋯/pen crossfade.
+                Never inserts a second row (that caused the header jump). */}
+            <div className="cz-carousel-back-actions">
+              <AnimatePresence mode="wait" initial={false}>
+                {editing ? (
+                  <motion.div
+                    key="save"
+                    className="cz-back-actions-slot"
+                    initial={reduced ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={reduced ? undefined : { opacity: 0 }}
+                    transition={{ duration: reduced ? 0 : 0.16 }}
+                  >
+                    <button
+                      type="button"
+                      className="cz-card-save-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        saveEditAndClose();
+                      }}
+                      aria-label="Save changes"
+                      title="Save (Enter)"
+                    >
+                      <Check aria-hidden="true" size={16} strokeWidth={2.4} />
+                      <span>Save</span>
+                    </button>
+                  </motion.div>
+                ) : editSavedFlash ? (
+                  <motion.div
+                    key="saved"
+                    className="cz-back-actions-slot"
+                    initial={reduced ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={reduced ? undefined : { opacity: 0 }}
+                    transition={{ duration: reduced ? 0 : 0.18 }}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span className="cz-card-save-btn is-saved">
+                      <Check aria-hidden="true" size={16} strokeWidth={2.4} />
+                      <span>Saved</span>
+                    </span>
+                  </motion.div>
+                ) : backView === "details" ? (
+                  <motion.div
+                    key="tools"
+                    className="cz-back-actions-slot"
+                    initial={reduced ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={reduced ? undefined : { opacity: 0 }}
+                    transition={{ duration: reduced ? 0 : 0.16 }}
+                  >
+                    <button
+                      type="button"
+                      className={"cz-icon-button cz-card-menu-trigger" + (backView !== "details" ? " is-open" : "")}
+                      aria-label="Card actions"
+                      aria-expanded={false}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openActions();
+                      }}
+                    >
+                      <MoreHorizontal aria-hidden="true" size={20} strokeWidth={2.2} />
+                    </button>
+                    <MorphButton
+                      iconOnly
+                      icon={Pen}
+                      activeIcon={Check}
+                      onClick={startEdit}
+                      ariaLabel="Edit card"
+                      title="Edit"
+                      className="cz-card-edit-morph"
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Edit slides in from above — the reverse of the content below it. */}
@@ -5324,10 +5650,11 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
             <motion.div
               key="edit"
               className="cz-carousel-edit-shell"
-              initial={reduced ? false : { opacity: 0, y: -14 }}
+              initial={reduced ? false : { opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={reduced ? undefined : { opacity: 0, y: editExitUp ? -14 : 10 }}
-              transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
+              exit={reduced ? undefined : { opacity: 0, y: editExitUp ? -10 : 8 }}
+              transition={reduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              onKeyDownCapture={handleEditKeyDown}
             >
             <ItemEditForm
               item={item}
@@ -5337,6 +5664,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               onAttachPhoto={onAttachPhoto}
               onRemovePhoto={onRemovePhoto}
             />
+            <p className="cz-edit-save-hint">Enter to save · Esc to close</p>
             </motion.div>
           ) : (
             <motion.div
@@ -5472,9 +5800,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                       onOpenBubble={openBubble}
                       bodyProfile={bodyProfile}
                       measureUnits={measureUnits}
-                      onOpenProfile={onOpenProfile}
                       reduced={reduced}
                       isCenter={isCenter}
+                      expanded={expanded}
                     />
 
                     {/* The exit is fully CSS-driven (see closeBubble): the shell
@@ -5530,7 +5858,6 @@ function CoverFlowCarousel({
   onSelect,
   bodyProfile,
   measureUnits,
-  onOpenProfile,
   // When true, skip CoverFlow springs so a haul morph can hand off silently.
   suppressMotion = false,
 }) {
@@ -5796,9 +6123,10 @@ function CoverFlowCarousel({
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
     if (event.target?.isContentEditable) return;
-    // Gallery owns Escape while open; layered card dismiss is handled by the
-    // capture-phase window listener so it still works when focus is elsewhere.
+    // Gallery owns its keys while open: Escape (below) AND arrows — keydowns
+    // from the dialog's focused button bubble through this container.
     if (event.key === "Escape") return;
+    if (document.querySelector("dialog[open]")) return;
     if (suppressMotion) return;
     if (event.key === "ArrowLeft") {
       event.preventDefault();
@@ -5820,7 +6148,9 @@ function CoverFlowCarousel({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
       if (event.target?.isContentEditable) return;
-      if (document.querySelector('[role="dialog"][aria-label="Album photo preview"]')) return;
+      // Gallery owns arrows while open. NOTE: <dialog> has no role ATTRIBUTE,
+      // so [role="dialog"] selectors never match it — must select dialog[open].
+      if (document.querySelector("dialog[open]")) return;
       if (suppressMotion) return;
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       // Don't double-fire if the carousel element itself is already handling it.
@@ -5881,6 +6211,10 @@ function CoverFlowCarousel({
     const STEP_THRESHOLD = 36;
     const LOCK_MS = 280;
     const onWheel = (event) => {
+      // Off-card wheel belongs to the PAGE, not the carousel (Kyle 2026-07-22:
+      // the full-width track hijacked every scroll that passed over it). No
+      // preventDefault here — the gesture falls through to normal page scroll.
+      if (!event.target.closest?.(".cz-carousel-card")) return;
       // Wheel over a flipped card's scrollable content must scroll that
       // content, not page the carousel — never preventDefault there.
       if (event.target.closest?.(".cz-carousel-back-content, .cz-carousel-edit, .cz-carousel-edit-shell, .cz-card-actions-panel, .cz-card-haul-field")) return;
@@ -6103,7 +6437,6 @@ function CoverFlowCarousel({
                   }}
                   bodyProfile={bodyProfile}
                   measureUnits={measureUnits}
-                  onOpenProfile={onOpenProfile}
                   reduced={reduced}
                 />
               </motion.div>
@@ -8372,11 +8705,15 @@ export default function Credenza() {
     [totalsItems, itemUsd]
   );
   // Same context for the count chip — one consistent spot next to the total.
+  // Starred filter MUST show through here: "18 saved" next to 6 visible cards
+  // read as lost data (Kyle 2026-07-22: "why is there less than what's saved").
   const totalCountLabel = openHaulName
     ? totalsItems.length + (totalsItems.length === 1 ? " item" : " items")
     : q
       ? visible.length + " found"
-      : shelfAll.length + " saved";
+      : sortMode === "starred"
+        ? totalsItems.length + " starred of " + shelfAll.length + " saved"
+        : shelfAll.length + " saved";
 
   const closeHaul = useCallback(() => {
     if (!activeHaul) return;
@@ -8446,7 +8783,8 @@ export default function Credenza() {
     const onKey = (e) => {
       if (e.defaultPrevented) return;
       // Let the full-screen photo gallery own its own keyboard navigation.
-      if (document.querySelector('[role="dialog"][aria-label="Album photo preview"]')) return;
+      // (Attribute selector [role="dialog"] can't match a native <dialog>.)
+      if (document.querySelector("dialog[open]")) return;
       const ctx = kb.current;
       if (e.metaKey || e.ctrlKey) {
         if (ctx.digest || ctx.importOpen || ctx.agentSheetOpen) return;
@@ -8638,6 +8976,7 @@ export default function Credenza() {
         buyLabel={buyLabel}
         phone={isPhone}
         mode={mode}
+        bodyProfile={bodyProfile}
       />
     </div>
   );
@@ -8772,7 +9111,6 @@ export default function Credenza() {
       onSelect={setSelectedId}
       bodyProfile={bodyProfile}
       measureUnits={measureUnits}
-      onOpenProfile={() => setProfileSheetOpen(true)}
     />
   );
   const carouselElement = renderCarousel(listItems);

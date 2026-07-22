@@ -54,9 +54,10 @@ diff against `08f48c2` and re-read this file before rewriting anything.
 | Click settled center card | Flips to back face |
 | Click outside the active card | Moves back exactly one layer: close info bubble → commit edit draft (write-through) and return to details → unflip to the front |
 | Escape | Uses the same one-layer priority; the photo gallery owns Escape while open |
-| Click inside back/edit content | Does not dismiss the current layer unless an explicit control is used |
+| Click inside back/edit content | **Interactive elements** (links, buttons, fields, images, corner fan) never dismiss a layer; **inert whitespace on the back face in details mode flips the card back to the front** (Kyle, 2026-07-22, overrides the old all-inside-clicks-inert rule). Guards: edit mode, size bubble, an active text selection, and drag-release all bail; the click target check excludes `a, button, input, textarea, select, label, [role='button'], [contenteditable], dialog, img, .cz-corner-fan`. |
 | ArrowLeft / ArrowRight | Global (no focus needed), one card per press mid-shelf. **Wrap around** (front ↔ back of rack) is two-step: first press/swipe rubber-bands with a short edge nudge, second within ~900 ms commits the wrap. Same for chevrons / wheel / pan at the ends. |
 | Trackpad wheel (either axis) | Accumulates deltas; steps **one** card as soon as |acc| crosses ~36, then **locks ~280 ms** so the gesture tail cannot multi-page while springs settle. Partial gestures that never cross the threshold clear after 140 ms quiet. |
+| Wheel **off** any card (gaps between cards, stage padding) | Falls through to the page — the handler's first bail is `!event.target.closest(".cz-carousel-card")`, so off-card scrolling scrolls the shelf page, not the carousel (Kyle, 2026-07-22). On-card wheel still steps the carousel. |
 | Wheel over flipped card's content (`.cz-carousel-back-content` / `.cz-carousel-edit`) | Scrolls that content — the carousel wheel handler bails out for those targets, never `preventDefault`s there |
 | Mouse/pen drag | Pans; release past 25% width or velocity 500 advances; small movements (≤4 px, ≤50 v) still count as clicks |
 | Drag then release over card | Flip suppressed via `container.dataset.dragging` |

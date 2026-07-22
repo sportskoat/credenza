@@ -676,6 +676,124 @@
   grid-column: 1 / -1;
 }
 
+/* Kill the old animated gradient fill when Buy uses shared .cz-buy-btn geometry
+   (Kyle 2026-07-22: no weird gradient on back-face Buy). Solid ink + beam only. */
+.cz-carousel-action-btn.primary.cz-buy-btn {
+  background: var(--cz-ink);
+  background-image: none;
+  animation: none;
+  color: var(--cz-card-solid);
+  box-shadow: none;
+  filter: none;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 16px;
+}
+.cz-app[data-fashion="true"][data-theme="light"] .cz-carousel-action-btn.primary.cz-buy-btn {
+  background: var(--cz-ink);
+  color: #fff;
+}
+.cz-carousel-action-btn.primary.cz-buy-btn:hover {
+  opacity: 0.94;
+  transform: none;
+  box-shadow: none;
+  animation: none;
+}
+.cz-carousel-action-btn.primary.cz-buy-btn:active {
+  transform: scale(0.98);
+  box-shadow: none;
+}
+
+/* Seller + Full Album — one identity block under price. */
+.cz-seller-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+.cz-seller-block .cz-seller-quiet {
+  margin: 0;
+}
+.cz-album-quiet {
+  display: inline-block;
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--cz-ink) 68%, transparent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--cz-ink) 32%, transparent);
+  text-underline-offset: 2px;
+}
+.cz-album-quiet:hover {
+  color: var(--cz-ink);
+  text-decoration-color: var(--cz-ink);
+}
+
+/* Fixed-footprint slot: Save ↔ Saved ↔ ⋯/pen (paired with .cz-carousel-back-actions). */
+.cz-back-actions-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 92px;
+  min-height: 40px;
+}
+
+/* Edit header Save — same box as Saved confirmation (no second-row flash). */
+.cz-card-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 36px;
+  min-width: 88px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-ink);
+  color: var(--cz-card-solid);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: background 160ms var(--ease-out), color 160ms var(--ease-out), opacity 140ms var(--ease-out);
+}
+.cz-app[data-fashion="true"][data-theme="light"] .cz-card-save-btn {
+  color: #fff;
+}
+.cz-card-save-btn:hover {
+  opacity: 0.92;
+}
+.cz-card-save-btn:active {
+  transform: scale(0.97);
+}
+/* Saved stays in the same pill — no bar drop-in that shoves ⋯/pen. */
+.cz-card-save-btn.is-saved {
+  background: color-mix(in srgb, var(--cz-money, #4ade80) 20%, var(--cz-card-solid));
+  color: var(--cz-money, #4ade80);
+  cursor: default;
+  pointer-events: none;
+  opacity: 1;
+}
+.cz-edit-save-hint {
+  margin: 10px 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--cz-faint);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.cz-carousel-size.is-rec {
+  font-weight: 650;
+  color: color-mix(in srgb, var(--cz-ink) 78%, var(--cz-money, #4ade80) 22%);
+}
+
 .cz-carousel-sub-empty {
   visibility: hidden;
 }
@@ -739,12 +857,17 @@
   min-width: 0;
 }
 
+/* Fixed footprint so Save ↔ Saved ↔ ⋯/pen never reflows the header. */
 .cz-carousel-back-actions {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
   justify-self: end;
+  min-width: 92px;
+  min-height: 40px;
+  height: 40px;
+  position: relative;
 }
 
 .cz-card-menu-trigger {
@@ -1014,11 +1137,20 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   z-index: 1;
-  /* Side inset for focus rings; bottom clears the Buy pill inside overflow:hidden. */
-  padding: 2px 6px 6px;
+  /* Flex column so product-sheet can pin Buy to the bottom of tall backs. */
+  display: flex;
+  flex-direction: column;
+  /* Balanced inset — same left/right so content doesn't hug one edge. */
+  padding: 4px 10px 10px;
   /* Keep scroll; hide the ugly gutter bar. */
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.cz-carousel-back-content > .cz-card-details-panel--sheet,
+.cz-carousel-back-content > .cz-product-sheet {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .cz-carousel-back-content::-webkit-scrollbar {
@@ -1028,27 +1160,135 @@
 }
 
 .cz-carousel-back-title {
-  margin: 0 0 8px;
+  margin: 0;
   font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--cz-ink);
-  line-height: 1.15;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 
-/* ── Product-sheet hierarchy (CARD_BACK_PRODUCT_SHEET) ── */
+/* ── Product-sheet hierarchy (CARD_BACK_PRODUCT_SHEET) ──
+   Even vertical rhythm so content doesn't left-dump as a pile.
+   Section gap is fixed; empty sections collapse (display:none when no kids). */
+.cz-product-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  gap: 0;
+}
+
+.cz-sheet-head {
+  margin: 0 0 12px;
+  min-width: 0;
+}
+
+.cz-sheet-section {
+  margin: 0 0 14px;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Collapse empty size section so gap doesn't leave a hole when no rec. */
+.cz-sheet-size:empty,
+.cz-sheet-size:not(:has(*)) {
+  display: none;
+  margin: 0;
+}
+
+.cz-sheet-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-sheet-facts {
+  margin-bottom: 14px;
+}
+
+.cz-sheet-context {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* Photos on product sheet: roomy fan (same language as little cards). */
+.cz-sheet-photos {
+  flex: 0 0 auto;
+  min-height: 0;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Status + category pickers above Buy (no need to enter edit). */
+.cz-sheet-pipeline {
+  flex-shrink: 0;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.cz-sheet-pipeline-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 4px 0 0;
+}
+.cz-sheet-pipeline-label:first-child {
+  margin-top: 0;
+}
+/* Compact chips on the dark card face */
+.cz-sheet-pipeline .cz-chip {
+  font-size: 11px !important;
+  padding: 6px 8px !important;
+  min-height: 32px;
+}
+
+/* Buy rides the bottom of the sheet — breathing room above, never mid-pile. */
+.cz-sheet-buy.cz-carousel-actions {
+  margin-top: 12px;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.cz-card-details-panel--sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
 .cz-card-details-panel--sheet .cz-carousel-back-title {
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 
 .cz-carousel-price-hero {
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 750;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--cz-money, #4ade80);
-  line-height: 1.15;
-  margin: 0 0 4px;
+  line-height: 1.1;
+  margin: 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1056,7 +1296,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin: 0 0 8px;
+  margin: 0;
   max-width: 100%;
   font-size: 12.5px;
   font-weight: 650;
@@ -1095,7 +1335,8 @@ a.cz-seller-quiet:focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 0 0 8px;
+  margin: 0;
+  width: 100%;
 }
 
 .cz-meta-chip {
@@ -1196,11 +1437,13 @@ a.cz-seller-quiet:focus-visible {
 }
 
 .cz-carousel-note {
-  margin-bottom: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
   background: var(--cz-seg);
   border: 1px solid var(--cz-hair);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .cz-carousel-note span {
@@ -1256,14 +1499,14 @@ a.cz-seller-quiet:focus-visible {
 
 .cz-carousel-actions {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 6px;
-  /* Comfortable breath under the photo fan — not pinned, not a void. */
+  /* Sheet Buy uses margin-top:auto; non-sheet fallback still has breath. */
   margin-top: 14px;
   padding-top: 0;
-  /* Keep the full pill (incl. shadow) inside the overflow:hidden face. */
   padding-bottom: 2px;
   flex-shrink: 0;
+  width: 100%;
 }
 
 .cz-carousel-action-btn {
@@ -1366,11 +1609,13 @@ a.cz-seller-quiet:focus-visible {
 /* One size block on the card back — recommendation + available run.
    The old separate "Sizes" bubble is gone (Kyle 2026-07-22). */
 .cz-size-rec {
-  margin-top: 12px;
+  margin: 0;
   padding: 12px 14px;
   border: 1px solid var(--cz-hair);
   border-radius: 14px;
   background: var(--cz-bg);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .cz-size-rec-kicker {
@@ -1403,8 +1648,7 @@ a.cz-seller-quiet:focus-visible {
   color: var(--cz-money, #4ade80);
 }
 
-.cz-size-rec-reason,
-.cz-size-rec-copy {
+.cz-size-rec-reason {
   font-size: 12.5px;
   color: var(--cz-sub);
   margin-top: 4px;
@@ -1412,55 +1656,95 @@ a.cz-seller-quiet:focus-visible {
   font-weight: 600;
 }
 
-.cz-size-rec-copy {
-  color: var(--cz-ink);
-}
-
 .cz-size-rec-warn {
   color: var(--cz-error-text);
 }
 
-.cz-size-facts {
-  display: grid;
-  gap: 6px;
-  padding-top: 8px;
-  border-top: 1px solid var(--cz-hair);
+/* The recommended size is a button — tapping it opens the translated seller
+   chart below (Kyle 2026-07-22). Looks like the plain serif size, gains an
+   underline affordance + focus ring so it reads as tappable. */
+.cz-size-rec-size-btn {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0 1px;
+  margin: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 5px;
+  text-decoration-color: var(--cz-faint);
+  border-radius: 4px;
+  transition: text-decoration-color 0.15s ease;
 }
 
-.cz-size-info-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+.cz-size-rec-size-btn:hover {
+  text-decoration-color: var(--cz-ink);
 }
 
-.cz-size-info-row span {
-  color: var(--cz-faint);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.cz-size-rec-size-btn:focus-visible {
+  outline: 2px solid var(--cz-accent, #7dd3fc);
+  outline-offset: 3px;
 }
 
-.cz-size-info-row strong {
-  color: var(--cz-ink);
+/* Translated seller chart, revealed under the size box. */
+.cz-size-chart-wrap {
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.cz-size-chart-table {
+  border-collapse: collapse;
   font-size: 12px;
-  text-align: right;
+  color: var(--cz-ink);
+  min-width: 100%;
 }
 
-.cz-size-paste {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 88px;
-  resize: vertical;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--cz-hair);
-  background: color-mix(in srgb, var(--cz-card-solid) 88%, transparent);
-  color: var(--cz-ink);
-  font-family: inherit;
-  font-size: 13px;
+.cz-size-chart-table th,
+.cz-size-chart-table td {
+  padding: 5px 10px 5px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--cz-hair);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cz-size-chart-table thead th {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-sub);
+  font-weight: 700;
+}
+
+.cz-size-chart-table tbody th {
+  font-weight: 700;
+}
+
+.cz-size-chart-table tr.is-rec th,
+.cz-size-chart-table tr.is-rec td {
+  color: var(--cz-accent, #7dd3fc);
+  font-weight: 700;
+}
+
+/* Runner-up size row — quieter highlight than the pick. */
+.cz-size-chart-table tr.is-alt th,
+.cz-size-chart-table tr.is-alt td {
+  color: var(--cz-accent, #7dd3fc);
+}
+
+.cz-size-rec-alt {
+  font-size: 12.5px;
+  color: var(--cz-sub);
+  margin-top: 4px;
   line-height: 1.45;
+  font-weight: 600;
+}
+
+.cz-size-chart-table tbody tr:last-child th,
+.cz-size-chart-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 /* Info bubble */
@@ -1929,18 +2213,23 @@ a.cz-seller-quiet:focus-visible {
   border-radius: 24px;
 }
 
-/* Photo previews on the back of a card: cover photo at the left, the rest
-   stacked behind it; hover slides them out to the right in a flat row. The
-   container spans the row so the hover area covers the spread photos. */
+/* Photo fan on the card back: cover left, rest stacked; hover peels flat.
+   .is-roomy = product-sheet variant — bigger peels, more photos, soft rest fan. */
 .cz-corner-fan {
   position: relative;
   width: 100%;
   height: 80px;
   margin: 4px 0 0;
   cursor: pointer;
-  /* No focus rectangle — the spread-on-focus is already the keyboard cue. */
   outline: none;
   flex-shrink: 0;
+}
+
+.cz-corner-fan.is-roomy {
+  height: 148px;
+  margin: 2px 0 0;
+  padding-bottom: 22px; /* caption */
+  box-sizing: content-box;
 }
 
 .cz-corner-fan-card {
@@ -1954,6 +2243,13 @@ a.cz-seller-quiet:focus-visible {
   border: 1px solid var(--cz-hair-strong);
   background: var(--cz-card-solid);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+.cz-corner-fan.is-roomy .cz-corner-fan-card {
+  width: 88px;
+  height: 118px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
 }
 
 .cz-corner-fan-card img {
@@ -1975,6 +2271,28 @@ a.cz-seller-quiet:focus-visible {
   font-weight: 600;
   border: 1px solid var(--cz-hair);
   transition: opacity 200ms var(--ease-out);
+}
+.cz-corner-fan.is-roomy .cz-corner-fan-more {
+  left: auto;
+  right: 0;
+  top: 8px;
+  transform: none;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.cz-corner-fan-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--cz-faint);
+  font-family: system-ui, -apple-system, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cz-corner-fan:hover .cz-corner-fan-more,
@@ -2483,6 +2801,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-starred-filter.is-active {
   color: var(--cz-favorite);
   background: color-mix(in srgb, var(--cz-favorite) 16%, transparent);
+  /* Ring makes "a filter is ON" glanceable — the quiet tint alone read as
+     decoration and the shelf looked like it lost cards (Kyle 2026-07-22). */
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--cz-favorite) 55%, transparent);
 }
 
 .cz-starred-filter:active {
@@ -3825,39 +4146,53 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: absolute;
   left: 5px;
   bottom: 5px;
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.04em;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(11, 11, 13, 0.78);
-  color: var(--cz-ink);
-  border: 1px solid var(--cz-hair);
+  /* Was a translucent dark pill at 9px — invisible on busy photos (Kyle
+     2026-07-22: "I couldn't even see that it said cover", "make it readable").
+     Solid accent chip; accent and card-solid are opposite poles in BOTH
+     themes (white-on-black in Blackout, black-on-white in Gallery). */
+  background: var(--cz-accent);
+  color: var(--cz-card-solid);
+  border: none;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 
 .cz-edit-photo-delete {
   position: absolute;
   top: 5px;
   right: 5px;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
-  background: rgba(12, 10, 16, 0.72);
+  background: rgba(12, 10, 16, 0.55);
   color: var(--cz-overlay-danger);
   cursor: pointer;
   padding: 0;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  transition: background 140ms var(--ease-out);
+  /* Quiet until the tile is interacted with — an always-on red trash over
+     every photo read as clutter (Kyle 2026-07-22). */
+  opacity: 0.55;
+  transition: background 140ms var(--ease-out), opacity 140ms var(--ease-out);
+}
+
+.cz-edit-photo-tile:hover .cz-edit-photo-delete,
+.cz-edit-photo-delete:focus-visible {
+  opacity: 1;
 }
 
 .cz-edit-photo-delete:hover {
   background: rgba(40, 12, 18, 0.88);
+  opacity: 1;
 }
 
 .cz-edit-photo-delete:focus,
@@ -3912,6 +4247,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: relative;
   z-index: 5;
   flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .cz-carousel-haul-block .cz-field-label > span {
@@ -4048,19 +4385,89 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* Flip cue — quiet ghost, no beam (Buy owns the beam). */
+/* ─── Beam standardization (Kyle 2026-07-22): the card-BACK text buttons wear
+   the same slick beam as Buy. Scope narrowed same day — "ok i didn't mean
+   every button": dock/toolbar pills stay clean. CSS-only ::before ring, no
+   JSX span needed. Primary action-btn keeps the full gradient fill + sheen. ─── */
+.cz-carousel-action-btn:not(.primary) {
+  position: relative;
+  isolation: isolate;
+}
+
+.cz-carousel-action-btn:not(.primary)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px; /* thinner than Buy's md beam — these buttons are smaller */
+  box-sizing: border-box;
+  background: conic-gradient(
+    from var(--cz-beam-angle, 0deg),
+    transparent 0deg,
+    transparent 280deg,
+    #f40051 310deg,
+    #a855f7 325deg,
+    #f59e0b 335deg,
+    #22d3ee 348deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.65;
+  pointer-events: none;
+  animation: cz-border-beam-rotate 2.6s linear infinite;
+}
+
+/* No @property (older engines): static colorful ring instead of a stuck beam. */
+@supports not (background: conic-gradient(from var(--cz-beam-angle), red, blue)) {
+  .cz-carousel-action-btn:not(.primary)::before {
+    animation: none;
+    opacity: 0.4;
+    background: linear-gradient(120deg, #f40051, #a855f7, #22d3ee);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-carousel-action-btn:not(.primary)::before {
+    animation: none;
+    opacity: 0.4;
+    background: linear-gradient(
+      120deg,
+      color-mix(in srgb, #f40051 55%, transparent),
+      color-mix(in srgb, #a855f7 45%, transparent),
+      color-mix(in srgb, #22d3ee 50%, transparent)
+    );
+  }
+}
+
+/* Flip cue — bare text + rotating icon, no box (Kyle 2026-07-22: the pill
+   chrome read as a weird half-button; Buy owns the only boxed look). */
 .cz-flip-cue {
   margin-top: auto;
-  align-self: stretch;
-  display: flex;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  flex-shrink: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.cz-flip-cue-icon {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 24px;
-  flex-shrink: 0;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--cz-hair) 80%, transparent);
-  background: color-mix(in srgb, var(--cz-card-solid) 70%, transparent);
-  overflow: hidden;
+  color: color-mix(in srgb, var(--cz-ink) 55%, transparent);
+  transition: color 0.15s ease;
 }
 
 .cz-flip-cue-label {
@@ -4071,16 +4478,31 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--cz-ink) 62%, transparent);
+  transition: color 0.15s ease;
+}
+
+.cz-flip-cue:hover .cz-flip-cue-icon,
+.cz-flip-cue:hover .cz-flip-cue-label,
+.cz-flip-cue:focus-visible .cz-flip-cue-icon,
+.cz-flip-cue:focus-visible .cz-flip-cue-label {
+  color: var(--cz-ink);
+}
+
+.cz-flip-cue:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cz-ink) 55%, transparent);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 /* ─── Grid / multi-card preview ───
-   meta row (date | heart) · photo · price · title · seller · Buy
+   meta: seller left · date + heart right (one row) · photo · title · Rec size · Buy
    Heart NEVER overlays the photo. */
 .cz-card-body {
   grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
-  padding: 12px 14px 14px;
+  /* Tight top so meta sits near the card edge, photo closer underneath. */
+  padding: 6px 12px 14px;
   min-width: 0;
   height: 100%;
   box-sizing: border-box;
@@ -4088,12 +4510,63 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-card-meta-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 36px;
-  margin-bottom: 8px;
+  min-height: 28px;
+  height: 28px;
+  margin-bottom: 4px;
   flex-shrink: 0;
+}
+
+.cz-card-meta-left {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+}
+
+.cz-card-meta-right {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.cz-card-meta-empty {
+  display: block;
+  min-width: 1px;
+}
+
+/* Seller in meta row — same quiet underline link language as elsewhere. */
+.cz-card-seller,
+a.cz-card-seller {
+  display: inline;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--cz-ink) 88%, var(--cz-accent) 12%);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--cz-ink) 40%, transparent);
+  text-underline-offset: 2px;
+}
+
+a.cz-card-seller:hover {
+  color: var(--cz-ink);
+  text-decoration-color: var(--cz-ink);
+}
+
+.cz-card-seller.is-text {
+  text-decoration: none;
+  color: var(--cz-sub);
 }
 
 .cz-card-date {
@@ -4102,6 +4575,17 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   letter-spacing: 0.02em;
   color: var(--cz-faint);
   line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Heart next to date: shrink hit chrome so the row stays 28px tall. */
+.cz-card-meta-right .cz-card-favorite,
+.cz-card-meta-right .cz-favorite-button {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
 }
 
 .cz-card-photo {
@@ -4150,24 +4634,33 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
+/* Title → recommended size (under title). Live from chart + body when possible. */
+.cz-card-size-line {
+  margin: 0 0 12px;
+  min-height: 1.15em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--cz-sub);
+}
+
+.cz-card-size-line.is-empty {
+  min-height: 0;
+  margin-bottom: 10px;
+}
+
 .cz-card-size {
   color: var(--cz-sub);
+}
+
+.cz-card-size.is-rec {
+  color: color-mix(in srgb, var(--cz-ink) 78%, var(--cz-money, #4ade80) 22%);
+  font-weight: 650;
 }
 
 /* Overlay solo cards: give the taller meta room too. */
 .cz-carousel-overlay .cz-carousel-image-wrap {
   height: calc(100% - 188px);
-}
-
-/* Legacy alias kept so older flip-cue label rules still resolve. */
-.cz-flip-cue-label {
-  position: relative;
-  z-index: 1;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--cz-ink) 62%, transparent);
 }
 
 /* Buy button keeps its solid fill; beam rides the border only. */

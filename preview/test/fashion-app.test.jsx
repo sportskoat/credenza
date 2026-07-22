@@ -155,7 +155,7 @@ describe("Fashion data and photos", () => {
     expect(screen.queryByRole("dialog", { name: "Album photo preview" })).not.toBeInTheDocument();
   });
 
-  it("routes every Yupoo URL to numbered More Photos actions and keeps Buy first", async () => {
+  it("keeps only Buy in the action row; Yupoo is a Full Album link under the seller", async () => {
     const secondaryYupoo = "https://seller.x.yupoo.com/albums/999?uid=1&tab=max";
     const buyUrl = "https://weidian.com/item.html?itemID=1234567890";
     installShim({
@@ -163,24 +163,24 @@ describe("Fashion data and photos", () => {
         fashionItem({
           weidianUrl: "",
           links: [
-            { url: secondaryYupoo, role: "buy" },
+            { url: secondaryYupoo, role: "photos" },
             { url: buyUrl, role: "buy" },
           ],
         }),
       ]),
     });
-    const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
 
     const actions = [...container.querySelectorAll(".cz-carousel-actions > button")];
-    expect(actions[0]).toHaveTextContent("Buy");
-    expect(screen.getByRole("button", { name: "More Photos" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "More Photos 2" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "More Photos 2" }));
-    expect(open).toHaveBeenLastCalledWith(secondaryYupoo, "_blank", "noopener");
+    expect(actions.length).toBe(1);
+    expect(actions[0]).toHaveTextContent(/Buy/);
+    expect(screen.queryByRole("button", { name: /More Photos/i })).not.toBeInTheDocument();
+    const album = container.querySelector("a.cz-album-quiet");
+    expect(album).toBeTruthy();
+    expect(album).toHaveTextContent(/Full Album/i);
+    expect(album.getAttribute("href")).toContain("yupoo.com");
   });
 });
 
@@ -194,10 +194,12 @@ describe("Fashion card-back navigation and editing", () => {
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const outside = container.querySelector(".cz-carousel-track");
 
-    // Still on the back face with size block visible (no separate Sizes button).
+    // Still on the back face. SizeRecommendation only mounts when chart+body
+    // yield a pick; chips always carry chosen / rec labels when present.
     expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
-    expect(container.querySelector(".cz-size-rec")).toBeTruthy();
+    const back = container.querySelector(".cz-carousel-back");
+    expect(back?.textContent || "").toMatch(/SIZE:\s*X-?LARGE|Rec XL|Poster S/i);
 
     await user.click(screen.getByRole("button", { name: "Edit card" }));
     const batchField = await screen.findByLabelText("Batch");
@@ -254,6 +256,8 @@ describe("Fashion card-back navigation and editing", () => {
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Saved batch"));
+    // Header holds a "Saved" pill briefly before ⋯/pen return — wait for tools.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: "Edit card" }));
     batchField = await screen.findByLabelText("Batch");
@@ -262,6 +266,7 @@ describe("Fashion card-back navigation and editing", () => {
     await user.type(batchField, "Also kept");
     // Back chevron also flushes write-through — nothing is discarded.
     await user.click(screen.getByRole("button", { name: "Back to card" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Edit card" }));
     expect(await screen.findByLabelText("Batch")).toHaveValue("Also kept");
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Also kept"));

@@ -275,6 +275,7 @@ async function runPhone() {
   // 4 — fan → full-screen gallery rides ABOVE the overlay.
   // Fan only mounts when the item has gallery images; seed items vary.
   await page.waitForTimeout(200);
+  // Photo fan on product sheet (roomy or compact) opens the full-screen gallery.
   let fan = page.locator(".cz-corner-fan:visible").first();
   if (!(await fan.count())) {
     // Try opening "Open photo gallery" / photos action if present, else soft-pass.
