@@ -12,7 +12,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInThisContext } from "node:vm";
 
-const FASHION = process.env.VITE_CREDENZA_FASHION === "true";
+// Fashion is the only app we build and deploy (Kyle, 2026-07-22). The legacy
+// credenza-v2/v3 entries (index.html + src/main.jsx) stay in the repo but are
+// no longer build targets — there is no non-fashion mode anymore.
+const FASHION = true;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Stamps the built asset list into dist/sw.js after each build so the app
