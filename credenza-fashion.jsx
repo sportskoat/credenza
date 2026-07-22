@@ -389,7 +389,44 @@ export function recommendSize(chart, profile, category) {
   const reason =
     (isPants ? "Waist" : "Chest") +
     " " + garment + "cm vs your " + body + "cm (" + (diff >= 0 ? "+" : "") + diff + "cm)";
-  return { size: best.size, fitNote, reason, row: best };
+  return {
+    size: best.size,
+    fitNote,
+    reason,
+    row: best,
+    // Structured parts so the UI can render the reason in inches or cm.
+    primaryKey: isPants ? "waist" : "chest",
+    garment,
+    body,
+    diff,
+  };
+}
+
+// Display conversion — storage is always cm/kg (seller charts are metric);
+// inches/pounds only exist at the input and display edges.
+export function formatMeasure(cm, units) {
+  if (cm == null || !isFinite(cm)) return "";
+  if (units === "in") return Math.round((cm / 2.54) * 10) / 10 + "″";
+  return Math.round(cm * 10) / 10 + "cm";
+}
+
+// One display-unit string ("38.5") → storage number (cm or kg). kind is
+// "length" (cm↔in) or "weight" (kg↔lb); units is the unit the string is in.
+export function measureToStorage(text, units, kind) {
+  const n = parseFloat(text);
+  if (!isFinite(n) || n <= 0) return null;
+  if (units === "in") return Math.round((kind === "weight" ? n / 2.20462 : n * 2.54) * 10) / 10;
+  return Math.round(n * 10) / 10;
+}
+
+// Storage number → display-unit string for the input fields.
+export function measureFromStorage(value, units, kind) {
+  if (value == null || !isFinite(value)) return "";
+  if (units === "in") {
+    const n = kind === "weight" ? value * 2.20462 : value / 2.54;
+    return String(Math.round(n * 10) / 10);
+  }
+  return String(value);
 }
 
 const FIND_STATUS_COLORS = {
@@ -4977,7 +5014,7 @@ export function carouselLayerZ(cardCount, index, foreground) {
 // hats, bags etc. don't map body cm to a letter size.
 const SIZE_PICK_SKIP_CATEGORIES = new Set(["shoes", "hat", "bag", "accessory", "socks"]);
 
-function SizeRecommendation({ item, bodyProfile, onOpenProfile, onSaveEdit }) {
+function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, onSaveEdit }) {
   const [fetchState, setFetchState] = useState("idle"); // idle | loading | none
   if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
 
@@ -5035,7 +5072,12 @@ function SizeRecommendation({ item, bodyProfile, onOpenProfile, onSaveEdit }) {
           {rec.fitNote && <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: "var(--cz-money)" }}>{rec.fitNote}</span>}
         </div>
         <div style={{ fontFamily: FONT, fontSize: 12.5, color: SUB, marginTop: 4, lineHeight: 1.45 }}>
-          {rec.reason}
+          {(rec.primaryKey === "waist" ? "Waist " : "Chest ") +
+            formatMeasure(rec.garment, units) +
+            " vs your " +
+            formatMeasure(rec.body, units) +
+            " (" + (rec.diff >= 0 ? "+" : "−") +
+            formatMeasure(Math.abs(rec.diff), units) + ")"}
           {!inRun && (
             <span style={{ color: "var(--cz-error-text)" }}>
               {" "}· heads up: {rec.size} isn’t in this seller’s listed run ({runValues.join(" · ")})
@@ -5084,46 +5126,98 @@ function SizeRecommendation({ item, bodyProfile, onOpenProfile, onSaveEdit }) {
   return null;
 }
 
-// Body measurements (cm, weight kg) — the input half of the size pick. Lives
-// in prefs, edited from the ⋯ menu. Every field optional; the recommender
-// asks for whatever it's missing.
+// Body measurements — the input half of the size pick. Lives in prefs, edited
+// from the ⋯ menu. Storage is always cm/kg; the in/cm toggle (default in for
+// US) only changes what the fields show and accept — switching converts the
+// draft in place so nothing typed is lost. Every field optional; the
+// recommender asks for whatever it's missing.
 const BODY_PROFILE_FIELDS = [
-  ["height", "Height", "178"],
-  ["weight", "Weight (kg)", "70"],
-  ["chest", "Chest", "96"],
-  ["shoulder", "Shoulder", "45"],
-  ["sleeve", "Arm length", "62"],
-  ["waist", "Waist", "80"],
-  ["hip", "Hip", "98"],
+  // key, label, kind ("length"|"weight"), placeholder cm, placeholder in
+  ["height", "Height", "length", "178", "70"],
+  ["weight", "Weight", "weight", "70", "154"],
+  ["chest", "Chest", "length", "96", "38"],
+  ["shoulder", "Shoulder", "length", "45", "17.7"],
+  ["sleeve", "Arm length", "length", "62", "24.5"],
+  ["waist", "Waist", "length", "80", "31.5"],
+  ["hip", "Hip", "length", "98", "38.5"],
 ];
 
-function BodyProfileSheet({ value, onSave, onClose }) {
-  const [draft, setDraft] = useState(() => ({ ...(value || {}) }));
+function BodyProfileSheet({ value, units = "in", onSave, onChangeUnits, onClose }) {
+  const [draft, setDraft] = useState(() => {
+    const d = {};
+    for (const [key, , kind] of BODY_PROFILE_FIELDS) d[key] = measureFromStorage(value && value[key], units, kind);
+    return d;
+  });
+
   const set = (key) => (v) => setDraft((d) => ({ ...d, [key]: v.replace(/[^\d.]/g, "") }));
+
+  // Convert every typed value when the toggle flips — 38 stays 38, just in
+  // the other unit (96.5cm), never silently reinterpreted.
+  const switchUnits = (next) => {
+    if (next === units) return;
+    setDraft((d) => {
+      const out = {};
+      for (const [key, , kind] of BODY_PROFILE_FIELDS) {
+        const stored = measureToStorage(d[key], units, kind);
+        out[key] = stored == null ? "" : measureFromStorage(stored, next, kind);
+      }
+      return out;
+    });
+    onChangeUnits(next);
+  };
+
   const save = () => {
     const out = {};
-    for (const [key] of BODY_PROFILE_FIELDS) {
-      const n = parseFloat(draft[key]);
-      if (isFinite(n) && n > 0) out[key] = n;
+    for (const [key, , kind] of BODY_PROFILE_FIELDS) {
+      const n = measureToStorage(draft[key], units, kind);
+      if (n != null) out[key] = n;
     }
     onSave(Object.keys(out).length ? out : null);
     onClose();
   };
+
+  const unitLabel = (kind) => (units === "in" ? (kind === "weight" ? "lb" : "in") : kind === "weight" ? "kg" : "cm");
+
   return (
     <ModalShell title="Your measurements" onClose={onClose} maxWidth={560}>
       <div style={{ padding: 16 }}>
-        <p style={{ margin: "0 0 12px", fontFamily: FONT, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
-          Centimeters, measured on your body — Credenza adds the ease. Used to
-          pick your size from seller charts.
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <p style={{ margin: 0, flex: 1, fontFamily: FONT, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
+            Measured on your body — Credenza adds the ease. Seller charts are
+            metric; we convert for you.
+          </p>
+          <div style={{ display: "flex", gap: 4, background: SEG, borderRadius: 999, padding: 3, flexShrink: 0 }}>
+            {["in", "cm"].map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => switchUnits(u)}
+                aria-pressed={units === u}
+                style={{
+                  fontFamily: FONT,
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  border: 0,
+                  borderRadius: 999,
+                  padding: "6px 14px",
+                  cursor: "pointer",
+                  background: units === u ? "var(--cz-card-solid)" : "transparent",
+                  color: units === u ? INK : SUB,
+                }}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {BODY_PROFILE_FIELDS.map(([key, label, placeholder]) => (
+          {BODY_PROFILE_FIELDS.map(([key, label, kind, phCm, phIn]) => (
             <Field
               key={key}
-              label={label + " (cm)"}
+              label={label + " (" + unitLabel(kind) + ")"}
               value={draft[key] || ""}
               onChange={set(key)}
-              placeholder={placeholder}
+              placeholder={units === "in" ? phIn : phCm}
             />
           ))}
         </div>
@@ -5141,7 +5235,7 @@ function BodyProfileSheet({ value, onSave, onClose }) {
 // Reuses Card (sheetMode) for all detail content; the sheet owns notes (inline,
 // write-through), one-tap status, a pinned Buy footer, and a ⋯ overflow where
 // Remove lives behind the app's existing undo toast.
-function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onSaveNote, onSaveEdit, bodyProfile, onOpenProfile }) {
+function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onSaveNote, onSaveEdit, bodyProfile, measureUnits, onOpenProfile }) {
   const [editSig, setEditSig] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState(item.note || "");
@@ -5183,6 +5277,7 @@ function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onS
       <SizeRecommendation
         item={item}
         bodyProfile={bodyProfile}
+        units={measureUnits}
         onOpenProfile={onOpenProfile}
         onSaveEdit={onSaveEdit}
       />
@@ -7776,9 +7871,12 @@ export default function Credenza() {
   // phones. This instance serves grid cards, rows, and the detail sheet.
   const [appGallery, setAppGallery] = useState(null); // { item, images, startIndex }
   const [barMenuOpen, setBarMenuOpen] = useState(false);
-  // Body measurements (cm) powering the DetailSheet size pick; persisted in
-  // credenza-prefs-v1. Null until the user fills the sheet once.
+  // Body measurements powering the DetailSheet size pick; persisted in
+  // credenza-prefs-v1. Null until the user fills the sheet once. Storage is
+  // always cm/kg — measureUnits only controls display/input (default "in",
+  // US). Charts are metric; conversion happens at the edges.
   const [bodyProfile, setBodyProfile] = useState(null);
+  const [measureUnits, setMeasureUnits] = useState("in");
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
 
   // Phones: ~400px of capture/search/tab chrome sits above the carousel, so at
@@ -7892,10 +7990,11 @@ export default function Credenza() {
             affiliateCodes,
             agentToastSeenFor,
             bodyProfile,
+            measureUnits,
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits]);
 
   useEffect(() => {
     loadStoredItems({
@@ -7980,6 +8079,7 @@ export default function Credenza() {
                   affiliateCodes: p.affiliateCodes && typeof p.affiliateCodes === "object" ? p.affiliateCodes : {},
                   agentToastSeenFor: p.agentToastSeenFor || null,
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
+                  measureUnits: p.measureUnits === "cm" ? "cm" : "in",
                 })
               )
               .catch(() => {});
@@ -7992,6 +8092,7 @@ export default function Credenza() {
           if (p.affiliateCodes && typeof p.affiliateCodes === "object") setAffiliateCodes(p.affiliateCodes);
           if (p.agentToastSeenFor) setAgentToastSeenFor(p.agentToastSeenFor);
           if (p.bodyProfile && typeof p.bodyProfile === "object") setBodyProfile(p.bodyProfile);
+          if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
         } catch (e) {}
       })
       .catch(() => {})
@@ -9889,6 +9990,7 @@ export default function Credenza() {
             onSaveNote={saveNote}
             onSaveEdit={saveEdit}
             bodyProfile={bodyProfile}
+            measureUnits={measureUnits}
             onOpenProfile={() => setProfileSheetOpen(true)}
             cardProps={{
               onDelete: remove,
@@ -9922,7 +10024,9 @@ export default function Credenza() {
       {profileSheetOpen && (
         <BodyProfileSheet
           value={bodyProfile}
+          units={measureUnits}
           onSave={setBodyProfile}
+          onChangeUnits={setMeasureUnits}
           onClose={() => setProfileSheetOpen(false)}
         />
       )}

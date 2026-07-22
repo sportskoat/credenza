@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSizeChart, recommendSize } from "../../credenza-fashion.jsx";
+import { formatMeasure, measureFromStorage, measureToStorage, parseSizeChart, recommendSize } from "../../credenza-fashion.jsx";
 
 describe("parseSizeChart", () => {
   it("parses CJK labeled rows (胸围/衣长/肩宽/袖长)", () => {
@@ -128,5 +128,47 @@ describe("recommendSize", () => {
     // arm 62: M's 58 sleeve is 4cm short, L's 63 covers → L despite similar chest
     const rec = recommendSize(chart, { chest: 100, sleeve: 62 }, "shirt");
     expect(rec.size).toBe("L");
+  });
+
+  it("exposes structured reason parts for unit-aware display", () => {
+    const rec = recommendSize(shirtChart, { chest: 96 }, "shirt");
+    expect(rec.primaryKey).toBe("chest");
+    expect(rec.garment).toBe(108);
+    expect(rec.body).toBe(96);
+    expect(rec.diff).toBe(12);
+  });
+});
+
+describe("measure units (in/cm conversion at the edges)", () => {
+  it("formats cm natively and converts to inches", () => {
+    expect(formatMeasure(100, "cm")).toBe("100cm");
+    expect(formatMeasure(100, "in")).toBe("39.4″");
+    expect(formatMeasure(12, "in")).toBe("4.7″");
+    expect(formatMeasure(null, "in")).toBe("");
+  });
+
+  it("converts inch input to cm storage", () => {
+    expect(measureToStorage("38", "in", "length")).toBe(96.5);
+    expect(measureToStorage("70", "in", "length")).toBe(177.8);
+    expect(measureToStorage("154", "in", "weight")).toBeCloseTo(69.9, 0);
+  });
+
+  it("passes cm input through unchanged", () => {
+    expect(measureToStorage("96", "cm", "length")).toBe(96);
+    expect(measureToStorage("70", "cm", "weight")).toBe(70);
+  });
+
+  it("round-trips storage → display → storage without drift", () => {
+    const stored = 96;
+    const shown = measureFromStorage(stored, "in", "length"); // 37.8
+    expect(shown).toBe("37.8");
+    expect(measureToStorage(shown, "in", "length")).toBeCloseTo(stored, 0);
+  });
+
+  it("rejects empty and non-numeric input", () => {
+    expect(measureToStorage("", "in", "length")).toBeNull();
+    expect(measureToStorage("abc", "in", "length")).toBeNull();
+    expect(measureToStorage("-5", "in", "length")).toBeNull();
+    expect(measureFromStorage(null, "in", "length")).toBe("");
   });
 });
