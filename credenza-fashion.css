@@ -1,7 +1,24 @@
+/* Global stacking scale (local in-card layers — chips, fans, orbit — stay
+   small numeric values inside their own stacking contexts):
+     chrome  = sticky chrome that scrolls with the page (shelf toolbar)
+     overlay = floating UI that must clear chrome (combobox menus, preview)
+     sheet   = modal sheets (native <dialog> top layer makes this moot)
+     gallery = full-screen photo gallery, topmost */
 :root {
+  --z-chrome: 40;
+  --z-overlay: 70;
+  --z-sheet: 80;
+  --z-gallery: 100;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Danger on photo overlays (delete chips) — hardcoded dark-glass chips sit
+     on arbitrary photos in both themes, so this doesn't come from a palette. */
+  --cz-overlay-danger: #f87171;
+}
+
+/* --cz-placeholder is --cz-faint in both fashion themes (v3 keeps them
+   distinct, so the alias lives here rather than in credenza.css). */
+.cz-app[data-fashion="true"] {
+  --cz-placeholder: var(--cz-faint);
 }
 
 /* Fashion variant: product-card hover lift */
@@ -90,11 +107,49 @@
   transform: scale(0.96);
 }
 
-/* Row hover lift */
-@media (hover: hover) and (pointer: fine) {
-  .cz-app[data-fashion="true"] .cz-row:hover {
-    transform: translateX(2px);
-  }
+/* Pill base look — one rule instead of a 15-property inline style object on
+   every Pill render. Variants ride data-variant; callers' inline styles are
+   layout-only (flex, margins) and still win. */
+.cz-app[data-fashion="true"] .cz-pill {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--cz-action-muted-text);
+  background: var(--cz-action-muted-bg);
+  border: none;
+  border-radius: 999px;
+  min-height: 40px;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cz-app[data-fashion="true"] .cz-pill[data-variant="primary"] {
+  color: var(--cz-action-text);
+  background: var(--cz-action-fill);
+}
+
+.cz-app[data-fashion="true"] .cz-pill[data-variant="subtle"] {
+  color: var(--cz-sub);
+  background: transparent;
+}
+
+.cz-app[data-fashion="true"] .cz-pill:disabled {
+  opacity: 0.56;
+}
+
+/* CapturePill composes the pill base — its own background comes from the two
+   animated layers (muted / gradient), so the button itself stays transparent. */
+.cz-app[data-fashion="true"] .cz-capture-pill {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  min-width: 0;
+  background: transparent;
 }
 
 /* Toast entrance polish */
@@ -127,7 +182,6 @@
 @media (prefers-reduced-motion: reduce) {
   .cz-app[data-fashion="true"] article,
   .cz-app[data-fashion="true"] .cz-card-image,
-  .cz-app[data-fashion="true"] .cz-row,
   .cz-app[data-fashion="true"] .cz-time-section-grid > div,
   .cz-app[data-fashion="true"] .cz-shelf-grid > div,
   .cz-app[data-fashion="true"] .cz-masthead,
@@ -184,7 +238,6 @@
    Capture shell is intentionally NOT here — it uses the rounded pill language
    shared with search (see .cz-capture-shell below). */
 .cz-app[data-fashion="true"] article > div,
-.cz-app[data-fashion="true"] .cz-row,
 .cz-app[data-fashion="true"] .cz-toast,
 .cz-app[data-fashion="true"] .cz-modal-surface {
   background: var(--cz-card);
@@ -196,10 +249,6 @@
     0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
-.cz-app[data-fashion="true"] .cz-row {
-  border-radius: 12px;
-}
-
 .cz-app[data-fashion="true"] article > div {
   border-radius: 16px;
 }
@@ -209,7 +258,6 @@
 .cz-app[data-fashion="true"] .cz-pill:focus-visible,
 .cz-app[data-fashion="true"] .cz-chip:focus-visible,
 .cz-app[data-fashion="true"] .cz-icon-button:focus-visible,
-.cz-app[data-fashion="true"] .cz-row:focus-visible,
 .cz-app[data-fashion="true"] .cz-card-toggle:focus-visible,
 .cz-app[data-fashion="true"] .cz-tab:focus-visible,
 .cz-app[data-fashion="true"] .cz-view-button:focus-visible,
@@ -563,7 +611,6 @@
 
 /* Inline only — never stretch to the meta tile width (border-bottom did that). */
 .cz-carousel-sub a.cz-seller-link,
-.cz-carousel-meta-grid a.cz-seller-link,
 .cz-seller-link {
   display: inline;
   width: fit-content;
@@ -580,7 +627,6 @@
 }
 
 .cz-carousel-sub a.cz-seller-link:hover,
-.cz-carousel-meta-grid a.cz-seller-link:hover,
 .cz-seller-link:hover {
   color: var(--cz-ink);
   text-decoration-color: var(--cz-ink);
@@ -1073,70 +1119,6 @@ a.cz-seller-quiet:focus-visible {
   box-shadow: none;
 }
 
-/* Flat equal-thumb photo strip (product sheet). */
-.cz-corner-fan.is-strip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: auto;
-  min-height: 64px;
-  margin: 4px 0 0;
-}
-
-.cz-corner-fan-card.is-strip-card {
-  position: relative;
-  top: auto;
-  left: auto;
-  width: 52px;
-  height: 64px;
-  flex: 0 0 auto;
-  border-radius: 10px;
-}
-
-.cz-corner-fan-more.is-strip-more {
-  position: static;
-  transform: none;
-  left: auto;
-  top: auto;
-  flex-shrink: 0;
-}
-
-.cz-carousel-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.cz-carousel-meta-grid > div {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 7px 9px;
-  border-radius: 10px;
-  background: var(--cz-seg);
-  border: 1px solid var(--cz-hair);
-}
-
-.cz-carousel-meta-grid > div span:first-child {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-
-.cz-carousel-meta-grid > div span:last-child {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--cz-ink);
-}
-
-/* Match the shelf total-cost reel green. */
-.cz-carousel-meta-grid > div span.cz-carousel-price-value {
-  color: var(--cz-money, #4ade80);
-}
-
 .cz-carousel-note {
   margin-bottom: 8px;
   padding: 8px 10px;
@@ -1532,38 +1514,11 @@ a.cz-seller-quiet:focus-visible {
   grid-template-columns: minmax(0, 1fr) 90px;
 }
 
-.cz-carousel-edit-footer {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  gap: 8px;
-  padding: 10px 0 0;
-  margin-top: auto;
-  background: linear-gradient(to bottom, transparent, var(--cz-card-solid) 14px);
-  z-index: 2;
-}
-
 .cz-carousel-edit .cz-field-label input,
 .cz-carousel-edit .cz-field-label textarea {
   background: var(--cz-seg);
   border-color: var(--cz-hair);
   color: var(--cz-ink);
-}
-
-/* Responsive carousel — fixed card height (no content-dependent stretch). */
-@media (max-width: 480px) {
-  .cz-carousel-track {
-    gap: 2vw;
-    padding: 0 calc(50% - 40vw);
-    min-height: 460px;
-    height: 460px;
-  }
-
-  .cz-carousel-card {
-    width: 80vw;
-    height: 440px;
-    margin: 0 -6vw;
-  }
 }
 
 /* Album photos spread from the settled card into a viewport-clamped ellipse. */
@@ -1656,7 +1611,7 @@ a.cz-seller-quiet:focus-visible {
 .cz-photo-preview-backdrop {
   position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-overlay);
   display: grid;
   place-items: center;
   padding: 34px;
@@ -2521,7 +2476,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   margin: 0;
   padding: 0;
   border: 0;
-  z-index: 100;
+  z-index: var(--z-gallery);
   display: grid;
   place-items: center;
   background: rgba(5, 2, 12, 0.78);
@@ -3241,7 +3196,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-combobox-input::placeholder {
-  color: var(--cz-placeholder);
+  color: var(--cz-faint);
   opacity: 1;
 }
 
@@ -3316,7 +3271,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   left: 0;
   right: 0;
   top: calc(100% + 6px);
-  z-index: 40;
+  z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -3515,7 +3470,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-haul-acc-value.is-empty {
-  color: var(--cz-placeholder);
+  color: var(--cz-faint);
   font-weight: 550;
 }
 
@@ -3711,7 +3666,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   background: rgba(12, 10, 16, 0.72);
-  color: #f87171;
+  color: var(--cz-overlay-danger);
   cursor: pointer;
   padding: 0;
   backdrop-filter: blur(8px);
@@ -4100,116 +4055,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   inset-inline: 12px;
 }
 
-/* DetailSheet only: flex column surface so the Buy footer pins to the sheet
-   bottom while body content scrolls. Other ModalShells (agent, import,
-   body profile) are unaffected. Short sheets stay content-sized; tall ones
-   hit max-height and the body becomes the scroller. */
-.cz-modal-surface.cz-detail-sheet {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.cz-detail-sheet .cz-modal-header {
-  flex: 0 0 auto;
-}
-
-.cz-detail-sheet-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding: 0 0 8px;
-}
-
-.cz-detail-sheet-footer {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--cz-hair);
-  background: var(--cz-card-solid);
-  z-index: 2;
-}
-
-/* Cover-photo hit target: opens the swipeable album when the card/sheet is
-   already open. Sits under status/price chips (z-index 2) and over the image. */
-.cz-card-photo-open {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  cursor: zoom-in;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  /* Keep focus ring for keyboard users without a permanent outline. */
-  outline: none;
-}
-.cz-card-photo-open:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--cz-focus), inset 0 0 0 5px var(--cz-glow-weak);
-}
-
-/* ═══ Swipe-to-delete on mobile row list ═══
-   Reveal a trash action by dragging the row left; tap trash to remove
-   (uses the same undo toast as every other remove path). */
-.cz-swipe-row {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-  border-radius: 12px;
-  touch-action: pan-y;
-}
-
-.cz-swipe-row-actions {
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: 88px;
-  display: flex;
-  align-items: stretch;
-  justify-content: stretch;
-  z-index: 0;
-}
-
-.cz-swipe-row-delete {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  border: 0;
-  padding: 0;
-  background: var(--cz-error-text, #ff453a);
-  color: #fff;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  touch-action: manipulation;
-  min-width: 72px;
-}
-
-.cz-swipe-row-delete:active {
-  filter: brightness(0.92);
-}
-
-.cz-swipe-row-front {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  background: var(--cz-card-solid, var(--cz-card));
-  will-change: transform;
-}
-
-/* The row button inside keeps its own surface; kill double chrome. */
-.cz-swipe-row-front .cz-row {
-  border-radius: 12px;
-}
-
 /* ═══ Kyle chrome pass 2026-07-22 ═══
    1. Desktop chrome (masthead/tagline/capture/search/tabs/total) was
       full-bleed on wide monitors — "Paste a link" far left, Stash far right.
@@ -4233,7 +4078,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   margin-inline: auto;
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: var(--z-chrome);
   background: var(--cz-bg);
   /* Soft pad so the solid bg doesn't clip icons against the edge. */
   padding-top: 4px;
@@ -4289,10 +4134,3 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* Sheet header heart: sits inline next to the ✕ (grid/carousel hearts are
-   absolute-positioned over photos; this one rides the header row). */
-.cz-sheet-favorite {
-  position: static;
-  display: inline-grid;
-  place-items: center;
-}

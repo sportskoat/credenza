@@ -56,13 +56,11 @@ const PALETTES = {
     "--cz-accent-bg": "rgba(23, 24, 26, 0.08)",
     "--cz-accent-deep": "#3c3e44",
     "--cz-favorite": "#17181a",
-    "--cz-favorite-bg": "rgba(23, 24, 26, 0.07)",
     "--cz-action-fill": "#17181a",
     "--cz-action-text": "#F4F4F0",
     "--cz-action-muted-bg": "rgba(23, 24, 26, 0.92)",
     "--cz-action-muted-text": "#F4F4F0",
     "--cz-focus": "#17181a",
-    "--cz-placeholder": "#686c73",
     "--cz-like": "#e11d48",
     "--cz-money": "#15803d",
     "--cz-selection": "rgba(23, 24, 26, 0.16)",
@@ -92,7 +90,6 @@ const PALETTES = {
     "--cz-accent-bg": "rgba(245, 245, 247, 0.12)",
     "--cz-accent-deep": "#ffffff",
     "--cz-favorite": "#f5f5f7",
-    "--cz-favorite-bg": "rgba(245, 245, 247, 0.10)",
     // Near-white face carries the black label at ~17:1 (Kyle spec: Buy action
     // fill near-white with black text; floor per audit S2 table is 4.5:1).
     "--cz-action-fill": "#f5f5f7",
@@ -100,7 +97,6 @@ const PALETTES = {
     "--cz-action-muted-bg": "rgba(245, 245, 247, 0.92)",
     "--cz-action-muted-text": "#1a1a1d",
     "--cz-focus": "#f5f5f7",
-    "--cz-placeholder": "#8a8a92",
     "--cz-like": "#f40051",
     "--cz-money": "#4ade80",
     "--cz-selection": "rgba(245, 245, 247, 0.22)",
@@ -1922,9 +1918,7 @@ const KEYFRAMES = `
 .cz-section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 24px 0 10px; }
 .cz-section-head h2 { margin: 0; font-family: ${DISPLAY}; font-size: 25px; font-weight: 500; letter-spacing: -.035em; line-height: 1.1; }
 .cz-section-head span { color: var(--cz-faint); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
-.cz-shelf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
-.cz-shelf-grid > div { min-width: 0; display: flex; }
-.cz-shelf-grid > div > article, .cz-shelf-grid > div > div { width: 100%; height: 100%; }
+/* .cz-shelf-grid lives in credenza.css (responsive 2→3→4 cols) — don't duplicate it here. */
 @keyframes credenza-fade { from { opacity: 0; } to { opacity: 1; } }
 `;
 
@@ -2207,6 +2201,8 @@ function RainbowBackground() {
 
 function Pill({ children, onClick, primary, subtle, style, title, disabled = false, loading = false, ...rest }) {
   const unavailable = disabled || loading;
+  // Look lives in credenza-fashion.css (.cz-pill + data-variant); callers'
+  // style prop is layout-only (flex, margins, minHeight overrides).
   return (
     <button
       type="button"
@@ -2215,23 +2211,9 @@ function Pill({ children, onClick, primary, subtle, style, title, disabled = fal
       disabled={unavailable}
       aria-busy={loading || undefined}
       className="cz-pill"
+      data-variant={primary ? "primary" : subtle ? "subtle" : undefined}
       {...rest}
-      style={{
-        fontFamily: FONT,
-        fontSize: 13,
-        fontWeight: 650,
-        letterSpacing: "-0.01em",
-        color: primary ? ACTION_TEXT : subtle ? SUB : ACTION_MUTED_TEXT,
-        background: primary ? ACTION_FILL : subtle ? "transparent" : ACTION_MUTED_BG,
-        border: "none",
-        borderRadius: 999,
-        minHeight: 40,
-        padding: "8px 14px",
-        cursor: unavailable ? "not-allowed" : "pointer",
-        opacity: unavailable ? 0.56 : 1,
-        whiteSpace: "nowrap",
-        ...style,
-      }}
+      style={style}
     >
       {children}
     </button>
@@ -2379,26 +2361,6 @@ function CapturePill({
       title={isPrimary ? "Stash" : canStashTab ? "Stash this tab" : "Stash clipboard"}
       aria-label={isPrimary ? "Stash" : canStashTab ? "Stash this tab" : "Stash clipboard"}
       initial={false}
-      style={{
-        fontFamily: FONT,
-        fontSize: 13,
-        fontWeight: 650,
-        letterSpacing: "-0.01em",
-        border: "none",
-        borderRadius: 999,
-        minHeight: 40,
-        minWidth: 0,
-        padding: "8px 14px",
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.56 : 1,
-        whiteSpace: "nowrap",
-        position: "relative",
-        overflow: "hidden",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        isolation: "isolate",
-      }}
     >
       {/* Muted background layer */}
       <motion.span
@@ -4581,9 +4543,9 @@ function CarouselSizeInfo({ item }) {
   );
 }
 
-// variant "fan"  — stacked corner fan that peels open on hover (classic)
-// variant "strip" — flat equal thumbs (product-sheet hierarchy)
-function CardCornerFan({ item, images, onOpenPhotos, reduced, variant = "fan", interactive = true }) {
+// Stacked corner fan that peels open on hover — the one photo-browse entry
+// point on every card back.
+function CardCornerFan({ item, images, onOpenPhotos, reduced, interactive = true }) {
   const [isHovered, setIsHovered] = useState(false);
   const fanRef = useRef(null);
   const [fanWidth, setFanWidth] = useState(284);
@@ -4610,36 +4572,6 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced, variant = "fan", i
     if (!interactive) return;
     if (onOpenPhotos) onOpenPhotos(item, e.currentTarget);
   };
-
-  // Product-sheet strip: equal thumbs in a row — intentional, not a leftover stack.
-  if (variant === "strip") {
-    return (
-      <div
-        ref={fanRef}
-        className="cz-corner-fan is-strip"
-        onClick={openGallery}
-        role="button"
-        tabIndex={interactive ? 0 : -1}
-        aria-label="Open photo gallery"
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            if (!interactive) return;
-            e.preventDefault();
-            openGallery(e);
-          }
-        }}
-      >
-        {displayed.map((src, i) => (
-          <div key={src + i} className="cz-corner-fan-card is-strip-card">
-            <img src={src} alt={"Gallery image " + (i + 1)} draggable={false} />
-          </div>
-        ))}
-        {images.length > 4 && (
-          <span className="cz-corner-fan-more is-strip-more">+{images.length - 4}</span>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div
@@ -4786,9 +4718,6 @@ function ItemDetailBody({
           images={galleryImages}
           onOpenPhotos={onOpenPhotos}
           reduced={reduced}
-          // Keep the peel-open fan — product-sheet hierarchy is
-          // about price/haul chrome, not killing the photo motion.
-          variant="fan"
           // Only the centered card may open photos via Space —
           // stale focus on a previous fan reopened the wrong album.
           interactive={isCenter}
