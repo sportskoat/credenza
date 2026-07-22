@@ -3958,3 +3958,42 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* ————— Kyle pass 2026-07-22: album swipe, toast polish, zoom guard ————— */
+
+/* Horizontal pan belongs to the album, not the page — without this the
+   browser eats the swipe before framer-motion's pan gesture sees it. */
+.cz-photo-coverflow-stage {
+  touch-action: pan-y;
+}
+
+/* Kill iOS double-tap smart-zoom across the fashion app (pinch-zoom is
+   untouched). A smart-zoomed page was presenting as "cards and prices cut
+   off at the right edge / controls under the browser pill." */
+.cz-app[data-fashion="true"] {
+  touch-action: manipulation;
+}
+
+/* Toast: same material language as cards — rounded, floating, hairline —
+   instead of the plain box. Sits clear of the bottom bar. */
+.cz-app[data-fashion="true"] .cz-toast {
+  border-radius: 16px;
+  padding: 12px 12px 12px 16px;
+  background: var(--cz-card-solid);
+  border: 1px solid var(--cz-hair-strong);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    0 16px 40px rgba(0, 0, 0, 0.38);
+}
+.cz-app[data-fashion="true"] .cz-toast-region {
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  inset-inline: 12px;
+}
+
+/* Heart clears the top-right price pill on phones (the desktop header row
+   used to occupy this space; with it gone, 48px landed under the pill). */
+@media (max-width: 767px) {
+  .cz-grid-favorite {
+    top: 62px;
+  }
+}

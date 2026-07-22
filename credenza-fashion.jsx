@@ -3808,7 +3808,7 @@ function linkButtons(item, opts = {}) {
   return btns;
 }
 
-function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, onToggleFavorite, featured, flipSignal, editSignal, mode, buyLabel, sheetMode = false, phone = false }) {
+function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, onToggleFavorite, onOpenPhotos, featured, flipSignal, editSignal, mode, buyLabel, sheetMode = false, phone = false }) {
   const [flipped, setFlipped] = useState(false);
   const [animateFlip, setAnimateFlip] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -3996,6 +3996,9 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           cursor: editing ? "default" : "pointer",
         }}
       >
+      {/* Platform/host/date row — desktop only. Kyle 2026-07-22: on phones this
+          squeezed link row is noise; the card leads with the picture instead. */}
+      {!phone && (
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <TypeMark item={item} />
         {item.note && (
@@ -4005,12 +4008,15 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           {(item.host ? item.host + " · " : "") + date}
         </span>
       </div>
+      )}
 
-      <div style={{ position: "relative", marginBottom: 12 }}>
+      {/* On phones the photo bleeds edge-to-edge (Kyle: "bigger picture,
+          centered") — the card's own padding is canceled by the margins. */}
+      <div style={{ position: "relative", marginBottom: 12, ...(phone ? { margin: "-14px -16px 12px", borderRadius: "15px 15px 0 0", overflow: "hidden" } : null) }}>
         <CoverImage
           item={item}
-          aspectRatio="4/5"
-          maxHeight={320}
+          aspectRatio={phone ? "3/4" : "4/5"}
+          maxHeight={phone ? 460 : 320}
           className="cz-card-image"
           imgStyle={{
             borderRadius: 0,
@@ -4043,8 +4049,15 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           <span
             style={{
               position: "absolute",
-              bottom: 10,
+              // Kyle 2026-07-22: price rides the top on phones (balances the
+              // status badge at top-left) and can never clip past the edge.
+              top: phone ? 10 : undefined,
+              bottom: phone ? undefined : 10,
               right: 10,
+              maxWidth: "calc(100% - 20px)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
               fontFamily: MONO,
               fontSize: 13,
               fontWeight: 700,
@@ -4229,7 +4242,9 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           }}
         >
           <div style={{ marginTop: 12 }}>
-            {item.note && (
+            {/* In sheetMode the sheet owns notes (inline field below the card) —
+                showing the note here too was the duplicate-notes bug. */}
+            {item.note && !sheetMode && (
               <div
                 style={{
                   fontFamily: DISPLAY,
@@ -4335,14 +4350,18 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               </div>
             )}
 
-            {/* Gallery thumbnails */}
+            {/* Gallery thumbnails — tap opens the swipeable album (Kyle
+                2026-07-22: swapping the cover on every tap made the whole
+                detail view jump around). Cover changes stay inside the album
+                via "Use as cover", per the canonical rule. */}
             {(item.gallery || []).length > 0 && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                 {(item.gallery || []).map((src, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => onSetPrimaryImage(item.id, src)}
+                    title="Open photo album"
+                    onClick={() => (onOpenPhotos ? onOpenPhotos(item) : onSetPrimaryImage(item.id, src))}
                     style={{
                       width: 56,
                       height: 56,
@@ -4389,6 +4408,8 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
           style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 8 }}
         >
           <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
+          {/* In sheetMode the sheet owns notes — no second notes field here. */}
+          {!sheetMode && (
           <Field
             label="Notes / links"
             value={ed.note || ""}
@@ -4396,6 +4417,7 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
             placeholder="Fit notes, QC reminders, sizing, seller tips, extra links…"
             rows={3}
           />
+          )}
           <Field
             label="Project / haul"
             value={ed.project}
@@ -7420,6 +7442,10 @@ export default function Credenza() {
   // expanding inside a half-width grid column.
   const isPhone = useIsPhone();
   const [sheetItemId, setSheetItemId] = useState(null);
+  // App-level photo album (Kyle 2026-07-22): the coverflow used to exist only
+  // inside CoverFlowCarousel, so grid/detail-sheet photos could never open on
+  // phones. This instance serves grid cards, rows, and the detail sheet.
+  const [appGallery, setAppGallery] = useState(null); // { item, images, startIndex }
   const [barMenuOpen, setBarMenuOpen] = useState(false);
 
   // Phones: ~400px of capture/search/tab chrome sits above the carousel, so at
@@ -8021,6 +8047,13 @@ export default function Credenza() {
     }
     return merged;
   };
+
+  // Opens the app-level album with the item's stored images as the seed;
+  // PhotoCoverFlow lazily loads the full Yupoo album itself via onLoadPhotos.
+  const openPhotos = useCallback((item) => {
+    const seed = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []).slice(0, 8);
+    setAppGallery({ item, images: seed, startIndex: 0 });
+  }, []);
 
   // Auto-fetch a preview image after stash. Best-effort enhancement: silent on
   // every failure, never touches status, never overwrites a manual image (the
@@ -9008,6 +9041,8 @@ export default function Credenza() {
         onRemoveGalleryImage={removeGalleryImage}
         onSetPrimaryImage={setPrimaryImage}
         onToggleFavorite={toggleFavorite}
+        onOpenPhotos={openPhotos}
+        phone={isPhone}
         mode={mode}
         buyLabel={buyLabel}
       />
@@ -9528,11 +9563,23 @@ export default function Credenza() {
               onRemoveGalleryImage: removeGalleryImage,
               onSetPrimaryImage: setPrimaryImage,
               onToggleFavorite: toggleFavorite,
+              onOpenPhotos: openPhotos,
               mode,
             }}
           />
         ) : null;
       })()}
+
+      {appGallery && (
+        <PhotoCoverFlow
+          item={appGallery.item}
+          images={appGallery.images}
+          startIndex={appGallery.startIndex}
+          onClose={() => setAppGallery(null)}
+          onSetPrimaryImage={setPrimaryImage}
+          onLoadPhotos={loadAlbumPhotos}
+        />
+      )}
 
       <div className="cz-shell">
         <div className="cz-masthead">
