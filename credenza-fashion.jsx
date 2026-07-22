@@ -1056,14 +1056,6 @@ function clipboardImageFile(e) {
   return null;
 }
 
-function droppedImageFile(e) {
-  const files = (e.dataTransfer && e.dataTransfer.files) || [];
-  for (const f of files) {
-    if (/^image\//.test(f.type)) return f;
-  }
-  return null;
-}
-
 // Item factory. Local enrichment happens at creation — the card is usable instantly.
 // `extra` overrides fields (import title hints, sample data, sourceImport, ages).
 // Fields marked [backend] are where future server columns go (userId, syncedAt, …).
@@ -3164,187 +3156,6 @@ function FilterChip({ active, label, dot, onClick }) {
   );
 }
 
-// Compact row — the scanning gear. Two lines when a summary is available.
-function Row({ item, selected, onClick }) {
-  const date = formatItemDate(item.createdAt);
-  const summary = typeof item.summary === "string" ? item.summary.trim() : "";
-  const shortHost = item.host
-    ? item.host.replace(/^(www\.|open\.)/, "").split(".")[0] + " · "
-    : "";
-  return (
-    <button
-      type="button"
-      id={"card-" + item.id}
-      className="cz-row"
-      aria-pressed={selected}
-      onClick={onClick}
-      style={{
-        background: CARD,
-        border: "1px solid " + (selected ? BLUE : HAIR),
-        boxShadow: selected ? "0 0 0 3px " + BLUE_BG : "none",
-        borderRadius: 0,
-        padding: "9px 12px",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        cursor: "pointer",
-        transition: "border-color .15s, box-shadow .15s",
-      }}
-    >
-      {item.image ? (
-        <img
-          src={item.image}
-          alt=""
-          draggable={false}
-          onDragStart={(event) => event.preventDefault()}
-          style={{ width: 40, height: 40, objectFit: "cover", flexShrink: 0, display: "block", userSelect: "none", WebkitUserDrag: "none" }}
-        />
-      ) : (
-        <BrandIcon type={item.type} host={item.host} size={13} />
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontFamily: FONT,
-            fontSize: 12.5,
-            fontWeight: 500,
-            color: INK,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {item.title}
-        </div>
-        {summary && (
-          <div
-            style={{
-              fontFamily: FONT,
-              fontSize: 11.5,
-              color: SUB,
-              lineHeight: 1.35,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {summary}
-          </div>
-        )}
-      </div>
-      {item.note && (
-        <span
-          style={{ width: 5, height: 5, borderRadius: 3, background: BLUE, opacity: 0.7, flexShrink: 0 }}
-        />
-      )}
-      <span style={{ fontFamily: FONT, fontSize: 12, color: FAINT, flexShrink: 0 }}>
-        {shortHost + date}
-      </span>
-    </button>
-  );
-}
-
-// Mobile list: swipe left to reveal a trash action. Uses the same remove()+undo
-// toast path as every other delete. Desktop and non-swipe callers just get Row.
-// Pointer-driven (not framer drag) so WebKit touch reliably reveals the action.
-const SWIPE_DELETE_WIDTH = 88;
-
-function SwipeableRow({ item, selected, onClick, onDelete, enabled }) {
-  const [offset, setOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const startOffset = useRef(0);
-  const axisLock = useRef(null); // "x" | "y" | null
-  const open = offset <= -SWIPE_DELETE_WIDTH * 0.6;
-
-  if (!enabled) {
-    return <Row item={item} selected={selected} onClick={onClick} />;
-  }
-
-  const clamp = (x) => Math.max(-SWIPE_DELETE_WIDTH, Math.min(0, x));
-
-  const onPointerDown = (e) => {
-    // Only primary pointer; ignore right-click / multi-touch.
-    if (e.button != null && e.button !== 0) return;
-    startX.current = e.clientX;
-    startY.current = e.clientY;
-    startOffset.current = offset;
-    axisLock.current = null;
-    setDragging(true);
-    try {
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const onPointerMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX.current;
-    const dy = e.clientY - startY.current;
-    if (!axisLock.current) {
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-      axisLock.current = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-    }
-    if (axisLock.current === "y") return;
-    // Horizontal swipe owns the gesture — don't let the page scroll.
-    e.preventDefault();
-    setOffset(clamp(startOffset.current + dx));
-  };
-
-  const endDrag = () => {
-    if (!dragging) return;
-    setDragging(false);
-    setOffset((cur) => (cur < -SWIPE_DELETE_WIDTH * 0.4 ? -SWIPE_DELETE_WIDTH : 0));
-    axisLock.current = null;
-  };
-
-  return (
-    <div className={"cz-swipe-row" + (open ? " is-open" : "")}>
-      <div className="cz-swipe-row-actions" aria-hidden={!open}>
-        <button
-          type="button"
-          className="cz-swipe-row-delete"
-          tabIndex={open ? 0 : -1}
-          aria-label={"Delete " + (item.title || "item")}
-          onClick={(e) => {
-            e.stopPropagation();
-            setOffset(0);
-            onDelete?.(item.id);
-          }}
-        >
-          <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Delete</span>
-        </button>
-      </div>
-      <div
-        className="cz-swipe-row-front"
-        style={{
-          transform: "translate3d(" + offset + "px, 0, 0)",
-          transition: dragging ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-          touchAction: "pan-y",
-        }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-      >
-        <Row
-          item={item}
-          selected={selected}
-          onClick={() => {
-            if (offset < -8) {
-              setOffset(0);
-              return;
-            }
-            onClick?.();
-          }}
-        />
-      </div>
-    </div>
-  );
-}
 
 function Field({ label, value, onChange, placeholder, rows, suggestions, onCommit, emptyHint, listLabel, allowCreate }) {
   const id = useId();
@@ -4292,922 +4103,146 @@ function linkButtons(item, opts = {}) {
   return btns;
 }
 
-function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSaveEdit, onOpen, onAttachImage, onRemoveImage, onAttachGalleryImage, onRemoveGalleryImage, onSetPrimaryImage, onToggleFavorite, onOpenPhotos, featured, flipSignal, editSignal, mode, buyLabel, sheetMode = false, phone = false }) {
-  const [flipped, setFlipped] = useState(false);
-  const [animateFlip, setAnimateFlip] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(item.note || "");
-  const [ed, setEd] = useState(null);
-  const [summaryOverflow, setSummaryOverflow] = useState(false);
-  const [summaryAtEnd, setSummaryAtEnd] = useState(false);
-  const [imageBusy, setImageBusy] = useState(false);
-  const [imageDragActive, setImageDragActive] = useState(false);
-  const summaryRef = useRef(null);
-  const backTextareaRef = useRef(null);
-  const imageInputRef = useRef(null);
-  const galleryInputRef = useRef(null);
-  const noteId = useId();
+// ═══ GRID CARD (slim cover) ═══
+// Grid cards are covers only — photo, status, price, title, seller, summary,
+// heart. No flip, no inline expand, no edit form: tapping any card jumps to
+// the carousel on that item, and the carousel back is the single detail/edit
+// surface (Kyle, 2026-07-22). Every element is a shared primitive so the
+// cover and the carousel card agree on where things live.
+function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false }) {
   const reduced = usePrefersReducedMotion();
-
-  const attach = async (file) => {
-    if (!file || imageBusy) return;
-    setImageBusy(true);
-    try {
-      await onAttachImage(item.id, file);
-    } finally {
-      setImageBusy(false);
-    }
-  };
-
-  const attachGallery = async (file) => {
-    if (!file || imageBusy) return;
-    setImageBusy(true);
-    try {
-      await onAttachGalleryImage(item.id, file);
-    } finally {
-      setImageBusy(false);
-    }
-  };
-
-  useEffect(() => {
-    setDraft(item.note || "");
-  }, [item.note]);
-
-  // Write-through: the back-of-card note saves as you type — no Save needed.
-  const noteTouchedRef = useRef(false);
-  useEffect(() => {
-    if (!noteTouchedRef.current) return;
-    const t = setTimeout(() => {
-      const next = draft.trim();
-      if (next !== (item.note || "")) onSaveNote(item.id, next);
-    }, 600);
-    return () => clearTimeout(t);
-  }, [draft]);
-
-  useEffect(() => {
-    if (!expanded) {
-      setFlipped(false);
-      setEditing(false);
-    }
-  }, [expanded]);
-
-  useEffect(() => {
-    if (flipped && backTextareaRef.current) backTextareaRef.current.focus();
-  }, [flipped]);
-
-  useEffect(() => {
-    const summary = summaryRef.current;
-    if (!summary || !expanded) {
-      setSummaryOverflow(false);
-      setSummaryAtEnd(false);
-      return;
-    }
-    const measure = () => {
-      setSummaryOverflow(summary.scrollHeight > summary.clientHeight + 1);
-      setSummaryAtEnd(summary.scrollTop + summary.clientHeight >= summary.scrollHeight - 1);
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [expanded, item.summary]);
-
-  // Keyboard layer: F/E on a selected card raises a per-card signal string.
-  useEffect(() => {
-    if (flipSignal && flipSignal.startsWith(item.id + ":")) {
-      setAnimateFlip(false);
-      setFlipped(true);
-    }
-  }, [flipSignal, item.id]);
-  useEffect(() => {
-    if (editSignal && editSignal.startsWith(item.id + ":")) {
-      setEd({
-        title: item.title,
-        summary: item.summary,
-        tags: (item.tags || []).join(", "),
-        project: item.project || "",
-        importance: item.importance || "medium",
-        linksText: (item.links || []).map((l) => l.url).join("\n"),
-        findStatus: item.findStatus || "want",
-        category: item.category || "",
-        price: item.price == null ? "" : String(item.price),
-        currency: item.currency || "CNY",
-        seller: item.seller || "",
-        batch: item.batch || "",
-        size: item.size || "",
-        colorway: item.colorway || "",
-        agentLink: item.agentLink || "",
-        findSource: item.findSource || "",
-        note: item.note || "",
-      });
-      setEditing(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editSignal, item.id]);
-
-  const startEdit = () => {
-    setEd({
-      title: item.title,
-      summary: item.summary,
-      tags: (item.tags || []).join(", "),
-      project: item.project || "",
-      importance: item.importance || "medium",
-      linksText: (item.links || []).map((l) => l.url).join("\n"),
-      findStatus: item.findStatus || "want",
-      category: item.category || "",
-      price: item.price == null ? "" : String(item.price),
-      currency: item.currency || "CNY",
-      seller: item.seller || "",
-      batch: item.batch || "",
-      size: item.size || "",
-      colorway: item.colorway || "",
-      agentLink: item.agentLink || "",
-      findSource: item.findSource || "",
-      note: item.note || "",
-    });
-    setEditing(true);
-  };
-
   const date = formatItemDate(item.createdAt);
-
-  // Each face rotates itself (not the parent): the wrapper's overflow:hidden is a
-  // CSS "grouping property" that flattens preserve-3d, which made a parent-level
-  // flip render the front mirrored instead of showing the back. Per-face
-  // perspective() in the transform keeps the depth cue without needing a 3D
-  // context to survive the flattening.
-  // WebKit ignores backface-visibility on these per-face flips (the faces
-  // never composite in a flat grid context), so Safari paints the back face
-  // mirrored over the front (confirmed 2026-07-21, Playwright WebKit headed +
-  // headless). Belt-and-braces: also swap visibility at the flip's edge-on
-  // midpoint (~80ms into this ease-out curve) so the hidden face is never
-  // painted regardless of engine culling.
-  const faceTransition =
-    reduced || !animateFlip ? "none" : "transform 340ms " + EASE + ", visibility 0s 80ms";
-  const faceFlip = (deg) => "perspective(1200px) rotateY(" + deg + "deg)";
-  const front = (
-    <div
-      aria-hidden={flipped}
-      inert={flipped ? "" : undefined}
-      style={{
-        gridArea: "1 / 1",
-        position: flipped ? "absolute" : "relative",
-        inset: flipped ? 0 : undefined,
-        padding: "14px 16px",
-        transform: faceFlip(flipped ? 180 : 0),
-        transition: faceTransition,
-        backfaceVisibility: "hidden",
-        WebkitBackfaceVisibility: "hidden",
-        visibility: flipped ? "hidden" : "visible",
-        pointerEvents: flipped ? "none" : "auto",
-      }}
-    >
-      <button
-        type="button"
-        className="cz-card-toggle"
-        aria-label={(expanded ? "Collapse " : "Expand ") + (item.title || "saved item")}
-        aria-expanded={expanded}
-        aria-controls={"card-details-" + item.id}
-        disabled={editing}
-        onClick={onToggle}
-        style={{
-          display: "block",
-          padding: 0,
-          margin: 0,
-          background: "transparent",
-          border: 0,
-          cursor: editing ? "default" : "pointer",
-        }}
-      >
-      {/* Platform/host/date row — desktop only. Kyle 2026-07-22: on phones this
-          squeezed link row is noise; the card leads with the picture instead. */}
-      {!phone && (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <TypeMark item={item} />
-        {item.note && (
-          <span style={{ width: 5, height: 5, borderRadius: 3, background: BLUE, opacity: 0.7 }} />
-        )}
-        <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, color: FAINT, letterSpacing: "0.02em" }}>
-          {(item.host ? item.host + " · " : "") + date}
-        </span>
-      </div>
-      )}
-
-      {/* On phones the photo bleeds edge-to-edge (Kyle: "bigger picture,
-          centered") — the card's own padding is canceled by the margins.
-          When the card is open (sheet or expanded midsize), tapping the cover
-          opens the swipeable album — same path as the gallery thumbs. */}
-      <div
-        className="cz-card-photo"
-        style={{
-          position: "relative",
-          marginBottom: 12,
-          ...(phone ? { margin: "-14px -16px 12px", borderRadius: "15px 15px 0 0", overflow: "hidden" } : null),
-        }}
-      >
-        <CoverImage
-          item={item}
-          aspectRatio={phone ? "3/4" : "4/5"}
-          maxHeight={phone ? 460 : 320}
-          className="cz-card-image"
-          imgStyle={{
-            borderRadius: 0,
-            outline: "1px solid " + (mode !== "light" ? "oklch(1 0 0 / 0.08)" : "oklch(0 0 0 / 0.08)"),
-            animation: reduced ? undefined : "credenza-fade 400ms ease-out both",
-          }}
-        />
-        {/* Open-gallery hit target over the cover. Nested <button> would be
-            invalid inside cz-card-toggle, so this is a role=button div that
-            stops the expand/collapse toggle and routes to PhotoCoverFlow. */}
-        {(sheetMode || expanded) && onOpenPhotos && (
-          <div
-            role="button"
-            tabIndex={0}
-            className="cz-card-photo-open"
-            aria-label={"Open photos for " + (item.title || "item")}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onOpenPhotos(item, { startIndex: 0 });
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                e.stopPropagation();
-                onOpenPhotos(item, { startIndex: 0 });
-              }
-            }}
-          />
-        )}
-        <StatusPill status={item.findStatus} className="cz-card-status" />
-        {!sheetMode && <PriceChip item={item} variant="overlay" />}
-      </div>
-
-      {!editing && (
-        <>
-          <div
-            style={{
-              fontFamily: DISPLAY,
-              fontSize: 19,
-              fontWeight: 500,
-              letterSpacing: "-0.03em",
-              color: INK,
-              lineHeight: 1.25,
-              marginBottom: item.summary || item.seller || item.size ? 6 : 0,
-              // Long unbroken tokens ("VEILANCE*SECANT", style codes) used to
-              // overflow the card and clip mid-glyph — break them anywhere.
-              overflowWrap: "anywhere",
-              wordBreak: "break-word",
-            }}
-          >
-            {item.title}
-          </div>
-          {(item.seller || item.size) && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: item.summary ? 6 : 0 }}>
-              {item.seller && (
-                <SellerLink item={item} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }} />
-              )}
-              {item.size && (
-                <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
-                  {item.size}
-                </span>
-              )}
-            </div>
-          )}
-          {item.summary && !((phone || sheetMode) && /^Saved from /.test(item.summary)) && (
-            <div>
-              <div
-                aria-hidden={expanded}
-                style={{
-                  display: "grid",
-                  gridTemplateRows: expanded ? "0fr" : "1fr",
-                  transition: reduced ? "none" : "grid-template-rows 220ms " + EASE,
-                }}
-              >
-                <div
-                  style={{
-                    minHeight: 0,
-                    overflow: "hidden",
-                    opacity: expanded ? 0 : 1,
-                    visibility: expanded ? "hidden" : "visible",
-                    transition: reduced
-                      ? "none"
-                      : expanded
-                        ? "opacity 160ms " + EASE + ", visibility 0s 220ms"
-                        : "opacity 180ms " + EASE + ", visibility 0s",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontFamily: FONT,
-                      fontSize: 13,
-                      color: SUB,
-                      lineHeight: 1.5,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {item.summary}
-                  </div>
-                </div>
-              </div>
-              <div
-                aria-hidden={!expanded}
-                style={{
-                  display: "grid",
-                  gridTemplateRows: expanded ? "1fr" : "0fr",
-                  transition: reduced ? "none" : "grid-template-rows 220ms " + EASE,
-                }}
-              >
-                <div
-                  style={{
-                    minHeight: 0,
-                    overflow: "hidden",
-                    opacity: expanded ? 1 : 0,
-                    visibility: expanded ? "visible" : "hidden",
-                    transition: reduced
-                      ? "none"
-                      : expanded
-                        ? "opacity 180ms " + EASE + ", visibility 0s"
-                        : "opacity 160ms " + EASE + ", visibility 0s 220ms",
-                  }}
-                >
-                  <div
-                    ref={summaryRef}
-                    onScroll={(e) =>
-                      setSummaryAtEnd(
-                        e.currentTarget.scrollTop + e.currentTarget.clientHeight >=
-                          e.currentTarget.scrollHeight - 1
-                      )
-                    }
-                    style={{
-                      fontFamily: FONT,
-                      fontSize: 13,
-                      color: SUB,
-                      lineHeight: 1.5,
-                      maxHeight: 280,
-                      overflowX: "hidden",
-                      overflowY: "auto",
-                      WebkitMaskImage:
-                        summaryOverflow && !summaryAtEnd
-                          ? "linear-gradient(to bottom, black calc(100% - 24px), transparent 100%)"
-                          : "none",
-                      maskImage:
-                        summaryOverflow && !summaryAtEnd
-                          ? "linear-gradient(to bottom, black calc(100% - 24px), transparent 100%)"
-                          : "none",
-                    }}
-                  >
-                    {item.summary}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-      </button>
-
-      {/* Sibling of the expand toggle (not nested) so the heart stays a real
-          <button>. Absolutely pinned to the photo's top-right via CSS — the
-          face is position:relative and phone photos bleed to the face edges. */}
-      {!sheetMode && (
-        <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
-      )}
-
-      <div
-        id={"card-details-" + item.id}
-        aria-hidden={!expanded || editing}
-        style={{
-          display: "grid",
-          gridTemplateRows: expanded && !editing ? "1fr" : "0fr",
-          transition: reduced ? "none" : "grid-template-rows 220ms " + EASE,
-        }}
-      >
-        {/* Propagation guard, not a control: keeps clicks on the expanded
-            details from re-toggling the card. No action is denied to keyboard. */}
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            minHeight: 0,
-            overflow: "hidden",
-            opacity: expanded && !editing ? 1 : 0,
-            visibility: expanded && !editing ? "visible" : "hidden",
-            pointerEvents: expanded && !editing ? "auto" : "none",
-            transition: reduced
-              ? "none"
-              : expanded && !editing
-                ? "opacity 180ms " + EASE + ", visibility 0s"
-                : "opacity 160ms " + EASE + ", visibility 0s 220ms",
-          }}
-        >
-          <div style={{ marginTop: 12 }}>
-            {/* In sheetMode the sheet owns notes (inline field below the card) —
-                showing the note here too was the duplicate-notes bug. */}
-            {item.note && !sheetMode && (
-              <div
-                style={{
-                  fontFamily: DISPLAY,
-                  fontStyle: "italic",
-                  fontSize: 14,
-                  color: SUB,
-                  background: BG,
-                  border: "1px solid " + HAIR,
-                  padding: "10px 12px",
-                  lineHeight: 1.55,
-                  marginBottom: 12,
-                }}
-              >
-                {item.note}
-              </div>
-            )}
-
-            {/* Fashion find metadata */}
-            {(item.findStatus !== "want" || item.price != null || item.seller || item.size || item.colorway || item.agentLink || CATEGORIES[item.category] || sizeRunLabel(item)) && (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: "6px 10px",
-                  fontFamily: MONO,
-                  fontSize: 12,
-                  color: SUB,
-                  marginBottom: 12,
-                  padding: "10px 12px",
-                  background: mode !== "light" ? "oklch(0.28 0.03 280)" : "oklch(0.96 0.01 100)",
-                  borderRadius: 0,
-                }}
-              >
-                {item.findStatus !== "want" && (
-                  <StatusPill status={item.findStatus} style={{ padding: "3px 8px" }} />
-                )}
-                <PriceChip item={item} variant="meta" style={{ fontWeight: 600, color: INK }} />
-                <SellerLink item={item} />
-                {item.size && <span>Size {item.size}</span>}
-                {item.colorway && <span>{item.colorway}</span>}
-                {CATEGORIES[item.category] && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: 999,
-                        background: CATEGORIES[item.category].dot,
-                      }}
-                    />
-                    {CATEGORIES[item.category].label}
-                  </span>
-                )}
-                {sizeRunLabel(item) && <span>{sizeRunLabel(item)}</span>}
-              </div>
-            )}
-
-            {item.sizeNotes && (
-              <div
-                style={{
-                  fontFamily: FONT,
-                  fontSize: 12.5,
-                  lineHeight: 1.5,
-                  color: SUB,
-                  marginBottom: 12,
-                  padding: "8px 12px",
-                  borderLeft: "2px solid " + (mode !== "light" ? "oklch(0.5 0.02 280)" : "oklch(0.8 0.01 100)"),
-                }}
-              >
-                {item.sizeNotes}
-              </div>
-            )}
-
-            {/* Gallery thumbnails — tap opens the swipeable album at that index
-                (Kyle 2026-07-22: swapping the cover on every tap made the whole
-                detail view jump around). Cover changes stay inside the album
-                via "Use as cover", per the canonical rule. Index +1 because
-                mergeFashionImages seeds the cover as image 0. */}
-            {(item.gallery || []).length > 0 && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-                {(item.gallery || []).map((src, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    title="Open photo album"
-                    onClick={() =>
-                      onOpenPhotos
-                        ? onOpenPhotos(item, { startIndex: (item.image ? 1 : 0) + idx })
-                        : onSetPrimaryImage(item.id, src)
-                    }
-                    style={{
-                      width: 56,
-                      height: 56,
-                      padding: 0,
-                      border: "1px solid " + HAIR,
-                      background: CARD,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <img
-                      src={src}
-                      alt={"Gallery image " + (idx + 1)}
-                      draggable={false}
-                      onDragStart={(event) => event.preventDefault()}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", userSelect: "none", WebkitUserDrag: "none" }}
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* In sheetMode the sheet owns the actions: pinned Buy footer + ⋯ menu. */}
-            {!sheetMode && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {linkButtons(item, { buyLabel }).map((btn) => (
-                  <Pill key={btn.url} primary={btn.role === "buy"} onClick={() => onOpen(item, btn.url)}>
-                    {btn.label}
-                  </Pill>
-                ))}
-                <Pill onClick={startEdit}>Edit</Pill>
-                <Pill subtle onClick={() => onDelete(item.id)}>
-                  Remove
-                </Pill>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {expanded && editing && ed && (
-        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- propagation guard around the edit form, not a control
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 8 }}
-        >
-          <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
-          {/* In sheetMode the sheet owns notes — no second notes field here. */}
-          {!sheetMode && (
-          <Field
-            label="Notes / links"
-            value={ed.note || ""}
-            onChange={(v) => setEd({ ...ed, note: v })}
-            placeholder="Fit notes, QC reminders, sizing, seller tips, extra links…"
-            rows={3}
-          />
-          )}
-          <Field
-            label="Project / haul"
-            value={ed.project}
-            onChange={(v) => setEd({ ...ed, project: v })}
-            placeholder="e.g., Summer haul"
-            suggestions={[]}
-            emptyHint="Type a new haul name"
-            listLabel="Hauls"
-          />
-          <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <Field
-                label="Price"
-                value={ed.price}
-                onChange={(v) => setEd({ ...ed, price: v })}
-                placeholder="0"
-              />
-            </div>
-            <div style={{ width: 90 }}>
-              <Field
-                label="Currency"
-                value={ed.currency}
-                onChange={(v) => setEd({ ...ed, currency: v })}
-                placeholder="CNY"
-              />
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <Field label="Seller" value={ed.seller} onChange={(v) => setEd({ ...ed, seller: v })} placeholder="Store name" />
-            </div>
-            <div style={{ flex: 1 }}>
-              <Field label="Batch" value={ed.batch} onChange={(v) => setEd({ ...ed, batch: v })} placeholder="e.g., M Batch" />
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <Field
-                label="Size"
-                value={ed.size}
-                onChange={(v) => setEd({ ...ed, size: v })}
-                placeholder="EU 42"
-                suggestions={sizeSuggestionsFor(item)}
-                emptyHint="Type a size"
-                listLabel="Sizes"
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
-            </div>
-          </div>
-          <StatusChips value={ed.findStatus} onChange={(s) => setEd({ ...ed, findStatus: s })} />
-          <div
-            role="radiogroup"
-            aria-label="Category"
-            style={{ display: "flex", flexWrap: "wrap", gap: 4, background: SEG, borderRadius: 12, padding: 2 }}
-          >
-            {Object.keys(CATEGORIES).map((c) => (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={ed.category === c}
-                className="cz-chip"
-                key={c}
-                onClick={() => setEd({ ...ed, category: ed.category === c ? "" : c })}
-                style={{
-                  flex: "1 0 auto",
-                  fontFamily: FONT,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: ed.category === c ? INK : SUB,
-                  background: ed.category === c ? CARD : "transparent",
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "6px 8px",
-                  cursor: "pointer",
-                }}
-              >
-                {CATEGORIES[c].label}
-              </button>
-            ))}
-          </div>
-          <div
-            role="radiogroup"
-            aria-label="Importance"
-            style={{ display: "flex", background: SEG, borderRadius: 999, padding: 2 }}
-          >
-            {["low", "medium", "high"].map((lvl) => (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={ed.importance === lvl}
-                className="cz-chip"
-                key={lvl}
-                onClick={() => setEd({ ...ed, importance: lvl })}
-                style={{
-                  flex: 1,
-                  fontFamily: FONT,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: ed.importance === lvl ? INK : SUB,
-                  background: ed.importance === lvl ? CARD : "transparent",
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "6px 0",
-                  cursor: "pointer",
-                }}
-              >
-                {lvl === "low" ? "Low" : lvl === "medium" ? "Medium" : "High"}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                attach(e.target.files && e.target.files[0]);
-                e.target.value = "";
-              }}
-            />
-            <Pill onClick={() => imageInputRef.current && imageInputRef.current.click()}>
-              {imageBusy ? "Adding…" : item.image ? "Replace image" : "Add image"}
-            </Pill>
-            {item.image && (
-              <Pill subtle onClick={() => onRemoveImage(item.id)}>
-                Remove image
-              </Pill>
-            )}
-          </div>
-
-          {/* Gallery management */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <input
-              ref={galleryInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                attachGallery(e.target.files && e.target.files[0]);
-                e.target.value = "";
-              }}
-            />
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Pill onClick={() => galleryInputRef.current && galleryInputRef.current.click()}>
-                {imageBusy ? "Adding…" : "Add gallery image"}
-              </Pill>
-              <span style={{ fontFamily: FONT, fontSize: 12, color: FAINT, alignSelf: "center" }}>
-                {(item.gallery || []).length}/12
-              </span>
-            </div>
-            {(item.gallery || []).length > 0 && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {(item.gallery || []).map((src, idx) => (
-                  <div key={idx} style={{ position: "relative", width: 56, height: 56 }}>
-                    <img
-                      src={src}
-                      alt={"Gallery " + (idx + 1)}
-                      draggable={false}
-                      onDragStart={(event) => event.preventDefault()}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", border: "1px solid " + HAIR, userSelect: "none", WebkitUserDrag: "none" }}
-                    />
-                    <button
-                      type="button"
-                      aria-label={"Remove gallery image " + (idx + 1)}
-                      onClick={() => onRemoveGalleryImage(item.id, idx)}
-                      style={{
-                        position: "absolute",
-                        top: -6,
-                        right: -6,
-                        width: 18,
-                        height: 18,
-                        borderRadius: 999,
-                        border: "none",
-                        background: ACTION_FILL,
-                        color: ACTION_TEXT,
-                        fontSize: 10,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-            <Pill
-              primary
-              onClick={() => {
-                const priceNum = ed.price.trim() === "" ? null : parseFloat(ed.price);
-                onSaveEdit(item.id, {
-                  title: ed.title.trim() || item.title,
-                  summary: ed.summary.trim(),
-                  tags: ed.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5),
-                  project: ed.project.trim(),
-                  importance: ed.importance,
-                  links: normalizeLinks(extractUrls(ed.linksText || ""), item.url),
-                  findStatus: ed.findStatus,
-                  category: ed.category,
-                  price: Number.isFinite(priceNum) ? priceNum : null,
-                  currency: ed.currency.trim() || "CNY",
-                  seller: ed.seller.trim(),
-                  batch: ed.batch.trim(),
-                  size: ed.size.trim(),
-                  colorway: ed.colorway.trim(),
-                  agentLink: ed.agentLink.trim(),
-                  findSource: ed.findSource.trim(),
-                  note: (ed.note || "").trim(),
-                });
-                setEditing(false);
-              }}
-            >
-              Save
-            </Pill>
-            <Pill subtle onClick={() => setEditing(false)}>
-              Cancel
-            </Pill>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const back = (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- propagation guard on the card back, not a control
-    <div
-      aria-hidden={!flipped}
-      inert={!flipped ? "" : undefined}
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        gridArea: "1 / 1",
-        position: flipped ? "relative" : "absolute",
-        inset: flipped ? undefined : 0,
-        padding: "14px 16px",
-        transform: faceFlip(flipped ? 0 : -180),
-        transition: faceTransition,
-        backfaceVisibility: "hidden",
-        WebkitBackfaceVisibility: "hidden",
-        visibility: flipped ? "visible" : "hidden",
-        pointerEvents: flipped ? "auto" : "none",
-      }}
-    >
-      <label
-        htmlFor={noteId}
-        style={{ display: "block", color: BLUE_DK, marginBottom: 8, fontSize: 12, fontWeight: 650 }}
-      >
-        Back of the card
-      </label>
-      <textarea
-        id={noteId}
-        className="cz-note-field"
-        ref={backTextareaRef}
-        value={draft}
-        onChange={(e) => {
-          noteTouchedRef.current = true;
-          setDraft(e.target.value);
-        }}
-        placeholder="Why did you save this?"
-        rows={3}
-        style={{
-          width: "100%",
-          boxSizing: "border-box",
-          background: "transparent",
-          border: "none",
-          borderBottom: "1px solid " + HAIR,
-          resize: "vertical",
-          color: INK,
-          fontSize: 14,
-          lineHeight: 1.6,
-          fontFamily: FONT,
-          padding: "2px 0 8px",
-        }}
-      />
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <Pill
-          primary
-          onClick={() => {
-            onSaveNote(item.id, draft.trim());
-            setAnimateFlip(true);
-            setFlipped(false);
-          }}
-        >
-          Save
-        </Pill>
-        <Pill subtle onClick={() => {
-          const next = draft.trim();
-          if (next !== (item.note || "")) onSaveNote(item.id, next);
-          setAnimateFlip(true);
-          setFlipped(false);
-        }}>
-          Done
-        </Pill>
-      </div>
-    </div>
-  );
 
   return (
     <article
       id={"card-" + item.id}
       aria-current={selected ? "true" : undefined}
-      style={{ perspective: 1200, height: "100%" }}
+      style={{ height: "100%" }}
     >
       <div
         className="cz-card"
-        onPaste={(e) => {
-          if (!expanded) return;
-          const file = clipboardImageFile(e);
-          if (file) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (editing) attachGallery(file);
-            else attach(file);
-          }
-        }}
-        onDragOver={(e) => {
-          if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files")) {
-            e.preventDefault();
-            setImageDragActive(true);
-          }
-        }}
-        onDragLeave={() => setImageDragActive(false)}
-        onDrop={(e) => {
-          const file = droppedImageFile(e);
-          setImageDragActive(false);
-          if (file) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (editing) attachGallery(file);
-            else attach(file);
-          }
-        }}
         style={{
           background: CARD,
           borderRadius: 0,
-          border: "1px solid " + (imageDragActive ? BLUE : selected ? BLUE : featured ? BLUE_BG : HAIR),
+          border: "1px solid " + (selected ? BLUE : HAIR),
           boxShadow: selected ? "0 0 0 3px " + BLUE_BG : "0 7px 18px rgba(20,20,16,.035)",
           overflow: "hidden",
-          cursor: "default",
           display: "grid",
           position: "relative",
           transition: reduced ? "none" : "border-color .15s, box-shadow .15s",
           height: "100%",
         }}
       >
-        {front}
-        {back}
+        {/* position:relative — the heart pins to this face's top-right via CSS,
+            and on phones the photo bleeds to the face edges. */}
+        <div style={{ gridArea: "1 / 1", position: "relative", padding: "14px 16px" }}>
+          <button
+            type="button"
+            className="cz-card-toggle"
+            aria-label={"Open " + (item.title || "saved item") + " in carousel"}
+            onClick={onToggle}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              padding: 0,
+              margin: 0,
+              background: "transparent",
+              border: 0,
+              cursor: "pointer",
+            }}
+          >
+            {/* Platform/host/date row — desktop only. Kyle 2026-07-22: on
+                phones this squeezed link row is noise; the card leads with
+                the picture instead. */}
+            {!phone && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <TypeMark item={item} />
+                {item.note && (
+                  <span style={{ width: 5, height: 5, borderRadius: 3, background: BLUE, opacity: 0.7 }} />
+                )}
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, color: FAINT, letterSpacing: "0.02em" }}>
+                  {(item.host ? item.host + " · " : "") + date}
+                </span>
+              </div>
+            )}
+
+            {/* On phones the photo bleeds edge-to-edge (Kyle: "bigger picture,
+                centered") — the card's own padding is canceled by the margins. */}
+            <div
+              className="cz-card-photo"
+              style={{
+                position: "relative",
+                marginBottom: 12,
+                ...(phone ? { margin: "-14px -16px 12px", borderRadius: "15px 15px 0 0", overflow: "hidden" } : null),
+              }}
+            >
+              <CoverImage
+                item={item}
+                aspectRatio={phone ? "3/4" : "4/5"}
+                maxHeight={phone ? 460 : 320}
+                className="cz-card-image"
+                imgStyle={{
+                  borderRadius: 0,
+                  outline: "1px solid " + (mode !== "light" ? "oklch(1 0 0 / 0.08)" : "oklch(0 0 0 / 0.08)"),
+                  animation: reduced ? undefined : "credenza-fade 400ms ease-out both",
+                }}
+              />
+              <StatusPill status={item.findStatus} className="cz-card-status" />
+              <PriceChip item={item} variant="overlay" />
+            </div>
+
+            <div
+              style={{
+                fontFamily: DISPLAY,
+                fontSize: 19,
+                fontWeight: 500,
+                letterSpacing: "-0.03em",
+                color: INK,
+                lineHeight: 1.25,
+                marginBottom: item.summary || item.seller || item.size ? 6 : 0,
+                // Long unbroken tokens ("VEILANCE*SECANT", style codes) used to
+                // overflow the card and clip mid-glyph — break them anywhere.
+                overflowWrap: "anywhere",
+                wordBreak: "break-word",
+              }}
+            >
+              {item.title}
+            </div>
+            {(item.seller || item.size) && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: item.summary ? 6 : 0 }}>
+                {item.seller && (
+                  <SellerLink item={item} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }} />
+                )}
+                {item.size && (
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
+                    {item.size}
+                  </span>
+                )}
+              </div>
+            )}
+            {item.summary && !(phone && /^Saved from /.test(item.summary)) && (
+              <div
+                style={{
+                  fontFamily: FONT,
+                  fontSize: 13,
+                  color: SUB,
+                  lineHeight: 1.5,
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {item.summary}
+              </div>
+            )}
+          </button>
+
+          {/* Sibling of the open toggle (not nested) so the heart stays a real
+              <button>. Absolutely pinned to the photo's top-right via CSS. */}
+          <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
+        </div>
       </div>
     </article>
   );
@@ -5462,156 +4497,6 @@ function BodyProfileSheet({ value, units = "in", onSave, onChangeUnits, onClose 
   );
 }
 
-// Mobile detail sheet (audit C1): on phones the grid card's detail view opens
-// here — full width — instead of expanding inside a half-width grid column.
-// Reuses Card (sheetMode) for all detail content; the sheet owns notes (inline,
-// write-through), one-tap status, a pinned Buy footer, and a ⋯ overflow where
-// Remove lives behind the app's existing undo toast.
-function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onSaveNote, onSaveEdit, bodyProfile, measureUnits, onOpenProfile }) {
-  const [editSig, setEditSig] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(item.note || "");
-  const draftRef = useRef(noteDraft);
-  draftRef.current = noteDraft;
-
-  // Write-through autosave, same cadence as the grid back note (600ms), with a
-  // flush on every exit path so click-away never loses text.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (draftRef.current !== (item.note || "")) onSaveNote(item.id, draftRef.current);
-    }, 600);
-    return () => clearTimeout(t);
-  }, [noteDraft, item.id, item.note, onSaveNote]);
-  const close = () => {
-    if (draftRef.current !== (item.note || "")) onSaveNote(item.id, draftRef.current);
-    onClose();
-  };
-
-  const btns = linkButtons(item, { buyLabel });
-  const buy = btns.find((b) => b.role === "buy") || null;
-  const secondary = btns.filter((b) => b !== buy);
-
-  // True sheet footer (sibling of the scroll body) — sticky mid-sheet floated
-  // with the content; pin it to the modal's bottom edge instead.
-  const footer = (
-    <div className="cz-detail-sheet-footer">
-      {buy && (
-        <Pill primary onClick={() => onOpen(item, buy.url)} style={{ flex: 1, justifyContent: "center", minHeight: 46 }}>
-          {buy.label}
-        </Pill>
-      )}
-      <Pill onClick={() => setEditSig(item.id + ":" + Date.now())}>Edit</Pill>
-      <div style={{ position: "relative" }}>
-        <Pill subtle aria-label="More actions" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
-          ⋯
-        </Pill>
-        {menuOpen && (
-          <div
-            style={{
-              position: "absolute",
-              right: 0,
-              bottom: "calc(100% + 8px)",
-              zIndex: 5,
-              background: "var(--cz-card-solid)",
-              border: "1px solid " + HAIR,
-              borderRadius: 12,
-              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.35)",
-              padding: 6,
-              minWidth: 180,
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-            }}
-          >
-            {secondary.map((b) => (
-              <button
-                type="button"
-                key={b.url}
-                onClick={() => {
-                  setMenuOpen(false);
-                  onOpen(item, b.url);
-                }}
-                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, textAlign: "left", color: INK, background: "transparent", border: 0, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}
-              >
-                {b.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                close();
-                onDelete(item.id);
-              }}
-              style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, textAlign: "left", color: "var(--cz-error-text)", background: "transparent", border: 0, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}
-            >
-              Remove
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  return (
-    <ModalShell
-      title={item.title || "Saved item"}
-      onClose={close}
-      maxWidth={560}
-      surfaceClassName="cz-detail-sheet"
-      footer={footer}
-      trailing={
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          {priceLabelShort(item) && (
-            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: INK, whiteSpace: "nowrap" }}>
-              {priceLabelShort(item)}
-            </span>
-          )}
-          <FavoriteButton item={item} onToggle={cardProps.onToggleFavorite} className="cz-sheet-favorite" />
-        </span>
-      }
-    >
-      <Card
-        {...cardProps}
-        item={item}
-        expanded
-        sheetMode
-        phone
-        selected={false}
-        featured={false}
-        onToggle={() => {}}
-        editSignal={editSig}
-        buyLabel={buyLabel}
-      />
-
-      <SizeRecommendation
-        item={item}
-        bodyProfile={bodyProfile}
-        units={measureUnits}
-        onOpenProfile={onOpenProfile}
-        onSaveEdit={onSaveEdit}
-      />
-
-      <div style={{ marginTop: 14 }}>
-        <Field
-          label="Notes"
-          value={noteDraft}
-          onChange={setNoteDraft}
-          placeholder="Fit notes, QC reminders, sizing, seller tips…"
-          rows={3}
-        />
-      </div>
-
-      <div style={{ marginTop: 12, marginBottom: 8 }}>
-        <StatusChips
-          value={item.findStatus || "want"}
-          onChange={(s) => onSaveEdit(item.id, { findStatus: s })}
-        />
-      </div>
-    </ModalShell>
-  );
-}
-
 function InfoBubble({ title, children, onClose }) {
   return (
     <div className="cz-info-bubble">
@@ -5857,8 +4742,8 @@ function ItemDetailBody({
         </div>
       )}
 
-      {/* Size pick was DetailSheet-only (audit): the card back is where the
-          decision happens, so it lives here now. */}
+      {/* The card back is the only detail surface, so the size pick lives
+          here — same spot on every item. */}
       <SizeRecommendation
         item={item}
         bodyProfile={bodyProfile}
@@ -6553,6 +5438,7 @@ function CoverFlowCarousel({
   selectedId,
   flipRequest,
   editRequest,
+  focusSignal,
   haulNames = [],
   onDelete,
   onSaveEdit,
@@ -6646,6 +5532,21 @@ function CoverFlowCarousel({
     activeIndexRef.current = next;
     setActiveIndexState(next);
   }, [items, expandedId, onDeactivate]);
+
+  // Grid tap → "open the carousel on this item" (Kyle 2026-07-22). Additive
+  // only: a signal string (id:timestamp) that jumps the rack; geometry and
+  // pan physics untouched. Fires on mount when the carousel remounts for the
+  // viewMode switch.
+  useEffect(() => {
+    if (!focusSignal) return;
+    const id = String(focusSignal).split(":")[0];
+    const idx = items.findIndex((c) => c.id === id);
+    if (idx >= 0 && idx !== activeIndexRef.current) {
+      activeIndexRef.current = idx;
+      setActiveIndexState(idx);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusSignal]);
 
   useEffect(() => {
     const update = () => {
@@ -7182,8 +6083,8 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
   const [cardSize, setCardSize] = useState({ width: 300, height: 400 });
 
   useEffect(() => {
-    // Native <dialog>.showModal() so the gallery sits in the browser top layer
-    // above an open DetailSheet (fixed z-index cannot beat a modal dialog).
+    // Native <dialog>.showModal() puts the gallery in the browser top layer
+    // above any open sheet (fixed z-index cannot beat a modal dialog).
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
     const t = setTimeout(() => closeRef.current?.focus(), 0);
@@ -7419,7 +6320,7 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
   );
 }
 
-function ModalShell({ title, onClose, children, maxWidth = 720, trailing, footer = null, surfaceClassName = "" }) {
+function ModalShell({ title, onClose, children, maxWidth = 720, trailing, surfaceClassName = "" }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
   const titleId = useId();
@@ -7435,11 +6336,6 @@ function ModalShell({ title, onClose, children, maxWidth = 720, trailing, footer
       if (trigger && typeof trigger.focus === "function") trigger.focus();
     };
   }, []);
-
-  // When a footer is provided (DetailSheet), the body scrolls and the footer
-  // stays pinned to the sheet's bottom edge. Other sheets keep the old
-  // single-scroll surface.
-  const body = footer ? <div className="cz-detail-sheet-body">{children}</div> : children;
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click-to-close; keyboard users close via Escape (onCancel)
@@ -7493,8 +6389,7 @@ function ModalShell({ title, onClose, children, maxWidth = 720, trailing, footer
             ✕
           </button>
         </div>
-        {body}
-        {footer}
+        {children}
       </div>
     </dialog>
   );
@@ -8019,16 +6914,14 @@ export default function Credenza() {
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   // "recent" = newest first (default). "starred" = only starred items.
   const [sortMode, setSortMode] = useState("recent");
-  // Phones open card details in a full-width bottom sheet (audit C1) instead of
-  // expanding inside a half-width grid column.
+  // One detail surface everywhere (Kyle 2026-07-22): tapping any grid card
+  // opens the carousel on that item; the carousel back holds details + edit.
   const isPhone = useIsPhone();
-  const [sheetItemId, setSheetItemId] = useState(null);
-  // App-level photo album (Kyle 2026-07-22): the coverflow used to exist only
-  // inside CoverFlowCarousel, so grid/detail-sheet photos could never open on
-  // phones. This instance serves grid cards, rows, and the detail sheet.
-  const [appGallery, setAppGallery] = useState(null); // { item, images, startIndex }
+  // Signal for "jump the carousel to this item" — id + ":" + timestamp, same
+  // idiom as flip/edit signals. Consumed by CoverFlowCarousel's focusSignal.
+  const [carouselFocus, setCarouselFocus] = useState(null);
   const [barMenuOpen, setBarMenuOpen] = useState(false);
-  // Body measurements powering the DetailSheet size pick; persisted in
+  // Body measurements powering the card-back size pick; persisted in
   // credenza-prefs-v1. Null until the user fills the sheet once. Storage is
   // always cm/kg — measureUnits only controls display/input (default "in",
   // US). Charts are metric; conversion happens at the edges.
@@ -8227,7 +7120,9 @@ export default function Credenza() {
               .set(
                 "credenza-prefs-v1",
                 JSON.stringify({
-                  viewMode: p.viewMode || "carousel",
+                  // "rows" view was scrapped (Kyle 2026-07-22) — anything
+                  // stored other than cards falls back to carousel.
+                  viewMode: p.viewMode === "cards" ? "cards" : "carousel",
                   sortMode: p.sortMode === "starred" ? "starred" : "recent",
                   theme: "rainbow",
                   colorwayVersion: 4,
@@ -8518,25 +7413,28 @@ export default function Credenza() {
     });
   };
 
-  // ————— Notes, edits, opens, removal —————
-  const saveNote = (id, note) => {
-    updateItem(id, { note });
-    const applyExtraction = (ex) => {
-      if (!ex) return;
-      updateItem(id, (x) => ({
-        extractedIntent: ex.extractedIntent || x.extractedIntent,
-        project: ex.project || x.project,
-        people: ex.people && ex.people.length ? ex.people : x.people,
-        useCase: ex.useCase || x.useCase,
-        importance:
-          ex.importance && x.importance === "medium" ? ex.importance : x.importance,
-      }));
-    };
-    applyExtraction(extractIntentLocal(note));
-    if (aiAvailable()) aiExtractIntent(note).then(applyExtraction);
+  // ————— Edits, opens, removal —————
+  const saveEdit = (id, patch) => {
+    updateItem(id, patch);
+    // Note edits used to flow through a dedicated saveNote that re-ran intent
+    // extraction; the unified edit form saves notes through here instead.
+    if (Object.prototype.hasOwnProperty.call(patch, "note")) {
+      const note = patch.note || "";
+      const applyExtraction = (ex) => {
+        if (!ex) return;
+        updateItem(id, (x) => ({
+          extractedIntent: ex.extractedIntent || x.extractedIntent,
+          project: ex.project || x.project,
+          people: ex.people && ex.people.length ? ex.people : x.people,
+          useCase: ex.useCase || x.useCase,
+          importance:
+            ex.importance && x.importance === "medium" ? ex.importance : x.importance,
+        }));
+      };
+      applyExtraction(extractIntentLocal(note));
+      if (aiAvailable()) aiExtractIntent(note).then(applyExtraction);
+    }
   };
-
-  const saveEdit = (id, patch) => updateItem(id, patch);
   const toggleFavorite = (id) => {
     updateItem(id, (item) => ({ favorite: item.favorite !== true }));
   };
@@ -8551,8 +7449,6 @@ export default function Credenza() {
       flashImportResult("Couldn't read that image.");
     }
   };
-  const removeImage = (id) => updateItem(id, { image: null });
-
   const attachGalleryImage = async (id, file) => {
     if (!file) return;
     try {
@@ -8562,8 +7458,6 @@ export default function Credenza() {
       flashImportResult("Couldn't read that gallery image.");
     }
   };
-  const removeGalleryImage = (id, index) =>
-    updateItem(id, (x) => ({ gallery: (x.gallery || []).filter((_, i) => i !== index) }));
   // Remove by exact src so edit-mode can drop either the cover or a gallery tile.
   // If the cover is deleted, promote the first remaining gallery image.
   const removePhotoBySrc = (id, src) =>
@@ -8644,19 +7538,6 @@ export default function Credenza() {
 
   // Opens the app-level album with the item's stored images as the seed;
   // PhotoCoverFlow lazily loads the full Yupoo album itself via onLoadPhotos.
-  // Second arg may be a startIndex number, a trigger element (legacy), or
-  // { startIndex, trigger }.
-  const openPhotos = useCallback((item, opts) => {
-    const seed = itemPhotoList(item, 8);
-    let startIndex = 0;
-    if (typeof opts === "number") startIndex = opts;
-    else if (opts && typeof opts === "object" && !(opts instanceof Element) && "startIndex" in opts) {
-      startIndex = Number(opts.startIndex) || 0;
-    }
-    startIndex = Math.max(0, Math.min(seed.length - 1, startIndex));
-    setAppGallery({ item, images: seed, startIndex });
-  }, []);
-
   // Auto-fetch a preview image after stash. Best-effort enhancement: silent on
   // every failure, never touches status, never overwrites a manual image (the
   // functional patch checks current.image in case one landed mid-flight).
@@ -9538,10 +8419,16 @@ export default function Credenza() {
           return;
         }
         // Space / F flips the active card. Space again (or F again while open)
-        // unflips — same as clicking the center card.
+        // unflips — same as clicking the center card. Grid cards have no flip
+        // anymore: there Space/F jumps to the carousel on the selected card.
         if (e.key === " " || e.key === "Spacebar" || e.key === "f") {
           e.preventDefault();
           setSelectedId(sel.id);
+          if (ctx.viewMode !== "carousel") {
+            setCarouselFocus(sel.id + ":" + Date.now());
+            setViewMode("carousel");
+            return;
+          }
           if (ctx.expandedId === sel.id) {
             setExpandedId(null);
           } else {
@@ -9552,8 +8439,14 @@ export default function Credenza() {
         }
         if (e.key === "e") {
           e.preventDefault();
+          setSelectedId(sel.id);
           setExpandedId(sel.id);
           setEditRequest(sel.id + ":" + Date.now());
+          // Grid: the edit form lives on the carousel card back — jump there.
+          if (ctx.viewMode !== "carousel") {
+            setCarouselFocus(sel.id + ":" + Date.now());
+            setViewMode("carousel");
+          }
           return;
         }
         if (e.key === "Backspace" || e.key === "Delete") {
@@ -9594,94 +8487,27 @@ export default function Credenza() {
     };
   }, []);
 
-  // Row in rows mode, full card when expanded (or in cards mode). Entrance style
-  // rides the wrapper so both shapes animate identically.
-  const renderEntry = (item) => {
-    const inRows = viewMode === "rows";
-    const rowActive = inRows && expandedId !== item.id;
-    const cardActive = !inRows || expandedId === item.id;
-    const collapseStyle = (active) => ({
-      display: "grid",
-      gridTemplateRows: active ? "1fr" : "0fr",
-      transition: reduced ? "none" : "grid-template-rows 220ms " + EASE,
-    });
-    const collapseInnerStyle = (active) => ({
-      minHeight: 0,
-      overflow: "hidden",
-      opacity: active ? 1 : 0,
-      visibility: active ? "visible" : "hidden",
-      pointerEvents: active ? "auto" : "none",
-      transition: reduced
-        ? "none"
-        : active
-          ? "opacity 180ms " + EASE + ", visibility 0s"
-          : "opacity 160ms " + EASE + ", visibility 0s 220ms",
-    });
-    const card = (
+  // Tap any grid card → carousel opens on that item (Kyle 2026-07-22). The
+  // carousel remounts on the viewMode switch, so the focus signal is consumed
+  // by the fresh mount's focusSignal effect.
+  const openInCarousel = (id) => {
+    setSelectedId(id);
+    setCarouselFocus(id + ":" + Date.now());
+    setViewMode("carousel");
+  };
+
+  const renderEntry = (item) => (
+    <div key={item.id}>
       <Card
         item={item}
-        expanded={expandedId === item.id}
         selected={selectedId === item.id}
-        flipSignal={flipRequest}
-        editSignal={editRequest}
-        onToggle={() => {
-          if (isPhone) {
-            setSheetItemId(item.id);
-            setSelectedId(item.id);
-            return;
-          }
-          setExpandedId(expandedId === item.id ? null : item.id);
-          setSelectedId(item.id);
-        }}
-        onDelete={remove}
-        onSaveNote={saveNote}
-        onSaveEdit={saveEdit}
-        onOpen={recordOpen}
-        onAttachImage={attachImage}
-        onRemoveImage={removeImage}
-        onAttachGalleryImage={attachGalleryImage}
-        onRemoveGalleryImage={removeGalleryImage}
-        onSetPrimaryImage={setPrimaryImage}
+        onToggle={() => openInCarousel(item.id)}
         onToggleFavorite={toggleFavorite}
-        onOpenPhotos={openPhotos}
         phone={isPhone}
         mode={mode}
-        buyLabel={buyLabel}
       />
-    );
-    return (
-      <div key={item.id}>
-        {inRows ? (
-          <>
-            <div style={collapseStyle(rowActive)} aria-hidden={!rowActive}>
-              <div style={collapseInnerStyle(rowActive)}>
-                <SwipeableRow
-                  item={item}
-                  selected={selectedId === item.id}
-                  enabled={isPhone}
-                  onDelete={remove}
-                  onClick={() => {
-                    if (isPhone) {
-                      setSheetItemId(item.id);
-                      setSelectedId(item.id);
-                      return;
-                    }
-                    setExpandedId(item.id);
-                    setSelectedId(item.id);
-                  }}
-                />
-              </div>
-            </div>
-            <div style={collapseStyle(cardActive)} aria-hidden={!cardActive}>
-              <div style={collapseInnerStyle(cardActive)}>{card}</div>
-            </div>
-          </>
-        ) : (
-          card
-        )}
-      </div>
-    );
-  };
+    </div>
+  );
 
   
   const localStatus = (() => {
@@ -9703,10 +8529,15 @@ export default function Credenza() {
     setExpandedId(null);
   }, [listItems, selectedId]);
 
-  // Any view/haul surface change forces cards face-up. Navigation wins.
+  // Haul/tab surface changes force cards face-up. Navigation wins.
   useEffect(() => {
     setExpandedId(null);
-  }, [view, activeHaul, viewMode]);
+  }, [view, activeHaul]);
+  // Switching shelf views also unflips — except arriving IN the carousel,
+  // where a grid tap / keyboard jump may deliberately land on a flipped card.
+  useEffect(() => {
+    if (viewMode !== "carousel") setExpandedId(null);
+  }, [viewMode]);
 
   // Hauls directory grid. Only ever shown when no haul is open — see the
   // AnimatePresence swap against `shelfSurface` below. Declarative crossfade:
@@ -9867,25 +8698,6 @@ export default function Credenza() {
             >
               ▦
             </button>
-            <button
-              type="button"
-              className="cz-view-button"
-              onClick={() => setViewMode("rows")}
-              aria-label="Row view"
-              aria-pressed={viewMode === "rows"}
-              title="Rows"
-              style={{
-                fontFamily: FONT,
-                fontSize: 12,
-                color: viewMode === "rows" ? INK : FAINT,
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "4px 2px",
-              }}
-            >
-              ☰
-            </button>
           </div>
         </div>
       )}
@@ -10010,6 +8822,7 @@ export default function Credenza() {
             selectedId={selectedId}
             flipRequest={flipRequest}
             editRequest={editRequest}
+            focusSignal={carouselFocus}
             haulNames={haulNames}
             onDelete={remove}
             onSaveEdit={saveEdit}
@@ -10037,7 +8850,7 @@ export default function Credenza() {
           style={{
             display: viewMode === "cards" && !sections ? undefined : "flex",
             flexDirection: viewMode === "cards" && !sections ? undefined : "column",
-            gap: viewMode === "rows" ? 6 : 10,
+            gap: 10,
           }}
         >
           {sections
@@ -10048,11 +8861,6 @@ export default function Credenza() {
                   </Caption>
                   <div
                     className={viewMode === "cards" ? "cz-time-section-grid" : undefined}
-                    style={
-                      viewMode === "rows"
-                        ? { display: "flex", flexDirection: "column", gap: 6 }
-                        : undefined
-                    }
                   >
                     {arr.map(renderEntry)}
                   </div>
@@ -10144,49 +8952,6 @@ export default function Credenza() {
           }
           storageBackend={storageBackend}
           onClose={() => setAgentSheetOpen(false)}
-        />
-      )}
-
-      {(() => {
-        const sheetItem = sheetItemId ? items.find((x) => x.id === sheetItemId) : null;
-        return sheetItem ? (
-          <DetailSheet
-            item={sheetItem}
-            buyLabel={buyLabel}
-            onClose={() => setSheetItemId(null)}
-            onOpen={recordOpen}
-            onDelete={remove}
-            onSaveNote={saveNote}
-            onSaveEdit={saveEdit}
-            bodyProfile={bodyProfile}
-            measureUnits={measureUnits}
-            onOpenProfile={() => setProfileSheetOpen(true)}
-            cardProps={{
-              onDelete: remove,
-              onSaveNote: saveNote,
-              onSaveEdit: saveEdit,
-              onOpen: recordOpen,
-              onAttachImage: attachImage,
-              onRemoveImage: removeImage,
-              onAttachGalleryImage: attachGalleryImage,
-              onRemoveGalleryImage: removeGalleryImage,
-              onSetPrimaryImage: setPrimaryImage,
-              onToggleFavorite: toggleFavorite,
-              onOpenPhotos: openPhotos,
-              mode,
-            }}
-          />
-        ) : null;
-      })()}
-
-      {appGallery && (
-        <PhotoCoverFlow
-          item={appGallery.item}
-          images={appGallery.images}
-          startIndex={appGallery.startIndex}
-          onClose={() => setAppGallery(null)}
-          onSetPrimaryImage={setPrimaryImage}
-          onLoadPhotos={loadAlbumPhotos}
         />
       )}
 
