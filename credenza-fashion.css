@@ -294,6 +294,10 @@
   width: 100%;
   isolation: isolate;
   overflow: visible;
+  /* Pre-deploy hardening: keep the stage below the sticky shelf toolbar when
+     anything scrolls it into view (crown clearance is only ~14px of layout
+     margin otherwise). Toolbar ≈ 40px + pads. */
+  scroll-margin-top: 56px;
 }
 
 .cz-carousel {
@@ -4077,7 +4081,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   max-width: 720px;
   margin-inline: auto;
   position: sticky;
-  top: 0;
+  /* Respect the notch on phones — the sticky row must start below the
+     safe-area inset, not at the raw viewport top. */
+  top: env(safe-area-inset-top, 0px);
   z-index: var(--z-chrome);
   background: var(--cz-bg);
   /* Soft pad so the solid bg doesn't clip icons against the edge. */
