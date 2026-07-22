@@ -442,10 +442,6 @@ export function measureFromStorage(value, units, kind) {
 const DAY_MS = 864e5;
 const WEEK_MS = 7 * DAY_MS;
 
-// Card-back "product sheet" hierarchy (price-forward, quiet haul chip, flat
-// photo strip). Flip to false to restore the previous form-style back face
-// without hunting through diffs — one constant, full revert.
-const CARD_BACK_PRODUCT_SHEET = true;
 const RESURFACE_MIN_AGE_MS = 14 * DAY_MS;
 const GEM_MIN_AGE_MS = 30 * DAY_MS;
 const DISMISS_COOLDOWN_MS = 7 * DAY_MS;
@@ -5785,6 +5781,140 @@ function CardCornerFan({ item, images, onOpenPhotos, reduced, variant = "fan", i
   );
 }
 
+// ═══ STANDARDIZED CARD BACK (standardization 2026-07-22, audit workstream B) ═══
+// The one detail layout for an item — the carousel card back is the app's
+// single detail surface, and this is its body. Element order is the standard:
+// title → price hero (¥+$) → seller link → meta chips → haul → note → size
+// pick → photos → actions. Edit lives in the shell header (MorphButton).
+function ItemDetailBody({
+  item,
+  knownHauls,
+  galleryImages,
+  buyLabel,
+  onSaveEdit,
+  onOpen,
+  onOpenPhotos,
+  onOpenBubble,
+  bodyProfile,
+  measureUnits,
+  onOpenProfile,
+  reduced,
+  isCenter,
+}) {
+  const hasChips =
+    item.findStatus !== "want" ||
+    item.size ||
+    item.posterSize ||
+    item.recommendedSize ||
+    item.colorway ||
+    CATEGORIES[item.category];
+  return (
+    <>
+      <h3 className="cz-carousel-back-title">{item.title}</h3>
+
+      {/* Product sheet: price is the secondary hero; seller is quiet. */}
+      <PriceChip item={item} variant="hero" />
+      <SellerLink item={item} className="cz-seller-quiet" />
+      {hasChips && (
+        <div className="cz-carousel-meta-chips">
+          <StatusPill status={item.findStatus} variant="chip" />
+          {item.size && <span className="cz-meta-chip">Size {item.size}</span>}
+          {item.posterSize && (
+            <span className="cz-meta-chip">Poster {item.posterSize}</span>
+          )}
+          {item.recommendedSize && (
+            <span className="cz-meta-chip">Rec {item.recommendedSize}</span>
+          )}
+          {item.colorway && (
+            <span className="cz-meta-chip">{item.colorway}</span>
+          )}
+          {CATEGORIES[item.category] && (
+            <span className="cz-meta-chip" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span
+                aria-hidden="true"
+                style={{ width: 6, height: 6, borderRadius: 999, background: CATEGORIES[item.category].dot }}
+              />
+              {CATEGORIES[item.category].label}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Haul: quiet chip when assigned (product sheet); full accordion otherwise. */}
+      <div className="cz-carousel-haul-block" onClick={(e) => e.stopPropagation()}>
+        <CardBackHaulField
+          item={item}
+          knownHauls={knownHauls}
+          onSaveEdit={onSaveEdit}
+          compact
+        />
+      </div>
+
+      {item.note && (
+        <div className="cz-carousel-note">
+          <span>Note</span>
+          <p>{item.note}</p>
+        </div>
+      )}
+
+      {/* Size pick was DetailSheet-only (audit): the card back is where the
+          decision happens, so it lives here now. */}
+      <SizeRecommendation
+        item={item}
+        bodyProfile={bodyProfile}
+        units={measureUnits}
+        onOpenProfile={onOpenProfile}
+        onSaveEdit={onSaveEdit}
+      />
+
+      {galleryImages.length > 0 && (
+        <CardCornerFan
+          item={item}
+          images={galleryImages}
+          onOpenPhotos={onOpenPhotos}
+          reduced={reduced}
+          // Keep the peel-open fan — product-sheet hierarchy is
+          // about price/haul chrome, not killing the photo motion.
+          variant="fan"
+          // Only the centered card may open photos via Space —
+          // stale focus on a previous fan reopened the wrong album.
+          interactive={isCenter}
+        />
+      )}
+
+      <div className="cz-carousel-actions">
+        {linkButtons(item, { buyLabel })
+          .map((button, index) => (
+            <button
+              key={button.url + index}
+              type="button"
+              className={"cz-carousel-action-btn" + (button.role === "buy" ? " primary" : "")}
+              onClick={() => onOpen(item, button.url)}
+            >
+              {button.label}
+              {button.role === "buy" ? (
+                <span className="cz-btn-glare" aria-hidden="true" />
+              ) : null}
+            </button>
+          ))}
+        <button
+          type="button"
+          className="cz-carousel-action-btn"
+          onClick={() =>
+            onOpenBubble(
+              "sizes",
+              "Size info",
+              <CarouselSizeInfo item={item} />
+            )
+          }
+        >
+          Sizes
+        </button>
+      </div>
+    </>
+  );
+}
+
 const CoverFlowCard = forwardRef(function CoverFlowCard(
   {
     item,
@@ -5805,6 +5935,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onActivate,
     onDeactivate,
     onScrollTo,
+    bodyProfile,
+    measureUnits,
+    onOpenProfile,
     reduced,
   },
   ref
@@ -6361,158 +6494,27 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                 ) : (
                   <motion.div
                     key="details"
-                    className={
-                      "cz-card-details-panel" +
-                      (CARD_BACK_PRODUCT_SHEET ? " cz-card-details-panel--sheet" : "")
-                    }
+                    className="cz-card-details-panel cz-card-details-panel--sheet"
                     initial={reduced ? false : { opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={reduced ? undefined : { opacity: 0, y: -8 }}
                     transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
                   >
-                    <h3 className="cz-carousel-back-title">{item.title}</h3>
-
-                    {CARD_BACK_PRODUCT_SHEET ? (
-                      <>
-                        {/* Product sheet: price is the secondary hero; seller is quiet. */}
-                        <PriceChip item={item} variant="hero" />
-                        <SellerLink item={item} className="cz-seller-quiet" />
-                        {(item.findStatus !== "want" ||
-                          item.posterSize ||
-                          item.recommendedSize ||
-                          item.colorway) && (
-                          <div className="cz-carousel-meta-chips">
-                            <StatusPill status={item.findStatus} variant="chip" />
-                            {item.posterSize && (
-                              <span className="cz-meta-chip">Poster {item.posterSize}</span>
-                            )}
-                            {item.recommendedSize && (
-                              <span className="cz-meta-chip">Rec {item.recommendedSize}</span>
-                            )}
-                            {item.colorway && (
-                              <span className="cz-meta-chip">{item.colorway}</span>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="cz-carousel-meta-grid">
-                        {item.findStatus !== "want" && (
-                          <div>
-                            <span>Status</span>
-                            <span style={{ color: (FIND_STATUS_COLORS[item.findStatus] || {}).text || INK }}>
-                              {item.findStatus}
-                            </span>
-                          </div>
-                        )}
-                        {item.price != null && (
-                          <div>
-                            <span>Price</span>
-                            <span className="cz-carousel-price-value">
-                              {priceLabel(item)}
-                            </span>
-                          </div>
-                        )}
-                        {item.seller && (
-                          <div>
-                            <span>Seller</span>
-                            {sellerStoreUrl(item) ? (
-                              <a
-                                href={sellerStoreUrl(item)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="cz-seller-link"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {item.seller}
-                              </a>
-                            ) : (
-                              <span>{item.seller}</span>
-                            )}
-                          </div>
-                        )}
-                        {item.posterSize && (
-                          <div>
-                            <span>Poster wore</span>
-                            <span>{item.posterSize}</span>
-                          </div>
-                        )}
-                        {item.recommendedSize && (
-                          <div>
-                            <span>Recommended</span>
-                            <span>{item.recommendedSize}</span>
-                          </div>
-                        )}
-                        {item.colorway && (
-                          <div>
-                            <span>Colorway</span>
-                            <span>{item.colorway}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Haul: quiet chip when assigned (product sheet); full accordion otherwise. */}
-                    <div className="cz-carousel-haul-block" onClick={(e) => e.stopPropagation()}>
-                      <CardBackHaulField
-                        item={item}
-                        knownHauls={knownHauls}
-                        onSaveEdit={onSaveEdit}
-                        compact={CARD_BACK_PRODUCT_SHEET}
-                      />
-                    </div>
-
-                    {item.note && (
-                      <div className="cz-carousel-note">
-                        <span>Note</span>
-                        <p>{item.note}</p>
-                      </div>
-                    )}
-
-                    {galleryImages.length > 0 && (
-                      <CardCornerFan
-                        item={item}
-                        images={galleryImages}
-                        onOpenPhotos={onOpenPhotos}
-                        reduced={reduced}
-                        // Keep the peel-open fan — product-sheet hierarchy is
-                        // about price/haul chrome, not killing the photo motion.
-                        variant="fan"
-                        // Only the centered card may open photos via Space —
-                        // stale focus on a previous fan reopened the wrong album.
-                        interactive={isCenter}
-                      />
-                    )}
-
-                    <div className="cz-carousel-actions">
-                      {linkButtons(item, { buyLabel })
-                        .map((button, index) => (
-                          <button
-                            key={button.url + index}
-                            type="button"
-                            className={"cz-carousel-action-btn" + (button.role === "buy" ? " primary" : "")}
-                            onClick={() => onOpen(item, button.url)}
-                          >
-                            {button.label}
-                            {button.role === "buy" ? (
-                              <span className="cz-btn-glare" aria-hidden="true" />
-                            ) : null}
-                          </button>
-                        ))}
-                      <button
-                        type="button"
-                        className="cz-carousel-action-btn"
-                        onClick={() =>
-                          openBubble(
-                            "sizes",
-                            "Size info",
-                            <CarouselSizeInfo item={item} />
-                          )
-                        }
-                      >
-                        Sizes
-                      </button>
-                    </div>
+                    <ItemDetailBody
+                      item={item}
+                      knownHauls={knownHauls}
+                      galleryImages={galleryImages}
+                      buyLabel={buyLabel}
+                      onSaveEdit={onSaveEdit}
+                      onOpen={onOpen}
+                      onOpenPhotos={onOpenPhotos}
+                      onOpenBubble={openBubble}
+                      bodyProfile={bodyProfile}
+                      measureUnits={measureUnits}
+                      onOpenProfile={onOpenProfile}
+                      reduced={reduced}
+                      isCenter={isCenter}
+                    />
 
                     {/* The exit is fully CSS-driven (see closeBubble): the shell
                         stays mounted while .is-closing fades/drifts it and
@@ -6564,6 +6566,9 @@ function CoverFlowCarousel({
   onActivate,
   onDeactivate,
   onSelect,
+  bodyProfile,
+  measureUnits,
+  onOpenProfile,
   // When true, skip CoverFlow springs so a haul morph can hand off silently.
   suppressMotion = false,
 }) {
@@ -7104,6 +7109,9 @@ function CoverFlowCarousel({
                     const idx = items.findIndex((c) => c.id === id);
                     if (idx >= 0) setActiveIndex(idx);
                   }}
+                  bodyProfile={bodyProfile}
+                  measureUnits={measureUnits}
+                  onOpenProfile={onOpenProfile}
                   reduced={reduced}
                 />
               </motion.div>
@@ -10018,6 +10026,9 @@ export default function Credenza() {
             }}
             onDeactivate={() => setExpandedId(null)}
             onSelect={setSelectedId}
+            bodyProfile={bodyProfile}
+            measureUnits={measureUnits}
+            onOpenProfile={() => setProfileSheetOpen(true)}
           />
         </div>
       ) : (
