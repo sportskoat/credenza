@@ -68,6 +68,17 @@ describe("parseSizeChart", () => {
     expect(chart.rows[0]).toMatchObject({ chest: 108, length: 66, shoulder: 46 });
   });
 
+  // Kyle 2026-07-22: Yupoo size sheets often only list hip (臀围) — single column.
+  it("parses hip-only single-column charts", () => {
+    const chart = parseSizeChart(
+      "尺码表/Size Reference\n臀围 /hip circumference\nS 100\nM 104\nL 108\nXL 112\nMeasurement of 1-3cm is considered a"
+    );
+    expect(chart).not.toBeNull();
+    expect(chart.rows.map((r) => r.size)).toEqual(["S", "M", "L", "XL"]);
+    expect(chart.rows[0]).toMatchObject({ size: "S", hip: 100 });
+    expect(chart.rows[3]).toMatchObject({ size: "XL", hip: 112 });
+  });
+
   it("detects runs-big / runs-small hints in English and CJK", () => {
     expect(parseSizeChart("S: 胸围108 衣长66\nM: 胸围112 衣长68\n版型偏大").runHint).toBe("big");
     expect(parseSizeChart("S: chest 108 length 66\nM: chest 112 length 68\nruns small").runHint).toBe("small");
@@ -140,6 +151,24 @@ describe("recommendSize", () => {
   it("detects pants charts from shape alone (waist-only rows)", () => {
     const rec = recommendSize(pantsChart, { waist: 85 }, "");
     expect(rec.size).toBe("34");
+  });
+
+  it("falls back to hip when the chart only lists 臀围", () => {
+    const hipChart = parseSizeChart(
+      "臀围 /hip circumference\nS 100\nM 104\nL 108\nXL 112"
+    );
+    // body hip 102 + 2 ease = 104 → M
+    const rec = recommendSize(hipChart, { hip: 102 }, "shorts");
+    expect(rec.size).toBe("M");
+    expect(rec.primaryKey).toBe("hip");
+    expect(rec.reason).toContain("Hip");
+  });
+
+  it("reports missing hip (not waist) when chart is hip-only", () => {
+    const hipChart = parseSizeChart(
+      "臀围 /hip circumference\nS 100\nM 104\nL 108\nXL 112"
+    );
+    expect(recommendSize(hipChart, { chest: 96 }, "shorts")).toEqual({ missing: "hip" });
   });
 
   it("reports the missing measurement instead of guessing", () => {
