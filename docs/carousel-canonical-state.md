@@ -68,6 +68,22 @@ compositor-only, keeps the impeccable design hook green.
 
 ## Companion pieces
 
+- **Grid-tap carousel overlay (added 2026-07-22).** Tapping a grid card (or
+  Space/F/e from the grid) presents the carousel as a **layer over the grid**
+  (`.cz-carousel-overlay`, z `--z-sheet`), not a view switch — the grid stays
+  mounted underneath, so closing (✕ / scrim tap at rest / Escape) lands back
+  on the same scroll position. The toolbar's carousel *view* still swaps the
+  whole surface; both presentations render the same `carouselElement` with
+  identical props. The overlay extends the one-layer-at-a-time contract
+  outward: it is the **outermost layer**, closed only when the rack is at
+  rest (the carousel's capture-phase Escape/outside-click listeners peel card
+  layers first and stopPropagation; the app-level Escape and the scrim
+  pointerdown only fire when nothing was peeled). The photo gallery
+  (z `--z-gallery`) still rides above the overlay. Keyboard: while the overlay
+  is open, grid bindings (Up/Down, type-anywhere, Delete) are gated off via
+  `carouselPresented`/`ctx.carouselOverlay` in the app keydown handler;
+  CoverFlow's window listeners own arrows as usual. Do not reintroduce a
+  viewMode switch on grid tap — that was the teleport feeling Kyle rejected.
 - **Face visibility is manually gated (added 2026-07-21).** WebKit ignores
   `backface-visibility` on the card faces (confirmed via Playwright WebKit,
   headed + headless): Safari painted the back face mirrored over the front at

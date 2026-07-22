@@ -1,12 +1,13 @@
 /**
  * Mobile-pass visual verify — iPhone 15 Pro WebKit + 1440 desktop.
- * Post-standardization (2026-07-22): the carousel back is the only detail
- * surface — grid tap → carousel on that item, flip → standardized back,
- * fan → PhotoCoverFlow. Asserts the four things Kyle reported or approved:
- *   1. carousel crown clears the sticky toolbar (mobile collision bug)
- *   2. grid card tap opens the carousel ON THAT ITEM
- *   3. the flip shows the standardized back (price hero + seller link)
- *   4. photos swipe in the full-screen gallery
+ * Post-overlay (2026-07-22): tapping a grid card pops the carousel up as a
+ * LAYER over the grid (no view switch — grid stays mounted, scroll kept);
+ * the toolbar's carousel view still swaps surfaces. Asserts:
+ *   1. grid card tap → overlay opens ON THAT ITEM, grid still mounted
+ *   2. flip → standardized back (price hero + seller link), inside overlay
+ *   3. fan → full-screen gallery rides above the overlay
+ *   4. ✕ / Escape closes the overlay back to the grid
+ *   5. carousel crown clears the sticky toolbar in the carousel VIEW
  * Exits non-zero on any failed assertion; screenshots land in .verify-shots.
  */
 import { chromium, webkit, devices } from "playwright";
@@ -57,15 +58,17 @@ async function shot(page, name) {
   console.log("shot", name);
 }
 
-// Grid card tap → carousel on that item; returns the tapped item's id.
-async function tapFirstCardIntoCarousel(page) {
+// Grid card tap → carousel overlay on that item; returns the tapped item id.
+async function tapFirstCardIntoOverlay(page) {
   const firstToggle = page.locator("article .cz-card-toggle").first();
   const article = page.locator("article").first();
   const articleId = await article.getAttribute("id"); // card-<id>
   await firstToggle.click();
   await page.waitForTimeout(900);
+  const overlay = await page.locator(".cz-carousel-overlay:visible").count();
+  check("grid tap opens the carousel overlay", overlay > 0);
   const onCarousel = await page.locator(".cz-carousel-track").count();
-  check("grid tap switches to carousel", onCarousel > 0);
+  check("overlay contains the carousel", onCarousel > 0);
   const foreground = page.locator(".cz-carousel-card[data-foreground='true']").first();
   const fgId = (await foreground.count()) ? await foreground.getAttribute("id") : null;
   check(
@@ -73,6 +76,9 @@ async function tapFirstCardIntoCarousel(page) {
     Boolean(fgId && articleId && fgId === articleId),
     "tapped " + articleId + ", foreground " + fgId
   );
+  // The point of the overlay: the grid never unmounted underneath.
+  const gridCards = await page.locator("article .cz-card-toggle").count();
+  check("grid stays mounted under the overlay", gridCards > 0, gridCards + " cards");
   return articleId;
 }
 
@@ -104,36 +110,22 @@ async function runPhone() {
   const hearts = await page.locator(".cz-card .cz-card-favorite").count();
   check("grid hearts render", hearts > 0, hearts + " hearts");
 
-  // 2 — tap first card → carousel on that item
-  await tapFirstCardIntoCarousel(page);
-  await shot(page, "02-phone-carousel-from-grid.png");
+  // 2 — tap first card → overlay on that item, grid still mounted
+  await tapFirstCardIntoOverlay(page);
+  await shot(page, "02-phone-overlay-from-grid.png");
 
-  // 3 — crown clearance: foreground card top must sit at/below the sticky
-  // toolbar's bottom edge (Kyle's "card touching the view switcher" bug).
-  const clearance = await page.evaluate(() => {
-    const toolbar = document.querySelector(".cz-shelf-toolbar");
-    const card = document.querySelector(".cz-carousel-card[data-foreground='true']");
-    if (!toolbar || !card) return null;
-    const t = toolbar.getBoundingClientRect();
-    const c = card.getBoundingClientRect();
-    return { toolbarBottom: t.bottom, cardTop: c.top, gap: c.top - t.bottom };
-  });
-  check(
-    "carousel crown clears the sticky toolbar",
-    clearance === null || clearance.gap >= -1,
-    clearance ? "gap " + Math.round(clearance.gap) + "px" : "measure unavailable"
-  );
+  // 3 — flip inside the overlay → standardized back
+  await flipAndCheckBack(page, "03-phone-overlay-card-back.png");
 
-  // 4 — flip → standardized back
-  await flipAndCheckBack(page, "03-phone-card-back.png");
-
-  // 5 — fan → full-screen gallery, swipe to next photo
+  // 4 — fan → full-screen gallery rides ABOVE the overlay
   const fan = page.locator(".cz-corner-fan:visible").first();
   if (await fan.count()) {
     await fan.click({ force: true });
     await page.waitForTimeout(800);
     const galleryOpen = await page.locator(".cz-photo-coverflow-backdrop:visible").count();
     check("fan opens the full-screen gallery", galleryOpen > 0);
+    const overlayStill = await page.locator(".cz-carousel-overlay").count();
+    check("overlay stays under the gallery", overlayStill > 0);
     await shot(page, "04-phone-photo-coverflow.png");
     const next = page.locator(".cz-photo-coverflow-nav-next");
     if (await next.count()) {
@@ -147,6 +139,34 @@ async function runPhone() {
   } else {
     check("photo fan present on card back", false, "no .cz-corner-fan found");
   }
+
+  // 5 — ✕ closes the overlay back to the grid
+  await page.locator(".cz-carousel-overlay-close").click();
+  await page.waitForTimeout(500);
+  const overlayGone = await page.locator(".cz-carousel-overlay:visible").count();
+  check("close button dismisses the overlay", overlayGone === 0);
+  const gridBack = await page.locator("article .cz-card-toggle").first().isVisible();
+  check("grid is back and visible", gridBack);
+  await shot(page, "06-phone-back-on-grid.png");
+
+  // 6 — crown clearance in the carousel VIEW (toolbar toggle): foreground
+  // card top must sit at/below the sticky toolbar's bottom edge.
+  await page.locator(".cz-view-button[aria-label='Carousel view']").click();
+  await page.waitForTimeout(900);
+  const clearance = await page.evaluate(() => {
+    const toolbar = document.querySelector(".cz-shelf-toolbar");
+    const card = document.querySelector(".cz-carousel-card[data-foreground='true']");
+    if (!toolbar || !card) return null;
+    const t = toolbar.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    return { toolbarBottom: t.bottom, cardTop: c.top, gap: c.top - t.bottom };
+  });
+  check(
+    "carousel crown clears the sticky toolbar (view)",
+    clearance === null || clearance.gap >= -1,
+    clearance ? "gap " + Math.round(clearance.gap) + "px" : "measure unavailable"
+  );
+  await shot(page, "07-phone-carousel-view.png");
 
   await browser.close();
 }
@@ -166,9 +186,22 @@ async function runDesktop() {
   await page.waitForTimeout(600);
   await shot(page, "09-desktop-grid.png");
 
-  await tapFirstCardIntoCarousel(page);
-  await shot(page, "10-desktop-carousel-from-grid.png");
-  await flipAndCheckBack(page, "11-desktop-card-back.png");
+  await tapFirstCardIntoOverlay(page);
+  await shot(page, "10-desktop-overlay-from-grid.png");
+  await flipAndCheckBack(page, "11-desktop-overlay-card-back.png");
+
+  // Escape peels one layer at a time: the card is flipped right now, so the
+  // first Escape unflips (carousel's capture listener), the second closes
+  // the overlay (app handler — the rack is at rest).
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+  const overlayGone = await page.locator(".cz-carousel-overlay:visible").count();
+  check("Escape dismisses the overlay", overlayGone === 0);
+  const gridBack = await page.locator("article .cz-card-toggle").first().isVisible();
+  check("grid is back and visible", gridBack);
+  await shot(page, "12-desktop-back-on-grid.png");
   await browser.close();
 }
 
