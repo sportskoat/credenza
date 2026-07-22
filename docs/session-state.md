@@ -242,3 +242,24 @@ on the Claude side.
   iPhone + 1440px desktop in docs/mobile-shots/colorway-*.png.
 - Known leftover (pre-existing, not a regression): carousel card headers
   still say "READ" — S5's platform vocabulary only reached the grid TypeMark.
+
+## 2026-07-21 — Kyle feedback pass + size recommendation v1 (Kimi lane)
+- **Kyle pass (8c00fa1):** mobile grid cards redesigned (edge-to-edge 3/4
+  photo, no squeezed link row, price pill on the photo, seller hyperlink);
+  app-level PhotoCoverFlow so grid/detail photos open + swipe on phones
+  (was carousel-view only); thumbnail taps open the album instead of
+  silently swapping the cover; duplicate notes sections deduped in
+  sheetMode; Restart toast restyled; heart/price-pill collision fixed;
+  iOS double-tap smart-zoom killed via touch-action: manipulation.
+- **Size pick v1 (3fc532d):** parseSizeChart (labeled CJK/EN rows +
+  positional tables, 版型偏大/偏小 + runs big/small hints) and
+  recommendSize (chest+ease for tops — shirt 12 / outerwear 16cm — waist
+  for bottoms, shoulder/sleeve nudges, run-hint shifts the pick down/up).
+  Body profile (height/weight/chest/shoulder/arm/waist/hip, cm) lives in
+  the ⋯ menu and persists in credenza-prefs-v1. DetailSheet shows a big
+  "Your size: L — runs small, sized up" block above Notes; if no chart is
+  on file, "Find size chart" pulls the Yupoo album description via
+  fetchYupooImages and caches it into sizeNotes. Shoes/hats/bags/socks
+  skip the block (no cm→letter mapping). 16 new tests, 120 total green,
+  tsc + build clean, WebKit iPhone verified (pick / pants / no-chart).
+- Not deployed — waiting on Kyle's word. Branch: mobile-fix-loop.
