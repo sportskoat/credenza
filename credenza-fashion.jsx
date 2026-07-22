@@ -10032,6 +10032,10 @@ export default function Credenza() {
       )}
 
       <div className="cz-shell">
+        {/* Chrome column: centered + max-width'd on desktop (Kyle 2026-07-22 —
+            full-bleed capture/search/tabs on a wide monitor read as sprawl).
+            The carousel/grid panels below stay full-width. */}
+        <div className="cz-chrome">
         <div className="cz-masthead">
           <div className="cz-brand"><span className="cz-brand-mark">C</span> CREDENZA <span style={{ opacity: 0.65, fontWeight: 400 }}>Fashion</span></div>
         </div>
@@ -10375,6 +10379,7 @@ export default function Credenza() {
             <h2 className="cz-haul-open-title">{openHaulName}</h2>
           </div>
         ) : null}
+        </div>{/* /.cz-chrome */}
 
         {view === "inbox" ? (
           <div
@@ -10486,6 +10491,8 @@ export default function Credenza() {
         }}
       >
         <div className="cz-bottom-bar-inner">
+          {/* Phones: masthead is hidden, so the brand rides here as a small mark. */}
+          <span className="cz-bottom-brand" aria-hidden="true">C</span>
           {/* The pinned thumb zone belongs to high-frequency actions (audit C4):
               capture first, then the money path. Theme + Local status moved to ⋯. */}
           <Pill

@@ -3997,3 +3997,74 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     top: 62px;
   }
 }
+
+/* ═══ Kyle chrome pass 2026-07-22 ═══
+   1. Desktop chrome (masthead/tagline/capture/search/tabs/total) was
+      full-bleed on wide monitors — "Paste a link" far left, Stash far right.
+      Center it in a 720px column; carousel/grid panels stay full-width.
+   2. Mobile masthead is dead space — hidden on phones; a small C mark
+      rides in the bottom bar instead.
+   3. Field fill/shadow de-grained: solid card-solid (no black-mix), quiet
+      1px hairline, one soft drop shadow instead of stacked gloom. */
+.cz-chrome {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+/* Starred filter + view toggles ride the same centered column, else they
+   float at the viewport's right edge while everything else centers. */
+.cz-shelf-toolbar {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.cz-app[data-fashion="true"] .cz-capture-shell,
+.cz-app[data-fashion="true"] .cz-search-shell {
+  background: var(--cz-card-solid);
+  border: 1px solid var(--cz-hair);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+.cz-app[data-fashion="true"] .cz-search-shell:focus-within {
+  border-color: color-mix(in srgb, var(--cz-accent) 55%, var(--cz-hair));
+  box-shadow: 0 0 0 3px var(--cz-glow-weak), 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+/* Gallery light: shadows read as gray grime on the warm canvas — go nearly
+   flat and let the hairline do the separation. */
+.cz-app[data-fashion="true"][data-theme="light"] .cz-capture-shell,
+.cz-app[data-fashion="true"][data-theme="light"] .cz-search-shell {
+  box-shadow: 0 1px 2px rgba(23, 24, 26, 0.06);
+}
+.cz-app[data-fashion="true"][data-theme="light"] .cz-search-shell:focus-within {
+  box-shadow: 0 0 0 3px var(--cz-glow-weak), 0 1px 2px rgba(23, 24, 26, 0.06);
+}
+
+@media (max-width: 767px) {
+  .cz-app[data-fashion="true"] .cz-masthead {
+    display: none;
+  }
+}
+
+/* Tiny brand mark in the bottom bar — phones only, where the masthead hides. */
+.cz-bottom-brand {
+  display: none;
+}
+@media (max-width: 767px) {
+  .cz-bottom-brand {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--cz-ink);
+    color: var(--cz-card-solid);
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-right: 2px;
+    user-select: none;
+  }
+}
