@@ -280,6 +280,17 @@ function sizeRunHint(text) {
   return null;
 }
 
+function chartHeaderLabels(line) {
+  const labels = [];
+  // Header detection uses bare labels (no numbers required after them).
+  const labelOnly = new RegExp(MEASURE_PAIR_RE.source.replace("\\s*[:：]?\\s*(\\d{2,3})", ""), "gi");
+  let lm;
+  while ((lm = labelOnly.exec(line))) labels.push(measureKeyForLabel(lm[1]));
+  // Dedup while keeping order — "臀围 /hip circumference" can match twice.
+  const seen = new Set();
+  return labels.filter((k) => (seen.has(k) ? false : (seen.add(k), true)));
+}
+
 export function parseSizeChart(text) {
   const src = String(text || "");
   if (!src.trim()) return null;
@@ -309,28 +320,80 @@ export function parseSizeChart(text) {
     }
   }
 
-  // Strategy 2 — positional table: a header line naming ≥2 measurements,
-  // then rows of "<size> n n n" mapping numbers onto the header in order.
+  // Strategy 2 — positional table: a header line naming ≥1 measurement,
+  // then rows of "<size> n [n n…]" mapping numbers onto the header in order.
+  // Hip-only / chest-only charts are common on Yupoo (single measure column).
   if (rows.length < 2) {
     const lines = src.split(/\n+/).map((l) => l.trim()).filter(Boolean);
     for (let h = 0; h < lines.length; h++) {
-      const labels = [];
-      MEASURE_PAIR_RE.lastIndex = 0;
-      // Header detection uses bare labels (no numbers required after them).
-      const labelOnly = new RegExp(MEASURE_PAIR_RE.source.replace("\\s*[:：]?\\s*(\\d{2,3})", ""), "gi");
-      let lm;
-      while ((lm = labelOnly.exec(lines[h]))) labels.push(measureKeyForLabel(lm[1]));
-      if (labels.length < 2) continue;
+      const labels = chartHeaderLabels(lines[h]);
+      if (labels.length < 1) continue;
       const tableRows = [];
       for (let r = h + 1; r < lines.length; r++) {
-        const tm = lines[r].match(new RegExp("^(" + SIZE_TOKEN_SRC + ")\\b"));
-        if (!tm) break;
-        const nums = (lines[r].match(/\d{2,3}/g) || []).map((n) => parseInt(n, 10)).filter((n) => n >= 20 && n <= 250);
-        if (nums.length < labels.length) break;
+        const tm = lines[r].match(new RegExp("^(" + SIZE_TOKEN_SRC + ")\\b", "i"));
+        if (!tm) {
+          // Allow a blank/separator line mid-table, but stop on non-size content
+          // once we've started collecting rows.
+          if (tableRows.length && !/^[·.\-\s]*$/.test(lines[r])) break;
+          continue;
+        }
+        const nums = (lines[r].match(/\d{2,3}/g) || [])
+          .map((n) => parseInt(n, 10))
+          .filter((n) => n >= 20 && n <= 250);
+        // Drop a leading number that is the size token itself (waist 28–40).
+        const sizeAsNum = /^\d+$/.test(tm[1]) ? parseInt(tm[1], 10) : null;
+        const measureNums =
+          sizeAsNum != null && nums[0] === sizeAsNum ? nums.slice(1) : nums;
+        if (measureNums.length < 1) continue;
         const row = { size: tm[1].toUpperCase() };
         labels.forEach((key, i) => {
-          if (row[key] == null) row[key] = nums[i];
+          if (measureNums[i] != null && row[key] == null) row[key] = measureNums[i];
         });
+        // Single-label header + one number: map the first measure num.
+        if (labels.length === 1 && row[labels[0]] == null && measureNums[0] != null) {
+          row[labels[0]] = measureNums[0];
+        }
+        if (Object.keys(row).length > 1 && !seen.has(row.size)) {
+          seen.add(row.size);
+          tableRows.push(row);
+        }
+      }
+      if (tableRows.length >= 2) {
+        rows.push(...tableRows);
+        break;
+      }
+    }
+  }
+
+  // Strategy 3 — size + bare numbers under a nearby measure header, e.g.
+  // "臀围 / hip circumference\nS 100\nM 104\nL 108\nXL 112"
+  // when strategy 2 missed because the header was on a previous line with noise.
+  if (rows.length < 2) {
+    const lines = src.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    let pendingKey = null;
+    for (let i = 0; i < lines.length; i++) {
+      const labels = chartHeaderLabels(lines[i]);
+      if (labels.length === 1) pendingKey = labels[0];
+      if (labels.length > 1) pendingKey = labels[0]; // prefer first measure
+      if (!pendingKey) continue;
+      const tableRows = [];
+      for (let r = i + 1; r < lines.length; r++) {
+        const tm = lines[r].match(new RegExp("^(" + SIZE_TOKEN_SRC + ")\\b", "i"));
+        if (!tm) {
+          if (tableRows.length) break;
+          // Maybe this line is another header — update pending key.
+          const more = chartHeaderLabels(lines[r]);
+          if (more.length) pendingKey = more[0];
+          continue;
+        }
+        const nums = (lines[r].match(/\d{2,3}/g) || [])
+          .map((n) => parseInt(n, 10))
+          .filter((n) => n >= 20 && n <= 250);
+        const sizeAsNum = /^\d+$/.test(tm[1]) ? parseInt(tm[1], 10) : null;
+        const measureNums =
+          sizeAsNum != null && nums[0] === sizeAsNum ? nums.slice(1) : nums;
+        if (!measureNums.length) continue;
+        const row = { size: tm[1].toUpperCase(), [pendingKey]: measureNums[0] };
         if (!seen.has(row.size)) {
           seen.add(row.size);
           tableRows.push(row);
@@ -348,34 +411,84 @@ export function parseSizeChart(text) {
 }
 
 // Pick a size from a parsed chart against a body profile (all cm; weight kg).
-// Tops key on garment chest = body chest + ease; bottoms on garment waist ≈
-// body waist + 2. Shoulder/sleeve nudge the score when both sides have them.
-// "runs big/small" shifts the target so the pick sizes down/up accordingly.
-// Returns { size, fitNote, reason, row } | { missing: "chest"|"waist" } | null.
+// Tops → chest (+ease). Bottoms → waist, falling back to hip when the chart
+// only lists 臀围 (common Yupoo pants/shorts sheets). Outerwear gets more ease.
+// Returns { size, fitNote, reason, row, primaryKey, garment, body, diff }
+//   | { missing: "chest"|"waist"|"hip" } | null.
 export function recommendSize(chart, profile, category) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
   const p = profile || {};
   const rows = chart.rows;
-  const isPants =
-    category === "pants" ||
-    category === "shorts" ||
-    rows.every((r) => r.waist != null && r.chest == null);
+  const has = (key) => rows.filter((r) => r[key] != null).length >= 2;
+  const catPants = category === "pants" || category === "shorts";
+  const shapePants =
+    (has("waist") || has("hip")) && !has("chest");
+  const isBottoms = catPants || shapePants;
 
-  const primaryKey = isPants ? "waist" : "chest";
-  if (p[primaryKey] == null) return { missing: primaryKey };
-  const ease = isPants ? 2 : category === "outerwear" ? 16 : 12;
-  let target = p[primaryKey] + ease;
+  // Choose the best garment measure available on the chart, then the matching
+  // body field. Hip-only charts used to return null (waist required).
+  let primaryKey = null;
+  let bodyKey = null;
+  let ease = 12;
+  if (isBottoms) {
+    if (has("waist") && p.waist != null) {
+      primaryKey = "waist";
+      bodyKey = "waist";
+      ease = 2;
+    } else if (has("hip") && p.hip != null) {
+      primaryKey = "hip";
+      bodyKey = "hip";
+      ease = 2;
+    } else if (has("waist")) {
+      return { missing: "waist" };
+    } else if (has("hip")) {
+      return { missing: "hip" };
+    } else {
+      return null;
+    }
+  } else {
+    // Tops / outerwear / other with chest data.
+    if (has("chest") && p.chest != null) {
+      primaryKey = "chest";
+      bodyKey = "chest";
+      ease = category === "outerwear" ? 16 : 12;
+    } else if (has("chest")) {
+      return { missing: "chest" };
+    } else if (has("hip") && p.hip != null) {
+      // Chart only has hip but item isn't classified as bottoms — still usable.
+      primaryKey = "hip";
+      bodyKey = "hip";
+      ease = 2;
+    } else if (has("waist") && p.waist != null) {
+      primaryKey = "waist";
+      bodyKey = "waist";
+      ease = 2;
+    } else if (has("hip")) {
+      return { missing: "hip" };
+    } else if (has("waist")) {
+      return { missing: "waist" };
+    } else {
+      return null;
+    }
+  }
+
+  let target = p[bodyKey] + ease;
   // Garment runs big → the label understates it → aim smaller, and vice versa.
   if (chart.runHint === "big") target -= 4;
   else if (chart.runHint === "small") target += 4;
 
   const candidates = rows.filter((r) => r[primaryKey] != null);
   if (candidates.length < 2) return null;
+  const isTop = primaryKey === "chest";
   const score = (r) => {
     let s = Math.abs(r[primaryKey] - target);
-    if (!isPants && p.shoulder != null && r.shoulder != null) s += Math.abs(r.shoulder - (p.shoulder + 2)) * 0.4;
+    if (isTop && p.shoulder != null && r.shoulder != null) s += Math.abs(r.shoulder - (p.shoulder + 2)) * 0.4;
     // Sleeves shorter than the arm are worse than sleeves that run long.
-    if (!isPants && p.sleeve != null && r.sleeve != null) s += Math.max(0, p.sleeve - r.sleeve) * 0.6;
+    if (isTop && p.sleeve != null && r.sleeve != null) s += Math.max(0, p.sleeve - r.sleeve) * 0.6;
+    // Secondary hip nudge on bottoms when both sides have it.
+    if (!isTop && primaryKey === "waist" && p.hip != null && r.hip != null) {
+      s += Math.abs(r.hip - (p.hip + 2)) * 0.35;
+    }
     return s;
   };
   let best = candidates[0];
@@ -390,18 +503,18 @@ export function recommendSize(chart, profile, category) {
           ? "true to size"
           : "";
   const garment = best[primaryKey];
-  const body = p[primaryKey];
+  const body = p[bodyKey];
   const diff = garment - body;
+  const label = primaryKey === "waist" ? "Waist" : primaryKey === "hip" ? "Hip" : "Chest";
   const reason =
-    (isPants ? "Waist" : "Chest") +
-    " " + garment + "cm vs your " + body + "cm (" + (diff >= 0 ? "+" : "") + diff + "cm)";
+    label + " " + garment + "cm vs your " + body + "cm (" + (diff >= 0 ? "+" : "") + diff + "cm)";
   return {
     size: best.size,
     fitNote,
     reason,
     row: best,
     // Structured parts so the UI can render the reason in inches or cm.
-    primaryKey: isPants ? "waist" : "chest",
+    primaryKey,
     garment,
     body,
     diff,
@@ -1911,8 +2024,12 @@ const KEYFRAMES = `
 *, *::before, *::after { box-sizing: border-box; }
 .cz-shell { max-width: 1080px; margin: 0 auto; padding: 28px 28px 0; }
 @media (max-width: 480px) { .cz-shell { padding: 16px 14px 0; } }
-.cz-masthead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.cz-masthead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .cz-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--cz-ink); font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+.cz-brand-name { display: inline-flex; align-items: baseline; gap: 5px; }
+.cz-brand-word { letter-spacing: .12em; }
+.cz-brand-sub { font-size: 10px; font-weight: 500; letter-spacing: .04em; opacity: 0.62; text-transform: none; }
+.cz-tagline { font-family: ${FONT}; font-size: 13px; color: var(--cz-sub); margin: 0 0 14px; line-height: 1.35; }
 .cz-brand-mark { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--cz-ink); color: var(--cz-card); font-size: 14px; line-height: 1; letter-spacing: 0; }
 .cz-hero-title { max-width: 560px; margin: 0 0 24px; color: var(--cz-ink); font-family: ${DISPLAY}; font-size: clamp(34px, 4.3vw, 58px); font-weight: 500; letter-spacing: -.04em; line-height: 1; }
 .cz-section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 24px 0 10px; }
@@ -4068,14 +4185,15 @@ function linkButtons(item, opts = {}) {
 // ═══ GRID CARD (slim cover) ═══
 // Grid cards are covers only — photo, status, price, title, seller, summary,
 // heart. No flip, no inline expand, no edit form: tapping any card jumps to
-// the carousel on that item, and the carousel back is the single detail/edit
-// surface (Kyle, 2026-07-22). Every element is a shared primitive so the
-// cover and the carousel card agree on where things live.
-function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false }) {
+// Grid / multi-card preview. Same decision anatomy as the carousel front:
+// photo · price · heart · title · one linked seller · size · Buy.
+// No host/platform chrome up top (Kyle 2026-07-22: date + heart only).
+// No "Saved from …" summary — seller lives once under the title.
+function Card({ item, selected, onToggle, onToggleFavorite, onOpen, buyLabel, mode, phone = false }) {
   const reduced = usePrefersReducedMotion();
   const date = formatItemDate(item.createdAt);
-  // "Saved from <host>." boilerplate repeats the seller — never render it.
-  const showSummary = item.summary && !/^Saved from /.test(item.summary);
+  const buy = linkButtons(item, { buyLabel }).find((b) => b.role === "buy") || null;
+  const sizeLabel = item.recommendedSize || item.size || "";
 
   return (
     <article
@@ -4089,7 +4207,7 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
           background: CARD,
           borderRadius: 0,
           border: "1px solid " + (selected ? BLUE : HAIR),
-          boxShadow: selected ? "0 0 0 3px " + BLUE_BG : "0 7px 18px rgba(20,20,16,.035)",
+          boxShadow: selected ? "0 0 0 3px " + BLUE_BG : "0 6px 16px rgba(23, 24, 26, 0.06)",
           overflow: "hidden",
           display: "grid",
           position: "relative",
@@ -4097,9 +4215,13 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
           height: "100%",
         }}
       >
-        {/* position:relative — the heart pins to this face's top-right via CSS,
-            and on phones the photo bleeds to the face edges. */}
-        <div style={{ gridArea: "1 / 1", position: "relative", padding: "14px 16px" }}>
+        <div className="cz-card-body">
+          {/* Meta row: date left, heart right — NEVER over the photo. */}
+          <div className="cz-card-meta-row">
+            <span className="cz-card-date">{date || " "}</span>
+            <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
+          </div>
+
           <button
             type="button"
             className="cz-card-toggle"
@@ -4116,32 +4238,7 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
               cursor: "pointer",
             }}
           >
-            {/* Platform/date row — desktop only. Kyle 2026-07-22: the seller
-                appears ONCE per card (the link under the title) — the host
-                used to repeat here and again in the "Saved from…" summary.
-                Phones lead with the picture instead. */}
-            {!phone && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <TypeMark item={item} />
-                {item.note && (
-                  <span style={{ width: 5, height: 5, borderRadius: 3, background: BLUE, opacity: 0.7 }} />
-                )}
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, color: FAINT, letterSpacing: "0.02em" }}>
-                  {date}
-                </span>
-              </div>
-            )}
-
-            {/* On phones the photo bleeds edge-to-edge (Kyle: "bigger picture,
-                centered") — the card's own padding is canceled by the margins. */}
-            <div
-              className="cz-card-photo"
-              style={{
-                position: "relative",
-                marginBottom: 12,
-                ...(phone ? { margin: "-14px -16px 12px", borderRadius: "15px 15px 0 0", overflow: "hidden" } : null),
-              }}
-            >
+            <div className="cz-card-photo">
               <CoverImage
                 item={item}
                 aspectRatio={phone ? "3/4" : "4/5"}
@@ -4157,59 +4254,37 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
               <PriceChip item={item} variant="overlay" />
             </div>
 
-            <div
-              style={{
-                fontFamily: DISPLAY,
-                fontSize: 19,
-                fontWeight: 500,
-                letterSpacing: "-0.03em",
-                color: INK,
-                lineHeight: 1.25,
-                marginBottom: showSummary || item.seller || item.size ? 6 : 0,
-                // Long unbroken tokens ("VEILANCE*SECANT", style codes) used to
-                // overflow the card and clip mid-glyph — break them anywhere.
-                overflowWrap: "anywhere",
-                wordBreak: "break-word",
-              }}
-            >
-              {item.title}
+            <div className="cz-card-title">{item.title}</div>
+            {/* Reserved sub row — one linked seller, never host chrome. */}
+            <div className="cz-card-sub">
+              {item.seller ? (
+                <SellerLink item={item} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }} />
+              ) : (
+                <span className="cz-card-sub-empty" aria-hidden="true">&nbsp;</span>
+              )}
+              {item.seller && sizeLabel ? <span className="cz-card-sub-dot"> · </span> : null}
+              {sizeLabel ? (
+                <span className="cz-card-size">
+                  {item.recommendedSize ? "Rec " + item.recommendedSize : item.size}
+                </span>
+              ) : null}
             </div>
-            {(item.seller || item.size) && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: showSummary ? 6 : 0 }}>
-                {item.seller && (
-                  <SellerLink item={item} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }} />
-                )}
-                {item.size && (
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: SUB, letterSpacing: "0.02em" }}>
-                    {item.size}
-                  </span>
-                )}
-              </div>
-            )}
-            {/* "Saved from <host>." is capture boilerplate that just repeats
-                the seller a third time — suppressed everywhere (Kyle
-                2026-07-22). Real summaries still render. */}
-            {showSummary && (
-              <div
-                style={{
-                  fontFamily: FONT,
-                  fontSize: 13,
-                  color: SUB,
-                  lineHeight: 1.5,
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {item.summary}
-              </div>
-            )}
           </button>
 
-          {/* Sibling of the open toggle (not nested) so the heart stays a real
-              <button>. Absolutely pinned to the photo's top-right via CSS. */}
-          <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
+          {buy && onOpen && (
+            <button
+              type="button"
+              className="cz-buy-btn cz-border-beam"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpen(item, buy.url);
+              }}
+            >
+              <span className="cz-buy-btn-label">{buy.label}</span>
+              <span className="cz-border-beam-glow" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
     </article>
@@ -4271,14 +4346,15 @@ export function sizeChartTextFor(item) {
 
 function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, onSaveEdit }) {
   const [fetchState, setFetchState] = useState("idle"); // idle | loading | none
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteDraft, setPasteDraft] = useState("");
   const skipped = SIZE_PICK_SKIP_CATEGORIES.has(item.category);
   const chart = skipped ? null : parseSizeChart(sizeChartTextFor(item));
   const rec = chart && bodyProfile ? recommendSize(chart, bodyProfile, item.category) : null;
   const recSize = rec && rec.size ? rec.size : null;
-  // Persist the pick so every surface agrees with this box — the Rec meta
-  // chip and the Sizes bubble both read item.recommendedSize and were always
-  // blank while the recommendation only existed inside this component.
-  // Guarded: exactly one write when the computed size changes.
+  const available = sizeRunLabel(item);
+  // Persist the pick so every surface agrees with this box — meta chips and
+  // edit form read item.recommendedSize. Guarded: one write when it changes.
   useEffect(() => {
     if (recSize && recSize !== item.recommendedSize) {
       onSaveEdit(item.id, { recommendedSize: recSize });
@@ -4296,13 +4372,22 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, on
     const data = await fetchYupooImages(album);
     const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
     if (text.trim() && parseSizeChart(text)) {
-      // Cache into sizeNotes: future opens parse locally, and the carousel
-      // size-info popover picks the chart up too.
       onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text.trim() });
       setFetchState("idle");
     } else {
       setFetchState("none");
     }
+  };
+
+  const savePastedChart = () => {
+    const text = pasteDraft.trim();
+    if (!text) return;
+    onSaveEdit(item.id, {
+      sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text,
+    });
+    setPasteDraft("");
+    setPasteOpen(false);
+    setFetchState("idle");
   };
 
   // Recommended size missing from the seller's listed run is worth a warning.
@@ -4311,16 +4396,30 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, on
     ? runValues.some((v) => String(v).toUpperCase() === rec.size)
     : true;
 
+  const measureLabel =
+    rec && rec.primaryKey === "waist" ? "Waist " : rec && rec.primaryKey === "hip" ? "Hip " : "Chest ";
+
+  // Secondary facts that used to live in a separate "Sizes" bubble — keep them
+  // in THIS one block so the card never shows two size UIs.
+  const facts = [
+    item.size && !hasCjkText(item.size) ? ["Selected", item.size] : null,
+    item.posterSize && !hasCjkText(item.posterSize) ? ["Poster wore", item.posterSize] : null,
+    available && !hasCjkText(available) ? ["Available", available] : null,
+  ].filter(Boolean);
+
+  const factRows = facts.length ? (
+    <div className="cz-size-facts" style={{ marginTop: rec && rec.size ? 10 : 0 }}>
+      {facts.map(([label, value]) => (
+        <div className="cz-size-info-row" key={label}>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
   const box = (children) => (
-    <div
-      style={{
-        marginTop: 12,
-        padding: "12px 14px",
-        border: "1px solid " + HAIR,
-        borderRadius: 14,
-        background: BG,
-      }}
-    >
+    <div className="cz-size-rec">
       {children}
     </div>
   );
@@ -4328,26 +4427,25 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, on
   if (rec && rec.size) {
     return box(
       <>
-        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: SUB }}>
-          Your size
+        <div className="cz-size-rec-kicker">Your size</div>
+        <div className="cz-size-rec-line">
+          <span className="cz-size-rec-size">{rec.size}</span>
+          {rec.fitNote && <span className="cz-size-rec-note">{rec.fitNote}</span>}
         </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 2, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: DISPLAY, fontSize: 34, fontWeight: 600, lineHeight: 1.05, color: INK }}>{rec.size}</span>
-          {rec.fitNote && <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: "var(--cz-money)" }}>{rec.fitNote}</span>}
-        </div>
-        <div style={{ fontFamily: FONT, fontSize: 12.5, color: SUB, marginTop: 4, lineHeight: 1.45 }}>
-          {(rec.primaryKey === "waist" ? "Waist " : "Chest ") +
+        <div className="cz-size-rec-reason">
+          {measureLabel +
             formatMeasure(rec.garment, units) +
             " vs your " +
             formatMeasure(rec.body, units) +
             " (" + (rec.diff >= 0 ? "+" : "−") +
             formatMeasure(Math.abs(rec.diff), units) + ")"}
           {!inRun && (
-            <span style={{ color: "var(--cz-error-text)" }}>
+            <span className="cz-size-rec-warn">
               {" "}· heads up: {rec.size} isn’t in this seller’s listed run ({runValues.join(" · ")})
             </span>
           )}
         </div>
+        {factRows}
       </>
     );
   }
@@ -4355,10 +4453,11 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, on
   if (rec && rec.missing) {
     return box(
       <>
-        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
+        <div className="cz-size-rec-copy">
           Size chart found — add your {rec.missing} to get a pick.
         </div>
         <Pill subtle onClick={onOpenProfile} style={{ marginTop: 8 }}>Add measurements</Pill>
+        {factRows}
       </>
     );
   }
@@ -4366,39 +4465,75 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, on
   if (chart && !bodyProfile) {
     return box(
       <>
-        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
+        <div className="cz-size-rec-copy">
           Size chart found — add your measurements and Credenza picks your size.
         </div>
         <Pill subtle onClick={onOpenProfile} style={{ marginTop: 8 }}>Add measurements</Pill>
+        {factRows}
       </>
     );
   }
 
-  // Chart parsed and a profile exists, but the recommender still can't pick —
-  // e.g. the rows carry only lengths, no chest/waist. Say so honestly (A4)
-  // instead of falling through to silence.
   if (chart && bodyProfile && !rec) {
     return box(
-      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
-        Size chart found, but it doesn’t list enough chest/waist measurements to make a pick.
-      </div>
-    );
-  }
-
-  if (!chart && fetchState !== "none" && yupooAlbumUrl(item)) {
-    return box(
       <>
-        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
-          No size chart on file.
+        <div className="cz-size-rec-copy">
+          Size chart found, but it doesn’t list enough chest/waist/hip measurements to make a pick.
         </div>
-        <Pill subtle onClick={fetchChart} disabled={fetchState === "loading"} style={{ marginTop: 8 }}>
-          {fetchState === "loading" ? "Checking the album…" : "Find size chart"}
-        </Pill>
+        {factRows}
       </>
     );
   }
 
-  return null;
+  // No parseable chart — offer fetch + paste. Always show available run if we
+  // have one so the user isn't left with a dead empty panel.
+  if (!chart) {
+    const canFetch = yupooAlbumUrl(item);
+    return box(
+      <>
+        <div className="cz-size-rec-copy">
+          {fetchState === "none"
+            ? "Couldn’t find a chart in the album. Paste one below."
+            : "No size chart on file."}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+          {canFetch && fetchState !== "none" && (
+            <Pill subtle onClick={fetchChart} disabled={fetchState === "loading"}>
+              {fetchState === "loading" ? "Checking the album…" : "Find size chart"}
+            </Pill>
+          )}
+          <Pill subtle onClick={() => setPasteOpen((v) => !v)}>
+            {pasteOpen ? "Cancel" : "Paste chart"}
+          </Pill>
+          {onOpenProfile && (
+            <Pill subtle onClick={onOpenProfile}>Body profile</Pill>
+          )}
+        </div>
+        {pasteOpen && (
+          <div style={{ marginTop: 10 }}>
+            <textarea
+              className="cz-size-paste"
+              value={pasteDraft}
+              onChange={(e) => setPasteDraft(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              placeholder={"S 100\nM 104\nL 108\n…or full chart text"}
+              rows={4}
+            />
+            <Pill primary onClick={savePastedChart} disabled={!pasteDraft.trim()} style={{ marginTop: 8 }}>
+              Save chart
+            </Pill>
+          </div>
+        )}
+        {factRows}
+      </>
+    );
+  }
+
+  return factRows ? box(factRows) : null;
+}
+
+function hasCjkText(s) {
+  return /[㐀-䶿一-鿿豈-﫿]/.test(String(s || ""));
 }
 
 // Body measurements — the input half of the size pick. Lives in prefs, edited
@@ -4510,44 +4645,7 @@ function InfoBubble({ title, children, onClose }) {
   );
 }
 
-function CarouselSizeInfo({ item }) {
-  // Keep the chart English-only: any fact row or variant axis carrying CJK
-  // (颜色 / 尺码 / 黑色…) is dropped rather than shown untranslated.
-  const hasCjk = (s) => /[㐀-䶿一-鿿豈-﫿]/.test(String(s));
-  const facts = [
-    ["Selected", item.size],
-    ["Poster wore", item.posterSize],
-    ["Recommended", item.recommendedSize],
-    ["Available", sizeRunLabel(item)],
-  ].filter(([, value]) => value && !hasCjk(value));
-  const axes = (item.variants || []).filter(
-    (group) =>
-      group &&
-      group.title &&
-      Array.isArray(group.values) &&
-      group.values.length &&
-      !hasCjk(group.title) &&
-      !group.values.some((v) => hasCjk(v))
-  );
-  if (!facts.length && !item.sizeNotes && !axes.length) return "No sizing information saved yet.";
-  return (
-    <div className="cz-size-info">
-      {facts.map(([label, value]) => (
-        <div className="cz-size-info-row" key={label}>
-          <span>{label}</span>
-          <strong>{value}</strong>
-        </div>
-      ))}
-      {item.sizeNotes && <p>{item.sizeNotes}</p>}
-      {axes.map((group) => (
-        <div className="cz-size-axis" key={group.title}>
-          <span>{group.title}</span>
-          <div>{group.values.join(" · ")}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
+// Size facts live inside SizeRecommendation now — no second "Sizes" bubble.
 
 // Stacked corner fan that peels open on hover — the one photo-browse entry
 // point on every card back.
@@ -4736,28 +4834,23 @@ function ItemDetailBody({
             <button
               key={button.url + index}
               type="button"
-              className={"cz-carousel-action-btn" + (button.role === "buy" ? " primary" : "")}
+              className={
+                button.role === "buy"
+                  ? "cz-buy-btn cz-border-beam cz-carousel-action-btn primary"
+                  : "cz-carousel-action-btn"
+              }
               onClick={() => onOpen(item, button.url)}
             >
-              {button.label}
               {button.role === "buy" ? (
-                <span className="cz-btn-glare" aria-hidden="true" />
-              ) : null}
+                <>
+                  <span className="cz-buy-btn-label">{button.label}</span>
+                  <span className="cz-border-beam-glow" aria-hidden="true" />
+                </>
+              ) : (
+                button.label
+              )}
             </button>
           ))}
-        <button
-          type="button"
-          className="cz-carousel-action-btn"
-          onClick={() =>
-            onOpenBubble(
-              "sizes",
-              "Size info",
-              <CarouselSizeInfo item={item} />
-            )
-          }
-        >
-          Sizes
-        </button>
       </div>
     </>
   );
@@ -5028,14 +5121,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     }
   }, []);
 
-  // Widen the card ~20% while editing (CSS t-resize tween), so the edit
-  // form's fields aren't a squint-read.
-  useEffect(() => {
-    const card = rootRef.current && rootRef.current.closest(".cz-carousel-card");
-    if (!card) return undefined;
-    card.classList.toggle("is-editing", Boolean(editing));
-    return () => card.classList.remove("is-editing");
-  }, [editing]);
+  // Edit mode must NOT move the card shell (Kyle 2026-07-22). The old
+  // is-editing width widen shifted the card a few px left — removed.
+  // Shared padding + scrollbar-gutter: stable keep details/edit aligned.
 
   return (
     <div ref={rootRef} style={{ width: "100%", height: "100%", transformStyle: "preserve-3d" }}>
@@ -5090,13 +5178,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
             <PriceChip item={item} variant="overlay" />
           </div>
           <div className="cz-carousel-front-meta">
-            <div className="cz-carousel-type">
-              <BrandIcon type={item.type} host={item.host} size={12} />
-              <span>{(TYPES[item.type] || TYPES.note).label}</span>
-            </div>
+            {/* Rhythm: title → seller 6px → Buy 16px → Flip pinned bottom.
+                No READ/Yupoo chrome. Buy + flip only on the centered card. */}
             <h3 className="cz-carousel-title">{item.title}</h3>
-            {/* Always reserve the sub row so meta height is identical card-to-card
-                (missing seller used to collapse this and shove the price chip). */}
             <div className="cz-carousel-sub">
               {item.seller ? (
                 <SellerLink item={item} />
@@ -5105,9 +5189,38 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                   &nbsp;
                 </span>
               )}
-              {item.seller && item.size ? " · " : null}
-              {item.size ? <span>{item.size}</span> : null}
+              {(item.recommendedSize || item.size) ? (
+                <>
+                  {item.seller ? " · " : null}
+                  <span className="cz-carousel-size">
+                    {item.recommendedSize ? "Rec " + item.recommendedSize : item.size}
+                  </span>
+                </>
+              ) : null}
             </div>
+            {(() => {
+              const buy = linkButtons(item, { buyLabel }).find((b) => b.role === "buy");
+              if (!buy || !isCenter) return null;
+              return (
+                <button
+                  type="button"
+                  className="cz-buy-btn cz-border-beam"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpen?.(item, buy.url);
+                  }}
+                >
+                  <span className="cz-buy-btn-label">{buy.label}</span>
+                  <span className="cz-border-beam-glow" aria-hidden="true" />
+                </button>
+              );
+            })()}
+            {isCenter && (
+              <div className="cz-flip-cue" aria-hidden="true">
+                <span className="cz-flip-cue-label">Flip for more</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -5512,16 +5625,31 @@ function CoverFlowCarousel({
   }, [focusSignal]);
 
   useEffect(() => {
+    // Solo rack (grid-tap overlay) gets a bigger card — no side cards to leave
+    // room for. Multi-card carousel keeps the tighter coverflow geometry.
+    const solo = items.length === 1;
     const update = () => {
       const w = typeof window !== "undefined" ? window.innerWidth : 320;
-      const width = w <= 480 ? w * 0.8 : Math.min(w * 0.72, 320);
-      const height = w <= 480 ? 440 : 460;
+      const width = solo
+        ? w <= 480
+          ? Math.min(w * 0.92, 380)
+          : Math.min(w * 0.48, 420)
+        : w <= 480
+          ? w * 0.8
+          : Math.min(w * 0.72, 320);
+      const height = solo
+        ? w <= 480
+          ? Math.min(w * 1.28, 580)
+          : 600
+        : w <= 480
+          ? 440
+          : 460;
       setCardSize({ width, height });
     };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, []);
+  }, [items.length]);
 
   useEffect(() => {
     const stage = containerRef.current?.parentElement;
@@ -8299,10 +8427,22 @@ export default function Credenza() {
     carouselOverlay,
   };
   useEffect(() => {
-    const isTyping = () => {
-      const el = document.activeElement;
-      return el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.isContentEditable);
+    // True when the user is already in a text field — type-anywhere must NOT
+    // yank focus to Stash. Check activeElement AND the event target: some
+    // mobile browsers report body as activeElement mid-key while the input
+    // still has the caret, which used to dump search keystrokes into capture.
+    const isTypingTarget = (node) => {
+      if (!node || node === document.body || node === document.documentElement) return false;
+      const el = node.nodeType === 1 ? node : node.parentElement;
+      if (!el) return false;
+      if (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.isContentEditable) return true;
+      if (el.closest?.("input, textarea, [contenteditable='true'], .cz-search-shell, .cz-capture-shell")) {
+        return true;
+      }
+      return false;
     };
+    const isTyping = (e) =>
+      isTypingTarget(document.activeElement) || (e ? isTypingTarget(e.target) : false);
     const onKey = (e) => {
       if (e.defaultPrevented) return;
       // Let the full-screen photo gallery own its own keyboard navigation.
@@ -8317,8 +8457,8 @@ export default function Credenza() {
         return;
       }
       if (ctx.digest || ctx.importOpen || ctx.agentSheetOpen) return; // overlays handle their own keys
-      if (isTyping()) {
-        if (e.key === "Escape") document.activeElement.blur();
+      if (isTyping(e)) {
+        if (e.key === "Escape" && document.activeElement) document.activeElement.blur();
         return;
       }
       const list = ctx.shelfItems;
@@ -8412,12 +8552,23 @@ export default function Credenza() {
           return;
         }
       }
-      // Type-anywhere jumps to the capture bar — but not while the overlay is
-      // up, where the capture bar is hidden behind the scrim. (The carousel
-      // view keeps type-anywhere; its capture bar is visible.)
-      if (!ctx.carouselOverlay && e.key.length === 1 && /[\w]/.test(e.key)) {
+      // Type-anywhere jumps to the capture bar — but never when the user is
+      // already typing in search/capture (or any field), and not while the
+      // overlay is up (capture is behind the scrim). Carousel view keeps it.
+      if (
+        !ctx.carouselOverlay &&
+        !isTyping(e) &&
+        e.key.length === 1 &&
+        /[\w]/.test(e.key) &&
+        // Don't steal printable keys meant for an already-focused control.
+        !e.altKey
+      ) {
         setSelectedId(null);
-        captureRef.current && captureRef.current.focus();
+        const cap = captureRef.current;
+        if (cap) {
+          // Focus first so this key lands in Stash, not a second field.
+          cap.focus();
+        }
       }
     };
     const onPaste = (e) => {
@@ -8431,8 +8582,7 @@ export default function Credenza() {
         attachImageRef.current(kb.current.expandedId, img);
         return;
       }
-      const el = document.activeElement;
-      if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT")) return;
+      if (isTyping(e)) return;
       const text = e.clipboardData && e.clipboardData.getData("text");
       if (text && text.trim()) {
         setInput(text.trim());
@@ -8484,6 +8634,8 @@ export default function Credenza() {
         selected={selectedId === item.id}
         onToggle={() => openInCarousel(item.id)}
         onToggleFavorite={toggleFavorite}
+        onOpen={recordOpen}
+        buyLabel={buyLabel}
         phone={isPhone}
         mode={mode}
       />
@@ -8917,7 +9069,13 @@ export default function Credenza() {
             The carousel/grid panels below stay full-width. */}
         <div className="cz-chrome">
         <div className="cz-masthead">
-          <div className="cz-brand"><span className="cz-brand-mark">C</span> CREDENZA <span style={{ opacity: 0.65, fontWeight: 400 }}>Fashion</span></div>
+          <div className="cz-brand">
+            <span className="cz-brand-mark">C</span>
+            <span className="cz-brand-name">
+              <span className="cz-brand-word">CREDENZA</span>
+              <span className="cz-brand-sub">Fashion</span>
+            </span>
+          </div>
         </div>
 
         {/* The full hero is the empty-shelf welcome; a stocked shelf is a daily
@@ -8925,28 +9083,12 @@ export default function Credenza() {
         {items.length === 0 ? (
           <>
             <h1 className="cz-hero-title cz-title-balance">Organize the haul.</h1>
-            <p style={{
-              fontFamily: FONT,
-              fontSize: 15,
-              color: "var(--cz-ink)",
-              marginTop: -12,
-              marginBottom: 28,
-              lineHeight: 1.5,
-              opacity: 0.82,
-            }}>
+            <p className="cz-tagline" style={{ fontSize: 15, color: "var(--cz-ink)", marginBottom: 22, opacity: 0.82 }}>
               Yupoo albums, Weidian buys, Reddit finds — one shelf for the whole haul.
             </p>
           </>
         ) : (
-          <p style={{
-            fontFamily: FONT,
-            fontSize: 13,
-            color: "var(--cz-sub)",
-            margin: "2px 0 18px",
-            lineHeight: 1.4,
-          }}>
-            One shelf for the whole haul.
-          </p>
+          <p className="cz-tagline">One shelf for the whole haul.</p>
         )}
 
         {/* Capture — rounded shell matching the search bar. */}
@@ -8963,6 +9105,8 @@ export default function Credenza() {
               e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
             }}
             onKeyDown={(e) => {
+              // Keep Stash keystrokes out of the window type-anywhere path.
+              e.stopPropagation();
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 capture();
@@ -8982,9 +9126,22 @@ export default function Credenza() {
           />
         </div>
 
-        {/* Search — quiet field; Clear morph only appears when there is text. */}
+        {/* Search — quiet field; Clear morph only appears when there is text.
+            Click anywhere on the shell focuses the input so type-anywhere
+            never steals the next keystroke into Stash. */}
         <div className="cz-search-row">
-          <div className={"cz-search-shell" + (search ? " has-clear" : "")}>
+          <div
+            className={"cz-search-shell" + (search ? " has-clear" : "")}
+            onMouseDown={(e) => {
+              // Don't steal focus from the Clear button / morph.
+              if (e.target.closest("button")) return;
+              if (document.activeElement !== searchRef.current) {
+                // preventDefault keeps the caret from jumping after focus.
+                e.preventDefault();
+                searchRef.current?.focus();
+              }
+            }}
+          >
             <Search className="cz-search-leading" aria-hidden="true" size={16} strokeWidth={2.2} />
             <input
               className="cz-search-input"
@@ -9009,6 +9166,9 @@ export default function Credenza() {
                 }
               }}
               onKeyDown={(e) => {
+                // Stop the window type-anywhere listener from ever seeing
+                // search keystrokes (capture-phase safety net).
+                e.stopPropagation();
                 if (e.key === "Escape") {
                   setSearch("");
                   e.target.blur();
@@ -9227,40 +9387,30 @@ export default function Credenza() {
           )}
         </div>
 
-        {/* Shelf meta row (Kyle 2026-07-22): count + total cost on the left,
-            starred filter + view toggles on the right — ONE quiet row where
-            the total used to sit alone. No sticky bar: it scrolls away with
-            the page like any other content. Count + label each fade in on
-            their own key so a haul swap reads as a quiet text change. */}
+        {/* Shelf meta row: count + cost on the left, filter/view on the right.
+            One quiet row — no sticky bar, no full-width black strip. The old
+            wrap + marginLeft:auto put the icons on their own tall empty line
+            that read as a solid black bar; keep both groups on one row. */}
         {view !== "inbox" && shelfAll.length > 0 && (
           <div className="cz-total-row">
-            <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
-              {totalCountLabel}
-            </span>
-            <span className="cz-total-sep" aria-hidden="true">|</span>
-            <span className="cz-total-chip" aria-live="polite">
-              <span
-                className="cz-total-chip-label cz-fade-text-in"
-                key={openHaulName ? "haul" : "shelf"}
-              >
-                {openHaulName ? "Total Haul Cost" : "Total Shelf Cost"}
+            <div className="cz-total-main">
+              <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
+                {totalCountLabel}
               </span>
-              <ReelCounter value={listTotalUsd} />
-            </span>
-            {/* Starred filter + view toggles. Hidden inside an open haul —
-                that view stays clean. */}
+              <span className="cz-total-sep" aria-hidden="true">|</span>
+              <span className="cz-total-chip" aria-live="polite">
+                <span
+                  className="cz-total-chip-label cz-fade-text-in"
+                  key={openHaulName ? "haul" : "shelf"}
+                >
+                  {openHaulName ? "Total Haul Cost" : "Total Shelf Cost"}
+                </span>
+                <ReelCounter value={listTotalUsd} />
+              </span>
+            </div>
+            {/* Starred filter + view toggles. Hidden inside an open haul. */}
             {toolbarActive && !openHaulName && (
-              <div
-                className="cz-toolbar-end"
-                style={{
-                  marginLeft: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  position: "relative",
-                  flexShrink: 0,
-                }}
-              >
+              <div className="cz-toolbar-end">
                 <button
                   type="button"
                   className={"cz-starred-filter" + (sortMode === "starred" ? " is-active" : "")}
@@ -9276,7 +9426,7 @@ export default function Credenza() {
                     fill={sortMode === "starred" ? "currentColor" : "none"}
                   />
                 </button>
-                <span style={{ width: 1, height: 14, background: HAIR }} />
+                <span className="cz-toolbar-sep" aria-hidden="true" />
                 <button
                   type="button"
                   className="cz-view-button"

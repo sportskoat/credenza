@@ -375,19 +375,31 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   border: 1px solid var(--cz-hair-strong);
+  /* Theme-aware elevation: Blackout can take a deeper lift; Gallery stays a
+     quiet paper drop (hard black blobs looked sloppy on light). */
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-    0 14px 34px rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(255, 255, 255, 0.02);
+    inset 0 1px 0 0 color-mix(in srgb, white 8%, transparent),
+    0 10px 28px color-mix(in srgb, black 22%, transparent);
   transition: box-shadow 180ms var(--ease-out), border-color 180ms var(--ease-out);
 }
 
 .cz-carousel-card[data-foreground="true"] .cz-carousel-face {
   border-color: color-mix(in srgb, var(--cz-hair-strong) 82%, white 18%);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
-    0 28px 70px rgba(0, 0, 0, 0.48),
-    0 0 28px var(--cz-glow-weak);
+    inset 0 1px 0 0 color-mix(in srgb, white 10%, transparent),
+    0 18px 42px color-mix(in srgb, black 28%, transparent);
+}
+
+.cz-app[data-fashion="true"][data-theme="light"] .cz-carousel-face {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.7),
+    0 8px 22px rgba(23, 24, 26, 0.08);
+}
+
+.cz-app[data-fashion="true"][data-theme="light"] .cz-carousel-card[data-foreground="true"] .cz-carousel-face {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    0 14px 32px rgba(23, 24, 26, 0.12);
 }
 
 /* Side dimming via --cz-card-side (set in JS from |offset|). Center = 0. */
@@ -416,13 +428,21 @@
   flex-direction: column;
 }
 
+/* Quiet edge highlight only — the old pink corner glow read as a dirty rim
+   on Gallery light cards (Kyle 2026-07-22). */
 .cz-carousel-front::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 24px;
   padding: 1px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.18) 0%, transparent 40%, transparent 60%, rgba(255, 46, 199, 0.28) 100%);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, white 16%, transparent) 0%,
+    transparent 42%,
+    transparent 70%,
+    color-mix(in srgb, var(--cz-ink) 8%, transparent) 100%
+  );
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -432,6 +452,16 @@
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
+}
+
+.cz-app[data-fashion="true"][data-theme="light"] .cz-carousel-front::before {
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    transparent 45%,
+    transparent 70%,
+    rgba(23, 24, 26, 0.06) 100%
+  );
 }
 
 .cz-carousel.is-moving .cz-carousel-front::before,
@@ -446,9 +476,8 @@
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  /* Fixed share of the face so price chips sit on one baseline across cards,
-     regardless of title length / missing seller. Meta block owns the rest. */
-  height: calc(100% - 118px);
+  /* Meta block owns title + seller + Buy + flip cue (~188px). */
+  height: calc(100% - 188px);
   overflow: hidden;
   -webkit-user-drag: none;
 }
@@ -528,68 +557,123 @@
   backdrop-filter: blur(10px);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  /* Soft lift only — hard black blobs look dirty on Gallery photos. */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
   white-space: nowrap;
   max-width: calc(100% - 20px);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.cz-app[data-fashion="true"][data-theme="light"] .cz-price-chip {
+  background: rgba(23, 24, 26, 0.82);
+  box-shadow: 0 2px 8px rgba(23, 24, 26, 0.16);
+}
+
 .cz-carousel-front-meta {
-  flex: 0 0 118px;
-  height: 118px;
+  /* Title + seller/size + Buy + flip cue — actionable first face.
+     Equal side padding; rhythm: title→seller 6px, seller→Buy 16px,
+     Flip pinned to bottom (margin-top: auto). */
+  flex: 0 0 188px;
+  height: 188px;
   box-sizing: border-box;
-  padding: 12px 16px 14px;
+  padding: 12px 16px 12px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  gap: 0;
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(to top, var(--cz-card-solid) 0%, color-mix(in srgb, var(--cz-card-solid) 92%, transparent) 100%);
 }
 
-.cz-carousel-type {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  /* Solid ink-ish sub, not washed blue/steel that dies on dark faces */
-  color: color-mix(in srgb, var(--cz-ink) 72%, transparent);
-  margin-bottom: 5px;
-  flex-shrink: 0;
-}
-
 .cz-carousel-title {
-  margin: 0;
+  margin: 0 0 6px;
   font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
   letter-spacing: -0.03em;
   line-height: 1.2;
   color: var(--cz-ink);
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
-  /* Clamp so every card's meta block is the same height → price baseline shared */
+  text-shadow: none;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
   min-height: calc(1.2em * 2);
+  flex-shrink: 0;
 }
 
 .cz-carousel-sub {
-  margin-top: auto;
+  margin: 0 0 16px;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
   line-height: 1.25;
+  /* Reserved height so missing seller never shifts Buy / Flip. */
   min-height: 1.25em;
-  /* Stronger than faint steel — readable on Blackout + Gallery */
   color: color-mix(in srgb, var(--cz-ink) 82%, transparent);
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.cz-carousel-size {
+  color: color-mix(in srgb, var(--cz-ink) 70%, transparent);
+}
+
+/* Shared primary Buy — grid, carousel front, card back. Identical geometry. */
+.cz-buy-btn {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-ink);
+  color: var(--cz-card-solid);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: opacity 140ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.cz-buy-btn-label {
+  position: relative;
+  z-index: 2;
+}
+
+.cz-buy-btn:hover {
+  opacity: 0.94;
+}
+
+.cz-buy-btn:active {
+  transform: scale(0.98);
+}
+
+.cz-app[data-fashion="true"][data-theme="light"] .cz-buy-btn {
+  background: var(--cz-ink);
+  color: #fff;
+}
+
+/* Card-back Buy spans the actions grid full width when primary. */
+.cz-carousel-actions > .cz-buy-btn.primary {
+  grid-column: 1 / -1;
 }
 
 .cz-carousel-sub-empty {
@@ -1279,9 +1363,68 @@ a.cz-seller-quiet:focus-visible {
   background: color-mix(in srgb, var(--cz-error-bg) 70%, transparent);
 }
 
-.cz-size-info {
+/* One size block on the card back — recommendation + available run.
+   The old separate "Sizes" bubble is gone (Kyle 2026-07-22). */
+.cz-size-rec {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-bg);
+}
+
+.cz-size-rec-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+}
+
+.cz-size-rec-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.cz-size-rec-size {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--cz-ink);
+}
+
+.cz-size-rec-note {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cz-money, #4ade80);
+}
+
+.cz-size-rec-reason,
+.cz-size-rec-copy {
+  font-size: 12.5px;
+  color: var(--cz-sub);
+  margin-top: 4px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.cz-size-rec-copy {
+  color: var(--cz-ink);
+}
+
+.cz-size-rec-warn {
+  color: var(--cz-error-text);
+}
+
+.cz-size-facts {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--cz-hair);
 }
 
 .cz-size-info-row {
@@ -1291,8 +1434,7 @@ a.cz-seller-quiet:focus-visible {
   gap: 12px;
 }
 
-.cz-size-info-row span,
-.cz-size-axis > span {
+.cz-size-info-row span {
   color: var(--cz-faint);
   font-size: 10px;
   font-weight: 800;
@@ -1306,23 +1448,18 @@ a.cz-seller-quiet:focus-visible {
   text-align: right;
 }
 
-.cz-size-info p {
-  margin: 2px 0;
-  color: var(--cz-sub);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.cz-size-axis {
-  display: grid;
-  gap: 3px;
-  padding-top: 7px;
-  border-top: 1px solid var(--cz-hair);
-}
-
-.cz-size-axis div {
+.cz-size-paste {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 88px;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--cz-hair);
+  background: color-mix(in srgb, var(--cz-card-solid) 88%, transparent);
   color: var(--cz-ink);
-  font-size: 11.5px;
+  font-family: inherit;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -1761,12 +1898,17 @@ a.cz-seller-quiet:focus-visible {
   cursor: grab;
 }
 
-/* ~20% wider while the card is in edit mode (442px ≈ another 15% past the
-   first widen). margin-left !important beats the inline -cardWidth/2 so the
-   card grows symmetrically around its center. */
+/* Edit mode must not move the card shell (Kyle 2026-07-22). Width stays
+   locked to the face; scrollbar-gutter prevents reflow when the scroller
+   appears. The old is-editing widen was the left-shift bug. */
 .cz-carousel-card.is-editing {
-  width: min(94vw, 442px);
-  margin-left: calc(min(94vw, 442px) / -2) !important;
+  /* no-op class kept for any leftover JS toggles — geometry unchanged */
+}
+
+.cz-carousel-back-content,
+.cz-carousel-edit,
+.cz-carousel-edit-shell {
+  scrollbar-gutter: stable;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2126,7 +2268,7 @@ a.cz-seller-quiet:focus-visible {
 
 .cz-app[data-fashion="true"] .cz-hero-title {
   color: var(--cz-ink);
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.28);
+  text-shadow: none;
 }
 
 /* Hide page scrollbars that shove the layout and fight the carousel.
@@ -2347,28 +2489,34 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   transform: scale(0.94);
 }
 
-/* Heart: always the photo's top-right corner, one placement rule everywhere.
-   Grid cards (.cz-card) offset from the card face — the desktop host/date row
-   sits above the photo, so the desktop inset is deeper; phones and the
-   carousel anchor straight to the photo. */
+/* Grid heart lives in the meta row (date | heart) — NEVER over the photo.
+   Carousel front still pins the heart on the photo corner via absolute. */
 .cz-card-favorite {
-  position: absolute;
-  top: 14px;
-  right: 10px;
+  position: relative;
+  top: auto;
+  right: auto;
   z-index: 12;
   pointer-events: auto;
+  flex-shrink: 0;
 }
 
-.cz-card .cz-card-favorite {
-  top: 48px;
-  right: 10px;
+/* Carousel / overlay face: heart stays photo top-right (face is all photo). */
+.cz-carousel-face > .cz-card-favorite,
+.cz-carousel-card .cz-card-favorite {
+  position: absolute;
+  top: 12px;
+  right: 12px;
 }
 
-@media (max-width: 767px) {
-  .cz-card .cz-card-favorite {
-    top: 8px;
-    right: 8px;
-  }
+/* App-wide type rule: never paint glow under ink on paper/card surfaces. */
+.cz-app[data-fashion="true"] .cz-carousel-title,
+.cz-app[data-fashion="true"] .cz-hero-title,
+.cz-app[data-fashion="true"] .cz-carousel-back-title,
+.cz-app[data-fashion="true"] .cz-brand,
+.cz-app[data-fashion="true"] .cz-tagline,
+.cz-app[data-fashion="true"] .cz-total-count,
+.cz-app[data-fashion="true"] .cz-total-chip-label {
+  text-shadow: none !important;
 }
 
 /* Control bar under the carousel: chevrons + stretch dots.
@@ -2991,13 +3139,43 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ─── Total-cost chip + spinning reel counter (transitions.dev-style) ─── */
+/* ─── Total-cost chip + spinning reel counter (transitions.dev-style) ───
+   One row: [count | cost] ………… [♡ | ◈ | ▦]
+   No sticky bar, no full-width black strip. The old flex-wrap + marginLeft:auto
+   parked the icons on a second tall empty line that read as a solid black bar
+   (Kyle 2026-07-22). space-between keeps both groups on one quiet line. */
 .cz-total-row {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 12px;
   margin: -8px 0 14px;
+  /* Never paint a bar — transparent over the ambient bg. */
+  background: transparent;
+}
+
+.cz-total-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cz-toolbar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: 8px;
+  background: transparent;
+}
+
+.cz-toolbar-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--cz-hair);
+  flex-shrink: 0;
 }
 
 .cz-total-count {
@@ -3007,6 +3185,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   text-transform: uppercase;
   color: var(--cz-ink);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .cz-total-sep {
@@ -3025,6 +3204,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 0;
   border: 0;
   background: transparent;
+  min-width: 0;
 }
 
 .cz-total-chip-label {
@@ -3033,6 +3213,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--cz-ink);
+  white-space: nowrap;
 }
 
 .cz-total-chip .t-reel {
@@ -3048,12 +3229,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   height: 16px;
 }
 
-/* Phone/tablet: the totals row wraps instead of pushing off-screen. */
+/* Phone: keep one row. Shrink the label gap, never wrap the toolbar onto its
+   own full-width line (that was the black bar). */
 @media (max-width: 767px) {
   .cz-total-row {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 6px 12px;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .cz-total-main {
+    gap: 8px;
+  }
+  .cz-total-chip-label {
+    /* "TOTAL SHELF COST" is long — allow the main group to ellipsis rather
+       than shove the toolbar to a second line. */
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -3735,6 +3925,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 /* Buy glare shine — hover-triggered sweep over the primary action. */
 .cz-carousel-action-btn.primary {
   overflow: hidden;
+  position: relative;
 }
 
 .cz-btn-glare {
@@ -3769,11 +3960,238 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   100% { transform: translateX(420%) skewX(-20deg); }
 }
 
+/* ─── Border beam on primary Buy only ───
+   Spec (Kyle playground): Rotate, md, colorful, strength 0.7.
+   Pure CSS — no border-beam package. */
+@property --cz-beam-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.cz-border-beam {
+  position: relative;
+  isolation: isolate;
+}
+
+.cz-border-beam-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  padding: 2px; /* md beam width */
+  box-sizing: border-box;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  /* Soft outer glow at ~0.7 strength */
+  filter: drop-shadow(0 0 6px color-mix(in srgb, #f40051 45%, transparent))
+    drop-shadow(0 0 10px color-mix(in srgb, #22d3ee 35%, transparent));
+  opacity: 0.7;
+}
+
+.cz-border-beam-glow::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from var(--cz-beam-angle, 0deg),
+    transparent 0deg,
+    transparent 280deg,
+    #f40051 310deg,
+    #a855f7 325deg,
+    #f59e0b 335deg,
+    #22d3ee 348deg,
+    transparent 360deg
+  );
+  animation: cz-border-beam-rotate 2.6s linear infinite;
+}
+
+@keyframes cz-border-beam-rotate {
+  to {
+    --cz-beam-angle: 360deg;
+  }
+}
+
+/* Fallback when @property isn't supported: rotate the layer. */
+@supports not (background: conic-gradient(from var(--cz-beam-angle), red, blue)) {
+  .cz-border-beam-glow::before {
+    animation: cz-border-beam-spin 2.6s linear infinite;
+  }
+  @keyframes cz-border-beam-spin {
+    to { transform: rotate(360deg); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-border-beam-glow::before {
+    animation: none !important;
+  }
+  .cz-border-beam-glow {
+    opacity: 0.45;
+    filter: none;
+    background: linear-gradient(
+      120deg,
+      color-mix(in srgb, #f40051 55%, transparent),
+      color-mix(in srgb, #a855f7 45%, transparent),
+      color-mix(in srgb, #22d3ee 50%, transparent)
+    );
+  }
+  .cz-border-beam-glow::before {
+    display: none;
+  }
+}
+
+/* Flip cue — quiet ghost, no beam (Buy owns the beam). */
+.cz-flip-cue {
+  margin-top: auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--cz-hair) 80%, transparent);
+  background: color-mix(in srgb, var(--cz-card-solid) 70%, transparent);
+  overflow: hidden;
+}
+
+.cz-flip-cue-label {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cz-ink) 62%, transparent);
+}
+
+/* ─── Grid / multi-card preview ───
+   meta row (date | heart) · photo · price · title · seller · Buy
+   Heart NEVER overlays the photo. */
+.cz-card-body {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px 14px;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.cz-card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.cz-card-date {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--cz-faint);
+  line-height: 1;
+}
+
+.cz-card-photo {
+  position: relative;
+  margin-bottom: 12px;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.cz-card-title {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--cz-ink);
+  line-height: 1.25;
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-shadow: none;
+}
+
+.cz-card-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 2px;
+  margin: 0 0 16px;
+  min-height: 1.25em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--cz-sub);
+}
+
+.cz-card-sub-empty {
+  visibility: hidden;
+}
+
+.cz-card-sub-dot {
+  color: var(--cz-faint);
+}
+
+.cz-card-size {
+  color: var(--cz-sub);
+}
+
+/* Overlay solo cards: give the taller meta room too. */
+.cz-carousel-overlay .cz-carousel-image-wrap {
+  height: calc(100% - 188px);
+}
+
+/* Legacy alias kept so older flip-cue label rules still resolve. */
+.cz-flip-cue-label {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cz-ink) 62%, transparent);
+}
+
+/* Buy button keeps its solid fill; beam rides the border only. */
+.cz-carousel-action-btn.primary.cz-border-beam .cz-border-beam-glow::before {
+  background: conic-gradient(
+    from var(--cz-beam-angle, 0deg),
+    transparent 0deg,
+    transparent 290deg,
+    rgba(255, 255, 255, 0.08) 315deg,
+    rgba(255, 255, 255, 0.95) 338deg,
+    rgba(255, 255, 255, 0.2) 352deg,
+    transparent 360deg
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cz-btn-glare,
   .cz-carousel-action-btn.primary:hover .cz-btn-glare {
     animation: none !important;
     opacity: 0 !important;
+  }
+  .cz-border-beam-glow::before {
+    animation: none !important;
+    opacity: 0.35;
   }
 }
 
@@ -4136,6 +4554,32 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+/* Solo grid-tap overlay: one card, fill more of the viewport. JS cardSize
+   drives the absolute positioning math; these CSS sizes match so the face
+   doesn't clip. Multi-card carousel is unchanged. */
+.cz-carousel-overlay .cz-carousel-track {
+  min-height: min(72dvh, 620px);
+  height: min(72dvh, 620px);
+}
+.cz-carousel-overlay .cz-carousel-card {
+  width: min(92vw, 420px);
+  height: min(72dvh, 600px);
+}
+.cz-carousel-overlay .cz-carousel {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+@media (max-width: 480px) {
+  .cz-carousel-overlay .cz-carousel-track {
+    min-height: min(78dvh, 600px);
+    height: min(78dvh, 600px);
+  }
+  .cz-carousel-overlay .cz-carousel-card {
+    width: min(92vw, 380px);
+    height: min(78dvh, 580px);
+  }
 }
 
 .cz-carousel-overlay-close {
