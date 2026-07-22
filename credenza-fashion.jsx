@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Moon, MoreHorizontal, Pen, Plus, Search, Star, Sun, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Heart, Moon, MoreHorizontal, Pen, Plus, Search, Sun, Trash2, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -225,6 +225,15 @@ function priceLabel(item) {
   }
   if (cny != null) return formatMoney(cny, "CNY");
   if (item.price != null) return formatMoney(item.price, currency);
+  return "";
+}
+
+// USD-only pill label (Kyle 2026-07-22): the dual-currency chip ate too much
+// photo on phones. USD when known, CNY fallback, whatever-currency last.
+function priceLabelShort(item) {
+  const usd = itemUsdAmount(item);
+  if (usd != null) return formatMoney(usd, "USD");
+  if (item.price != null && isFinite(item.price)) return formatMoney(item.price, item.currency || "CNY");
   return "";
 }
 
@@ -4238,30 +4247,29 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
             {item.findStatus}
           </span>
         )}
-        {item.price != null && (
+        {item.price != null && !sheetMode && (
           <span
             style={{
               position: "absolute",
-              // Kyle 2026-07-22: price rides the top on phones (balances the
-              // status badge at top-left) and can never clip past the edge.
-              top: phone ? 10 : undefined,
-              bottom: phone ? undefined : 10,
+              // Kyle 2026-07-22: bottom-right everywhere, matching the carousel
+              // chip; USD-only short label so the pill stays small on phones.
+              bottom: 10,
               right: 10,
               maxWidth: "calc(100% - 20px)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
               fontFamily: MONO,
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 700,
-              padding: "5px 10px",
+              padding: "4px 9px",
               borderRadius: 999,
               background: mode !== "light" ? "oklch(0.15 0 0 / 0.75)" : "oklch(1 0 0 / 0.9)",
               color: INK,
               backdropFilter: "blur(8px)",
             }}
           >
-            {priceLabel(item)}
+            {priceLabelShort(item)}
           </span>
         )}
       </div>
@@ -4277,6 +4285,10 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
               color: INK,
               lineHeight: 1.25,
               marginBottom: item.summary || item.seller || item.size ? 6 : 0,
+              // Long unbroken tokens ("VEILANCE*SECANT", style codes) used to
+              // overflow the card and clip mid-glyph — break them anywhere.
+              overflowWrap: "anywhere",
+              wordBreak: "break-word",
             }}
           >
             {item.title}
@@ -4404,8 +4416,11 @@ function Card({ item, expanded, selected, onToggle, onDelete, onSaveNote, onSave
       )}
       </button>
 
-      {/* Always reachable — not only while the front face is showing. */}
-      <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-grid-favorite" />
+      {/* Always reachable — not only while the front face is showing.
+          In sheetMode the heart lives in the sheet header next to the ✕. */}
+      {!sheetMode && (
+        <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-grid-favorite" />
+      )}
 
       <div
         id={"card-details-" + item.id}
@@ -5260,7 +5275,21 @@ function DetailSheet({ item, onClose, buyLabel, cardProps, onOpen, onDelete, onS
   const secondary = btns.filter((b) => b !== buy);
 
   return (
-    <ModalShell title={item.title || "Saved item"} onClose={close} maxWidth={560}>
+    <ModalShell
+      title={item.title || "Saved item"}
+      onClose={close}
+      maxWidth={560}
+      trailing={
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          {priceLabelShort(item) && (
+            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: INK, whiteSpace: "nowrap" }}>
+              {priceLabelShort(item)}
+            </span>
+          )}
+          <FavoriteButton item={item} onToggle={cardProps.onToggleFavorite} className="cz-sheet-favorite" />
+        </span>
+      }
+    >
       <Card
         {...cardProps}
         item={item}
@@ -5934,8 +5963,8 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
             {/* Always show a price slot when we have any price figure (USD or CNY).
                 Absolute to the image wrap — meta below is fixed height so chips
                 land on the same baseline across every card. */}
-            {priceLabel(item) ? (
-              <span className="cz-carousel-price">{priceLabel(item)}</span>
+            {priceLabelShort(item) ? (
+              <span className="cz-carousel-price">{priceLabelShort(item)}</span>
             ) : null}
           </div>
           <div className="cz-carousel-front-meta">
@@ -7255,7 +7284,7 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
   );
 }
 
-function ModalShell({ title, onClose, children, maxWidth = 720 }) {
+function ModalShell({ title, onClose, children, maxWidth = 720, trailing }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
   const titleId = useId();
@@ -7303,6 +7332,7 @@ function ModalShell({ title, onClose, children, maxWidth = 720 }) {
           >
             {title}
           </h2>
+          {trailing}
           <button
             ref={closeRef}
             type="button"
@@ -7314,7 +7344,7 @@ function ModalShell({ title, onClose, children, maxWidth = 720 }) {
               height: 40,
               border: 0,
               borderRadius: 999,
-              background: SEG,
+              background: "transparent",
               color: SUB,
               cursor: "pointer",
             }}
@@ -9654,7 +9684,7 @@ export default function Credenza() {
               title={sortMode === "starred" ? "Show all" : "Starred only"}
               onClick={() => setSortMode(sortMode === "starred" ? "recent" : "starred")}
             >
-              <Star
+              <Heart
                 aria-hidden="true"
                 size={16}
                 strokeWidth={2}

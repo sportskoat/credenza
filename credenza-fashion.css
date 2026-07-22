@@ -3990,11 +3990,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   inset-inline: 12px;
 }
 
-/* Heart clears the top-right price pill on phones (the desktop header row
-   used to occupy this space; with it gone, 48px landed under the pill). */
+/* Heart rides the photo's top-right corner on phones (price moved to the
+   bottom-right in the Kyle pass, so the corner is free again). Desktop keeps
+   the 48px drop to clear the card's header row. */
 @media (max-width: 767px) {
   .cz-grid-favorite {
-    top: 62px;
+    top: 10px;
+    right: 10px;
   }
 }
 
@@ -4067,4 +4069,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     margin-right: 2px;
     user-select: none;
   }
+}
+
+/* Sheet header heart: sits inline next to the ✕ (grid/carousel hearts are
+   absolute-positioned over photos; this one rides the header row). */
+.cz-sheet-favorite {
+  position: static;
+  display: inline-grid;
+  place-items: center;
 }
