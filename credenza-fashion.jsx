@@ -4287,19 +4287,36 @@ export function carouselLayerZ(cardCount, index, foreground) {
 }
 
 // Size pick, "nice and in their face" (Kyle 2026-07-22). Chart text comes from
-// sizeNotes/summary/rawText; if none parses, offer a fetch that reads the Yupoo
-// album description ("look somewhere else") and caches whatever it finds back
-// into sizeNotes so the next open is instant. Garment categories only — shoes,
-// hats, bags etc. don't map body cm to a letter size.
+// sizeNotes/summary/rawText AND the user's own notes — Notes is the natural
+// place to paste a chart, and excluding it meant a pasted chart silently did
+// nothing (Kyle's "no values, no recommended size" report). If none parses,
+// offer a fetch that reads the Yupoo album description ("look somewhere else")
+// and caches whatever it finds back into sizeNotes so the next open is
+// instant. Garment categories only — shoes, hats, bags etc. don't map body cm
+// to a letter size.
 const SIZE_PICK_SKIP_CATEGORIES = new Set(["shoes", "hat", "bag", "accessory", "socks"]);
+
+// All the free-text fields a size chart can hide in, in priority order.
+export function sizeChartTextFor(item) {
+  return [item.sizeNotes, item.summary, item.rawText, item.note].filter(Boolean).join("\n");
+}
 
 function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, onSaveEdit }) {
   const [fetchState, setFetchState] = useState("idle"); // idle | loading | none
-  if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
-
-  const chartText = [item.sizeNotes, item.summary, item.rawText].filter(Boolean).join("\n");
-  const chart = parseSizeChart(chartText);
+  const skipped = SIZE_PICK_SKIP_CATEGORIES.has(item.category);
+  const chart = skipped ? null : parseSizeChart(sizeChartTextFor(item));
   const rec = chart && bodyProfile ? recommendSize(chart, bodyProfile, item.category) : null;
+  const recSize = rec && rec.size ? rec.size : null;
+  // Persist the pick so every surface agrees with this box — the Rec meta
+  // chip and the Sizes bubble both read item.recommendedSize and were always
+  // blank while the recommendation only existed inside this component.
+  // Guarded: exactly one write when the computed size changes.
+  useEffect(() => {
+    if (recSize && recSize !== item.recommendedSize) {
+      onSaveEdit(item.id, { recommendedSize: recSize });
+    }
+  }, [recSize, item.id, item.recommendedSize, onSaveEdit]);
+  if (skipped) return null;
 
   const fetchChart = async () => {
     const album = yupooAlbumUrl(item);
@@ -4386,6 +4403,17 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", onOpenProfile, on
         </div>
         <Pill subtle onClick={onOpenProfile} style={{ marginTop: 8 }}>Add measurements</Pill>
       </>
+    );
+  }
+
+  // Chart parsed and a profile exists, but the recommender still can't pick —
+  // e.g. the rows carry only lengths, no chest/waist. Say so honestly (A4)
+  // instead of falling through to silence.
+  if (chart && bodyProfile && !rec) {
+    return box(
+      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
+        Size chart found, but it doesn’t list enough chest/waist measurements to make a pick.
+      </div>
     );
   }
 

@@ -1,5 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { formatMeasure, measureFromStorage, measureToStorage, parseSizeChart, recommendSize } from "../../credenza-fashion.jsx";
+import { formatMeasure, measureFromStorage, measureToStorage, parseSizeChart, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
+
+describe("sizeChartTextFor", () => {
+  // Kyle 2026-07-22: chart pasted into Notes gave "no values, no recommended
+  // size" — Notes was excluded from chart discovery. It's included now.
+  it("finds charts the user pasted into Notes", () => {
+    const item = {
+      note: "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70",
+      summary: "Great hoodie from a Weidian seller",
+    };
+    const chart = parseSizeChart(sizeChartTextFor(item));
+    expect(chart).not.toBeNull();
+    expect(chart.rows).toHaveLength(3);
+    const rec = recommendSize(chart, { chest: 96 }, "shirt");
+    expect(rec.size).toBe("S");
+  });
+
+  it("combines sizeNotes, summary, rawText, and note in priority order", () => {
+    const text = sizeChartTextFor({
+      sizeNotes: "a",
+      summary: "b",
+      rawText: "c",
+      note: "d",
+    });
+    expect(text).toBe("a\nb\nc\nd");
+  });
+
+  it("tolerates missing fields", () => {
+    expect(sizeChartTextFor({})).toBe("");
+    expect(sizeChartTextFor({ note: "x" })).toBe("x");
+  });
+});
 
 describe("parseSizeChart", () => {
   it("parses CJK labeled rows (胸围/衣长/肩宽/袖长)", () => {
