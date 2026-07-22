@@ -5978,41 +5978,45 @@ function CoverFlowCarousel({
         </div>
       </motion.div>
 
-      <div className="cz-coverflow-controls" role="group" aria-label="Carousel navigation">
-        <button
-          type="button"
-          className="cz-coverflow-arrow"
-          aria-label="Previous card"
-          disabled={items.length <= 1}
-          onClick={goPrev}
-        >
-          <ChevronLeft aria-hidden="true" size={14} />
-        </button>
-        <div className="cz-coverflow-dots">
-          {items.map((item, i) => (
-            <button
-              key={item.id}
-              type="button"
-              className={"cz-coverflow-dot" + (i === activeIndex ? " is-active" : "")}
-              aria-label={"Go to " + (item.title || "card " + (i + 1))}
-              aria-current={i === activeIndex ? "true" : undefined}
-              onClick={() => {
-                clearEdgeArm();
-                setActiveIndex(i);
-              }}
-            />
-          ))}
+      {/* A rack of one has no navigation — the solo grid-tap overlay renders
+          just the card, no chevrons or lone dot (Kyle 2026-07-22). */}
+      {items.length > 1 && (
+        <div className="cz-coverflow-controls" role="group" aria-label="Carousel navigation">
+          <button
+            type="button"
+            className="cz-coverflow-arrow"
+            aria-label="Previous card"
+            disabled={items.length <= 1}
+            onClick={goPrev}
+          >
+            <ChevronLeft aria-hidden="true" size={14} />
+          </button>
+          <div className="cz-coverflow-dots">
+            {items.map((item, i) => (
+              <button
+                key={item.id}
+                type="button"
+                className={"cz-coverflow-dot" + (i === activeIndex ? " is-active" : "")}
+                aria-label={"Go to " + (item.title || "card " + (i + 1))}
+                aria-current={i === activeIndex ? "true" : undefined}
+                onClick={() => {
+                  clearEdgeArm();
+                  setActiveIndex(i);
+                }}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            className="cz-coverflow-arrow"
+            aria-label="Next card"
+            disabled={items.length <= 1}
+            onClick={goNext}
+          >
+            <ChevronRight aria-hidden="true" size={14} />
+          </button>
         </div>
-        <button
-          type="button"
-          className="cz-coverflow-arrow"
-          aria-label="Next card"
-          disabled={items.length <= 1}
-          onClick={goNext}
-        >
-          <ChevronRight aria-hidden="true" size={14} />
-        </button>
-      </div>
+      )}
 
       {gallery && (
         <PhotoCoverFlow
@@ -6874,14 +6878,12 @@ export default function Credenza() {
   // One detail surface everywhere (Kyle 2026-07-22): tapping any grid card
   // opens the carousel on that item; the carousel back holds details + edit.
   const isPhone = useIsPhone();
-  // Signal for "jump the carousel to this item" — id + ":" + timestamp, same
-  // idiom as flip/edit signals. Consumed by CoverFlowCarousel's focusSignal.
-  const [carouselFocus, setCarouselFocus] = useState(null);
-  // Grid tap presents the carousel as a layer OVER the grid (Kyle 2026-07-22)
-  // instead of switching views — the grid stays mounted underneath, so closing
-  // lands back on the same scroll position. The toolbar's carousel view still
-  // swaps the whole surface; this flag is only the grid-tap presentation.
-  const [carouselOverlay, setCarouselOverlay] = useState(false);
+  // Grid tap presents ONE card as a layer OVER the grid (Kyle 2026-07-22):
+  // the tapped item's carousel card pops up solo — no rack, no nav chrome —
+  // and the grid stays mounted underneath, so closing lands back on the same
+  // scroll position. Value is the tapped item's id (null = closed). The
+  // toolbar's carousel view still swaps the whole surface with the full rack.
+  const [carouselOverlay, setCarouselOverlay] = useState(null);
   const [barMenuOpen, setBarMenuOpen] = useState(false);
   // Body measurements powering the card-back size pick; persisted in
   // credenza-prefs-v1. Null until the user fills the sheet once. Storage is
@@ -8377,7 +8379,7 @@ export default function Credenza() {
         // reaching here means the rack is at rest. Selection stays so the grid
         // highlights the item you were just viewing.
         if (ctx.carouselOverlay) {
-          setCarouselOverlay(false);
+          setCarouselOverlay(null);
           setExpandedId(null);
           return;
         }
@@ -8395,13 +8397,12 @@ export default function Credenza() {
         }
         // Space / F flips the active card. Space again (or F again while open)
         // unflips — same as clicking the center card. Grid cards have no flip
-        // anymore: there Space/F pops the carousel overlay up on the card.
+        // anymore: there Space/F pops the card up solo in the overlay.
         if (e.key === " " || e.key === "Spacebar" || e.key === "f") {
           e.preventDefault();
           setSelectedId(sel.id);
           if (!carouselPresented) {
-            setCarouselFocus(sel.id + ":" + Date.now());
-            setCarouselOverlay(true);
+            setCarouselOverlay(sel.id);
             return;
           }
           if (ctx.expandedId === sel.id) {
@@ -8417,10 +8418,9 @@ export default function Credenza() {
           setSelectedId(sel.id);
           setExpandedId(sel.id);
           setEditRequest(sel.id + ":" + Date.now());
-          // Grid: the edit form lives on the carousel card back — pop up there.
+          // Grid: the edit form lives on the card back — pop it up solo.
           if (!carouselPresented) {
-            setCarouselFocus(sel.id + ":" + Date.now());
-            setCarouselOverlay(true);
+            setCarouselOverlay(sel.id);
           }
           return;
         }
@@ -8465,20 +8465,25 @@ export default function Credenza() {
     };
   }, []);
 
-  // Tap any grid card → the carousel pops up ON that item as a layer over the
-  // grid (Kyle 2026-07-22) — no view switch, so the grid keeps its scroll
-  // position and the close lands right back where you were. The overlay mounts
-  // a fresh carousel each open; its focusSignal effect consumes the signal.
+  // Tap any grid card → that ONE card pops up as a layer over the grid
+  // (Kyle 2026-07-22: "just show the one card") — no view switch, so the grid
+  // keeps its scroll position and the close lands right back where you were.
   const openInCarousel = (id) => {
     setSelectedId(id);
-    setCarouselFocus(id + ":" + Date.now());
-    setCarouselOverlay(true);
+    setCarouselOverlay(id);
   };
-  // Closing always returns to a front-facing rack next open.
+  // Closing always returns to a front-facing card next open.
   const closeCarouselOverlay = () => {
-    setCarouselOverlay(false);
+    setCarouselOverlay(null);
     setExpandedId(null);
   };
+  // If the open item disappears (deleted from its own card back), close.
+  useEffect(() => {
+    if (carouselOverlay && !items.some((x) => x.id === carouselOverlay)) {
+      setCarouselOverlay(null);
+      setExpandedId(null);
+    }
+  }, [carouselOverlay, items]);
   // Lock the page behind the overlay — wheel/touch over the scrim must not
   // scroll the grid underneath.
   useEffect(() => {
@@ -8604,18 +8609,17 @@ export default function Credenza() {
   // Only fades when it's standing in for the open-haul carousel inside the
   // Hauls-tab AnimatePresence above; plain Shelf-tab renders skip animation
   // entirely (initial={false}) so viewMode/tab switches stay instant.
-  // One carousel element, two presentations (Kyle 2026-07-22): the toolbar's
-  // carousel view swaps the surface; a grid tap mounts this same element in
-  // the overlay layer below. Identical props, identical behavior — only the
-  // chrome around it differs.
-  const carouselElement = (
+  // One carousel renderer, two presentations (Kyle 2026-07-22): the toolbar's
+  // carousel view swaps the surface and gets the full list; a grid tap pops
+  // just the tapped card up in the overlay layer below — same props, same
+  // behavior, only the item list and the chrome around it differ.
+  const renderCarousel = (carouselItems) => (
     <CoverFlowCarousel
-      items={listItems}
+      items={carouselItems}
       expandedId={expandedId}
       selectedId={selectedId}
       flipRequest={flipRequest}
       editRequest={editRequest}
-      focusSignal={carouselFocus}
       haulNames={haulNames}
       onDelete={remove}
       onSaveEdit={saveEdit}
@@ -8637,6 +8641,14 @@ export default function Credenza() {
       onOpenProfile={() => setProfileSheetOpen(true)}
     />
   );
+  const carouselElement = renderCarousel(listItems);
+  // The overlay's solo card — resolved live so edits/hearts/photo loads on
+  // the open card reflect immediately.
+  const overlayItem = carouselOverlay
+    ? listItems.find((x) => x.id === carouselOverlay) ||
+      items.find((x) => x.id === carouselOverlay) ||
+      null
+    : null;
 
   const shelfSurface = (
     <motion.section
@@ -8965,25 +8977,27 @@ export default function Credenza() {
         />
       )}
 
-      {/* Grid-tap carousel overlay (Kyle 2026-07-22): the card pops up as a
-          layer over the grid instead of switching views — close (✕ / Escape /
-          scrim tap) lands back on the same scroll position. Never coexists
-          with the carousel view; the gallery (z-gallery) still rides above. */}
+      {/* Grid-tap card overlay (Kyle 2026-07-22): the tapped card pops up
+          SOLO as a layer over the grid — no rack, no nav chrome — and close
+          (✕ / scrim tap at rest / Escape) lands back on the same scroll
+          position. Never coexists with the carousel view; the gallery
+          (z --z-gallery) still rides above. */}
       <AnimatePresence initial={false}>
-        {carouselOverlay && viewMode !== "carousel" && (
+        {carouselOverlay && overlayItem && viewMode !== "carousel" && (
           <motion.div
             key="carousel-overlay"
             className="cz-carousel-overlay"
             role="dialog"
             aria-modal="true"
-            aria-label="Item carousel"
+            aria-label={overlayItem.title || "Saved item"}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduced ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
             onPointerDown={(e) => {
-              // Scrim tap closes — but only at rest: while a card is flipped,
-              // the carousel's own capture listener peels its layers instead.
+              // Scrim tap closes — but only at rest: while the card is
+              // flipped, the carousel's own capture listener peels its
+              // layers instead.
               if (expandedId) return;
               if (document.querySelector("dialog[open]")) return;
               if (
@@ -8992,13 +9006,13 @@ export default function Credenza() {
                 )
               )
                 return;
-              setCarouselOverlay(false);
+              setCarouselOverlay(null);
             }}
           >
             <button
               type="button"
               className="cz-carousel-overlay-close"
-              aria-label="Close carousel"
+              aria-label="Close"
               onClick={closeCarouselOverlay}
             >
               <X aria-hidden="true" size={18} />
@@ -9010,7 +9024,7 @@ export default function Credenza() {
               exit={reduced ? undefined : { scale: 0.97, y: 10 }}
               transition={{ duration: reduced ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
             >
-              {carouselElement}
+              {renderCarousel([overlayItem])}
             </motion.div>
           </motion.div>
         )}

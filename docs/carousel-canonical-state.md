@@ -68,22 +68,30 @@ compositor-only, keeps the impeccable design hook green.
 
 ## Companion pieces
 
-- **Grid-tap carousel overlay (added 2026-07-22).** Tapping a grid card (or
-  Space/F/e from the grid) presents the carousel as a **layer over the grid**
-  (`.cz-carousel-overlay`, z `--z-sheet`), not a view switch — the grid stays
-  mounted underneath, so closing (✕ / scrim tap at rest / Escape) lands back
-  on the same scroll position. The toolbar's carousel *view* still swaps the
-  whole surface; both presentations render the same `carouselElement` with
-  identical props. The overlay extends the one-layer-at-a-time contract
-  outward: it is the **outermost layer**, closed only when the rack is at
-  rest (the carousel's capture-phase Escape/outside-click listeners peel card
-  layers first and stopPropagation; the app-level Escape and the scrim
-  pointerdown only fire when nothing was peeled). The photo gallery
-  (z `--z-gallery`) still rides above the overlay. Keyboard: while the overlay
-  is open, grid bindings (Up/Down, type-anywhere, Delete) are gated off via
-  `carouselPresented`/`ctx.carouselOverlay` in the app keydown handler;
-  CoverFlow's window listeners own arrows as usual. Do not reintroduce a
-  viewMode switch on grid tap — that was the teleport feeling Kyle rejected.
+- **Grid-tap card overlay (added 2026-07-22, solo same day).** Tapping a grid
+  card (or Space/F/e from the grid) pops **just that one card** up as a layer
+  over the grid (`.cz-carousel-overlay`, z `--z-sheet`) — Kyle: "just show the
+  one card," no rack of neighbors, no chevron/dot chrome. It is the same
+  `CoverFlowCarousel` mounted with `items={[tappedItem]}` via the shared
+  `renderCarousel` helper; single-item racks already no-op every nav input
+  (`tryEdgeStep` returns when `len <= 1`, track clicks bail when
+  `items.length < 2`), and the control bar hides whenever
+  `items.length <= 1` — a rack of one never shows navigation, in the overlay
+  or anywhere else. The toolbar's carousel *view* still swaps the whole
+  surface with the full rack. Overlay state is the tapped item's id
+  (`carouselOverlay`); the item resolves live from `listItems`/`items` so
+  edits and hearts reflect immediately, and the overlay closes itself if the
+  item is deleted from its own card back. The overlay extends the
+  one-layer-at-a-time contract outward: it is the **outermost layer**, closed
+  only when the card is at rest (the carousel's capture-phase
+  Escape/outside-click listeners peel card layers first and stopPropagation;
+  the app-level Escape and the scrim pointerdown only fire when nothing was
+  peeled). The photo gallery (z `--z-gallery`) still rides above the overlay.
+  Keyboard: while the overlay is open, grid bindings (Up/Down, type-anywhere,
+  Delete) are gated off via `carouselPresented`/`ctx.carouselOverlay` in the
+  app keydown handler; Space/F/e flip/edit the solo card. Do not reintroduce
+  a viewMode switch on grid tap (the teleport feeling Kyle rejected) — and do
+  not "enrich" the overlay back into a multi-card rack.
 - **Face visibility is manually gated (added 2026-07-21).** WebKit ignores
   `backface-visibility` on the card faces (confirmed via Playwright WebKit,
   headed + headless): Safari painted the back face mirrored over the front at

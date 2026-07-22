@@ -58,7 +58,7 @@ async function shot(page, name) {
   console.log("shot", name);
 }
 
-// Grid card tap → carousel overlay on that item; returns the tapped item id.
+// Grid card tap → SOLO card overlay on that item; returns the tapped item id.
 async function tapFirstCardIntoOverlay(page) {
   const firstToggle = page.locator("article .cz-card-toggle").first();
   const article = page.locator("article").first();
@@ -66,13 +66,17 @@ async function tapFirstCardIntoOverlay(page) {
   await firstToggle.click();
   await page.waitForTimeout(900);
   const overlay = await page.locator(".cz-carousel-overlay:visible").count();
-  check("grid tap opens the carousel overlay", overlay > 0);
-  const onCarousel = await page.locator(".cz-carousel-track").count();
-  check("overlay contains the carousel", onCarousel > 0);
+  check("grid tap opens the card overlay", overlay > 0);
+  // Kyle 2026-07-22: "just show the one card" — exactly one card in the
+  // overlay, no rack, no chevron/dot nav chrome.
+  const rackCards = await page.locator(".cz-carousel-overlay .cz-carousel-card").count();
+  check("overlay shows exactly one card", rackCards === 1, rackCards + " cards");
+  const navChrome = await page.locator(".cz-carousel-overlay .cz-coverflow-controls").count();
+  check("overlay has no carousel nav chrome", navChrome === 0);
   const foreground = page.locator(".cz-carousel-card[data-foreground='true']").first();
   const fgId = (await foreground.count()) ? await foreground.getAttribute("id") : null;
   check(
-    "carousel lands on the tapped item",
+    "overlay lands on the tapped item",
     Boolean(fgId && articleId && fgId === articleId),
     "tapped " + articleId + ", foreground " + fgId
   );
@@ -166,6 +170,11 @@ async function runPhone() {
     clearance === null || clearance.gap >= -1,
     clearance ? "gap " + Math.round(clearance.gap) + "px" : "measure unavailable"
   );
+  // The solo overlay must not have slimmed the VIEW: full rack + nav chrome.
+  const rackSize = await page.locator(".cz-carousel-card").count();
+  check("carousel view still shows the full rack", rackSize > 1, rackSize + " cards");
+  const viewNav = await page.locator(".cz-coverflow-controls:visible").count();
+  check("carousel view keeps its nav chrome", viewNav > 0);
   await shot(page, "07-phone-carousel-view.png");
 
   await browser.close();
