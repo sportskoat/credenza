@@ -4074,6 +4074,8 @@ function linkButtons(item, opts = {}) {
 function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false }) {
   const reduced = usePrefersReducedMotion();
   const date = formatItemDate(item.createdAt);
+  // "Saved from <host>." boilerplate repeats the seller — never render it.
+  const showSummary = item.summary && !/^Saved from /.test(item.summary);
 
   return (
     <article
@@ -4114,9 +4116,10 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
               cursor: "pointer",
             }}
           >
-            {/* Platform/host/date row — desktop only. Kyle 2026-07-22: on
-                phones this squeezed link row is noise; the card leads with
-                the picture instead. */}
+            {/* Platform/date row — desktop only. Kyle 2026-07-22: the seller
+                appears ONCE per card (the link under the title) — the host
+                used to repeat here and again in the "Saved from…" summary.
+                Phones lead with the picture instead. */}
             {!phone && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <TypeMark item={item} />
@@ -4124,7 +4127,7 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
                   <span style={{ width: 5, height: 5, borderRadius: 3, background: BLUE, opacity: 0.7 }} />
                 )}
                 <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, color: FAINT, letterSpacing: "0.02em" }}>
-                  {(item.host ? item.host + " · " : "") + date}
+                  {date}
                 </span>
               </div>
             )}
@@ -4162,7 +4165,7 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
                 letterSpacing: "-0.03em",
                 color: INK,
                 lineHeight: 1.25,
-                marginBottom: item.summary || item.seller || item.size ? 6 : 0,
+                marginBottom: showSummary || item.seller || item.size ? 6 : 0,
                 // Long unbroken tokens ("VEILANCE*SECANT", style codes) used to
                 // overflow the card and clip mid-glyph — break them anywhere.
                 overflowWrap: "anywhere",
@@ -4172,7 +4175,7 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
               {item.title}
             </div>
             {(item.seller || item.size) && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: item.summary ? 6 : 0 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: showSummary ? 6 : 0 }}>
                 {item.seller && (
                   <SellerLink item={item} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }} />
                 )}
@@ -4183,7 +4186,10 @@ function Card({ item, selected, onToggle, onToggleFavorite, mode, phone = false 
                 )}
               </div>
             )}
-            {item.summary && !(phone && /^Saved from /.test(item.summary)) && (
+            {/* "Saved from <host>." is capture boilerplate that just repeats
+                the seller a third time — suppressed everywhere (Kyle
+                2026-07-22). Real summaries still render. */}
+            {showSummary && (
               <div
                 style={{
                   fontFamily: FONT,
@@ -8253,30 +8259,6 @@ export default function Credenza() {
     setSelectedId(null);
   }, [activeHaul, reducedMotion]);
 
-  // Time buckets give the scroll a spine — default recent shelf only, not mid-search
-  // and not while filtering to Starred-only or browsing a single haul.
-  let sections = null;
-  if (
-    view === "shelf" &&
-    toolbarActive &&
-    sortMode !== "starred" &&
-    !q &&
-    listItems.length > 0
-  ) {
-    const now = Date.now();
-    const wk = [];
-    const mo = [];
-    const old = [];
-    for (const it of listItems) {
-      const age = now - it.createdAt;
-      (age < WEEK_MS ? wk : age < 30 * DAY_MS ? mo : old).push(it);
-    }
-    sections = [];
-    if (wk.length) sections.push(["This week", wk]);
-    if (mo.length) sections.push(["Earlier this month", mo]);
-    if (old.length) sections.push(["Older", old]);
-  }
-
   useEffect(() => {
     if (view === "inbox" && inboxItems.length === 0) setView("shelf");
   }, [view, inboxItems.length]);
@@ -8661,87 +8643,6 @@ export default function Credenza() {
       exit={openHaulName ? { opacity: 0, scale: 0.98 } : undefined}
       transition={HAUL_SURFACE_TRANSITION}
     >
-      {/* Starred filter + view toggles only (category chips removed).
-          Hidden inside an open haul — that view stays clean. */}
-      {toolbarActive && !openHaulName && (
-        <div
-          className="cz-shelf-toolbar"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            gap: 6,
-            marginBottom: 12,
-          }}
-        >
-          <div
-            className="cz-toolbar-end"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              position: "relative",
-              flexShrink: 0,
-            }}
-          >
-            <button
-              type="button"
-              className={"cz-starred-filter" + (sortMode === "starred" ? " is-active" : "")}
-              aria-pressed={sortMode === "starred"}
-              aria-label={sortMode === "starred" ? "Show all items" : "Show starred only"}
-              title={sortMode === "starred" ? "Show all" : "Starred only"}
-              onClick={() => setSortMode(sortMode === "starred" ? "recent" : "starred")}
-            >
-              <Heart
-                aria-hidden="true"
-                size={16}
-                strokeWidth={2}
-                fill={sortMode === "starred" ? "currentColor" : "none"}
-              />
-            </button>
-            <span style={{ width: 1, height: 14, background: HAIR }} />
-            <button
-              type="button"
-              className="cz-view-button"
-              onClick={() => setViewMode("carousel")}
-              aria-label="Carousel view"
-              aria-pressed={viewMode === "carousel"}
-              title="Carousel"
-              style={{
-                fontFamily: FONT,
-                fontSize: 12,
-                color: viewMode === "carousel" ? INK : FAINT,
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "4px 2px",
-              }}
-            >
-              ◈
-            </button>
-            <button
-              type="button"
-              className="cz-view-button"
-              onClick={() => setViewMode("cards")}
-              aria-label="Card view"
-              aria-pressed={viewMode === "cards"}
-              title="Cards"
-              style={{
-                fontFamily: FONT,
-                fontSize: 12,
-                color: viewMode === "cards" ? INK : FAINT,
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "4px 2px",
-              }}
-            >
-              ▦
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Shelf */}
       {!loaded ? (
         <div style={{ color: SUB, fontSize: 13, padding: "36px 0", textAlign: "center" }}>
@@ -8857,29 +8758,9 @@ export default function Credenza() {
       ) : viewMode === "carousel" ? (
         <div className="cz-haul-open-stage">{carouselElement}</div>
       ) : (
-        <div
-          className={viewMode === "cards" && !sections ? "cz-shelf-grid" : undefined}
-          style={{
-            display: viewMode === "cards" && !sections ? undefined : "flex",
-            flexDirection: viewMode === "cards" && !sections ? undefined : "column",
-            gap: 10,
-          }}
-        >
-          {sections
-            ? sections.map(([label, arr], si) => (
-                <div key={label} className="cz-time-section">
-                  <Caption style={{ margin: (si === 0 ? "0" : "8px") + " 2px 0" }}>
-                    {label}
-                  </Caption>
-                  <div
-                    className={viewMode === "cards" ? "cz-time-section-grid" : undefined}
-                  >
-                    {arr.map(renderEntry)}
-                  </div>
-                </div>
-              ))
-            : listItems.map(renderEntry)}
-        </div>
+        // Time-bucket sections ("This week" / "Earlier this month" / "Older")
+        // removed 2026-07-22 — Kyle: not relevant. One flat grid.
+        <div className="cz-shelf-grid">{listItems.map(renderEntry)}</div>
       )}
 
       {/* Sample cleanup */}
@@ -9346,9 +9227,11 @@ export default function Credenza() {
           )}
         </div>
 
-        {/* Floating total-cost chip — same chrome always; only numbers/label text change.
-            Count + label each fade in on their own key so a haul swap reads as a
-            quiet text change, not a snap — matches cz-haul-open-head below. */}
+        {/* Shelf meta row (Kyle 2026-07-22): count + total cost on the left,
+            starred filter + view toggles on the right — ONE quiet row where
+            the total used to sit alone. No sticky bar: it scrolls away with
+            the page like any other content. Count + label each fade in on
+            their own key so a haul swap reads as a quiet text change. */}
         {view !== "inbox" && shelfAll.length > 0 && (
           <div className="cz-total-row">
             <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
@@ -9364,6 +9247,76 @@ export default function Credenza() {
               </span>
               <ReelCounter value={listTotalUsd} />
             </span>
+            {/* Starred filter + view toggles. Hidden inside an open haul —
+                that view stays clean. */}
+            {toolbarActive && !openHaulName && (
+              <div
+                className="cz-toolbar-end"
+                style={{
+                  marginLeft: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  position: "relative",
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  className={"cz-starred-filter" + (sortMode === "starred" ? " is-active" : "")}
+                  aria-pressed={sortMode === "starred"}
+                  aria-label={sortMode === "starred" ? "Show all items" : "Show starred only"}
+                  title={sortMode === "starred" ? "Show all" : "Starred only"}
+                  onClick={() => setSortMode(sortMode === "starred" ? "recent" : "starred")}
+                >
+                  <Heart
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={2}
+                    fill={sortMode === "starred" ? "currentColor" : "none"}
+                  />
+                </button>
+                <span style={{ width: 1, height: 14, background: HAIR }} />
+                <button
+                  type="button"
+                  className="cz-view-button"
+                  onClick={() => setViewMode("carousel")}
+                  aria-label="Carousel view"
+                  aria-pressed={viewMode === "carousel"}
+                  title="Carousel"
+                  style={{
+                    fontFamily: FONT,
+                    fontSize: 12,
+                    color: viewMode === "carousel" ? INK : FAINT,
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "4px 2px",
+                  }}
+                >
+                  ◈
+                </button>
+                <button
+                  type="button"
+                  className="cz-view-button"
+                  onClick={() => setViewMode("cards")}
+                  aria-label="Card view"
+                  aria-pressed={viewMode === "cards"}
+                  title="Cards"
+                  style={{
+                    fontFamily: FONT,
+                    fontSize: 12,
+                    color: viewMode === "cards" ? INK : FAINT,
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "4px 2px",
+                  }}
+                >
+                  ▦
+                </button>
+              </div>
+            )}
           </div>
         )}
 

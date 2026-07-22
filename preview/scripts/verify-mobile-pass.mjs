@@ -114,6 +114,29 @@ async function runPhone() {
   const hearts = await page.locator(".cz-card .cz-card-favorite").count();
   check("grid hearts render", hearts > 0, hearts + " hearts");
 
+  // 1b — Kyle 2026-07-22: the seller appears ONCE per card (the link under
+  // the title) — no host in the meta row, no "Saved from…" boilerplate
+  // summary. And time-bucket section headers ("This week") are gone.
+  const firstCard = page.locator("article").first();
+  const sellerCount = await firstCard.locator("[class*='cz-seller']").count();
+  check("seller renders exactly once per card", sellerCount === 1, sellerCount + " sellers");
+  const cardText = await firstCard.innerText();
+  check("no Saved-from boilerplate summary", !/Saved from /.test(cardText));
+  check(
+    "no host in the card meta row",
+    !/\.yupoo\.com|\.weidian\.com/.test(cardText.split("\n").slice(0, 3).join(" "))
+  );
+  const timeSections = await page.locator(".cz-time-section").count();
+  check("no time-bucket sections", timeSections === 0);
+
+  // 1c — merged meta row: count + total left, heart + view toggles right.
+  const rowHeart = await page.locator(".cz-total-row .cz-starred-filter").count();
+  const rowViews = await page.locator(".cz-total-row .cz-view-button").count();
+  check("meta row holds the starred filter", rowHeart === 1);
+  check("meta row holds both view toggles", rowViews === 2, rowViews + " toggles");
+  const stickyBar = await page.locator(".cz-shelf-toolbar").count();
+  check("old sticky toolbar rectangle is gone", stickyBar === 0);
+
   // 2 — tap first card → overlay on that item, grid still mounted
   await tapFirstCardIntoOverlay(page);
   await shot(page, "02-phone-overlay-from-grid.png");
@@ -154,11 +177,13 @@ async function runPhone() {
   await shot(page, "06-phone-back-on-grid.png");
 
   // 6 — crown clearance in the carousel VIEW (toolbar toggle): foreground
-  // card top must sit at/below the sticky toolbar's bottom edge.
+  // card top must sit at/below the meta row's bottom edge. (The old sticky
+  // toolbar rectangle is gone — count/total + toggles now share one quiet
+  // row that scrolls with the page.)
   await page.locator(".cz-view-button[aria-label='Carousel view']").click();
   await page.waitForTimeout(900);
   const clearance = await page.evaluate(() => {
-    const toolbar = document.querySelector(".cz-shelf-toolbar");
+    const toolbar = document.querySelector(".cz-total-row");
     const card = document.querySelector(".cz-carousel-card[data-foreground='true']");
     if (!toolbar || !card) return null;
     const t = toolbar.getBoundingClientRect();
@@ -166,7 +191,7 @@ async function runPhone() {
     return { toolbarBottom: t.bottom, cardTop: c.top, gap: c.top - t.bottom };
   });
   check(
-    "carousel crown clears the sticky toolbar (view)",
+    "carousel crown clears the shelf meta row (view)",
     clearance === null || clearance.gap >= -1,
     clearance ? "gap " + Math.round(clearance.gap) + "px" : "measure unavailable"
   );

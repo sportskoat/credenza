@@ -58,22 +58,15 @@
   }
 }
 
-.cz-app[data-fashion="true"] .cz-time-section-grid > div,
 .cz-app[data-fashion="true"] .cz-shelf-grid > div {
   animation: cz-fashion-enter 350ms var(--ease-out) both;
 }
 
-.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(1),
 .cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(1) { animation-delay: 0ms; }
-.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(2),
 .cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(2) { animation-delay: 40ms; }
-.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(3),
 .cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(3) { animation-delay: 80ms; }
-.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(4),
 .cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(4) { animation-delay: 120ms; }
-.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(5),
 .cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(5) { animation-delay: 160ms; }
-.cz-app[data-fashion="true"] .cz-time-section-grid > div:nth-child(6),
 .cz-app[data-fashion="true"] .cz-shelf-grid > div:nth-child(6) { animation-delay: 200ms; }
 
 /* Hero title entrance */
@@ -182,7 +175,6 @@
 @media (prefers-reduced-motion: reduce) {
   .cz-app[data-fashion="true"] article,
   .cz-app[data-fashion="true"] .cz-card-image,
-  .cz-app[data-fashion="true"] .cz-time-section-grid > div,
   .cz-app[data-fashion="true"] .cz-shelf-grid > div,
   .cz-app[data-fashion="true"] .cz-masthead,
   .cz-app[data-fashion="true"] .cz-hero-title,
@@ -294,10 +286,6 @@
   width: 100%;
   isolation: isolate;
   overflow: visible;
-  /* Pre-deploy hardening: keep the stage below the sticky shelf toolbar when
-     anything scrolls it into view (crown clearance is only ~14px of layout
-     margin otherwise). Toolbar ≈ 40px + pads. */
-  scroll-margin-top: 56px;
 }
 
 .cz-carousel {
@@ -3006,8 +2994,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 /* ─── Total-cost chip + spinning reel counter (transitions.dev-style) ─── */
 .cz-total-row {
   display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: flex-start;
   gap: 12px;
   margin: -8px 0 14px;
 }
@@ -4073,23 +4061,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   margin-inline: auto;
 }
 
-/* Starred filter + view toggles ride the same centered column, else they
-   float at the viewport's right edge while everything else centers.
-   Sticky so the three view options stay put while cards scroll under. */
-.cz-shelf-toolbar {
-  width: 100%;
-  max-width: 720px;
-  margin-inline: auto;
-  position: sticky;
-  /* Respect the notch on phones — the sticky row must start below the
-     safe-area inset, not at the raw viewport top. */
-  top: env(safe-area-inset-top, 0px);
-  z-index: var(--z-chrome);
-  background: var(--cz-bg);
-  /* Soft pad so the solid bg doesn't clip icons against the edge. */
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
+/* The starred filter + view toggles merged into the total row (Kyle
+   2026-07-22) — the old sticky .cz-shelf-toolbar rectangle ("comes up and
+   stays up") is gone; the meta row scrolls away with the page. */
 
 .cz-app[data-fashion="true"] .cz-capture-shell,
 .cz-app[data-fashion="true"] .cz-search-shell {
