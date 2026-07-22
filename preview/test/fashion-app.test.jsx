@@ -489,7 +489,8 @@ describe("Agent Buy plumbing (A2)", () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    await user.click(await screen.findByRole("button", { name: /Agent: Superbuy/ }));
+    await user.click(await screen.findByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Agent/ }));
     expect(await screen.findByRole("heading", { name: "Buying agent" })).toBeInTheDocument();
     expect(screen.getByText(/Disclosure:/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Sugargoo/ }));
@@ -545,7 +546,8 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Import" }));
+    await user.click(await screen.findByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Import" }));
     const box = await screen.findByLabelText(/Paste haul links/);
     fireEvent.change(box, { target: { value: HAUL } });
 

@@ -62,29 +62,36 @@ if (await carouselBtn.count()) {
   console.log("carousel toggle not found");
 }
 
-// 4. Back to grid, then Import sheet (bottom-sheet check).
+// 4. Back to grid, then Import / Agent via ⋯ menu (dock is Stash + More only).
 const cardBtn = page.getByRole("button", { name: "Card view" });
 if (await cardBtn.count()) await cardBtn.first().click({ force: true });
 await page.waitForTimeout(800);
-const importBtn = page.getByRole("button", { name: "Import", exact: true });
-if (await importBtn.count()) {
-  await importBtn.first().click({ force: true });
-  await page.waitForTimeout(1200);
-  await shot("04-import-sheet.png");
-  await page.keyboard.press("Escape");
-  await page.waitForTimeout(600);
+const moreBtn = page.getByRole("button", { name: "More" });
+if (await moreBtn.count()) {
+  await moreBtn.first().click({ force: true });
+  await page.waitForTimeout(300);
+  const importBtn = page.getByRole("menuitem", { name: "Import" });
+  if (await importBtn.count()) {
+    await importBtn.first().click({ force: true });
+    await page.waitForTimeout(1200);
+    await shot("04-import-sheet.png");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(600);
+  } else {
+    console.log("import menuitem not found");
+  }
+  await moreBtn.first().click({ force: true }).catch(() => {});
+  await page.waitForTimeout(200);
+  const agentBtn = page.getByRole("menuitem", { name: /^Agent/ });
+  if (await agentBtn.count()) {
+    await agentBtn.first().click({ force: true });
+    await page.waitForTimeout(1200);
+    await shot("05-agent-sheet.png");
+  } else {
+    console.log("agent menuitem not found");
+  }
 } else {
-  console.log("import button not found");
-}
-
-// 5. Agent sheet (bottom-sheet + picker on mobile).
-const agentBtn = page.getByRole("button", { name: /^Agent:/ });
-if (await agentBtn.count()) {
-  await agentBtn.first().click({ force: true });
-  await page.waitForTimeout(1200);
-  await shot("05-agent-sheet.png");
-} else {
-  console.log("agent pill not found");
+  console.log("More button not found");
 }
 
 await browser.close();

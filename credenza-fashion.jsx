@@ -200,11 +200,19 @@ function formatMoney(amount, currency) {
   return currency + " " + pretty;
 }
 
+// Same fallback the resolve function uses when FX is unavailable — keeps
+// shelf totals stable across devices before/without enrichment priceUsd.
+const FX_FALLBACK_USD_PER_CNY = 0.14;
+
 function itemUsdAmount(item) {
-  if (item.priceUsd != null && isFinite(item.priceUsd)) return item.priceUsd;
-  if (item.price != null && isFinite(item.price) && (!item.currency || item.currency === "USD")) {
-    return item.price;
+  if (item.priceUsd != null && isFinite(item.priceUsd)) return Number(item.priceUsd);
+  if (item.price == null || !isFinite(item.price)) return null;
+  const currency = String(item.currency || "CNY").toUpperCase();
+  if (currency === "USD" || currency === "$") return Number(item.price);
+  if (currency === "CNY" || currency === "RMB" || currency === "¥" || currency === "CNH") {
+    return Math.round(Number(item.price) * FX_FALLBACK_USD_PER_CNY * 100) / 100;
   }
+  // Unknown currency: don't invent USD (would inflate the reel).
   return null;
 }
 
@@ -7390,14 +7398,15 @@ export default function Credenza() {
     // Blackout black / Gallery warm-white — matches the live field for iOS chrome.
     if (meta) meta.setAttribute("content", mode === "rainbow" ? "#000000" : "#F4F4F0");
   }, [mode]);
-  // A waiting service worker (see preview/src/main.jsx) means a new build is
-  // staged; swapping code mid-session is the user's call, not ours.
+  // A waiting service worker means a new build is staged. Quiet, compact toast
+  // (not a sticky full-width Restart slab) — dismissible, auto-hides.
   useEffect(() => {
     const onUpdateReady = () =>
-      notify("Update ready.", {
+      notify("Update ready", {
         actionLabel: "Restart",
         onAction: () => window.dispatchEvent(new CustomEvent("credenza:apply-update")),
-        persistent: true,
+        duration: 12000,
+        tone: "info",
       });
     window.addEventListener("credenza:update-ready", onUpdateReady);
     return () => window.removeEventListener("credenza:update-ready", onUpdateReady);
@@ -8682,14 +8691,8 @@ export default function Credenza() {
     setActiveHaul(haulKey);
   }, []);
 
-  // USD-normalized value for the total-cost reel: prefer the resolver's USD
-  // conversion, fall back to the raw price only when it's already dollars.
-  const itemUsd = useCallback((it) => {
-    if (it.priceUsd != null && isFinite(it.priceUsd)) return it.priceUsd;
-    if (it.price != null && isFinite(it.price) && (!it.currency || it.currency === "USD"))
-      return it.price;
-    return 0;
-  }, []);
+  // USD-normalized value for the total-cost reel — single helper so haul
+  // directory, chips, and the reel never disagree (CNY falls back to 0.14).
   const totalsItems = useMemo(() => {
     if (openHaulName) {
       return shelfItems.filter(
@@ -8701,18 +8704,18 @@ export default function Credenza() {
   // Sums exactly what's on the surface — search matches, Starred-only filter,
   // or the open haul — so the counter recalculates organically.
   const listTotalUsd = useMemo(
-    () => totalsItems.reduce((sum, it) => sum + itemUsd(it), 0),
-    [totalsItems, itemUsd]
+    () => totalsItems.reduce((sum, it) => sum + (itemUsdAmount(it) || 0), 0),
+    [totalsItems]
   );
   // Same context for the count chip — one consistent spot next to the total.
-  // Starred filter MUST show through here: "18 saved" next to 6 visible cards
-  // read as lost data (Kyle 2026-07-22: "why is there less than what's saved").
+  // Starred filter MUST show through here. Keep the label short on mobile so
+  // "N starred of M saved" + TOTAL SHELF COST + heart don't pile up.
   const totalCountLabel = openHaulName
     ? totalsItems.length + (totalsItems.length === 1 ? " item" : " items")
     : q
       ? visible.length + " found"
       : sortMode === "starred"
-        ? totalsItems.length + " starred of " + shelfAll.length + " saved"
+        ? totalsItems.length + (totalsItems.length === 1 ? " starred" : " starred")
         : shelfAll.length + " saved";
 
   const closeHaul = useCallback(() => {
@@ -9739,9 +9742,9 @@ export default function Credenza() {
               <span className="cz-total-chip" aria-live="polite">
                 <span
                   className="cz-total-chip-label cz-fade-text-in"
-                  key={openHaulName ? "haul" : "shelf"}
+                  key={openHaulName ? "haul" : sortMode === "starred" ? "star" : "shelf"}
                 >
-                  {openHaulName ? "Total Haul Cost" : "Total Shelf Cost"}
+                  {openHaulName ? "Haul" : sortMode === "starred" ? "Starred" : "Total"}
                 </span>
                 <ReelCounter value={listTotalUsd} />
               </span>
@@ -9889,26 +9892,24 @@ export default function Credenza() {
             onFocus={pauseNotification}
             onBlur={resumeNotification}
           >
-            <span className="cz-copy-pretty" style={{ flex: 1, fontSize: 13, lineHeight: 1.45 }}>
-              {notification.message}
-            </span>
+            <span className="cz-toast-message">{notification.message}</span>
             {notification.actionLabel && notification.onAction && (
-              <Pill
-                primary
+              <button
+                type="button"
+                className="cz-toast-action"
                 onClick={() => {
                   notification.onAction();
                   dismissNotification();
                 }}
               >
                 {notification.actionLabel}
-              </Pill>
+              </button>
             )}
             <button
               type="button"
-              className="cz-icon-button"
+              className="cz-toast-dismiss"
               aria-label="Dismiss notification"
               onClick={dismissNotification}
-              style={{ width: 40, height: 40, border: 0, background: "transparent", color: "inherit", cursor: "pointer" }}
             >
               ✕
             </button>
@@ -9916,7 +9917,7 @@ export default function Credenza() {
         </div>
       )}
 
-      {/* Fixed bottom action bar — permanent, safe-area aware */}
+      {/* Fixed bottom bar — Stash + ⋯ only. Agent / Import / Theme / Body live in More. */}
       <div
         className="cz-bottom-bar"
         style={{
@@ -9927,37 +9928,26 @@ export default function Credenza() {
           zIndex: 30,
           background: CARD,
           borderTop: "1px solid " + HAIR,
-          // Safe-area lives on .cz-bottom-bar-inner (credenza.css) — don't double it.
         }}
       >
         <div className="cz-bottom-bar-inner">
-          {/* Phones: masthead is hidden, so the brand rides here as a small mark. */}
           <span className="cz-bottom-brand" aria-hidden="true">C</span>
-          {/* The pinned thumb zone belongs to high-frequency actions (audit C4):
-              capture first, then the money path. Theme + Local status moved to ⋯. */}
           <Pill
             primary
             onClick={() => {
-              window.scrollTo({ top: 0, behavior: "smooth" });
-              window.setTimeout(() => captureRef.current && captureRef.current.focus(), 250);
+              // One-tap stash: capture box text if present, else clipboard.
+              if (input.trim()) {
+                capture();
+                return;
+              }
+              stashClipboard();
             }}
-            title="Jump to the capture box"
+            title={input.trim() ? "Stash what's in the capture box" : "Stash from clipboard"}
+            aria-label={input.trim() ? "Stash" : "Stash clipboard"}
           >
             Stash
           </Pill>
           <span style={{ flex: 1 }} />
-          <Pill
-            subtle
-            onClick={() => setAgentSheetOpen(true)}
-            title="Choose which buying agent Buy opens in"
-          >
-            {preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate || preferredAgentInfo.idUrlTemplate)
-              ? "Agent: " + preferredAgentInfo.name
-              : "Agent: Direct"}
-          </Pill>
-          <Pill subtle onClick={() => setImportOpen(true)}>
-            Import
-          </Pill>
           <div style={{ position: "relative" }}>
             <Pill
               subtle
@@ -9968,23 +9958,7 @@ export default function Credenza() {
               ⋯
             </Pill>
             {barMenuOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  bottom: "calc(100% + 10px)",
-                  zIndex: 31,
-                  background: "var(--cz-card-solid)",
-                  border: "1px solid " + HAIR,
-                  borderRadius: 12,
-                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.35)",
-                  padding: 10,
-                  minWidth: 200,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
+              <div className="cz-bar-menu" role="menu">
                 <MorphButton
                   label="Theme"
                   icon={Moon}
@@ -9993,30 +9967,51 @@ export default function Credenza() {
                   title={mode === "rainbow" ? "Switch to Gallery light" : "Switch to Blackout dark"}
                   ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
                 />
-                <Pill
-                  subtle
+                <button
+                  type="button"
+                  className="cz-bar-menu-item"
+                  role="menuitem"
                   onClick={() => {
                     setBarMenuOpen(false);
                     setProfileSheetOpen(true);
                   }}
-                  title="Your body measurements, for size picks"
                 >
                   Body profile
-                </Pill>
-                <span
-                  className="cz-local-label"
-                  title={localStatus.label}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    color: localStatus.color,
+                </button>
+                <button
+                  type="button"
+                  className="cz-bar-menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setBarMenuOpen(false);
+                    setAgentSheetOpen(true);
                   }}
                 >
-                  <span style={{ width: 6, height: 6, borderRadius: 3, background: localStatus.color, flexShrink: 0 }} />
-                  <span>{localStatus.label}</span>
+                  {preferredAgentInfo &&
+                  (preferredAgentInfo.urlTemplate ||
+                    preferredAgentInfo.idPathTemplate ||
+                    preferredAgentInfo.idUrlTemplate)
+                    ? "Agent · " + preferredAgentInfo.name
+                    : "Agent · Direct"}
+                </button>
+                <button
+                  type="button"
+                  className="cz-bar-menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setBarMenuOpen(false);
+                    setImportOpen(true);
+                  }}
+                >
+                  Import
+                </button>
+                <span className="cz-bar-menu-status" title={localStatus.label}>
+                  <span
+                    className="cz-bar-menu-dot"
+                    style={{ background: localStatus.color }}
+                    aria-hidden="true"
+                  />
+                  {localStatus.label}
                 </span>
               </div>
             )}
