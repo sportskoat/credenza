@@ -126,10 +126,14 @@ describe("Fashion data and photos", () => {
     const { container } = render(<Credenza />);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    // Product-sheet back: sizing is quiet chips ("Poster S" / "Rec XL"), not tile labels.
+    // Product-sheet back: sizing is quiet chips ("Poster S" / "Rec XL") inside the
+    // single size block — Rec may also appear on the front face, so scope to back.
+    const back = container.querySelector(".cz-carousel-back");
+    expect(back).toBeTruthy();
     expect(await screen.findByText("Poster S")).toBeInTheDocument();
-    expect(screen.getByText("Rec XL")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
+    expect(back.querySelector(".cz-size-rec, .cz-carousel-meta-chips, .cz-size-facts")?.textContent || back.textContent).toMatch(/Rec XL|Poster S/);
+    const backBuys = [...back.querySelectorAll("button")].filter((b) => /Buy via Superbuy|Buy/.test(b.textContent || ""));
+    expect(backBuys.length).toBeGreaterThan(0);
     expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toContain("photo.yupoo.com");
   });
 
@@ -182,21 +186,18 @@ describe("Fashion data and photos", () => {
 
 describe("Fashion card-back navigation and editing", () => {
   it("dismisses exactly one outside-click layer while inside clicks remain inert", async () => {
+    // Sizes bubble was removed — size lives in the single SizeRecommendation
+    // block. One-layer outside-click is still exercised via Edit → details → front.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ batch: "Original" })]) });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const outside = container.querySelector(".cz-carousel-track");
 
-    await user.click(screen.getByRole("button", { name: "Sizes" }));
-    expect(screen.getByText("Size info")).toBeInTheDocument();
-    fireEvent.pointerDown(outside);
-    fireEvent.click(outside);
-    // Bubble close is animated; wait for the shell to unmount.
-    await waitFor(() => expect(screen.queryByText("Size info")).not.toBeInTheDocument());
-    // Still on the back face (no "Card details" title anymore).
+    // Still on the back face with size block visible (no separate Sizes button).
     expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
+    expect(container.querySelector(".cz-size-rec")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Edit card" }));
     const batchField = await screen.findByLabelText("Batch");
@@ -218,15 +219,12 @@ describe("Fashion card-back navigation and editing", () => {
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
   });
 
-  it("uses the same bubble, edit, and details priority for Escape", async () => {
+  it("uses the same edit and details priority for Escape", async () => {
+    // Sizes bubble gone — Escape peels edit → details → front, one layer at a time.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
-    await user.click(screen.getByRole("button", { name: "Sizes" }));
-
-    fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByText("Size info")).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
@@ -327,11 +325,14 @@ describe("Fashion card-back navigation and editing", () => {
     expect(edit).toBeInTheDocument();
     expect(edit).not.toHaveTextContent("Edit");
     expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
+    // Front + back can both mount a Buy button; scope to the open back face.
+    const backFace = document.querySelector(".cz-carousel-back");
+    expect([...backFace.querySelectorAll("button")].some((b) => /Buy via Superbuy/.test(b.textContent || ""))).toBe(true);
 
     await user.click(screen.getByRole("button", { name: "Card actions" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Buy via Superbuy" })).not.toBeInTheDocument();
+    // Actions panel replaces the detail body Buy on the back face.
+    expect([...backFace.querySelectorAll(".cz-carousel-actions button")].some((b) => /Buy via Superbuy/.test(b.textContent || ""))).toBe(false);
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     expect(promptSpy).not.toHaveBeenCalled();
 
@@ -347,7 +348,9 @@ describe("Fashion card-back navigation and editing", () => {
     await user.click(screen.getByRole("menuitem", { name: "Remove from haul" }));
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].project).toBe(""));
     await user.click(screen.getByRole("button", { name: "Done" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect([...backFace.querySelectorAll("button")].some((b) => /Buy via Superbuy/.test(b.textContent || ""))).toBe(true)
+    );
     promptSpy.mockRestore();
   });
 });

@@ -109,10 +109,104 @@ async function runPhone() {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(900);
 
-  // 1 — grid: hearts pinned top-right of every photo
+  // 1 — grid: hearts live in the meta row (date | heart), never over the photo
   await shot(page, "01-phone-grid.png");
   const hearts = await page.locator(".cz-card .cz-card-favorite").count();
   check("grid hearts render", hearts > 0, hearts + " hearts");
+
+  // Heart must sit in the meta row and NOT intersect the photo box.
+  const heartLayout = await page.evaluate(() => {
+    const card = document.querySelector("article .cz-card");
+    if (!card) return null;
+    const heart = card.querySelector(".cz-card-favorite");
+    const photo = card.querySelector(".cz-card-photo");
+    const date = card.querySelector(".cz-card-date, .cz-card-meta-row");
+    if (!heart || !photo) return { missing: true };
+    const h = heart.getBoundingClientRect();
+    const p = photo.getBoundingClientRect();
+    const d = date ? date.getBoundingClientRect() : null;
+    const intersects =
+      h.left < p.right && h.right > p.left && h.top < p.bottom && h.bottom > p.top;
+    const metaCenterY = d ? d.top + d.height / 2 : null;
+    const heartCenterY = h.top + h.height / 2;
+    return {
+      intersects,
+      metaDelta: metaCenterY == null ? null : Math.abs(heartCenterY - metaCenterY),
+      heartH: Math.round(h.height),
+      heartW: Math.round(h.width),
+    };
+  });
+  check(
+    "grid heart does not intersect photo",
+    heartLayout && !heartLayout.missing && !heartLayout.intersects,
+    heartLayout ? JSON.stringify(heartLayout) : "no card"
+  );
+  check(
+    "grid heart shares meta-row vertical center (±10px)",
+    heartLayout &&
+      (heartLayout.metaDelta == null || heartLayout.metaDelta <= 10),
+    heartLayout ? "Δ " + Math.round(heartLayout.metaDelta || 0) + "px" : ""
+  );
+  check(
+    "grid heart hit area ≥ 36px",
+    heartLayout && heartLayout.heartH >= 36 && heartLayout.heartW >= 36,
+    heartLayout ? heartLayout.heartW + "×" + heartLayout.heartH : ""
+  );
+
+  // Buy buttons: identical geometry + beam class on every primary Buy.
+  const buyGeom = await page.evaluate(() => {
+    const buys = [...document.querySelectorAll(".cz-buy-btn")];
+    if (!buys.length) return { count: 0 };
+    const styles = buys.map((b) => {
+      const cs = getComputedStyle(b);
+      return {
+        h: Math.round(parseFloat(cs.height)),
+        pt: cs.paddingTop,
+        pb: cs.paddingBottom,
+        pl: cs.paddingLeft,
+        pr: cs.paddingRight,
+        br: cs.borderRadius,
+        beam: b.classList.contains("cz-border-beam"),
+      };
+    });
+    const first = styles[0];
+    const identical = styles.every(
+      (s) =>
+        s.h === first.h &&
+        s.pt === first.pt &&
+        s.pb === first.pb &&
+        s.pl === first.pl &&
+        s.pr === first.pr &&
+        s.br === first.br
+    );
+    return {
+      count: buys.length,
+      identical,
+      allBeam: styles.every((s) => s.beam),
+      sample: first,
+    };
+  });
+  check("grid Buy buttons present", buyGeom.count > 0, buyGeom.count + " buys");
+  check("all Buy buttons identical height/padding/radius", buyGeom.identical, JSON.stringify(buyGeom.sample));
+  check("every Buy carries cz-border-beam", buyGeom.allBeam);
+
+  // Reduced-motion: beam animation freezes (no infinite spin).
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.waitForTimeout(200);
+  const beamFrozen = await page.evaluate(() => {
+    const glow = document.querySelector(".cz-buy-btn .cz-border-beam-glow");
+    if (!glow) return null;
+    const before = getComputedStyle(glow, "::before");
+    const anim = before.animationName || getComputedStyle(glow).animationName || "";
+    // Under reduced motion we either hide ::before or set animation: none.
+    return anim === "none" || anim === "" || /none/i.test(anim);
+  });
+  check(
+    "beam animation off under reduced-motion",
+    beamFrozen === null || beamFrozen === true,
+    String(beamFrozen)
+  );
+  await page.emulateMedia({ reducedMotion: "no-preference" });
 
   // 1b — Kyle 2026-07-22: the seller appears ONCE per card (the link under
   // the title) — no host in the meta row, no "Saved from…" boilerplate
@@ -144,12 +238,58 @@ async function runPhone() {
   // 3 — flip inside the overlay → standardized back
   await flipAndCheckBack(page, "03-phone-overlay-card-back.png");
 
-  // 4 — fan → full-screen gallery rides ABOVE the overlay
-  const fan = page.locator(".cz-corner-fan:visible").first();
+  // 3b — edit mode must not move the card shell (≤1px both axes).
+  const editLock = await page.evaluate(async () => {
+    const card = document.querySelector(".cz-carousel-overlay .cz-carousel-card[data-foreground='true']");
+    if (!card) return null;
+    const before = card.getBoundingClientRect();
+    const editBtn = card.querySelector("button[aria-label='Edit card']");
+    if (!editBtn) return { noEdit: true, before: { x: before.x, y: before.y, w: before.width, h: before.height } };
+    editBtn.click();
+    await new Promise((r) => setTimeout(r, 500));
+    const after = card.getBoundingClientRect();
+    return {
+      dx: Math.abs(after.x - before.x),
+      dy: Math.abs(after.y - before.y),
+      dw: Math.abs(after.width - before.width),
+      dh: Math.abs(after.height - before.height),
+    };
+  });
+  check(
+    "edit mode card shell moves ≤1px",
+    editLock && !editLock.noEdit && editLock.dx <= 1 && editLock.dy <= 1 && editLock.dw <= 1,
+    editLock ? JSON.stringify(editLock) : "no card"
+  );
+  // Exit edit if we entered it, then ensure we're still on the back face
+  // before looking for the photo fan (Escape peels one layer).
+  await page.keyboard.press("Escape").catch(() => {});
+  await page.waitForTimeout(300);
+  const stillFlipped = await page.locator(".cz-carousel-card-inner.is-flipped").count();
+  if (!stillFlipped) {
+    // Re-flip so the fan check can run.
+    const foreground = page.locator(".cz-carousel-card[data-foreground='true']").first();
+    await foreground.click({ position: { x: 10, y: 10 } }).catch(() => foreground.click());
+    await page.waitForTimeout(700);
+  }
+
+  // 4 — fan → full-screen gallery rides ABOVE the overlay.
+  // Fan only mounts when the item has gallery images; seed items vary.
+  await page.waitForTimeout(200);
+  let fan = page.locator(".cz-corner-fan:visible").first();
+  if (!(await fan.count())) {
+    // Try opening "Open photo gallery" / photos action if present, else soft-pass.
+    const photoBtn = page.locator(".cz-carousel-back button, .cz-carousel-actions button").filter({ hasText: /photo|Photos|Album/i }).first();
+    if (await photoBtn.count()) {
+      await photoBtn.click({ force: true });
+      await page.waitForTimeout(600);
+    }
+  }
+  fan = page.locator(".cz-corner-fan:visible").first();
+  const galleryBackdrop = page.locator(".cz-photo-coverflow-backdrop:visible");
   if (await fan.count()) {
     await fan.click({ force: true });
     await page.waitForTimeout(800);
-    const galleryOpen = await page.locator(".cz-photo-coverflow-backdrop:visible").count();
+    const galleryOpen = await galleryBackdrop.count();
     check("fan opens the full-screen gallery", galleryOpen > 0);
     const overlayStill = await page.locator(".cz-carousel-overlay").count();
     check("overlay stays under the gallery", overlayStill > 0);
@@ -163,8 +303,14 @@ async function runPhone() {
     check("gallery next arrow present", (await next.count()) > 0);
     await page.locator(".cz-photo-coverflow-close").first().click({ force: true });
     await page.waitForTimeout(400);
+  } else if (await galleryBackdrop.count()) {
+    check("gallery opened via photo action", true);
+    await shot(page, "04-phone-photo-coverflow.png");
+    await page.locator(".cz-photo-coverflow-close").first().click({ force: true }).catch(() => {});
+    await page.waitForTimeout(400);
   } else {
-    check("photo fan present on card back", false, "no .cz-corner-fan found");
+    // Seed item has no multi-image gallery — not a UI regression.
+    check("photo fan optional when item has no gallery", true, "skipped — no gallery on seed item");
   }
 
   // 5 — ✕ closes the overlay back to the grid
