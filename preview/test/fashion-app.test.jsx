@@ -538,7 +538,7 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     render(<Credenza />);
 
     await user.click(await screen.findByRole("button", { name: "Import" }));
-    const box = await screen.findByLabelText(/Paste links or notes/);
+    const box = await screen.findByLabelText(/Paste haul links/);
     fireEvent.change(box, { target: { value: HAUL } });
 
     expect(await screen.findByText(/Looks like a Reddit haul/)).toBeInTheDocument();

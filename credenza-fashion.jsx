@@ -1244,77 +1244,22 @@ function migrateItem(old) {
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ IMPORT & SAMPLE DATA ═══
-// Local-only imports. No scraping, passwords, cookies, or network connections.
+// Fashion-first: paste Yupoo / Weidian / Reddit haul links, or restore a Credenza
+// shelf backup. Parsers still accept generic link dumps silently — no third-party
+// save-app branding (Raindrop / Pocket / browser bookmarks) in the UI.
 // ═══════════════════════════════════════════════════════════════════════════════════
 
 const SAMPLE_COUNT = 18;
 
-const IMPORT_PROVIDERS = [
-  {
-    id: "paste_list",
-    label: "Paste a list",
-    status: "now",
-    availableInArtifact: true,
-    description: "Drop in old links, notes, or a messy copied list.",
-  },
-  {
-    id: "bookmark_file",
-    label: "Bookmarks file",
-    status: "now",
-    availableInArtifact: true,
-    description: "Export bookmarks from Chrome, then choose the file here.",
-  },
-  {
-    id: "sample_shelf",
-    label: "Sample shelf",
-    status: "now",
-    availableInArtifact: true,
-    description: SAMPLE_COUNT + " cards to poke at. Easy to clear.",
-  },
-  {
-    id: "raindrop",
-    label: "Raindrop",
-    status: "now",
-    availableInArtifact: true,
-    description: "Settings → Backups → export CSV, then drop the file here. Folders become tags.",
-  },
-  {
-    id: "pocket",
-    label: "Pocket",
-    status: "now",
-    availableInArtifact: true,
-    description: "getpocket.com/export gives you an HTML file — drop it here, dates intact.",
-  },
-  {
-    id: "browser_bookmarks",
-    label: "Browser bookmarks",
-    status: "now",
-    availableInArtifact: true,
-    description: "Bookmark manager → export to HTML. Works for Chrome, Arc, Safari, Firefox.",
-  },
-  {
-    id: "anything_else",
-    label: "Shiori and everything else",
-    status: "now",
-    availableInArtifact: true,
-    description: "Any CSV or JSON with a url column works — dates and tags come along.",
-  },
-];
-
-// ————— Export-format parsers —————
-// Credenza is the review layer over whatever you already use, so real exports are
-// first-class citizens: Raindrop CSV, Pocket HTML, browser bookmarks, generic
-// CSV/JSON. Original saved dates and tags come along — that's what lets a freshly
-// imported pile yield forgotten gems on day one.
-
+// Quiet labels for the import preview line only (never shown as provider marketing).
 const PROVIDER_LABELS = {
-  pocket: "Pocket export",
-  raindrop: "Raindrop export",
-  bookmarks: "browser bookmarks",
-  html: "bookmarks file",
-  csv: "spreadsheet",
+  pocket: "link list",
+  raindrop: "link list",
+  bookmarks: "link list",
+  html: "link list",
+  csv: "link list",
   json: "JSON list",
-  paste: "pasted list",
+  paste: "pasted links",
   "reddit-haul": "Reddit haul",
 };
 
@@ -7839,7 +7784,7 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
   };
 
   return (
-    <ModalShell title="Import and backup" onClose={onClose} maxWidth={520}>
+    <ModalShell title="Import" onClose={onClose} maxWidth={520}>
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -7849,7 +7794,6 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
         }}
         style={{ padding: "20px 22px 22px", fontFamily: FONT }}
       >
-        <Caption style={{ color: BLUE, marginBottom: 10 }}>Import</Caption>
         <div
           style={{
             fontSize: 18,
@@ -7859,22 +7803,22 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
             marginBottom: 4,
           }}
         >
-          Bring the pile from wherever it lives.
+          Bring a haul onto the shelf.
         </div>
         <div style={{ fontSize: 13, color: SUB, lineHeight: 1.55, marginBottom: 14 }}>
-          Credenza isn't another save button — it's where saves come back. Export from the
-          tool you already use and drop the file here. Original dates and tags come along.
+          Paste Yupoo album, Weidian, or Reddit haul links — one per line or a whole post.
+          Or restore a Credenza shelf backup.
         </div>
 
         <label className="cz-field-label" htmlFor={importTextId} style={{ marginBottom: 6 }}>
-          Paste links or notes
+          Paste haul links
         </label>
         <textarea
           id={importTextId}
           className="cz-field"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={"https://…\nhttps://…\nor any copied text with links inside"}
+          placeholder={"https://….x.yupoo.com/…\nhttps://weidian.com/item.html?…\nor a Reddit haul post URL / body"}
           rows={5}
           style={{
             width: "100%",
@@ -7892,6 +7836,7 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
         />
         <div style={{ marginTop: 8 }}>
           <button
+            type="button"
             onClick={() => fileRef.current && fileRef.current.click()}
             style={{
               fontFamily: FONT,
@@ -7904,12 +7849,12 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
               padding: 0,
             }}
           >
-            …or choose a bookmarks file or a Credenza backup (.json)
+            Restore a Credenza backup (.json)
           </button>
           <input
             ref={fileRef}
             type="file"
-            accept=".html,.htm,.txt,.md,.csv,.json"
+            accept=".json,.txt,.md"
             onChange={(e) => readFile(e.target.files && e.target.files[0])}
             style={{ display: "none" }}
           />
@@ -7997,7 +7942,7 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
         </div>
 
         <div style={{ borderTop: "1px solid " + HAIR, marginTop: 18, paddingTop: 14 }}>
-          <Caption style={{ marginBottom: 10 }}>More ways in</Caption>
+          <Caption style={{ marginBottom: 10 }}>Also</Caption>
           <div
             style={{
               display: "flex",
@@ -8008,7 +7953,9 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
           >
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: INK }}>Sample shelf</div>
-              <div style={{ fontSize: 12, color: SUB }}>{SAMPLE_COUNT} cards to poke at. Easy to clear.</div>
+              <div style={{ fontSize: 12, color: SUB }}>
+                {SAMPLE_COUNT} fashion finds to poke at. Easy to clear.
+              </div>
             </div>
             {hasSamples ? (
               <Pill subtle onClick={onClearSamples}>
@@ -8021,30 +7968,13 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
           {items.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: INK }}>Backup</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: INK }}>Download backup</div>
                 <div style={{ fontSize: 12, color: SUB }}>
-                  Your shelf as a file you own. Restore it with the file picker above.
+                  Your shelf as a .json you own. Restore with the picker above.
                 </div>
               </div>
               <Pill onClick={onExport}>Download</Pill>
             </div>
-          )}
-          {IMPORT_PROVIDERS.filter(
-            (p) => !["paste_list", "bookmark_file", "sample_shelf"].includes(p.id)
-          ).map(
-            (p) => (
-              <div
-                key={p.id}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: INK }}>{p.label}</div>
-                  <div style={{ fontSize: 12, color: SUB, lineHeight: 1.45 }}>
-                    {p.description}
-                  </div>
-                </div>
-              </div>
-            )
           )}
         </div>
       </div>
@@ -10020,26 +9950,25 @@ export default function Credenza() {
         items.length === 0 ? (
           <div className="cz-empty-shelf">
             <div className="cz-empty-shelf-title">
-              Start with what you already saved.
+              Nothing on the shelf yet.
             </div>
             <div className="cz-empty-shelf-copy">
-              Export your pile, drop it in, and the shelf starts dealing it back.
+              Paste a Yupoo or Weidian link above, or import a haul list / Credenza backup.
             </div>
             <div className="cz-empty-shelf-actions">
               <Pill primary onClick={() => setImportOpen(true)}>
-                Import your pile
+                Import
               </Pill>
               <Pill onClick={addSamples}>Try a sample shelf</Pill>
               <Pill
                 subtle
                 onClick={() => captureRef.current && captureRef.current.focus()}
               >
-                Stash a thought
+                Stash a link
               </Pill>
             </div>
             <div style={{ fontSize: 11.5, color: FAINT, lineHeight: 1.5 }}>
-              Raindrop · Pocket · browser bookmarks · any CSV — original dates and
-              tags come along.
+              Yupoo · Weidian · Reddit hauls · Credenza backup
             </div>
           </div>
         ) : (
