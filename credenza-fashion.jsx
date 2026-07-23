@@ -437,10 +437,13 @@ export function parseSizeChart(text) {
 // Pick a size from a parsed chart against a body profile (all cm; weight kg).
 // Tops → chest (+ease). Bottoms → waist, falling back to hip when the chart
 // only lists 臀围 (common Yupoo pants/shorts sheets). Outerwear gets more ease.
+// Optional fitPref (per-category length/looseness) may nudge the letter size
+// after the measure pick (design turn 5). Length is metadata only.
 // Returns { size, fitNote, reason, row, primaryKey, garment, body, diff,
-//   lengthCheck, alt } | { missing: "chest"|"waist"|"hip" } | null.
+//   lengthCheck, alt, baseSize?, prefShift?, prefReason?, fitPref? }
+//   | { missing: "chest"|"waist"|"hip" } | null.
 // `alt` is the runner-up size (fit-preference alternative) or null.
-export function recommendSize(chart, profile, category) {
+export function recommendSize(chart, profile, category, fitPref = null) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
   const p = profile || {};
   const rows = chart.rows;
@@ -557,7 +560,7 @@ export function recommendSize(chart, profile, category) {
                 : "same",
         }
       : null;
-  return {
+  const baseRec = {
     size: best.size,
     fitNote,
     reason,
@@ -569,6 +572,183 @@ export function recommendSize(chart, profile, category) {
     diff,
     lengthCheck,
     alt,
+  };
+  // Optional 4th arg: per-category taste (length + looseness). Looseness can
+  // nudge one size up/down; length is metadata only (design turn 5).
+  return applyFitPreference(baseRec, chart, fitPref, category);
+}
+
+// Per-category Length + Looseness axes (design 5a/5b). Unset axis = no skew.
+// Only garment categories that go through recommendSize.
+export const FIT_PREF_AXES = {
+  shorts: {
+    length: [
+      { value: "short", label: "Short" },
+      { value: "mid", label: "Mid" },
+      { value: "long", label: "Long" },
+    ],
+    looseness: [
+      { value: "slim", label: "Slim" },
+      { value: "regular", label: "Regular" },
+      { value: "baggy", label: "Baggy" },
+    ],
+  },
+  pants: {
+    length: [
+      { value: "cropped", label: "Cropped" },
+      { value: "regular", label: "Regular" },
+      { value: "long", label: "Long" },
+    ],
+    looseness: [
+      { value: "slim", label: "Slim" },
+      { value: "regular", label: "Regular" },
+      { value: "baggy", label: "Baggy" },
+    ],
+  },
+  shirt: {
+    length: [
+      { value: "cropped", label: "Cropped" },
+      { value: "regular", label: "Regular" },
+      { value: "long", label: "Long" },
+    ],
+    looseness: [
+      { value: "slim", label: "Slim" },
+      { value: "regular", label: "Regular" },
+      { value: "oversized", label: "Oversized" },
+    ],
+  },
+  outerwear: {
+    length: [
+      { value: "cropped", label: "Cropped" },
+      { value: "regular", label: "Regular" },
+      { value: "long", label: "Long" },
+    ],
+    looseness: [
+      { value: "slim", label: "Slim" },
+      { value: "regular", label: "Regular" },
+      { value: "oversized", label: "Oversized" },
+    ],
+  },
+};
+
+// Looseness → chart-row nudge. Regular / unset = 0. Slim = one size smaller.
+// Baggy / oversized = one size larger. Length does not move the letter size.
+export function loosenessNudge(looseness) {
+  if (looseness === "slim") return -1;
+  if (looseness === "baggy" || looseness === "oversized") return 1;
+  return 0;
+}
+
+export function fitPrefHasChoice(pref) {
+  if (!pref || typeof pref !== "object" || pref.dismissed) return false;
+  return !!(pref.length || pref.looseness);
+}
+
+export function fitPrefLabel(category, axis, value) {
+  const axes = FIT_PREF_AXES[category];
+  if (!axes || !value) return value || "";
+  const opt = (axes[axis] || []).find((o) => o.value === value);
+  return opt ? opt.label : value;
+}
+
+function prefReasonLine(category, fitPref, nudge) {
+  if (!fitPref || !nudge) return null;
+  const catWord =
+    category && CATEGORIES[category]
+      ? CATEGORIES[category].label.toLowerCase()
+      : "this item";
+  const loose = fitPrefLabel(category, "looseness", fitPref.looseness).toLowerCase();
+  if (!loose) return null;
+  if (nudge > 0) {
+    return (
+      "You like " +
+      catWord +
+      " " +
+      loose +
+      ", so we bumped one size for extra room."
+    );
+  }
+  return (
+    "You like " +
+    catWord +
+    " " +
+    loose +
+    ", so we sized down one step for a closer fit."
+  );
+}
+
+// Apply per-category taste to a base recommendSize result. Safe no-op when
+// fitPref is null, dismissed, or has no looseness nudge.
+export function applyFitPreference(rec, chart, fitPref, category) {
+  if (!rec || !rec.size || rec.missing) return rec;
+  if (!fitPrefHasChoice(fitPref)) {
+    return {
+      ...rec,
+      baseSize: rec.size,
+      prefShift: null,
+      prefReason: null,
+      fitPref: fitPref && !fitPref.dismissed ? fitPref : null,
+    };
+  }
+  const nudge = loosenessNudge(fitPref.looseness);
+  const ladder = (chart && Array.isArray(chart.rows) ? chart.rows : []).filter(
+    (r) => r && r.size
+  );
+  const idx = ladder.findIndex(
+    (r) => String(r.size).toUpperCase() === String(rec.size).toUpperCase()
+  );
+  let next = {
+    ...rec,
+    baseSize: rec.size,
+    prefShift: null,
+    prefReason: null,
+    fitPref: {
+      length: fitPref.length || null,
+      looseness: fitPref.looseness || null,
+    },
+  };
+  if (!nudge || idx < 0) {
+    // Length-only prefs still surface as tags on the rec.
+    if (fitPref.length || fitPref.looseness) {
+      next.prefReason =
+        fitPref.looseness && !nudge
+          ? null
+          : fitPref.length
+            ? "Length preference saved for " +
+              (CATEGORIES[category] ? CATEGORIES[category].label.toLowerCase() : "this item") +
+              "."
+            : null;
+    }
+    return next;
+  }
+  const newIdx = Math.max(0, Math.min(ladder.length - 1, idx + nudge));
+  if (newIdx === idx) return next;
+  const shifted = ladder[newIdx];
+  const garment =
+    rec.primaryKey && shifted[rec.primaryKey] != null
+      ? shifted[rec.primaryKey]
+      : rec.garment;
+  const diff = rec.body != null && garment != null ? garment - rec.body : rec.diff;
+  return {
+    ...next,
+    size: shifted.size,
+    row: shifted,
+    garment,
+    diff,
+    baseSize: rec.size,
+    prefShift: nudge > 0 ? "up" : "down",
+    prefReason: prefReasonLine(category, fitPref, nudge),
+    reason:
+      (rec.primaryKey === "waist" ? "Waist" : rec.primaryKey === "hip" ? "Hip" : "Chest") +
+      " " +
+      garment +
+      "cm vs your " +
+      rec.body +
+      "cm (" +
+      (diff >= 0 ? "+" : "") +
+      diff +
+      "cm) · prefer " +
+      (fitPref.looseness || "fit"),
   };
 }
 
@@ -2888,6 +3068,7 @@ function ProfileSheet({
   fitDetail,
   onCycleFitDetail,
   onOpenSizes,
+  onOpenFitPrefs,
   onOpenImport,
   storageLabel,
   storageColor,
@@ -2942,6 +3123,10 @@ function ProfileSheet({
         <button type="button" className="cz-profile-row" onClick={onOpenSizes}>
           <span>Your sizes</span>
           <span className="cz-profile-row-val">Body profile ›</span>
+        </button>
+        <button type="button" className="cz-profile-row" onClick={onOpenFitPrefs}>
+          <span>Fit preferences</span>
+          <span className="cz-profile-row-val">Length & looseness ›</span>
         </button>
         <button type="button" className="cz-profile-row" onClick={onOpenAgent}>
           <span>Default agent</span>
@@ -3630,12 +3815,18 @@ function formatSizeToken(raw) {
   return s.toUpperCase();
 }
 
-function computeRecommendedSize(item, bodyProfile) {
+function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
   if (!item || !bodyProfile) return null;
   if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
   if (item.recommendedSize) return String(item.recommendedSize).trim() || null;
   const chart = parseSizeChart(sizeChartTextFor(item));
-  const rec = chart ? recommendSize(chart, bodyProfile, item.category) : null;
+  const catPref =
+    fitPrefs && item.category && fitPrefs[item.category]
+      ? fitPrefs[item.category]
+      : null;
+  const rec = chart
+    ? recommendSize(chart, bodyProfile, item.category, catPref)
+    : null;
   return rec && rec.size ? String(rec.size).trim() : null;
 }
 
@@ -3644,10 +3835,10 @@ function computeRecommendedSize(item, bodyProfile) {
 //   rec only        →  SIZE: MEDIUM          (isRec)
 //   both, same      →  SIZE: LARGE
 //   both, differ    →  SIZE: LARGE (Rec M)
-function resolveDisplaySize(item, bodyProfile) {
+function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
   if (!item) return { text: "", isRec: false };
   const chosen = String(item.size || "").trim();
-  const rec = computeRecommendedSize(item, bodyProfile);
+  const rec = computeRecommendedSize(item, bodyProfile, fitPrefs);
   if (!chosen && !rec) return { text: "", isRec: false };
 
   if (chosen && rec) {
@@ -5189,8 +5380,112 @@ function fitHasPreciseBody(bodyProfile, category) {
   return bodyProfile.chest != null || bodyProfile.waist != null || bodyProfile.hip != null;
 }
 
-// Design 4d–4g fit flow. Honest confidence, never a dead end when a chart exists.
-// 4d nothing · 4e rough usual · 4f measure ask · 4g precise with you/garment/ease.
+// Segmented axis control for Length / Looseness (design 5a/5b).
+// Empty selection = no preference. Tap active again to clear.
+function FitPrefAxis({ label, options, value, onChange }) {
+  return (
+    <div className="cz-fit-pref-axis">
+      <div className="cz-fit-pref-axis-label">{label}</div>
+      <div className="cz-fit-pref-axis-row" role="radiogroup" aria-label={label}>
+        {options.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <button
+              type="button"
+              key={opt.value}
+              role="radio"
+              aria-checked={active}
+              className={"cz-fit-pref-chip" + (active ? " is-active" : "")}
+              onClick={() => onChange(active ? null : opt.value)}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Design 5a — Settings → Fit preferences. One row per owned category.
+function FitPrefsSheet({ value, ownedCategories, onSave, onClose }) {
+  const [draft, setDraft] = useState(() => {
+    const src = value && typeof value === "object" ? value : {};
+    const out = {};
+    for (const cat of ownedCategories) {
+      const p = src[cat] || {};
+      out[cat] = {
+        length: p.length || null,
+        looseness: p.looseness || null,
+        dismissed: !!p.dismissed,
+      };
+    }
+    return out;
+  });
+  const cats = ownedCategories.filter((c) => FIT_PREF_AXES[c]);
+  return (
+    <ModalShell title="Fit preferences" onClose={onClose} maxWidth={440}>
+      <div className="cz-fit-prefs-sheet">
+        <p className="cz-fit-prefs-lead">
+          How you like things to sit. We factor this into every size we suggest.
+        </p>
+        {cats.length === 0 ? (
+          <p className="cz-fit-prefs-empty">
+            Stash a shirt, shorts, pants, or outerwear item first. Preferences appear per category you own.
+          </p>
+        ) : (
+          cats.map((cat) => {
+            const axes = FIT_PREF_AXES[cat];
+            const pref = draft[cat] || {};
+            return (
+              <div className="cz-fit-prefs-cat" key={cat}>
+                <div className="cz-fit-prefs-cat-title">
+                  {CATEGORIES[cat] ? CATEGORIES[cat].label : cat}
+                </div>
+                <FitPrefAxis
+                  label="Length"
+                  options={axes.length}
+                  value={pref.length || null}
+                  onChange={(v) =>
+                    setDraft((d) => ({
+                      ...d,
+                      [cat]: { ...d[cat], length: v, dismissed: false },
+                    }))
+                  }
+                />
+                <FitPrefAxis
+                  label="Looseness"
+                  options={axes.looseness}
+                  value={pref.looseness || null}
+                  onChange={(v) =>
+                    setDraft((d) => ({
+                      ...d,
+                      [cat]: { ...d[cat], looseness: v, dismissed: false },
+                    }))
+                  }
+                />
+              </div>
+            );
+          })
+        )}
+        <button
+          type="button"
+          className="cz-fit-prefs-save"
+          onClick={() => {
+            onSave && onSave(draft);
+            onClose && onClose();
+          }}
+        >
+          Save preferences
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Design 4d–4g fit flow + turn 5 taste. Honest confidence, never a dead end
+// when a chart exists. 4d nothing · 4e rough usual · 4f measure ask · 4g precise
+// · 5b in-context preference · 5c pref visible on rec.
 function SizeRecommendation({
   item,
   bodyProfile,
@@ -5200,9 +5495,13 @@ function SizeRecommendation({
   onSaveBodyProfile,
   fitPromptSkipped = false,
   onSkipFitPrompt,
+  fitPref = null,
+  onSaveFitPref,
 }) {
   const [chartOpen, setChartOpen] = useState(false);
   const [askingMeasures, setAskingMeasures] = useState(false);
+  const [askingPref, setAskingPref] = useState(false);
+  const [prefDraft, setPrefDraft] = useState({ length: null, looseness: null });
   const measureFields = fitMeasureFieldsFor(item.category);
   const [fitDraft, setFitDraft] = useState(() => {
     const d = { usualSize: "" };
@@ -5211,10 +5510,23 @@ function SizeRecommendation({
   });
   const skipped = SIZE_PICK_SKIP_CATEGORIES.has(item.category);
   const chart = skipped ? null : parseSizeChart(sizeChartTextFor(item));
-  const rec = chart && bodyProfile ? recommendSize(chart, bodyProfile, item.category) : null;
+  const catAxes = FIT_PREF_AXES[item.category] || null;
+  const rec =
+    chart && bodyProfile
+      ? recommendSize(chart, bodyProfile, item.category, fitPref)
+      : null;
   const recSize = rec && rec.size ? rec.size : null;
   const hasUsual = !!(bodyProfile && bodyProfile.usualSize);
   const hasPrecise = fitHasPreciseBody(bodyProfile, item.category);
+  // Need a taste prompt once per category when axes exist and user has not
+  // saved or dismissed a preference yet.
+  const needsPrefAsk =
+    !!catAxes &&
+    !!onSaveFitPref &&
+    sizeActive &&
+    !!chart &&
+    !fitPrefHasChoice(fitPref) &&
+    !(fitPref && fitPref.dismissed);
   // Persist the pick so every surface agrees with this box — meta chips and
   // edit form read item.recommendedSize. Guarded: one write when it changes.
   useEffect(() => {
@@ -5371,6 +5683,69 @@ function SizeRecommendation({
     );
   }
 
+  // 5b — in-context taste ask. Auto after a precise body exists for this
+  // category, or when the user taps Edit on the rec. Measures come first.
+  const showPrefAsk =
+    catAxes &&
+    onSaveFitPref &&
+    !askingMeasures &&
+    sizeActive &&
+    !!bodyProfile &&
+    (askingPref || needsPrefAsk);
+  if (showPrefAsk) {
+    const catTitle = CATEGORIES[item.category]
+      ? CATEGORIES[item.category].label.toLowerCase()
+      : "this item";
+    return (
+      <div className="cz-fit-pref-ask">
+        <div className="cz-fit-pref-ask-title">How do you wear {catTitle}?</div>
+        <p className="cz-fit-pref-ask-copy">
+          Sets your default for all {catTitle}. Change any time in Settings.
+        </p>
+        <FitPrefAxis
+          label="Length"
+          options={catAxes.length}
+          value={prefDraft.length}
+          onChange={(v) => setPrefDraft((d) => ({ ...d, length: v }))}
+        />
+        <FitPrefAxis
+          label="Looseness"
+          options={catAxes.looseness}
+          value={prefDraft.looseness}
+          onChange={(v) => setPrefDraft((d) => ({ ...d, looseness: v }))}
+        />
+        <button
+          type="button"
+          className="cz-fit-pref-ask-save"
+          onClick={() => {
+            onSaveFitPref(item.category, {
+              length: prefDraft.length,
+              looseness: prefDraft.looseness,
+              dismissed: false,
+            });
+            setAskingPref(false);
+          }}
+        >
+          Save preference
+        </button>
+        <button
+          type="button"
+          className="cz-fit-prompt-skip"
+          onClick={() => {
+            onSaveFitPref(item.category, {
+              length: null,
+              looseness: null,
+              dismissed: true,
+            });
+            setAskingPref(false);
+          }}
+        >
+          Not sure yet
+        </button>
+      </div>
+    );
+  }
+
   // Chart table shared by rec blocks.
   const chartBlock =
     chartOpen && chart ? (
@@ -5484,8 +5859,12 @@ function SizeRecommendation({
 
   if (!rec || !rec.size) return null;
 
-  // 4g — precise fit.
+  // 4g — precise fit (+ 5c preference payoff when taste shifted the size).
   const sizeWord = formatSizeToken(rec.size) || rec.size;
+  const baseWord =
+    rec.baseSize && String(rec.baseSize).toUpperCase() !== String(rec.size).toUpperCase()
+      ? formatSizeToken(rec.baseSize) || rec.baseSize
+      : null;
   const measureWord =
     rec.primaryKey === "waist" ? "waist" : rec.primaryKey === "hip" ? "hip" : "chest";
   const fitSentence = FIT_SUMMARY_ON
@@ -5495,7 +5874,8 @@ function SizeRecommendation({
         detail: "detailed",
       })
     : "";
-  const preciseProse =
+  let preciseProse =
+    rec.prefReason ||
     fitSentence ||
     ("Your " +
       formatMeasure(rec.body, units) +
@@ -5516,6 +5896,15 @@ function SizeRecommendation({
   const inRun = runValues.length
     ? runValues.some((v) => String(v).toUpperCase() === rec.size)
     : true;
+  const activePref = rec.fitPref || (fitPrefHasChoice(fitPref) ? fitPref : null);
+  const lengthTag =
+    activePref && activePref.length
+      ? fitPrefLabel(item.category, "length", activePref.length)
+      : null;
+  const looseTag =
+    activePref && activePref.looseness
+      ? fitPrefLabel(item.category, "looseness", activePref.looseness)
+      : null;
 
   return (
     <div className="cz-fit4">
@@ -5526,18 +5915,30 @@ function SizeRecommendation({
           Precise fit
         </span>
       </div>
-      <button
-        type="button"
-        className="cz-fit4-size"
-        aria-expanded={chartOpen}
-        title={chart ? "Show the seller’s size chart" : undefined}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (chart) setChartOpen((v) => !v);
-        }}
-      >
-        {sizeWord}
-      </button>
+      <div className="cz-fit4-size-row">
+        <button
+          type="button"
+          className="cz-fit4-size"
+          aria-expanded={chartOpen}
+          title={chart ? "Show the seller’s size chart" : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (chart) setChartOpen((v) => !v);
+          }}
+        >
+          {sizeWord}
+        </button>
+        {baseWord ? (
+          <>
+            <span className="cz-fit4-size-base" aria-label={"Base size " + baseWord}>
+              {baseWord}
+            </span>
+            <span className="cz-fit4-size-shift">
+              {rec.prefShift === "down" ? "sized down" : "sized up"}
+            </span>
+          </>
+        ) : null}
+      </div>
       <p className="cz-fit4-prose">{preciseProse}</p>
       <div className="cz-fit4-math" aria-label="Fit numbers">
         <div className="cz-fit4-math-cell">
@@ -5553,6 +5954,29 @@ function SizeRecommendation({
           <div className="cz-fit4-math-v is-money">{easeStr}</div>
         </div>
       </div>
+      {(lengthTag || looseTag || onSaveFitPref) && catAxes ? (
+        <div className="cz-fit4-pref-bar">
+          <div className="cz-fit4-pref-tags">
+            {lengthTag ? <span className="cz-fit4-pref-tag">{lengthTag}</span> : null}
+            {looseTag ? <span className="cz-fit4-pref-tag">{looseTag}</span> : null}
+          </div>
+          {onSaveFitPref ? (
+            <button
+              type="button"
+              className="cz-fit4-pref-edit"
+              onClick={() => {
+                setPrefDraft({
+                  length: (fitPref && fitPref.length) || null,
+                  looseness: (fitPref && fitPref.looseness) || null,
+                });
+                setAskingPref(true);
+              }}
+            >
+              Edit
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {!inRun && (
         <p className="cz-fit4-warn">
           {rec.size} is not in this seller’s listed run ({runValues.join(" · ")}).
@@ -5804,6 +6228,8 @@ function ItemDetailBody({
   onSaveBodyProfile,
   fitPromptSkipped,
   onSkipFitPrompt,
+  fitPref = null,
+  onSaveFitPref,
 }) {
   // Size/color chips only — status + category are full pickers in the pipeline.
   const hasFactChips =
@@ -5880,6 +6306,8 @@ function ItemDetailBody({
             onSaveBodyProfile={onSaveBodyProfile}
             fitPromptSkipped={fitPromptSkipped}
             onSkipFitPrompt={onSkipFitPrompt}
+            fitPref={fitPref}
+            onSaveFitPref={onSaveFitPref}
           />
           <div className="cz-fit3b-status">
             <StatusChips
@@ -5962,6 +6390,8 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onSaveBodyProfile,
     fitPromptSkipped,
     onSkipFitPrompt,
+    fitPref = null,
+    onSaveFitPref,
     reduced,
   },
   ref
@@ -6319,7 +6749,11 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                 </span>
               )}
               {(() => {
-                const size = resolveDisplaySize(item, bodyProfile);
+                const size = resolveDisplaySize(
+                  item,
+                  bodyProfile,
+                  fitPref && item.category ? { [item.category]: fitPref } : null
+                );
                 if (!size.text) return null;
                 return (
                   <>
@@ -6679,6 +7113,8 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                       onSaveBodyProfile={onSaveBodyProfile}
                       fitPromptSkipped={fitPromptSkipped}
                       onSkipFitPrompt={onSkipFitPrompt}
+                      fitPref={fitPref}
+                      onSaveFitPref={onSaveFitPref}
                       reduced={reduced}
                       isCenter={isCenter}
                       expanded={expanded}
@@ -6740,6 +7176,8 @@ function CoverFlowCarousel({
   onSaveBodyProfile,
   fitPromptSkipped,
   onSkipFitPrompt,
+  fitPrefs = null,
+  onSaveFitPref,
   // When true, skip CoverFlow springs so a haul morph can hand off silently.
   suppressMotion = false,
 }) {
@@ -7322,6 +7760,12 @@ function CoverFlowCarousel({
                   onSaveBodyProfile={onSaveBodyProfile}
                   fitPromptSkipped={fitPromptSkipped}
                   onSkipFitPrompt={onSkipFitPrompt}
+                  fitPref={
+                    fitPrefs && item.category && fitPrefs[item.category]
+                      ? fitPrefs[item.category]
+                      : null
+                  }
+                  onSaveFitPref={onSaveFitPref}
                   reduced={reduced}
                 />
               </motion.div>
@@ -8273,6 +8717,31 @@ export default function Credenza() {
   const [bodyProfile, setBodyProfile] = useState(null);
   const [measureUnits, setMeasureUnits] = useState("in");
   const [bodySheetOpen, setBodySheetOpen] = useState(false);
+  // Per-category Length/Looseness taste (design turn 5). Shape:
+  // { [category]: { length, looseness, dismissed } }. Persisted in prefs.
+  const [fitPrefs, setFitPrefsByCat] = useState({});
+  const [fitPrefsSheetOpen, setFitPrefsSheetOpen] = useState(false);
+  const saveFitPref = (category, pref) => {
+    if (!category) return;
+    setFitPrefsByCat((prev) => ({
+      ...(prev || {}),
+      [category]: {
+        length: pref && pref.length ? pref.length : null,
+        looseness: pref && pref.looseness ? pref.looseness : null,
+        dismissed: !!(pref && pref.dismissed),
+      },
+    }));
+  };
+  const ownedFitPrefCategories = useMemo(() => {
+    const set = new Set();
+    for (const it of items || []) {
+      if (it && it.category && FIT_PREF_AXES[it.category]) set.add(it.category);
+    }
+    for (const k of Object.keys(fitPrefs || {})) {
+      if (FIT_PREF_AXES[k]) set.add(k);
+    }
+    return Object.keys(FIT_PREF_AXES).filter((k) => set.has(k));
+  }, [items, fitPrefs]);
   // Front-screen stash intent (Kyle 2026-07-22): "link" = one card per paste,
   // "haul" = Reddit post link or pasted haul text → one card per item,
   // "note" = always a single text card. Persisted in credenza-prefs-v1.
@@ -8401,10 +8870,11 @@ export default function Credenza() {
             fitSummary,
             fitDetail,
             onboardingDone,
+            fitPrefs,
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail, onboardingDone]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
 
   useEffect(() => {
     loadStoredItems({
@@ -8497,6 +8967,7 @@ export default function Credenza() {
                   fitSummary: p.fitSummary !== false,
                   fitDetail: p.fitDetail === "detailed" ? "detailed" : "concise",
                   onboardingDone: p.onboardingDone !== false,
+                  fitPrefs: p.fitPrefs && typeof p.fitPrefs === "object" ? p.fitPrefs : {},
                 })
               )
               .catch(() => {});
@@ -8514,6 +8985,7 @@ export default function Credenza() {
           if (p.pricePrimary === "CNY" || p.pricePrimary === "USD") setPricePrimary(p.pricePrimary);
           if (p.fitSummary === false) setFitSummary(false);
           if (p.fitDetail === "concise" || p.fitDetail === "detailed") setFitDetail(p.fitDetail);
+          if (p.fitPrefs && typeof p.fitPrefs === "object") setFitPrefsByCat(p.fitPrefs);
           // First-run intro: only brand-new prefs (no prior onboardingDone key)
           // show the Get started screen. Existing users stay on the shelf.
           if (Object.prototype.hasOwnProperty.call(p, "onboardingDone")) {
@@ -10213,6 +10685,8 @@ export default function Credenza() {
       }}
       fitPromptSkipped={fitPromptSkipped}
       onSkipFitPrompt={() => setFitPromptSkipped(true)}
+      fitPrefs={fitPrefs}
+      onSaveFitPref={saveFitPref}
     />
   );
   const carouselElement = renderCarousel(listItems);
@@ -10450,6 +10924,17 @@ export default function Credenza() {
         />
       )}
 
+      {fitPrefsSheetOpen && (
+        <FitPrefsSheet
+          value={fitPrefs}
+          ownedCategories={ownedFitPrefCategories}
+          onSave={(draft) => {
+            setFitPrefsByCat((prev) => ({ ...(prev || {}), ...(draft || {}) }));
+          }}
+          onClose={() => setFitPrefsSheetOpen(false)}
+        />
+      )}
+
       {captureSheetOpen && (
         <CaptureSheet
           clip={clipPreview}
@@ -10495,6 +10980,10 @@ export default function Credenza() {
           onOpenSizes={() => {
             setProfileOpen(false);
             setBodySheetOpen(true);
+          }}
+          onOpenFitPrefs={() => {
+            setProfileOpen(false);
+            setFitPrefsSheetOpen(true);
           }}
           onOpenImport={() => {
             setProfileOpen(false);

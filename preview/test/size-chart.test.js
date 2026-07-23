@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitSummarySentence, formatMeasure, measureFromStorage, measureToStorage, parseSizeChart, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
+import { applyFitPreference, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, parseSizeChart, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
 
 describe("sizeChartTextFor", () => {
   // Kyle 2026-07-22: chart pasted into Notes gave "no values, no recommended
@@ -293,5 +293,67 @@ describe("fitSummarySentence (design handoff PR4)", () => {
   it("returns an empty string without a recommendation", () => {
     expect(fitSummarySentence(null)).toBe("");
     expect(fitSummarySentence({ missing: "chest" })).toBe("");
+  });
+});
+
+
+describe("fit preferences (design turn 5)", () => {
+  // Use chest that clearly lands on M (target chest+ease 12 ≈ mid of M 112).
+  const shirtChart = parseSizeChart(`S 胸围104
+M 胸围112
+L 胸围120
+XL 胸围128`);
+  const base = () => recommendSize(shirtChart, { chest: 100 }, "shirt");
+
+  it("loosenessNudge maps slim/baggy/oversized", () => {
+    expect(loosenessNudge("slim")).toBe(-1);
+    expect(loosenessNudge("baggy")).toBe(1);
+    expect(loosenessNudge("oversized")).toBe(1);
+    expect(loosenessNudge("regular")).toBe(0);
+    expect(loosenessNudge(null)).toBe(0);
+  });
+
+  it("baggy / oversized nudges one size up", () => {
+    expect(base().size).toBe("M");
+    const rec = recommendSize(shirtChart, { chest: 100 }, "shirt", {
+      looseness: "oversized",
+    });
+    expect(rec.baseSize).toBe("M");
+    expect(rec.size).toBe("L");
+    expect(rec.prefShift).toBe("up");
+    expect(rec.prefReason).toMatch(/oversized|bumped/i);
+  });
+
+  it("slim nudges one size down", () => {
+    const rec = recommendSize(shirtChart, { chest: 100 }, "shirt", {
+      looseness: "slim",
+    });
+    expect(rec.baseSize).toBe("M");
+    expect(rec.size).toBe("S");
+    expect(rec.prefShift).toBe("down");
+  });
+
+  it("length-only preference does not shift size", () => {
+    const rec = recommendSize(shirtChart, { chest: 100 }, "shirt", {
+      length: "long",
+    });
+    expect(rec.size).toBe("M");
+    expect(rec.prefShift).toBeNull();
+    expect(rec.fitPref.length).toBe("long");
+  });
+
+  it("dismissed preference is ignored", () => {
+    const rec = recommendSize(shirtChart, { chest: 100 }, "shirt", {
+      looseness: "baggy",
+      dismissed: true,
+    });
+    expect(rec.size).toBe("M");
+    expect(rec.prefShift).toBeNull();
+  });
+
+  it("applyFitPreference is a safe no-op without pref", () => {
+    const b = base();
+    const next = applyFitPreference(b, shirtChart, null, "shirt");
+    expect(next.size).toBe(b.size);
   });
 });

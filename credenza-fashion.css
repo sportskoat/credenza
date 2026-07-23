@@ -6526,3 +6526,211 @@ a.cz-card-seller:hover {
   outline: 2px solid var(--cz-focus);
   outline-offset: 2px;
 }
+
+/* ─── Design 5: fit preferences (length + looseness) ─────────────────────── */
+.cz-fit-prefs-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0 8px;
+}
+.cz-fit-prefs-lead {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+.cz-fit-prefs-empty {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+.cz-fit-prefs-cat {
+  padding: 0 0 18px;
+  margin: 0 0 18px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+.cz-fit-prefs-cat:last-of-type {
+  margin-bottom: 12px;
+}
+.cz-fit-prefs-cat-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cz-ink);
+  margin: 0 0 12px;
+}
+.cz-fit-pref-axis {
+  margin: 0 0 11px;
+}
+.cz-fit-pref-axis:last-child {
+  margin-bottom: 0;
+}
+.cz-fit-pref-axis-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cz-faint);
+  margin: 0 0 7px;
+}
+.cz-fit-pref-axis-row {
+  display: flex;
+  gap: 0;
+  padding: 3px;
+  border-radius: 11px;
+  border: 1px solid var(--cz-hair);
+  background: var(--cz-bg-elevated, var(--cz-seg));
+  box-sizing: border-box;
+}
+.cz-fit-pref-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cz-sub);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+}
+.cz-fit-pref-chip.is-active {
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-weight: 700;
+}
+.cz-fit-pref-chip:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 1px;
+}
+.cz-fit-prefs-save {
+  width: 100%;
+  height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 5b in-context ask */
+.cz-fit-pref-ask {
+  padding: 16px 16px 14px;
+  box-sizing: border-box;
+}
+.cz-fit-pref-ask-title {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--cz-ink);
+  margin: 0 0 5px;
+}
+.cz-fit-pref-ask-copy {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+}
+.cz-fit-pref-ask .cz-fit-pref-axis-row {
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+}
+.cz-fit-pref-ask .cz-fit-pref-chip {
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
+  min-height: 40px;
+}
+.cz-fit-pref-ask .cz-fit-pref-chip.is-active {
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+.cz-fit-pref-ask-save {
+  width: 100%;
+  height: 48px;
+  margin: 6px 0 6px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 5c payoff on precise rec */
+.cz-fit4-size-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 8px;
+  min-width: 0;
+}
+.cz-fit4-size-row .cz-fit4-size {
+  width: auto;
+  margin: 0;
+  flex: 0 1 auto;
+}
+.cz-fit4-size-base {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cz-faint);
+  text-decoration: line-through;
+}
+.cz-fit4-size-shift {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-sub);
+}
+.cz-fit4-pref-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--cz-hair);
+}
+.cz-fit4-pref-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cz-fit4-pref-tag {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-sub);
+}
+.cz-fit4-pref-edit {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 2px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--cz-sub);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.cz-fit4-pref-edit:hover {
+  color: var(--cz-ink);
+}
+.cz-fit3b-card:not(:has(.cz-fit4)):not(:has(.cz-fit4-empty)):not(:has(.cz-fit-prompt)):not(:has(.cz-fit-pref-ask)) .cz-fit3b-status {
+  border-top: 0;
+}

@@ -5,9 +5,30 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-23 (design turn 4 status/category/fit 4a–4g LOCAL ONLY)
+**Last updated:** 2026-07-23 (design turn 5 fit preferences LOCAL ONLY)
 **Branch:** `mobile-form-loop`
-**Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Last prod deploy still `f0b7857` fit-prompt layout fix. **Turn 4 (status/category/fit 4d–4g) is local only — DO NOT deploy until Kyle says so.** Repo has NO git remote.
+**Production:** https://credenza-kyle.netlify.app — last prod still `f0b7857`. Turns 4+5 local only. **DO NOT deploy until Kyle says so.**
+
+---
+
+## 0d. Design turn 5 — fit preferences (2026-07-23) — LOCAL ONLY
+
+Spec: `~/Downloads/design_handoff_credenza 3/README.md` §6c + Card Mockups 5a–5c.
+
+1. **Engine.** `recommendSize(chart, profile, category, fitPref?)` applies
+   looseness nudge after measure pick (`slim` −1 / `baggy|oversized` +1).
+   Length is metadata only. Exports: `FIT_PREF_AXES`, `loosenessNudge`,
+   `applyFitPreference`, `fitPrefHasChoice`, `fitPrefLabel`.
+2. **5a Settings.** Profile → Fit preferences sheet. One row per owned
+   category (shorts/pants/shirt/outerwear) with Length + Looseness chips.
+3. **5b In-context.** First open of a category with chart + body profile and
+   no saved/dismissed pref: "How do you wear {category}?" Save / Not sure yet.
+4. **5c Payoff.** Precise rec shows base size strikethrough + sized up/down,
+   pref reason line, Short/Baggy tags, Edit.
+5. **Prefs.** `fitPrefs` in BOTH load paths (migrate rewrite + normal). Shape
+   `{ [cat]: { length, looseness, dismissed } }`.
+
+Verify: 178/178 vitest (+6 fit-pref tests), tsc clean, lint 12 err. **NOT deployed.**
 
 ---
 

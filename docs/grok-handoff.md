@@ -25,11 +25,15 @@ Vite app: `preview/`. Production: https://credenza-kyle.netlify.app
   2. `design_handoff_credenza` desktop/editorial/onboarding — deployed `8c034f4`
   3. Turn 4 (`design_handoff_credenza 2` §6b): status 4a/4b, category 4c,
      fit 4d–4g — **LOCAL ONLY, not deployed**
+  4. Turn 5 (`design_handoff_credenza 3` §6c): per-category Length/Looseness
+     fitPrefs — **LOCAL ONLY, not deployed**
 - Last prod: fit-prompt layout fix `f0b7857`. Turn 4 is ahead of prod.
 - **DO NOT deploy to Netlify.** Deploy only when Kyle says so:
   `cd preview && npx netlify deploy --prod --dir dist`
 - Repo has NO git remote. Commits are local only.
-- Tests: 172/172 pass. Typecheck clean. Lint: 12 errors, ~70 warnings.
+- Tests: 178/178 pass. Typecheck clean. Lint: 12 errors, ~70 warnings.
+- Fit prefs: `fitPrefs` in prefs; Profile → Fit preferences; first-open
+  category ask; looseness nudges recommendSize.
 - Body profile truth: `recommendSize` uses chest / waist|hip only. Height and
   weight do not score. Usual size = rough fallback. Progressive ask is
   category-dependent (tops chest, bottoms waist+inseam).
@@ -66,6 +70,7 @@ Search for the symbol name; line numbers drift.
 | Fit 4d–4g | `SizeRecommendation`, `cz-fit4`, `cz-fit4-empty`, `cz-fit-prompt` |
 | Status 4a/4b | `StatusStage`, `StatusChips` mode=display |
 | Category 4c | `CategorySelect` |
+| Fit prefs 5a–5c | `FitPrefsSheet`, `fitPrefs`, `FIT_PREF_AXES`, `applyFitPreference` |
 | Editorial grid card | `Card`, `cz-card-editorial` |
 | Fit prompt | `cz-fit-prompt` |
 | Intro | `cz-onboard`, `onboardingDone` pref |
