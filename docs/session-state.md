@@ -5,9 +5,42 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-23 (design-handoff mobile flow PR1–PR5 on branch `mobile-fix-loop`, LOCAL ONLY — Kyle said do not deploy to Netlify yet, more changes coming)
+**Last updated:** 2026-07-23 (design_handoff_credenza package applied on branch `mobile-fix-loop`, LOCAL ONLY — do not deploy until Kyle says so)
 **Branch:** `mobile-fix-loop`
 **Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-22 via CLI (`netlify deploy --prod` from `preview/`). Env on site: `CREDENZA_SEARCH_SECRET` (pre-existing), `VITE_CREDENZA_REF_SUPERBUY=888c9Y`, `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91` (both "all context", set 2026-07-21). Smoke-tested: site 200, function auth gates pass, secrets + affiliate codes confirmed baked into bundle. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
+
+---
+
+## 0b. Design package `design_handoff_credenza` (2026-07-23) — NOT deployed
+
+Spec: `~/Downloads/design_handoff_credenza/README.md` (+ Card Mockups /
+Onboarding / Credenza Fashion.dc.html). Builds on the earlier mobile-flow
+PRs (`6b67948`…`9f19af7`). **Do not deploy.**
+
+Shipped this pass:
+
+1. **Desktop capture + search toggle.** ≥768px: bottom bar hidden. Top row
+   under masthead = capture field + Stash clipboard + glass toggle. Glass
+   flips capture ⇄ search. Mobile keeps bottom split-pill bar + search field.
+2. **Fit + status cleaner (3c).** Killed green `AI fit` chip and tracked-mono
+   kickers. Size block = "We recommend" + large serif size + muted reason.
+   Status display = order stepper (dots/connectors, money-green current).
+   Status edit = underline segment row (no pill fills).
+3. **Editorial grid card (2a/2b).** Photo hero, status flag, heart on photo,
+   serif title, green price text. Buy fades in on hover/focus only.
+4. **Edit form (2d partial).** Title / price / size / colorway first; underline
+   status; Fit · auto block (read-only recommended size); photos after.
+5. **Progressive onboarding.** First-run intro (Get started / Log in) when
+   prefs have no prior `onboardingDone`. Empty shelf capture after Get started.
+   Fit prompt on first fit open when no body profile: height / weight / usual
+   size + Save & see my fit / Skip. Usual size alone unlocks a first rec.
+
+Prefs: `onboardingDone` in BOTH prefs paths (migrate rewrite + normal load).
+Session-only: `fitPromptSkipped`. Tests: empty-shelf stash tests dismiss intro.
+
+Verify: 172/172 vitest, tsc clean, lint 12 err / 69 warn (baseline was 12/67;
+two extra warnings pre-existing elsewhere), build green.
+**NOT deployed.** Deploy: `cd preview && npx netlify deploy --prod`.
 
 ---
 

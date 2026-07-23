@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
+import { Fragment, useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Heart, MoreHorizontal, Pen, Plus, RefreshCw, Search, Trash2, User, X } from "lucide-react";
@@ -3294,15 +3294,68 @@ function SegmentedControl({ value, onChange, options, label, allowUnset = false 
   );
 }
 
-function StatusChips({ value, onChange, label = "Status" }) {
+// Design handoff: status display = order stepper (dots + connectors).
+// Current step is money-green with a soft halo. Past steps fill; future steps
+// stay hollow rings. Labels sit under each dot in sentence case (no mono).
+function StatusStepper({ value, onChange, label = "Status" }) {
+  const current = value || "want";
+  const idx = Math.max(0, FIND_STATUSES.indexOf(current));
   return (
-    <SegmentedControl
-      value={value}
-      onChange={onChange}
-      label={label}
-      options={FIND_STATUSES.map((s) => ({ value: s, label: FIND_STATUS_LABELS[s] }))}
-    />
+    <div className="cz-status-stepper" role="radiogroup" aria-label={label}>
+      {FIND_STATUSES.map((s, i) => {
+        const state = i < idx ? "past" : i === idx ? "current" : "future";
+        return (
+          <Fragment key={s}>
+            {i > 0 && <span className={"cz-status-step-line is-" + state} aria-hidden="true" />}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={i === idx}
+              className={"cz-status-step is-" + state}
+              onClick={() => onChange && onChange(s)}
+              disabled={!onChange}
+            >
+              <span className="cz-status-step-dot" aria-hidden="true" />
+              <span className="cz-status-step-label">{FIND_STATUS_LABELS[s]}</span>
+            </button>
+          </Fragment>
+        );
+      })}
+    </div>
   );
+}
+
+// Design handoff: status edit = underline segment row (no pill fills).
+function StatusUnderline({ value, onChange, label = "Status" }) {
+  const current = value || "want";
+  return (
+    <div className="cz-status-underline" role="radiogroup" aria-label={label}>
+      {FIND_STATUSES.map((s) => {
+        const active = current === s;
+        return (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={active}
+            key={s}
+            className={"cz-status-underline-btn" + (active ? " is-active" : "")}
+            onClick={() => onChange(s)}
+          >
+            {FIND_STATUS_LABELS[s]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Shared status control. mode "edit" (default) = underline segments for forms.
+// mode "display" = order stepper for the card back.
+function StatusChips({ value, onChange, label = "Status", mode = "edit" }) {
+  if (mode === "display") {
+    return <StatusStepper value={value} onChange={onChange} label={label} />;
+  }
+  return <StatusUnderline value={value} onChange={onChange} label={label} />;
 }
 
 // ═══ SHARED CARD PRIMITIVES (standardization 2026-07-22, audit workstream A) ═══
@@ -4603,42 +4656,16 @@ function useWriteThroughDraft(draft, onCommit, delay = 600) {
 // The one item edit form. Field order is the standard everywhere: identity →
 // context (haul/photos) → money → seller → variant → pipeline → category.
 function ItemEditForm({ item, ed, setEd, knownHauls, onAttachPhoto, onRemovePhoto }) {
+  const recSize = item.recommendedSize || null;
   return (
     <div className="cz-carousel-edit">
       <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
-      <Field
-        label="Notes / links"
-        value={ed.note || ""}
-        onChange={(v) => setEd({ ...ed, note: v })}
-        placeholder="Fit notes, QC reminders, sizing, seller tips, extra links…"
-        rows={3}
-      />
-      <HaulAccordionField
-        label="Haul"
-        value={ed.project}
-        knownHauls={knownHauls}
-        onChange={(v) => setEd({ ...ed, project: v })}
-        onCommit={(v) => setEd((prev) => (prev ? { ...prev, project: v } : prev))}
-      />
-      <EditPhotosManager
-        item={item}
-        onAttachPhoto={onAttachPhoto}
-        onRemovePhoto={onRemovePhoto}
-      />
       <div className="cz-carousel-field-grid price-grid">
         <div>
           <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
         </div>
         <div>
           <Field label="Currency" value={ed.currency} onChange={(v) => setEd({ ...ed, currency: v })} placeholder="CNY" />
-        </div>
-      </div>
-      <div className="cz-carousel-field-grid">
-        <div>
-          <Field label="Seller" value={ed.seller} onChange={(v) => setEd({ ...ed, seller: v })} placeholder="Store name" />
-        </div>
-        <div>
-          <Field label="Batch" value={ed.batch} onChange={(v) => setEd({ ...ed, batch: v })} placeholder="e.g., M Batch" />
         </div>
       </div>
       <div className="cz-carousel-field-grid">
@@ -4658,7 +4685,44 @@ function ItemEditForm({ item, ed, setEd, knownHauls, onAttachPhoto, onRemovePhot
           <Field label="Colorway" value={ed.colorway} onChange={(v) => setEd({ ...ed, colorway: v })} placeholder="Black/white" />
         </div>
       </div>
+      <div className="cz-status-edit-label">Status</div>
       <StatusChips value={ed.findStatus || "want"} onChange={(s) => setEd({ ...ed, findStatus: s })} />
+      {recSize && (
+        <div className="cz-fit-auto" aria-label="Fit auto">
+          <div className="cz-fit-auto-kicker">Fit · auto</div>
+          <div className="cz-fit-auto-size">Recommended: {formatSizeToken(recSize) || recSize}</div>
+          <div className="cz-fit-auto-note">
+            Regenerates when size or measurements change.
+          </div>
+        </div>
+      )}
+      <EditPhotosManager
+        item={item}
+        onAttachPhoto={onAttachPhoto}
+        onRemovePhoto={onRemovePhoto}
+      />
+      <HaulAccordionField
+        label="Haul"
+        value={ed.project}
+        knownHauls={knownHauls}
+        onChange={(v) => setEd({ ...ed, project: v })}
+        onCommit={(v) => setEd((prev) => (prev ? { ...prev, project: v } : prev))}
+      />
+      <Field
+        label="Notes / links"
+        value={ed.note || ""}
+        onChange={(v) => setEd({ ...ed, note: v })}
+        placeholder="Fit notes, QC reminders, sizing, seller tips, extra links…"
+        rows={3}
+      />
+      <div className="cz-carousel-field-grid">
+        <div>
+          <Field label="Seller" value={ed.seller} onChange={(v) => setEd({ ...ed, seller: v })} placeholder="Store name" />
+        </div>
+        <div>
+          <Field label="Batch" value={ed.batch} onChange={(v) => setEd({ ...ed, batch: v })} placeholder="e.g., M Batch" />
+        </div>
+      </div>
       <SegmentedControl
         label="Category"
         value={ed.category}
@@ -4721,12 +4785,11 @@ function linkButtons(item, opts = {}) {
   return btns;
 }
 
-// ═══ GRID CARD (slim cover) ═══
-// Grid cards are covers only — photo, status, price, title, seller, summary,
-// heart. No flip, no inline expand, no edit form: tapping any card jumps to
-// Grid / multi-card preview (Kyle 2026-07-22 anatomy):
-// meta: seller left · date + heart right (never over the photo)
-// photo · price · title · recommended size · Buy
+// ═══ GRID CARD (editorial front — design handoff 2a/2b) ═══
+// At rest: photo hero, status flag top-left, quiet outline heart top-right,
+// serif title, green price as text. No Buy button at rest.
+// Focused/hover: lift + soft ring; heart fills; Buy fades over the photo.
+// Tap opens the carousel overlay (no in-grid flip).
 function Card({
   item,
   selected,
@@ -4736,54 +4799,37 @@ function Card({
   buyLabel,
   mode,
   phone = false,
-  bodyProfile = null,
+  bodyProfile = null, // kept for call-site parity; editorial front does not show size
 }) {
   const reduced = usePrefersReducedMotion();
-  const date = formatItemDate(item.createdAt);
+  void bodyProfile;
   const buy = linkButtons(item, { buyLabel }).find((b) => b.role === "buy") || null;
-  const size = resolveDisplaySize(item, bodyProfile);
+  const price = priceLabel(item);
 
   return (
     <article
       id={"card-" + item.id}
+      className="cz-editorial-card"
       aria-current={selected ? "true" : undefined}
       style={{ height: "100%" }}
     >
       <div
-        className="cz-card"
+        className={"cz-card cz-card-editorial" + (selected ? " is-selected" : "")}
         style={{
           background: CARD,
-          borderRadius: 0,
+          borderRadius: 16,
           border: "1px solid " + (selected ? BLUE : HAIR),
-          boxShadow: selected ? "0 0 0 3px " + BLUE_BG : "0 6px 16px rgba(23, 24, 26, 0.06)",
+          boxShadow: selected
+            ? "0 0 0 3px " + BLUE_BG + ", 0 14px 32px rgba(23, 24, 26, 0.12)"
+            : "0 6px 16px rgba(23, 24, 26, 0.06)",
           overflow: "hidden",
           display: "grid",
           position: "relative",
-          transition: reduced ? "none" : "border-color .15s, box-shadow .15s",
+          transition: reduced ? "none" : "border-color .2s, box-shadow .2s, transform .2s",
           height: "100%",
         }}
       >
         <div className="cz-card-body">
-          <div className="cz-card-meta-row">
-            <div className="cz-card-meta-left">
-              {item.seller ? (
-                <SellerLink
-                  item={item}
-                  className="cz-card-seller"
-                  style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.02em" }}
-                />
-              ) : (
-                <span className="cz-card-meta-empty" aria-hidden="true">
-                  &nbsp;
-                </span>
-              )}
-            </div>
-            <div className="cz-card-meta-right">
-              {date ? <span className="cz-card-date">{date}</span> : null}
-              <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite" />
-            </div>
-          </div>
-
           <button
             type="button"
             className="cz-card-toggle"
@@ -4813,35 +4859,28 @@ function Card({
                 }}
               />
               <StatusPill status={item.findStatus} className="cz-card-status" />
-              <PriceChip item={item} variant="overlay" />
-            </div>
-
-            <div className="cz-card-title">{item.title}</div>
-            <div className={"cz-card-size-line" + (size.text ? "" : " is-empty")}>
-              {size.text ? (
-                <span className={"cz-card-size" + (size.isRec ? " is-rec" : "")}>{size.text}</span>
-              ) : (
-                <span className="cz-card-sub-empty" aria-hidden="true">
-                  &nbsp;
+              <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite cz-card-favorite-onphoto" />
+              {buy && onOpen && (
+                <span className="cz-card-buy-hover">
+                  <button
+                    type="button"
+                    className="cz-buy-btn cz-border-beam"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onOpen(item, buy.url);
+                    }}
+                  >
+                    <span className="cz-buy-btn-label">{buy.label}</span>
+                    <span className="cz-border-beam-glow" aria-hidden="true" />
+                  </button>
                 </span>
               )}
             </div>
-          </button>
 
-          {buy && onOpen && (
-            <button
-              type="button"
-              className="cz-buy-btn cz-border-beam"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onOpen(item, buy.url);
-              }}
-            >
-              <span className="cz-buy-btn-label">{buy.label}</span>
-              <span className="cz-border-beam-glow" aria-hidden="true" />
-            </button>
-          )}
+            <div className="cz-card-title cz-card-title-serif">{item.title}</div>
+            {price ? <div className="cz-card-price-text">{price}</div> : null}
+          </button>
         </div>
       </div>
     </article>
@@ -4948,8 +4987,18 @@ const chartAutoFetchTried = new Set();
 // Kyle 2026-07-22: "should just be a size recommendation" — NO buttons, no
 // empty states, no paste box. The box exists only when it has a pick. The
 // chart hunt runs silently in the background when the card back opens.
-function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = false, onSaveEdit }) {
+function SizeRecommendation({
+  item,
+  bodyProfile,
+  units = "cm",
+  sizeActive = false,
+  onSaveEdit,
+  onSaveBodyProfile,
+  fitPromptSkipped = false,
+  onSkipFitPrompt,
+}) {
   const [chartOpen, setChartOpen] = useState(false);
+  const [fitDraft, setFitDraft] = useState({ height: "", weight: "", usualSize: "" });
   const skipped = SIZE_PICK_SKIP_CATEGORIES.has(item.category);
   const chart = skipped ? null : parseSizeChart(sizeChartTextFor(item));
   const rec = chart && bodyProfile ? recommendSize(chart, bodyProfile, item.category) : null;
@@ -4992,7 +5041,99 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = fals
     return () => { cancelled = true; };
   }, [sizeActive, skipped, chart, item, onSaveEdit]);
 
-  if (skipped || !rec || !rec.size) return null;
+  if (skipped) return null;
+
+  // Progressive fit prompt (onboarding step 4): only when the user opens fit
+  // on an item, has a chart, and has not saved a body profile yet. Skip keeps
+  // the card useful — seller chart still works after they add notes later.
+  if (!bodyProfile && chart && sizeActive && !fitPromptSkipped && onSaveBodyProfile) {
+    const unitHint = units === "in" ? "in" : "cm";
+    const weightHint = units === "in" ? "lb" : "kg";
+    return (
+      <form
+        className="cz-fit-prompt"
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const next = {
+            height: measureToStorage(fitDraft.height, units, "length"),
+            weight: measureToStorage(fitDraft.weight, units, "weight"),
+            usualSize: (fitDraft.usualSize || "").trim() || null,
+          };
+          // Keep empty keys out so recommendSize sees real missing fields.
+          for (const k of Object.keys(next)) if (next[k] == null || next[k] === "") delete next[k];
+          onSaveBodyProfile(next);
+        }}
+      >
+        <div className="cz-fit-prompt-title">Will it fit you?</div>
+        <p className="cz-fit-prompt-copy">
+          Add your size once and we size every item for you. About 15 seconds.
+        </p>
+        <div className="cz-fit-prompt-fields">
+          <label>
+            Height
+            <input
+              inputMode="decimal"
+              placeholder={units === "in" ? "70" : "178"}
+              value={fitDraft.height}
+              onChange={(e) => setFitDraft((d) => ({ ...d, height: e.target.value.replace(/[^\d.]/g, "") }))}
+              aria-label={"Height in " + unitHint}
+            />
+          </label>
+          <label>
+            Weight
+            <input
+              inputMode="decimal"
+              placeholder={units === "in" ? "154" : "70"}
+              value={fitDraft.weight}
+              onChange={(e) => setFitDraft((d) => ({ ...d, weight: e.target.value.replace(/[^\d.]/g, "") }))}
+              aria-label={"Weight in " + weightHint}
+            />
+          </label>
+          <label className="cz-fit-prompt-size">
+            Usual size
+            <input
+              placeholder="M"
+              value={fitDraft.usualSize}
+              onChange={(e) => setFitDraft((d) => ({ ...d, usualSize: e.target.value }))}
+              aria-label="Usual size"
+            />
+          </label>
+        </div>
+        <div className="cz-fit-prompt-actions">
+          <button type="submit" className="cz-fit-prompt-save">
+            Save & see my fit
+          </button>
+          <button
+            type="button"
+            className="cz-fit-prompt-skip"
+            onClick={() => onSkipFitPrompt && onSkipFitPrompt()}
+          >
+            Skip for now
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  // Progressive unlock: if the chart cannot score yet (missing chest/waist)
+  // but the user saved a usual size, show that as the first recommendation.
+  if ((!rec || !rec.size) && bodyProfile && bodyProfile.usualSize) {
+    const usual = formatSizeToken(bodyProfile.usualSize) || String(bodyProfile.usualSize);
+    return (
+      <div className="cz-size-rec">
+        <div className="cz-size-rec-kicker">We recommend</div>
+        <div className="cz-size-rec-line">
+          <span className="cz-size-rec-size">{usual}</span>
+        </div>
+        <div className="cz-size-rec-reason">
+          Based on your usual size. Add chest and waist later for a sharper pick.
+        </div>
+      </div>
+    );
+  }
+
+  if (!rec || !rec.size) return null;
 
   // Recommended size missing from the seller's listed run is worth a warning.
   const runValues = ((item.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title)) || {}).values || [];
@@ -5003,16 +5144,28 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = fals
   const measureLabel =
     rec.primaryKey === "waist" ? "Waist " : rec.primaryKey === "hip" ? "Hip " : "Chest ";
 
-  // AI fit callout (design handoff PR4): one templated sentence from the same
-  // rec, gated by the fitSummary/fitDetail prefs.
+  // Fit prose under the headline, gated by the fitSummary/fitDetail prefs.
   const fitSentence = FIT_SUMMARY_ON
     ? fitSummarySentence(rec, { runHint: chart.runHint, units, detail: FIT_DETAIL })
     : "";
 
+  // Design handoff (3c): headline fit — "We recommend" + large serif size +
+  // one muted reason line. No green "AI fit" chip. No tracked mono labels.
+  const runWord =
+    chart && chart.runHint === "big"
+      ? "runs big"
+      : chart && chart.runHint === "small"
+        ? "runs small"
+        : "true to size";
+  const roomWord =
+    (rec.diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(rec.diff), units) + " " + measureLabel.trim().toLowerCase();
+  const reasonBits = [runWord, roomWord];
+  if (rec.fitNote) reasonBits.push(String(rec.fitNote).toLowerCase());
+  const reasonLine = reasonBits.join(" · ");
+
   return (
-    <>
     <div className="cz-size-rec">
-      <div className="cz-size-rec-kicker">Your size</div>
+      <div className="cz-size-rec-kicker">We recommend</div>
       <div className="cz-size-rec-line">
         <button
           type="button"
@@ -5024,23 +5177,20 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = fals
             setChartOpen((v) => !v);
           }}
         >
-          {rec.size}
+          {formatSizeToken(rec.size) || rec.size}
         </button>
-        {rec.fitNote && <span className="cz-size-rec-note">{rec.fitNote}</span>}
       </div>
-      <div className="cz-size-rec-reason">
-        {measureLabel +
-          formatMeasure(rec.garment, units) +
-          " vs your " +
-          formatMeasure(rec.body, units) +
-          " (" + (rec.diff >= 0 ? "+" : "−") +
-          formatMeasure(Math.abs(rec.diff), units) + ")"}
-        {!inRun && (
+      <div className="cz-size-rec-reason">{reasonLine}</div>
+      {fitSentence && (
+        <p className="cz-size-rec-fit">{fitSentence}</p>
+      )}
+      {!inRun && (
+        <div className="cz-size-rec-reason">
           <span className="cz-size-rec-warn">
-            {" "}· heads up: {rec.size} isn’t in this seller’s listed run ({runValues.join(" · ")})
+            {rec.size} is not in this seller’s listed run ({runValues.join(" · ")})
           </span>
-        )}
-      </div>
+        </div>
+      )}
       {rec.lengthCheck && (
         <div className="cz-size-rec-reason">
           {"Pants length " +
@@ -5083,16 +5233,6 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = fals
         </div>
       )}
     </div>
-    {fitSentence && (
-      <div className="cz-fitai">
-        <div className="cz-fitai-head">
-          <span className="cz-fitai-chip">AI fit</span>
-          <span className="cz-fitai-label">How it’ll fit you</span>
-        </div>
-        <p className="cz-fitai-text">{fitSentence}</p>
-      </div>
-    )}
-    </>
   );
 }
 
@@ -5328,6 +5468,9 @@ function ItemDetailBody({
   reduced,
   isCenter,
   expanded,
+  onSaveBodyProfile,
+  fitPromptSkipped,
+  onSkipFitPrompt,
 }) {
   // Size/color chips only — status + category are full pickers in the pipeline.
   const hasFactChips =
@@ -5399,6 +5542,9 @@ function ItemDetailBody({
           units={measureUnits}
           sizeActive={!!(expanded && isCenter)}
           onSaveEdit={onSaveEdit}
+          onSaveBodyProfile={onSaveBodyProfile}
+          fitPromptSkipped={fitPromptSkipped}
+          onSkipFitPrompt={onSkipFitPrompt}
         />
       </section>
 
@@ -5425,6 +5571,7 @@ function ItemDetailBody({
       >
         <div className="cz-sheet-pipeline-label">Status</div>
         <StatusChips
+          mode="display"
           value={item.findStatus || "want"}
           onChange={(s) => onSaveEdit?.(item.id, { findStatus: s })}
         />
@@ -5482,6 +5629,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onScrollTo,
     bodyProfile,
     measureUnits,
+    onSaveBodyProfile,
+    fitPromptSkipped,
+    onSkipFitPrompt,
     reduced,
   },
   ref
@@ -6196,6 +6346,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                       onOpenBubble={openBubble}
                       bodyProfile={bodyProfile}
                       measureUnits={measureUnits}
+                      onSaveBodyProfile={onSaveBodyProfile}
+                      fitPromptSkipped={fitPromptSkipped}
+                      onSkipFitPrompt={onSkipFitPrompt}
                       reduced={reduced}
                       isCenter={isCenter}
                       expanded={expanded}
@@ -6254,6 +6407,9 @@ function CoverFlowCarousel({
   onSelect,
   bodyProfile,
   measureUnits,
+  onSaveBodyProfile,
+  fitPromptSkipped,
+  onSkipFitPrompt,
   // When true, skip CoverFlow springs so a haul morph can hand off silently.
   suppressMotion = false,
 }) {
@@ -6833,6 +6989,9 @@ function CoverFlowCarousel({
                   }}
                   bodyProfile={bodyProfile}
                   measureUnits={measureUnits}
+                  onSaveBodyProfile={onSaveBodyProfile}
+                  fitPromptSkipped={fitPromptSkipped}
+                  onSkipFitPrompt={onSkipFitPrompt}
                   reduced={reduced}
                 />
               </motion.div>
@@ -7754,6 +7913,9 @@ export default function Credenza() {
   // profileSheetOpen — "profile" now means the account sheet).
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  // Desktop ≥768px: glass toggles the top row between capture and search.
+  // Mobile keeps the always-visible search field + bottom capture bar.
+  const [deskSearchMode, setDeskSearchMode] = useState(false);
   // Clipboard-detected split pill: null = show the plain ＋ Stash pill.
   const [clipPreview, setClipPreview] = useState(null);
   // Display order for dual-currency labels; synced into priceLabel's module
@@ -7765,6 +7927,11 @@ export default function Credenza() {
   // AI fit summary (design handoff PR4): show/hide + Concise/Detailed length,
   // synced into the module readers FitSummary uses. Persisted in prefs.
   const [fitSummary, setFitSummary] = useState(true);
+  // Session flag: user dismissed the progressive fit prompt on a card.
+  // Not persisted — next session can ask again until a body profile exists.
+  const [fitPromptSkipped, setFitPromptSkipped] = useState(false);
+  // First-run intro (onboarding step 1). Once dismissed, stays off via prefs.
+  const [onboardingDone, setOnboardingDone] = useState(true);
   const [fitDetail, setFitDetail] = useState("concise");
   useEffect(() => {
     setFitPrefs({ summary: fitSummary, detail: fitDetail });
@@ -7903,10 +8070,11 @@ export default function Credenza() {
             pricePrimary,
             fitSummary,
             fitDetail,
+            onboardingDone,
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail, onboardingDone]);
 
   useEffect(() => {
     loadStoredItems({
@@ -7998,6 +8166,7 @@ export default function Credenza() {
                   pricePrimary: p.pricePrimary === "CNY" ? "CNY" : "USD",
                   fitSummary: p.fitSummary !== false,
                   fitDetail: p.fitDetail === "detailed" ? "detailed" : "concise",
+                  onboardingDone: p.onboardingDone !== false,
                 })
               )
               .catch(() => {});
@@ -8015,6 +8184,15 @@ export default function Credenza() {
           if (p.pricePrimary === "CNY" || p.pricePrimary === "USD") setPricePrimary(p.pricePrimary);
           if (p.fitSummary === false) setFitSummary(false);
           if (p.fitDetail === "concise" || p.fitDetail === "detailed") setFitDetail(p.fitDetail);
+          // First-run intro: only brand-new prefs (no prior onboardingDone key)
+          // show the Get started screen. Existing users stay on the shelf.
+          if (Object.prototype.hasOwnProperty.call(p, "onboardingDone")) {
+            setOnboardingDone(p.onboardingDone !== false);
+          } else if (raw) {
+            setOnboardingDone(true);
+          } else {
+            setOnboardingDone(false);
+          }
         } catch (e) {}
       })
       .catch(() => {})
@@ -9699,6 +9877,12 @@ export default function Credenza() {
       onSelect={setSelectedId}
       bodyProfile={bodyProfile}
       measureUnits={measureUnits}
+      onSaveBodyProfile={(profile) => {
+        setBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
+        setFitPromptSkipped(false);
+      }}
+      fitPromptSkipped={fitPromptSkipped}
+      onSkipFitPrompt={() => setFitPromptSkipped(true)}
     />
   );
   const carouselElement = renderCarousel(listItems);
@@ -10072,10 +10256,40 @@ export default function Credenza() {
           </button>
         </div>
 
+        {/* Onboarding step 1 (no hard gate): value line + Get started. After
+            that the empty shelf is the capture surface. Sign-in stays optional. */}
+        {items.length === 0 && !onboardingDone && (
+          <div className="cz-onboard">
+            <h1 className="cz-onboard-title">One shelf for the whole haul.</h1>
+            <p className="cz-onboard-copy">
+              Paste a link, get a clean card — price, photos, and your size, all sorted.
+            </p>
+            <div className="cz-onboard-actions">
+              <button
+                type="button"
+                className="cz-onboard-primary"
+                onClick={() => setOnboardingDone(true)}
+              >
+                Get started
+              </button>
+              <button
+                type="button"
+                className="cz-onboard-quiet"
+                onClick={() => {
+                  setOnboardingDone(true);
+                  setProfileOpen(true);
+                }}
+              >
+                Log in
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* The full hero is the empty-shelf welcome; a stocked shelf is a daily
             tool and gets its first viewport back (design handoff PR2): compact
             masthead, then capture/search/tabs — cards above the fold. */}
-        {items.length === 0 && (
+        {items.length === 0 && onboardingDone && (
           <>
             <h1 className="cz-hero-title cz-title-balance">One shelf for the whole haul.</h1>
             <p className="cz-tagline" style={{ fontSize: 15, color: "var(--cz-sub)", marginBottom: 22, lineHeight: 1.55 }}>
@@ -10088,7 +10302,7 @@ export default function Credenza() {
             from a link, N cards from a Reddit haul, or a plain note. On a
             stocked shelf the top capture hides — capture moves to the bottom
             bar + sheet (design handoff PR3). */}
-        {items.length === 0 && (
+        {items.length === 0 && onboardingDone && (
           <>
             <StashModeRow stashMode={stashMode} onChange={setStashMode} disabled={interactionLocked} />
 
@@ -10135,9 +10349,92 @@ export default function Credenza() {
           </>
         )}
 
-        {/* Search — quiet field; Clear morph only appears when there is text.
-            Click anywhere on the shell focuses the input so type-anywhere
-            never steals the next keystroke into Stash. */}
+        {/* Desktop top capture / search row (≥768px). Under logo, above tabs.
+            Glass toggles capture ⇄ search. Agent is not here — it lives on
+            Buy and in the profile sheet (design handoff PR4). */}
+        {items.length > 0 && (
+          <div className="cz-desk-capture">
+            {deskSearchMode ? (
+              <input
+                className="cz-desk-capture-field"
+                type="text"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                aria-label="Search your shelf"
+                disabled={interactionLocked}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  if (askState.status !== "idle") {
+                    setAskState({
+                      status: "idle",
+                      query: "",
+                      answer: "",
+                      results: [],
+                      error: "",
+                    });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === "Escape") {
+                    setSearch("");
+                    setDeskSearchMode(false);
+                    e.target.blur();
+                  }
+                }}
+                placeholder="Search your shelf"
+              />
+            ) : (
+              <>
+                <input
+                  className="cz-desk-capture-field"
+                  type="text"
+                  aria-label="Stash a link or note"
+                  placeholder="Paste a link or note…"
+                  disabled={interactionLocked}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      capture();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="cz-desk-capture-stash"
+                  disabled={interactionLocked}
+                  onClick={() => {
+                    if (input.trim()) {
+                      capture();
+                      return;
+                    }
+                    stashClipboard();
+                  }}
+                  aria-label={input.trim() ? "Stash" : "Stash clipboard"}
+                >
+                  {input.trim() ? "Stash" : "Stash clipboard"}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className={"cz-desk-search-toggle" + (deskSearchMode ? " is-active" : "")}
+              aria-pressed={deskSearchMode}
+              aria-label={deskSearchMode ? "Close search" : "Search your shelf"}
+              title={deskSearchMode ? "Close search" : "Search your shelf"}
+              onClick={() => setDeskSearchMode((v) => !v)}
+            >
+              <Search size={17} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it). */}
         <div className="cz-search-row">
           <div
             className={"cz-search-shell" + (search ? " has-clear" : "")}
@@ -10585,15 +10882,11 @@ export default function Credenza() {
         </div>
       )}
 
-      {/* Fixed bottom bar (design handoff PR3). Mobile: a clipboard-aware
-          split pill (review left, 1-tap Stash right) or a ＋ Stash pill that
-          opens the capture sheet, plus the Agent button. Desktop: the inline
-          paste field. Theme/profile/settings moved to the profile sheet — the
-          ⋯ menu is gone. All capture handlers are unchanged; only the
-          trigger UI is new. */}
+      {/* Fixed bottom bar — MOBILE ONLY (≤767px). Desktop capture lives under
+          the masthead (design handoff breakpoint rule). Agent stays on mobile
+          as a secondary bar button; on desktop it lives on Buy + profile. */}
       <div className="cz-bottom-bar">
         <div className="cz-bottom-bar-inner">
-          {/* Mobile variant (CSS hides it ≥768px). */}
           <div className="cz-bar-mobile">
             {clipPreview ? (
               <div className="cz-clip-pill">
@@ -10632,51 +10925,6 @@ export default function Credenza() {
                 ＋ Stash
               </button>
             )}
-            <button
-              type="button"
-              className="cz-bar-agent"
-              onClick={() => setAgentSheetOpen(true)}
-              title="Choose your buy agent"
-              aria-label={"Agent: " + agentBarLabel}
-            >
-              <span className="cz-bar-agent-kicker">Agent</span>
-              <span className="cz-bar-agent-name">{agentBarLabel}</span>
-            </button>
-          </div>
-
-          {/* Desktop variant (CSS hides it ≤767px). */}
-          <div className="cz-bar-desk">
-            <input
-              className="cz-bar-desk-input"
-              type="text"
-              aria-label="Stash a link or note"
-              placeholder="Paste a link or note…"
-              disabled={interactionLocked}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  capture();
-                }
-              }}
-            />
-            <Pill
-              primary
-              onClick={() => {
-                // One-tap stash: field text if present, else clipboard.
-                if (input.trim()) {
-                  capture();
-                  return;
-                }
-                stashClipboard();
-              }}
-              title={input.trim() ? "Stash what's in the field" : "Stash from clipboard"}
-              aria-label={input.trim() ? "Stash" : "Stash clipboard"}
-            >
-              {input.trim() ? "Stash" : "Stash clipboard"}
-            </Pill>
             <button
               type="button"
               className="cz-bar-agent"

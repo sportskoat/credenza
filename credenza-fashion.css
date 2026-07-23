@@ -1646,10 +1646,10 @@ a.cz-seller-quiet:focus-visible {
 }
 
 .cz-size-rec-kicker {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--cz-sub);
 }
 
@@ -5126,7 +5126,8 @@ a.cz-card-seller:hover {
   padding: 10px 20px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
-/* Mobile variant is the default; CSS swaps to the desk row ≥768px. */
+/* Mobile capture bar only. Desktop capture lives under the masthead
+   (design handoff: breakpoint-specific placement). */
 .cz-bar-mobile {
   display: flex;
   align-items: center;
@@ -5137,15 +5138,88 @@ a.cz-card-seller:hover {
   display: none;
 }
 @media (min-width: 768px) {
+  .cz-app[data-fashion="true"] > .cz-bottom-bar {
+    display: none;
+  }
   .cz-bar-mobile {
     display: none;
   }
-  .cz-bar-desk {
+}
+
+/* Desktop top capture / search row (≥768px). Under logo, above tabs. */
+.cz-desk-capture {
+  display: none;
+}
+@media (min-width: 768px) {
+  .cz-desk-capture {
     display: flex;
     align-items: center;
     gap: 10px;
     width: 100%;
+    margin: 0 0 14px;
   }
+  /* Search moves into the glass toggle on desktop. */
+  .cz-search-row {
+    display: none;
+  }
+}
+.cz-desk-capture-field {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 13px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 14px;
+}
+.cz-desk-capture-field::placeholder {
+  color: var(--cz-faint);
+}
+.cz-desk-capture-field:focus {
+  outline: 2px solid color-mix(in srgb, var(--cz-ink) 35%, transparent);
+  outline-offset: 1px;
+}
+.cz-desk-capture-stash {
+  flex-shrink: 0;
+  height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cz-desk-capture-stash:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.cz-desk-search-toggle {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cz-hair);
+  border-radius: 13px;
+  background: var(--cz-card-solid);
+  color: var(--cz-sub);
+  cursor: pointer;
+}
+.cz-desk-search-toggle.is-active {
+  background: var(--cz-action-fill);
+  border-color: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+.cz-desk-search-toggle:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
 }
 
 /* Clipboard split pill — left review region, right 1-tap Stash. */
@@ -5407,42 +5481,110 @@ a.cz-card-seller:hover {
   flex-shrink: 0;
 }
 
-/* AI fit callout (design handoff PR4) — sits under the Recommended-size block. */
-.cz-fitai {
-  margin-top: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 14px;
-  background: var(--cz-bg);
+/* Fit headline (design handoff 3c) — reason line + optional prose under the size. */
+.cz-size-rec-fit {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
 }
-.cz-fitai-head {
+
+/* Status display: order stepper (dots + connectors). */
+.cz-status-stepper {
   display: flex;
+  align-items: flex-start;
+  width: 100%;
+  gap: 0;
+  padding: 4px 0 2px;
+}
+.cz-status-step {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-faint);
+  font: inherit;
+  cursor: pointer;
 }
-.cz-fitai-chip {
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: var(--cz-money-bg);
-  color: var(--cz-money);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 9px;
+.cz-status-step:disabled {
+  cursor: default;
+}
+.cz-status-step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--cz-faint);
+  background: transparent;
+  box-sizing: border-box;
+}
+.cz-status-step.is-past .cz-status-step-dot,
+.cz-status-step.is-current .cz-status-step-dot {
+  background: var(--cz-money);
+  border-color: var(--cz-money);
+}
+.cz-status-step.is-current .cz-status-step-dot {
+  box-shadow: 0 0 0 4px var(--cz-money-bg);
+}
+.cz-status-step.is-current,
+.cz-status-step.is-past {
+  color: var(--cz-ink);
+}
+.cz-status-step.is-current .cz-status-step-label {
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  color: var(--cz-ink);
 }
-.cz-fitai-label {
-  font-size: 12px;
+.cz-status-step-label {
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.cz-status-step-line {
+  flex: 1 1 8px;
+  min-width: 8px;
+  height: 1.5px;
+  margin-top: 4px;
+  background: var(--cz-hair);
+  align-self: flex-start;
+}
+.cz-status-step-line.is-past,
+.cz-status-step-line.is-current {
+  background: color-mix(in srgb, var(--cz-money) 55%, var(--cz-hair));
+}
+
+/* Status edit: underline segment row (no pill fills). */
+.cz-status-underline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 2px 0 4px;
+}
+.cz-status-underline-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 2px 5px;
+  font: inherit;
+  font-size: 13px;
   font-weight: 600;
   color: var(--cz-sub);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
 }
-.cz-fitai-text {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.55;
+.cz-status-underline-btn.is-active {
   color: var(--cz-ink);
-  text-wrap: pretty;
+  border-bottom-color: var(--cz-ink);
+}
+.cz-status-underline-btn:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 /* Capture sheet extras. */
@@ -5621,4 +5763,205 @@ a.cz-card-seller:hover {
 .cz-carousel-overlay-close:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--cz-focus), 0 0 0 5px var(--cz-glow-weak);
+}
+
+/* ─── Editorial grid card (design handoff 2a/2b) ─────────────────────────── */
+.cz-card-editorial {
+  border-radius: 16px !important;
+}
+.cz-card-editorial:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cz-ink) 12%, transparent),
+    0 16px 36px rgba(23, 24, 26, 0.12);
+}
+.cz-card-title-serif {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0 !important;
+  padding: 12px 14px 4px !important;
+  color: var(--cz-ink) !important;
+}
+.cz-card-price-text {
+  padding: 0 14px 14px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cz-money);
+}
+.cz-card-favorite-onphoto {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  z-index: 2;
+}
+.cz-card-buy-hover {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+.cz-card-editorial:hover .cz-card-buy-hover,
+.cz-card-editorial:focus-within .cz-card-buy-hover,
+.cz-card-editorial.is-selected .cz-card-buy-hover {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.cz-card-buy-hover .cz-buy-btn {
+  width: 100%;
+}
+
+/* Fit · auto block in edit form (design handoff 2d). */
+.cz-fit-auto {
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--cz-hair);
+  border-top: 2px solid var(--cz-money);
+  border-radius: 12px;
+  background: var(--cz-money-bg);
+}
+.cz-fit-auto-kicker {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-sub);
+}
+.cz-fit-auto-size {
+  margin-top: 2px;
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+.cz-fit-auto-note {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--cz-sub);
+}
+
+/* Onboarding intro + progressive fit prompt. */
+.cz-onboard {
+  padding: 8px 4px 12px;
+  text-align: left;
+}
+.cz-onboard-title {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--cz-ink);
+  margin: 0 0 10px;
+}
+.cz-onboard-copy {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+}
+.cz-onboard-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cz-onboard-primary {
+  height: 52px;
+  border: 0;
+  border-radius: 15px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cz-onboard-quiet {
+  height: 44px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--cz-sub);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cz-fit-prompt {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-bg);
+}
+.cz-fit-prompt-title {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--cz-ink);
+  margin: 0 0 6px;
+}
+.cz-fit-prompt-copy {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+.cz-fit-prompt-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.cz-fit-prompt-fields .cz-fit-prompt-size {
+  grid-column: 1 / -1;
+}
+.cz-fit-prompt label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-sub);
+}
+.cz-fit-prompt input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 11px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 15px;
+}
+.cz-fit-prompt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cz-fit-prompt-save {
+  height: 46px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cz-fit-prompt-skip {
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }

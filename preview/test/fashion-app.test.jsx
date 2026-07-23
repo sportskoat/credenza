@@ -583,10 +583,17 @@ W2C: https://weidian.com/item.html?itemID=7649592219
 Vans Old Skool 36 Souvenir (EU42.5, TOP Batch) - Fits like any other Old Skool. Fits TTS.
 W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
 
+  async function startFromEmptyShelf(user) {
+    // First-run intro (design handoff) sits in front of capture. Dismiss it.
+    const go = await screen.findByRole("button", { name: "Get started" });
+    await user.click(go);
+  }
+
   it("switches the capture placeholder with the mode", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
+    await startFromEmptyShelf(user);
 
     const group = await screen.findByRole("group", { name: "Stash mode" });
     expect(group).toBeInTheDocument();
@@ -604,6 +611,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
+    await startFromEmptyShelf(user);
 
     await user.click(await screen.findByRole("button", { name: "Note" }));
     const box = screen.getByPlaceholderText("Write a note…");
@@ -620,6 +628,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
+    await startFromEmptyShelf(user);
 
     await user.click(await screen.findByRole("button", { name: "Reddit haul" }));
     const box = screen.getByPlaceholderText("Paste a Reddit post link or haul text…");
@@ -639,6 +648,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
+    await startFromEmptyShelf(user);
 
     const box = (await screen.findAllByPlaceholderText("Paste a link or note…"))[0];
     fireEvent.change(box, {
