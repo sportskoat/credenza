@@ -573,3 +573,81 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     expect(await screen.findByText(/Imported 3 things from your Reddit haul/)).toBeInTheDocument();
   });
 });
+
+describe("Stash mode toggle (front screen)", () => {
+  const KYLE_POST = `Adidas CNY Tang Jacket (Size M) - Buttery smooth fabric, love the colour. Fits TTS.
+W2C: https://weidian.com/item.html?itemID=7649592219
+
+⸻
+
+Vans Old Skool 36 Souvenir (EU42.5, TOP Batch) - Fits like any other Old Skool. Fits TTS.
+W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
+
+  it("switches the capture placeholder with the mode", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    const group = await screen.findByRole("group", { name: "Stash mode" });
+    expect(group).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Paste a link or note…")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Reddit haul" }));
+    expect(screen.getByPlaceholderText("Paste a Reddit post link or haul text…")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Note" }));
+    expect(screen.getByPlaceholderText("Write a note…")).toBeInTheDocument();
+  });
+
+  it("note mode keeps a URL paste as one plain note card", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Note" }));
+    const box = screen.getByPlaceholderText("Write a note…");
+    fireEvent.change(box, { target: { value: "remember this https://weidian.com/item.html?itemID=7649592219" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
+    const [item] = JSON.parse(data[STORE_KEY]);
+    expect(item.type).toBe("note");
+    expect(item.url).toBeNull();
+  });
+
+  it("haul mode turns pasted post text into one card per item, notes aligned", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Reddit haul" }));
+    const box = screen.getByPlaceholderText("Paste a Reddit post link or haul text…");
+    fireEvent.change(box, { target: { value: KYLE_POST } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(2));
+    const items = JSON.parse(data[STORE_KEY]);
+    const jacket = items.find((i) => (i.url || "").includes("7649592219"));
+    const vans = items.find((i) => (i.url || "").includes("7808837642"));
+    expect(jacket.note).toContain("Buttery smooth fabric");
+    expect(vans.note).toContain("Fits like any other Old Skool");
+    expect(vans.note).not.toContain("Buttery smooth");
+  });
+
+  it("a lone Reddit post link in link mode routes to the haul path", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    const box = await screen.findByPlaceholderText("Paste a link or note…");
+    fireEvent.change(box, {
+      target: { value: "https://www.reddit.com/r/FashionReps/comments/1v3fupe/in_hand_review/" },
+    });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    // The reader function is unreachable in jsdom → actionable error toast,
+    // NOT a silent one-card stash of the post link (the old bad behavior).
+    expect(await screen.findByText(/Couldn't read that Reddit post/)).toBeInTheDocument();
+    expect(JSON.parse(data[STORE_KEY])).toHaveLength(0);
+  });
+});

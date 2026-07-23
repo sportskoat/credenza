@@ -599,6 +599,8 @@ const YUPOO_ENDPOINT =
   (import.meta.env && import.meta.env.VITE_YUPOO_ENDPOINT) || "/.netlify/functions/yupoo";
 const CHART_VISION_ENDPOINT =
   (import.meta.env && import.meta.env.VITE_CHART_VISION_ENDPOINT) || "/.netlify/functions/chart-vision";
+const REDDIT_ENDPOINT =
+  (import.meta.env && import.meta.env.VITE_REDDIT_ENDPOINT) || "/.netlify/functions/reddit";
 // Cloud actions are optional capabilities. A Vite value is only a feature flag,
 // never authentication; public enablement still requires deployment-level access.
 const CLOUD_ASK_ENABLED =
@@ -2014,10 +2016,46 @@ async function fetchChartFromPhotos(imageUrls, { signal } = {}) {
   }
 }
 
+// A lone Reddit post URL (incl. /s/ share links and redd.it short links) —
+// the whole paste is just the URL. These auto-route to the haul path.
+const REDDIT_POST_URL_RE =
+  /^(?:https?:\/\/(?:(?:www|old|np|amp)\.)?reddit\.com\/r\/[\w-]+\/(?:comments|s)\/[^\s]+|https?:\/\/redd\.it\/[^\s]+)$/i;
+
+// Ask the reddit function to resolve a post URL (share links included) and
+// return its text for the haul parser. Returns the parsed body on success,
+// { found: false, error } on a server-side failure, or null on network/auth
+// trouble — callers always have a paste-text fallback to offer.
+async function fetchRedditPost(url, { signal } = {}) {
+  if (!PREVIEW_SECRET) return null;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) return null;
+    signal.addEventListener("abort", abort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch(REDDIT_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
+      body: JSON.stringify({ url }),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return { found: false, error: (data && data.error) || "Could not read that post" };
+    return data;
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", abort);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ SCORING UTILITIES ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
-
 function scoreDigestCandidate(item, now) {
   let s = 0;
   const age = now - item.createdAt;
@@ -7367,6 +7405,10 @@ export default function Credenza() {
   const [bodyProfile, setBodyProfile] = useState(null);
   const [measureUnits, setMeasureUnits] = useState("in");
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+  // Front-screen stash intent (Kyle 2026-07-22): "link" = one card per paste,
+  // "haul" = Reddit post link or pasted haul text → one card per item,
+  // "note" = always a single text card. Persisted in credenza-prefs-v1.
+  const [stashMode, setStashMode] = useState("link");
 
   // Phones: ~400px of capture/search/tab chrome sits above the carousel, so at
   // first paint the card renders under the fixed bottom bar. Scrolling the
@@ -7481,10 +7523,11 @@ export default function Credenza() {
             agentToastSeenFor,
             bodyProfile,
             measureUnits,
+            stashMode,
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode]);
 
   useEffect(() => {
     loadStoredItems({
@@ -7572,6 +7615,7 @@ export default function Credenza() {
                   agentToastSeenFor: p.agentToastSeenFor || null,
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
                   measureUnits: p.measureUnits === "cm" ? "cm" : "in",
+                  stashMode: ["link", "haul", "note"].includes(p.stashMode) ? p.stashMode : "link",
                 })
               )
               .catch(() => {});
@@ -7585,6 +7629,7 @@ export default function Credenza() {
           if (p.agentToastSeenFor) setAgentToastSeenFor(p.agentToastSeenFor);
           if (p.bodyProfile && typeof p.bodyProfile === "object") setBodyProfile(p.bodyProfile);
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
+          if (["link", "haul", "note"].includes(p.stashMode)) setStashMode(p.stashMode);
         } catch (e) {}
       })
       .catch(() => {})
@@ -7642,11 +7687,77 @@ export default function Credenza() {
     });
   }, []);
 
+  // Note mode: the paste stays text even when it contains a URL — no link
+  // extraction, no enrichment, one card with the words on it.
+  const stashNote = (raw) => {
+    const text = (raw || "").trim();
+    if (!text) return { status: "empty" };
+    const parsed = { type: "note", url: null, host: null, videoId: null };
+    const key = canonicalKey(parsed, text);
+    const dupItem = items.find((x) => itemMatchesCanonicalKey(x, key)) || null;
+    if (dupItem) {
+      notify("Already on the shelf: “" + dupItem.title + "” — refreshing it below.", { duration: DUPE_BANNER_MS });
+      setExpandedId(dupItem.id);
+      setSelectedId(dupItem.id);
+      return { status: "dupe", id: dupItem.id };
+    }
+    const item = createItem(parsed, text, null);
+    applyUpdate((list) => [item, ...list]);
+    return { status: "stashed", id: item.id, title: item.title || "" };
+  };
+
+  // Haul mode: a lone Reddit post link is read server-side and its text goes
+  // through the haul parser; anything else (the copied post text itself, a
+  // comment wall) imports directly. One paste → one card per item.
+  const stashRedditHaul = async (raw) => {
+    const text = (raw || "").trim();
+    if (!text) return;
+    if (REDDIT_POST_URL_RE.test(text)) {
+      if (!PREVIEW_SECRET) {
+        // No reader configured — the raw paste still imports what it can.
+        runImport(text);
+        return;
+      }
+      notify("Reading that Reddit post…", { duration: 4000 });
+      const post = await fetchRedditPost(text);
+      if (post && post.found && post.selftext) {
+        runImport(post.selftext);
+      } else if (post && post.found === false && post.reason === "no-text") {
+        // Link/image post: no item text exists — stash the post itself.
+        stash(post.url || text);
+      } else {
+        flashImportResult(
+          (post && post.error) ||
+            "Couldn't read that Reddit post — paste the post text here instead."
+        );
+      }
+      return;
+    }
+    runImport(text);
+  };
+
+  // One entry point for the capture box and one-tap clipboard stash: mode
+  // decides the shape of what lands on the shelf. A lone Reddit post link
+  // always routes to the haul path, even in link mode (Kyle 2026-07-22:
+  // "if you paste that whole Reddit link into the stash clipboard section,
+  // it will only make one card").
+  const dispatchStash = (raw) => {
+    const text = (raw || "").trim();
+    if (!text) return { status: "empty" };
+    const mode = stashMode === "link" && REDDIT_POST_URL_RE.test(text) ? "haul" : stashMode;
+    if (mode === "note") return stashNote(text);
+    if (mode === "haul") {
+      stashRedditHaul(text);
+      return { status: "hauling" };
+    }
+    return stash(text);
+  };
+
   const capture = () => {
-    const result = stash(input);
+    const result = dispatchStash(input);
     if (result.status !== "empty") {
       setInput("");
-      beginIndexingJob(result);
+      if (result.status === "stashed") beginIndexingJob(result);
     }
   };
 
@@ -7680,7 +7791,7 @@ export default function Credenza() {
       flashImportResult("Clipboard's empty.");
       return;
     }
-    const result = stash(text);
+    const result = dispatchStash(text);
     if (result.status === "stashed") {
       beginIndexingJob(result);
       flashImportResult("Stashed from the clipboard.");
@@ -9432,6 +9543,28 @@ export default function Credenza() {
           <p className="cz-tagline">One shelf for the whole haul.</p>
         )}
 
+        {/* Stash mode (Kyle 2026-07-22): the same paste box makes one card
+            from a link, N cards from a Reddit haul, or a plain note. */}
+        <div className="cz-stashmode" role="group" aria-label="Stash mode">
+          {[
+            ["link", "Link", "One card from a link or short paste"],
+            ["haul", "Reddit haul", "One card per item from a Reddit post link or pasted haul"],
+            ["note", "Note", "Keep the paste as a plain note"],
+          ].map(([id, label, hint]) => (
+            <button
+              key={id}
+              type="button"
+              className={"cz-stashmode-btn" + (stashMode === id ? " is-active" : "")}
+              aria-pressed={stashMode === id}
+              title={hint}
+              disabled={interactionLocked}
+              onClick={() => setStashMode(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Capture — rounded shell matching the search bar. */}
         <div className="cz-capture-shell">
           <textarea
@@ -9454,7 +9587,13 @@ export default function Credenza() {
                 e.target.style.height = "auto";
               }
             }}
-            placeholder="Paste a link or note…"
+            placeholder={
+              stashMode === "haul"
+                ? "Paste a Reddit post link or haul text…"
+                : stashMode === "note"
+                ? "Write a note…"
+                : "Paste a link or note…"
+            }
             rows={1}
           />
           <CapturePill
