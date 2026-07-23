@@ -2127,12 +2127,12 @@ const KEYFRAMES = `
 .cz-shell { max-width: 1080px; margin: 0 auto; padding: 28px 28px 0; }
 @media (max-width: 480px) { .cz-shell { padding: 16px 14px 0; } }
 .cz-masthead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.cz-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--cz-ink); font-size: 12px; font-weight: 800; letter-spacing: .12em; }
-.cz-brand-name { display: inline-flex; align-items: baseline; gap: 5px; }
-.cz-brand-word { letter-spacing: .12em; }
-.cz-brand-sub { font-size: 10px; font-weight: 500; letter-spacing: .04em; opacity: 0.62; text-transform: none; }
+.cz-brand { display: inline-flex; align-items: center; gap: 11px; color: var(--cz-ink); font-size: 17px; font-weight: 800; letter-spacing: .16em; }
+.cz-brand-name { display: inline-flex; align-items: baseline; gap: 8px; }
+.cz-brand-word { letter-spacing: .16em; }
+.cz-brand-sub { font-size: 14px; font-weight: 500; letter-spacing: .04em; color: var(--cz-sub); text-transform: none; }
 .cz-tagline { font-family: ${FONT}; font-size: 13px; color: var(--cz-sub); margin: 0 0 14px; line-height: 1.35; }
-.cz-brand-mark { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--cz-ink); color: var(--cz-card); font-size: 14px; line-height: 1; letter-spacing: 0; }
+.cz-brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: var(--cz-action-fill); color: var(--cz-action-text); font-family: ${DISPLAY}; font-size: 17px; font-weight: 700; line-height: 1; letter-spacing: 0; }
 .cz-hero-title { max-width: 560px; margin: 0 0 24px; color: var(--cz-ink); font-family: ${DISPLAY}; font-size: clamp(34px, 4.3vw, 58px); font-weight: 500; letter-spacing: -.04em; line-height: 1; }
 .cz-section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 24px 0 10px; }
 .cz-section-head h2 { margin: 0; font-family: ${DISPLAY}; font-size: 25px; font-weight: 500; letter-spacing: -.035em; line-height: 1.1; }
@@ -9533,16 +9533,15 @@ export default function Credenza() {
         </div>
 
         {/* The full hero is the empty-shelf welcome; a stocked shelf is a daily
-            tool and gets its first viewport back (audit S4). */}
-        {items.length === 0 ? (
+            tool and gets its first viewport back (design handoff PR2): compact
+            masthead, then capture/search/tabs — cards above the fold. */}
+        {items.length === 0 && (
           <>
-            <h1 className="cz-hero-title cz-title-balance">Organize the haul.</h1>
-            <p className="cz-tagline" style={{ fontSize: 15, color: "var(--cz-ink)", marginBottom: 22, opacity: 0.82 }}>
-              Yupoo albums, Weidian buys, Reddit finds — one shelf for the whole haul.
+            <h1 className="cz-hero-title cz-title-balance">One shelf for the whole haul.</h1>
+            <p className="cz-tagline" style={{ fontSize: 15, color: "var(--cz-sub)", marginBottom: 22, lineHeight: 1.55 }}>
+              Copy a Weidian, Taobao or Yupoo link, then stash it. Price, photos and your size land on the card.
             </p>
           </>
-        ) : (
-          <p className="cz-tagline">One shelf for the whole haul.</p>
         )}
 
         {/* Stash mode (Kyle 2026-07-22): the same paste box makes one card
@@ -10072,7 +10071,6 @@ export default function Credenza() {
         }}
       >
         <div className="cz-bottom-bar-inner">
-          <span className="cz-bottom-brand" aria-hidden="true">C</span>
           <Pill
             primary
             onClick={() => {

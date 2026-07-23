@@ -5182,10 +5182,10 @@ a.cz-card-seller:hover {
    1. Desktop chrome (masthead/tagline/capture/search/tabs/total) was
       full-bleed on wide monitors — "Paste a link" far left, Stash far right.
       Center it in a 720px column; carousel/grid panels stay full-width.
-   2. Mobile masthead is dead space — hidden on phones; a small C mark
-      rides in the bottom bar instead.
-   3. Field fill/shadow de-grained: solid card-solid (no black-mix), quiet
-      1px hairline, one soft drop shadow instead of stacked gloom. */
+   2. Field fill/shadow de-grained: solid card-solid (no black-mix), quiet
+      1px hairline, one soft drop shadow instead of stacked gloom.
+   (2026-07-23 design handoff PR2: the masthead stays visible on phones as the
+   compact header — the full hero is now the empty-shelf state only.) */
 .cz-chrome {
   width: 100%;
   max-width: 720px;
@@ -5218,32 +5218,9 @@ a.cz-card-seller:hover {
   box-shadow: 0 0 0 3px var(--cz-glow-weak), 0 1px 2px rgba(23, 24, 26, 0.06);
 }
 
-@media (max-width: 767px) {
-  .cz-app[data-fashion="true"] .cz-masthead {
-    display: none;
-  }
-}
-
-/* Tiny brand mark in the bottom bar — phones only, where the masthead hides. */
-.cz-bottom-brand {
-  display: none;
-}
-@media (max-width: 767px) {
-  .cz-bottom-brand {
-    display: grid;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: var(--cz-ink);
-    color: var(--cz-card-solid);
-    font-size: 15px;
-    font-weight: 700;
-    flex-shrink: 0;
-    margin-right: 2px;
-    user-select: none;
-  }
-}
+/* Design handoff PR2 (2026-07-23): the masthead shows on phones too — it is
+   the compact header (brand + profile) above search/tabs. The old mobile rule
+   hid it and parked a tiny C mark in the bottom bar; both are gone. */
 
 
 /* ═══ Grid-tap carousel overlay (Kyle 2026-07-22) ═══
