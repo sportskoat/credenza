@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMeasure, measureFromStorage, measureToStorage, parseSizeChart, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
+import { fitSummarySentence, formatMeasure, measureFromStorage, measureToStorage, parseSizeChart, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
 
 describe("sizeChartTextFor", () => {
   // Kyle 2026-07-22: chart pasted into Notes gave "no values, no recommended
@@ -247,5 +247,51 @@ describe("measure units (in/cm conversion at the edges)", () => {
     expect(measureToStorage("abc", "in", "length")).toBeNull();
     expect(measureToStorage("-5", "in", "length")).toBeNull();
     expect(measureFromStorage(null, "in", "length")).toBe("");
+  });
+});
+
+describe("fitSummarySentence (design handoff PR4)", () => {
+  const shirtChart = parseSizeChart(
+    "S: 胸围108 衣长66 肩宽46 袖长58\nM: 胸围112 衣长68 肩宽48 袖长60\nL: 胸围116 衣长70 肩宽50 袖长62\nXL: 胸围120 衣长72 肩宽52 袖长64"
+  );
+
+  it("concise is the first clause only — no em-dash tail", () => {
+    // body 96 + 12 ease = 108 → S, diff 12 → relaxed
+    const rec = recommendSize(shirtChart, { chest: 96 }, "shirt");
+    const sentence = fitSummarySentence(rec, { runHint: shirtChart.runHint, units: "cm", detail: "concise" });
+    expect(sentence).toBe("The S gives about 12cm of chest room, so it wears relaxed.");
+  });
+
+  it("detailed adds the run-hint and alternate-size tail", () => {
+    const bigChart = parseSizeChart(
+      "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\n版型偏大"
+    );
+    // body 100 + 12 - 4 = 108 → S, diff 8 → regular
+    const rec = recommendSize(bigChart, { chest: 100 }, "shirt");
+    const sentence = fitSummarySentence(rec, { runHint: bigChart.runHint, units: "cm", detail: "detailed" });
+    expect(sentence).toContain("The S gives about 8cm of chest room, so it wears regular — ");
+    expect(sentence).toContain("the chart runs big, so the pick already sized down");
+    expect(sentence).toContain("M also works if you want it roomier");
+  });
+
+  it("renders the room in inches when the user measures in inches", () => {
+    const rec = recommendSize(shirtChart, { chest: 96 }, "shirt");
+    const sentence = fitSummarySentence(rec, { units: "in" });
+    expect(sentence).toContain("4.7″ of chest room");
+  });
+
+  it("keys the wording on waist for pants", () => {
+    const pantsChart = parseSizeChart(
+      "30: 腰围76 臀围102 裤长104\n32: 腰围81 臀围107 裤长106\n34: 腰围86 臀围112 裤长108"
+    );
+    // body 80 + 2 = 82 → 32 (81), diff 1 → close
+    const rec = recommendSize(pantsChart, { waist: 80 }, "pants");
+    const sentence = fitSummarySentence(rec, { units: "cm" });
+    expect(sentence).toBe("The 32 gives about 1cm of waist room, so it wears close.");
+  });
+
+  it("returns an empty string without a recommendation", () => {
+    expect(fitSummarySentence(null)).toBe("");
+    expect(fitSummarySentence({ missing: "chest" })).toBe("");
   });
 });

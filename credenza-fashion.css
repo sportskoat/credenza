@@ -5407,9 +5407,46 @@ a.cz-card-seller:hover {
   flex-shrink: 0;
 }
 
-/* Capture sheet extras. */
-.cz-capture-clip {
+/* AI fit callout (design handoff PR4) — sits under the Recommended-size block. */
+.cz-fitai {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-bg);
+}
+.cz-fitai-head {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.cz-fitai-chip {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.cz-fitai-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-sub);
+}
+.cz-fitai-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--cz-ink);
+  text-wrap: pretty;
+}
+
+/* Capture sheet extras. */
+.cz-capture-clip {  display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;

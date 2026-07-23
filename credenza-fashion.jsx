@@ -64,6 +64,7 @@ const PALETTES = {
     "--cz-focus": "#17181a",
     "--cz-like": "#e11d48",
     "--cz-money": "#15803d",
+    "--cz-money-bg": "rgba(21, 128, 61, 0.09)",
     "--cz-selection": "rgba(23, 24, 26, 0.16)",
     "--cz-selection-text": "#17181a",
     "--cz-error-bg": "rgba(225, 29, 72, 0.10)",
@@ -101,6 +102,7 @@ const PALETTES = {
     "--cz-focus": "#f5f5f7",
     "--cz-like": "#f40051",
     "--cz-money": "#4ade80",
+    "--cz-money-bg": "rgba(74, 222, 128, 0.12)",
     "--cz-selection": "rgba(245, 245, 247, 0.22)",
     "--cz-selection-text": "#f5f5f7",
     "--cz-error-bg": "rgba(244, 63, 94, 0.16)",
@@ -225,6 +227,16 @@ function itemUsdAmount(item) {
 let PRICE_PRIMARY = "USD";
 function setPricePrimaryPref(v) {
   PRICE_PRIMARY = v === "CNY" ? "CNY" : "USD";
+}
+
+// AI fit summary prefs (design handoff PR4). Same module-mirror pattern as
+// PRICE_PRIMARY: the App syncs these from its prefs state, and flipping a
+// ProfileSheet toggle re-renders the tree so FitSummary reads fresh values.
+let FIT_SUMMARY_ON = true;
+let FIT_DETAIL = "concise"; // "concise" | "detailed"
+function setFitPrefs({ summary, detail }) {
+  FIT_SUMMARY_ON = summary !== false;
+  FIT_DETAIL = detail === "detailed" ? "detailed" : "concise";
 }
 
 function priceLabel(item) {
@@ -558,6 +570,45 @@ export function recommendSize(chart, profile, category) {
     lengthCheck,
     alt,
   };
+}
+
+// AI fit sentence (design handoff PR4): one templated line under the
+// Recommended-size block, built from the recommendSize result plus the
+// chart's run hint. "concise" is the first clause only; "detailed" adds the
+// run-hint / alternate-size tail after an em-dash.
+export function fitSummarySentence(rec, { runHint = null, units = "cm", detail = "concise" } = {}) {
+  if (!rec || !rec.size || rec.diff == null || !isFinite(rec.diff)) return "";
+  const measure = rec.primaryKey === "waist" ? "waist" : rec.primaryKey === "hip" ? "hip" : "chest";
+  const diff = rec.diff;
+  const room = formatMeasure(Math.abs(diff), units);
+  let wears;
+  if (diff < 0) {
+    wears = "snug";
+  } else if (measure === "chest") {
+    wears =
+      diff >= 18
+        ? "relaxed with space to layer"
+        : diff >= 12
+          ? "relaxed"
+          : diff >= 7
+            ? "regular"
+            : diff >= 3
+              ? "close to the body"
+              : "snug";
+  } else {
+    wears = diff >= 6 ? "relaxed" : diff >= 2 ? "regular" : "close";
+  }
+  const first = "The " + rec.size + " gives about " + room + " of " + measure + " room, so it wears " + wears;
+  if (detail !== "detailed") return first + ".";
+  const tail = [];
+  if (runHint === "big") tail.push("the chart runs big, so the pick already sized down");
+  else if (runHint === "small") tail.push("the chart runs small, so the pick already sized up");
+  else if (runHint === "true") tail.push("the garment runs true to size");
+  if (rec.alt && rec.alt.fit && rec.alt.fit !== "same") {
+    tail.push(rec.alt.size + " also works if you want it " + rec.alt.fit);
+  }
+  if (!tail.length) return first + ".";
+  return first + " — " + tail.join("; ") + ".";
 }
 
 // Display conversion — storage is always cm/kg (seller charts are metric);
@@ -2832,6 +2883,10 @@ function ProfileSheet({
   onOpenAgent,
   pricePrimary,
   onCycleCurrency,
+  fitSummary,
+  onToggleFitSummary,
+  fitDetail,
+  onCycleFitDetail,
   onOpenSizes,
   onOpenImport,
   storageLabel,
@@ -2896,6 +2951,16 @@ function ProfileSheet({
           <span>Primary currency</span>
           <span className="cz-profile-row-val">{pricePrimary} ›</span>
         </button>
+        <button type="button" className="cz-profile-row" onClick={onToggleFitSummary} aria-pressed={fitSummary}>
+          <span>AI fit summary</span>
+          <span className="cz-profile-row-val">{fitSummary ? "On" : "Off"} ›</span>
+        </button>
+        {fitSummary && (
+          <button type="button" className="cz-profile-row" onClick={onCycleFitDetail}>
+            <span>Fit detail</span>
+            <span className="cz-profile-row-val">{fitDetail === "detailed" ? "Detailed" : "Concise"} ›</span>
+          </button>
+        )}
         <button type="button" className="cz-profile-row" onClick={onOpenImport}>
           <span>Import &amp; backup</span>
           <span className="cz-profile-row-val">›</span>
@@ -4938,7 +5003,14 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = fals
   const measureLabel =
     rec.primaryKey === "waist" ? "Waist " : rec.primaryKey === "hip" ? "Hip " : "Chest ";
 
+  // AI fit callout (design handoff PR4): one templated sentence from the same
+  // rec, gated by the fitSummary/fitDetail prefs.
+  const fitSentence = FIT_SUMMARY_ON
+    ? fitSummarySentence(rec, { runHint: chart.runHint, units, detail: FIT_DETAIL })
+    : "";
+
   return (
+    <>
     <div className="cz-size-rec">
       <div className="cz-size-rec-kicker">Your size</div>
       <div className="cz-size-rec-line">
@@ -5011,6 +5083,16 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = fals
         </div>
       )}
     </div>
+    {fitSentence && (
+      <div className="cz-fitai">
+        <div className="cz-fitai-head">
+          <span className="cz-fitai-chip">AI fit</span>
+          <span className="cz-fitai-label">How it’ll fit you</span>
+        </div>
+        <p className="cz-fitai-text">{fitSentence}</p>
+      </div>
+    )}
+    </>
   );
 }
 
@@ -7680,6 +7762,13 @@ export default function Credenza() {
   useEffect(() => {
     setPricePrimaryPref(pricePrimary);
   }, [pricePrimary]);
+  // AI fit summary (design handoff PR4): show/hide + Concise/Detailed length,
+  // synced into the module readers FitSummary uses. Persisted in prefs.
+  const [fitSummary, setFitSummary] = useState(true);
+  const [fitDetail, setFitDetail] = useState("concise");
+  useEffect(() => {
+    setFitPrefs({ summary: fitSummary, detail: fitDetail });
+  }, [fitSummary, fitDetail]);
   // Body measurements powering the card-back size pick; persisted in
   // credenza-prefs-v1. Null until the user fills the sheet once. Storage is
   // always cm/kg — measureUnits only controls display/input (default "in",
@@ -7812,10 +7901,12 @@ export default function Credenza() {
             measureUnits,
             stashMode,
             pricePrimary,
+            fitSummary,
+            fitDetail,
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail]);
 
   useEffect(() => {
     loadStoredItems({
@@ -7905,6 +7996,8 @@ export default function Credenza() {
                   measureUnits: p.measureUnits === "cm" ? "cm" : "in",
                   stashMode: ["link", "haul", "note"].includes(p.stashMode) ? p.stashMode : "link",
                   pricePrimary: p.pricePrimary === "CNY" ? "CNY" : "USD",
+                  fitSummary: p.fitSummary !== false,
+                  fitDetail: p.fitDetail === "detailed" ? "detailed" : "concise",
                 })
               )
               .catch(() => {});
@@ -7920,6 +8013,8 @@ export default function Credenza() {
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
           if (["link", "haul", "note"].includes(p.stashMode)) setStashMode(p.stashMode);
           if (p.pricePrimary === "CNY" || p.pricePrimary === "USD") setPricePrimary(p.pricePrimary);
+          if (p.fitSummary === false) setFitSummary(false);
+          if (p.fitDetail === "concise" || p.fitDetail === "detailed") setFitDetail(p.fitDetail);
         } catch (e) {}
       })
       .catch(() => {})
@@ -9879,6 +9974,10 @@ export default function Credenza() {
           }}
           pricePrimary={pricePrimary}
           onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+          fitSummary={fitSummary}
+          onToggleFitSummary={() => setFitSummary((v) => !v)}
+          fitDetail={fitDetail}
+          onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
           onOpenSizes={() => {
             setProfileOpen(false);
             setBodySheetOpen(true);
