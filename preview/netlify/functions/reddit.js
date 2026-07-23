@@ -29,10 +29,29 @@ function redditHost(hostname) {
 // often get an extra soft-redirect from the comments URL to the subreddit
 // homepage ("you're blocked" behavior), so remember every comments path seen
 // in a Location header along the way — the last one is the post we wanted.
+// Short 3xx bodies also carry the target URL, so those are sniffed too, but
+// only when exactly ONE distinct comments id appears (a subreddit listing
+// page holds many — guessing there would resolve the wrong post).
 // Returns { finalUrl, res, discoveredPath } or null when a hop leaves reddit.
 async function resolveRedditUrl(startUrl, signal) {
   let current = startUrl;
   let discoveredPath = null;
+  const sniff = async (res) => {
+    if (discoveredPath) return;
+    let body = "";
+    try {
+      body = (await res.text()).slice(0, 200000);
+    } catch {
+      return;
+    }
+    const ids = new Set();
+    for (const m of body.matchAll(/\/r\/[\w-]+\/comments\/([a-z0-9]+)/gi)) ids.add(m[1].toLowerCase());
+    if (ids.size === 1) {
+      const id = [...ids][0];
+      const sub = /\/r\/([\w-]+)\/comments\//i.exec(body);
+      discoveredPath = "/r/" + (sub ? sub[1] : "") + "/comments/" + id;
+    }
+  };
   for (let hop = 0; hop < MAX_HOPS; hop++) {
     let u;
     try {
@@ -54,9 +73,13 @@ async function resolveRedditUrl(startUrl, signal) {
       const next = new URL(loc, u).toString();
       const hopPath = redditHost(new URL(next).hostname) ? commentsPath(next) : null;
       if (hopPath) discoveredPath = hopPath;
+      await sniff(res);
       current = next;
       continue;
     }
+    // A 200 that never left the /s/ path is a block/interstitial page; sniff
+    // it as a last resort before giving up.
+    if (/\/s\//.test(u.pathname)) await sniff(res);
     return { finalUrl: u.toString(), res, discoveredPath };
   }
   return null;

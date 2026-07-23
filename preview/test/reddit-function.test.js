@@ -134,6 +134,41 @@ describe("Reddit function", () => {
     expect(JSON.parse(res.body).selftext).toBe("recovered text");
   });
 
+  it("sniffs the post id from a 3xx body when the Location hides it", async () => {
+    // Worst-case datacenter chain: /s/ 301s straight to the subreddit, but
+    // the short redirect body still carries the real target URL.
+    global.fetch = vi.fn(async (url) => {
+      if (url.includes("/s/")) {
+        return {
+          status: 301,
+          headers: { get: () => "https://www.reddit.com/r/FashionReps/" },
+          text: async () => `<a href="https://www.reddit.com/r/FashionReps/comments/1v3fupe/x/">continue</a>`,
+        };
+      }
+      return { status: 200, ok: true, json: async () => listing("sniffed text") };
+    });
+    const res = await handler(post(SHARE_LINK));
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).selftext).toBe("sniffed text");
+  });
+
+  it("refuses to guess when a page holds many different posts", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url.includes("/s/")) {
+        return {
+          status: 200,
+          ok: true,
+          headers: { get: () => null },
+          text: async () =>
+            "/r/FashionReps/comments/aaa111/x /r/FashionReps/comments/bbb222/y /r/FashionReps/comments/ccc333/z",
+        };
+      }
+      return { status: 200, ok: true, json: async () => listing("unused") };
+    });
+    const res = await handler(post(SHARE_LINK));
+    expect(res.statusCode).toBe(400);
+  });
+
   it("uses oauth.reddit.com when app credentials are configured", async () => {
     process.env.REDDIT_CLIENT_ID = "id";
     process.env.REDDIT_CLIENT_SECRET = "secret";
