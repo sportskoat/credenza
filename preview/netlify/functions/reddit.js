@@ -25,10 +25,14 @@ function redditHost(hostname) {
   return /(^|\.)(reddit\.com|redd\.it)$/.test(h);
 }
 
-// Resolve redirects one hop at a time; refuse to leave reddit. Returns the
-// final absolute URL string or null when a hop points elsewhere.
+// Resolve redirects one hop at a time; refuse to leave reddit. Datacenter IPs
+// often get an extra soft-redirect from the comments URL to the subreddit
+// homepage ("you're blocked" behavior), so remember every comments path seen
+// in a Location header along the way — the last one is the post we wanted.
+// Returns { finalUrl, res, discoveredPath } or null when a hop leaves reddit.
 async function resolveRedditUrl(startUrl, signal) {
   let current = startUrl;
+  let discoveredPath = null;
   for (let hop = 0; hop < MAX_HOPS; hop++) {
     let u;
     try {
@@ -37,6 +41,8 @@ async function resolveRedditUrl(startUrl, signal) {
       return null;
     }
     if (!redditHost(u.hostname)) return null;
+    const selfPath = commentsPath(u.toString());
+    if (selfPath) discoveredPath = selfPath;
     const res = await fetch(u.toString(), {
       redirect: "manual",
       headers: { "user-agent": UA, accept: "text/html,application/json" },
@@ -45,10 +51,13 @@ async function resolveRedditUrl(startUrl, signal) {
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get("location");
       if (!loc) return null;
-      current = new URL(loc, u).toString();
+      const next = new URL(loc, u).toString();
+      const hopPath = redditHost(new URL(next).hostname) ? commentsPath(next) : null;
+      if (hopPath) discoveredPath = hopPath;
+      current = next;
       continue;
     }
-    return { finalUrl: u.toString(), res };
+    return { finalUrl: u.toString(), res, discoveredPath };
   }
   return null;
 }
@@ -149,7 +158,9 @@ exports.handler = async (event) => {
     // Share links (/s/, redd.it) 301 to the canonical comments URL.
     const resolved = await resolveRedditUrl(parsed.toString(), controller.signal);
     if (!resolved) return response(502, { error: "Could not resolve that Reddit link" });
-    const path = commentsPath(resolved.finalUrl);
+    // A soft-blocked chain ends on the subreddit homepage; the comments path
+    // we saw in an earlier hop's Location is still the post Kyle asked for.
+    const path = commentsPath(resolved.finalUrl) || resolved.discoveredPath;
     if (!path) return response(400, { error: "That link is not a Reddit post" });
 
     const { data, error } = await fetchPostListing(path, controller.signal);

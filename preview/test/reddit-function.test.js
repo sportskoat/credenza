@@ -111,6 +111,29 @@ describe("Reddit function", () => {
     expect(JSON.parse(res.body).error).toMatch(/paste the post text/i);
   });
 
+  it("recovers the post id when the chain soft-blocks to the subreddit", async () => {
+    // Datacenter behavior: /s/ → comments URL → subreddit homepage. The
+    // comments path from the first hop's Location is still the right post.
+    global.fetch = vi.fn(async (url) => {
+      if (url.includes("/s/")) {
+        return {
+          status: 301,
+          headers: { get: () => COMMENTS_URL },
+        };
+      }
+      if (url.includes("/comments/") && !url.includes(".json")) {
+        return {
+          status: 301,
+          headers: { get: () => "https://www.reddit.com/r/FashionReps/" },
+        };
+      }
+      return { status: 200, ok: true, json: async () => listing("recovered text") };
+    });
+    const res = await handler(post(SHARE_LINK));
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).selftext).toBe("recovered text");
+  });
+
   it("uses oauth.reddit.com when app credentials are configured", async () => {
     process.env.REDDIT_CLIENT_ID = "id";
     process.env.REDDIT_CLIENT_SECRET = "secret";
