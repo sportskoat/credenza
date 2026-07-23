@@ -5067,37 +5067,49 @@ function SizeRecommendation({
       >
         <div className="cz-fit-prompt-title">Will it fit you?</div>
         <p className="cz-fit-prompt-copy">
-          Add your size once and we size every item for you. About 15 seconds.
+          Add your size once. We size every item for you.
         </p>
         <div className="cz-fit-prompt-fields">
-          <label>
-            Height
-            <input
-              inputMode="decimal"
-              placeholder={units === "in" ? "70" : "178"}
-              value={fitDraft.height}
-              onChange={(e) => setFitDraft((d) => ({ ...d, height: e.target.value.replace(/[^\d.]/g, "") }))}
-              aria-label={"Height in " + unitHint}
-            />
+          <label className="cz-fit-prompt-field">
+            <span className="cz-fit-prompt-label">Height</span>
+            <span className="cz-fit-prompt-control">
+              <input
+                inputMode="decimal"
+                placeholder={units === "in" ? "70" : "178"}
+                value={fitDraft.height}
+                onChange={(e) => setFitDraft((d) => ({ ...d, height: e.target.value.replace(/[^\d.]/g, "") }))}
+                aria-label={"Height in " + unitHint}
+              />
+              <span className="cz-fit-prompt-unit" aria-hidden="true">
+                {unitHint}
+              </span>
+            </span>
           </label>
-          <label>
-            Weight
-            <input
-              inputMode="decimal"
-              placeholder={units === "in" ? "154" : "70"}
-              value={fitDraft.weight}
-              onChange={(e) => setFitDraft((d) => ({ ...d, weight: e.target.value.replace(/[^\d.]/g, "") }))}
-              aria-label={"Weight in " + weightHint}
-            />
+          <label className="cz-fit-prompt-field">
+            <span className="cz-fit-prompt-label">Weight</span>
+            <span className="cz-fit-prompt-control">
+              <input
+                inputMode="decimal"
+                placeholder={units === "in" ? "154" : "70"}
+                value={fitDraft.weight}
+                onChange={(e) => setFitDraft((d) => ({ ...d, weight: e.target.value.replace(/[^\d.]/g, "") }))}
+                aria-label={"Weight in " + weightHint}
+              />
+              <span className="cz-fit-prompt-unit" aria-hidden="true">
+                {weightHint}
+              </span>
+            </span>
           </label>
-          <label className="cz-fit-prompt-size">
-            Usual size
-            <input
-              placeholder="M"
-              value={fitDraft.usualSize}
-              onChange={(e) => setFitDraft((d) => ({ ...d, usualSize: e.target.value }))}
-              aria-label="Usual size"
-            />
+          <label className="cz-fit-prompt-field cz-fit-prompt-size">
+            <span className="cz-fit-prompt-label">Usual size</span>
+            <span className="cz-fit-prompt-control">
+              <input
+                placeholder="M"
+                value={fitDraft.usualSize}
+                onChange={(e) => setFitDraft((d) => ({ ...d, usualSize: e.target.value }))}
+                aria-label="Usual size"
+              />
+            </span>
           </label>
         </div>
         <div className="cz-fit-prompt-actions">
