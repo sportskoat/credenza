@@ -5,7 +5,7 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-23 (design_handoff_credenza package applied on branch `mobile-fix-loop`, LOCAL ONLY — do not deploy until Kyle says so)
+**Last updated:** 2026-07-23 (design_handoff_credenza DEPLOYED; AI chart-vision env fixed)
 **Branch:** `mobile-fix-loop`
 **Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-23 via CLI (`netlify deploy --prod --dir dist` from `preview/`). Env: `ANTHROPIC_API_KEY`, `CREDENZA_SEARCH_SECRET`, `VITE_CREDENZA_SEARCH_SECRET` (set this deploy so client can call chart-vision), `VITE_CREDENZA_REF_SUPERBUY`, `VITE_CREDENZA_REF_FANSBUY`. Tag `deploy-2026-07-23` → `8c034f4`. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
 
