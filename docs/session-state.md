@@ -5,9 +5,56 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-22 (autonomous mobile-fix loop COMPLETE on branch `mobile-fix-loop` — S1–S7 shipped, S8 colorway awaiting Kyle's pick; revert tag `pre-mobile-fix-2026-07-22`; NOT deployed)
-**Branch:** `credenza-fashion-yupoo-carousel`
-**Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-21 via CLI (`netlify deploy --prod` from `preview/`). Env on site: `CREDENZA_SEARCH_SECRET` (pre-existing), `VITE_CREDENZA_REF_SUPERBUY=888c9Y`, `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91` (both "all context", set 2026-07-21). Smoke-tested: site 200, function auth gates pass, upstream fetch works, secrets + affiliate codes confirmed baked into bundle. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
+**Last updated:** 2026-07-22 (haul-import fix + stash modes + reddit fn shipped on branch `mobile-fix-loop`, DEPLOYED; revert tag `checkpoint-2026-07-22-prehaulfix`)
+**Branch:** `mobile-fix-loop`
+**Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-22 via CLI (`netlify deploy --prod` from `preview/`). Env on site: `CREDENZA_SEARCH_SECRET` (pre-existing), `VITE_CREDENZA_REF_SUPERBUY=888c9Y`, `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91` (both "all context", set 2026-07-21). Smoke-tested: site 200, function auth gates pass, secrets + affiliate codes confirmed baked into bundle. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
+
+---
+
+## 0. Haul-import session (2026-07-22, evening) — 6 commits, deployed
+
+Kyle's bug report: pasting a r/FashionReps post (link or text) gave broken
+cards — every card wore the NEXT item's name/review ("the jeans are the
+foams"). Root cause and fixes:
+
+1. **e0a3282 — haul parse attribution.** In-hand-review posts put
+   `Name (Size M) - review…` ABOVE the `W2C:` link line; `extractItems`
+   glued every URL-free line to the PREVIOUS item. Now URL-free lines are
+   buffered and `headerSplit` decides header-vs-review when the next link
+   arrives (dash+size, dash/size at a block boundary, bare short name at a
+   boundary; post titles rejected). Blank lines and single `⸻` separators
+   mark boundaries — `split(/\n+/)` had been collapsing them away. Category
+   keywords gained vans/air max/asics/fresh foam/henley. Tests include
+   Kyle's verbatim post.
+2. **e742e7f — stash modes + reddit fn.** Front-screen toggle
+   Link / Reddit haul / Note (persisted in prefs). A lone Reddit post URL
+   auto-routes to the haul path even in Link mode. New
+   `netlify/functions/reddit.js` resolves `/s/` share + redd.it links
+   (SSRF-guarded, reddit hosts only) and returns selftext for the client
+   parser. Read failures toast "paste the post text instead" — never a
+   silent one-card stash.
+3. **19bf18e — chart-vision committed.** Was live but untracked. Still
+   INERT in prod: **`ANTHROPIC_API_KEY` is not set on Netlify** — ask /
+   resolve / chart-vision all 500 on their LLM paths. Kyle must create a
+   key (console.anthropic.com) → `netlify env:set ANTHROPIC_API_KEY …`.
+4. **ed3c40d + 23b834a + 8dd2906 — reddit fn vs datacenter blocks.**
+   Reddit 403s anonymous .json from Netlify IPs and soft-redirects share
+   links to the subreddit homepage. Function now recovers the comments
+   path from hop Locations, sniffs 3xx/block bodies only when exactly ONE
+   distinct post id appears, and (when `REDDIT_CLIENT_ID`/`SECRET` are
+   set) does everything over oauth.reddit.com client_credentials — the
+   only reliable path. **Kyle must create a script app at
+   reddit.com/prefs/apps (no redirect URI) and set the two env vars.**
+   Until then haul-from-LINK toasts the paste-text fallback;
+   haul-from-TEXT works fully today.
+- **Agent intel (Kyle, 2026-07-22):** Superbuy intermittently answers
+  "Request too often" / "item information capture failed" on THEIR side
+  (our wrap is fine — retry later); Sugargoo still login-walled; Fansbuy
+  + Kakobuy confirmed working. No code change: Buy already fails open to
+  the canonical link, and Direct opens originals.
+- 165/165 tests, typecheck + build clean, lint at baseline (no new
+  errors). Revert: `git reset --hard checkpoint-2026-07-22-prehaulfix`
+  (then redeploy) or Netlify deploy rollback.
 
 ---
 
