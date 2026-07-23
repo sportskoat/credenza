@@ -5,9 +5,47 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-22 (haul-import fix + stash modes + reddit fn shipped on branch `mobile-fix-loop`, DEPLOYED; revert tag `checkpoint-2026-07-22-prehaulfix`)
+**Last updated:** 2026-07-23 (design-handoff mobile flow PR1–PR5 on branch `mobile-fix-loop`, LOCAL ONLY — Kyle said do not deploy to Netlify yet, more changes coming)
 **Branch:** `mobile-fix-loop`
 **Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-22 via CLI (`netlify deploy --prod` from `preview/`). Env on site: `CREDENZA_SEARCH_SECRET` (pre-existing), `VITE_CREDENZA_REF_SUPERBUY=888c9Y`, `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91` (both "all context", set 2026-07-21). Smoke-tested: site 200, function auth gates pass, secrets + affiliate codes confirmed baked into bundle. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
+
+---
+
+## 0a. Design-handoff mobile flow (2026-07-23) — 4 commits, NOT deployed
+
+Implemented `~/Downloads/design_handoff_mobile_flow/README.md` (5 PRs) into
+`credenza-fashion.jsx` + `credenza-fashion.css`. Revert path: `git revert`
+each commit, or reset to `4a2df40`-parent `6b67948^` for the whole set.
+
+1. **6b67948 — PR1 contrast.** `PALETTES` only: Gallery sub #4f545b / faint
+   #6b7078; Blackout sub #b7bbc2 / faint #9ea3ab. All ≥4.5:1 on card-solid.
+2. **4a2df40 — PR2 hero collapse.** Full hero only when `items.length === 0`;
+   stocked shelf gets compact masthead (mark + CREDENZA Fashion + avatar),
+   search, tabs, stat line. Masthead un-hidden on phones; brand restyled.
+3. **1f8c5ce — PR3 capture bar + profile.** Bottom bar rebuilt: clipboard
+   split pill (review | 1-tap Stash) when the clipboard-readable probe
+   succeeds, else ＋ Stash pill; both open the new CaptureSheet (ModalShell).
+   Agent stays a bar button; ⋯ menu DELETED (theme moved out). Masthead
+   avatar opens ProfileSheet: Log in / Sign up (toast — no backend), Theme
+   rows, Your sizes, Default agent, Primary currency (new `pricePrimary`
+   pref reorders dual-currency labels via module `PRICE_PRIMARY`), Import &
+   backup, Storage. Stocked shelf hides the top capture box; type-anywhere
+   and paste open the capture sheet there. Desktop bar keeps an inline
+   paste field (CSS swaps variants at 768px). Tests updated off the ⋯ menu.
+4. **28c879b — PR4 AI fit summary.** `fitSummarySentence(rec, {runHint,
+   units, detail})` (exported, unit-tested) renders a cz-bg callout under
+   the Recommended-size block: green `AI fit` chip (new `--cz-money-bg`
+   token) + "How it'll fit you" + one sentence. Prefs `fitSummary`
+   (default on) + `fitDetail` (concise|detailed) in BOTH prefs paths;
+   module-mirrored like PRICE_PRIMARY; toggles in ProfileSheet.
+5. **PR5 hauls — no change needed.** Existing HaulCoverFan directory already
+   matches the spec (fanned 3 tiles, +N badge, 2-col grid, "Your hauls").
+
+Verify: 172/172 vitest, tsc clean, lint at baseline (12 err / 67 warn,
+pre-existing), build green, mobile shots in `docs/mobile-shots/`
+(01 grid, 04 capture sheet, 05 profile sheet, 08 fit callout, 09 hauls).
+**NOT deployed — Kyle 2026-07-23: "don't commit to netifly we have more
+changes". Deploy with `cd preview && npx netlify deploy --prod` when told.**
 
 ---
 
