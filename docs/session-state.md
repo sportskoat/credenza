@@ -40,7 +40,7 @@ Session-only: `fitPromptSkipped`. Tests: empty-shelf stash tests dismiss intro.
 
 Verify: 172/172 vitest, tsc clean, lint 12 err / 69 warn (baseline was 12/67;
 two extra warnings pre-existing elsewhere), build green.
-**NOT deployed.** Deploy: `cd preview && npx netlify deploy --prod`.
+**DEPLOYED 2026-07-23** tag `deploy-2026-07-23` → `8c034f4`. Also set Netlify env `VITE_CREDENZA_SEARCH_SECRET` (was missing; client chart-vision/resolve calls need it baked). `ANTHROPIC_API_KEY` + `CREDENZA_SEARCH_SECRET` already present. Smoke: chart-vision authed returns 502 on bad image URL (not 401/500 missing key).
 
 ---
 
