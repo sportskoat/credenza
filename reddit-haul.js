@@ -33,7 +33,7 @@ const KNOWN_AGENTS = [
 // item.category has one vocabulary end-to-end; order mirrors
 // guessFashionCategory's precedence (hoodie → outerwear, crewneck → shirt).
 const CATEGORY_KEYWORDS = [
-  ["shoes", /\b(shoes?|sneakers?|jordans?|aj\s?\d{1,2}|dunks?|yeezys?|af1|air force|new balance|nb\s?\d{3}|boots?|slides?|runners?|trainers?)\b/i],
+  ["shoes", /\b(shoes?|sneakers?|jordans?|aj\s?\d{1,2}|dunks?|yeezys?|af1|air force|air max|new balance|nb\s?\d{3}|vans|old\s?skool|sk8|asics|gel-\w+|fresh foam|boots?|slides?|runners?|trainers?)\b/i],
   ["outerwear", /\b(hoodie|jacket|coat|puffer|windbreaker|parka|bomber|denim jacket|varsity)\b/i],
   ["shorts", /\bshorts?\b/i],
   ["pants", /\b(pants|jeans|trousers|cargos?|sweatpants|joggers?|track pants)\b/i],
@@ -41,7 +41,7 @@ const CATEGORY_KEYWORDS = [
   ["hat", /\b(hat|cap|beanie)\b/i],
   ["bag", /\b(bag|backpack|tote|duffel|crossbody|shoulder bag)\b/i],
   ["accessory", /\b(belt|sunglasses|glasses|watch|ring|necklace|bracelet|wallet|scarf|gloves?)\b/i],
-  ["shirt", /\b(tee|t-shirt|tshirt|shirt|polo|tank|crewneck|sweatshirt|sweater|knit|cardigan|vest)\b/i],
+  ["shirt", /\b(tee|t-shirt|tshirt|shirt|polo|tank|henley|crewneck|sweatshirt|sweater|knit|cardigan|vest)\b/i],
 ];
 
 function guessCategory(label) {
@@ -110,6 +110,48 @@ function cleanLabel(raw) {
     .trim();
 }
 
+// Horizontal-rule lines (OPs separate items with "⸻", "---", "***") — they
+// never carry content but DO mark an item-block boundary. Single "⸻" counts.
+const SEPARATOR_RE = /^[\s\-–—*_=⸻―]+$/u;
+
+// "(Size M)", "(EU42.5, TOP Batch)", "(US 9)" — a size/batch parenthetical is
+// the strongest signal that a text line is an item header, not review chatter.
+const HEADER_SIZE_RE = /\((?:size|eu|us|uk|cm)[\s\d][^)]{0,24}\)/i;
+
+// FashionReps' dominant in-hand-review format puts the item block ABOVE the
+// W2C link: "Name (Size M) - review text…\nW2C: https://…". When a URL line
+// has no inline label, the buffered text above it is that item's header —
+// attributing it to the PREVIOUS item shifts every card's note one item down
+// (Kyle, 2026-07-22). headerSplit decides whether ONE buffered line is a
+// header and where the name ends:
+//   dash + (size|boundary) → "Name - review" at a block start or with a size
+//   size + boundary        → "(Size M)" name line at a block start
+//   short bare line at a boundary (no sentence punctuation/comma/haul chatter)
+//                          → a product name on its own line
+// Post titles ("5.5kg Haul Review — first time posting!") are rejected via the
+// haul/review/weight lead-in guard so they never become an item's label.
+// Anything else stays review chatter for the previous item.
+// Returns { label, note } or null.
+function headerSplit(line, { atBoundary }) {
+  const dash = /^(.{3,90}?)\s+[-–—]\s+(.+)$/.exec(line);
+  const hasSize = HEADER_SIZE_RE.test(line);
+  const postChatter = (s) => /\b(haul|review)\b/i.test(s) || /^\d+(?:\.\d+)?\s?kg\b/i.test(s);
+  if (dash && (hasSize || atBoundary) && !postChatter(dash[1])) {
+    return { label: cleanLabel(dash[1]), note: dash[2].trim() };
+  }
+  if (hasSize && atBoundary && !postChatter(line)) return { label: cleanLabel(line), note: "" };
+  if (
+    atBoundary &&
+    line.length <= 60 &&
+    !/[.!?…,]$/.test(line) &&
+    !/,/.test(line) &&
+    !postChatter(line)
+  ) {
+    return { label: cleanLabel(line), note: "" };
+  }
+  return null;
+}
+
 function pickPrimaryUrl(urls) {
   let best = null;
   let bestRank = -1;
@@ -129,12 +171,31 @@ function pickPrimaryUrl(urls) {
 
 function extractItems(text) {
   const items = [];
-  const lines = text.split(/\n+/);
+  // Split on SINGLE newlines: blank lines are block boundaries, and the
+  // header-vs-review decision below depends on seeing them.
+  const lines = text.split("\n");
   let lastItem = null;
+  // URL-free text lines since the last item. They are EITHER review chatter
+  // for the previous item OR the next item's header — decided when the next
+  // URL line arrives (see headerSplit).
+  let pending = [];
+  let pendingBoundary = true; // did the pending block start after a blank/separator?
+  let boundary = true; // start-of-input counts as a boundary
+
+  const flushPendingToNote = () => {
+    if (lastItem && pending.length) {
+      const snippet = pending.join(" ");
+      lastItem.note = lastItem.note ? lastItem.note + " " + snippet : snippet;
+    }
+    pending = [];
+  };
 
   for (const lineRaw of lines) {
     const line = lineRaw.trim();
-    if (!line) continue;
+    if (!line) {
+      boundary = true;
+      continue;
+    }
 
     // Markdown links: capture label↔url pairing before generic URL matching.
     const mdLinks = [];
@@ -148,15 +209,21 @@ function extractItems(text) {
 
     if (shoppable.length === 0) {
       // Reddit post links aren't items; everything else URL-free is either stats
-      // chatter or a review snippet for the previous item.
+      // chatter or buffered text (header-or-note, decided later).
       if (urls.length > 0) continue;
+      if (SEPARATOR_RE.test(line)) {
+        boundary = true;
+        continue;
+      }
       const stripped = line.replace(/^[\s\-*•>”"`]*(?:\d+[.)])?\s*/, "").trim();
       if (!stripped || stripped.length < 4) continue;
       if (isStatsLine(stripped)) continue;
       if (/^(stats?|build|haul|review|w2c|qc|finds?)\b\s*[:：-]?\s*$/i.test(stripped)) continue;
-      if (lastItem && stripped.length <= 300) {
-        lastItem.note = lastItem.note ? lastItem.note + " " + stripped : stripped;
+      if (stripped.length <= 300) {
+        if (pending.length === 0) pendingBoundary = boundary;
+        pending.push(stripped);
       }
+      boundary = false;
       continue;
     }
 
@@ -185,16 +252,43 @@ function extractItems(text) {
       );
     }
 
+    // No inline label → the buffered text above is probably this item's header
+    // ("Name (Size M) - review…" on the line above the W2C link). The line
+    // directly above the URL is the best candidate; the block's FIRST line
+    // covers "name line, then review lines" blocks. Anything before/after the
+    // header keeps its old home: previous item's note / this item's note.
+    let note = "";
+    if (!label && pending.length) {
+      const lastIdx = pending.length - 1;
+      let headerIdx = -1;
+      let header = headerSplit(pending[lastIdx], { atBoundary: lastIdx === 0 && pendingBoundary });
+      if (header) headerIdx = lastIdx;
+      else if (pending.length > 1) {
+        header = headerSplit(pending[0], { atBoundary: pendingBoundary });
+        if (header) headerIdx = 0;
+      }
+      if (header && header.label.length > 2) {
+        label = header.label;
+        note = [header.note, ...pending.slice(headerIdx + 1)].filter(Boolean).join(" ").trim();
+        pending = pending.slice(0, headerIdx); // earlier lines stay with the previous item
+      }
+    }
+    // Whatever the buffer wasn't consumed as a header is review chatter for
+    // the previous item (the pre-2026-07-22 behavior for ALL buffered text).
+    flushPendingToNote();
+
     const item = {
       url: primary,
       label: label.length > 2 ? label : "",
-      note: "",
+      note,
       category: guessCategory(label),
       rawLine: line,
     };
     items.push(item);
     lastItem = item;
+    boundary = false;
   }
+  flushPendingToNote();
   return items;
 }
 
