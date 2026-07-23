@@ -11,7 +11,7 @@ Overwrite sections in place — this is current state, not a log.
 
 ---
 
-## 0. Haul-import session (2026-07-22, evening) — 6 commits, deployed
+## 0. Haul-import session (2026-07-22, evening) — 7 commits, deployed
 
 Kyle's bug report: pasting a r/FashionReps post (link or text) gave broken
 cards — every card wore the NEXT item's name/review ("the jeans are the
@@ -33,10 +33,11 @@ foams"). Root cause and fixes:
    (SSRF-guarded, reddit hosts only) and returns selftext for the client
    parser. Read failures toast "paste the post text instead" — never a
    silent one-card stash.
-3. **19bf18e — chart-vision committed.** Was live but untracked. Still
-   INERT in prod: **`ANTHROPIC_API_KEY` is not set on Netlify** — ask /
-   resolve / chart-vision all 500 on their LLM paths. Kyle must create a
-   key (console.anthropic.com) → `netlify env:set ANTHROPIC_API_KEY …`.
+3. **19bf18e — chart-vision committed.** Was live but untracked.
+   ~~`ANTHROPIC_API_KEY` is not set on Netlify~~ **CORRECTION (later that
+   night): the key IS set in the production context** — an earlier
+   `netlify env:list` only showed the dev context. The chart was missing
+   for a different reason; see item 5.
 4. **ed3c40d + 23b834a + 8dd2906 — reddit fn vs datacenter blocks.**
    Reddit 403s anonymous .json from Netlify IPs and soft-redirects share
    links to the subreddit homepage. Function now recovers the comments
@@ -47,12 +48,26 @@ foams"). Root cause and fixes:
    reddit.com/prefs/apps (no redirect URI) and set the two env vars.**
    Until then haul-from-LINK toasts the paste-text fallback;
    haul-from-TEXT works fully today.
+5. **7c033a1 — chart-vision referer fix (sizing chart NOW WORKS live).**
+   Root cause of "still missing the sizing chart": photo.yupoo.com
+   (Alibaba CDN) answers **567 text/html** unless the referer looks like
+   a yupoo album page. The function sent an iPhone UA +
+   `referer: https://yupoo.com/` → every photo fetch died → "Could not
+   fetch any album photos". Verified live: album-page referer → 200
+   image/jpeg with either UA; yupoo.com referer or none → 567. Fix:
+   UA + accept now match preview.js (which always worked), the client
+   passes the album URL as `referer`, and the function derives
+   `https://<seller>.x.yupoo.com/` from photo paths as a fallback (CDN
+   accepts any *.x.yupoo.com referer). Live probe on the mook album
+   returned `found:true` with a real transcribed chart (S–XL, 胸围/衣长/袖长).
+   **Note: `ANTHROPIC_API_KEY` was pasted into chat in an earlier
+   session — rotate it (console.anthropic.com → `netlify env:set`).**
 - **Agent intel (Kyle, 2026-07-22):** Superbuy intermittently answers
   "Request too often" / "item information capture failed" on THEIR side
   (our wrap is fine — retry later); Sugargoo still login-walled; Fansbuy
   + Kakobuy confirmed working. No code change: Buy already fails open to
   the canonical link, and Direct opens originals.
-- 165/165 tests, typecheck + build clean, lint at baseline (no new
+- 167/167 tests, typecheck + build clean, lint at baseline (no new
   errors). Revert: `git reset --hard checkpoint-2026-07-22-prehaulfix`
   (then redeploy) or Netlify deploy rollback.
 
