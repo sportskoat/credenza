@@ -10,8 +10,11 @@
 // chart → recommendation pipeline picks it up unchanged.
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+// Same identity as preview.js — the Alibaba CDN behind photo.yupoo.com answers
+// 567 text/html to curl-like clients and to requests whose referer is not a
+// yupoo album page (verified 2026-07-22).
 const UA =
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 CredenzaPreview/1.0";
 const TIMEOUT_MS = 25000;
 const MAX_IMAGES = 10;
 const MAX_IMAGE_BYTES = 4.5 * 1024 * 1024; // Claude per-image cap is 5MB
@@ -32,14 +35,39 @@ function safeImageUrl(raw) {
   return u.toString();
 }
 
-// Yupoo serves photo.yupoo.com images to any referer, but sending the album
-// domain keeps other CDNs happy too. Returns { base64, mediaType } or null.
-async function fetchImage(url, signal) {
+function safeReferer(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  let u;
   try {
-    const res = await fetch(url, {
-      headers: { "user-agent": UA, referer: "https://yupoo.com/", accept: "image/*" },
-      signal,
-    });
+    u = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+  return u.toString();
+}
+
+// The CDN only checks that the referer LOOKS like a yupoo album page — any
+// *.x.yupoo.com referer passes, even for another seller's photos. When the
+// client did not send the album URL, derive one from the image path:
+// photo.yupoo.com/<seller>/... → https://<seller>.x.yupoo.com/.
+function fallbackReferer(imageUrls) {
+  for (const raw of imageUrls) {
+    const m = /^https?:\/\/photo\.yupoo\.com\/([\w-]+)\//i.exec(raw);
+    if (m) return "https://" + m[1].toLowerCase() + ".x.yupoo.com/";
+  }
+  return null;
+}
+
+// Returns { base64, mediaType } or null.
+async function fetchImage(url, referer, signal) {
+  try {
+    const headers = {
+      "user-agent": UA,
+      accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
+    };
+    if (referer) headers.referer = referer;
+    const res = await fetch(url, { headers, signal });
     if (!res.ok) return null;
     const mediaType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
     if (!/^image\/(jpeg|png|webp|gif)$/.test(mediaType)) return null;
@@ -133,11 +161,12 @@ exports.handler = async (event) => {
   const urls = Array.isArray(input && input.images) ? input.images : [];
   const imageUrls = [...new Set(urls.map(safeImageUrl).filter(Boolean))].slice(0, MAX_IMAGES);
   if (!imageUrls.length) return response(400, { error: "images must contain at least one http(s) URL" });
+  const referer = safeReferer(input && input.referer) || fallbackReferer(imageUrls);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const fetched = await Promise.all(imageUrls.map((u) => fetchImage(u, controller.signal)));
+    const fetched = await Promise.all(imageUrls.map((u) => fetchImage(u, referer, controller.signal)));
     const images = fetched.filter(Boolean);
     if (!images.length) return response(502, { error: "Could not fetch any album photos" });
 

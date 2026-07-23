@@ -93,4 +93,45 @@ describe("chart-vision function", () => {
     const res = await handler(post());
     expect(res.statusCode).toBe(502);
   });
+
+  it("sends the album page as referer when the client provides one", async () => {
+    // The yupoo photo CDN 567-blocks requests whose referer is not an album
+    // page — this header is what makes the whole function work live.
+    let photoHeaders = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      if (url === IMG) {
+        photoHeaders = (opts && opts.headers) || {};
+        return {
+          ok: true,
+          headers: { get: () => "image/jpeg" },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        };
+      }
+      return anthropicOk({ found: false, chartText: "" });
+    });
+    const req = post();
+    req.body = JSON.stringify({ images: [IMG], referer: "https://seller.x.yupoo.com/albums/123?uid=1" });
+    const res = await handler(req);
+    expect(res.statusCode).toBe(200);
+    expect(photoHeaders.referer).toBe("https://seller.x.yupoo.com/albums/123?uid=1");
+    expect(photoHeaders["user-agent"]).toContain("CredenzaPreview/1.0");
+  });
+
+  it("derives a seller-subdomain referer from photo.yupoo.com paths", async () => {
+    let photoHeaders = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      if (url === IMG) {
+        photoHeaders = (opts && opts.headers) || {};
+        return {
+          ok: true,
+          headers: { get: () => "image/jpeg" },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        };
+      }
+      return anthropicOk({ found: false, chartText: "" });
+    });
+    const res = await handler(post());
+    expect(res.statusCode).toBe(200);
+    expect(photoHeaders.referer).toBe("https://seller.x.yupoo.com/");
+  });
 });

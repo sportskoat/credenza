@@ -1987,7 +1987,9 @@ async function fetchYupooImages(albumUrl, { signal } = {}) {
 // common Yupoo case where the chart exists only as a picture (Kyle's "the
 // chart is right there in the photos" report, 2026-07-22). Returns chart text
 // in the same format parseSizeChart reads, or null when nothing was found.
-async function fetchChartFromPhotos(imageUrls, { signal } = {}) {
+// `referer` should be the album page URL: the photo CDN rejects requests
+// whose referer is not a yupoo album page.
+async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) {
   if (!PREVIEW_SECRET) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
   const controller = new AbortController();
@@ -2001,7 +2003,7 @@ async function fetchChartFromPhotos(imageUrls, { signal } = {}) {
     const res = await fetch(CHART_VISION_ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
-      body: JSON.stringify({ images: imageUrls }),
+      body: JSON.stringify({ images: imageUrls, ...(referer ? { referer } : {}) }),
       signal: controller.signal,
     });
     if (!res.ok) return null;
@@ -4651,7 +4653,7 @@ function SizeRecommendation({ item, bodyProfile, units = "cm", sizeActive = fals
       const photos = (data && data.images) || [];
       if (!photos.length) return;
       // Charts are usually posted near the end of the album — tail-bias.
-      const chartText = await fetchChartFromPhotos(photos.slice(-10));
+      const chartText = await fetchChartFromPhotos(photos.slice(-10), { referer: album });
       if (!cancelled && chartText && parseSizeChart(chartText)) {
         onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText });
       }
