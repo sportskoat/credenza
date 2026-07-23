@@ -62,11 +62,17 @@ async function resolveRedditUrl(startUrl, signal) {
     if (!redditHost(u.hostname)) return null;
     const selfPath = commentsPath(u.toString());
     if (selfPath) discoveredPath = selfPath;
-    const res = await fetch(u.toString(), {
-      redirect: "manual",
-      headers: { "user-agent": UA, accept: "text/html,application/json" },
-      signal,
-    });
+    // OAuth, when configured, rides along on every hop: reddit serves real
+    // redirects to API clients and block pages to anonymous datacenter IPs.
+    const headers = { "user-agent": UA, accept: "text/html,application/json" };
+    const token = await redditToken(signal).catch(() => null);
+    if (token) {
+      headers.authorization = "Bearer " + token;
+      if (/(^|\.)reddit\.com$/i.test(u.hostname) && u.hostname !== "oauth.reddit.com") {
+        u.hostname = "oauth.reddit.com";
+      }
+    }
+    const res = await fetch(u.toString(), { redirect: "manual", headers, signal });
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get("location");
       if (!loc) return null;
