@@ -62,36 +62,51 @@ if (await carouselBtn.count()) {
   console.log("carousel toggle not found");
 }
 
-// 4. Back to grid, then Import / Agent via ⋯ menu (dock is Stash + More only).
+// 4. Back to grid, then the new PR3 surfaces: capture sheet from the Stash
+//    pill, Import via the profile sheet, Agent from the bar button.
 const cardBtn = page.getByRole("button", { name: "Card view" });
 if (await cardBtn.count()) await cardBtn.first().click({ force: true });
 await page.waitForTimeout(800);
-const moreBtn = page.getByRole("button", { name: "More" });
-if (await moreBtn.count()) {
-  await moreBtn.first().click({ force: true });
-  await page.waitForTimeout(300);
-  const importBtn = page.getByRole("menuitem", { name: "Import" });
+
+const stashBtn = page.getByRole("button", { name: "Open the capture sheet" });
+if (await stashBtn.count()) {
+  await stashBtn.first().click({ force: true });
+  await page.waitForTimeout(900);
+  await shot("04-capture-sheet.png");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(600);
+} else {
+  console.log("stash-open button not found");
+}
+
+const profileBtn = page.getByRole("button", { name: "Profile" });
+if (await profileBtn.count()) {
+  await profileBtn.first().click({ force: true });
+  await page.waitForTimeout(900);
+  await shot("05-profile-sheet.png");
+  const importBtn = page.getByRole("button", { name: /Import & backup/ });
   if (await importBtn.count()) {
     await importBtn.first().click({ force: true });
     await page.waitForTimeout(1200);
-    await shot("04-import-sheet.png");
+    await shot("06-import-sheet.png");
     await page.keyboard.press("Escape");
     await page.waitForTimeout(600);
   } else {
-    console.log("import menuitem not found");
-  }
-  await moreBtn.first().click({ force: true }).catch(() => {});
-  await page.waitForTimeout(200);
-  const agentBtn = page.getByRole("menuitem", { name: /^Agent/ });
-  if (await agentBtn.count()) {
-    await agentBtn.first().click({ force: true });
-    await page.waitForTimeout(1200);
-    await shot("05-agent-sheet.png");
-  } else {
-    console.log("agent menuitem not found");
+    console.log("import row not found");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(600);
   }
 } else {
-  console.log("More button not found");
+  console.log("profile button not found");
+}
+
+const agentBtn = page.getByRole("button", { name: /Agent: / });
+if (await agentBtn.count()) {
+  await agentBtn.first().click({ force: true });
+  await page.waitForTimeout(1200);
+  await shot("07-agent-sheet.png");
+} else {
+  console.log("agent button not found");
 }
 
 await browser.close();

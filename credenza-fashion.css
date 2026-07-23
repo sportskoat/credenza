@@ -300,10 +300,7 @@
 }
 
 /* Fashion: keep shared .cz-bottom-bar-inner safe-area padding from credenza.css;
-   just ensure a comfortable tap row height. */
-.cz-app[data-fashion="true"] .cz-bottom-bar-inner {
-  min-height: 52px;
-}
+   the capture-bar block below sets the 58px tap row + PR3 padding. */
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    ═══ CAROUSEL VIEW ═══
@@ -5110,58 +5107,346 @@ a.cz-card-seller:hover {
   color: var(--cz-ink);
 }
 
-/* Bottom ⋯ menu — Agent + Import live here so the dock stays Stash + More. */
-.cz-bar-menu {
-  position: absolute;
+/* ─── Capture bar + profile (design handoff PR3) ───────────────────────────
+   Mobile: clipboard split pill (review | 1-tap Stash) or a ＋ Stash pill,
+   plus the Agent button. Desktop: inline paste field. Bar height 58px, pill
+   radius 17px, gap 10px, bottom padding 16px + safe area. */
+
+.cz-app[data-fashion="true"] > .cz-bottom-bar {
+  position: fixed;
+  left: 0;
   right: 0;
-  bottom: calc(100% + 10px);
-  z-index: 31;
-  min-width: 196px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: var(--cz-card-solid);
-  border: 1px solid var(--cz-hair-strong);
-  border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  bottom: 0;
+  z-index: 30;
 }
-.cz-bar-menu-item {
+
+.cz-app[data-fashion="true"] .cz-bottom-bar-inner {
+  min-height: 58px;
+  gap: 10px;
+  padding: 10px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Mobile variant is the default; CSS swaps to the desk row ≥768px. */
+.cz-bar-mobile {
   display: flex;
   align-items: center;
+  gap: 10px;
   width: 100%;
-  margin: 0;
-  padding: 10px 12px;
+}
+.cz-bar-desk {
+  display: none;
+}
+@media (min-width: 768px) {
+  .cz-bar-mobile {
+    display: none;
+  }
+  .cz-bar-desk {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+}
+
+/* Clipboard split pill — left review region, right 1-tap Stash. */
+.cz-clip-pill {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  height: 58px;
+  border-radius: 17px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  overflow: hidden;
+}
+.cz-clip-review {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 10px;
   background: transparent;
-  color: var(--cz-ink);
+  color: inherit;
   font: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
-.cz-bar-menu-item:hover,
-.cz-bar-menu-item:focus-visible {
-  background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
-  outline: none;
-}
-.cz-bar-menu-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  padding: 6px 12px 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--cz-sub);
-}
-.cz-bar-menu-dot {
-  width: 6px;
-  height: 6px;
+.cz-clip-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+.cz-clip-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cz-clip-platform {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+.cz-clip-host {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cz-clip-stash {
+  flex-shrink: 0;
+  padding: 0 18px;
+  border: 0;
+  border-left: 1px solid var(--cz-action-text-divider);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cz-clip-stash:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Empty-clipboard state: single full-width capture-sheet opener. */
+.cz-stash-open {
+  flex: 1;
+  min-width: 0;
+  height: 58px;
+  border: 0;
+  border-radius: 17px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cz-stash-open:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Agent stays a secondary button in the bar (money path). */
+.cz-bar-agent {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  height: 58px;
+  padding: 0 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 17px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.cz-bar-agent-kicker {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-bar-agent-name {
+  max-width: 96px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Desktop: quiet inline paste field in the bar. */
+.cz-bar-desk-input {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 13px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 14px;
+}
+.cz-bar-desk-input::placeholder {
+  color: var(--cz-faint);
+}
+.cz-bar-desk-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--cz-ink) 35%, transparent);
+  outline-offset: 1px;
+}
+.cz-bar-desk .cz-bar-agent {
+  height: 46px;
+  border-radius: 13px;
+}
+
+/* Masthead avatar — opens the profile sheet. */
+.cz-avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cz-hair);
+  border-radius: 50%;
+  background: var(--cz-card-solid);
+  color: var(--cz-sub);
+  cursor: pointer;
+}
+.cz-avatar:hover {
+  color: var(--cz-ink);
+}
+
+/* Profile sheet rows. */
+.cz-profile {
+  padding: 16px 20px 20px;
+}
+.cz-profile-signin {
+  padding: 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-bg);
+}
+.cz-profile-signin-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+.cz-profile-signin-sub {
+  margin: 4px 0 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+.cz-profile-label {
+  margin: 18px 0 8px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-profile-themes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.cz-profile-theme {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 13px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cz-profile-theme.is-active {
+  border-color: var(--cz-ink);
+}
+.cz-profile-theme-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.cz-profile-theme-check {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+.cz-profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--cz-hair);
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+.cz-profile-row.is-static {
+  cursor: default;
+}
+.cz-profile-row-val {
+  font-size: 13px;
+  color: var(--cz-sub);
+}
+.cz-profile-storage {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.cz-profile-storage-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Capture sheet extras. */
+.cz-capture-clip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: var(--cz-seg);
+}
+.cz-capture-clip-text {
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--cz-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cz-capture-sheet-input {
+  width: 100%;
+  margin-top: 12px;
+}
+.cz-capture-sheet-links {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 14px;
+}
+.cz-capture-sheet-links button {
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cz-capture-sheet-links button:hover {
+  color: var(--cz-ink);
 }
 
 /* While the full-screen photo gallery is open, hide the solo-overlay ✕ so

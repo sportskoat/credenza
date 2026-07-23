@@ -399,16 +399,14 @@ describe("Fashion morph controls and favorites", () => {
     });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
-    // Theme lives in the bottom bar's ⋯ overflow now (mobile audit C4).
-    const more = await screen.findByRole("button", { name: "More" });
-    await user.click(more);
-    const theme = await screen.findByRole("button", { name: "Switch to rainbow theme" });
-    expect(theme).toHaveTextContent("Theme");
-    await user.click(theme);
+    // Theme lives in the profile sheet now (design handoff PR3).
+    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    const blackout = await screen.findByRole("button", { name: /Blackout/ });
+    expect(blackout).toHaveAttribute("aria-pressed", "false");
+    await user.click(blackout);
     expect(container.querySelector(".cz-app")).toHaveAttribute("data-theme", "rainbow");
-    expect(theme).toHaveAccessibleName("Switch to light theme");
     await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).theme).toBe("rainbow"));
-    await user.click(theme);
+    await user.click(screen.getByRole("button", { name: /Gallery/ }));
     expect(container.querySelector(".cz-app")).toHaveAttribute("data-theme", "light");
   });
 
@@ -489,8 +487,9 @@ describe("Agent Buy plumbing (A2)", () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    await user.click(await screen.findByRole("button", { name: "More" }));
-    await user.click(await screen.findByRole("menuitem", { name: /Agent/ }));
+    // The Agent sheet opens straight from the bottom bar (design handoff PR3).
+    // (Mobile + desktop bar variants both render; CSS hides one per viewport.)
+    await user.click((await screen.findAllByRole("button", { name: /Agent: / }))[0]);
     expect(await screen.findByRole("heading", { name: "Buying agent" })).toBeInTheDocument();
     expect(screen.getByText(/Disclosure:/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Sugargoo/ }));
@@ -546,8 +545,9 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "More" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Import" }));
+    // Import lives in the profile sheet now (design handoff PR3).
+    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
     fireEvent.change(box, { target: { value: HAUL } });
 
@@ -590,7 +590,8 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
 
     const group = await screen.findByRole("group", { name: "Stash mode" });
     expect(group).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Paste a link or note…")).toBeInTheDocument();
+    // The desk bar input shares this placeholder; [0] is the top capture box.
+    expect(screen.getAllByPlaceholderText("Paste a link or note…")[0]).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Reddit haul" }));
     expect(screen.getByPlaceholderText("Paste a Reddit post link or haul text…")).toBeInTheDocument();
@@ -639,7 +640,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    const box = await screen.findByPlaceholderText("Paste a link or note…");
+    const box = (await screen.findAllByPlaceholderText("Paste a link or note…"))[0];
     fireEvent.change(box, {
       target: { value: "https://www.reddit.com/r/FashionReps/comments/1v3fupe/in_hand_review/" },
     });

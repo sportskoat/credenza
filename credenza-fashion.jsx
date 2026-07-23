@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Heart, Moon, MoreHorizontal, Pen, Plus, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Heart, MoreHorizontal, Pen, Plus, RefreshCw, Search, Trash2, User, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -58,6 +58,7 @@ const PALETTES = {
     "--cz-favorite": "#17181a",
     "--cz-action-fill": "#17181a",
     "--cz-action-text": "#F4F4F0",
+    "--cz-action-text-divider": "rgba(244, 244, 240, 0.22)",
     "--cz-action-muted-bg": "rgba(23, 24, 26, 0.92)",
     "--cz-action-muted-text": "#F4F4F0",
     "--cz-focus": "#17181a",
@@ -94,6 +95,7 @@ const PALETTES = {
     // fill near-white with black text; floor per audit S2 table is 4.5:1).
     "--cz-action-fill": "#f5f5f7",
     "--cz-action-text": "#000000",
+    "--cz-action-text-divider": "rgba(0, 0, 0, 0.18)",
     "--cz-action-muted-bg": "rgba(245, 245, 247, 0.92)",
     "--cz-action-muted-text": "#1a1a1d",
     "--cz-focus": "#f5f5f7",
@@ -216,6 +218,15 @@ function itemUsdAmount(item) {
   return null;
 }
 
+// Primary price currency (settings-toggles.md #1, design handoff PR3 profile
+// sheet): display ORDER only — stored item fields never change. The app root
+// syncs this from credenza-prefs-v1; the USD default keeps tests and any
+// non-app caller unchanged.
+let PRICE_PRIMARY = "USD";
+function setPricePrimaryPref(v) {
+  PRICE_PRIMARY = v === "CNY" ? "CNY" : "USD";
+}
+
 function priceLabel(item) {
   if (item.price == null && item.priceUsd == null) return "";
   const currency = item.currency || "CNY";
@@ -223,11 +234,12 @@ function priceLabel(item) {
   const cny =
     currency === "CNY" && item.price != null && isFinite(item.price) ? item.price : null;
 
-  if (usd != null) {
-    let out = formatMoney(usd, "USD");
-    if (cny != null) out += " · " + formatMoney(cny, "CNY");
-    return out;
+  if (usd != null && cny != null) {
+    return PRICE_PRIMARY === "CNY"
+      ? formatMoney(cny, "CNY") + " · " + formatMoney(usd, "USD")
+      : formatMoney(usd, "USD") + " · " + formatMoney(cny, "CNY");
   }
+  if (usd != null) return formatMoney(usd, "USD");
   if (cny != null) return formatMoney(cny, "CNY");
   if (item.price != null) return formatMoney(item.price, currency);
   return "";
@@ -1194,6 +1206,50 @@ function clipboardImageFile(e) {
     if (it.kind === "file" && /^image\//.test(it.type)) return it.getAsFile();
   }
   return null;
+}
+
+// Clipboard-detected capture bar (design handoff PR3): describe what the
+// clipboard holds so the bottom bar can show "CLIPBOARD · {platform} / {host}"
+// before any tap. Link pastes get a platform dot + host; plain text gets a
+// Note preview of the first line. null = nothing usable on the clipboard.
+const CLIP_PLATFORMS = [
+  [/weidian/i, "Weidian", "#ff5a3c"],
+  [/yupoo/i, "Yupoo", "#37b24d"],
+  [/taobao|tmall/i, "Taobao", "#ff6a00"],
+  [/reddit/i, "Reddit", "#ff4500"],
+  [/superbuy/i, "Superbuy", "#5b8def"],
+  [/sugargoo/i, "Sugargoo", "#f7b500"],
+  [/kakobuy/i, "Kakobuy", "#8a5cf6"],
+];
+function clipboardPreviewFor(raw) {
+  const text = (raw || "").trim();
+  if (!text) return null;
+  const m = /https?:\/\/[^\s]+/i.exec(text);
+  let host = "";
+  if (m) {
+    try {
+      host = new URL(m[0]).hostname.replace(/^www\./, "");
+    } catch {
+      host = "";
+    }
+  }
+  if (!host) {
+    const first = text.split("\n")[0].trim();
+    if (!first) return null;
+    return {
+      text,
+      platform: "Note",
+      host: first.length > 42 ? first.slice(0, 42) + "…" : first,
+      dot: "var(--cz-faint)",
+    };
+  }
+  const hit = CLIP_PLATFORMS.find(([re]) => re.test(host));
+  return {
+    text,
+    platform: hit ? hit[1] : "Link",
+    host,
+    dot: hit ? hit[2] : "var(--cz-faint)",
+  };
 }
 
 // Item factory. Local enrichment happens at creation — the card is usable instantly.
@@ -2647,6 +2703,216 @@ function CapturePill({
         </AnimatePresence>
       </span>
     </motion.button>
+  );
+}
+
+// Stash mode (Kyle 2026-07-22): the same paste makes one card from a link,
+// N cards from a Reddit haul, or a plain note. Shared by the empty-state
+// capture block and the capture sheet (design handoff PR3).
+const STASH_MODES = [
+  ["link", "Link", "One card from a link or short paste"],
+  ["haul", "Reddit haul", "One card per item from a Reddit post link or pasted haul"],
+  ["note", "Note", "Keep the paste as a plain note"],
+];
+function StashModeRow({ stashMode, onChange, disabled = false }) {
+  return (
+    <div className="cz-stashmode" role="group" aria-label="Stash mode">
+      {STASH_MODES.map(([id, label, hint]) => (
+        <button
+          key={id}
+          type="button"
+          className={"cz-stashmode-btn" + (stashMode === id ? " is-active" : "")}
+          aria-pressed={stashMode === id}
+          title={hint}
+          disabled={disabled}
+          onClick={() => onChange(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Capture sheet (design handoff PR3): the review surface behind the bottom
+// bar's Stash pill and clipboard chip. Owns the stash-mode row and the paste
+// box while a stocked shelf keeps its first screen for cards.
+function CaptureSheet({
+  clip,
+  input,
+  onInput,
+  stashMode,
+  onStashMode,
+  canStashTab,
+  onStashTab,
+  onStash,
+  onImportReddit,
+  onClose,
+  textareaRef,
+}) {
+  useEffect(() => {
+    // ModalShell focuses its close button on mount; steal focus into the paste
+    // box a frame later so the sheet opens ready to type (on a phone this pops
+    // the keyboard — that is the point of a capture surface).
+    const id = requestAnimationFrame(() => {
+      if (textareaRef.current) textareaRef.current.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [textareaRef]);
+  return (
+    <ModalShell title="Stash to shelf" onClose={onClose} maxWidth={520}>
+      <div style={{ padding: "16px 20px 20px" }}>
+        {clip && (
+          <div className="cz-capture-clip">
+            <span className="cz-clip-dot" style={{ background: clip.dot }} aria-hidden="true" />
+            <span className="cz-capture-clip-text">Clipboard · {clip.host}</span>
+          </div>
+        )}
+        <StashModeRow stashMode={stashMode} onChange={onStashMode} />
+        <textarea
+          ref={textareaRef}
+          className="cz-capture cz-capture-sheet-input"
+          aria-label="Stash a link or note"
+          value={input}
+          onChange={(e) => onInput(e.target.value)}
+          onKeyDown={(e) => {
+            // Keep Stash keystrokes out of the window type-anywhere path.
+            e.stopPropagation();
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              onStash();
+            }
+          }}
+          placeholder={
+            stashMode === "haul"
+              ? "Paste a Reddit post link or haul text…"
+              : stashMode === "note"
+              ? "Write a note…"
+              : "Paste a link or note…"
+          }
+          rows={3}
+        />
+        <Pill
+          primary
+          style={{ width: "100%", minHeight: 52, borderRadius: 16, marginTop: 14 }}
+          onClick={onStash}
+        >
+          {input.trim() ? "Stash" : "Stash clipboard"}
+        </Pill>
+        <div className="cz-capture-sheet-links">
+          <button
+            type="button"
+            title="Focus the paste box, then ⌘V"
+            onClick={() => textareaRef.current && textareaRef.current.focus()}
+          >
+            Paste
+          </button>
+          <button type="button" onClick={onImportReddit}>
+            Import from Reddit
+          </button>
+          {canStashTab && (
+            <button type="button" onClick={onStashTab}>
+              Stash this tab
+            </button>
+          )}
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Profile sheet (design handoff PR3): account entry up top, then the settings
+// that used to crowd the bottom bar ⋯ menu — Theme, sizes, agent, currency,
+// import, storage. Sign-in has no account backend yet; the button says so in
+// a toast instead of faking a flow.
+function ProfileSheet({
+  mode,
+  onTheme,
+  agentLabel,
+  onOpenAgent,
+  pricePrimary,
+  onCycleCurrency,
+  onOpenSizes,
+  onOpenImport,
+  storageLabel,
+  storageColor,
+  onSignIn,
+  onClose,
+}) {
+  const themes = [
+    ["light", "Gallery", "#F4F4F0", "1px solid rgba(0,0,0,.12)"],
+    ["rainbow", "Blackout", "#000000", "1px solid rgba(255,255,255,.18)"],
+  ];
+  return (
+    <ModalShell title="Profile" onClose={onClose} maxWidth={440}>
+      <div className="cz-profile">
+        <div className="cz-profile-signin">
+          <div className="cz-profile-signin-title">Sign in to Credenza</div>
+          <div className="cz-profile-signin-sub">
+            Sync your shelf, sizes and agent across every device.
+          </div>
+          <Pill
+            primary
+            style={{ width: "100%", minHeight: 50, borderRadius: 15 }}
+            onClick={onSignIn}
+          >
+            Log in / Sign up
+          </Pill>
+        </div>
+        <div className="cz-profile-label">Theme</div>
+        <div className="cz-profile-themes">
+          {themes.map(([id, label, swatch, swatchBorder]) => {
+            const active = mode === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={"cz-profile-theme" + (active ? " is-active" : "")}
+                aria-pressed={active}
+                onClick={() => onTheme(id)}
+              >
+                <span
+                  className="cz-profile-theme-swatch"
+                  style={{ background: swatch, border: swatchBorder }}
+                  aria-hidden="true"
+                />
+                {label}
+                <span className="cz-profile-theme-check" aria-hidden="true">
+                  {active ? "✓" : ""}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <button type="button" className="cz-profile-row" onClick={onOpenSizes}>
+          <span>Your sizes</span>
+          <span className="cz-profile-row-val">Body profile ›</span>
+        </button>
+        <button type="button" className="cz-profile-row" onClick={onOpenAgent}>
+          <span>Default agent</span>
+          <span className="cz-profile-row-val">{agentLabel} ›</span>
+        </button>
+        <button type="button" className="cz-profile-row" onClick={onCycleCurrency}>
+          <span>Primary currency</span>
+          <span className="cz-profile-row-val">{pricePrimary} ›</span>
+        </button>
+        <button type="button" className="cz-profile-row" onClick={onOpenImport}>
+          <span>Import &amp; backup</span>
+          <span className="cz-profile-row-val">›</span>
+        </button>
+        <div className="cz-profile-row is-static">
+          <span>Storage</span>
+          <span className="cz-profile-row-val cz-profile-storage">
+            <span
+              className="cz-profile-storage-dot"
+              style={{ background: storageColor }}
+              aria-hidden="true"
+            />
+            {storageLabel}
+          </span>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -7399,14 +7665,28 @@ export default function Credenza() {
   // scroll position. Value is the tapped item's id (null = closed). The
   // toolbar's carousel view still swaps the whole surface with the full rack.
   const [carouselOverlay, setCarouselOverlay] = useState(null);
-  const [barMenuOpen, setBarMenuOpen] = useState(false);
+  // Design handoff PR3 (2026-07-23): the capture bar + profile own the old
+  // bottom-bar ⋯ menu's jobs. captureSheetOpen = the review surface behind
+  // the Stash pill; profileOpen = account/settings sheet from the masthead
+  // avatar; bodySheetOpen = the body-measurements form (renamed from
+  // profileSheetOpen — "profile" now means the account sheet).
+  const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  // Clipboard-detected split pill: null = show the plain ＋ Stash pill.
+  const [clipPreview, setClipPreview] = useState(null);
+  // Display order for dual-currency labels; synced into priceLabel's module
+  // reader below. Persisted in credenza-prefs-v1.
+  const [pricePrimary, setPricePrimary] = useState("USD");
+  useEffect(() => {
+    setPricePrimaryPref(pricePrimary);
+  }, [pricePrimary]);
   // Body measurements powering the card-back size pick; persisted in
   // credenza-prefs-v1. Null until the user fills the sheet once. Storage is
   // always cm/kg — measureUnits only controls display/input (default "in",
   // US). Charts are metric; conversion happens at the edges.
   const [bodyProfile, setBodyProfile] = useState(null);
   const [measureUnits, setMeasureUnits] = useState("in");
-  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+  const [bodySheetOpen, setBodySheetOpen] = useState(false);
   // Front-screen stash intent (Kyle 2026-07-22): "link" = one card per paste,
   // "haul" = Reddit post link or pasted haul text → one card per item,
   // "note" = always a single text card. Persisted in credenza-prefs-v1.
@@ -7458,6 +7738,11 @@ export default function Credenza() {
   }, []);
   const captureRef = useRef(null);
   const searchRef = useRef(null);
+  // Capture sheet's paste box (design handoff PR3). The top capture box only
+  // renders on the empty shelf; everywhere else capture focus means "open the
+  // sheet and focus its textarea".
+  const sheetCaptureRef = useRef(null);
+  const topCaptureVisibleRef = useRef(true);
   const askControllerRef = useRef(null);
   const kb = useRef({});
   const reduced = usePrefersReducedMotion();
@@ -7526,10 +7811,11 @@ export default function Credenza() {
             bodyProfile,
             measureUnits,
             stashMode,
+            pricePrimary,
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary]);
 
   useEffect(() => {
     loadStoredItems({
@@ -7618,6 +7904,7 @@ export default function Credenza() {
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
                   measureUnits: p.measureUnits === "cm" ? "cm" : "in",
                   stashMode: ["link", "haul", "note"].includes(p.stashMode) ? p.stashMode : "link",
+                  pricePrimary: p.pricePrimary === "CNY" ? "CNY" : "USD",
                 })
               )
               .catch(() => {});
@@ -7632,6 +7919,7 @@ export default function Credenza() {
           if (p.bodyProfile && typeof p.bodyProfile === "object") setBodyProfile(p.bodyProfile);
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
           if (["link", "haul", "note"].includes(p.stashMode)) setStashMode(p.stashMode);
+          if (p.pricePrimary === "CNY" || p.pricePrimary === "USD") setPricePrimary(p.pricePrimary);
         } catch (e) {}
       })
       .catch(() => {})
@@ -7768,7 +8056,7 @@ export default function Credenza() {
   // button, never a vague shrug.
   const stashClipboard = async () => {
     if (!navigator.clipboard || !navigator.clipboard.readText) {
-      captureRef.current && captureRef.current.focus();
+      focusCapture();
       flashImportResult("This browser can't share the clipboard here — paste with ⌘V instead.");
       return;
     }
@@ -7781,7 +8069,7 @@ export default function Credenza() {
         const p = await navigator.permissions.query({ name: "clipboard-read" });
         state = p.state;
       } catch (e2) {}
-      captureRef.current && captureRef.current.focus();
+      focusCapture();
       flashImportResult(
         state === "denied"
           ? "Clipboard access is turned off for this site — turn it on next to the address bar, or paste with ⌘V."
@@ -7799,6 +8087,52 @@ export default function Credenza() {
       flashImportResult("Stashed from the clipboard.");
     }
   };
+
+  // Capture focus router (design handoff PR3): the top capture box exists only
+  // on the empty shelf; on a stocked shelf "focus capture" means opening the
+  // capture sheet and focusing its paste box.
+  function focusCapture() {
+    if (topCaptureVisibleRef.current && captureRef.current) {
+      captureRef.current.focus();
+      return;
+    }
+    setCaptureSheetOpen(true);
+    requestAnimationFrame(() => {
+      if (sheetCaptureRef.current) sheetCaptureRef.current.focus();
+    });
+  }
+
+  // Clipboard-detected split pill (design handoff PR3): browsers only allow a
+  // SILENT clipboard read when the site already holds clipboard-read
+  // permission, so probe the permission first and never trigger a prompt from
+  // here. Granted → read on mount + window focus and show what the clipboard
+  // holds; anything else → the bar falls back to the plain ＋ Stash pill (a
+  // tap is a user gesture, which is allowed to prompt).
+  useEffect(() => {
+    if (!navigator.clipboard || !navigator.clipboard.readText) return;
+    let cancelled = false;
+    const probe = async () => {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const perm = await navigator.permissions.query({ name: "clipboard-read" });
+          if (perm && perm.state === "denied") {
+            if (!cancelled) setClipPreview(null);
+            return;
+          }
+        }
+        const text = await navigator.clipboard.readText();
+        if (!cancelled) setClipPreview(clipboardPreviewFor(text));
+      } catch {
+        if (!cancelled) setClipPreview(null);
+      }
+    };
+    probe();
+    window.addEventListener("focus", probe);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", probe);
+    };
+  }, []);
 
   // ————— Import: local parsing, local enrichment, dedupe against the shelf —————
   // Notifications own their timers so stale messages cannot dismiss newer ones.
@@ -8358,6 +8692,10 @@ export default function Credenza() {
     preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate || preferredAgentInfo.idUrlTemplate)
       ? "Buy via " + preferredAgentInfo.name
       : "Buy";
+  const agentBarLabel =
+    preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate || preferredAgentInfo.idUrlTemplate)
+      ? preferredAgentInfo.name
+      : "Direct";
 
   const undoRemoved = () => {
     const batch = [...undoBatchRef.current].sort((a, b) => a.index - b.index);
@@ -8866,6 +9204,7 @@ export default function Credenza() {
   attachImageRef.current = attachImage;
   const removeRef = useRef(remove);
   removeRef.current = remove;
+  topCaptureVisibleRef.current = items.length === 0;
   kb.current = {
     shelfItems: listItems,
     selectedId,
@@ -8874,6 +9213,9 @@ export default function Credenza() {
     items,
     importOpen,
     agentSheetOpen,
+    captureSheetOpen,
+    profileOpen,
+    bodySheetOpen,
     viewMode,
     view,
     activeHaul,
@@ -8903,14 +9245,30 @@ export default function Credenza() {
       if (document.querySelector("dialog[open]")) return;
       const ctx = kb.current;
       if (e.metaKey || e.ctrlKey) {
-        if (ctx.digest || ctx.importOpen || ctx.agentSheetOpen) return;
+        if (
+          ctx.digest ||
+          ctx.importOpen ||
+          ctx.agentSheetOpen ||
+          ctx.captureSheetOpen ||
+          ctx.profileOpen ||
+          ctx.bodySheetOpen
+        )
+          return;
         if (e.key === "k") {
           e.preventDefault();
           searchRef.current && searchRef.current.focus();
         }
         return;
       }
-      if (ctx.digest || ctx.importOpen || ctx.agentSheetOpen) return; // overlays handle their own keys
+      if (
+        ctx.digest ||
+        ctx.importOpen ||
+        ctx.agentSheetOpen ||
+        ctx.captureSheetOpen ||
+        ctx.profileOpen ||
+        ctx.bodySheetOpen
+      )
+        return; // overlays handle their own keys
       if (isTyping(e)) {
         if (e.key === "Escape" && document.activeElement) document.activeElement.blur();
         return;
@@ -9018,15 +9376,29 @@ export default function Credenza() {
         !e.altKey
       ) {
         setSelectedId(null);
-        const cap = captureRef.current;
-        if (cap) {
+        if (ctx.items.length === 0) {
+          const cap = captureRef.current;
           // Focus first so this key lands in Stash, not a second field.
-          cap.focus();
+          if (cap) cap.focus();
+          return;
         }
+        // Stocked shelf: the top capture field is hidden, so the key opens the
+        // capture sheet and lands in its textarea.
+        e.preventDefault();
+        setInput((v) => v + e.key);
+        setCaptureSheetOpen(true);
       }
     };
     const onPaste = (e) => {
-      if (kb.current.digest || kb.current.importOpen || kb.current.agentSheetOpen) return;
+      if (
+        kb.current.digest ||
+        kb.current.importOpen ||
+        kb.current.agentSheetOpen ||
+        kb.current.captureSheetOpen ||
+        kb.current.profileOpen ||
+        kb.current.bodySheetOpen
+      )
+        return;
       if (e.defaultPrevented) return; // card-level image paste already took it
       // Image on the clipboard + an expanded card → attach it there, even when
       // focus sits on the document (keyboard-driven expand).
@@ -9040,7 +9412,12 @@ export default function Credenza() {
       const text = e.clipboardData && e.clipboardData.getData("text");
       if (text && text.trim()) {
         setInput(text.trim());
-        captureRef.current && captureRef.current.focus();
+        if (kb.current.items.length === 0) {
+          captureRef.current && captureRef.current.focus();
+        } else {
+          // Top capture is hidden on a stocked shelf — review in the sheet.
+          setCaptureSheetOpen(true);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -9454,13 +9831,68 @@ export default function Credenza() {
         />
       )}
 
-      {profileSheetOpen && (
+      {bodySheetOpen && (
         <BodyProfileSheet
           value={bodyProfile}
           units={measureUnits}
           onSave={setBodyProfile}
           onChangeUnits={setMeasureUnits}
-          onClose={() => setProfileSheetOpen(false)}
+          onClose={() => setBodySheetOpen(false)}
+        />
+      )}
+
+      {captureSheetOpen && (
+        <CaptureSheet
+          clip={clipPreview}
+          input={input}
+          onInput={setInput}
+          stashMode={stashMode}
+          onStashMode={setStashMode}
+          canStashTab={canStashTab}
+          onStashTab={stashCurrentTab}
+          onStash={() => {
+            if (input.trim()) {
+              capture();
+              setCaptureSheetOpen(false);
+              return;
+            }
+            stashClipboard();
+          }}
+          onImportReddit={() => {
+            // Haul mode inside the sheet — the user pastes the post next.
+            setStashMode("haul");
+            if (sheetCaptureRef.current) sheetCaptureRef.current.focus();
+          }}
+          onClose={() => setCaptureSheetOpen(false)}
+          textareaRef={sheetCaptureRef}
+        />
+      )}
+
+      {profileOpen && (
+        <ProfileSheet
+          mode={mode}
+          onTheme={setTheme}
+          agentLabel={agentBarLabel}
+          onOpenAgent={() => {
+            setProfileOpen(false);
+            setAgentSheetOpen(true);
+          }}
+          pricePrimary={pricePrimary}
+          onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+          onOpenSizes={() => {
+            setProfileOpen(false);
+            setBodySheetOpen(true);
+          }}
+          onOpenImport={() => {
+            setProfileOpen(false);
+            setImportOpen(true);
+          }}
+          storageLabel={localStatus.label}
+          storageColor={localStatus.color}
+          onSignIn={() =>
+            notify("Sign-in is coming soon. Your shelf already syncs to this device.")
+          }
+          onClose={() => setProfileOpen(false)}
         />
       )}
 
@@ -9530,6 +9962,15 @@ export default function Credenza() {
               <span className="cz-brand-sub">Fashion</span>
             </span>
           </div>
+          <button
+            type="button"
+            className="cz-avatar"
+            aria-label="Profile"
+            title="Profile"
+            onClick={() => setProfileOpen(true)}
+          >
+            <User size={17} strokeWidth={2.2} aria-hidden="true" />
+          </button>
         </div>
 
         {/* The full hero is the empty-shelf welcome; a stocked shelf is a daily
@@ -9545,67 +9986,55 @@ export default function Credenza() {
         )}
 
         {/* Stash mode (Kyle 2026-07-22): the same paste box makes one card
-            from a link, N cards from a Reddit haul, or a plain note. */}
-        <div className="cz-stashmode" role="group" aria-label="Stash mode">
-          {[
-            ["link", "Link", "One card from a link or short paste"],
-            ["haul", "Reddit haul", "One card per item from a Reddit post link or pasted haul"],
-            ["note", "Note", "Keep the paste as a plain note"],
-          ].map(([id, label, hint]) => (
-            <button
-              key={id}
-              type="button"
-              className={"cz-stashmode-btn" + (stashMode === id ? " is-active" : "")}
-              aria-pressed={stashMode === id}
-              title={hint}
-              disabled={interactionLocked}
-              onClick={() => setStashMode(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+            from a link, N cards from a Reddit haul, or a plain note. On a
+            stocked shelf the top capture hides — capture moves to the bottom
+            bar + sheet (design handoff PR3). */}
+        {items.length === 0 && (
+          <>
+            <StashModeRow stashMode={stashMode} onChange={setStashMode} disabled={interactionLocked} />
 
-        {/* Capture — rounded shell matching the search bar. */}
-        <div className="cz-capture-shell">
-          <textarea
-            ref={captureRef}
-            className="cz-capture"
-            aria-label="Stash a link or note"
-            disabled={interactionLocked}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-            }}
-            onKeyDown={(e) => {
-              // Keep Stash keystrokes out of the window type-anywhere path.
-              e.stopPropagation();
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                capture();
-                e.target.style.height = "auto";
-              }
-            }}
-            placeholder={
-              stashMode === "haul"
-                ? "Paste a Reddit post link or haul text…"
-                : stashMode === "note"
-                ? "Write a note…"
-                : "Paste a link or note…"
-            }
-            rows={1}
-          />
-          <CapturePill
-            hasInput={!!input.trim()}
-            canStashTab={canStashTab}
-            onCapture={capture}
-            onStashTab={stashCurrentTab}
-            onStashClipboard={stashClipboard}
-            disabled={interactionLocked}
-          />
-        </div>
+            {/* Capture — rounded shell matching the search bar. */}
+            <div className="cz-capture-shell">
+              <textarea
+                ref={captureRef}
+                className="cz-capture"
+                aria-label="Stash a link or note"
+                disabled={interactionLocked}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                }}
+                onKeyDown={(e) => {
+                  // Keep Stash keystrokes out of the window type-anywhere path.
+                  e.stopPropagation();
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    capture();
+                    e.target.style.height = "auto";
+                  }
+                }}
+                placeholder={
+                  stashMode === "haul"
+                    ? "Paste a Reddit post link or haul text…"
+                    : stashMode === "note"
+                    ? "Write a note…"
+                    : "Paste a link or note…"
+                }
+                rows={1}
+              />
+              <CapturePill
+                hasInput={!!input.trim()}
+                canStashTab={canStashTab}
+                onCapture={capture}
+                onStashTab={stashCurrentTab}
+                onStashClipboard={stashClipboard}
+                disabled={interactionLocked}
+              />
+            </div>
+          </>
+        )}
 
         {/* Search — quiet field; Clear morph only appears when there is text.
             Click anywhere on the shell focuses the input so type-anywhere
@@ -10057,103 +10486,108 @@ export default function Credenza() {
         </div>
       )}
 
-      {/* Fixed bottom bar — Stash + ⋯ only. Agent / Import / Theme / Body live in More. */}
-      <div
-        className="cz-bottom-bar"
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 30,
-          background: CARD,
-          borderTop: "1px solid " + HAIR,
-        }}
-      >
+      {/* Fixed bottom bar (design handoff PR3). Mobile: a clipboard-aware
+          split pill (review left, 1-tap Stash right) or a ＋ Stash pill that
+          opens the capture sheet, plus the Agent button. Desktop: the inline
+          paste field. Theme/profile/settings moved to the profile sheet — the
+          ⋯ menu is gone. All capture handlers are unchanged; only the
+          trigger UI is new. */}
+      <div className="cz-bottom-bar">
         <div className="cz-bottom-bar-inner">
-          <Pill
-            primary
-            onClick={() => {
-              // One-tap stash: capture box text if present, else clipboard.
-              if (input.trim()) {
-                capture();
-                return;
-              }
-              stashClipboard();
-            }}
-            title={input.trim() ? "Stash what's in the capture box" : "Stash from clipboard"}
-            aria-label={input.trim() ? "Stash" : "Stash clipboard"}
-          >
-            Stash
-          </Pill>
-          <span style={{ flex: 1 }} />
-          <div style={{ position: "relative" }}>
-            <Pill
-              subtle
-              aria-label="More"
-              aria-expanded={barMenuOpen}
-              onClick={() => setBarMenuOpen((v) => !v)}
-            >
-              ⋯
-            </Pill>
-            {barMenuOpen && (
-              <div className="cz-bar-menu" role="menu">
-                <MorphButton
-                  label="Theme"
-                  icon={Moon}
-                  activeIcon={Sun}
-                  onClick={() => setTheme(mode === "rainbow" ? "light" : "rainbow")}
-                  title={mode === "rainbow" ? "Switch to Gallery light" : "Switch to Blackout dark"}
-                  ariaLabel={mode === "rainbow" ? "Switch to light theme" : "Switch to rainbow theme"}
-                />
+          {/* Mobile variant (CSS hides it ≥768px). */}
+          <div className="cz-bar-mobile">
+            {clipPreview ? (
+              <div className="cz-clip-pill">
                 <button
                   type="button"
-                  className="cz-bar-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setBarMenuOpen(false);
-                    setProfileSheetOpen(true);
-                  }}
+                  className="cz-clip-review"
+                  onClick={() => setCaptureSheetOpen(true)}
+                  title="Review the clipboard in the capture sheet"
+                  aria-label={"Clipboard: " + clipPreview.host + ". Review in the capture sheet."}
                 >
-                  Body profile
+                  <span className="cz-clip-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
+                  <span className="cz-clip-text">
+                    <span className="cz-clip-platform">Clipboard · {clipPreview.platform}</span>
+                    <span className="cz-clip-host">{clipPreview.host}</span>
+                  </span>
                 </button>
                 <button
                   type="button"
-                  className="cz-bar-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setBarMenuOpen(false);
-                    setAgentSheetOpen(true);
-                  }}
+                  className="cz-clip-stash"
+                  disabled={interactionLocked}
+                  onClick={stashClipboard}
+                  title="Stash the clipboard in one tap"
+                  aria-label="Stash clipboard"
                 >
-                  {preferredAgentInfo &&
-                  (preferredAgentInfo.urlTemplate ||
-                    preferredAgentInfo.idPathTemplate ||
-                    preferredAgentInfo.idUrlTemplate)
-                    ? "Agent · " + preferredAgentInfo.name
-                    : "Agent · Direct"}
+                  Stash ↑
                 </button>
-                <button
-                  type="button"
-                  className="cz-bar-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setBarMenuOpen(false);
-                    setImportOpen(true);
-                  }}
-                >
-                  Import
-                </button>
-                <span className="cz-bar-menu-status" title={localStatus.label}>
-                  <span
-                    className="cz-bar-menu-dot"
-                    style={{ background: localStatus.color }}
-                    aria-hidden="true"
-                  />
-                  {localStatus.label}
-                </span>
               </div>
+            ) : (
+              <button
+                type="button"
+                className="cz-stash-open"
+                disabled={interactionLocked}
+                onClick={() => setCaptureSheetOpen(true)}
+                aria-label="Open the capture sheet"
+              >
+                ＋ Stash
+              </button>
             )}
+            <button
+              type="button"
+              className="cz-bar-agent"
+              onClick={() => setAgentSheetOpen(true)}
+              title="Choose your buy agent"
+              aria-label={"Agent: " + agentBarLabel}
+            >
+              <span className="cz-bar-agent-kicker">Agent</span>
+              <span className="cz-bar-agent-name">{agentBarLabel}</span>
+            </button>
+          </div>
+
+          {/* Desktop variant (CSS hides it ≤767px). */}
+          <div className="cz-bar-desk">
+            <input
+              className="cz-bar-desk-input"
+              type="text"
+              aria-label="Stash a link or note"
+              placeholder="Paste a link or note…"
+              disabled={interactionLocked}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  capture();
+                }
+              }}
+            />
+            <Pill
+              primary
+              onClick={() => {
+                // One-tap stash: field text if present, else clipboard.
+                if (input.trim()) {
+                  capture();
+                  return;
+                }
+                stashClipboard();
+              }}
+              title={input.trim() ? "Stash what's in the field" : "Stash from clipboard"}
+              aria-label={input.trim() ? "Stash" : "Stash clipboard"}
+            >
+              {input.trim() ? "Stash" : "Stash clipboard"}
+            </Pill>
+            <button
+              type="button"
+              className="cz-bar-agent"
+              onClick={() => setAgentSheetOpen(true)}
+              title="Choose your buy agent"
+              aria-label={"Agent: " + agentBarLabel}
+            >
+              <span className="cz-bar-agent-kicker">Agent</span>
+              <span className="cz-bar-agent-name">{agentBarLabel}</span>
+            </button>
           </div>
         </div>
       </div>
