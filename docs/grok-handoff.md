@@ -20,15 +20,19 @@ Vite app: `preview/`. Production: https://credenza-kyle.netlify.app
 ## 2. Current state — READ THIS FIRST
 
 - Branch: `mobile-form-loop`. All work happens here.
-- Two design packages are applied locally:
-  1. Earlier mobile flow PR1–PR5 (`6b67948`…`9f19af7`)
-  2. This pass: `~/Downloads/design_handoff_credenza` (desktop capture, editorial
-     cards, cleaner fit/status, progressive onboarding)
+- Design packages applied:
+  1. Mobile flow PR1–PR5 (`6b67948`…`9f19af7`) — deployed earlier
+  2. `design_handoff_credenza` desktop/editorial/onboarding — deployed `8c034f4`
+  3. Turn 4 (`design_handoff_credenza 2` §6b): status 4a/4b, category 4c,
+     fit 4d–4g — **LOCAL ONLY, not deployed**
+- Last prod: fit-prompt layout fix `f0b7857`. Turn 4 is ahead of prod.
 - **DO NOT deploy to Netlify.** Deploy only when Kyle says so:
-  `cd preview && npx netlify deploy --prod`
+  `cd preview && npx netlify deploy --prod --dir dist`
 - Repo has NO git remote. Commits are local only.
-- Tests: 172/172 pass. Typecheck clean. Lint: 12 errors, 69 warnings
-  (baseline was 12/67; do not grow errors).
+- Tests: 172/172 pass. Typecheck clean. Lint: 12 errors, ~70 warnings.
+- Body profile truth: `recommendSize` uses chest / waist|hip only. Height and
+  weight do not score. Usual size = rough fallback. Progressive ask is
+  category-dependent (tops chest, bottoms waist+inseam).
 - ASD-STE100 for all user-facing text (`~/.claude/CLAUDE.md`).
 
 ---
@@ -59,8 +63,9 @@ Search for the symbol name; line numbers drift.
 |---|---|
 | Desktop top capture | `cz-desk-capture`, `deskSearchMode` |
 | Mobile bottom bar | `cz-bottom-bar`, `cz-bar-mobile` |
-| Fit headline | `SizeRecommendation`, `cz-size-rec` |
-| Status stepper / underline | `StatusStepper`, `StatusUnderline`, `StatusChips` |
+| Fit 4d–4g | `SizeRecommendation`, `cz-fit4`, `cz-fit4-empty`, `cz-fit-prompt` |
+| Status 4a/4b | `StatusStage`, `StatusChips` mode=display |
+| Category 4c | `CategorySelect` |
 | Editorial grid card | `Card`, `cz-card-editorial` |
 | Fit prompt | `cz-fit-prompt` |
 | Intro | `cz-onboard`, `onboardingDone` pref |

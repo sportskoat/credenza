@@ -5,9 +5,37 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-23 (design_handoff_credenza DEPLOYED; AI chart-vision env fixed)
-**Branch:** `mobile-fix-loop`
-**Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-23 via CLI (`netlify deploy --prod --dir dist` from `preview/`). Env: `ANTHROPIC_API_KEY`, `CREDENZA_SEARCH_SECRET`, `VITE_CREDENZA_SEARCH_SECRET` (set this deploy so client can call chart-vision), `VITE_CREDENZA_REF_SUPERBUY`, `VITE_CREDENZA_REF_FANSBUY`. Tag `deploy-2026-07-23` → `8c034f4`. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
+**Last updated:** 2026-07-23 (design turn 4 status/category/fit 4a–4g LOCAL ONLY)
+**Branch:** `mobile-form-loop`
+**Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Last prod deploy still `f0b7857` fit-prompt layout fix. **Turn 4 (status/category/fit 4d–4g) is local only — DO NOT deploy until Kyle says so.** Repo has NO git remote.
+
+---
+
+## 0c. Design turn 4 — status / category / fit flow (2026-07-23) — LOCAL ONLY
+
+Spec: `~/Downloads/design_handoff_credenza 2/README.md` §6b + Card Mockups 4a–4g.
+Built on uncommitted 3b work + prior design package.
+
+Shipped this pass (uncommitted until commit):
+
+1. **Status 4a/4b.** Display = current stage (serif long label) + Change › +
+   4-stop human track (Want · Bought · Shipped · Received). Agent sub-states
+   map to Bought. Picker = grouped list (Ordering / At the agent / Shipping)
+   with full labels + hints (Quality check, Approved · green light, Red light).
+   Enum unchanged: want|bought|shipped|qc|gl|rl|returned.
+2. **Category 4c.** `CategorySelect` auto row + expandable chip list. Used on
+   card back + edit form. Kills lumpy SegmentedControl grid there.
+3. **Fit 4d–4g.** Honest states, no fabricated size:
+   - 4d empty: "Will it fit you?" + Add my size + Skip for now
+   - 4e rough: usual size + amber Rough estimate + tappable Add chest/waist
+   - 4f ask: category fields only (tops→chest, bottoms→waist+inseam) + usual
+   - 4g precise: green Precise fit + prose + You / Garment / Ease row
+4. **Body profile truth.** `recommendSize` uses chest (tops) / waist|hip
+   (bottoms). Height and weight do **not** score. Usual size is soft fallback
+   only. Full BodyProfileSheet still holds height/weight for later.
+
+Verify: 172/172 vitest, tsc clean, lint 12 err / 70 warn (baseline 12 err).
+**NOT deployed.**
 
 ---
 
@@ -32,8 +60,8 @@ Shipped this pass:
    status; Fit · auto block (read-only recommended size); photos after.
 5. **Progressive onboarding.** First-run intro (Get started / Log in) when
    prefs have no prior `onboardingDone`. Empty shelf capture after Get started.
-   Fit prompt on first fit open when no body profile: height / weight / usual
-   size + Save & see my fit / Skip. Usual size alone unlocks a first rec.
+   Fit prompt was height/weight/usual (wrong). Superseded by turn 4 (0c):
+   chest/waist by category + usual backup. Usual size alone = rough estimate.
 
 Prefs: `onboardingDone` in BOTH prefs paths (migrate rewrite + normal load).
 Session-only: `fitPromptSkipped`. Tests: empty-shelf stash tests dismiss intro.

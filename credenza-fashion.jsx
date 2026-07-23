@@ -3243,7 +3243,56 @@ function sourceLabel(item) {
 // detail sheet (audit C3). Status meanings per docs/Monetization.md §A3.
 // FIND_STATUSES itself lives in credenza-find-status.js (shared with the Ask
 // serializer); labels/colors are display-only and stay here.
-const FIND_STATUS_LABELS = { want: "Want", bought: "Bought", shipped: "Shipped", qc: "QC", gl: "GL", rl: "RL", returned: "Returned" };
+// Short labels stay for StatusPill / dense chips. Long labels power the 4a
+// stage + 4b grouped picker (no bare QC/GL/RL initials on the card back).
+const FIND_STATUS_LABELS = {
+  want: "Want",
+  bought: "Bought",
+  shipped: "Shipped",
+  qc: "QC",
+  gl: "GL",
+  rl: "RL",
+  returned: "Returned",
+};
+const FIND_STATUS_LONG = {
+  want: "Want",
+  bought: "Bought",
+  shipped: "Shipped",
+  qc: "Quality check",
+  gl: "Approved · green light",
+  rl: "Red light",
+  returned: "Returned",
+};
+const FIND_STATUS_HINTS = {
+  qc: "QC photos requested",
+  gl: "Cleared to ship",
+  rl: "Rejected — send back or keep",
+};
+// Human 4-stop track (design 4a). Agent sub-states map into Bought; returned
+// sits in the Received slot. Enum stays want|bought|shipped|qc|gl|rl|returned.
+const STATUS_TRACK = ["Want", "Bought", "Shipped", "Received"];
+function statusTrackIndex(status) {
+  switch (status) {
+    case "want":
+      return 0;
+    case "bought":
+    case "qc":
+    case "gl":
+    case "rl":
+      return 1;
+    case "shipped":
+      return 2;
+    case "returned":
+      return 3;
+    default:
+      return 0;
+  }
+}
+const FIND_STATUS_GROUPS = [
+  { title: "Ordering", keys: ["want", "bought"] },
+  { title: "At the agent", keys: ["qc", "gl", "rl"] },
+  { title: "Shipping", keys: ["shipped", "returned"] },
+];
 const FIND_STATUS_COLORS = {
   want: { bg: "oklch(0.35 0.02 280)", text: "oklch(0.85 0 0)", dot: "oklch(0.7 0.02 280)" },
   bought: { bg: "oklch(0.35 0.08 250)", text: "oklch(0.9 0.1 250)", dot: "oklch(0.65 0.14 250)" },
@@ -3253,9 +3302,8 @@ const FIND_STATUS_COLORS = {
   rl: { bg: "oklch(0.3 0.1 25)", text: "oklch(0.9 0.12 25)", dot: "oklch(0.65 0.18 25)" },
   returned: { bg: "oklch(0.32 0.06 55)", text: "oklch(0.9 0.08 55)", dot: "oklch(0.7 0.12 55)" },
 };
-// One segmented radiogroup for every chip-style picker — pipeline status,
-// category, unit toggles. Replaces the hand-rolled radiogroups that copied
-// this markup with inline styles (audit: 5 separate implementations).
+// One segmented radiogroup for every chip-style picker — unit toggles and
+// other compact radios. Category uses CategorySelect (design 4c).
 function SegmentedControl({ value, onChange, options, label, allowUnset = false }) {
   return (
     <div
@@ -3294,38 +3342,107 @@ function SegmentedControl({ value, onChange, options, label, allowUnset = false 
   );
 }
 
-// Design handoff: status display = order stepper (dots + connectors).
-// Current step is money-green with a soft halo. Past steps fill; future steps
-// stay hollow rings. Labels sit under each dot in sentence case (no mono).
-function StatusStepper({ value, onChange, label = "Status" }) {
+// Design handoff 4a: current stage (serif) + Change › + 4-stop human track.
+// Agent sub-states stay in the 4b picker only.
+function StatusStage({ value, onChange, label = "Status" }) {
+  const [open, setOpen] = useState(false);
   const current = value || "want";
-  const idx = Math.max(0, FIND_STATUSES.indexOf(current));
+  const trackIdx = statusTrackIndex(current);
+  const stageLabel = FIND_STATUS_LONG[current] || FIND_STATUS_LABELS[current] || current;
   return (
-    <div className="cz-status-stepper" role="radiogroup" aria-label={label}>
-      {FIND_STATUSES.map((s, i) => {
-        const state = i < idx ? "past" : i === idx ? "current" : "future";
-        return (
-          <Fragment key={s}>
-            {i > 0 && <span className={"cz-status-step-line is-" + state} aria-hidden="true" />}
-            <button
-              type="button"
-              role="radio"
-              aria-checked={i === idx}
-              className={"cz-status-step is-" + state}
-              onClick={() => onChange && onChange(s)}
-              disabled={!onChange}
+    <div className={"cz-status-stage" + (open ? " is-open" : "")}>
+      <div className="cz-status-stage-kicker">{label}</div>
+      <button
+        type="button"
+        className="cz-status-stage-current"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="cz-status-stage-left">
+          <span className="cz-status-stage-dot" aria-hidden="true" />
+          <span className="cz-status-stage-name">{stageLabel}</span>
+        </span>
+        <span className="cz-status-stage-change">
+          Change
+          <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" />
+        </span>
+      </button>
+      <div className="cz-status-track" aria-hidden="true">
+        <div className="cz-status-track-dots">
+          {STATUS_TRACK.map((name, i) => {
+            const state = i < trackIdx ? "past" : i === trackIdx ? "current" : "future";
+            return (
+              <Fragment key={name}>
+                {i > 0 && <span className={"cz-status-track-line is-" + state} />}
+                <span className={"cz-status-track-dot is-" + state} />
+              </Fragment>
+            );
+          })}
+        </div>
+        <div className="cz-status-track-labels">
+          {STATUS_TRACK.map((name, i) => (
+            <span
+              key={name}
+              className={
+                "cz-status-track-label" + (i === trackIdx ? " is-current" : "")
+              }
             >
-              <span className="cz-status-step-dot" aria-hidden="true" />
-              <span className="cz-status-step-label">{FIND_STATUS_LABELS[s]}</span>
-            </button>
-          </Fragment>
-        );
-      })}
+              {name}
+            </span>
+          ))}
+        </div>
+      </div>
+      {open && (
+        <div className="cz-status-picker" role="listbox" aria-label="Order status">
+          <div className="cz-status-picker-title">Order status</div>
+          {FIND_STATUS_GROUPS.map((group) => (
+            <div className="cz-status-picker-group" key={group.title}>
+              <div className="cz-status-picker-group-title">{group.title}</div>
+              {group.keys.map((s) => {
+                const active = current === s;
+                const hint = FIND_STATUS_HINTS[s];
+                return (
+                  <button
+                    type="button"
+                    key={s}
+                    role="option"
+                    aria-selected={active}
+                    className={
+                      "cz-status-picker-option" +
+                      (active ? " is-active" : "") +
+                      (hint ? " has-hint" : "")
+                    }
+                    onClick={() => {
+                      onChange && onChange(s);
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="cz-status-picker-option-dot" aria-hidden="true" />
+                    <span className="cz-status-picker-option-text">
+                      <span className="cz-status-picker-option-label">
+                        {FIND_STATUS_LONG[s] || FIND_STATUS_LABELS[s]}
+                      </span>
+                      {hint ? (
+                        <span className="cz-status-picker-option-hint">{hint}</span>
+                      ) : null}
+                    </span>
+                    {active ? (
+                      <Check size={16} strokeWidth={2.4} aria-hidden="true" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-// Design handoff: status edit = underline segment row (no pill fills).
+// Design handoff: status edit = underline segment row (no pill fills). Kept for
+// dense forms that still want a full-width strip.
 function StatusUnderline({ value, onChange, label = "Status" }) {
   const current = value || "want";
   return (
@@ -3349,13 +3466,69 @@ function StatusUnderline({ value, onChange, label = "Status" }) {
   );
 }
 
-// Shared status control. mode "edit" (default) = underline segments for forms.
-// mode "display" = order stepper for the card back.
-function StatusChips({ value, onChange, label = "Status", mode = "edit" }) {
-  if (mode === "display") {
-    return <StatusStepper value={value} onChange={onChange} label={label} />;
+// Shared status control.
+// mode "display" | default = design 4a stage + track + grouped picker.
+// mode "edit" = underline segments for dense forms.
+function StatusChips({ value, onChange, label = "Status", mode = "display" }) {
+  if (mode === "edit") {
+    return <StatusUnderline value={value} onChange={onChange} label={label} />;
   }
-  return <StatusUnderline value={value} onChange={onChange} label={label} />;
+  return <StatusStage value={value} onChange={onChange} label={label} />;
+}
+
+// Design 4c: one auto-detected category row. Tap expands a tidy chip list.
+function CategorySelect({ value, onChange, label = "Category", auto = true }) {
+  const [open, setOpen] = useState(false);
+  const current = value || "";
+  const currentLabel =
+    current && CATEGORIES[current] ? CATEGORIES[current].label : "Not set";
+  return (
+    <div className={"cz-cat-select" + (open ? " is-open" : "")}>
+      <div className="cz-cat-select-label">{label}</div>
+      <button
+        type="button"
+        className="cz-cat-select-row"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="cz-cat-select-value">
+          <span className="cz-cat-select-name">{currentLabel}</span>
+          {auto && current ? (
+            <span className="cz-cat-select-auto">auto</span>
+          ) : null}
+        </span>
+        <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="cz-cat-select-menu" role="listbox" aria-label={label}>
+          <div className="cz-cat-select-hint">Tap to change</div>
+          <div className="cz-cat-select-chips">
+            {Object.entries(CATEGORIES).map(([key, c]) => {
+              const active = current === key;
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  role="option"
+                  aria-selected={active}
+                  className={
+                    "cz-cat-select-chip" + (active ? " is-active" : "")
+                  }
+                  onClick={() => {
+                    onChange && onChange(key);
+                    setOpen(false);
+                  }}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ═══ SHARED CARD PRIMITIVES (standardization 2026-07-22, audit workstream A) ═══
@@ -4686,7 +4859,11 @@ function ItemEditForm({ item, ed, setEd, knownHauls, onAttachPhoto, onRemovePhot
         </div>
       </div>
       <div className="cz-status-edit-label">Status</div>
-      <StatusChips value={ed.findStatus || "want"} onChange={(s) => setEd({ ...ed, findStatus: s })} />
+      <StatusChips
+        mode="display"
+        value={ed.findStatus || "want"}
+        onChange={(s) => setEd({ ...ed, findStatus: s })}
+      />
       {recSize && (
         <div className="cz-fit-auto" aria-label="Fit auto">
           <div className="cz-fit-auto-kicker">Fit · auto</div>
@@ -4723,12 +4900,9 @@ function ItemEditForm({ item, ed, setEd, knownHauls, onAttachPhoto, onRemovePhot
           <Field label="Batch" value={ed.batch} onChange={(v) => setEd({ ...ed, batch: v })} placeholder="e.g., M Batch" />
         </div>
       </div>
-      <SegmentedControl
-        label="Category"
+      <CategorySelect
         value={ed.category}
-        allowUnset
         onChange={(v) => setEd({ ...ed, category: v })}
-        options={Object.entries(CATEGORIES).map(([value, c]) => ({ value, label: c.label }))}
       />
     </div>
   );
@@ -4984,9 +5158,39 @@ function SizeChartTable({ chart, units, highlight, highlightAlt }) {
 // session (one album-text attempt + one vision scan of the album photos).
 const chartAutoFetchTried = new Set();
 
-// Kyle 2026-07-22: "should just be a size recommendation" — NO buttons, no
-// empty states, no paste box. The box exists only when it has a pick. The
-// chart hunt runs silently in the background when the card back opens.
+// Measure fields the progressive fit ask needs for this category (design 4f).
+// Tops → chest. Bottoms → waist (+ inseam when useful). Fallback → chest + waist.
+function fitMeasureFieldsFor(category) {
+  if (category === "pants" || category === "shorts") {
+    return [
+      { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5" },
+      { key: "inseam", label: "Inseam", kind: "length", phCm: "81", phIn: "32" },
+    ];
+  }
+  if (category === "outerwear" || category === "shirt") {
+    return [
+      { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38" },
+    ];
+  }
+  return [
+    { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38" },
+    { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5" },
+  ];
+}
+
+function fitHasPreciseBody(bodyProfile, category) {
+  if (!bodyProfile) return false;
+  if (category === "pants" || category === "shorts") {
+    return bodyProfile.waist != null || bodyProfile.hip != null;
+  }
+  if (category === "outerwear" || category === "shirt") {
+    return bodyProfile.chest != null;
+  }
+  return bodyProfile.chest != null || bodyProfile.waist != null || bodyProfile.hip != null;
+}
+
+// Design 4d–4g fit flow. Honest confidence, never a dead end when a chart exists.
+// 4d nothing · 4e rough usual · 4f measure ask · 4g precise with you/garment/ease.
 function SizeRecommendation({
   item,
   bodyProfile,
@@ -4998,11 +5202,19 @@ function SizeRecommendation({
   onSkipFitPrompt,
 }) {
   const [chartOpen, setChartOpen] = useState(false);
-  const [fitDraft, setFitDraft] = useState({ height: "", weight: "", usualSize: "" });
+  const [askingMeasures, setAskingMeasures] = useState(false);
+  const measureFields = fitMeasureFieldsFor(item.category);
+  const [fitDraft, setFitDraft] = useState(() => {
+    const d = { usualSize: "" };
+    for (const f of measureFields) d[f.key] = "";
+    return d;
+  });
   const skipped = SIZE_PICK_SKIP_CATEGORIES.has(item.category);
   const chart = skipped ? null : parseSizeChart(sizeChartTextFor(item));
   const rec = chart && bodyProfile ? recommendSize(chart, bodyProfile, item.category) : null;
   const recSize = rec && rec.size ? rec.size : null;
+  const hasUsual = !!(bodyProfile && bodyProfile.usualSize);
+  const hasPrecise = fitHasPreciseBody(bodyProfile, item.category);
   // Persist the pick so every surface agrees with this box — meta chips and
   // edit form read item.recommendedSize. Guarded: one write when it changes.
   useEffect(() => {
@@ -5014,8 +5226,6 @@ function SizeRecommendation({
   // Silent chart hunt: album text first, then a vision scan of the album
   // PHOTOS (where Yupoo charts actually live). Found charts land in sizeNotes
   // and the pick simply appears — no "Find size chart" button anywhere.
-  // Body profile entry lives in the dock ⋯ menu; pasting a chart into Notes
-  // also works (sizeChartTextFor reads item.note).
   useEffect(() => {
     if (!sizeActive || skipped || chart) return;
     const album = yupooAlbumUrl(item);
@@ -5032,7 +5242,6 @@ function SizeRecommendation({
       }
       const photos = (data && data.images) || [];
       if (!photos.length) return;
-      // Charts are usually posted near the end of the album — tail-bias.
       const chartText = await fetchChartFromPhotos(photos.slice(-10), { referer: album });
       if (!cancelled && chartText && parseSizeChart(chartText)) {
         onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText });
@@ -5041,72 +5250,103 @@ function SizeRecommendation({
     return () => { cancelled = true; };
   }, [sizeActive, skipped, chart, item, onSaveEdit]);
 
+  // Prefill measure ask from the saved body profile when the sheet opens.
+  useEffect(() => {
+    if (!askingMeasures) return;
+    setFitDraft((prev) => {
+      const next = { ...prev };
+      if (bodyProfile && bodyProfile.usualSize && !next.usualSize) {
+        next.usualSize = String(bodyProfile.usualSize);
+      }
+      for (const f of measureFields) {
+        if (!next[f.key] && bodyProfile && bodyProfile[f.key] != null) {
+          next[f.key] = measureFromStorage(bodyProfile[f.key], units, f.kind);
+        }
+      }
+      return next;
+    });
+  }, [askingMeasures]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (skipped) return null;
 
-  // Progressive fit prompt (onboarding step 4): only when the user opens fit
-  // on an item, has a chart, and has not saved a body profile yet. Skip keeps
-  // the card useful — seller chart still works after they add notes later.
-  if (!bodyProfile && chart && sizeActive && !fitPromptSkipped && onSaveBodyProfile) {
-    const unitHint = units === "in" ? "in" : "cm";
-    const weightHint = units === "in" ? "lb" : "kg";
+  const unitHint = units === "in" ? "in" : "cm";
+  const catLabel =
+    item.category && CATEGORIES[item.category]
+      ? CATEGORIES[item.category].label.toLowerCase()
+      : "this item";
+
+  const openMeasureAsk = () => {
+    const next = { usualSize: (bodyProfile && bodyProfile.usualSize) || "" };
+    for (const f of measureFields) {
+      next[f.key] =
+        bodyProfile && bodyProfile[f.key] != null
+          ? measureFromStorage(bodyProfile[f.key], units, f.kind)
+          : "";
+    }
+    setFitDraft(next);
+    setAskingMeasures(true);
+  };
+
+  const saveMeasureAsk = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!onSaveBodyProfile) return;
+    const next = {};
+    if ((fitDraft.usualSize || "").trim()) next.usualSize = fitDraft.usualSize.trim();
+    for (const f of measureFields) {
+      const stored = measureToStorage(fitDraft[f.key], units, f.kind);
+      if (stored != null) next[f.key] = stored;
+    }
+    onSaveBodyProfile(next);
+    setAskingMeasures(false);
+  };
+
+  // 4f — measure ask (category-dependent fields only).
+  if (askingMeasures && onSaveBodyProfile) {
+    const fieldNames = measureFields.map((f) => f.label.toLowerCase()).join(" and ");
     return (
-      <form
-        className="cz-fit-prompt"
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const next = {
-            height: measureToStorage(fitDraft.height, units, "length"),
-            weight: measureToStorage(fitDraft.weight, units, "weight"),
-            usualSize: (fitDraft.usualSize || "").trim() || null,
-          };
-          // Keep empty keys out so recommendSize sees real missing fields.
-          for (const k of Object.keys(next)) if (next[k] == null || next[k] === "") delete next[k];
-          onSaveBodyProfile(next);
-        }}
-      >
-        <div className="cz-fit-prompt-title">Will it fit you?</div>
+      <form className="cz-fit-prompt cz-fit4-ask" onSubmit={saveMeasureAsk}>
+        <div className="cz-fit-prompt-title">Your measurements</div>
         <p className="cz-fit-prompt-copy">
-          Add your size once. We size every item for you.
+          For {catLabel} we need your {fieldNames}. Saved for every item.
         </p>
-        <div className="cz-fit-prompt-fields">
-          <label className="cz-fit-prompt-field">
-            <span className="cz-fit-prompt-label">Height</span>
-            <span className="cz-fit-prompt-control">
-              <input
-                inputMode="decimal"
-                placeholder={units === "in" ? "70" : "178"}
-                value={fitDraft.height}
-                onChange={(e) => setFitDraft((d) => ({ ...d, height: e.target.value.replace(/[^\d.]/g, "") }))}
-                aria-label={"Height in " + unitHint}
-              />
-              <span className="cz-fit-prompt-unit" aria-hidden="true">
-                {unitHint}
+        <div
+          className={
+            "cz-fit-prompt-fields" +
+            (measureFields.length === 1 ? " is-one" : "")
+          }
+        >
+          {measureFields.map((f) => (
+            <label className="cz-fit-prompt-field" key={f.key}>
+              <span className="cz-fit-prompt-label">{f.label}</span>
+              <span className="cz-fit-prompt-control">
+                <input
+                  inputMode="decimal"
+                  placeholder={units === "in" ? f.phIn : f.phCm}
+                  value={fitDraft[f.key] || ""}
+                  onChange={(e) =>
+                    setFitDraft((d) => ({
+                      ...d,
+                      [f.key]: e.target.value.replace(/[^\d.]/g, ""),
+                    }))
+                  }
+                  aria-label={f.label + " in " + unitHint}
+                />
+                <span className="cz-fit-prompt-unit" aria-hidden="true">
+                  {unitHint}
+                </span>
               </span>
-            </span>
-          </label>
-          <label className="cz-fit-prompt-field">
-            <span className="cz-fit-prompt-label">Weight</span>
-            <span className="cz-fit-prompt-control">
-              <input
-                inputMode="decimal"
-                placeholder={units === "in" ? "154" : "70"}
-                value={fitDraft.weight}
-                onChange={(e) => setFitDraft((d) => ({ ...d, weight: e.target.value.replace(/[^\d.]/g, "") }))}
-                aria-label={"Weight in " + weightHint}
-              />
-              <span className="cz-fit-prompt-unit" aria-hidden="true">
-                {weightHint}
-              </span>
-            </span>
-          </label>
+            </label>
+          ))}
           <label className="cz-fit-prompt-field cz-fit-prompt-size">
-            <span className="cz-fit-prompt-label">Usual size</span>
+            <span className="cz-fit-prompt-label">Usual size (backup)</span>
             <span className="cz-fit-prompt-control">
               <input
                 placeholder="M"
-                value={fitDraft.usualSize}
-                onChange={(e) => setFitDraft((d) => ({ ...d, usualSize: e.target.value }))}
+                value={fitDraft.usualSize || ""}
+                onChange={(e) =>
+                  setFitDraft((d) => ({ ...d, usualSize: e.target.value }))
+                }
                 aria-label="Usual size"
               />
             </span>
@@ -5114,136 +5354,217 @@ function SizeRecommendation({
         </div>
         <div className="cz-fit-prompt-actions">
           <button type="submit" className="cz-fit-prompt-save">
-            Save & see my fit
+            Save & recalculate
           </button>
           <button
             type="button"
             className="cz-fit-prompt-skip"
-            onClick={() => onSkipFitPrompt && onSkipFitPrompt()}
+            onClick={() => {
+              setAskingMeasures(false);
+              if (!hasUsual && onSkipFitPrompt) onSkipFitPrompt();
+            }}
           >
-            Skip for now
+            {hasUsual ? "Skip — keep the rough size" : "Skip for now"}
           </button>
         </div>
       </form>
     );
   }
 
-  // Progressive unlock: if the chart cannot score yet (missing chest/waist)
-  // but the user saved a usual size, show that as the first recommendation.
-  if ((!rec || !rec.size) && bodyProfile && bodyProfile.usualSize) {
-    const usual = formatSizeToken(bodyProfile.usualSize) || String(bodyProfile.usualSize);
+  // Chart table shared by rec blocks.
+  const chartBlock =
+    chartOpen && chart ? (
+      <div className="cz-size-chart-wrap">
+        <SizeChartTable
+          chart={chart}
+          units={units}
+          highlight={rec && rec.size}
+          highlightAlt={rec && rec.alt && rec.alt.size}
+        />
+      </div>
+    ) : null;
+
+  // 4d — nothing yet: no usual size, no measures. Do not fabricate a size.
+  if (!bodyProfile && chart && sizeActive && !fitPromptSkipped && onSaveBodyProfile) {
     return (
-      <div className="cz-size-rec">
-        <div className="cz-size-rec-kicker">We recommend</div>
-        <div className="cz-size-rec-line">
-          <span className="cz-size-rec-size">{usual}</span>
+      <div className="cz-fit4-empty">
+        <div className="cz-fit4-empty-title">Will it fit you?</div>
+        <p className="cz-fit4-empty-copy">
+          Add your usual size and we will size every item on your shelf. Takes 10 seconds.
+        </p>
+        <button type="button" className="cz-fit4-empty-btn" onClick={openMeasureAsk}>
+          Add my size
+        </button>
+        {onSkipFitPrompt ? (
+          <button
+            type="button"
+            className="cz-fit-prompt-skip"
+            onClick={() => onSkipFitPrompt()}
+          >
+            Skip for now
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  // Soft / missing-measure path: show usual size as a rough estimate (4e).
+  const usualWord =
+    hasUsual
+      ? formatSizeToken(bodyProfile.usualSize) || String(bodyProfile.usualSize)
+      : null;
+  const isRough =
+    !!usualWord &&
+    (!(rec && rec.size) || (rec && rec.missing) || !hasPrecise);
+
+  if (isRough && usualWord) {
+    const missingKey =
+      (rec && rec.missing) ||
+      (item.category === "pants" || item.category === "shorts"
+        ? "waist"
+        : "chest");
+    const sharpenLabel =
+      item.category === "pants" || item.category === "shorts"
+        ? "Add waist & inseam"
+        : item.category === "shirt" || item.category === "outerwear"
+          ? "Add chest"
+          : "Add chest & waist";
+    return (
+      <div className="cz-fit4">
+        <div className="cz-fit4-head">
+          <div className="cz-fit4-kicker">We recommend</div>
+          <span className="cz-fit4-badge is-rough">
+            <span className="cz-fit4-badge-dot" aria-hidden="true" />
+            Rough estimate
+          </span>
         </div>
-        <div className="cz-size-rec-reason">
-          Based on your usual size. Add chest and waist later for a sharper pick.
-        </div>
+        <button
+          type="button"
+          className="cz-fit4-size"
+          aria-expanded={chartOpen}
+          title={chart ? "Show the seller’s size chart" : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (chart) setChartOpen((v) => !v);
+          }}
+        >
+          {usualWord}
+        </button>
+        <p className="cz-fit4-prose">
+          Based on your usual size alone
+          {missingKey ? ". Add your " + missingKey + " for a chart-based fit." : "."}
+        </p>
+        {onSaveBodyProfile ? (
+          <button type="button" className="cz-fit4-sharpen" onClick={openMeasureAsk}>
+            <span>{sharpenLabel}</span>
+            <span className="cz-fit4-sharpen-meta">+ sharper ›</span>
+          </button>
+        ) : null}
+        {chartBlock}
+      </div>
+    );
+  }
+
+  // Need measures, no usual size either — honest empty after skip.
+  if (rec && rec.missing && !usualWord) {
+    return (
+      <div className="cz-fit4-empty">
+        <div className="cz-fit4-empty-title">Need your {rec.missing}</div>
+        <p className="cz-fit4-empty-copy">
+          The size chart is ready. Add your {rec.missing} to get a recommendation.
+        </p>
+        {onSaveBodyProfile ? (
+          <button type="button" className="cz-fit4-empty-btn" onClick={openMeasureAsk}>
+            Add my size
+          </button>
+        ) : null}
       </div>
     );
   }
 
   if (!rec || !rec.size) return null;
 
-  // Recommended size missing from the seller's listed run is worth a warning.
-  const runValues = ((item.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title)) || {}).values || [];
+  // 4g — precise fit.
+  const sizeWord = formatSizeToken(rec.size) || rec.size;
+  const measureWord =
+    rec.primaryKey === "waist" ? "waist" : rec.primaryKey === "hip" ? "hip" : "chest";
+  const fitSentence = FIT_SUMMARY_ON
+    ? fitSummarySentence(rec, {
+        runHint: chart && chart.runHint,
+        units,
+        detail: "detailed",
+      })
+    : "";
+  const preciseProse =
+    fitSentence ||
+    ("Your " +
+      formatMeasure(rec.body, units) +
+      " " +
+      measureWord +
+      " sits on the " +
+      sizeWord +
+      "; the garment " +
+      measureWord +
+      " is " +
+      formatMeasure(rec.garment, units) +
+      ".");
+  const easeStr =
+    (rec.diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(rec.diff), units);
+  const runValues =
+    ((item.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title)) || {})
+      .values || [];
   const inRun = runValues.length
     ? runValues.some((v) => String(v).toUpperCase() === rec.size)
     : true;
 
-  const measureLabel =
-    rec.primaryKey === "waist" ? "Waist " : rec.primaryKey === "hip" ? "Hip " : "Chest ";
-
-  // Fit prose under the headline, gated by the fitSummary/fitDetail prefs.
-  const fitSentence = FIT_SUMMARY_ON
-    ? fitSummarySentence(rec, { runHint: chart.runHint, units, detail: FIT_DETAIL })
-    : "";
-
-  // Design handoff (3c): headline fit — "We recommend" + large serif size +
-  // one muted reason line. No green "AI fit" chip. No tracked mono labels.
-  const runWord =
-    chart && chart.runHint === "big"
-      ? "runs big"
-      : chart && chart.runHint === "small"
-        ? "runs small"
-        : "true to size";
-  const roomWord =
-    (rec.diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(rec.diff), units) + " " + measureLabel.trim().toLowerCase();
-  const reasonBits = [runWord, roomWord];
-  if (rec.fitNote) reasonBits.push(String(rec.fitNote).toLowerCase());
-  const reasonLine = reasonBits.join(" · ");
-
   return (
-    <div className="cz-size-rec">
-      <div className="cz-size-rec-kicker">We recommend</div>
-      <div className="cz-size-rec-line">
-        <button
-          type="button"
-          className="cz-size-rec-size cz-size-rec-size-btn"
-          aria-expanded={chartOpen}
-          title="Show the seller’s size chart"
-          onClick={(e) => {
-            e.stopPropagation();
-            setChartOpen((v) => !v);
-          }}
-        >
-          {formatSizeToken(rec.size) || rec.size}
-        </button>
+    <div className="cz-fit4">
+      <div className="cz-fit4-head">
+        <div className="cz-fit4-kicker">We recommend</div>
+        <span className="cz-fit4-badge is-precise">
+          <span className="cz-fit4-badge-dot" aria-hidden="true" />
+          Precise fit
+        </span>
       </div>
-      <div className="cz-size-rec-reason">{reasonLine}</div>
-      {fitSentence && (
-        <p className="cz-size-rec-fit">{fitSentence}</p>
-      )}
+      <button
+        type="button"
+        className="cz-fit4-size"
+        aria-expanded={chartOpen}
+        title={chart ? "Show the seller’s size chart" : undefined}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (chart) setChartOpen((v) => !v);
+        }}
+      >
+        {sizeWord}
+      </button>
+      <p className="cz-fit4-prose">{preciseProse}</p>
+      <div className="cz-fit4-math" aria-label="Fit numbers">
+        <div className="cz-fit4-math-cell">
+          <div className="cz-fit4-math-k">You</div>
+          <div className="cz-fit4-math-v">{formatMeasure(rec.body, units)}</div>
+        </div>
+        <div className="cz-fit4-math-cell">
+          <div className="cz-fit4-math-k">Garment</div>
+          <div className="cz-fit4-math-v">{formatMeasure(rec.garment, units)}</div>
+        </div>
+        <div className="cz-fit4-math-cell">
+          <div className="cz-fit4-math-k">Ease</div>
+          <div className="cz-fit4-math-v is-money">{easeStr}</div>
+        </div>
+      </div>
       {!inRun && (
-        <div className="cz-size-rec-reason">
-          <span className="cz-size-rec-warn">
-            {rec.size} is not in this seller’s listed run ({runValues.join(" · ")})
-          </span>
-        </div>
-      )}
-      {rec.lengthCheck && (
-        <div className="cz-size-rec-reason">
-          {"Pants length " +
-            formatMeasure(rec.lengthCheck.garment, units) +
-            " (outseam) vs your " +
-            formatMeasure(rec.lengthCheck.body, units) +
-            " inseam"}
-        </div>
+        <p className="cz-fit4-warn">
+          {rec.size} is not in this seller’s listed run ({runValues.join(" · ")}).
+        </p>
       )}
       {rec.alt && (
-        <div className="cz-size-rec-alt">
-          {rec.alt.size +
-            " also works — " +
-            measureLabel.toLowerCase() +
-            formatMeasure(rec.alt.garment, units) +
-            " (" +
-            (rec.alt.diff >= 0 ? "+" : "−") +
-            formatMeasure(Math.abs(rec.alt.diff), units) +
-            ")" +
-            (rec.alt.fit !== "same" ? ", " + rec.alt.fit + " fit" : "")}
-        </div>
+        <p className="cz-fit4-alt">
+          {rec.alt.size} also works
+          {rec.alt.fit && rec.alt.fit !== "same" ? " if you want it " + rec.alt.fit : ""}.
+        </p>
       )}
-      {chartOpen && (
-        <div className="cz-size-chart-wrap">
-          <SizeChartTable
-            chart={chart}
-            units={units}
-            highlight={rec.size}
-            highlightAlt={rec.alt && rec.alt.size}
-          />
-          {chart.runHint && (
-            <div className="cz-size-rec-reason">
-              {chart.runHint === "big"
-                ? "Seller says this runs big."
-                : chart.runHint === "small"
-                  ? "Seller says this runs small."
-                  : "Seller says this fits true to size."}
-            </div>
-          )}
-        </div>
-      )}
+      {chartBlock}
     </div>
   );
 }
@@ -5547,17 +5868,27 @@ function ItemDetailBody({
         ) : null}
       </section>
 
-      <section className="cz-sheet-section cz-sheet-size" aria-label="Size recommendation">
-        <SizeRecommendation
-          item={item}
-          bodyProfile={bodyProfile}
-          units={measureUnits}
-          sizeActive={!!(expanded && isCenter)}
-          onSaveEdit={onSaveEdit}
-          onSaveBodyProfile={onSaveBodyProfile}
-          fitPromptSkipped={fitPromptSkipped}
-          onSkipFitPrompt={onSkipFitPrompt}
-        />
+      {/* Design 4a–4g: fit states + status stage/track in one card. */}
+      <section className="cz-sheet-section cz-sheet-size" aria-label="Size and status">
+        <div className="cz-fit3b-card">
+          <SizeRecommendation
+            item={item}
+            bodyProfile={bodyProfile}
+            units={measureUnits}
+            sizeActive={!!(expanded && isCenter)}
+            onSaveEdit={onSaveEdit}
+            onSaveBodyProfile={onSaveBodyProfile}
+            fitPromptSkipped={fitPromptSkipped}
+            onSkipFitPrompt={onSkipFitPrompt}
+          />
+          <div className="cz-fit3b-status">
+            <StatusChips
+              mode="display"
+              value={item.findStatus || "want"}
+              onChange={(s) => onSaveEdit?.(item.id, { findStatus: s })}
+            />
+          </div>
+        </div>
       </section>
 
       {galleryImages.length > 0 && (
@@ -5575,28 +5906,15 @@ function ItemDetailBody({
         </section>
       )}
 
-      {/* Pipeline + category — same controls as edit, one-tap on the back face. */}
+      {/* Design 4c: auto-detected category select row. */}
       <section
         className="cz-sheet-section cz-sheet-pipeline"
-        aria-label="Status and category"
+        aria-label="Category"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="cz-sheet-pipeline-label">Status</div>
-        <StatusChips
-          mode="display"
-          value={item.findStatus || "want"}
-          onChange={(s) => onSaveEdit?.(item.id, { findStatus: s })}
-        />
-        <div className="cz-sheet-pipeline-label">Category</div>
-        <SegmentedControl
-          label="Category"
+        <CategorySelect
           value={item.category || ""}
-          allowUnset
           onChange={(v) => onSaveEdit?.(item.id, { category: v })}
-          options={Object.entries(CATEGORIES).map(([value, c]) => ({
-            value,
-            label: c.label,
-          }))}
         />
       </section>
 
