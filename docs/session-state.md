@@ -7,15 +7,15 @@ Overwrite sections in place — this is current state, not a log.
 
 **Last updated:** 2026-07-23 (design_handoff_credenza package applied on branch `mobile-fix-loop`, LOCAL ONLY — do not deploy until Kyle says so)
 **Branch:** `mobile-fix-loop`
-**Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-22 via CLI (`netlify deploy --prod` from `preview/`). Env on site: `CREDENZA_SEARCH_SECRET` (pre-existing), `VITE_CREDENZA_REF_SUPERBUY=888c9Y`, `VITE_CREDENZA_REF_FANSBUY=Fans-VmXrpx91` (both "all context", set 2026-07-21). Smoke-tested: site 200, function auth gates pass, secrets + affiliate codes confirmed baked into bundle. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
+**Production:** https://credenza-kyle.netlify.app (Netlify project `credenza-kyle`, id d5dbe760). Deployed 2026-07-23 via CLI (`netlify deploy --prod --dir dist` from `preview/`). Env: `ANTHROPIC_API_KEY`, `CREDENZA_SEARCH_SECRET`, `VITE_CREDENZA_SEARCH_SECRET` (set this deploy so client can call chart-vision), `VITE_CREDENZA_REF_SUPERBUY`, `VITE_CREDENZA_REF_FANSBUY`. Tag `deploy-2026-07-23` → `8c034f4`. **Follow-up: repo has NO git remote — wire GitHub → Netlify for push-to-deploy.**
 
 ---
 
-## 0b. Design package `design_handoff_credenza` (2026-07-23) — NOT deployed
+## 0b. Design package `design_handoff_credenza` (2026-07-23) — DEPLOYED
 
 Spec: `~/Downloads/design_handoff_credenza/README.md` (+ Card Mockups /
 Onboarding / Credenza Fashion.dc.html). Builds on the earlier mobile-flow
-PRs (`6b67948`…`9f19af7`). **Do not deploy.**
+PRs (`6b67948`…`9f19af7`). Live on Netlify.
 
 Shipped this pass:
 
