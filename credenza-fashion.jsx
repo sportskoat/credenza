@@ -8778,6 +8778,7 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
 
 // Empty-shelf hero with the transitions.dev staggered text reveal. is-shown
 // lands one frame after mount so the entrance transition actually plays.
+// Copy: design handoff 4 §10 / 7a (no em dash; names all sources).
 function HeroStagger() {
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -8793,8 +8794,40 @@ function HeroStagger() {
         className="cz-tagline t-stagger-line t-stagger-line--2"
         style={{ fontSize: 15, color: "var(--cz-sub)", marginBottom: 22, lineHeight: 1.55 }}
       >
-        Copy a Weidian, Taobao or Yupoo link, then stash it. Price, photos and your size land on the card.
+        Drop in a Weidian, Taobao or Yupoo link, a Reddit haul post, even a comment. Price, photos and your size land on the card.
       </p>
+    </div>
+  );
+}
+
+// Design 7a ghost cards — show the payoff of a stashed item, not an empty apology.
+function EmptyShelfGhosts() {
+  const cards = [
+    { price: "$30.78", rotate: -4, tone: "a" },
+    { price: "$41.24", rotate: 5, tone: "b" },
+    { price: "$62.40", rotate: -2, tone: "c" },
+  ];
+  return (
+    <div className="cz-empty-hero-preview" aria-hidden="true">
+      <div className="cz-empty-hero-glow" />
+      {cards.map((c, i) => (
+        <div
+          key={c.tone}
+          className={"cz-empty-ghost cz-empty-ghost--" + c.tone}
+          style={{ transform: "rotate(" + c.rotate + "deg)" }}
+        >
+          <div className="cz-empty-ghost-photo">
+            <span className="cz-empty-ghost-price">{c.price}</span>
+          </div>
+          {i < 2 ? (
+            <>
+              <div className="cz-empty-ghost-line is-title" />
+              <div className="cz-empty-ghost-line is-meta" />
+            </>
+          ) : null}
+        </div>
+      ))}
+      <div className="cz-empty-hero-preview-label">A preview of your shelf</div>
     </div>
   );
 }
@@ -10947,31 +10980,9 @@ export default function Credenza() {
           </div>
         </div>
       ) : listItems.length === 0 ? (
-        items.length === 0 ? (
-          <div className="cz-empty-shelf">
-            <div className="cz-empty-shelf-title">
-              Nothing on the shelf yet.
-            </div>
-            <div className="cz-empty-shelf-copy">
-              Paste a Yupoo or Weidian link above, or import a haul list / Credenza backup.
-            </div>
-            <div className="cz-empty-shelf-actions">
-              <Pill primary onClick={() => setImportOpen(true)}>
-                Import
-              </Pill>
-              <Pill onClick={addSamples}>Try a sample shelf</Pill>
-              <Pill
-                subtle
-                onClick={() => captureRef.current && captureRef.current.focus()}
-              >
-                Stash a link
-              </Pill>
-            </div>
-            <div style={{ fontSize: 11.5, color: FAINT, lineHeight: 1.5 }}>
-              Yupoo · Weidian · Reddit hauls · Credenza backup
-            </div>
-          </div>
-        ) : (
+        // Brand-new empty shelf is sold by the 7a hero above the tabs.
+        // This branch only covers filtered empty (search / starred / open haul).
+        items.length === 0 ? null : (
           <div
             style={{
               background: CARD,
@@ -11304,60 +11315,74 @@ export default function Credenza() {
           </div>
         )}
 
-        {/* The full hero is the empty-shelf welcome; a stocked shelf is a daily
-            tool and gets its first viewport back (design handoff PR2): compact
-            masthead, then capture/search/tabs — cards above the fold. */}
-        {items.length === 0 && onboardingDone && <HeroStagger />}
-
-        {/* Stash mode (Kyle 2026-07-22): the same paste box makes one card
-            from a link, N cards from a Reddit haul, or a plain note. On a
-            stocked shelf the top capture hides — capture moves to the bottom
-            bar + sheet (design handoff PR3). */}
+        {/* Design 7a empty shelf: left sells the product (hero + capture + quiet
+            secondary actions); right shows tilted ghost cards as the payoff.
+            No dead "nothing here" apology box. Stocked shelf skips this and
+            uses compact masthead + desktop capture (PR2 / 6a). */}
         {items.length === 0 && onboardingDone && (
-          <>
-            <StashModeRow stashMode={stashMode} onChange={setStashMode} disabled={interactionLocked} />
-
-            {/* Capture — rounded shell matching the search bar. */}
-            <div className="cz-capture-shell">
-              <textarea
-                ref={captureRef}
-                className="cz-capture"
-                aria-label="Stash a link or note"
-                disabled={interactionLocked}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  e.target.style.height = "auto";
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-                }}
-                onKeyDown={(e) => {
-                  // Keep Stash keystrokes out of the window type-anywhere path.
-                  e.stopPropagation();
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    capture();
+          <div className="cz-empty-hero">
+            <div className="cz-empty-hero-main">
+              <HeroStagger />
+              <StashModeRow stashMode={stashMode} onChange={setStashMode} disabled={interactionLocked} />
+              <div className="cz-capture-shell">
+                <textarea
+                  ref={captureRef}
+                  className="cz-capture"
+                  aria-label="Stash a link or note"
+                  disabled={interactionLocked}
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
                     e.target.style.height = "auto";
+                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                  }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      capture();
+                      e.target.style.height = "auto";
+                    }
+                  }}
+                  placeholder={
+                    stashMode === "haul"
+                      ? "Paste a Reddit post link or haul text…"
+                      : stashMode === "note"
+                      ? "Write a note…"
+                      : "Paste a link or note…"
                   }
-                }}
-                placeholder={
-                  stashMode === "haul"
-                    ? "Paste a Reddit post link or haul text…"
-                    : stashMode === "note"
-                    ? "Write a note…"
-                    : "Paste a link or note…"
-                }
-                rows={1}
-              />
-              <CapturePill
-                hasInput={!!input.trim()}
-                canStashTab={canStashTab}
-                onCapture={capture}
-                onStashTab={stashCurrentTab}
-                onStashClipboard={stashClipboard}
-                disabled={interactionLocked}
-              />
+                  rows={1}
+                />
+                <CapturePill
+                  hasInput={!!input.trim()}
+                  canStashTab={canStashTab}
+                  onCapture={capture}
+                  onStashTab={stashCurrentTab}
+                  onStashClipboard={stashClipboard}
+                  disabled={interactionLocked}
+                />
+              </div>
+              <div className="cz-empty-hero-secondary">
+                <button
+                  type="button"
+                  className="cz-empty-hero-link is-primary"
+                  disabled={interactionLocked}
+                  onClick={() => setImportOpen(true)}
+                >
+                  Import a haul
+                </button>
+                <button
+                  type="button"
+                  className="cz-empty-hero-link"
+                  disabled={interactionLocked}
+                  onClick={addSamples}
+                >
+                  Try a sample shelf
+                </button>
+              </div>
             </div>
-          </>
+            <EmptyShelfGhosts />
+          </div>
         )}
 
         {/* Desktop top bar (≥768px), search handoff 6a: one permanent search
@@ -11366,15 +11391,7 @@ export default function Credenza() {
             the two jobs never share a field. Agent lives on Buy + profile. */}
         {items.length > 0 && (
           <div className="cz-desk-capture">
-            <div
-              className="cz-desk-search-shell"
-              onMouseDown={(e) => {
-                if (document.activeElement !== deskSearchRef.current) {
-                  e.preventDefault();
-                  deskSearchRef.current?.focus();
-                }
-              }}
-            >
+            <label className="cz-desk-search-shell">
               <Search className="cz-desk-search-leading" aria-hidden="true" size={16} strokeWidth={2.2} />
               <input
                 ref={deskSearchRef}
@@ -11407,7 +11424,7 @@ export default function Credenza() {
                 }}
                 placeholder="Search your shelf"
               />
-            </div>
+            </label>
             <button
               type="button"
               className="cz-desk-stash-btn"
@@ -11641,7 +11658,9 @@ export default function Credenza() {
           </div>
         )}
 
-        {/* Shelf / Hauls / Inbox */}
+        {/* Shelf / Hauls / Inbox — hidden on a brand-new empty shelf so the 7a
+            hero stays the full welcome (tabs return once something is stashed). */}
+        {items.length > 0 && (
         <div className="cz-view-tabs-row">
           <div
             role="tablist"
@@ -11713,6 +11732,7 @@ export default function Credenza() {
             </div>
           )}
         </div>
+        )}
 
         {/* Shelf meta row: count + cost on the left, filter/view on the right.
             One quiet row — no sticky bar, no full-width black strip. The old

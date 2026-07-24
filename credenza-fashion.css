@@ -2563,7 +2563,7 @@ a.cz-seller-quiet:focus-visible {
   z-index: 1;
 }
 
-/* Empty shelf CTA */
+/* Empty shelf CTA (legacy filtered empty still uses pills; brand-new empty uses 7a) */
 .cz-empty-shelf {
   background: var(--cz-card);
   border: 1px solid var(--cz-hair);
@@ -2594,6 +2594,216 @@ a.cz-seller-quiet:focus-visible {
   justify-content: center;
   flex-wrap: wrap;
   margin-bottom: 16px;
+}
+
+/* ─── Design 7a: desktop empty shelf — sell the product, no apology box ───── */
+.cz-empty-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  margin: 8px 0 12px;
+  box-sizing: border-box;
+}
+.cz-empty-hero-main {
+  min-width: 0;
+  max-width: 560px;
+}
+.cz-empty-hero .cz-hero-title {
+  max-width: 18ch;
+  margin-bottom: 16px;
+}
+.cz-empty-hero .cz-tagline {
+  max-width: 42ch;
+  margin-bottom: 22px;
+}
+.cz-empty-hero-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px 22px;
+  margin-top: 14px;
+}
+.cz-empty-hero-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cz-sub);
+  cursor: pointer;
+}
+.cz-empty-hero-link.is-primary {
+  color: var(--cz-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cz-empty-hero-link:hover {
+  color: var(--cz-ink);
+}
+.cz-empty-hero-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cz-empty-hero-preview {
+  position: relative;
+  display: none;
+  height: 360px;
+  min-width: 0;
+  border-radius: 16px;
+}
+.cz-empty-hero-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: radial-gradient(
+    120% 90% at 70% 20%,
+    color-mix(in srgb, var(--cz-money) 10%, transparent),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+.cz-empty-ghost {
+  position: absolute;
+  width: 52%;
+  min-width: 140px;
+  max-width: 220px;
+  pointer-events: none;
+}
+.cz-empty-ghost--a {
+  left: 6%;
+  top: 4%;
+  z-index: 2;
+}
+.cz-empty-ghost--b {
+  right: 2%;
+  top: 22%;
+  width: 50%;
+  z-index: 3;
+}
+.cz-empty-ghost--c {
+  left: 20%;
+  bottom: 6%;
+  width: 46%;
+  z-index: 1;
+}
+.cz-empty-ghost-photo {
+  position: relative;
+  height: 168px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--cz-ink) 10%, transparent);
+  box-shadow:
+    0 28px 50px -22px rgba(0, 0, 0, 0.72),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  background:
+    linear-gradient(
+      150deg,
+      color-mix(in srgb, var(--cz-ink) 10%, transparent),
+      transparent 55%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--cz-ink) 4%, transparent) 0 9px,
+      transparent 9px 18px
+    ),
+    var(--cz-card-solid, #1a1a1d);
+}
+.cz-empty-ghost--a .cz-empty-ghost-photo {
+  height: 188px;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--cz-money) 14%, transparent),
+      transparent 50%
+    ),
+    linear-gradient(180deg, #2a2a30 0%, #17171a 100%);
+}
+.cz-empty-ghost--b .cz-empty-ghost-photo {
+  height: 176px;
+  background:
+    linear-gradient(
+      150deg,
+      color-mix(in srgb, #86efac 18%, transparent),
+      transparent 55%
+    ),
+    #232327;
+}
+.cz-empty-ghost--c .cz-empty-ghost-photo {
+  height: 158px;
+  background:
+    linear-gradient(
+      150deg,
+      color-mix(in srgb, #fbbf24 16%, transparent),
+      transparent 55%
+    ),
+    #232327;
+}
+.cz-empty-ghost-price {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(10, 10, 12, 0.72);
+  color: #fff;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+.cz-empty-ghost-line {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cz-ink) 14%, transparent);
+  margin: 10px 2px 0;
+}
+.cz-empty-ghost-line.is-title {
+  height: 11px;
+  width: 68%;
+}
+.cz-empty-ghost-line.is-meta {
+  height: 8px;
+  width: 42%;
+  margin-top: 8px;
+  background: color-mix(in srgb, var(--cz-ink) 8%, transparent);
+}
+.cz-empty-hero-preview-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-faint);
+}
+
+@media (min-width: 900px) {
+  .cz-empty-hero {
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 48px;
+    min-height: 440px;
+    margin: 12px 0 20px;
+  }
+  .cz-empty-hero-preview {
+    display: block;
+  }
+  .cz-empty-hero .cz-hero-title {
+    font-size: clamp(40px, 4.6vw, 52px);
+  }
+}
+
+@media (max-width: 899px) {
+  .cz-empty-hero {
+    margin: 4px 0 8px;
+  }
+  .cz-empty-hero-main {
+    max-width: none;
+  }
 }
 
 /* Phone: shared CSS stacks capture column-wise — don't keep a 999px sausage.
