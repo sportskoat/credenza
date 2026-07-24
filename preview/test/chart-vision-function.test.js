@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { handler } = require("../netlify/functions/chart-vision.js");
+const guard = require("../netlify/functions/lib/guard.js");
+const limit = require("../netlify/functions/lib/limit.js");
 const SECRET = "test-secret";
 const IMG = "https://photo.yupoo.com/seller/abc123/big.jpg";
 
@@ -28,11 +30,16 @@ describe("chart-vision function", () => {
   beforeEach(() => {
     process.env.CREDENZA_SEARCH_SECRET = SECRET;
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    guard._setLookupForTest(async () => [{ address: "93.184.216.34" }]);
+    limit._resetForTest();
   });
 
   afterEach(() => {
     delete process.env.CREDENZA_SEARCH_SECRET;
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.CREDENZA_DAILY_COST_CAP_USD;
+    guard._setLookupForTest(null);
+    limit._resetForTest();
     vi.restoreAllMocks();
   });
 
@@ -133,5 +140,60 @@ describe("chart-vision function", () => {
     const res = await handler(post());
     expect(res.statusCode).toBe(200);
     expect(photoHeaders.referer).toBe("https://seller.x.yupoo.com/");
+  });
+
+  it("rejects non-Yupoo image URLs before any fetch (SSRF lockdown)", async () => {
+    global.fetch = vi.fn();
+    for (const url of [
+      "http://169.254.169.254/latest/meta-data",
+      "http://localhost/admin",
+      "http://2130706433/", // decimal 127.0.0.1
+      "https://evil.example.com/chart.jpg",
+      "https://photo.yupoo.com.evil.example.com/x.jpg",
+    ]) {
+      const res = await handler(post([url]));
+      expect(res.statusCode, url).toBe(400);
+    }
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("skips a photo whose redirect leaves the Yupoo hosts", async () => {
+    global.fetch = vi.fn(async () => ({
+      status: 302,
+      ok: false,
+      headers: { get: () => "http://169.254.169.254/latest/meta-data" },
+    }));
+    const res = await handler(post());
+    // The only photo was dropped → nothing to scan.
+    expect(res.statusCode).toBe(502);
+  });
+
+  it("returns 429 once the per-IP window is drained", async () => {
+    global.fetch = vi.fn(async (url) =>
+      url === IMG
+        ? {
+            ok: true,
+            headers: { get: () => "image/jpeg" },
+            arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+          }
+        : anthropicOk({ found: false, chartText: "" })
+    );
+    const cap = limit.ROUTES["chart-vision"].perIpPerMin;
+    for (let i = 0; i < cap; i++) {
+      expect((await handler(post())).statusCode).toBe(200);
+    }
+    const res = await handler(post());
+    expect(res.statusCode).toBe(429);
+    expect(res.headers["retry-after"]).toBeTruthy();
+  });
+
+  it("stops above the daily cost ceiling without calling Anthropic", async () => {
+    process.env.CREDENZA_DAILY_COST_CAP_USD = "0.005";
+    limit.recordUsage("chart-vision", "claude-haiku-4-5", { input_tokens: 100000, output_tokens: 1000 });
+    global.fetch = vi.fn();
+    const res = await handler(post());
+    expect(res.statusCode).toBe(429);
+    expect(JSON.parse(res.body).error).toMatch(/cost ceiling/);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

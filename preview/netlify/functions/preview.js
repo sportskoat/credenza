@@ -2,115 +2,25 @@
 // finds the best preview image (og:image and friends), fetches the image with the
 // page as Referer (which is what gets past ordinary hotlink protection, e.g.
 // Yupoo), and returns the raw bytes. The client downscales and stores them.
-// No dependencies — Node's fetch/URL/dns/net only.
+// No dependencies — Node's fetch/URL plus the shared guard/limit modules.
 
-const { promises: dns } = require("dns");
-const net = require("net");
+const { assertSafeUrl, safeFetch, readCapped } = require("./lib/guard.js");
+const limit = require("./lib/limit.js");
 
+const ROUTE = "preview";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 CredenzaPreview/1.0";
 const MAX_HTML_BYTES = 1.5 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
-const MAX_REDIRECTS = 4;
 const TIMEOUT_MS = 12000;
 
-function response(statusCode, payload) {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(payload) };
-}
-
-// ————— SSRF guards —————
-
-function isPrivateIp(ip) {
-  if (net.isIPv6(ip)) {
-    const low = ip.toLowerCase();
-    if (low === "::" || low === "::1") return true;
-    if (/^(fe8|fe9|fea|feb|fc|fd)/.test(low)) return true; // link-local / ULA
-    if (low.startsWith("::ffff:")) return isPrivateIp(low.slice(7)); // v4-mapped
-    return false;
-  }
-  const parts = ip.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return true;
-  const [a, b] = parts;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 192 && b === 0) ||
-    (a === 198 && (b === 18 || b === 19)) ||
-    a >= 224
-  );
-}
-
-async function assertSafeUrl(raw) {
-  let u;
-  try {
-    u = new URL(raw);
-  } catch {
-    throw { status: 400, msg: "Invalid URL" };
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") throw { status: 400, msg: "Only http(s)" };
-  if (u.username || u.password) throw { status: 400, msg: "Credentials in URL rejected" };
-  const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (
-    host === "localhost" ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    host === "metadata.google.internal"
-  )
-    throw { status: 400, msg: "Host rejected" };
-  if (net.isIP(host)) {
-    if (isPrivateIp(host)) throw { status: 400, msg: "Host rejected" };
-    return u;
-  }
-  let addrs;
-  try {
-    addrs = await dns.lookup(host, { all: true });
-  } catch {
-    throw { status: 502, msg: "DNS lookup failed" };
-  }
-  if (!addrs.length || addrs.some((a) => isPrivateIp(a.address)))
-    throw { status: 400, msg: "Host rejected" };
-  return u;
-}
-
-// Fetch with manual, validated redirects and a shared deadline.
-async function safeFetch(rawUrl, headers, signal) {
-  let url = rawUrl;
-  for (let i = 0; i <= MAX_REDIRECTS; i++) {
-    const u = await assertSafeUrl(url);
-    const res = await fetch(u.href, { headers, redirect: "manual", signal });
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
-      if (!loc) throw { status: 502, msg: "Bad redirect" };
-      url = new URL(loc, u.href).href;
-      continue;
-    }
-    return res;
-  }
-  throw { status: 502, msg: "Too many redirects" };
-}
-
-// Read a body up to a cap; throws 413 past it.
-async function readCapped(res, cap) {
-  const reader = res.body.getReader();
-  const chunks = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.length;
-    if (total > cap) {
-      reader.cancel().catch(() => {});
-      throw { status: 413, msg: "Body too large" };
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks);
+function response(statusCode, payload, extraHeaders) {
+  return {
+    statusCode,
+    headers: { ...JSON_HEADERS, ...(extraHeaders || {}) },
+    body: JSON.stringify(payload),
+  };
 }
 
 // ————— Image candidate extraction (regex-level; no DOM dependency) —————
@@ -189,15 +99,14 @@ function sniffImageMime(buf) {
 }
 
 async function fetchImage(imgUrl, refererUrl, signal) {
-  const res = await safeFetch(
-    imgUrl,
-    {
+  const res = await safeFetch(imgUrl, {
+    headers: {
       "user-agent": UA,
       accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
       referer: refererUrl,
     },
-    signal
-  );
+    signal,
+  });
   if (!res.ok) throw { status: 502, msg: "Image fetch failed" };
   const buf = await readCapped(res, MAX_IMAGE_BYTES);
   const declared = (res.headers.get("content-type") || "").split(";")[0].trim();
@@ -206,12 +115,13 @@ async function fetchImage(imgUrl, refererUrl, signal) {
   return { buf, mime };
 }
 
-exports.handler = async (event) => {
+async function handle(event) {
   const secret = process.env.CREDENZA_SEARCH_SECRET;
   if (!secret) return response(500, { error: "Server not configured: missing CREDENZA_SEARCH_SECRET" });
   const supplied = event && event.headers && event.headers["x-credenza-key"];
   if (supplied !== secret) return response(401, { error: "Unauthorized" });
   if (!event || event.httpMethod !== "POST") return response(405, { error: "Method not allowed" });
+  if (limit.bodyTooLarge(event, ROUTE)) return response(413, { error: "Body too large" });
 
   let input;
   try {
@@ -224,6 +134,10 @@ exports.handler = async (event) => {
   if (!pageUrl || pageUrl.length > 2048) return response(400, { error: "url must be a non-empty string" });
   if (refererUrl.length > 2048) return response(400, { error: "referer is too long" });
 
+  const blocked = limit.enter(ROUTE, limit.clientKey(event));
+  if (blocked) {
+    return response(blocked.status, { error: blocked.msg }, { "retry-after": String(blocked.retryAfter) });
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -240,11 +154,10 @@ exports.handler = async (event) => {
       };
     }
 
-    const pageRes = await safeFetch(
-      pageUrl,
-      { "user-agent": UA, accept: "text/html,application/xhtml+xml,image/*;q=0.9" },
-      controller.signal
-    );
+    const pageRes = await safeFetch(pageUrl, {
+      headers: { "user-agent": UA, accept: "text/html,application/xhtml+xml,image/*;q=0.9" },
+      signal: controller.signal,
+    });
     if (!pageRes.ok) return response(502, { error: "Page fetch failed (" + pageRes.status + ")" });
 
     const pageType = (pageRes.headers.get("content-type") || "").split(";")[0].trim();
@@ -288,5 +201,19 @@ exports.handler = async (event) => {
     return response(502, { error: "Fetch failed" });
   } finally {
     clearTimeout(timer);
+    limit.leave(ROUTE);
   }
+}
+
+// Outcome log for every request — status + latency only, never content.
+exports.handler = async (event) => {
+  const started = Date.now();
+  let res;
+  try {
+    res = await handle(event);
+  } catch {
+    res = response(500, { error: "Internal error" });
+  }
+  limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, { ms: Date.now() - started });
+  return res;
 };

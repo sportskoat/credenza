@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { handler } = require("../netlify/functions/reddit.js");
+const limit = require("../netlify/functions/lib/limit.js");
 const SECRET = "test-secret";
 
 const SHARE_LINK = "https://www.reddit.com/r/FashionReps/s/YhWfXlgBrs";
@@ -40,10 +41,12 @@ function listing(selftext) {
 describe("Reddit function", () => {
   beforeEach(() => {
     process.env.CREDENZA_SEARCH_SECRET = SECRET;
+    limit._resetForTest();
   });
 
   afterEach(() => {
     delete process.env.CREDENZA_SEARCH_SECRET;
+    limit._resetForTest();
     vi.restoreAllMocks();
   });
 

@@ -9,6 +9,10 @@
 // The client drops that text into sizeNotes and the whole deterministic
 // chart → recommendation pipeline picks it up unchanged.
 
+const { safeFetch } = require("./lib/guard.js");
+const limit = require("./lib/limit.js");
+
+const ROUTE = "chart-vision";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 // Same identity as preview.js — the Alibaba CDN behind photo.yupoo.com answers
 // 567 text/html to curl-like clients and to requests whose referer is not a
@@ -19,11 +23,20 @@ const TIMEOUT_MS = 25000;
 const MAX_IMAGES = 10;
 const MAX_IMAGE_BYTES = 4.5 * 1024 * 1024; // Claude per-image cap is 5MB
 const MODEL = process.env.CREDENZA_RESOLVE_MODEL || "claude-haiku-4-5";
+// SSRF lockdown (Part 3): only the Yupoo image hosts, nowhere else.
+const YUPOO_IMAGE_HOST = /(^|\.)(photo|pic)\.yupoo\.com$/;
 
-function response(statusCode, payload) {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(payload) };
+function response(statusCode, payload, extraHeaders) {
+  return {
+    statusCode,
+    headers: { ...JSON_HEADERS, ...(extraHeaders || {}) },
+    body: JSON.stringify(payload),
+  };
 }
 
+// Cheap pre-filter: parse, protocol, and the Yupoo host allowlist. The full
+// guard (DNS + private-address rejection, checked redirects) runs per fetch
+// inside fetchImage.
 function safeImageUrl(raw) {
   let u;
   try {
@@ -32,6 +45,8 @@ function safeImageUrl(raw) {
     return null;
   }
   if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+  const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!YUPOO_IMAGE_HOST.test(host)) return null;
   return u.toString();
 }
 
@@ -59,7 +74,8 @@ function fallbackReferer(imageUrls) {
   return null;
 }
 
-// Returns { base64, mediaType } or null.
+// Returns { base64, mediaType } or null. Every hop of every fetch is
+// re-validated against the Yupoo allowlist + private-address rejection.
 async function fetchImage(url, referer, signal) {
   try {
     const headers = {
@@ -67,7 +83,7 @@ async function fetchImage(url, referer, signal) {
       accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
     };
     if (referer) headers.referer = referer;
-    const res = await fetch(url, { headers, signal });
+    const res = await safeFetch(url, { headers, signal, hosts: YUPOO_IMAGE_HOST, maxRedirects: 3 });
     if (!res.ok) return null;
     const mediaType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
     if (!/^image\/(jpeg|png|webp|gif)$/.test(mediaType)) return null;
@@ -140,10 +156,11 @@ async function readChartWithClaude(apiKey, images, signal) {
     data &&
     Array.isArray(data.content) &&
     data.content.find((b) => b && b.type === "tool_use" && b.name === "return_size_chart");
-  return (toolUse && toolUse.input) || null;
+  if (!toolUse || !toolUse.input) return null;
+  return { result: toolUse.input, usage: data && data.usage };
 }
 
-exports.handler = async (event) => {
+async function handle(event) {
   const secret = process.env.CREDENZA_SEARCH_SECRET;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!secret) return response(500, { error: "Server not configured: missing CREDENZA_SEARCH_SECRET" });
@@ -151,6 +168,7 @@ exports.handler = async (event) => {
   if (supplied !== secret) return response(401, { error: "Unauthorized" });
   if (!event || event.httpMethod !== "POST") return response(405, { error: "Method not allowed" });
   if (!apiKey) return response(500, { error: "Server not configured: missing ANTHROPIC_API_KEY" });
+  if (limit.bodyTooLarge(event, ROUTE)) return response(413, { error: "Body too large" });
 
   let input;
   try {
@@ -160,9 +178,13 @@ exports.handler = async (event) => {
   }
   const urls = Array.isArray(input && input.images) ? input.images : [];
   const imageUrls = [...new Set(urls.map(safeImageUrl).filter(Boolean))].slice(0, MAX_IMAGES);
-  if (!imageUrls.length) return response(400, { error: "images must contain at least one http(s) URL" });
+  if (!imageUrls.length) return response(400, { error: "images must contain at least one Yupoo image URL" });
   const referer = safeReferer(input && input.referer) || fallbackReferer(imageUrls);
 
+  const blocked = limit.enter(ROUTE, limit.clientKey(event));
+  if (blocked) {
+    return response(blocked.status, { error: blocked.msg }, { "retry-after": String(blocked.retryAfter) });
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -172,15 +194,32 @@ exports.handler = async (event) => {
 
     const chart = await readChartWithClaude(apiKey, images, controller.signal).catch(() => null);
     if (!chart) return response(502, { error: "Chart read failed" });
-    if (!chart.found || !chart.chartText || !chart.chartText.trim()) {
+    limit.recordUsage(ROUTE, MODEL, chart.usage);
+    const result = chart.result;
+    if (!result.found || !result.chartText || !result.chartText.trim()) {
       return response(200, { found: false, chartText: "", scanned: images.length });
     }
-    const chartText = chart.chartText.trim() + (chart.note && chart.note.trim() ? "\n" + chart.note.trim() : "");
+    const chartText =
+      result.chartText.trim() + (result.note && result.note.trim() ? "\n" + result.note.trim() : "");
     return response(200, { found: true, chartText, scanned: images.length });
   } catch (e) {
     if (e && e.name === "AbortError") return response(504, { error: "Timed out" });
     return response(502, { error: "Chart read failed" });
   } finally {
     clearTimeout(timer);
+    limit.leave(ROUTE);
   }
+}
+
+// Outcome log for every request — status + latency only, never content.
+exports.handler = async (event) => {
+  const started = Date.now();
+  let res;
+  try {
+    res = await handle(event);
+  } catch {
+    res = response(500, { error: "Internal error" });
+  }
+  limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, { ms: Date.now() - started });
+  return res;
 };

@@ -10,14 +10,21 @@
 // Share links (/s/) and redd.it short links are resolved manually hop by hop;
 // every hop must stay on reddit (no open-redirect SSRF).
 
+const limit = require("./lib/limit.js");
+
+const ROUTE = "reddit";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const TIMEOUT_MS = 15000;
 const MAX_HOPS = 4;
 
-function response(statusCode, payload) {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(payload) };
+function response(statusCode, payload, extraHeaders) {
+  return {
+    statusCode,
+    headers: { ...JSON_HEADERS, ...(extraHeaders || {}) },
+    body: JSON.stringify(payload),
+  };
 }
 
 function redditHost(hostname) {
@@ -159,12 +166,13 @@ async function fetchPostListing(path, signal) {
   return { error: "Reddit did not answer" };
 }
 
-exports.handler = async (event) => {
+async function handle(event) {
   const secret = process.env.CREDENZA_SEARCH_SECRET;
   if (!secret) return response(500, { error: "Server not configured: missing CREDENZA_SEARCH_SECRET" });
   const supplied = event && event.headers && event.headers["x-credenza-key"];
   if (supplied !== secret) return response(401, { error: "Unauthorized" });
   if (!event || event.httpMethod !== "POST") return response(405, { error: "Method not allowed" });
+  if (limit.bodyTooLarge(event, ROUTE)) return response(413, { error: "Body too large" });
 
   let input;
   try {
@@ -181,6 +189,10 @@ exports.handler = async (event) => {
   }
   if (!redditHost(parsed.hostname)) return response(400, { error: "Only reddit post URLs" });
 
+  const blocked = limit.enter(ROUTE, limit.clientKey(event));
+  if (blocked) {
+    return response(blocked.status, { error: blocked.msg }, { "retry-after": String(blocked.retryAfter) });
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -226,5 +238,19 @@ exports.handler = async (event) => {
     return response(502, { error: "Could not reach Reddit" });
   } finally {
     clearTimeout(timer);
+    limit.leave(ROUTE);
   }
+}
+
+// Outcome log for every request — status + latency only, never content.
+exports.handler = async (event) => {
+  const started = Date.now();
+  let res;
+  try {
+    res = await handle(event);
+  } catch {
+    res = response(500, { error: "Internal error" });
+  }
+  limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, { ms: Date.now() - started });
+  return res;
 };

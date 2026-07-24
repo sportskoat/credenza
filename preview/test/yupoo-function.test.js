@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { handler, _test } = require("../netlify/functions/yupoo.js");
+const guard = require("../netlify/functions/lib/guard.js");
+const limit = require("../netlify/functions/lib/limit.js");
 const SECRET = "test-secret";
 const ALBUM = "https://mook-official.x.yupoo.com/albums/244505824?uid=1";
 
@@ -47,6 +49,8 @@ function fixtureHtml() {
 describe("Yupoo function", () => {
   beforeEach(() => {
     process.env.CREDENZA_SEARCH_SECRET = SECRET;
+    guard._setLookupForTest(async () => [{ address: "93.184.216.34" }]);
+    limit._resetForTest();
     global.fetch = vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -56,6 +60,8 @@ describe("Yupoo function", () => {
 
   afterEach(() => {
     delete process.env.CREDENZA_SEARCH_SECRET;
+    guard._setLookupForTest(null);
+    limit._resetForTest();
     vi.restoreAllMocks();
   });
 

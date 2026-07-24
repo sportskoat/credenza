@@ -4,6 +4,9 @@
 // names into English, categorize the garment, and summarize sizing. Returns
 // structured JSON the client can drop straight onto a card. No dependencies.
 
+const limit = require("./lib/limit.js");
+
+const ROUTE = "resolve";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -14,8 +17,12 @@ const TIMEOUT_MS = 20000;
 const MAX_VARIANT_VALUES = 60;
 const MODEL = process.env.CREDENZA_RESOLVE_MODEL || "claude-haiku-4-5";
 
-function response(statusCode, payload) {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(payload) };
+function response(statusCode, payload, extraHeaders) {
+  return {
+    statusCode,
+    headers: { ...JSON_HEADERS, ...(extraHeaders || {}) },
+    body: JSON.stringify(payload),
+  };
 }
 
 function weidianItemId(raw) {
@@ -172,16 +179,18 @@ async function enrichWithClaude(apiKey, facts, signal) {
     data &&
     Array.isArray(data.content) &&
     data.content.find((b) => b && b.type === "tool_use" && b.name === "return_item_details");
-  return (toolUse && toolUse.input) || null;
+  if (!toolUse || !toolUse.input) return null;
+  return { result: toolUse.input, usage: data && data.usage };
 }
 
-exports.handler = async (event) => {
+async function handle(event) {
   const secret = process.env.CREDENZA_SEARCH_SECRET;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!secret) return response(500, { error: "Server not configured: missing CREDENZA_SEARCH_SECRET" });
   const supplied = event && event.headers && event.headers["x-credenza-key"];
   if (supplied !== secret) return response(401, { error: "Unauthorized" });
   if (!event || event.httpMethod !== "POST") return response(405, { error: "Method not allowed" });
+  if (limit.bodyTooLarge(event, ROUTE)) return response(413, { error: "Body too large" });
 
   let input;
   try {
@@ -195,6 +204,10 @@ exports.handler = async (event) => {
   const itemId = weidianItemId(url);
   if (!itemId) return response(422, { error: "Not a resolvable buy link" });
 
+  const blocked = limit.enter(ROUTE, limit.clientKey(event));
+  if (blocked) {
+    return response(blocked.status, { error: blocked.msg }, { "retry-after": String(blocked.retryAfter) });
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -208,7 +221,11 @@ exports.handler = async (event) => {
     // so a Claude failure degrades to untranslated output instead of erroring.
     let enriched = null;
     if (apiKey) {
-      enriched = await enrichWithClaude(apiKey, facts, controller.signal).catch(() => null);
+      const out = await enrichWithClaude(apiKey, facts, controller.signal).catch(() => null);
+      if (out) {
+        enriched = out.result;
+        limit.recordUsage(ROUTE, MODEL, out.usage);
+      }
     }
 
     const variantGroups = facts.attrGroups.map((group, gi) => ({
@@ -252,5 +269,19 @@ exports.handler = async (event) => {
     return response(502, { error: "Resolve failed" });
   } finally {
     clearTimeout(timer);
+    limit.leave(ROUTE);
   }
+}
+
+// Outcome log for every request — status + latency only, never content.
+exports.handler = async (event) => {
+  const started = Date.now();
+  let res;
+  try {
+    res = await handle(event);
+  } catch {
+    res = response(500, { error: "Internal error" });
+  }
+  limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, { ms: Date.now() - started });
+  return res;
 };

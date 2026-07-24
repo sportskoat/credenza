@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { handler } = require("../netlify/functions/ask.js");
+const limit = require("../netlify/functions/lib/limit.js");
 
 const SECRET = "test-secret";
 
@@ -28,12 +29,15 @@ describe("ask function boundary", () => {
   beforeEach(() => {
     process.env.ANTHROPIC_API_KEY = "sk-test";
     process.env.CREDENZA_SEARCH_SECRET = SECRET;
+    limit._resetForTest();
     global.fetch = vi.fn();
   });
 
   afterEach(() => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.CREDENZA_SEARCH_SECRET;
+    delete process.env.CREDENZA_DAILY_COST_CAP_USD;
+    limit._resetForTest();
     vi.restoreAllMocks();
   });
 
@@ -112,5 +116,33 @@ describe("ask function boundary", () => {
     expect((await handler(post({ query: "q", shelf: [{ id: "a" }] }))).statusCode).toBe(429);
     global.fetch.mockRejectedValue(Object.assign(new Error("x"), { name: "TypeError" }));
     expect((await handler(post({ query: "q", shelf: [{ id: "a" }] }))).statusCode).toBe(502);
+  });
+
+  it("rejects an over-long query and an oversized body", async () => {
+    expect((await handler(post({ query: "q".repeat(1001), shelf: [] }))).statusCode).toBe(400);
+    const huge = post({ query: "q", shelf: [] });
+    huge.body = JSON.stringify({ query: "q", shelf: [], pad: "x".repeat(70 * 1024) });
+    expect((await handler(huge)).statusCode).toBe(413);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 once the per-IP window is drained", async () => {
+    global.fetch.mockResolvedValue(anthropicOk({ results: [], answer: "none" }));
+    const cap = limit.ROUTES.ask.perIpPerMin;
+    for (let i = 0; i < cap; i++) {
+      expect((await handler(post({ query: "q", shelf: [] }))).statusCode).toBe(200);
+    }
+    const res = await handler(post({ query: "q", shelf: [] }));
+    expect(res.statusCode).toBe(429);
+    expect(res.headers["retry-after"]).toBeTruthy();
+  });
+
+  it("stops above the daily cost ceiling without calling Anthropic", async () => {
+    process.env.CREDENZA_DAILY_COST_CAP_USD = "0.005";
+    limit.recordUsage("ask", "claude-sonnet-5", { input_tokens: 100000, output_tokens: 1000 });
+    const res = await handler(post({ query: "q", shelf: [] }));
+    expect(res.statusCode).toBe(429);
+    expect(JSON.parse(res.body).error).toMatch(/cost ceiling/);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });
