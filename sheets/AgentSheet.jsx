@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import {
-  buildSignupUrl,
   listAgents,
   loadOutboundClicks,
   summarizeOutbound,
@@ -14,13 +13,14 @@ import {
   HAIR,
   INK,
   ModalShell,
-  SEG,
   SUB,
 } from "../credenza-fashion.jsx";
 
-// A2: buying-agent picker + referral slots + outbound-click counts. Buy keeps
-// working with empty referral slots — codes only attach at open time (recordOpen).
-export default function AgentSheet({ preferredAgent, onSelectAgent, affiliateCodes, onAffiliateCodeChange, storageBackend, onClose }) {
+// A2: buying-agent picker + outbound-click counts. Referral codes are
+// build-time env only (audit 2026-07-24, the revenue leak): no user-editable
+// code field exists — a visitor must never be able to replace Kyle's
+// attribution with their own.
+export default function AgentSheet({ preferredAgent, onSelectAgent, storageBackend, onClose }) {
   const [summary, setSummary] = useState(null);
   useEffect(() => {
     let live = true;
@@ -81,48 +81,6 @@ export default function AgentSheet({ preferredAgent, onSelectAgent, affiliateCod
           tap Buy. Disclosure: Buy links may include a referral code; Credenza may earn a commission
           on agent shipping fees. It never changes your item price.
         </p>
-
-        <Caption style={{ color: BLUE, margin: "18px 0 8px" }}>Referral codes (optional)</Caption>
-        <div style={{ display: "grid", gap: 8 }}>
-          {listAgents()
-            .filter((a) => a.referralParam || a.signupTemplate)
-            .map((agent) => {
-              const signupUrl = buildSignupUrl(agent.id, { referralOverrides: affiliateCodes });
-              return (
-                <div key={agent.id}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: SUB }}>
-                    <span style={{ width: 80, flexShrink: 0, fontWeight: 600 }}>{agent.name}</span>
-                    <input
-                      type="text"
-                      value={affiliateCodes[agent.id] || ""}
-                      onChange={(e) => onAffiliateCodeChange(agent.id, e.target.value)}
-                      placeholder="Paste code when your affiliate account is approved"
-                      style={{
-                        flex: 1,
-                        fontFamily: FONT,
-                        fontSize: 12.5,
-                        color: INK,
-                        background: SEG,
-                        border: "1px solid " + HAIR,
-                        borderRadius: 10,
-                        padding: "8px 10px",
-                      }}
-                    />
-                  </label>
-                  {signupUrl ? (
-                    <a
-                      href={signupUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: "inline-block", margin: "4px 0 0 90px", fontSize: 11, color: BLUE }}
-                    >
-                      Test sign-up link ↗
-                    </a>
-                  ) : null}
-                </div>
-              );
-            })}
-        </div>
 
         {summary && summary.total > 0 ? (
           <p style={{ fontSize: 11.5, color: SUB, margin: "16px 0 0" }}>

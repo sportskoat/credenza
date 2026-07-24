@@ -1979,9 +1979,14 @@ function buildImportItems(candidates, existing, source) {
 }
 
 function buildSampleItems() {
+  // One realistic haul (audit 2026-07-24): the samples teach the fashion
+  // flow — capture from Weidian/Yupoo/Taobao/1688/Reddit, sizing with
+  // variants and poster stats, the status pipeline, Warehouse QC, and Buy.
   const now = Date.now();
+  const HAUL = "Winter rotation";
   const mk = (raw, extra, ageDays) =>
     createItem(classify(raw), raw, {
+      project: HAUL,
       ...extra,
       sourceImport: "sample",
       createdAt: now - ageDays * DAY_MS,
@@ -1989,185 +1994,230 @@ function buildSampleItems() {
     });
   return [
     mk(
-      "Idea: a mixtape of songs that sample rain — start from the ambient shelf",
-      {},
-      1
-    ),
-    mk(
-      "https://robwalker.substack.com/p/the-art-of-noticing",
+      "https://weidian.com/item.html?itemID=7261398445",
       {
-        title: "The art of noticing",
-        summary: "Why paying attention is a practice, not a gift.",
-        tags: ["attention", "essays"],
+        title: "Heavy fleece hoodie — 480g",
+        seller: "Listenup",
+        price: 189,
+        findStatus: "bought",
+        category: "outerwear",
+        size: "L",
+        recommendedSize: "XL",
+        variants: [{ title: "Size", values: ["M", "L", "XL"] }],
+        sizeNotes: "Runs one size small. M: chest 116, L: 120, XL: 124.",
+        posterStats: { height: "183cm", weight: "78kg", size: "XL" },
+        posterUser: "winterpicks",
+        note: "Poster is 183/78 and took XL. Size up once.",
       },
-      3
+      21
     ),
     mk(
-      "https://www.youtube.com/watch?v=5qap5aO4i9A",
+      "https://weidian.com/item.html?itemID=7288102331",
       {
-        title: "Lofi hip hop radio — beats to relax to",
-        summary: "The eternal study stream.",
-        tags: ["music", "focus"],
+        title: "Boxy blank tee — 260g cotton",
+        seller: "Topbasics",
+        price: 89,
+        findStatus: "want",
+        category: "shirt",
+        variants: [{ title: "Size", values: ["S", "M", "L", "XL"] }],
       },
-      5
+      20
     ),
     mk(
-      "https://x.com/visakanv/status/1024310388571713537",
+      "https://mook-official.x.yupoo.com/albums/244505824?uid=1",
       {
-        title: "Post by @visakanv",
-        summary: "Do a hundred reps of anything before judging yourself at it.",
-        tags: ["@visakanv", "practice"],
-      },
-      8
-    ),
-    mk(
-      "https://open.spotify.com/episode/7makk4oTQel546B0PZlDM5",
-      {
-        title: "Song Exploder — how a track gets made",
-        summary: "Artists take a song apart and tell the story of how it was built.",
-        tags: ["podcast", "music"],
-      },
-      12
-    ),
-    mk(
-      "https://www.cs.virginia.edu/~robins/YouAndYourResearch.html",
-      {
-        title: "You and your research — Richard Hamming",
-        summary: "The famous talk on doing work that matters.",
-        tags: ["talks", "career"],
-        note: "The “important problems” question — revisit this every few months.",
-        importance: "high",
-        extractedIntent: "Revisit the important-problems question regularly.",
-      },
-      40
-    ),
-    mk(
-      "https://www.reddit.com/r/woodworking/comments/1c9r2kx/what_i_learned_building_a_walnut_record_cabinet/",
-      {
-        title: "What I learned building a walnut record cabinet",
-        summary: "A detailed build log, including the joinery choices that did not survive the first prototype.",
-        tags: ["woodworking", "furniture", "build-log"],
-        note: "Save the sliding-door detail for the living room cabinet sketch.",
-      },
-      0
-    ),
-    mk(
-      "https://github.com/stephango/obsidian-minimal/issues/812",
-      {
-        title: "Obsidian Minimal — readable line length discussion",
-        summary: "A practical thread about typography, wide monitors, and keeping long notes comfortable to scan.",
-        tags: ["design-systems", "typography", "knowledge-tools"],
-        importance: "high",
-        extractedIntent: "Compare the proposed reading-width settings with Credenza's detail view.",
-        lastOpenedAt: now - 1 * DAY_MS,
-      },
-      2
-    ),
-    mk(
-      "https://news.ycombinator.com/item?id=40213591",
-      {
-        title: "Ask HN: What small software do you happily pay for?",
-        summary: "A lively inventory of narrow, durable tools people value enough to keep funding.",
-        tags: ["indie-software", "pricing", "customer-research"],
-        importance: "low",
-      },
-      7
-    ),
-    mk(
-      "https://www.tiktok.com/@museumofmaterial/video/7368842115724184875",
-      {
-        title: "How conservators repair a cracked ceramic bowl",
-        summary: "A quick studio demonstration of reversible fills, color matching, and patient finishing.",
-        tags: ["conservation", "ceramics", "process"],
-        note: "The reversible-materials principle could make a good product metaphor.",
-      },
-      15
-    ),
-    mk(
-      "https://soundcloud.com/nilsfrahm/piano-day-sketch-no-4",
-      {
-        title: "Piano Day sketch no. 4",
-        summary: "A quiet, unfinished piano miniature worth returning to during late-night writing sessions.",
-        tags: ["piano", "instrumental", "late-night"],
-        extractedIntent: "Add this to the next deep-writing queue.",
-      },
-      34
-    ),
-    mk(
-      "https://music.apple.com/us/album/an-immense-world/1643024851?i=1643024860",
-      {
-        title: "An Immense World — listening beyond human senses",
-        summary: "A conversation about animal perception and the hidden sensory worlds surrounding us.",
-        tags: ["science", "animals", "perception"],
-        importance: "high",
-        lastOpenedAt: now - 2 * DAY_MS,
-      },
-      6
-    ),
-    mk(
-      "https://vimeo.com/148751763",
-      {
-        title: "The quiet architecture of useful places",
-        summary: "A conference talk on thresholds, wayfinding, and designing public rooms that invite people to linger.",
-        tags: ["architecture", "public-space", "wayfinding"],
-        note: "Pull the three examples of welcoming thresholds into the studio references.",
-        importance: "high",
-        extractedIntent: "Rewatch before the library workshop and capture the wayfinding examples.",
-        lastOpenedAt: now - 5 * DAY_MS,
-      },
-      45
-    ),
-    mk(
-      "https://www.linkedin.com/posts/maya-chen_product-rituals-that-survived-hypergrowth-activity-7194382219045515264",
-      {
-        title: "Product rituals that survived hypergrowth",
-        summary: "A product lead shares which weekly habits stayed useful as one small team became six.",
-        tags: ["product-ops", "teams", "rituals"],
-        importance: "low",
-      },
-      11
-    ),
-    mk(
-      "https://maggieappleton.com/garden-history",
-      {
-        title: "A brief history of digital gardens",
-        summary: "Notes on the lineage of personal knowledge spaces, from early hypertext to today's evolving web gardens.",
-        tags: ["digital-gardens", "web-history", "hypertext"],
-        note: "Useful framing for why a shelf should feel cultivated rather than filed.",
+        title: "Retro runner — gum sole",
+        seller: "Mook-official",
+        sellerAccount: "mook-official",
+        price: 320,
+        findStatus: "qc",
+        category: "shoes",
+        size: "EU 43",
+        variants: [{ title: "Size", values: ["EU 42", "EU 43", "EU 44"] }],
+        qcNote: "Check the stitching on the left heel before GL.",
+        note: "Agent photo album. QC pics came in day 3.",
       },
       19
     ),
     mk(
-      "Draft three interview prompts about handoffs, decision logs, and lost context for Tuesday's research call",
+      "https://weidian.com/item.html?itemID=7244551890",
       {
-        title: "Interview prompts for the Atlas research call",
-        summary: "Focus on the moments when context disappears between a decision and the person expected to carry it forward.",
-        tags: ["user-research", "interviews", "handoffs"],
-        importance: "high",
-        extractedIntent: "Prepare and test the three prompts before Tuesday's call.",
-        project: "Atlas",
-        people: ["Maya Chen"],
+        title: "Straight washed jeans",
+        seller: "Denimwork",
+        price: 158,
+        findStatus: "bought",
+        category: "pants",
+        size: "32",
+        weightGrams: 720,
+        variants: [{ title: "Size", values: ["30", "31", "32", "33"] }],
       },
-      1
+      18
     ),
     mk(
-      "https://northstarreview.org/cities/libraries-as-climate-infrastructure",
+      "https://weidian.com/item.html?itemID=7220773466",
       {
-        title: "When the library becomes climate infrastructure",
-        summary: "A reported look at how public libraries are becoming climate shelters, tool lenders, and neighborhood infrastructure during extreme heat.",
-        tags: ["libraries", "climate", "civic-life"],
+        title: "Quilted liner jacket",
+        seller: "Northerngoods",
+        price: 299,
+        findStatus: "gl",
+        category: "outerwear",
+        size: "L",
+        qcVerdictAt: new Date(now - 2 * DAY_MS).toISOString(),
+        qcNote: "Zips smooth, fill even. Cleared to ship.",
       },
-      32
+      17
     ),
     mk(
-      "https://x.com/softcorrelation/status/1769820147739218173",
+      "https://item.taobao.com/item.htm?id=8412905763",
       {
-        title: "A field note on prototypes",
-        summary: "The best prototype is sometimes the one that makes the team's disagreement visible before it becomes expensive.",
-        tags: ["prototyping", "collaboration", "decisions"],
-        importance: "low",
+        title: "Ribbed beanie — charcoal",
+        price: 45,
+        findStatus: "want",
+        category: "hat",
       },
-      62
+      16
+    ),
+    mk(
+      "https://weidian.com/item.html?itemID=7299334477",
+      {
+        title: "Ripstop cargo pants",
+        seller: "Fieldsupply",
+        price: 176,
+        findStatus: "shipped",
+        category: "pants",
+        size: "M",
+        note: "Shipped with the November parcel.",
+      },
+      15
+    ),
+    mk(
+      "https://detail.1688.com/offer/7335890124.html",
+      {
+        title: "Crew socks — 3 pack",
+        price: 25,
+        findStatus: "want",
+        category: "socks",
+      },
+      14
+    ),
+    mk(
+      "https://topstoney.x.yupoo.com/albums/198233445?uid=1",
+      {
+        title: "Low court sneaker — white",
+        sellerAccount: "topstoney",
+        price: 380,
+        findStatus: "want",
+        category: "shoes",
+        note: "Compare batch with the review from r/FashionReps before GP.",
+      },
+      13
+    ),
+    mk(
+      "https://weidian.com/item.html?itemID=7201445998",
+      {
+        title: "Loopwheeled crewneck",
+        seller: "Loopwheelcn",
+        price: 135,
+        findStatus: "bought",
+        category: "shirt",
+        size: "M",
+        recommendedSize: "L",
+        sizeNotes: "Shrinks a little on first wash.",
+        note: "Fits small — L after wash.",
+      },
+      12
+    ),
+    mk(
+      "https://www.reddit.com/r/FashionReps/comments/1c9r2kx/winter_rotation_review/",
+      {
+        title: "Review: graphic tee batch B",
+        price: 95,
+        findStatus: "returned",
+        category: "shirt",
+        qcNote: "Print sat crooked — RL'd and exchanged.",
+        qcVerdictAt: new Date(now - 9 * DAY_MS).toISOString(),
+        findSource: "https://www.reddit.com/r/FashionReps/comments/1c9r2kx/winter_rotation_review/",
+      },
+      11
+    ),
+    mk(
+      "https://weidian.com/item.html?itemID=7277662310",
+      {
+        title: "Nylon swim shorts",
+        price: 79,
+        findStatus: "want",
+        category: "shorts",
+      },
+      10
+    ),
+    mk(
+      "https://item.taobao.com/item.htm?id=8455112098",
+      {
+        title: "Canvas tote — natural",
+        price: 68,
+        findStatus: "bought",
+        category: "bag",
+      },
+      9
+    ),
+    mk(
+      "https://weidian.com/item.html?itemID=7233889045",
+      {
+        title: "Bridle leather belt",
+        price: 55,
+        findStatus: "want",
+        category: "accessory",
+      },
+      8
+    ),
+    mk(
+      "https://husky-reps.x.yupoo.com/albums/209911730?uid=1",
+      {
+        title: "Down puffer — matte black",
+        sellerAccount: "husky-reps",
+        price: 450,
+        findStatus: "want",
+        category: "outerwear",
+        sizeNotes: "Fill: 90% down. Chart in album description.",
+        note: "Wait for the December restock — current batch sold out of L.",
+      },
+      7
+    ),
+    mk(
+      "https://weidian.com/item.html?itemID=7215007834",
+      {
+        title: "Wool 6-panel cap",
+        price: 49,
+        findStatus: "gl",
+        category: "hat",
+        qcVerdictAt: new Date(now - 4 * DAY_MS).toISOString(),
+      },
+      6
+    ),
+    mk(
+      "https://item.taobao.com/item.htm?id=8499001245",
+      {
+        title: "Brushed scarf — oatmeal",
+        price: 39,
+        findStatus: "want",
+        category: "accessory",
+      },
+      5
+    ),
+    mk(
+      "https://weidian.com/item.html?itemID=7255550199",
+      {
+        title: "Mesh practice jersey",
+        seller: "Courtclassic",
+        price: 118,
+        findStatus: "bought",
+        category: "shirt",
+        size: "M",
+        posterSize: "M",
+        posterStats: { height: "178cm", weight: "70kg", size: "M" },
+        note: "Poster 178/70 wears M — TTS.",
+      },
+      4
     ),
   ];
 }
@@ -6239,6 +6289,12 @@ function ItemDetailBody({
               <span className="cz-border-beam-glow" aria-hidden="true" />
             </button>
           ))}
+          {/* FTC affiliate disclosure at the point of action (audit
+              2026-07-24): quiet, one line, always with the Buy buttons. */}
+          <p className="cz-buy-disclosure">
+            Buy links may include a referral code. Credenza may earn a commission on agent
+            shipping fees. It never changes your item price.
+          </p>
         </div>
       )}
     </div>
@@ -8244,7 +8300,6 @@ export default function Credenza() {
   // visible "change anytime" path; persisted in credenza-prefs-v1. Stored item
   // links stay canonical forever — the agent wrap happens only at open time.
   const [preferredAgent, setPreferredAgent] = useState(DEFAULT_AGENT_ID);
-  const [affiliateCodes, setAffiliateCodes] = useState({});
   // One-time "Opening in X" toast per agent; re-arms when the agent changes.
   const [agentToastSeenFor, setAgentToastSeenFor] = useState(null);
   // First-load view: carousel is the desktop showpiece; on phones the grid is
@@ -8461,7 +8516,6 @@ export default function Credenza() {
             theme: theme || "rainbow",
             colorwayVersion: 4,
             preferredAgent,
-            affiliateCodes,
             agentToastSeenFor,
             bodyProfile,
             measureUnits,
@@ -8474,7 +8528,7 @@ export default function Credenza() {
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, affiliateCodes, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
 
   useEffect(() => {
     loadStoredItems({
@@ -8561,7 +8615,6 @@ export default function Credenza() {
                   colorwayVersion: 4,
                   // Agent prefs survive the one-shot colorway rewrite.
                   preferredAgent: validStoredAgentId(p.preferredAgent),
-                  affiliateCodes: p.affiliateCodes && typeof p.affiliateCodes === "object" ? p.affiliateCodes : {},
                   agentToastSeenFor: p.agentToastSeenFor || null,
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
                   measureUnits: p.measureUnits === "cm" ? "cm" : "in",
@@ -8578,9 +8631,10 @@ export default function Credenza() {
             setTheme(p.theme);
           }
           // A2: agent prefs. Unknown/retired stored agents fall back to the
-          // soft default rather than stranding Buy buttons.
+          // soft default rather than stranding Buy buttons. Stored
+          // affiliateCodes are ignored on purpose (audit 2026-07-24): codes
+          // are build-time env only now.
           setPreferredAgent(validStoredAgentId(p.preferredAgent));
-          if (p.affiliateCodes && typeof p.affiliateCodes === "object") setAffiliateCodes(p.affiliateCodes);
           if (p.agentToastSeenFor) setAgentToastSeenFor(p.agentToastSeenFor);
           if (p.bodyProfile && typeof p.bodyProfile === "object") setBodyProfile(p.bodyProfile);
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
@@ -9409,7 +9463,9 @@ export default function Credenza() {
       return;
     }
     // A2: the agent wrap happens here and only here — stored links stay canonical.
-    const result = buildAgentUrl(preferredAgent, url, { referralOverrides: affiliateCodes });
+    // Referral codes are build-time env only (audit 2026-07-24) — no per-user
+    // override reaches this call.
+    const result = buildAgentUrl(preferredAgent, url);
     recordOutboundClick(storageBackend, {
       ts: Date.now(),
       agentId: result.agentId || preferredAgent,
@@ -10638,10 +10694,6 @@ export default function Credenza() {
             const a = getAgent(id);
             if (a && !a.retired) setPreferredAgent(a.id);
           }}
-          affiliateCodes={affiliateCodes}
-          onAffiliateCodeChange={(agentId, code) =>
-            setAffiliateCodes((prev) => ({ ...prev, [agentId]: code }))
-          }
           storageBackend={storageBackend}
           onClose={() => setAgentSheetOpen(false)}
         />

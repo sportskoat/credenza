@@ -1368,6 +1368,16 @@
   background: none;
 }
 
+/* Affiliate disclosure beside Buy (audit 2026-07-24): quiet and small, but
+   always present at the point of action. */
+.cz-buy-disclosure {
+  margin: 6px 2px 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+  text-align: center;
+}
+
 .cz-card-details-panel--sheet {
   display: flex;
   flex-direction: column;

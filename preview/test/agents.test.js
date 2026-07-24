@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   AGENTS,
   DEFAULT_AGENT_ID,
@@ -18,6 +18,10 @@ import {
 
 const WEIDIAN = "https://weidian.com/item.html?itemID=7234567890";
 const TAOBAO = "https://item.taobao.com/item.htm?id=856801351597";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 const TMALL = "https://detail.tmall.com/item.htm?id=680012345678";
 const ALI1688 = "https://detail.1688.com/offer/712345678901.html";
 const YUPOO = "https://seller.x.yupoo.com/albums/123456?uid=1";
@@ -100,7 +104,8 @@ describe("buildAgentUrl", () => {
     try {
       expect(buildAgentUrl("cssbuy", TAOBAO).url).toBe("https://www.cssbuy.com/item-856801351597.html");
       expect(buildAgentUrl("cssbuy", ALI1688).url).toBe("https://www.cssbuy.com/item-712345678901.html");
-      const withCode = buildAgentUrl("cssbuy", TAOBAO, { referralOverrides: { cssbuy: "PROMO9" } });
+      vi.stubEnv("VITE_CREDENZA_REF_CSSBUY", "PROMO9");
+      const withCode = buildAgentUrl("cssbuy", TAOBAO);
       expect(withCode.url).toBe("https://www.cssbuy.com/item-856801351597.html?promotionCode=PROMO9");
       expect(buildAgentUrl("cssbuy", WEIDIAN)).toMatchObject({ wrapped: false, reason: "unsupported-marketplace" });
     } finally {
@@ -138,47 +143,59 @@ describe("buildAgentUrl", () => {
     }
   });
 
-  it("attaches a referral override only when a code exists, without touching the canonical link", () => {
+  it("attaches the build-time referral code without touching the canonical link", () => {
     const plain = buildAgentUrl("superbuy", WEIDIAN);
     expect(plain.url).not.toContain("partnercode");
-    const withCode = buildAgentUrl("superbuy", WEIDIAN, { referralOverrides: { superbuy: "KYLE123" } });
+    vi.stubEnv("VITE_CREDENZA_REF_SUPERBUY", "KYLE123");
+    const withCode = buildAgentUrl("superbuy", WEIDIAN);
     expect(withCode.url).toContain("partnercode=KYLE123");
     // and the stored canonical URL is byte-identical either way
     expect(plain.url).toContain(encodeURIComponent(WEIDIAN));
     expect(withCode.url).toContain(encodeURIComponent(WEIDIAN));
   });
+
+  it("has no per-user override path (audit 2026-07-24 revenue leak)", () => {
+    // A third argument used to carry user-typed codes. It is gone: the build
+    // env is the only source, so a visitor cannot replace the attribution.
+    expect(buildAgentUrl.length).toBe(2);
+    expect(buildSignupUrl.length).toBe(1);
+    expect(resolveReferralCode.length).toBe(1);
+  });
 });
 
 describe("resolveReferralCode", () => {
-  it("prefers user overrides and trims", () => {
-    const agent = getAgent("superbuy");
-    expect(resolveReferralCode(agent, { superbuy: "  ABC  " })).toBe("ABC");
+  it("reads the build-time env code", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_SUPERBUY", "  ABC  ");
+    expect(resolveReferralCode(getAgent("superbuy"))).toBe("ABC");
   });
 
   it("returns null when nothing is set", () => {
     const agent = getAgent("superbuy");
-    expect(resolveReferralCode(agent, {})).toBeNull();
-    expect(resolveReferralCode(agent, null)).toBeNull();
+    expect(resolveReferralCode(agent)).toBeNull();
   });
 });
 
 describe("buildSignupUrl", () => {
   it("builds the superbuy register link with the confirmed partnercode shape", () => {
-    expect(buildSignupUrl("superbuy", { referralOverrides: { superbuy: "888c9Y" } })).toBe(
+    vi.stubEnv("VITE_CREDENZA_REF_SUPERBUY", "888c9Y");
+    expect(buildSignupUrl("superbuy")).toBe(
       "https://www.superbuy.com/en/page/login/?partnercode=888c9Y&type=register"
     );
   });
 
   it("base64-encodes fansbuy signup codes (Fans-VmXrpx91 → RmFucy1WbVhycHg5MQ==)", () => {
-    expect(buildSignupUrl("fansbuy", { referralOverrides: { fansbuy: "Fans-VmXrpx91" } })).toBe(
+    vi.stubEnv("VITE_CREDENZA_REF_FANSBUY", "Fans-VmXrpx91");
+    expect(buildSignupUrl("fansbuy")).toBe(
       "https://fansbuy.com/register?invite=" + encodeURIComponent("RmFucy1WbVhycHg5MQ==")
     );
   });
 
   it("returns null without a code, for agents without a signup template, and for retired agents", () => {
-    expect(buildSignupUrl("superbuy", { referralOverrides: {} })).toBeNull();
-    expect(buildSignupUrl("kakobuy", { referralOverrides: { kakobuy: "X" } })).toBeNull();
-    expect(buildSignupUrl("cssbuy", { referralOverrides: { cssbuy: "X" } })).toBeNull();
+    expect(buildSignupUrl("superbuy")).toBeNull();
+    vi.stubEnv("VITE_CREDENZA_REF_KAKOBUY", "X");
+    expect(buildSignupUrl("kakobuy")).toBeNull();
+    vi.stubEnv("VITE_CREDENZA_REF_CSSBUY", "X");
+    expect(buildSignupUrl("cssbuy")).toBeNull();
   });
 });
 

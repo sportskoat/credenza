@@ -509,11 +509,13 @@ describe("Agent Buy plumbing (A2)", () => {
     expect(JSON.stringify(JSON.parse(data[STORE_KEY]))).not.toContain("sugargoo");
   });
 
-  it("attaches a stored referral code at open time only", async () => {
+  it("ignores stored referral codes; only the build-time env code attaches (audit 2026-07-24)", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([fashionItem()]),
-      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, preferredAgent: "superbuy", affiliateCodes: { superbuy: "KYLE123" } }),
+      // A user-typed code sits in old prefs. It must NOT reach the Buy URL.
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, preferredAgent: "superbuy", affiliateCodes: { superbuy: "THEIRS" } }),
     });
+    vi.stubEnv("VITE_CREDENZA_REF_SUPERBUY", "KYLE123");
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();
     render(<Credenza />);
@@ -525,7 +527,10 @@ describe("Agent Buy plumbing (A2)", () => {
       "_blank",
       "noopener"
     );
+    expect(open).not.toHaveBeenCalledWith(expect.stringContaining("THEIRS"), "_blank", "noopener");
+    // Stored item links stay canonical either way.
     expect(JSON.stringify(JSON.parse(data[STORE_KEY]))).not.toContain("KYLE123");
+    vi.unstubAllEnvs();
   });
 });
 

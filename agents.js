@@ -168,10 +168,11 @@ function envReferralCode(agent) {
   }
 }
 
-// Per-user overrides (prefs.affiliateCodes) win over build-time env codes.
-export function resolveReferralCode(agent, overrides) {
-  const mine = overrides && overrides[agent.id];
-  if (mine && String(mine).trim()) return String(mine).trim();
+// Referral codes come from build-time env ONLY (audit 2026-07-24, the
+// revenue leak): the old per-user override let any visitor type a personal
+// code into the agent sheet and replace Kyle's attribution. There is no
+// override path anymore — codes live in VITE_CREDENZA_REF_* at build time.
+export function resolveReferralCode(agent) {
   return envReferralCode(agent);
 }
 
@@ -179,10 +180,10 @@ export function resolveReferralCode(agent, overrides) {
 // referral pays on registrations, e.g. Superbuy's partnercode register URL).
 // Returns null when the agent has no signup template or no code is set.
 // signupEncoding: "base64" — some agents (Fansbuy) want the code base64'd.
-export function buildSignupUrl(agentId, { referralOverrides } = {}) {
+export function buildSignupUrl(agentId) {
   const agent = getAgent(agentId);
   if (!agent || agent.retired || !agent.signupTemplate) return null;
-  const code = resolveReferralCode(agent, referralOverrides);
+  const code = resolveReferralCode(agent);
   if (!code) return null;
   let value = code;
   if (agent.signupEncoding === "base64") {
@@ -196,7 +197,7 @@ export function buildSignupUrl(agentId, { referralOverrides } = {}) {
 // Wrap a canonical marketplace link for an agent. NEVER throws; on any mismatch
 // returns the canonical URL untouched with wrapped:false and a machine-readable
 // reason so the caller can toast.
-export function buildAgentUrl(agentId, canonicalUrl, { referralOverrides } = {}) {
+export function buildAgentUrl(agentId, canonicalUrl) {
   const fail = (reason) => ({ url: canonicalUrl, agentId: agentId || null, wrapped: false, reason });
   if (!canonicalUrl) return fail("no-url");
 
@@ -208,7 +209,7 @@ export function buildAgentUrl(agentId, canonicalUrl, { referralOverrides } = {})
   if (!marketplace) return fail("not-marketplace"); // e.g. Yupoo photos links never wrap
   if (!agent.supports.includes(marketplace)) return fail("unsupported-marketplace");
 
-  const code = resolveReferralCode(agent, referralOverrides);
+  const code = resolveReferralCode(agent);
 
   if (agent.idPathTemplate || agent.idUrlTemplate) {
     const extracted = extractMarketplaceItemId(canonicalUrl);
