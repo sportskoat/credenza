@@ -2986,9 +2986,17 @@ function StashModeRow({ stashMode, onChange, disabled = false }) {
   );
 }
 
-// Capture sheet (design handoff PR3): the review surface behind the bottom
-// bar's Stash pill and clipboard chip. Owns the stash-mode row and the paste
-// box while a stocked shelf keeps its first screen for cards.
+// Sources shown above the stash paste box (visual only — not mode controls).
+// Dots + names, no chip boxes (Kyle 2026-07-23 handoff).
+const STASH_SOURCES = [
+  { name: "Yupoo", color: "#37b24d" },
+  { name: "Weidian", color: "#ff5a3c" },
+  { name: "Taobao", color: "#ff6a00" },
+  { name: "Reddit", color: "#ff4500" },
+];
+
+// Capture sheet (design handoff PR3 + import-shelf polish): review surface
+// behind the bottom bar's Stash pill. Owns mode, paste box, and Stash CTA.
 function CaptureSheet({
   clip,
   input,
@@ -3011,19 +3019,42 @@ function CaptureSheet({
     });
     return () => cancelAnimationFrame(id);
   }, [textareaRef]);
+
+  const placeholder =
+    stashMode === "haul"
+      ? "Paste a Reddit post link or haul text…"
+      : stashMode === "note"
+        ? "Write a note…"
+        : "weidian.com/item.html?id=7291…\n…x.yupoo.com/albums/…\na Reddit haul post URL or its body\none per line";
+
   return (
     <ModalShell title="Stash to shelf" onClose={onClose} maxWidth={520}>
-      <div style={{ padding: "16px 20px 20px" }}>
+      <div className="cz-stash-body">
+        <div className="cz-stash-sources" aria-label="Works with">
+          {STASH_SOURCES.map((s) => (
+            <span key={s.name} className="cz-stash-source">
+              <span
+                className="cz-stash-source-dot"
+                style={{ background: s.color }}
+                aria-hidden="true"
+              />
+              <span className="cz-stash-source-name">{s.name}</span>
+            </span>
+          ))}
+        </div>
+
         {clip && (
           <div className="cz-capture-clip">
             <span className="cz-clip-dot" style={{ background: clip.dot }} aria-hidden="true" />
             <span className="cz-capture-clip-text">Clipboard · {clip.host}</span>
           </div>
         )}
+
         <StashModeRow stashMode={stashMode} onChange={onStashMode} />
+
         <textarea
           ref={textareaRef}
-          className="cz-capture cz-capture-sheet-input"
+          className="cz-stash-paste"
           aria-label="Stash a link or note"
           value={input}
           onChange={(e) => onInput(e.target.value)}
@@ -3035,22 +3066,14 @@ function CaptureSheet({
               onStash();
             }
           }}
-          placeholder={
-            stashMode === "haul"
-              ? "Paste a Reddit post link or haul text…"
-              : stashMode === "note"
-              ? "Write a note…"
-              : "Paste a link or note…"
-          }
-          rows={3}
+          placeholder={placeholder}
+          rows={5}
         />
-        <Pill
-          primary
-          style={{ width: "100%", minHeight: 52, borderRadius: 16, marginTop: 14 }}
-          onClick={onStash}
-        >
+
+        <button type="button" className="cz-stash-primary" onClick={onStash}>
           {input.trim() ? "Stash" : "Stash clipboard"}
-        </Pill>
+        </button>
+
         <div className="cz-capture-sheet-links">
           <button
             type="button"
@@ -3583,29 +3606,24 @@ function StatusStage({ value, onChange, label = "Status" }) {
         onClick={() => setOpen((v) => !v)}
       >
         <div className="cz-status-track" aria-hidden="true">
-          <div className="cz-status-track-dots">
-            {STATUS_TRACK.map((name, i) => {
-              const state = i < trackIdx ? "past" : i === trackIdx ? "current" : "future";
-              return (
-                <Fragment key={name}>
-                  {i > 0 && <span className={"cz-status-track-line is-" + state} />}
-                  <span className={"cz-status-track-dot is-" + state} />
-                </Fragment>
-              );
-            })}
-          </div>
-          <div className="cz-status-track-labels">
-            {STATUS_TRACK.map((name, i) => (
-              <span
-                key={name}
-                className={
-                  "cz-status-track-label" + (i === trackIdx ? " is-current" : "")
-                }
-              >
-                {name}
-              </span>
-            ))}
-          </div>
+          {STATUS_TRACK.map((name, i) => {
+            const state = i < trackIdx ? "past" : i === trackIdx ? "current" : "future";
+            return (
+              <div key={name} className={"cz-status-track-step is-" + state}>
+                {i > 0 ? (
+                  <span className={"cz-status-track-connector is-" + state} />
+                ) : null}
+                <span className={"cz-status-track-dot is-" + state} />
+                <span
+                  className={
+                    "cz-status-track-label" + (i === trackIdx ? " is-current" : "")
+                  }
+                >
+                  {name}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </button>
       {/* t-acc animates the height; t-panel-slide adds the slide + blur. The
@@ -3623,46 +3641,40 @@ function StatusStage({ value, onChange, label = "Status" }) {
             role="listbox"
             aria-label="Order status"
           >
-            <div className="cz-status-picker-title">Order status</div>
-            {FIND_STATUS_GROUPS.map((group) => (
-              <div className="cz-status-picker-group" key={group.title}>
-                <div className="cz-status-picker-group-title">{group.title}</div>
-                {group.keys.map((s) => {
-                  const active = current === s;
-                  const hint = FIND_STATUS_HINTS[s];
-                  return (
-                    <button
-                      type="button"
-                      key={s}
-                      role="option"
-                      aria-selected={active}
-                      className={
-                        "cz-status-picker-option" +
-                        (active ? " is-active" : "") +
-                        (hint ? " has-hint" : "")
-                      }
-                      onClick={() => {
-                        onChange && onChange(s);
-                        setOpen(false);
-                      }}
-                    >
-                      <span className="cz-status-picker-option-dot" aria-hidden="true" />
-                      <span className="cz-status-picker-option-text">
-                        <span className="cz-status-picker-option-label">
-                          {FIND_STATUS_LONG[s] || FIND_STATUS_LABELS[s]}
-                        </span>
-                        {hint ? (
-                          <span className="cz-status-picker-option-hint">{hint}</span>
-                        ) : null}
-                      </span>
-                      {active ? (
-                        <Check size={16} strokeWidth={2.4} aria-hidden="true" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+            {FIND_STATUSES.map((s) => {
+              const active = current === s;
+              const hint = FIND_STATUS_HINTS[s];
+              return (
+                <button
+                  type="button"
+                  key={s}
+                  role="option"
+                  aria-selected={active}
+                  className={
+                    "cz-status-picker-option" +
+                    (active ? " is-active" : "") +
+                    (hint ? " has-hint" : "")
+                  }
+                  onClick={() => {
+                    onChange && onChange(s);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="cz-status-picker-option-dot" aria-hidden="true" />
+                  <span className="cz-status-picker-option-text">
+                    <span className="cz-status-picker-option-label">
+                      {FIND_STATUS_LONG[s] || FIND_STATUS_LABELS[s]}
+                    </span>
+                    {hint ? (
+                      <span className="cz-status-picker-option-hint">{hint}</span>
+                    ) : null}
+                  </span>
+                  {active ? (
+                    <Check size={12} strokeWidth={2.4} aria-hidden="true" />
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

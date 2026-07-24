@@ -604,8 +604,10 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
 
     const group = await screen.findByRole("group", { name: "Stash mode" });
     expect(group).toBeInTheDocument();
-    // Capture sheet paste box (empty shelf no longer has a top capture field).
-    expect(screen.getByPlaceholderText("Paste a link or note…")).toBeInTheDocument();
+    // Capture sheet paste box (empty shelf button shares the same aria-label).
+    const pasteBox = document.querySelector(".cz-stash-paste");
+    expect(pasteBox).toBeTruthy();
+    expect(pasteBox.getAttribute("aria-label")).toBe("Stash a link or note");
 
     await user.click(screen.getByRole("button", { name: "Reddit haul" }));
     expect(screen.getByPlaceholderText("Paste a Reddit post link or haul text…")).toBeInTheDocument();
@@ -657,7 +659,8 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = await screen.findByPlaceholderText("Paste a link or note…");
+    const box = document.querySelector(".cz-stash-paste");
+    expect(box).toBeTruthy();
     fireEvent.change(box, {
       target: { value: "https://www.reddit.com/r/FashionReps/comments/1v3fupe/in_hand_review/" },
     });
