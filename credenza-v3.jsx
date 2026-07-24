@@ -6,7 +6,6 @@ import {
 } from "./credenza-storage.js";
 import {
   searchItems,
-  selectAskCandidates,
   serializeAskCandidates,
 } from "./credenza-search.js";
 import "./credenza.css";
@@ -128,17 +127,6 @@ function getYouTubeId(url) {
 
 const TRACKING_PARAM_RE =
   /^(utm_\w+|fbclid|gclid|gclsrc|dclid|msclkid|mc_eid|mc_cid|igshid|igsh|si|ref|ref_src|ref_url|s|t|feature|ck_subscriber_id|_hsenc|_hsmi|vero_id|twclid|ttclid)$/i;
-
-function normalizedHostPath(url) {
-  try {
-    const u = new URL(url);
-    const host = u.hostname.replace(/^www\./, "").toLowerCase();
-    const path = u.pathname.replace(/\/+$/, "");
-    return host + path;
-  } catch (e) {
-    return url.toLowerCase();
-  }
-}
 
 // Every http(s) URL in the text, in order, trailing punctuation trimmed, deduped.
 function extractUrls(raw) {
@@ -406,24 +394,6 @@ function extractIntentLocal(note) {
   const sentence = (text.split(/(?<=[.!?])\s+/)[0] || text).trim();
   out.extractedIntent = sentence.slice(0, 100);
   return out;
-}
-
-// Local ASK: rank cards against the question and compose a plain answer.
-function localAsk(q, items) {
-  const hits = selectAskCandidates(q, items, 5);
-  if (hits.length === 0)
-    return "Nothing on the shelf matches that yet. Stash it when you find it.";
-  const lines = hits.map((x) => {
-    const why = x.note
-      ? 'you wrote: "' + (x.note.length > 90 ? x.note.slice(0, 87) + "…" : x.note) + '"'
-      : x.summary || "no note yet";
-    return "• " + x.title + " — " + why;
-  });
-  const lead =
-    hits.length === 1
-      ? "One card matches:"
-      : hits.length + " cards match. Closest first:";
-  return lead + "\n" + lines.join("\n");
 }
 
 // Local digest copy: plain, warm, no AI required.
@@ -1224,25 +1194,6 @@ async function aiExtractIntent(note) {
   }
 }
 
-async function aiAsk(q, candidates) {
-  if (!aiAvailable()) return null;
-  try {
-    const compact = candidates.map((x) => ({
-      title: x.title,
-      summary: x.summary,
-      note: x.note,
-      project: x.project,
-      tags: x.tags,
-    }));
-    return await callClaude(
-      "My saved cards: " + JSON.stringify(compact) + "\nQuestion: " + q +
-        "\nAnswer briefly in plain text, weighing the note fields heavily."
-    );
-  } catch (e) {
-    return null;
-  }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ SCORING UTILITIES ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
@@ -1262,7 +1213,7 @@ function scoreDigestCandidate(item, now) {
   return s;
 }
 
-function scoreForgottenGem(item, now) {
+function scoreForgottenGem(item) {
   let s = 0;
   if (item.note) s += 3;
   if (item.importance === "high") s += 2;
@@ -3315,7 +3266,7 @@ export default function Credenza() {
     const gem =
       gemPool.length > 0
         ? gemPool
-            .map((x) => ({ item: x, score: scoreForgottenGem(x, now) }))
+            .map((x) => ({ item: x, score: scoreForgottenGem(x) }))
             .sort((a, b) => b.score - a.score)[0].item
         : null;
     const copy = localDigestCopy(picks, gem, weekCount, now);
@@ -3699,7 +3650,6 @@ export default function Credenza() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("paste", onPaste);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Row in rows mode, full card when expanded (or in cards mode). Entrance style

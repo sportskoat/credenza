@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import jsxA11y from "eslint-plugin-jsx-a11y";
+import globals from "globals";
 
 export default [
   { ignores: ["dist/**", "node_modules/**"] },
@@ -12,38 +13,9 @@ export default [
       ecmaVersion: 2023,
       sourceType: "module",
       parserOptions: { ecmaFeatures: { jsx: true } },
-      globals: {
-        window: "readonly",
-        document: "readonly",
-        navigator: "readonly",
-        localStorage: "readonly",
-        fetch: "readonly",
-        console: "readonly",
-        setTimeout: "readonly",
-        clearTimeout: "readonly",
-        setInterval: "readonly",
-        clearInterval: "readonly",
-        requestAnimationFrame: "readonly",
-        cancelAnimationFrame: "readonly",
-        URL: "readonly",
-        URLSearchParams: "readonly",
-        Blob: "readonly",
-        File: "readonly",
-        FileReader: "readonly",
-        Image: "readonly",
-        AbortController: "readonly",
-        CustomEvent: "readonly",
-        chrome: "readonly",
-        history: "readonly",
-        crypto: "readonly",
-        matchMedia: "readonly",
-        getComputedStyle: "readonly",
-        structuredClone: "readonly",
-        createImageBitmap: "readonly",
-        Event: "readonly",
-        HTMLDialogElement: "readonly",
-        Element: "readonly",
-      },
+      // The full browser global set (performance, IntersectionObserver, ...)
+      // plus the extension's chrome object.
+      globals: { ...globals.browser, chrome: "readonly" },
     },
     plugins: { react, "react-hooks": reactHooks, "jsx-a11y": jsxA11y },
     rules: {

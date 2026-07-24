@@ -3835,16 +3835,61 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
 }
 
-/* One clean horizontal row: back pill + haul title.
+/* One clean horizontal row: back pill + haul title. The A3 pipeline board
+   sits under it as a second quiet line.
    Opacity-only fade on mount — no translate hop, no blur. */
 .cz-haul-open-head {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 14px;
+  min-height: 36px;
+  animation: cz-haul-head-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.cz-haul-open-head-row {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
   min-height: 36px;
-  animation: cz-haul-head-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* A3/A6 haul pipeline board: status counts + ready count + rough weight.
+   Same quiet chip language as the total row — no fills, just hairline
+   separation. */
+.cz-haul-open-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cz-sub);
+  line-height: 1.3;
+}
+
+.cz-haul-stat {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.cz-haul-stat + .cz-haul-stat::before {
+  content: "·";
+  margin-right: 10px;
+  color: var(--cz-faint);
+}
+
+.cz-haul-stat-gl,
+.cz-haul-stat-ready {
+  color: var(--cz-money);
+}
+
+.cz-haul-stat-rl,
+.cz-haul-stat-returned {
+  color: var(--cz-faint);
 }
 
 @keyframes cz-haul-head-in {
@@ -6862,12 +6907,16 @@ a.cz-card-seller:hover {
   align-items: center;
   gap: 5px;
 }
-/* Line from previous step center → this step center. */
+/* Line between dot edges — not center → center. The center-to-center run
+   showed through the hollow dots and under the current dot's halo (Kyle
+   2026-07-24: "no overlap, one clean visual"). The 9px inset at each end =
+   5px half-dot + 3px halo + 1px gap. Top 4.25px centers the 1.5px line on
+   the 10px dot. */
 .cz-status-track-connector {
   position: absolute;
-  top: 5px;
-  right: 50%;
-  width: 100%;
+  top: 4.25px;
+  right: calc(50% + 9px);
+  width: calc(100% - 18px);
   height: 1.5px;
   background: color-mix(in srgb, var(--cz-ink) 14%, transparent);
   z-index: 0;
@@ -6989,6 +7038,148 @@ a.cz-card-seller:hover {
   height: 12px;
   color: var(--cz-money);
   margin-top: 1px;
+}
+
+/* A5 Warehouse QC: thumbs + one-tap GL/RL on the card back. Same quiet
+   hairline language as the status picker above it. */
+.cz-qc {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cz-qc-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cz-qc-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cz-sub);
+}
+.cz-qc-verdict {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--cz-faint);
+}
+.cz-qc-empty {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+}
+.cz-qc-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cz-qc-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+}
+.cz-qc-thumb-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--cz-hair);
+  border-radius: 9px;
+  background: transparent;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.cz-qc-thumb-open img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cz-qc-thumb-remove {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cz-ink) 82%, transparent);
+  color: var(--cz-card-solid);
+  cursor: pointer;
+}
+.cz-qc-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.cz-qc-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cz-qc-add,
+.cz-qc-verdict-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.cz-qc-add {
+  color: var(--cz-sub);
+}
+.cz-qc-verdict-btn.is-gl {
+  border-color: color-mix(in srgb, var(--cz-money) 45%, transparent);
+  color: var(--cz-money);
+}
+.cz-qc-verdict-btn.is-gl.is-active {
+  background: var(--cz-money);
+  border-color: var(--cz-money);
+  color: var(--cz-card-solid);
+}
+.cz-qc-verdict-btn.is-rl.is-active {
+  background: color-mix(in srgb, var(--cz-ink) 8%, transparent);
+  border-color: var(--cz-ink);
+}
+.cz-qc-note {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.cz-qc-note::placeholder {
+  color: var(--cz-faint);
+}
+.cz-qc-note:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 1px;
 }
 
 /* Category 4c select row */

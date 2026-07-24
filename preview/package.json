@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:fashion": "vite build",
     "test": "vitest run",
-    "lint": "eslint ../credenza-v3.jsx ../credenza-fashion.jsx ../credenza-storage.js ../credenza-search.js ../credenza-search-fashion.js src netlify/functions",
+    "lint": "eslint ../credenza-v3.jsx ../credenza-fashion.jsx ../credenza-storage.js ../credenza-search.js ../credenza-search-fashion.js ../sheets src netlify/functions",
     "typecheck": "tsc -p jsconfig.json"
   },
   "dependencies": {

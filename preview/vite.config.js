@@ -186,6 +186,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: FASHION ? resolve(__dirname, "index-fashion.html") : resolve(__dirname, "index.html"),
+      output: {
+        // Vendor split: the framework half of the bundle caches separately and
+        // downloads in parallel with the app chunk.
+        manualChunks: {
+          vendor: ["react", "react-dom", "framer-motion", "lucide-react"],
+        },
+      },
     },
   },
 });

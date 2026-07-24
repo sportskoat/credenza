@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
+import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useId, forwardRef, useImperativeHandle, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Heart, MoreHorizontal, Pen, Plus, RefreshCw, Search, Trash2, User, X } from "lucide-react";
@@ -9,7 +9,6 @@ import {
 } from "./credenza-storage.js";
 import {
   searchItems,
-  selectAskCandidates,
   serializeAskCandidates,
 } from "./credenza-search-fashion.js";
 import {
@@ -29,6 +28,17 @@ import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES } from "./credenza-find-status.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
+
+// Sheets load on first open (CO-28): each dialog is its own chunk, fetched the
+// first time the user asks for it. The Suspense fallback is null — the shell
+// stays put while the small chunk arrives. The circular import back into this
+// file is safe: the sheet chunk evaluates only after this module is done.
+const CaptureSheet = lazy(() => import("./sheets/CaptureSheet.jsx"));
+const ProfileSheet = lazy(() => import("./sheets/ProfileSheet.jsx"));
+const FitPrefsSheet = lazy(() => import("./sheets/FitPrefsSheet.jsx"));
+const BodyProfileSheet = lazy(() => import("./sheets/BodyProfileSheet.jsx"));
+const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
+const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
@@ -121,22 +131,18 @@ const PALETTES = {
 };
 
 const BG = "var(--cz-bg)";
-const CARD = "var(--cz-card)";
-const HAIR = "var(--cz-hair)";
-const INK = "var(--cz-ink)";
-const SUB = "var(--cz-sub)";
+export const CARD = "var(--cz-card)";
+export const HAIR = "var(--cz-hair)";
+export const INK = "var(--cz-ink)";
+export const SUB = "var(--cz-sub)";
 const FAINT = "var(--cz-faint)";
-const SEG = "var(--cz-seg)";
-const BLUE = "var(--cz-accent)";
+export const SEG = "var(--cz-seg)";
+export const BLUE = "var(--cz-accent)";
 const BLUE_BG = "var(--cz-accent-bg)";
 const BLUE_DK = "var(--cz-accent-deep)";
 const ACTION_FILL = "var(--cz-action-fill)";
-const ACTION_TEXT = "var(--cz-action-text)";
-const ACTION_MUTED_BG = "var(--cz-action-muted-bg)";
-const ACTION_MUTED_TEXT = "var(--cz-action-muted-text)";
 
-const FONT = "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-const MONO = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace";
+export const FONT = "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const DISPLAY = "Georgia, 'Iowan Old Style', 'Times New Roman', serif";
 
 // Internal type keys are stable (match stored data); labels are display-only.
@@ -151,7 +157,7 @@ const TYPES = {
 
 // Garment categories drive the shelf filter rail. Keys are stored on items
 // (and returned by the resolver); labels are display-only.
-const CATEGORIES = {
+export const CATEGORIES = {
   shirt: { label: "Shirts", dot: "#5AC8FA" },
   pants: { label: "Pants", dot: "#FF9500" },
   shorts: { label: "Shorts", dot: "#FFB340" },
@@ -163,6 +169,38 @@ const CATEGORIES = {
   hat: { label: "Hats", dot: "#64D2FF" },
   other: { label: "Other", dot: "#8E8E93" },
 };
+
+// A6 (docs/Monetization.md): rough per-category ship weights in grams. These
+// are conservative middles from agent warehouse scales, not listing data —
+// always render with a "~" prefix, never fake precision. A per-item
+// weightGrams override (edit form) always wins.
+export const CATEGORY_WEIGHT_GRAMS = {
+  shirt: 250,
+  pants: 600,
+  shorts: 350,
+  shoes: 1100,
+  outerwear: 900,
+  accessory: 200,
+  socks: 100,
+  bag: 700,
+  hat: 150,
+  other: 300,
+};
+
+// Effective ship weight in grams: manual override first, then the category
+// default. Returns null when neither is known (no category set).
+export function itemWeightGrams(item) {
+  const override = Number(item?.weightGrams);
+  if (Number.isFinite(override) && override > 0) return Math.round(override);
+  return CATEGORY_WEIGHT_GRAMS[item?.category || ""] || null;
+}
+
+// "~1.2 kg" / "~350 g". Rounds to one decimal kg — rough by design.
+export function formatWeightGrams(grams) {
+  if (!Number.isFinite(grams) || grams <= 0) return "";
+  if (grams < 1000) return "~" + Math.round(grams) + " g";
+  return "~" + (Math.round(grams / 100) / 10) + " kg";
+}
 
 // Local category guess from free text (Yupoo title/description, review notes).
 // Returns a CATEGORIES key or "" when nothing confident matches.
@@ -855,7 +893,7 @@ const CLOUD_ASK_ENABLED =
   !!(import.meta.env && import.meta.env.VITE_ENABLE_CLOUD_ASK === "true");
 // Sync does not exist yet, so the Log in / Sign up buttons stay hidden
 // (CO-05). Flip this flag when sync ships and both buttons return.
-const SYNC_ENABLED =
+export const SYNC_ENABLED =
   !!(import.meta.env && import.meta.env.VITE_ENABLE_SYNC === "true");
 const PREVIEW_SECRET =
   (import.meta.env && import.meta.env.VITE_CREDENZA_SEARCH_SECRET) || "";
@@ -873,17 +911,6 @@ function getYouTubeId(url) {
 
 const TRACKING_PARAM_RE =
   /^(utm_\w+|fbclid|gclid|gclsrc|dclid|msclkid|mc_eid|mc_cid|igshid|igsh|si|ref|ref_src|ref_url|s|t|feature|ck_subscriber_id|_hsenc|_hsmi|vero_id|twclid|ttclid)$/i;
-
-function normalizedHostPath(url) {
-  try {
-    const u = new URL(url);
-    const host = u.hostname.replace(/^www\./, "").toLowerCase();
-    const path = u.pathname.replace(/\/+$/, "");
-    return host + path;
-  } catch (e) {
-    return url.toLowerCase();
-  }
-}
 
 // Every http(s) URL in the text, in order, trailing punctuation trimmed, deduped.
 // Space-broken URLs ("ta oba o.co m") are repaired first — Reddit posters
@@ -1025,7 +1052,7 @@ function pairedLinksFromRawText(rawText, primaryUrl) {
 
 // Dupe check that also looks at paired links, so stashing a buy URL that's
 // already paired onto an existing card finds that card.
-function itemMatchesCanonicalKey(item, key) {
+export function itemMatchesCanonicalKey(item, key) {
   if (item.canonicalKey === key) return true;
   const links = Array.isArray(item.links) ? item.links : [];
   return links.some((l) => l && l.url && canonicalKey(classify(l.url), l.url) === key);
@@ -1130,7 +1157,7 @@ function firstLine(text) {
   return (line || text || "").trim().replace(/^[❯›>*#\-–—|\s]+/, "");
 }
 
-function localTitle(parsed, rawText) {
+export function localTitle(parsed, rawText) {
   if (parsed.type === "note") {
     const line = firstLine(rawText);
     return line.length > 64 ? line.slice(0, 61).trimEnd() + "…" : line;
@@ -1305,24 +1332,6 @@ function extractIntentLocal(note) {
   const sentence = (text.split(/(?<=[.!?])\s+/)[0] || text).trim();
   out.extractedIntent = sentence.slice(0, 100);
   return out;
-}
-
-// Local ASK: rank cards against the question and compose a plain answer.
-function localAsk(q, items) {
-  const hits = selectAskCandidates(q, items, 5);
-  if (hits.length === 0)
-    return "Nothing on the shelf matches that yet. Stash it when you find it.";
-  const lines = hits.map((x) => {
-    const why = x.note
-      ? 'you wrote: "' + (x.note.length > 90 ? x.note.slice(0, 87) + "…" : x.note) + '"'
-      : x.summary || "no note yet";
-    return "• " + x.title + " — " + why;
-  });
-  const lead =
-    hits.length === 1
-      ? "One card matches:"
-      : hits.length + " cards match. Closest first:";
-  return lead + "\n" + lines.join("\n");
 }
 
 // Local digest copy: plain, warm, no AI required.
@@ -1651,6 +1660,19 @@ function migrateItem(old) {
     sourceTitle: old.sourceTitle || "",
     albumId: old.albumId || "",
     sellerAccount: old.sellerAccount || "",
+    // A6: per-item ship-weight override (grams). Same validation as the edit
+    // form — positive finite number or null.
+    weightGrams:
+      typeof old.weightGrams === "number" && isFinite(old.weightGrams) && old.weightGrams > 0
+        ? Math.round(old.weightGrams)
+        : null,
+    // A5: Warehouse QC — photos get the same data-URL/HTTPS gate as gallery,
+    // verdict stamp is an ISO string, note is free text.
+    qcPhotos: Array.isArray(old.qcPhotos)
+      ? old.qcPhotos.filter((g) => typeof g === "string" && (g.startsWith("data:image/") || /^https?:\/\//i.test(g))).slice(0, 12)
+      : [],
+    qcNote: typeof old.qcNote === "string" ? old.qcNote : "",
+    qcVerdictAt: typeof old.qcVerdictAt === "string" ? old.qcVerdictAt : null,
     error: null,
     favorite: old.favorite === true,
   };
@@ -1672,10 +1694,10 @@ function migrateItem(old) {
 // save-app branding (Raindrop / Pocket / browser bookmarks) in the UI.
 // ═══════════════════════════════════════════════════════════════════════════════════
 
-const SAMPLE_COUNT = 18;
+export const SAMPLE_COUNT = 18;
 
 // Quiet labels for the import preview line only (never shown as provider marketing).
-const PROVIDER_LABELS = {
+export const PROVIDER_LABELS = {
   pocket: "link list",
   raindrop: "link list",
   bookmarks: "link list",
@@ -1726,7 +1748,7 @@ function toEpochMs(v) {
   return Number.isFinite(t) ? t : null;
 }
 
-function parseImport(text) {
+export function parseImport(text) {
   const candidates = [];
   const seen = new Set();
   const push = (parsed, rawText, titleHint, meta) => {
@@ -2206,25 +2228,6 @@ async function aiExtractIntent(note) {
   }
 }
 
-async function aiAsk(q, candidates) {
-  if (!aiAvailable()) return null;
-  try {
-    const compact = candidates.map((x) => ({
-      title: x.title,
-      summary: x.summary,
-      note: x.note,
-      project: x.project,
-      tags: x.tags,
-    }));
-    return await callClaude(
-      "My saved cards: " + JSON.stringify(compact) + "\nQuestion: " + q +
-        "\nAnswer briefly in plain text, weighing the note fields heavily."
-    );
-  } catch (e) {
-    return null;
-  }
-}
-
 function fashionImageIdentity(raw) {
   try {
     const url = new URL(raw);
@@ -2449,7 +2452,7 @@ const KEYFRAMES = `
 .cz-shell { max-width: 1080px; margin: 0 auto; padding: 28px 28px 0; }
 @media (max-width: 480px) { .cz-shell { padding: 16px 14px 0; } }
 .cz-masthead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.cz-brand { display: inline-flex; align-items: center; gap: 11px; color: var(--cz-ink); font-size: 17px; font-weight: 800; letter-spacing: .16em; }
+.cz-brand { display: inline-flex; align-items: center; gap: 11px; margin: 0; color: var(--cz-ink); font-size: 17px; font-weight: 800; letter-spacing: .16em; }
 .cz-brand-name { display: inline-flex; align-items: baseline; gap: 8px; }
 .cz-brand-word { letter-spacing: .16em; }
 .cz-brand-sub { font-size: 14px; font-weight: 500; letter-spacing: .04em; color: var(--cz-sub); text-transform: none; }
@@ -2463,7 +2466,7 @@ const KEYFRAMES = `
 @keyframes credenza-fade { from { opacity: 0; } to { opacity: 1; } }
 `;
 
-function usePrefersReducedMotion() {
+export function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -2740,7 +2743,7 @@ function RainbowBackground() {
   );
 }
 
-function Pill({ children, onClick, primary, subtle, style, title, disabled = false, loading = false, ...rest }) {
+export function Pill({ children, onClick, primary, subtle, style, title, disabled = false, loading = false, ...rest }) {
   const unavailable = disabled || loading;
   // Look lives in credenza-fashion.css (.cz-pill + data-variant); callers'
   // style prop is layout-only (flex, margins, minHeight overrides).
@@ -2874,371 +2877,6 @@ function ReelCounter({ value }) {
   );
 }
 
-function CapturePill({
-  hasInput,
-  canStashTab,
-  onCapture,
-  onStashTab,
-  onStashClipboard,
-  disabled = false,
-}) {
-  const reduced = usePrefersReducedMotion();
-  const isPrimary = Boolean(hasInput);
-  const suffix = canStashTab ? "this tab" : "clipboard";
-
-  const handleClick = () => {
-    if (disabled) return;
-    if (isPrimary) onCapture();
-    else if (canStashTab) onStashTab();
-    else onStashClipboard();
-  };
-
-  return (
-    <motion.button
-      type="button"
-      className="cz-pill cz-capture-pill"
-      onClick={handleClick}
-      disabled={disabled}
-      title={isPrimary ? "Stash" : canStashTab ? "Stash this tab" : "Stash clipboard"}
-      aria-label={isPrimary ? "Stash" : canStashTab ? "Stash this tab" : "Stash clipboard"}
-      initial={false}
-    >
-      {/* Muted background layer */}
-      <motion.span
-        aria-hidden="true"
-        initial={false}
-        animate={{ opacity: isPrimary ? 0 : 1 }}
-        transition={{ duration: reduced ? 0 : 0.18 }}
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: 999,
-          background: ACTION_MUTED_BG,
-          zIndex: -1,
-        }}
-      />
-      {/* Gradient action background layer */}
-      <motion.span
-        aria-hidden="true"
-        initial={false}
-        animate={{ opacity: isPrimary ? 1 : 0 }}
-        transition={{
-          duration: reduced ? 0 : 0.2,
-          delay: reduced ? 0 : isPrimary ? 0.08 : 0,
-        }}
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: 999,
-          background: ACTION_FILL,
-          zIndex: -1,
-        }}
-      />
-      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-        <motion.span
-          layout
-          animate={{ color: isPrimary ? ACTION_TEXT : ACTION_MUTED_TEXT }}
-          transition={{
-            layout: { type: "spring", stiffness: 300, damping: 30 },
-            color: { duration: reduced ? 0 : 0.15, delay: reduced ? 0 : isPrimary ? 0.06 : 0 },
-          }}
-        >
-          Stash
-        </motion.span>
-        <AnimatePresence initial={false}>
-          {!isPrimary && (
-            <motion.span
-              key={suffix}
-              initial={reduced ? false : { opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={reduced ? undefined : { opacity: 0, width: 0 }}
-              transition={{
-                width: { duration: reduced ? 0 : 0.25, ease: "easeInOut" },
-                opacity: { duration: reduced ? 0 : 0.15, ease: "easeInOut" },
-              }}
-              style={{
-                display: "inline-block",
-                overflow: "hidden",
-                whiteSpace: "nowrap",
-                color: ACTION_MUTED_TEXT,
-              }}
-            >
-              <span style={{ display: "inline-block", marginLeft: "0.32em" }}>{suffix}</span>
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </span>
-    </motion.button>
-  );
-}
-
-// Stash mode (Kyle 2026-07-22): the same paste makes one card from a link,
-// N cards from a Reddit haul, or a plain note. Shared by the empty-state
-// capture block and the capture sheet (design handoff PR3).
-const STASH_MODES = [
-  ["link", "Link", "One card from a link or short paste"],
-  ["haul", "Reddit haul", "One card per item from a Reddit post link or pasted haul"],
-  ["note", "Note", "Keep the paste as a plain note"],
-];
-function StashModeRow({ stashMode, onChange, disabled = false }) {
-  return (
-    <div className="cz-stashmode" role="group" aria-label="Stash mode">
-      {STASH_MODES.map(([id, label, hint]) => (
-        <button
-          key={id}
-          type="button"
-          className={"cz-stashmode-btn" + (stashMode === id ? " is-active" : "")}
-          aria-pressed={stashMode === id}
-          title={hint}
-          disabled={disabled}
-          onClick={() => onChange(id)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// Sources shown above the stash paste box (visual only — not mode controls).
-// Dots + names, no chip boxes (Kyle 2026-07-23 handoff).
-const STASH_SOURCES = [
-  { name: "Yupoo", color: "#37b24d" },
-  { name: "Weidian", color: "#ff5a3c" },
-  { name: "Taobao", color: "#ff6a00" },
-  { name: "Reddit", color: "#ff4500" },
-];
-
-// Capture sheet (design handoff PR3 + import-shelf polish): review surface
-// behind the bottom bar's Stash pill. Owns mode, paste box, and Stash CTA.
-function CaptureSheet({
-  clip,
-  input,
-  onInput,
-  stashMode,
-  onStashMode,
-  canStashTab,
-  onStashTab,
-  onStash,
-  onImportReddit,
-  onClose,
-  textareaRef,
-}) {
-  useEffect(() => {
-    // ModalShell focuses its close button on mount; steal focus into the paste
-    // box a frame later so the sheet opens ready to type (on a phone this pops
-    // the keyboard — that is the point of a capture surface).
-    const id = requestAnimationFrame(() => {
-      if (textareaRef.current) textareaRef.current.focus();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [textareaRef]);
-
-  const placeholder =
-    stashMode === "haul"
-      ? "Paste a Reddit post link or haul text…"
-      : stashMode === "note"
-        ? "Write a note…"
-        : "weidian.com/item.html?id=7291…\n…x.yupoo.com/albums/…\na Reddit haul post URL or its body\none per line";
-
-  return (
-    <ModalShell title="Stash to shelf" onClose={onClose} maxWidth={520}>
-      <div className="cz-stash-body">
-        <div className="cz-stash-sources" aria-label="Works with">
-          {STASH_SOURCES.map((s) => (
-            <span key={s.name} className="cz-stash-source">
-              <span
-                className="cz-stash-source-dot"
-                style={{ background: s.color }}
-                aria-hidden="true"
-              />
-              <span className="cz-stash-source-name">{s.name}</span>
-            </span>
-          ))}
-        </div>
-
-        {clip && (
-          <div className="cz-capture-clip">
-            <span className="cz-clip-dot" style={{ background: clip.dot }} aria-hidden="true" />
-            <span className="cz-capture-clip-text">Clipboard · {clip.host}</span>
-          </div>
-        )}
-
-        <StashModeRow stashMode={stashMode} onChange={onStashMode} />
-
-        <textarea
-          ref={textareaRef}
-          className="cz-stash-paste"
-          aria-label="Stash a link or note"
-          value={input}
-          onChange={(e) => onInput(e.target.value)}
-          onKeyDown={(e) => {
-            // Keep Stash keystrokes out of the window type-anywhere path.
-            e.stopPropagation();
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              onStash();
-            }
-          }}
-          placeholder={placeholder}
-          rows={5}
-        />
-
-        <button type="button" className="cz-stash-primary" onClick={onStash}>
-          {input.trim() ? "Stash" : "Stash clipboard"}
-        </button>
-
-        <div className="cz-capture-sheet-links">
-          <button
-            type="button"
-            title="Focus the paste box, then ⌘V"
-            onClick={() => textareaRef.current && textareaRef.current.focus()}
-          >
-            Paste
-          </button>
-          <button type="button" onClick={onImportReddit}>
-            Import from Reddit
-          </button>
-          {canStashTab && (
-            <button type="button" onClick={onStashTab}>
-              Stash this tab
-            </button>
-          )}
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
-// Profile sheet (design handoff PR3): account entry up top, then the settings
-// that used to crowd the bottom bar ⋯ menu — Theme, sizes, agent, currency,
-// import, storage. Sign-in has no account backend yet; the button says so in
-// a toast instead of faking a flow.
-function ProfileSheet({
-  mode,
-  onTheme,
-  agentLabel,
-  onOpenAgent,
-  pricePrimary,
-  onCycleCurrency,
-  fitSummary,
-  onToggleFitSummary,
-  fitDetail,
-  onCycleFitDetail,
-  onOpenSizes,
-  onOpenFitPrefs,
-  onOpenImport,
-  storageLabel,
-  storageColor,
-  onSignIn,
-  onClose,
-}) {
-  const themes = [
-    ["light", "Gallery", "#F4F4F0", "1px solid rgba(0,0,0,.12)"],
-    ["rainbow", "Blackout", "#000000", "1px solid rgba(255,255,255,.18)"],
-  ];
-  return (
-    <ModalShell title="Profile" onClose={onClose} maxWidth={440}>
-      <div className="cz-profile">
-        {/* Hidden until sync exists (CO-05). SYNC_ENABLED brings it back. */}
-        {SYNC_ENABLED && (
-        <div className="cz-profile-signin">
-          <div className="cz-profile-signin-title">Sign in to Credenza</div>
-          <div className="cz-profile-signin-sub">
-            Sync your shelf, sizes and agent across every device.
-          </div>
-          <Pill
-            primary
-            style={{ width: "100%", minHeight: 50, borderRadius: 15 }}
-            onClick={onSignIn}
-          >
-            Log in / Sign up
-          </Pill>
-        </div>
-        )}
-        <div className="cz-profile-label">Theme</div>
-        <div className="cz-profile-themes">
-          {themes.map(([id, label, swatch, swatchBorder]) => {
-            const active = mode === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                className={"cz-profile-theme" + (active ? " is-active" : "")}
-                aria-pressed={active}
-                onClick={() => onTheme(id)}
-              >
-                <span
-                  className="cz-profile-theme-swatch"
-                  style={{ background: swatch, border: swatchBorder }}
-                  aria-hidden="true"
-                />
-                {label}
-                <span className="cz-profile-theme-check" aria-hidden="true">
-                  {active ? "✓" : ""}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <button type="button" className="cz-profile-row" onClick={onOpenSizes}>
-          <span>Your sizes</span>
-          <span className="cz-profile-row-val">Body profile ›</span>
-        </button>
-        <button type="button" className="cz-profile-row" onClick={onOpenFitPrefs}>
-          <span>Fit preferences</span>
-          <span className="cz-profile-row-val">Length & looseness ›</span>
-        </button>
-        <button type="button" className="cz-profile-row" onClick={onOpenAgent}>
-          <span>Default agent</span>
-          <span className="cz-profile-row-val">{agentLabel} ›</span>
-        </button>
-        <button type="button" className="cz-profile-row" onClick={onCycleCurrency}>
-          <span>Primary currency</span>
-          <span className="cz-profile-row-val">{pricePrimary} ›</span>
-        </button>
-        <button type="button" className="cz-profile-row" onClick={onToggleFitSummary} aria-pressed={fitSummary}>
-          <span>AI fit summary</span>
-          <span className="cz-profile-row-val">{fitSummary ? "On" : "Off"} ›</span>
-        </button>
-        {/* Accordion so the Fit detail row animates in/out on toggle instead of
-            popping. Same t-acc + t-panel-slide composite as the dropdowns. */}
-        <div className="t-acc cz-profile-acc" data-open={fitSummary}>
-          <div
-            className="t-acc-panel"
-            aria-hidden={!fitSummary}
-            inert={!fitSummary ? "" : undefined}
-          >
-            <div className="t-acc-panel-inner">
-              <div className="t-panel-slide" data-open={fitSummary}>
-                <button type="button" className="cz-profile-row" onClick={onCycleFitDetail}>
-                  <span>Fit detail</span>
-                  <span className="cz-profile-row-val">{fitDetail === "detailed" ? "Detailed" : "Concise"} ›</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <button type="button" className="cz-profile-row" onClick={onOpenImport}>
-          <span>Import &amp; backup</span>
-          <span className="cz-profile-row-val">›</span>
-        </button>
-        <div className="cz-profile-row is-static">
-          <span>Storage</span>
-          <span className="cz-profile-row-val cz-profile-storage">
-            <span
-              className="cz-profile-storage-dot"
-              style={{ background: storageColor }}
-              aria-hidden="true"
-            />
-            {storageLabel}
-          </span>
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
 function MorphButton({
   label,
   icon: Icon,
@@ -3363,7 +3001,7 @@ function FavoriteButton({ item, onToggle, className = "" }) {
   );
 }
 
-function Caption({ children, style }) {
+export function Caption({ children, style }) {
   return (
     <div
       style={{
@@ -3397,13 +3035,15 @@ function Favicon({ host, size, fallbackDot }) {
       alt=""
       width={size}
       height={size}
+      loading="lazy"
+      decoding="async"
       onError={() => setOk(false)}
       style={{ borderRadius: 3, flexShrink: 0, display: "block" }}
     />
   );
 }
 
-function BrandIcon({ type, host, size = 14 }) {
+export function BrandIcon({ type, host, size = 14 }) {
   const h = (host || "").replace(/^www\./, "");
   const dot = (TYPES[type] || TYPES.note).dot;
   if (/(^|\.)(youtube\.com|youtu\.be)$/.test(h))
@@ -3546,11 +3186,6 @@ function statusTrackIndex(status) {
       return 0;
   }
 }
-const FIND_STATUS_GROUPS = [
-  { title: "Ordering", keys: ["want", "bought"] },
-  { title: "At the agent", keys: ["qc", "gl", "rl"] },
-  { title: "Shipping", keys: ["shipped", "returned"] },
-];
 const FIND_STATUS_COLORS = {
   want: { bg: "oklch(0.35 0.02 280)", text: "oklch(0.85 0 0)", dot: "oklch(0.7 0.02 280)" },
   bought: { bg: "oklch(0.35 0.08 250)", text: "oklch(0.9 0.1 250)", dot: "oklch(0.65 0.14 250)" },
@@ -3562,7 +3197,7 @@ const FIND_STATUS_COLORS = {
 };
 // One segmented radiogroup for every chip-style picker — unit toggles and
 // other compact radios. Category uses CategorySelect (design 4c).
-function SegmentedControl({ value, onChange, options, label, allowUnset = false }) {
+export function SegmentedControl({ value, onChange, options, label, allowUnset = false }) {
   return (
     <div
       role="radiogroup"
@@ -3814,11 +3449,6 @@ function CategorySelect({ value, onChange, label = "Category", auto = true }) {
 
 function cx(...parts) {
   return parts.filter(Boolean).join(" ");
-}
-
-// "Jul 21" — the one date format used on cards and rows.
-function formatItemDate(ts) {
-  return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 // Deduped cover + gallery list, optionally capped. Single seed expression for
@@ -4250,6 +3880,8 @@ function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, className, sty
       src={imageSrc}
       alt=""
       draggable={false}
+      loading="lazy"
+      decoding="async"
       onDragStart={(event) => event.preventDefault()}
       onError={() => setImgOk(false)}
       style={boxStyle}
@@ -4257,37 +3889,7 @@ function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, className, sty
   );
 }
 
-function FilterChip({ active, label, dot, onClick }) {
-  return (
-    <button
-      type="button"
-      className="cz-chip"
-      aria-pressed={active}
-      onClick={onClick}
-      style={{
-        fontFamily: FONT,
-        fontSize: 12,
-        fontWeight: 600,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        color: active ? INK : SUB,
-        background: active ? CARD : "transparent",
-        border: "none",
-        borderRadius: 999,
-        padding: "5px 10px",
-        cursor: "pointer",
-        transition: "color .15s, background .15s",
-      }}
-    >
-      {dot && <span style={{ width: 6, height: 6, borderRadius: 3, background: dot }} />}
-      {label}
-    </button>
-  );
-}
-
-
-function Field({ label, value, onChange, placeholder, rows, suggestions, onCommit, emptyHint, listLabel, allowCreate }) {
+export function Field({ label, value, onChange, placeholder, rows, suggestions, onCommit, emptyHint, listLabel, allowCreate }) {
   const id = useId();
   // Combobox fields use the organic transitions.dev dropdown instead of the
   // native datalist (which paints a gray OS menu on top of the card).
@@ -4612,6 +4214,7 @@ function ComboboxField({
             <button
               type="button"
               role="option"
+              aria-selected={false}
               className="cz-combobox-option is-create"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => pick(value)}
@@ -4623,6 +4226,7 @@ function ComboboxField({
             <button
               type="button"
               role="option"
+              aria-selected={false}
               className="cz-combobox-option is-create is-add-new"
               onMouseDown={(e) => e.preventDefault()}
               onClick={startCreate}
@@ -4634,6 +4238,7 @@ function ComboboxField({
             <button
               type="button"
               role="option"
+              aria-selected={false}
               className="cz-combobox-option is-clear"
               onMouseDown={(e) => e.preventDefault()}
               onClick={clearValue}
@@ -4696,7 +4301,7 @@ function HaulCoverFan({ covers = [], name = "", count = 0 }) {
             }}
           >
             {src ? (
-              <img src={src} alt="" draggable={false} />
+              <img src={src} alt="" draggable={false} loading="lazy" decoding="async" />
             ) : (
               <div className="cz-haul-fan-placeholder">
                 {(name || "?").slice(0, 1).toUpperCase()}
@@ -4885,12 +4490,17 @@ function CardBackHaulField({ item, knownHauls, onSaveEdit, compact = false }) {
   };
 
   if (compact && current && !expanded) {
+    // CO-29: the wrapper div carried a bare stopPropagation onClick (a11y
+    // lint: static element with a click handler). The buttons own it now.
     return (
-      <div className="cz-haul-chip-row" onClick={(e) => e.stopPropagation()}>
+      <div className="cz-haul-chip-row">
         <button
           type="button"
           className="cz-haul-chip"
-          onClick={() => setExpanded(true)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(true);
+          }}
           aria-label={"Change haul, currently " + current}
         >
           <span className="cz-haul-chip-label">In</span>
@@ -4901,7 +4511,10 @@ function CardBackHaulField({ item, knownHauls, onSaveEdit, compact = false }) {
           className="cz-haul-chip-clear"
           aria-label="Remove from haul"
           title="Remove from haul"
-          onClick={() => commit("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            commit("");
+          }}
         >
           <X size={13} strokeWidth={2.4} aria-hidden="true" />
         </button>
@@ -4995,7 +4608,7 @@ function EditPhotoTile({ src, index, isCover, onRemove }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <img src={src} alt={"Photo " + (index + 1)} draggable={false} />
+      <img src={src} alt={"Photo " + (index + 1)} draggable={false} loading="lazy" decoding="async" />
       {isCover ? <span className="cz-edit-photo-cover-badge">Cover</span> : null}
       {/* No trash ON the cover photo (Kyle 2026-07-22: "what is this over the
           cover photo"). Delete the cover by deleting it after another photo
@@ -5084,12 +4697,15 @@ function buildEditDraft(item) {
     colorway: item.colorway || "",
     findStatus: item.findStatus || "want",
     category: item.category || "",
+    weightGrams: item.weightGrams == null ? "" : String(item.weightGrams),
   };
 }
 
 function buildEditPatch(draft, base) {
   const priceText = String(draft.price ?? "").trim();
   const parsed = priceText === "" ? null : Number(priceText);
+  const weightText = String(draft.weightGrams ?? "").trim();
+  const parsedWeight = weightText === "" ? null : Number(weightText);
   return {
     title: String(draft.title ?? "").trim() || base.title,
     note: String(draft.note ?? "").trim(),
@@ -5104,6 +4720,10 @@ function buildEditPatch(draft, base) {
     colorway: String(draft.colorway ?? "").trim(),
     findStatus: draft.findStatus || "want",
     category: draft.category || "",
+    // A6 weight override: null clears back to the category default. Same
+    // garbage-input guard as price.
+    weightGrams:
+      Number.isFinite(parsedWeight) && parsedWeight > 0 ? Math.round(parsedWeight) : null,
   };
 }
 
@@ -5127,13 +4747,28 @@ function useWriteThroughDraft(draft, onCommit, delay = 600) {
 // context (haul/photos) → money → seller → variant → pipeline → category.
 function ItemEditForm({ item, ed, setEd, knownHauls, onAttachPhoto, onRemovePhoto }) {
   const recSize = item.recommendedSize || null;
+  // A6: the placeholder shows the auto estimate for the draft's category, so
+  // an empty field reads as "uses the default", not "no weight".
+  const autoWeight = CATEGORY_WEIGHT_GRAMS[ed.category || item.category || ""] || null;
   return (
     <div className="cz-carousel-edit">
       <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
       {/* Currency is not an edit field (Kyle 2026-07-23): the listed amount
           keeps its source currency; on-screen money order follows Profile →
           Primary currency. No boxed Currency control. */}
-      <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
+      <div className="cz-carousel-field-grid">
+        <div>
+          <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
+        </div>
+        <div>
+          <Field
+            label="Weight (g)"
+            value={ed.weightGrams}
+            onChange={(v) => setEd({ ...ed, weightGrams: v })}
+            placeholder={autoWeight ? "Auto: " + autoWeight + " g" : "Grams"}
+          />
+        </div>
+      </div>
       <div className="cz-carousel-field-grid">
         <div>
           <Field
@@ -5553,7 +5188,7 @@ function fitHasPreciseBody(bodyProfile, category) {
 
 // Segmented axis control for Length / Looseness (design 5a/5b).
 // Empty selection = no preference. Tap active again to clear.
-function FitPrefAxis({ label, options, value, onChange }) {
+export function FitPrefAxis({ label, options, value, onChange }) {
   return (
     <div className="cz-fit-pref-axis">
       <div className="cz-fit-pref-axis-label">{label}</div>
@@ -5575,82 +5210,6 @@ function FitPrefAxis({ label, options, value, onChange }) {
         })}
       </div>
     </div>
-  );
-}
-
-// Design 5a — Settings → Fit preferences. One row per owned category.
-function FitPrefsSheet({ value, ownedCategories, onSave, onClose }) {
-  const [draft, setDraft] = useState(() => {
-    const src = value && typeof value === "object" ? value : {};
-    const out = {};
-    for (const cat of ownedCategories) {
-      const p = src[cat] || {};
-      out[cat] = {
-        length: p.length || null,
-        looseness: p.looseness || null,
-        dismissed: !!p.dismissed,
-      };
-    }
-    return out;
-  });
-  const cats = ownedCategories.filter((c) => FIT_PREF_AXES[c]);
-  return (
-    <ModalShell title="Fit preferences" onClose={onClose} maxWidth={440}>
-      <div className="cz-fit-prefs-sheet">
-        <p className="cz-fit-prefs-lead">
-          How you like things to sit. We factor this into every size we suggest.
-        </p>
-        {cats.length === 0 ? (
-          <p className="cz-fit-prefs-empty">
-            Stash a shirt, shorts, pants, or outerwear item first. Preferences appear per category you own.
-          </p>
-        ) : (
-          cats.map((cat) => {
-            const axes = FIT_PREF_AXES[cat];
-            const pref = draft[cat] || {};
-            return (
-              <div className="cz-fit-prefs-cat" key={cat}>
-                <div className="cz-fit-prefs-cat-title">
-                  {CATEGORIES[cat] ? CATEGORIES[cat].label : cat}
-                </div>
-                <FitPrefAxis
-                  label="Length"
-                  options={axes.length}
-                  value={pref.length || null}
-                  onChange={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      [cat]: { ...d[cat], length: v, dismissed: false },
-                    }))
-                  }
-                />
-                <FitPrefAxis
-                  label="Looseness"
-                  options={axes.looseness}
-                  value={pref.looseness || null}
-                  onChange={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      [cat]: { ...d[cat], looseness: v, dismissed: false },
-                    }))
-                  }
-                />
-              </div>
-            );
-          })
-        )}
-        <button
-          type="button"
-          className="cz-fit-prefs-save"
-          onClick={() => {
-            onSave && onSave(draft);
-            onClose && onClose();
-          }}
-        >
-          Save preferences
-        </button>
-      </div>
-    </ModalShell>
   );
 }
 
@@ -6179,7 +5738,7 @@ function SizeRecommendation({
 // US) only changes what the fields show and accept — switching converts the
 // draft in place so nothing typed is lost. Every field optional; the
 // recommender asks for whatever it's missing.
-const BODY_PROFILE_FIELDS = [
+export const BODY_PROFILE_FIELDS = [
   // key, label, kind ("length"|"weight"), placeholder cm, placeholder in
   ["height", "Height", "length", "178", "70"],
   ["weight", "Weight", "weight", "70", "154"],
@@ -6190,83 +5749,6 @@ const BODY_PROFILE_FIELDS = [
   ["hip", "Hip", "length", "98", "38.5"],
   ["inseam", "Inseam (leg length)", "length", "81", "32"],
 ];
-
-function BodyProfileSheet({ value, units = "in", onSave, onChangeUnits, onClose }) {
-  const [draft, setDraft] = useState(() => {
-    const d = {};
-    for (const [key, , kind] of BODY_PROFILE_FIELDS) d[key] = measureFromStorage(value && value[key], units, kind);
-    return d;
-  });
-
-  const set = (key) => (v) => setDraft((d) => ({ ...d, [key]: v.replace(/[^\d.]/g, "") }));
-
-  // Convert every typed value when the toggle flips — 38 stays 38, just in
-  // the other unit (96.5cm), never silently reinterpreted.
-  const switchUnits = (next) => {
-    if (next === units) return;
-    setDraft((d) => {
-      const out = {};
-      for (const [key, , kind] of BODY_PROFILE_FIELDS) {
-        const stored = measureToStorage(d[key], units, kind);
-        out[key] = stored == null ? "" : measureFromStorage(stored, next, kind);
-      }
-      return out;
-    });
-    onChangeUnits(next);
-  };
-
-  const save = () => {
-    const out = {};
-    for (const [key, , kind] of BODY_PROFILE_FIELDS) {
-      const n = measureToStorage(draft[key], units, kind);
-      if (n != null) out[key] = n;
-    }
-    onSave(Object.keys(out).length ? out : null);
-    onClose();
-  };
-
-  const unitLabel = (kind) => (units === "in" ? (kind === "weight" ? "lb" : "in") : kind === "weight" ? "kg" : "cm");
-
-  return (
-    <ModalShell title="Your measurements" onClose={onClose} maxWidth={560}>
-      <div style={{ padding: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <p style={{ margin: 0, flex: 1, fontFamily: FONT, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
-            Measured on your body — Credenza adds the ease. Seller charts are
-            metric; we convert for you.
-          </p>
-          <div style={{ flexShrink: 0, minWidth: 120 }}>
-            <SegmentedControl
-              label="Units"
-              value={units}
-              onChange={switchUnits}
-              options={[
-                { value: "in", label: "in" },
-                { value: "cm", label: "cm" },
-              ]}
-            />
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {BODY_PROFILE_FIELDS.map(([key, label, kind, phCm, phIn]) => (
-            <Field
-              key={key}
-              label={label + " (" + unitLabel(kind) + ")"}
-              value={draft[key] || ""}
-              onChange={set(key)}
-              placeholder={units === "in" ? phIn : phCm}
-            />
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-          <Pill primary onClick={save} style={{ flex: 1, justifyContent: "center", minHeight: 44 }}>Save</Pill>
-          <Pill subtle onClick={onClose}>Cancel</Pill>
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
 function InfoBubble({ title, children, onClose }) {
   return (
     <div className="cz-info-bubble">
@@ -6371,7 +5853,7 @@ function CardCornerFan({
             transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 240, damping: 22 }}
             style={{ originX: 0.5, originY: 1 }}
           >
-            <img src={src} alt={"Gallery image " + (i + 1)} draggable={false} />
+            <img src={src} alt={"Gallery image " + (i + 1)} draggable={false} loading="lazy" decoding="async" />
           </motion.div>
         );
       })}
@@ -6388,6 +5870,139 @@ function CardCornerFan({
 }
 
 // ═══ STANDARDIZED CARD BACK (standardization 2026-07-22, audit workstream B) ═══
+// A5 (docs/Monetization.md): Warehouse QC — the agent's check photos live
+// here, distinct from the product gallery, plus one-tap GL/RL. GL clears the
+// card to ship; RL sends it back. Both stamp qcVerdictAt; the note is
+// optional. The section appears once a card reaches the warehouse (qc/gl/rl)
+// or already has QC photos.
+function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isCenter }) {
+  const qcPhotos = Array.isArray(item.qcPhotos) ? item.qcPhotos.filter(Boolean) : [];
+  const [noteDraft, setNoteDraft] = useState(item.qcNote || "");
+  const fileRef = useRef(null);
+  useEffect(() => {
+    setNoteDraft(item.qcNote || "");
+  }, [item.id, item.qcNote]);
+
+  const attachQc = async (file) => {
+    if (!file) return;
+    try {
+      const dataUrl = await compressImageBlob(file);
+      onSaveEdit?.(item.id, (x) => ({
+        qcPhotos: [...(Array.isArray(x.qcPhotos) ? x.qcPhotos : []), dataUrl].slice(0, 12),
+      }));
+    } catch (e) {
+      // Read failure: leave the card untouched (graceful degradation, §11).
+    }
+  };
+
+  const verdict = (v) =>
+    onSaveEdit?.(item.id, {
+      findStatus: v,
+      qcVerdictAt: new Date().toISOString(),
+      qcNote: String(noteDraft || "").trim(),
+    });
+
+  const verdictLabel = item.qcVerdictAt
+    ? (item.findStatus === "gl" ? "GL" : item.findStatus === "rl" ? "RL" : "QC") +
+      " · " +
+      new Date(item.qcVerdictAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : "";
+
+  return (
+    <section className="cz-sheet-section cz-qc" aria-label="Warehouse QC">
+      <div className="cz-qc-head">
+        <span className="cz-qc-title">Warehouse QC</span>
+        {verdictLabel ? <span className="cz-qc-verdict">{verdictLabel}</span> : null}
+      </div>
+      {qcPhotos.length > 0 ? (
+        <div className="cz-qc-thumbs" role="list" aria-label="QC photos">
+          {qcPhotos.map((src, i) => (
+            <div className="cz-qc-thumb" role="listitem" key={src.slice(-24) + i}>
+              <button
+                type="button"
+                className="cz-qc-thumb-open"
+                aria-label={"Open QC photo " + (i + 1)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isCenter) return;
+                  onOpenPhotos?.(item, {
+                    images: qcPhotos,
+                    startIndex: i,
+                    trigger: e.currentTarget,
+                  });
+                }}
+              >
+                <img src={src} alt="" loading="lazy" decoding="async" />
+              </button>
+              <button
+                type="button"
+                className="cz-qc-thumb-remove"
+                aria-label={"Remove QC photo " + (i + 1)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSaveEdit?.(item.id, (x) => ({
+                    qcPhotos: (Array.isArray(x.qcPhotos) ? x.qcPhotos : []).filter(
+                      (g) => g !== src
+                    ),
+                  }));
+                }}
+              >
+                <X aria-hidden="true" size={11} strokeWidth={2.6} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="cz-qc-empty">No QC photos yet. Add the ones your agent sends.</p>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="cz-qc-file"
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={(e) => {
+          attachQc(e.target.files && e.target.files[0]);
+          e.target.value = "";
+        }}
+      />
+      <div className="cz-qc-actions">
+        <button type="button" className="cz-qc-add" onClick={() => fileRef.current?.click()}>
+          <Plus aria-hidden="true" size={13} strokeWidth={2.4} />
+          Add QC photo
+        </button>
+        <button
+          type="button"
+          className={"cz-qc-verdict-btn is-gl" + (item.findStatus === "gl" ? " is-active" : "")}
+          onClick={() => verdict("gl")}
+        >
+          GL · ship it
+        </button>
+        <button
+          type="button"
+          className={"cz-qc-verdict-btn is-rl" + (item.findStatus === "rl" ? " is-active" : "")}
+          onClick={() => verdict("rl")}
+        >
+          RL · send back
+        </button>
+      </div>
+      <input
+        type="text"
+        className="cz-qc-note"
+        value={noteDraft}
+        placeholder="QC note (optional) — flaw, exchange ask…"
+        aria-label="QC note"
+        onChange={(e) => setNoteDraft(e.target.value)}
+        onBlur={() => {
+          const next = String(noteDraft || "").trim();
+          if (next !== (item.qcNote || "")) onSaveEdit?.(item.id, { qcNote: next });
+        }}
+      />
+    </section>
+  );
+}
+
 // The one detail layout for an item — the carousel card back is the app's
 // single detail surface, and this is its body. Element order is the standard:
 // title → price hero (¥+$) → seller link → meta chips → haul → note → size
@@ -6426,11 +6041,13 @@ function ItemDetailBody({
     setNoteClamped(!!el && el.scrollHeight > el.clientHeight + 1);
   }, [item.note, noteOpen]);
   // Size/color chips only — status + category are full pickers in the pipeline.
+  const itemWeight = itemWeightGrams(item);
   const hasFactChips =
     item.size ||
     item.posterSize ||
     item.recommendedSize ||
-    item.colorway;
+    item.colorway ||
+    itemWeight != null;
   const buyButtons = linkButtons(item, { buyLabel }).filter((b) => b.role === "buy");
   // Product-sheet order (Kyle 2026-07-22):
   // head → identity → facts → context → size → PHOTOS (fills space) →
@@ -6467,12 +6084,20 @@ function ItemDetailBody({
             {item.colorway && (
               <span className="cz-meta-chip">{item.colorway}</span>
             )}
+            {/* A6: "~" flags the estimate; an override reads as exact. */}
+            {itemWeight != null && (
+              <span className="cz-meta-chip">
+                {item.weightGrams ? Math.round(Number(item.weightGrams)) + " g" : formatWeightGrams(itemWeight)}
+              </span>
+            )}
           </div>
         </section>
       )}
 
       <section className="cz-sheet-section cz-sheet-context" aria-label="Haul and notes">
-        <div className="cz-carousel-haul-block" onClick={(e) => e.stopPropagation()}>
+        {/* CO-29: no stopPropagation wrapper — the back-face root treats
+            .cz-carousel-haul-block as inert (see the closest() list). */}
+        <div className="cz-carousel-haul-block">
           <CardBackHaulField
             item={item}
             knownHauls={knownHauls}
@@ -6529,6 +6154,18 @@ function ItemDetailBody({
         </div>
       </section>
 
+      {/* A5: Warehouse QC sits right after the pipeline — it is the next step
+          once a card reaches the agent's warehouse. */}
+      {["qc", "gl", "rl"].includes(item.findStatus || "") ||
+      (Array.isArray(item.qcPhotos) && item.qcPhotos.length > 0) ? (
+        <WarehouseQcSection
+          item={item}
+          onSaveEdit={onSaveEdit}
+          onOpenPhotos={onOpenPhotos}
+          isCenter={isCenter}
+        />
+      ) : null}
+
       {galleryImages.length > 0 && (
         <section className="cz-sheet-section cz-sheet-photos" aria-label="Photos">
           {/* Roomy fan — same language as the little cards, just taller so the
@@ -6544,11 +6181,12 @@ function ItemDetailBody({
         </section>
       )}
 
-      {/* Design 4c: auto-detected category select row. */}
+      {/* Design 4c: auto-detected category select row.
+          CO-29: no stopPropagation — the back-face root already treats
+          .cz-sheet-pipeline clicks as inert. */}
       <section
         className="cz-sheet-section cz-sheet-pipeline"
         aria-label="Category"
-        onClick={(e) => e.stopPropagation()}
       >
         <CategorySelect
           value={item.category || ""}
@@ -7053,7 +6691,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
             }
             e.stopPropagation();
             if (!flipped || editing || backView !== "details" || bubble) return;
-            if (e.target.closest("a, button, input, textarea, select, label, [role='button'], [contenteditable], dialog, img, .cz-corner-fan, .cz-photo-strip, .cz-sheet-pipeline")) return;
+            if (e.target.closest("a, button, input, textarea, select, label, [role='button'], [contenteditable], dialog, img, .cz-corner-fan, .cz-photo-strip, .cz-sheet-pipeline, .cz-carousel-haul-block")) return;
             const sel = window.getSelection?.();
             if (sel && !sel.isCollapsed) return;
             deactivate();
@@ -7400,11 +7038,6 @@ function CoverFlowCarousel({
   onSaveFitPref,
   // When true, skip CoverFlow springs so a haul morph can hand off silently.
   suppressMotion = false,
-  // Grid-tap overlay only: a one-card rack may size up to fill the stage.
-  // The main carousel view can ALSO hold one card (search filter) but its
-  // 520px track can't — solo sizing there overflows the meta row (Kyle
-  // 2026-07-23).
-  soloLayout = false,
 }) {
   const containerRef = useRef(null);
   const [activeIndex, setActiveIndexState] = useState(0);
@@ -7815,8 +7448,18 @@ function CoverFlowCarousel({
     // side card (stale after close + scroll) used to reopen the wrong album.
     const center = items[activeIndexRef.current];
     if (!center || center.id !== item.id) return;
-    const seed = itemPhotoList(item, 8);
-    const shouldLoad = !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
+    // A5: callers may pass an explicit image list (Warehouse QC photos) via
+    // opts.images — then the Yupoo album load is skipped, so product photos
+    // never leak into the QC viewer.
+    const customImages =
+      triggerOrOpts &&
+      typeof triggerOrOpts === "object" &&
+      !(triggerOrOpts instanceof Element) &&
+      Array.isArray(triggerOrOpts.images)
+        ? triggerOrOpts.images.filter(Boolean)
+        : null;
+    const seed = customImages || itemPhotoList(item, 8);
+    const shouldLoad = !customImages && !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
     let trigger = null;
     let startIndex = 0;
     if (typeof triggerOrOpts === "number") {
@@ -8242,7 +7885,7 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
                     setActiveIndex(index);
                   }}
                 >
-                  <img src={src} alt={"Album photo " + (index + 1)} draggable={false} />
+                  <img src={src} alt={"Album photo " + (index + 1)} draggable={false} loading="lazy" decoding="async" />
                   {index === activeIndex && (
                     <div className="cz-photo-coverflow-caption">{item.title}</div>
                   )}
@@ -8302,7 +7945,7 @@ function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPri
   );
 }
 
-function ModalShell({ title, onClose, children, maxWidth = 720, trailing, surfaceClassName = "" }) {
+export function ModalShell({ title, onClose, children, maxWidth = 720, trailing, surfaceClassName = "" }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
   const titleId = useId();
@@ -8491,374 +8134,6 @@ function DigestDeck({ slides, onClose, onOpen }) {
   );
 }
 
-// A2: buying-agent picker + referral slots + outbound-click counts. Buy keeps
-// working with empty referral slots — codes only attach at open time (recordOpen).
-function AgentSheet({ preferredAgent, onSelectAgent, affiliateCodes, onAffiliateCodeChange, storageBackend, onClose }) {
-  const [summary, setSummary] = useState(null);
-  useEffect(() => {
-    let live = true;
-    loadOutboundClicks(storageBackend).then((clicks) => {
-      if (live) setSummary(summarizeOutbound(clicks));
-    });
-    return () => {
-      live = false;
-    };
-  }, [storageBackend]);
-
-  return (
-    <ModalShell title="Buying agent" onClose={onClose} maxWidth={520}>
-      <div style={{ padding: "20px 22px 22px", fontFamily: FONT }}>
-        <Caption style={{ color: BLUE, marginBottom: 10 }}>Buy opens in</Caption>
-        <div
-          role="radiogroup"
-          aria-label="Preferred buying agent"
-          style={{ display: "grid", gap: 6 }}
-        >
-          {listAgents().map((agent) => {
-            const active = agent.id === preferredAgent;
-            const clicks = summary && summary.byAgent[agent.id];
-            return (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={active}
-                key={agent.id}
-                onClick={() => onSelectAgent(agent.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  fontFamily: FONT,
-                  fontSize: 13,
-                  fontWeight: active ? 700 : 600,
-                  color: active ? INK : SUB,
-                  background: active ? CARD : "transparent",
-                  border: "1px solid " + (active ? "var(--cz-hair-strong)" : HAIR),
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                <span style={{ flex: 1 }}>{agent.name}</span>
-                {clicks ? (
-                  <span style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>{clicks} opened</span>
-                ) : null}
-                {active ? <Check size={15} aria-hidden="true" /> : null}
-              </button>
-            );
-          })}
-        </div>
-        <p style={{ fontSize: 12, lineHeight: 1.5, color: SUB, margin: "12px 0 0" }}>
-          Change anytime — your saved links are never rewritten. The agent is applied only when you
-          tap Buy. Disclosure: Buy links may include a referral code; Credenza may earn a commission
-          on agent shipping fees. It never changes your item price.
-        </p>
-
-        <Caption style={{ color: BLUE, margin: "18px 0 8px" }}>Referral codes (optional)</Caption>
-        <div style={{ display: "grid", gap: 8 }}>
-          {listAgents()
-            .filter((a) => a.referralParam || a.signupTemplate)
-            .map((agent) => {
-              const signupUrl = buildSignupUrl(agent.id, { referralOverrides: affiliateCodes });
-              return (
-                <div key={agent.id}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: SUB }}>
-                    <span style={{ width: 80, flexShrink: 0, fontWeight: 600 }}>{agent.name}</span>
-                    <input
-                      type="text"
-                      value={affiliateCodes[agent.id] || ""}
-                      onChange={(e) => onAffiliateCodeChange(agent.id, e.target.value)}
-                      placeholder="Paste code when your affiliate account is approved"
-                      style={{
-                        flex: 1,
-                        fontFamily: FONT,
-                        fontSize: 12.5,
-                        color: INK,
-                        background: SEG,
-                        border: "1px solid " + HAIR,
-                        borderRadius: 10,
-                        padding: "8px 10px",
-                      }}
-                    />
-                  </label>
-                  {signupUrl ? (
-                    <a
-                      href={signupUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: "inline-block", margin: "4px 0 0 90px", fontSize: 11, color: BLUE }}
-                    >
-                      Test sign-up link ↗
-                    </a>
-                  ) : null}
-                </div>
-              );
-            })}
-        </div>
-
-        {summary && summary.total > 0 ? (
-          <p style={{ fontSize: 11.5, color: SUB, margin: "16px 0 0" }}>
-            {summary.total} outbound {summary.total === 1 ? "click" : "clicks"} logged locally
-            {summary.wrapped ? " · " + summary.wrapped + " through an agent" : ""}.
-          </p>
-        ) : null}
-      </div>
-    </ModalShell>
-  );
-}
-
-// Import sources cycle (design handoff turn 8a). CO-22: the per-platform
-// colored dots read as connection status — red beside Weidian/Reddit looked
-// like faults. One neutral dot now (color lives in .cz-import-source-dot).
-const IMPORT_SOURCES = [
-  { name: "Yupoo" },
-  { name: "Weidian" },
-  { name: "Taobao" },
-  { name: "Reddit post or comment" },
-  { name: "Credenza backup" },
-];
-
-function ImportSourceCycle() {
-  const [index, setIndex] = useState(0);
-  const [phase, setPhase] = useState("idle"); // idle | exit | enter
-  const reduced = usePrefersReducedMotion();
-  const source = IMPORT_SOURCES[index];
-
-  useEffect(() => {
-    if (reduced) return undefined;
-    let exitTimer = 0;
-    let enterTimer = 0;
-    const tick = window.setInterval(() => {
-      setPhase("exit");
-      window.clearTimeout(exitTimer);
-      window.clearTimeout(enterTimer);
-      exitTimer = window.setTimeout(() => {
-        setIndex((i) => (i + 1) % IMPORT_SOURCES.length);
-        setPhase("enter");
-        enterTimer = window.setTimeout(() => setPhase("idle"), 20);
-      }, 150);
-    }, 1900);
-    return () => {
-      window.clearInterval(tick);
-      window.clearTimeout(exitTimer);
-      window.clearTimeout(enterTimer);
-    };
-  }, [reduced]);
-
-  const phaseClass =
-    phase === "exit" ? " is-exit" : phase === "enter" ? " is-enter-start" : "";
-
-  return (
-    <div className="cz-import-works">
-      <div className="cz-import-works-label">Works with</div>
-      <div className="cz-import-source-slot" aria-live="polite">
-        <span className={"cz-import-source-swap" + phaseClass}>
-          <span className="cz-import-source-dot" aria-hidden="true" />
-          <span className="cz-import-source-name">{source.name}</span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onClearShelf, onRestore }) {
-  const [text, setText] = useState("");
-  const fileRef = useRef(null);
-  const importTextId = useId();
-
-  const preview = useMemo(() => {
-    if (!text.trim()) return null;
-    const { candidates, provider, posterStats, poster } = parseImport(text);
-    const fresh = candidates.filter((c) => !items.some((x) => itemMatchesCanonicalKey(x, c.key)));
-    const dates = fresh.map((c) => c.createdAt).filter(Boolean);
-    const oldest = dates.length ? Math.min(...dates) : null;
-    return { candidates, fresh, dupes: candidates.length - fresh.length, provider, oldest, posterStats, poster };
-  }, [text, items]);
-
-  const readFile = (file) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const content = String(reader.result || "");
-      // A Credenza backup restores directly; anything else feeds the paste parser.
-      if (/\.json$/i.test(file.name)) {
-        try {
-          const arr = JSON.parse(content);
-          if (Array.isArray(arr) && arr.length && arr[0] && (arr[0].canonicalKey || arr[0].rawText != null)) {
-            onRestore(arr);
-            return;
-          }
-        } catch (e) {}
-      }
-      setText((prev) => (prev ? prev + "\n" : "") + content);
-    };
-    reader.readAsText(file);
-  };
-
-  const canImport = !!(preview && preview.fresh.length > 0);
-  const importLabel = canImport ? "Import " + preview.fresh.length : "Import haul";
-
-  return (
-    <ModalShell title="Bring a haul onto your shelf" onClose={onClose} maxWidth={520}>
-      <div
-        className="cz-import-body"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-          if (f) readFile(f);
-        }}
-      >
-        <ImportSourceCycle />
-
-        <label className="cz-import-paste-label" htmlFor={importTextId}>
-          Paste links, a whole Reddit thread, or a list
-        </label>
-        <textarea
-          id={importTextId}
-          className="cz-import-paste"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={
-            "weidian.com/item.html?id=7291…\n…x.yupoo.com/albums/…\nreddit.com/r/…/haul or pasted body\none per line"
-          }
-          rows={5}
-          aria-label="Paste haul links"
-        />
-
-        <div className="cz-import-auto">
-          <span className="cz-import-auto-star" aria-hidden="true">
-            ✦
-          </span>
-          We auto-detect the source and pull price, photos and sizing.
-        </div>
-
-        {preview && (
-          <div className="cz-import-preview">
-            <div className="cz-import-preview-summary">
-              {preview.candidates.length === 0
-                ? "No links or notes found yet."
-                : (preview.provider !== "paste"
-                    ? "Looks like a " + PROVIDER_LABELS[preview.provider] + " · "
-                    : "") +
-                  preview.fresh.length +
-                  " found" +
-                  (preview.dupes > 0 ? " · " + preview.dupes + " already on the shelf" : "") +
-                  (preview.oldest &&
-                  new Date(preview.oldest).getFullYear() < new Date().getFullYear()
-                    ? " · back to " + new Date(preview.oldest).getFullYear()
-                    : "")}
-            </div>
-            {preview.posterStats && (
-              <div className="cz-import-preview-meta">
-                {[
-                  preview.poster ? "u/" + preview.poster : null,
-                  preview.posterStats.heightCm ? preview.posterStats.heightCm + "cm" : null,
-                  preview.posterStats.weightKg ? preview.posterStats.weightKg + "kg" : null,
-                  preview.posterStats.usualSize ? "size " + preview.posterStats.usualSize : null,
-                  preview.posterStats.agent ? "agent: " + preview.posterStats.agent : null,
-                  preview.posterStats.budget
-                    ? "total " +
-                      (preview.posterStats.budgetCurrency === "USD"
-                        ? "$"
-                        : preview.posterStats.budgetCurrency === "EUR"
-                          ? "€"
-                          : "¥") +
-                      preview.posterStats.budget
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            )}
-            {preview.fresh.slice(0, 5).map((c, i) => (
-              <div key={i} className="cz-import-preview-row">
-                <BrandIcon type={c.parsed.type} host={c.parsed.host} size={12} />
-                <span className="cz-import-preview-title">
-                  {c.titleHint || localTitle(c.parsed, c.rawText)}
-                </span>
-              </div>
-            ))}
-            {preview.fresh.length > 5 && (
-              <div className="cz-import-preview-more">+ {preview.fresh.length - 5} more</div>
-            )}
-          </div>
-        )}
-
-        <div className="cz-import-actions">
-          <button
-            type="button"
-            className="cz-import-primary"
-            disabled={!canImport}
-            onClick={() => onImport(text)}
-          >
-            {importLabel}
-          </button>
-          <label className="cz-import-restore">
-            <span className="cz-import-restore-icon" aria-hidden="true">
-              ⤓
-            </span>
-            Restore a .json backup
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".json,.txt,.md"
-              onChange={(e) => readFile(e.target.files && e.target.files[0])}
-              className="cz-import-file"
-            />
-          </label>
-        </div>
-
-        {hasSamples ? (
-          <button type="button" className="cz-import-sample is-clear" onClick={onClearSamples}>
-            <div className="cz-import-sample-thumbs" aria-hidden="true">
-              <span className="cz-import-sample-thumb t1" />
-              <span className="cz-import-sample-thumb t2" />
-              <span className="cz-import-sample-thumb t3" />
-            </div>
-            <div className="cz-import-sample-copy">
-              <div className="cz-import-sample-title">Sample shelf is on</div>
-              <div className="cz-import-sample-sub">Clear the demo finds in one tap.</div>
-            </div>
-            <span className="cz-import-sample-cta">Clear ›</span>
-          </button>
-        ) : (
-          <button type="button" className="cz-import-sample" onClick={onAddSamples}>
-            <div className="cz-import-sample-thumbs" aria-hidden="true">
-              <span className="cz-import-sample-thumb t1" />
-              <span className="cz-import-sample-thumb t2" />
-              <span className="cz-import-sample-thumb t3" />
-            </div>
-            <div className="cz-import-sample-copy">
-              <div className="cz-import-sample-title">Just exploring? Try a sample shelf</div>
-              <div className="cz-import-sample-sub">
-                {SAMPLE_COUNT} fashion finds to poke at. Clears in one tap.
-              </div>
-            </div>
-            <span className="cz-import-sample-cta">Add ›</span>
-          </button>
-        )}
-
-        {items.length > 0 && (
-          <button type="button" className="cz-import-export" onClick={onExport}>
-            Download your shelf as a .json backup
-          </button>
-        )}
-
-        {items.length > 0 && (
-          <button
-            type="button"
-            className="cz-import-export cz-import-clear"
-            onClick={onClearShelf}
-          >
-            Clear the whole shelf…
-          </button>
-        )}
-      </div>
-    </ModalShell>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ MAIN APP ═══
@@ -8875,9 +8150,9 @@ function HeroStagger() {
   }, []);
   return (
     <div className={"t-stagger" + (shown ? " is-shown" : "")}>
-      <h1 className="cz-hero-title cz-title-balance t-stagger-line t-stagger-line--1">
+      <p className="cz-hero-title cz-title-balance t-stagger-line t-stagger-line--1">
         One shelf for the whole haul.
-      </h1>
+      </p>
       <p
         className="cz-tagline t-stagger-line t-stagger-line--2"
         style={{ fontSize: 15, color: "var(--cz-sub)", marginBottom: 22, lineHeight: 1.55 }}
@@ -9084,7 +8359,6 @@ export default function Credenza() {
     return () => window.removeEventListener("credenza:update-ready", onUpdateReady);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const captureRef = useRef(null);
   const searchRef = useRef(null);
   const deskSearchRef = useRef(null);
   // Capture sheet's paste box (design handoff PR3). The top capture box only
@@ -10190,11 +9464,6 @@ export default function Credenza() {
     );
   };
 
-  const dismissResurfaced = () => {
-    if (resurfaced) updateItem(resurfaced, { dismissedAt: Date.now() });
-    setResurfaced(null);
-  };
-
   // ————— Digest: local scoring, local copy —————
   const buildDigest = () => {
     const now = Date.now();
@@ -10572,12 +9841,15 @@ export default function Credenza() {
   const openHaulName = view === "hauls" ? activeHaul || closingHaulName : null;
 
   // When a haul is open (or closing), only its cards are on the shelf surface.
+  // Base on `visible`, not `shelfItems` (Kyle 2026-07-24): the shelf's Starred
+  // filter must NOT shrink an open haul — a haul always shows every card in
+  // it. Search still narrows within the haul.
   const listItems = useMemo(() => {
     if (!openHaulName) return shelfItems;
-    return shelfItems.filter(
+    return visible.filter(
       (item) => typeof item.project === "string" && item.project.trim() === openHaulName
     );
-  }, [openHaulName, shelfItems]);
+  }, [openHaulName, shelfItems, visible]);
   listItemsRef.current = listItems;
 
   const openHaul = useCallback((haulKey) => {
@@ -10592,18 +9864,49 @@ export default function Credenza() {
   // directory, chips, and the reel never disagree (CNY falls back to 0.14).
   const totalsItems = useMemo(() => {
     if (openHaulName) {
-      return shelfItems.filter(
+      return visible.filter(
         (item) => typeof item.project === "string" && item.project.trim() === openHaulName
       );
     }
     return listItems;
-  }, [openHaulName, shelfItems, listItems]);
+  }, [openHaulName, visible, listItems]);
   // Sums exactly what's on the surface — search matches, Starred-only filter,
   // or the open haul — so the counter recalculates organically.
+  // A3: inside a haul the total covers non-returned items only — a returned
+  // card is money coming back, not money in the parcel.
   const listTotalUsd = useMemo(
-    () => totalsItems.reduce((sum, it) => sum + (itemUsdAmount(it) || 0), 0),
-    [totalsItems]
+    () =>
+      totalsItems.reduce(
+        (sum, it) =>
+          sum + (openHaulName && it.findStatus === "returned" ? 0 : (itemUsdAmount(it) || 0)),
+        0
+      ),
+    [totalsItems, openHaulName]
   );
+  // A3 + A6 haul pipeline board: per-status counts, the ready-to-ship count
+  // (bought + GL per docs/Monetization.md §A3), and the rough ship weight.
+  // Computed over the whole haul (totalsItems), so search inside the haul
+  // narrows the cards but never the board.
+  const haulPipeline = useMemo(() => {
+    if (!openHaulName) return null;
+    const counts = {};
+    let weightSum = 0;
+    let weightKnown = false;
+    for (const it of totalsItems) {
+      const s = it.findStatus || "want";
+      counts[s] = (counts[s] || 0) + 1;
+      const w = itemWeightGrams(it);
+      if (w != null) {
+        weightSum += w;
+        weightKnown = true;
+      }
+    }
+    return {
+      counts,
+      readyToShip: (counts.bought || 0) + (counts.gl || 0),
+      weightLabel: weightKnown ? formatWeightGrams(weightSum) : "",
+    };
+  }, [openHaulName, totalsItems]);
   // Same context for the count chip — one consistent spot next to the total.
   // Starred filter MUST show through here. Keep the label short on mobile so
   // "N starred of M saved" + TOTAL SHELF COST + heart don't pile up.
@@ -11065,10 +10368,9 @@ export default function Credenza() {
   // carousel view swaps the surface and gets the full list; a grid tap pops
   // just the tapped card up in the overlay layer below — same props, same
   // behavior, only the item list and the chrome around it differ.
-  const renderCarousel = (carouselItems, soloLayout = false) => (
+  const renderCarousel = (carouselItems) => (
     <CoverFlowCarousel
       items={carouselItems}
-      soloLayout={soloLayout}
       expandedId={expandedId}
       selectedId={selectedId}
       flipRequest={flipRequest}
@@ -11279,6 +10581,7 @@ export default function Credenza() {
         />
       )}
       {importOpen && (
+        <Suspense fallback={null}>
         <ImportSheet
           items={items}
           hasSamples={hasSamples}
@@ -11290,8 +10593,10 @@ export default function Credenza() {
           onClearShelf={clearShelf}
           onRestore={restoreBackup}
         />
+        </Suspense>
       )}
       {agentSheetOpen && (
+        <Suspense fallback={null}>
         <AgentSheet
           preferredAgent={preferredAgent}
           onSelectAgent={(id) => {
@@ -11305,9 +10610,11 @@ export default function Credenza() {
           storageBackend={storageBackend}
           onClose={() => setAgentSheetOpen(false)}
         />
+        </Suspense>
       )}
 
       {bodySheetOpen && (
+        <Suspense fallback={null}>
         <BodyProfileSheet
           value={bodyProfile}
           units={measureUnits}
@@ -11315,9 +10622,11 @@ export default function Credenza() {
           onChangeUnits={setMeasureUnits}
           onClose={() => setBodySheetOpen(false)}
         />
+        </Suspense>
       )}
 
       {fitPrefsSheetOpen && (
+        <Suspense fallback={null}>
         <FitPrefsSheet
           value={fitPrefs}
           ownedCategories={ownedFitPrefCategories}
@@ -11326,12 +10635,14 @@ export default function Credenza() {
           }}
           onClose={() => setFitPrefsSheetOpen(false)}
         />
+        </Suspense>
       )}
 
       {/* Capture sheet is the mobile bottom sheet only (KM-03): the desktop
           modal read as the wrong shell and was the KM-01 keystroke sink.
           Desktop stashes via the ＋ Stash button (one-tap clipboard) or ⌘V. */}
       {isPhone && captureSheetOpen && (
+        <Suspense fallback={null}>
         <CaptureSheet
           clip={clipPreview}
           input={input}
@@ -11356,6 +10667,7 @@ export default function Credenza() {
           onClose={() => setCaptureSheetOpen(false)}
           textareaRef={sheetCaptureRef}
         />
+        </Suspense>
       )}
 
       {pendingDeleteId && (
@@ -11395,6 +10707,7 @@ export default function Credenza() {
       )}
 
       {profileOpen && (
+        <Suspense fallback={null}>
         <ProfileSheet
           mode={mode}
           onTheme={setTheme}
@@ -11428,6 +10741,7 @@ export default function Credenza() {
           }
           onClose={() => setProfileOpen(false)}
         />
+        </Suspense>
       )}
 
       {/* Grid/list card popup only — carousel stays in-rack (Kyle 2026-07-23).
@@ -11474,7 +10788,7 @@ export default function Credenza() {
               (overlayPhase === "closing" ? " is-closing" : "")
             }
           >
-            {renderCarousel([overlayItem], true)}
+            {renderCarousel([overlayItem])}
           </div>
         </div>
       )}
@@ -11484,14 +10798,14 @@ export default function Credenza() {
             full-bleed capture/search/tabs on a wide monitor read as sprawl).
             The carousel/grid panels below stay full-width. */}
         <div className="cz-chrome">
-        <div className="cz-masthead">
-          <div className="cz-brand">
+        <header className="cz-masthead">
+          <h1 className="cz-brand">
             <span className="cz-brand-mark">C</span>
             <span className="cz-brand-name">
               <span className="cz-brand-word">CREDENZA</span>
               <span className="cz-brand-sub">Fashion</span>
             </span>
-          </div>
+          </h1>
           {!firstRunIntro && (
           <button
             type="button"
@@ -11503,14 +10817,14 @@ export default function Credenza() {
             <User size={17} strokeWidth={2.2} aria-hidden="true" />
           </button>
           )}
-        </div>
+        </header>
 
         {/* Onboarding step 1 (no hard gate): value line + Get started. After
             that the empty shelf is the capture surface. Sign-in stays optional.
             First run shows this intro INSTEAD of the app shell (CO-04). */}
         {firstRunIntro && (
           <div className="cz-onboard">
-            <h1 className="cz-onboard-title">One shelf for the whole haul.</h1>
+            <p className="cz-onboard-title">One shelf for the whole haul.</p>
             <p className="cz-onboard-copy">
               Paste a link, get a clean card — price, photos, and your size, all sorted.
             </p>
@@ -11698,6 +11012,7 @@ export default function Credenza() {
             Also hidden on the first-run intro (CO-04). */}
         {!firstRunIntro && (
         <div className="cz-search-row">
+          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- shell-padding mousedown only focuses the input; the input itself owns keyboard interaction (CO-29) */}
           <div
             className={"cz-search-shell" + (search ? " has-clear" : "")}
             onMouseDown={(e) => {
@@ -12056,15 +11371,43 @@ export default function Credenza() {
             when a haul opens without hopping or re-skinning. */}
         {openHaulName ? (
           <div className="cz-haul-open-head" key={openHaulName}>
-            <button type="button" className="cz-haul-back" onClick={closeHaul}>
-              <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.2} />
-              All hauls
-            </button>
-            <h2 className="cz-haul-open-title">{openHaulName}</h2>
+            <div className="cz-haul-open-head-row">
+              <button type="button" className="cz-haul-back" onClick={closeHaul}>
+                <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.2} />
+                All hauls
+              </button>
+              <h2 className="cz-haul-open-title">{openHaulName}</h2>
+            </div>
+            {/* A3 + A6 pipeline board: where every card sits in the buy →
+                warehouse → ship flow, the ready-to-ship count, and the rough
+                parcel weight. Covers the whole haul, not the search-narrowed
+                cards. */}
+            {haulPipeline && totalsItems.length > 0 ? (
+              <div className="cz-haul-open-stats" aria-label="Haul pipeline">
+                {FIND_STATUSES.map((s) =>
+                  haulPipeline.counts[s] ? (
+                    <span key={s} className={"cz-haul-stat cz-haul-stat-" + s}>
+                      {FIND_STATUS_LABELS[s]} {haulPipeline.counts[s]}
+                    </span>
+                  ) : null
+                )}
+                {haulPipeline.readyToShip > 0 ? (
+                  <span className="cz-haul-stat cz-haul-stat-ready">
+                    Ready to ship {haulPipeline.readyToShip}
+                  </span>
+                ) : null}
+                {haulPipeline.weightLabel ? (
+                  <span className="cz-haul-stat cz-haul-stat-weight">
+                    {haulPipeline.weightLabel}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
         </div>{/* /.cz-chrome */}
 
+        <main>
         {view === "inbox" ? (
           <div
             role="tabpanel"
@@ -12120,6 +11463,7 @@ export default function Credenza() {
         ) : (
           shelfSurface
         )}
+        </main>
       </div>
 
       {notification && (
@@ -12164,7 +11508,7 @@ export default function Credenza() {
           Hidden on the first-run intro (CO-04) — no agent tile before
           onboarding ends. */}
       {!firstRunIntro && (
-      <div className="cz-bottom-bar">
+      <footer className="cz-bottom-bar">
         <div className="cz-bottom-bar-inner">
           <div className="cz-bar-mobile">
             {clipPreview ? (
@@ -12216,7 +11560,7 @@ export default function Credenza() {
             </button>
           </div>
         </div>
-      </div>
+      </footer>
       )}
     </div>
   );

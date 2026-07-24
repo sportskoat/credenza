@@ -115,10 +115,40 @@
 
 Do not start these items before Gates 0 to 2 are done.
 
-- [ ] **21.** Add lazy loading to the images. Fix the 12 lint errors. Delete
+- [x] **21.** Add lazy loading to the images. Fix the 12 lint errors. Delete
   the dead code. Add the page landmarks.
-- [ ] **22.** Split the JavaScript bundle. Load the sheets only when they open.
-- [ ] **23.** Build the Tier A features from `docs/Monetization.md`.
+  DONE 2026-07-24 (CO-25/CO-29/CO-30/CO-31): all six img tags carry
+  loading="lazy" + decoding="async". Lint is 0 errors (10 a11y fixes in JSX,
+  globals.browser in the root eslint config). Deleted the seven named dead
+  symbols in both JSX files (localAsk, aiAsk, FilterChip, formatItemDate,
+  FIND_STATUS_GROUPS, dismissResurfaced, soloLayout) plus CapturePill,
+  normalizedHostPath, MONO, the CapturePill-only ACTION_* constants, and the
+  unused eslint-disable. Landmarks: masthead is header, brand is the one h1,
+  shelf panels sit in main, the mobile capture bar is footer. The hero and
+  intro titles are now p elements so the page keeps one h1. Probe:
+  header/main/footer present, h1 count 1. 190 tests pass.
+- [x] **22.** Split the JavaScript bundle. Load the sheets only when they open.
+  DONE 2026-07-24 (CO-28): vendor chunk (react, framer-motion, lucide) splits
+  from the app via manualChunks. The six sheets moved to `sheets/*.jsx` and
+  load with React.lazy + Suspense on first open. Main chunk 502 kB → 210 kB
+  (gzip 161 → 68 kB); vendor 277 kB (89 kB gzip) caches separately; sheet
+  chunks are 1.4–6.2 kB each. The lint script now covers ../sheets. Probe:
+  all six sheets open from their chunks on desktop and phone. 190 tests
+  pass.
+- [x] **23.** Build the Tier A features from `docs/Monetization.md`.
+  DONE 2026-07-24 (GR-01): A6 weight estimator — CATEGORY_WEIGHT_GRAMS table,
+  per-item weightGrams override in the edit form (placeholder shows the auto
+  default), weight chip on the card back, "~" formatting, garbage input clears
+  to the default. A3 pipeline board — the open-haul head shows per-status
+  counts, "Ready to ship N" (bought + GL), and the rough haul weight; the
+  haul money total now excludes returned items. A5 Warehouse QC — qcPhotos
+  gallery on the card back (distinct from the product gallery, opens in the
+  photo viewer), one-tap GL/RL with qcVerdictAt stamp and optional qcNote.
+  migrateItem now round-trips weightGrams/qcPhotos/qcNote/qcVerdictAt.
+  Same batch: the status-track connector no longer runs through the bubbles
+  (9px inset at each end; Kyle's overlap report). Probe: board counts, $56
+  returned-excluded total, ~3 kg, GL tap flips status + stamps + re-counts.
+  8 new weight unit tests. 198 tests pass. Lint 0 errors. Build clean.
 - [ ] **24.** Kyle: set the Reddit variables. Kyle: rotate the Anthropic key.
 
 ## Rules for every gate
