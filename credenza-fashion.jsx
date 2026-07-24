@@ -24,7 +24,8 @@ import {
   recordOutboundClick,
   summarizeOutbound,
 } from "./agents.js";
-import { parseRedditHaul } from "./reddit-haul.js";
+import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
+import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES } from "./credenza-find-status.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
@@ -877,10 +878,12 @@ function normalizedHostPath(url) {
 }
 
 // Every http(s) URL in the text, in order, trailing punctuation trimmed, deduped.
+// Space-broken URLs ("ta oba o.co m") are repaired first — Reddit posters
+// obfuscate W2C links to dodge automod.
 function extractUrls(raw) {
   const out = [];
   const seen = new Set();
-  const matches = (raw || "").match(/https?:\/\/[^\s]+/g) || [];
+  const matches = deobfuscateUrls(raw || "").match(/https?:\/\/[^\s]+/g) || [];
   for (let m of matches) {
     m = m.replace(/[),.;:!?'"\]]+$/, "");
     if (!seen.has(m)) {
@@ -1113,7 +1116,10 @@ function prettifySlug(seg) {
 }
 
 function firstLine(text) {
-  return (text.split(/\n/)[0] || text).trim();
+  // First line with a letter in it — skips decorative rules ("────", "***")
+  // and quote gutters so a copied terminal block titles by its first words.
+  const line = (text || "").split(/\n/).find((l) => /[a-z]/i.test(l));
+  return (line || text || "").trim().replace(/^[❯›>*#\-–—|\s]+/, "");
 }
 
 function localTitle(parsed, rawText) {
@@ -1447,13 +1453,16 @@ const CLIP_PLATFORMS = [
   [/weidian/i, "Weidian", "#ff5a3c"],
   [/yupoo/i, "Yupoo", "#37b24d"],
   [/taobao|tmall/i, "Taobao", "#ff6a00"],
+  [/1688/i, "1688", "#ff9406"],
   [/reddit/i, "Reddit", "#ff4500"],
   [/superbuy/i, "Superbuy", "#5b8def"],
   [/sugargoo/i, "Sugargoo", "#f7b500"],
   [/kakobuy/i, "Kakobuy", "#8a5cf6"],
 ];
 function clipboardPreviewFor(raw) {
-  const text = (raw || "").trim();
+  // Repair space-broken URLs first — an obfuscated link otherwise shows as
+  // "Link link on your clipboard / de" (Kyle 2026-07-23).
+  const text = deobfuscateUrls(raw || "").trim();
   if (!text) return null;
   const m = /https?:\/\/[^\s]+/i.exec(text);
   let host = "";
@@ -1827,7 +1836,19 @@ function parseImport(text) {
   }
 
   // 4. Messy lines: one per line, prose with links inside, plain notes.
-  for (const lineRaw of text.split(/\n+/)) {
+  // Kyle 2026-07-23: a URL-free paste with no list markers is ONE wrapped
+  // note (a copied paragraph, a terminal quote block) — the per-line split
+  // shredded raw prose into fragment cards ("Raw text, yes, but is t…").
+  const importLines = text.split(/\n+/);
+  const hasAnyUrl = /https?:\/\//.test(text);
+  const bulletLines = importLines.filter((l) =>
+    /^\s*(?:[-*•❯›]|\d+[.)])\s+\S/.test(l)
+  ).length;
+  if (!hasAnyUrl && bulletLines < 2) {
+    if (trimmed.length >= 3) push(classify(trimmed), trimmed, "");
+    return { candidates, provider: "paste" };
+  }
+  for (const lineRaw of importLines) {
     const line = lineRaw.replace(/^[\s\-*•>”"]*(?:\d+[.)])?\s*/, "").trim();
     if (!line || line.length < 3) continue;
     const urls = line.match(/https?:\/\/[^\s<>"')\]]+/g) || [];
@@ -3140,12 +3161,24 @@ function ProfileSheet({
           <span>AI fit summary</span>
           <span className="cz-profile-row-val">{fitSummary ? "On" : "Off"} ›</span>
         </button>
-        {fitSummary && (
-          <button type="button" className="cz-profile-row" onClick={onCycleFitDetail}>
-            <span>Fit detail</span>
-            <span className="cz-profile-row-val">{fitDetail === "detailed" ? "Detailed" : "Concise"} ›</span>
-          </button>
-        )}
+        {/* Accordion so the Fit detail row animates in/out on toggle instead of
+            popping. Same t-acc + t-panel-slide composite as the dropdowns. */}
+        <div className="t-acc cz-profile-acc" data-open={fitSummary}>
+          <div
+            className="t-acc-panel"
+            aria-hidden={!fitSummary}
+            inert={!fitSummary ? "" : undefined}
+          >
+            <div className="t-acc-panel-inner">
+              <div className="t-panel-slide" data-open={fitSummary}>
+                <button type="button" className="cz-profile-row" onClick={onCycleFitDetail}>
+                  <span>Fit detail</span>
+                  <span className="cz-profile-row-val">{fitDetail === "detailed" ? "Detailed" : "Concise"} ›</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
         <button type="button" className="cz-profile-row" onClick={onOpenImport}>
           <span>Import &amp; backup</span>
           <span className="cz-profile-row-val">›</span>
@@ -3527,101 +3560,112 @@ function SegmentedControl({ value, onChange, options, label, allowUnset = false 
   );
 }
 
-// Design handoff 4a: current stage (serif) + Change › + 4-stop human track.
-// Agent sub-states stay in the 4b picker only.
+// Design handoff 4a: the 4-stop human track IS the status control — tap it
+// for the grouped picker. No big serif stage line above the track (Kyle
+// 2026-07-23: "take out the larger 'want', just use the line"). The current
+// stop stays legible through the filled dot + green bold track label.
 function StatusStage({ value, onChange, label = "Status" }) {
   const [open, setOpen] = useState(false);
   const current = value || "want";
   const trackIdx = statusTrackIndex(current);
   const stageLabel = FIND_STATUS_LONG[current] || FIND_STATUS_LABELS[current] || current;
   return (
-    <div className={"cz-status-stage" + (open ? " is-open" : "")}>
-      <div className="cz-status-stage-kicker">{label}</div>
+    <div
+      className={"cz-status-stage t-acc" + (open ? " is-open" : "")}
+      data-open={open}
+    >
       <button
         type="button"
-        className="cz-status-stage-current"
+        className="cz-status-track-btn"
+        aria-label={label + ": " + stageLabel + ". Change."}
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="cz-status-stage-left">
-          <span className="cz-status-stage-dot" aria-hidden="true" />
-          <span className="cz-status-stage-name">{stageLabel}</span>
-        </span>
-        <span className="cz-status-stage-change">
-          Change
-          <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" />
-        </span>
-      </button>
-      <div className="cz-status-track" aria-hidden="true">
-        <div className="cz-status-track-dots">
-          {STATUS_TRACK.map((name, i) => {
-            const state = i < trackIdx ? "past" : i === trackIdx ? "current" : "future";
-            return (
-              <Fragment key={name}>
-                {i > 0 && <span className={"cz-status-track-line is-" + state} />}
-                <span className={"cz-status-track-dot is-" + state} />
-              </Fragment>
-            );
-          })}
+        <div className="cz-status-track" aria-hidden="true">
+          <div className="cz-status-track-dots">
+            {STATUS_TRACK.map((name, i) => {
+              const state = i < trackIdx ? "past" : i === trackIdx ? "current" : "future";
+              return (
+                <Fragment key={name}>
+                  {i > 0 && <span className={"cz-status-track-line is-" + state} />}
+                  <span className={"cz-status-track-dot is-" + state} />
+                </Fragment>
+              );
+            })}
+          </div>
+          <div className="cz-status-track-labels">
+            {STATUS_TRACK.map((name, i) => (
+              <span
+                key={name}
+                className={
+                  "cz-status-track-label" + (i === trackIdx ? " is-current" : "")
+                }
+              >
+                {name}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="cz-status-track-labels">
-          {STATUS_TRACK.map((name, i) => (
-            <span
-              key={name}
-              className={
-                "cz-status-track-label" + (i === trackIdx ? " is-current" : "")
-              }
-            >
-              {name}
-            </span>
-          ))}
+      </button>
+      {/* t-acc animates the height; t-panel-slide adds the slide + blur. The
+          panel stays mounted so the close animation can play; inert keeps the
+          hidden options out of tab order and the a11y tree. */}
+      <div
+        className="t-acc-panel"
+        aria-hidden={!open}
+        inert={!open ? "" : undefined}
+      >
+        <div className="t-acc-panel-inner">
+          <div
+            className="cz-status-picker t-panel-slide"
+            data-open={open}
+            role="listbox"
+            aria-label="Order status"
+          >
+            <div className="cz-status-picker-title">Order status</div>
+            {FIND_STATUS_GROUPS.map((group) => (
+              <div className="cz-status-picker-group" key={group.title}>
+                <div className="cz-status-picker-group-title">{group.title}</div>
+                {group.keys.map((s) => {
+                  const active = current === s;
+                  const hint = FIND_STATUS_HINTS[s];
+                  return (
+                    <button
+                      type="button"
+                      key={s}
+                      role="option"
+                      aria-selected={active}
+                      className={
+                        "cz-status-picker-option" +
+                        (active ? " is-active" : "") +
+                        (hint ? " has-hint" : "")
+                      }
+                      onClick={() => {
+                        onChange && onChange(s);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="cz-status-picker-option-dot" aria-hidden="true" />
+                      <span className="cz-status-picker-option-text">
+                        <span className="cz-status-picker-option-label">
+                          {FIND_STATUS_LONG[s] || FIND_STATUS_LABELS[s]}
+                        </span>
+                        {hint ? (
+                          <span className="cz-status-picker-option-hint">{hint}</span>
+                        ) : null}
+                      </span>
+                      {active ? (
+                        <Check size={16} strokeWidth={2.4} aria-hidden="true" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-      {open && (
-        <div className="cz-status-picker" role="listbox" aria-label="Order status">
-          <div className="cz-status-picker-title">Order status</div>
-          {FIND_STATUS_GROUPS.map((group) => (
-            <div className="cz-status-picker-group" key={group.title}>
-              <div className="cz-status-picker-group-title">{group.title}</div>
-              {group.keys.map((s) => {
-                const active = current === s;
-                const hint = FIND_STATUS_HINTS[s];
-                return (
-                  <button
-                    type="button"
-                    key={s}
-                    role="option"
-                    aria-selected={active}
-                    className={
-                      "cz-status-picker-option" +
-                      (active ? " is-active" : "") +
-                      (hint ? " has-hint" : "")
-                    }
-                    onClick={() => {
-                      onChange && onChange(s);
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="cz-status-picker-option-dot" aria-hidden="true" />
-                    <span className="cz-status-picker-option-text">
-                      <span className="cz-status-picker-option-label">
-                        {FIND_STATUS_LONG[s] || FIND_STATUS_LABELS[s]}
-                      </span>
-                      {hint ? (
-                        <span className="cz-status-picker-option-hint">{hint}</span>
-                      ) : null}
-                    </span>
-                    {active ? (
-                      <Check size={16} strokeWidth={2.4} aria-hidden="true" />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -3668,7 +3712,10 @@ function CategorySelect({ value, onChange, label = "Category", auto = true }) {
   const currentLabel =
     current && CATEGORIES[current] ? CATEGORIES[current].label : "Not set";
   return (
-    <div className={"cz-cat-select" + (open ? " is-open" : "")}>
+    <div
+      className={"cz-cat-select t-acc" + (open ? " is-open" : "")}
+      data-open={open}
+    >
       <div className="cz-cat-select-label">{label}</div>
       <button
         type="button"
@@ -3683,35 +3730,51 @@ function CategorySelect({ value, onChange, label = "Category", auto = true }) {
             <span className="cz-cat-select-auto">auto</span>
           ) : null}
         </span>
-        <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
+        <span className="t-acc-chevron">
+          <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
+        </span>
       </button>
-      {open && (
-        <div className="cz-cat-select-menu" role="listbox" aria-label={label}>
-          <div className="cz-cat-select-hint">Tap to change</div>
-          <div className="cz-cat-select-chips">
-            {Object.entries(CATEGORIES).map(([key, c]) => {
-              const active = current === key;
-              return (
-                <button
-                  type="button"
-                  key={key}
-                  role="option"
-                  aria-selected={active}
-                  className={
-                    "cz-cat-select-chip" + (active ? " is-active" : "")
-                  }
-                  onClick={() => {
-                    onChange && onChange(key);
-                    setOpen(false);
-                  }}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
+      {/* Same t-acc + t-panel-slide composite as the status picker. The panel
+          stays mounted so the close animation can play; inert keeps the hidden
+          chips out of tab order and the a11y tree. */}
+      <div
+        className="t-acc-panel"
+        aria-hidden={!open}
+        inert={!open ? "" : undefined}
+      >
+        <div className="t-acc-panel-inner">
+          <div
+            className="cz-cat-select-menu t-panel-slide"
+            data-open={open}
+            role="listbox"
+            aria-label={label}
+          >
+            <div className="cz-cat-select-hint">Tap to change</div>
+            <div className="cz-cat-select-chips">
+              {Object.entries(CATEGORIES).map(([key, c]) => {
+                const active = current === key;
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    role="option"
+                    aria-selected={active}
+                    className={
+                      "cz-cat-select-chip" + (active ? " is-active" : "")
+                    }
+                    onClick={() => {
+                      onChange && onChange(key);
+                      setOpen(false);
+                    }}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -3835,11 +3898,29 @@ function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
 //   rec only        →  SIZE: MEDIUM          (isRec)
 //   both, same      →  SIZE: LARGE
 //   both, differ    →  SIZE: LARGE (Rec M)
+// 2026-07-23 (Kyle): no chart on the item → no true rec, so most cards showed
+// nothing. Fall back to the profile's usual size tagged EST — visible on
+// every garment card, never reads as measured. A size set in Edit always
+// wins over any rec.
 function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
   if (!item) return { text: "", isRec: false };
   const chosen = String(item.size || "").trim();
   const rec = computeRecommendedSize(item, bodyProfile, fitPrefs);
-  if (!chosen && !rec) return { text: "", isRec: false };
+  if (!chosen && !rec) {
+    const usual =
+      bodyProfile && !SIZE_PICK_SKIP_CATEGORIES.has(item.category)
+        ? String(bodyProfile.usualSize || "").trim()
+        : "";
+    if (usual) {
+      return {
+        text: "SIZE: " + formatSizeToken(usual) + " (EST)",
+        isRec: true,
+        isEstimate: true,
+        size: usual,
+      };
+    }
+    return { text: "", isRec: false };
+  }
 
   if (chosen && rec) {
     const same = chosen.toLowerCase() === rec.toLowerCase();
@@ -4540,28 +4621,25 @@ function ComboboxField({
 
 // Haul directory cover: multi-item corner fan (transitions.dev CardCornerFan).
 // Name + price sit in a separate label box below — not attached to the stack.
-// Hover fan on desktop; on touch (no hover) it rests half-fanned so multi-item
-// hauls still read as stacks — tap opens the haul either way.
+// One item = one flat card (no ghost stack). Two+ items fan on hover; on touch
+// they rest half-fanned so multi-item hauls still read as stacks.
 function HaulCoverFan({ covers = [], name = "", count = 0 }) {
   const [hovered, setHovered] = useState(false);
   const reduced = usePrefersReducedMotion();
   const coarse = useCoarsePointer();
-  // Pad to at least 1, at most 5 slots so single-item hauls still look like a card.
+  // Real covers only — never invent empty ghost cards for a 1-item haul.
   const images = covers.length ? covers.slice(0, 5) : [null];
-  // For single covers, still fan 3 ghost cards so multi-item hauls feel special
-  // when they grow — but keep the real image on top.
-  const slots =
-    images.length === 1
-      ? [images[0], null, null]
-      : images;
+  const slots = images;
   const total = slots.length;
+  const single = total <= 1 || count <= 1;
   const angle = coarse && !hovered ? 22 : 36; // resting fan is tighter than hover fan
-  const open = (hovered || coarse) && !reduced;
+  // Single-item hauls stay flat. Multi-item: hover (desktop) or rest-open (touch).
+  const open = !single && (hovered || coarse) && !reduced;
 
   return (
     <div
-      className="cz-haul-fan"
-      onMouseEnter={() => setHovered(true)}
+      className={"cz-haul-fan" + (single ? " is-single" : "")}
+      onMouseEnter={() => !single && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       aria-hidden="true"
     >
@@ -4599,7 +4677,7 @@ function HaulCoverFan({ covers = [], name = "", count = 0 }) {
           </motion.div>
         );
       })}
-      {count > slots.filter(Boolean).length ? (
+      {!single && count > slots.filter(Boolean).length ? (
         <span className="cz-haul-fan-more">+{count - slots.filter(Boolean).length}</span>
       ) : null}
     </div>
@@ -5150,6 +5228,49 @@ function linkButtons(item, opts = {}) {
   return btns;
 }
 
+// ═══ UNIFIED CARD FRONT INFO (Kyle 2026-07-23) ═══
+// Grid card and carousel front read the same, title down: AI size line
+// (manual size from Edit overrides the rec; EST = usual-size fallback when
+// the item has no chart), seller, then the price as green USD text — no ¥
+// when USD is known. linkSeller=false renders the seller as plain text: the
+// grid card's whole face is one button, and nested anchors are invalid.
+function CardFrontInfo({ item, bodyProfile, fitPrefs = null, linkSeller = true }) {
+  const size = resolveDisplaySize(item, bodyProfile, fitPrefs);
+  const price = priceLabelShort(item);
+  return (
+    <>
+      <div className="cz-front-size">
+        {size.text ? (
+          <span
+            className={
+              "cz-front-size-text" + (size.isRec ? " is-rec t-shimmer" : "")
+            }
+            data-text={size.isRec ? size.text : undefined}
+          >
+            {size.text}
+          </span>
+        ) : (
+          <span aria-hidden="true">&nbsp;</span>
+        )}
+      </div>
+      <div className="cz-front-seller">
+        {item.seller ? (
+          linkSeller ? (
+            <SellerLink item={item} />
+          ) : (
+            <span className="cz-seller-link is-text">{item.seller}</span>
+          )
+        ) : (
+          <span aria-hidden="true">&nbsp;</span>
+        )}
+      </div>
+      <div className="cz-front-price">
+        {price ? price : <span aria-hidden="true">&nbsp;</span>}
+      </div>
+    </>
+  );
+}
+
 // ═══ GRID CARD (editorial front — design handoff 2a/2b) ═══
 // At rest: photo hero, status flag top-left, quiet outline heart top-right,
 // serif title, green price as text. No Buy button at rest.
@@ -5164,12 +5285,11 @@ function Card({
   buyLabel,
   mode,
   phone = false,
-  bodyProfile = null, // kept for call-site parity; editorial front does not show size
+  bodyProfile = null,
+  fitPrefs = null,
 }) {
   const reduced = usePrefersReducedMotion();
-  void bodyProfile;
   const buy = linkButtons(item, { buyLabel }).find((b) => b.role === "buy") || null;
-  const price = priceLabel(item);
 
   return (
     <article
@@ -5244,7 +5364,12 @@ function Card({
             </div>
 
             <div className="cz-card-title cz-card-title-serif">{item.title}</div>
-            {price ? <div className="cz-card-price-text">{price}</div> : null}
+            <CardFrontInfo
+              item={item}
+              bodyProfile={bodyProfile}
+              fitPrefs={fitPrefs}
+              linkSeller={false}
+            />
           </button>
         </div>
       </div>
@@ -5807,7 +5932,7 @@ function SizeRecommendation({
     return (
       <div className="cz-fit4">
         <div className="cz-fit4-head">
-          <div className="cz-fit4-kicker">We recommend</div>
+          <div className="cz-fit4-kicker t-shimmer" data-text="We recommend">We recommend</div>
           <span className="cz-fit4-badge is-rough">
             <span className="cz-fit4-badge-dot" aria-hidden="true" />
             Rough estimate
@@ -5909,7 +6034,7 @@ function SizeRecommendation({
   return (
     <div className="cz-fit4">
       <div className="cz-fit4-head">
-        <div className="cz-fit4-kicker">We recommend</div>
+        <div className="cz-fit4-kicker t-shimmer" data-text="We recommend">We recommend</div>
         <span className="cz-fit4-badge is-precise">
           <span className="cz-fit4-badge-dot" aria-hidden="true" />
           Precise fit
@@ -5940,6 +6065,10 @@ function SizeRecommendation({
         ) : null}
       </div>
       <p className="cz-fit4-prose">{preciseProse}</p>
+      {/* Kyle 2026-07-23: the math row is the no-preference payoff (4g). When
+          taste shifted the size (5c), the reason line + pref tags carry the
+          why — showing both stacked read as clutter. */}
+      {!baseWord && !lengthTag && !looseTag && (
       <div className="cz-fit4-math" aria-label="Fit numbers">
         <div className="cz-fit4-math-cell">
           <div className="cz-fit4-math-k">You</div>
@@ -5954,7 +6083,11 @@ function SizeRecommendation({
           <div className="cz-fit4-math-v is-money">{easeStr}</div>
         </div>
       </div>
-      {(lengthTag || looseTag || onSaveFitPref) && catAxes ? (
+      )}
+      {/* Pref payoff row — only when a preference is actually set. With no
+          tags the bar was a bare divider + Edit; Settings → Fit covers that
+          path (Kyle 2026-07-23: cut the clutter). */}
+      {(lengthTag || looseTag) && catAxes ? (
         <div className="cz-fit4-pref-bar">
           <div className="cz-fit4-pref-tags">
             {lengthTag ? <span className="cz-fit4-pref-tag">{lengthTag}</span> : null}
@@ -5982,7 +6115,9 @@ function SizeRecommendation({
           {rec.size} is not in this seller’s listed run ({runValues.join(" · ")}).
         </p>
       )}
-      {rec.alt && (
+      {/* The detailed fit summary already names the runner-up — only fall
+          back to the bare alt line when the summary is off. */}
+      {rec.alt && !baseWord && !fitSentence && (
         <p className="cz-fit4-alt">
           {rec.alt.size} also works
           {rec.alt.fit && rec.alt.fit !== "same" ? " if you want it " + rec.alt.fit : ""}.
@@ -6231,6 +6366,19 @@ function ItemDetailBody({
   fitPref = null,
   onSaveFitPref,
 }) {
+  // Note clamp: 2 lines at rest, a small + opens the full text (Kyle
+  // 2026-07-23). The + renders only when the text actually overflows.
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteClamped, setNoteClamped] = useState(false);
+  const noteRef = useRef(null);
+  useEffect(() => {
+    setNoteOpen(false);
+  }, [item.id]);
+  useEffect(() => {
+    if (noteOpen) return;
+    const el = noteRef.current;
+    setNoteClamped(!!el && el.scrollHeight > el.clientHeight + 1);
+  }, [item.note, noteOpen]);
   // Size/color chips only — status + category are full pickers in the pipeline.
   const hasFactChips =
     item.size ||
@@ -6287,9 +6435,25 @@ function ItemDetailBody({
           />
         </div>
         {item.note ? (
-          <div className="cz-carousel-note">
-            <span>Note</span>
-            <p>{item.note}</p>
+          <div className={"cz-carousel-note" + (noteOpen ? " is-open" : "")}>
+            <div className="cz-carousel-note-head">
+              <span>Note</span>
+              {noteClamped || noteOpen ? (
+                <button
+                  type="button"
+                  className="cz-note-toggle"
+                  aria-expanded={noteOpen}
+                  aria-label={noteOpen ? "Collapse note" : "Read full note"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setNoteOpen((v) => !v);
+                  }}
+                >
+                  <Plus size={12} strokeWidth={2.4} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            <p ref={noteRef}>{item.note}</p>
           </div>
         ) : null}
       </section>
@@ -6483,12 +6647,23 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     }
   }, [backView]);
 
+  // Signals are one-shot commands, but they live in App state forever. A card
+  // that MOUNTS while an old signal still matches its id would execute it
+  // again (Kyle 2026-07-23: first card flipped on carousel entry after a
+  // Space-flip earlier). Seed the ref with the current signal so only NEW
+  // signals act.
+  const lastFlipSignalRef = useRef(flipSignal);
   useEffect(() => {
-    if (flipSignal && flipSignal.startsWith(item.id + ":")) setFlipped(true);
+    if (!flipSignal || flipSignal === lastFlipSignalRef.current) return;
+    lastFlipSignalRef.current = flipSignal;
+    if (flipSignal.startsWith(item.id + ":")) setFlipped(true);
   }, [flipSignal, item.id]);
 
+  const lastEditSignalRef = useRef(editSignal);
   useEffect(() => {
-    if (editSignal && editSignal.startsWith(item.id + ":")) {
+    if (!editSignal || editSignal === lastEditSignalRef.current) return;
+    lastEditSignalRef.current = editSignal;
+    if (editSignal.startsWith(item.id + ":")) {
       setEd(buildEditDraft(item));
       setBubble(null);
       setBackView("details");
@@ -6731,40 +6906,16 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               imgStyle={{ borderRadius: 0 }}
             />
             <StatusPill status={item.findStatus} className="cz-carousel-status" />
-            {/* Always show a price slot when we have any price figure (USD or CNY).
-                Absolute to the image wrap — meta below is fixed height so chips
-                land on the same baseline across every card. */}
-            <PriceChip item={item} variant="overlay" />
           </div>
           <div className="cz-carousel-front-meta">
-            {/* Rhythm: title → seller · Rec size → Buy → Flip.
-                Size is live from chart + body when stored rec is empty. */}
+            {/* Unified with the grid card (Kyle 2026-07-23): title → AI size →
+                seller → green USD price text. No overlay price chip, no ¥. */}
             <h3 className="cz-carousel-title">{item.title}</h3>
-            <div className="cz-carousel-sub">
-              {item.seller ? (
-                <SellerLink item={item} />
-              ) : (
-                <span className="cz-carousel-sub-empty" aria-hidden="true">
-                  &nbsp;
-                </span>
-              )}
-              {(() => {
-                const size = resolveDisplaySize(
-                  item,
-                  bodyProfile,
-                  fitPref && item.category ? { [item.category]: fitPref } : null
-                );
-                if (!size.text) return null;
-                return (
-                  <>
-                    {item.seller ? " · " : null}
-                    <span className={"cz-carousel-size" + (size.isRec ? " is-rec" : "")}>
-                      {size.text}
-                    </span>
-                  </>
-                );
-              })()}
-            </div>
+            <CardFrontInfo
+              item={item}
+              bodyProfile={bodyProfile}
+              fitPrefs={fitPref && item.category ? { [item.category]: fitPref } : null}
+            />
             {(() => {
               const buy = linkButtons(item, { buyLabel }).find((b) => b.role === "buy");
               if (!buy || !isCenter) return null;
@@ -7180,6 +7331,11 @@ function CoverFlowCarousel({
   onSaveFitPref,
   // When true, skip CoverFlow springs so a haul morph can hand off silently.
   suppressMotion = false,
+  // Grid-tap overlay only: a one-card rack may size up to fill the stage.
+  // The main carousel view can ALSO hold one card (search filter) but its
+  // 520px track can't — solo sizing there overflows the meta row (Kyle
+  // 2026-07-23).
+  soloLayout = false,
 }) {
   const containerRef = useRef(null);
   const [activeIndex, setActiveIndexState] = useState(0);
@@ -7274,7 +7430,7 @@ function CoverFlowCarousel({
   useEffect(() => {
     // Solo rack (grid-tap overlay) gets a bigger card — no side cards to leave
     // room for. Multi-card carousel keeps the tighter coverflow geometry.
-    const solo = items.length === 1;
+    const solo = soloLayout && items.length === 1;
     const update = () => {
       const w = typeof window !== "undefined" ? window.innerWidth : 320;
       const width = solo
@@ -7296,7 +7452,7 @@ function CoverFlowCarousel({
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, [items.length]);
+  }, [items.length, soloLayout]);
 
   useEffect(() => {
     const stage = containerRef.current?.parentElement;
@@ -8620,6 +8776,29 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
 // ═══ MAIN APP ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
 
+// Empty-shelf hero with the transitions.dev staggered text reveal. is-shown
+// lands one frame after mount so the entrance transition actually plays.
+function HeroStagger() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <div className={"t-stagger" + (shown ? " is-shown" : "")}>
+      <h1 className="cz-hero-title cz-title-balance t-stagger-line t-stagger-line--1">
+        One shelf for the whole haul.
+      </h1>
+      <p
+        className="cz-tagline t-stagger-line t-stagger-line--2"
+        style={{ fontSize: 15, color: "var(--cz-sub)", marginBottom: 22, lineHeight: 1.55 }}
+      >
+        Copy a Weidian, Taobao or Yupoo link, then stash it. Price, photos and your size land on the card.
+      </p>
+    </div>
+  );
+}
+
 export default function Credenza() {
   const [items, setItems] = useState([]);
   const [storageState, setStorageState] = useState({ status: "loading", raw: null, error: null });
@@ -8687,10 +8866,10 @@ export default function Credenza() {
   // profileSheetOpen — "profile" now means the account sheet).
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  // Desktop ≥768px: glass toggles the top row between capture and search.
-  // Mobile keeps the always-visible search field + bottom capture bar.
-  const [deskSearchMode, setDeskSearchMode] = useState(false);
-  // Clipboard-detected split pill: null = show the plain ＋ Stash pill.
+  // Search handoff 6a (2026-07-23): no more toggle — desktop gets a permanent
+  // search field + a solid ＋ Stash button. Search is ambient, Stash is an
+  // event; the two jobs never share one field again.
+  // Clipboard fast-path: null = nothing stashable detected.
   const [clipPreview, setClipPreview] = useState(null);
   // Display order for dual-currency labels; synced into priceLabel's module
   // reader below. Persisted in credenza-prefs-v1.
@@ -8793,6 +8972,7 @@ export default function Credenza() {
   }, []);
   const captureRef = useRef(null);
   const searchRef = useRef(null);
+  const deskSearchRef = useRef(null);
   // Capture sheet's paste box (design handoff PR3). The top capture box only
   // renders on the empty shelf; everywhere else capture focus means "open the
   // sheet and focus its textarea".
@@ -9115,15 +9295,29 @@ export default function Credenza() {
       stashRedditHaul(text);
       return { status: "hauling" };
     }
+    // Fashion gate (Kyle 2026-07-23): the shelf is fashion-only. A URL with no
+    // marketplace/agent/Reddit host asks first — clipboard accidents (news,
+    // video, music) never become cards silently. The paste stays in the box;
+    // "Stash anyway" is the override for niche shops the gate doesn't know.
+    if (fashionGateStatus(text) === "gated") {
+      notify("That doesn't look like a fashion link — nothing stashed yet.", {
+        actionLabel: "Stash anyway",
+        onAction: () => {
+          const result = stash(text);
+          if (result.status === "stashed") beginIndexingJob(result);
+        },
+        duration: 8000,
+      });
+      return { status: "gated" };
+    }
     return stash(text);
   };
 
   const capture = () => {
     const result = dispatchStash(input);
-    if (result.status !== "empty") {
-      setInput("");
-      if (result.status === "stashed") beginIndexingJob(result);
-    }
+    if (result.status === "empty" || result.status === "gated") return; // gated keeps the paste
+    setInput("");
+    if (result.status === "stashed") beginIndexingJob(result);
   };
 
   // One tap: read the clipboard and stash it directly. Browsers guard clipboard
@@ -10331,7 +10525,10 @@ export default function Credenza() {
           return;
         if (e.key === "k") {
           e.preventDefault();
-          searchRef.current && searchRef.current.focus();
+          // Desktop shows its own search field; the mobile row is display:none.
+          const desk =
+            window.matchMedia("(min-width: 768px)").matches && deskSearchRef.current;
+          (desk || searchRef.current) && (desk || searchRef.current).focus();
         }
         return;
       }
@@ -10545,6 +10742,7 @@ export default function Credenza() {
         phone={isPhone}
         mode={mode}
         bodyProfile={bodyProfile}
+        fitPrefs={fitPrefs}
       />
     </div>
   );
@@ -10654,9 +10852,10 @@ export default function Credenza() {
   // carousel view swaps the surface and gets the full list; a grid tap pops
   // just the tapped card up in the overlay layer below — same props, same
   // behavior, only the item list and the chrome around it differ.
-  const renderCarousel = (carouselItems) => (
+  const renderCarousel = (carouselItems, soloLayout = false) => (
     <CoverFlowCarousel
       items={carouselItems}
+      soloLayout={soloLayout}
       expandedId={expandedId}
       selectedId={selectedId}
       flipRequest={flipRequest}
@@ -11045,7 +11244,7 @@ export default function Credenza() {
               exit={reduced ? undefined : { scale: 0.97, y: 10 }}
               transition={{ duration: reduced ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
             >
-              {renderCarousel([overlayItem])}
+              {renderCarousel([overlayItem], true)}
             </motion.div>
           </motion.div>
         )}
@@ -11108,14 +11307,7 @@ export default function Credenza() {
         {/* The full hero is the empty-shelf welcome; a stocked shelf is a daily
             tool and gets its first viewport back (design handoff PR2): compact
             masthead, then capture/search/tabs — cards above the fold. */}
-        {items.length === 0 && onboardingDone && (
-          <>
-            <h1 className="cz-hero-title cz-title-balance">One shelf for the whole haul.</h1>
-            <p className="cz-tagline" style={{ fontSize: 15, color: "var(--cz-sub)", marginBottom: 22, lineHeight: 1.55 }}>
-              Copy a Weidian, Taobao or Yupoo link, then stash it. Price, photos and your size land on the card.
-            </p>
-          </>
-        )}
+        {items.length === 0 && onboardingDone && <HeroStagger />}
 
         {/* Stash mode (Kyle 2026-07-22): the same paste box makes one card
             from a link, N cards from a Reddit haul, or a plain note. On a
@@ -11168,14 +11360,25 @@ export default function Credenza() {
           </>
         )}
 
-        {/* Desktop top capture / search row (≥768px). Under logo, above tabs.
-            Glass toggles capture ⇄ search. Agent is not here — it lives on
-            Buy and in the profile sheet (design handoff PR4). */}
+        {/* Desktop top bar (≥768px), search handoff 6a: one permanent search
+            field + one solid ＋ Stash button. Search is ambient (filters the
+            shelf); Stash is an event (opens the capture sheet). No toggle —
+            the two jobs never share a field. Agent lives on Buy + profile. */}
         {items.length > 0 && (
           <div className="cz-desk-capture">
-            {deskSearchMode ? (
+            <div
+              className="cz-desk-search-shell"
+              onMouseDown={(e) => {
+                if (document.activeElement !== deskSearchRef.current) {
+                  e.preventDefault();
+                  deskSearchRef.current?.focus();
+                }
+              }}
+            >
+              <Search className="cz-desk-search-leading" aria-hidden="true" size={16} strokeWidth={2.2} />
               <input
-                className="cz-desk-capture-field"
+                ref={deskSearchRef}
+                className="cz-desk-search-field"
                 type="text"
                 inputMode="search"
                 enterKeyHint="search"
@@ -11199,58 +11402,57 @@ export default function Credenza() {
                   e.stopPropagation();
                   if (e.key === "Escape") {
                     setSearch("");
-                    setDeskSearchMode(false);
                     e.target.blur();
                   }
                 }}
                 placeholder="Search your shelf"
               />
-            ) : (
-              <>
-                <input
-                  className="cz-desk-capture-field"
-                  type="text"
-                  aria-label="Stash a link or note"
-                  placeholder="Paste a link or note…"
-                  disabled={interactionLocked}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      capture();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="cz-desk-capture-stash"
-                  disabled={interactionLocked}
-                  onClick={() => {
-                    if (input.trim()) {
-                      capture();
-                      return;
-                    }
-                    stashClipboard();
-                  }}
-                  aria-label={input.trim() ? "Stash" : "Stash clipboard"}
-                >
-                  {input.trim() ? "Stash" : "Stash clipboard"}
-                </button>
-              </>
-            )}
+            </div>
             <button
               type="button"
-              className={"cz-desk-search-toggle" + (deskSearchMode ? " is-active" : "")}
-              aria-pressed={deskSearchMode}
-              aria-label={deskSearchMode ? "Close search" : "Search your shelf"}
-              title={deskSearchMode ? "Close search" : "Search your shelf"}
-              onClick={() => setDeskSearchMode((v) => !v)}
+              className="cz-desk-stash-btn"
+              disabled={interactionLocked}
+              onClick={() => setCaptureSheetOpen(true)}
+              aria-label="Stash a link or note"
+              title="Stash a link or note"
             >
-              <Search size={17} strokeWidth={2.2} aria-hidden="true" />
+              <span className="cz-desk-stash-plus" aria-hidden="true">
+                ＋
+              </span>
+              Stash
             </button>
           </div>
+        )}
+
+        {/* Clipboard fast-path (6a): a slim dark strip under the bar, only
+            when a stashable link/note is detected. One tap stashes it. It is
+            informational only — no buttons inside; the bar's ＋ Stash is the
+            canonical action. */}
+        {items.length > 0 && clipPreview && (
+          <button
+            type="button"
+            className="cz-desk-clip-banner"
+            disabled={interactionLocked}
+            onClick={stashClipboard}
+            aria-label={
+              (clipPreview.platform === "Note"
+                ? "Note on your clipboard: "
+                : clipPreview.platform + " link on your clipboard: ") +
+              clipPreview.host +
+              ". Stash it."
+            }
+            title="Stash it in one tap"
+          >
+            <span className="cz-clip-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
+            <span className="cz-desk-clip-text">
+              <span className="cz-desk-clip-title">
+                {clipPreview.platform === "Note"
+                  ? "Note on your clipboard"
+                  : clipPreview.platform + " link on your clipboard"}
+              </span>
+              <span className="cz-desk-clip-host">{clipPreview.host}</span>
+            </span>
+          </button>
         )}
 
         {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it). */}

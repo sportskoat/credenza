@@ -501,8 +501,8 @@
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  /* Meta block owns title + seller + Buy + flip cue (~188px). */
-  height: calc(100% - 188px);
+  /* Meta block owns title + size + seller + price + Buy + flip cue (208px). */
+  height: calc(100% - 208px);
   overflow: hidden;
   -webkit-user-drag: none;
 }
@@ -596,11 +596,10 @@
 }
 
 .cz-carousel-front-meta {
-  /* Title + seller/size + Buy + flip cue — actionable first face.
-     Equal side padding; rhythm: title→seller 6px, seller→Buy 16px,
-     Flip pinned to bottom (margin-top: auto). */
-  flex: 0 0 188px;
-  height: 188px;
+  /* Title + size + seller + price + Buy + flip cue — actionable first face.
+     Taller than the old 188px: the unified info block adds two lines. */
+  flex: 0 0 208px;
+  height: 208px;
   box-sizing: border-box;
   padding: 12px 16px 12px;
   display: flex;
@@ -630,23 +629,63 @@
   flex-shrink: 0;
 }
 
-.cz-carousel-sub {
-  margin: 0 0 16px;
+/* Unified card-front info lines — grid card + carousel front read the same
+   (Kyle 2026-07-23): AI size between title and seller, seller, green USD
+   price. Reserved min-heights keep Buy/Flip on one baseline across cards. */
+.cz-front-size {
+  margin: 0 0 2px;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
   line-height: 1.25;
-  /* Reserved height so missing seller never shifts Buy / Flip. */
   min-height: 1.25em;
-  color: color-mix(in srgb, var(--cz-ink) 82%, transparent);
+  color: color-mix(in srgb, var(--cz-ink) 70%, transparent);
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 0;
 }
-
-.cz-carousel-size {
-  color: color-mix(in srgb, var(--cz-ink) 70%, transparent);
+.cz-front-size-text.is-rec {
+  font-weight: 650;
+  color: color-mix(in srgb, var(--cz-ink) 78%, var(--cz-money, #4ade80) 22%);
+}
+/* AI rec shimmer: keep the money-tinted base, sweep a money highlight so the
+   AI suggestion reads as "live" without shouting. */
+.cz-front-size-text.is-rec.t-shimmer {
+  --shimmer-base: color-mix(in srgb, var(--cz-ink) 78%, var(--cz-money, #4ade80) 22%);
+  --shimmer-highlight: var(--cz-money, #4ade80);
+}
+.cz-front-seller {
+  margin: 0 0 4px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.25;
+  min-height: 1.25em;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: color-mix(in srgb, var(--cz-ink) 82%, transparent);
+}
+.cz-front-price {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  min-height: 1.25em;
+  color: var(--cz-money);
+}
+/* Grid card pads via its own 14px rhythm (the carousel front-meta pads 16px). */
+.cz-card-body .cz-front-size,
+.cz-card-body .cz-front-seller {
+  padding: 0 14px;
+}
+.cz-card-body .cz-front-price {
+  padding: 0 14px 14px;
+}
+/* Carousel: air between the price line and Buy (was the old sub's margin). */
+.cz-carousel-front-meta .cz-buy-btn {
+  margin-top: 12px;
+  flex-shrink: 0;
 }
 
 /* Shared primary Buy — grid, carousel front, card back. Identical geometry.
@@ -816,22 +855,15 @@
   color: var(--cz-faint);
   font-family: system-ui, -apple-system, sans-serif;
 }
-.cz-carousel-size.is-rec {
-  font-weight: 650;
-  color: color-mix(in srgb, var(--cz-ink) 78%, var(--cz-money, #4ade80) 22%);
-}
-
-.cz-carousel-sub-empty {
-  visibility: hidden;
-}
-
-/* SellerLink without a store URL renders as plain text, not a link. */
+/* SellerLink without a store URL renders as plain text, not a link — so no
+   underline (an underline on dead text lies about being clickable). */
 .cz-seller-link.is-text {
   color: var(--cz-sub);
+  text-decoration: none;
 }
 
 /* Inline only — never stretch to the meta tile width (border-bottom did that). */
-.cz-carousel-sub a.cz-seller-link,
+.cz-front-seller a.cz-seller-link,
 .cz-seller-link {
   display: inline;
   width: fit-content;
@@ -847,7 +879,7 @@
   transition: color 140ms var(--ease-out), text-decoration-color 140ms var(--ease-out);
 }
 
-.cz-carousel-sub a.cz-seller-link:hover,
+.cz-front-seller a.cz-seller-link:hover,
 .cz-seller-link:hover {
   color: var(--cz-ink);
   text-decoration-color: var(--cz-ink);
@@ -1216,12 +1248,15 @@
 }
 
 .cz-sheet-head {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   min-width: 0;
 }
 
+/* One section gap for the whole sheet (Kyle 2026-07-23: "equal spacing —
+   this looks pretty chopped"): every block below the head sits 16px from the
+   next, no mix of 4/12/14. */
 .cz-sheet-section {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   min-width: 0;
   width: 100%;
 }
@@ -1237,27 +1272,27 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-bottom: 14px;
-  margin-bottom: 14px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
   border-bottom: 1px solid var(--cz-hair);
 }
 
 .cz-sheet-facts {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .cz-sheet-context {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 /* Photos on product sheet: roomy fan (same language as little cards). */
 .cz-sheet-photos {
   flex: 0 0 auto;
   min-height: 0;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   display: flex;
   flex-direction: column;
 }
@@ -1265,7 +1300,7 @@
 /* Status + category pickers above Buy (no need to enter edit). */
 .cz-sheet-pipeline {
   flex-shrink: 0;
-  margin-bottom: 4px;
+  margin-bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1292,8 +1327,10 @@
 
 /* Buy rides the bottom of the sheet — breathing room above, never mid-pile. */
 .cz-sheet-buy.cz-carousel-actions {
-  margin-top: 12px;
-  padding-top: 4px;
+  /* The pipeline above already carries the 16px section gap — adding more
+     here read as a jump (Kyle 2026-07-23 equal-spacing pass). */
+  margin-top: 0;
+  padding-top: 0;
   flex-shrink: 0;
 }
 
@@ -1463,24 +1500,53 @@ a.cz-seller-quiet:focus-visible {
   box-shadow: none;
 }
 
+/* Note: quiet text, not a box — matches the fit/status/category labels
+   (design turn 3: no tracked-mono micro-labels). Clamped to 2 lines (2c). */
 .cz-carousel-note {
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--cz-seg);
-  border: 1px solid var(--cz-hair);
+  padding: 0;
   width: 100%;
   box-sizing: border-box;
 }
 
-.cz-carousel-note span {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
+.cz-carousel-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 4px;
+}
+
+.cz-carousel-note-head span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-sub);
+}
+
+/* Little + that opens the clamped note (Kyle 2026-07-23). Rotates to × open. */
+.cz-note-toggle {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--cz-hair);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: transform 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+.cz-note-toggle:hover {
+  color: var(--cz-ink);
+}
+.cz-note-toggle:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+.cz-carousel-note.is-open .cz-note-toggle {
+  transform: rotate(45deg);
 }
 
 .cz-carousel-note p {
@@ -1488,7 +1554,18 @@ a.cz-seller-quiet:focus-visible {
   font-size: 13px;
   line-height: 1.5;
   color: var(--cz-sub);
-  font-style: italic;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.cz-carousel-note.is-open p {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+  overflow: visible;
 }
 
 .cz-carousel-gallery {
@@ -2292,11 +2369,13 @@ a.cz-seller-quiet:focus-visible {
   transform: translateY(-50%);
   padding: 2px 6px;
   border-radius: 999px;
-  background: var(--cz-seg);
-  color: var(--cz-sub);
+  /* Dark scrim + white — the old seg-on-photo chip was unreadable (Kyle
+     2026-07-23). This sits over photos, so fixed colors beat theme tokens. */
+  background: rgba(23, 24, 26, 0.78);
+  color: #fff;
   font-size: 10px;
   font-weight: 600;
-  border: 1px solid var(--cz-hair);
+  border: 1px solid transparent;
   transition: opacity 200ms var(--ease-out);
 }
 .cz-corner-fan.is-roomy .cz-corner-fan-more {
@@ -3367,6 +3446,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   margin: 0 auto;
 }
 
+/* One-item haul: flat single photo, no fan stack chrome. */
+.cz-haul-fan.is-single .cz-haul-fan-card {
+  inset: 6% 10%;
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.24),
+    0 1px 4px rgba(0, 0, 0, 0.14);
+}
+
 .cz-haul-fan-card {
   position: absolute;
   inset: 8% 12%;
@@ -3419,8 +3506,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 4px 8px;
   border-radius: 999px;
   background: rgba(11, 11, 13, 0.78);
-  color: var(--cz-ink);
-  border: 1px solid var(--cz-hair);
+  /* White on the dark pill — --cz-ink was black-on-black (Kyle 2026-07-23). */
+  color: #fff;
+  border: 1px solid transparent;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -4003,6 +4091,159 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
+/* ─── Panel reveal (transitions.dev) — dropdown panels (status, category) ─── */
+/* NO will-change here (Kyle 2026-07-23): promoting these panels to their own
+   layer killed native wheel scroll of .cz-carousel-back-content in Chromium —
+   the card back went dead even with the panels closed. The transition alone
+   composites fine on demand. */
+:root {
+  --panel-open-dur: 400ms;
+  --panel-close-dur: 350ms;
+  --panel-translate-y: 8px;
+  --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-panel-slide {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  pointer-events: none;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity   var(--panel-close-dur) var(--panel-ease),
+    filter    var(--panel-close-dur) var(--panel-ease);
+}
+.t-panel-slide[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity   var(--panel-open-dur) var(--panel-ease),
+    filter    var(--panel-open-dur) var(--panel-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-panel-slide { transition: none !important; }
+}
+
+/* ─── Modal open / close (transitions.dev) ─── */
+:root {
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-modal {
+  transform-origin: center;
+  transform: scale(var(--modal-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity   var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+}
+.t-modal.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.t-modal.is-closing {
+  transform: scale(var(--modal-scale-close));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity   var(--modal-close-dur) var(--modal-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-modal { transition: none !important; }
+}
+
+/* ─── Text reveal (transitions.dev) — staggered line entrance ─── */
+:root {
+  --stagger-dur: 500ms;
+  --stagger-distance: 12px;
+  --stagger-stagger: 40ms;
+  --stagger-blur: 3px;
+  --stagger-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-stagger-line {
+  display: block;
+  opacity: 0;
+  transform: translateY(var(--stagger-distance));
+  filter: blur(var(--stagger-blur));
+  transition:
+    opacity   var(--stagger-dur) var(--stagger-ease),
+    transform var(--stagger-dur) var(--stagger-ease),
+    filter    var(--stagger-dur) var(--stagger-ease);
+  will-change: transform, opacity, filter;
+}
+.t-stagger-line--2 { transition-delay: var(--stagger-stagger); }
+.t-stagger-line--3 { transition-delay: calc(var(--stagger-stagger) * 2); }
+.t-stagger.is-shown .t-stagger-line {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+.t-stagger.is-hiding .t-stagger-line {
+  opacity: 0;
+  transform: translateY(0);
+  filter: blur(0);
+  transition:
+    opacity 200ms ease,
+    transform 0s linear,
+    filter 0s linear;
+  transition-delay: 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-stagger-line { transition: none !important; }
+}
+
+/* ─── Shimmer text (transitions.dev) — AI suggestion accents ─── */
+:root {
+  --shimmer-dur: 2000ms;
+  --shimmer-band: 400%;
+  --shimmer-ease: linear;
+}
+.t-shimmer {
+  position: relative;
+  display: inline-block;
+  --shimmer-base: var(--cz-sub);
+  --shimmer-highlight: var(--cz-ink);
+  color: var(--shimmer-base);
+}
+.t-shimmer::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    90deg,
+    transparent          0%,
+    transparent         40%,
+    var(--shimmer-highlight) 50%,
+    transparent         60%,
+    transparent        100%
+  );
+  background-size: var(--shimmer-band) 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
+}
+@keyframes t-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-shimmer::before { animation: none !important; }
+}
+
 .cz-haul-acc {
   width: 100%;
 }
@@ -4337,11 +4578,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-carousel-haul-block .cz-field-label > span {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-sub);
 }
 
 /* Buy glare shine — hover-triggered sweep over the primary action. */
@@ -4745,7 +4984,7 @@ a.cz-card-seller:hover {
 
 /* Overlay solo cards: give the taller meta room too. */
 .cz-carousel-overlay .cz-carousel-image-wrap {
-  height: calc(100% - 188px);
+  height: calc(100% - 208px);
 }
 
 /* Buy button keeps its solid fill; beam rides the border only. */
@@ -5163,63 +5402,120 @@ a.cz-card-seller:hover {
     display: none;
   }
 }
-.cz-desk-capture-field {
+.cz-desk-search-shell {
   flex: 1;
   min-width: 0;
   height: 46px;
-  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
   border: 1px solid var(--cz-hair);
   border-radius: 13px;
   background: var(--cz-card-solid);
+  cursor: text;
+}
+.cz-desk-search-shell:focus-within {
+  border-color: color-mix(in srgb, var(--cz-ink) 35%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cz-ink) 12%, transparent);
+}
+.cz-desk-search-leading {
+  flex-shrink: 0;
+  color: var(--cz-sub);
+  pointer-events: none;
+}
+.cz-desk-search-field {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--cz-ink);
   font: inherit;
   font-size: 14px;
+  outline: none;
 }
-.cz-desk-capture-field::placeholder {
+.cz-desk-search-field::placeholder {
   color: var(--cz-faint);
 }
-.cz-desk-capture-field:focus {
-  outline: 2px solid color-mix(in srgb, var(--cz-ink) 35%, transparent);
-  outline-offset: 1px;
-}
-.cz-desk-capture-stash {
+.cz-desk-stash-btn {
   flex-shrink: 0;
   height: 46px;
-  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
   border: 0;
   border-radius: 13px;
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
   font: inherit;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
 }
-.cz-desk-capture-stash:disabled {
+.cz-desk-stash-plus {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+.cz-desk-stash-btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
-.cz-desk-search-toggle {
-  flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--cz-hair);
-  border-radius: 13px;
-  background: var(--cz-card-solid);
-  color: var(--cz-sub);
-  cursor: pointer;
-}
-.cz-desk-search-toggle.is-active {
-  background: var(--cz-action-fill);
-  border-color: var(--cz-action-fill);
-  color: var(--cz-action-text);
-}
-.cz-desk-search-toggle:focus-visible {
+.cz-desk-stash-btn:focus-visible {
   outline: 2px solid var(--cz-focus);
   outline-offset: 2px;
+}
+
+/* Clipboard fast-path banner (6a): dark strip under the bar, one tap stashes. */
+.cz-desk-clip-banner {
+  display: none;
+}
+@media (min-width: 768px) {
+  .cz-desk-clip-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    /* Bar has 14px bottom margin — pull up so the strip sits 8px under it. */
+    margin: -6px 0 14px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 13px;
+    background: var(--cz-action-fill);
+    color: var(--cz-action-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+}
+.cz-desk-clip-banner:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+.cz-desk-clip-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cz-desk-clip-title {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+.cz-desk-clip-host {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--cz-action-text) 60%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Clipboard split pill — left review region, right 1-tap Stash. */
@@ -5370,8 +5666,9 @@ a.cz-card-seller:hover {
 
 /* Masthead avatar — opens the profile sheet. */
 .cz-avatar {
-  width: 36px;
-  height: 36px;
+  /* 44px — clears the 44px tap-target floor (Kyle 2026-07-23). */
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border: 1px solid var(--cz-hair);
@@ -5783,13 +6080,6 @@ a.cz-card-seller:hover {
   padding: 12px 14px 4px !important;
   color: var(--cz-ink) !important;
 }
-.cz-card-price-text {
-  padding: 0 14px 14px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cz-money);
-}
 .cz-card-favorite-onphoto {
   position: absolute !important;
   top: 10px !important;
@@ -5807,9 +6097,10 @@ a.cz-card-seller:hover {
   transition: opacity 0.2s ease, transform 0.2s ease;
   pointer-events: none;
 }
+/* Hover/focus only — a selected-but-left card must not keep Buy up
+   (Kyle 2026-07-23: "it still stays there"). */
 .cz-card-editorial:hover .cz-card-buy-hover,
-.cz-card-editorial:focus-within .cz-card-buy-hover,
-.cz-card-editorial.is-selected .cz-card-buy-hover {
+.cz-card-editorial:focus-within .cz-card-buy-hover {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
@@ -6037,7 +6328,7 @@ a.cz-card-seller:hover {
 }
 .cz-fit3b-status {
   border-top: 1px solid var(--cz-hair);
-  padding: 12px 14px 14px;
+  padding: 12px 14px;
 }
 .cz-fit3b-card:not(:has(.cz-fit4)):not(:has(.cz-fit4-empty)):not(:has(.cz-fit-prompt)) .cz-fit3b-status {
   border-top: 0;
@@ -6082,7 +6373,7 @@ a.cz-card-seller:hover {
 
 /* Fit 4e rough / 4g precise */
 .cz-fit4 {
-  padding: 16px 16px 14px;
+  padding: 14px 16px 12px;
   box-sizing: border-box;
   min-width: 0;
 }
@@ -6129,9 +6420,9 @@ a.cz-card-seller:hover {
   text-align: left;
   cursor: pointer;
   font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--cz-ink);
 }
@@ -6142,9 +6433,9 @@ a.cz-card-seller:hover {
   text-decoration-color: var(--cz-faint);
 }
 .cz-fit4-prose {
-  margin: 0 0 14px;
-  font-size: 13.5px;
-  line-height: 1.55;
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--cz-sub);
   font-weight: 500;
   text-wrap: pretty;
@@ -6224,20 +6515,11 @@ a.cz-card-seller:hover {
   width: 100%;
   min-width: 0;
 }
-.cz-status-stage-kicker {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--cz-sub);
-  margin: 0 0 10px;
-}
-.cz-status-stage-current {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+/* The track is the button (Kyle 2026-07-23 — no serif stage line above it). */
+.cz-status-track-btn {
+  display: block;
   width: 100%;
-  min-height: 36px;
-  margin: 0 0 14px;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
@@ -6246,39 +6528,7 @@ a.cz-card-seller:hover {
   cursor: pointer;
   box-sizing: border-box;
 }
-.cz-status-stage-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-.cz-status-stage-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--cz-money);
-  flex: 0 0 auto;
-}
-.cz-status-stage-name {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
-  font-size: 20px;
-  font-weight: 500;
-  line-height: 1;
-  color: var(--cz-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cz-status-stage-change {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--cz-sub);
-  flex: 0 0 auto;
-}
-.cz-status-stage-current:focus-visible {
+.cz-status-track-btn:focus-visible {
   outline: 2px solid var(--cz-focus);
   outline-offset: 2px;
   border-radius: 6px;
@@ -6291,7 +6541,7 @@ a.cz-card-seller:hover {
   display: flex;
   align-items: center;
   width: 100%;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 .cz-status-track-line {
   flex: 1 1 auto;
@@ -6349,8 +6599,8 @@ a.cz-card-seller:hover {
 
 /* Status 4b grouped picker */
 .cz-status-picker {
-  margin: 14px 0 0;
-  padding: 14px 0 0;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
   border-top: 1px solid var(--cz-hair);
 }
 .cz-status-picker-title {
@@ -6532,7 +6782,8 @@ a.cz-card-seller:hover {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 4px 0 8px;
+  /* ModalShell gives no body padding — own it here (Kyle 2026-07-23). */
+  padding: 4px 20px 20px;
 }
 .cz-fit-prefs-lead {
   margin: 0 0 18px;
@@ -6577,15 +6828,18 @@ a.cz-card-seller:hover {
   gap: 0;
   padding: 3px;
   border-radius: 11px;
-  border: 1px solid var(--cz-hair);
-  background: var(--cz-bg-elevated, var(--cz-seg));
+  border: 0;
+  /* Inset well (design 5a): one tidy control per axis. The old elevated +
+     hairline combo drew two box outlines per axis — visual noise. A touch
+     stronger than --cz-seg so the well reads on the white sheet. */
+  background: color-mix(in srgb, var(--cz-ink) 7%, transparent);
   box-sizing: border-box;
 }
 .cz-fit-pref-chip {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 36px;
-  padding: 8px 4px;
+  min-height: 34px;
+  padding: 7px 4px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -6595,11 +6849,15 @@ a.cz-card-seller:hover {
   font-weight: 500;
   cursor: pointer;
   text-align: center;
+  transition: background 140ms var(--ease-out), color 140ms var(--ease-out);
+}
+.cz-fit-pref-chip:hover:not(.is-active) {
+  color: var(--cz-ink);
 }
 .cz-fit-pref-chip.is-active {
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
-  font-weight: 700;
+  font-weight: 600;
 }
 .cz-fit-pref-chip:focus-visible {
   outline: 2px solid var(--cz-focus);
@@ -6695,8 +6953,8 @@ a.cz-card-seller:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 14px 0 0;
-  padding: 14px 0 0;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
   border-top: 1px solid var(--cz-hair);
 }
 .cz-fit4-pref-tags {
