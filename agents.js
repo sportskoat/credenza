@@ -10,6 +10,8 @@
 //   - Agents with urlTemplate substitute encodeURIComponent(canonicalUrl) for {url}.
 //   - Agents with idPathTemplate (CSSBuy) need the marketplace numeric item id
 //     extracted from the canonical URL instead.
+//   - Agents with idPlatformTemplate (Mulebuy, CNFans, Hoobuy, Oopbuy) need the
+//     item id AND the agent's own platform token (platformMap).
 //   - Anything we can't wrap FAILS OPEN to the canonical URL — never strand a buyer.
 //   - Templates are one-line edits; when an agent changes their format, fix it here
 //     and flip `verified` once Kyle has opened a real item through it.
@@ -90,6 +92,89 @@ export const AGENTS = [
     signupEncoding: "base64",
     envKey: "VITE_CREDENZA_REF_FANSBUY",
     verified: true,
+    retired: false,
+  },
+  // Part 6 (Pro-plan §9): the six agents the community actually uses, in the
+  // plan's add order. Link formats probed live 2026-07-24 (curl status checks
+  // against real-shaped item ids); verified flips once Kyle clicks one through.
+  // Referral params stay null until Kyle's affiliate approvals land — the env
+  // keys are wired so dropping a code in later is a deploy, not a code change.
+  {
+    id: "mulebuy",
+    name: "Mulebuy",
+    // Canonical product route (trailing slash is mulebuy's normalization):
+    //   mulebuy.com/product/?id=<itemId>&shop_type=<platform>
+    idPlatformTemplate: "https://mulebuy.com/product/?id={id}&shop_type={platform}",
+    platformMap: { weidian: "weidian", taobao: "taobao", tmall: "tmall", "1688": "1688" },
+    supports: ["weidian", "taobao", "tmall", "1688"],
+    referralParam: null, // set when the affiliate center confirms the param name
+    envKey: "VITE_CREDENZA_REF_MULEBUY",
+    verified: false,
+    retired: false,
+  },
+  {
+    id: "joyagoo",
+    name: "Joyagoo",
+    // Superbuy-family wrap route (bare domain 302s to www; www bot-checks curl
+    // but the route exists — same family as Superbuy/AllChinaBuy):
+    //   www.joyagoo.com/en/page/buy?url=<encoded canonical>
+    urlTemplate: "https://www.joyagoo.com/en/page/buy?url={url}",
+    supports: ["weidian", "taobao", "tmall", "1688"],
+    referralParam: null,
+    envKey: "VITE_CREDENZA_REF_JOYAGOO",
+    verified: false,
+    retired: false,
+  },
+  {
+    id: "cnfans",
+    name: "CNFans",
+    // Largest user base; added for coverage, NOT income — CNFans stopped its
+    // referral commission 2026-01-22 (Pro-plan §9). No envKey on purpose.
+    //   cnfans.com/product/?platform=<PLATFORM>&id=<itemId>  (platform is uppercase)
+    idPlatformTemplate: "https://cnfans.com/product/?platform={platform}&id={id}",
+    platformMap: { weidian: "WEIDIAN", taobao: "TAOBAO", tmall: "TMALL", "1688": "1688" },
+    supports: ["weidian", "taobao", "tmall", "1688"],
+    referralParam: null,
+    envKey: null,
+    verified: false,
+    retired: false,
+  },
+  {
+    id: "hoobuy",
+    name: "Hoobuy",
+    // Numeric platform codes in the path: 1 taobao/tmall, 2 weidian, 3 1688.
+    //   hoobuy.com/product/<code>/<itemId>
+    idPlatformTemplate: "https://hoobuy.com/product/{platform}/{id}",
+    platformMap: { weidian: "2", taobao: "1", tmall: "1", "1688": "3" },
+    supports: ["weidian", "taobao", "tmall", "1688"],
+    referralParam: null,
+    envKey: "VITE_CREDENZA_REF_HOOBUY",
+    verified: false,
+    retired: false,
+  },
+  {
+    id: "oopbuy",
+    name: "Oopbuy",
+    // Hoobuy-family clone — same numeric platform codes:
+    //   oopbuy.com/product/<code>/<itemId>
+    idPlatformTemplate: "https://oopbuy.com/product/{platform}/{id}",
+    platformMap: { weidian: "2", taobao: "1", tmall: "1", "1688": "3" },
+    supports: ["weidian", "taobao", "tmall", "1688"],
+    referralParam: null,
+    envKey: "VITE_CREDENZA_REF_OOPBUY",
+    verified: false,
+    retired: false,
+  },
+  {
+    id: "allchinabuy",
+    name: "AllChinaBuy",
+    // Superbuy sister site — same wrap route, canonical trailing slash on buy/:
+    //   www.allchinabuy.com/en/page/buy/?url=<encoded canonical>
+    urlTemplate: "https://www.allchinabuy.com/en/page/buy/?url={url}",
+    supports: ["weidian", "taobao", "tmall", "1688"],
+    referralParam: null,
+    envKey: "VITE_CREDENZA_REF_ALLCHINABUY",
+    verified: false,
     retired: false,
   },
   {
@@ -203,13 +288,29 @@ export function buildAgentUrl(agentId, canonicalUrl) {
 
   const agent = getAgent(agentId);
   if (!agent || agent.retired) return fail("unknown-agent");
-  if (!agent.urlTemplate && !agent.idPathTemplate && !agent.idUrlTemplate) return { url: canonicalUrl, agentId: agent.id, wrapped: false, reason: "raw" };
+  if (!agent.urlTemplate && !agent.idPathTemplate && !agent.idUrlTemplate && !agent.idPlatformTemplate) return { url: canonicalUrl, agentId: agent.id, wrapped: false, reason: "raw" };
 
   const marketplace = marketplaceOf(canonicalUrl);
   if (!marketplace) return fail("not-marketplace"); // e.g. Yupoo photos links never wrap
   if (!agent.supports.includes(marketplace)) return fail("unsupported-marketplace");
 
   const code = resolveReferralCode(agent);
+
+  if (agent.idPlatformTemplate) {
+    // Platform-token agents (Mulebuy, CNFans, Hoobuy, Oopbuy): the template
+    // takes the item id and the agent's own token for the marketplace.
+    const token = agent.platformMap && agent.platformMap[marketplace];
+    if (!token) return fail("unsupported-marketplace");
+    const extracted = extractMarketplaceItemId(canonicalUrl);
+    if (!extracted) return fail("no-item-id");
+    let url = agent.idPlatformTemplate
+      .replace("{id}", extracted.id)
+      .replace("{platform}", token);
+    if (code && agent.referralParam) {
+      url += (url.includes("?") ? "&" : "?") + agent.referralParam + "=" + encodeURIComponent(code);
+    }
+    return { url, agentId: agent.id, wrapped: true, marketplace };
+  }
 
   if (agent.idPathTemplate || agent.idUrlTemplate) {
     const extracted = extractMarketplaceItemId(canonicalUrl);

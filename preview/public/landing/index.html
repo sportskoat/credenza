@@ -3,60 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>How Credenza works · agent haul planner</title>
+    <title>Credenza Fashion · the agent haul planner</title>
     <meta
       name="description"
-      content="Stash Weidian and Yupoo finds, pair photos with buy links, get a size recommendation, track QC, then open Buy in your preferred shopping agent. Credenza is the decision layer before the agent click."
+      content="Credenza is a Taobao, Weidian, and 1688 shopping organizer. Save links, sizes, QC photos, and ship estimates on one shelf — then open Buy in your preferred shopping agent."
     />
     <meta name="theme-color" content="#000000" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="canonical" href="/how/" />
-    <meta property="og:title" content="How Credenza works" />
+    <link rel="canonical" href="/landing/" />
+    <meta property="og:title" content="Credenza Fashion · the agent haul planner" />
     <meta
       property="og:description"
-      content="One shelf for the whole haul: stash, size, QC, Buy via your agent."
+      content="One shelf for the whole haul: links, sizes, QC, ship estimates. Buy opens in your agent."
     />
     <meta property="og:type" content="website" />
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "HowTo",
-        "name": "Plan an agent haul with Credenza",
-        "description": "Turn Weidian, Yupoo, and Reddit finds into cards, pick a size, and open Buy in your shopping agent.",
-        "step": [
-          {
-            "@type": "HowToStep",
-            "position": 1,
-            "name": "Stash",
-            "text": "Paste a marketplace or album link (or a multi-URL line). Credenza pairs photos and buy URLs on one card."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 2,
-            "name": "Review the card",
-            "text": "See cover photo, title, price, and seller in one place, not a spreadsheet row of raw URLs."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 3,
-            "name": "Size with your body profile",
-            "text": "Save chest, waist, hip (in or cm). Paste or attach a size chart; Credenza recommends a size, including hip-only charts."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 4,
-            "name": "Run the haul pipeline",
-            "text": "Track Want → Bought → QC → GL/RL → Shipped so the active haul stays clear."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 5,
-            "name": "Open Buy in your agent",
-            "text": "One tap opens the canonical item in Superbuy, Sugargoo, Kakobuy, or your preferred agent. Credenza does not checkout for you."
-          }
-        ]
-      }
-    </script>
     <style>
       :root {
         color-scheme: light dark;
@@ -96,7 +56,7 @@
         padding: var(--pad);
       }
       header {
-        padding-top: 2rem;
+        padding-top: 2.5rem;
         padding-bottom: 0.5rem;
       }
       .brand {
@@ -120,15 +80,15 @@
         opacity: 0.85;
       }
       h1 {
-        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-size: clamp(2rem, 5vw, 2.75rem);
         font-weight: 400;
-        line-height: 1.2;
+        line-height: 1.15;
         margin: 0 0 0.75rem;
       }
       .lede {
         color: var(--muted);
         margin: 0 0 1.5rem;
-        font-size: 1.05rem;
+        font-size: 1.1rem;
       }
       .nav {
         display: flex;
@@ -195,74 +155,72 @@
   <body>
     <header>
       <p class="brand"><span>Credenza</span><span class="sub">Fashion</span></p>
-      <h1>How Credenza works</h1>
+      <h1>The agent haul planner.</h1>
       <p class="lede">
-        One shelf for the whole haul: stash finds, decide size, keep QC context,
-        open Buy in your preferred shopping agent.
+        A Taobao, Weidian, and 1688 shopping organizer. Save the links, the
+        sizes, the QC photos, and the ship estimates on one shelf. When you are
+        ready, Buy opens in your shopping agent.
       </p>
       <nav class="nav" aria-label="Site">
         <a href="/">Open app</a>
-        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
         <a href="/faq/">FAQ</a>
         <a href="/privacy/">Privacy</a>
         <a href="/terms/">Terms</a>
-        <a href="/llms.txt">llms.txt</a>
       </nav>
     </header>
     <main>
       <article class="card">
-        <span class="n">Step 1</span>
-        <h2>Stash the find</h2>
+        <span class="n">Organize</span>
+        <h2>One shelf, not a spreadsheet</h2>
         <p>
-          Paste a Weidian, Taobao, or Yupoo link, or a line with photos + buy URLs.
-          Credenza keeps them on <strong>one card</strong> so you are not juggling tabs and a spreadsheet.
+          Paste a link. Credenza builds a card with the photos, the price, and
+          the seller. Group the cards into hauls with a budget and a parcel
+          estimate.
         </p>
       </article>
       <article class="card">
-        <span class="n">Step 2</span>
-        <h2>See what you saved</h2>
+        <span class="n">Size</span>
+        <h2>A size pick from your measurements</h2>
         <p>
-          Cover image, title, price, and seller in a quiet card. Flip for notes, status, and more photos.
-          The grid and the open card use the same mental model.
+          Save your body profile once. Credenza reads the seller size chart and
+          recommends a size. No chart? Your usual sizes show as an estimate.
+          The math runs on your device.
         </p>
       </article>
       <article class="card">
-        <span class="n">Step 3</span>
-        <h2>Size with confidence</h2>
+        <span class="n">QC</span>
+        <h2>A QC review checklist</h2>
         <p>
-          Save a body profile (inches or cm). When a size chart is available (including hip-only
-          臀围 sheets), Credenza recommends a size and shows why.
+          Attach the warehouse photos. Mark GL or RL. Track the item from want
+          to shipped, with the weight and the chargeable parcel estimate in
+          view.
         </p>
       </article>
       <article class="card">
-        <span class="n">Step 4</span>
-        <h2>Run the haul pipeline</h2>
+        <span class="n">Buy</span>
+        <h2>Your agent, one tap</h2>
         <p>
-          Want → Bought → QC → GL / RL → Shipped. Status lives on the item so the active haul
-          stays legible when the warehouse photos land.
-        </p>
-      </article>
-      <article class="card">
-        <span class="n">Step 5</span>
-        <h2>Open Buy in your agent</h2>
-        <p>
-          Items store the <strong>canonical</strong> marketplace URL. At Buy time, Credenza opens
-          Superbuy, Sugargoo, Kakobuy, or your preferred agent. Purchases happen there, not inside Credenza.
+          Buy opens the item in Superbuy, CNFans, Mulebuy, Kakobuy, or your
+          preferred agent. Credenza never checks out for you. Some agent links
+          carry a referral code that supports the app at no cost to you.
         </p>
       </article>
 
       <p class="note">
-        Credenza is a decision layer, not a marketplace and not a W2C search engine.
-        You bring the links from communities and stores you already use.
+        Credenza is an international agent wishlist and planner. It is not a
+        marketplace and not a search engine. You bring the links from the
+        stores and the communities you already use. Your data stays on your
+        device.
       </p>
 
       <a class="cta" href="/">Open Credenza</a>
       <p style="margin-top:1rem;font-size:0.95rem;color:var(--muted)">
-        Questions? See the <a href="/faq/">FAQ</a>.
+        New here? Read <a href="/how/">how Credenza works</a>.
       </p>
     </main>
     <footer>
-      Credenza · international agent haul planner. Personal haul data stays yours.
+      Credenza · the agent haul planner. Free while in beta.
     </footer>
   </body>
 </html>

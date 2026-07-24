@@ -147,6 +147,8 @@ export const CREDENZA_KNOWN_KEYS = [
   "credenza-prefs-v1",
   "credenza-fashion-outbound-v1",
   "credenza-fashion-hauls-v1",
+  "credenza-fashion-errors-v1",
+  "credenza-fashion-activation-v1",
 ];
 
 // Erase ALL Credenza data on this device (Execution-Plan Part 4): the shelf,

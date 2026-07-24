@@ -6,6 +6,7 @@ Credenza is not a marketplace and does not sell goods. Purchases happen on marke
 
 ## Product pages
 
+- /landing/ — Landing page (agent haul planner positioning)
 - /how/ — How Credenza works (5 steps)
 - /faq/ — FAQ with structured answers
 - / — App (PWA shelf)

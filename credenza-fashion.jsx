@@ -27,6 +27,7 @@ import {
 import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES } from "./credenza-find-status.js";
+import { markActivation, monitoredFetch } from "./monitor.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
 
@@ -2329,7 +2330,7 @@ async function callClaude(prompt, { useSearch = false, maxTokens = 800 } = {}) {
   const timer = setTimeout(() => controller.abort(), 30000);
   let res;
   try {
-    res = await fetch("https://api.anthropic.com/v1/messages", {
+    res = await monitoredFetch(storageBackend, "anthropic", "https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -2457,7 +2458,7 @@ async function fetchYupooImages(albumUrl, { signal } = {}) {
   }
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const res = await fetch(YUPOO_ENDPOINT, {
+    const res = await monitoredFetch(storageBackend, "yupoo", YUPOO_ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
       body: JSON.stringify({ url: albumUrl }),
@@ -2492,7 +2493,7 @@ async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) {
   }
   const timer = setTimeout(() => controller.abort(), 30000);
   try {
-    const res = await fetch(CHART_VISION_ENDPOINT, {
+    const res = await monitoredFetch(storageBackend, "chart-vision", CHART_VISION_ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
       body: JSON.stringify({ images: imageUrls, ...(referer ? { referer } : {}) }),
@@ -2530,7 +2531,7 @@ async function fetchRedditPost(url, { signal } = {}) {
   }
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
-    const res = await fetch(REDDIT_ENDPOINT, {
+    const res = await monitoredFetch(storageBackend, "reddit", REDDIT_ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
       body: JSON.stringify({ url }),
@@ -9196,6 +9197,7 @@ export default function Credenza() {
     }
     const item = createItem(parsed, text, extra);
     applyUpdate((list) => [item, ...list]);
+    markActivation(storageBackend, "capture");
     // Yupoo albums and marketplace links share one guarded enrichment pipeline.
     enrichFashionItem(item);
     // Optional AI pass — enhances the already-usable card; failures change nothing.
@@ -9243,6 +9245,7 @@ export default function Credenza() {
     }
     const item = createItem(parsed, text, null);
     applyUpdate((list) => [item, ...list]);
+    markActivation(storageBackend, "capture");
     return { status: "stashed", id: item.id, title: item.title || "" };
   };
 
@@ -9441,6 +9444,7 @@ export default function Credenza() {
     const { candidates, provider } = parseImport(text);
     const { fresh, dupes, duplicates } = buildImportItems(candidates, items, provider);
     if (fresh.length) applyUpdate((list) => [...fresh, ...list]);
+    if (fresh.length) markActivation(storageBackend, "import");
     if (fresh.length || duplicates.length) enrichFashionItems([...fresh, ...duplicates]);
     setImportOpen(false);
     if (fresh.length === 0) {
@@ -9646,6 +9650,26 @@ export default function Credenza() {
   // ————— Edits, opens, removal —————
   const saveEdit = (id, patch) => {
     updateItem(id, patch);
+    // Activation milestones (Part 6 task 4): mark on TRANSITIONS only, so a
+    // debounced draft re-save of an already-GL card does not count as a fresh
+    // QC decision. Function patches carry no inspectable intent — skipped.
+    if (patch && typeof patch === "object") {
+      const before = items.find((x) => x.id === id) || null;
+      if (before) {
+        if (!before.project && typeof patch.project === "string" && patch.project.trim()) {
+          markActivation(storageBackend, "haulNamed");
+        }
+        if (
+          (patch.findStatus === "gl" || patch.findStatus === "rl") &&
+          before.findStatus !== patch.findStatus
+        ) {
+          markActivation(storageBackend, "qcDecision");
+        }
+        if (!before.size && typeof patch.size === "string" && patch.size.trim()) {
+          markActivation(storageBackend, "sizeDecision");
+        }
+      }
+    }
     // Note edits used to flow through a dedicated saveNote that re-ran intent
     // extraction; the unified edit form saves notes through here instead.
     if (Object.prototype.hasOwnProperty.call(patch, "note")) {
@@ -9718,7 +9742,7 @@ export default function Credenza() {
     }
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const res = await fetch(PREVIEW_ENDPOINT, {
+      const res = await monitoredFetch(storageBackend, "preview", PREVIEW_ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
         body: JSON.stringify({ url, ...(referer ? { referer } : {}) }),
@@ -9809,7 +9833,7 @@ export default function Credenza() {
     const timer = setTimeout(() => controller.abort(), 30000);
     let data = null;
     try {
-      const res = await fetch(RESOLVE_ENDPOINT, {
+      const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
         body: JSON.stringify({ url: buyUrl }),
@@ -10019,6 +10043,7 @@ export default function Credenza() {
       wrapped: result.wrapped,
       item: hashItemId(item.id),
     });
+    markActivation(storageBackend, "buyClick");
     if (result.wrapped && agentToastSeenFor !== result.agentId) {
       setAgentToastSeenFor(result.agentId);
       const name = (getAgent(result.agentId) || {}).name || "your agent";
@@ -10320,7 +10345,7 @@ export default function Credenza() {
     setAskState({ status: "loading", query, answer: "", results: [], error: "" });
 
     try {
-      const res = await fetch(ASK_ENDPOINT, {
+      const res = await monitoredFetch(storageBackend, "ask", ASK_ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
         body: JSON.stringify({ query, shelf }),
@@ -11665,6 +11690,9 @@ export default function Credenza() {
                     e.target.blur();
                   }
                 }}
+                // Same paste-to-stash as the mobile row below — a URL pasted
+                // here stashes instead of searching for nothing (Part 6).
+                onPaste={onSearchPaste}
                 placeholder="Search your shelf"
               />
             </label>

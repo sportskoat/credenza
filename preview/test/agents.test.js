@@ -133,6 +133,54 @@ describe("buildAgentUrl", () => {
     expect(buildAgentUrl("raw", WEIDIAN)).toMatchObject({ url: WEIDIAN, wrapped: false, reason: "raw" });
   });
 
+  // Part 6 task 1: the six Pro-plan §9 agents. Formats probed live 2026-07-24
+  // (curl against real-shaped ids); verified stays false until Kyle clicks one.
+  it("mulebuy wraps with id + shop_type", () => {
+    expect(buildAgentUrl("mulebuy", WEIDIAN).url).toBe("https://mulebuy.com/product/?id=7234567890&shop_type=weidian");
+    expect(buildAgentUrl("mulebuy", TAOBAO).url).toBe("https://mulebuy.com/product/?id=856801351597&shop_type=taobao");
+    expect(buildAgentUrl("mulebuy", TMALL).url).toBe("https://mulebuy.com/product/?id=680012345678&shop_type=tmall");
+    expect(buildAgentUrl("mulebuy", ALI1688).url).toBe("https://mulebuy.com/product/?id=712345678901&shop_type=1688");
+  });
+
+  it("joyagoo and allchinabuy wrap with the superbuy-family url route", () => {
+    expect(buildAgentUrl("joyagoo", WEIDIAN).url).toBe("https://www.joyagoo.com/en/page/buy?url=" + encodeURIComponent(WEIDIAN));
+    expect(buildAgentUrl("allchinabuy", WEIDIAN).url).toBe("https://www.allchinabuy.com/en/page/buy/?url=" + encodeURIComponent(WEIDIAN));
+  });
+
+  it("cnfans wraps with an uppercase platform token and pays no commission", () => {
+    expect(buildAgentUrl("cnfans", WEIDIAN).url).toBe("https://cnfans.com/product/?platform=WEIDIAN&id=7234567890");
+    expect(buildAgentUrl("cnfans", TAOBAO).url).toBe("https://cnfans.com/product/?platform=TAOBAO&id=856801351597");
+    expect(buildAgentUrl("cnfans", ALI1688).url).toBe("https://cnfans.com/product/?platform=1688&id=712345678901");
+    // No envKey: even a stubbed env must not attach a code.
+    expect(getAgent("cnfans").envKey).toBeNull();
+    expect(buildAgentUrl("cnfans", WEIDIAN).url).not.toContain("invite");
+  });
+
+  it("hoobuy and oopbuy wrap with numeric platform codes (1 taobao/tmall, 2 weidian, 3 1688)", () => {
+    for (const id of ["hoobuy", "oopbuy"]) {
+      expect(buildAgentUrl(id, WEIDIAN).url).toBe("https://" + id + ".com/product/2/7234567890");
+      expect(buildAgentUrl(id, TAOBAO).url).toBe("https://" + id + ".com/product/1/856801351597");
+      expect(buildAgentUrl(id, TMALL).url).toBe("https://" + id + ".com/product/1/680012345678");
+      expect(buildAgentUrl(id, ALI1688).url).toBe("https://" + id + ".com/product/3/712345678901");
+    }
+  });
+
+  it("platform-token agents fail open for yupoo and id-less urls, never guess", () => {
+    for (const id of ["mulebuy", "cnfans", "hoobuy", "oopbuy"]) {
+      expect(buildAgentUrl(id, YUPOO)).toMatchObject({ url: YUPOO, wrapped: false, reason: "unsupported-marketplace" });
+      expect(buildAgentUrl(id, "https://www.taobao.com/")).toMatchObject({ wrapped: false, reason: "no-item-id" });
+    }
+  });
+
+  it("every new agent appears in the picker and needs no referral code to open", () => {
+    for (const id of ["mulebuy", "joyagoo", "cnfans", "hoobuy", "oopbuy", "allchinabuy"]) {
+      expect(listAgents().some((a) => a.id === id)).toBe(true);
+      const r = buildAgentUrl(id, WEIDIAN);
+      expect(r.wrapped).toBe(true);
+      expect(r.url).not.toContain("undefined");
+    }
+  });
+
   it("never wraps retired agents", () => {
     const agent = getAgent("kakobuy");
     agent.retired = true;
@@ -211,6 +259,12 @@ describe("registry hygiene", () => {
     for (const a of AGENTS) {
       if (a.urlTemplate) expect(a.urlTemplate).toContain("{url}");
       if (a.idPathTemplate) expect(a.idPathTemplate).toContain("{id}");
+      if (a.idPlatformTemplate) {
+        expect(a.idPlatformTemplate).toContain("{id}");
+        expect(a.idPlatformTemplate).toContain("{platform}");
+        // Every supported marketplace must have a platform token.
+        for (const m of a.supports) expect(a.platformMap[m]).toBeTruthy();
+      }
     }
   });
 });
