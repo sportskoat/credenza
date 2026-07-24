@@ -1325,13 +1325,25 @@
   min-height: 32px;
 }
 
-/* Buy rides the bottom of the sheet — breathing room above, never mid-pile. */
+/* Buy is pinned to the bottom of the card back (CO-02): margin-top:auto pins
+   it on short backs, sticky keeps it visible while a tall back scrolls, and
+   the gradient is the fade at the scroll edge. The fade drops at the scroll
+   end (.is-at-end) — there is nothing left to hint at.
+   z-index 20: the photo fan's cards run up to z-index 7, and they painted
+   over this row while scrolling past (Kyle 2026-07-24). */
 .cz-sheet-buy.cz-carousel-actions {
-  /* The pipeline above already carries the 16px section gap — adding more
-     here read as a jump (Kyle 2026-07-23 equal-spacing pass). */
-  margin-top: 0;
-  padding-top: 0;
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  padding-top: 22px;
+  padding-bottom: 2px;
+  background: linear-gradient(to bottom, transparent, var(--cz-card-solid) 55%);
   flex-shrink: 0;
+}
+
+.cz-carousel-back-content.is-at-end .cz-sheet-buy.cz-carousel-actions {
+  background: none;
 }
 
 .cz-card-details-panel--sheet {
@@ -2617,11 +2629,11 @@ a.cz-seller-quiet:focus-visible {
   overflow: hidden;
   isolation: isolate;
 }
+/* CO-21: the ghost strip renders IN FLOW below the hero text (it was an
+   absolute bottom layer and the tagline overlapped the outer tiles). */
 .cz-empty-hero-bg {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  margin-top: 44px;
   height: min(320px, 48vh);
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -2629,7 +2641,6 @@ a.cz-seller-quiet:focus-visible {
   padding: 0 8px;
   opacity: 0.18;
   pointer-events: none;
-  z-index: 0;
   -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 92%);
   mask-image: linear-gradient(to top, #000 10%, transparent 92%);
 }
@@ -2694,6 +2705,8 @@ a.cz-seller-quiet:focus-visible {
   margin-right: auto;
   margin-bottom: 26px;
   text-align: center;
+  /* CO-21: stop the one-word last line ("card."). */
+  text-wrap: balance;
 }
 .cz-empty-hero-bar {
   display: flex;
@@ -2996,7 +3009,13 @@ a.cz-seller-quiet:focus-visible {
 
 .cz-app[data-fashion="true"] .cz-shell {
   overflow-x: clip;
-  max-width: 100%;
+  /* One container token for the whole app (CO-03): the injected base rule's
+     1080px cap was overridden here by max-width:100%, so the chrome (720px)
+     and the content (full-bleed) ran on two different grids. Now the shell
+     caps everything — masthead, tabs, stats, carousel, grid, hauls — at one
+     width, centered, and .cz-chrome fills it. */
+  max-width: 1080px;
+  margin-inline: auto;
 }
 
 .cz-app[data-fashion="true"]::-webkit-scrollbar,
@@ -5509,9 +5528,13 @@ a.cz-card-seller:hover {
 
 /* Toast: compact, centered, ink-on-card for BOTH themes (muted action text
    washed out to near-white on Gallery light — Kyle 2026-07-22). Half the old
-   bulk so Restart / clipboard feedback don't dominate the shelf. */
+   bulk so Restart / clipboard feedback don't dominate the shelf.
+   Anchored under the stats row (Kyle 2026-07-24): one fixed spot, centered on
+   the page, clear of the carousel card, FLIP FOR MORE, the dots, and the
+   bottom bar. The stats row ends at ~226px on every viewport. */
 .cz-app[data-fashion="true"] .cz-toast-region {
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  top: 236px;
+  bottom: auto;
   inset-inline: 24px;
   display: flex;
   justify-content: center;
@@ -6183,16 +6206,17 @@ a.cz-card-seller:hover {
 }
 
 /* ═══ Kyle chrome pass 2026-07-22 ═══
-   1. Desktop chrome (masthead/tagline/capture/search/tabs/total) was
-      full-bleed on wide monitors — "Paste a link" far left, Stash far right.
-      Center it in a 720px column; carousel/grid panels stay full-width.
+   1. Desktop chrome (masthead/capture/search/tabs/total) spans the shell's
+      content column. CO-03 (2026-07-23 audit): one container for the app —
+      the old 720px chrome cap put the tabs 330px from the first card and
+      read as two different pages. The shell owns the single max width
+      (1080px, see the injected .cz-shell rule); the chrome fills it.
    2. Field fill/shadow de-grained: solid card-solid (no black-mix), quiet
       1px hairline, one soft drop shadow instead of stacked gloom.
    (2026-07-23 design handoff PR2: the masthead stays visible on phones as the
    compact header — the full hero is now the empty-shelf state only.) */
 .cz-chrome {
   width: 100%;
-  max-width: 720px;
   margin-inline: auto;
 }
 
@@ -7505,6 +7529,14 @@ a.cz-card-seller:hover {
 }
 .cz-import-export:hover {
   color: var(--cz-ink);
+}
+/* Clear-shelf sits under Export — the destructive row reads danger, not ink. */
+.cz-import-clear {
+  margin-top: 4px;
+  color: var(--cz-error-text);
+}
+.cz-import-clear:hover {
+  color: var(--cz-error-text);
 }
 
 /* ── Stash sheet (Import-shelf polish) ───────────────────────────────────── */

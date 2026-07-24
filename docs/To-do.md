@@ -30,25 +30,55 @@
 
 ## Gate 1 — Repair the shell
 
-- [ ] **5.** Pin the Buy button to the bottom of the card back. Add a fade at
-  the scroll edge.
-- [ ] **6.** Give the app one container width. Use the same width for the
-  masthead, the tabs, the stats row, and the content.
-- [ ] **7.** Show haul text on the Hauls tab. Remove the shelf totals and the
-  shelf toggles from that tab.
-- [ ] **8.** Show the intro screen instead of the app shell on first run. Do
-  not show both at the same time.
-- [ ] **9.** Hide the "Log in / Sign up" button. Show it again when sync
-  exists.
+- [x] **5.** DONE 2026-07-23. The Buy row is pinned to the bottom of the card
+  back: `position: sticky; bottom: 0` plus `margin-top: auto` in the flex
+  column. A gradient fade covers the scroll edge. JS scroll measurement adds
+  `is-at-end` at the end of the scroll, and the fade drops there. Verified:
+  Buy is visible without scrolling, gap 12px, fade toggles at both edges.
+- [x] **6.** DONE 2026-07-23. One container width: 1080px centered. The
+  fashion override `.cz-app[data-fashion="true"] .cz-shell` no longer beats
+  the base shell rule on specificity. The `.cz-chrome` 720px cap is gone.
+  Verified: masthead, tabs, stats row, and content all start at left 208 and
+  end at right 1232 on a 1440px viewport. 187 tests pass.
+- [x] **7.** DONE 2026-07-23. The stats row renders on the Hauls tab only
+  inside an open haul. The directory shows its own head: "Your hauls / N
+  hauls" plus per-haul item counts and totals. The shelf totals and the
+  starred/view toggles no longer appear on that tab. Verified: directory has
+  no stats row and no toggles; an open haul shows "N items | Haul $X".
+  187 tests pass.
+- [x] **8.** DONE 2026-07-23. First run shows the intro screen only. A
+  `firstRunIntro` flag hides the avatar, the mobile search row, the tabs, and
+  the bottom bar with the agent tile. Desktop and phone render the same intro:
+  brand, headline, Get started. The agent tile never appears before onboarding
+  ends. Verified on 1440px and 390px viewports. 187 tests pass (one test now
+  clicks through the intro first).
+- [x] **9.** DONE 2026-07-23. A `SYNC_ENABLED` flag gates both login buttons:
+  the profile sheet's "Log in / Sign up" block and the intro's "Log in" quiet
+  button. Both are hidden. Set `VITE_ENABLE_SYNC=true` when sync ships and
+  they return. Verified: intro shows Get started only; the profile sheet opens
+  on Theme. 187 tests pass.
 
 ## Gate 2 — Repair the text
 
-- [ ] **10.** Delete the word "projects" from the search help text.
-- [ ] **11.** Correct the install manifest. Use the name "Credenza Fashion".
+- [x] **10.** Delete the word "projects" from the search help text.
+  DONE 2026-07-24 (CO-06): the no-match help now reads "Search includes
+  titles, notes, raw links, and paired Photos or Buy URLs."
+- [x] **11.** Correct the install manifest. Use the name "Credenza Fashion".
   Use the haul description. Use the light theme colors.
-- [ ] **12.** Hide the money total when a search finds zero items.
-- [ ] **13.** Move the ghost cards below the text on the empty shelf. Change
+  DONE 2026-07-24 (CO-07): manifest name/short_name "Credenza Fashion",
+  description "One shelf for the whole haul.", background/theme #F4F4F0.
+  index.html title, description, and apple-mobile-web-app-title match.
+- [x] **12.** Hide the money total when a search finds zero items.
+  DONE 2026-07-24 (CO-10): the separator and Total chip no longer render
+  when a search returns zero. "0 found" stands alone.
+- [x] **13.** Move the ghost cards below the text on the empty shelf. Change
   the search placeholder to "Paste a link" when the shelf is empty.
+  DONE 2026-07-24 (CO-21): ghost strip renders in flow below the hero text;
+  tagline gets text-wrap: balance (no orphan word). Empty-hero placeholder
+  is "Paste a link"; the phone search field flips to it when the shelf is
+  empty. A pasted link in either field stashes instead of filling the box.
+  Probe: ghost top 475 vs text bottom 431; paste stored 1 card. 190 tests
+  pass.
 
 ## Gate 3 — Polish the look
 

@@ -849,6 +849,10 @@ const REDDIT_ENDPOINT =
 // never authentication; public enablement still requires deployment-level access.
 const CLOUD_ASK_ENABLED =
   !!(import.meta.env && import.meta.env.VITE_ENABLE_CLOUD_ASK === "true");
+// Sync does not exist yet, so the Log in / Sign up buttons stay hidden
+// (CO-05). Flip this flag when sync ships and both buttons return.
+const SYNC_ENABLED =
+  !!(import.meta.env && import.meta.env.VITE_ENABLE_SYNC === "true");
 const PREVIEW_SECRET =
   (import.meta.env && import.meta.env.VITE_CREDENZA_SEARCH_SECRET) || "";
 
@@ -1849,11 +1853,17 @@ function parseImport(text) {
     return { candidates, provider: "paste" };
   }
   for (const lineRaw of importLines) {
+    const isBullet = /^\s*(?:[-*•❯›]|\d+[.)])\s+\S/.test(lineRaw);
     const line = lineRaw.replace(/^[\s\-*•>”"]*(?:\d+[.)])?\s*/, "").trim();
     if (!line || line.length < 3) continue;
     const urls = line.match(/https?:\/\/[^\s<>"')\]]+/g) || [];
     if (urls.length === 0) {
-      if (line.length >= 8 && /[a-z]/i.test(line)) push(classify(line), line, "");
+      // A bare line becomes a card ONLY when it carries a list marker — that
+      // is a real list the user wrote. Unmarked bare lines in a shredded
+      // paste are page chrome ("Open chat", "Upvote", "Expand user menu")
+      // and must never become cards (Kyle 2026-07-24: one copied Reddit
+      // page turned into 174 junk cards).
+      if (isBullet && line.length >= 8 && /[a-z]/i.test(line)) push(classify(line), line, "");
       continue;
     }
     const label = line
@@ -3126,6 +3136,8 @@ function ProfileSheet({
   return (
     <ModalShell title="Profile" onClose={onClose} maxWidth={440}>
       <div className="cz-profile">
+        {/* Hidden until sync exists (CO-05). SYNC_ENABLED brings it back. */}
+        {SYNC_ENABLED && (
         <div className="cz-profile-signin">
           <div className="cz-profile-signin-title">Sign in to Credenza</div>
           <div className="cz-profile-signin-sub">
@@ -3139,6 +3151,7 @@ function ProfileSheet({
             Log in / Sign up
           </Pill>
         </div>
+        )}
         <div className="cz-profile-label">Theme</div>
         <div className="cz-profile-themes">
           {themes.map(([id, label, swatch, swatchBorder]) => {
@@ -6640,6 +6653,25 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   const bubbleRef = useRef(null);
   const rootRef = useRef(null);
   const haulInputRef = useRef(null);
+  // Scroll-edge fade for the pinned Buy (CO-02): true when the back is at (or
+  // too short to need) the scroll end, so the fade above Buy can drop.
+  const [backAtEnd, setBackAtEnd] = useState(true);
+  const backContentRef = useRef(null);
+  const measureBackEnd = useCallback(() => {
+    const el = backContentRef.current;
+    if (!el) return;
+    setBackAtEnd(el.scrollTop + el.clientHeight >= el.scrollHeight - 8);
+  }, []);
+  const handleBackScroll = useCallback(
+    (e) => {
+      const el = e.currentTarget;
+      setBackAtEnd(el.scrollTop + el.clientHeight >= el.scrollHeight - 8);
+    },
+    []
+  );
+  useEffect(() => {
+    measureBackEnd();
+  }, [measureBackEnd, expanded, backView, editing, item.id]);
 
   useEffect(() => {
     setFlipped(Boolean(expanded));
@@ -7159,7 +7191,11 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
           ) : (
             <motion.div
               key="content"
-              className="cz-carousel-back-content"
+              ref={backContentRef}
+              onScroll={handleBackScroll}
+              className={
+                "cz-carousel-back-content" + (backAtEnd ? " is-at-end" : "")
+              }
               initial={reduced ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduced ? undefined : { opacity: 0, y: -10 }}
@@ -8624,7 +8660,7 @@ function ImportSourceCycle() {
   );
 }
 
-function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onRestore }) {
+function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onClearShelf, onRestore }) {
   const [text, setText] = useState("");
   const fileRef = useRef(null);
   const importTextId = useId();
@@ -8807,6 +8843,16 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
             Download your shelf as a .json backup
           </button>
         )}
+
+        {items.length > 0 && (
+          <button
+            type="button"
+            className="cz-import-export cz-import-clear"
+            onClick={onClearShelf}
+          >
+            Clear the whole shelf…
+          </button>
+        )}
       </div>
     </ModalShell>
   );
@@ -8840,8 +8886,9 @@ function HeroStagger() {
   );
 }
 
-// Design 7b ghost grid — faded shelf cards sit BEHIND the CTAs (not a side
-// column). Five tall previews, masked so they fade into the page.
+// Design 7b ghost grid — faded shelf cards sit BELOW the hero text (CO-21:
+// they used to be an absolute background layer and the tagline overlapped
+// the outer tiles). Five tall previews, masked so they fade into the page.
 function EmptyShelfGhosts() {
   return (
     <div className="cz-empty-hero-bg" aria-hidden="true">
@@ -9433,6 +9480,24 @@ export default function Credenza() {
     });
   }
 
+  // CO-21: the empty shelf invites "Paste a link" — honor it. A pasted link
+  // stashes instead of landing in the search box (the window paste handler
+  // ignores pastes focused in inputs). Non-link text falls through to normal
+  // editing so search still works.
+  const onSearchPaste = (e) => {
+    const text = e.clipboardData && e.clipboardData.getData("text");
+    const trimmed = (text || "").trim();
+    if (!/^https?:\/\/\S+$/i.test(trimmed)) return;
+    e.preventDefault();
+    if (isPhone) {
+      setInput(trimmed);
+      setCaptureSheetOpen(true);
+    } else {
+      const result = dispatchStash(trimmed);
+      if (result.status === "stashed") beginIndexingJob(result);
+    }
+  };
+
   // Clipboard-detected split pill (design handoff PR3): browsers only allow a
   // SILENT clipboard read when the site already holds clipboard-read
   // permission, so probe the permission first and never trigger a prompt from
@@ -9491,6 +9556,22 @@ export default function Credenza() {
     } else {
       const from =
         provider !== "paste" ? " from your " + PROVIDER_LABELS[provider] : "";
+      // Big imports get an Undo (Kyle 2026-07-24 — one bad paste should never
+      // mean deleting a pile of cards by hand). This takes the action slot
+      // that "Deal the digest" had at >= 5.
+      if (fresh.length >= 5) {
+        const freshIds = new Set(fresh.map((x) => x.id));
+        notify(
+          "Imported " + fresh.length + " things" + from + ".",
+          {
+            actionLabel: "Undo import",
+            onAction: () =>
+              applyUpdate((list) => list.filter((x) => !freshIds.has(x.id))),
+            duration: 12000,
+          }
+        );
+        return;
+      }
       flashImportResult(
         "Imported " +
           fresh.length +
@@ -9500,8 +9581,7 @@ export default function Credenza() {
           "." +
           (dupes > 0
             ? " " + dupes + " " + (dupes === 1 ? "was" : "were") + " already on the shelf."
-            : ""),
-        fresh.length >= 5 ? "digest" : null
+            : "")
       );
     }
   };
@@ -9521,6 +9601,27 @@ export default function Credenza() {
       JSON.stringify(items, null, 2),
       "credenza-shelf-" + new Date().toISOString().slice(0, 10) + ".json"
     );
+  };
+
+  // Clear the whole shelf — the escape hatch for a bad bulk import (Kyle
+  // 2026-07-24: 174 junk cards from one page paste). Confirm first; the toast
+  // still offers an Undo for 12s after.
+  const clearShelf = () => {
+    if (!items.length) return;
+    const confirmed = window.confirm(
+      "Delete all " +
+        items.length +
+        " cards on the shelf? Download a .json backup first if you want one."
+    );
+    if (!confirmed) return;
+    const backup = items;
+    applyUpdate(() => []);
+    setImportOpen(false);
+    notify("Shelf cleared — " + backup.length + " cards deleted.", {
+      actionLabel: "Undo",
+      onAction: () => applyUpdate(() => backup),
+      duration: 12000,
+    });
   };
 
   const downloadRecoveryData = () => {
@@ -10386,6 +10487,9 @@ export default function Credenza() {
 
   // Starred filter + view toggles only — no category chip rail.
   const toolbarActive = shelfAll.length >= 1;
+  // First run: the intro replaces the app shell (CO-04). No search field, no
+  // tabs, no bottom bar, no agent tile — on phone AND desktop.
+  const firstRunIntro = items.length === 0 && !onboardingDone;
   const typed = visible;
   const shelfItems = useMemo(() => {
     let a = [...typed];
@@ -11062,7 +11166,8 @@ export default function Credenza() {
             </div>
             <div className="cz-copy-pretty" style={{ marginBottom: 14 }}>
               {q
-                ? "Search includes titles, notes, projects, raw links, and paired Photos or Buy URLs."
+                // CO-06: audit copy fix — "projects" removed from search help.
+                ? "Search includes titles, notes, raw links, and paired Photos or Buy URLs."
                 : sortMode === "starred"
                   ? "Star a card from the front face, then open Starred here."
                   : openHaulName
@@ -11161,6 +11266,7 @@ export default function Credenza() {
           onClearSamples={clearSamples}
           onClose={() => setImportOpen(false)}
           onExport={exportShelf}
+          onClearShelf={clearShelf}
           onRestore={restoreBackup}
         />
       )}
@@ -11365,6 +11471,7 @@ export default function Credenza() {
               <span className="cz-brand-sub">Fashion</span>
             </span>
           </div>
+          {!firstRunIntro && (
           <button
             type="button"
             className="cz-avatar"
@@ -11374,11 +11481,13 @@ export default function Credenza() {
           >
             <User size={17} strokeWidth={2.2} aria-hidden="true" />
           </button>
+          )}
         </div>
 
         {/* Onboarding step 1 (no hard gate): value line + Get started. After
-            that the empty shelf is the capture surface. Sign-in stays optional. */}
-        {items.length === 0 && !onboardingDone && (
+            that the empty shelf is the capture surface. Sign-in stays optional.
+            First run shows this intro INSTEAD of the app shell (CO-04). */}
+        {firstRunIntro && (
           <div className="cz-onboard">
             <h1 className="cz-onboard-title">One shelf for the whole haul.</h1>
             <p className="cz-onboard-copy">
@@ -11392,6 +11501,8 @@ export default function Credenza() {
               >
                 Get started
               </button>
+              {/* Hidden until sync exists (CO-05). */}
+              {SYNC_ENABLED && (
               <button
                 type="button"
                 className="cz-onboard-quiet"
@@ -11402,16 +11513,17 @@ export default function Credenza() {
               >
                 Log in
               </button>
+              )}
             </div>
           </div>
         )}
 
-        {/* Empty shelf (design 7b + 6a): centered hero over a faded ghost-card
-            grid. Search + solid ＋ Stash only — no Link/Reddit/Note mode chips.
+        {/* Empty shelf (design 7b + 6a): centered hero with the faded
+            ghost-card grid BELOW it (CO-21 — the text overlapped the ghosts).
+            Search + solid ＋ Stash only — no Link/Reddit/Note mode chips.
             Stash opens the capture sheet (mode lives there). */}
         {items.length === 0 && onboardingDone && (
           <div className="cz-empty-hero">
-            <EmptyShelfGhosts />
             <div className="cz-empty-hero-main">
               <HeroStagger />
               <div className="cz-empty-hero-bar">
@@ -11434,7 +11546,8 @@ export default function Credenza() {
                         e.target.blur();
                       }
                     }}
-                    placeholder="Search your shelf"
+                    onPaste={onSearchPaste}
+                    placeholder="Paste a link"
                   />
                 </label>
                 <button
@@ -11469,6 +11582,7 @@ export default function Credenza() {
                 </button>
               </div>
             </div>
+            <EmptyShelfGhosts />
           </div>
         )}
 
@@ -11559,7 +11673,9 @@ export default function Credenza() {
           </button>
         )}
 
-        {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it). */}
+        {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it).
+            Also hidden on the first-run intro (CO-04). */}
+        {!firstRunIntro && (
         <div className="cz-search-row">
           <div
             className={"cz-search-shell" + (search ? " has-clear" : "")}
@@ -11605,7 +11721,8 @@ export default function Credenza() {
                   e.target.blur();
                 }
               }}
-              placeholder="Search your shelf"
+              onPaste={onSearchPaste}
+              placeholder={items.length === 0 ? "Paste a link" : "Search your shelf"}
             />
             {search ? (
               <MorphButton
@@ -11634,6 +11751,7 @@ export default function Credenza() {
             </Pill>
           )}
         </div>
+        )}
 
         {(askState.status === "success" || askState.status === "error") && (
           <div
@@ -11824,23 +11942,32 @@ export default function Credenza() {
         {/* Shelf meta row: count + cost on the left, filter/view on the right.
             One quiet row — no sticky bar, no full-width black strip. The old
             wrap + marginLeft:auto put the icons on their own tall empty line
-            that read as a solid black bar; keep both groups on one row. */}
-        {view !== "inbox" && shelfAll.length > 0 && (
+            that read as a solid black bar; keep both groups on one row.
+            On the Hauls tab the row only renders inside an open haul: the
+            directory has its own "N hauls" head, and the shelf totals and
+            toggles do not apply to hauls (KM-05 / CO-09). */}
+        {view !== "inbox" && shelfAll.length > 0 && (view !== "hauls" || openHaulName) && (
           <div className="cz-total-row">
             <div className="cz-total-main">
               <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
                 {totalCountLabel}
               </span>
-              <span className="cz-total-sep" aria-hidden="true">|</span>
-              <span className="cz-total-chip" aria-live="polite">
-                <span
-                  className="cz-total-chip-label cz-fade-text-in"
-                  key={openHaulName ? "haul" : sortMode === "starred" ? "star" : "shelf"}
-                >
-                  {openHaulName ? "Haul" : sortMode === "starred" ? "Starred" : "Total"}
-                </span>
-                <ReelCounter value={listTotalUsd} />
-              </span>
+              {/* CO-10: a zero-result search showed "0 FOUND | TOTAL $0.00" —
+                  the green money token read as a real balance. Hide it. */}
+              {!(q && visible.length === 0) && (
+                <>
+                  <span className="cz-total-sep" aria-hidden="true">|</span>
+                  <span className="cz-total-chip" aria-live="polite">
+                    <span
+                      className="cz-total-chip-label cz-fade-text-in"
+                      key={openHaulName ? "haul" : sortMode === "starred" ? "star" : "shelf"}
+                    >
+                      {openHaulName ? "Haul" : sortMode === "starred" ? "Starred" : "Total"}
+                    </span>
+                    <ReelCounter value={listTotalUsd} />
+                  </span>
+                </>
+              )}
             </div>
             {/* Starred filter + view toggles. Hidden inside an open haul. */}
             {toolbarActive && !openHaulName && (
@@ -12012,7 +12139,10 @@ export default function Credenza() {
 
       {/* Fixed bottom bar — MOBILE ONLY (≤767px). Desktop capture lives under
           the masthead (design handoff breakpoint rule). Agent stays on mobile
-          as a secondary bar button; on desktop it lives on Buy + profile. */}
+          as a secondary bar button; on desktop it lives on Buy + profile.
+          Hidden on the first-run intro (CO-04) — no agent tile before
+          onboarding ends. */}
+      {!firstRunIntro && (
       <div className="cz-bottom-bar">
         <div className="cz-bottom-bar-inner">
           <div className="cz-bar-mobile">
@@ -12066,6 +12196,7 @@ export default function Credenza() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

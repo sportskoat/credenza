@@ -550,7 +550,9 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    // Import lives in the profile sheet now (design handoff PR3).
+    // Import lives in the profile sheet now (design handoff PR3). A brand-new
+    // install shows the first-run intro first (CO-04); Get started dismisses it.
+    await user.click(await screen.findByRole("button", { name: "Get started" }));
     await user.click(await screen.findByRole("button", { name: "Profile" }));
     await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -576,6 +578,97 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
 
     // And the haul import shows up in the toast, not silently.
     expect(await screen.findByText(/Imported 3 things from your Reddit haul/)).toBeInTheDocument();
+  });
+});
+
+describe("Import junk guard (Kyle 2026-07-24)", () => {
+  // A copied Reddit PAGE (not a post body) is mostly UI chrome — "Open chat",
+  // "Upvote", "Expand user menu". Those bare lines must never become cards.
+  const PAGE_DUMP = `Skip to main content
+Asics Kayano 14 Retail vs Rep (ZC Batch), how do you think? : r/FashionReps
+Open menu
+r/FashionReps
+Search in r/FashionReps
+Open chat
+Create
+Create post
+Open inbox
+Expand user menu
+Upvote
+34
+Downvote
+Reply
+Share
+Link ZC Batch: https://weidian.com/item.html?itemID=7783584498
+View all moderators
+Installed Apps`;
+
+  it("turns a copied page dump into link cards only, never chrome cards", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Get started" }));
+    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
+    const box = await screen.findByLabelText(/Paste haul links/);
+    fireEvent.change(box, { target: { value: PAGE_DUMP } });
+
+    // Exactly one fresh candidate: the Weidian line. No chrome.
+    await user.click(await screen.findByRole("button", { name: "Import 1" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
+
+    const items = JSON.parse(data[STORE_KEY]);
+    expect(items[0].rawText).toContain("weidian.com/item.html?itemID=7783584498");
+    expect(items.some((i) => /open chat|upvote|expand user menu/i.test(i.title || ""))).toBe(false);
+  });
+
+  it("offers Undo import on a big import and reverses it in one tap", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Get started" }));
+    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
+    const box = await screen.findByLabelText(/Paste haul links/);
+    fireEvent.change(box, {
+      target: {
+        value: [
+          "- black jeans size 32",
+          "- kappa tee medium",
+          "- carhartt socks pack",
+          "- nike dunk low panda",
+          "- stussy 8 ball tee",
+          "- mook hoodie large",
+        ].join("\n"),
+      },
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Import 6" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(6));
+
+    await user.click(await screen.findByRole("button", { name: "Undo import" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(0));
+  });
+
+  it("clears the whole shelf from the import sheet, with an undo", async () => {
+    const seed = [
+      { id: "a", createdAt: 1, updatedAt: 1, rawText: "https://weidian.com/item.html?itemID=1", url: "https://weidian.com/item.html?itemID=1", canonicalKey: "weidian:1", type: "link", host: "weidian.com", title: "Real card one", status: "ready", tags: [], gallery: [] },
+      { id: "b", createdAt: 2, updatedAt: 2, rawText: "https://weidian.com/item.html?itemID=2", url: "https://weidian.com/item.html?itemID=2", canonicalKey: "weidian:2", type: "link", host: "weidian.com", title: "Real card two", status: "ready", tags: [], gallery: [] },
+    ];
+    const data = installShim({ [STORE_KEY]: JSON.stringify(seed) });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
+    await user.click(await screen.findByRole("button", { name: /Clear the whole shelf/ }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(0));
+
+    await user.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(2));
   });
 });
 

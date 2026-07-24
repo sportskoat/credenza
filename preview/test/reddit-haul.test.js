@@ -218,4 +218,39 @@ https://weidian.com/item.html?itemID=7234567890
 https://weidian.com/item.html?itemID=7299887766`);
     expect(haul.items[0].label).not.toContain("Haul Review");
   });
+
+  it("repairs space-obfuscated W2C links (Kyle's 2026-07-23 paste)", () => {
+    const haul = parseRedditHaul(`W2C links:
+
+404 hat: https://de tail.1688.com/offer/940644075601.html
+
+Seamless Gym tee: https://it em.taobao.com/item.htm?id=752339164885
+
+Stussy tee: Dead link
+
+Black jeans: https:/ /item. ta oba o.co m /item.htm?id=902046907188
+
+Waverunners: https://rep sunofficial.x.yupoo.com/albums/195089624?uid=1&isSubCate=false&referrercate=4716905
+
+LJR TS: - https://repsuno fficial.x.yupoo.com/albums/202074183?uid=1&isSubCate=false&referrercate=5165137
+
+Bag: Repsun dead link`);
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(5);
+    expect(haul.items[0].url).toBe("https://detail.1688.com/offer/940644075601.html");
+    expect(haul.items[0].label).toBe("404 hat");
+    expect(haul.items[0].category).toBe("hat");
+    expect(haul.items[1].url).toBe("https://item.taobao.com/item.htm?id=752339164885");
+    expect(haul.items[2].url).toBe("https://item.taobao.com/item.htm?id=902046907188");
+    expect(haul.items[2].label).toBe("Black jeans");
+    expect(haul.items[3].url).toContain("repsunofficial.x.yupoo.com/albums/195089624");
+    expect(haul.items[4].url).toContain("repsunofficial.x.yupoo.com/albums/202074183");
+    expect(haul.items[4].label).toBe("LJR TS");
+  });
+
+  it("does not glue prose onto a complete URL", () => {
+    const haul = parseRedditHaul(`https://weidian.com/item.html?itemID=7234567890 is the batch I GP'd
+https://weidian.com/item.html?itemID=7299887766`);
+    expect(haul.items[0].url).toBe("https://weidian.com/item.html?itemID=7234567890");
+  });
 });

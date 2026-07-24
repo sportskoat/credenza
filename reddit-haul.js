@@ -52,6 +52,46 @@ function guessCategory(label) {
   return "";
 }
 
+// ————— URL deobfuscation —————————————————————————————————————————————————————
+// FashionReps posters dodge automod by breaking URLs with spaces:
+//   "https:/ /item. ta oba o.co m /item.htm?id=902046907188"
+//   "https://de tail.1688.com/offer/940644075601.html"
+// Rejoin the fragments so the link parses as one URL. A fragment joins when:
+//   - the scheme is still open ("https:/" + "/item."), or
+//   - the host has no known TLD ending yet ("ta" + "oba" + "o.co" + "m"), or
+//   - the fragment starts with "/" (path continuation: ".com" + "/item.htm").
+// Anything else stops the join, so "https://taobao.com is great" keeps its prose.
+const KNOWN_TLD_RE =
+  /\.(com|cn|net|org|io|shop|vip|me|app|dev|gg|tv|cc|co\.cn|com\.cn|net\.cn|de|fr|jp|kr|hk|tw|ru)$/i;
+
+export function deobfuscateUrls(text) {
+  if (!text || typeof text !== "string" || text.indexOf("http") === -1) return text;
+  return text.replace(/https?:\/ ?\S*(?: \S+){0,8}/g, (candidate) => {
+    if (!/\s/.test(candidate)) return candidate; // already one solid token
+    const tokens = candidate.split(/\s+/);
+    let url = tokens[0];
+    let i = 1;
+    for (; i < tokens.length; i++) {
+      const tok = tokens[i];
+      const schemeRest = url.replace(/^https?:/i, "");
+      if (schemeRest === "/" || schemeRest === "") {
+        url += tok; // "https:/" + "/item." → "https://item."
+        continue;
+      }
+      const host = url.replace(/^https?:\/\/?/i, "").split("/")[0];
+      if (!KNOWN_TLD_RE.test(host) || tok.startsWith("/")) {
+        url += tok;
+        continue;
+      }
+      break;
+    }
+    // "https:/item." (one slash survived) → "https://item."
+    url = url.replace(/^(https?:)\/(?!\/)/i, "$1//");
+    const rest = tokens.slice(i).join(" ");
+    return rest ? url + " " + rest : url;
+  });
+}
+
 // ————— Poster stats ————————————————————————————————————————————————————————————
 
 function parseStats(text) {
@@ -106,6 +146,8 @@ function cleanLabel(raw) {
     .replace(/^[|\s\-*•>”"`]+|[|\s]+$/g, "")
     .replace(/\b(w2c|w2b|find|gp'?d|qc|in\s?hand|review|link)\b\s*[:：-]?\s*/gi, "")
     .replace(/[|–—]+/g, " ")
+    // "Black jeans:" / "LJR TS: -" — the name-link separator is not the name.
+    .replace(/[\s:：\-–—]+$/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -304,12 +346,16 @@ export function parseRedditHaul(text) {
   const trimmed = text.trim();
   if (!trimmed || trimmed.startsWith("[") || trimmed.startsWith("<")) return null; // JSON/HTML have their own paths
 
-  const items = extractItems(trimmed);
+  // Repair space-broken URLs before any line work — obfuscated links
+  // otherwise read as URL-free chatter and the whole paste falls through.
+  const clean = deobfuscateUrls(trimmed);
+
+  const items = extractItems(clean);
   if (items.length === 0) return null;
 
-  const sourceMatch = REDDIT_POST_RE.exec(trimmed);
-  const userMatch = REDDIT_USER_RE.exec(trimmed);
-  const stats = parseStats(trimmed);
+  const sourceMatch = REDDIT_POST_RE.exec(clean);
+  const userMatch = REDDIT_USER_RE.exec(clean);
+  const stats = parseStats(clean);
   const hasStats = Object.keys(stats).length > 0;
 
   // Haul shape: multiple shoppable links, or one link with reddit provenance or

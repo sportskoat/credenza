@@ -1,12 +1,12 @@
 {
-  "name": "Credenza",
-  "short_name": "Credenza",
-  "description": "Everything you meant to come back to.",
+  "name": "Credenza Fashion",
+  "short_name": "Credenza Fashion",
+  "description": "One shelf for the whole haul.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#F4F4F0",
+  "theme_color": "#F4F4F0",
   "icons": [
     {
       "src": "/icon-192.png",

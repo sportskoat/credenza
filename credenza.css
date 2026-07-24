@@ -391,13 +391,21 @@ button {
 }
 
 /* Phones: modals become bottom sheets — anchored to the thumb, full-width,
-   safe-area aware, capped so content never hides under the top notch. */
-@media (max-width: 767px) {
+   safe-area aware, capped so content never hides under the top notch.
+   Left/right margins are auto: a sheet whose inline max-width caps it below
+   the viewport width (Profile at 440px in a 743px desktop window) centers
+   horizontally instead of locking to the left edge (Kyle 2026-07-24).
+   The coarse-pointer gate keeps this off narrow DESKTOP windows: Kyle's
+   743px Chrome window matched max-width:767px and got a bottom-anchored
+   sheet whose tail ran past the window's bottom edge and read as cut off.
+   Real phones/tablets (primary pointer coarse) keep the bottom sheet;
+   narrow desktop windows get the base centered dialog (Kyle 2026-07-24). */
+@media (max-width: 767px) and (pointer: coarse) {
   .cz-modal {
     width: 100%;
     max-width: 100vw;
     max-height: 88dvh;
-    margin: auto 0 0 0;
+    margin: auto auto 0;
   }
 
   .cz-modal-surface {
