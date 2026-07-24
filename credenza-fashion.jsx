@@ -8800,34 +8800,14 @@ function HeroStagger() {
   );
 }
 
-// Design 7a ghost cards — show the payoff of a stashed item, not an empty apology.
+// Design 7b ghost grid — faded shelf cards sit BEHIND the CTAs (not a side
+// column). Five tall previews, masked so they fade into the page.
 function EmptyShelfGhosts() {
-  const cards = [
-    { price: "$30.78", rotate: -4, tone: "a" },
-    { price: "$41.24", rotate: 5, tone: "b" },
-    { price: "$62.40", rotate: -2, tone: "c" },
-  ];
   return (
-    <div className="cz-empty-hero-preview" aria-hidden="true">
-      <div className="cz-empty-hero-glow" />
-      {cards.map((c, i) => (
-        <div
-          key={c.tone}
-          className={"cz-empty-ghost cz-empty-ghost--" + c.tone}
-          style={{ transform: "rotate(" + c.rotate + "deg)" }}
-        >
-          <div className="cz-empty-ghost-photo">
-            <span className="cz-empty-ghost-price">{c.price}</span>
-          </div>
-          {i < 2 ? (
-            <>
-              <div className="cz-empty-ghost-line is-title" />
-              <div className="cz-empty-ghost-line is-meta" />
-            </>
-          ) : null}
-        </div>
+    <div className="cz-empty-hero-bg" aria-hidden="true">
+      {["a", "b", "c", "d", "e"].map((tone) => (
+        <div key={tone} className={"cz-empty-ghost-tile cz-empty-ghost-tile--" + tone} />
       ))}
-      <div className="cz-empty-hero-preview-label">A preview of your shelf</div>
     </div>
   );
 }
@@ -9390,14 +9370,9 @@ export default function Credenza() {
     }
   };
 
-  // Capture focus router (design handoff PR3): the top capture box exists only
-  // on the empty shelf; on a stocked shelf "focus capture" means opening the
-  // capture sheet and focusing its paste box.
+  // Capture focus router: empty shelf has search only (Stash opens the sheet).
+  // Stocked shelf and empty-shelf Stash both land in the capture sheet paste box.
   function focusCapture() {
-    if (topCaptureVisibleRef.current && captureRef.current) {
-      captureRef.current.focus();
-      return;
-    }
     setCaptureSheetOpen(true);
     requestAnimationFrame(() => {
       if (sheetCaptureRef.current) sheetCaptureRef.current.focus();
@@ -10681,14 +10656,8 @@ export default function Credenza() {
         !e.altKey
       ) {
         setSelectedId(null);
-        if (ctx.items.length === 0) {
-          const cap = captureRef.current;
-          // Focus first so this key lands in Stash, not a second field.
-          if (cap) cap.focus();
-          return;
-        }
-        // Stocked shelf: the top capture field is hidden, so the key opens the
-        // capture sheet and lands in its textarea.
+        // Empty or stocked: printable keys open the capture sheet and land
+        // the first character in the paste box (empty shelf has search only).
         e.preventDefault();
         setInput((v) => v + e.key);
         setCaptureSheetOpen(true);
@@ -10717,12 +10686,8 @@ export default function Credenza() {
       const text = e.clipboardData && e.clipboardData.getData("text");
       if (text && text.trim()) {
         setInput(text.trim());
-        if (kb.current.items.length === 0) {
-          captureRef.current && captureRef.current.focus();
-        } else {
-          // Top capture is hidden on a stocked shelf — review in the sheet.
-          setCaptureSheetOpen(true);
-        }
+        // Always review paste in the capture sheet (empty shelf search is filter-only).
+        setCaptureSheetOpen(true);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -11315,52 +11280,49 @@ export default function Credenza() {
           </div>
         )}
 
-        {/* Design 7a empty shelf: left sells the product (hero + capture + quiet
-            secondary actions); right shows tilted ghost cards as the payoff.
-            No dead "nothing here" apology box. Stocked shelf skips this and
-            uses compact masthead + desktop capture (PR2 / 6a). */}
+        {/* Empty shelf (design 7b + 6a): centered hero over a faded ghost-card
+            grid. Search + solid ＋ Stash only — no Link/Reddit/Note mode chips.
+            Stash opens the capture sheet (mode lives there). */}
         {items.length === 0 && onboardingDone && (
           <div className="cz-empty-hero">
+            <EmptyShelfGhosts />
             <div className="cz-empty-hero-main">
               <HeroStagger />
-              <StashModeRow stashMode={stashMode} onChange={setStashMode} disabled={interactionLocked} />
-              <div className="cz-capture-shell">
-                <textarea
-                  ref={captureRef}
-                  className="cz-capture"
+              <div className="cz-empty-hero-bar">
+                <label className="cz-empty-hero-search">
+                  <Search className="cz-empty-hero-search-icon" aria-hidden="true" size={16} strokeWidth={2.2} />
+                  <input
+                    className="cz-empty-hero-search-field"
+                    type="text"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    aria-label="Search your shelf"
+                    disabled={interactionLocked}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Escape") {
+                        setSearch("");
+                        e.target.blur();
+                      }
+                    }}
+                    placeholder="Search your shelf"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="cz-empty-hero-stash"
+                  disabled={interactionLocked}
+                  onClick={() => setCaptureSheetOpen(true)}
                   aria-label="Stash a link or note"
-                  disabled={interactionLocked}
-                  value={input}
-                  onChange={(e) => {
-                    setInput(e.target.value);
-                    e.target.style.height = "auto";
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-                  }}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      capture();
-                      e.target.style.height = "auto";
-                    }
-                  }}
-                  placeholder={
-                    stashMode === "haul"
-                      ? "Paste a Reddit post link or haul text…"
-                      : stashMode === "note"
-                      ? "Write a note…"
-                      : "Paste a link or note…"
-                  }
-                  rows={1}
-                />
-                <CapturePill
-                  hasInput={!!input.trim()}
-                  canStashTab={canStashTab}
-                  onCapture={capture}
-                  onStashTab={stashCurrentTab}
-                  onStashClipboard={stashClipboard}
-                  disabled={interactionLocked}
-                />
+                >
+                  <span className="cz-empty-hero-stash-plus" aria-hidden="true">
+                    ＋
+                  </span>
+                  Stash
+                </button>
               </div>
               <div className="cz-empty-hero-secondary">
                 <button
@@ -11381,7 +11343,6 @@ export default function Credenza() {
                 </button>
               </div>
             </div>
-            <EmptyShelfGhosts />
           </div>
         )}
 

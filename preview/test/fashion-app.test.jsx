@@ -365,11 +365,16 @@ describe("Fashion morph controls and favorites", () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    const search = await screen.findByRole("textbox", { name: "Search your shelf" });
+    // Mobile + desktop search fields both exist for a stocked shelf. Prefer the
+    // mobile field (cz-search-input) — it owns Clear + Cmd-K in the app.
+    const search =
+      document.querySelector(".cz-search-input") ||
+      (await screen.findAllByRole("textbox", { name: "Search your shelf" }))[0];
+    expect(search).toBeTruthy();
 
     // Empty field: no Clear control (only appears once there is text).
     expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
-    await user.click(search);
+    search.focus();
     expect(search).toHaveFocus();
     await user.type(search, "Palace");
     expect(screen.getByRole("button", { name: "Clear search" })).toBeInTheDocument();
@@ -587,6 +592,8 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     // First-run intro (design handoff) sits in front of capture. Dismiss it.
     const go = await screen.findByRole("button", { name: "Get started" });
     await user.click(go);
+    // Empty shelf is search + ＋ Stash only. Mode chips live in the capture sheet.
+    await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
   }
 
   it("switches the capture placeholder with the mode", async () => {
@@ -597,8 +604,8 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
 
     const group = await screen.findByRole("group", { name: "Stash mode" });
     expect(group).toBeInTheDocument();
-    // The desk bar input shares this placeholder; [0] is the top capture box.
-    expect(screen.getAllByPlaceholderText("Paste a link or note…")[0]).toBeInTheDocument();
+    // Capture sheet paste box (empty shelf no longer has a top capture field).
+    expect(screen.getByPlaceholderText("Paste a link or note…")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Reddit haul" }));
     expect(screen.getByPlaceholderText("Paste a Reddit post link or haul text…")).toBeInTheDocument();
@@ -650,7 +657,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = (await screen.findAllByPlaceholderText("Paste a link or note…"))[0];
+    const box = await screen.findByPlaceholderText("Paste a link or note…");
     fireEvent.change(box, {
       target: { value: "https://www.reddit.com/r/FashionReps/comments/1v3fupe/in_hand_review/" },
     });
