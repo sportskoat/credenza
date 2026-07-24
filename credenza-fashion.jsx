@@ -5322,23 +5322,25 @@ function Card({
         }}
       >
         <div className="cz-card-body">
-          <button
-            type="button"
-            className="cz-card-toggle"
-            aria-label={"Open " + (item.title || "saved item") + " in carousel"}
-            onClick={onToggle}
-            style={{
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              padding: 0,
-              margin: 0,
-              background: "transparent",
-              border: 0,
-              cursor: "pointer",
-            }}
-          >
-            <div className="cz-card-photo">
+          <div className="cz-card-photo">
+            {/* One full-size open button per card (CO-01/KM-04): the card is
+                not a button, and Star + Buy are siblings of this button,
+                never children — no nested interactive controls. */}
+            <button
+              type="button"
+              className="cz-card-toggle"
+              aria-label={"Open " + (item.title || "saved item") + " in carousel"}
+              onClick={onToggle}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: 0,
+                margin: 0,
+                background: "transparent",
+                border: 0,
+                cursor: "pointer",
+              }}
+            >
               <CoverImage
                 item={item}
                 aspectRatio={phone ? "3/4" : "4/5"}
@@ -5351,25 +5353,45 @@ function Card({
                 }}
               />
               <StatusPill status={item.findStatus} className="cz-card-status" />
-              <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite cz-card-favorite-onphoto" />
-              {buy && onOpen && (
-                <span className="cz-card-buy-hover">
-                  <button
-                    type="button"
-                    className="cz-buy-btn cz-border-beam"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onOpen(item, buy.url);
-                    }}
-                  >
-                    <span className="cz-buy-btn-label">{buy.label}</span>
-                    <span className="cz-border-beam-glow" aria-hidden="true" />
-                  </button>
-                </span>
-              )}
-            </div>
+            </button>
+            <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite cz-card-favorite-onphoto" />
+            {buy && onOpen && (
+              <span className="cz-card-buy-hover">
+                <button
+                  type="button"
+                  className="cz-buy-btn cz-border-beam"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpen(item, buy.url);
+                  }}
+                >
+                  <span className="cz-buy-btn-label">{buy.label}</span>
+                  <span className="cz-border-beam-glow" aria-hidden="true" />
+                </button>
+              </span>
+            )}
+          </div>
 
+          {/* Mouse-only duplicate of the open action (click the title/meta to
+              open). Keyboard + AT use the photo button above — one tab stop. */}
+          <button
+            type="button"
+            className="cz-card-toggle"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={onToggle}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              padding: 0,
+              margin: 0,
+              background: "transparent",
+              border: 0,
+              cursor: "pointer",
+            }}
+          >
             <div className="cz-card-title cz-card-title-serif">{item.title}</div>
             <CardFrontInfo
               item={item}
@@ -7406,11 +7428,21 @@ function CoverFlowCarousel({
         active.blur();
       }
       // Prefer landing focus on the stage after a step so keyboard stays live.
+      // Never pull focus out of a field the user is typing in (KM-01 root
+      // cause): a search keystroke reorders the list, selection follows, and
+      // this focus() stole the caret mid-word — the next keys then hit the
+      // global handler ("e" opened edit mode on a card).
       requestAnimationFrame(() => {
         const stage = containerRef.current;
-        if (stage && typeof stage.focus === "function" && !stage.contains(document.activeElement)) {
-          stage.focus({ preventScroll: true });
-        }
+        if (!stage || typeof stage.focus !== "function") return;
+        const active = document.activeElement;
+        if (stage.contains(active)) return;
+        if (
+          active &&
+          (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)
+        )
+          return;
+        stage.focus({ preventScroll: true });
       });
       // Never keep an album open for a card that is no longer centered.
       setGallery((current) => (current ? null : current));
@@ -8895,6 +8927,10 @@ export default function Credenza() {
   // profileSheetOpen — "profile" now means the account sheet).
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  // Delete confirmation (KM-02): every delete path (card-back button,
+  // Backspace/Delete key) stages the id here first; the dialog shows the card
+  // title and offers Keep / Delete. null = nothing staged.
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
   // Search handoff 6a (2026-07-23): no more toggle — desktop gets a permanent
   // search field + a solid ＋ Stash button. Search is ambient, Stash is an
   // event; the two jobs never share one field again.
@@ -9386,9 +9422,11 @@ export default function Credenza() {
     }
   };
 
-  // Capture focus router: empty shelf has search only (Stash opens the sheet).
-  // Stocked shelf and empty-shelf Stash both land in the capture sheet paste box.
+  // Capture focus router (phone only — KM-03 removed the desktop sheet). On
+  // desktop the flash message already tells the user to paste with ⌘V, and
+  // the paste handler stashes that paste directly.
   function focusCapture() {
+    if (!isPhone) return;
     setCaptureSheetOpen(true);
     requestAnimationFrame(() => {
       if (sheetCaptureRef.current) sheetCaptureRef.current.focus();
@@ -10504,8 +10542,10 @@ export default function Credenza() {
   recordOpenRef.current = recordOpen;
   const attachImageRef = useRef(attachImage);
   attachImageRef.current = attachImage;
-  const removeRef = useRef(remove);
-  removeRef.current = remove;
+  const dispatchStashRef = useRef(dispatchStash);
+  dispatchStashRef.current = dispatchStash;
+  const beginIndexingJobRef = useRef(beginIndexingJob);
+  beginIndexingJobRef.current = beginIndexingJob;
   topCaptureVisibleRef.current = items.length === 0;
   kb.current = {
     shelfItems: listItems,
@@ -10533,7 +10573,11 @@ export default function Credenza() {
       const el = node.nodeType === 1 ? node : node.parentElement;
       if (!el) return false;
       if (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.isContentEditable) return true;
-      if (el.closest?.("input, textarea, [contenteditable='true'], .cz-search-shell, .cz-capture-shell")) {
+      if (
+        el.closest?.(
+          "input, textarea, [contenteditable='true'], .cz-search-shell, .cz-desk-search-shell, .cz-capture-shell"
+        )
+      ) {
         return true;
       }
       return false;
@@ -10663,28 +10707,14 @@ export default function Credenza() {
         }
         if (e.key === "Backspace" || e.key === "Delete") {
           e.preventDefault();
-          removeRef.current(sel.id);
+          // Stage, don't delete (KM-02): the confirm dialog owns the call.
+          setPendingDeleteId(sel.id);
           return;
         }
       }
-      // Type-anywhere jumps to the capture bar — but never when the user is
-      // already typing in search/capture (or any field), and not while the
-      // overlay is up (capture is behind the scrim). Carousel view keeps it.
-      if (
-        !ctx.carouselOverlay &&
-        !isTyping(e) &&
-        e.key.length === 1 &&
-        /[\w]/.test(e.key) &&
-        // Don't steal printable keys meant for an already-focused control.
-        !e.altKey
-      ) {
-        setSelectedId(null);
-        // Empty or stocked: printable keys open the capture sheet and land
-        // the first character in the paste box (empty shelf has search only).
-        e.preventDefault();
-        setInput((v) => v + e.key);
-        setCaptureSheetOpen(true);
-      }
+      // No type-anywhere (KM-01/KM-03): printable keys never leave the field
+      // the user is in, and the desktop has no capture sheet to steal focus
+      // into. Search is focused with ⌘K; stash is the ＋ Stash button.
     };
     const onPaste = (e) => {
       if (
@@ -10708,9 +10738,15 @@ export default function Credenza() {
       if (isTyping(e)) return;
       const text = e.clipboardData && e.clipboardData.getData("text");
       if (text && text.trim()) {
-        setInput(text.trim());
-        // Always review paste in the capture sheet (empty shelf search is filter-only).
-        setCaptureSheetOpen(true);
+        // Desktop has no capture sheet (KM-03): a paste stashes straight to
+        // the shelf. Phone keeps the review step in the bottom sheet.
+        if (window.matchMedia("(max-width: 767px)").matches) {
+          setInput(text.trim());
+          setCaptureSheetOpen(true);
+        } else {
+          const result = dispatchStashRef.current(text.trim());
+          if (result.status === "stashed") beginIndexingJobRef.current(result);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -10913,7 +10949,7 @@ export default function Credenza() {
       flipRequest={flipRequest}
       editRequest={editRequest}
       haulNames={haulNames}
-      onDelete={remove}
+      onDelete={setPendingDeleteId}
       onSaveEdit={saveEdit}
       onOpen={recordOpen}
       buyLabel={buyLabel}
@@ -11165,7 +11201,10 @@ export default function Credenza() {
         />
       )}
 
-      {captureSheetOpen && (
+      {/* Capture sheet is the mobile bottom sheet only (KM-03): the desktop
+          modal read as the wrong shell and was the KM-01 keystroke sink.
+          Desktop stashes via the ＋ Stash button (one-tap clipboard) or ⌘V. */}
+      {isPhone && captureSheetOpen && (
         <CaptureSheet
           clip={clipPreview}
           input={input}
@@ -11190,6 +11229,42 @@ export default function Credenza() {
           onClose={() => setCaptureSheetOpen(false)}
           textareaRef={sheetCaptureRef}
         />
+      )}
+
+      {pendingDeleteId && (
+        <ModalShell
+          title="Delete this card?"
+          onClose={() => setPendingDeleteId(null)}
+          maxWidth={420}
+        >
+          <div className="cz-delete-confirm">
+            <p className="cz-delete-confirm-text">
+              <strong className="cz-delete-confirm-title">
+                {(items.find((x) => x.id === pendingDeleteId) || {}).title || "This card"}
+              </strong>
+              leaves the shelf for good. There is no undo.
+            </p>
+            <div className="cz-delete-confirm-actions">
+              <button
+                type="button"
+                className="cz-delete-confirm-keep"
+                onClick={() => setPendingDeleteId(null)}
+              >
+                Keep
+              </button>
+              <button
+                type="button"
+                className="cz-delete-confirm-delete"
+                onClick={() => {
+                  remove(pendingDeleteId);
+                  setPendingDeleteId(null);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </ModalShell>
       )}
 
       {profileOpen && (
@@ -11366,7 +11441,7 @@ export default function Credenza() {
                   type="button"
                   className="cz-empty-hero-stash"
                   disabled={interactionLocked}
-                  onClick={() => setCaptureSheetOpen(true)}
+                  onClick={() => (isPhone ? setCaptureSheetOpen(true) : stashClipboard())}
                   aria-label="Stash a link or note"
                 >
                   <span className="cz-empty-hero-stash-plus" aria-hidden="true">
@@ -11399,8 +11474,8 @@ export default function Credenza() {
 
         {/* Desktop top bar (≥768px), search handoff 6a: one permanent search
             field + one solid ＋ Stash button. Search is ambient (filters the
-            shelf); Stash is an event (opens the capture sheet). No toggle —
-            the two jobs never share a field. Agent lives on Buy + profile. */}
+            shelf); Stash is the one-tap clipboard stash (KM-03 — the desktop
+            capture sheet is gone). Agent lives on Buy + profile. */}
         {items.length > 0 && (
           <div className="cz-desk-capture">
             <label className="cz-desk-search-shell">
@@ -11441,9 +11516,9 @@ export default function Credenza() {
               type="button"
               className="cz-desk-stash-btn"
               disabled={interactionLocked}
-              onClick={() => setCaptureSheetOpen(true)}
-              aria-label="Stash a link or note"
-              title="Stash a link or note"
+              onClick={stashClipboard}
+              aria-label="Stash the clipboard in one tap"
+              title="Stash the clipboard in one tap"
             >
               <span className="cz-desk-stash-plus" aria-hidden="true">
                 ＋

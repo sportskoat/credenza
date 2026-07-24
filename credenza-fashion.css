@@ -7618,6 +7618,61 @@ a.cz-card-seller:hover {
   filter: brightness(1.05);
 }
 
+/* Delete confirmation (KM-02): one calm line of text + Keep / Delete. */
+.cz-delete-confirm {
+  padding: 18px 20px 20px;
+}
+
+.cz-delete-confirm-text {
+  margin: 0 0 18px;
+  color: var(--cz-sub);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cz-delete-confirm-title {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cz-ink);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-delete-confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.cz-delete-confirm-actions button {
+  flex: 1;
+  height: 46px;
+  border-radius: 13px;
+  font: 600 15px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+
+.cz-delete-confirm-keep {
+  border: 1px solid var(--cz-hair);
+  background: transparent;
+  color: var(--cz-ink);
+}
+
+.cz-delete-confirm-keep:hover {
+  border-color: var(--cz-hair-strong, var(--cz-hair));
+}
+
+.cz-delete-confirm-delete {
+  border: 1px solid color-mix(in srgb, var(--cz-error-text) 28%, var(--cz-hair));
+  background: color-mix(in srgb, var(--cz-error-bg) 70%, transparent);
+  color: var(--cz-error-text);
+}
+
+.cz-delete-confirm-delete:hover {
+  background: var(--cz-error-bg);
+}
+
 .cz-stash-body .cz-capture-clip {
   margin-bottom: 12px;
 }

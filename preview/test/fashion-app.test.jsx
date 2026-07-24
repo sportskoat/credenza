@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Credenza from "../../credenza-fashion.jsx";
@@ -580,6 +580,11 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
 });
 
 describe("Stash mode toggle (front screen)", () => {
+  // The capture sheet is the mobile bottom sheet (KM-03): these tests run on
+  // an emulated phone viewport so the sheet renders at all.
+  beforeEach(() => window.__setMediaMatches("(max-width: 767px)", true));
+  afterEach(() => window.__setMediaMatches("(max-width: 767px)", false));
+
   const KYLE_POST = `Adidas CNY Tang Jacket (Size M) - Buttery smooth fabric, love the colour. Fits TTS.
 W2C: https://weidian.com/item.html?itemID=7649592219
 

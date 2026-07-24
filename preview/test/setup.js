@@ -5,10 +5,16 @@ import { expect } from "vitest";
 expect.extend(matchers);
 
 // jsdom lacks matchMedia; the app reads prefers-color-scheme and
-// prefers-reduced-motion through it on mount.
+// prefers-reduced-motion through it on mount. Default is "no query matches"
+// (a desktop viewport). Tests that exercise phone-only UI (the capture
+// sheet) flip the phone query with window.__setMediaMatches.
+const mediaMatches = new Map();
+window.__setMediaMatches = (query, matches) => {
+  mediaMatches.set(query, matches);
+};
 if (!window.matchMedia) {
   window.matchMedia = (query) => ({
-    matches: false,
+    matches: mediaMatches.get(query) ?? false,
     media: query,
     addEventListener: () => {},
     removeEventListener: () => {},
