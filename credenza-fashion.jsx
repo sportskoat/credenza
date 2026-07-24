@@ -7477,7 +7477,10 @@ function CoverFlowCarousel({
       setActiveIndex(selectedIdx);
       return;
     }
-    setActiveIndex(0);
+    // Deleted or filtered out of the active card: stay on this index so the
+    // former right neighbor becomes current. Never jump back to 0.
+    const clamped = Math.min(activeIndexRef.current, items.length - 1);
+    setActiveIndex(Math.max(0, clamped));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.map((i) => i.id).join(",")]);
 
@@ -8539,6 +8542,62 @@ function AgentSheet({ preferredAgent, onSelectAgent, affiliateCodes, onAffiliate
   );
 }
 
+// Import sources cycle (design handoff turn 8a). Colored dots match each platform.
+const IMPORT_SOURCES = [
+  { name: "Yupoo", color: "#37b24d" },
+  { name: "Weidian", color: "#ff5a3c" },
+  { name: "Taobao", color: "#ff6a00" },
+  { name: "Reddit post or comment", color: "#ff4500" },
+  { name: "Credenza backup", color: "#4ade80" },
+];
+
+function ImportSourceCycle() {
+  const [index, setIndex] = useState(0);
+  const [phase, setPhase] = useState("idle"); // idle | exit | enter
+  const reduced = usePrefersReducedMotion();
+  const source = IMPORT_SOURCES[index];
+
+  useEffect(() => {
+    if (reduced) return undefined;
+    let exitTimer = 0;
+    let enterTimer = 0;
+    const tick = window.setInterval(() => {
+      setPhase("exit");
+      window.clearTimeout(exitTimer);
+      window.clearTimeout(enterTimer);
+      exitTimer = window.setTimeout(() => {
+        setIndex((i) => (i + 1) % IMPORT_SOURCES.length);
+        setPhase("enter");
+        enterTimer = window.setTimeout(() => setPhase("idle"), 20);
+      }, 150);
+    }, 1900);
+    return () => {
+      window.clearInterval(tick);
+      window.clearTimeout(exitTimer);
+      window.clearTimeout(enterTimer);
+    };
+  }, [reduced]);
+
+  const phaseClass =
+    phase === "exit" ? " is-exit" : phase === "enter" ? " is-enter-start" : "";
+
+  return (
+    <div className="cz-import-works">
+      <div className="cz-import-works-label">Works with</div>
+      <div className="cz-import-source-slot" aria-live="polite">
+        <span className={"cz-import-source-swap" + phaseClass}>
+          <span
+            className="cz-import-source-dot"
+            style={{ background: source.color }}
+            aria-hidden="true"
+          />
+          <span className="cz-import-source-name">{source.name}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onRestore }) {
   const [text, setText] = useState("");
   const fileRef = useRef(null);
@@ -8573,93 +8632,47 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
     reader.readAsText(file);
   };
 
+  const canImport = !!(preview && preview.fresh.length > 0);
+  const importLabel = canImport ? "Import " + preview.fresh.length : "Import haul";
+
   return (
-    <ModalShell title="Import" onClose={onClose} maxWidth={520}>
+    <ModalShell title="Bring a haul onto your shelf" onClose={onClose} maxWidth={520}>
       <div
+        className="cz-import-body"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
           const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
           if (f) readFile(f);
         }}
-        style={{ padding: "20px 22px 22px", fontFamily: FONT }}
       >
-        <div
-          style={{
-            fontSize: 18,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-            color: INK,
-            marginBottom: 4,
-          }}
-        >
-          Bring a haul onto the shelf.
-        </div>
-        <div style={{ fontSize: 13, color: SUB, lineHeight: 1.55, marginBottom: 14 }}>
-          Paste Yupoo album, Weidian, or Reddit haul links — one per line or a whole post.
-          Or restore a Credenza shelf backup.
-        </div>
+        <ImportSourceCycle />
 
-        <label className="cz-field-label" htmlFor={importTextId} style={{ marginBottom: 6 }}>
-          Paste haul links
+        <label className="cz-import-paste-label" htmlFor={importTextId}>
+          Paste links, a whole Reddit thread, or a list
         </label>
         <textarea
           id={importTextId}
-          className="cz-field"
+          className="cz-import-paste"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={"https://….x.yupoo.com/…\nhttps://weidian.com/item.html?…\nor a Reddit haul post URL / body"}
+          placeholder={
+            "weidian.com/item.html?id=7291…\n…x.yupoo.com/albums/…\nreddit.com/r/…/haul or pasted body\none per line"
+          }
           rows={5}
-          style={{
-            width: "100%",
-            boxSizing: "border-box",
-            fontFamily: FONT,
-            fontSize: 13,
-            color: INK,
-            background: BG,
-            border: "1px solid " + HAIR,
-            borderRadius: 10,
-            resize: "vertical",
-            lineHeight: 1.55,
-            padding: "10px 12px",
-          }}
+          aria-label="Paste haul links"
         />
-        <div style={{ marginTop: 8 }}>
-          <button
-            type="button"
-            onClick={() => fileRef.current && fileRef.current.click()}
-            style={{
-              fontFamily: FONT,
-              fontSize: 12,
-              fontWeight: 600,
-              color: SUB,
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-            }}
-          >
-            Restore a Credenza backup (.json)
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json,.txt,.md"
-            onChange={(e) => readFile(e.target.files && e.target.files[0])}
-            style={{ display: "none" }}
-          />
+
+        <div className="cz-import-auto">
+          <span className="cz-import-auto-star" aria-hidden="true">
+            ✦
+          </span>
+          We auto-detect the source and pull price, photos and sizing.
         </div>
 
         {preview && (
-          <div
-            style={{
-              marginTop: 14,
-              background: BG,
-              borderRadius: 0,
-              padding: "12px 14px",
-            }}
-          >
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: INK, marginBottom: 8 }}>
+          <div className="cz-import-preview">
+            <div className="cz-import-preview-summary">
               {preview.candidates.length === 0
                 ? "No links or notes found yet."
                 : (preview.provider !== "paste"
@@ -8674,7 +8687,7 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
                     : "")}
             </div>
             {preview.posterStats && (
-              <div style={{ fontSize: 11.5, color: SUB, marginBottom: 8 }}>
+              <div className="cz-import-preview-meta">
                 {[
                   preview.poster ? "u/" + preview.poster : null,
                   preview.posterStats.heightCm ? preview.posterStats.heightCm + "cm" : null,
@@ -8682,7 +8695,13 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
                   preview.posterStats.usualSize ? "size " + preview.posterStats.usualSize : null,
                   preview.posterStats.agent ? "agent: " + preview.posterStats.agent : null,
                   preview.posterStats.budget
-                    ? "total " + (preview.posterStats.budgetCurrency === "USD" ? "$" : preview.posterStats.budgetCurrency === "EUR" ? "€" : "¥") + preview.posterStats.budget
+                    ? "total " +
+                      (preview.posterStats.budgetCurrency === "USD"
+                        ? "$"
+                        : preview.posterStats.budgetCurrency === "EUR"
+                          ? "€"
+                          : "¥") +
+                      preview.posterStats.budget
                     : null,
                 ]
                   .filter(Boolean)
@@ -8690,83 +8709,78 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
               </div>
             )}
             {preview.fresh.slice(0, 5).map((c, i) => (
-              <div
-                key={i}
-                style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0" }}
-              >
+              <div key={i} className="cz-import-preview-row">
                 <BrandIcon type={c.parsed.type} host={c.parsed.host} size={12} />
-                <span
-                  style={{
-                    fontSize: 12.5,
-                    color: SUB,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <span className="cz-import-preview-title">
                   {c.titleHint || localTitle(c.parsed, c.rawText)}
                 </span>
               </div>
             ))}
             {preview.fresh.length > 5 && (
-              <div style={{ fontSize: 12, color: FAINT, marginTop: 4 }}>
-                + {preview.fresh.length - 5} more
-              </div>
+              <div className="cz-import-preview-more">+ {preview.fresh.length - 5} more</div>
             )}
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-          <Pill
-            primary
-            disabled={!preview || preview.fresh.length === 0}
+        <div className="cz-import-actions">
+          <button
+            type="button"
+            className="cz-import-primary"
+            disabled={!canImport}
             onClick={() => onImport(text)}
           >
-            {preview && preview.fresh.length > 0
-              ? "Import " + preview.fresh.length
-              : "Import"}
-          </Pill>
-          <Pill subtle onClick={onClose}>
-            Cancel
-          </Pill>
+            {importLabel}
+          </button>
+          <label className="cz-import-restore">
+            <span className="cz-import-restore-icon" aria-hidden="true">
+              ⤓
+            </span>
+            Restore a .json backup
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json,.txt,.md"
+              onChange={(e) => readFile(e.target.files && e.target.files[0])}
+              className="cz-import-file"
+            />
+          </label>
         </div>
 
-        <div style={{ borderTop: "1px solid " + HAIR, marginTop: 18, paddingTop: 14 }}>
-          <Caption style={{ marginBottom: 10 }}>Also</Caption>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "7px 0",
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: INK }}>Sample shelf</div>
-              <div style={{ fontSize: 12, color: SUB }}>
-                {SAMPLE_COUNT} fashion finds to poke at. Easy to clear.
+        {hasSamples ? (
+          <button type="button" className="cz-import-sample is-clear" onClick={onClearSamples}>
+            <div className="cz-import-sample-thumbs" aria-hidden="true">
+              <span className="cz-import-sample-thumb t1" />
+              <span className="cz-import-sample-thumb t2" />
+              <span className="cz-import-sample-thumb t3" />
+            </div>
+            <div className="cz-import-sample-copy">
+              <div className="cz-import-sample-title">Sample shelf is on</div>
+              <div className="cz-import-sample-sub">Clear the demo finds in one tap.</div>
+            </div>
+            <span className="cz-import-sample-cta">Clear ›</span>
+          </button>
+        ) : (
+          <button type="button" className="cz-import-sample" onClick={onAddSamples}>
+            <div className="cz-import-sample-thumbs" aria-hidden="true">
+              <span className="cz-import-sample-thumb t1" />
+              <span className="cz-import-sample-thumb t2" />
+              <span className="cz-import-sample-thumb t3" />
+            </div>
+            <div className="cz-import-sample-copy">
+              <div className="cz-import-sample-title">Just exploring? Try a sample shelf</div>
+              <div className="cz-import-sample-sub">
+                {SAMPLE_COUNT} fashion finds to poke at. Clears in one tap.
               </div>
             </div>
-            {hasSamples ? (
-              <Pill subtle onClick={onClearSamples}>
-                Clear
-              </Pill>
-            ) : (
-              <Pill onClick={onAddSamples}>Add</Pill>
-            )}
-          </div>
-          {items.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: INK }}>Download backup</div>
-                <div style={{ fontSize: 12, color: SUB }}>
-                  Your shelf as a .json you own. Restore with the picker above.
-                </div>
-              </div>
-              <Pill onClick={onExport}>Download</Pill>
-            </div>
-          )}
-        </div>
+            <span className="cz-import-sample-cta">Add ›</span>
+          </button>
+        )}
+
+        {items.length > 0 && (
+          <button type="button" className="cz-import-export" onClick={onExport}>
+            Download your shelf as a .json backup
+          </button>
+        )}
       </div>
     </ModalShell>
   );
@@ -8838,6 +8852,8 @@ export default function Credenza() {
   });
   const [expandedId, setExpandedId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  // Visible shelf order for delete-neighbor selection (newest/haul/search).
+  const listItemsRef = useRef([]);
   const [resurfaced, setResurfaced] = useState(null);
   const [digest, setDigest] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -9998,6 +10014,10 @@ export default function Credenza() {
   const remove = (id) => {
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) return;
+    // Prefer the neighbor on the visible shelf (newest-first / haul / search),
+    // not raw storage order — storage order jumps the viewport to another section.
+    const viewList = listItemsRef.current;
+    const viewIdx = viewList.findIndex((item) => item.id === id);
     const removed = {
       item: items[index],
       index,
@@ -10008,9 +10028,13 @@ export default function Credenza() {
     applyUpdate((list) => list.filter((item) => item.id !== id));
     undoBatchRef.current.push(removed);
     if (expandedId === id) setExpandedId(null);
-    if (selectedId === id) {
-      const fallback = items[index + 1] || items[index - 1] || null;
-      setSelectedId(fallback ? fallback.id : null);
+    // Move focus to the right neighbor whenever this card was the active one
+    // (selected and/or expanded). Keeps carousel/grid from jumping away.
+    if (selectedId === id || expandedId === id) {
+      const viewFallback =
+        viewIdx >= 0 ? viewList[viewIdx + 1] || viewList[viewIdx - 1] : null;
+      const fallback = viewFallback || items[index + 1] || items[index - 1] || null;
+      setSelectedId(fallback && fallback.id !== id ? fallback.id : null);
     }
     if (resurfaced === id) setResurfaced(null);
     if (undoExpiryRef.current) clearTimeout(undoExpiryRef.current);
@@ -10410,6 +10434,7 @@ export default function Credenza() {
       (item) => typeof item.project === "string" && item.project.trim() === openHaulName
     );
   }, [openHaulName, shelfItems]);
+  listItemsRef.current = listItems;
 
   const openHaul = useCallback((haulKey) => {
     setView("hauls");
