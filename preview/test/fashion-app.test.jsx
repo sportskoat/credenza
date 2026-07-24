@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "vitest-axe";
 import Credenza from "../../credenza-fashion.jsx";
 
 const STORE_KEY = "credenza-fashion-items-v1";
@@ -365,6 +366,10 @@ describe("Fashion morph controls and favorites", () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
+    // Wait for the shelf to hydrate: with no stored prefs the first-run intro
+    // can flash for one render (prefs resolve a tick before items), which
+    // unmounts the chrome and detaches any element grabbed too early.
+    await screen.findAllByText("Palace x Nike jersey");
     // Mobile + desktop search fields both exist for a stocked shelf. Prefer the
     // mobile field (cz-search-input) — it owns Clear + Cmd-K in the app.
     const search =
@@ -492,6 +497,9 @@ describe("Agent Buy plumbing (A2)", () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
+    // Wait for the shelf to hydrate — see the search-field test for why (the
+    // first-run intro can flash for one render and detach early grabs).
+    await screen.findAllByText("Palace x Nike jersey");
     // The Agent sheet opens straight from the bottom bar (design handoff PR3).
     // (Mobile + desktop bar variants both render; CSS hides one per viewport.)
     await user.click((await screen.findAllByRole("button", { name: /Agent: / }))[0]);
@@ -667,6 +675,9 @@ Installed Apps`;
     const user = userEvent.setup();
     render(<Credenza />);
 
+    // Wait for the shelf to hydrate — see the search-field test for why (the
+    // first-run intro can flash for one render and detach early grabs).
+    await screen.findAllByText("Real card one");
     await user.click(await screen.findByRole("button", { name: "Profile" }));
     await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
     await user.click(await screen.findByRole("button", { name: /Clear the whole shelf/ }));
@@ -822,5 +833,85 @@ describe("Storage hydration race (audit 2026-07-24)", () => {
     const titles = JSON.parse(data[STORE_KEY]).map((x) => x.title || x.rawText);
     expect(titles).toContain("Stored jacket");
     expect(titles.some((t) => String(t).includes("stashed during load"))).toBe(true);
+  });
+});
+
+describe("Fashion accessibility (Part 5)", () => {
+  it("exposes the active carousel option to assistive tech", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    render(<Credenza />);
+    const carousel = await screen.findByRole("listbox", { name: "Card carousel" });
+    expect(carousel).toHaveAttribute("aria-activedescendant", "card-fashion-1");
+    expect(document.getElementById("card-fashion-1")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("carousel shelf has no axe violations", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const { container } = render(<Credenza />);
+    await screen.findByRole("listbox", { name: "Card carousel" });
+    const results = await axe(container, {
+      rules: {
+        // Documented exception (Part 5): a carousel card is a rich option —
+        // the Flip face wraps the Buy and flip-cue controls by design, and
+        // every inner control stays independently reachable by keyboard.
+        // The card shortcuts now defer to focused controls (see the global
+        // key-handler guard), so the nesting is operable, not trapping.
+        "nested-interactive": { enabled: false },
+      },
+    });
+    expect(results).toHaveNoViolations();
+  }, 20000);
+
+  it("empty shelf has no axe violations", async () => {
+    installShim();
+    const { container } = render(<Credenza />);
+    await waitFor(() =>
+      expect(screen.queryByText(/opening shelf/i)).not.toBeInTheDocument()
+    );
+    expect(await axe(container)).toHaveNoViolations();
+  }, 20000);
+
+  it("haul listbox walks rows with arrows, wraps, and picks with Enter", async () => {
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({ id: "fashion-1", project: "" }),
+        fashionItem({
+          id: "fashion-2",
+          title: "Second jacket",
+          project: "Summer haul",
+          createdAt: Date.now() - 1000,
+        }),
+        fashionItem({
+          id: "fashion-3",
+          title: "Third jacket",
+          project: "Winter haul",
+          createdAt: Date.now() - 2000,
+        }),
+      ]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
+    await user.click(flipButtons[0]);
+    // The card-back haul accordion starts open when the item has no haul.
+    const listbox = await screen.findByRole("listbox", { name: "Hauls" });
+    const options = [...listbox.querySelectorAll('[role="option"]')];
+    expect(options.length).toBeGreaterThanOrEqual(2);
+    // Arrow keys walk the rows and wrap.
+    options[0].focus();
+    await user.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(options[1]);
+    await user.keyboard("{ArrowUp}{ArrowUp}");
+    // Wrapped from row one to the last row (options + add-new + maybe clear).
+    const allRows = [...listbox.querySelectorAll("button, input")].filter((el) => !el.disabled);
+    expect(document.activeElement).toBe(allRows[allRows.length - 1]);
+    // Back to the second option; Enter picks it.
+    options[1].focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      const saved = JSON.parse(data[STORE_KEY]);
+      const first = saved.find((x) => x.id === "fashion-1");
+      expect(["Summer haul", "Winter haul"]).toContain(first.project);
+    });
   });
 });

@@ -82,6 +82,43 @@ export async function saveStoredItems({ backend, storeKey, items, pruneBatch = 3
   let current = items;
   let prunedImages = 0;
 
+  const attempt = async () => {
+    try {
+      await backend.set(storeKey, JSON.stringify(current));
+      return true;
+    } catch (error) {
+      if (!isQuotaError(error)) throw error;
+      return false;
+    }
+  };
+
+  // Pass A (Part 5 quota recovery): inline QC + gallery photos go first.
+  // They are the largest payloads and the least needed for browsing; cover
+  // images stay until nothing else is left.
+  const INLINE = (s) => typeof s === "string" && s.startsWith("data:image/");
+  const hasInlineExtras = (item) =>
+    (Array.isArray(item.qcPhotos) && item.qcPhotos.some(INLINE)) ||
+    (Array.isArray(item.gallery) && item.gallery.some(INLINE));
+  while (true) {
+    const withExtras = current
+      .filter(hasInlineExtras)
+      .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+    if (!withExtras.length) break;
+    const dropIds = new Set(withExtras.slice(0, pruneBatch).map((item) => item.id));
+    current = current.map((item) =>
+      dropIds.has(item.id)
+        ? {
+            ...item,
+            qcPhotos: (Array.isArray(item.qcPhotos) ? item.qcPhotos : []).filter((s) => !INLINE(s)),
+            gallery: (Array.isArray(item.gallery) ? item.gallery : []).filter((s) => !INLINE(s)),
+          }
+        : item
+    );
+    prunedImages += dropIds.size;
+    if (await attempt()) return { items: current, prunedImages };
+  }
+
+  // Pass B: cover thumbnails, oldest first (original behavior).
   while (true) {
     const withImages = current
       .filter((item) => typeof item.image === "string" && item.image.startsWith("data:image/"))
@@ -96,12 +133,7 @@ export async function saveStoredItems({ backend, storeKey, items, pruneBatch = 3
     current = current.map((item) => (dropIds.has(item.id) ? { ...item, image: null } : item));
     prunedImages += dropIds.size;
 
-    try {
-      await backend.set(storeKey, JSON.stringify(current));
-      return { items: current, prunedImages };
-    } catch (error) {
-      if (!isQuotaError(error)) throw error;
-    }
+    if (await attempt()) return { items: current, prunedImages };
   }
 }
 
@@ -114,6 +146,7 @@ export const CREDENZA_KNOWN_KEYS = [
   "credenza-items-v1",
   "credenza-prefs-v1",
   "credenza-fashion-outbound-v1",
+  "credenza-fashion-hauls-v1",
 ];
 
 // Erase ALL Credenza data on this device (Execution-Plan Part 4): the shelf,

@@ -203,6 +203,90 @@ export function formatWeightGrams(grams) {
   return "~" + (Math.round(grams / 100) / 10) + " kg";
 }
 
+// Part 5 Tier A (task 8): the haul ship weight never counts returned items —
+// they leave the warehouse back to the seller, not to you.
+export function haulWeightGrams(items) {
+  let sum = 0;
+  let known = false;
+  for (const it of items || []) {
+    if ((it?.findStatus || "want") === "returned") continue;
+    const w = itemWeightGrams(it);
+    if (w != null) {
+      sum += w;
+      known = true;
+    }
+  }
+  return known ? sum : null;
+}
+
+// Part 5 Tier A (task 9): chargeable parcel weight. Carriers bill the larger
+// of actual and volumetric weight. Packaging adds a margin to the actual
+// side: none +0%, standard +10%, reinforced +20%. Volumetric uses the common
+// 5000 cm³/kg divisor. All inputs are optional; null = no estimate possible.
+export const PACKAGING_OPTIONS = [
+  { id: "none", label: "No extra packaging", factor: 1 },
+  { id: "standard", label: "Standard (+10%)", factor: 1.1 },
+  { id: "reinforced", label: "Reinforced (+20%)", factor: 1.2 },
+];
+export function volumetricWeightGrams(dims) {
+  const l = Number(dims?.l);
+  const w = Number(dims?.w);
+  const h = Number(dims?.h);
+  if (![l, w, h].every((n) => Number.isFinite(n) && n > 0)) return null;
+  return Math.round((l * w * h) / 5); // (l·w·h)/5000 kg → grams
+}
+export function chargeableWeightGrams({ actualGrams, dims, packaging } = {}) {
+  const factor = (PACKAGING_OPTIONS.find((p) => p.id === packaging) || PACKAGING_OPTIONS[0]).factor;
+  const actual = Number.isFinite(Number(actualGrams)) && Number(actualGrams) > 0
+    ? Math.round(Number(actualGrams) * factor)
+    : null;
+  const volumetric = volumetricWeightGrams(dims);
+  if (actual == null && volumetric == null) return null;
+  return Math.max(actual || 0, volumetric || 0);
+}
+
+// Part 5 Tier A (task 7): first-class haul record. item.project still holds
+// the haul NAME (cards, imports, and Reddit hauls all speak names); the
+// record adds the stable id and the haul-level data. Whitelist migration —
+// unknown fields vanish, same rule as migrateItem.
+export const HAULS_KEY = "credenza-fashion-hauls-v1";
+export function migrateHaul(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const name = String(raw.name || "").trim();
+  if (!name) return null;
+  const budget = Number(raw.budget);
+  const dims = raw.parcel && raw.parcel.dims && typeof raw.parcel.dims === "object"
+    ? {
+        l: Number(raw.parcel.dims.l) || null,
+        w: Number(raw.parcel.dims.w) || null,
+        h: Number(raw.parcel.dims.h) || null,
+      }
+    : null;
+  const parcelWeight = raw.parcel && Number(raw.parcel.weightGrams);
+  return {
+    id: String(raw.id || "").trim() || "haul-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    name,
+    createdAt: Number(raw.createdAt) || Date.now(),
+    updatedAt: Number(raw.updatedAt) || Date.now(),
+    budget: Number.isFinite(budget) && budget > 0 ? Math.round(budget * 100) / 100 : null,
+    currency: raw.currency === "CNY" ? "CNY" : "USD",
+    archived: raw.archived === true,
+    parcel: raw.parcel && typeof raw.parcel === "object"
+      ? {
+          weightGrams: Number.isFinite(parcelWeight) && parcelWeight > 0 ? Math.round(parcelWeight) : null,
+          dims,
+          packaging: ["none", "standard", "reinforced"].includes(raw.parcel.packaging)
+            ? raw.parcel.packaging
+            : "none",
+        }
+      : null,
+    history: (Array.isArray(raw.history) ? raw.history : [])
+      .filter((e) => e && typeof e === "object" && e.type)
+      .slice(-50)
+      .map((e) => ({ at: Number(e.at) || Date.now(), type: String(e.type), detail: String(e.detail || "") })),
+  };
+}
+
 // Local category guess from free text (Yupoo title/description, review notes).
 // Returns a CATEGORIES key or "" when nothing confident matches.
 function guessFashionCategory(text) {
@@ -273,7 +357,7 @@ function setPricePrimaryPref(v) {
   PRICE_PRIMARY = v === "CNY" ? "CNY" : "USD";
 }
 
-// AI fit summary prefs (design handoff PR4). Same module-mirror pattern as
+// Fit summary prefs (design handoff PR4). Same module-mirror pattern as
 // PRICE_PRIMARY: the App syncs these from its prefs state, and flipping a
 // ProfileSheet toggle re-renders the tree so FitSummary reads fresh values.
 let FIT_SUMMARY_ON = true;
@@ -796,7 +880,7 @@ export function applyFitPreference(rec, chart, fitPref, category) {
   };
 }
 
-// AI fit sentence (design handoff PR4): one templated line under the
+// Fit sentence (design handoff PR4): one templated line under the
 // Recommended-size block, built from the recommendSize result plus the
 // chart's run hint. "concise" is the first clause only; "detailed" adds the
 // run-hint / alternate-size tail after an em-dash.
@@ -3648,10 +3732,23 @@ function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
   const chosen = String(item.size || "").trim();
   const rec = computeRecommendedSize(item, bodyProfile, fitPrefs);
   if (!chosen && !rec) {
-    const usual =
-      bodyProfile && !SIZE_PICK_SKIP_CATEGORIES.has(item.category)
-        ? String(bodyProfile.usualSize || "").trim()
-        : "";
+    // Part 5 task 11: slot-specific usual sizes win over the single
+    // usualSize. Shoes get their own slot — a letter "usual size" is never a
+    // shoe size, so usualSize stays garment-only.
+    const slotKey =
+      item.category === "shoes"
+        ? "usualShoes"
+        : item.category === "pants" || item.category === "shorts"
+          ? "usualBottoms"
+          : "usualTops";
+    const genericOk = !SIZE_PICK_SKIP_CATEGORIES.has(item.category);
+    const usual = bodyProfile
+      ? String(
+          (genericOk || slotKey === "usualShoes" ? bodyProfile[slotKey] : "") ||
+            (genericOk ? bodyProfile.usualSize : "") ||
+            ""
+        ).trim()
+      : "";
     if (usual) {
       return {
         text: "SIZE: " + formatSizeToken(usual) + " (EST)",
@@ -4065,6 +4162,9 @@ function ComboboxField({
   const [menuBox, setMenuBox] = useState(null); // fixed coords so overflow parents don't clip
   const [creating, setCreating] = useState(false);
   const closeTimer = useRef(null);
+  // Keyboard-active option index (Part 5 a11y): ArrowUp/Down move it, Enter
+  // picks it. -1 = no active option; typing resets it.
+  const [activeIdx, setActiveIdx] = useState(-1);
 
   const closeMenu = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -4103,6 +4203,7 @@ function ComboboxField({
     }
     setClosing(false);
     setOpen(true);
+    setActiveIdx(-1);
     // Measure after paint so the menu escapes overflow:auto card backs.
     requestAnimationFrame(placeMenu);
   }, [placeMenu]);
@@ -4142,8 +4243,15 @@ function ComboboxField({
     };
   }, [open, closeMenu, placeMenu, id]);
 
-  const q = String(value || "").trim().toLowerCase();
-  // While "Add new" is active, show the full list unfiltered so people can still
+  // Keep the keyboard-active option visible while arrows move through a
+  // long list.
+  useEffect(() => {
+    if (!open || activeIdx < 0) return;
+    const el = document.getElementById(id + "-opt-" + activeIdx);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [open, activeIdx, id]);
+
+  const q = String(value || "").trim().toLowerCase();// While "Add new" is active, show the full list unfiltered so people can still
   // pick an existing haul; filtered list only applies to normal typing.
   const filtered = creating
     ? suggestions
@@ -4194,6 +4302,7 @@ function ComboboxField({
             value={value}
             onChange={(e) => {
               onChange(e.target.value);
+              setActiveIdx(-1);
               if (!open) openMenu();
             }}
             onFocus={openMenu}
@@ -4211,11 +4320,26 @@ function ComboboxField({
                 // before the size list could be used).
                 e.preventDefault();
                 e.stopPropagation();
-                pick(value);
+                if (open && activeIdx >= 0 && filtered[activeIdx] != null) {
+                  pick(filtered[activeIdx]);
+                } else {
+                  pick(value);
+                }
               } else if (e.key === "ArrowDown") {
                 e.preventDefault();
                 e.stopPropagation();
-                openMenu();
+                if (!open) {
+                  openMenu();
+                } else if (filtered.length > 0) {
+                  setActiveIdx((i) => Math.min(i + 1, filtered.length - 1));
+                }
+              } else if (e.key === "ArrowUp") {
+                if (!open) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (filtered.length > 0) {
+                  setActiveIdx((i) => (i <= 0 ? filtered.length - 1 : i - 1));
+                }
               } else if (e.key === "Escape" && open) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -4228,6 +4352,11 @@ function ComboboxField({
             aria-expanded={open}
             aria-controls={id + "-list"}
             aria-autocomplete="list"
+            aria-activedescendant={
+              open && activeIdx >= 0 && filtered[activeIdx] != null
+                ? id + "-opt-" + activeIdx
+                : undefined
+            }
           />
           {showClear ? (
             <button
@@ -4278,14 +4407,20 @@ function ComboboxField({
           {filtered.length === 0 && !showCreate && !addNewLabel && !showClear ? (
             <div className="cz-combobox-option is-empty">{emptyHint}</div>
           ) : (
-            filtered.map((name) => (
+            filtered.map((name, optionIdx) => (
               <button
                 key={name}
+                id={id + "-opt-" + optionIdx}
                 type="button"
                 role="option"
                 aria-selected={name === value}
-                className={"cz-combobox-option" + (name === value ? " is-current" : "")}
+                className={
+                  "cz-combobox-option" +
+                  (name === value ? " is-current" : "") +
+                  (optionIdx === activeIdx ? " is-active" : "")
+                }
                 onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setActiveIdx(optionIdx)}
                 onClick={() => pick(name)}
               >
                 <span>{name}</span>
@@ -4414,7 +4549,42 @@ function HaulAccordionField({
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
+  const headRef = useRef(null);
+  const bodyRef = useRef(null);
   const current = String(value || "").trim();
+
+  // Arrow keys walk the rows (Part 5 a11y): focus moves through haul options,
+  // the create row/input, and the clear row. Wraps at both ends.
+  const focusRow = (delta) => {
+    const rows = Array.from(
+      bodyRef.current?.querySelectorAll("button, input") || []
+    ).filter((el) => !el.disabled);
+    if (rows.length === 0) return;
+    const i = rows.indexOf(document.activeElement);
+    const next =
+      i < 0
+        ? rows[delta > 0 ? 0 : rows.length - 1]
+        : rows[(i + delta + rows.length) % rows.length];
+    next.focus();
+  };
+
+  const onBodyKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      e.stopPropagation();
+      focusRow(1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      focusRow(-1);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+      setCreating(false);
+      headRef.current?.focus();
+    }
+  };
 
   useEffect(() => {
     if (open && creating && inputRef.current) {
@@ -4443,12 +4613,21 @@ function HaulAccordionField({
         <span>{label}</span>
         <button
           type="button"
+          ref={headRef}
           className="t-acc-head cz-haul-acc-head"
           aria-expanded={open}
           onClick={(e) => {
             e.stopPropagation();
             setOpen((v) => !v);
             if (open) setCreating(false);
+          }}
+          onKeyDown={(e) => {
+            // ArrowDown from the head opens the list and lands on row one.
+            if (e.key !== "ArrowDown") return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (!open) setOpen(true);
+            requestAnimationFrame(() => focusRow(1));
           }}
         >
           <span className={"cz-haul-acc-value" + (current ? "" : " is-empty")}>{headLabel}</span>
@@ -4468,7 +4647,17 @@ function HaulAccordionField({
       </div>
       <div className="t-acc-panel">
         <div className="t-acc-panel-inner">
-          <div className="cz-haul-acc-body" role="listbox" aria-label="Hauls">
+          <div
+            className="cz-haul-acc-body"
+            role="listbox"
+            aria-label="Hauls"
+            aria-orientation="vertical"
+            ref={bodyRef}
+            onKeyDown={onBodyKeyDown}
+            // Focus moves row to row (roving DOM focus), so the listbox
+            // itself stays out of the tab order but must be focusable.
+            tabIndex={-1}
+          >
             {knownHauls.length === 0 && !creating ? (
               <div className="cz-haul-acc-empty">No hauls yet — create one below.</div>
             ) : (
@@ -4971,7 +5160,7 @@ function linkButtons(item, opts = {}) {
 }
 
 // ═══ UNIFIED CARD FRONT INFO (Kyle 2026-07-23) ═══
-// Grid card and carousel front read the same, title down: AI size line
+// Grid card and carousel front read the same, title down: size line
 // (manual size from Edit overrides the rec; EST = usual-size fallback when
 // the item has no chart), seller, then the price as green USD text — no ¥
 // when USD is known. linkSeller=false renders the seller as plain text: the
@@ -5966,8 +6155,11 @@ function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isCenter }) {
     setNoteDraft(item.qcNote || "");
   }, [item.id, item.qcNote]);
 
+  const QC_PHOTO_CAP = 12;
+  const atCap = qcPhotos.length >= QC_PHOTO_CAP;
+
   const attachQc = async (file) => {
-    if (!file) return;
+    if (!file || atCap) return;
     try {
       const dataUrl = await compressImageBlob(file);
       onSaveEdit?.(item.id, (x) => ({
@@ -5975,6 +6167,24 @@ function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isCenter }) {
       }));
     } catch (e) {
       // Read failure: leave the card untouched (graceful degradation, §11).
+    }
+  };
+
+  // Task 10 (Part 5): pasting an image anywhere in the QC section attaches it
+  // as a QC photo — agent screenshots rarely come as files. Text pastes fall
+  // through to the note field untouched.
+  const onPaste = (e) => {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems) return;
+    for (const clipItem of clipItems) {
+      if (clipItem.type && clipItem.type.startsWith("image/")) {
+        const file = clipItem.getAsFile();
+        if (file) {
+          e.preventDefault();
+          attachQc(file);
+          return;
+        }
+      }
     }
   };
 
@@ -5992,10 +6202,13 @@ function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isCenter }) {
     : "";
 
   return (
-    <section className="cz-sheet-section cz-qc" aria-label="Warehouse QC">
+    <section className="cz-sheet-section cz-qc" aria-label="Warehouse QC" onPaste={onPaste}>
       <div className="cz-qc-head">
         <span className="cz-qc-title">Warehouse QC</span>
         {verdictLabel ? <span className="cz-qc-verdict">{verdictLabel}</span> : null}
+        <span className="cz-qc-cap" aria-label={qcPhotos.length + " of " + QC_PHOTO_CAP + " QC photos"}>
+          {qcPhotos.length}/{QC_PHOTO_CAP}
+        </span>
       </div>
       {qcPhotos.length > 0 ? (
         <div className="cz-qc-thumbs" role="list" aria-label="QC photos">
@@ -6051,7 +6264,13 @@ function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isCenter }) {
         }}
       />
       <div className="cz-qc-actions">
-        <button type="button" className="cz-qc-add" onClick={() => fileRef.current?.click()}>
+        <button
+          type="button"
+          className="cz-qc-add"
+          onClick={() => fileRef.current?.click()}
+          disabled={atCap}
+          title={atCap ? "Photo cap reached — remove one first" : "Add a QC photo, or paste one anywhere in this section"}
+        >
           <Plus aria-hidden="true" size={13} strokeWidth={2.4} />
           Add QC photo
         </button>
@@ -6070,6 +6289,39 @@ function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isCenter }) {
           RL · send back
         </button>
       </div>
+      {/* Task 10 (Part 5): after an RL, record what came of it. Returned =
+          money back (leaves the haul weight and the cost totals); exchange =
+          back to Bought with the ask noted. */}
+      {item.findStatus === "rl" ? (
+        <div className="cz-qc-followup" role="group" aria-label="RL follow-up">
+          <span className="cz-qc-followup-label">Sent back. Then what?</span>
+          <button
+            type="button"
+            className="cz-qc-followup-btn"
+            onClick={() => onSaveEdit?.(item.id, { findStatus: "returned" })}
+          >
+            Mark returned
+          </button>
+          <button
+            type="button"
+            className="cz-qc-followup-btn"
+            onClick={() =>
+              onSaveEdit?.(item.id, (x) => ({
+                findStatus: "bought",
+                qcNote: [
+                  String(x.qcNote || "").trim(),
+                  "Exchange asked " +
+                    new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              }))
+            }
+          >
+            Ask for exchange
+          </button>
+        </div>
+      ) : null}
       <input
         type="text"
         className="cz-qc-note"
@@ -6138,7 +6390,7 @@ function ItemDetailBody({
   return (
     <div className="cz-product-sheet">
       <header className="cz-sheet-head">
-        <h3 className="cz-carousel-back-title">{item.title}</h3>
+        <h2 className="cz-carousel-back-title">{item.title}</h2>
       </header>
 
       <section className="cz-sheet-section cz-sheet-identity" aria-label="Price and seller">
@@ -6691,9 +6943,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
             <StatusPill status={item.findStatus} className="cz-carousel-status" />
           </div>
           <div className="cz-carousel-front-meta">
-            {/* Unified with the grid card (Kyle 2026-07-23): title → AI size →
+            {/* Unified with the grid card (Kyle 2026-07-23): title → size →
                 seller → green USD price text. No overlay price chip, no ¥. */}
-            <h3 className="cz-carousel-title">{item.title}</h3>
+            <h2 className="cz-carousel-title">{item.title}</h2>
             <CardFrontInfo
               item={item}
               bodyProfile={bodyProfile}
@@ -7584,6 +7836,10 @@ function CoverFlowCarousel({
         tabIndex={0}
         role="listbox"
         aria-label="Card carousel"
+        aria-orientation="horizontal"
+        aria-activedescendant={
+          items[activeIndex] ? "card-" + items[activeIndex].id : undefined
+        }
         onKeyDown={onKeyDown}
         onPanEnd={onPanEnd}
         onClick={(e) => {
@@ -8256,6 +8512,218 @@ function EmptyShelfGhosts() {
   );
 }
 
+// Part 5 Tier A (tasks 7 + 9): the haul board. Budget vs spend, the parcel
+// estimator, and the archive switch. Sits in the open-haul head under the
+// pipeline chips. Everything persists on the haul record through onUpdate —
+// item.project (the name join key) is never touched here.
+function HaulBoard({ record, pipeline, totalUsd, onUpdate, onArchive }) {
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [budgetDraft, setBudgetDraft] = useState("");
+  const [parcelOpen, setParcelOpen] = useState(false);
+  const [parcelDraft, setParcelDraft] = useState(null);
+
+  const budget = record && typeof record.budget === "number" ? record.budget : null;
+  const currency = record && record.currency === "CNY" ? "CNY" : "USD";
+  const parcel = record && record.parcel ? record.parcel : null;
+  const archived = record && record.archived === true;
+  const spent = Math.round((totalUsd || 0) * 100) / 100;
+
+  const savedChargeable = parcel
+    ? chargeableWeightGrams({
+        actualGrams: parcel.weightGrams,
+        dims: parcel.dims,
+        packaging: parcel.packaging,
+      })
+    : null;
+  const draftChargeable = parcelDraft
+    ? chargeableWeightGrams({
+        actualGrams: Number(parcelDraft.weight),
+        dims: { l: Number(parcelDraft.l), w: Number(parcelDraft.w), h: Number(parcelDraft.h) },
+        packaging: parcelDraft.packaging,
+      })
+    : null;
+
+  const openBudget = () => {
+    setBudgetDraft(budget != null ? String(budget) : "");
+    setBudgetOpen(true);
+  };
+  const saveBudget = () => {
+    const n = Math.round(Number(budgetDraft) * 100) / 100;
+    const next = Number.isFinite(n) && n > 0 ? n : null;
+    onUpdate(
+      { budget: next },
+      { type: "budget", detail: next != null ? formatMoney(next, currency) : "cleared" }
+    );
+    setBudgetOpen(false);
+  };
+
+  const openParcel = () => {
+    setParcelDraft({
+      weight:
+        parcel && parcel.weightGrams
+          ? String(parcel.weightGrams)
+          : pipeline && pipeline.weightGrams
+            ? String(pipeline.weightGrams)
+            : "",
+      l: parcel && parcel.dims && parcel.dims.l ? String(parcel.dims.l) : "",
+      w: parcel && parcel.dims && parcel.dims.w ? String(parcel.dims.w) : "",
+      h: parcel && parcel.dims && parcel.dims.h ? String(parcel.dims.h) : "",
+      packaging: (parcel && parcel.packaging) || "standard",
+    });
+    setParcelOpen(true);
+  };
+  const saveParcel = () => {
+    const w = Number(parcelDraft.weight);
+    const dims = {
+      l: Number(parcelDraft.l) || null,
+      w: Number(parcelDraft.w) || null,
+      h: Number(parcelDraft.h) || null,
+    };
+    const hasDims = dims.l && dims.w && dims.h;
+    const next =
+      (Number.isFinite(w) && w > 0) || hasDims
+        ? {
+            weightGrams: Number.isFinite(w) && w > 0 ? Math.round(w) : null,
+            dims: hasDims ? dims : null,
+            packaging: parcelDraft.packaging,
+          }
+        : null;
+    onUpdate(
+      { parcel: next },
+      { type: "parcel", detail: next ? "estimate saved" : "cleared" }
+    );
+    setParcelOpen(false);
+  };
+
+  return (
+    <div className="cz-haul-board" aria-label="Haul board">
+      <div className="cz-haul-board-row">
+        {budget != null ? (
+          <button type="button" className="cz-haul-board-stat" onClick={openBudget}>
+            Budget {formatMoney(budget, currency)} · spent {formatMoney(spent, "USD")}
+            {budget > 0 ? " (" + Math.min(999, Math.round((spent / budget) * 100)) + "%)" : ""}
+          </button>
+        ) : (
+          <button type="button" className="cz-haul-board-btn" onClick={openBudget}>
+            Set a budget
+          </button>
+        )}
+        {savedChargeable != null ? (
+          <button type="button" className="cz-haul-board-stat" onClick={openParcel}>
+            Parcel {formatWeightGrams(savedChargeable)} chargeable
+          </button>
+        ) : (
+          <button type="button" className="cz-haul-board-btn" onClick={openParcel}>
+            Estimate the parcel
+          </button>
+        )}
+        <button
+          type="button"
+          className="cz-haul-board-btn cz-haul-board-archive"
+          onClick={onArchive}
+        >
+          {archived ? "Unarchive" : "Archive"}
+        </button>
+      </div>
+
+      {budgetOpen ? (
+        <div className="cz-haul-board-editor" role="group" aria-label="Haul budget">
+          <label className="cz-haul-board-label" htmlFor="cz-haul-budget-input">
+            Budget ({currency})
+          </label>
+          <input
+            id="cz-haul-budget-input"
+            className="cz-haul-board-input"
+            type="number"
+            min="0"
+            step="1"
+            inputMode="decimal"
+            value={budgetDraft}
+            onChange={(e) => setBudgetDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveBudget();
+              if (e.key === "Escape") setBudgetOpen(false);
+            }}
+          />
+          <button type="button" className="cz-haul-board-save" onClick={saveBudget}>
+            Save
+          </button>
+          <button type="button" className="cz-haul-board-btn" onClick={() => setBudgetOpen(false)}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {parcelOpen && parcelDraft ? (
+        <div className="cz-haul-board-editor cz-haul-board-parcel" role="group" aria-label="Parcel estimate">
+          <label className="cz-haul-board-label" htmlFor="cz-haul-parcel-weight">
+            Weight (g)
+          </label>
+          <input
+            id="cz-haul-parcel-weight"
+            className="cz-haul-board-input"
+            type="number"
+            min="0"
+            step="10"
+            inputMode="numeric"
+            value={parcelDraft.weight}
+            onChange={(e) => setParcelDraft({ ...parcelDraft, weight: e.target.value })}
+          />
+          <span className="cz-haul-board-label" id="cz-haul-parcel-dims-label">
+            L × W × H (cm)
+          </span>
+          <div className="cz-haul-board-dims" role="group" aria-labelledby="cz-haul-parcel-dims-label">
+            {["l", "w", "h"].map((axis) => (
+              <input
+                key={axis}
+                className="cz-haul-board-input"
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                aria-label={axis === "l" ? "Length (cm)" : axis === "w" ? "Width (cm)" : "Height (cm)"}
+                value={parcelDraft[axis]}
+                onChange={(e) => setParcelDraft({ ...parcelDraft, [axis]: e.target.value })}
+              />
+            ))}
+          </div>
+          <label className="cz-haul-board-label" htmlFor="cz-haul-parcel-pack">
+            Packaging
+          </label>
+          <select
+            id="cz-haul-parcel-pack"
+            className="cz-haul-board-input"
+            value={parcelDraft.packaging}
+            onChange={(e) => setParcelDraft({ ...parcelDraft, packaging: e.target.value })}
+          >
+            {PACKAGING_OPTIONS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          {draftChargeable != null ? (
+            <span className="cz-haul-board-result">
+              Chargeable {formatWeightGrams(draftChargeable)}
+            </span>
+          ) : null}
+          <p className="cz-haul-board-note">
+            Estimate only. The buying agent weighs and measures the final parcel.
+          </p>
+          <div className="cz-haul-board-actions">
+            <button type="button" className="cz-haul-board-save" onClick={saveParcel}>
+              Save
+            </button>
+            <button type="button" className="cz-haul-board-btn" onClick={() => setParcelOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function Credenza() {
   const [items, setItems] = useState([]);
   const [storageState, setStorageState] = useState({ status: "loading", raw: null, error: null });
@@ -8323,6 +8791,10 @@ export default function Credenza() {
   const overlayCloseTimer = useRef(null);
   const closeCarouselOverlayRef = useRef(() => {});
   const openInCarouselRef = useRef(() => {});
+  // Focus management for the overlay (Part 5 a11y): root node + the control
+  // that opened it, so close can return focus.
+  const overlayRef = useRef(null);
+  const overlayTriggerRef = useRef(null);
   // Design handoff PR3 (2026-07-23): the capture bar + profile own the old
   // bottom-bar ⋯ menu's jobs. captureSheetOpen = the review surface behind
   // the Stash pill; profileOpen = account/settings sheet from the masthead
@@ -8348,7 +8820,7 @@ export default function Credenza() {
   useEffect(() => {
     setPricePrimaryPref(pricePrimary);
   }, [pricePrimary]);
-  // AI fit summary (design handoff PR4): show/hide + Concise/Detailed length,
+  // Fit summary (design handoff PR4): show/hide + Concise/Detailed length,
   // synced into the module readers FitSummary uses. Persisted in prefs.
   const [fitSummary, setFitSummary] = useState(true);
   // Session flag: user dismissed the progressive fit prompt on a card.
@@ -8524,6 +8996,57 @@ export default function Credenza() {
         )
         .catch(() => {});
   }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
+
+  // Part 5 Tier A: first-class haul records (budget, parcel, archive state,
+  // history). item.project keeps the haul NAME; the record adds the rest.
+  const [hauls, setHauls] = useState([]);
+  const [haulsHydrated, setHaulsHydrated] = useState(false);
+  const [showArchivedHauls, setShowArchivedHauls] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    storageBackend
+      .get(HAULS_KEY)
+      .then((raw) => {
+        if (cancelled) return;
+        try {
+          // The backend resolves with the raw string (null when unset),
+          // same contract as the prefs load below.
+          const parsed = raw ? JSON.parse(raw) : [];
+          setHauls((Array.isArray(parsed) ? parsed : []).map(migrateHaul).filter(Boolean));
+        } catch {
+          setHauls([]);
+        }
+        setHaulsHydrated(true);
+      })
+      .catch(() => {
+        if (!cancelled) setHaulsHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storageBackend]);
+  useEffect(() => {
+    if (!haulsHydrated) return;
+    storageBackend.set(HAULS_KEY, JSON.stringify(hauls)).catch(() => {});
+  }, [hauls, haulsHydrated, storageBackend]);
+  // Find-or-create by name, apply the patch, append one history line.
+  const updateHaul = useCallback((name, patch, historyEntry) => {
+    const clean = String(name || "").trim();
+    if (!clean) return;
+    setHauls((list) => {
+      const idx = list.findIndex((h) => h.name === clean);
+      const base = idx >= 0 ? list[idx] : migrateHaul({ name: clean, history: [] });
+      const applied = typeof patch === "function" ? patch(base) : patch;
+      let next = { ...base, ...applied, updatedAt: Date.now() };
+      if (historyEntry) {
+        next = {
+          ...next,
+          history: [...(base.history || []), { at: Date.now(), ...historyEntry }].slice(-50),
+        };
+      }
+      return idx >= 0 ? list.map((h, i) => (i === idx ? next : h)) : [...list, next];
+    });
+  }, []);
 
   useEffect(() => {
     loadStoredItems({
@@ -9923,7 +10446,7 @@ export default function Credenza() {
       }
       map.set(name, cur);
     }
-    const hauls = Array.from(map.values()).map((haul) => {
+    const dirs = Array.from(map.values()).map((haul) => {
       const seen = new Set();
       const covers = haul.coverItems
         .sort((a, b) => b.createdAt - a.createdAt)
@@ -9945,8 +10468,15 @@ export default function Credenza() {
       if (b.latest !== a.latest) return b.latest - a.latest;
       return a.name.localeCompare(b.name);
     });
-    return { hauls };
-  }, [shelfAll]);
+    // Archive state comes from the haul records (Part 5). Archived hauls hide
+    // from the directory until "Archived (N)" is tapped; items stay untouched.
+    const archivedNames = new Set(hauls.filter((h) => h.archived).map((h) => h.name));
+    const active = (showArchivedHauls ? dirs : dirs.filter((h) => !archivedNames.has(h.name))).map(
+      (h) => ({ ...h, archived: archivedNames.has(h.name) })
+    );
+    const archivedCount = dirs.filter((h) => archivedNames.has(h.name)).length;
+    return { hauls: active, archivedCount };
+  }, [shelfAll, hauls, showArchivedHauls]);
 
   // Chrome + the shelf surface's item filter key off this, not raw
   // `activeHaul` — while closing, `activeHaul` is already null but
@@ -10004,21 +10534,17 @@ export default function Credenza() {
   const haulPipeline = useMemo(() => {
     if (!openHaulName) return null;
     const counts = {};
-    let weightSum = 0;
-    let weightKnown = false;
     for (const it of totalsItems) {
       const s = it.findStatus || "want";
       counts[s] = (counts[s] || 0) + 1;
-      const w = itemWeightGrams(it);
-      if (w != null) {
-        weightSum += w;
-        weightKnown = true;
-      }
     }
+    // Task 8 (Part 5): returned items never count toward the ship weight.
+    const weightSum = haulWeightGrams(totalsItems);
     return {
       counts,
       readyToShip: (counts.bought || 0) + (counts.gl || 0),
-      weightLabel: weightKnown ? formatWeightGrams(weightSum) : "",
+      weightLabel: weightSum != null ? formatWeightGrams(weightSum) : "",
+      weightGrams: weightSum,
     };
   }, [openHaulName, totalsItems]);
   // Same context for the count chip — one consistent spot next to the total.
@@ -10143,6 +10669,20 @@ export default function Credenza() {
         return; // overlays handle their own keys
       if (isTyping(e)) {
         if (e.key === "Escape" && document.activeElement) document.activeElement.blur();
+        return;
+      }
+      // A focused control owns its own keys (Part 5 a11y): Enter/Space on a
+      // card-back button, haul option, or menu row must activate THAT
+      // control, never the card shortcuts below. Without this guard the
+      // global handler preventDefaulted Enter on focused buttons, so
+      // keyboard users could not pick a haul or close the overlay.
+      if (
+        e.target !== document.body &&
+        e.target !== document.documentElement &&
+        e.target.closest?.(
+          "button, a, select, [role='button'], [role='option'], [role='radio'], [role='menuitem'], [role='tab'], [role='switch'], [role='checkbox']"
+        )
+      ) {
         return;
       }
       const list = ctx.shelfItems;
@@ -10340,6 +10880,51 @@ export default function Credenza() {
       document.body.style.overflow = prev;
     };
   }, [carouselOverlay]);
+  // Overlay focus (Part 5 a11y): focus the first control on open, trap Tab
+  // inside, and return focus to the opener on close. Escape already closes
+  // via the global key handler. A native dialog in the top layer (the photo
+  // gallery) traps its own focus — stand down while one is open.
+  useEffect(() => {
+    if (!carouselOverlay) return;
+    overlayTriggerRef.current = document.activeElement;
+    const root = overlayRef.current;
+    if (!root) return;
+    const focusables = () =>
+      Array.from(
+        root.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.disabled && el.getClientRects().length > 0);
+    const first = focusables()[0];
+    if (first) first.focus();
+    const onKeydown = (e) => {
+      if (e.key !== "Tab") return;
+      if (document.querySelector("dialog[open]")) return;
+      const list = focusables();
+      if (list.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const firstEl = list[0];
+      const lastEl = list[list.length - 1];
+      const inside = root.contains(document.activeElement);
+      if (e.shiftKey && (!inside || document.activeElement === firstEl)) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && (!inside || document.activeElement === lastEl)) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
+    root.addEventListener("keydown", onKeydown);
+    return () => {
+      root.removeEventListener("keydown", onKeydown);
+      const trigger = overlayTriggerRef.current;
+      if (trigger && typeof trigger.focus === "function" && document.contains(trigger)) {
+        trigger.focus();
+      }
+    };
+  }, [carouselOverlay]);
 
   const renderEntry = (item) => (
     <div key={item.id}>
@@ -10415,6 +11000,16 @@ export default function Credenza() {
               : "Name hauls from the ⋯ menu on any card"}
           </div>
         </div>
+        {haulDirectory.archivedCount > 0 ? (
+          <button
+            type="button"
+            className="cz-hauls-archived-toggle"
+            aria-pressed={showArchivedHauls}
+            onClick={() => setShowArchivedHauls((v) => !v)}
+          >
+            {showArchivedHauls ? "Hide archived" : "Archived (" + haulDirectory.archivedCount + ")"}
+          </button>
+        ) : null}
       </div>
 
       {haulDirectory.hauls.length === 0 ? (
@@ -10860,6 +11455,7 @@ export default function Credenza() {
       {carouselOverlay && overlayItem && viewMode !== "carousel" && (
         <div
           key="carousel-overlay"
+          ref={overlayRef}
           className={
             "cz-carousel-overlay" +
             (overlayPhase === "open" ? " is-open" : "") +
@@ -11525,6 +12121,22 @@ export default function Credenza() {
                 ) : null}
               </div>
             ) : null}
+            {/* Part 5 Tier A: budget, parcel estimate, archive. The record is
+                find-or-create on first save, so the board also works for
+                hauls that only exist as item.project names so far. */}
+            <HaulBoard
+              record={hauls.find((h) => h.name === openHaulName) || null}
+              pipeline={haulPipeline}
+              totalUsd={listTotalUsd}
+              onUpdate={(patch, historyEntry) => updateHaul(openHaulName, patch, historyEntry)}
+              onArchive={() => {
+                const rec = hauls.find((h) => h.name === openHaulName);
+                const next = !(rec && rec.archived);
+                updateHaul(openHaulName, { archived: next }, { type: next ? "archived" : "unarchived" });
+                // Archiving hides the haul from the directory — leave it.
+                if (next) closeHaul();
+              }}
+            />
           </div>
         ) : null}
         </div>{/* /.cz-chrome */}

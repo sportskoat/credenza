@@ -3124,9 +3124,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-favorite-button:focus-visible {
   color: var(--cz-favorite);
-  /* No ring/scale halo that reads as a circle around the heart on phones. */
-  outline: none;
-  box-shadow: none;
+  /* Keyboard users need the ring (Part 5 a11y). :focus-visible does not fire
+     for touch taps, so phones keep the clean heart. */
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
 }
 
 .cz-favorite-button.is-favorite {
@@ -3902,6 +3903,148 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
+/* Part 5 Tier A haul board: budget, parcel estimate, archive. Same quiet
+   hairline language as the pipeline chips above it. */
+.cz-haul-board {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.cz-haul-board-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cz-sub);
+  line-height: 1.3;
+}
+
+.cz-haul-board-stat,
+.cz-haul-board-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cz-haul-board-btn {
+  color: var(--cz-faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.cz-haul-board-btn:hover {
+  color: var(--cz-ink);
+}
+
+.cz-haul-board-stat:hover {
+  color: var(--cz-ink);
+}
+
+.cz-haul-board-stat:focus-visible,
+.cz-haul-board-btn:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.cz-haul-board-archive {
+  margin-left: auto;
+}
+
+.cz-haul-board-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cz-card-solid) 55%, transparent);
+  font-size: 12px;
+  color: var(--cz-sub);
+}
+
+.cz-haul-board-label {
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.cz-haul-board-input {
+  appearance: none;
+  width: 76px;
+  padding: 6px 8px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 8px;
+  background: var(--cz-bg-elevated);
+  color: var(--cz-ink);
+  font: inherit;
+}
+
+.cz-haul-board-input:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 1px;
+}
+
+.cz-haul-board-dims {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-haul-board-dims .cz-haul-board-input {
+  width: 58px;
+}
+
+.cz-haul-board-result {
+  font-weight: 700;
+  color: var(--cz-money);
+  white-space: nowrap;
+}
+
+.cz-haul-board-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 11px;
+  color: var(--cz-faint);
+  line-height: 1.4;
+}
+
+.cz-haul-board-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cz-haul-board-save {
+  appearance: none;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-haul-board-save:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+
 @keyframes cz-haul-head-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -4350,6 +4493,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-combobox-option.is-current {
   background: color-mix(in srgb, var(--cz-accent) 18%, transparent);
   color: var(--cz-ink);
+}
+
+/* Keyboard-active option (Part 5 a11y): same tint as hover so arrows and
+   pointer never disagree about which row is live. */
+.cz-combobox-option.is-active {
+  background: color-mix(in srgb, var(--cz-accent) 14%, transparent);
+}
+.cz-combobox-option.is-current.is-active {
+  background: color-mix(in srgb, var(--cz-accent) 18%, transparent);
 }
 
 .cz-combobox-option.is-create,
@@ -7121,6 +7273,50 @@ a.cz-card-seller:hover {
   font-weight: 600;
   color: var(--cz-faint);
 }
+/* Part 5 task 10: photo-cap counter sits right of the verdict, quieter. */
+.cz-qc-cap {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--cz-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* Part 5 task 10: RL follow-up row (returned vs exchange). */
+.cz-qc-followup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.cz-qc-followup-label {
+  font-size: 11px;
+  color: var(--cz-faint);
+}
+.cz-qc-followup-btn {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  cursor: pointer;
+}
+.cz-qc-followup-btn:hover {
+  color: var(--cz-ink);
+}
+.cz-qc-followup-btn:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.cz-qc-add:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 .cz-qc-empty {
   margin: 0;
   font-size: 11.5px;
@@ -8012,4 +8208,90 @@ a.cz-card-seller:hover {
 }
 .cz-stash-body .cz-stash-primary {
   margin-bottom: 0;
+}
+
+/* Part 5 a11y — 44px hit targets without changing the drawn size.
+   An invisible pseudo-element extends the clickable area to at least
+   44×44px. Visuals stay exactly as designed; only the hit area grows.
+   Static buttons get position:relative; already-positioned buttons keep
+   their absolute/fixed placement. */
+.cz-pill,
+.cz-buy-btn,
+.cz-carousel-action-btn.primary,
+.cz-card-save-btn,
+.cz-card-menu-trigger,
+.cz-carousel-close,
+.cz-photo-preview-controls button,
+.cz-morph-button.is-icon-only,
+.cz-card-edit-morph,
+.cz-favorite-button,
+.cz-starred-filter,
+.cz-haul-chip-clear,
+.cz-note-toggle,
+.cz-info-bubble-header button,
+.cz-coverflow-dot {
+  position: relative;
+}
+
+/* 40–42px buttons: 2px ring. */
+.cz-pill::after,
+.cz-buy-btn::after,
+.cz-carousel-action-btn.primary::after,
+.cz-card-menu-trigger::after,
+.cz-carousel-close::after,
+.cz-photo-preview-controls button::after,
+.cz-morph-button.is-icon-only::after,
+.cz-card-edit-morph::after,
+.cz-photo-coverflow-close::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+}
+/* 36px buttons: 4px ring. */
+.cz-card-save-btn::after,
+.cz-carousel-orbit-close::after,
+.cz-photo-preview-close::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+/* 38px favorite: 3px ring. */
+.cz-favorite-button::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+}
+/* 28px controls: 8px ring. */
+.cz-starred-filter::after,
+.cz-haul-chip-clear::after,
+.cz-combobox-chevron::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+/* 26px controls: 9px ring. */
+.cz-combobox-clear::after,
+.cz-edit-photo-delete::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+/* 22px controls: 11px ring. */
+.cz-info-bubble-header button::after {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+/* 20px note toggle: 12px ring. */
+.cz-note-toggle::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+}
+/* 24px coverflow dot: ::after is the visible pill, so ::before carries the
+   10px hit ring. */
+.cz-coverflow-dot::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
 }

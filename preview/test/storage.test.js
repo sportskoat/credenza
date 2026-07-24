@@ -264,3 +264,66 @@ describe("eraseAllCredenzaData", () => {
     await expect(eraseAllCredenzaData(null)).resolves.toEqual({ removed: 0, caches: 0 });
   });
 });
+
+describe("saveStoredItems Pass A (Part 5): QC + gallery photos prune before covers", () => {
+  function quotaError() {
+    const err = new Error("quota");
+    err.name = "QuotaExceededError";
+    return err;
+  }
+
+  it("strips inline qcPhotos and gallery images first, covers untouched", async () => {
+    let failures = 1;
+    const { backend, data } = memoryBackend();
+    const realSet = backend.set;
+    backend.set = async (key, value) => {
+      if (failures > 0) {
+        failures -= 1;
+        throw quotaError();
+      }
+      return realSet(key, value);
+    };
+    const items = [
+      {
+        id: "a",
+        image: "data:image/webp;base64,cover",
+        qcPhotos: ["data:image/jpeg;base64,qc1", "https://remote.example/qc.jpg"],
+        gallery: ["data:image/jpeg;base64,gal1"],
+        updatedAt: 1,
+      },
+    ];
+    const result = await saveStoredItems({ backend, storeKey: "k", items });
+    const saved = JSON.parse(data.k)[0];
+    // Inline extras gone, remote kept, cover kept.
+    expect(saved.qcPhotos).toEqual(["https://remote.example/qc.jpg"]);
+    expect(saved.gallery).toEqual([]);
+    expect(saved.image).toBe("data:image/webp;base64,cover");
+    expect(result.prunedImages).toBe(1);
+  });
+
+  it("falls through to cover pruning when no inline extras remain", async () => {
+    let failures = 2;
+    const { backend, data } = memoryBackend();
+    const realSet = backend.set;
+    backend.set = async (key, value) => {
+      if (failures > 0) {
+        failures -= 1;
+        throw quotaError();
+      }
+      return realSet(key, value);
+    };
+    const items = [
+      {
+        id: "a",
+        image: "data:image/webp;base64,cover",
+        qcPhotos: ["data:image/jpeg;base64,qc1"],
+        updatedAt: 1,
+      },
+    ];
+    const result = await saveStoredItems({ backend, storeKey: "k", items, pruneBatch: 1 });
+    const saved = JSON.parse(data.k)[0];
+    expect(saved.qcPhotos).toEqual([]);
+    expect(saved.image).toBeNull();
+    expect(result.prunedImages).toBe(2);
+  });
+});

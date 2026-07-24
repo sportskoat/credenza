@@ -89,7 +89,9 @@ export default function ProfileSheet({
           <span className="cz-profile-row-val">{pricePrimary} ›</span>
         </button>
         <button type="button" className="cz-profile-row" onClick={onToggleFitSummary} aria-pressed={fitSummary}>
-          <span>AI fit summary</span>
+          {/* Part 5 task 12: local math, not AI — the sentence comes from
+              recommendSize over the chart and the body profile. */}
+          <span>Fit summary</span>
           <span className="cz-profile-row-val">{fitSummary ? "On" : "Off"} ›</span>
         </button>
         {/* Accordion so the Fit detail row animates in/out on toggle instead of
