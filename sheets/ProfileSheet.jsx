@@ -20,6 +20,7 @@ export default function ProfileSheet({
   onOpenImport,
   storageLabel,
   storageColor,
+  onEraseData,
   onSignIn,
   onClose,
 }) {
@@ -124,6 +125,21 @@ export default function ProfileSheet({
             {storageLabel}
           </span>
         </div>
+        <div className="cz-profile-legal">
+          <a className="cz-profile-legal-link" href="/privacy/" target="_blank" rel="noreferrer">
+            Privacy
+          </a>
+          <a className="cz-profile-legal-link" href="/terms/" target="_blank" rel="noreferrer">
+            Terms
+          </a>
+          <a className="cz-profile-legal-link" href="mailto:wenselllc@gmail.com">
+            Support
+          </a>
+        </div>
+        <button type="button" className="cz-profile-row cz-profile-danger" onClick={onEraseData}>
+          <span>Erase my data</span>
+          <span className="cz-profile-row-val">Deletes everything ›</span>
+        </button>
       </div>
     </ModalShell>
   );

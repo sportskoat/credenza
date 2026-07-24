@@ -4,6 +4,8 @@ import {
   loadStoredItems,
   saveStoredItems,
   isQuotaError,
+  eraseAllCredenzaData,
+  CREDENZA_KNOWN_KEYS,
 } from "../../credenza-storage.js";
 
 const identity = (x) => x;
@@ -194,5 +196,71 @@ describe("createStorageBackend", () => {
   it("surfaces set failures when no storage exists at all", async () => {
     const backend = createStorageBackend({});
     await expect(backend.set("k", "v")).rejects.toThrow();
+  });
+});
+
+describe("eraseAllCredenzaData", () => {
+  function fakeHost() {
+    const store = new Map();
+    return {
+      store,
+      localStorage: {
+        get length() {
+          return store.size;
+        },
+        key: (i) => [...store.keys()][i] ?? null,
+        getItem: (k) => (store.has(k) ? store.get(k) : null),
+        setItem: (k, v) => store.set(k, String(v)),
+        removeItem: (k) => store.delete(k),
+      },
+      caches: {
+        _c: new Map(),
+        async keys() {
+          return [...this._c.keys()];
+        },
+        async delete(name) {
+          this._c.delete(name);
+          return true;
+        },
+      },
+    };
+  }
+
+  it("leaves no Credenza key and keeps foreign keys", async () => {
+    const host = fakeHost();
+    host.localStorage.setItem("credenza-fashion-items-v1", "[]");
+    host.localStorage.setItem("credenza-prefs-v1", "{}");
+    host.localStorage.setItem("credenza-fashion-outbound-v1", "[]");
+    host.localStorage.setItem("credenza-items-v1", "[]");
+    host.localStorage.setItem("unrelated-app-key", "keep me");
+    host.caches._c.set("credenza-abc123", {});
+    host.caches._c.set("credenza-dev", {});
+    host.caches._c.set("other-cache", {});
+
+    const result = await eraseAllCredenzaData(host);
+    expect(result).toEqual({ removed: 4, caches: 2 });
+    expect(host.localStorage.length).toBe(1);
+    expect(host.localStorage.getItem("unrelated-app-key")).toBe("keep me");
+    expect([...host.store.keys()].some((k) => k.startsWith("credenza"))).toBe(false);
+    expect(await host.caches.keys()).toEqual(["other-cache"]);
+  });
+
+  it("blanks the known keys on the shim path", async () => {
+    const written = [];
+    const host = {
+      storage: {
+        async set(key, value) {
+          written.push([key, value]);
+        },
+      },
+    };
+    const result = await eraseAllCredenzaData(host);
+    expect(result.removed).toBe(CREDENZA_KNOWN_KEYS.length);
+    expect(written.map(([k]) => k)).toEqual(CREDENZA_KNOWN_KEYS);
+    expect(written.every(([, v]) => v === "")).toBe(true);
+  });
+
+  it("no-ops without a host", async () => {
+    await expect(eraseAllCredenzaData(null)).resolves.toEqual({ removed: 0, caches: 0 });
   });
 });

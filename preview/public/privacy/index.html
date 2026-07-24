@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Credenza Privacy Notice</title>
+    <meta
+      name="description"
+      content="Credenza privacy notice: what the app stores on your device, what the server functions see, what Anthropic processes, and how to export or erase your data."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="/privacy/" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header { padding-top: 2rem; }
+      .brand {
+        font-size: 0.75rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: var(--muted);
+        margin: 0 0 0.35rem;
+      }
+      .brand span {
+        font-weight: 600;
+        color: var(--ink);
+        letter-spacing: 0.18em;
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin: 1.75rem 0 0.35rem;
+      }
+      p, li { color: var(--muted); }
+      p { margin: 0.5rem 0; }
+      ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+      .lede { color: var(--muted); margin: 0 0 1.25rem; }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.25rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand"><span>Credenza</span></p>
+      <h1>Privacy notice</h1>
+      <p class="lede">Last updated July 24, 2026.</p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/how/">How it works</a>
+        <a href="/terms/">Terms</a>
+      </nav>
+    </header>
+    <main>
+      <h2>The short version</h2>
+      <p>
+        Your shelf lives on your device, not on our servers. Credenza has no accounts and no
+        user database today. The server functions see only what one feature needs for one
+        request. They keep no content.
+      </p>
+
+      <h2>What stays on your device</h2>
+      <p>Credenza stores these records in your browser's local storage:</p>
+      <ul>
+        <li>Your shelf: saved items, photos, notes, sizes, prices, hauls, and QC records.</li>
+        <li>Your preferences: theme, currency, fit settings, and your default agent.</li>
+        <li>Your body measurements, if you enter them: height, weight, chest, waist, hip, and related measures. These never leave your device.</li>
+        <li>An outbound click log: which agent and which marketplace you opened, with a time stamp. It holds at most 500 entries. It has no item names and no links.</li>
+      </ul>
+      <p>
+        The browser extension stores its own saves in the extension's local storage on your
+        device. The service worker keeps offline copies of the app itself in the browser's
+        cache storage.
+      </p>
+
+      <h2>What the server functions see</h2>
+      <p>
+        Some features call Credenza server functions because marketplaces block direct
+        browser requests. A request carries only what that feature needs:
+      </p>
+      <ul>
+        <li>Link enrichment: the one marketplace or album URL you asked about.</li>
+        <li>Size-chart scan: the album photo URLs you asked to scan.</li>
+        <li>Reddit import: the one post URL you asked to read.</li>
+        <li>Ask: your question and a compact summary of up to 25 shelf items you chose to search.</li>
+      </ul>
+      <p>
+        Each function logs one outcome line per request: the route, a hashed client key, the
+        status code, and the latency. The log never contains URLs, queries, item titles, or
+        post text. Function logs follow Netlify's retention.
+      </p>
+
+      <h2>What Anthropic processes</h2>
+      <p>
+        Ask, the size-chart scan, and listing translation send the request content to the
+        Anthropic API to produce an answer. Anthropic processes this data under its own
+        privacy policy and retention terms. Credenza sends no body measurements and no
+        click log to Anthropic.
+      </p>
+
+      <h2>Referral links</h2>
+      <p>
+        Buy links may include a referral code. Credenza may earn a commission on agent
+        shipping fees. A referral never changes your item price. Your stored links always
+        keep the original marketplace address; the code attaches only when you tap Buy.
+      </p>
+
+      <h2>Retention</h2>
+      <ul>
+        <li>On-device records stay until you erase them.</li>
+        <li>Server functions keep no content after a request ends.</li>
+        <li>Anthropic's retention follows the Anthropic API terms.</li>
+      </ul>
+
+      <h2>Export and deletion</h2>
+      <p>
+        Export: open Profile → Import &amp; backup and download your shelf as a .json file.
+      </p>
+      <p>
+        Delete: open Profile → Erase my data. This removes every Credenza record on the
+        device: the shelf, the preferences, the body measurements, the click log, and the
+        offline caches.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions and deletion requests: <a href="mailto:wenselllc@gmail.com">wenselllc@gmail.com</a>.
+        One person reads this address.
+      </p>
+    </main>
+    <footer>
+      See also the <a href="/terms/">product terms</a> and the <a href="/faq/">FAQ</a>.
+    </footer>
+  </body>
+</html>

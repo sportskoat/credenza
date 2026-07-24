@@ -6,6 +6,7 @@ import {
   createStorageBackend,
   loadStoredItems,
   saveStoredItems,
+  eraseAllCredenzaData,
 } from "./credenza-storage.js";
 import {
   searchItems,
@@ -6263,18 +6264,9 @@ function ItemDetailBody({
         </section>
       )}
 
-      {/* Design 4c: auto-detected category select row.
-          CO-29: no stopPropagation — the back-face root already treats
-          .cz-sheet-pipeline clicks as inert. */}
-      <section
-        className="cz-sheet-section cz-sheet-pipeline"
-        aria-label="Category"
-      >
-        <CategorySelect
-          value={item.category || ""}
-          onChange={(v) => onSaveEdit?.(item.id, { category: v })}
-        />
-      </section>
+      {/* Category picker removed from the card back (Kyle 2026-07-24): the row
+          read as visual noise next to Buy. Category stays editable in the
+          capture sheet. */}
 
       {buyButtons.length > 0 && (
         <div className="cz-carousel-actions cz-sheet-buy">
@@ -8347,6 +8339,9 @@ export default function Credenza() {
   // event; the two jobs never share one field again.
   // Clipboard fast-path: null = nothing stashable detected.
   const [clipPreview, setClipPreview] = useState(null);
+  // Dismissed banner identity ("platform|host"). The focus re-probe keeps the
+  // banner hidden until the clipboard holds something new (Kyle 2026-07-24).
+  const clipDismissedRef = useRef(null);
   // Display order for dual-currency labels; synced into priceLabel's module
   // reader below. Persisted in credenza-prefs-v1.
   const [pricePrimary, setPricePrimary] = useState("USD");
@@ -8882,7 +8877,13 @@ export default function Credenza() {
           }
         }
         const text = await navigator.clipboard.readText();
-        if (!cancelled) setClipPreview(clipboardPreviewFor(text));
+        if (cancelled) return;
+        const preview = clipboardPreviewFor(text);
+        if (preview && preview.platform + "|" + preview.host === clipDismissedRef.current) {
+          setClipPreview(null);
+        } else {
+          setClipPreview(preview);
+        }
       } catch {
         if (!cancelled) setClipPreview(null);
       }
@@ -8894,6 +8895,13 @@ export default function Credenza() {
       window.removeEventListener("focus", probe);
     };
   }, []);
+
+  // X on the banner: hide it and remember what was dismissed so the focus
+  // re-probe does not bring the same clipboard content back (Kyle 2026-07-24).
+  const dismissClipPreview = () => {
+    if (clipPreview) clipDismissedRef.current = clipPreview.platform + "|" + clipPreview.host;
+    setClipPreview(null);
+  };
 
   // ————— Import: local parsing, local enrichment, dedupe against the shelf —————
   // Notifications own their timers so stale messages cannot dismiss newer ones.
@@ -8995,6 +9003,21 @@ export default function Credenza() {
       storageState.raw,
       "credenza-recovery-" + new Date().toISOString().slice(0, 10) + ".json"
     );
+  };
+
+  // Erase EVERY Credenza record on this device — shelf, preferences, body
+  // measurements, outbound click log, service-worker caches (Execution-Plan
+  // Part 4; the old Clear left all but the shelf behind). No Undo: the point
+  // is that nothing stays. Reloads so in-memory state cannot resurrect a key.
+  const eraseEverything = async () => {
+    const confirmed = window.confirm(
+      "Delete ALL Credenza data on this device? This removes the shelf, your sizes, every preference, and the click log. There is no Undo. Download a .json backup first if you want one."
+    );
+    if (!confirmed) return;
+    try {
+      await eraseAllCredenzaData(window);
+    } catch {}
+    window.location.reload();
   };
 
   const continueSessionOnly = () => {
@@ -10823,6 +10846,7 @@ export default function Credenza() {
           }}
           storageLabel={localStatus.label}
           storageColor={localStatus.color}
+          onEraseData={eraseEverything}
           onSignIn={() =>
             notify("Sign-in is coming soon. Your shelf already syncs to this device.")
           }
@@ -11069,30 +11093,41 @@ export default function Credenza() {
             informational only — no buttons inside; the bar's ＋ Stash is the
             canonical action. */}
         {items.length > 0 && clipPreview && (
-          <button
-            type="button"
-            className="cz-desk-clip-banner"
-            disabled={interactionLocked}
-            onClick={stashClipboard}
-            aria-label={
-              (clipPreview.platform === "Note"
-                ? "Note on your clipboard: "
-                : clipPreview.platform + " link on your clipboard: ") +
-              clipPreview.host +
-              ". Stash it."
-            }
-            title="Stash it in one tap"
-          >
-            <span className="cz-clip-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
-            <span className="cz-desk-clip-text">
-              <span className="cz-desk-clip-title">
-                {clipPreview.platform === "Note"
-                  ? "Note on your clipboard"
-                  : clipPreview.platform + " link on your clipboard"}
+          <div className="cz-desk-clip-wrap">
+            <button
+              type="button"
+              className="cz-desk-clip-banner"
+              disabled={interactionLocked}
+              onClick={stashClipboard}
+              aria-label={
+                (clipPreview.platform === "Note"
+                  ? "Note on your clipboard: "
+                  : clipPreview.platform + " link on your clipboard: ") +
+                clipPreview.host +
+                ". Stash it."
+              }
+              title="Stash it in one tap"
+            >
+              <span className="cz-clip-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
+              <span className="cz-desk-clip-text">
+                <span className="cz-desk-clip-title">
+                  {clipPreview.platform === "Note"
+                    ? "Note on your clipboard"
+                    : clipPreview.platform + " link on your clipboard"}
+                </span>
+                <span className="cz-desk-clip-host">{clipPreview.host}</span>
               </span>
-              <span className="cz-desk-clip-host">{clipPreview.host}</span>
-            </span>
-          </button>
+            </button>
+            <button
+              type="button"
+              className="cz-desk-clip-dismiss"
+              onClick={dismissClipPreview}
+              aria-label="Dismiss the clipboard banner"
+              title="Dismiss"
+            >
+              <X size={14} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          </div>
         )}
 
         {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it).

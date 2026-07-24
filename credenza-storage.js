@@ -104,3 +104,56 @@ export async function saveStoredItems({ backend, storeKey, items, pruneBatch = 3
     }
   }
 }
+
+// Every Credenza record this app can write, for the shim path. The shim has
+// no delete and no key list, so known keys are blanked; the localStorage path
+// below sweeps by prefix and needs no list. Keep current when a key is added:
+// the items store, the legacy v1 store, the prefs, the outbound click log.
+export const CREDENZA_KNOWN_KEYS = [
+  "credenza-fashion-items-v1",
+  "credenza-items-v1",
+  "credenza-prefs-v1",
+  "credenza-fashion-outbound-v1",
+];
+
+// Erase ALL Credenza data on this device (Execution-Plan Part 4): the shelf,
+// the preferences (incl. body measurements), the outbound click log, and the
+// service-worker caches. The old Clear only emptied the shelf and left the
+// rest behind. Returns the count of removed storage keys.
+export async function eraseAllCredenzaData(host = typeof window !== "undefined" ? window : null) {
+  if (!host) return { removed: 0, caches: 0 };
+  let removed = 0;
+
+  if (host.localStorage) {
+    const doomed = [];
+    for (let i = 0; i < host.localStorage.length; i++) {
+      const key = host.localStorage.key(i);
+      if (key && key.startsWith("credenza")) doomed.push(key);
+    }
+    for (const key of doomed) host.localStorage.removeItem(key);
+    removed = doomed.length;
+  }
+
+  if (host.storage && typeof host.storage.set === "function") {
+    for (const key of CREDENZA_KNOWN_KEYS) {
+      try {
+        await host.storage.set(key, "");
+        removed++;
+      } catch {}
+    }
+  }
+
+  let cachesCleared = 0;
+  if (host.caches && typeof host.caches.keys === "function") {
+    try {
+      const names = await host.caches.keys();
+      for (const name of names) {
+        if (!/credenza/i.test(name)) continue;
+        await host.caches.delete(name);
+        cachesCleared++;
+      }
+    } catch {}
+  }
+
+  return { removed, caches: cachesCleared };
+}

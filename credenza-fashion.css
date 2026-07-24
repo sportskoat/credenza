@@ -5823,17 +5823,29 @@ a.cz-card-seller:hover {
 }
 
 /* Clipboard fast-path banner (6a): dark strip under the bar, one tap stashes. */
+.cz-desk-clip-wrap {
+  display: none;
+}
+@media (min-width: 768px) {
+  .cz-desk-clip-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    /* Bar has 14px bottom margin — pull up so the strip sits 8px under it. */
+    margin: -6px 0 14px;
+  }
+}
 .cz-desk-clip-banner {
   display: none;
 }
 @media (min-width: 768px) {
   .cz-desk-clip-banner {
     display: flex;
+    flex: 1;
+    min-width: 0;
     align-items: center;
     gap: 12px;
-    width: 100%;
-    /* Bar has 14px bottom margin — pull up so the strip sits 8px under it. */
-    margin: -6px 0 14px;
     padding: 10px 16px;
     border: 0;
     border-radius: 13px;
@@ -5843,6 +5855,25 @@ a.cz-card-seller:hover {
     text-align: left;
     cursor: pointer;
   }
+  .cz-desk-clip-dismiss {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    border: 0;
+    border-radius: 13px;
+    background: var(--cz-action-fill);
+    color: color-mix(in srgb, var(--cz-action-text) 60%, transparent);
+    cursor: pointer;
+  }
+  .cz-desk-clip-dismiss:hover {
+    color: var(--cz-action-text);
+  }
+}
+.cz-desk-clip-dismiss:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
 }
 .cz-desk-clip-banner:focus-visible {
   outline: 2px solid var(--cz-focus);
@@ -6139,6 +6170,23 @@ a.cz-card-seller:hover {
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+.cz-profile-legal {
+  display: flex;
+  gap: 18px;
+  padding: 2px 4px 6px;
+}
+.cz-profile-legal-link {
+  font-size: 13px;
+  color: var(--cz-sub);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cz-profile-legal-link:hover {
+  color: var(--cz-ink);
+}
+.cz-profile-danger span:first-child {
+  color: var(--cz-heart, #e11d48);
 }
 
 /* Fit headline (design handoff 3c) — reason line + optional prose under the size. */
