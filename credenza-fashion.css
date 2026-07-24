@@ -240,6 +240,15 @@
     0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
+/* CO-19: on Blackout the card top edge melted into the black field.
+   A stronger rim light keeps the silhouette readable. */
+.cz-app[data-fashion="true"][data-theme="dark"] article > div,
+.cz-app[data-fashion="true"][data-theme="dark"] .cz-modal-surface {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
 .cz-app[data-fashion="true"] article > div {
   border-radius: 16px;
 }
@@ -311,6 +320,17 @@
   width: 100%;
   isolation: isolate;
   overflow: visible;
+  /* CO-18: side cards bled to the viewport and cut hard at the edge.
+     Fade the outer 6% so neighbors dissolve instead of clipping. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+}
+
+/* CO-18: neighbor cards rendered full titles and the card edge cut the words
+   mid-glyph ("TTON SHORT9", "ECANT PANT 2"). Photos stay; the text layer is
+   center-card only. */
+.cz-carousel-card[data-foreground="false"] .cz-carousel-front-meta {
+  visibility: hidden;
 }
 
 .cz-carousel {
@@ -1143,7 +1163,9 @@
   inset: 0;
   border-radius: 24px;
   padding: 1px;
-  background: linear-gradient(200deg, rgba(255, 46, 199, 0.26) 0%, transparent 40%, transparent 60%, rgba(0, 240, 255, 0.18) 100%);
+  /* CO-14: was an off-system hot-pink/cyan gradient rim. Neutral hairline —
+     money green + heart red are the only hues in the system. */
+  background: var(--cz-hair);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -3295,18 +3317,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   align-items: center;
   gap: 4px;
-  max-width: min(48vw, 220px);
+  max-width: min(48vw, 260px);
   overflow: hidden;
 }
 
 /* Fixed-size button so the row never reflows; the inner pill stretches with a
-   transform, which stays on the compositor. */
+   transform, which stays on the compositor.
+   To-do 20: hit box widened from 16×12 — grow the button, not the pill. */
 .cz-coverflow-dot {
   flex: none;
   display: grid;
   place-items: center;
-  width: 16px;
-  height: 12px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -3697,6 +3720,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-haul-card:active {
   transform: scale(0.99);
+}
+
+/* KM-07: "Start a haul" ghost tile — quieter than a real haul card. */
+.cz-haul-card--ghost .cz-haul-card-name {
+  color: var(--cz-sub);
+}
+.cz-haul-card--ghost .cz-haul-fan-placeholder {
+  color: var(--cz-faint);
 }
 
 /* Stack of clothing cards — separate from the name/price label below. */
@@ -4916,9 +4947,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   mask-composite: exclude;
-  /* Soft outer glow at ~0.7 strength */
-  filter: drop-shadow(0 0 6px color-mix(in srgb, #f40051 45%, transparent))
-    drop-shadow(0 0 10px color-mix(in srgb, #22d3ee 35%, transparent));
+  /* Soft outer glow at ~0.7 strength — one hue (CO-15). */
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--cz-money, #4ade80) 45%, transparent));
   opacity: 0.7;
 }
 
@@ -4926,14 +4956,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   content: "";
   position: absolute;
   inset: -50%;
+  /* CO-15 / KM-06: the four-hue beam (pink/violet/amber/cyan) read as a
+     glitch. One hue now — money green, the Buy button's own color. */
   background: conic-gradient(
     from var(--cz-beam-angle, 0deg),
     transparent 0deg,
-    transparent 280deg,
-    #f40051 310deg,
-    #a855f7 325deg,
-    #f59e0b 335deg,
-    #22d3ee 348deg,
+    transparent 295deg,
+    color-mix(in srgb, var(--cz-money, #4ade80) 55%, transparent) 322deg,
+    var(--cz-money, #4ade80) 342deg,
     transparent 360deg
   );
   animation: cz-border-beam-rotate 2.6s linear infinite;
@@ -4964,9 +4994,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     filter: none;
     background: linear-gradient(
       120deg,
-      color-mix(in srgb, #f40051 55%, transparent),
-      color-mix(in srgb, #a855f7 45%, transparent),
-      color-mix(in srgb, #22d3ee 50%, transparent)
+      color-mix(in srgb, var(--cz-money, #4ade80) 55%, transparent),
+      color-mix(in srgb, var(--cz-money, #4ade80) 28%, transparent)
     );
   }
   .cz-border-beam-glow::before {
@@ -4993,11 +5022,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: conic-gradient(
     from var(--cz-beam-angle, 0deg),
     transparent 0deg,
-    transparent 280deg,
-    #f40051 310deg,
-    #a855f7 325deg,
-    #f59e0b 335deg,
-    #22d3ee 348deg,
+    transparent 295deg,
+    color-mix(in srgb, var(--cz-money, #4ade80) 55%, transparent) 322deg,
+    var(--cz-money, #4ade80) 342deg,
     transparent 360deg
   );
   -webkit-mask:
@@ -5013,12 +5040,16 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   animation: cz-border-beam-rotate 2.6s linear infinite;
 }
 
-/* No @property (older engines): static colorful ring instead of a stuck beam. */
+/* No @property (older engines): static ring instead of a stuck beam. */
 @supports not (background: conic-gradient(from var(--cz-beam-angle), red, blue)) {
   .cz-carousel-action-btn:not(.primary)::before {
     animation: none;
     opacity: 0.4;
-    background: linear-gradient(120deg, #f40051, #a855f7, #22d3ee);
+    background: linear-gradient(
+      120deg,
+      var(--cz-money, #4ade80),
+      color-mix(in srgb, var(--cz-money, #4ade80) 40%, transparent)
+    );
   }
 }
 
@@ -5028,9 +5059,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     opacity: 0.4;
     background: linear-gradient(
       120deg,
-      color-mix(in srgb, #f40051 55%, transparent),
-      color-mix(in srgb, #a855f7 45%, transparent),
-      color-mix(in srgb, #22d3ee 50%, transparent)
+      color-mix(in srgb, var(--cz-money, #4ade80) 55%, transparent),
+      color-mix(in srgb, var(--cz-money, #4ade80) 28%, transparent)
     );
   }
 }
@@ -5199,6 +5229,9 @@ a.cz-card-seller:hover {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
+  /* CO-17: reserve two lines ALWAYS — a one-line title next to a two-line
+     title dropped the SIZE/seller/price rows off the row's shared baseline. */
+  min-height: 2.5em;
   text-shadow: none;
 }
 
@@ -5903,6 +5936,17 @@ a.cz-card-seller:hover {
   text-overflow: ellipsis;
 }
 
+/* KM-07: on phones the chip cramped beside the flex-1 Stash and the agent
+   name truncated at 96px. Give it a wider floor. */
+@media (max-width: 767px) {
+  .cz-bar-agent {
+    min-width: 124px;
+  }
+  .cz-bar-agent-name {
+    max-width: 150px;
+  }
+}
+
 /* Desktop: quiet inline paste field in the bar. */
 .cz-bar-desk-input {
   flex: 1;
@@ -6342,6 +6386,10 @@ a.cz-card-seller:hover {
   line-height: 1.25 !important;
   letter-spacing: 0 !important;
   padding: 12px 14px 4px !important;
+  /* CO-17: 2.5em covers only the text — with the 12/4 padding a one-line
+     title still ended 16px shorter than a two-line title and the price rows
+     misaligned across the row. Reserve text + padding (border-box). */
+  min-height: calc(2.5em + 16px) !important;
   color: var(--cz-ink) !important;
 }
 .cz-card-favorite-onphoto {
@@ -7295,6 +7343,8 @@ a.cz-card-seller:hover {
   height: 7px;
   border-radius: 50%;
   flex: none;
+  /* CO-22: one neutral hue for every source — colored dots read as status. */
+  background: var(--cz-faint);
 }
 .cz-import-source-name {
   white-space: nowrap;

@@ -82,15 +82,34 @@
 
 ## Gate 3 — Polish the look
 
-- [ ] **14.** Reduce the Buy button beam to one color.
-- [ ] **15.** Remove the pink and cyan edge from the card back.
-- [ ] **16.** Make the thin borders darker. Make the dark cards easier to see.
-- [ ] **17.** Limit card titles to two lines. Align the price rows across each
+- [x] **14.** Reduce the Buy button beam to one color.
+  DONE 2026-07-24 (CO-15/KM-06): beam, glow, action-btn rings, and both
+  fallbacks now use one hue — var(--cz-money). Probe: no pink/violet/amber/
+  cyan in the computed gradient.
+- [x] **15.** Remove the pink and cyan edge from the card back.
+  DONE 2026-07-24 (CO-14): the card-back rim is now the neutral --cz-hair
+  hairline.
+- [x] **16.** Make the thin borders darker. Make the dark cards easier to see.
+  DONE 2026-07-24 (CO-19): light hairline #e2e2dc → #d2d2c9; dark hairline
+  0.10 → 0.16; dark card surface #1a1a1d → #202024; stronger rim light on
+  dark cards. Probe: tokens live, neighbor silhouettes read on black.
+- [x] **17.** Limit card titles to two lines. Align the price rows across each
   row of cards.
-- [ ] **18.** Hide the cut-off words on the neighbor cards in the carousel.
-- [ ] **19.** Use one neutral color for the four source dots.
-- [ ] **20.** Fill the empty space on the Hauls tab. Widen the agent chip on
+  DONE 2026-07-24 (CO-17): titles clamp at two lines and always reserve two
+  lines plus padding. Probe: all four row-1 titles 59px, all price rows at
+  the same y.
+- [x] **18.** Hide the cut-off words on the neighbor cards in the carousel.
+  DONE 2026-07-24 (CO-18): the text layer is center-card only; the stage
+  fades the outer 6% so side cards dissolve instead of clipping.
+- [x] **19.** Use one neutral color for the four source dots.
+  DONE 2026-07-24 (CO-22): per-platform dot colors deleted; one neutral
+  --cz-faint dot for every source.
+- [x] **20.** Fill the empty space on the Hauls tab. Widen the agent chip on
   the phone. Widen the carousel dot targets.
+  DONE 2026-07-24 (KM-07): a dashed "Start a haul" ghost tile fills the
+  hauls grid and points at the ⋯ menu. Agent chip floor 124px and name
+  150px on phones. Dot hit boxes 16×12 → 24×24 (24×36 on phones).
+  190 tests pass.
 
 ## Gate 4 — Clean the code, then build product
 

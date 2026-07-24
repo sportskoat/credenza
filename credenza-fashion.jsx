@@ -47,7 +47,9 @@ const PALETTES = {
     "--cz-bg-elevated": "#ffffff",
     "--cz-card": "rgba(255, 255, 255, 0.85)",
     "--cz-card-solid": "#ffffff",
-    "--cz-hair": "#e2e2dc",
+    /* To-do 16: hairline darkened from #e2e2dc — thin borders read too faint
+       on the warm-white canvas. */
+    "--cz-hair": "#d2d2c9",
     "--cz-hair-strong": "rgba(23, 24, 26, 0.18)",
     "--cz-ink": "#17181a",
     "--cz-sub": "#4f545b",
@@ -81,10 +83,12 @@ const PALETTES = {
   rainbow: {
     "--cz-bg": "#000000",
     "--cz-bg-elevated": "#101012",
-    "--cz-card": "rgba(26, 26, 29, 0.86)",
-    "--cz-card-solid": "#1a1a1d",
-    "--cz-hair": "rgba(255, 255, 255, 0.10)",
-    "--cz-hair-strong": "rgba(255, 255, 255, 0.20)",
+    "--cz-card": "rgba(32, 32, 36, 0.86)",
+    /* CO-19: #1a1a1d on #000 vanished — the lower half of each card merged
+       into the field. Surface and hairline raised so the card edge holds. */
+    "--cz-card-solid": "#202024",
+    "--cz-hair": "rgba(255, 255, 255, 0.16)",
+    "--cz-hair-strong": "rgba(255, 255, 255, 0.24)",
     "--cz-ink": "#f5f5f7",
     "--cz-sub": "#b7bbc2",
     "--cz-faint": "#9ea3ab",
@@ -8604,13 +8608,15 @@ function AgentSheet({ preferredAgent, onSelectAgent, affiliateCodes, onAffiliate
   );
 }
 
-// Import sources cycle (design handoff turn 8a). Colored dots match each platform.
+// Import sources cycle (design handoff turn 8a). CO-22: the per-platform
+// colored dots read as connection status — red beside Weidian/Reddit looked
+// like faults. One neutral dot now (color lives in .cz-import-source-dot).
 const IMPORT_SOURCES = [
-  { name: "Yupoo", color: "#37b24d" },
-  { name: "Weidian", color: "#ff5a3c" },
-  { name: "Taobao", color: "#ff6a00" },
-  { name: "Reddit post or comment", color: "#ff4500" },
-  { name: "Credenza backup", color: "#4ade80" },
+  { name: "Yupoo" },
+  { name: "Weidian" },
+  { name: "Taobao" },
+  { name: "Reddit post or comment" },
+  { name: "Credenza backup" },
 ];
 
 function ImportSourceCycle() {
@@ -8648,11 +8654,7 @@ function ImportSourceCycle() {
       <div className="cz-import-works-label">Works with</div>
       <div className="cz-import-source-slot" aria-live="polite">
         <span className={"cz-import-source-swap" + phaseClass}>
-          <span
-            className="cz-import-source-dot"
-            style={{ background: source.color }}
-            aria-hidden="true"
-          />
+          <span className="cz-import-source-dot" aria-hidden="true" />
           <span className="cz-import-source-name">{source.name}</span>
         </span>
       </div>
@@ -11030,6 +11032,25 @@ export default function Credenza() {
               </div>
             </button>
           ))}
+          {/* KM-07: two haul cards sat in a large empty canvas. A dashed
+              ghost tile fills the grid and teaches the next action. */}
+          <button
+            type="button"
+            className="cz-haul-card cz-haul-card--ghost"
+            onClick={() => setView("shelf")}
+          >
+            <div className="cz-haul-fan is-single">
+              <div className="cz-haul-fan-card is-empty">
+                <div className="cz-haul-fan-placeholder" aria-hidden="true">
+                  ＋
+                </div>
+              </div>
+            </div>
+            <div className="cz-haul-card-label">
+              <div className="cz-haul-card-name">Start a haul</div>
+              <div className="cz-haul-card-meta">Add from any card's ⋯ menu</div>
+            </div>
+          </button>
         </div>
       )}
     </motion.section>
