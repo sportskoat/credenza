@@ -5114,14 +5114,10 @@ function ItemEditForm({ item, ed, setEd, knownHauls, onAttachPhoto, onRemovePhot
   return (
     <div className="cz-carousel-edit">
       <Field label="Title" value={ed.title} onChange={(v) => setEd({ ...ed, title: v })} placeholder="Name this card" />
-      <div className="cz-carousel-field-grid price-grid">
-        <div>
-          <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
-        </div>
-        <div>
-          <Field label="Currency" value={ed.currency} onChange={(v) => setEd({ ...ed, currency: v })} placeholder="CNY" />
-        </div>
-      </div>
+      {/* Currency is not an edit field (Kyle 2026-07-23): the listed amount
+          keeps its source currency; on-screen money order follows Profile →
+          Primary currency. No boxed Currency control. */}
+      <Field label="Price" value={ed.price} onChange={(v) => setEd({ ...ed, price: v })} placeholder="0" />
       <div className="cz-carousel-field-grid">
         <div>
           <Field

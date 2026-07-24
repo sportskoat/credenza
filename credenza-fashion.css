@@ -6153,16 +6153,18 @@ a.cz-card-seller:hover {
 .cz-capture-sheet-links {
   display: flex;
   justify-content: center;
-  gap: 18px;
-  margin-top: 14px;
+  gap: 16px;
+  margin-top: 8px;
+  padding: 0;
 }
 .cz-capture-sheet-links button {
-  padding: 4px 2px;
+  padding: 2px 0;
   border: 0;
   background: transparent;
   color: var(--cz-sub);
   font: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
+  line-height: 1.2;
   cursor: pointer;
 }
 .cz-capture-sheet-links button:hover {
@@ -7631,5 +7633,8 @@ a.cz-card-seller:hover {
   margin-bottom: 12px;
 }
 .cz-stash-body .cz-capture-sheet-links {
-  margin-top: 14px;
+  margin-top: 6px;
+}
+.cz-stash-body .cz-stash-primary {
+  margin-bottom: 0;
 }
