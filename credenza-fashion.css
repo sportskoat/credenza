@@ -2347,14 +2347,15 @@ a.cz-seller-quiet:focus-visible {
   overflow: hidden;
   border: 1px solid var(--cz-hair-strong);
   background: var(--cz-card-solid);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+  /* Shadow −25% (Kyle 2026-07-23). */
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.21);
 }
 
 .cz-corner-fan.is-roomy .cz-corner-fan-card {
   width: 88px;
   height: 118px;
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.24);
 }
 
 .cz-corner-fan-card img {
@@ -2391,11 +2392,12 @@ a.cz-seller-quiet:focus-visible {
   position: absolute;
   left: 0;
   right: 0;
-  /* Sit just under the 118px photo stack, not in a tall empty band. */
-  top: 122px;
+  /* Sit just under the 118px photo stack, nudged a couple px lower. */
+  top: 126px;
   bottom: auto;
   font-size: 10px;
   font-weight: 500;
+  font-style: italic;
   letter-spacing: 0.01em;
   line-height: 1.2;
   color: var(--cz-faint);
@@ -5226,11 +5228,6 @@ a.cz-card-seller:hover {
   font-weight: 650;
 }
 
-/* Overlay solo cards: give the taller meta room too. */
-.cz-carousel-overlay .cz-carousel-image-wrap {
-  height: calc(100% - 208px);
-}
-
 /* Buy button keeps its solid fill; beam rides the border only. */
 .cz-carousel-action-btn.primary.cz-border-beam .cz-border-beam-glow::before {
   background: conic-gradient(
@@ -6243,6 +6240,23 @@ a.cz-card-seller:hover {
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   overscroll-behavior: contain;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--modal-open-dur) var(--modal-ease);
+}
+.cz-carousel-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.cz-carousel-overlay.is-closing {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--modal-close-dur) var(--modal-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-carousel-overlay {
+    transition: none !important;
+  }
 }
 
 .cz-carousel-overlay-stage {
@@ -6253,30 +6267,10 @@ a.cz-card-seller:hover {
   justify-content: center;
 }
 
-/* Solo grid-tap overlay: one card, fill more of the viewport. JS cardSize
-   drives the absolute positioning math; these CSS sizes match so the face
-   doesn't clip. Multi-card carousel is unchanged. */
-.cz-carousel-overlay .cz-carousel-track {
-  min-height: min(72dvh, 620px);
-  height: min(72dvh, 620px);
-}
-.cz-carousel-overlay .cz-carousel-card {
-  width: min(92vw, 420px);
-  height: min(72dvh, 600px);
-}
+/* Solo modal popup uses the same card size as coverflow (JS cardSize). */
 .cz-carousel-overlay .cz-carousel {
   padding-top: 24px;
   padding-bottom: 24px;
-}
-@media (max-width: 480px) {
-  .cz-carousel-overlay .cz-carousel-track {
-    min-height: min(78dvh, 600px);
-    height: min(78dvh, 600px);
-  }
-  .cz-carousel-overlay .cz-carousel-card {
-    width: min(92vw, 380px);
-    height: min(78dvh, 580px);
-  }
 }
 
 .cz-carousel-overlay-close {
@@ -6931,20 +6925,20 @@ a.cz-card-seller:hover {
   min-width: 0;
 }
 .cz-cat-select-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--cz-sub);
-  margin: 0 0 7px;
+  margin: 0 0 5px;
 }
 .cz-cat-select-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  height: 46px;
-  padding: 0 14px;
-  border-radius: 12px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
   border: 1px solid var(--cz-hair);
   background: var(--cz-bg-elevated, var(--cz-card-solid));
   color: var(--cz-ink);
@@ -6962,46 +6956,41 @@ a.cz-card-seller:hover {
 .cz-cat-select-value {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   min-width: 0;
 }
 .cz-cat-select-name {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--cz-ink);
 }
 .cz-cat-select-auto {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--cz-faint);
-  padding: 3px 7px;
-  border-radius: 5px;
+  padding: 2px 6px;
+  border-radius: 4px;
   background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
 }
 .cz-cat-select-menu {
-  margin: 12px 0 0;
-  padding: 12px 0 0;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
   border-top: 1px solid var(--cz-hair);
-}
-.cz-cat-select-hint {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--cz-faint);
-  margin: 0 0 10px;
 }
 .cz-cat-select-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 5px;
 }
 .cz-cat-select-chip {
   appearance: none;
   border: 0;
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 5px 10px;
   font: inherit;
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 500;
+  line-height: 1.2;
   color: var(--cz-sub);
   background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
   cursor: pointer;

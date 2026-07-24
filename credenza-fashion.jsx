@@ -3743,7 +3743,7 @@ function CategorySelect({ value, onChange, label = "Category", auto = true }) {
           ) : null}
         </span>
         <span className="t-acc-chevron">
-          <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
+          <ChevronDown size={14} strokeWidth={2.2} aria-hidden="true" />
         </span>
       </button>
       {/* Same t-acc + t-panel-slide composite as the status picker. The panel
@@ -3761,7 +3761,6 @@ function CategorySelect({ value, onChange, label = "Category", auto = true }) {
             role="listbox"
             aria-label={label}
           >
-            <div className="cz-cat-select-hint">Tap to change</div>
             <div className="cz-cat-select-chips">
               {Object.entries(CATEGORIES).map(([key, c]) => {
                 const active = current === key;
@@ -7436,31 +7435,18 @@ function CoverFlowCarousel({
   }, [focusSignal]);
 
   useEffect(() => {
-    // Solo rack (grid-tap overlay) gets a bigger card — no side cards to leave
-    // room for. Multi-card carousel keeps the tighter coverflow geometry.
-    const solo = soloLayout && items.length === 1;
+    // Same card size for coverflow and the solo modal popup (Kyle 2026-07-23 —
+    // enlarged solo cards were too big).
     const update = () => {
       const w = typeof window !== "undefined" ? window.innerWidth : 320;
-      const width = solo
-        ? w <= 480
-          ? Math.min(w * 0.92, 380)
-          : Math.min(w * 0.48, 420)
-        : w <= 480
-          ? w * 0.8
-          : Math.min(w * 0.72, 320);
-      const height = solo
-        ? w <= 480
-          ? Math.min(w * 1.28, 580)
-          : 600
-        : w <= 480
-          ? 440
-          : 460;
+      const width = w <= 480 ? w * 0.8 : Math.min(w * 0.72, 320);
+      const height = w <= 480 ? 440 : 460;
       setCardSize({ width, height });
     };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, [items.length, soloLayout]);
+  }, []);
 
   useEffect(() => {
     const stage = containerRef.current?.parentElement;
@@ -8896,6 +8882,12 @@ export default function Credenza() {
   // scroll position. Value is the tapped item's id (null = closed). The
   // toolbar's carousel view still swaps the whole surface with the full rack.
   const [carouselOverlay, setCarouselOverlay] = useState(null);
+  // t-modal phase for the card popup (open | closing). Closing keeps the node
+  // mounted for --modal-close-dur so the scale/fade can finish.
+  const [overlayPhase, setOverlayPhase] = useState("closed");
+  const overlayCloseTimer = useRef(null);
+  const closeCarouselOverlayRef = useRef(() => {});
+  const openInCarouselRef = useRef(() => {});
   // Design handoff PR3 (2026-07-23): the capture bar + profile own the old
   // bottom-bar ⋯ menu's jobs. captureSheetOpen = the review surface behind
   // the Stash pill; profileOpen = account/settings sheet from the masthead
@@ -10626,8 +10618,8 @@ export default function Credenza() {
         // reaching here means the rack is at rest. Selection stays so the grid
         // highlights the item you were just viewing.
         if (ctx.carouselOverlay) {
-          setCarouselOverlay(null);
-          setExpandedId(null);
+          // Close through the t-modal is-closing path (not a hard unmount).
+          closeCarouselOverlayRef.current();
           return;
         }
         setExpandedId(null);
@@ -10642,14 +10634,13 @@ export default function Credenza() {
           recordOpenRef.current(sel);
           return;
         }
-        // Space / F flips the active card. Space again (or F again while open)
-        // unflips — same as clicking the center card. Grid cards have no flip
-        // anymore: there Space/F pops the card up solo in the overlay.
+        // Space / F flips the active carousel card (or the solo overlay card).
+        // Grid: Space/F pops the card up solo in the overlay.
         if (e.key === " " || e.key === "Spacebar" || e.key === "f") {
           e.preventDefault();
           setSelectedId(sel.id);
           if (!carouselPresented) {
-            setCarouselOverlay(sel.id);
+            openInCarouselRef.current(sel.id);
             return;
           }
           if (ctx.expandedId === sel.id) {
@@ -10663,12 +10654,11 @@ export default function Credenza() {
         if (e.key === "e") {
           e.preventDefault();
           setSelectedId(sel.id);
+          if (!carouselPresented) {
+            openInCarouselRef.current(sel.id);
+          }
           setExpandedId(sel.id);
           setEditRequest(sel.id + ":" + Date.now());
-          // Grid: the edit form lives on the card back — pop it up solo.
-          if (!carouselPresented) {
-            setCarouselOverlay(sel.id);
-          }
           return;
         }
         if (e.key === "Backspace" || e.key === "Delete") {
@@ -10731,25 +10721,56 @@ export default function Credenza() {
     };
   }, []);
 
-  // Tap any grid card → that ONE card pops up as a layer over the grid
-  // (Kyle 2026-07-22: "just show the one card") — no view switch, so the grid
-  // keeps its scroll position and the close lands right back where you were.
+  // Grid/list only: tap a card → solo t-modal over the grid. Carousel keeps
+  // in-rack flip + coverflow scroll (no blurred modal — Kyle 2026-07-23).
   const openInCarousel = (id) => {
+    if (overlayCloseTimer.current) {
+      clearTimeout(overlayCloseTimer.current);
+      overlayCloseTimer.current = null;
+    }
     setSelectedId(id);
     setCarouselOverlay(id);
+    // Two frames so the node mounts at scale 0.96 before is-open scales up.
+    setOverlayPhase("closed");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setOverlayPhase("open"));
+    });
   };
-  // Closing always returns to a front-facing card next open.
-  const closeCarouselOverlay = () => {
-    setCarouselOverlay(null);
+  openInCarouselRef.current = openInCarousel;
+  // Closing plays is-closing, then unmounts after --modal-close-dur (150ms).
+  const closeCarouselOverlay = useCallback(() => {
+    if (overlayPhase === "closing" || !carouselOverlay) return;
     setExpandedId(null);
-  };
+    setOverlayPhase("closing");
+    if (overlayCloseTimer.current) clearTimeout(overlayCloseTimer.current);
+    const dur =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? 0
+        : 150;
+    overlayCloseTimer.current = setTimeout(() => {
+      setCarouselOverlay(null);
+      setOverlayPhase("closed");
+      overlayCloseTimer.current = null;
+    }, dur);
+  }, [overlayPhase, carouselOverlay]);
+  closeCarouselOverlayRef.current = closeCarouselOverlay;
   // If the open item disappears (deleted from its own card back), close.
   useEffect(() => {
     if (carouselOverlay && !items.some((x) => x.id === carouselOverlay)) {
+      if (overlayCloseTimer.current) clearTimeout(overlayCloseTimer.current);
       setCarouselOverlay(null);
       setExpandedId(null);
+      setOverlayPhase("closed");
     }
   }, [carouselOverlay, items]);
+  useEffect(
+    () => () => {
+      if (overlayCloseTimer.current) clearTimeout(overlayCloseTimer.current);
+    },
+    []
+  );
   // Lock the page behind the overlay — wheel/touch over the scrim must not
   // scroll the grid underneath.
   useEffect(() => {
@@ -10903,6 +10924,7 @@ export default function Credenza() {
       onToggleFavorite={toggleFavorite}
       onActivate={(id) => {
         setSelectedId(id);
+        // Coverflow + solo overlay: flip in place. Grid opens via openInCarousel.
         setExpandedId(id);
       }}
       onDeactivate={() => setExpandedId(null)}
@@ -11206,58 +11228,54 @@ export default function Credenza() {
         />
       )}
 
-      {/* Grid-tap card overlay (Kyle 2026-07-22): the tapped card pops up
-          SOLO as a layer over the grid — no rack, no nav chrome — and close
-          (✕ / scrim tap at rest / Escape) lands back on the same scroll
-          position. Never coexists with the carousel view; the gallery
-          (z --z-gallery) still rides above. */}
-      <AnimatePresence initial={false}>
-        {carouselOverlay && overlayItem && viewMode !== "carousel" && (
-          <motion.div
-            key="carousel-overlay"
-            className="cz-carousel-overlay"
-            role="dialog"
-            aria-modal="true"
-            aria-label={overlayItem.title || "Saved item"}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reduced ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
-            onPointerDown={(e) => {
-              // Scrim tap closes — but only at rest: while the card is
-              // flipped, the carousel's own capture listener peels its
-              // layers instead.
-              if (expandedId) return;
-              if (document.querySelector("dialog[open]")) return;
-              if (
-                e.target.closest(
-                  ".cz-carousel-card, .cz-coverflow-controls, .cz-carousel-overlay-close, .cz-photo-coverflow-backdrop, dialog"
-                )
+      {/* Grid/list card popup only — carousel stays in-rack (Kyle 2026-07-23).
+          Close (✕ / scrim at rest / Escape) plays is-closing, then unmounts. */}
+      {carouselOverlay && overlayItem && viewMode !== "carousel" && (
+        <div
+          key="carousel-overlay"
+          className={
+            "cz-carousel-overlay" +
+            (overlayPhase === "open" ? " is-open" : "") +
+            (overlayPhase === "closing" ? " is-closing" : "")
+          }
+          role="dialog"
+          aria-modal="true"
+          aria-label={overlayItem.title || "Saved item"}
+          onPointerDown={(e) => {
+            // Scrim tap closes — but only at rest: while the card is
+            // flipped, the carousel's own capture listener peels its
+            // layers instead.
+            if (expandedId) return;
+            if (overlayPhase === "closing") return;
+            if (document.querySelector("dialog[open]")) return;
+            if (
+              e.target.closest(
+                ".cz-carousel-card, .cz-coverflow-controls, .cz-carousel-overlay-close, .cz-photo-coverflow-backdrop, dialog"
               )
-                return;
-              setCarouselOverlay(null);
-            }}
+            )
+              return;
+            closeCarouselOverlay();
+          }}
+        >
+          <button
+            type="button"
+            className="cz-carousel-overlay-close"
+            aria-label="Close"
+            onClick={closeCarouselOverlay}
           >
-            <button
-              type="button"
-              className="cz-carousel-overlay-close"
-              aria-label="Close"
-              onClick={closeCarouselOverlay}
-            >
-              <X aria-hidden="true" size={18} />
-            </button>
-            <motion.div
-              className="cz-carousel-overlay-stage"
-              initial={reduced ? false : { scale: 0.96, y: 14 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={reduced ? undefined : { scale: 0.97, y: 10 }}
-              transition={{ duration: reduced ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {renderCarousel([overlayItem], true)}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <X aria-hidden="true" size={18} />
+          </button>
+          <div
+            className={
+              "cz-carousel-overlay-stage t-modal" +
+              (overlayPhase === "open" ? " is-open" : "") +
+              (overlayPhase === "closing" ? " is-closing" : "")
+            }
+          >
+            {renderCarousel([overlayItem], true)}
+          </div>
+        </div>
+      )}
 
       <div className="cz-shell">
         {/* Chrome column: centered + max-width'd on desktop (Kyle 2026-07-22 —
