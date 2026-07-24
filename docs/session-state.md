@@ -5,9 +5,25 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-23 (design turn 5 fit preferences LOCAL ONLY)
-**Branch:** `mobile-form-loop`
-**Production:** https://credenza-kyle.netlify.app — last prod still `f0b7857`. Turns 4+5 local only. **DO NOT deploy until Kyle says so.**
+**Last updated:** 2026-07-24 (Execution Plan Parts 0–2 DONE, Part 3 next)
+**Branch:** `mobile-fix-loop`
+**Production:** https://credenza-kyle.netlify.app — last prod still `f0b7857`. Parts 0–2 are local only. **DO NOT deploy until Kyle says so.**
+
+---
+
+## 0e. Execution Plan run (2026-07-24) — LOCAL ONLY
+
+Work order: `docs/Execution-Plan.md` (11 parts). Source: `docs/Market-Launch-Review.md`.
+Baseline: tag `baseline-2026-07-24` (commit `b598451`). One commit per part. Revert with the tag.
+
+- **Part 0 DONE — freeze.** Baseline commit + tag. Gate green.
+- **Part 1 DONE — data loss (`6c16a62`).** `mergeLoadedItems` fixes the hydration race: a stash during load survives the storage read. `migrateItem` now keeps `posterStats`, `posterUser`, `sourceText`, `weightGrams`, `qcPhotos`, `qcNote`, `qcVerdictAt`. Reddit imports keep the original post text. 207 tests.
+- **Part 2 DONE — revenue leak + trust (`dcabfdf`).** Referral codes come ONLY from build env `VITE_CREDENZA_REF_*`. The per-user override path is gone; stored `affiliateCodes` are ignored on purpose. AgentSheet rewritten without referral inputs. FTC disclosure beside Buy and in the Agent sheet. Meta description de-replica'd. FAQ drops the Pro claim. Sample shelf is one realistic 18-item haul. 208 tests. Probe: `preview/scripts/probe-part2.mjs`.
+- **Part 3 NEXT — server safety.** SSRF lockdown in `netlify/functions/chart-vision.js` (Yupoo hosts only, reject private/special-use IPs, checked redirects, byte/image limits). Rate limits + daily cost ceiling with 429. Outcome logging. Cost alert. **Kyle task: rotate the Anthropic key** (was pasted in chat; also To-do item 24: Reddit env vars).
+- **Pending Kyle decisions:** Part 7 payment provider (merchant-of-record recommended) + price ($5.99/mo + $39/yr recommended). Part 6 is a stop-and-measure gate.
+- **Kyle task still open:** set `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET` on Netlify.
+
+Known trap (bit twice): `migrateItem` is a whitelist. ANY new item field must be added there or it vanishes on reload.
 
 ---
 
