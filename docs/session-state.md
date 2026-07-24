@@ -5,9 +5,9 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-24 (Execution Plan Parts 0–2 DONE, Part 3 next)
+**Last updated:** 2026-07-24 (Execution Plan Parts 0–3 DONE, Part 4 next)
 **Branch:** `mobile-fix-loop`
-**Production:** https://credenza-kyle.netlify.app — last prod still `f0b7857`. Parts 0–2 are local only. **DO NOT deploy until Kyle says so.**
+**Production:** https://credenza-kyle.netlify.app — last prod still `f0b7857`. Parts 0–3 are local only. **DO NOT deploy until Kyle says so.**
 
 ---
 
@@ -19,9 +19,10 @@ Baseline: tag `baseline-2026-07-24` (commit `b598451`). One commit per part. Rev
 - **Part 0 DONE — freeze.** Baseline commit + tag. Gate green.
 - **Part 1 DONE — data loss (`6c16a62`).** `mergeLoadedItems` fixes the hydration race: a stash during load survives the storage read. `migrateItem` now keeps `posterStats`, `posterUser`, `sourceText`, `weightGrams`, `qcPhotos`, `qcNote`, `qcVerdictAt`. Reddit imports keep the original post text. 207 tests.
 - **Part 2 DONE — revenue leak + trust (`dcabfdf`).** Referral codes come ONLY from build env `VITE_CREDENZA_REF_*`. The per-user override path is gone; stored `affiliateCodes` are ignored on purpose. AgentSheet rewritten without referral inputs. FTC disclosure beside Buy and in the Agent sheet. Meta description de-replica'd. FAQ drops the Pro claim. Sample shelf is one realistic 18-item haul. 208 tests. Probe: `preview/scripts/probe-part2.mjs`.
-- **Part 3 NEXT — server safety.** SSRF lockdown in `netlify/functions/chart-vision.js` (Yupoo hosts only, reject private/special-use IPs, checked redirects, byte/image limits). Rate limits + daily cost ceiling with 429. Outcome logging. Cost alert. **Kyle task: rotate the Anthropic key** (was pasted in chat; also To-do item 24: Reddit env vars).
+- **Part 3 DONE — server safety (`c7f1bf9`).** `chart-vision` fetches ONLY Yupoo image hosts; every hop re-validated (DNS + private/special-use rejection incl. decimal/hex/octal IPv4, manual checked redirects, byte caps). New shared modules `preview/netlify/functions/lib/guard.js` (SSRF guards; preview.js refactored onto it) and `lib/limit.js` (per-IP + per-route windows, concurrency caps, body caps, daily cost ceiling). All six functions return 429 + Retry-After above a limit. Paid functions (ask, resolve, chart-vision) stop above `CREDENZA_DAILY_COST_CAP_USD` (default $5) using real token usage. One JSON outcome line per request (route, hashed key, status, latency — never content). Ask caps query at 1000 chars; yupoo caps the album body at 2 MB. 238 tests. **Known limit: counters are per warm instance; distributed abuse waits for accounts (Part 7).**
+- **Part 4 NEXT — legal pages + repair Clear.** Privacy notice, product terms, support address, Clear must delete EVERY Credenza record.
+- **Kyle tasks after the next deploy:** (1) set an Anthropic spend alert at console.anthropic.com; (2) rotate the exposed Anthropic key — the old one is in the wild until then; (3) set `CREDENZA_DAILY_COST_CAP_USD` on Netlify if $5/day is wrong; (4) still open: Reddit env vars (To-do item 24).
 - **Pending Kyle decisions:** Part 7 payment provider (merchant-of-record recommended) + price ($5.99/mo + $39/yr recommended). Part 6 is a stop-and-measure gate.
-- **Kyle task still open:** set `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET` on Netlify.
 
 Known trap (bit twice): `migrateItem` is a whitelist. ANY new item field must be added there or it vanishes on reload.
 
