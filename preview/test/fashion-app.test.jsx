@@ -770,3 +770,52 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     expect(JSON.parse(data[STORE_KEY])).toHaveLength(0);
   });
 });
+
+describe("Storage hydration race (audit 2026-07-24)", () => {
+  beforeEach(() => window.__setMediaMatches("(max-width: 767px)", true));
+  afterEach(() => window.__setMediaMatches("(max-width: 767px)", false));
+
+  it("a stash during the load window survives the delayed load", async () => {
+    // Items load stays pending until the test resolves it. Prefs load
+    // normally, so the intro and capture flows work.
+    let resolveItems;
+    const itemsGate = new Promise((res) => {
+      resolveItems = res;
+    });
+    const data = {};
+    window.storage = {
+      get: async (key) => {
+        if (key === STORE_KEY) return itemsGate;
+        return key in data ? { value: data[key] } : null;
+      },
+      set: async (key, value) => {
+        data[key] = value;
+      },
+    };
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    // Dismiss the intro and stash a note while the items load is pending.
+    await user.click(await screen.findByRole("button", { name: "Get started" }));
+    await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
+    await user.click(await screen.findByRole("button", { name: "Note" }));
+    const box = screen.getByPlaceholderText("Write a note…");
+    fireEvent.change(box, { target: { value: "stashed during load" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    // The stash is in memory only — the load has not resolved, so nothing
+    // has persisted yet.
+    expect(data[STORE_KEY]).toBeUndefined();
+
+    // The delayed load resolves with one older stored item.
+    resolveItems({ value: JSON.stringify([fashionItem({ id: "stored-1", title: "Stored jacket" })]) });
+
+    // Both items survive: the stash is not replaced by the load result.
+    await waitFor(() => {
+      const saved = JSON.parse(data[STORE_KEY] || "[]");
+      expect(saved).toHaveLength(2);
+    });
+    const titles = JSON.parse(data[STORE_KEY]).map((x) => x.title || x.rawText);
+    expect(titles).toContain("Stored jacket");
+    expect(titles.some((t) => String(t).includes("stashed during load"))).toBe(true);
+  });
+});

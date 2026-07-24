@@ -1564,6 +1564,13 @@ function createItem(parsed, rawText, extra) {
     sourceTitle: "",
     albumId: "",
     sellerAccount: "",
+    weightGrams: null,
+    qcPhotos: [],
+    qcNote: "",
+    qcVerdictAt: null,
+    posterStats: null,
+    posterUser: "",
+    sourceText: "",
     error: null,
     favorite: false,
   };
@@ -1590,7 +1597,7 @@ function migrateLinks(old, primaryUrl, rawText) {
 // Upgrades any stored shape (v2 or earlier v3) to the current model. In localOnly
 // mode nothing may sit in "raw" / "enriching" / "failed" — local enrichment makes
 // every item usable immediately.
-function migrateItem(old) {
+export function migrateItem(old) {
   const createdAt = old.createdAt || old.ts || Date.now();
   const rawText = old.rawText != null ? old.rawText : old.text != null ? old.text : old.url || old.title || "";
   const parsed = {
@@ -1673,6 +1680,15 @@ function migrateItem(old) {
       : [],
     qcNote: typeof old.qcNote === "string" ? old.qcNote : "",
     qcVerdictAt: typeof old.qcVerdictAt === "string" ? old.qcVerdictAt : null,
+    // A1 poster data (audit 2026-07-24): the Reddit poster's body stats drive
+    // the size decision, and the original paste lets a later parser reparse
+    // the haul. Both used to vanish on reload.
+    posterStats:
+      old.posterStats && typeof old.posterStats === "object" && !Array.isArray(old.posterStats)
+        ? old.posterStats
+        : null,
+    posterUser: typeof old.posterUser === "string" ? old.posterUser : "",
+    sourceText: typeof old.sourceText === "string" ? old.sourceText : "",
     error: null,
     favorite: old.favorite === true,
   };
@@ -1684,6 +1700,16 @@ function migrateItem(old) {
     if (!item.tags.length) item.tags = local.tags;
   }
   return item;
+}
+
+// Hydration merge (audit 2026-07-24): a stash that lands while storage is
+// still loading must survive the load resolving. Keep any in-memory item the
+// stored list does not have — those were created during the load window —
+// ahead of the stored order. Duplicates by id keep the stored copy.
+export function mergeLoadedItems(loaded, current) {
+  const loadedIds = new Set(loaded.map((x) => x.id));
+  const duringLoad = current.filter((x) => !loadedIds.has(x.id));
+  return duringLoad.length ? [...duringLoad, ...loaded] : loaded;
 }
 
 
@@ -1859,7 +1885,11 @@ export function parseImport(text) {
         note: it.note || undefined,
         tags: it.category ? [it.category] : undefined,
         posterStats: stats,
+        posterUser: haul.poster || undefined,
         findSource: haul.sourceUrl || undefined,
+        // Keep the original paste (capped) so a later, smarter parser can
+        // reparse this haul without asking the user to paste again.
+        sourceText: trimmed.length <= 12000 ? trimmed : trimmed.slice(0, 12000),
       });
     }
     return { candidates, provider: "reddit-haul", posterStats: stats, poster: haul.poster };
@@ -1940,6 +1970,8 @@ function buildImportItems(candidates, existing, source) {
     // A1: haul pastes carry poster stats (v1: on each batch item; A3 haul
     // objects will hoist these) and the source thread for provenance.
     if (c.posterStats) extra.posterStats = c.posterStats;
+    if (c.posterUser) extra.posterUser = c.posterUser;
+    if (c.sourceText) extra.sourceText = c.sourceText;
     if (c.findSource) extra.findSource = c.findSource;
     fresh.push(createItem(c.parsed, c.rawText, extra));
   }
@@ -8490,7 +8522,10 @@ export default function Credenza() {
           window.history.replaceState(null, "", window.location.pathname);
         }
       } catch (e) {}
-      setItems(it);
+      // Merge, do not replace (audit 2026-07-24): a stash during the load
+      // window used to vanish here. lastSavedRef keeps the stored snapshot,
+      // so the save effect persists the merged list once status is ready.
+      setItems((current) => mergeLoadedItems(it, current));
       setStorageState({ status: "ready", raw: null, error: null });
       const pick = pickResurface(it, Date.now());
       if (pick) {
