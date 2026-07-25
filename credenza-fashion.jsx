@@ -61,6 +61,7 @@ const FitPrefsSheet = lazy(() => import("./sheets/FitPrefsSheet.jsx"));
 const BodyProfileSheet = lazy(() => import("./sheets/BodyProfileSheet.jsx"));
 const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
+const SettingsSheet = lazy(() => import("./sheets/SettingsSheet.jsx"));
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
@@ -105,6 +106,8 @@ const PALETTES = {
     "--cz-error-bg": "rgba(225, 29, 72, 0.10)",
     "--cz-error-text": "#be123c",
     "--cz-glow": "rgba(23, 24, 26, 0.14)",
+    // Lifts the round Stash button off the shelf (mobile handoff step 3).
+    "--cz-fab-shadow": "0 10px 26px rgba(23, 24, 26, 0.34)",
     "--cz-glow-weak": "rgba(244, 244, 240, 0.55)",
     "--cz-gradient-1": "#17181a",
     "--cz-gradient-2": "#565a61",
@@ -145,6 +148,9 @@ const PALETTES = {
     "--cz-error-bg": "rgba(244, 63, 94, 0.16)",
     "--cz-error-text": "#f08a92",
     "--cz-glow": "rgba(245, 245, 247, 0.30)",
+    // The light shadow is invisible on a true-black field. Deeper and wider
+    // so the button still separates from the shelf.
+    "--cz-fab-shadow": "0 10px 30px rgba(0, 0, 0, 0.62)",
     "--cz-glow-weak": "rgba(26, 26, 29, 0.55)",
     "--cz-gradient-1": "#1a1a1d",
     "--cz-gradient-2": "#3a3a40",
@@ -11791,6 +11797,35 @@ export default function Credenza() {
         </Suspense>
       )}
 
+      {/* Settings sheet (mobile handoff step 3): the rows the deleted bottom
+          bar used to carry. Phone only — the masthead ⋯ button is phone only,
+          and desktop keeps the same rows in the profile sheet. */}
+      {settingsSheetOpen && (
+        <Suspense fallback={null}>
+        <SettingsSheet
+          agentLabel={agentBarLabel}
+          onOpenAgent={() => {
+            setSettingsSheetOpen(false);
+            setAgentSheetOpen(true);
+          }}
+          onOpenImport={() => {
+            setSettingsSheetOpen(false);
+            setImportOpen(true);
+          }}
+          onExport={exportShelf}
+          mode={mode}
+          onCycleTheme={() => setTheme(mode === "light" ? "rainbow" : "light")}
+          onOpenSizes={() => {
+            setSettingsSheetOpen(false);
+            setBodySheetOpen(true);
+          }}
+          storageLabel={localStatus.label}
+          storageColor={localStatus.color}
+          onClose={() => setSettingsSheetOpen(false)}
+        />
+        </Suspense>
+      )}
+
       {/* Grid/list card popup only — carousel stays in-rack (Kyle 2026-07-23).
           Close (✕ / scrim at rest / Escape) plays is-closing, then unmounts. */}
       {carouselOverlay && overlayItem && viewMode !== "carousel" && (
@@ -12659,68 +12694,51 @@ export default function Credenza() {
         </div>
       )}
 
-      {/* Fixed bottom bar — MOBILE ONLY (≤767px). Desktop capture lives under
-          the masthead (design handoff breakpoint rule). Agent stays on mobile
-          as a secondary bar button; on desktop it lives on Buy + profile.
-          Hidden on the first-run intro (CO-04) and on the brand-new empty
-          shelf (2026-07-25): the hero already carries capture there, and a
-          second Stash button + an Agent chip a new customer has no context
-          for read as clutter (Kyle: "too many buttons"). Same rule as the
-          tabs row — the bar returns once something is stashed. */}
+      {/* Stash button — MOBILE ONLY (≤767px). It replaces the fixed bottom bar
+          (mobile handoff step 3). Desktop capture lives under the masthead, and
+          Agent moved into the Settings sheet, so one round button is the whole
+          bar now. Hidden on the first-run intro (CO-04) and on the brand-new
+          empty shelf: the hero already carries capture there (Kyle: "too many
+          buttons"). Same rule as the tabs row — it returns once something is
+          stashed.
+          The container spans the viewport but passes taps through; only the
+          button and the clip pill take pointer events. */}
       {!firstRunIntro && items.length > 0 && (
-      <footer className="cz-bottom-bar">
-        <div className="cz-bottom-bar-inner">
-          <div className="cz-bar-mobile">
-            {clipPreview ? (
-              <div className="cz-clip-pill">
-                <button
-                  type="button"
-                  className="cz-clip-review"
-                  onClick={() => setCaptureSheetOpen(true)}
-                  title="Review the clipboard in the capture sheet"
-                  aria-label={"Clipboard: " + clipPreview.host + ". Review in the capture sheet."}
-                >
-                  <span className="cz-clip-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
-                  <span className="cz-clip-text">
-                    <span className="cz-clip-platform">Clipboard · {clipPreview.platform}</span>
-                    <span className="cz-clip-host">{clipPreview.host}</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="cz-clip-stash"
-                  disabled={interactionLocked}
-                  onClick={stashClipboard}
-                  title="Stash the clipboard in one tap"
-                  aria-label="Stash clipboard"
-                >
-                  Stash ↑
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="cz-stash-open"
-                disabled={interactionLocked}
-                onClick={() => setCaptureSheetOpen(true)}
-                aria-label="Open the capture sheet"
-              >
-                ＋ Stash
-              </button>
-            )}
-            <button
-              type="button"
-              className="cz-bar-agent"
-              onClick={() => setAgentSheetOpen(true)}
-              title="Choose your buy agent"
-              aria-label={"Agent: " + agentBarLabel}
-            >
-              <span className="cz-bar-agent-kicker">Agent</span>
-              <span className="cz-bar-agent-name">{agentBarLabel}</span>
-            </button>
-          </div>
-        </div>
-      </footer>
+      <div className="cz-stash-dock">
+        {/* 1-tap capture survives the bar deletion: with a link on the
+            clipboard this pill stashes it without opening the sheet. */}
+        {clipPreview && (
+          <button
+            type="button"
+            className="cz-stash-clip"
+            disabled={interactionLocked}
+            onClick={stashClipboard}
+            title="Stash the clipboard in one tap"
+            aria-label={"Stash the clipboard: " + clipPreview.host}
+          >
+            <span className="cz-stash-clip-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
+            <span className="cz-stash-clip-host">{clipPreview.host}</span>
+            <span className="cz-stash-clip-verb">Stash ↑</span>
+          </button>
+        )}
+        <button
+          type="button"
+          className="cz-stash-fab"
+          disabled={interactionLocked}
+          onClick={() => setCaptureSheetOpen(true)}
+          title="Stash a link or note"
+          aria-label={
+            clipPreview
+              ? "Stash to shelf. A link is on your clipboard."
+              : "Stash to shelf"
+          }
+        >
+          <Plus size={24} strokeWidth={2.2} aria-hidden="true" />
+          {/* Badge = "your clipboard has something". The pill beside it says
+              what; this only has to be visible from across the screen. */}
+          {clipPreview && <span className="cz-stash-fab-badge" aria-hidden="true" />}
+        </button>
+      </div>
       )}
     </div>
   );

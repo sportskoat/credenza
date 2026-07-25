@@ -299,17 +299,9 @@
   }
 }
 
-/* Bottom bar glass + safe-area padding (home indicator) */
-.cz-app[data-fashion="true"] > .cz-bottom-bar,
-.cz-app[data-fashion="true"] > div[style*="position: fixed"][style*="bottom: 0"] {
-  background: color-mix(in srgb, var(--cz-card-solid) 88%, transparent) !important;
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid var(--cz-hair);
-}
-
-/* Fashion: keep shared .cz-bottom-bar-inner safe-area padding from credenza.css;
-   the capture-bar block below sets the 58px tap row + PR3 padding. */
+/* The fixed bottom bar and its glass are gone (mobile handoff step 3). The
+   phone capture surface is now the round .cz-stash-dock button at the end of
+   this file. */
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    ═══ CAROUSEL VIEW ═══
@@ -5742,44 +5734,9 @@ a.cz-card-seller:hover {
   color: var(--cz-ink);
 }
 
-/* ─── Capture bar + profile (design handoff PR3) ───────────────────────────
-   Mobile: clipboard split pill (review | 1-tap Stash) or a ＋ Stash pill,
-   plus the Agent button. Desktop: inline paste field. Bar height 58px, pill
-   radius 17px, gap 10px, bottom padding 16px + safe area. */
-
-.cz-app[data-fashion="true"] > .cz-bottom-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 30;
-}
-
-.cz-app[data-fashion="true"] .cz-bottom-bar-inner {
-  min-height: 58px;
-  gap: 10px;
-  padding: 10px 20px calc(16px + env(safe-area-inset-bottom, 0px));
-}
-
-/* Mobile capture bar only. Desktop capture lives under the masthead
-   (design handoff: breakpoint-specific placement). */
-.cz-bar-mobile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-.cz-bar-desk {
-  display: none;
-}
-@media (min-width: 768px) {
-  .cz-app[data-fashion="true"] > .cz-bottom-bar {
-    display: none;
-  }
-  .cz-bar-mobile {
-    display: none;
-  }
-}
+/* ─── Capture surfaces (design handoff PR3, mobile handoff step 3) ─────────
+   Mobile: one round Stash button (.cz-stash-dock, end of this file).
+   Desktop: the inline search + Stash row below. */
 
 /* Desktop top capture / search row (≥768px). Under logo, above tabs. */
 .cz-desk-capture {
@@ -5945,161 +5902,14 @@ a.cz-card-seller:hover {
   text-overflow: ellipsis;
 }
 
-/* Clipboard split pill — left review region, right 1-tap Stash. */
-.cz-clip-pill {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: stretch;
-  height: 58px;
-  border-radius: 17px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  overflow: hidden;
-}
-.cz-clip-review {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 16px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
+/* The clipboard dot survives the bottom bar: the desktop clipboard banner
+   still uses it. The mobile split pill, the ＋ Stash pill and the Agent bar
+   button are deleted (mobile handoff step 3). */
 .cz-clip-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-}
-.cz-clip-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.cz-clip-platform {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  opacity: 0.62;
-}
-.cz-clip-host {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cz-clip-stash {
-  flex-shrink: 0;
-  padding: 0 18px;
-  border: 0;
-  border-left: 1px solid var(--cz-action-text-divider);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.cz-clip-stash:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* Empty-clipboard state: single full-width capture-sheet opener. */
-.cz-stash-open {
-  flex: 1;
-  min-width: 0;
-  height: 58px;
-  border: 0;
-  border-radius: 17px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.cz-stash-open:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* Agent stays a secondary button in the bar (money path). */
-.cz-bar-agent {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 2px;
-  height: 58px;
-  padding: 0 16px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 17px;
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
-  font: inherit;
-  cursor: pointer;
-}
-.cz-bar-agent-kicker {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-.cz-bar-agent-name {
-  max-width: 96px;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* KM-07: on phones the chip cramped beside the flex-1 Stash and the agent
-   name truncated at 96px. Give it a wider floor. */
-@media (max-width: 767px) {
-  .cz-bar-agent {
-    min-width: 124px;
-  }
-  .cz-bar-agent-name {
-    max-width: 150px;
-  }
-}
-
-/* Desktop: quiet inline paste field in the bar. */
-.cz-bar-desk-input {
-  flex: 1;
-  min-width: 0;
-  height: 46px;
-  padding: 0 14px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 13px;
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
-  font: inherit;
-  font-size: 14px;
-}
-.cz-bar-desk-input::placeholder {
-  color: var(--cz-faint);
-}
-.cz-bar-desk-input:focus {
-  outline: 2px solid color-mix(in srgb, var(--cz-ink) 35%, transparent);
-  outline-offset: 1px;
-}
-.cz-bar-desk .cz-bar-agent {
-  height: 46px;
-  border-radius: 13px;
 }
 
 /* Masthead avatar — opens the profile sheet. */
@@ -8532,4 +8342,214 @@ a.cz-card-seller:hover {
     font-size: 9px;
     padding: 4px 8px;
   }
+}
+
+/* ═══ MOBILE SHELF HANDOFF (2026-07-25) — step 3: Stash button + Settings ═══
+   The fixed bottom bar is deleted. One round button takes its place, docked
+   bottom-right so it never covers a price or a heart. Agent moved into the
+   Settings sheet below. Every value reads a --cz-* token so Blackout dark
+   inherits it.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The dock spans the viewport so the button can sit against the right edge,
+   but it must not eat taps on the cards behind it. Only the children do. */
+.cz-stash-dock {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 20px calc(26px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+
+.cz-stash-dock > * {
+  pointer-events: auto;
+}
+
+/* Desktop keeps the search + Stash row under the masthead. */
+@media (min-width: 768px) {
+  .cz-stash-dock {
+    display: none;
+  }
+}
+
+.cz-stash-fab {
+  position: relative;
+  flex: 0 0 auto;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  box-shadow: var(--cz-fab-shadow);
+  cursor: pointer;
+  transition: transform 140ms var(--ease-out);
+}
+
+.cz-stash-fab:active {
+  transform: scale(0.94);
+}
+
+.cz-stash-fab:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cz-stash-fab:focus-visible {
+  outline: none;
+  box-shadow: var(--cz-fab-shadow), 0 0 0 3px var(--cz-focus);
+}
+
+/* "Something is on your clipboard", readable from across the screen. The
+   ring is the page background, so the dot reads as a cutout at any theme. */
+.cz-stash-fab-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--cz-money);
+  border: 2.5px solid var(--cz-bg);
+}
+
+/* 1-tap capture. It sits left of the button and stashes without opening the
+   sheet — the same job the old split pill's right half did. */
+.cz-stash-clip {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font: inherit;
+  box-shadow: var(--cz-fab-shadow);
+  cursor: pointer;
+}
+
+.cz-stash-clip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cz-stash-clip:active {
+  transform: scale(0.97);
+}
+
+.cz-stash-clip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cz-stash-clip-host {
+  min-width: 0;
+  max-width: 132px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cz-stash-clip-verb {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* QW10: the shelf and the carousel clear the 60px button + its 26px pad, so
+   no card ever sits under it. 60 + 26 + 14 breathing room = 100px. */
+@media (max-width: 767px) {
+  .cz-app[data-fashion="true"] .cz-shell {
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .cz-carousel-stage {
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ─── Step 3: Settings sheet (⋯) ────────────────────────────────────────── */
+
+/* QW9: opaque. The shared sheet surface is translucent, and shelf cards read
+   straight through it on a busy shelf. */
+.cz-settings-surface {
+  background: var(--cz-card-solid);
+}
+
+.cz-settings {
+  padding: 4px 20px 20px;
+}
+
+.cz-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--cz-hair);
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-settings-row-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cz-settings-row-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--cz-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cz-settings-row-chev {
+  flex-shrink: 0;
+  font-size: 15px;
+  color: var(--cz-faint);
+}
+
+/* Where the unlabeled Local dot from the old bottom bar landed. It has a
+   word beside it now. */
+.cz-settings-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 2px 2px;
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.cz-settings-foot-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }

@@ -500,9 +500,10 @@ describe("Agent Buy plumbing (A2)", () => {
     // Wait for the shelf to hydrate — see the search-field test for why (the
     // first-run intro can flash for one render and detach early grabs).
     await screen.findAllByText("Palace x Nike jersey");
-    // The Agent sheet opens straight from the bottom bar (design handoff PR3).
-    // (Mobile + desktop bar variants both render; CSS hides one per viewport.)
-    await user.click((await screen.findAllByRole("button", { name: /Agent: / }))[0]);
+    // The bottom bar is gone (mobile handoff step 3), so the Agent sheet
+    // opens from the profile sheet on desktop and from Settings on phone.
+    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: /Default agent/ }));
     expect(await screen.findByRole("heading", { name: "Buying agent" })).toBeInTheDocument();
     expect(screen.getByText(/Disclosure:/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Sugargoo/ }));
