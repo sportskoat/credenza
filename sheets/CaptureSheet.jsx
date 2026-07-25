@@ -1,34 +1,6 @@
 import { useEffect } from "react";
 import { ModalShell } from "../credenza-fashion.jsx";
 
-// Stash mode (Kyle 2026-07-22): the same paste makes one card from a link,
-// N cards from a Reddit haul, or a plain note. Shared by the empty-state
-// capture block and the capture sheet (design handoff PR3).
-const STASH_MODES = [
-  ["link", "Link", "One card from a link or short paste"],
-  ["haul", "Reddit haul", "One card per item from a Reddit post link or pasted haul"],
-  ["note", "Note", "Keep the paste as a plain note"],
-];
-function StashModeRow({ stashMode, onChange, disabled = false }) {
-  return (
-    <div className="cz-stashmode" role="group" aria-label="Stash mode">
-      {STASH_MODES.map(([id, label, hint]) => (
-        <button
-          key={id}
-          type="button"
-          className={"cz-stashmode-btn" + (stashMode === id ? " is-active" : "")}
-          aria-pressed={stashMode === id}
-          title={hint}
-          disabled={disabled}
-          onClick={() => onChange(id)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // Sources shown above the stash paste box (visual only — not mode controls).
 // Dots + names, no chip boxes (Kyle 2026-07-23 handoff).
 const STASH_SOURCES = [
@@ -38,18 +10,17 @@ const STASH_SOURCES = [
   { name: "Reddit", color: "#ff4500" },
 ];
 
-// Capture sheet (design handoff PR3 + import-shelf polish): review surface
-// behind the bottom bar's Stash pill. Owns mode, paste box, and Stash CTA.
+// Capture sheet (design handoff PR3): the phone's capture surface behind the
+// bottom bar's Stash pill. One box, one button — the app detects what the
+// paste is (Kyle 2026-07-24: "one congruent setup"; the Link/Reddit haul/Note
+// tabs and the "Import from Reddit" detour are gone).
 export default function CaptureSheet({
   clip,
   input,
   onInput,
-  stashMode,
-  onStashMode,
   canStashTab,
   onStashTab,
   onStash,
-  onImportReddit,
   onClose,
   textareaRef,
 }) {
@@ -62,13 +33,6 @@ export default function CaptureSheet({
     });
     return () => cancelAnimationFrame(id);
   }, [textareaRef]);
-
-  const placeholder =
-    stashMode === "haul"
-      ? "Paste a Reddit post link or haul text…"
-      : stashMode === "note"
-        ? "Write a note…"
-        : "weidian.com/item.html?id=7291…\n…x.yupoo.com/albums/…\na Reddit haul post URL or its body\none per line";
 
   return (
     <ModalShell title="Stash to shelf" onClose={onClose} maxWidth={520}>
@@ -93,8 +57,6 @@ export default function CaptureSheet({
           </div>
         )}
 
-        <StashModeRow stashMode={stashMode} onChange={onStashMode} />
-
         <textarea
           ref={textareaRef}
           className="cz-stash-paste"
@@ -109,7 +71,9 @@ export default function CaptureSheet({
               onStash();
             }
           }}
-          placeholder={placeholder}
+          placeholder={
+            "Paste anything — the app sorts it out:\na link, a Reddit post or haul,\na note, a whole list"
+          }
           rows={5}
         />
 
@@ -124,9 +88,6 @@ export default function CaptureSheet({
             onClick={() => textareaRef.current && textareaRef.current.focus()}
           >
             Paste
-          </button>
-          <button type="button" onClick={onImportReddit}>
-            Import from Reddit
           </button>
           {canStashTab && (
             <button type="button" onClick={onStashTab}>

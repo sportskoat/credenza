@@ -688,7 +688,7 @@ Installed Apps`;
   });
 });
 
-describe("Stash mode toggle (front screen)", () => {
+describe("Auto-detect capture (one setup, Kyle 2026-07-24)", () => {
   // The capture sheet is the mobile bottom sheet (KM-03): these tests run on
   // an emulated phone viewport so the sheet renders at all.
   beforeEach(() => window.__setMediaMatches("(max-width: 767px)", true));
@@ -706,39 +706,31 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     // First-run intro (design handoff) sits in front of capture. Dismiss it.
     const go = await screen.findByRole("button", { name: "Get started" });
     await user.click(go);
-    // Empty shelf is search + ＋ Stash only. Mode chips live in the capture sheet.
+    // Empty shelf is one field + ＋ Stash — the button opens the capture sheet.
     await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
   }
 
-  it("switches the capture placeholder with the mode", async () => {
+  it("shows one paste box and no mode tabs", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const group = await screen.findByRole("group", { name: "Stash mode" });
-    expect(group).toBeInTheDocument();
-    // Capture sheet paste box (empty shelf button shares the same aria-label).
-    const pasteBox = document.querySelector(".cz-stash-paste");
-    expect(pasteBox).toBeTruthy();
-    expect(pasteBox.getAttribute("aria-label")).toBe("Stash a link or note");
-
-    await user.click(screen.getByRole("button", { name: "Reddit haul" }));
-    expect(screen.getByPlaceholderText("Paste a Reddit post link or haul text…")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Note" }));
-    expect(screen.getByPlaceholderText("Write a note…")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Stash mode" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reddit haul" })).toBeNull();
+    const box = await screen.findByPlaceholderText(/Paste anything/);
+    expect(box).toBeInTheDocument();
+    expect(box.getAttribute("aria-label")).toBe("Stash a link or note");
   });
 
-  it("note mode keeps a URL paste as one plain note card", async () => {
+  it("a URL-free single line stashes as a plain note card", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    await user.click(await screen.findByRole("button", { name: "Note" }));
-    const box = screen.getByPlaceholderText("Write a note…");
-    fireEvent.change(box, { target: { value: "remember this https://weidian.com/item.html?itemID=7649592219" } });
+    const box = await screen.findByPlaceholderText(/Paste anything/);
+    fireEvent.change(box, { target: { value: "remember the Gats in size 42" } });
     fireEvent.keyDown(box, { key: "Enter" });
 
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
@@ -747,14 +739,13 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     expect(item.url).toBeNull();
   });
 
-  it("haul mode turns pasted post text into one card per item, notes aligned", async () => {
+  it("pasted post text becomes one card per item, notes aligned — no mode pick", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    await user.click(await screen.findByRole("button", { name: "Reddit haul" }));
-    const box = screen.getByPlaceholderText("Paste a Reddit post link or haul text…");
+    const box = await screen.findByPlaceholderText(/Paste anything/);
     fireEvent.change(box, { target: { value: KYLE_POST } });
     fireEvent.keyDown(box, { key: "Enter" });
 
@@ -767,7 +758,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     expect(vans.note).not.toContain("Buttery smooth");
   });
 
-  it("a lone Reddit post link in link mode routes to the haul path", async () => {
+  it("a lone Reddit post link routes to the haul path", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -814,8 +805,7 @@ describe("Storage hydration race (audit 2026-07-24)", () => {
     // Dismiss the intro and stash a note while the items load is pending.
     await user.click(await screen.findByRole("button", { name: "Get started" }));
     await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
-    await user.click(await screen.findByRole("button", { name: "Note" }));
-    const box = screen.getByPlaceholderText("Write a note…");
+    const box = await screen.findByPlaceholderText(/Paste anything/);
     fireEvent.change(box, { target: { value: "stashed during load" } });
     fireEvent.keyDown(box, { key: "Enter" });
     // The stash is in memory only — the load has not resolved, so nothing

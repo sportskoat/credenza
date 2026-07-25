@@ -8299,6 +8299,11 @@ export function ModalShell({ title, onClose, children, maxWidth = 720, trailing,
     if (dialog && !dialog.open) dialog.showModal();
     requestAnimationFrame(() => closeRef.current && closeRef.current.focus());
     return () => {
+      // React removes the node without close(); a modal dialog dropped while
+      // open can leave the page inert on iOS (Kyle 2026-07-24: "closing stuff
+      // gives me a blank screen"). Close it first so the browser unwinds the
+      // top layer and any scroll lock itself.
+      if (dialog && dialog.open) dialog.close();
       const trigger = triggerRef.current;
       if (trigger && typeof trigger.focus === "function") trigger.focus();
     };
@@ -8501,19 +8506,6 @@ function HeroStagger() {
       >
         Drop in a Weidian, Taobao or Yupoo link, a Reddit haul post, even a comment. Price, photos and your size land on the card.
       </p>
-    </div>
-  );
-}
-
-// Design 7b ghost grid — faded shelf cards sit BELOW the hero text (CO-21:
-// they used to be an absolute background layer and the tagline overlapped
-// the outer tiles). Five tall previews, masked so they fade into the page.
-function EmptyShelfGhosts() {
-  return (
-    <div className="cz-empty-hero-bg" aria-hidden="true">
-      {["a", "b", "c", "d", "e"].map((tone) => (
-        <div key={tone} className={"cz-empty-ghost-tile cz-empty-ghost-tile--" + tone} />
-      ))}
     </div>
   );
 }
@@ -8870,10 +8862,6 @@ export default function Credenza() {
     }
     return Object.keys(FIT_PREF_AXES).filter((k) => set.has(k));
   }, [items, fitPrefs]);
-  // Front-screen stash intent (Kyle 2026-07-22): "link" = one card per paste,
-  // "haul" = Reddit post link or pasted haul text → one card per item,
-  // "note" = always a single text card. Persisted in credenza-prefs-v1.
-  const [stashMode, setStashMode] = useState("link");
 
   // Phones: ~400px of capture/search/tab chrome sits above the carousel, so at
   // first paint the card renders under the fixed bottom bar. Scrolling the
@@ -8992,7 +8980,6 @@ export default function Credenza() {
             agentToastSeenFor,
             bodyProfile,
             measureUnits,
-            stashMode,
             pricePrimary,
             fitSummary,
             fitDetail,
@@ -9001,7 +8988,7 @@ export default function Credenza() {
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, stashMode, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
 
   // Part 5 Tier A: first-class haul records (budget, parcel, archive state,
   // history). item.project keeps the haul NAME; the record adds the rest.
@@ -9142,7 +9129,6 @@ export default function Credenza() {
                   agentToastSeenFor: p.agentToastSeenFor || null,
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
                   measureUnits: p.measureUnits === "cm" ? "cm" : "in",
-                  stashMode: ["link", "haul", "note"].includes(p.stashMode) ? p.stashMode : "link",
                   pricePrimary: p.pricePrimary === "CNY" ? "CNY" : "USD",
                   fitSummary: p.fitSummary !== false,
                   fitDetail: p.fitDetail === "detailed" ? "detailed" : "concise",
@@ -9162,7 +9148,6 @@ export default function Credenza() {
           if (p.agentToastSeenFor) setAgentToastSeenFor(p.agentToastSeenFor);
           if (p.bodyProfile && typeof p.bodyProfile === "object") setBodyProfile(p.bodyProfile);
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
-          if (["link", "haul", "note"].includes(p.stashMode)) setStashMode(p.stashMode);
           if (p.pricePrimary === "CNY" || p.pricePrimary === "USD") setPricePrimary(p.pricePrimary);
           if (p.fitSummary === false) setFitSummary(false);
           if (p.fitDetail === "concise" || p.fitDetail === "detailed") setFitDetail(p.fitDetail);
@@ -9219,6 +9204,11 @@ export default function Credenza() {
   const beginIndexingJob = useCallback((result) => {
     if (!result || result.status !== "stashed" || !result.id) return;
     const id = result.id;
+    // A fresh stash lands in the Inbox while it enriches. Take the customer
+    // to it — otherwise the Shelf tab says "Nothing on the shelf yet" right
+    // after they stashed something (2026-07-25 mobile audit). The effect that
+    // watches inboxItems snaps back to Shelf when indexing finishes.
+    setView("inbox");
     setIndexingJobs((jobs) => {
       const without = jobs.filter((j) => j.id !== id);
       return [
@@ -9233,26 +9223,6 @@ export default function Credenza() {
       ].slice(-4);
     });
   }, []);
-
-  // Note mode: the paste stays text even when it contains a URL — no link
-  // extraction, no enrichment, one card with the words on it.
-  const stashNote = (raw) => {
-    const text = (raw || "").trim();
-    if (!text) return { status: "empty" };
-    const parsed = { type: "note", url: null, host: null, videoId: null };
-    const key = canonicalKey(parsed, text);
-    const dupItem = items.find((x) => itemMatchesCanonicalKey(x, key)) || null;
-    if (dupItem) {
-      notify("Already on the shelf: “" + dupItem.title + "” — refreshing it below.", { duration: DUPE_BANNER_MS });
-      setExpandedId(dupItem.id);
-      setSelectedId(dupItem.id);
-      return { status: "dupe", id: dupItem.id };
-    }
-    const item = createItem(parsed, text, null);
-    applyUpdate((list) => [item, ...list]);
-    markActivation(storageBackend, "capture");
-    return { status: "stashed", id: item.id, title: item.title || "" };
-  };
 
   // Haul mode: a lone Reddit post link is read server-side and its text goes
   // through the haul parser; anything else (the copied post text itself, a
@@ -9285,17 +9255,16 @@ export default function Credenza() {
     runImport(text);
   };
 
-  // One entry point for the capture box and one-tap clipboard stash: mode
-  // decides the shape of what lands on the shelf. A lone Reddit post link
-  // always routes to the haul path, even in link mode (Kyle 2026-07-22:
-  // "if you paste that whole Reddit link into the stash clipboard section,
-  // it will only make one card").
+  // One entry point for every capture surface (Kyle 2026-07-24: "one
+  // congruent setup" — the mode tabs are gone). The paste itself decides:
+  // a Reddit post link is fetched and chopped into items; any multi-line
+  // paste goes through the import parser (haul-shaped text becomes one card
+  // per item, a plain note stays whole); a single line stashes as one card
+  // through the fashion gate.
   const dispatchStash = (raw) => {
     const text = (raw || "").trim();
     if (!text) return { status: "empty" };
-    const mode = stashMode === "link" && REDDIT_POST_URL_RE.test(text) ? "haul" : stashMode;
-    if (mode === "note") return stashNote(text);
-    if (mode === "haul") {
+    if (REDDIT_POST_URL_RE.test(text) || /\n/.test(text)) {
       stashRedditHaul(text);
       return { status: "hauling" };
     }
@@ -9322,6 +9291,21 @@ export default function Credenza() {
     if (result.status === "empty" || result.status === "gated") return; // gated keeps the paste
     setInput("");
     if (result.status === "stashed") beginIndexingJob(result);
+  };
+
+  // The hero bar (empty shelf) stashes what sits in its field. An empty field
+  // opens the phone capture sheet, or reads the clipboard on desktop. One
+  // field, one button, one behavior everywhere (Kyle 2026-07-24).
+  const heroStash = () => {
+    const text = search.trim();
+    if (text) {
+      const result = dispatchStash(text);
+      if (result.status === "stashed") beginIndexingJob(result);
+      if (result.status !== "empty" && result.status !== "gated") setSearch("");
+      return;
+    }
+    if (isPhone) setCaptureSheetOpen(true);
+    else stashClipboard();
   };
 
   // One tap: read the clipboard and stash it directly. Browsers guard clipboard
@@ -11235,22 +11219,31 @@ export default function Credenza() {
                   ? "Star a card from the front face, then open Starred here."
                   : openHaulName
                     ? "Add cards from the shelf with ⋯ → Add to haul."
-                    : "Paste a Yupoo or Weidian link above to start a haul."}
+                    : inboxItems.length > 0
+                      // Cards are enriching in the Inbox — never tell the
+                      // customer to paste again as if the stash did not work.
+                      ? inboxItems.length +
+                        (inboxItems.length === 1 ? " card is" : " cards are") +
+                        " indexing in the Inbox — cards land here when they are ready."
+                      : "Paste anything above — a link, a Reddit post, a list."}
             </div>
-            {(q || sortMode === "starred" || openHaulName) && (
+            {(q || sortMode === "starred" || openHaulName || inboxItems.length > 0) && (
               <Pill
                 primary
                 onClick={() => {
                   if (q) setSearch("");
                   else if (sortMode === "starred") setSortMode("recent");
-                  else closeHaul();
+                  else if (openHaulName) closeHaul();
+                  else setView("inbox");
                 }}
               >
                 {q
                   ? "Clear search"
                   : sortMode === "starred"
                     ? "Show all cards"
-                    : "All hauls"}
+                    : openHaulName
+                      ? "All hauls"
+                      : "Open Inbox"}
               </Pill>
             )}
           </div>
@@ -11383,8 +11376,6 @@ export default function Credenza() {
           clip={clipPreview}
           input={input}
           onInput={setInput}
-          stashMode={stashMode}
-          onStashMode={setStashMode}
           canStashTab={canStashTab}
           onStashTab={stashCurrentTab}
           onStash={() => {
@@ -11394,11 +11385,6 @@ export default function Credenza() {
               return;
             }
             stashClipboard();
-          }}
-          onImportReddit={() => {
-            // Haul mode inside the sheet — the user pastes the post next.
-            setStashMode("haul");
-            if (sheetCaptureRef.current) sheetCaptureRef.current.focus();
           }}
           onClose={() => setCaptureSheetOpen(false)}
           textareaRef={sheetCaptureRef}
@@ -11591,10 +11577,10 @@ export default function Credenza() {
           </div>
         )}
 
-        {/* Empty shelf (design 7b + 6a): centered hero with the faded
-            ghost-card grid BELOW it (CO-21 — the text overlapped the ghosts).
-            Search + solid ＋ Stash only — no Link/Reddit/Note mode chips.
-            Stash opens the capture sheet (mode lives there). */}
+        {/* Empty shelf: centered hero. ONE capture field + ONE Stash button —
+            the mobile search row below stays hidden until the shelf has items
+            (Kyle 2026-07-24: four paste surfaces were three too many). The
+            gray ghost tiles are gone for the same reason. */}
         {items.length === 0 && onboardingDone && (
           <div className="cz-empty-hero">
             <div className="cz-empty-hero-main">
@@ -11627,7 +11613,7 @@ export default function Credenza() {
                   type="button"
                   className="cz-empty-hero-stash"
                   disabled={interactionLocked}
-                  onClick={() => (isPhone ? setCaptureSheetOpen(true) : stashClipboard())}
+                  onClick={heroStash}
                   aria-label="Stash a link or note"
                 >
                   <span className="cz-empty-hero-stash-plus" aria-hidden="true">
@@ -11655,7 +11641,6 @@ export default function Credenza() {
                 </button>
               </div>
             </div>
-            <EmptyShelfGhosts />
           </div>
         )}
 
@@ -11760,9 +11745,10 @@ export default function Credenza() {
           </div>
         )}
 
-        {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it).
-            Also hidden on the first-run intro (CO-04). */}
-        {!firstRunIntro && (
+        {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it),
+            on the first-run intro (CO-04), and on the empty shelf — the hero
+            field is the ONE capture surface there (Kyle 2026-07-24). */}
+        {!firstRunIntro && items.length > 0 && (
         <div className="cz-search-row">
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- shell-padding mousedown only focuses the input; the input itself owns keyboard interaction (CO-29) */}
           <div
@@ -11810,7 +11796,7 @@ export default function Credenza() {
                 }
               }}
               onPaste={onSearchPaste}
-              placeholder={items.length === 0 ? "Paste a link" : "Search your shelf"}
+              placeholder="Search or paste a link"
             />
             {search ? (
               <MorphButton
