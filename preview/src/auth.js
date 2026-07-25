@@ -173,3 +173,13 @@ export async function signOut(session, { fetchImpl, host } = {}) {
   } catch {}
   clearSession(host);
 }
+
+// Headers for a paid function call: the caller's base headers plus the
+// Bearer token when this device holds a valid session (Part 7e). Returns the
+// base headers untouched when signed out — the functions still answer
+// anonymous callers under the shared key until Part 7f.
+export async function authHeaders(baseHeaders = {}, { fetchImpl, host } = {}) {
+  if (!AUTH_ENABLED) return baseHeaders;
+  const session = await getValidSession({ fetchImpl, host });
+  return session ? { ...baseHeaders, authorization: "Bearer " + session.accessToken } : baseHeaders;
+}

@@ -24,6 +24,7 @@ import {
   openPortal,
   ENTITLEMENT_KEY,
 } from "../src/account.js";
+import { usageToday, bumpUsage, overFreeLimit, USAGE_KEY } from "../src/usage.js";
 
 const require = createRequire(import.meta.url);
 const { signJwt } = require("../netlify/functions/lib/jwt.js");
@@ -220,8 +221,45 @@ describe("entitlement cache", () => {
   });
 });
 
-// ————— checkout + portal ———————————————————————————————————————————————————————
+// ————— free-limit usage counters ———————————————————————————————————————————————
 
+describe("usage counters", () => {
+  const freePlan = { state: "free", lim: { askPerDay: 2 } };
+  const proPlan = { state: "pro", lim: { askPerDay: 200 } };
+
+  it("counts per UTC day and prunes older days", () => {
+    const host = fakeHost();
+    const now = Date.UTC(2026, 6, 25, 12);
+    expect(usageToday("ask", { host, now })).toBe(0);
+
+    bumpUsage("ask", { host, now });
+    bumpUsage("ask", { host, now });
+    expect(usageToday("ask", { host, now })).toBe(2);
+
+    // A counter from three days ago is pruned on the next bump.
+    host.localStorage.setItem(USAGE_KEY, JSON.stringify({ "ask:2026-07-20": 9, "ask:2026-07-25": 2 }));
+    bumpUsage("ask", { host, now });
+    const stored = JSON.parse(host.localStorage.getItem(USAGE_KEY));
+    expect(stored["ask:2026-07-20"]).toBeUndefined();
+    expect(stored["ask:2026-07-25"]).toBe(3);
+  });
+
+  it("overFreeLimit fires only for a free plan at its cap", () => {
+    const host = fakeHost();
+    const now = Date.UTC(2026, 6, 25, 12);
+    bumpUsage("ask", { host, now });
+    expect(overFreeLimit(freePlan, "ask", { host, now })).toBe(false); // 1 of 2
+    bumpUsage("ask", { host, now });
+    expect(overFreeLimit(freePlan, "ask", { host, now })).toBe(true); // 2 of 2
+
+    // Pro, no plan (signed out), and unmetered features never block locally.
+    expect(overFreeLimit(proPlan, "ask", { host, now })).toBe(false);
+    expect(overFreeLimit(null, "ask", { host, now })).toBe(false);
+    expect(overFreeLimit(freePlan, "hauls", { host, now })).toBe(false);
+  });
+});
+
+// ————— checkout + portal ———————————————————————————————————————————————————————
 describe("checkout + portal", () => {
   it("checkout posts the price choice and returns the redirect URL", async () => {
     const seen = [];

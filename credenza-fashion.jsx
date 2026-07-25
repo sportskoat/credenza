@@ -37,6 +37,7 @@ import {
   googleAuthUrl,
   getValidSession,
   signOut as authSignOut,
+  authHeaders,
 } from "./preview/src/auth.js";
 import {
   loadCachedEntitlement,
@@ -45,6 +46,7 @@ import {
   checkout as accountCheckout,
   openPortal as accountPortal,
 } from "./preview/src/account.js";
+import { overFreeLimit, bumpUsage } from "./preview/src/usage.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
 
@@ -1010,6 +1012,14 @@ function getYouTubeId(url) {
     /(?:youtube\.com\/(?:watch\?.*v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{6,})/
   );
   return m ? m[1] : null;
+}
+
+// The signed-in user's decoded entitlement snapshot, mirrored from component
+// state so module-level enrichment (chart-vision) can apply the free daily
+// caps without threading props through every call (Part 7e).
+let planForLimits = null;
+function setPlanForLimits(plan) {
+  planForLimits = plan || null;
 }
 
 const TRACKING_PARAM_RE =
@@ -2531,6 +2541,9 @@ async function fetchYupooImages(albumUrl, { signal } = {}) {
 async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) {
   if (!PREVIEW_SECRET) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
+  // Part 7e: a signed-in FREE user over the daily cap skips the cloud read;
+  // the card keeps whatever local intelligence found (same as offline).
+  if (overFreeLimit(planForLimits, "chartVision")) return null;
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (signal) {
@@ -2541,10 +2554,11 @@ async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) {
   try {
     const res = await monitoredFetch(storageBackend, "chart-vision", CHART_VISION_ENDPOINT, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
+      headers: await authHeaders({ "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET }),
       body: JSON.stringify({ images: imageUrls, ...(referer ? { referer } : {}) }),
       signal: controller.signal,
     });
+    bumpUsage("chartVision");
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || !data.found || typeof data.chartText !== "string") return null;
@@ -9005,6 +9019,11 @@ export default function Credenza() {
     setAccountPlan(null);
     notify("Signed out. Your shelf stays on this device.");
   };
+  // Module-level enrichment (chart-vision) reads the plan through the module
+  // mirror — component state stays the one source of truth.
+  useEffect(() => {
+    setPlanForLimits(accountPlan);
+  }, [accountPlan]);
   // Delete confirmation (KM-02): every delete path (card-back button,
   // Backspace/Delete key) stages the id here first; the dialog shows the card
   // title and offers Keep / Delete. null = nothing staged.
@@ -10023,6 +10042,9 @@ export default function Credenza() {
   const resolveBuyDetails = async (item, { token = null, signal = null, preserveTitle = false } = {}) => {
     if (!PREVIEW_SECRET) return false;
     if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
+    // Part 7e: signed-in FREE user over the daily resolve cap — skip the
+    // cloud read, keep the local card (same as offline).
+    if (overFreeLimit(accountPlan, "resolve")) return false;
     const buyUrl = resolvableBuyUrl(item);
     if (!buyUrl) return false;
     updateEnrichedItem(item.id, token, { status: "enriching" });
@@ -10037,10 +10059,11 @@ export default function Credenza() {
     try {
       const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
+        headers: await authHeaders({ "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET }),
         body: JSON.stringify({ url: buyUrl }),
         signal: controller.signal,
       });
+      bumpUsage("resolve");
       if (res.ok) data = await res.json();
     } catch (e) {
       data = null;
@@ -10541,6 +10564,18 @@ export default function Credenza() {
     }
 
     const shelf = serializeAskCandidates(query, shelfAll, { limit: 25 });
+    // Part 7e: a signed-in FREE user over the daily ask cap gets the honest
+    // message + the upgrade path instead of a server 429.
+    if (overFreeLimit(accountPlan, "ask")) {
+      setAskState({
+        status: "error",
+        query,
+        answer: "",
+        results: [],
+        error: "That is today's free Ask limit. Upgrade to Pro in Profile for 200 asks a day.",
+      });
+      return;
+    }
     const controller = new AbortController();
     askControllerRef.current = controller;
     const timer = setTimeout(() => controller.abort(), 35000);
@@ -10549,10 +10584,11 @@ export default function Credenza() {
     try {
       const res = await monitoredFetch(storageBackend, "ask", ASK_ENDPOINT, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
+        headers: await authHeaders({ "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET }),
         body: JSON.stringify({ query, shelf }),
         signal: controller.signal,
       });
+      bumpUsage("ask");
       let payload;
       try {
         payload = await res.json();
