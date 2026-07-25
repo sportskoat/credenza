@@ -6557,12 +6557,18 @@ a.cz-card-seller:hover {
   pointer-events: none;
 }
 /* Hover/focus only — a selected-but-left card must not keep Buy up
-   (Kyle 2026-07-23: "it still stays there"). */
-.cz-card-editorial:hover .cz-card-buy-hover,
-.cz-card-editorial:focus-within .cz-card-buy-hover {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+   (Kyle 2026-07-23: "it still stays there").
+   Fine-pointer devices only (2026-07-25 walkthrough): on a touch screen the
+   first tap fires :hover, the pill slides in under the finger, and iOS
+   cancels the click — the card does not open and the second tap can hit Buy.
+   Touch customers open the card and buy from the card back. */
+@media (hover: hover) and (pointer: fine) {
+  .cz-card-editorial:hover .cz-card-buy-hover,
+  .cz-card-editorial:focus-within .cz-card-buy-hover {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
 }
 .cz-card-buy-hover .cz-buy-btn {
   width: 100%;

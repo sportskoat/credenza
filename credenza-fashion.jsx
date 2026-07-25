@@ -1268,12 +1268,36 @@ export function localTitle(parsed, rawText) {
     try {
       const u = new URL(url);
       const album = u.pathname.match(/\/albums\/(\d+)/i);
-      const account = (host.match(/^([^.]+)(?:\.x)?\.yupoo\.com$/) || [])[1];
+      const photos = u.pathname.match(/\/photos\/([^/?#]+)/i);
+      // x.yupoo.com / www.yupoo.com are the generic photo hosts — the seller
+      // lives in the /photos/<seller>/ path, not the subdomain (2026-07-25:
+      // cards titled "x · 12345678"). seller.x.yupoo.com keeps the seller in
+      // the subdomain.
+      let account = "";
+      const subx = host.match(/^([^.]+)\.x\.yupoo\.com$/i);
+      const sub = host.match(/^([^.]+)\.yupoo\.com$/i);
+      if (subx) account = subx[1];
+      else if (sub && !/^(x|www)$/i.test(sub[1])) account = sub[1];
+      if (!account && photos) account = decodeURIComponent(photos[1]);
       if (album) {
         // Placeholder until enrichment fills the real album/batch title.
         return account ? account + " · " + album[1] : "Album " + album[1];
       }
       if (account) return account;
+    } catch (e) {}
+  }
+  // Weidian/Taobao item pages carry the id in the query — name it instead of
+  // falling through to the bare host ("weidian.com" cards, 2026-07-25).
+  if (/(^|\.)weidian\.com$/i.test(host)) {
+    try {
+      const id = new URL(url).searchParams.get("itemID");
+      if (id) return "Weidian item " + id;
+    } catch (e) {}
+  }
+  if (/(^|\.)(taobao\.com|tb\.cn)$/i.test(host)) {
+    try {
+      const id = new URL(url).searchParams.get("id");
+      if (id) return "Taobao item " + id;
     } catch (e) {}
   }
   try {
@@ -3957,29 +3981,82 @@ function CoverIcon({ item, size = 64 }) {
   );
 }
 
-// Subtle tint behind a cover placeholder so cards without images still feel
-// distinct and intentional. Colors are theme-agnostic low-opacity hues.
-function coverTint(item) {
-  const tints = {
-    shirt: "255, 56, 204",
-    pants: "0, 245, 255",
-    shoes: "52, 199, 89",
-    outerwear: "255, 149, 0",
-    accessory: "175, 82, 222",
-    bag: "255, 204, 0",
-    hat: "0, 212, 255",
-    video: "255, 45, 85",
-    tweet: "120, 120, 255",
-    audio: "90, 200, 250",
-    reddit: "255, 69, 0",
-  };
-  const key = item.category || item.type || "note";
-  const rgb = tints[key] || tints[item.type] || "150, 150, 170";
-  return `radial-gradient(circle at 30% 30%, rgba(${rgb}, 0.18) 0%, transparent 45%), radial-gradient(circle at 80% 80%, rgba(${rgb}, 0.10) 0%, transparent 40%)`;
-}
+// Marketplace brand tiles for photo-less cards (Kyle 2026-07-25: the gray
+// gradient box read as a broken image, not a card). A flat tile with the
+// marketplace monogram + wordmark looks deliberate until photos arrive.
+const MARKETPLACE_TILES = {
+  weidian: { name: "Weidian", rgb: "255, 90, 60" },
+  taobao: { name: "Taobao", rgb: "255, 106, 0" },
+  tmall: { name: "Tmall", rgb: "255, 0, 54" },
+  "1688": { name: "1688", rgb: "255, 115, 0" },
+  yupoo: { name: "Yupoo", rgb: "55, 178, 77" },
+};
 
 function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }) {
   const loading = item.status === "enriching";
+  const tileUrl =
+    item.url ||
+    (Array.isArray(item.links) ? (item.links.find((l) => l.role === "buy") || {}).url : "") ||
+    "";
+  const tile = tileUrl ? MARKETPLACE_TILES[marketplaceOf(tileUrl)] : null;
+  if (tile) {
+    return (
+      <div
+        className="cz-cover-placeholder cz-cover-tile"
+        aria-hidden="true"
+        style={{
+          width: "100%",
+          aspectRatio,
+          maxHeight,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          background:
+            "linear-gradient(180deg, rgba(" + tile.rgb + ", 0.15) 0%, rgba(" + tile.rgb + ", 0.05) 100%)",
+          position: "relative",
+          overflow: "hidden",
+          ...style,
+        }}
+      >
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 56,
+            height: 56,
+            borderRadius: 16,
+            background: "rgba(" + tile.rgb + ", 0.16)",
+            border: "1px solid rgba(" + tile.rgb + ", 0.38)",
+            color: "rgb(" + tile.rgb + ")",
+            fontFamily: DISPLAY,
+            fontSize: 26,
+            fontWeight: 700,
+          }}
+        >
+          {tile.name[0]}
+        </span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 650,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color: "var(--cz-sub)",
+          }}
+        >
+          {tile.name}
+        </span>
+        {loading && (
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: "var(--cz-faint)" }}>
+            Loading photos…
+          </span>
+        )}
+      </div>
+    );
+  }
   return (
     <div
       className="cz-cover-placeholder"
@@ -3993,10 +4070,7 @@ function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }) {
         alignItems: "center",
         justifyContent: "center",
         gap: 10,
-        background: `
-          ${coverTint(item)},
-          linear-gradient(135deg, var(--cz-seg) 0%, var(--cz-bg-elevated) 100%)
-        `,
+        background: "var(--cz-bg-elevated)",
         color: "var(--cz-faint)",
         position: "relative",
         overflow: "hidden",
@@ -4233,7 +4307,12 @@ function ComboboxField({
       }
     };
     const onKey = (event) => {
-      if (event.key === "Escape") closeMenu();
+      if (event.key === "Escape") {
+        // An open menu eats Escape (2026-07-25): without stopPropagation the
+        // same keypress also peeled the carousel overlay behind the menu.
+        event.stopPropagation();
+        closeMenu();
+      }
     };
     const onReposition = () => placeMenu();
     document.addEventListener("pointerdown", onDown, true);
@@ -10691,7 +10770,12 @@ export default function Credenza() {
       // control, never the card shortcuts below. Without this guard the
       // global handler preventDefaulted Enter on focused buttons, so
       // keyboard users could not pick a haul or close the overlay.
+      // Escape is exempt (2026-07-25): it never activates a control — it
+      // peels layers. The overlay auto-focuses its first button on open, so
+      // without the exemption Escape could not close the overlay at all and
+      // the page sat scroll-locked behind it (Kyle's "close gives blank").
       if (
+        e.key !== "Escape" &&
         e.target !== document.body &&
         e.target !== document.documentElement &&
         e.target.closest?.(
