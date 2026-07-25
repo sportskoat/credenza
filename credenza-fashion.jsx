@@ -76,6 +76,8 @@ import SizeRecommendation from "./components/SizeRecommendation.jsx";
 import MorphButton from "./components/MorphButton.jsx";
 import WarehouseQcSection from "./components/WarehouseQcSection.jsx";
 import CardBackHaulField from "./components/CardBackHaulField.jsx";
+import CardCornerFan from "./components/CardCornerFan.jsx";
+import HaulCoverFan from "./components/HaulCoverFan.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
@@ -2843,7 +2845,7 @@ export function usePrefersReducedMotion() {
 // Touch devices and phone-width screens have no cursor to follow — ambient
 // backgrounds render static there (the rAF loop + blur(60px) repaint is pure
 // battery/GPU cost on mobile).
-function useCoarsePointer() {
+export function useCoarsePointer() {
   const QUERY = "(pointer: coarse), (max-width: 767px)";
   const [coarse, setCoarse] = useState(
     () =>
@@ -4245,71 +4247,6 @@ export function ComboboxField({
   );
 }
 
-// Haul directory cover: multi-item corner fan (transitions.dev CardCornerFan).
-// Name + price sit in a separate label box below — not attached to the stack.
-// One item = one flat card (no ghost stack). Two+ items fan on hover; on touch
-// they rest half-fanned so multi-item hauls still read as stacks.
-function HaulCoverFan({ covers = [], name = "", count = 0 }) {
-  const [hovered, setHovered] = useState(false);
-  const reduced = usePrefersReducedMotion();
-  const coarse = useCoarsePointer();
-  // Real covers only — never invent empty ghost cards for a 1-item haul.
-  const images = covers.length ? covers.slice(0, 5) : [null];
-  const slots = images;
-  const total = slots.length;
-  const single = total <= 1 || count <= 1;
-  const angle = coarse && !hovered ? 22 : 36; // resting fan is tighter than hover fan
-  // Single-item hauls stay flat. Multi-item: hover (desktop) or rest-open (touch).
-  const open = !single && (hovered || coarse) && !reduced;
-
-  return (
-    <div
-      className={"cz-haul-fan" + (single ? " is-single" : "")}
-      onMouseEnter={() => !single && setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      aria-hidden="true"
-    >
-      {slots.map((src, i) => {
-        const offsetRatio = total <= 1 ? 0 : i / (total - 1);
-        const startAngle = -10;
-        const targetRotate = open ? startAngle + offsetRatio * angle : 0;
-        const x = open ? (offsetRatio - 0.5) * 10 : 0;
-        return (
-          <motion.div
-            key={(src || "empty") + "-" + i}
-            className={"cz-haul-fan-card" + (src ? "" : " is-empty")}
-            animate={{
-              rotate: targetRotate,
-              x,
-              scale: open && i === Math.floor(total / 2) ? 1.03 : 1,
-            }}
-            transition={
-              reduced
-                ? { duration: 0 }
-                : { type: "spring", stiffness: 180, damping: 20, mass: 0.8 }
-            }
-            style={{
-              zIndex: total - i,
-              transformOrigin: "0% 100%",
-            }}
-          >
-            {src ? (
-              <img src={src} alt="" draggable={false} loading="lazy" decoding="async" />
-            ) : (
-              <div className="cz-haul-fan-placeholder">
-                {(name || "?").slice(0, 1).toUpperCase()}
-              </div>
-            )}
-          </motion.div>
-        );
-      })}
-      {!single && count > slots.filter(Boolean).length ? (
-        <span className="cz-haul-fan-more">+{count - slots.filter(Boolean).length}</span>
-      ) : null}
-    </div>
-  );
-}
-
 // Haul control as a transitions.dev accordion — expand to pick / create / remove.
 // Used on the card-back details face and the edit form.
 export function HaulAccordionField({
@@ -4879,107 +4816,6 @@ function InfoBubble({ title, children, onClose }) {
 }
 
 // Size facts live inside SizeRecommendation now — no second "Sizes" bubble.
-
-// Photo fan on the card back (Kyle 2026-07-22): keep the little-card fan
-// language — flat grid looked like a dump (size-chart cells etc.).
-// variant "roomy" = taller peels for the product sheet so the back isn't empty.
-// variant "compact" = original 80×60 stack (legacy / tight spots).
-// Tap opens the full-screen gallery. Carousel physics untouched.
-function CardCornerFan({
-  item,
-  images,
-  onOpenPhotos,
-  reduced,
-  interactive = true,
-  variant = "compact",
-}) {
-  const roomy = variant === "roomy";
-  const maxShow = roomy ? 6 : 4;
-  const cardW = roomy ? 88 : 60;
-  const [isHovered, setIsHovered] = useState(false);
-  const fanRef = useRef(null);
-  const [fanWidth, setFanWidth] = useState(roomy ? 320 : 284);
-  useEffect(() => {
-    const fan = fanRef.current;
-    if (!fan) return;
-    const update = () => setFanWidth(fan.clientWidth || (roomy ? 320 : 284));
-    update();
-    if (!window.ResizeObserver) return;
-    const observer = new window.ResizeObserver(update);
-    observer.observe(fan);
-    return () => observer.disconnect();
-  }, [roomy]);
-  const list = Array.isArray(images) ? images.filter(Boolean) : [];
-  const displayed = list.slice(0, maxShow);
-  const total = displayed.length;
-  const maxStep = roomy ? 78 : 66;
-  const spreadStep =
-    total > 1 ? Math.min(maxStep, Math.max(0, (fanWidth - cardW) / (total - 1))) : 0;
-  if (total === 0) return null;
-
-  const openGallery = (e) => {
-    if (!interactive) return;
-    e?.stopPropagation?.();
-    if (onOpenPhotos) onOpenPhotos(item, e?.currentTarget);
-  };
-
-  return (
-    <div
-      ref={fanRef}
-      className={"cz-corner-fan" + (roomy ? " is-roomy" : "")}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onFocus={() => setIsHovered(true)}
-      onBlur={() => setIsHovered(false)}
-      onClick={openGallery}
-      role="button"
-      tabIndex={interactive ? 0 : -1}
-      aria-label="Open photo gallery"
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          if (!interactive) return;
-          e.preventDefault();
-          openGallery(e);
-        }
-      }}
-    >
-      {displayed.map((src, i) => {
-        // Cover left; rest peel flat on hover. Roomy starts half-open so the
-        // tall product sheet already shows a fan, not a stacked stamp pile.
-        const hover = isHovered;
-        const restStep = roomy ? Math.min(spreadStep * 0.55, maxStep * 0.55) : 2;
-        const step = hover ? spreadStep : restStep;
-        const x = total <= 1 ? 0 : i * step;
-        const angle = hover ? 0 : roomy ? i * 1.1 : i * 1.5;
-        return (
-          <motion.div
-            key={src + i}
-            className="cz-corner-fan-card"
-            animate={{
-              rotate: angle,
-              x,
-              y: 0,
-              scale: hover && i === 0 ? 1.04 : 1,
-              zIndex: maxShow + 1 - i,
-            }}
-            transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 240, damping: 22 }}
-            style={{ originX: 0.5, originY: 1 }}
-          >
-            <img src={src} alt={"Gallery image " + (i + 1)} draggable={false} loading="lazy" decoding="async" />
-          </motion.div>
-        );
-      })}
-      {list.length > maxShow && (
-        <span className="cz-corner-fan-more">+{list.length - maxShow}</span>
-      )}
-      {roomy && list.length > 1 ? (
-        <span className="cz-corner-fan-caption">
-          {list.length} photos · hover to fan · tap to browse
-        </span>
-      ) : null}
-    </div>
-  );
-}
 
 // The one detail layout for an item — the carousel card back is the app's
 // single detail surface, and this is its body. Element order is the standard:
