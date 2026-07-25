@@ -8964,6 +8964,12 @@ export default function Credenza() {
         if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
         else notify("Checkout cancelled — nothing was charged.");
       }
+      // Return from the Stripe Customer Portal: land on the Profile sheet,
+      // where billing lives (portal.js builds this return URL).
+      if (params.get("profile")) {
+        stripUrl();
+        setProfileOpen(true);
+      }
       const session = await getValidSession();
       if (cancelled) return;
       setAccountSession(session);
