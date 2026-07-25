@@ -8638,6 +8638,17 @@ export function ModalShell({ title, onClose, children, maxWidth = 720, trailing,
   const titleId = useId();
   const triggerRef = useRef(null);
 
+  // Lock the page behind the sheet. A native dialog blocks taps but iOS
+  // still rubber-bands the body under it (Kyle 2026-07-25: "in the settings
+  // and you swipe down, the background moves").
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   useEffect(() => {
     triggerRef.current = document.activeElement;
     const dialog = dialogRef.current;
@@ -9013,21 +9024,28 @@ function HaulBoard({ record, pipeline, totalUsd, onUpdate, onArchive }) {
             onChange={(e) => setParcelDraft({ ...parcelDraft, weight: e.target.value })}
           />
           <span className="cz-haul-board-label" id="cz-haul-parcel-dims-label">
-            L × W × H (cm)
+            Box size (cm)
           </span>
           <div className="cz-haul-board-dims" role="group" aria-labelledby="cz-haul-parcel-dims-label">
+            {/* Each box names itself — three bare number fields read as a bug
+                (Kyle 2026-07-25: "three boxes. Not really sure what those are
+                for"). The aria-label keeps the full name for screen readers. */}
             {["l", "w", "h"].map((axis) => (
-              <input
-                key={axis}
-                className="cz-haul-board-input"
-                type="number"
-                min="0"
-                step="1"
-                inputMode="numeric"
-                aria-label={axis === "l" ? "Length (cm)" : axis === "w" ? "Width (cm)" : "Height (cm)"}
-                value={parcelDraft[axis]}
-                onChange={(e) => setParcelDraft({ ...parcelDraft, [axis]: e.target.value })}
-              />
+              <label key={axis} className="cz-haul-board-dim">
+                <span className="cz-haul-board-dim-label" aria-hidden="true">
+                  {axis.toUpperCase()}
+                </span>
+                <input
+                  className="cz-haul-board-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  aria-label={axis === "l" ? "Length (cm)" : axis === "w" ? "Width (cm)" : "Height (cm)"}
+                  value={parcelDraft[axis]}
+                  onChange={(e) => setParcelDraft({ ...parcelDraft, [axis]: e.target.value })}
+                />
+              </label>
             ))}
           </div>
           <label className="cz-haul-board-label" htmlFor="cz-haul-parcel-pack">

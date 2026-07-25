@@ -89,7 +89,40 @@ describe("DetailSheet buy action", () => {
   });
 });
 
-// 2026-07-25 (Kyle): "the three dots simply remove the article of clothing."
+// 2026-07-25 (Kyle): "weight should have a g/kg toggle dropdown next to
+// Done." The stored value stays grams; the toggle only changes the display.
+describe("DetailSheet weight editor units", () => {
+  it("the weight editor offers a g/kg toggle and converts kg to grams", () => {
+    const onSaveEdit = vi.fn();
+    render(
+      <DetailSheet
+        item={{ ...twoBuyLinkItem(), weightGrams: 1200 }}
+        onSaveEdit={onSaveEdit}
+        onRemove={vi.fn()}
+        onOpen={vi.fn()}
+        onAttachPhoto={vi.fn()}
+        onRemovePhoto={vi.fn()}
+        onSetCover={vi.fn()}
+        onOpenSizes={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Weight/ }));
+    const input = screen.getByRole("textbox", { name: /Weight/ });
+    expect(input).toHaveValue("1200");
+
+    fireEvent.click(screen.getByRole("button", { name: "kg" }));
+    expect(input).toHaveValue("1.2");
+
+    fireEvent.change(input, { target: { value: "1.5" } });
+    // The draft write-through is debounced, but the draft itself converts at
+    // once: flip back to g and the grams value is already there.
+    fireEvent.click(screen.getByRole("button", { name: "g" }));
+    expect(input).toHaveValue("1500");
+  });
+});
+
+
 // The overflow button opens a menu now; the delete lives inside it, and the
 // menu carries the cover-photo action the mobile sheet lost in the redesign.
 describe("DetailSheet overflow menu", () => {

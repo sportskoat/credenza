@@ -178,8 +178,15 @@ export default function DetailSheet({
   const [notesOpen, setNotesOpen] = useState(false);
   const [photoIdx, setPhotoIdx] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The weight editor converts on the fly; weightText is the raw kg string
+  // while the kg unit is active so the caret never jumps mid-type.
+  const [weightUnit, setWeightUnit] = useState("g");
+  const [weightText, setWeightText] = useState("");
   const savedTimer = useRef(null);
   const trackRef = useRef(null);
+  const editorSlotRef = useRef(null);
+  const surfaceRef = useRef(null);
+  const gripDrag = useRef(null);
 
   const view = draft || buildEditDraft(item);
 
@@ -207,12 +214,48 @@ export default function DetailSheet({
     };
   }, []);
 
+  // Lock the page behind the sheet — a native dialog blocks taps but iOS
+  // still rubber-bands the body under it.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   useEffect(() => {
     if (editingTitle && titleInputRef.current) {
       titleInputRef.current.focus();
       titleInputRef.current.select();
     }
   }, [editingTitle]);
+
+  // Keep the open editor above the iOS keyboard. The keyboard takes ~300ms
+  // to finish opening, and iOS scrolls the input BEFORE it settles, so the
+  // editor lands half-covered with the spec cells ghosting behind it (Kyle
+  // 2026-07-25: "big overlay... lags over the screen"). Scroll after the
+  // settle, and again whenever the visual viewport shrinks.
+  useEffect(() => {
+    if (!editingCell) {
+      // A closed weight editor forgets the unit toggle with it.
+      setWeightUnit("g");
+      setWeightText("");
+      return undefined;
+    }
+    const el = editorSlotRef.current;
+    if (!el || !el.scrollIntoView) return undefined;
+    const reveal = () => el.scrollIntoView({ block: "center", behavior: "smooth" });
+    const t1 = setTimeout(reveal, 80);
+    const t2 = setTimeout(reveal, 380);
+    const vv = window.visualViewport;
+    if (vv) vv.addEventListener("resize", reveal);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (vv) vv.removeEventListener("resize", reveal);
+    };
+  }, [editingCell]);
 
   const edit = (key, value) =>
     setDraft((d) => ({ ...(d || buildEditDraft(item)), [key]: value }));
@@ -230,6 +273,44 @@ export default function DetailSheet({
   const closeSheet = () => {
     commitRef.current();
     onClose();
+  };
+
+  // Swipe-down on the grip closes the sheet (Kyle 2026-07-25: "swiping down
+  // on a card should take you back to the shelf"). The enter animation fills
+  // FORWARDS, so its final translateY(0) keyframe outranks an inline drag
+  // transform — clear the animation the moment a drag starts. Scoped to the
+  // grip on purpose: a pull anywhere else fights the scroll rubber-band.
+  const onGripTouchStart = (e) => {
+    gripDrag.current = { y: e.touches[0].clientY, dy: 0 };
+    const s = surfaceRef.current;
+    if (s) {
+      s.style.animation = "none";
+      s.style.transition = "none";
+    }
+  };
+  const onGripTouchMove = (e) => {
+    const d = gripDrag.current;
+    const s = surfaceRef.current;
+    if (!d || !s) return;
+    d.dy = Math.max(0, e.touches[0].clientY - d.y);
+    s.style.transform = "translateY(" + d.dy + "px)";
+  };
+  const onGripTouchEnd = () => {
+    const d = gripDrag.current;
+    gripDrag.current = null;
+    const s = surfaceRef.current;
+    if (!d || !s) return;
+    if (d.dy > 110) {
+      s.style.transition = "transform 180ms ease-in";
+      s.style.transform = "translateY(102%)";
+      setTimeout(closeSheet, 170);
+    } else {
+      s.style.transition = "transform 200ms ease-out";
+      s.style.transform = "";
+      setTimeout(() => {
+        if (s) s.style.transition = "";
+      }, 220);
+    }
   };
 
   const photos = itemPhotoList(item, 12);
@@ -268,8 +349,19 @@ export default function DetailSheet({
     editingCell === "price"
       ? editorLabel + " · " + (String(view.currency || "CNY").toUpperCase() === "USD" ? "$ USD" : "¥ CNY")
       : editingCell === "weightGrams"
-        ? editorLabel + " · g"
+        ? editorLabel + " · " + weightUnit
         : editorLabel;
+
+  // g/kg toggle (Kyle 2026-07-25: "weight should have a g/kg toggle next to
+  // Done"). Stored value stays grams; the toggle only changes the display.
+  const switchWeightUnit = (next) => {
+    if (next === weightUnit) return;
+    if (next === "kg") {
+      const grams = parseFloat(view.weightGrams);
+      setWeightText(Number.isNaN(grams) ? "" : String(+(grams / 1000).toFixed(3)));
+    }
+    setWeightUnit(next);
+  };
 
   const renderEditor = () => {
     if (!editingCell) return null;
@@ -334,7 +426,51 @@ export default function DetailSheet({
         </div>
       );
     }
-    // price and weight: numeric keypad, still 16px so iOS does not zoom.
+    if (editingCell === "weightGrams") {
+      return (
+        <div className="cz-detail-editor">
+          <span className="cz-detail-editor-label">{editorLabelFull}</span>
+          <input
+            ref={focusOnMount}
+            className="cz-detail-editor-input"
+            aria-label={editorLabelFull}
+            inputMode="decimal"
+            value={weightUnit === "kg" ? weightText : view.weightGrams}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (weightUnit !== "kg") {
+                edit("weightGrams", raw);
+                return;
+              }
+              setWeightText(raw);
+              const kg = parseFloat(raw);
+              edit("weightGrams", raw.trim() === "" || Number.isNaN(kg) ? "" : String(Math.round(kg * 1000)));
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") setEditingCell(null);
+            }}
+          />
+          <div className="cz-detail-unit" role="group" aria-label="Weight unit">
+            {["g", "kg"].map((u) => (
+              <button
+                key={u}
+                type="button"
+                className={"cz-detail-unit-btn" + (weightUnit === u ? " is-active" : "")}
+                aria-pressed={weightUnit === u}
+                onClick={() => switchWeightUnit(u)}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="cz-detail-editor-done" onClick={() => setEditingCell(null)}>
+            Done
+          </button>
+        </div>
+      );
+    }
+    // price: numeric keypad, still 16px so iOS does not zoom.
     return (
       <div className="cz-detail-editor">
         <span className="cz-detail-editor-label">{editorLabelFull}</span>
@@ -371,12 +507,19 @@ export default function DetailSheet({
         if (e.target === e.currentTarget) closeSheet();
       }}
     >
-      <div className={"cz-detail-surface" + (reduced ? " is-still" : "")}>
-        <div className="cz-detail-grip" aria-hidden="true">
+      <div ref={surfaceRef} className={"cz-detail-surface" + (reduced ? " is-still" : "")}>
+        <div
+          className="cz-detail-grip"
+          aria-hidden="true"
+          onTouchStart={onGripTouchStart}
+          onTouchMove={onGripTouchMove}
+          onTouchEnd={onGripTouchEnd}
+          onTouchCancel={onGripTouchEnd}
+        >
           <span />
         </div>
 
-        <div className="cz-detail-scroll">
+        <div className={"cz-detail-scroll" + (editingCell ? " is-editing" : "")}>
           {/* Photo pager. The dots track the scroll position — one snap per
               photo, so a swipe is the only gesture needed. */}
           <div className="cz-detail-hero">
@@ -534,7 +677,9 @@ export default function DetailSheet({
             })}
           </div>
 
-          {renderEditor()}
+          {/* The slot ref lets the keyboard-settle effect find the open
+              editor and scroll it clear of the keyboard. */}
+          {editingCell ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
 
           <div className="cz-detail-label">Status · one tap</div>
           <StatusChips mode="track" value={view.findStatus} onChange={pickStatus} label="Order status" />

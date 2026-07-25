@@ -26,6 +26,16 @@
   transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
 }
 
+/* iOS holds a tap ~300ms to see if it becomes a double-tap zoom. manipulation
+   tells it a tap is a tap — every button answers at once (Kyle 2026-07-25:
+   "some buttons just kind of not very responsive"). Scroll containers keep
+   their own, stricter touch-action rules. */
+.cz-app[data-fashion="true"] button,
+.cz-app[data-fashion="true"] [role="button"],
+.cz-app[data-fashion="true"] a {
+  touch-action: manipulation;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .cz-app[data-fashion="true"] article:hover {
     transform: translateY(-3px);
@@ -3891,6 +3901,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   width: 58px;
 }
 
+/* One letter beside each box: L, W, H. */
+.cz-haul-board-dim {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cz-haul-board-dim-label {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+}
+
 .cz-haul-board-result {
   font-weight: 700;
   color: var(--cz-money);
@@ -5770,11 +5795,12 @@ a.cz-card-seller:hover {
   opacity: 0.75;
 }
 
-/* On the phone the stash toast belongs above the Stash button, not under the
-   stats row. The base rule pins top: 236px, so an override must clear `top`
-   before `bottom` can apply. 104px = the 60px button + its 26px pad + 18px. */
+/* On the phone every toast sits at the bottom, clear of the Stash dock
+   (Kyle 2026-07-25: the Undo toast "is always in the way... keep it on the
+   bottom"). The base rule pins top: 236px, so the override must clear `top`
+   before `bottom` can apply. 104px = the 60px dock + its 26px pad + 18px. */
 @media (max-width: 767px) {
-  .cz-app[data-fashion="true"] .cz-toast-region:has(.cz-toast[data-tone="action"]) {
+  .cz-app[data-fashion="true"] .cz-toast-region {
     top: auto;
     bottom: calc(104px + env(safe-area-inset-bottom, 0px));
     inset-inline: 16px;
@@ -8740,7 +8766,10 @@ a.cz-card-seller:hover {
   flex: 0 0 auto;
   display: flex;
   justify-content: center;
-  padding: 10px 0 2px;
+  /* The grip owns the swipe-down-to-close gesture; the browser must not
+     claim the pan as a scroll. The tall pad is the touch target. */
+  touch-action: none;
+  padding: 14px 0 8px;
 }
 
 .cz-detail-grip span {
@@ -8762,6 +8791,13 @@ a.cz-card-seller:hover {
 
 .cz-detail-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* While an editor is open, the keyboard covers the bottom half of the sheet.
+   The extra scroll room lets the container center the editor in the visible
+   strip above the keyboard instead of leaving it stranded underneath. */
+.cz-detail-scroll.is-editing {
+  padding-bottom: 45vh;
 }
 
 /* ── Photo pager ── */
@@ -9141,6 +9177,31 @@ a.cz-card-seller:hover {
   width: 100%;
   min-height: 44px;
   margin-top: 12px;
+}
+
+/* g/kg toggle in the weight editor — a two-stop segmented control. */
+.cz-detail-unit {
+  flex: 0 0 auto;
+  display: flex;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cz-detail-unit-btn {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-detail-unit-btn.is-active {
+  background: var(--cz-seg);
+  color: var(--cz-ink);
 }
 
 /* ── Fit block: what the Size · fit cell opens ── */
