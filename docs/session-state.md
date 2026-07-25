@@ -7,8 +7,8 @@ Overwrite sections in place — this is current state, not a log.
 
 **Last updated:** 2026-07-25 (Execution Plan Parts 0–6 DONE + DEPLOYED, Part 7 in progress; mobile walkthrough fixes DEPLOYED; **deploys BLOCKED by Netlify credits**)
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
-**Production:** https://credenzafashion.com — **LIVE at `376e316` (walkthrough fixes + bottom bar hidden on the brand-new empty shelf, deployed 2026-07-25; Netlify deploy `6a646d6340010ebd8caddb2c`)**. The new Anthropic key (set via CLI 2026-07-24) is active in prod.
-**DEPLOY BLOCKER (2026-07-25 ~08:20Z):** Netlify API: "Account credit usage exceeded — new deploys are blocked until credits are added". Committed but UNDEPLOYED: `5b925df` (haul paste routing + parser fixes), `6c2cbcf` (Part 7d checkout + portal functions; server-only, no client callers yet). **Kyle: add credits at app.netlify.com → billing, then run `cd preview && npx netlify deploy --build --prod`.**
+**Production:** https://credenzafashion.com — **LIVE at `145a307` (2026-07-25, deploy `6a64cea9be43e3c1dc0235a3`): haul paste routing + French parser fixes (`5b925df`), Part 7d checkout + portal functions, Part 7e client accounts + delete-account, Part 7f paid gate. 365 tests.** The new Anthropic key (set via CLI 2026-07-24) is active in prod. Live-verified: checkout answers "missing STRIPE_SECRET_KEY" (Kyle hasn't set Stripe env), delete-account + ask 401 correctly. **Deploy blocker CLEARED — Kyle added Netlify credits 2026-07-25.** (Incident, cleaned up: one deploy ran from the repo root and auto-created a stray site `brilliant-nougat-7a3867`; deleted via API minutes later. Always deploy from `preview/` or pass `--site d5dbe760-ea61-4603-be4a-0435e08e707a`.)
+**DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
 
 ---
 
