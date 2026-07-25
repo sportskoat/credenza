@@ -64,6 +64,12 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     return record;
   }
 
+  // Account deletion (Part 7e): remove the row entirely. Local data is the
+  // user's own device business — only the server record goes.
+  async function deleteEntitlement(userId) {
+    await req("/entitlements?user_id=eq." + encodeURIComponent(userId), { method: "DELETE" });
+  }
+
   async function isEventProcessed(eventId) {
     const res = await req("/processed_events?event_id=eq." + encodeURIComponent(eventId) + "&select=event_id");
     const rows = await res.json();
@@ -83,7 +89,7 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     }
   }
 
-  return { loadEntitlement, loadByStripeCustomer, saveEntitlement, isEventProcessed, markEventProcessed };
+  return { loadEntitlement, loadByStripeCustomer, saveEntitlement, deleteEntitlement, isEventProcessed, markEventProcessed };
 }
 
 function storeFromEnv(env = process.env) {

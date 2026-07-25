@@ -30,6 +30,7 @@ export default function ProfileSheet({
   onUpgrade,
   onPortal,
   onSignOut,
+  onDeleteAccount,
   onClose,
 }) {
   const themes = [
@@ -39,9 +40,12 @@ export default function ProfileSheet({
   // Local UI state for the account card: the email draft, one busy flag per
   // action, an inline error line, and the "check your email" confirmation.
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(""); // "link" | "google" | "monthly" | "yearly" | "portal" | "signout"
+  const [busy, setBusy] = useState(""); // "link" | "google" | "monthly" | "yearly" | "portal" | "signout" | "delete"
   const [error, setError] = useState("");
   const [linkSent, setLinkSent] = useState(false);
+  // Delete account is two-tap: the first tap arms it, the second sends it.
+  // Arming resets whenever the sheet closes (state dies with the sheet).
+  const [deleteArmed, setDeleteArmed] = useState(false);
 
   const run = async (key, fn) => {
     if (busy) return;
@@ -168,6 +172,30 @@ export default function ProfileSheet({
           >
             <span>{busy === "signout" ? "Signing out…" : "Sign out"}</span>
             <span className="cz-profile-row-val">This device only ›</span>
+          </button>
+          <button
+            type="button"
+            className="cz-profile-row cz-profile-danger"
+            disabled={!!busy}
+            onClick={() => {
+              if (!deleteArmed) {
+                setDeleteArmed(true);
+                setError("");
+                return;
+              }
+              run("delete", onDeleteAccount);
+            }}
+          >
+            <span>
+              {busy === "delete"
+                ? "Deleting…"
+                : deleteArmed
+                  ? "Tap again to delete your account"
+                  : "Delete account"}
+            </span>
+            <span className="cz-profile-row-val">
+              {deleteArmed ? "No undo. Your shelf stays on this device." : "Sign-in & plan ›"}
+            </span>
           </button>
           {error && <div className="cz-profile-signin-error" role="alert">{error}</div>}
         </div>

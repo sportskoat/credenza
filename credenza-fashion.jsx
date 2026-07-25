@@ -45,6 +45,7 @@ import {
   clearCachedEntitlement,
   checkout as accountCheckout,
   openPortal as accountPortal,
+  deleteAccount as accountDeleteRequest,
 } from "./preview/src/account.js";
 import { overFreeLimit, bumpUsage } from "./preview/src/usage.js";
 import "./credenza.css";
@@ -9019,6 +9020,20 @@ export default function Credenza() {
     setAccountPlan(null);
     notify("Signed out. Your shelf stays on this device.");
   };
+  const accountDelete = async () => {
+    const session = await getValidSession();
+    if (!session) {
+      setAccountSession(null);
+      notify("Your sign-in expired — sign in again first.");
+      return;
+    }
+    await accountDeleteRequest(session.accessToken);
+    await authSignOut(session); // local clear; the server user is already gone
+    clearCachedEntitlement();
+    setAccountSession(null);
+    setAccountPlan(null);
+    notify("Account deleted. Your shelf stays on this device.");
+  };
   // Module-level enrichment (chart-vision) reads the plan through the module
   // mirror — component state stays the one source of truth.
   useEffect(() => {
@@ -11720,6 +11735,7 @@ export default function Credenza() {
           onUpgrade={accountUpgrade}
           onPortal={accountOpenPortal}
           onSignOut={accountSignOut}
+          onDeleteAccount={accountDelete}
           onClose={() => setProfileOpen(false)}
         />
         </Suspense>

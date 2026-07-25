@@ -18,6 +18,8 @@ const CHECKOUT_ENDPOINT =
   (import.meta.env && import.meta.env.VITE_CHECKOUT_ENDPOINT) || "/.netlify/functions/checkout";
 const PORTAL_ENDPOINT =
   (import.meta.env && import.meta.env.VITE_PORTAL_ENDPOINT) || "/.netlify/functions/portal";
+const DELETE_ACCOUNT_ENDPOINT =
+  (import.meta.env && import.meta.env.VITE_DELETE_ACCOUNT_ENDPOINT) || "/.netlify/functions/delete-account";
 
 // Decode a snapshot payload without verifying (see the header comment).
 export function decodeSnapshot(token) {
@@ -96,4 +98,13 @@ export async function openPortal(accessToken, { fetchImpl } = {}) {
   const data = await post(PORTAL_ENDPOINT, accessToken, null, fetchImpl);
   if (!data || typeof data.url !== "string") throw new Error("Portal gave no URL");
   return data.url;
+}
+
+// Delete the server-side account (entitlement row + auth user). The server
+// answers 409 while a subscription is still active — cancel in the Portal
+// first. Local data is untouched; the caller clears the session + cache.
+export async function deleteAccount(accessToken, { fetchImpl } = {}) {
+  const data = await post(DELETE_ACCOUNT_ENDPOINT, accessToken, null, fetchImpl);
+  if (!data || data.deleted !== true) throw new Error("Delete gave no confirmation");
+  return true;
 }

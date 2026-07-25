@@ -22,6 +22,7 @@ import {
   clearCachedEntitlement,
   checkout,
   openPortal,
+  deleteAccount,
   ENTITLEMENT_KEY,
 } from "../src/account.js";
 import { usageToday, bumpUsage, overFreeLimit, USAGE_KEY } from "../src/usage.js";
@@ -281,5 +282,16 @@ describe("checkout + portal", () => {
     const failing = async () => okJson({ error: "No billing account yet" }, 400);
     await expect(openPortal("tok-1", { fetchImpl: failing })).rejects.toThrow("No billing account yet");
     await expect(checkout("tok-1", "monthly", { fetchImpl: failing })).rejects.toThrow("No billing account yet");
+  });
+
+  it("deleteAccount confirms; a 409 (active subscription) throws the message", async () => {
+    const fetchImpl = async (url) => {
+      expect(String(url)).toContain("/.netlify/functions/delete-account");
+      return okJson({ deleted: true });
+    };
+    expect(await deleteAccount("tok-1", { fetchImpl })).toBe(true);
+
+    const paying = async () => okJson({ error: "Cancel your subscription in Manage billing first, then delete the account." }, 409);
+    await expect(deleteAccount("tok-1", { fetchImpl: paying })).rejects.toThrow("Cancel your subscription");
   });
 });
