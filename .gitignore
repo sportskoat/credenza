@@ -12,3 +12,9 @@ docs/mobile-shots/
 
 # Vite cache
 .vite/
+
+# Lane probe artifacts (other agent sessions)
+preview/.agent-verify-profile/
+preview/.affiliate-probe/
+preview/.agent-verify-shots/
+preview/.agent-verify2/
