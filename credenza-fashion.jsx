@@ -15,14 +15,10 @@ import {
 import {
   DEFAULT_AGENT_ID,
   buildAgentUrl,
-  buildSignupUrl,
   getAgent,
   hashItemId,
-  listAgents,
-  loadOutboundClicks,
   marketplaceOf,
   recordOutboundClick,
-  summarizeOutbound,
 } from "./agents.js";
 import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
@@ -30,7 +26,6 @@ import { FIND_STATUSES } from "./credenza-find-status.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
   AUTH_ENABLED,
-  loadSession,
   saveSession,
   sessionFromUrl,
   sendMagicLink,
@@ -1087,7 +1082,7 @@ function inferLinkRole(url) {
   let host = "";
   try {
     host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-  } catch (e) {
+  } catch {
     return "alt";
   }
   if (/(^|\.)yupoo\.com$/.test(host)) return "photos";
@@ -1101,7 +1096,7 @@ function weidianItemId(raw) {
   let u;
   try {
     u = new URL(raw);
-  } catch (e) {
+  } catch {
     return null;
   }
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
@@ -1218,7 +1213,7 @@ function classify(raw) {
   let host = "";
   try {
     host = new URL(url).hostname.replace(/^www\./, "");
-  } catch (e) {
+  } catch {
     return { type: "note", url: null, host: null, videoId: null };
   }
   const ytId = getYouTubeId(url);
@@ -1246,7 +1241,7 @@ function canonicalKey(parsed, rawText) {
   let u = null;
   try {
     u = new URL(url);
-  } catch (e) {
+  } catch {
     return "article:" + url.toLowerCase();
   }
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
@@ -1350,7 +1345,7 @@ export function localTitle(parsed, rawText) {
         return account ? account + " · " + album[1] : "Album " + album[1];
       }
       if (account) return account;
-    } catch (e) {}
+    } catch {}
   }
   // Weidian/Taobao item pages carry the id in the query — name it instead of
   // falling through to the bare host ("weidian.com" cards, 2026-07-25).
@@ -1358,13 +1353,13 @@ export function localTitle(parsed, rawText) {
     try {
       const id = new URL(url).searchParams.get("itemID");
       if (id) return "Weidian item " + id;
-    } catch (e) {}
+    } catch {}
   }
   if (/(^|\.)(taobao\.com|tb\.cn)$/i.test(host)) {
     try {
       const id = new URL(url).searchParams.get("id");
       if (id) return "Taobao item " + id;
-    } catch (e) {}
+    } catch {}
   }
   try {
     const path = new URL(url).pathname.replace(/\/+$/, "");
@@ -1376,7 +1371,7 @@ export function localTitle(parsed, rawText) {
       if (/^(albums?|album|collections?|categories?|items?|products?|shops?|stores?)$/i.test(t)) continue;
       return t.length > 72 ? t.slice(0, 69).trimEnd() + "…" : t;
     }
-  } catch (e) {}
+  } catch {}
   return host || "Saved link";
 }
 
@@ -1413,7 +1408,7 @@ export async function runPool(list, worker, concurrency = 3) {
         if (item === undefined) continue;
         try {
           await worker(item);
-        } catch (e) {}
+        } catch {}
       }
     }
   );
@@ -1429,13 +1424,13 @@ function sellerStoreUrl(item) {  if (!item) return null;
     try {
       const u = new URL(album);
       return u.origin + "/";
-    } catch (e) {}
+    } catch {}
   }
   if (item.url) {
     try {
       const u = new URL(item.url);
       if (/(^|\.)yupoo\.com$/i.test(u.hostname)) return u.origin + "/";
-    } catch (e) {}
+    } catch {}
   }
   return null;
 }
@@ -1470,7 +1465,7 @@ function localTags(parsed, rawText) {
       : (() => {
           try {
             return decodeURIComponent(new URL(parsed.url).pathname).replace(/[-_/+]+/g, " ");
-          } catch (e) {
+          } catch {
             return "";
           }
         })();
@@ -1593,7 +1588,7 @@ async function decodeImage(blob) {
   if (typeof createImageBitmap === "function") {
     try {
       return await createImageBitmap(blob);
-    } catch (e) {}
+    } catch {}
   }
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
@@ -2063,7 +2058,7 @@ export function parseImport(text, opts = {}) {
         }
         return { candidates, provider: "json" };
       }
-    } catch (e) {}
+    } catch {}
   }
 
   // 2. Anchor exports: Pocket HTML carries time_added, browser bookmarks ADD_DATE.
@@ -2521,7 +2516,7 @@ function safeParseJson(text) {
     const end = clean.lastIndexOf("}");
     if (start === -1 || end === -1) return null;
     return JSON.parse(clean.slice(start, end + 1));
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -2544,7 +2539,7 @@ async function aiEnhanceItem(item) {
       summary: parsed.summary ? String(parsed.summary) : item.summary,
       tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 4).map(String) : item.tags,
     };
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -2559,7 +2554,7 @@ async function aiExtractIntent(note) {
       { maxTokens: 300 }
     );
     return safeParseJson(text);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -2636,7 +2631,7 @@ async function fetchYupooImages(albumUrl, { signal } = {}) {
     const data = await res.json();
     if (!data || !Array.isArray(data.images)) return null;
     return data;
-  } catch (e) {
+  } catch {
     return null;
   } finally {
     clearTimeout(timer);
@@ -2675,7 +2670,7 @@ async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) {
     const data = await res.json();
     if (!data || !data.found || typeof data.chartText !== "string") return null;
     return data.chartText.trim() || null;
-  } catch (e) {
+  } catch {
     return null;
   } finally {
     clearTimeout(timer);
@@ -2712,7 +2707,7 @@ async function fetchRedditPost(url, { signal } = {}) {
     const data = await res.json().catch(() => null);
     if (!res.ok) return { found: false, error: (data && data.error) || "Could not read that post" };
     return data;
-  } catch (e) {
+  } catch {
     return null;
   } finally {
     clearTimeout(timer);
@@ -2738,7 +2733,7 @@ function scoreDigestCandidate(item, now) {
   return s;
 }
 
-function scoreForgottenGem(item, now) {
+function scoreForgottenGem(item, _now) {
   let s = 0;
   if (item.note) s += 3;
   if (item.importance === "high") s += 2;
@@ -6519,7 +6514,7 @@ function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isCenter }) {
       onSaveEdit?.(item.id, (x) => ({
         qcPhotos: [...(Array.isArray(x.qcPhotos) ? x.qcPhotos : []), dataUrl].slice(0, 12),
       }));
-    } catch (e) {
+    } catch {
       // Read failure: leave the card untouched (graceful degradation, §11).
     }
   };
@@ -6704,7 +6699,6 @@ function ItemDetailBody({
   onSaveEdit,
   onOpen,
   onOpenPhotos,
-  onOpenBubble,
   bodyProfile,
   measureUnits,
   reduced,
@@ -6903,7 +6897,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   {
     item,
     expanded,
-    selected,
     isCenter,
     flipSignal,
     editSignal,
@@ -8387,7 +8380,7 @@ function CoverFlowCarousel({
   );
 }
 
-function PhotoCoverFlow({ item, images, startIndex, stageSize, onClose, onSetPrimaryImage, onLoadPhotos }) {
+function PhotoCoverFlow({ item, images, startIndex, onClose, onSetPrimaryImage, onLoadPhotos }) {
   const [activeIndex, setActiveIndex] = useState(startIndex || 0);
   const [loadedImages, setLoadedImages] = useState(images);
   const [loading, setLoading] = useState(false);
@@ -8736,11 +8729,11 @@ function DigestDeck({ slides, onClose, onOpen }) {
     const onKey = (event) => {
       if (event.key === "ArrowRight") {
         event.preventDefault();
-        next();
+        setI((value) => Math.min(value + 1, slides.length - 1));
       }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        prev();
+        setI((value) => Math.max(value - 1, 0));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -9472,6 +9465,10 @@ export default function Credenza() {
         flashImportResult("Changes aren't saved. Export a backup before closing Credenza.", null, true);
       }
     });
+    // flashImportResult is re-created per render on purpose (it closes over
+    // the notification helpers); the serialized guard above keeps the extra
+    // runs free. Listing it would re-stringify the shelf every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canPersist, items]);
 
   useEffect(() => {
@@ -9525,11 +9522,11 @@ export default function Credenza() {
     return () => {
       cancelled = true;
     };
-  }, [storageBackend]);
+  }, []);
   useEffect(() => {
     if (!haulsHydrated) return;
     storageBackend.set(HAULS_KEY, JSON.stringify(hauls)).catch(() => {});
-  }, [hauls, haulsHydrated, storageBackend]);
+  }, [hauls, haulsHydrated]);
   // Find-or-create by name, apply the patch, append one history line.
   const updateHaul = useCallback((name, patch, historyEntry) => {
     const clean = String(name || "").trim();
@@ -9594,7 +9591,7 @@ export default function Credenza() {
           }
           window.history.replaceState(null, "", window.location.pathname);
         }
-      } catch (e) {}
+      } catch {}
       // Merge, do not replace (audit 2026-07-24): a stash during the load
       // window used to vanish here. lastSavedRef keeps the stored snapshot,
       // so the save effect persists the merged list once status is ready.
@@ -9669,7 +9666,7 @@ export default function Credenza() {
           } else {
             setOnboardingDone(false);
           }
-        } catch (e) {}
+        } catch {}
       })
       .catch(() => {})
       .finally(() => setPreferencesHydrated(true));
@@ -9794,13 +9791,6 @@ export default function Credenza() {
     return stash(text);
   };
 
-  const capture = () => {
-    const result = dispatchStash(input);
-    if (result.status === "empty" || result.status === "gated") return; // gated keeps the paste
-    setInput("");
-    if (result.status === "stashed") beginIndexingJob(result);
-  };
-
   // The Stash sheet's one button (mobile handoff step 4). The sheet already
   // showed the user what this stashes, so the sheet closes on the tap and the
   // toast carries the Undo. A haul keeps runImport's own messaging: it counts
@@ -9853,12 +9843,12 @@ export default function Credenza() {
     let text = "";
     try {
       text = await navigator.clipboard.readText();
-    } catch (e) {
+    } catch {
       let state = "";
       try {
         const p = await navigator.permissions.query({ name: "clipboard-read" });
         state = p.state;
-      } catch (e2) {}
+      } catch {}
       focusCapture();
       flashImportResult(
         state === "denied"
@@ -10112,7 +10102,7 @@ export default function Credenza() {
           if (next.some((x) => itemMatchesCanonicalKey(x, item.canonicalKey))) continue;
           next = [item, ...next];
           added++;
-        } catch (e) {}
+        } catch {}
       }
       return next;
     });
@@ -10229,7 +10219,7 @@ export default function Credenza() {
     try {
       const dataUrl = await compressImageBlob(file);
       updateItem(id, { image: dataUrl });
-    } catch (e) {
+    } catch {
       flashImportResult("Couldn't read that image.");
     }
   };
@@ -10238,7 +10228,7 @@ export default function Credenza() {
     try {
       const dataUrl = await compressImageBlob(file);
       updateItem(id, (x) => ({ gallery: [...(x.gallery || []), dataUrl].slice(0, 12) }));
-    } catch (e) {
+    } catch {
       flashImportResult("Couldn't read that gallery image.");
     }
   };
@@ -10282,7 +10272,7 @@ export default function Credenza() {
       const blob = await res.blob();
       if (!/^image\//.test(blob.type || "")) return null;
       return await compressImageBlob(blob);
-    } catch (e) {
+    } catch {
       return null;
     } finally {
       clearTimeout(timer);
@@ -10374,7 +10364,7 @@ export default function Credenza() {
       });
       bumpUsage("resolve");
       if (res.ok) data = await res.json();
-    } catch (e) {
+    } catch {
       data = null;
     } finally {
       clearTimeout(timer);
@@ -10525,7 +10515,7 @@ export default function Credenza() {
         updateEnrichedItem(item.id, token, { status: "ready" });
       }
       return handled;
-    } catch (e) {
+    } catch {
       // A failed enhance must never strand the card in the Inbox. Keep the
       // link-only card on the shelf, the same outcome resolveBuyDetails
       // uses for a dead page (Kyle 2026-07-25: a 20-link paste left 3 cards

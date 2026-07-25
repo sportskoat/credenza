@@ -91,7 +91,7 @@ export default function ImportSheet({ items, hasSamples, onImport, onAddSamples,
             onRestore(arr);
             return;
           }
-        } catch (e) {}
+        } catch {}
       }
       setText((prev) => (prev ? prev + "\n" : "") + content);
     };

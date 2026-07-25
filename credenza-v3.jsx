@@ -149,7 +149,7 @@ function inferLinkRole(url) {
   let host = "";
   try {
     host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-  } catch (e) {
+  } catch {
     return "alt";
   }
   if (/(^|\.)yupoo\.com$/.test(host)) return "photos";
@@ -200,7 +200,7 @@ function classify(raw) {
   let host = "";
   try {
     host = new URL(url).hostname.replace(/^www\./, "");
-  } catch (e) {
+  } catch {
     return { type: "note", url: null, host: null, videoId: null };
   }
   const ytId = getYouTubeId(url);
@@ -224,7 +224,7 @@ function canonicalKey(parsed, rawText) {
   let u = null;
   try {
     u = new URL(url);
-  } catch (e) {
+  } catch {
     return "article:" + url.toLowerCase();
   }
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
@@ -299,7 +299,7 @@ function localTitle(parsed, rawText) {
       const t = prettifySlug(segs[i]);
       if (t && t.length > 3) return t.length > 72 ? t.slice(0, 69).trimEnd() + "…" : t;
     }
-  } catch (e) {}
+  } catch {}
   return host || "Saved link";
 }
 
@@ -333,7 +333,7 @@ function localTags(parsed, rawText) {
       : (() => {
           try {
             return decodeURIComponent(new URL(parsed.url).pathname).replace(/[-_/+]+/g, " ");
-          } catch (e) {
+          } catch {
             return "";
           }
         })();
@@ -456,7 +456,7 @@ async function decodeImage(blob) {
   if (typeof createImageBitmap === "function") {
     try {
       return await createImageBitmap(blob);
-    } catch (e) {}
+    } catch {}
   }
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
@@ -796,7 +796,7 @@ function parseImport(text) {
         }
         return { candidates, provider: "json" };
       }
-    } catch (e) {}
+    } catch {}
   }
 
   // 2. Anchor exports: Pocket HTML carries time_added, browser bookmarks ADD_DATE.
@@ -1151,7 +1151,7 @@ function safeParseJson(text) {
     const end = clean.lastIndexOf("}");
     if (start === -1 || end === -1) return null;
     return JSON.parse(clean.slice(start, end + 1));
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -1174,7 +1174,7 @@ async function aiEnhanceItem(item) {
       summary: parsed.summary ? String(parsed.summary) : item.summary,
       tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 4).map(String) : item.tags,
     };
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -1189,7 +1189,7 @@ async function aiExtractIntent(note) {
       { maxTokens: 300 }
     );
     return safeParseJson(text);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -2379,11 +2379,11 @@ function DigestDeck({ slides, onClose, onOpen }) {
     const onKey = (event) => {
       if (event.key === "ArrowRight") {
         event.preventDefault();
-        next();
+        setI((value) => Math.min(value + 1, slides.length - 1));
       }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        prev();
+        setI((value) => Math.max(value - 1, 0));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -2510,7 +2510,7 @@ function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples
             onRestore(arr);
             return;
           }
-        } catch (e) {}
+        } catch {}
       }
       setText((prev) => (prev ? prev + "\n" : "") + content);
     };
@@ -2813,6 +2813,10 @@ export default function Credenza() {
         flashImportResult("Changes aren't saved. Export a backup before closing Credenza.", null, true);
       }
     });
+    // flashImportResult is re-created per render on purpose; the serialized
+    // guard above keeps the extra runs free. Listing it would re-stringify
+    // the shelf every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canPersist, items]);
 
   useEffect(() => {
@@ -2864,7 +2868,7 @@ export default function Credenza() {
           }
           window.history.replaceState(null, "", window.location.pathname);
         }
-      } catch (e) {}
+      } catch {}
       setItems(it);
       setStorageState({ status: "ready", raw: null, error: null });
       const pick = pickResurface(it, Date.now());
@@ -2883,7 +2887,7 @@ export default function Credenza() {
         if (["recent", "oldest", "importance", "unopened"].includes(p.sortMode))
           setSortMode(p.sortMode);
         if (p.theme === "dark" || p.theme === "light") setTheme(p.theme);
-      } catch (e) {}
+      } catch {}
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2932,12 +2936,12 @@ export default function Credenza() {
     let text = "";
     try {
       text = await navigator.clipboard.readText();
-    } catch (e) {
+    } catch {
       let state = "";
       try {
         const p = await navigator.permissions.query({ name: "clipboard-read" });
         state = p.state;
-      } catch (e2) {}
+      } catch {}
       captureRef.current && captureRef.current.focus();
       flashImportResult(
         state === "denied"
@@ -3053,7 +3057,7 @@ export default function Credenza() {
           if (next.some((x) => itemMatchesCanonicalKey(x, item.canonicalKey))) continue;
           next = [item, ...next];
           added++;
-        } catch (e) {}
+        } catch {}
       }
       return next;
     });
@@ -3144,7 +3148,7 @@ export default function Credenza() {
     try {
       const dataUrl = await compressImageBlob(file);
       updateItem(id, { image: dataUrl });
-    } catch (e) {
+    } catch {
       flashImportResult("Couldn't read that image.");
     }
   };
@@ -3178,7 +3182,7 @@ export default function Credenza() {
         const dataUrl = await compressImageBlob(blob);
         updateItem(item.id, (x) => (x.image ? {} : { image: dataUrl }));
         return;
-      } catch (e) {}
+      } catch {}
     }
   };
 
