@@ -237,6 +237,35 @@ unchanged, disclosure copy stays).
 |---|---|---|---|
 | S1 | QW1, QW2, QW11, QW12 (CSS/aria batch — no logic) | ½ day | tap-target sweep in WebKit harness; axe pass |
 | S2 | QW3-QW8 (token/contrast batch) | ½ day | contrast table recomputed ≥ thresholds; both themes screenshotted |
+
+### S2 acceptance: contrast recomputed 2026-07-25
+
+Source: `preview/scripts/probe-step5.mjs`, WebKit, iPhone 15 Pro, both themes.
+The script composites each color over its real backdrop on a canvas, then reads
+the pixel. This is required because `--cz-money-bg` carries alpha, and because
+WebKit returns `oklch()` unconverted.
+
+| Pair | Gallery | Blackout | Min |
+| --- | --- | --- | --- |
+| `--cz-status-bought-text` on `--cz-status-bought-bg` | 6.85:1 | 8.32:1 | 4.5 |
+| `--cz-status-shipped-text` on `--cz-status-shipped-bg` | 7.13:1 | 8.21:1 | 4.5 |
+| `--cz-status-qc-text` on `--cz-status-qc-bg` | 6.38:1 | 8.32:1 | 4.5 |
+| `--cz-money` on `--cz-money-bg` | 4.82:1 | 7.23:1 | 4.5 |
+| `--cz-money-on-photo` on `--cz-action-fill` | 11.28:1 | 4.98:1 | 4.5 |
+| `--cz-ink` on `--cz-card-solid` | 17.77:1 | 14.91:1 | 4.5 |
+| `--cz-faint` on `--cz-card-solid` | 4.98:1 | 6.40:1 | 3 |
+
+Two fixes came out of this run:
+
+- Gallery `--cz-money` moved from `#15803d` to `#147a3a`. The old value measured
+  4.46:1, below the 4.5:1 text floor.
+- The detail sheet had four rules at 9px and 9.5px. All moved to 10px, the
+  handoff floor. `.cz-detail-cell-label` traded 0.04em of tracking to fit.
+
+Touch targets on the same run: all six spec cells 56px, all four status chips
+44px, the two photo buttons 36px visual with a 44px `::after` hit area, the buy
+button 54px, the inline editor input 44px, the Done button 44px. The editor
+input measures 16px type, so iOS does not zoom the page on focus.
 | S3 | QW9, QW10 (sheet opacity + carousel clearance) | ½ day | shots 03/05 re-taken, no bleed/clip |
 | S4 | C2 hero collapse | ½ day | first-paint shot shows cards above fold |
 | S5 | **C1 detail sheet** (the big one) + C5 header cleanup | 2-3 days | flows (b)(d) re-tap-counted: notes ≤2 taps, Buy ≤2 taps from grid |

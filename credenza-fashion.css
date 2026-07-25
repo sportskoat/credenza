@@ -8697,3 +8697,690 @@ a.cz-card-seller:hover {
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* ═══ MOBILE DETAIL SHEET (mobile shelf handoff step 5, 2026-07-25) ═══
+   One surface replaces the in-grid expansion and the separate edit form on a
+   phone. There is no edit mode: every value is its own 44px tap target and
+   the write goes through the shared 600ms debounce. Desktop never sees this
+   sheet — the carousel and its card back stay frozen. */
+
+.cz-detail-modal {
+  width: 100vw;
+  max-width: 100vw;
+  max-height: 100dvh;
+  margin: auto auto 0;
+}
+
+.cz-detail-surface {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: calc(100dvh - 88px);
+  overflow: hidden;
+  background: var(--cz-bg);
+  border-radius: 26px 26px 0 0;
+  box-shadow: 0 -12px 40px oklch(0 0 0 / 0.24);
+  animation: cz-detail-up 260ms cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+
+@keyframes cz-detail-up {
+  from { transform: translateY(102%); }
+  to   { transform: translateY(0); }
+}
+
+.cz-detail-surface.is-still {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-detail-surface { animation: none; }
+}
+
+.cz-detail-grip {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 2px;
+}
+
+.cz-detail-grip span {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--cz-hair-strong);
+}
+
+.cz-detail-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 18px 20px;
+  scrollbar-width: none;
+}
+
+.cz-detail-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Photo pager ── */
+.cz-detail-hero {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--cz-seg);
+}
+
+.cz-detail-hero-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.cz-detail-hero-track::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-detail-hero-track img,
+.cz-detail-hero-empty {
+  flex: 0 0 100%;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  scroll-snap-align: center;
+  background: var(--cz-seg);
+}
+
+.cz-detail-dots {
+  position: absolute;
+  inset: auto 0 12px 0;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+.cz-detail-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.6);
+  transition: width 160ms ease-out;
+}
+
+.cz-detail-dot.is-active {
+  width: 16px;
+  background: oklch(1 0 0 / 0.95);
+}
+
+.cz-detail-hero-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+/* 36px on purpose: these sit on the photo, away from the thumb rail, and the
+   44px rule below would cover the image. Everything in the reachable half of
+   the sheet is 44px. */
+.cz-detail-hero-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: oklch(0.2 0.01 260 / 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: oklch(1 0 0);
+  cursor: pointer;
+}
+
+/* The button reads 36px on the photo, but the finger gets the full 44px.
+   A pseudo-element carries the extra hit area so the visual stays put. */
+.cz-detail-hero-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* ── Title, edited in place ── */
+.cz-detail-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.cz-detail-title-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.cz-detail-title-btn {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: text;
+}
+
+.cz-detail-title {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--cz-ink);
+}
+
+.cz-detail-title-input {
+  width: 100%;
+  padding: 6px 8px;
+  margin-left: -8px;
+  border: 1px solid var(--cz-ink);
+  border-radius: 10px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.cz-detail-sub {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.cz-detail-saved {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: cz-detail-fade 160ms ease-out both;
+}
+
+@keyframes cz-detail-fade {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Spec cells ── */
+.cz-detail-cells {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.cz-detail-cell {
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  min-height: 56px;
+  padding: 9px 10px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-detail-cell.is-active {
+  background: var(--cz-action-fill);
+  border-color: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
+.cz-detail-cell-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  /* 10px is the floor the handoff sets. Tracking pays for the extra pixel so
+     the widest label ("Size · fit") still fits one third of the row. */
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-detail-cell.is-active .cz-detail-cell-label {
+  color: var(--cz-action-text-divider);
+}
+
+.cz-detail-cell-value {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--cz-ink);
+}
+
+.cz-detail-cell-value > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-detail-cell.is-active .cz-detail-cell-value {
+  color: var(--cz-action-text);
+}
+
+/* The Size · fit cell only wears the money treatment while the value is
+   still the recommendation. A user-set size renders like any other cell. */
+.cz-detail-cell.is-rec {
+  border-color: color-mix(in srgb, var(--cz-money) 42%, transparent);
+}
+
+.cz-detail-cell.is-rec .cz-detail-cell-label {
+  color: var(--cz-money);
+}
+
+.cz-detail-cell-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cz-money);
+}
+
+.cz-detail-cell.is-rec .cz-detail-cell-value {
+  font-weight: 700;
+  color: var(--cz-money);
+}
+
+.cz-detail-cell-rec.t-shimmer {
+  --shimmer-base: var(--cz-money);
+  --shimmer-highlight: var(--cz-money-on-photo);
+}
+
+/* Inverted, the money green has to lift off the near-black fill. */
+.cz-detail-cell.is-active.is-rec .cz-detail-cell-label,
+.cz-detail-cell.is-active.is-rec .cz-detail-cell-value {
+  color: var(--cz-money-on-photo);
+}
+
+.cz-detail-cell.is-active .cz-detail-cell-dot {
+  background: var(--cz-money-on-photo);
+}
+
+.cz-detail-cell.is-active .cz-detail-cell-rec.t-shimmer {
+  --shimmer-base: var(--cz-money-on-photo);
+  --shimmer-highlight: var(--cz-action-text);
+}
+
+/* ── The one inline editor ── */
+.cz-detail-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--cz-ink);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+  animation: cz-detail-fade 160ms ease-out both;
+}
+
+.cz-detail-editor.is-block {
+  display: block;
+}
+
+.cz-detail-editor-label {
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* 16px is mandatory: anything smaller makes iOS zoom the page on focus. */
+.cz-detail-editor-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 16px;
+  font-weight: 600;
+  /* The input is focused on mount, but a tap to move the caret is still a
+     touch target. Hold the 44px floor. */
+  min-height: 44px;
+}
+
+.cz-detail-editor-input:focus {
+  outline: none;
+}
+
+.cz-detail-editor-done {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-detail-editor.is-block .cz-detail-editor-done,
+.cz-detail-fit .cz-detail-editor-done {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+}
+
+/* ── Fit block: what the Size · fit cell opens ── */
+.cz-detail-fit {
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--cz-money) 42%, transparent);
+  border-radius: 14px;
+  background: var(--cz-card-solid);
+  animation: cz-detail-fade 160ms ease-out both;
+}
+
+.cz-detail-fit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cz-detail-fit-kicker {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-detail-fit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+}
+
+.cz-detail-fit-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cz-sub);
+}
+
+.cz-detail-fit-badge.is-precise,
+.cz-detail-fit-badge.is-precise .cz-detail-fit-badge-dot {
+  color: var(--cz-money);
+  background-color: transparent;
+}
+
+.cz-detail-fit-badge.is-precise .cz-detail-fit-badge-dot {
+  background-color: var(--cz-money);
+}
+
+.cz-detail-fit-size {
+  margin-top: 4px;
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-detail-fit-empty,
+.cz-detail-fit-why {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+}
+
+.cz-detail-fit-math {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.cz-detail-fit-cell {
+  display: grid;
+  gap: 2px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  background: var(--cz-bg);
+}
+
+.cz-detail-fit-k {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-detail-fit-v {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+
+.cz-detail-fit-v.is-money {
+  color: var(--cz-money);
+}
+
+.cz-detail-fit-label {
+  margin: 16px 0 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-detail-fit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cz-detail-fit-chip {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-detail-fit-chip.is-active {
+  background: var(--cz-action-fill);
+  border-color: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
+.cz-detail-fit-chip.is-alt {
+  border-style: dashed;
+  color: var(--cz-sub);
+  font-weight: 600;
+}
+
+/* ── Section labels ── */
+.cz-detail-label {
+  display: block;
+  margin: 20px 0 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-detail-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cz-detail-more {
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── Status track ── */
+.cz-detail-status {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cz-detail-status-chip {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+  color: var(--cz-sub);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cz-detail-status-chip.is-active {
+  background: var(--cz-action-fill);
+  border-color: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-weight: 700;
+}
+
+/* ── Notes ── */
+.cz-detail-notes {
+  width: 100%;
+  height: 62px;
+  margin-top: 6px;
+  padding: 12px 13px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+  transition: height 200ms ease;
+}
+
+.cz-detail-notes.is-open {
+  height: 168px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-detail-notes { transition: none; }
+}
+
+/* ── Photo strip ── */
+.cz-detail-photos {
+  margin-top: 8px;
+}
+
+.cz-detail-photos .cz-edit-photos-grid {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.cz-detail-photos .cz-edit-photos-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-detail-photos .cz-edit-photos-grid > * {
+  flex: 0 0 auto;
+  width: 84px;
+  height: 84px;
+}
+
+/* ── Pinned footer. Nothing destructive lives here. ── */
+.cz-detail-foot {
+  flex: 0 0 auto;
+  padding: 12px 18px 22px;
+  padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--cz-hair);
+  background: var(--cz-card-solid);
+}
+
+.cz-detail-buy {
+  display: block;
+  width: 100%;
+  height: 54px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-size: 15.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-detail-disclosure {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}

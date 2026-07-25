@@ -944,3 +944,98 @@ describe("Fashion accessibility (Part 5)", () => {
     });
   });
 });
+
+describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
+  beforeEach(() => window.__setMediaMatches("(max-width: 767px)", true));
+  afterEach(() => window.__setMediaMatches("(max-width: 767px)", false));
+
+  async function openSheet(user) {
+    await user.click(await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ }));
+    return screen.findByRole("dialog", { name: "Palace x Nike jersey" });
+  }
+
+  it("a card tap opens the detail sheet, not the carousel overlay", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    const sheet = await openSheet(user);
+    expect(sheet).toBeInTheDocument();
+    expect(document.querySelector(".cz-detail-surface")).not.toBeNull();
+    // The phone path never opens the carousel overlay.
+    expect(document.querySelector(".cz-carousel-overlay")).toBeNull();
+  });
+
+  it("has no edit mode and no Save button — every value is a tap target", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    expect(screen.queryByRole("button", { name: /^Save$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Edit$/ })).toBeNull();
+    // Six spec cells, Size · fit among them.
+    const cells = document.querySelectorAll(".cz-detail-cell");
+    expect(cells).toHaveLength(6);
+    const labels = Array.from(cells).map((c) =>
+      c.querySelector(".cz-detail-cell-label").textContent.trim()
+    );
+    expect(labels).toEqual(["Price", "Size · fit", "Colorway", "Weight", "Batch", "Haul"]);
+  });
+
+  it("a cell tap opens exactly one inline editor and the edit persists", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    await user.click(screen.getByRole("button", { name: /^Colorway/ }));
+    const input = await screen.findByLabelText("Colorway");
+    // 16px is the iOS zoom floor; the editor sets it in CSS, so assert the
+    // class that carries it rather than a computed style jsdom does not load.
+    expect(input.className).toContain("cz-detail-editor-input");
+    expect(document.querySelectorAll(".cz-detail-editor, .cz-detail-fit")).toHaveLength(1);
+
+    fireEvent.change(input, { target: { value: "Bone white" } });
+    await waitFor(() => {
+      const saved = JSON.parse(data[STORE_KEY] || "[]");
+      expect(saved[0].colorway).toBe("Bone white");
+    });
+    // The write-through fires the Saved chip — the only save feedback.
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+  });
+
+  it("the Size · fit cell opens the fit block, never a bare text input", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    await user.click(screen.getByRole("button", { name: /^Size · fit/ }));
+    expect(document.querySelector(".cz-detail-fit")).not.toBeNull();
+    expect(screen.queryByLabelText("Size · fit")).toBeNull();
+    expect(screen.getByRole("button", { name: "Set my sizes" })).toBeInTheDocument();
+  });
+
+  it("the status track commits on one tap and keeps a sub-state", async () => {
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "gl" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const track = screen.getByRole("radiogroup", { name: "Order status" });
+    const chips = Array.from(track.querySelectorAll("button"));
+    expect(chips.map((c) => c.textContent)).toEqual(["Want", "Bought", "Shipped", "Received"]);
+    // "gl" is a Bought sub-state, so Bought reads as the active stop.
+    expect(chips[1].getAttribute("aria-checked")).toBe("true");
+
+    // Re-tapping Bought must not downgrade a live gl back to plain bought.
+    await user.click(chips[1]);
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("gl"));
+
+    await user.click(chips[2]);
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("shipped"));
+  });
+});

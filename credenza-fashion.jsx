@@ -62,6 +62,7 @@ const BodyProfileSheet = lazy(() => import("./sheets/BodyProfileSheet.jsx"));
 const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsSheet = lazy(() => import("./sheets/SettingsSheet.jsx"));
+const DetailSheet = lazy(() => import("./sheets/DetailSheet.jsx"));
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
@@ -99,8 +100,21 @@ const PALETTES = {
     "--cz-action-muted-text": "#F4F4F0",
     "--cz-focus": "#17181a",
     "--cz-like": "#e11d48",
-    "--cz-money": "#15803d",
+    // #15803d measured 4.46:1 on --cz-money-bg — just under the 4.5:1 text
+    // floor. Six units darker clears it at 4.8:1 and reads the same.
+    "--cz-money": "#147a3a",
     "--cz-money-bg": "rgba(21, 128, 61, 0.09)",
+    // Money green that has to sit on a photo or on the dark action fill.
+    // #15803d disappears against both (mobile handoff step 5/6).
+    "--cz-money-on-photo": "#7ee2a8",
+    // Status track tints (mobile handoff step 6). Bought = blue, shipped =
+    // violet, QC = amber. Each pair is bg + text at >= 4.5:1.
+    "--cz-status-bought-bg": "oklch(0.93 0.045 250)",
+    "--cz-status-bought-text": "oklch(0.42 0.13 250)",
+    "--cz-status-shipped-bg": "oklch(0.93 0.045 290)",
+    "--cz-status-shipped-text": "oklch(0.42 0.13 290)",
+    "--cz-status-qc-bg": "oklch(0.94 0.06 85)",
+    "--cz-status-qc-text": "oklch(0.45 0.13 70)",
     "--cz-selection": "rgba(23, 24, 26, 0.16)",
     "--cz-selection-text": "#17181a",
     "--cz-error-bg": "rgba(225, 29, 72, 0.10)",
@@ -143,6 +157,15 @@ const PALETTES = {
     "--cz-like": "#f40051",
     "--cz-money": "#4ade80",
     "--cz-money-bg": "rgba(74, 222, 128, 0.12)",
+    // Blackout inverts the action fill to near-white, so the "on fill" money
+    // has to go DARK here. Same token, opposite end of the ramp.
+    "--cz-money-on-photo": "#137a3a",
+    "--cz-status-bought-bg": "oklch(0.30 0.06 250)",
+    "--cz-status-bought-text": "oklch(0.84 0.10 250)",
+    "--cz-status-shipped-bg": "oklch(0.30 0.06 290)",
+    "--cz-status-shipped-text": "oklch(0.84 0.10 290)",
+    "--cz-status-qc-bg": "oklch(0.32 0.07 85)",
+    "--cz-status-qc-text": "oklch(0.86 0.11 85)",
     "--cz-selection": "rgba(245, 245, 247, 0.22)",
     "--cz-selection-text": "#f5f5f7",
     "--cz-error-bg": "rgba(244, 63, 94, 0.16)",
@@ -345,7 +368,7 @@ function guessFashionCategory(text) {
 // trails after a middle-dot when both are available.
 // Settings will later let people flip primary currency — see
 // docs/settings-toggles.md.
-function formatMoney(amount, currency) {
+export function formatMoney(amount, currency) {
   if (amount == null || !isFinite(Number(amount))) return "";
   const n = Number(amount);
   const pretty =
@@ -363,7 +386,7 @@ function formatMoney(amount, currency) {
 // shelf totals stable across devices before/without enrichment priceUsd.
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 
-function itemUsdAmount(item) {
+export function itemUsdAmount(item) {
   if (item.priceUsd != null && isFinite(item.priceUsd)) return Number(item.priceUsd);
   if (item.price == null || !isFinite(item.price)) return null;
   const currency = String(item.currency || "CNY").toUpperCase();
@@ -414,7 +437,7 @@ function priceLabel(item) {
 
 // USD-only pill label (Kyle 2026-07-22): the dual-currency chip ate too much
 // photo on phones. USD when known, CNY fallback, whatever-currency last.
-function priceLabelShort(item) {
+export function priceLabelShort(item) {
   const usd = itemUsdAmount(item);
   if (usd != null) return formatMoney(usd, "USD");
   if (item.price != null && isFinite(item.price)) return formatMoney(item.price, item.currency || "CNY");
@@ -3643,12 +3666,52 @@ function StatusUnderline({ value, onChange, label = "Status" }) {
   );
 }
 
+// Mobile detail sheet status row (handoff step 5, audit C3). Four chips, one
+// per human stop on STATUS_TRACK. The agent sub-states (qc/gl/rl) fold into
+// Bought and returned folds into Received, exactly as statusTrackIndex maps
+// them. A tap commits the stop's own enum value — the sheet has no Save.
+function StatusTrackChips({ value, onChange, label = "Status" }) {
+  const current = value || "want";
+  const activeIdx = statusTrackIndex(current);
+  // Track slot -> the enum value a tap writes. Slot 1 keeps a live qc/gl/rl
+  // instead of flattening it back to "bought" when the user re-taps Bought.
+  const enumFor = (i) => {
+    if (i === 0) return "want";
+    if (i === 1) return activeIdx === 1 ? current : "bought";
+    if (i === 2) return "shipped";
+    return "returned";
+  };
+  return (
+    <div className="cz-detail-status" role="radiogroup" aria-label={label}>
+      {STATUS_TRACK.map((name, i) => {
+        const active = i === activeIdx;
+        return (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={active}
+            key={name}
+            className={"cz-detail-status-chip" + (active ? " is-active" : "")}
+            onClick={() => onChange && onChange(enumFor(i))}
+          >
+            {name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // Shared status control.
 // mode "display" | default = design 4a stage + track + grouped picker.
 // mode "edit" = underline segments for dense forms.
-function StatusChips({ value, onChange, label = "Status", mode = "display" }) {
+// mode "track" = four 44px chips (mobile detail sheet).
+export function StatusChips({ value, onChange, label = "Status", mode = "display" }) {
   if (mode === "edit") {
     return <StatusUnderline value={value} onChange={onChange} label={label} />;
+  }
+  if (mode === "track") {
+    return <StatusTrackChips value={value} onChange={onChange} label={label} />;
   }
   return <StatusStage value={value} onChange={onChange} label={label} />;
 }
@@ -3737,7 +3800,7 @@ function cx(...parts) {
 
 // Deduped cover + gallery list, optionally capped. Single seed expression for
 // every photo surface (edit manager, card-back fan, both openPhotos paths).
-function itemPhotoList(item, max) {
+export function itemPhotoList(item, max) {
   const photos = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []);
   return max == null ? photos : photos.slice(0, max);
 }
@@ -3810,7 +3873,7 @@ const SIZE_WORD_LABELS = {
   os: "One size",
 };
 
-function formatSizeToken(raw) {
+export function formatSizeToken(raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
   const key = s.toLowerCase().replace(/\s+/g, "");
@@ -3820,7 +3883,7 @@ function formatSizeToken(raw) {
   return s.toUpperCase();
 }
 
-function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
+export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
   if (!item || !bodyProfile) return null;
   if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
   if (item.recommendedSize) return String(item.recommendedSize).trim() || null;
@@ -3844,7 +3907,7 @@ function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
 // nothing. Fall back to the profile's usual size tagged EST — visible on
 // every garment card, never reads as measured. A size set in Edit always
 // wins over any rec.
-function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
+export function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
   if (!item) return { text: "", isRec: false };
   const chosen = String(item.size || "").trim();
   const rec = computeRecommendedSize(item, bodyProfile, fitPrefs);
@@ -3898,7 +3961,7 @@ function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
 // findStatus pill. "pill" = standalone overlay chip with per-status colors;
 // "chip" = colored text riding a shared cz-meta-chip (card-back meta row).
 // "want" renders nothing anywhere — it's the default, not a fact worth space.
-function StatusPill({ status, variant = "pill", className, style }) {
+export function StatusPill({ status, variant = "pill", className, style }) {
   if (!status || status === "want") return null;
   const colors = FIND_STATUS_COLORS[status] || {};
   if (variant === "chip") {
@@ -4301,7 +4364,7 @@ export function Field({ label, value, onChange, placeholder, rows, suggestions, 
 
 // Shared combobox — type free text or pick from suggestions with a
 // transitions.dev-style scale/fade menu (not the native OS datalist).
-function ComboboxField({
+export function ComboboxField({
   label,
   value,
   onChange,
@@ -4709,7 +4772,7 @@ function HaulCoverFan({ covers = [], name = "", count = 0 }) {
 
 // Haul control as a transitions.dev accordion — expand to pick / create / remove.
 // Used on the card-back details face and the edit form.
-function HaulAccordionField({
+export function HaulAccordionField({
   label = "Haul",
   value = "",
   knownHauls = [],
@@ -4980,7 +5043,7 @@ function CardBackHaulField({ item, knownHauls, onSaveEdit, compact = false }) {
 
 // Edit-mode photo strip: every indexed photo with a shake-trash delete, plus
 // a + tile to add ones the resolver missed.
-function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = 12 }) {
+export function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = 12 }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const photos = itemPhotoList(item, max);
@@ -5043,7 +5106,7 @@ function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = 12 }) {
   );
 }
 
-function EditPhotoTile({ src, index, isCover, onRemove }) {
+export function EditPhotoTile({ src, index, isCover, onRemove }) {
   const [hovered, setHovered] = useState(false);
   const reduced = usePrefersReducedMotion();
   return (
@@ -5088,7 +5151,7 @@ function EditPhotoTile({ src, index, isCover, onRemove }) {
 }
 
 // Size options: listing variants first, then common apparel/shoe sizes.
-function sizeSuggestionsFor(item) {
+export function sizeSuggestionsFor(item) {
   const group = (item?.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title || ""));
   const fromVariants = group
     ? group.values.map((v) => String(v || "").trim()).filter(Boolean)
@@ -5128,7 +5191,7 @@ function sizeSuggestionsFor(item) {
 // <ItemEditForm>. Draft carries only fields with inputs — summary/tags/links/
 // importance/agentLink/findSource have no editor and are left untouched.
 
-function buildEditDraft(item) {
+export function buildEditDraft(item) {
   return {
     title: item.title || "",
     note: item.note || "",
@@ -5145,7 +5208,7 @@ function buildEditDraft(item) {
   };
 }
 
-function buildEditPatch(draft, base) {
+export function buildEditPatch(draft, base) {
   const priceText = String(draft.price ?? "").trim();
   const parsed = priceText === "" ? null : Number(priceText);
   const weightText = String(draft.weightGrams ?? "").trim();
@@ -5174,7 +5237,7 @@ function buildEditPatch(draft, base) {
 // Debounced write-through: every draft change persists after `delay` ms of
 // quiet, and callers flush the trailing keystrokes via the returned ref
 // before unmount/close. Replaces three hand-rolled copies (600 vs 700ms).
-function useWriteThroughDraft(draft, onCommit, delay = 600) {
+export function useWriteThroughDraft(draft, onCommit, delay = 600) {
   const commitRef = useRef(() => {});
   commitRef.current = () => {
     if (draft) onCommit(draft);
@@ -5297,7 +5360,7 @@ function validStoredAgentId(id) {
 // opts.buyLabel overrides the Buy caption (e.g. "Buy via Superbuy"); the URL is
 // untouched — the agent wrap happens in recordOpen, never in stored data.
 const LINK_ROLE_LABELS = { photos: "More Photos", buy: "Buy", alt: "Alt" };
-function linkButtons(item, opts = {}) {
+export function linkButtons(item, opts = {}) {
   const btns = [];
   function roleFor(url, storedRole) {
     const inferred = inferLinkRole(url);
@@ -5453,7 +5516,9 @@ function Card({
             <button
               type="button"
               className="cz-card-toggle"
-              aria-label={"Open " + (item.title || "saved item") + " in carousel"}
+              aria-label={
+                "Open " + (item.title || "saved item") + (phone ? "" : " in carousel")
+              }
               onClick={onToggle}
               style={{
                 display: "block",
@@ -5691,7 +5756,7 @@ export function FitPrefAxis({ label, options, value, onChange }) {
 // Design 4d–4g fit flow + turn 5 taste. Honest confidence, never a dead end
 // when a chart exists. 4d nothing · 4e rough usual · 4f measure ask · 4g precise
 // · 5b in-context preference · 5c pref visible on rec.
-function SizeRecommendation({
+export function SizeRecommendation({
   item,
   bodyProfile,
   units = "cm",
@@ -9173,6 +9238,9 @@ export default function Credenza() {
   const [bodyProfile, setBodyProfile] = useState(null);
   const [measureUnits, setMeasureUnits] = useState("in");
   const [bodySheetOpen, setBodySheetOpen] = useState(false);
+  // Mobile detail sheet (handoff step 5). On a phone a card tap opens this
+  // instead of the carousel overlay; desktop keeps the carousel unchanged.
+  const [detailSheetId, setDetailSheetId] = useState(null);
   // Per-category Length/Looseness taste (design turn 5). Shape:
   // { [category]: { length, looseness, dismissed } }. Persisted in prefs.
   const [fitPrefs, setFitPrefsByCat] = useState({});
@@ -11329,7 +11397,7 @@ export default function Credenza() {
       <Card
         item={item}
         selected={selectedId === item.id}
-        onToggle={() => openInCarousel(item.id)}
+        onToggle={() => (isPhone ? setDetailSheetId(item.id) : openInCarousel(item.id))}
         onToggleFavorite={toggleFavorite}
         onOpen={recordOpen}
         buyLabel={buyLabel}
@@ -11518,6 +11586,12 @@ export default function Credenza() {
     ? listItems.find((x) => x.id === carouselOverlay) ||
       items.find((x) => x.id === carouselOverlay) ||
       null
+    : null;
+
+  // The sheet closes itself when its card leaves the shelf (Undo expiry, a
+  // filter change, a delete), so a stale id can never render an empty sheet.
+  const detailItem = detailSheetId
+    ? items.find((x) => x.id === detailSheetId) || null
     : null;
 
   const shelfSurface = (
@@ -11872,6 +11946,33 @@ export default function Credenza() {
           storageLabel={localStatus.label}
           storageColor={localStatus.color}
           onClose={() => setSettingsSheetOpen(false)}
+        />
+        </Suspense>
+      )}
+
+      {/* Mobile detail sheet (handoff step 5): one surface for reading AND
+          editing. No edit mode, no Save button — every value is its own tap
+          target and each edit writes through the shared 600ms debounce. */}
+      {isPhone && detailItem && (
+        <Suspense fallback={null}>
+        <DetailSheet
+          key={detailItem.id}
+          item={detailItem}
+          haulNames={haulNames}
+          bodyProfile={bodyProfile}
+          fitPrefs={fitPrefs}
+          measureUnits={measureUnits}
+          buyLabel={buyLabel}
+          onSaveEdit={saveEdit}
+          onRemove={remove}
+          onOpen={recordOpen}
+          onAttachPhoto={attachGalleryImage}
+          onRemovePhoto={removePhotoBySrc}
+          onOpenSizes={() => {
+            setDetailSheetId(null);
+            setBodySheetOpen(true);
+          }}
+          onClose={() => setDetailSheetId(null)}
         />
         </Suspense>
       )}
