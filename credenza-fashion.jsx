@@ -12343,9 +12343,12 @@ export default function Credenza() {
       {/* Fixed bottom bar — MOBILE ONLY (≤767px). Desktop capture lives under
           the masthead (design handoff breakpoint rule). Agent stays on mobile
           as a secondary bar button; on desktop it lives on Buy + profile.
-          Hidden on the first-run intro (CO-04) — no agent tile before
-          onboarding ends. */}
-      {!firstRunIntro && (
+          Hidden on the first-run intro (CO-04) and on the brand-new empty
+          shelf (2026-07-25): the hero already carries capture there, and a
+          second Stash button + an Agent chip a new customer has no context
+          for read as clutter (Kyle: "too many buttons"). Same rule as the
+          tabs row — the bar returns once something is stashed. */}
+      {!firstRunIntro && items.length > 0 && (
       <footer className="cz-bottom-bar">
         <div className="cz-bottom-bar-inner">
           <div className="cz-bar-mobile">

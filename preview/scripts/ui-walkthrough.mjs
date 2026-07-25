@@ -36,14 +36,14 @@ if (await getStarted.isVisible().catch(() => false)) {
 }
 await shot("02-empty-shelf");
 
-// 2. Open the capture sheet from the bottom Stash pill.
-await page.getByRole("button", { name: /Open the capture sheet|Stash/ }).first().click();
-await page.waitForTimeout(700);
-await shot("03-capture-sheet");
+// 2. The brand-new shelf must have ONE capture path: the hero. No bottom
+// bar yet (2026-07-25 — the bar returns once something is stashed).
+const bottomBar = await page.locator(".cz-bottom-bar").isVisible().catch(() => false);
+console.log("bottom bar on empty shelf (want false):", bottomBar);
 
-// 3. Paste a Yupoo link and stash.
-await page.getByPlaceholder(/Paste anything/).fill("https://x.yupoo.com/photos/topstoney/albums/12345678");
-await page.getByRole("button", { name: /^Stash$/, exact: false }).first().click();
+// 3. Paste a Yupoo link into the hero field and stash.
+await page.getByPlaceholder("Paste a link").fill("https://x.yupoo.com/photos/topstoney/albums/12345678");
+await page.getByRole("button", { name: /Stash/ }).first().click();
 await page.waitForTimeout(1200);
 await shot("04-after-stash-inbox");
 console.log("after stash:", JSON.stringify(await state()));
@@ -58,9 +58,12 @@ try {
 await page.waitForTimeout(800);
 await shot("05-card-on-shelf");
 
-// 5. Stash a second card so the shelf has a pair (grid look).
+// 5. Stash a second card so the shelf has a pair (grid look) — this time
+// through the bottom bar's capture sheet, which exists now that the shelf
+// has a card.
 await page.getByRole("button", { name: /Open the capture sheet/ }).click();
 await page.waitForTimeout(600);
+await shot("06-capture-sheet");
 await page
   .getByPlaceholder(/Paste anything/)
   .fill("https://weidian.com/item.html?itemID=7234567890");
