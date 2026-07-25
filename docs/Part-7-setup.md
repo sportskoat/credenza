@@ -57,7 +57,7 @@ create table processed_events (
 3. Add two prices: **$5.00 / month** and **$39.00 / year**. Copy both price
    ids (`price_...`).
 4. Developers → Webhooks: add the endpoint
-   `https://credenza-kyle.netlify.app/.netlify/functions/stripe-webhook`.
+   `https://credenzafashion.com/.netlify/functions/stripe-webhook`.
    Subscribe to: `checkout.session.completed`,
    `customer.subscription.created`, `customer.subscription.updated`,
    `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`.
