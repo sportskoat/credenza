@@ -208,15 +208,34 @@ function headerSplit(line, { atBoundary }) {
   // header. Stopword lead-ins ("Note:", "Edit:") are out too; cleanLabel
   // already empties w2c/qc/review/link heads.
   const colon = /^(.{3,40}?)\s*[:：]\s+(.+)$/.exec(line);
-  if (
-    colon &&
-    !postChatter(colon[1]) &&
-    colon[1].trim().split(/\s+/).length <= 5 &&
-    !/[.!?…,]/.test(colon[1]) &&
-    !/^(note|ps|p\.s|edit|update|tip|tl;?dr)$/i.test(colon[1].trim())
-  ) {
-    const label = cleanLabel(colon[1]);
-    if (label.length > 2) return { label, note: colon[2].trim() };
+  if (colon && !postChatter(colon[1])) {
+    // Strip a leading emoji before classifying the key ("👕 Article 1 : …").
+    const rawKey = colon[1].trim().replace(/^[^\p{L}\p{N}]+/u, "").trim();
+    // "Article 2 : Nike shorts" — the number is decoration; the VALUE names
+    // the item (numbered haul lists, EN + FR — 2026-07-25 HIPOBUY audit).
+    if (/^(article|item|pi[èe]ce|produit|product)\s*\d+\s*$/i.test(rawKey)) {
+      const label = cleanLabel(colon[2]);
+      if (label.length > 2) return { label, note: "" };
+      return null;
+    }
+    // Meta keys are item attributes, never item names — "Taille : M" and
+    // "Avis (9/10) : …" stay in the note flow or the card ships titled
+    // "Taille" (2026-07-25 HIPOBUY audit).
+    if (
+      /^(taille|size|pointure|poids|weight|prix|price|co[uû]t|cost|agent|destination|lien|links?|livraison|shipping|batch|colorway|couleur|colou?r|w2c|wtc|qc|avis|review|rating|d[ée]lai( de livraison)?|delay|ligne d['’]exp[ée]dition)(\s*\(.*\))?$/i.test(
+        rawKey
+      )
+    ) {
+      return null;
+    }
+    if (
+      rawKey.split(/\s+/).length <= 5 &&
+      !/[.!?…,]/.test(rawKey) &&
+      !/^(note|ps|p\.s|edit|update|tip|tl;?dr)$/i.test(rawKey)
+    ) {
+      const label = cleanLabel(colon[1]);
+      if (label.length > 2) return { label, note: colon[2].trim() };
+    }
   }
   if (
     atBoundary &&
@@ -376,20 +395,24 @@ function extractItems(text) {
     }
 
     // No inline label → the buffered text above is probably this item's header
-    // ("Name (Size M) - review…" on the line above the W2C link). The line
-    // directly above the URL is the best candidate; the block's FIRST line
-    // covers "name line, then review lines" blocks. Anything before/after the
-    // header keeps its old home: previous item's note / this item's note.
+    // ("Name (Size M) - review…" on the line above the W2C link). Walk the
+    // buffer BACKWARD from the URL line: the nearest header-like line wins.
+    // Attribute lines between the name and the link ("Taille : M" under
+    // "Article 2 : Nike…") must not hide the name (2026-07-25 HIPOBUY audit),
+    // and review chatter for the previous item sits earlier in the same
+    // buffer. Anything before/after the header keeps its old home: previous
+    // item's note / this item's note.
     let note = "";
     let fromContext = false;
     if (!label && pending.length) {
-      const lastIdx = pending.length - 1;
       let headerIdx = -1;
-      let header = headerSplit(pending[lastIdx], { atBoundary: lastIdx === 0 && pendingBoundary });
-      if (header) headerIdx = lastIdx;
-      else if (pending.length > 1) {
-        header = headerSplit(pending[0], { atBoundary: pendingBoundary });
-        if (header) headerIdx = 0;
+      let header = null;
+      for (let i = pending.length - 1; i >= 0; i--) {
+        header = headerSplit(pending[i], { atBoundary: i === 0 && pendingBoundary });
+        if (header) {
+          headerIdx = i;
+          break;
+        }
       }
       if (header && header.label.length > 2) {
         label = header.label;

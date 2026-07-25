@@ -9442,7 +9442,14 @@ export default function Credenza() {
   const onSearchPaste = (e) => {
     const text = e.clipboardData && e.clipboardData.getData("text");
     const trimmed = (text || "").trim();
-    if (!/^https?:\/\/\S+$/i.test(trimmed)) return;
+    // Multi-line pastes (Reddit hauls, lists) and Reddit post links cannot
+    // live in a one-line input: the field strips the newlines and the haul
+    // mangles into one junk card (2026-07-25 haul audit — a 5-item HIPOBUY
+    // post became a single "1688 Offer" card). Route them exactly like the
+    // window-level paste handler does: review sheet on the phone, straight
+    // into the import parser on desktop.
+    const haulShape = /\n/.test(trimmed) || REDDIT_POST_URL_RE.test(trimmed);
+    if (!/^https?:\/\/\S+$/i.test(trimmed) && !haulShape) return;
     e.preventDefault();
     if (isPhone) {
       setInput(trimmed);

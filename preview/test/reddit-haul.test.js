@@ -414,3 +414,40 @@ Patta shirt: https://weidian.com/item.html?itemID=7648743224`,
     expect(haul.items[0].category).toBe("shoes");
   });
 });
+
+describe("numbered article lists with meta lines (HIPOBUY French post, 2026-07-25)", () => {
+  const POST = `Salut tout le monde, c'est mon premier partage de haul.
+
+👕 Article 1 : Ensemble Nike Dri-Fit (Crystal strip blue)
+
+Taille : M
+
+Lien : https://detail.1688.com/offer/979306730970.html
+
+Avis (9/10) : Vraiment impressionnant. Le tissu est identique au retail Dri-Fit.
+
+🟢 Article 2 : Ensemble Nike Dri-Fit (Crystal strip green + Short noir)
+
+Taille : M
+
+Lien : https://detail.1688.com/offer/1060925829329.html
+
+Avis (9.5/10) : Mon coloris préféré pour l'été !`;
+
+  it("names items from 'Article N : <name>' headers, never from meta keys", () => {
+    const haul = parseRedditHaul(POST, {
+      title: "Haul 1ère commande vers la France (2.1KG) via HIPOBUY",
+      fromPost: true,
+    });
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(2);
+    expect(haul.items[0].label).toBe("Ensemble Nike Dri-Fit (Crystal strip blue)");
+    expect(haul.items[1].label).toBe("Ensemble Nike Dri-Fit (Crystal strip green + Short noir)");
+    // "Taille : M" is an attribute — it belongs in the note, never the title.
+    expect(haul.items.every((i) => i.label !== "Taille")).toBe(true);
+    expect(haul.items[0].note).toContain("Taille : M");
+    // The previous item's review stays with the previous item.
+    expect(haul.items[0].note).toContain("Vraiment impressionnant");
+    expect(haul.items[1].note).not.toContain("Vraiment impressionnant");
+  });
+});
