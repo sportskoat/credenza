@@ -15,6 +15,8 @@ const ROUTES = {
   yupoo: { paid: false, perIpPerMin: 30, routePerMin: 180, maxConcurrent: 8, bodyBytes: 8 * 1024 },
   preview: { paid: false, perIpPerMin: 30, routePerMin: 180, maxConcurrent: 8, bodyBytes: 8 * 1024 },
   reddit: { paid: false, perIpPerMin: 20, routePerMin: 120, maxConcurrent: 6, bodyBytes: 8 * 1024 },
+  checkout: { paid: false, perIpPerMin: 10, routePerMin: 60, maxConcurrent: 2, bodyBytes: 1024 },
+  portal: { paid: false, perIpPerMin: 10, routePerMin: 60, maxConcurrent: 2, bodyBytes: 1024 },
 };
 
 // USD per million tokens, [input, output]. Keep current with the console.
