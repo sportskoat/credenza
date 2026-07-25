@@ -9559,7 +9559,7 @@ export default function Credenza() {
   const stashClipboard = async () => {
     if (!navigator.clipboard || !navigator.clipboard.readText) {
       focusCapture();
-      flashImportResult("This browser can't share the clipboard here — paste with ⌘V instead.");
+      flashImportResult("This browser can't share the clipboard here — paste anywhere with ⌘V instead.");
       return;
     }
     let text = "";
@@ -9574,8 +9574,8 @@ export default function Credenza() {
       focusCapture();
       flashImportResult(
         state === "denied"
-          ? "Clipboard access is turned off for this site — turn it on next to the address bar, or paste with ⌘V."
-          : "Clipboard needs a quick permission — allow it when your browser asks, or paste with ⌘V."
+          ? "Clipboard access is turned off for this site — turn it on next to the address bar, or paste anywhere with ⌘V."
+          : "Clipboard needs a quick permission — allow it when your browser asks, or paste anywhere with ⌘V."
       );
       return;
     }
