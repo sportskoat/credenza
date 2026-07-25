@@ -8163,6 +8163,7 @@ a.cz-card-seller:hover {
 .cz-card-edit-morph,
 .cz-favorite-button,
 .cz-starred-filter,
+.cz-mast-btn,
 .cz-haul-chip-clear,
 .cz-note-toggle,
 .cz-info-bubble-header button,
@@ -8184,9 +8185,11 @@ a.cz-card-seller:hover {
   position: absolute;
   inset: -2px;
 }
-/* 36px buttons: 4px ring. */
+/* 36px buttons: 4px ring. The masthead trio sits at gap 8px, so the rings
+   meet exactly and never overlap. */
 .cz-card-save-btn::after,
 .cz-carousel-orbit-close::after,
+.cz-mast-btn::after,
 .cz-photo-preview-close::after {
   content: "";
   position: absolute;
@@ -8231,4 +8234,175 @@ a.cz-card-seller:hover {
   content: "";
   position: absolute;
   inset: -10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ═══ MOBILE SHELF HANDOFF (2026-07-25) — C1 / C2 / C4 ═══
+   docs/mobile-improvement-plan.md steps C1, C2, C4. Phone only (≤767px):
+   the masthead collapses to one row, the tabs row absorbs the shelf totals,
+   the fixed bottom bar becomes a single Stash button, and the card back is
+   one full-height detail sheet. Every value below reads a --cz-* token so
+   Blackout dark inherits it — no literal hex in this block.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── C2: one-row masthead ─────────────────────────────────────────────────
+   Mark + wordmark, spacer, then three 36px circular buttons. The "Fashion"
+   sub-word and the hero drop once the shelf has items — that plus the merged
+   totals row is the ~150px that puts cards above the fold. */
+.cz-masthead-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.cz-mast-btn {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: var(--cz-card-solid);
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: color 140ms var(--ease-out), background 140ms var(--ease-out),
+    border-color 140ms var(--ease-out);
+}
+
+.cz-mast-btn:hover {
+  color: var(--cz-ink);
+}
+
+.cz-mast-btn.is-active {
+  color: var(--cz-action-text);
+  background: var(--cz-action-fill);
+  border-color: var(--cz-action-fill);
+}
+
+.cz-mast-btn:active {
+  transform: scale(0.94);
+}
+
+@media (max-width: 767px) {
+  /* One row, tight. 6px top / 12px bottom is the handoff rhythm. */
+  .cz-masthead.is-compact {
+    gap: 10px;
+    padding: 6px 0 12px;
+    margin-bottom: 0;
+  }
+
+  .cz-masthead.is-compact .cz-brand {
+    flex: 0 1 auto;
+    min-width: 0;
+    gap: 10px;
+    font-size: 14px;
+  }
+
+  .cz-masthead.is-compact .cz-brand-mark {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+
+  .cz-masthead.is-compact .cz-brand-word {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+  }
+
+  /* The spacer that pushes the three buttons right. */
+  .cz-masthead.is-compact .cz-masthead-actions {
+    margin-left: auto;
+  }
+
+  /* The 44px avatar is desktop chrome; on phone it matches its siblings.
+     The 4px ring below restores the 44px hit area. */
+  .cz-masthead.is-compact .cz-avatar {
+    position: relative;
+    width: 36px;
+    height: 36px;
+  }
+
+  .cz-masthead.is-compact .cz-avatar::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
+
+  /* The revealed search pill sits directly under the masthead. The desktop
+     top bar and the clipboard strip can render between the two, so this
+     targets the row itself rather than an adjacent-sibling selector. */
+  .cz-search-row {
+    margin-bottom: 12px;
+  }
+}
+
+/* ─── C2: tabs row absorbs the shelf totals ────────────────────────────── */
+.cz-tabs-totals {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  /* 9px lifts the numbers onto the tab-label baseline. The tabs pad
+     9px/11px, so a flex-end row without this sits ~4px low. */
+  padding-bottom: 9px;
+}
+
+/* The mock drops the "TOTAL SHELF COST" caps entirely. Lowercase keeps
+   "18 saved" narrow enough to sit beside a five-figure total at 393px. */
+.cz-tabs-count {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--cz-sub);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cz-tabs-total,
+.cz-tabs-total .t-reel {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--cz-money);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 30×30 box. QW1's coarse-pointer ::after ring carries the 44px hit area, so
+   the icon stays small without shrinking the tap target. */
+.cz-tabs-totals .cz-starred-filter {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  /* "Hauls · 0" wrapped at 393px once the totals took the right half. */
+  .cz-view-tabs .cz-tab {
+    white-space: nowrap;
+  }
+
+  .cz-view-tabs-row {
+    align-items: flex-end;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  /* The tabs no longer own the full width — let the totals have their share. */
+  .cz-view-tabs-row .cz-view-tabs {
+    flex: 0 1 auto;
+    gap: 14px;
+  }
 }

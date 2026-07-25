@@ -8911,6 +8911,11 @@ export default function Credenza() {
   // profileSheetOpen — "profile" now means the account sheet).
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  // Mobile handoff C2/C4 (2026-07-25). The phone masthead collapsed to one
+  // row, so search hides behind an icon and the old bottom bar's Agent /
+  // Import / Theme rows live in their own ⋯ sheet.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   // Account (Part 7e): the Supabase session on this device + the decoded
   // entitlement snapshot (plan badge, limits). Both null when signed out or
   // when AUTH_ENABLED is false (env missing → no account UI at all).
@@ -10834,6 +10839,10 @@ export default function Credenza() {
   // Same context for the count chip — one consistent spot next to the total.
   // Starred filter MUST show through here. Keep the label short on mobile so
   // "N starred of M saved" + TOTAL SHELF COST + heart don't pile up.
+  // One condition, two renderers: the phone shows these totals inside the
+  // tabs row (C2), the desktop keeps its own .cz-total-row below.
+  const shelfTotalsVisible =
+    view !== "inbox" && shelfAll.length > 0 && (view !== "hauls" || openHaulName);
   const totalCountLabel = openHaulName
     ? totalsItems.length + (totalsItems.length === 1 ? " item" : " items")
     : q
@@ -10890,6 +10899,7 @@ export default function Credenza() {
     agentSheetOpen,
     captureSheetOpen,
     profileOpen,
+    settingsSheetOpen,
     bodySheetOpen,
     viewMode,
     view,
@@ -10930,6 +10940,7 @@ export default function Credenza() {
           ctx.agentSheetOpen ||
           ctx.captureSheetOpen ||
           ctx.profileOpen ||
+          ctx.settingsSheetOpen ||
           ctx.bodySheetOpen
         )
           return;
@@ -10948,6 +10959,7 @@ export default function Credenza() {
         ctx.agentSheetOpen ||
         ctx.captureSheetOpen ||
         ctx.profileOpen ||
+        ctx.settingsSheetOpen ||
         ctx.bodySheetOpen
       )
         return; // overlays handle their own keys
@@ -11075,6 +11087,7 @@ export default function Credenza() {
         kb.current.agentSheetOpen ||
         kb.current.captureSheetOpen ||
         kb.current.profileOpen ||
+        kb.current.settingsSheetOpen ||
         kb.current.bodySheetOpen
       )
         return;
@@ -11802,24 +11815,64 @@ export default function Credenza() {
             full-bleed capture/search/tabs on a wide monitor read as sprawl).
             The carousel/grid panels below stay full-width. */}
         <div className="cz-chrome">
-        <header className="cz-masthead">
+        {/* Phone masthead is ONE row (mobile handoff C2): mark + wordmark, a
+            flex spacer, then Search / ⋯ Settings / Account. The "Fashion"
+            sub-word and the 45%-viewport hero drop once the shelf has items —
+            that plus the merged tabs/totals row is ~150px, the difference
+            between zero cards and one-and-a-half rows above the fold. */}
+        <header className={"cz-masthead" + (isPhone && items.length > 0 ? " is-compact" : "")}>
           <h1 className="cz-brand">
             <span className="cz-brand-mark">C</span>
             <span className="cz-brand-name">
               <span className="cz-brand-word">CREDENZA</span>
-              <span className="cz-brand-sub">Fashion</span>
+              {!(isPhone && items.length > 0) && (
+                <span className="cz-brand-sub">Fashion</span>
+              )}
             </span>
           </h1>
           {!firstRunIntro && (
-          <button
-            type="button"
-            className="cz-avatar"
-            aria-label="Profile"
-            title="Profile"
-            onClick={() => setProfileOpen(true)}
-          >
-            <User size={17} strokeWidth={2.2} aria-hidden="true" />
-          </button>
+          <div className="cz-masthead-actions">
+            {/* Search collapses to this icon on phone; the pill below reveals
+                on tap and keeps its query while open. */}
+            {isPhone && items.length > 0 && (
+              <button
+                type="button"
+                className={"cz-mast-btn" + (searchOpen ? " is-active" : "")}
+                aria-label={searchOpen ? "Hide search" : "Search your shelf"}
+                aria-expanded={searchOpen}
+                title="Search"
+                onClick={() => {
+                  const next = !searchOpen;
+                  setSearchOpen(next);
+                  if (next) setTimeout(() => searchRef.current?.focus(), 0);
+                }}
+              >
+                <Search size={17} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            )}
+            {/* Agent, Import, Export, Theme and Sizes moved here when the
+                fixed bottom bar became the single Stash button (C4). */}
+            {isPhone && items.length > 0 && (
+              <button
+                type="button"
+                className="cz-mast-btn"
+                aria-label="Settings"
+                title="Settings"
+                onClick={() => setSettingsSheetOpen(true)}
+              >
+                <MoreHorizontal size={18} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            )}
+            <button
+              type="button"
+              className="cz-avatar"
+              aria-label="Profile"
+              title="Profile"
+              onClick={() => setProfileOpen(true)}
+            >
+              <User size={17} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          </div>
           )}
         </header>
 
@@ -12027,8 +12080,11 @@ export default function Credenza() {
 
         {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it),
             on the first-run intro (CO-04), and on the empty shelf — the hero
-            field is the ONE capture surface there (Kyle 2026-07-24). */}
-        {!firstRunIntro && items.length > 0 && (
+            field is the ONE capture surface there (Kyle 2026-07-24).
+            C2 (2026-07-25): on phone it also stays collapsed until the
+            masthead Search icon opens it. A live query keeps it open, so
+            filtered results never lose their field. */}
+        {!firstRunIntro && items.length > 0 && (!isPhone || searchOpen || search) && (
         <div className="cz-search-row">
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- shell-padding mousedown only focuses the input; the input itself owns keyboard interaction (CO-29) */}
           <div
@@ -12259,6 +12315,41 @@ export default function Credenza() {
               </button>
             ))}
           </div>
+          {/* Phone (C2): the shelf totals ride the tabs row instead of taking
+              a second full-width line. Count + total + starred filter only —
+              the long "TOTAL SHELF COST" wording and the view toggles are
+              dropped here; the toggles live in the ⋯ Settings sheet. */}
+          {isPhone && shelfTotalsVisible && (
+            <div className="cz-tabs-totals">
+              <span className="cz-tabs-count cz-fade-text-in" key={totalCountLabel}>
+                {totalCountLabel}
+              </span>
+              {/* CO-10: a zero-result search must not show a green $0.00 —
+                  it read as a real balance. */}
+              {!(q && visible.length === 0) && (
+                <span className="cz-tabs-total" aria-live="polite">
+                  <ReelCounter value={listTotalUsd} />
+                </span>
+              )}
+              {toolbarActive && !openHaulName && (
+                <button
+                  type="button"
+                  className={"cz-starred-filter" + (sortMode === "starred" ? " is-active" : "")}
+                  aria-pressed={sortMode === "starred"}
+                  aria-label={sortMode === "starred" ? "Show all items" : "Show starred only"}
+                  title={sortMode === "starred" ? "Show all" : "Starred only"}
+                  onClick={() => setSortMode(sortMode === "starred" ? "recent" : "starred")}
+                >
+                  <Heart
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={2}
+                    fill={sortMode === "starred" ? "currentColor" : "none"}
+                  />
+                </button>
+              )}
+            </div>
+          )}
           {indexingJobs.length > 0 && (
             <div className="cz-index-chip-row" aria-live="polite">
               {indexingJobs.map((job) => (
@@ -12299,8 +12390,9 @@ export default function Credenza() {
             that read as a solid black bar; keep both groups on one row.
             On the Hauls tab the row only renders inside an open haul: the
             directory has its own "N hauls" head, and the shelf totals and
-            toggles do not apply to hauls (KM-05 / CO-09). */}
-        {view !== "inbox" && shelfAll.length > 0 && (view !== "hauls" || openHaulName) && (
+            toggles do not apply to hauls (KM-05 / CO-09).
+            Phone (C2): this row is gone — the tabs row above absorbed it. */}
+        {!isPhone && shelfTotalsVisible && (
           <div className="cz-total-row">
             <div className="cz-total-main">
               <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
