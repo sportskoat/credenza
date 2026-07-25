@@ -12,6 +12,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Image as ImageIcon,
   MoreHorizontal,
   Pen,
   RefreshCw,
@@ -31,7 +32,7 @@ import CardFrontInfo from "./CardFrontInfo.jsx";
 import { CoverImage } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import InfoBubble from "./InfoBubble.jsx";
-import ItemDetailBody from "./ItemDetailBody.jsx";
+import DetailBody from "./DetailBody.jsx";
 import ItemEditForm from "./ItemEditForm.jsx";
 import MorphButton from "./MorphButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
@@ -49,7 +50,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onSaveEdit,
     onOpen,
     buyLabel,
-    onOpenPhotos,
     onAttachPhoto,
     onRemovePhoto,
     onToggleFavorite,
@@ -58,11 +58,9 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onScrollTo,
     bodyProfile,
     measureUnits,
-    onSaveBodyProfile,
-    fitPromptSkipped,
-    onSkipFitPrompt,
+    onOpenSizes,
+    onSetPrimaryImage,
     fitPref = null,
-    onSaveFitPref,
     reduced,
   },
   ref
@@ -310,12 +308,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     [dismissTopLayer]
   );
 
-  const openBubble = (key, title, content) => {
-    setBackView("details");
-    setBubbleClosing(false);
-    setBubble({ key, title, content });
-  };
-
   const startEdit = () => {
     setEd(buildEditDraft(item));
     setBubble(null);
@@ -352,7 +344,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     [editing, saveEditAndClose]
   );
 
-  const galleryImages = itemPhotoList(item);
   const knownHauls = Array.from(
     new Set(
       [...(haulNames || []), item.project || ""]
@@ -780,25 +771,45 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                     exit={reduced ? undefined : { opacity: 0, y: -8 }}
                     transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
                   >
-                    <ItemDetailBody
+                    {/* The back body IS the phone sheet body (Kyle
+                        2026-07-25: "all backs of cards need to be
+                        consistent — like the mobile back"). The pager has no
+                        actions here: the card header already carries the
+                        chevron, ⋯ and edit pen. */}
+                    <DetailBody
                       item={item}
-                      knownHauls={knownHauls}
-                      galleryImages={galleryImages}
+                      haulNames={knownHauls}
+                      bodyProfile={bodyProfile}
+                      fitPrefs={fitPref && item.category ? { [item.category]: fitPref } : null}
+                      measureUnits={measureUnits}
                       buyLabel={buyLabel}
                       onSaveEdit={onSaveEdit}
                       onOpen={onOpen}
-                      onOpenPhotos={onOpenPhotos}
-                      onOpenBubble={openBubble}
-                      bodyProfile={bodyProfile}
-                      measureUnits={measureUnits}
-                      onSaveBodyProfile={onSaveBodyProfile}
-                      fitPromptSkipped={fitPromptSkipped}
-                      onSkipFitPrompt={onSkipFitPrompt}
-                      fitPref={fitPref}
-                      onSaveFitPref={onSaveFitPref}
-                      reduced={reduced}
-                      isCenter={isCenter}
-                      expanded={expanded}
+                      onAttachPhoto={onAttachPhoto}
+                      onRemovePhoto={onRemovePhoto}
+                      onOpenSizes={onOpenSizes}
+                      heroPager
+                      renderHeroActions={({ photos, photoIdx, resetPager }) => ({
+                        // One-tap cover action on the desktop pager (same
+                        // rule as the phone menu): it appears only when a
+                        // non-cover photo is showing.
+                        actions:
+                          photos.length > 1 && photoIdx > 0 ? (
+                            <button
+                              type="button"
+                              className="cz-detail-hero-btn"
+                              aria-label="Make this photo the cover"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSetPrimaryImage && onSetPrimaryImage(item.id, photos[photoIdx]);
+                                resetPager();
+                              }}
+                            >
+                              <ImageIcon size={15} strokeWidth={2.2} aria-hidden="true" />
+                            </button>
+                          ) : null,
+                        overlay: null,
+                      })}
                     />
 
                     {/* The exit is fully CSS-driven (see closeBubble): the shell
@@ -854,11 +865,8 @@ export default function CoverFlowCarousel({
   onSelect,
   bodyProfile,
   measureUnits,
-  onSaveBodyProfile,
-  fitPromptSkipped,
-  onSkipFitPrompt,
   fitPrefs = null,
-  onSaveFitPref,
+  onOpenSizes,
   // When true, skip CoverFlow springs so a haul morph can hand off silently.
   suppressMotion = false,
 }) {
@@ -1452,15 +1460,13 @@ export default function CoverFlowCarousel({
                   }}
                   bodyProfile={bodyProfile}
                   measureUnits={measureUnits}
-                  onSaveBodyProfile={onSaveBodyProfile}
-                  fitPromptSkipped={fitPromptSkipped}
-                  onSkipFitPrompt={onSkipFitPrompt}
+                  onOpenSizes={onOpenSizes}
+                  onSetPrimaryImage={onSetPrimaryImage}
                   fitPref={
                     fitPrefs && item.category && fitPrefs[item.category]
                       ? fitPrefs[item.category]
                       : null
                   }
-                  onSaveFitPref={onSaveFitPref}
                   reduced={reduced}
                 />
               </motion.div>

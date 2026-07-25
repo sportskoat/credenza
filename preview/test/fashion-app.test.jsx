@@ -127,36 +127,38 @@ describe("Fashion data and photos", () => {
     const { container } = render(<Credenza />);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    // Product-sheet back: sizing is quiet chips ("Poster S" / "Rec XL") inside the
-    // single size block — Rec may also appear on the front face, so scope to back.
+    // Unified back (2026-07-25): the back IS the phone sheet body — sizing
+    // lives in the "Size · fit" spec cell, not quiet chips.
     const back = container.querySelector(".cz-carousel-back");
     expect(back).toBeTruthy();
-    expect(await screen.findByText("Poster S")).toBeInTheDocument();
-    expect(back.querySelector(".cz-size-rec, .cz-carousel-meta-chips, .cz-size-facts")?.textContent || back.textContent).toMatch(/Rec XL|Poster S/);
+    expect(back?.textContent || "").toMatch(/X-Large/);
     const backBuys = [...back.querySelectorAll("button")].filter((b) => /Buy via Superbuy|Buy/.test(b.textContent || ""));
     expect(backBuys.length).toBeGreaterThan(0);
     expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toContain("photo.yupoo.com");
   });
 
-  it("opens album photos in-app and requires an explicit cover action", async () => {
+  it("shows album photos in the back pager and requires an explicit cover action", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    await user.click(screen.getByRole("button", { name: "Open photo gallery" }));
-    expect(await screen.findByRole("dialog", { name: "Album photo preview" })).toBeInTheDocument();
+    // Unified back (2026-07-25): photos ride the same pager as the phone
+    // sheet. The cover never changes by itself — only the explicit action.
+    const track = container.querySelector(".cz-detail-hero-track");
+    expect(track).toBeTruthy();
+    expect(track.querySelectorAll("img").length).toBe(3);
+    expect(screen.queryByRole("button", { name: "Make this photo the cover" })).not.toBeInTheDocument();
     expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toBe(PHOTO_1);
-    await user.click(screen.getByRole("button", { name: "Next photo" }));
-    expect(screen.getByRole("button", { name: "Use as cover" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Use as cover" }));
+    // Scroll the pager to photo two; the one-tap cover action appears.
+    fireEvent.scroll(track, { target: { scrollLeft: 1 } });
+    await user.click(await screen.findByRole("button", { name: "Make this photo the cover" }));
     await waitFor(() =>
       expect(container.querySelector("img.cz-carousel-image")?.getAttribute("src")).toBe(PHOTO_2)
     );
-    expect(screen.queryByRole("dialog", { name: "Album photo preview" })).not.toBeInTheDocument();
   });
 
-  it("keeps only Buy in the action row; Yupoo is a Full Album link under the seller", async () => {
+  it("keeps one Buy action on the card back", async () => {
     const secondaryYupoo = "https://seller.x.yupoo.com/albums/999?uid=1&tab=max";
     const buyUrl = "https://weidian.com/item.html?itemID=1234567890";
     installShim({
@@ -174,14 +176,14 @@ describe("Fashion data and photos", () => {
     const { container } = render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
 
-    const actions = [...container.querySelectorAll(".cz-carousel-actions > button")];
-    expect(actions.length).toBe(1);
-    expect(actions[0]).toHaveTextContent(/Buy/);
+    // Unified back (2026-07-25): one filled buy action in the pinned foot —
+    // the phone-sheet rule (two filled twins read as a bug).
+    const foot = container.querySelector(".cz-detail-foot");
+    expect(foot).toBeTruthy();
+    const buys = [...foot.querySelectorAll("button")];
+    expect(buys.length).toBe(1);
+    expect(buys[0]).toHaveTextContent(/Buy/);
     expect(screen.queryByRole("button", { name: /More Photos/i })).not.toBeInTheDocument();
-    const album = container.querySelector("a.cz-album-quiet");
-    expect(album).toBeTruthy();
-    expect(album).toHaveTextContent(/Full Album/i);
-    expect(album.getAttribute("href")).toContain("yupoo.com");
   });
 });
 
@@ -195,12 +197,12 @@ describe("Fashion card-back navigation and editing", () => {
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const outside = container.querySelector(".cz-carousel-track");
 
-    // Still on the back face. SizeRecommendation only mounts when chart+body
-    // yield a pick; chips always carry chosen / rec labels when present.
+    // Still on the back face. The unified back shows the chosen size in the
+    // "Size · fit" spec cell.
     expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
     const back = container.querySelector(".cz-carousel-back");
-    expect(back?.textContent || "").toMatch(/SIZE:\s*X-?LARGE|Rec XL|Poster S/i);
+    expect(back?.textContent || "").toMatch(/X-Large/i);
 
     await user.click(screen.getByRole("button", { name: "Edit card" }));
     const batchField = await screen.findByLabelText("Batch");
@@ -247,7 +249,8 @@ describe("Fashion card-back navigation and editing", () => {
     const user = userEvent.setup();
     render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
-    expect(screen.queryByText("Original")).not.toBeInTheDocument();
+    // The unified back shows Batch as a spec cell (no hidden-until-edit fields).
+    expect(screen.getByText("Original")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Edit card" }));
     let batchField = await screen.findByLabelText("Batch");
@@ -919,10 +922,17 @@ describe("Fashion accessibility (Part 5)", () => {
       ]),
     });
     const user = userEvent.setup();
-    render(<Credenza />);
+    const { container } = render(<Credenza />);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    // The card-back haul accordion starts open when the item has no haul.
+    // Unified back: the haul editor opens from the Haul spec cell, then the
+    // accordion head expands the same listbox the old card back used.
+    const back = container.querySelector(".cz-carousel-back");
+    const haulCell = [...back.querySelectorAll(".cz-detail-cell")].find((c) =>
+      /Haul/.test(c.textContent || "")
+    );
+    await user.click(haulCell);
+    await user.click(await screen.findByRole("button", { name: /Add to a haul/i }));
     const listbox = await screen.findByRole("listbox", { name: "Hauls" });
     const options = [...listbox.querySelectorAll('[role="option"]')];
     expect(options.length).toBeGreaterThanOrEqual(2);
@@ -934,14 +944,18 @@ describe("Fashion accessibility (Part 5)", () => {
     // Wrapped from row one to the last row (options + add-new + maybe clear).
     const allRows = [...listbox.querySelectorAll("button, input")].filter((el) => !el.disabled);
     expect(document.activeElement).toBe(allRows[allRows.length - 1]);
-    // Back to the second option; Enter picks it.
+    // Back to the second option; Enter picks it. The unified back saves
+    // through the shared 600ms write-through debounce, so allow for it.
     options[1].focus();
     await user.keyboard("{Enter}");
-    await waitFor(() => {
-      const saved = JSON.parse(data[STORE_KEY]);
-      const first = saved.find((x) => x.id === "fashion-1");
-      expect(["Summer haul", "Winter haul"]).toContain(first.project);
-    });
+    await waitFor(
+      () => {
+        const saved = JSON.parse(data[STORE_KEY]);
+        const first = saved.find((x) => x.id === "fashion-1");
+        expect(["Summer haul", "Winter haul"]).toContain(first.project);
+      },
+      { timeout: 2000 }
+    );
   });
 });
 

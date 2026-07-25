@@ -6042,6 +6042,7 @@ export default function Credenza() {
       onSkipFitPrompt={() => setFitPromptSkipped(true)}
       fitPrefs={fitPrefs}
       onSaveFitPref={saveFitPref}
+      onOpenSizes={() => setBodySheetOpen(true)}
     />
   );
   const carouselElement = renderCarousel(listItems);

@@ -8797,9 +8797,15 @@ a.cz-card-seller:hover {
 
 /* While an editor is open, the keyboard covers the bottom half of the sheet.
    The extra scroll room lets the container center the editor in the visible
-   strip above the keyboard instead of leaving it stranded underneath. */
-.cz-detail-scroll.is-editing {
-  padding-bottom: 45vh;
+   strip above the keyboard instead of leaving it stranded underneath.
+   PHONE ONLY: the desktop card back shares this scroller now, and there the
+   45vh inflated the scroll area until the deep scroll hit a Chromium
+   preserve-3d cull that unpainted the whole back face (probe 2026-07-25).
+   Desktop has no software keyboard, so it keeps the natural height. */
+@media (max-width: 767px) {
+  .cz-detail-scroll.is-editing {
+    padding-bottom: 45vh;
+  }
 }
 
 /* ── Photo pager ── */
