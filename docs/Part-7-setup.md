@@ -105,8 +105,12 @@ Set these on the site (all contexts):
       chat — roll it in Supabase (API Keys) once the flow works, then update
       Netlify.**
 - [x] 7d. Checkout + portal functions. (`checkout.js` + `portal.js`, `lib/stripe.js` + `lib/auth.js`, `preview/test/part7d.test.js` — 2026-07-25)
-- [ ] 7e. Client: sign-in UI in ProfileSheet, session on paid requests,
+- [x] 7e. Client: sign-in UI in ProfileSheet, session on paid requests,
       offline snapshot cache, free-limit enforcement, account export +
-      deletion.
+      deletion. (`src/auth.js` + `src/account.js` + `src/usage.js`,
+      `delete-account.js`, 2026-07-25. Export = the existing Import & backup
+      sheet — the shelf IS the user's data. Deletion removes the entitlement
+      row + auth user; a 409 blocks it while a subscription is active — the
+      customer cancels in the Portal first, Stripe keeps the payment records.)
 - [ ] 7f. Remove the `VITE_` shared key from paid routes.
 - [ ] 7g. Real-card test payment (the gate).
