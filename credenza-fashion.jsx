@@ -28,6 +28,23 @@ import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES } from "./credenza-find-status.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
+import {
+  AUTH_ENABLED,
+  loadSession,
+  saveSession,
+  sessionFromUrl,
+  sendMagicLink,
+  googleAuthUrl,
+  getValidSession,
+  signOut as authSignOut,
+} from "./preview/src/auth.js";
+import {
+  loadCachedEntitlement,
+  refreshEntitlement,
+  clearCachedEntitlement,
+  checkout as accountCheckout,
+  openPortal as accountPortal,
+} from "./preview/src/account.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
 
@@ -8879,6 +8896,115 @@ export default function Credenza() {
   // profileSheetOpen — "profile" now means the account sheet).
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  // Account (Part 7e): the Supabase session on this device + the decoded
+  // entitlement snapshot (plan badge, limits). Both null when signed out or
+  // when AUTH_ENABLED is false (env missing → no account UI at all).
+  const [accountSession, setAccountSession] = useState(null);
+  const [accountPlan, setAccountPlan] = useState(null);
+  // One delayed entitlement retry per boot after a Stripe return (webhook lag).
+  const upgradedRetryRef = useRef(false);
+  // Account boot (Part 7e). Three entry shapes:
+  //   1. Return from a magic link / Google: the session rides the URL hash.
+  //      Store it, strip the hash, fetch the entitlement snapshot.
+  //   2. Return from Stripe Checkout: ?upgraded=1 / ?upgrade=cancelled. The
+  //      webhook moves the plan; refresh now and once more after a beat.
+  //   3. Plain open: restore the stored session + cached snapshot, then
+  //      refresh the snapshot in the background (offline keeps the cache).
+  useEffect(() => {
+    if (!AUTH_ENABLED) return;
+    let cancelled = false;
+    const stripUrl = () => {
+      try {
+        window.history.replaceState(null, "", window.location.pathname);
+      } catch {}
+    };
+    const pullEntitlement = async (session) => {
+      try {
+        const payload = await refreshEntitlement(session.accessToken);
+        if (!cancelled && payload) setAccountPlan(payload);
+      } catch {
+        // Offline or the function is not deployed yet — the cache carries on.
+      }
+    };
+    const boot = async () => {
+      const fromUrl = sessionFromUrl(window.location.href);
+      if (fromUrl) {
+        stripUrl();
+        if (fromUrl.error) {
+          notify("Sign-in failed: " + fromUrl.error);
+        } else {
+          saveSession(fromUrl.session);
+          if (!cancelled) {
+            setAccountSession(fromUrl.session);
+            notify("Signed in" + (fromUrl.session.user.email ? " as " + fromUrl.session.user.email : "") + ".");
+          }
+          await pullEntitlement(fromUrl.session);
+        }
+        return;
+      }
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("upgraded") || params.get("upgrade")) {
+        const upgraded = params.get("upgraded");
+        stripUrl();
+        if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
+        else notify("Checkout cancelled — nothing was charged.");
+      }
+      const session = await getValidSession();
+      if (cancelled) return;
+      setAccountSession(session);
+      if (!session) return;
+      const cached = loadCachedEntitlement();
+      if (cached) setAccountPlan(cached);
+      await pullEntitlement(session);
+      if (upgradedRetryRef.current) return; // one delayed retry per boot
+      if (params.get("upgraded")) {
+        upgradedRetryRef.current = true;
+        setTimeout(async () => {
+          const fresh = await getValidSession();
+          if (fresh && !cancelled) await pullEntitlement(fresh);
+        }, 5000);
+      }
+    };
+    boot();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const accountSendMagicLink = async (email) => {
+    await sendMagicLink(email);
+  };
+  const accountGoogle = () => {
+    window.location.assign(googleAuthUrl());
+  };
+  const accountUpgrade = async (price) => {
+    const session = await getValidSession();
+    if (!session) {
+      setAccountSession(null);
+      notify("Your sign-in expired — sign in again first.");
+      return;
+    }
+    const url = await accountCheckout(session.accessToken, price);
+    window.location.assign(url);
+  };
+  const accountOpenPortal = async () => {
+    const session = await getValidSession();
+    if (!session) {
+      setAccountSession(null);
+      notify("Your sign-in expired — sign in again first.");
+      return;
+    }
+    const url = await accountPortal(session.accessToken);
+    window.location.assign(url);
+  };
+  const accountSignOut = async () => {
+    await authSignOut(accountSession);
+    clearCachedEntitlement();
+    setAccountSession(null);
+    setAccountPlan(null);
+    notify("Signed out. Your shelf stays on this device.");
+  };
   // Delete confirmation (KM-02): every delete path (card-back button,
   // Backspace/Delete key) stages the id here first; the dialog shows the card
   // title and offers Keep / Delete. null = nothing staged.
@@ -11550,9 +11676,14 @@ export default function Credenza() {
           storageLabel={localStatus.label}
           storageColor={localStatus.color}
           onEraseData={eraseEverything}
-          onSignIn={() =>
-            notify("Sign-in is coming soon. Your shelf already syncs to this device.")
-          }
+          accountEnabled={AUTH_ENABLED}
+          accountSession={accountSession}
+          accountPlan={accountPlan}
+          onMagicLink={accountSendMagicLink}
+          onGoogle={accountGoogle}
+          onUpgrade={accountUpgrade}
+          onPortal={accountOpenPortal}
+          onSignOut={accountSignOut}
           onClose={() => setProfileOpen(false)}
         />
         </Suspense>
