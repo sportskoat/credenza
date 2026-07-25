@@ -1373,7 +1373,7 @@ export function localTitle(parsed, rawText) {
 
 // Best display title from Yupoo/Weidian enrichment payloads. Prefer human
 // product labels over pure batch codes when both exist.
-function fashionDisplayTitle(data) {
+export function fashionDisplayTitle(data) {
   if (!data || typeof data !== "object") return "";
   const candidates = [data.translatedTitle, data.productTitle, data.title, data.sourceTitle, data.batch];
   for (const raw of candidates) {
@@ -1382,7 +1382,10 @@ function fashionDisplayTitle(data) {
     // Strip leading currency markers like "￥209 M29855-51E" → keep the code,
     // but if there's real words after price keep the words.
     const noPrice = t.replace(/^[￥¥$€£]\s*[\d.,]+\s*/u, "").trim();
-    if (noPrice) return noPrice.length > 72 ? noPrice.slice(0, 69).trimEnd() + "…" : noPrice;
+    // Dead pages return junk markers, not titles (a dead Weidian item page
+    // titles itself "<UNKNOWN>"). Skip them so the local fallback survives.
+    if (!noPrice || /^<?unknown>?$/i.test(noPrice)) continue;
+    return noPrice.length > 72 ? noPrice.slice(0, 69).trimEnd() + "…" : noPrice;
   }
   return "";
 }
@@ -10286,7 +10289,9 @@ export default function Credenza() {
     ).slice(0, 10);
     updateEnrichedItem(item.id, token, (x) => {
       const cover = x.image || remoteImages[0] || null;
-      const resolvedTitle = fashionDisplayTitle(data) || data.title;
+      // fashionDisplayTitle already junk-guards every candidate, data.title
+      // included — no raw fallback (it bypassed the guard for "<UNKNOWN>").
+      const resolvedTitle = fashionDisplayTitle(data);
       return {
         status: "ready",
         title:

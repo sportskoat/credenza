@@ -223,6 +223,9 @@ export default function DetailSheet({
       : "";
   const cells = specCells(item, view, sizeText);
   const buyButtons = linkButtons(item, { buyLabel }).filter((b) => b.role === "buy");
+  // ONE primary action (mobile handoff): the first buy link only. Extra buy
+  // links stay reachable on desktop; two filled twins read as a bug.
+  const buyButton = buyButtons[0] || null;
   const savedDate = item.createdAt
     ? new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
@@ -496,18 +499,15 @@ export default function DetailSheet({
           </div>
         </div>
 
-        {buyButtons.length ? (
+        {buyButton ? (
           <div className="cz-detail-foot">
-            {buyButtons.map((button, i) => (
-              <button
-                key={button.url + i}
-                type="button"
-                className="cz-detail-buy"
-                onClick={() => onOpen(item, button.url)}
-              >
-                {button.label}
-              </button>
-            ))}
+            <button
+              type="button"
+              className="cz-detail-buy"
+              onClick={() => onOpen(item, buyButton.url)}
+            >
+              {buyButton.label}
+            </button>
             <p className="cz-detail-disclosure">
               Buy links may include a referral code. Credenza may earn a commission on agent
               shipping fees. It never changes your item price.

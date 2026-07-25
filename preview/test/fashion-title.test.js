@@ -3,7 +3,7 @@
 // lives in the /photos/<seller>/ path on x.yupoo.com, and Weidian/Taobao
 // item ids live in the query string.
 import { describe, expect, it } from "vitest";
-import { localTitle } from "../../credenza-fashion.jsx";
+import { fashionDisplayTitle, localTitle } from "../../credenza-fashion.jsx";
 
 describe("localTitle fashion placeholders", () => {
   it("names the seller from the x.yupoo.com /photos/ path, not the x host", () => {
@@ -52,5 +52,36 @@ describe("localTitle fashion placeholders", () => {
       "https://weidian.com/"
     );
     expect(title).toBe("weidian.com");
+  });
+});
+
+// 2026-07-25 live defect: dead Weidian item pages title themselves literally
+// "<UNKNOWN>", and that marker became the card title in production. The junk
+// guard skips it so the local fallback title survives.
+describe("fashionDisplayTitle junk guard", () => {
+  it("skips a literal <UNKNOWN> title and uses the next candidate", () => {
+    const title = fashionDisplayTitle({
+      translatedTitle: "<UNKNOWN>",
+      productTitle: "Denim jacket",
+    });
+    expect(title).toBe("Denim jacket");
+  });
+
+  it("returns an empty string when every candidate is junk", () => {
+    expect(fashionDisplayTitle({ title: "<UNKNOWN>" })).toBe("");
+    expect(fashionDisplayTitle({ title: "unknown" })).toBe("");
+    expect(fashionDisplayTitle({ title: "￥209 <UNKNOWN>" })).toBe("");
+    expect(fashionDisplayTitle(null)).toBe("");
+    expect(fashionDisplayTitle({})).toBe("");
+  });
+
+  it("keeps a real title that follows a price marker", () => {
+    expect(fashionDisplayTitle({ title: "￥209 M29855-51E hoodie" })).toBe("M29855-51E hoodie");
+  });
+
+  it("truncates long titles to 69 characters plus an ellipsis", () => {
+    const title = fashionDisplayTitle({ title: "a".repeat(100) });
+    expect(title).toHaveLength(70);
+    expect(title.endsWith("…")).toBe(true);
   });
 });
