@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CATEGORIES, FIT_PREF_AXES, FitPrefAxis, ModalShell } from "../credenza-fashion.jsx";
+import { CATEGORIES, FIT_PREF_AXES, ModalShell } from "../credenza-fashion.jsx";
+import { FitPrefAxis } from "../components/SizeRecommendation.jsx";
 
 // Design 5a — Settings → Fit preferences. One row per owned category.
 export default function FitPrefsSheet({ value, ownedCategories, onSave, onClose }) {
