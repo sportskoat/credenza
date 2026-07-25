@@ -68,6 +68,7 @@ import DigestDeck from "./components/DigestDeck.jsx";
 import HaulBoard from "./components/HaulBoard.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
 import ItemEditForm from "./components/ItemEditForm.jsx";
+import { AlbumLink, SellerLink } from "./components/CardMetaLinks.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
@@ -1158,7 +1159,7 @@ function resolvableBuyUrl(item) {
 
 // First Yupoo album URL on an item: the primary URL or any paired link tagged
 // as photos. Used to populate the photo-orbit animation.
-function yupooAlbumUrl(item) {
+export function yupooAlbumUrl(item) {
   function isYupoo(raw) {
     try {
       const host = new URL(raw).hostname.replace(/^www\./, "").toLowerCase();
@@ -1426,7 +1427,7 @@ export async function runPool(list, worker, concurrency = 3) {
 }
 
 // Store homepage for a Yupoo seller (or generic host fallback).
-function sellerStoreUrl(item) {  if (!item) return null;
+export function sellerStoreUrl(item) {  if (!item) return null;
   const account = String(item.sellerAccount || "").trim();
   if (account) return "https://" + account + ".x.yupoo.com/";
   const album = yupooAlbumUrl(item);
@@ -3769,51 +3770,6 @@ function cx(...parts) {
 export function itemPhotoList(item, max) {
   const photos = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []);
   return max == null ? photos : photos.slice(0, max);
-}
-
-// Seller name, hyperlinked to the store when we know it (Weidian/Yupoo home,
-// host fallback). The one place seller renders as a link-or-text.
-function SellerLink({ item, className = "cz-seller-link", style }) {
-  if (!item || !item.seller) return null;
-  const href = sellerStoreUrl(item);
-  if (href) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={className}
-        style={style}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {item.seller}
-      </a>
-    );
-  }
-  return (
-    <span className={className + " is-text"} style={style}>
-      {item.seller}
-    </span>
-  );
-}
-
-// Yupoo full album — quiet hyperlink under the seller (card back). Not an
-// action button: Kyle 2026-07-22 killed "More Photos" chrome in the Buy row.
-function AlbumLink({ item, className = "cz-album-quiet", style }) {
-  const href = item ? yupooAlbumUrl(item) : null;
-  if (!href) return null;
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={className}
-      style={style}
-      onClick={(e) => e.stopPropagation()}
-    >
-      Full Album
-    </a>
-  );
 }
 
 // Garment categories only — shoes/hats/bags etc. don't map body cm → letter size.
