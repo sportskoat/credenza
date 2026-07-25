@@ -125,7 +125,10 @@ const PALETTES = {
     "--cz-glow-weak": "rgba(244, 244, 240, 0.55)",
     "--cz-gradient-1": "#17181a",
     "--cz-gradient-2": "#565a61",
-    "--cz-gradient-3": "#a3a3ab",
+    /* #a3a3ab read airy under the sheen, but the primary Buy label sits on
+       this gradient and light text over it measured ~2:1. #656a72 holds
+       4.9:1 against --cz-action-text through the whole sweep. */
+    "--cz-gradient-3": "#656a72",
   },
   // Blackout dark: true-black field, neutral #1a1a1d surfaces, zero blue cast.
   // Money green + heart red are the only hue; everything else is grayscale.
