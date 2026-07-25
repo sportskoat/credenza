@@ -112,5 +112,9 @@ Set these on the site (all contexts):
       sheet — the shelf IS the user's data. Deletion removes the entitlement
       row + auth user; a 409 blocks it while a subscription is active — the
       customer cancels in the Portal first, Stripe keeps the payment records.)
-- [ ] 7f. Remove the `VITE_` shared key from paid routes.
+- [x] 7f. Remove the `VITE_` shared key from paid routes. (`lib/paid-gate.js`,
+      2026-07-25. Paid routes take the Bearer account path now; the shared key
+      still answers while `REQUIRE_ACCOUNTS` is unset. **Flip
+      `REQUIRE_ACCOUNTS=true` on Netlify after the 7g real-card test, then
+      remove `VITE_CREDENZA_SEARCH_SECRET` from the build env.**)
 - [ ] 7g. Real-card test payment (the gate).
