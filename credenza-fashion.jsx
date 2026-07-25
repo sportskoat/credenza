@@ -64,6 +64,7 @@ const DetailSheet = lazy(() => import("./sheets/DetailSheet.jsx"));
 // a waterfall. The circular import back into this file is safe — the helpers
 // they use are hoisted function declarations.
 import SizeChartTable from "./components/SizeChartTable.jsx";
+import DigestDeck from "./components/DigestDeck.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
@@ -190,15 +191,15 @@ export const CARD = "var(--cz-card)";
 export const HAIR = "var(--cz-hair)";
 export const INK = "var(--cz-ink)";
 export const SUB = "var(--cz-sub)";
-const FAINT = "var(--cz-faint)";
+export const FAINT = "var(--cz-faint)";
 export const SEG = "var(--cz-seg)";
 export const BLUE = "var(--cz-accent)";
 const BLUE_BG = "var(--cz-accent-bg)";
-const BLUE_DK = "var(--cz-accent-deep)";
-const ACTION_FILL = "var(--cz-action-fill)";
+export const BLUE_DK = "var(--cz-accent-deep)";
+export const ACTION_FILL = "var(--cz-action-fill)";
 
 export const FONT = "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-const DISPLAY = "Georgia, 'Iowan Old Style', 'Times New Roman', serif";
+export const DISPLAY = "Georgia, 'Iowan Old Style', 'Times New Roman', serif";
 
 // Internal type keys are stable (match stored data); labels are display-only.
 const TYPES = {
@@ -2787,7 +2788,7 @@ function pickResurface(items, now) {
 
 // Motion language: a drawer gliding open, cards settling into place. Quiet ease-out
 // curves only — no springs, no bounce. Everything respects prefers-reduced-motion.
-const EASE = "cubic-bezier(0.2, 0.6, 0.2, 1)";
+export const EASE = "cubic-bezier(0.2, 0.6, 0.2, 1)";
 const KEYFRAMES = `
 *, *::before, *::after { box-sizing: border-box; }
 .cz-shell { max-width: 1080px; margin: 0 auto; padding: 28px 28px 0; }
@@ -8678,120 +8679,6 @@ export function ModalShell({ title, onClose, children, maxWidth = 720, trailing,
         {children}
       </div>
     </dialog>
-  );
-}
-
-function DigestDeck({ slides, onClose, onOpen }) {
-  const [i, setI] = useState(0);
-  const slide = slides[i];
-  const next = () => setI((value) => Math.min(value + 1, slides.length - 1));
-  const prev = () => setI((value) => Math.max(value - 1, 0));
-
-  useEffect(() => {
-    const onKey = (event) => {
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        setI((value) => Math.min(value + 1, slides.length - 1));
-      }
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        setI((value) => Math.max(value - 1, 0));
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [slides.length]);
-
-  return (
-    <ModalShell title="Digest" onClose={onClose} maxWidth={440}>
-      <div style={{ padding: "22px 22px 18px", minHeight: 250 }} aria-live="polite">
-        <Caption style={{ color: BLUE_DK, marginBottom: 14 }}>{slide.eyebrow}</Caption>
-        <div
-          className="cz-title-balance"
-          style={{
-            fontFamily: DISPLAY,
-            fontSize: 24,
-            fontWeight: 500,
-            letterSpacing: "-0.035em",
-            lineHeight: 1.15,
-            marginBottom: 10,
-          }}
-        >
-          {slide.title}
-        </div>
-        <div className="cz-copy-pretty" style={{ fontSize: 14, lineHeight: 1.6, color: SUB }}>
-          {slide.body}
-        </div>
-        {slide.url && (
-          <div style={{ marginTop: 18 }}>
-            <Pill primary onClick={() => onOpen(slide.itemId, slide.url)}>
-              Open card
-            </Pill>
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          padding: "12px 14px 14px",
-          borderTop: "1px solid " + HAIR,
-        }}
-      >
-        <button
-          type="button"
-          className="cz-icon-button"
-          aria-label="Previous digest card"
-          onClick={prev}
-          disabled={i === 0}
-          style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: SEG, color: INK }}
-        >
-          ‹
-        </button>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-          {slides.map((_, index) => (
-            <button
-              type="button"
-              className="cz-icon-button"
-              key={index}
-              aria-label={"Go to digest card " + (index + 1) + " of " + slides.length}
-              aria-current={index === i ? "step" : undefined}
-              onClick={() => setI(index)}
-              style={{ width: 32, height: 40, border: 0, background: "transparent", padding: 0 }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  display: "block",
-                  width: index === i ? 16 : 6,
-                  height: 6,
-                  margin: "0 auto",
-                  borderRadius: 999,
-                  background: index === i ? ACTION_FILL : HAIR,
-                  transition: "background-color 160ms " + EASE,
-                }}
-              />
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          className="cz-icon-button"
-          aria-label="Next digest card"
-          onClick={next}
-          disabled={i === slides.length - 1}
-          style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: SEG, color: INK }}
-        >
-          ›
-        </button>
-      </div>
-      <div className="cz-status-number" style={{ padding: "0 16px 14px", textAlign: "center", fontSize: 12, color: FAINT }}>
-        Card {i + 1} of {slides.length}
-      </div>
-    </ModalShell>
   );
 }
 
