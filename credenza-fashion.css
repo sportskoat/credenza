@@ -8406,3 +8406,130 @@ a.cz-card-seller:hover {
     gap: 14px;
   }
 }
+
+/* ═══ MOBILE SHELF HANDOFF (2026-07-25) — step 2: two-line card ═══
+   Phone-only. `.cz-card-twoline` is added by Card when phone=true, so the
+   desktop grid card and the frozen carousel front keep the stacked layout.
+   Size + price share one baseline row (`.cz-front-meta-row`), the photo goes
+   flush to the card edge, and the hover Buy pill is gone. Card height falls
+   from ~340px to ~293px at a 175px column. */
+
+/* Meta row: size left, price right, one shared baseline. */
+.cz-front-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+.cz-front-meta-row .cz-front-size {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.cz-front-meta-row .cz-front-price {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  /* 14px radius + a lighter lift: the 16px/6px pair read heavy once the card
+     lost 47px of height. */
+  /* !important on the shadow: Card sets it inline. The selected ring keeps
+     its own inline shadow, so exclude `.is-selected`. */
+  .cz-card-editorial.cz-card-twoline {
+    border-radius: 14px !important;
+  }
+  .cz-card-editorial.cz-card-twoline:not(.is-selected) {
+    box-shadow: 0 4px 12px rgba(23, 24, 26, 0.05) !important;
+  }
+
+  /* Photo flush to the card edge — the old 6/12/14 padding framed it. */
+  .cz-card-twoline .cz-card-body {
+    padding: 0;
+  }
+  .cz-card-twoline .cz-card-photo {
+    margin-bottom: 0;
+  }
+
+  /* Text block: one 4px rhythm for title, meta row and seller. The photo
+     button is nested in .cz-card-photo, so the text button follows THAT.
+     !important because Card sets display and padding inline. */
+  .cz-card-twoline .cz-card-photo + .cz-card-toggle {
+    display: grid !important;
+    gap: 4px;
+    padding: 10px 11px 11px !important;
+  }
+
+  .cz-card-twoline .cz-card-title-serif {
+    font-size: 14.5px !important;
+    letter-spacing: -0.01em !important;
+    padding: 0 !important;
+    /* Two lines reserved so every card in a row shares the meta baseline. */
+    min-height: 2.5em !important;
+    margin: 0;
+  }
+
+  .cz-card-twoline .cz-front-size,
+  .cz-card-twoline .cz-front-seller,
+  .cz-card-twoline .cz-front-price {
+    padding: 0;
+    margin: 0;
+    min-height: 0;
+  }
+  .cz-card-twoline .cz-front-size {
+    font-size: 10.5px;
+    color: var(--cz-sub);
+  }
+  .cz-card-twoline .cz-front-price {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  /* QW3 floor: --cz-faint is the lightest allowed here. Do not go lighter. */
+  .cz-card-twoline .cz-front-seller {
+    font-size: 10px;
+    color: var(--cz-faint);
+  }
+  .cz-card-twoline .cz-front-seller .cz-seller-link.is-text {
+    color: inherit;
+  }
+
+  /* Heart: 34px glass puck against the photo. QW1 grows the hit area to 44px
+     on coarse pointers, so the visible puck can stay small. */
+  /* Doubled class beats the `pointer: coarse` 44px min-width/height above —
+     the drawn puck is 34px and QW1's ::after ring carries the 44px target. */
+  .cz-card-twoline .cz-card-favorite-onphoto.cz-card-favorite-onphoto {
+    top: 8px !important;
+    right: 8px !important;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    /* Off state only — `.t-like[data-liked="true"] .t-like-heart` already
+       paints the on state with --cz-like. */
+    color: var(--cz-faint);
+    filter: none;
+  }
+  /* QW1: the base ring is -3px for a 38px button. A 34px puck needs -5px to
+     reach the 44px floor. */
+  .cz-card-twoline .cz-card-favorite-onphoto::after {
+    inset: -5px;
+  }
+
+  /* Status chip moves to the bottom-left corner of the photo. StatusPill
+     already returns null for "want", so no extra condition is needed. */
+  .cz-card-twoline .cz-card-status {
+    top: auto;
+    left: 8px;
+    bottom: 8px;
+  }
+  /* StatusPill puts .cz-card-status ON the pill — same element, not a wrapper. */
+  .cz-card-twoline .cz-card-status.cz-status-pill {
+    font-size: 9px;
+    padding: 4px 8px;
+  }
+}

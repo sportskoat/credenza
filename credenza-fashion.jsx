@@ -5282,39 +5282,63 @@ function linkButtons(item, opts = {}) {
 // the item has no chart), seller, then the price as green USD text — no ¥
 // when USD is known. linkSeller=false renders the seller as plain text: the
 // grid card's whole face is one button, and nested anchors are invalid.
-function CardFrontInfo({ item, bodyProfile, fitPrefs = null, linkSeller = true }) {
+// layout="stack" — size, seller, price on three lines. The carousel front and
+// the desktop grid card use this; the carousel is frozen, so it never changes.
+// layout="row" — size and price share one baseline row, seller below. Phone
+// grid card only (mobile handoff step 2): one line less per card.
+function CardFrontInfo({ item, bodyProfile, fitPrefs = null, linkSeller = true, layout = "stack" }) {
   const size = resolveDisplaySize(item, bodyProfile, fitPrefs);
   const price = priceLabelShort(item);
+  const sizeLine = (
+    <div className="cz-front-size">
+      {size.text ? (
+        <span
+          className={
+            "cz-front-size-text" + (size.isRec ? " is-rec t-shimmer" : "")
+          }
+          data-text={size.isRec ? size.text : undefined}
+        >
+          {size.text}
+        </span>
+      ) : (
+        <span aria-hidden="true">&nbsp;</span>
+      )}
+    </div>
+  );
+  const sellerLine = (
+    <div className="cz-front-seller">
+      {item.seller ? (
+        linkSeller ? (
+          <SellerLink item={item} />
+        ) : (
+          <span className="cz-seller-link is-text">{item.seller}</span>
+        )
+      ) : (
+        <span aria-hidden="true">&nbsp;</span>
+      )}
+    </div>
+  );
+  const priceLine = (
+    <div className="cz-front-price">
+      {price ? price : <span aria-hidden="true">&nbsp;</span>}
+    </div>
+  );
+  if (layout === "row") {
+    return (
+      <>
+        <div className="cz-front-meta-row">
+          {sizeLine}
+          {priceLine}
+        </div>
+        {sellerLine}
+      </>
+    );
+  }
   return (
     <>
-      <div className="cz-front-size">
-        {size.text ? (
-          <span
-            className={
-              "cz-front-size-text" + (size.isRec ? " is-rec t-shimmer" : "")
-            }
-            data-text={size.isRec ? size.text : undefined}
-          >
-            {size.text}
-          </span>
-        ) : (
-          <span aria-hidden="true">&nbsp;</span>
-        )}
-      </div>
-      <div className="cz-front-seller">
-        {item.seller ? (
-          linkSeller ? (
-            <SellerLink item={item} />
-          ) : (
-            <span className="cz-seller-link is-text">{item.seller}</span>
-          )
-        ) : (
-          <span aria-hidden="true">&nbsp;</span>
-        )}
-      </div>
-      <div className="cz-front-price">
-        {price ? price : <span aria-hidden="true">&nbsp;</span>}
-      </div>
+      {sizeLine}
+      {sellerLine}
+      {priceLine}
     </>
   );
 }
@@ -5347,7 +5371,11 @@ function Card({
       style={{ height: "100%" }}
     >
       <div
-        className={"cz-card cz-card-editorial" + (selected ? " is-selected" : "")}
+        className={
+          "cz-card cz-card-editorial" +
+          (phone ? " cz-card-twoline" : "") +
+          (selected ? " is-selected" : "")
+        }
         style={{
           background: CARD,
           borderRadius: 16,
@@ -5384,7 +5412,7 @@ function Card({
             >
               <CoverImage
                 item={item}
-                aspectRatio={phone ? "3/4" : "4/5"}
+                aspectRatio="4/5"
                 maxHeight={phone ? 460 : 320}
                 className="cz-card-image"
                 imgStyle={{
@@ -5396,7 +5424,9 @@ function Card({
               <StatusPill status={item.findStatus} className="cz-card-status" />
             </button>
             <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-card-favorite cz-card-favorite-onphoto" />
-            {buy && onOpen && (
+            {/* Buy-on-hover is fine-pointer only. On phone it can never show,
+                so the node is dropped instead of hidden (handoff step 2). */}
+            {buy && onOpen && !phone && (
               <span className="cz-card-buy-hover">
                 <button
                   type="button"
@@ -5439,6 +5469,7 @@ function Card({
               bodyProfile={bodyProfile}
               fitPrefs={fitPrefs}
               linkSeller={false}
+              layout={phone ? "row" : "stack"}
             />
           </button>
         </div>
