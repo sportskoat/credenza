@@ -32,8 +32,10 @@ $39/year. Email+password and Google sign-in (Pro-plan §11).
    a Google OAuth client id + secret (create it in Google Cloud Console,
    redirect URL from the Supabase page).
 3. SQL editor: run the schema below.
-4. Copy these values for Netlify: Project URL, `anon` public key,
-   `service_role` secret key, JWT secret (Settings → API).
+4. Copy these values for Netlify: Project URL (Settings → Data API),
+   **publishable key** and **secret key** (Settings → API Keys — these are the
+   new names for the anon and service_role keys), JWT secret (Settings →
+   JWT Keys).
 
 ```sql
 create table entitlements (
@@ -73,8 +75,8 @@ Set these on the site (all contexts):
 | Var | Value |
 |---|---|
 | `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Supabase anon public key (also `VITE_SUPABASE_ANON_KEY` for the browser) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key — server only |
+| `SUPABASE_ANON_KEY` | Supabase **publishable key** (also `VITE_SUPABASE_ANON_KEY` for the browser) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase **secret key** — server only |
 | `SUPABASE_JWT_SECRET` | Supabase JWT secret — verifies sessions |
 | `STRIPE_SECRET_KEY` | Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
@@ -87,9 +89,15 @@ Set these on the site (all contexts):
 
 - [x] 7a. Entitlement engine + lifecycle tests (`lib/entitlements.js`,
       `test/entitlements.test.js`).
-- [ ] 7c. Entitlement store functions: load/save records, `entitlement`
-      function (verify JWT → signed snapshot), `stripe-webhook` (verify
-      signature → idempotent apply).
+- [x] 7c. Entitlement store functions: load/save records
+      (`lib/entitlement-store.js`, `lib/jwt.js`), `entitlement` function
+      (verify JWT → signed snapshot), `stripe-webhook` (verify signature →
+      idempotent apply). 14 tests in `test/part7c.test.js`. **Env vars set on
+      Netlify 2026-07-24: SUPABASE_ANON_KEY, VITE_SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_ROLE_KEY.** Still needed: SUPABASE_URL,
+      VITE_SUPABASE_URL, SUPABASE_JWT_SECRET, ENTITLEMENT_SIGNING_SECRET.
+      **The first secret key was pasted in chat — roll it in Supabase (API
+      Keys) once the flow works, then update Netlify.**
 - [ ] 7d. Checkout + portal functions.
 - [ ] 7e. Client: sign-in UI in ProfileSheet, session on paid requests,
       offline snapshot cache, free-limit enforcement, account export +
