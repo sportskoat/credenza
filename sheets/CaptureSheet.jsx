@@ -170,8 +170,8 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
           </button>
         )}
 
-        {/* The only Import entry point on the phone. Files need Settings. */}
-        <p className="cz-stash-foot">Restoring a backup or a CSV? Settings → Import</p>
+        {/* The only Import entry point on the phone. Files need Profile. */}
+        <p className="cz-stash-foot">Restoring a backup or a CSV? Profile → Import</p>
       </div>
     </ModalShell>
   );

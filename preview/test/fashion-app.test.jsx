@@ -725,8 +725,8 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     // Step 4 removed the source dot row and the text-button pair.
     expect(document.querySelector(".cz-stash-sources")).toBeNull();
     expect(document.querySelector(".cz-capture-sheet-links")).toBeNull();
-    // Import moved behind Settings, and the sheet says so.
-    expect(screen.getByText(/Settings → Import/)).toBeInTheDocument();
+    // Import moved behind Profile, and the sheet says so.
+    expect(screen.getByText(/Profile → Import/)).toBeInTheDocument();
   });
 
   it("previews what a paste becomes before it stashes anything", async () => {

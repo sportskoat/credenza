@@ -77,6 +77,23 @@ for (const theme of ["light", "rainbow"]) {
   if (await intro.count()) await intro.first().click({ force: true });
   await page.waitForTimeout(400);
 
+  // The shelf itself: cards, masthead, Stash dock.
+  await page.screenshot({ path: `/tmp/step5-shelf-${theme}.png` });
+
+  // The ⋯ Settings sheet (phone owns look-and-fit rows after the split).
+  await page.getByRole("button", { name: "Settings" }).click({ force: true });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `/tmp/step5-settings-${theme}.png` });
+  await page.getByRole("button", { name: "Close Settings" }).click({ force: true });
+  await page.waitForTimeout(400);
+
+  // The Stash sheet from the dock.
+  await page.getByRole("button", { name: "Stash to shelf" }).click({ force: true });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `/tmp/step5-stash-${theme}.png` });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+
   // A card tap opens the sheet, not the carousel overlay.
   await page.getByRole("button", { name: /^Open Palace x Nike jersey$/ }).first().click({ force: true });
   await page.waitForTimeout(900);
