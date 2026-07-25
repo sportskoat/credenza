@@ -5,6 +5,7 @@
 // structured JSON the client can drop straight onto a card. No dependencies.
 
 const limit = require("./lib/limit.js");
+const paidGate = require("./lib/paid-gate.js");
 
 const ROUTE = "resolve";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -184,12 +185,14 @@ async function enrichWithClaude(apiKey, facts, signal) {
 }
 
 async function handle(event) {
-  const secret = process.env.CREDENZA_SEARCH_SECRET;
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!secret) return response(500, { error: "Server not configured: missing CREDENZA_SEARCH_SECRET" });
-  const supplied = event && event.headers && event.headers["x-credenza-key"];
-  if (supplied !== secret) return response(401, { error: "Unauthorized" });
   if (!event || event.httpMethod !== "POST") return response(405, { error: "Method not allowed" });
+  // Part 7f: account (Bearer + per-plan daily cap) or, until REQUIRE_ACCOUNTS
+  // flips, the anonymous shared key.
+  const gate = await paidGate.authorizePaid(event, process.env, "resolve");
+  if (!gate.ok) {
+    return response(gate.status, gate.body, gate.retryAfter ? { "retry-after": String(gate.retryAfter) } : undefined);
+  }
   if (limit.bodyTooLarge(event, ROUTE)) return response(413, { error: "Body too large" });
 
   let input;
@@ -244,6 +247,7 @@ async function handle(event) {
       })),
     }));
 
+    await paidGate.recordPaidUsage(gate, "resolve");
     return response(200, {
       source: "weidian",
       itemId: facts.itemId,

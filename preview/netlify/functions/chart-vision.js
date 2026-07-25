@@ -11,6 +11,7 @@
 
 const { safeFetch } = require("./lib/guard.js");
 const limit = require("./lib/limit.js");
+const paidGate = require("./lib/paid-gate.js");
 
 const ROUTE = "chart-vision";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -161,13 +162,15 @@ async function readChartWithClaude(apiKey, images, signal) {
 }
 
 async function handle(event) {
-  const secret = process.env.CREDENZA_SEARCH_SECRET;
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!secret) return response(500, { error: "Server not configured: missing CREDENZA_SEARCH_SECRET" });
-  const supplied = event && event.headers && event.headers["x-credenza-key"];
-  if (supplied !== secret) return response(401, { error: "Unauthorized" });
   if (!event || event.httpMethod !== "POST") return response(405, { error: "Method not allowed" });
   if (!apiKey) return response(500, { error: "Server not configured: missing ANTHROPIC_API_KEY" });
+  // Part 7f: account (Bearer + per-plan daily cap) or, until REQUIRE_ACCOUNTS
+  // flips, the anonymous shared key.
+  const gate = await paidGate.authorizePaid(event, process.env, "chartVision");
+  if (!gate.ok) {
+    return response(gate.status, gate.body, gate.retryAfter ? { "retry-after": String(gate.retryAfter) } : undefined);
+  }
   if (limit.bodyTooLarge(event, ROUTE)) return response(413, { error: "Body too large" });
 
   let input;
@@ -195,6 +198,7 @@ async function handle(event) {
     const chart = await readChartWithClaude(apiKey, images, controller.signal).catch(() => null);
     if (!chart) return response(502, { error: "Chart read failed" });
     limit.recordUsage(ROUTE, MODEL, chart.usage);
+    await paidGate.recordPaidUsage(gate, "chartVision");
     const result = chart.result;
     if (!result.found || !result.chartText || !result.chartText.trim()) {
       return response(200, { found: false, chartText: "", scanned: images.length });

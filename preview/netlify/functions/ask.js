@@ -1,4 +1,5 @@
 const limit = require("./lib/limit.js");
+const paidGate = require("./lib/paid-gate.js");
 
 const ROUTE = "ask";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -32,21 +33,19 @@ function response(statusCode, payload, extraHeaders) {
 
 async function handle(event) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const searchSecret = process.env.CREDENZA_SEARCH_SECRET;
 
   if (!apiKey) {
     return response(500, { error: "Server not configured: missing ANTHROPIC_API_KEY" });
   }
-  if (!searchSecret) {
-    return response(500, { error: "Server not configured: missing CREDENZA_SEARCH_SECRET" });
-  }
-
-  const suppliedSecret = event && event.headers && event.headers["x-credenza-key"];
-  if (suppliedSecret !== searchSecret) {
-    return response(401, { error: "Unauthorized" });
-  }
   if (!event || event.httpMethod !== "POST") {
     return response(405, { error: "Method not allowed" });
+  }
+
+  // Part 7f: account (Bearer + per-plan daily cap) or, until REQUIRE_ACCOUNTS
+  // flips, the anonymous shared key.
+  const gate = await paidGate.authorizePaid(event, process.env, "ask");
+  if (!gate.ok) {
+    return response(gate.status, gate.body, gate.retryAfter ? { "retry-after": String(gate.retryAfter) } : undefined);
   }
   if (limit.bodyTooLarge(event, ROUTE)) return response(413, { error: "Body too large" });
 
@@ -201,6 +200,7 @@ async function handle(event) {
       return response(502, { error: "Anthropic returned an invalid structured response" });
     }
 
+    await paidGate.recordPaidUsage(gate, "ask");
     return response(200, { results: result.results, answer: result.answer });
   } finally {
     clearTimeout(timer);
