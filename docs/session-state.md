@@ -5,9 +5,10 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-25 (Execution Plan Parts 0–6 DONE + DEPLOYED, Part 7 in progress; mobile walkthrough fixes DEPLOYED)
+**Last updated:** 2026-07-25 (Execution Plan Parts 0–6 DONE + DEPLOYED, Part 7 in progress; mobile walkthrough fixes DEPLOYED; **deploys BLOCKED by Netlify credits**)
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `376e316` (walkthrough fixes + bottom bar hidden on the brand-new empty shelf, deployed 2026-07-25; Netlify deploy `6a646d6340010ebd8caddb2c`)**. The new Anthropic key (set via CLI 2026-07-24) is active in prod.
+**DEPLOY BLOCKER (2026-07-25 ~08:20Z):** Netlify API: "Account credit usage exceeded — new deploys are blocked until credits are added". Committed but UNDEPLOYED: `5b925df` (haul paste routing out of one-line fields + numbered/meta-line parser fixes + French post regression test; 327 tests green). **Kyle: add credits at app.netlify.com → billing, then run `cd preview && npx netlify deploy --build --prod`.**
 
 ---
 
