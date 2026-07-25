@@ -78,9 +78,6 @@ import {
   RainbowBackground,
   ReelCounter,
   StatusPill,
-  StatusStage,
-  StatusTrackChips,
-  StatusUnderline,
 } from "./components/atoms.jsx";
 import ComboboxField from "./components/ComboboxField.jsx";
 import CoverFlowCarousel from "./components/CoverFlowCarousel.jsx";
@@ -88,8 +85,9 @@ import { ModalShell } from "./components/ModalShell.jsx";
 import { BrandIcon } from "./components/BrandIcon.jsx";
 import { HaulAccordionField } from "./components/HaulAccordionField.jsx";
 import { EditPhotosManager } from "./components/EditPhotosManager.jsx";
+import { SegmentedControl, StatusChips } from "./components/atoms.jsx";
 // Re-exported so sheets/components that import these from this file keep working.
-export { BrandIcon, Caption, ComboboxField, EditPhotosManager, Field, HaulAccordionField, ModalShell, Pill, PriceChip, StatusPill };
+export { BrandIcon, Caption, ComboboxField, EditPhotosManager, Field, HaulAccordionField, ModalShell, Pill, PriceChip, SegmentedControl, StatusChips, StatusPill };
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
@@ -3044,59 +3042,6 @@ export const FIND_STATUS_COLORS = {
   rl: { bg: "oklch(0.3 0.1 25)", text: "oklch(0.9 0.12 25)", dot: "oklch(0.65 0.18 25)" },
   returned: { bg: "oklch(0.32 0.06 55)", text: "oklch(0.9 0.08 55)", dot: "oklch(0.7 0.12 55)" },
 };
-// One segmented radiogroup for every chip-style picker — unit toggles and
-// other compact radios. Category uses CategorySelect (design 4c).
-export function SegmentedControl({ value, onChange, options, label, allowUnset = false }) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      style={{ display: "flex", flexWrap: "wrap", gap: 4, background: SEG, borderRadius: 12, padding: 2 }}
-    >
-      {options.map((opt) => {
-        const active = value === opt.value;
-        return (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={active}
-            className="cz-chip"
-            key={opt.value}
-            onClick={() => onChange(active && allowUnset ? "" : opt.value)}
-            style={{
-              flex: "1 0 auto",
-              fontFamily: FONT,
-              fontSize: 11,
-              fontWeight: 600,
-              color: active ? INK : SUB,
-              background: active ? CARD : "transparent",
-              border: "none",
-              borderRadius: 999,
-              padding: "6px 8px",
-              cursor: "pointer",
-            }}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// Shared status control.
-// mode "display" | default = design 4a stage + track + grouped picker.
-// mode "edit" = underline segments for dense forms.
-// mode "track" = four 44px chips (mobile detail sheet).
-export function StatusChips({ value, onChange, label = "Status", mode = "display" }) {
-  if (mode === "edit") {
-    return <StatusUnderline value={value} onChange={onChange} label={label} />;
-  }
-  if (mode === "track") {
-    return <StatusTrackChips value={value} onChange={onChange} label={label} />;
-  }
-  return <StatusStage value={value} onChange={onChange} label={label} />;
-}
 
 // Design 4c: one auto-detected category row. Tap expands a tidy chip list.
 // ═══ SHARED CARD PRIMITIVES (standardization 2026-07-22, audit workstream A) ═══
