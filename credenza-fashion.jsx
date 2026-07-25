@@ -74,6 +74,7 @@ import Card from "./components/Card.jsx";
 import MorphButton from "./components/MorphButton.jsx";
 import HaulCoverFan from "./components/HaulCoverFan.jsx";
 import ItemDetailBody from "./components/ItemDetailBody.jsx";
+import InfoBubble from "./components/InfoBubble.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
@@ -4794,23 +4795,6 @@ export const BODY_PROFILE_FIELDS = [
   ["hip", "Hip", "length", "98", "38.5"],
   ["inseam", "Inseam (leg length)", "length", "81", "32"],
 ];
-function InfoBubble({ title, children, onClose }) {
-  return (
-    <div className="cz-info-bubble">
-      <div className="cz-info-bubble-line" aria-hidden="true" />
-      <div className="cz-info-bubble-card">
-        <div className="cz-info-bubble-header">
-          <span>{title}</span>
-          <button type="button" onClick={onClose} aria-label="Close details">
-            ×
-          </button>
-        </div>
-        <div className="cz-info-bubble-body">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 // Size facts live inside SizeRecommendation now — no second "Sizes" bubble.
 
 const CoverFlowCard = forwardRef(function CoverFlowCard(
