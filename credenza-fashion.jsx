@@ -1653,6 +1653,55 @@ function clipboardPreviewFor(raw) {
   };
 }
 
+function platformNameFor(host) {
+  const hit = CLIP_PLATFORMS.find(([re]) => re.test(host || ""));
+  return hit ? hit[1] : host || "Link";
+}
+function platformDotFor(host) {
+  const hit = CLIP_PLATFORMS.find(([re]) => re.test(host || ""));
+  return hit ? hit[2] : "var(--cz-faint)";
+}
+
+// Short mono code that names one parsed row: the marketplace item id where
+// one exists, else the album id, else the host.
+function stashRowCode(parsed) {
+  if (!parsed.url) return "note";
+  const weidian = weidianItemId(parsed.url);
+  if (weidian) return "item " + weidian;
+  const yupoo = yupooAlbumIdentity(parsed.url);
+  if (yupoo) return "album " + yupoo.albumId;
+  return parsed.host || "link";
+}
+
+// Stash sheet preview (mobile handoff step 4). Rule: nothing is stashed that
+// is not on screen first. Read a paste and describe what it BECOMES, before
+// any card exists. Returns null for an empty paste.
+//
+// `count` drives the sheet state: 1 = one card, more = a haul. `rows` carry
+// what the list shows. No side effects — this never touches the shelf.
+export function stashPreview(raw) {
+  const text = (raw || "").trim();
+  if (!text) return null;
+  const row = (parsed, rawText, titleHint) => ({
+    key: canonicalKey(parsed, rawText),
+    title: (titleHint || "").trim() || localTitle(parsed, rawText),
+    code: stashRowCode(parsed),
+    platform: platformNameFor(parsed.host),
+    dot: platformDotFor(parsed.host),
+  });
+  let rows = parseImport(text).candidates.map((c) => row(c.parsed, c.rawText, c.titleHint));
+  // The parser is conservative and returns nothing for some pastes. That text
+  // still stashes as one note, so the preview must say so.
+  if (!rows.length) rows = [row(classify(text), text, "")];
+  const platforms = new Set(rows.map((r) => r.platform));
+  return {
+    count: rows.length,
+    rows,
+    platform: platforms.size === 1 ? rows[0].platform : "mixed sources",
+    label: rows[0].platform + " · " + rows[0].code,
+  };
+}
+
 // Item factory. Local enrichment happens at creation — the card is usable instantly.
 // `extra` overrides fields (import title hints, sample data, sourceImport, ages).
 // Fields marked [backend] are where future server columns go (userId, syncedAt, …).
@@ -9580,6 +9629,31 @@ export default function Credenza() {
     if (result.status === "stashed") beginIndexingJob(result);
   };
 
+  // The Stash sheet's one button (mobile handoff step 4). The sheet already
+  // showed the user what this stashes, so the sheet closes on the tap and the
+  // toast carries the Undo. A haul keeps runImport's own messaging: it counts
+  // the cards it made, which this cannot know before the fetch returns.
+  const stashFromSheet = (raw) => {
+    const text = (raw || "").trim();
+    if (!text) return;
+    const result = dispatchStash(text);
+    if (result.status === "gated") return; // the gate's toast owns this paste
+    setInput("");
+    setCaptureSheetOpen(false);
+    if (result.status !== "stashed") return;
+    beginIndexingJob(result);
+    const id = result.id;
+    notify("Stashed · " + (result.title || "New item"), {
+      tone: "action",
+      actionLabel: "Undo",
+      onAction: () => {
+        applyUpdate((list) => list.filter((x) => x.id !== id));
+        setIndexingJobs((jobs) => jobs.filter((j) => j.id !== id));
+      },
+      duration: 3000,
+    });
+  };
+
   // The hero bar (empty shelf) stashes what sits in its field. An empty field
   // opens the phone capture sheet, or reads the clipboard on desktop. One
   // field, one button, one behavior everywhere (Kyle 2026-07-24).
@@ -10533,25 +10607,10 @@ export default function Credenza() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageState.status]);
 
-  const canStashTab = !!(EXT && EXT.tabs && EXT.tabs.query);
-  const stashCurrentTab = () => {
-    if (!canStashTab) return;
-    EXT.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-      const tab = tabs && tabs[0];
-      if (!tab || !tab.url || !/^https?:/.test(tab.url)) {
-        flashImportResult("Nothing stashable on this tab.");
-        return;
-      }
-      const r = stash(tab.url, {
-        sourceImport: "tab",
-        ...(tab.title ? { title: tab.title.slice(0, 72) } : {}),
-      });
-      if (r.status === "stashed") {
-        beginIndexingJob(r);
-        flashImportResult("Stashed this tab.");
-      }
-    });
-  };
+  // The "Stash this tab" button left with the old Stash sheet (mobile handoff
+  // step 4 — the sheet shows one paste and one button now). The extension
+  // still stashes pages: its context menu queues them, and consumePending
+  // above drains that queue.
 
   // ————— Derived lists —————
   const inboxItems = useMemo(
@@ -11700,16 +11759,7 @@ export default function Credenza() {
           clip={clipPreview}
           input={input}
           onInput={setInput}
-          canStashTab={canStashTab}
-          onStashTab={stashCurrentTab}
-          onStash={() => {
-            if (input.trim()) {
-              capture();
-              setCaptureSheetOpen(false);
-              return;
-            }
-            stashClipboard();
-          }}
+          onStash={stashFromSheet}
           onClose={() => setCaptureSheetOpen(false)}
           textareaRef={sheetCaptureRef}
         />

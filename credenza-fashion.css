@@ -5734,6 +5734,53 @@ a.cz-card-seller:hover {
   color: var(--cz-ink);
 }
 
+/* Action tone (mobile handoff step 4): the confirmation that follows a stash.
+   It inverts to the action fill so it reads as the app answering the tap, and
+   it carries an Undo. Errors keep the error tone above. */
+.cz-app[data-fashion="true"] .cz-toast[data-tone="action"] {
+  max-width: min(420px, 100%);
+  width: 100%;
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: var(--cz-action-text);
+  background: var(--cz-action-fill);
+  border-color: var(--cz-action-fill);
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="action"] .cz-toast-message {
+  font-size: 13px;
+  font-weight: 600;
+}
+/* Undo is the only way back from a stash, so it gets a full 44px target. The
+   underline carries the affordance; the padding carries the touch area. */
+.cz-app[data-fashion="true"] .cz-toast[data-tone="action"] .cz-toast-action {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--cz-action-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="action"] .cz-toast-dismiss {
+  width: 44px;
+  height: 44px;
+  color: var(--cz-action-text);
+  opacity: 0.75;
+}
+
+/* On the phone the stash toast belongs above the Stash button, not under the
+   stats row. The base rule pins top: 236px, so an override must clear `top`
+   before `bottom` can apply. 104px = the 60px button + its 26px pad + 18px. */
+@media (max-width: 767px) {
+  .cz-app[data-fashion="true"] .cz-toast-region:has(.cz-toast[data-tone="action"]) {
+    top: auto;
+    bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    inset-inline: 16px;
+  }
+}
+
 /* ─── Capture surfaces (design handoff PR3, mobile handoff step 3) ─────────
    Mobile: one round Stash button (.cz-stash-dock, end of this file).
    Desktop: the inline search + Stash row below. */
@@ -6224,48 +6271,10 @@ a.cz-card-seller:hover {
   border-radius: 3px;
 }
 
-/* Capture sheet extras. */
-.cz-capture-clip {  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 9px 12px;
-  border-radius: 11px;
-  background: var(--cz-seg);
-}
-.cz-capture-clip-text {
-  min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
-  color: var(--cz-sub);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cz-capture-sheet-input {
-  width: 100%;
-  margin-top: 12px;
-}
-.cz-capture-sheet-links {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 8px;
-  padding: 0;
-}
-.cz-capture-sheet-links button {
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  color: var(--cz-sub);
-  font: inherit;
-  font-size: 12.5px;
-  line-height: 1.2;
-  cursor: pointer;
-}
-.cz-capture-sheet-links button:hover {
-  color: var(--cz-ink);
-}
+/* The .cz-capture-clip chip, the .cz-capture-sheet-input box and the
+   .cz-capture-sheet-links text buttons left with the Stash sheet rewrite
+   (mobile handoff step 4). The sheet shows the clipboard as a preview block
+   now — see the .cz-stash-* rules further down this file. */
 
 /* While the full-screen photo gallery is open, hide the solo-overlay ✕ so
    two close buttons don't stack (Kyle: X pops up when opening more photos). */
@@ -7817,79 +7826,223 @@ a.cz-card-seller:hover {
   color: var(--cz-error-text);
 }
 
-/* ── Stash sheet (Import-shelf polish) ───────────────────────────────────── */
+/* ── Stash sheet (mobile shelf handoff step 4) ───────────────────────────── */
+/* One rule drives this sheet: nothing is stashed that is not on screen
+   first. The clipboard preview, the ready line and the haul list all exist
+   to show the paste before the button creates cards from it. */
+
+/* QW9: opaque. The shared sheet surface is translucent, and shelf cards read
+   straight through it on a busy shelf. */
+.cz-stash-surface {
+  background: var(--cz-card-solid);
+  border-radius: 26px 26px 0 0;
+}
+
 .cz-stash-body {
-  padding: 22px 24px 24px;
+  padding: 16px 18px 24px;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-/* Plain dots + names — no chip boxes around Yupoo / Weidian / etc. */
-.cz-stash-sources {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px 18px;
-  margin-bottom: 16px;
+/* State A — what the clipboard holds, verbatim. An obfuscated or truncated
+   link has to be visible here, so the raw text wraps instead of clipping. */
+.cz-stash-clipcard {
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-bg);
 }
-.cz-stash-source {
-  display: inline-flex;
+
+.cz-stash-clipcard-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cz-stash-clipcard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.cz-stash-clipcard-label {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-stash-clipcard-raw {
+  margin: 0;
+  max-height: 96px;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-ink);
+  word-break: break-all;
+}
+
+/* State B — the paste box. 16px is a hard floor: anything smaller makes iOS
+   zoom the page when the box takes focus. */
+.cz-stash-paste {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 12px;
+  padding: 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-bg);
+  color: var(--cz-ink);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.cz-stash-paste::placeholder {
+  color: var(--cz-faint);
+  opacity: 1;
+}
+
+.cz-stash-paste:focus {
+  outline: none;
+  border-color: var(--cz-ink);
+}
+
+.cz-stash-error {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--cz-error-text);
+}
+
+/* The one line that says what the button will create. */
+.cz-stash-ready {
+  display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--cz-ink);
+  margin-bottom: 12px;
+  color: var(--cz-money);
 }
-.cz-stash-source-dot {
+
+/* Inside the clipboard card the same line sits under a hairline. The parse
+   result belongs to the raw text above it, so it stays in the card. */
+.cz-stash-clipcard .cz-stash-ready {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-stash-ready-text {
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* State C — one row per card a haul will create. */
+.cz-stash-list {
+  margin-bottom: 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.cz-stash-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-stash-row-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   flex: none;
 }
-.cz-stash-source-name {
+
+.cz-stash-row-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--cz-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cz-stash-paste {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 120px;
-  margin: 0 0 14px;
-  padding: 14px 15px;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 12%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--cz-ink) 3%, var(--cz-bg));
-  color: var(--cz-ink);
+.cz-stash-row-code {
+  flex: none;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 13.5px;
-  line-height: 1.7;
-  resize: vertical;
+  font-size: 10.5px;
+  color: var(--cz-faint);
 }
-.cz-stash-paste::placeholder {
-  color: color-mix(in srgb, var(--cz-ink) 38%, transparent);
-  opacity: 1;
-  white-space: pre-line;
-}
-.cz-stash-paste:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--cz-ink) 28%, transparent);
+
+.cz-stash-list-more {
+  padding: 8px 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--cz-faint);
 }
 
 .cz-stash-primary {
   display: block;
   width: 100%;
-  height: 48px;
+  height: 58px;
   margin: 0;
   padding: 0 26px;
   border: none;
-  border-radius: 13px;
+  border-radius: 17px;
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
-  font: 600 15px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 700 15px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   cursor: pointer;
 }
+
 .cz-stash-primary:hover {
   filter: brightness(1.05);
+}
+
+.cz-stash-primary:active {
+  transform: scale(0.99);
+}
+
+/* The way out of State A into the paste box. */
+.cz-stash-alt {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font: 500 13px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+
+.cz-stash-alt:hover {
+  color: var(--cz-ink);
+}
+
+/* The only Import entry point on the phone. */
+.cz-stash-foot {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--cz-faint);
 }
 
 /* Delete confirmation (KM-02): one calm line of text + Keep / Delete. */
@@ -7947,15 +8100,6 @@ a.cz-card-seller:hover {
   background: var(--cz-error-bg);
 }
 
-.cz-stash-body .cz-capture-clip {
-  margin-bottom: 12px;
-}
-.cz-stash-body .cz-capture-sheet-links {
-  margin-top: 6px;
-}
-.cz-stash-body .cz-stash-primary {
-  margin-bottom: 0;
-}
 
 /* Part 5 a11y — 44px hit targets without changing the drawn size.
    An invisible pseudo-element extends the clickable area to at least

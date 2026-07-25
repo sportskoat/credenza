@@ -719,9 +719,47 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
 
     expect(screen.queryByRole("group", { name: "Stash mode" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Reddit haul" })).toBeNull();
-    const box = await screen.findByPlaceholderText(/Paste anything/);
+    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
     expect(box).toBeInTheDocument();
     expect(box.getAttribute("aria-label")).toBe("Stash a link or note");
+    // Step 4 removed the source dot row and the text-button pair.
+    expect(document.querySelector(".cz-stash-sources")).toBeNull();
+    expect(document.querySelector(".cz-capture-sheet-links")).toBeNull();
+    // Import moved behind Settings, and the sheet says so.
+    expect(screen.getByText(/Settings → Import/)).toBeInTheDocument();
+  });
+
+  it("previews what a paste becomes before it stashes anything", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await startFromEmptyShelf(user);
+
+    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
+    fireEvent.change(box, { target: { value: KYLE_POST } });
+
+    // Two items in the paste, so the button counts them and the list shows
+    // them. Nothing is on the shelf yet — the preview is read-only.
+    expect(await screen.findByRole("button", { name: "Stash 2 items" })).toBeInTheDocument();
+    expect(screen.getByText(/2 links in this haul/)).toBeInTheDocument();
+    expect(document.querySelectorAll(".cz-stash-row")).toHaveLength(2);
+    expect(JSON.parse(data[STORE_KEY])).toHaveLength(0);
+  });
+
+  it("a stash offers an Undo that takes the card back off the shelf", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await startFromEmptyShelf(user);
+
+    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
+    fireEvent.change(box, { target: { value: "https://weidian.com/item.html?itemID=7649592219" } });
+    await user.click(await screen.findByRole("button", { name: /^Stash · 1 link$/ }));
+
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
+    expect(await screen.findByText(/^Stashed · /)).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(0));
   });
 
   it("a URL-free single line stashes as a plain note card", async () => {
@@ -730,7 +768,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = await screen.findByPlaceholderText(/Paste anything/);
+    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
     fireEvent.change(box, { target: { value: "remember the Gats in size 42" } });
     fireEvent.keyDown(box, { key: "Enter" });
 
@@ -746,7 +784,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = await screen.findByPlaceholderText(/Paste anything/);
+    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
     fireEvent.change(box, { target: { value: KYLE_POST } });
     fireEvent.keyDown(box, { key: "Enter" });
 
@@ -806,7 +844,7 @@ describe("Storage hydration race (audit 2026-07-24)", () => {
     // Dismiss the intro and stash a note while the items load is pending.
     await user.click(await screen.findByRole("button", { name: "Get started" }));
     await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
-    const box = await screen.findByPlaceholderText(/Paste anything/);
+    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
     fireEvent.change(box, { target: { value: "stashed during load" } });
     fireEvent.keyDown(box, { key: "Enter" });
     // The stash is in memory only — the load has not resolved, so nothing
