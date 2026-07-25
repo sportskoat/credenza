@@ -104,7 +104,7 @@ Set these on the site (all contexts):
       HS256 as a legacy fallback only. **The first secret key was pasted in
       chat — roll it in Supabase (API Keys) once the flow works, then update
       Netlify.**
-- [ ] 7d. Checkout + portal functions.
+- [x] 7d. Checkout + portal functions. (`checkout.js` + `portal.js`, `lib/stripe.js` + `lib/auth.js`, `preview/test/part7d.test.js` — 2026-07-25)
 - [ ] 7e. Client: sign-in UI in ProfileSheet, session on paid requests,
       offline snapshot cache, free-limit enforcement, account export +
       deletion.
