@@ -142,8 +142,20 @@ describe("buildAgentUrl", () => {
     expect(buildAgentUrl("mulebuy", ALI1688).url).toBe("https://mulebuy.com/product/?id=712345678901&shop_type=1688");
   });
 
-  it("joyagoo and allchinabuy wrap with the superbuy-family url route", () => {
-    expect(buildAgentUrl("joyagoo", WEIDIAN).url).toBe("https://www.joyagoo.com/en/page/buy?url=" + encodeURIComponent(WEIDIAN));
+  // Joyagoo was CORRECTED 2026-07-24. It was assumed to be Superbuy-family and
+  // wrapped with /en/page/buy?url=…. A headed-browser test showed that route
+  // dumps to the Joyagoo homepage — it returns HTTP 200, so the earlier curl
+  // status check passed a link that silently lost the item. Joyagoo is in fact
+  // a CNFans-family clone taking id + shop_type. AllChinaBuy stays on the
+  // Superbuy wrap; it is a genuine Superbuy sister site.
+  it("joyagoo wraps with id + shop_type (NOT the superbuy wrap)", () => {
+    expect(buildAgentUrl("joyagoo", WEIDIAN).url).toBe("https://joyagoo.com/product/?id=7234567890&shop_type=weidian");
+    expect(buildAgentUrl("joyagoo", TAOBAO).url).toBe("https://joyagoo.com/product/?id=856801351597&shop_type=taobao");
+    // Regression guard: never go back to the route that loses the item.
+    expect(buildAgentUrl("joyagoo", WEIDIAN).url).not.toContain("/en/page/buy");
+  });
+
+  it("allchinabuy wraps with the superbuy-family url route", () => {
     expect(buildAgentUrl("allchinabuy", WEIDIAN).url).toBe("https://www.allchinabuy.com/en/page/buy/?url=" + encodeURIComponent(WEIDIAN));
   });
 

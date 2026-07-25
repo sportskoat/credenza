@@ -115,14 +115,22 @@ export const AGENTS = [
   {
     id: "joyagoo",
     name: "Joyagoo",
-    // Superbuy-family wrap route (bare domain 302s to www; www bot-checks curl
-    // but the route exists — same family as Superbuy/AllChinaBuy):
-    //   www.joyagoo.com/en/page/buy?url=<encoded canonical>
-    urlTemplate: "https://www.joyagoo.com/en/page/buy?url={url}",
+    // CORRECTED 2026-07-24 after a headed-browser test against real items.
+    // The old guess — the Superbuy-family wrap /en/page/buy?url=… — silently
+    // DUMPED TO THE HOMEPAGE. It returned HTTP 200, which is why the earlier
+    // curl status check passed it. Joyagoo is a CNFans-family clone, not a
+    // Superbuy one; it wants the item id and a platform token:
+    //   joyagoo.com/product/?id=<itemId>&shop_type=<platform>
+    // Both spellings render (shop_type=weidian and platform=WEIDIAN); we use
+    // shop_type, matching Mulebuy. Confirmed rendering a real Weidian item
+    // (7800400500) and a real Taobao item (680761597181) — the product page
+    // shows the price block and an "Affiliate Share" control.
+    idPlatformTemplate: "https://joyagoo.com/product/?id={id}&shop_type={platform}",
+    platformMap: { weidian: "weidian", taobao: "taobao", tmall: "tmall", "1688": "1688" },
     supports: ["weidian", "taobao", "tmall", "1688"],
     referralParam: null,
     envKey: "VITE_CREDENZA_REF_JOYAGOO",
-    verified: false,
+    verified: true, // product page rendered live for weidian + taobao (2026-07-24)
     retired: false,
   },
   {
@@ -149,7 +157,12 @@ export const AGENTS = [
     supports: ["weidian", "taobao", "tmall", "1688"],
     referralParam: null,
     envKey: "VITE_CREDENZA_REF_HOOBUY",
-    verified: false,
+    // Weidian rendered a full product page live (2026-07-24): store name, QC
+    // Photos, Purchase Record, weight and volume fields. Taobao redirected to
+    // /login?redirect=… — the route is right, Hoobuy just gates taobao behind
+    // an account. Logged-in users reach the item; logged-out ones sign up,
+    // which is the affiliate conversion point anyway.
+    verified: true,
     retired: false,
   },
   {
