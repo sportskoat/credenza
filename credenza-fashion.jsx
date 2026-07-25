@@ -12030,35 +12030,32 @@ export default function Credenza() {
           onPortal={accountOpenPortal}
           onSignOut={accountSignOut}
           onDeleteAccount={accountDelete}
+          full={!isPhone}
           onClose={() => setProfileOpen(false)}
         />
         </Suspense>
       )}
 
-      {/* Settings sheet (mobile handoff step 3): the rows the deleted bottom
-          bar used to carry. Phone only — the masthead ⋯ button is phone only,
-          and desktop keeps the same rows in the profile sheet. */}
+      {/* Settings sheet (mobile handoff step 3): the phone's ⋯ menu owns the
+          look-and-fit rows. Phone only — desktop has no ⋯ button and keeps
+          every row in the profile sheet (full=true). */}
       {settingsSheetOpen && (
         <Suspense fallback={null}>
         <SettingsSheet
-          agentLabel={agentBarLabel}
-          onOpenAgent={() => {
-            setSettingsSheetOpen(false);
-            setAgentSheetOpen(true);
-          }}
-          onOpenImport={() => {
-            setSettingsSheetOpen(false);
-            setImportOpen(true);
-          }}
-          onExport={exportShelf}
           mode={mode}
           onCycleTheme={() => setTheme(mode === "light" ? "rainbow" : "light")}
           onOpenSizes={() => {
             setSettingsSheetOpen(false);
             setBodySheetOpen(true);
           }}
-          storageLabel={localStatus.label}
-          storageColor={localStatus.color}
+          onOpenFitPrefs={() => {
+            setSettingsSheetOpen(false);
+            setFitPrefsSheetOpen(true);
+          }}
+          fitSummary={fitSummary}
+          onToggleFitSummary={() => setFitSummary((v) => !v)}
+          fitDetail={fitDetail}
+          onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
           onClose={() => setSettingsSheetOpen(false)}
         />
         </Suspense>

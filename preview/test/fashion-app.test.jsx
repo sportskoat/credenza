@@ -1065,3 +1065,44 @@ describe("Phone haul board (Kyle 2026-07-25)", () => {
     expect(container.querySelector(".cz-carousel")).toBeNull();
   });
 });
+
+// 2026-07-25 (Kyle): the phone's Settings and Profile sheets were duplicates.
+// Settings owns look-and-fit (theme, sizes, fit); Profile owns account and
+// data (agent, currency, import, storage).
+describe("Phone sheet split (Kyle 2026-07-25)", () => {
+  beforeEach(() => window.__setMediaMatches("(max-width: 767px)", true));
+  afterEach(() => window.__setMediaMatches("(max-width: 767px)", false));
+
+  it("Settings shows fit rows, never agent or import", async () => {
+    installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem()]),
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, theme: "rainbow", sortMode: "recent" }),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Settings" }));
+    expect(await screen.findByRole("button", { name: /Theme: Blackout/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Your sizes/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Fit preferences/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Fit summary/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Buying agent/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Import from file/ })).toBeNull();
+  });
+
+  it("Profile shows agent, currency and import, never the theme picker", async () => {
+    installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem()]),
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, theme: "rainbow", sortMode: "recent" }),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    expect(await screen.findByRole("button", { name: /Default agent/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Primary currency/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Import & backup/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Gallery/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Fit summary/ })).toBeNull();
+  });
+});

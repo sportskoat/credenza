@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { ModalShell, Pill } from "../credenza-fashion.jsx";
 
-// Profile sheet (design handoff PR3): account entry up top, then the settings
-// that used to crowd the bottom bar ⋯ menu — Theme, sizes, agent, currency,
-// import, storage. The account section (Part 7e) renders only when the build
-// has Supabase env vars; without them the app stays account-free.
+// Profile sheet (design handoff PR3): account entry up top, then the data
+// rows — agent, currency, import, storage. The account section (Part 7e)
+// renders only when the build has Supabase env vars; without them the app
+// stays account-free.
+//
+// `full` (desktop): the phone ALSO has the Settings sheet, so there the
+// look-and-fit rows (Theme, sizes, fit prefs, fit summary) live in Settings
+// and Profile keeps account + data only (Kyle 2026-07-25: the two sheets
+// were duplicates). Desktop has no Settings sheet, so it gets every row.
 export default function ProfileSheet({
   mode,
   onTheme,
@@ -31,6 +36,7 @@ export default function ProfileSheet({
   onPortal,
   onSignOut,
   onDeleteAccount,
+  full = true,
   onClose,
 }) {
   const themes = [
@@ -200,6 +206,8 @@ export default function ProfileSheet({
           {error && <div className="cz-profile-signin-error" role="alert">{error}</div>}
         </div>
         )}
+        {full ? (
+        <>
         <div className="cz-profile-label">Theme</div>
         <div className="cz-profile-themes">
           {themes.map(([id, label, swatch, swatchBorder]) => {
@@ -233,6 +241,8 @@ export default function ProfileSheet({
           <span>Fit preferences</span>
           <span className="cz-profile-row-val">Length & looseness ›</span>
         </button>
+        </>
+        ) : null}
         <button type="button" className="cz-profile-row" onClick={onOpenAgent}>
           <span>Default agent</span>
           <span className="cz-profile-row-val">{agentLabel} ›</span>
@@ -241,6 +251,8 @@ export default function ProfileSheet({
           <span>Primary currency</span>
           <span className="cz-profile-row-val">{pricePrimary} ›</span>
         </button>
+        {full ? (
+        <>
         <button type="button" className="cz-profile-row" onClick={onToggleFitSummary} aria-pressed={fitSummary}>
           {/* Part 5 task 12: local math, not AI — the sentence comes from
               recommendSize over the chart and the body profile. */}
@@ -265,6 +277,8 @@ export default function ProfileSheet({
             </div>
           </div>
         </div>
+        </>
+        ) : null}
         <button type="button" className="cz-profile-row" onClick={onOpenImport}>
           <span>Import &amp; backup</span>
           <span className="cz-profile-row-val">›</span>
