@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createRequire } from "node:module";
-import { createHmac } from "node:crypto";
+import { createHmac, generateKeyPairSync, sign as cryptoSign } from "node:crypto";
 
 const require = createRequire(import.meta.url);
 const { signJwt, verifyJwt } = require("../netlify/functions/lib/jwt.js");
@@ -18,9 +18,24 @@ const JWT_SECRET = "jwt-secret";
 const SIGN_SECRET = "sign-secret";
 const WH_SECRET = "whsec_test";
 
+// An ES256 keypair standing in for the project's JWT signing key (the new
+// Supabase JWT Signing Keys system — current key is ECC P-256).
+const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
+const EC_KID = "test-signing-key";
+const ecJwk = { ...ec.publicKey.export({ format: "jwk" }), kid: EC_KID, alg: "ES256", use: "sig" };
+const JWKS = { keys: [ecJwk] };
+
+const b64u = (x) => Buffer.from(typeof x === "string" ? x : JSON.stringify(x)).toString("base64url");
+
+function signEs256(payload, kid = EC_KID) {
+  const body = b64u({ alg: "ES256", typ: "JWT", kid }) + "." + b64u(payload);
+  const sig = cryptoSign("sha256", Buffer.from(body), { key: ec.privateKey, dsaEncoding: "ieee-p1363" });
+  return body + "." + sig.toString("base64url");
+}
+
 // ————— Fake Supabase Data API ————————————————————————————————————————————————
 
-function fakeSupabase() {
+function fakeSupabase(jwks = JWKS) {
   const entitlements = new Map(); // user_id -> row
   const events = new Set();
   const calls = [];
@@ -29,6 +44,8 @@ function fakeSupabase() {
     const u = new URL(String(url));
     const method = (init.method || "GET").toUpperCase();
     const ok = (body, status = 200) => ({ ok: status < 300, status, json: async () => body });
+
+    if (u.pathname === "/auth/v1/.well-known/jwks.json") return ok(jwks);
 
     if (u.pathname === "/rest/v1/entitlements" && method === "GET") {
       const userEq = u.searchParams.get("user_id");
@@ -75,6 +92,7 @@ function webhookEvent(rawBody, sig) {
 
 beforeEach(() => {
   limit._resetForTest();
+  entitlementFn._resetJwksCache();
   process.env.SUPABASE_URL = "https://test.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "svc-key";
   process.env.SUPABASE_JWT_SECRET = JWT_SECRET;
@@ -106,6 +124,16 @@ describe("jwt", () => {
     expect(verifyJwt(none, JWT_SECRET)).toBeNull();
     const noSub = signJwt({ exp: Math.floor(Date.now() / 1000) + 3600 }, JWT_SECRET);
     expect(verifyJwt(noSub, JWT_SECRET)).toBeNull();
+  });
+
+  it("verifies ES256 tokens against the JWKS (new Supabase signing keys)", () => {
+    const token = signEs256({ sub: "user-ec", exp: Math.floor(Date.now() / 1000) + 3600 });
+    expect(verifyJwt(token, { jwks: JWKS }).sub).toBe("user-ec");
+
+    // Unknown kid, tampered body, and HS256-without-secret all fail.
+    expect(verifyJwt(signEs256({ sub: "user-ec", exp: 9999999999 }, "other-kid"), { jwks: JWKS })).toBeNull();
+    expect(verifyJwt(token.slice(0, -4) + "AAAA", { jwks: JWKS })).toBeNull();
+    expect(verifyJwt(signJwt({ sub: "u", exp: 9999999999 }, JWT_SECRET), { jwks: JWKS })).toBeNull();
   });
 });
 
@@ -161,12 +189,14 @@ describe("entitlement function", () => {
   });
 
   it("rejects missing config, wrong method, and missing/bad tokens", async () => {
-    delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_URL;
     expect((await entitlementFn.handler(post("x"))).statusCode).toBe(500);
-    process.env.SUPABASE_JWT_SECRET = JWT_SECRET;
+    process.env.SUPABASE_URL = "https://test.supabase.co";
 
     expect((await entitlementFn.handler({ httpMethod: "GET", headers: {} })).statusCode).toBe(405);
     expect((await entitlementFn.handler(post(null))).statusCode).toBe(401);
+
+    vi.stubGlobal("fetch", fakeSupabase().fetchMock);
     expect((await entitlementFn.handler(post("garbage"))).statusCode).toBe(401);
   });
 
@@ -205,6 +235,18 @@ describe("entitlement function", () => {
     const body = JSON.parse(res.body);
     expect(body.state).toBe("pro");
     expect(ent.verifyEntitlement(body.snapshot, SIGN_SECRET).lim).toEqual(ent.PLAN_LIMITS.pro);
+  });
+
+  it("accepts an ES256 token with no legacy secret configured (new key system)", async () => {
+    delete process.env.SUPABASE_JWT_SECRET;
+    const sb = fakeSupabase();
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    const token = signEs256({ sub: "user-ec", exp: Math.floor(Date.now() / 1000) + 3600 });
+    const res = await entitlementFn.handler(post(token));
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).state).toBe("free");
+    expect(sb.entitlements.has("user-ec")).toBe(true);
   });
 });
 

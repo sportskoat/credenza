@@ -34,8 +34,11 @@ $39/year. Email+password and Google sign-in (Pro-plan §11).
 3. SQL editor: run the schema below.
 4. Copy these values for Netlify: Project URL (Settings → Data API),
    **publishable key** and **secret key** (Settings → API Keys — these are the
-   new names for the anon and service_role keys), JWT secret (Settings →
-   JWT Keys).
+   new names for the anon and service_role keys). **No JWT secret is needed:**
+   new projects sign tokens with ES256 (Settings → JWT Keys, ECC P-256) and
+   the functions verify them against the public JWKS endpoint
+   (`/auth/v1/.well-known/jwks.json`). `SUPABASE_JWT_SECRET` is only a
+   fallback for legacy HS256 tokens.
 
 ```sql
 create table entitlements (
@@ -74,16 +77,16 @@ Set these on the site (all contexts):
 
 | Var | Value |
 |---|---|
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Supabase **publishable key** (also `VITE_SUPABASE_ANON_KEY` for the browser) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase **secret key** — server only |
-| `SUPABASE_JWT_SECRET` | Supabase JWT secret — verifies sessions |
+| `SUPABASE_URL` | Supabase project URL — set: `https://uaweaziqrybvxfbacllb.supabase.co` |
+| `SUPABASE_ANON_KEY` | Supabase **publishable key** (also `VITE_SUPABASE_ANON_KEY` for the browser) — set 2026-07-24 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase **secret key** — server only — set 2026-07-24 |
+| `SUPABASE_JWT_SECRET` | Legacy HS256 fallback only — optional, not needed on the new key system |
 | `STRIPE_SECRET_KEY` | Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
 | `STRIPE_PRICE_MONTHLY` | price id for $5/month |
 | `STRIPE_PRICE_YEARLY` | price id for $39/year |
-| `ENTITLEMENT_SIGNING_SECRET` | any long random string — signs offline snapshots |
-| `VITE_SUPABASE_URL` | same Supabase URL, for the browser bundle |
+| `ENTITLEMENT_SIGNING_SECRET` | any long random string — signs offline snapshots — set 2026-07-24 (generated) |
+| `VITE_SUPABASE_URL` | same Supabase URL, for the browser bundle — set 2026-07-24 |
 
 ## Build order in code
 
@@ -92,12 +95,15 @@ Set these on the site (all contexts):
 - [x] 7c. Entitlement store functions: load/save records
       (`lib/entitlement-store.js`, `lib/jwt.js`), `entitlement` function
       (verify JWT → signed snapshot), `stripe-webhook` (verify signature →
-      idempotent apply). 14 tests in `test/part7c.test.js`. **Env vars set on
-      Netlify 2026-07-24: SUPABASE_ANON_KEY, VITE_SUPABASE_ANON_KEY,
-      SUPABASE_SERVICE_ROLE_KEY.** Still needed: SUPABASE_URL,
-      VITE_SUPABASE_URL, SUPABASE_JWT_SECRET, ENTITLEMENT_SIGNING_SECRET.
-      **The first secret key was pasted in chat — roll it in Supabase (API
-      Keys) once the flow works, then update Netlify.**
+      idempotent apply). 16 tests in `test/part7c.test.js`. **All Supabase env
+      vars set on Netlify 2026-07-24** (project `uaweaziqrybvxfbacllb`):
+      SUPABASE_URL, VITE_SUPABASE_URL, SUPABASE_ANON_KEY,
+      VITE_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+      ENTITLEMENT_SIGNING_SECRET. The project uses the NEW JWT Signing Keys
+      (ECC P-256) — jwt.js verifies ES256 against the JWKS endpoint, with
+      HS256 as a legacy fallback only. **The first secret key was pasted in
+      chat — roll it in Supabase (API Keys) once the flow works, then update
+      Netlify.**
 - [ ] 7d. Checkout + portal functions.
 - [ ] 7e. Client: sign-in UI in ProfileSheet, session on paid requests,
       offline snapshot cache, free-limit enforcement, account export +
