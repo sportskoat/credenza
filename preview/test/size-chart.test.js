@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, parseSizeChart, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
+import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, parseSizeChart, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
 
 describe("sizeChartTextFor", () => {
   // Kyle 2026-07-22: chart pasted into Notes gave "no values, no recommended
@@ -355,5 +355,49 @@ XL 胸围128`);
     const b = base();
     const next = applyFitPreference(b, shirtChart, null, "shirt");
     expect(next.size).toBe(b.size);
+  });
+});
+
+// 2026-07-25 (Kyle): he set height/weight + usual sizes + length/looseness
+// and got no recommendation anywhere — recommendSize only read the
+// tape-measure fields nobody knows. effectiveBodyProfile estimates
+// chest/waist/hip from height+weight and flags the result so no surface
+// calls the pick "precise".
+describe("effectiveBodyProfile estimates", () => {
+  it("fills chest, waist, and hip from height and weight", () => {
+    const p = effectiveBodyProfile({ height: 178, weight: 70 });
+    expect(p.chest).toBeGreaterThan(85);
+    expect(p.chest).toBeLessThan(105);
+    expect(p.waist).toBeGreaterThan(70);
+    expect(p.waist).toBeLessThan(92);
+    expect(p.hip).toBeGreaterThan(p.waist);
+    expect(p.estimated).toBe(true);
+  });
+
+  it("scales up with weight and down without it", () => {
+    const slim = effectiveBodyProfile({ height: 178, weight: 60 });
+    const heavy = effectiveBodyProfile({ height: 178, weight: 100 });
+    expect(heavy.waist).toBeGreaterThan(slim.waist);
+    expect(heavy.chest).toBeGreaterThan(slim.chest);
+  });
+
+  it("never overwrites a measured field", () => {
+    const p = effectiveBodyProfile({ height: 178, weight: 70, chest: 101 });
+    expect(p.chest).toBe(101);
+    expect(p.estimated).toBe(true); // waist/hip still estimated
+  });
+
+  it("passes the profile through untouched without height and weight", () => {
+    const p = effectiveBodyProfile({ chest: 96 });
+    expect(p).toEqual({ chest: 96 });
+    expect(p.estimated).toBeUndefined();
+    expect(effectiveBodyProfile(null)).toBeNull();
+  });
+
+  it("drives a recommendation from height and weight alone", () => {
+    const chart = parseSizeChart("S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\nXL: 胸围120 衣长72");
+    const rec = recommendSize(chart, effectiveBodyProfile({ height: 178, weight: 70 }), "tops");
+    expect(rec).not.toBeNull();
+    expect(["S", "M"]).toContain(rec.size);
   });
 });

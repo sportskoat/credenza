@@ -4,7 +4,7 @@
 // "Buy via Superbuy 2" side by side. The handoff sets ONE primary action —
 // the first buy link. Desktop surfaces already do this with .find().
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import DetailSheet from "../../sheets/DetailSheet.jsx";
 
 const PHOTO = "data:image/png;base64,iVBORw0KGgo=";
@@ -86,5 +86,88 @@ describe("DetailSheet buy action", () => {
     };
     const { container } = renderSheet(item);
     expect(container.querySelectorAll(".cz-detail-buy")).toHaveLength(0);
+  });
+});
+
+// 2026-07-25 (Kyle): "the three dots simply remove the article of clothing."
+// The overflow button opens a menu now; the delete lives inside it, and the
+// menu carries the cover-photo action the mobile sheet lost in the redesign.
+describe("DetailSheet overflow menu", () => {
+  const PHOTO_B = "data:image/png;base64,iVBORw0KGgoA=";
+
+  function multiPhotoItem() {
+    return { ...twoBuyLinkItem(), gallery: [PHOTO_B] };
+  }
+
+  it("the overflow button opens a menu instead of removing the card", () => {
+    const onRemove = vi.fn();
+    const { container } = render(
+      <DetailSheet
+        item={twoBuyLinkItem()}
+        onSaveEdit={vi.fn()}
+        onRemove={onRemove}
+        onOpen={vi.fn()}
+        onAttachPhoto={vi.fn()}
+        onRemovePhoto={vi.fn()}
+        onSetCover={vi.fn()}
+        onOpenSizes={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("Remove from shelf inside the menu removes and closes", () => {
+    const onRemove = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <DetailSheet
+        item={twoBuyLinkItem()}
+        onSaveEdit={vi.fn()}
+        onRemove={onRemove}
+        onOpen={vi.fn()}
+        onAttachPhoto={vi.fn()}
+        onRemovePhoto={vi.fn()}
+        onSetCover={vi.fn()}
+        onOpenSizes={vi.fn()}
+        onClose={onClose}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove from shelf" }));
+    expect(onRemove).toHaveBeenCalledWith("sheet-1");
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("swiping to a second photo offers Make this photo the cover", () => {
+    const onSetCover = vi.fn();
+    const { container } = render(
+      <DetailSheet
+        item={multiPhotoItem()}
+        onSaveEdit={vi.fn()}
+        onRemove={vi.fn()}
+        onOpen={vi.fn()}
+        onAttachPhoto={vi.fn()}
+        onRemovePhoto={vi.fn()}
+        onSetCover={onSetCover}
+        onOpenSizes={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    // Cover is showing: no cover action yet.
+    expect(screen.queryByRole("menuitem", { name: "Make this photo the cover" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+
+    // Swipe the pager to photo 2 (jsdom clientWidth is 0, so 1px = one page).
+    const track = container.querySelector(".cz-detail-hero-track");
+    track.scrollLeft = 1;
+    fireEvent.scroll(track);
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Make this photo the cover" }));
+    expect(onSetCover).toHaveBeenCalledWith("sheet-1", PHOTO_B);
   });
 });

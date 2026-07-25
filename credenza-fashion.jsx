@@ -416,6 +416,12 @@ function setFitPrefs({ summary, detail }) {
   FIT_SUMMARY_ON = summary !== false;
   FIT_DETAIL = detail === "detailed" ? "detailed" : "concise";
 }
+// Sheets read the same mirrors through this getter (the mobile detail sheet
+// ignored both toggles until 2026-07-25 — Kyle: "it doesn't really matter
+// what you put because it stays the same").
+export function fitDisplayPrefs() {
+  return { summary: FIT_SUMMARY_ON, detail: FIT_DETAIL };
+}
 
 function priceLabel(item) {
   if (item.price == null && item.priceUsd == null) return "";
@@ -1390,9 +1396,29 @@ export function fashionDisplayTitle(data) {
   return "";
 }
 
+// Drain `list` through `concurrency` workers in order. A throwing worker must
+// not strand the rest of the queue — each item is exactly one worker's
+// problem (2026-07-25: one bad enhance killed all three workers and stranded
+// a 20-link import at "Enhancing…" forever).
+export async function runPool(list, worker, concurrency = 3) {
+  const queue = [...list];
+  const workers = Array.from(
+    { length: Math.min(concurrency, queue.length) },
+    async () => {
+      while (queue.length) {
+        const item = queue.shift();
+        if (item === undefined) continue;
+        try {
+          await worker(item);
+        } catch (e) {}
+      }
+    }
+  );
+  await Promise.all(workers);
+}
+
 // Store homepage for a Yupoo seller (or generic host fallback).
-function sellerStoreUrl(item) {
-  if (!item) return null;
+function sellerStoreUrl(item) {  if (!item) return null;
   const account = String(item.sellerAccount || "").trim();
   if (account) return "https://" + account + ".x.yupoo.com/";
   const album = yupooAlbumUrl(item);
@@ -1858,6 +1884,7 @@ export function migrateItem(old) {
     price: typeof old.price === "number" && !isNaN(old.price) ? old.price : null,
     currency: old.currency || "CNY",
     priceUsd: typeof old.priceUsd === "number" && !isNaN(old.priceUsd) ? old.priceUsd : null,
+    priceManual: old.priceManual === true,
     category: CATEGORIES[old.category]
       ? old.category
       : guessFashionCategory(
@@ -3886,6 +3913,41 @@ export function formatSizeToken(raw) {
   return s.toUpperCase();
 }
 
+// Height + weight stand in for the tape-measure fields most customers do not
+// know (Kyle 2026-07-25: he set his numbers and got no recommendation
+// anywhere — recommendSize only reads chest/waist/hip). The estimate scales
+// a reference build (BMI 22) by the customer's BMI: the waist tracks weight
+// hardest, the chest least. Measured fields always win. The result is
+// flagged `estimated` so no surface calls the pick "precise" and nothing
+// persists it over a later measured profile.
+export function effectiveBodyProfile(profile) {
+  if (!profile || typeof profile !== "object") return null;
+  const h = Number(profile.height);
+  const w = Number(profile.weight);
+  const canEstimate =
+    isFinite(h) && h >= 120 && h <= 230 && isFinite(w) && w >= 35 && w <= 250;
+  if (!canEstimate) return profile;
+  const bmi = Math.min(40, Math.max(16, w / Math.pow(h / 100, 2)));
+  const ratio = bmi / 22;
+  const half = (n) => Math.round(n * 2) / 2;
+  const out = { ...profile };
+  let estimated = false;
+  if (out.chest == null) {
+    out.chest = half(0.52 * h * Math.pow(ratio, 0.6));
+    estimated = true;
+  }
+  if (out.waist == null) {
+    out.waist = half(0.45 * h * Math.pow(ratio, 0.85));
+    estimated = true;
+  }
+  if (out.hip == null) {
+    out.hip = half(0.47 * h * Math.pow(ratio, 0.7));
+    estimated = true;
+  }
+  if (estimated) out.estimated = true;
+  return out;
+}
+
 export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
   if (!item || !bodyProfile) return null;
   if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
@@ -3896,7 +3958,7 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
       ? fitPrefs[item.category]
       : null;
   const rec = chart
-    ? recommendSize(chart, bodyProfile, item.category, catPref)
+    ? recommendSize(chart, effectiveBodyProfile(bodyProfile), item.category, catPref)
     : null;
   return rec && rec.size ? String(rec.size).trim() : null;
 }
@@ -5214,6 +5276,9 @@ export function buildEditDraft(item) {
 export function buildEditPatch(draft, base) {
   const priceText = String(draft.price ?? "").trim();
   const parsed = priceText === "" ? null : Number(priceText);
+  const manualPrice = Number.isFinite(parsed) ? parsed : null;
+  const currency = String(draft.currency ?? "").trim() || "CNY";
+  const priceChanged = manualPrice !== (base.price ?? null);
   const weightText = String(draft.weightGrams ?? "").trim();
   const parsedWeight = weightText === "" ? null : Number(weightText);
   return {
@@ -5222,8 +5287,20 @@ export function buildEditPatch(draft, base) {
     project: String(draft.project ?? "").trim(),
     // Guard: garbage input becomes null (cleared), never NaN in storage — the
     // pre-unification carousel form saved Number("abc") straight through.
-    price: Number.isFinite(parsed) ? parsed : null,
-    currency: String(draft.currency ?? "").trim() || "CNY",
+    price: manualPrice,
+    currency,
+    // A hand-set price invalidates the resolved USD figure. Keep the stale
+    // priceUsd and the card shows the OLD converted price forever (Kyle
+    // 2026-07-25: "I change it to 60, it doesn't update"). USD edits re-seed
+    // it 1:1; CNY falls back to the FX constant until the next resolve.
+    priceUsd: priceChanged
+      ? /^(USD|\$)$/i.test(currency)
+        ? manualPrice
+        : null
+      : base.priceUsd ?? null,
+    // Pin a hand-set price so the next resolve cannot overwrite it. Clearing
+    // the price lifts the pin (the resolver may refill it).
+    ...(priceChanged ? { priceManual: manualPrice != null } : {}),
     seller: String(draft.seller ?? "").trim(),
     batch: String(draft.batch ?? "").trim(),
     size: String(draft.size ?? "").trim(),
@@ -5786,9 +5863,12 @@ export function SizeRecommendation({
   const catAxes = FIT_PREF_AXES[item.category] || null;
   const rec =
     chart && bodyProfile
-      ? recommendSize(chart, bodyProfile, item.category, fitPref)
+      ? recommendSize(chart, effectiveBodyProfile(bodyProfile), item.category, fitPref)
       : null;
   const recSize = rec && rec.size ? rec.size : null;
+  // An estimated profile (height+weight stand-ins) shows a pick but never
+  // persists it — a later measured chest/waist must be able to win.
+  const recIsEstimated = !!(bodyProfile && effectiveBodyProfile(bodyProfile).estimated);
   const hasUsual = !!(bodyProfile && bodyProfile.usualSize);
   const hasPrecise = fitHasPreciseBody(bodyProfile, item.category);
   // Need a taste prompt once per category when axes exist and user has not
@@ -5803,10 +5883,10 @@ export function SizeRecommendation({
   // Persist the pick so every surface agrees with this box — meta chips and
   // edit form read item.recommendedSize. Guarded: one write when it changes.
   useEffect(() => {
-    if (recSize && recSize !== item.recommendedSize) {
+    if (recSize && !recIsEstimated && recSize !== item.recommendedSize) {
       onSaveEdit(item.id, { recommendedSize: recSize });
     }
-  }, [recSize, item.id, item.recommendedSize, onSaveEdit]);
+  }, [recSize, recIsEstimated, item.id, item.recommendedSize, onSaveEdit]);
 
   // Silent chart hunt: album text first, then a vision scan of the album
   // PHOTOS (where Yupoo charts actually live). Found charts land in sizeNotes
@@ -10299,9 +10379,11 @@ export default function Credenza() {
             ? x.title
             : resolvedTitle || x.title,
         summary: data.summary || x.summary,
-        price: data.priceCny != null ? data.priceCny : x.price,
+        // A hand-set price is pinned (priceManual): the resolve refreshes
+        // everything else but never overwrites the customer's own number.
+        price: x.priceManual ? x.price : data.priceCny != null ? data.priceCny : x.price,
         currency: "CNY",
-        priceUsd: data.priceUsd != null ? data.priceUsd : x.priceUsd,
+        priceUsd: x.priceManual ? x.priceUsd : data.priceUsd != null ? data.priceUsd : x.priceUsd,
         category: CATEGORIES[data.category]
           ? data.category
           : x.category ||
@@ -10422,6 +10504,15 @@ export default function Credenza() {
         updateEnrichedItem(item.id, token, { status: "ready" });
       }
       return handled;
+    } catch (e) {
+      // A failed enhance must never strand the card in the Inbox. Keep the
+      // link-only card on the shelf, the same outcome resolveBuyDetails
+      // uses for a dead page (Kyle 2026-07-25: a 20-link paste left 3 cards
+      // spinning on "Enhancing…" forever).
+      if (!controller.signal.aborted && enrichmentTokensRef.current.get(item.id) === token) {
+        updateEnrichedItem(item.id, token, { status: "ready" });
+      }
+      return false;
     } finally {
       if (enrichmentTokensRef.current.get(item.id) === token) {
         enrichmentTokensRef.current.delete(item.id);
@@ -10431,17 +10522,9 @@ export default function Credenza() {
   };
 
   const enrichFashionItems = async (list, concurrency = 3) => {
-    const queue = [...list];
-    const workers = Array.from(
-      { length: Math.min(concurrency, queue.length) },
-      async () => {
-        while (queue.length) {
-          const item = queue.shift();
-          if (item) await enrichFashionItem(item);
-        }
-      }
-    );
-    await Promise.all(workers);
+    // One throwing item must not kill its worker and strand the rest of the
+    // queue — the whole paste enhances, three at a time.
+    await runPool(list, enrichFashionItem, concurrency);
   };
 
   useEffect(
@@ -10956,11 +11039,14 @@ export default function Credenza() {
 
   const openHaul = useCallback((haulKey) => {
     setView("hauls");
-    setViewMode("carousel");
+    // Desktop browses a haul in the carousel. The phone keeps its grid — the
+    // rack does not fit a 390px screen, and hijacking viewMode stranded the
+    // customer in a glitching carousel until an app restart (Kyle 2026-07-25).
+    if (!isPhone) setViewMode("carousel");
     setExpandedId(null);
     setSelectedId(null);
     setActiveHaul(haulKey);
-  }, []);
+  }, [isPhone]);
 
   // USD-normalized value for the total-cost reel — single helper so haul
   // directory, chips, and the reel never disagree (CNY falls back to 0.14).
@@ -11577,6 +11663,7 @@ export default function Credenza() {
       onSaveBodyProfile={(profile) => {
         setBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
         setFitPromptSkipped(false);
+        notify("Sizes updated.");
       }}
       fitPromptSkipped={fitPromptSkipped}
       onSkipFitPrompt={() => setFitPromptSkipped(true)}
@@ -11809,7 +11896,10 @@ export default function Credenza() {
         <BodyProfileSheet
           value={bodyProfile}
           units={measureUnits}
-          onSave={setBodyProfile}
+          onSave={(profile) => {
+            setBodyProfile(profile);
+            notify("Sizes updated.");
+          }}
           onChangeUnits={setMeasureUnits}
           onClose={() => setBodySheetOpen(false)}
         />
@@ -11823,6 +11913,7 @@ export default function Credenza() {
           ownedCategories={ownedFitPrefCategories}
           onSave={(draft) => {
             setFitPrefsByCat((prev) => ({ ...(prev || {}), ...(draft || {}) }));
+            notify("Fit preferences updated.");
           }}
           onClose={() => setFitPrefsSheetOpen(false)}
         />
@@ -11973,6 +12064,7 @@ export default function Credenza() {
           onOpen={recordOpen}
           onAttachPhoto={attachGalleryImage}
           onRemovePhoto={removePhotoBySrc}
+          onSetCover={setPrimaryImage}
           onOpenSizes={() => {
             setDetailSheetId(null);
             setBodySheetOpen(true);

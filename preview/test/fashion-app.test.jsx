@@ -1039,3 +1039,29 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("shipped"));
   });
 });
+
+describe("Phone haul board (Kyle 2026-07-25)", () => {
+  beforeEach(() => window.__setMediaMatches("(max-width: 767px)", true));
+  afterEach(() => window.__setMediaMatches("(max-width: 767px)", false));
+
+  it("opening a haul keeps the card grid — the carousel never hijacks a phone", async () => {
+    // Live defect: openHaul forced viewMode "carousel" on every device. On a
+    // phone the rack glitched and the grid never came back until a restart.
+    installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ project: "summer" })]),
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, theme: "rainbow", sortMode: "recent" }),
+    });
+    const user = userEvent.setup();
+    const { container } = render(<Credenza />);
+
+    await user.click(await screen.findByRole("tab", { name: /Hauls/ }));
+    await user.click(await screen.findByRole("button", { name: /summer/ }));
+    await waitFor(() => expect(container.querySelector(".cz-haul-board")).not.toBeNull());
+    expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
+
+    // Back to the Shelf: still the grid, not the rack.
+    await user.click(screen.getByRole("tab", { name: "Shelf" }));
+    expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
+    expect(container.querySelector(".cz-carousel")).toBeNull();
+  });
+});

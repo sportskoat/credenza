@@ -8854,6 +8854,46 @@ a.cz-card-seller:hover {
   transform: translate(-50%, -50%);
 }
 
+/* ⋯ menu (mobile handoff follow-up, 2026-07-25): the overflow button opens
+   actions, never the delete itself. Hairline card, no shadow — the sheet is
+   a quiet surface. */
+.cz-detail-menu {
+  position: absolute;
+  top: 54px;
+  right: 10px;
+  z-index: 3;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+}
+
+.cz-detail-menu-item {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-detail-menu-item:active {
+  background: var(--cz-seg);
+}
+
+.cz-detail-menu-item.is-danger {
+  color: var(--cz-like);
+}
+
 /* ── Title, edited in place ── */
 .cz-detail-title-row {
   display: flex;

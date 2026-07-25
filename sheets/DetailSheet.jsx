@@ -7,6 +7,8 @@ import {
   buildEditDraft,
   buildEditPatch,
   computeRecommendedSize,
+  effectiveBodyProfile,
+  fitDisplayPrefs,
   fitSummarySentence,
   formatMeasure,
   formatSizeToken,
@@ -15,6 +17,7 @@ import {
   parseSizeChart,
   priceLabelShort,
   recommendSize,
+  resolveDisplaySize,
   sizeChartTextFor,
   useWriteThroughDraft,
   usePrefersReducedMotion,
@@ -61,11 +64,16 @@ function specCells(item, view, sizeText) {
 // shows the chart's own size run instead of inventing a confidence.
 function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, onDone }) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
-  const rec = chart && bodyProfile ? recommendSize(chart, bodyProfile, item.category, fitPref) : null;
+  // Height+weight estimates fill the tape-measure gaps — flagged estimated
+  // so the badge never claims a precise fit it does not have.
+  const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
+  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
   const recSize = rec && rec.size ? rec.size : null;
-  const precise = !!(recSize && rec.garment != null && rec.body != null);
+  const precise = !!(recSize && rec.garment != null && rec.body != null) && !(profile && profile.estimated);
   const runValues = chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
-  const why = recSize ? fitSummarySentence(rec, { runHint: chart && chart.runHint, units }) : "";
+  // The fit-summary pref gates the sentence; the detail pref picks its length.
+  const { summary: fitSummaryOn, detail: fitDetailMode } = fitDisplayPrefs();
+  const why = recSize && fitSummaryOn ? fitSummarySentence(rec, { runHint: chart && chart.runHint, units, detail: fitDetailMode }) : "";
 
   return (
     <div className="cz-detail-fit">
@@ -82,16 +90,25 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
       {recSize ? (
         <div className="cz-detail-fit-size">{formatSizeToken(recSize) || recSize}</div>
       ) : (
-        <p className="cz-detail-fit-empty">Set my sizes to get a recommendation.</p>
+        <p className="cz-detail-fit-empty">
+          {bodyProfile
+            ? bodyProfile.usualTops || bodyProfile.usualBottoms || bodyProfile.usualShoes || bodyProfile.usualSize
+              ? "No size chart on this listing — the card shows your usual size as EST."
+              : "No size chart on this listing. Add your usual sizes in My sizes for an estimate."
+            : "Set my sizes to get a recommendation."}
+        </p>
       )}
 
       {why ? <p className="cz-detail-fit-why">{why}</p> : null}
 
-      {precise ? (
+      {recSize && rec.garment != null && rec.body != null ? (
         <div className="cz-detail-fit-math" aria-label="Fit numbers">
           <div className="cz-detail-fit-cell">
             <span className="cz-detail-fit-k">You</span>
-            <span className="cz-detail-fit-v">{formatMeasure(rec.body, units)}</span>
+            <span className="cz-detail-fit-v">
+              {profile && profile.estimated ? "~" : ""}
+              {formatMeasure(rec.body, units)}
+            </span>
           </div>
           <div className="cz-detail-fit-cell">
             <span className="cz-detail-fit-k">Garment</span>
@@ -143,6 +160,7 @@ export default function DetailSheet({
   onOpen,
   onAttachPhoto,
   onRemovePhoto,
+  onSetCover,
   onOpenSizes,
   onClose,
 }) {
@@ -159,7 +177,9 @@ export default function DetailSheet({
   const [editingTitle, setEditingTitle] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [photoIdx, setPhotoIdx] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const savedTimer = useRef(null);
+  const trackRef = useRef(null);
 
   const view = draft || buildEditDraft(item);
 
@@ -220,7 +240,12 @@ export default function DetailSheet({
     ? formatSizeToken(chosenSize) || chosenSize
     : recSize
       ? formatSizeToken(recSize) || recSize
-      : "";
+      : (() => {
+          // No chart, no rec: the usual-size EST the card face already shows
+          // (Kyle 2026-07-25: the sheet read "—" where the card read an EST).
+          const d = resolveDisplaySize(item, bodyProfile, fitPrefs);
+          return d.isEstimate && d.size ? (formatSizeToken(d.size) || d.size) + " (EST)" : "";
+        })();
   const cells = specCells(item, view, sizeText);
   const buyButtons = linkButtons(item, { buyLabel }).filter((b) => b.role === "buy");
   // ONE primary action (mobile handoff): the first buy link only. Extra buy
@@ -236,6 +261,15 @@ export default function DetailSheet({
   ).sort((a, b) => a.localeCompare(b));
 
   const editorLabel = (cells.find((c) => c.key === editingCell) || {}).label || "";
+  // The price cell displays USD (priceLabelShort) but edits the stored CNY
+  // number — name the unit or the customer types dollars into a yuan field
+  // (Kyle 2026-07-25: "I change it to 60, it doesn't update").
+  const editorLabelFull =
+    editingCell === "price"
+      ? editorLabel + " · " + (String(view.currency || "CNY").toUpperCase() === "USD" ? "$ USD" : "¥ CNY")
+      : editingCell === "weightGrams"
+        ? editorLabel + " · g"
+        : editorLabel;
 
   const renderEditor = () => {
     if (!editingCell) return null;
@@ -282,11 +316,11 @@ export default function DetailSheet({
       // overkill here; a plain 16px input is the whole editor.
       return (
         <div className="cz-detail-editor">
-          <span className="cz-detail-editor-label">{editorLabel}</span>
+          <span className="cz-detail-editor-label">{editorLabelFull}</span>
           <input
             ref={focusOnMount}
             className="cz-detail-editor-input"
-            aria-label={editorLabel}
+            aria-label={editorLabelFull}
             value={view[editingCell]}
             onChange={(e) => edit(editingCell, e.target.value)}
             onKeyDown={(e) => {
@@ -303,11 +337,11 @@ export default function DetailSheet({
     // price and weight: numeric keypad, still 16px so iOS does not zoom.
     return (
       <div className="cz-detail-editor">
-        <span className="cz-detail-editor-label">{editorLabel}</span>
+        <span className="cz-detail-editor-label">{editorLabelFull}</span>
         <input
           ref={focusOnMount}
           className="cz-detail-editor-input"
-          aria-label={editorLabel}
+          aria-label={editorLabelFull}
           inputMode="decimal"
           value={view[editingCell]}
           onChange={(e) => edit(editingCell, e.target.value)}
@@ -347,6 +381,7 @@ export default function DetailSheet({
               photo, so a swipe is the only gesture needed. */}
           <div className="cz-detail-hero">
             <div
+              ref={trackRef}
               className="cz-detail-hero-track"
               onScroll={(e) => {
                 const el = e.currentTarget;
@@ -373,14 +408,17 @@ export default function DetailSheet({
               </span>
             ) : null}
             <span className="cz-detail-hero-actions">
+              {/* ⋯ opens a menu — never the delete itself (Kyle 2026-07-25:
+                  "the three dots simply remove the article of clothing").
+                  The cover action follows the pager: swipe to a photo, then
+                  make it the cover. */}
               <button
                 type="button"
                 className="cz-detail-hero-btn"
-                aria-label={"Remove " + (item.title || "this card")}
-                onClick={() => {
-                  onRemove(item.id);
-                  onClose();
-                }}
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((v) => !v)}
               >
                 <MoreHorizontal size={17} strokeWidth={2.4} aria-hidden="true" />
               </button>
@@ -394,6 +432,37 @@ export default function DetailSheet({
                 <X size={16} strokeWidth={2.4} aria-hidden="true" />
               </button>
             </span>
+            {menuOpen ? (
+              <div className="cz-detail-menu" role="menu">
+                {photos.length > 1 && photoIdx > 0 ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="cz-detail-menu-item"
+                    onClick={() => {
+                      onSetCover && onSetCover(item.id, photos[photoIdx]);
+                      setPhotoIdx(0);
+                      if (trackRef.current) trackRef.current.scrollTo({ left: 0 });
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Make this photo the cover
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="cz-detail-menu-item is-danger"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onRemove(item.id);
+                    onClose();
+                  }}
+                >
+                  Remove from shelf
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {/* Title. The text itself is the tap target — there is no Title
