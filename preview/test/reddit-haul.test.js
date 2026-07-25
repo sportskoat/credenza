@@ -87,6 +87,42 @@ https://weidian.com/item.html?itemID=7299887766`);
     expect(parseRedditHaul("check this out " + WEIDIAN_A)).toBeNull();
   });
 
+  // Kyle's failing paste, 2026-07-24: a copied QC post body whose only buy
+  // link is an agent short link. Before the fix this parsed to NOTHING (agent
+  // links were invisible) and fell through to a junk "W2C" card.
+  it("parses a single-item QC post body with an agent short link", () => {
+    const haul = parseRedditHaul(`QC NB 9060 TOP batch,what do you think?
+This is my second pair, they look good imo.
+W2C
+https://k.youshop10.com/=m6BAxbZ`);
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    const [item] = haul.items;
+    expect(item.url).toBe("https://k.youshop10.com/=m6BAxbZ");
+    expect(item.label).toBe("NB 9060 TOP batch");
+    expect(item.category).toBe("shoes");
+    expect(item.note).toContain("what do you think?");
+    expect(item.note).toContain("second pair");
+  });
+
+  it("treats agent links as items and ranks marketplace links above them", () => {
+    // Agent link alone carries an item.
+    const haul = parseRedditHaul(`Kakobuy finds
+https://www.kakobuy.com/item/details?qr=ABC123
+https://mulebuy.com/product/?id=7234567890&shop_type=weidian`);
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(2);
+
+    // Marketplace beats agent when both sit on one line.
+    const both = parseRedditHaul(`Dunks https://www.superbuy.com/en/page/buy?url=x https://weidian.com/item.html?itemID=7234567890
+https://weidian.com/item.html?itemID=7299887766`);
+    expect(both.items[0].url).toBe(WEIDIAN_A);
+  });
+
+  it("still returns null for a single bare agent link", () => {
+    expect(parseRedditHaul("https://k.youshop10.com/=m6BAxbZ")).toBeNull();
+  });
+
   it("returns null for JSON and HTML pastes (they have their own paths)", () => {
     expect(parseRedditHaul('[{"url":"' + WEIDIAN_A + '"}]')).toBeNull();
     expect(parseRedditHaul('<a href="' + WEIDIAN_A + '">x</a>')).toBeNull();
@@ -252,5 +288,129 @@ Bag: Repsun dead link`);
     const haul = parseRedditHaul(`https://weidian.com/item.html?itemID=7234567890 is the batch I GP'd
 https://weidian.com/item.html?itemID=7299887766`);
     expect(haul.items[0].url).toBe("https://weidian.com/item.html?itemID=7234567890");
+  });
+});
+
+// ————— 2026-07-24 FashionReps corpus regressions ————————————————————————————
+// Real posts from r/FashionReps/hot (scripts/corpus-fashionreps.json). The app
+// fetches a post server-side and calls parseRedditHaul with its title and
+// certain provenance — these tests pin that call shape.
+describe("corpus: real FashionReps posts", () => {
+  it("names a single-link QC post from its title (Gats post)", () => {
+    const haul = parseRedditHaul(
+      `Hi goats, whats up, after a long time buying Gats from several sellers, i heard about Goat made a new batch, and i give it a try, for me looks really solid, i intend to bring a review in a batch fight, it looks really nice to me, the only flaw i notice is on the midsole, the suede looks good, materials i dont have sure but looks good too. At all is worth the price, mainly for who have friends to resell or things like that  
+W2c: [https://weidian.com/item.html?itemID=7785888265](https://weidian.com/item.html?itemID=7785888265)`,
+      { title: "[QC]Maison Margiela Gats - GOAT Batch", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    expect(haul.items[0].label).toBe("Maison Margiela Gats");
+    expect(haul.items[0].url).toBe("https://weidian.com/item.html?itemID=7785888265");
+    expect(haul.items[0].note).toContain("midsole");
+  });
+
+  it("parses the 'Name: review' colon format (15kg GTBuy haul)", () => {
+    const haul = parseRedditHaul(
+      `Hello guys, welcome to my latest haul review. 
+
+My stats: 80kg, 182cm
+
+Goyard bag: good quality, the material is thinner than it should be, but its not really noticeable without touching it
+
+[https://weidian.com/item.html?itemID=7734454224](https://weidian.com/item.html?itemID=7734454224)
+
+Supreme jacket: the letters are not completely aligned when buttoned up
+
+[https://weidian.com/item.html?itemID=7594655800](https://weidian.com/item.html?itemID=7594655800)`,
+      { title: "15kg haul to EU with GTBuy (Goyard, Supreme)", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(2);
+    expect(haul.items[0].label).toBe("Goyard bag");
+    expect(haul.items[0].note).toContain("good quality");
+    expect(haul.items[1].label).toBe("Supreme jacket");
+    expect(haul.items[1].category).toBe("outerwear");
+  });
+
+  it("sees a mycnbox agent link as the item (Pink Supreme Timberlands)", () => {
+    const haul = parseRedditHaul(
+      `Can I get a QC on this? I feel like the pink is too bright and the sole is not dark enough. Any extra input is appreciated.  
+[https://mycnbox.com/goodsDetail?mallType=taobao&itemId=956867492270&referId=LHWYFH](https://mycnbox.com/goodsDetail?mallType=taobao&itemId=956867492270&referId=LHWYFH)`,
+      { title: "Pink Supreme Timberlands QC", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    expect(haul.items[0].label).toBe("Pink Supreme Timberlands");
+    expect(haul.items[0].url).toContain("mycnbox.com/goodsDetail");
+  });
+
+  it("treats a tb.cn short link as taobao (White and Red Prems)", () => {
+    const haul = parseRedditHaul(
+      `WTC: [https://e.tb.cn/h.8dc1amR9VgaYcUf?tk=Arnmguovt6x](https://e.tb.cn/h.8dc1amR9VgaYcUf?tk=Arnmguovt6x)`,
+      { title: "White and Red Prems", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    expect(haul.items[0].label).toBe("White and Red Prems");
+  });
+
+  it("repairs a space-broken weidian link with a reddit \\_ escape (KZ J4 post)", () => {
+    const haul = parseRedditHaul(
+      `Everything I post is for informational and/or educational purposes only.
+
+KZ 2.0 batch
+
+W2C; TMF
+
+Telegram; +86 137 3542 8664
+
+https:// shop1809267573.v.weidian.com/item.html?itemID=7430918278&spider\\_token=1625`,
+      { title: "QC - KZ 2.0 J4 Bred Reimagined - TMF - 260cny", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    expect(haul.items[0].url).toBe(
+      "https://shop1809267573.v.weidian.com/item.html?itemID=7430918278&spider_token=1625"
+    );
+    expect(haul.items[0].label).toBe("KZ 2.0 J4 Bred Reimagined");
+  });
+
+  it("never cards an agent register/invite link (Recent pickups post)", () => {
+    const haul = parseRedditHaul(
+      `Cssbuy agent: https://www.cssbuy.com/register?invite=c2luaHVzaW5odw==
+
+Nike shirt: https://weidian.com/item.html?itemID=7628330811
+
+Patta shirt: https://weidian.com/item.html?itemID=7648743224`,
+      { title: "Recent pickups", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(2);
+    expect(haul.items.every((i) => !i.url.includes("register"))).toBe(true);
+  });
+
+  it("joins a yupoo root link with its detached album path (Husky-reps post)", () => {
+    const haul = parseRedditHaul(
+      `[https://huskyreps.x.yupoo.com/](https://huskyreps.x.yupoo.com/) albums/212594120?uid=1
+
+(Remove space or check yupoo discord logo)
+
+[alaskareps.x.yupoo.com](http://alaskareps.x.yupoo.com)`,
+      { title: "Husky-reps new drop", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items[0].url).toBe("https://huskyreps.x.yupoo.com/albums/212594120?uid=1");
+    expect(haul.items.every((i) => !i.label.startsWith("("))).toBe(true);
+  });
+
+  it("keeps 'Yupoo:'-prefixed links with no space (SLP Sneakers post)", () => {
+    const haul = parseRedditHaul(`Yupoo:https://anontop.x.yupoo.com/albums/247011875?uid=1`, {
+      title: "SLP Smoking Forever Sneakers by Anon size 42",
+      fromPost: true,
+    });
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    expect(haul.items[0].label).toBe("SLP Smoking Forever Sneakers by Anon size 42");
+    expect(haul.items[0].category).toBe("shoes");
   });
 });

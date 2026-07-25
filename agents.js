@@ -218,7 +218,8 @@ export function listAgents() {
 
 const MARKETPLACE_HOSTS = [
   ["weidian", /(^|\.)weidian\.com$/i],
-  ["taobao", /(^|\.)taobao\.com$/i],
+  // tb.cn is Taobao's own short-link host (e.tb.cn/h.… share links).
+  ["taobao", /(^|\.)(taobao\.com|tb\.cn)$/i],
   ["tmall", /(^|\.)tmall\.(com|hk)$/i],
   ["1688", /(^|\.)1688\.com$/i],
   ["yupoo", /(^|\.)yupoo\.com$/i],
@@ -236,6 +237,28 @@ export function marketplaceOf(url) {
     if (re.test(host)) return name;
   }
   return null;
+}
+
+// ————— Agent host recognition (canonical — the ONE list) ————————————————————
+// FashionReps posts are full of agent links, including short-link domains
+// (Superbuy's youshop10.com). The import parser (reddit-haul.js) and the
+// fashion gate (fashion-gate.js) both match against this list — before it
+// existed they kept two drifting copies, and agent links fell out of parsing
+// entirely (Kyle, 2026-07-24: a pasted QC post became a junk "W2C" card).
+// Wider than the AGENTS registry on purpose: people link agents we have no
+// URL templates for. Returns the agent token (lowercase) or null.
+const AGENT_HOST_RE =
+  /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy)\.[a-z.]{2,}$/i;
+
+export function agentOf(url) {
+  let host;
+  try {
+    host = new URL(url).hostname;
+  } catch (e) {
+    return null;
+  }
+  const m = AGENT_HOST_RE.exec(host);
+  return m ? m[2].toLowerCase() : null;
 }
 
 // Numeric item id for id-path agents (CSSBuy). Returns { marketplace, id } | null.

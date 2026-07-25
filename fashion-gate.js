@@ -12,17 +12,12 @@
 // pastes keep their input so nothing is lost on a dismiss.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { marketplaceOf } from "./agents.js";
+import { marketplaceOf, agentOf } from "./agents.js";
 import { deobfuscateUrls } from "./reddit-haul.js";
-
-// Buy-agent fronts. Wider than the agents.js registry on purpose — a link
-// through ANY agent is fashion intent, even one we have no URL templates for.
-// (Mirrors KNOWN_AGENTS in reddit-haul.js.)
-const AGENT_HOST_RE =
-  /(^|\.)(superbuy|sugargoo|cssbuy|kakobuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy)\.[a-z.]{2,}$/i;
 
 export function isFashionUrl(url) {
   if (marketplaceOf(url)) return true; // weidian / taobao / tmall / 1688 / yupoo
+  if (agentOf(url)) return true; // buy-agent fronts incl. short links (youshop10)
   let host = "";
   try {
     host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
@@ -31,7 +26,7 @@ export function isFashionUrl(url) {
   }
   // Reddit is where finds and hauls come from.
   if (/(^|\.)(reddit\.com|redd\.it)$/.test(host)) return true;
-  return AGENT_HOST_RE.test(host);
+  return false;
 }
 
 // "fashion" | "raw" | "gated" — see the header comment.

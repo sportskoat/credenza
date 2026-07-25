@@ -1860,7 +1860,7 @@ function toEpochMs(v) {
   return Number.isFinite(t) ? t : null;
 }
 
-export function parseImport(text) {
+export function parseImport(text, opts = {}) {
   const candidates = [];
   const seen = new Set();
   const push = (parsed, rawText, titleHint, meta) => {
@@ -1963,7 +1963,12 @@ export function parseImport(text) {
   // 3.5. Reddit haul pastes (A1): stats block, markdown links, W2C tables,
   // review snippets. Conservative — returns null unless it's haul-shaped, in
   // which case it owns the paste (richer labels/notes than the generic path).
-  const haul = parseRedditHaul(text);
+  // A fetched post passes its title + provenance through: single-link QC posts
+  // are the most common FashionReps shape (2026-07-24 corpus).
+  const haul = parseRedditHaul(text, {
+    title: opts.redditTitle || "",
+    fromPost: !!opts.redditTitle,
+  });
   if (haul) {
     const stats = Object.keys(haul.stats).length ? haul.stats : undefined;
     for (const it of haul.items) {
@@ -9264,7 +9269,8 @@ export default function Credenza() {
       notify("Reading that Reddit post…", { duration: 4000 });
       const post = await fetchRedditPost(text);
       if (post && post.found && post.selftext) {
-        runImport(post.selftext);
+        // The fetched title names single-link QC posts (corpus 2026-07-24).
+        runImport(post.selftext, { redditTitle: post.title || "" });
       } else if (post && post.found === false && post.reason === "no-text") {
         // Link/image post: no item text exists — stash the post itself.
         stash(post.url || text);
@@ -9440,8 +9446,8 @@ export default function Credenza() {
       tone: persistent ? "error" : "info",
     });
 
-  const runImport = (text) => {
-    const { candidates, provider } = parseImport(text);
+  const runImport = (text, opts = {}) => {
+    const { candidates, provider } = parseImport(text, opts);
     const { fresh, dupes, duplicates } = buildImportItems(candidates, items, provider);
     if (fresh.length) applyUpdate((list) => [...fresh, ...list]);
     if (fresh.length) markActivation(storageBackend, "import");
