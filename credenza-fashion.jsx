@@ -59,6 +59,12 @@ const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsSheet = lazy(() => import("./sheets/SettingsSheet.jsx"));
 const DetailSheet = lazy(() => import("./sheets/DetailSheet.jsx"));
 
+// Always-rendered components split out of this file (2026-07-25). Static, not
+// lazy: the shelf paints them on first load, so a chunk fetch would only add
+// a waterfall. The circular import back into this file is safe — the helpers
+// they use are hoisted function declarations.
+import SizeChartTable from "./components/SizeChartTable.jsx";
+
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ CONSTANTS & THEME (Studio) ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
@@ -5723,50 +5729,6 @@ export function carouselLayerZ(cardCount, index, foreground) {
 // All the free-text fields a size chart can hide in, in priority order.
 export function sizeChartTextFor(item) {
   return [item.sizeNotes, item.summary, item.rawText, item.note].filter(Boolean).join("\n");
-}
-
-// Translated chart view (Kyle 2026-07-22: "clicking recommended size pulls up
-// the sizing sheet, or even a translation"). parseSizeChart already normalizes
-// Chinese labels into measure keys, so translation is just a header map.
-const MEASURE_COLS = [
-  ["chest", "Chest"],
-  ["shoulder", "Shoulder"],
-  ["sleeve", "Sleeve"],
-  ["waist", "Waist"],
-  ["hip", "Hip"],
-  ["pantsLength", "Pants length"],
-  ["length", "Length"],
-];
-
-function SizeChartTable({ chart, units, highlight, highlightAlt }) {
-  const cols = MEASURE_COLS.filter(([key]) => chart.rows.some((r) => r[key] != null));
-  return (
-    <table className="cz-size-chart-table">
-      <thead>
-        <tr>
-          <th scope="col">Size</th>
-          {cols.map(([key, label]) => (
-            <th scope="col" key={key}>{label}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {chart.rows.map((row) => (
-          <tr
-            key={row.size}
-            className={
-              row.size === highlight ? "is-rec" : row.size === highlightAlt ? "is-alt" : undefined
-            }
-          >
-            <th scope="row">{row.size}</th>
-            {cols.map(([key]) => (
-              <td key={key}>{row[key] != null ? formatMeasure(row[key], units) : "—"}</td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
 }
 
 // Session-scoped guard: the silent chart hunt runs at most once per item per
