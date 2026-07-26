@@ -3131,29 +3131,11 @@ function useIsPhone() {
   return phone;
 }
 
-// Live ≥1024px check — the handoff turn 4 Fix B breakpoint. Above it the
-// expanded card is the two-column panel (no flip); below it the flip card
-// and the phone sheet stay.
+// Live ≥1024px check — was Fix B (two-column no-flip panel). Kyle 2026-07-25
+// night: restore the flip card on every width. Keep the hook so call sites
+// compile; always return false so DesktopDetailPanel is never selected.
 function useIsWideDetail() {
-  const QUERY = "(min-width: 1024px)";
-  const [wide, setWide] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      !!window.matchMedia &&
-      window.matchMedia(QUERY).matches
-  );
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia(QUERY);
-    const onChange = () => setWide(mq.matches);
-    if (mq.addEventListener) mq.addEventListener("change", onChange);
-    else mq.addListener(onChange);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
-      else mq.removeListener(onChange);
-    };
-  }, []);
-  return wide;
+  return false;
 }
 
 // "Read" is v3-generic vocabulary — a Yupoo album isn't an article. Prefer the

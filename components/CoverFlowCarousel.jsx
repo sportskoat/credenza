@@ -676,7 +676,9 @@ export default function CoverFlowCarousel({
   const containerRef = useRef(null);
   const [activeIndex, setActiveIndexState] = useState(0);
   const activeIndexRef = useRef(0);
-  const [cardSize, setCardSize] = useState({ width: 560 * sizeScale, height: 820 * sizeScale });
+  // Kyle 2026-07-25: drop ~30% from Fix A so more rack cards stay in view
+  // (560×820 → 392×574).
+  const [cardSize, setCardSize] = useState({ width: 392 * sizeScale, height: 574 * sizeScale });
   const reduced = usePrefersReducedMotion();
   const wheelAcc = useRef(0);
   const wheelTimer = useRef(null);
@@ -769,16 +771,14 @@ export default function CoverFlowCarousel({
   }, [focusSignal]);
 
   useEffect(() => {
-    // Same card size for coverflow and the solo modal popup (Kyle 2026-07-23 —
-    // enlarged solo cards were too big). Desktop cards are 30% larger
-    // (Kyle 2026-07-25): 320x460 → 416x598; the phone keeps 80vw x 440.
-    // Handoff turn 4 Fix A: raise the desktop cap to min(w*0.72, 560) x
-    // min(h*0.86, 820) — the 416x598 card clipped the detail back.
+    // Coverflow + solo overlay share this size. Phone keeps 80vw × 440.
+    // Desktop is ~30% smaller than Fix A so more cards stay visible
+    // (Kyle 2026-07-25 night): min(50vw, 392) × min(60vh, 574).
     const update = () => {
-      const w = typeof window !== "undefined" ? window.innerWidth : 560;
-      const h = typeof window !== "undefined" ? window.innerHeight : 820;
-      const width = (w <= 480 ? w * 0.8 : Math.min(w * 0.72, 560)) * sizeScale;
-      const height = (w <= 480 ? 440 : Math.min(h * 0.86, 820)) * sizeScale;
+      const w = typeof window !== "undefined" ? window.innerWidth : 392;
+      const h = typeof window !== "undefined" ? window.innerHeight : 574;
+      const width = (w <= 480 ? w * 0.8 : Math.min(w * 0.5, 392)) * sizeScale;
+      const height = (w <= 480 ? 440 : Math.min(h * 0.6, 574)) * sizeScale;
       setCardSize({ width, height });
     };
     update();

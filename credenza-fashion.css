@@ -370,12 +370,10 @@
 .cz-carousel-card {
   --cz-card-side: 0;
   flex: 0 0 auto;
-  /* Desktop card: 30% larger (Kyle 2026-07-25) — 320x460 → 416x598.
-     Handoff turn 4 Fix A: cap raised to min(72vw,560) x min(86vh,820) —
-     416x598 clipped the detail back. The ≤480px media query below keeps
-     the phone at 80vw x 440. */
-  width: min(72vw, 560px);
-  height: min(86vh, 820px);
+  /* Desktop card ~30% smaller than Fix A so more rack cards stay in view
+     (Kyle 2026-07-25 night): 560×820 → 392×574. Phone keeps 80vw × 440. */
+  width: min(50vw, 392px);
+  height: min(60vh, 574px);
   margin: 0 -2.5vw;
   transform-style: preserve-3d;
   user-select: none;
@@ -2284,8 +2282,8 @@ a.cz-seller-quiet:focus-visible {
   position: relative;
   display: block;
   width: 100%;
-  /* Card min(86vh,820) + 30px slack top/bottom (was 658 for the 598 card). */
-  height: min(calc(86vh + 60px), 880px);
+  /* Card min(60vh,574) + slack so neighbors still peek. */
+  height: min(calc(60vh + 48px), 640px);
   min-height: auto;
   margin: 0;
   padding: 0;
@@ -2298,9 +2296,9 @@ a.cz-seller-quiet:focus-visible {
   position: absolute;
   left: 50%;
   top: 50%;
-  /* Fix A cap (matches the base rule above): min(72vw,560) x min(86vh,820). */
-  width: min(72vw, 560px);
-  height: min(86vh, 820px);
+  /* Matches the base rule above (Kyle 2026-07-25 night size cut). */
+  width: min(50vw, 392px);
+  height: min(60vh, 574px);
   margin: 0;
   scroll-snap-align: unset;
   transform: translate(-50%, -50%);
@@ -2324,18 +2322,15 @@ a.cz-seller-quiet:focus-visible {
   scrollbar-gutter: stable;
 }
 
-/* Solo grid-tap overlay: the card renders 15% smaller than the rack card
-   (Kyle 2026-07-25). Matches the sizeScale={0.85} JS mirror — the JS owns
-   the centering margins, so these numbers must stay in sync with it.
-   Fix A rack cap min(72vw,560) x min(86vh,820) → overlay min(61.2vw,476)
-   x min(73.1vh,697). */
+/* Solo grid-tap overlay: 15% smaller than the rack card. sizeScale={0.85}
+   in JS must match these caps (Kyle 2026-07-25 night: rack 392×574). */
 .cz-carousel-overlay .cz-carousel-card {
-  width: min(61.2vw, 476px);
-  height: min(73.1vh, 697px);
+  width: min(42.5vw, 333px);
+  height: min(51vh, 488px);
 }
 
 .cz-carousel-overlay .cz-carousel-track {
-  height: min(calc(73.1vh + 51px), 748px);
+  height: min(calc(51vh + 40px), 540px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -9470,7 +9465,37 @@ a.cz-card-seller:hover {
   cursor: pointer;
 }
 
-/* ── Status track ── */
+/* ── Status select (replaces batch cell + chip track, Kyle 2026-07-25 night) ── */
+.cz-detail-status-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.cz-detail-status-field .cz-detail-label {
+  margin: 0;
+}
+
+.cz-detail-status-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cz-detail-status-select:focus {
+  outline: 2px solid color-mix(in srgb, var(--cz-money) 55%, transparent);
+  outline-offset: 1px;
+}
+
+/* Legacy chip styles kept for other surfaces that still use them. */
 .cz-detail-status {
   display: flex;
   gap: 6px;
@@ -9507,8 +9532,17 @@ a.cz-card-seller:hover {
   transition: grid-template-rows 200ms ease;
 }
 
+/* Bigger default notes height on the card back (Kyle 2026-07-25 night). */
+.cz-detail-notes-wrap.is-roomy {
+  grid-template-rows: 110px;
+}
+
 .cz-detail-notes-wrap.is-open {
   grid-template-rows: 168px;
+}
+
+.cz-detail-notes-wrap.is-roomy.is-open {
+  grid-template-rows: 220px;
 }
 
 .cz-detail-notes {
@@ -9533,6 +9567,12 @@ a.cz-card-seller:hover {
 /* ── Photo strip ── */
 .cz-detail-photos {
   margin-top: 8px;
+}
+
+/* Under the hero: one photo manager only (n/12). No second strip lower. */
+.cz-detail-photos.is-under-hero {
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 .cz-detail-photos .cz-edit-photos-grid {
@@ -9900,10 +9940,7 @@ a.cz-card-seller:hover {
     font-size: 11.5px;
   }
 
-  /* Both faces are visible in the panel — nothing to flip to. */
-  .cz-flip-cue {
-    display: none;
-  }
+  /* Kyle 2026-07-25 night: flip is back on desktop. Do not hide the cue. */
 }
 
 /* The generic gallery-thumb hover scale (button:has(> img):hover) must not
