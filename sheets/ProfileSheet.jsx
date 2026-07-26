@@ -38,6 +38,8 @@ export default function ProfileSheet({
   onDeleteAccount,
   full = true,
   onClose,
+  subPage = null,
+  onBack,
 }) {
   const themes = [
     ["light", "Gallery", "#F4F4F0", "1px solid rgba(0,0,0,.12)"],
@@ -69,7 +71,7 @@ export default function ProfileSheet({
   const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
   const isPro = planState === "pro" || planState === "grace";
   return (
-    <ModalShell title="Profile" onClose={onClose} maxWidth={440}>
+    <ModalShell title="Profile" onClose={onClose} maxWidth={440} stacked subPage={subPage} onBack={onBack}>
       <div className="cz-profile">
         {accountEnabled && !accountSession && (
         <div className="cz-profile-signin">

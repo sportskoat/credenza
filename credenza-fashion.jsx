@@ -3818,6 +3818,14 @@ export default function Credenza() {
   // profileSheetOpen — "profile" now means the account sheet).
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  // Settings sub-page (Kyle 2026-07-26). Sizes / fit prefs / agent / import
+  // used to close their parent and open a SECOND modal — a hard cut, and the
+  // way back was Close, not Back. They are now pages inside the same modal:
+  // it slides sideways and resizes to the page. One of "sizes" | "fit" |
+  // "agent" | "import", or null for the parent page. `settingsSubPage` is
+  // the phone Settings sheet's own stack; the two never show at once.
+  const [profileSubPage, setProfileSubPage] = useState(null);
+  const [settingsSubPage, setSettingsSubPage] = useState(null);
   // Mobile handoff C2/C4 (2026-07-25). The phone masthead collapsed to one
   // row, so search hides behind an icon and the old bottom bar's Agent /
   // Import / Theme rows live in their own ⋯ sheet.
@@ -6587,6 +6595,88 @@ export default function Credenza() {
     </motion.section>
   );
 
+  // Settings sub-page bodies (Kyle 2026-07-26). Each returns the same sheet
+  // component in `embedded` mode: the body only, because the modal stack
+  // already owns the shell, the title, and the back button. `maxWidth` is
+  // what the modal tweens to — the measurements page is wider than Profile,
+  // which is the resize Kyle asked for.
+  const buildSubPage = (key, back) => {
+    if (!key) return null;
+    const page = (title, width, node) => ({ key, title, maxWidth: width, node });
+    if (key === "sizes")
+      return page(
+        "Your measurements",
+        560,
+        <Suspense fallback={null}>
+          <BodyProfileSheet
+            value={bodyProfile}
+            units={measureUnits}
+            onSave={(profile) => {
+              setBodyProfile(profile);
+              notify("Sizes updated.");
+            }}
+            onChangeUnits={setMeasureUnits}
+            onClose={back}
+            embedded
+          />
+        </Suspense>
+      );
+    if (key === "fit")
+      return page(
+        "Fit preferences",
+        440,
+        <Suspense fallback={null}>
+          <FitPrefsSheet
+            value={fitPrefs}
+            ownedCategories={ownedFitPrefCategories}
+            onSave={(draft) => {
+              setFitPrefsByCat((prev) => ({ ...(prev || {}), ...(draft || {}) }));
+              notify("Fit preferences updated.");
+            }}
+            onClose={back}
+            embedded
+          />
+        </Suspense>
+      );
+    if (key === "agent")
+      return page(
+        "Buying agent",
+        520,
+        <Suspense fallback={null}>
+          <AgentSheet
+            preferredAgent={preferredAgent}
+            onSelectAgent={(id) => {
+              const a = getAgent(id);
+              if (a && !a.retired) setPreferredAgent(a.id);
+            }}
+            storageBackend={storageBackend}
+            onClose={back}
+            embedded
+          />
+        </Suspense>
+      );
+    if (key === "import")
+      return page(
+        "Import & backup",
+        520,
+        <Suspense fallback={null}>
+          <ImportSheet
+            items={items}
+            hasSamples={hasSamples}
+            onImport={runImport}
+            onAddSamples={addSamples}
+            onClearSamples={clearSamples}
+            onClose={back}
+            onExport={exportShelf}
+            onClearShelf={clearShelf}
+            onRestore={restoreBackup}
+            embedded
+          />
+        </Suspense>
+      );
+    return null;
+  };
+
   return (
     <div
       className="cz-app"
@@ -6737,28 +6827,16 @@ export default function Credenza() {
           mode={mode}
           onTheme={setTheme}
           agentLabel={agentBarLabel}
-          onOpenAgent={() => {
-            setProfileOpen(false);
-            setAgentSheetOpen(true);
-          }}
+          onOpenAgent={() => setProfileSubPage("agent")}
           pricePrimary={pricePrimary}
           onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
           fitSummary={fitSummary}
           onToggleFitSummary={() => setFitSummary((v) => !v)}
           fitDetail={fitDetail}
           onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
-          onOpenSizes={() => {
-            setProfileOpen(false);
-            setBodySheetOpen(true);
-          }}
-          onOpenFitPrefs={() => {
-            setProfileOpen(false);
-            setFitPrefsSheetOpen(true);
-          }}
-          onOpenImport={() => {
-            setProfileOpen(false);
-            setImportOpen(true);
-          }}
+          onOpenSizes={() => setProfileSubPage("sizes")}
+          onOpenFitPrefs={() => setProfileSubPage("fit")}
+          onOpenImport={() => setProfileSubPage("import")}
           storageLabel={localStatus.label}
           storageColor={localStatus.color}
           onEraseData={eraseEverything}
@@ -6772,7 +6850,12 @@ export default function Credenza() {
           onSignOut={accountSignOut}
           onDeleteAccount={accountDelete}
           full={!isPhone}
-          onClose={() => setProfileOpen(false)}
+          subPage={buildSubPage(profileSubPage, () => setProfileSubPage(null))}
+          onBack={() => setProfileSubPage(null)}
+          onClose={() => {
+            setProfileOpen(false);
+            setProfileSubPage(null);
+          }}
         />
         </Suspense>
       )}
@@ -6785,19 +6868,18 @@ export default function Credenza() {
         <SettingsSheet
           mode={mode}
           onCycleTheme={() => setTheme(mode === "light" ? "rainbow" : "light")}
-          onOpenSizes={() => {
-            setSettingsSheetOpen(false);
-            setBodySheetOpen(true);
-          }}
-          onOpenFitPrefs={() => {
-            setSettingsSheetOpen(false);
-            setFitPrefsSheetOpen(true);
-          }}
+          onOpenSizes={() => setSettingsSubPage("sizes")}
+          onOpenFitPrefs={() => setSettingsSubPage("fit")}
           fitSummary={fitSummary}
           onToggleFitSummary={() => setFitSummary((v) => !v)}
           fitDetail={fitDetail}
           onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
-          onClose={() => setSettingsSheetOpen(false)}
+          subPage={buildSubPage(settingsSubPage, () => setSettingsSubPage(null))}
+          onBack={() => setSettingsSubPage(null)}
+          onClose={() => {
+            setSettingsSheetOpen(false);
+            setSettingsSubPage(null);
+          }}
         />
         </Suspense>
       )}

@@ -3,7 +3,9 @@ import { CATEGORIES, FIT_PREF_AXES, ModalShell } from "../credenza-fashion.jsx";
 import { FitPrefAxis } from "../components/SizeRecommendation.jsx";
 
 // Design 5a — Settings → Fit preferences. One row per owned category.
-export default function FitPrefsSheet({ value, ownedCategories, onSave, onClose }) {
+// `embedded` renders the body alone, for the Profile modal's sub-page stack
+// (Kyle 2026-07-26). The stack owns the shell, the title, and the back button.
+export default function FitPrefsSheet({ value, ownedCategories, onSave, onClose, embedded = false }) {
   const [draft, setDraft] = useState(() => {
     const src = value && typeof value === "object" ? value : {};
     const out = {};
@@ -18,8 +20,7 @@ export default function FitPrefsSheet({ value, ownedCategories, onSave, onClose 
     return out;
   });
   const cats = ownedCategories.filter((c) => FIT_PREF_AXES[c]);
-  return (
-    <ModalShell title="Fit preferences" onClose={onClose} maxWidth={440}>
+  const body = (
       <div className="cz-fit-prefs-sheet">
         <p className="cz-fit-prefs-lead">
           How you like things to sit. We factor this into every size we suggest.
@@ -74,6 +75,12 @@ export default function FitPrefsSheet({ value, ownedCategories, onSave, onClose 
           Save preferences
         </button>
       </div>
+  );
+
+  if (embedded) return body;
+  return (
+    <ModalShell title="Fit preferences" onClose={onClose} maxWidth={440}>
+      {body}
     </ModalShell>
   );
 }

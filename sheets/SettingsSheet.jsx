@@ -18,10 +18,20 @@ export default function SettingsSheet({
   fitDetail,
   onCycleFitDetail,
   onClose,
+  subPage = null,
+  onBack,
 }) {
   const themeLabel = mode === "light" ? "Gallery" : "Blackout";
   return (
-    <ModalShell title="Settings" onClose={onClose} maxWidth={440} surfaceClassName="cz-settings-surface">
+    <ModalShell
+      title="Settings"
+      onClose={onClose}
+      maxWidth={440}
+      surfaceClassName="cz-settings-surface"
+      stacked
+      subPage={subPage}
+      onBack={onBack}
+    >
       <div className="cz-settings">
         {/* Two themes only, so the row toggles instead of opening a picker.
             aria-label carries the destination — the visible value is the

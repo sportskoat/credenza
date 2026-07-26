@@ -4375,6 +4375,126 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-modal.t-modal::backdrop { transition: none !important; }
 }
 
+/* ─── Page side-by-side (transitions.dev) ─── */
+/* Two pages share one box; `data-page` on the parent picks the visible one.
+   Page 1 exits left, page 2 enters from the right. Used by the settings modal
+   stack (Kyle 2026-07-26) so a sub-page slides in place of a second modal. */
+:root {
+  --page-slide-dur: 250ms;
+  --page-fade-dur: 250ms;
+  --page-slide-distance: 8px;
+  --page-blur: 3px;
+  --page-stagger: 0ms;
+  --page-exit-enabled: 1;
+  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-page-slide {
+  position: relative;
+}
+.t-page-slide .t-page[data-page-id="1"] {
+  --t-page-from-x: calc(var(--page-slide-distance) * -1);
+}
+.t-page-slide .t-page[data-page-id="2"] {
+  --t-page-from-x: var(--page-slide-distance);
+}
+.t-page-slide .t-page {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(var(--t-page-from-x, 0px) * var(--page-exit-enabled)));
+  filter: blur(calc(var(--page-blur) * var(--page-exit-enabled)));
+  transition:
+    opacity   var(--page-fade-dur)  var(--page-fade-ease),
+    transform var(--page-slide-dur) var(--page-slide-ease),
+    filter    var(--page-slide-dur) var(--page-slide-ease);
+  will-change: opacity, transform, filter;
+}
+.t-page-slide[data-page="1"] .t-page[data-page-id="1"],
+.t-page-slide[data-page="2"] .t-page[data-page-id="2"] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  filter: blur(0);
+  transition-delay: var(--page-stagger);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-page-slide .t-page { transition: none !important; }
+}
+
+/* ─── Card resize (transitions.dev) ─── */
+/* Put .t-resize on anything whose width/height changes and the two sizes
+   tween instead of snapping. */
+.t-resize {
+  transition:
+    width  var(--resize-dur) var(--resize-ease),
+    height var(--resize-dur) var(--resize-ease);
+  will-change: width, height;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-resize { transition: none !important; }
+}
+
+/* ─── Settings modal stack ─── */
+/* The two primitives together: the modal slides sideways to a sub-page and
+   resizes to it, instead of stacking a second modal on top (Kyle 2026-07-26).
+   The dialog tweens max-width; the stack tweens the measured page height. */
+.cz-modal.t-modal {
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity   var(--modal-open-dur) var(--modal-ease),
+    max-width var(--resize-dur)     var(--resize-ease);
+}
+.cz-modal-stack {
+  /* Absolutely-positioned pages give the parent no height of its own — the
+     measured height from ModalShell is the only thing holding it open. Until
+     the first measurement lands, min-height keeps the modal from collapsing
+     (jsdom and the first paint both report 0). */
+  overflow: hidden;
+  min-height: 1px;
+}
+.cz-modal-page {
+  /* Each page scrolls on its own: a tall sub-page must not stretch the modal
+     past the surface cap. overscroll-behavior stops the scroll chaining to
+     the locked page behind the dialog. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.cz-modal-surface-stacked .cz-modal-header {
+  /* A short window scrolls the surface, which used to carry the header — and
+     the back button with it — out of sight. Pin the header in stacked modals
+     so the way back stays on screen (Kyle 2026-07-26). */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--cz-card);
+}
+.cz-modal-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  margin-left: -4px;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--cz-ink);
+  background: var(--cz-seg);
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+.cz-modal-back:hover {
+  background: var(--cz-accent-bg);
+}
+.cz-modal-back:active {
+  transform: scale(0.94);
+}
+
 /* ─── Text reveal (transitions.dev) — staggered line entrance ─── */
 :root {
   --stagger-dur: 500ms;

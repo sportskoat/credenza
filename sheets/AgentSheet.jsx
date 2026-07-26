@@ -20,7 +20,9 @@ import {
 // build-time env only (audit 2026-07-24, the revenue leak): no user-editable
 // code field exists — a visitor must never be able to replace Kyle's
 // attribution with their own.
-export default function AgentSheet({ preferredAgent, onSelectAgent, storageBackend, onClose }) {
+// `embedded` renders the body alone, for the Profile modal's sub-page stack
+// (Kyle 2026-07-26). The stack owns the shell, the title, and the back button.
+export default function AgentSheet({ preferredAgent, onSelectAgent, storageBackend, onClose, embedded = false }) {
   const [summary, setSummary] = useState(null);
   useEffect(() => {
     let live = true;
@@ -32,8 +34,7 @@ export default function AgentSheet({ preferredAgent, onSelectAgent, storageBacke
     };
   }, [storageBackend]);
 
-  return (
-    <ModalShell title="Buying agent" onClose={onClose} maxWidth={520}>
+  const body = (
       <div style={{ padding: "20px 22px 22px", fontFamily: FONT }}>
         <Caption style={{ color: BLUE, marginBottom: 10 }}>Buy opens in</Caption>
         <div
@@ -89,6 +90,12 @@ export default function AgentSheet({ preferredAgent, onSelectAgent, storageBacke
           </p>
         ) : null}
       </div>
+  );
+
+  if (embedded) return body;
+  return (
+    <ModalShell title="Buying agent" onClose={onClose} maxWidth={520}>
+      {body}
     </ModalShell>
   );
 }

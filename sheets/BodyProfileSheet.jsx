@@ -11,7 +11,9 @@ import {
   measureToStorage,
 } from "../credenza-fashion.jsx";
 
-export default function BodyProfileSheet({ value, units = "in", onSave, onChangeUnits, onClose }) {
+// `embedded` renders the body alone, for the Profile modal's sub-page stack
+// (Kyle 2026-07-26). The stack owns the shell, the title, and the back button.
+export default function BodyProfileSheet({ value, units = "in", onSave, onChangeUnits, onClose, embedded = false }) {
   const [draft, setDraft] = useState(() => {
     const d = {};
     for (const [key, , kind] of BODY_PROFILE_FIELDS) d[key] = measureFromStorage(value && value[key], units, kind);
@@ -59,8 +61,7 @@ export default function BodyProfileSheet({ value, units = "in", onSave, onChange
 
   const unitLabel = (kind) => (units === "in" ? (kind === "weight" ? "lb" : "in") : kind === "weight" ? "kg" : "cm");
 
-  return (
-    <ModalShell title="Your measurements" onClose={onClose} maxWidth={560}>
+  const body = (
       <div style={{ padding: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <p style={{ margin: 0, flex: 1, fontFamily: FONT, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
@@ -103,6 +104,12 @@ export default function BodyProfileSheet({ value, units = "in", onSave, onChange
           <Pill subtle onClick={onClose}>Cancel</Pill>
         </div>
       </div>
+  );
+
+  if (embedded) return body;
+  return (
+    <ModalShell title="Your measurements" onClose={onClose} maxWidth={560}>
+      {body}
     </ModalShell>
   );
 }

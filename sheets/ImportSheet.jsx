@@ -64,7 +64,9 @@ function ImportSourceCycle() {
   );
 }
 
-export default function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onClearShelf, onRestore }) {
+// `embedded` renders the body alone, for the Profile modal's sub-page stack
+// (Kyle 2026-07-26). The stack owns the shell, the title, and the back button.
+export default function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onClearShelf, onRestore, embedded = false }) {
   const [text, setText] = useState("");
   const fileRef = useRef(null);
   const importTextId = useId();
@@ -101,8 +103,7 @@ export default function ImportSheet({ items, hasSamples, onImport, onAddSamples,
   const canImport = !!(preview && preview.fresh.length > 0);
   const importLabel = canImport ? "Import " + preview.fresh.length : "Import haul";
 
-  return (
-    <ModalShell title="Bring a haul onto your shelf" onClose={onClose} maxWidth={520}>
+  const body = (
       <div
         className="cz-import-body"
         onDragOver={(e) => e.preventDefault()}
@@ -258,6 +259,12 @@ export default function ImportSheet({ items, hasSamples, onImport, onAddSamples,
           </button>
         )}
       </div>
+  );
+
+  if (embedded) return body;
+  return (
+    <ModalShell title="Bring a haul onto your shelf" onClose={onClose} maxWidth={520}>
+      {body}
     </ModalShell>
   );
 }
