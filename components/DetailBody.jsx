@@ -308,6 +308,10 @@ export default function DetailBody({
   heroPager = false,
   renderHeroActions = null,
   flushRef = null,
+  // Fix B (handoff turn 4): the desktop two-column panel puts the price in
+  // the pinned footer next to Buy. Null everywhere else — the phone sheet
+  // and the flip-card back keep the full-width Buy.
+  footerPrice = null,
 }) {
   const titleInputRef = useRef(null);
   const reduced = usePrefersReducedMotion();
@@ -758,14 +762,27 @@ export default function DetailBody({
       </div>
 
       {buyButton ? (
-        <div className="cz-detail-foot">
-          <button
-            type="button"
-            className="cz-detail-buy"
-            onClick={() => onOpen(item, buyButton.url)}
-          >
-            {buyButton.label}
-          </button>
+        <div className={"cz-detail-foot" + (footerPrice ? " has-price" : "")}>
+          {footerPrice ? (
+            <div className="cz-detail-foot-row">
+              <span className="cz-detail-foot-price">{footerPrice}</span>
+              <button
+                type="button"
+                className="cz-detail-buy"
+                onClick={() => onOpen(item, buyButton.url)}
+              >
+                {buyButton.label}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="cz-detail-buy"
+              onClick={() => onOpen(item, buyButton.url)}
+            >
+              {buyButton.label}
+            </button>
+          )}
           <p className="cz-detail-disclosure">
             Buy links may include a referral code. Credenza may earn a commission on agent
             shipping fees. It never changes your item price.

@@ -9592,3 +9592,302 @@ a.cz-card-seller:hover {
   line-height: 1.45;
   color: var(--cz-faint);
 }
+
+/* ═══ Fix B — two-column desktop detail panel (handoff turn 4) ═══
+   At ≥1024px the expanded card stops flipping: contain-fit photo stage on
+   the left, the shared DetailBody on the right. Rendered only at
+   ≥1024px (useIsWideDetail gates the JS); the rules are still media-guarded
+   so a resize can never leave a half-width panel. */
+@media (min-width: 1024px) {
+  .cz-dpanel-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-sheet);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--cz-bg) 74%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    overscroll-behavior: contain;
+  }
+  .cz-dpanel-scrim.is-closing {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--modal-close-dur, 150ms) var(--modal-ease, ease);
+  }
+
+  .cz-dpanel {
+    display: grid;
+    grid-template-columns: 634px minmax(0, 1fr);
+    width: min(86vw, 1180px);
+    height: min(88vh, 860px);
+    border-radius: 22px;
+    border: 1px solid var(--cz-hair);
+    background: var(--cz-bg);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+  }
+
+  /* Left column: photo stage + thumb strip. */
+  .cz-dpanel-left {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 20px;
+    background: color-mix(in srgb, var(--cz-bg) 94%, black);
+    border-right: 1px solid var(--cz-hair);
+  }
+  .cz-dpanel-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .cz-dpanel-track {
+    display: flex;
+    height: 100%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .cz-dpanel-track::-webkit-scrollbar {
+    display: none;
+  }
+  .cz-dpanel-slide {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    scroll-snap-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* contain, never cover — a contact sheet must not be cropped. */
+  .cz-dpanel-slide img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .cz-dpanel-slide-empty {
+    flex: 1;
+    background: #fff;
+  }
+  .cz-dpanel-counter {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(12, 12, 14, 0.5);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .cz-dpanel-fav {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(12, 12, 14, 0.5);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    border: 0;
+    color: #fff;
+  }
+  /* Pager arrows: always visible (touch has no hover), disabled at the
+     ends rather than wrapping. */
+  .cz-dpanel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 46px;
+    height: 46px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(12, 12, 14, 0.5);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .cz-dpanel-arrow-prev {
+    left: 12px;
+  }
+  .cz-dpanel-arrow-next {
+    right: 12px;
+  }
+  .cz-dpanel-arrow:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .cz-dpanel-thumbs {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .cz-dpanel-thumbs::-webkit-scrollbar {
+    display: none;
+  }
+  .cz-dpanel-thumb {
+    flex: 0 0 auto;
+    width: 104px;
+    height: 104px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 9px;
+    overflow: hidden;
+    background: #fff;
+    cursor: pointer;
+  }
+  .cz-dpanel-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .cz-dpanel-thumb.is-active {
+    border-color: var(--cz-money);
+  }
+  .cz-dpanel-thumb-album {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    text-align: center;
+    text-decoration: none;
+    background: var(--cz-card-solid);
+    border-color: var(--cz-hair);
+    color: var(--cz-link);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .cz-dpanel-thumb-album:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* Right column: header + the shared DetailBody. */
+  .cz-dpanel-right {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .cz-dpanel-head {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 16px 6px;
+  }
+  .cz-dpanel-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 0;
+    background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
+    color: var(--cz-sub);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .cz-dpanel-icon:hover {
+    color: var(--cz-ink);
+  }
+  .cz-dpanel-menu-wrap {
+    position: relative;
+  }
+  .cz-dpanel-menu {
+    position: absolute;
+    top: 42px;
+    right: 0;
+    z-index: 2;
+    width: 240px;
+    padding: 8px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 14px;
+    background: var(--cz-card-solid);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+    display: grid;
+    gap: 2px;
+  }
+  .cz-dpanel-menu-haul {
+    display: grid;
+    gap: 2px;
+  }
+  .cz-dpanel-menu-haul input {
+    margin: 2px 0 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 10px;
+    background: var(--cz-bg);
+    color: var(--cz-ink);
+    font-size: 13px;
+  }
+  .cz-dpanel-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .cz-dpanel-body .cz-detail-scroll {
+    padding: 4px 26px 0;
+  }
+  .cz-dpanel-body .cz-detail-title {
+    font-size: 29px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .cz-dpanel-body .cz-detail-sub {
+    font-size: 11.5px;
+  }
+  .cz-dpanel-body .cz-detail-cell {
+    min-height: 60px;
+  }
+  .cz-dpanel-body .cz-detail-notes {
+    font-size: 14.5px;
+  }
+  /* Pinned footer: price left, Buy right, FTC beneath. */
+  .cz-dpanel-body .cz-detail-foot {
+    padding: 12px 26px 16px;
+    background: transparent;
+  }
+  .cz-dpanel-body .cz-detail-foot-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .cz-dpanel-body .cz-detail-foot-price {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--cz-money);
+    white-space: nowrap;
+  }
+  .cz-dpanel-body .cz-detail-foot-row .cz-detail-buy {
+    flex: 1;
+    min-width: 230px;
+    height: 54px;
+  }
+  .cz-dpanel-body .cz-detail-disclosure {
+    font-size: 11.5px;
+  }
+
+  /* Both faces are visible in the panel — nothing to flip to. */
+  .cz-flip-cue {
+    display: none;
+  }
+}

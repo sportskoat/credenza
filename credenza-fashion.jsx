@@ -87,6 +87,7 @@ import {
 } from "./components/atoms.jsx";
 import ComboboxField from "./components/ComboboxField.jsx";
 import CoverFlowCarousel from "./components/CoverFlowCarousel.jsx";
+import DesktopDetailPanel from "./components/DesktopDetailPanel.jsx";
 import { ModalShell } from "./components/ModalShell.jsx";
 import { BrandIcon } from "./components/BrandIcon.jsx";
 import { HaulAccordionField } from "./components/HaulAccordionField.jsx";
@@ -3146,6 +3147,31 @@ function useIsPhone() {
   return phone;
 }
 
+// Live ≥1024px check — the handoff turn 4 Fix B breakpoint. Above it the
+// expanded card is the two-column panel (no flip); below it the flip card
+// and the phone sheet stay.
+function useIsWideDetail() {
+  const QUERY = "(min-width: 1024px)";
+  const [wide, setWide] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia &&
+      window.matchMedia(QUERY).matches
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(QUERY);
+    const onChange = () => setWide(mq.matches);
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
+  return wide;
+}
+
 // "Read" is v3-generic vocabulary — a Yupoo album isn't an article. Prefer the
 // platform users actually recognize; fall back to the generic type label.
 // One-tap findStatus pipeline chips — shared by the edit forms and the mobile
@@ -3691,6 +3717,8 @@ export default function Credenza() {
   // One detail surface everywhere (Kyle 2026-07-22): tapping any grid card
   // opens the carousel on that item; the carousel back holds details + edit.
   const isPhone = useIsPhone();
+  // ≥1024px the expanded card is the two-column Fix B panel — no flip.
+  const isWideDetail = useIsWideDetail();
   // Grid tap presents ONE card as a layer OVER the grid (Kyle 2026-07-22):
   // the tapped item's carousel card pops up solo — no rack, no nav chrome —
   // and the grid stays mounted underneath, so closing lands back on the same
@@ -6253,7 +6281,7 @@ export default function Credenza() {
     <CoverFlowCarousel
       items={carouselItems}
       sizeScale={opts && opts.sizeScale}
-      expandedId={expandedId}
+      expandedId={isWideDetail ? null : expandedId}
       selectedId={selectedId}
       flipRequest={flipRequest}
       haulNames={haulNames}
@@ -6295,6 +6323,43 @@ export default function Credenza() {
       items.find((x) => x.id === carouselOverlay) ||
       null
     : null;
+
+  // Fix B: the card a rack tap would flip — at ≥1024px it opens as the
+  // two-column panel instead (renderCarousel gets expandedId=null there).
+  const expandedItem = expandedId
+    ? listItems.find((x) => x.id === expandedId) ||
+      items.find((x) => x.id === expandedId) ||
+      null
+    : null;
+
+  // Fix B (handoff turn 4): the two-column no-flip detail panel at ≥1024px.
+  // Shared by the grid-tap overlay and the rack-tap expansion — same item,
+  // same actions, only the close target differs.
+  const renderDetailPanel = (panelItem, onClose, closing) => (
+    <DesktopDetailPanel
+      item={panelItem}
+      haulNames={haulNames}
+      bodyProfile={bodyProfile}
+      fitPrefs={
+        panelItem.category && fitPrefs
+          ? { [panelItem.category]: fitPrefs[panelItem.category] }
+          : null
+      }
+      measureUnits={measureUnits}
+      buyLabel={buyLabel}
+      onSaveEdit={saveEdit}
+      onOpen={recordOpen}
+      onAttachPhoto={attachGalleryImage}
+      onRemovePhoto={removePhotoBySrc}
+      onOpenSizes={() => setBodySheetOpen(true)}
+      onSetPrimaryImage={setPrimaryImage}
+      onLoadPhotos={loadAlbumPhotos}
+      onToggleFavorite={toggleFavorite}
+      onDelete={setPendingDeleteId}
+      onClose={onClose}
+      closing={closing}
+    />
+  );
 
   // The sheet closes itself when its card leaves the shelf (Undo expiry, a
   // filter change, a delete), so a stale id can never render an empty sheet.
@@ -6689,8 +6754,12 @@ export default function Credenza() {
       )}
 
       {/* Grid/list card popup only — carousel stays in-rack (Kyle 2026-07-23).
-          Close (✕ / scrim at rest / Escape) plays is-closing, then unmounts. */}
+          Close (✕ / scrim at rest / Escape) plays is-closing, then unmounts.
+          At ≥1024px the popup IS the two-column Fix B panel — no solo flip card. */}
       {carouselOverlay && overlayItem && viewMode !== "carousel" && (
+        isWideDetail ? (
+          renderDetailPanel(overlayItem, closeCarouselOverlay, overlayPhase === "closing")
+        ) : (
         <div
           key="carousel-overlay"
           ref={overlayRef}
@@ -6739,7 +6808,15 @@ export default function Credenza() {
             {renderCarousel([overlayItem], { sizeScale: 0.85 })}
           </div>
         </div>
+        )
       )}
+
+      {/* Fix B rack path: a center-card tap at ≥1024px opens the two-column
+          panel above the rack (the rack itself never flips — it gets
+          expandedId=null). */}
+      {isWideDetail && !carouselOverlay && expandedItem
+        ? renderDetailPanel(expandedItem, () => setExpandedId(null), false)
+        : null}
 
       <div className="cz-shell">
         {/* Chrome column: centered + max-width'd on desktop (Kyle 2026-07-22 —
