@@ -157,6 +157,21 @@ When you are idle and want haul board bands:
 
 Kyle rule: **default no Netlify deploy** (credit burn). Commit + tests only unless he asks to ship.
 
+### 4.3b Body prefs ≠ AI size chart (product, 2026-07-25 night)
+
+Kyle bug: save measurements → still **No recommendation** + hero showed full size run.
+
+**Truth for the customer:**
+
+1. **AI size** needs a **parsed seller chart** (sizeNotes / vision hunt / album text).
+2. Body prefs alone never invent a chart pick.
+3. Without a chart, surface **Your usual** (tops / bottoms / shoes) when set.
+4. Height + weight only fill chest/waist/hip for chart math via BMI estimate.
+
+**Landed:** `usualSizeForItem` + FitBlock hero prefers usual over the raw S–2XL run. Tests in `fit-block-hunt` + `size-chart`.
+
+If the chart hunt fails (no desc photo / vision miss), usual size is the honest answer.
+
 ### 4.4 Link context L0 (pure, 2026-07-25 night)
 
 Offline community mention index for stashed items only (not a W2C catalog).
