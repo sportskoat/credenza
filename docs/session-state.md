@@ -10,6 +10,29 @@ Overwrite sections in place — this is current state, not a log.
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
 
+## 2026-07-26 — TWO SESSIONS RAN IN PARALLEL. Read this before you merge.
+
+A second session shipped the Turn 7 landing page and deployed it. That work
+replaced `preview/public/landing/index.html`, regenerated `og.png`, and ran
+IndexNow. It is LIVE at https://credenzafashion.com/landing/.
+
+This worktree (`worktree-fansbuy-links-no-flip`) did NOT touch the landing page,
+`og.png`, or any deploy script. Its copy of `preview/public/landing/index.html`
+is still the old 226-line file at commit `7113675`. There is no file conflict
+between the two efforts, with one exception:
+
+**Both sessions edit `docs/session-state.md`.** A merge of this branch into
+`main` will conflict on THIS file. The conflict is text only. Resolve it by
+keeping both sets of sections — the landing sections and the sections below.
+
+Kyle asked directly whether this session interfered with the landing work
+(2026-07-26). It did not. This session read the handoff bundle
+`~/Downloads/design_handoff_mobile_shelf 6` and made zero writes to it or to
+the landing page. The handoff bundle is NOT ported by this branch. If you pick
+that work up later, check what the other session already shipped first.
+
+---
+
 ## 2026-07-26 — Album photos: honest count, more photos, charts hidden, thumb glitch fixed (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
 
 Kyle reported four photo problems on Mook albums
