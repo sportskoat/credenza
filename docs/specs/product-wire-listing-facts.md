@@ -58,27 +58,20 @@ Customer pastes a FashionReps haul. Each card keeps a human name, a photo, a pri
 
 ---
 
-## Slice C — Weidian size chart photos
+## Slice C — Weidian size chart photos — LANDED 2026-07-25
 
-**Bug:** Chart is a photo; chart-vision rejects non-Yupoo hosts.
+**Bug:** Chart is a photo; chart-vision rejected non-Yupoo hosts.
 
-### Files
+**Landed:**
 
-1. `preview/netlify/functions/chart-vision.js`
-2. Optional client: call `fetchChartFromPhotos` after Weidian resolve when `parseSizeChart(sizeNotes)` is null.
+1. `chart-vision.js` allowlist: Yupoo + geilicdn + alicdn (SSRF tests expanded).
+2. `SizeRecommendation.jsx` silent hunt uses resolved gallery CDN URLs when there is no Yupoo album.
+3. Pure `isAllowedChartImageHost` defaults to Weidian-on.
 
-### Steps
+### Acceptance (probe live after deploy)
 
-1. Use pure fixtures in `preview/test/fixtures/chart-image-hosts.json`.
-2. Expand host regex carefully. Start with confirmed hosts from a live Weidian `itemMainPic` URL for item `7777810977`.
-3. Keep `safeFetch` private-IP rejection. Add tests that reject `127.0.0.1`, metadata IP, `javascript:`.
-4. Referer: Weidian may not need Yupoo-style referer — probe live before shipping.
-5. Cap images and cost the same as Yupoo path.
-
-### Acceptance
-
-1. After enrich, `sizeNotes` holds labeled lines `M: 肩宽63 胸围130 衣长64` (or English).
-2. With a body profile, recommendSize returns a letter size.
+1. Open a Weidian card with a size-chart photo in the gallery and a body profile.
+2. `sizeNotes` gains labeled chart lines; recommendSize can pick a letter.
 3. Yupoo path still green.
 
 ---
