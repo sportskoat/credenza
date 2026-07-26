@@ -1299,6 +1299,10 @@ export function yupooAlbumUrl(item) {
   for (const l of item.links || []) {
     if (l && l.url && isYupoo(l.url)) return ensureYupooAlbumUid(l.url);
   }
+  // Resolve can attach bare shop hosts from Weidian desc notes.
+  for (const raw of item.sellerYupooLinks || []) {
+    if (typeof raw === "string" && isYupoo(raw)) return ensureYupooAlbumUid(raw);
+  }
   return null;
 }
 
@@ -2033,6 +2037,12 @@ export function migrateItem(old) {
     // silent chart hunt; kept out of the swipe gallery on purpose.
     descImages: Array.isArray(old.descImages)
       ? old.descImages.filter((g) => typeof g === "string" && /^https?:\/\//i.test(g)).slice(0, 20)
+      : [],
+    // Bare Yupoo shop links from Weidian desc notes (chart hunt fallback).
+    sellerYupooLinks: Array.isArray(old.sellerYupooLinks)
+      ? old.sellerYupooLinks
+          .filter((g) => typeof g === "string" && /^https?:\/\//i.test(g) && /yupoo\.com/i.test(g))
+          .slice(0, 8)
       : [],
     sizeNotes: typeof old.sizeNotes === "string" ? old.sizeNotes : "",
     // Where the size chart came from (handoff turn 3 §5 provenance footer):
@@ -4980,6 +4990,10 @@ export default function Credenza() {
         colorway: x.colorway || pickColorwayFromVariants(variants) || "",
         sizeNotes: data.sizeNotes || x.sizeNotes,
         descImages: Array.isArray(data.descImages) && data.descImages.length ? data.descImages : x.descImages,
+        sellerYupooLinks:
+          Array.isArray(data.sellerYupooLinks) && data.sellerYupooLinks.length
+            ? data.sellerYupooLinks
+            : x.sellerYupooLinks,
         weightGrams: weightFromText,
         image: cover,
         gallery: mergeFashionImages(

@@ -23,14 +23,14 @@
         }
       ],
       "expectColorway": "Black",
-      "expectSizeRun": "S\u2013XL",
+      "expectSizeRun": "S–XL",
       "expectChosenSize": ""
     },
     {
       "id": "chinese-axes",
       "variantGroups": [
         {
-          "title": "\u5c3a\u7801",
+          "title": "尺码",
           "values": [
             "S",
             "M",
@@ -38,15 +38,15 @@
           ]
         },
         {
-          "title": "\u989c\u8272",
+          "title": "颜色",
           "values": [
-            "\u9ed1\u8272",
-            "\u767d\u8272"
+            "黑色",
+            "白色"
           ]
         }
       ],
-      "expectColorway": "\u9ed1\u8272",
-      "expectSizeRun": "S\u2013L",
+      "expectColorway": "黑色",
+      "expectSizeRun": "S–L",
       "expectChosenSize": ""
     },
     {
@@ -62,7 +62,7 @@
         }
       ],
       "expectColorway": "",
-      "expectSizeRun": "EU 42\u201344",
+      "expectSizeRun": "EU 42–44",
       "expectChosenSize": ""
     },
     {
@@ -78,11 +78,19 @@
       "variantGroups": [
         {
           "title": "鞋码",
-          "values": ["40", "41", "42", "43"]
+          "values": [
+            "40",
+            "41",
+            "42",
+            "43"
+          ]
         },
         {
           "title": "颜色分类",
-          "values": ["黑色", "白色"]
+          "values": [
+            "黑色",
+            "白色"
+          ]
         }
       ],
       "expectColorway": "黑色",
@@ -94,11 +102,20 @@
       "variantGroups": [
         {
           "title": "码数",
-          "values": ["S", "M", "L", "XL", "XXL"]
+          "values": [
+            "S",
+            "M",
+            "L",
+            "XL",
+            "XXL"
+          ]
         },
         {
           "title": "款式/颜色",
-          "values": ["黑/白", "全黑"]
+          "values": [
+            "黑/白",
+            "全黑"
+          ]
         }
       ],
       "expectColorway": "黑/白",
@@ -110,7 +127,12 @@
       "variantGroups": [
         {
           "title": "长度(CM)",
-          "values": ["100", "105", "110", "115"]
+          "values": [
+            "100",
+            "105",
+            "110",
+            "115"
+          ]
         }
       ],
       "expectColorway": "",
@@ -122,15 +144,41 @@
       "variantGroups": [
         {
           "title": "款式",
-          "values": ["Link1", "Link2"]
+          "values": [
+            "Link1",
+            "Link2"
+          ]
         },
         {
           "title": "版本",
-          "values": ["GX"]
+          "values": [
+            "GX"
+          ]
         }
       ],
       "expectColorway": "",
       "expectSizeRun": "",
+      "expectChosenSize": ""
+    },
+    {
+      "id": "strip-spam-size-values",
+      "note": "Gallery Dept-style 码数 with WeChat spam mixed into size list",
+      "variantGroups": [
+        {
+          "title": "码数",
+          "values": [
+            "S",
+            "M",
+            "L",
+            "XL",
+            "下单后务必添加发财微信",
+            "杨发财fc微信：yangfacai12345",
+            "包退换【钱我出】请放心购"
+          ]
+        }
+      ],
+      "expectColorway": "",
+      "expectSizeRun": "S–XL",
       "expectChosenSize": ""
     }
   ]

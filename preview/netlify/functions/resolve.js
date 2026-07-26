@@ -420,7 +420,35 @@ function descImageUrls(descContent) {
 }
 
 
-async function fetchWeidianDescImages(itemId, signal) {
+// Pull bare and full Yupoo shop links from seller free text (desc type 1).
+// Chart-empty multi-model shops often only post "Yupoo1 :shop.x.yupoo.com".
+function extractYupooLinksFromText(text) {
+  const src = String(text || "");
+  if (!src.trim()) return [];
+  const found = [];
+  const re = /(?:https?:\/\/)?([\w-]+\.x\.yupoo\.com)(\/[^\s"'<>]*)?/gi;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const host = String(m[1] || "").toLowerCase();
+    if (!/^[\w-]+\.x\.yupoo\.com$/.test(host)) continue;
+    let path = String(m[2] || "");
+    path = path.replace(/[),.;，。]+$/g, "");
+    const url = "https://" + host + path;
+    if (!found.includes(url)) found.push(url);
+  }
+  return found.slice(0, 8);
+}
+
+function descType1Text(descContent) {
+  const blocks = Array.isArray(descContent) ? descContent : [];
+  return blocks
+    .filter((b) => b && b.type === 1 && typeof b.text === "string")
+    .map((b) => b.text)
+    .join("\n");
+}
+
+// Returns { descImages, sellerYupooLinks }. Empty arrays on any failure.
+async function fetchWeidianDescBundle(itemId, signal) {
   try {
     const param = encodeURIComponent(JSON.stringify({ vItemId: itemId }));
     const res = await fetch(`${WEIDIAN_DESC_API}?param=${param}`, {
@@ -431,12 +459,22 @@ async function fetchWeidianDescImages(itemId, signal) {
       },
       signal,
     });
-    if (!res.ok) return [];
+    if (!res.ok) return { descImages: [], sellerYupooLinks: [] };
     const data = await res.json();
-    return descImageUrls(data && data.result && data.result.item_detail && data.result.item_detail.desc_content);
+    const content = data && data.result && data.result.item_detail && data.result.item_detail.desc_content;
+    return {
+      descImages: descImageUrls(content),
+      sellerYupooLinks: extractYupooLinksFromText(descType1Text(content)),
+    };
   } catch {
-    return [];
+    return { descImages: [], sellerYupooLinks: [] };
   }
+}
+
+// Back-compat for tests that still call the old name.
+async function fetchWeidianDescImages(itemId, signal) {
+  const bundle = await fetchWeidianDescBundle(itemId, signal);
+  return bundle.descImages;
 }
 
 // Flattens the Weidian result into the facts we care about. Prices arrive in
@@ -598,14 +636,16 @@ async function handle(event) {
     let facts;
     let canonicalUrl;
     if (classified.marketplace === "weidian") {
-      const [result, usdPerCny, descImages] = await Promise.all([
+      const [result, usdPerCny, descBundle] = await Promise.all([
         fetchWeidianItem(classified.itemId, controller.signal),
         fetchUsdRate(controller.signal),
-        fetchWeidianDescImages(classified.itemId, controller.signal),
+        fetchWeidianDescBundle(classified.itemId, controller.signal),
       ]);
       facts = extractFacts(result);
       // Description photos the gallery never showed (size charts live here).
-      facts.descImages = descImages.filter((u) => !(facts.images || []).includes(u));
+      facts.descImages = (descBundle.descImages || []).filter((u) => !(facts.images || []).includes(u));
+      // Bare Yupoo shops from desc notes (chart-empty multi-model listings).
+      facts.sellerYupooLinks = descBundle.sellerYupooLinks || [];
       // stash rate on facts for response builder below
       facts._usdPerCny = usdPerCny;
       canonicalUrl = `https://weidian.com/item.html?itemID=${facts.itemId || classified.itemId}`;
@@ -678,6 +718,7 @@ async function handle(event) {
       mainImage: facts.mainImage,
       images: facts.images || [],
       descImages: facts.descImages || [],
+      sellerYupooLinks: facts.sellerYupooLinks || [],
       variantGroups,
       translated: !!enriched,
     });
@@ -701,6 +742,7 @@ exports._test = {
   parseWorldTaobaoIsland,
   parse1688Html,
   descImageUrls,
+  extractYupooLinksFromText,
 };
 
 // Outcome log for every request — status + latency only, never content.

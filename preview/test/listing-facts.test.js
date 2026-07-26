@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   extractWeightGramsFromText,
+  extractYupooLinksFromText,
+  isSpamVariantValue,
   isAllowedChartImageHost,
   isListingBoilerplate,
   isSkuLikeTitle,
@@ -128,4 +130,30 @@ describe("extractWeightGramsFromText (weight-from-text fixture)", () => {
       expect(extractWeightGramsFromText(c.text)).toBe(c.expect);
     });
   }
+});
+
+describe("extractYupooLinksFromText", () => {
+  it("reads full URLs and bare shop hosts", () => {
+    const urls = extractYupooLinksFromText(
+      "Bulk orders!\nYupoo1 :ruok66.x.yupoo.com\nYUPOO: https://wwfake100.x.yupoo.com/search/album?uid=1&q=GX"
+    );
+    expect(urls).toEqual([
+      "https://ruok66.x.yupoo.com",
+      "https://wwfake100.x.yupoo.com/search/album?uid=1&q=GX",
+    ]);
+  });
+
+  it("returns empty for noise", () => {
+    expect(extractYupooLinksFromText("SEE MY YUPOO")).toEqual([]);
+    expect(extractYupooLinksFromText("")).toEqual([]);
+  });
+});
+
+describe("isSpamVariantValue", () => {
+  it("flags WeChat / return spam and keeps real sizes", () => {
+    expect(isSpamVariantValue("S")).toBe(false);
+    expect(isSpamVariantValue("42")).toBe(false);
+    expect(isSpamVariantValue("包退换【钱我出】请放心购")).toBe(true);
+    expect(isSpamVariantValue("下单后务必添加发财微信")).toBe(true);
+  });
 });

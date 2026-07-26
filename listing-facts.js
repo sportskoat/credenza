@@ -61,12 +61,37 @@ export function pickColorwayFromVariants(variantGroups) {
 }
 
 /**
+ * True when a variant value is seller spam, not a size the customer can pick.
+ * Examples: WeChat ids, "包退换", "下单后务必添加…".
+ */
+export function isSpamVariantValue(text) {
+  const t = String(text || "").trim();
+  if (!t) return true;
+  if (/微信|wechat|wx[:：]|加微|qq[:：]|v信|联系客服|下单后|请放心|包退换|钱我出|发财|备注尺码|拍下不退换/i.test(t)) {
+    return true;
+  }
+  // Long pure-Chinese instructions with no size token and no digit.
+  if (
+    t.length >= 8 &&
+    /[一-鿿]/.test(t) &&
+    !/\d/.test(t) &&
+    !/^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-5]XL)$/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Size axis values from variant groups, or []. Does not invent a pick.
+ * Drops seller spam values so the size run and chips stay usable.
  */
 export function pickSizeValuesFromVariants(variantGroups) {
   const axis = firstAxis(variantGroups, SIZE_AXIS);
   if (!axis || !Array.isArray(axis.values) || !axis.values.length) return [];
-  return axis.values.map((v) => String(v || "").trim()).filter(Boolean);
+  return axis.values
+    .map((v) => String(v || "").trim())
+    .filter((v) => v && !isSpamVariantValue(v));
 }
 
 /**
@@ -213,4 +238,26 @@ export function extractWeightGramsFromText(text) {
     if (n >= 20 && n <= 20000) return n;
   }
   return null;
+}
+
+/**
+ * Find Yupoo shop links in free text (Weidian desc notes, Reddit, paste).
+ * Accepts full https URLs and bare "shop.x.yupoo.com" hosts.
+ * Returns unique https URLs, max 8. Does not invent album ids.
+ */
+export function extractYupooLinksFromText(text) {
+  const src = String(text || "");
+  if (!src.trim()) return [];
+  const found = [];
+  const re = /(?:https?:\/\/)?([\w-]+\.x\.yupoo\.com)(\/[^\s"'<>]*)?/gi;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const host = String(m[1] || "").toLowerCase();
+    if (!/^[\w-]+\.x\.yupoo\.com$/.test(host)) continue;
+    let path = String(m[2] || "");
+    path = path.replace(/[),.;，。]+$/g, "");
+    const url = `https://${host}${path}`;
+    if (!found.includes(url)) found.push(url);
+  }
+  return found.slice(0, 8);
 }

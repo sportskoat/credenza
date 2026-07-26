@@ -16,6 +16,7 @@ const {
   parseWorldTaobaoIsland,
   parse1688Html,
   descImageUrls,
+  extractYupooLinksFromText,
 } = _test;
 const WORLD_TAOBAO_FIXTURE = require("fs").readFileSync(
   require("path").join(__dirname, "fixtures/resolve/world-taobao-item-752339164885.html"),
@@ -221,5 +222,20 @@ describe("parseWorldTaobaoIsland (SEO data island)", () => {
     expect(parseWorldTaobaoIsland("<html><body>no island</body></html>")).toBe(null);
     expect(parseWorldTaobaoIsland('var b = {"loaderData": {broken')).toBe(null);
     expect(parseWorldTaobaoIsland("")).toBe(null);
+  });
+});
+
+describe("extractYupooLinksFromText (Weidian desc notes)", () => {
+  it("normalizes bare shop hosts and full album URLs", () => {
+    expect(
+      extractYupooLinksFromText("Yupoo1 :ruok66.x.yupoo.com\nsee https://mook-official.x.yupoo.com/albums/1")
+    ).toEqual([
+      "https://ruok66.x.yupoo.com",
+      "https://mook-official.x.yupoo.com/albums/1",
+    ]);
+  });
+
+  it("ignores empty and non-links", () => {
+    expect(extractYupooLinksFromText("SEE MY YUPOO")).toEqual([]);
   });
 });
