@@ -5,7 +5,7 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-26 (ALBUM PHOTOS — honest count, 40-photo extraction, size charts held out of the gallery, thumb-strip glitch fixed — plus MODAL STACK SCROLLBAR FIX, **all COMMITTED as `c6d4348` on branch `worktree-fansbuy-links-no-flip`, 685 tests passing, NOT merged to main, NOT deployed**. That branch also holds SETTINGS MODAL STACK and FANSBUY LINK FIX + CAROUSEL FLIP RETIRED — see the sections below. **The worktree has NO git remote, so no push and no PR are possible from it. NEXT STEP: Kyle decides whether to merge `worktree-fansbuy-links-no-flip` into `main`. Do not merge or deploy without a fresh explicit instruction.** Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
+**Last updated:** 2026-07-26 (ALBUM PHOTOS — honest count, 40-photo extraction, size charts held out of the gallery, thumb-strip glitch fixed — plus MODAL STACK SCROLLBARS HIDDEN (`7e065dc` — replaces the earlier stable-gutter fix), **all COMMITTED on branch `worktree-fansbuy-links-no-flip`, 685 tests passing, NOT merged to main, NOT deployed**. That branch also holds SETTINGS MODAL STACK and FANSBUY LINK FIX + CAROUSEL FLIP RETIRED — see the sections below. **The worktree has NO git remote, so no push and no PR are possible from it. NEXT STEP: Kyle decides whether to merge `worktree-fansbuy-links-no-flip` into `main`. Do not merge or deploy without a fresh explicit instruction.** Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
@@ -100,7 +100,7 @@ against both live albums: 38 tiles, 37 gallery, 1 chart each.
 
 ---
 
-## 2026-07-26 — Modal stack scrollbar fix (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
+## 2026-07-26 — Modal stack scrollbars HIDDEN (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
 
 Kyle: "THE SIZING STILL LOOKS WEIRD… IT'S BECAUSE OF THE SCROLL BAR."
 He was right and my probes could not see it.
@@ -110,14 +110,27 @@ A sub-page that overflows shows a classic ~15px scrollbar on macOS when
 re-wraps and the measured height is wrong — and the gutter appearing between
 pages changes the width mid transition.
 
-**Fix:** `scrollbar-gutter: stable` on `.cz-modal-surface-stacked`.
+**First fix:** `scrollbar-gutter: stable` on `.cz-modal-surface-stacked`. That
+held the width steady but STILL DREW THE BAR over the settings list.
+
+**Final fix (`7e065dc`), after Kyle saw the bar in a screenshot and said "let's
+take out the scrollbars here… I think it'll move a little bit cleaner":** hide
+the bar outright on `.cz-modal-surface-stacked` AND `.cz-modal-page` with
+`scrollbar-width: none` + `-ms-overflow-style: none` + a zero-size
+`::-webkit-scrollbar` rule. The stable gutter is REMOVED — hiding the bar
+solves the width problem too. This matches the rest of the app: `.cz-carousel`,
+`.cz-app[data-fashion=true]`, and `.cz-detail-scroll` all hide theirs.
+
+**Verified** with a 15px classic bar forced on and 3000px of content pushed
+into both scrollers: surface gutter 2px (its border), page gutter 0px, width
+438px identical with and without overflow, and `scrollTop = 150` lands at 150
+on both, so they still scroll. Kyle has NOT yet confirmed the motion by eye.
 
 **Why the probes missed it:** headless Chrome uses OVERLAY scrollbars. Every
 measurement reported a 2px gutter, which is the border alone. To reproduce
 this class of bug, force it:
-`::-webkit-scrollbar{width:15px;display:block!important}`. With that injected,
-the gutter held at a constant 17px across profile → agent → back, and the
-height target still changed only twice.
+`::-webkit-scrollbar{width:15px;display:block!important}`. Probe kept at
+`~/.claude/jobs/7984365d/tmp/probe-modal-scrollbar3.mjs`.
 
 ---
 
