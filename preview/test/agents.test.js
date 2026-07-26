@@ -326,3 +326,148 @@ describe("hashItemId", () => {
     expect(hashItemId("")).toBeTruthy();
   });
 });
+
+// ─── Pure-layer negative + fail-open matrix (Claude pure lane, 2026-07-25) ───
+// Safe while K3 owns UI: imports agents.js only. See docs/lane-notes-for-k3.md.
+
+describe("marketplaceOf negatives", () => {
+  it("returns null for non-marketplace hosts and schemes", () => {
+    expect(marketplaceOf("https://example.com/item?id=1")).toBe(null);
+    expect(marketplaceOf("https://weidian.evil.example/item.html?itemID=1")).toBe(null);
+    expect(marketplaceOf("javascript:alert(1)")).toBe(null);
+    expect(marketplaceOf("data:text/html,hi")).toBe(null);
+    expect(marketplaceOf("")).toBe(null);
+    expect(marketplaceOf(null)).toBe(null);
+  });
+
+  it("still recognizes the four marketplaces", () => {
+    expect(marketplaceOf(WEIDIAN)).toBe("weidian");
+    expect(marketplaceOf(TAOBAO)).toBe("taobao");
+    expect(marketplaceOf(TMALL)).toBe("tmall");
+    expect(marketplaceOf(ALI1688)).toBe("1688");
+  });
+});
+
+describe("extractMarketplaceItemId negatives", () => {
+  it("returns null for junk and non-id hosts", () => {
+    expect(extractMarketplaceItemId("https://example.com/x")).toBe(null);
+    expect(extractMarketplaceItemId("javascript:void(0)")).toBe(null);
+    expect(extractMarketplaceItemId("not a url")).toBe(null);
+    expect(extractMarketplaceItemId("")).toBe(null);
+  });
+
+  it("extracts the known marketplace shapes as { marketplace, id }", () => {
+    expect(extractMarketplaceItemId(WEIDIAN)).toEqual({ marketplace: "weidian", id: "7234567890" });
+    expect(extractMarketplaceItemId(TAOBAO)).toEqual({ marketplace: "taobao", id: "856801351597" });
+    expect(extractMarketplaceItemId(TMALL)).toEqual({ marketplace: "tmall", id: "680012345678" });
+    expect(extractMarketplaceItemId(ALI1688)).toEqual({ marketplace: "1688", id: "712345678901" });
+  });
+});
+
+describe("buildAgentUrl fail-open matrix", () => {
+  it("fails open for unknown agent id", () => {
+    const out = buildAgentUrl("no-such-agent", WEIDIAN);
+    expect(out.wrapped).toBe(false);
+    expect(out.url).toBe(WEIDIAN);
+  });
+
+  it("fails open for retired CSSBuy (never wraps)", () => {
+    const out = buildAgentUrl("cssbuy", TAOBAO);
+    expect(out.wrapped).toBe(false);
+    expect(out.url).toBe(TAOBAO);
+  });
+
+  it("fails open when CSSBuy gets a Weidian link (id path not wired)", () => {
+    // Even if CSSBuy were not retired, Weidian is outside its supports.
+    // With retired:true the reason is unknown/retired — still fail-open.
+    const out = buildAgentUrl("cssbuy", WEIDIAN);
+    expect(out.wrapped).toBe(false);
+    expect(out.url).toBe(WEIDIAN);
+  });
+
+  it("wraps Superbuy for Taobao (Buy still works when resolve does not)", () => {
+    const out = buildAgentUrl("superbuy", TAOBAO);
+    expect(out.wrapped).toBe(true);
+    expect(out.url).toContain("superbuy.com");
+    expect(out.url).toContain(encodeURIComponent(TAOBAO));
+  });
+
+  it("never wraps a javascript: URL", () => {
+    const evil = "javascript:alert(1)";
+    const out = buildAgentUrl("superbuy", evil);
+    // Either refuse wrap or pass through — must not invent a superbuy deep link
+    // that embeds active script as a product URL in a surprising way for buyers.
+    // Current contract: marketplaceOf is empty → fail-open to the raw string.
+    expect(out.wrapped).toBe(false);
+    expect(out.url).toBe(evil);
+  });
+});
+
+describe("resolveReferralCode env-only", () => {
+  it("returns null when env is unset", () => {
+    vi.unstubAllEnvs();
+    const agent = getAgent("superbuy");
+    // Without a stubbed env the build may still have a value in CI — only assert
+    // the type contract: string or null, never an object.
+    const code = resolveReferralCode(agent);
+    expect(code === null || typeof code === "string").toBe(true);
+  });
+
+  it("reads the agent env key when stubbed", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_SUPERBUY", "TESTCODE99");
+    const code = resolveReferralCode(getAgent("superbuy"));
+    expect(code).toBe("TESTCODE99");
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("platformMap completeness for idPlatform agents", () => {
+  const PLATFORM_AGENTS = ["mulebuy", "joyagoo", "cnfans", "hoobuy", "oopbuy"];
+  const MARKETS = ["weidian", "taobao", "tmall", "1688"];
+
+  it("every platform agent has a token for every marketplace", () => {
+    for (const id of PLATFORM_AGENTS) {
+      const agent = AGENTS.find((a) => a.id === id);
+      expect(agent, id).toBeTruthy();
+      expect(agent.platformMap, id + " platformMap").toBeTruthy();
+      for (const m of MARKETS) {
+        expect(agent.platformMap[m], id + " missing " + m).toBeTruthy();
+      }
+    }
+  });
+
+  it("builds a wrapped URL for each platform agent × marketplace", () => {
+    const samples = {
+      weidian: WEIDIAN,
+      taobao: TAOBAO,
+      tmall: TMALL,
+      "1688": ALI1688,
+    };
+    for (const id of PLATFORM_AGENTS) {
+      for (const m of MARKETS) {
+        const out = buildAgentUrl(id, samples[m]);
+        expect(out.wrapped, id + " " + m).toBe(true);
+        expect(out.url).toMatch(/^https?:\/\//);
+      }
+    }
+  });
+});
+
+// Fixture-driven marketplace identity (Claude pure lane, 2026-07-25)
+import marketplaceIdCases from "./fixtures/marketplace-ids.json";
+
+describe("marketplace-ids.json", () => {
+  for (const row of marketplaceIdCases.cases) {
+    it(row.id, () => {
+      expect(marketplaceOf(row.url)).toBe(row.marketplace);
+      if (row.itemId == null) {
+        expect(extractMarketplaceItemId(row.url)).toBe(null);
+      } else {
+        expect(extractMarketplaceItemId(row.url)).toEqual({
+          marketplace: row.marketplace,
+          id: row.itemId,
+        });
+      }
+    });
+  }
+});

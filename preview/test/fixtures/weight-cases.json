@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "note": "Golden cases for itemWeightGrams / haulWeightGrams / volumetric / chargeable. Pure layer only. CATEGORY_WEIGHT_GRAMS values must match credenza-fashion.jsx.",
+  "categoryDefaultsGrams": {
+    "shirt": 250,
+    "pants": 600,
+    "shorts": 350,
+    "shoes": 1100,
+    "outerwear": 900,
+    "accessory": 200,
+    "socks": 100,
+    "bag": 700,
+    "hat": 150,
+    "other": 300
+  },
+  "itemWeightGrams": [
+    {
+      "id": "override-wins",
+      "item": { "category": "shirt", "weightGrams": 420 },
+      "expect": 420
+    },
+    {
+      "id": "override-wins-over-shoes-default",
+      "item": { "category": "shoes", "weightGrams": 400 },
+      "expect": 400
+    },
+    {
+      "id": "category-shirt",
+      "item": { "category": "shirt" },
+      "expect": 250
+    },
+    {
+      "id": "category-shoes",
+      "item": { "category": "shoes" },
+      "expect": 1100
+    },
+    {
+      "id": "garbage-zero-falls-back",
+      "item": { "category": "pants", "weightGrams": 0 },
+      "expect": 600
+    },
+    {
+      "id": "garbage-negative-falls-back",
+      "item": { "category": "pants", "weightGrams": -50 },
+      "expect": 600
+    },
+    {
+      "id": "garbage-string-falls-back",
+      "item": { "category": "pants", "weightGrams": "abc" },
+      "expect": 600
+    },
+    {
+      "id": "unknown-category-null",
+      "item": { "category": "not-a-category" },
+      "expect": null
+    },
+    {
+      "id": "empty-item-null",
+      "item": {},
+      "expect": null
+    },
+    {
+      "id": "rounds-fractional-override",
+      "item": { "weightGrams": 123.7 },
+      "expect": 124
+    }
+  ],
+  "haulWeightGrams": [
+    {
+      "id": "sum-two",
+      "items": [
+        { "category": "shirt" },
+        { "category": "shoes", "weightGrams": 800 }
+      ],
+      "expect": 1050
+    },
+    {
+      "id": "skip-returned",
+      "items": [
+        { "category": "shirt", "weightGrams": 300 },
+        { "category": "shoes", "weightGrams": 800, "findStatus": "returned" }
+      ],
+      "expect": 300
+    },
+    {
+      "id": "all-returned-null",
+      "items": [{ "category": "shirt", "findStatus": "returned" }],
+      "expect": null
+    },
+    {
+      "id": "empty-list-null",
+      "items": [],
+      "expect": null
+    }
+  ],
+  "volumetricWeightGrams": [
+    {
+      "id": "40x30x20",
+      "dims": { "l": 40, "w": 30, "h": 20 },
+      "expect": 4800
+    },
+    {
+      "id": "missing-h-null",
+      "dims": { "l": 40, "w": 30 },
+      "expect": null
+    },
+    {
+      "id": "zero-h-null",
+      "dims": { "l": 40, "w": 30, "h": 0 },
+      "expect": null
+    }
+  ],
+  "chargeableWeightGrams": [
+    {
+      "id": "volumetric-wins",
+      "args": { "actualGrams": 2000, "dims": { "l": 40, "w": 30, "h": 20 }, "packaging": "none" },
+      "expect": 4800
+    },
+    {
+      "id": "actual-wins",
+      "args": { "actualGrams": 6000, "dims": { "l": 40, "w": 30, "h": 20 }, "packaging": "none" },
+      "expect": 6000
+    },
+    {
+      "id": "packaging-standard-on-actual",
+      "args": { "actualGrams": 5000, "dims": { "l": 40, "w": 30, "h": 20 }, "packaging": "standard" },
+      "expect": 5500
+    },
+    {
+      "id": "actual-only",
+      "args": { "actualGrams": 1500, "packaging": "none" },
+      "expect": 1500
+    },
+    {
+      "id": "dims-only",
+      "args": { "dims": { "l": 40, "w": 30, "h": 20 } },
+      "expect": 4800
+    },
+    {
+      "id": "empty-null",
+      "args": {},
+      "expect": null
+    }
+  ]
+}

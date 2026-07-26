@@ -142,3 +142,46 @@ describe("chargeableWeightGrams (Part 5 task 9)", () => {
     expect(chargeableWeightGrams({ actualGrams: 1000, packaging: "bogus" })).toBe(1000);
   });
 });
+
+
+// ─── Fixture-driven golden cases (Claude pure lane, 2026-07-25) ───
+// Loads preview/test/fixtures/weight-cases.json. Does not change product code.
+import cases from "./fixtures/weight-cases.json";
+
+describe("weight-cases.json category defaults match the app", () => {
+  it("locks CATEGORY_WEIGHT_GRAMS to the fixture table", () => {
+    expect(CATEGORY_WEIGHT_GRAMS).toEqual(cases.categoryDefaultsGrams);
+  });
+});
+
+describe("weight-cases.json itemWeightGrams", () => {
+  for (const row of cases.itemWeightGrams) {
+    it(row.id, () => {
+      expect(itemWeightGrams(row.item)).toBe(row.expect);
+    });
+  }
+});
+
+describe("weight-cases.json haulWeightGrams", () => {
+  for (const row of cases.haulWeightGrams) {
+    it(row.id, () => {
+      expect(haulWeightGrams(row.items)).toBe(row.expect);
+    });
+  }
+});
+
+describe("weight-cases.json volumetricWeightGrams", () => {
+  for (const row of cases.volumetricWeightGrams) {
+    it(row.id, () => {
+      expect(volumetricWeightGrams(row.dims)).toBe(row.expect);
+    });
+  }
+});
+
+describe("weight-cases.json chargeableWeightGrams", () => {
+  for (const row of cases.chargeableWeightGrams) {
+    it(row.id, () => {
+      expect(chargeableWeightGrams(row.args)).toBe(row.expect);
+    });
+  }
+});

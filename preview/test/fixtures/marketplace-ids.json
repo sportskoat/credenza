@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "note": "Golden marketplace identity cases. Pure layer only. Matches agents.js marketplaceOf + extractMarketplaceItemId contracts (null on miss; { marketplace, id } on hit).",
+  "cases": [
+    {
+      "id": "weidian-itemID",
+      "url": "https://weidian.com/item.html?itemID=7234567890",
+      "marketplace": "weidian",
+      "itemId": "7234567890"
+    },
+    {
+      "id": "weidian-shop-subdomain",
+      "url": "https://shop1745332803.v.weidian.com/item.html?itemID=7634330075",
+      "marketplace": "weidian",
+      "itemId": "7634330075"
+    },
+    {
+      "id": "taobao-id",
+      "url": "https://item.taobao.com/item.htm?id=856801351597",
+      "marketplace": "taobao",
+      "itemId": "856801351597"
+    },
+    {
+      "id": "tmall-id",
+      "url": "https://detail.tmall.com/item.htm?id=680012345678",
+      "marketplace": "tmall",
+      "itemId": "680012345678"
+    },
+    {
+      "id": "1688-offer-path",
+      "url": "https://detail.1688.com/offer/712345678901.html",
+      "marketplace": "1688",
+      "itemId": "712345678901"
+    },
+    {
+      "id": "yupoo-album-has-marketplace-no-buy-id",
+      "url": "https://seller.x.yupoo.com/albums/123456?uid=1",
+      "marketplace": "yupoo",
+      "itemId": null
+    },
+    {
+      "id": "junk-host",
+      "url": "https://example.com/item?id=1",
+      "marketplace": null,
+      "itemId": null
+    },
+    {
+      "id": "javascript-scheme",
+      "url": "javascript:alert(1)",
+      "marketplace": null,
+      "itemId": null
+    },
+    {
+      "id": "empty",
+      "url": "",
+      "marketplace": null,
+      "itemId": null
+    }
+  ]
+}
