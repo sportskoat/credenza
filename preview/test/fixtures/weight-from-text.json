@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "note": "extractWeightGramsFromText — Reddit notes and listing crumbs. Does not replace category defaults.",
+  "cases": [
+    {
+      "id": "bare-grams",
+      "text": "Heavy fleece hoodie — 480g",
+      "expect": 480
+    },
+    {
+      "id": "weight-label-g",
+      "text": "Weight: 350 g ship ready",
+      "expect": 350
+    },
+    {
+      "id": "kg-decimal",
+      "text": "shipping weight 1.2kg",
+      "expect": 1200
+    },
+    {
+      "id": "chinese-ke",
+      "text": "重量约500克 偏厚",
+      "expect": 500
+    },
+    {
+      "id": "no-weight",
+      "text": "Size M fits me at 180cm 75kg",
+      "expect": null,
+      "note": "Body weight must not become item weight — 75kg is body, not package"
+    },
+    {
+      "id": "empty",
+      "text": "",
+      "expect": null
+    },
+    {
+      "id": "tiny-g-reject",
+      "text": "1g sample",
+      "expect": null
+    }
+  ]
+}

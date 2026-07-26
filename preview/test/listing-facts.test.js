@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  extractWeightGramsFromText,
   isAllowedChartImageHost,
   isListingBoilerplate,
   isSkuLikeTitle,
@@ -109,6 +110,15 @@ describe("parseSizeChart (size-chart-tables fixture — Kyle Weidian photo)", ()
       if (c.expectM.shoulder != null) expect(m.shoulder).toBe(c.expectM.shoulder);
       if (c.expectM.chest != null) expect(m.chest).toBe(c.expectM.chest);
       if (c.expectM.length != null) expect(m.length).toBe(c.expectM.length);
+    });
+  }
+});
+
+describe("extractWeightGramsFromText (weight-from-text fixture)", () => {
+  const fx = load("weight-from-text.json");
+  for (const c of fx.cases) {
+    it(c.id, () => {
+      expect(extractWeightGramsFromText(c.text)).toBe(c.expect);
     });
   }
 });

@@ -156,3 +156,45 @@ export function isAllowedChartImageHost(rawUrl, { includeWeidianProposed = false
   if (includeWeidianProposed && CHART_IMAGE_HOST_WEIDIAN_PROPOSED.test(host)) return true;
   return false;
 }
+
+/**
+ * Pull a ship weight in grams from free text (Reddit notes, listing summary).
+ * Prefers the first clear signal. Returns null when none.
+ * Examples: "480g", "0.48 kg", "weight: 1.2kg", "约500克"
+ */
+export function extractWeightGramsFromText(text) {
+  const src = String(text || "");
+  if (!src.trim()) return null;
+
+  // Package kg only when a weight keyword is present. Reject body-mass range (≥20 kg).
+  const kgLabeled = src.match(
+    /(?:weight|wt|ship(?:ping)?\s*weight|重量)\s*[:=：]?\s*(?:约)?\s*(\d+(?:\.\d+)?)\s*(?:kg|千克|公斤)\b/i
+  );
+  if (kgLabeled) {
+    const n = parseFloat(kgLabeled[1]);
+    if (isFinite(n) && n > 0 && n < 20) return Math.round(n * 1000);
+  }
+  // Small bare package weights like "1.2kg" (under 5 kg only)
+  const kgBare = src.match(/\b(\d+(?:\.\d+)?)\s*kg\b/i);
+  if (kgBare) {
+    const n = parseFloat(kgBare[1]);
+    if (isFinite(n) && n > 0 && n < 5) return Math.round(n * 1000);
+  }
+
+  // Grams with optional label: "Weight: 350 g", "约500克", "重量约500克"
+  // No \b after 克 — CJK is non-\w in JS, so \b after 克 fails at EOL.
+  const gLabeled = src.match(
+    /(?:weight|wt|ship(?:ping)?\s*weight|重量)?\s*[:=：]?\s*(?:约)?\s*(\d+(?:\.\d+)?)\s*(?:g\b|grams?\b|克)/i
+  );
+  if (gLabeled) {
+    const n = parseFloat(gLabeled[1]);
+    if (isFinite(n) && n >= 20 && n <= 20000) return Math.round(n);
+  }
+  // Bare "480g" (haul lines)
+  const bareG = src.match(/\b(\d{2,5})\s*g\b/i);
+  if (bareG) {
+    const n = parseInt(bareG[1], 10);
+    if (n >= 20 && n <= 20000) return n;
+  }
+  return null;
+}
