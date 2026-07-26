@@ -2153,25 +2153,47 @@ export function parseImport(text, opts = {}) {
   // which case it owns the paste (richer labels/notes than the generic path).
   // A fetched post passes its title + provenance through: single-link QC posts
   // are the most common FashionReps shape (2026-07-24 corpus).
+  // fromPost is true when the caller fetched a post OR when the paste itself
+  // is known post body (opts.fromPost). Title alone is not enough when empty.
   const haul = parseRedditHaul(text, {
-    title: opts.redditTitle || "",
-    fromPost: !!opts.redditTitle,
+    title: opts.redditTitle || opts.title || "",
+    fromPost: !!(opts.fromPost || opts.redditTitle),
   });
   if (haul) {
     const stats = Object.keys(haul.stats).length ? haul.stats : undefined;
+    // Fetched-post author/permalink win when the body never mentions u/…
+    const posterUser = haul.poster || opts.redditAuthor || undefined;
+    const findSource = haul.sourceUrl || opts.redditUrl || undefined;
     for (const it of haul.items) {
       push(classify(it.url), it.rawLine, it.label, {
         note: it.note || undefined,
+        // Structured fields from the pure parser (size/weight/category).
+        // category lands on item.category (not only tags) so weight defaults work.
+        category: it.category || undefined,
+        posterSize: it.posterSize || undefined,
+        sizeNotes: it.sizeNotes || undefined,
+        weightGrams:
+          typeof it.weightGrams === "number" && it.weightGrams > 0
+            ? it.weightGrams
+            : undefined,
         tags: it.category ? [it.category] : undefined,
         posterStats: stats,
-        posterUser: haul.poster || undefined,
-        findSource: haul.sourceUrl || undefined,
+        posterUser,
+        findSource,
+        fromPost: !!(haul.fromPost || opts.fromPost || opts.redditTitle),
+        sourceTitle: haul.title || opts.redditTitle || opts.title || undefined,
         // Keep the original paste (capped) so a later, smarter parser can
         // reparse this haul without asking the user to paste again.
         sourceText: trimmed.length <= 12000 ? trimmed : trimmed.slice(0, 12000),
       });
     }
-    return { candidates, provider: "reddit-haul", posterStats: stats, poster: haul.poster };
+    return {
+      candidates,
+      provider: "reddit-haul",
+      posterStats: stats,
+      poster: posterUser || haul.poster,
+      fromPost: !!(haul.fromPost || opts.fromPost || opts.redditTitle),
+    };
   }
 
   // 4. Messy lines: one per line, prose with links inside, plain notes.
@@ -2245,6 +2267,16 @@ function buildImportItems(candidates, existing, source) {
       extra.updatedAt = c.createdAt;
     }
     if (c.tags && c.tags.length) extra.tags = c.tags.slice(0, 5);
+    // Structured size/weight/category first so the note slice cannot drop them.
+    // CATEGORIES vocabulary is the same keys the pure parser emits.
+    if (c.category && CATEGORIES[c.category]) extra.category = c.category;
+    if (c.posterSize) extra.posterSize = String(c.posterSize).slice(0, 32);
+    if (c.sizeNotes) extra.sizeNotes = String(c.sizeNotes).slice(0, 4000);
+    if (typeof c.weightGrams === "number" && c.weightGrams > 0) {
+      extra.weightGrams = Math.round(c.weightGrams);
+    }
+    // Keep free-text notes; hard cap remains for storage, but structured fields
+    // above already hold fit/size so a 500-char cut is less harmful.
     if (c.note) extra.note = c.note.slice(0, 500);
     // A1: haul pastes carry poster stats (v1: on each batch item; A3 haul
     // objects will hoist these) and the source thread for provenance.
@@ -2252,6 +2284,7 @@ function buildImportItems(candidates, existing, source) {
     if (c.posterUser) extra.posterUser = c.posterUser;
     if (c.sourceText) extra.sourceText = c.sourceText;
     if (c.findSource) extra.findSource = c.findSource;
+    if (c.sourceTitle) extra.sourceTitle = String(c.sourceTitle).slice(0, 200);
     fresh.push(createItem(c.parsed, c.rawText, extra));
   }
   return { fresh, dupes, duplicates };
@@ -4106,12 +4139,21 @@ export default function Credenza() {
       notify("Reading that Reddit post…", { duration: 4000 });
       const post = await fetchRedditPost(text);
       if (post && post.found && post.selftext) {
-        // The fetched title names single-link QC posts (corpus 2026-07-24).
-        runImport(post.selftext, { redditTitle: post.title || "" });
+        // Fetched title names single-link QC posts; fromPost stays true even
+        // when the title is empty so single-link QC still parses as a haul.
+        // Author + permalink attach when the body never mentions u/…
+        runImport(post.selftext, {
+          redditTitle: post.title || "",
+          fromPost: true,
+          redditAuthor: post.author || "",
+          redditUrl: post.url || text,
+        });
       } else if (post && post.found === false && post.reason === "no-text") {
         // Link/image post: no item text exists — stash the post itself.
         stash(post.url || text);
       } else {
+        // Keep the failed URL in the toast so the user can paste body text
+        // without re-finding the post (403/429 fail-open recovery).
         flashImportResult(
           (post && post.error) ||
             "Couldn't read that Reddit post — paste the post text here instead."
@@ -4119,7 +4161,9 @@ export default function Credenza() {
       }
       return;
     }
-    runImport(text);
+    // Multi-line paste of post body: treat as post text so single-link QC
+    // works without a fetch (Import sheet + Capture paste).
+    runImport(text, { fromPost: false });
   };
 
   // One entry point for every capture surface (Kyle 2026-07-24: "one
@@ -5797,8 +5841,11 @@ export default function Credenza() {
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         )
       ).filter((el) => !el.disabled && el.getClientRects().length > 0);
-    const first = focusables()[0];
-    if (first) first.focus();
+    // Focus the dialog root, not the first button: with the close button
+    // focused, Space natively "clicked" it and closed the overlay — Kyle
+    // expects Space to flip the card (2026-07-25). Tab still reaches every
+    // control; the root needs tabIndex -1 to take focus.
+    root.focus();
     const onKeydown = (e) => {
       if (e.key !== "Tab") return;
       if (document.querySelector("dialog[open]")) return;
@@ -5810,7 +5857,10 @@ export default function Credenza() {
       const firstEl = list[0];
       const lastEl = list[list.length - 1];
       const inside = root.contains(document.activeElement);
-      if (e.shiftKey && (!inside || document.activeElement === firstEl)) {
+      if (
+        e.shiftKey &&
+        (!inside || document.activeElement === firstEl || document.activeElement === root)
+      ) {
         e.preventDefault();
         lastEl.focus();
       } else if (!e.shiftKey && (!inside || document.activeElement === lastEl)) {
@@ -5979,9 +6029,10 @@ export default function Credenza() {
   // carousel view swaps the surface and gets the full list; a grid tap pops
   // just the tapped card up in the overlay layer below — same props, same
   // behavior, only the item list and the chrome around it differ.
-  const renderCarousel = (carouselItems) => (
+  const renderCarousel = (carouselItems, opts) => (
     <CoverFlowCarousel
       items={carouselItems}
+      sizeScale={opts && opts.sizeScale}
       expandedId={expandedId}
       selectedId={selectedId}
       flipRequest={flipRequest}
@@ -6429,6 +6480,7 @@ export default function Credenza() {
           role="dialog"
           aria-modal="true"
           aria-label={overlayItem.title || "Saved item"}
+          tabIndex={-1}
           onPointerDown={(e) => {
             // Scrim tap closes — but only at rest: while the card is
             // flipped, the carousel's own capture listener peels its
@@ -6460,7 +6512,9 @@ export default function Credenza() {
               (overlayPhase === "closing" ? " is-closing" : "")
             }
           >
-            {renderCarousel([overlayItem])}
+            {/* Solo card: 15% smaller than the rack card (Kyle 2026-07-25).
+                The CSS width in .cz-carousel-overlay matches this scale. */}
+            {renderCarousel([overlayItem], { sizeScale: 0.85 })}
           </div>
         </div>
       )}

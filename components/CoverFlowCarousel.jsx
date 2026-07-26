@@ -647,6 +647,9 @@ export default function CoverFlowCarousel({
   selectedId,
   flipRequest,
   focusSignal,
+  // Solo grid-tap overlay passes 0.85 — a rack of one reads better smaller
+  // (Kyle 2026-07-25). The .cz-carousel-overlay CSS override matches.
+  sizeScale = 1,
   haulNames = [],
   onDelete,
   onSaveEdit,
@@ -669,7 +672,7 @@ export default function CoverFlowCarousel({
   const containerRef = useRef(null);
   const [activeIndex, setActiveIndexState] = useState(0);
   const activeIndexRef = useRef(0);
-  const [cardSize, setCardSize] = useState({ width: 416, height: 598 });
+  const [cardSize, setCardSize] = useState({ width: 416 * sizeScale, height: 598 * sizeScale });
   const reduced = usePrefersReducedMotion();
   const wheelAcc = useRef(0);
   const wheelTimer = useRef(null);
@@ -767,14 +770,14 @@ export default function CoverFlowCarousel({
     // (Kyle 2026-07-25): 320x460 → 416x598; the phone keeps 80vw x 440.
     const update = () => {
       const w = typeof window !== "undefined" ? window.innerWidth : 416;
-      const width = w <= 480 ? w * 0.8 : Math.min(w * 0.72, 416);
-      const height = w <= 480 ? 440 : 598;
+      const width = (w <= 480 ? w * 0.8 : Math.min(w * 0.72, 416)) * sizeScale;
+      const height = (w <= 480 ? 440 : 598) * sizeScale;
       setCardSize({ width, height });
     };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, []);
+  }, [sizeScale]);
 
   useEffect(() => {
     if (items.length === 0) return;

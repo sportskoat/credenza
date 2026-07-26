@@ -2247,6 +2247,18 @@ a.cz-seller-quiet:focus-visible {
   scrollbar-gutter: stable;
 }
 
+/* Solo grid-tap overlay: the card renders 15% smaller than the rack card
+   (Kyle 2026-07-25). Matches the sizeScale={0.85} JS mirror — the JS owns
+   the centering margins, so these numbers must stay in sync with it. */
+.cz-carousel-overlay .cz-carousel-card {
+  width: min(61.2vw, 353.6px);
+  height: 508.3px;
+}
+
+.cz-carousel-overlay .cz-carousel-track {
+  height: 559.3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cz-carousel-card { transition: none; }
 }
@@ -5971,6 +5983,11 @@ a.cz-card-seller:hover {
 .cz-carousel-overlay.is-open {
   opacity: 1;
   pointer-events: auto;
+}
+/* The root takes programmatic focus on open (so Space flips the card) —
+   never paint a ring around the whole scrim. */
+.cz-carousel-overlay:focus {
+  outline: none;
 }
 .cz-carousel-overlay.is-closing {
   opacity: 0;
