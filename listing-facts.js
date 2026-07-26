@@ -57,13 +57,20 @@ export function pickColorwayFromVariants(variantGroups) {
 }
 
 /**
+ * Size axis values from variant groups, or []. Does not invent a pick.
+ */
+export function pickSizeValuesFromVariants(variantGroups) {
+  const axis = firstAxis(variantGroups, SIZE_AXIS);
+  if (!axis || !Array.isArray(axis.values) || !axis.values.length) return [];
+  return axis.values.map((v) => String(v || "").trim()).filter(Boolean);
+}
+
+/**
  * Size run display like "S–XL" or "EU 42–44". Empty when no size axis.
  * Does not set a chosen size.
  */
 export function pickSizeRunFromVariants(variantGroups) {
-  const axis = firstAxis(variantGroups, SIZE_AXIS);
-  if (!axis || !Array.isArray(axis.values) || !axis.values.length) return "";
-  const values = axis.values.map((v) => String(v || "").trim()).filter(Boolean);
+  const values = pickSizeValuesFromVariants(variantGroups);
   if (!values.length) return "";
   if (values.length === 1) return values[0];
   const first = values[0];

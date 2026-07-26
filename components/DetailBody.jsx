@@ -25,6 +25,7 @@ import {
   SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
+import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
 // to be consistent — like the mobile back"). The phone DetailSheet and the
@@ -76,7 +77,11 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
   const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
   const recSize = rec && rec.size ? rec.size : null;
   const precise = !!(recSize && rec.garment != null && rec.body != null) && !(profile && profile.estimated);
-  const runValues = chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
+  const chartRunValues = chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
+  // Listing Size axis (Weidian variants) when no chart text yet — show run chips.
+  const variantValues = pickSizeValuesFromVariants(item.variants);
+  const variantRun = pickSizeRunFromVariants(item.variants);
+  const runValues = chartRunValues.length ? chartRunValues : variantValues;
   // The fit-summary pref gates the sentence; the detail pref picks its length.
   const { summary: fitSummaryOn, detail: fitDetailMode } = fitDisplayPrefs();
   const why = recSize && fitSummaryOn ? fitSummarySentence(rec, { runHint: chart && chart.runHint, units, detail: fitDetailMode }) : "";
@@ -124,6 +129,8 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
 
       {recSize ? (
         <div className="cz-detail-fit-size">{formatSizeToken(recSize) || recSize}</div>
+      ) : variantRun && !hunting ? (
+        <div className="cz-detail-fit-size">{variantRun}</div>
       ) : (
         <p className="cz-detail-fit-empty">
           {hunting
@@ -328,7 +335,9 @@ export default function DetailBody({
           // No chart, no rec: the usual-size EST the card face already shows
           // (Kyle 2026-07-25: the sheet read "—" where the card read an EST).
           const d = resolveDisplaySize(item, bodyProfile, fitPrefs);
-          return d.isEstimate && d.size ? (formatSizeToken(d.size) || d.size) + " (EST)" : "";
+          if (d.isEstimate && d.size) return (formatSizeToken(d.size) || d.size) + " (EST)";
+          // Listing Size axis when nothing else — show S–XL, never invent a pick.
+          return pickSizeRunFromVariants(item.variants) || "";
         })();
   const cells = specCells(item, view, sizeText);
   const buyButtons = linkButtons(item, { buyLabel }).filter((b) => b.role === "buy");

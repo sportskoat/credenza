@@ -13,6 +13,7 @@ import {
   isSkuLikeTitle,
   pickColorwayFromVariants,
   pickSizeRunFromVariants,
+  pickSizeValuesFromVariants,
   preferCardTitle,
   shouldReplaceFashionTitle,
 } from "../../listing-facts.js";
@@ -82,6 +83,10 @@ describe("variant display (variant-display fixture)", () => {
       expect(pickSizeRunFromVariants(c.variantGroups)).toBe(c.expectSizeRun);
       // Chosen size is never invented by these helpers.
       expect(c.expectChosenSize).toBe("");
+      // Values list matches the Size axis; empty groups stay empty.
+      const values = pickSizeValuesFromVariants(c.variantGroups);
+      if (c.expectSizeRun) expect(values.length).toBeGreaterThan(0);
+      else expect(values).toEqual([]);
     });
   }
 });

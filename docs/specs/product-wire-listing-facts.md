@@ -35,26 +35,16 @@ Customer pastes a FashionReps haul. Each card keeps a human name, a photo, a pri
 
 ---
 
-## Slice B — Colorway + size run cells
+## Slice B — Colorway + size run cells — LANDED 2026-07-25
 
 **Bug:** API has Size/Color variants; SIZE · FIT and COLORWAY stay `—`.
 
-### Steps
+**Landed:**
 
-1. Import `pickColorwayFromVariants`, `pickSizeRunFromVariants`.
-2. After resolve sets `variants`, if `colorway` is empty, set:
-   ```js
-   colorway: pickColorwayFromVariants(variants) || x.colorway
-   ```
-3. For size display when `size` is empty:
-   - Do **not** invent a chosen size.
-   - Option (product choice): put size run in `sizeNotes` one-liner, or show run in the SIZE cell as `S–XL` until the user picks.
-4. `migrateItem` already has `colorway` and `size`. No whitelist change if you only fill those.
-
-### Acceptance
-
-1. Weidian item with Color + Size axes shows a colorway string and a size run.
-2. User-picked size still wins over the run.
+1. Resolve merge fills empty `colorway` from first Color axis (`pickColorwayFromVariants`).
+2. Detail size cell shows `pickSizeRunFromVariants` (e.g. `S–XL`) when there is no chosen size, rec, or EST.
+3. FitBlock empty state shows the variant run string and Override chips from `pickSizeValuesFromVariants` when there is no chart text yet.
+4. User-picked size and chart rec still win. Helpers never invent a chosen size.
 
 ---
 
