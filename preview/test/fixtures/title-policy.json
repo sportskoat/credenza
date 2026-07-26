@@ -52,5 +52,49 @@
       "expectKeep": "My thrift find tee",
       "reason": "User or import human title wins over SKU"
     }
+  ],
+  "shouldReplace": [
+    {
+      "id": "empty",
+      "title": "",
+      "url": "https://weidian.com/item.html?itemID=1",
+      "expectReplace": true
+    },
+    {
+      "id": "equals-url",
+      "title": "https://weidian.com/item.html?itemID=1",
+      "url": "https://weidian.com/item.html?itemID=1",
+      "expectReplace": true
+    },
+    {
+      "id": "yupoo-placeholder",
+      "title": "topstoney · 12345678",
+      "url": "https://x.yupoo.com/photos/topstoney/albums/12345678",
+      "expectReplace": true
+    },
+    {
+      "id": "weidian-local-placeholder",
+      "title": "Weidian item 7777810977",
+      "url": "https://weidian.com/item.html?itemID=7777810977",
+      "expectReplace": true
+    },
+    {
+      "id": "sku-must-replace",
+      "title": "L29735-H64",
+      "url": "https://weidian.com/item.html?itemID=7777810977",
+      "expectReplace": true
+    },
+    {
+      "id": "reddit-human-keep",
+      "title": "Fourth3Ex Punk Wiener Longsleeve",
+      "url": "https://weidian.com/item.html?itemID=7777810977",
+      "expectReplace": false
+    },
+    {
+      "id": "user-rename-keep",
+      "title": "My thrift find tee",
+      "url": "https://weidian.com/item.html?itemID=1",
+      "expectReplace": false
+    }
   ]
 }

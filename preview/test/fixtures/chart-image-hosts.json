@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "note": "Host allowlist cases for chart-vision. Live mode = Yupoo only. includeWeidianProposed is research for a later PR; not wired into chart-vision.js.",
+  "liveToday": [
+    {
+      "id": "yupoo-photo",
+      "url": "https://photo.yupoo.com/seller/abc123/big.jpg",
+      "expectLive": true,
+      "expectProposed": true
+    },
+    {
+      "id": "yupoo-pic",
+      "url": "https://pic.yupoo.com/seller/x/medium.jpg",
+      "expectLive": true,
+      "expectProposed": true
+    }
+  ],
+  "weidianProposed": [
+    {
+      "id": "geilicdn-si",
+      "url": "https://si.geilicdn.com/hz_img_xxx-unadjust_800_800.jpeg",
+      "expectLive": false,
+      "expectProposed": true
+    },
+    {
+      "id": "alicdn-img",
+      "url": "https://img.alicdn.com/imgextra/i1/xxx.jpg",
+      "expectLive": false,
+      "expectProposed": true
+    },
+    {
+      "id": "alicdn-gd2",
+      "url": "https://gd2.alicdn.com/imgextra/i2/xxx.jpg",
+      "expectLive": false,
+      "expectProposed": true
+    }
+  ],
+  "mustReject": [
+    {
+      "id": "javascript",
+      "url": "javascript:alert(1)",
+      "expectLive": false,
+      "expectProposed": false
+    },
+    {
+      "id": "localhost",
+      "url": "http://127.0.0.1/chart.png",
+      "expectLive": false,
+      "expectProposed": false
+    },
+    {
+      "id": "metadata",
+      "url": "http://169.254.169.254/latest/meta-data/",
+      "expectLive": false,
+      "expectProposed": false
+    },
+    {
+      "id": "random-cdn",
+      "url": "https://evil.example.com/chart.png",
+      "expectLive": false,
+      "expectProposed": false
+    },
+    {
+      "id": "weidian-html-page",
+      "url": "https://weidian.com/item.html?itemID=1",
+      "expectLive": false,
+      "expectProposed": false
+    }
+  ]
+}

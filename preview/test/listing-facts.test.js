@@ -7,11 +7,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  isAllowedChartImageHost,
   isListingBoilerplate,
   isSkuLikeTitle,
   pickColorwayFromVariants,
   pickSizeRunFromVariants,
   preferCardTitle,
+  shouldReplaceFashionTitle,
 } from "../../listing-facts.js";
 import { parseSizeChart } from "../../credenza-fashion.jsx";
 
@@ -45,6 +47,26 @@ describe("preferCardTitle (title-policy fixture)", () => {
         claudeTitle: c.claudeTitle,
       });
       expect(got).toBe(c.expectKeep);
+    });
+  }
+});
+
+describe("shouldReplaceFashionTitle (title-policy fixture)", () => {
+  const fx = load("title-policy.json");
+  for (const c of fx.shouldReplace) {
+    it(c.id, () => {
+      expect(shouldReplaceFashionTitle(c.title, c.url)).toBe(c.expectReplace);
+    });
+  }
+});
+
+describe("isAllowedChartImageHost (chart-image-hosts fixture)", () => {
+  const fx = load("chart-image-hosts.json");
+  const all = [...fx.liveToday, ...fx.weidianProposed, ...fx.mustReject];
+  for (const c of all) {
+    it(c.id, () => {
+      expect(isAllowedChartImageHost(c.url, { includeWeidianProposed: false })).toBe(c.expectLive);
+      expect(isAllowedChartImageHost(c.url, { includeWeidianProposed: true })).toBe(c.expectProposed);
     });
   }
 });

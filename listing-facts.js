@@ -98,3 +98,61 @@ export function isListingBoilerplate(text) {
   const lower = t.toLowerCase();
   return BOILERPLATE_MARKERS.some((m) => lower.includes(m.toLowerCase()));
 }
+
+/**
+ * True when resolve/enrich may overwrite the current card title.
+ * Pure mirror of product intent, with SKU + local Weidian/Taobao placeholders
+ * treated as replaceable (product `shouldReplaceFashionTitle` still misses those).
+ *
+ * Keep human Reddit labels. Replace empty, URL, placeholders, and SKU codes.
+ */
+export function shouldReplaceFashionTitle(title, url) {
+  const clean = String(title || "").trim();
+  if (!clean || clean === url) return true;
+  if (/^(albums?|article|read|untitled|saved link|item)$/i.test(clean)) return true;
+  // Yupoo localTitle: "topstoney · 12345678"
+  if (/^[a-z0-9-]+\s·\s\d+$/i.test(clean)) return true;
+  if (/^album\s+\d+$/i.test(clean)) return true;
+  // Weidian / Taobao localTitle placeholders
+  if (/^(weidian|taobao|tmall|1688)\s+item\s+\d+$/i.test(clean)) return true;
+  // Bare seller SKU — allow a better Claude/API title
+  if (isSkuLikeTitle(clean)) return true;
+  // Host-only crumbs
+  if (/^[a-z0-9.-]+\.(com|cn|net|shop)$/i.test(clean)) return true;
+  return false;
+}
+
+// --- Chart image hosts (chart-vision allowlist research) -----------------
+// Live server today: Yupoo only. Proposed Weidian CDNs for a later product PR.
+// Never fetch without SSRF guard + private-IP rejection on the server.
+
+/** Hosts chart-vision may fetch today. */
+export const CHART_IMAGE_HOST_YUPOO = /(^|\.)(photo|pic)\.yupoo\.com$/i;
+
+/**
+ * Proposed Weidian / Ali image CDNs (NOT live in chart-vision yet).
+ * Sources: common Weidian itemMainPic hosts (geilicdn, alicdn).
+ * Must pass SSRF tests before product use.
+ */
+export const CHART_IMAGE_HOST_WEIDIAN_PROPOSED =
+  /(^|\.)((si|wd|geili)\.geilicdn\.com|geilicdn\.com|(img|gd\d*|gw|g\.alicdn)\.alicdn\.com|alicdn\.com)$/i;
+
+/**
+ * Cheap host check for chart photo URLs.
+ * @param {string} rawUrl
+ * @param {{ includeWeidianProposed?: boolean }} [opts]
+ * @returns {boolean}
+ */
+export function isAllowedChartImageHost(rawUrl, { includeWeidianProposed = false } = {}) {
+  let host;
+  try {
+    const u = new URL(String(rawUrl || ""));
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  } catch {
+    return false;
+  }
+  if (CHART_IMAGE_HOST_YUPOO.test(host)) return true;
+  if (includeWeidianProposed && CHART_IMAGE_HOST_WEIDIAN_PROPOSED.test(host)) return true;
+  return false;
+}

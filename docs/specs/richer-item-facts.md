@@ -116,15 +116,20 @@ SIZE · FIT cell on the card is **chosen size / recommendation**, not "has a siz
 
 1. **Seller title is a SKU.** Weidian `itemTitle` = `L29735-H64`. Claude is told: if bare SKU, describe from variants. That rewrite either failed, returned the SKU again, or the Anthropic path did not run (no key / cap / error → untranslated facts only).
 
-2. **Reddit label may have been overwritten.** If the user stashed only the Weidian link (not the haul line "Fourth3Ex Punk Wiener Longsleeve" style label), there is no Reddit name. If they did paste a haul label, check `preserveTitle` / `shouldReplaceFashionTitle` — a good label must win over a SKU.
+2. **Reddit label is overwritten on direct Weidian resolve (confirmed in code).**  
+   - Yupoo path sets `preserveTitle: !shouldReplaceFashionTitle(item.title, item.url)`.  
+   - Direct resolve path (`resolveBuyDetails(item, { token, signal })`) **never** passes `preserveTitle`.  
+   - Merge then does: `title: preserveTitle ? x.title : resolvedTitle || x.title`.  
+   - Product `shouldReplaceFashionTitle` also does **not** treat bare SKUs or `Weidian item 123` placeholders as replaceable (returns `false` for both human labels **and** SKUs).  
+   - Pure fix lives in `listing-facts.js` (`preferCardTitle` + improved `shouldReplaceFashionTitle`). Wire when product is free.
 
-3. **Size chart is a photo.** SKU API does not include the table pixels. `chart-vision` cannot fetch Weidian CDN hosts today. So no `sizeNotes` chart text → no fit recommendation.
+3. **Size chart is a photo.** SKU API does not include the table pixels. `chart-vision` host allowlist is Yupoo-only (`photo|pic.yupoo.com`). Weidian `itemMainPic` is usually `*.geilicdn.com` / `*.alicdn.com` — rejected today. Pure proposed check: `isAllowedChartImageHost(url, { includeWeidianProposed: true })`.
 
-4. **Variants ≠ filled cells.** Even with Size S–XL and Color in `attrList`, COLORWAY and SIZE stay `—` until mapped into `colorway` / `size` or the UI shows the run from `variants`.
+4. **Variants ≠ filled cells.** Even with Size S–XL and Color in `attrList`, COLORWAY and SIZE stay `—` until mapped into `colorway` / `size` or the UI shows the run from `variants`. Helpers: `pickColorwayFromVariants` / `pickSizeRunFromVariants`.
 
 5. **Weight is not on the API extract.** Only category defaults (~250 g shirt) if category is set. SKU titles often yield `other` or weak category.
 
-6. **Legal HTML is a trap.** Scraping the product details HTML will pull "购前说明" and return policy. That must be filtered hard. Prefer API + chart photos + Reddit text.
+6. **Legal HTML is a trap.** Scraping the product details HTML will pull "购前说明" and return policy. Filter with `isListingBoilerplate`. Prefer API + chart photos + Reddit text.
 
 ---
 
