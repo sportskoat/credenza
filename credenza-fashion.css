@@ -9393,6 +9393,34 @@ a.cz-card-seller:hover {
   background-color: var(--cz-money);
 }
 
+/* Chart hunt in progress — shimmer so loading is obvious (Kyle 2026-07-26). */
+.cz-detail-fit-badge.is-hunting {
+  color: var(--cz-sub);
+}
+
+.cz-detail-fit-badge.is-hunting .cz-detail-fit-badge-dot {
+  background: var(--cz-money);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--cz-money) 55%, transparent);
+  animation: cz-fit-hunt-pulse 1400ms var(--ease-out) infinite;
+}
+
+.cz-detail-fit-badge.is-hunting .t-shimmer {
+  --shimmer-base: var(--cz-sub);
+  --shimmer-highlight: color-mix(in srgb, var(--cz-ink) 70%, var(--cz-money) 30%);
+}
+
+@keyframes cz-fit-hunt-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--cz-money) 45%, transparent);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--cz-money) 0%, transparent);
+    opacity: 0.72;
+  }
+}
+
 .cz-detail-fit-size {
   margin-top: 4px;
   font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
@@ -9407,6 +9435,25 @@ a.cz-card-seller:hover {
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--cz-sub);
+}
+
+.cz-detail-fit-empty.is-hunting {
+  min-height: 1.5em;
+}
+
+.cz-detail-fit-empty.is-hunting .t-shimmer {
+  display: inline;
+  --shimmer-base: var(--cz-sub);
+  --shimmer-highlight: color-mix(in srgb, var(--cz-ink) 55%, var(--cz-money) 45%);
+  --shimmer-dur: 1800ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-detail-fit-badge.is-hunting .cz-detail-fit-badge-dot {
+    animation: none !important;
+    opacity: 1;
+    box-shadow: none;
+  }
 }
 
 .cz-detail-fit-math {

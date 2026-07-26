@@ -151,6 +151,7 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
   const variantRun = pickSizeRunFromVariants(item.variants);
   const runValues = chartRunValues.length ? chartRunValues : variantValues;
   const heroSize = recSize || usualSize || null;
+  const huntLine = "Looking for the seller's size chart…";
   const badgeLabel = hunting
     ? "Looking for chart"
     : precise
@@ -188,16 +189,32 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
     <div className="cz-detail-fit">
       <div className="cz-detail-fit-head">
         <span className="cz-detail-fit-kicker">{kickerLabel}</span>
-        <span className={"cz-detail-fit-badge" + (precise ? " is-precise" : "")}>
+        <span
+          className={
+            "cz-detail-fit-badge" +
+            (precise ? " is-precise" : "") +
+            (hunting ? " is-hunting" : "")
+          }
+        >
           <span className="cz-detail-fit-badge-dot" aria-hidden="true" />
-          {badgeLabel}
+          {hunting ? (
+            <span className="t-shimmer" data-text={badgeLabel}>
+              {badgeLabel}
+            </span>
+          ) : (
+            badgeLabel
+          )}
         </span>
       </div>
 
       {heroSize && !hunting ? (
         <div className="cz-detail-fit-size">{formatSizeToken(heroSize) || heroSize}</div>
       ) : hunting ? (
-        <p className="cz-detail-fit-empty">Looking for the seller's size chart…</p>
+        <p className="cz-detail-fit-empty is-hunting" aria-live="polite">
+          <span className="t-shimmer" data-text={huntLine}>
+            {huntLine}
+          </span>
+        </p>
       ) : (
         <p className="cz-detail-fit-empty">
           {!bodyProfile
