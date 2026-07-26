@@ -1021,6 +1021,38 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(screen.getByRole("button", { name: "Set my sizes" })).toBeInTheDocument();
   });
 
+  it("Use AI Recommendation clears a hand size and restores the AI pick", async () => {
+    // Chart + body profile → rec L. Hand size XL shows the restore chip.
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({
+          size: "XL",
+          category: "tops",
+          sizeNotes:
+            "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\nXL: 胸围120 衣长72",
+        }),
+      ]),
+      [PREFS_KEY]: JSON.stringify({
+        colorwayVersion: 4,
+        theme: "rainbow",
+        bodyProfile: { chest: 100 },
+        measureUnits: "cm",
+      }),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    await user.click(screen.getByRole("button", { name: /^Size · fit/ }));
+    const restore = await screen.findByRole("button", { name: "Use AI Recommendation" });
+    await user.click(restore);
+
+    await waitFor(() => {
+      const saved = JSON.parse(data[STORE_KEY] || "[]");
+      expect(saved[0].size).toBe("");
+    });
+  });
+
   it("the status track commits on one tap and keeps a sub-state", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "gl" })]),

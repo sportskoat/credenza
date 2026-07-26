@@ -148,6 +148,16 @@ describe("parseSizeChart", () => {
     expect(chart.rows.map((r) => r.chest)).toEqual([100, 104, 108]);
   });
 
+  it("reads 半胸 as the chest column and doubles it", () => {
+    const chart = parseSizeChart(
+      "S: 半胸43 肩宽49 袖长21 衣长67\n" +
+        "M: 半胸45 肩宽51 袖长22 衣长69\n" +
+        "L: 半胸47 肩宽53 袖长23 衣长71\n" +
+        "XL: 半胸49 肩宽55 袖长24 衣长73"
+    );
+    expect(chart.rows.map((r) => r.chest)).toEqual([86, 90, 94, 98]);
+  });
+
   it("does not double real full-chest charts", () => {
     const chart = parseSizeChart(
       "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70"

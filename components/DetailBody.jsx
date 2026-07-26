@@ -293,6 +293,16 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
             {formatSizeToken(size) || size}
           </button>
         ))}
+        {/* Clear the hand pick so the green AI size returns (Kyle 2026-07-26). */}
+        {recSize && String(item.size || "").trim() ? (
+          <button
+            type="button"
+            className="cz-detail-fit-chip is-ai"
+            onClick={() => onPickSize("")}
+          >
+            Use AI Recommendation
+          </button>
+        ) : null}
         <button type="button" className="cz-detail-fit-chip is-alt" onClick={onOpenSizes}>
           Set my sizes
         </button>
@@ -516,7 +526,11 @@ export default function DetailBody({
           fitPref={fitPref}
           units={measureUnits}
           onPickSize={(size) => {
-            edit("size", size);
+            // Commit now so "Use AI Recommendation" (empty size) and chip
+            // picks both land before the editor closes.
+            const next = { ...(draft || buildEditDraft(item)), size: String(size || "") };
+            setDraft(next);
+            onSaveEdit(item.id, buildEditPatch(next, item));
             setEditingCell(null);
           }}
           onOpenSizes={() => {

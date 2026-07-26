@@ -505,12 +505,14 @@ const SIZE_MENTION_RE = new RegExp(
 );
 // Label → number pairs. Longest labels first so 裤长/袖长 beat 长, and
 // "pants length" beats "length". cm values are realistically 20–250.
+// 半胸 / 1/2 chest first so pit-to-pit labels win over bare 胸围 in the same
+// segment; normalizeHalfChestRows still doubles when the column looks half.
 const MEASURE_PAIR_RE =
-  /(胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\s*length|trouser\s*length|衣长|衣長|length)\s*[:：]?\s*(\d{2,3})/gi;
+  /(半胸|1\/2\s*胸|½\s*胸|1\/2\s*chest|half[\s-]*chest|pit[\s-]*to[\s-]*pit|胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\s*length|trouser\s*length|衣长|衣長|length)\s*[:：]?\s*(\d{2,3})/gi;
 
 function measureKeyForLabel(label) {
   const l = label.toLowerCase();
-  if (/胸|chest|bust/.test(l)) return "chest";
+  if (/半胸|1\/2|½|half|pit|胸|chest|bust/.test(l)) return "chest";
   if (/肩|shoulder/.test(l)) return "shoulder";
   if (/袖|sleeve/.test(l)) return "sleeve";
   if (/腰|waist/.test(l)) return "waist";

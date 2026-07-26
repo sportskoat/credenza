@@ -137,7 +137,7 @@ async function readChartWithClaude(apiKey, images, signal) {
       model: MODEL,
       max_tokens: 2000,
       system:
-        "You are looking at photos from a Chinese fashion reseller's album. One or more may be a size chart (尺码表): a table listing garment measurements (胸围 chest, 衣长 length, 肩宽 shoulder, 袖长 sleeve, 腰围 waist, 臀围 hip, 裤长 pants length) for each size. Transcribe ALL measurement columns and ALL size rows exactly as printed — do not convert units, do not invent values, do not round. If several photos each hold part of a chart, combine the rows. If no photo is a size chart, say so.",
+        "You are looking at photos from a Chinese fashion reseller's album. One or more may be a size chart (尺码表): a table listing garment measurements (胸围 chest, 衣长 length, 肩宽 shoulder, 袖长 sleeve, 腰围 waist, 臀围 hip, 裤长 pants length) for each size. Transcribe ALL measurement columns and ALL size rows exactly as printed — do not convert units, do not invent values, do not round. If the chart labels chest as 半胸, 1/2 chest, half chest, or pit-to-pit, keep that half-chest label (write 半胸) with the printed number — do not double it. If several photos each hold part of a chart, combine the rows. If no photo is a size chart, say so.",
       messages: [
         {
           role: "user",

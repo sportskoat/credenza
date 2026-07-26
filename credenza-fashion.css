@@ -9555,6 +9555,19 @@ a.cz-card-seller:hover {
   font-weight: 600;
 }
 
+/* Restore the green AI size after a hand override (Kyle 2026-07-26). */
+.cz-detail-fit-chip.is-ai {
+  border-color: color-mix(in srgb, var(--cz-money) 55%, var(--cz-hair));
+  color: var(--cz-money);
+  font-weight: 700;
+}
+
+.cz-detail-fit-chip.is-ai:hover,
+.cz-detail-fit-chip.is-ai:focus-visible {
+  background: color-mix(in srgb, var(--cz-money) 12%, transparent);
+  border-color: var(--cz-money);
+}
+
 /* ── Section labels ── */
 .cz-detail-label {
   display: block;
