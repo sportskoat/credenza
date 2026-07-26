@@ -526,7 +526,7 @@ export default function DetailBody({
                     aria-label={"Open photo " + (i + 1) + " full screen"}
                     onClick={() => setPhotoView({ startIndex: i })}
                   >
-                    <img src={src} alt="" loading="lazy" decoding="async" />
+                    <img src={src} alt="" draggable={false} loading="lazy" decoding="async" />
                   </button>
                 ))
               ) : (

@@ -8431,6 +8431,10 @@ a.cz-card-seller:hover {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
+  /* Horizontal swipe only. Do not let the browser freestyle-pan the photo
+     or claim a vertical pan here (Kyle 2026-07-25: "lock this to only swipe"). */
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 
 .cz-detail-hero-track::-webkit-scrollbar {
@@ -8457,12 +8461,20 @@ a.cz-card-seller:hover {
   padding: 0;
   border: 0;
   cursor: zoom-in;
+  /* Override global button touch-action: manipulation so only the track's
+     horizontal pan wins. A still tap still fires click → album. */
+  touch-action: pan-x;
 }
 
 .cz-detail-hero-slide img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Kill native image ghost-drag so touch owns the pager swipe, not the photo. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
 }
 
 .cz-detail-dots {
