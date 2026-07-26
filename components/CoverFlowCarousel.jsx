@@ -772,10 +772,13 @@ export default function CoverFlowCarousel({
     // Same card size for coverflow and the solo modal popup (Kyle 2026-07-23 —
     // enlarged solo cards were too big). Desktop cards are 30% larger
     // (Kyle 2026-07-25): 320x460 → 416x598; the phone keeps 80vw x 440.
+    // Handoff turn 4 Fix A: raise the desktop cap to min(w*0.72, 560) x
+    // min(h*0.86, 820) — the 416x598 card clipped the detail back.
     const update = () => {
-      const w = typeof window !== "undefined" ? window.innerWidth : 416;
-      const width = (w <= 480 ? w * 0.8 : Math.min(w * 0.72, 416)) * sizeScale;
-      const height = (w <= 480 ? 440 : 598) * sizeScale;
+      const w = typeof window !== "undefined" ? window.innerWidth : 560;
+      const h = typeof window !== "undefined" ? window.innerHeight : 820;
+      const width = (w <= 480 ? w * 0.8 : Math.min(w * 0.72, 560)) * sizeScale;
+      const height = (w <= 480 ? 440 : Math.min(h * 0.86, 820)) * sizeScale;
       setCardSize({ width, height });
     };
     update();

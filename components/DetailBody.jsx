@@ -82,7 +82,17 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
   const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
   const recSize = rec && rec.size ? rec.size : null;
-  const precise = !!(recSize && rec.garment != null && rec.body != null) && !(profile && profile.estimated);
+  // Only an ESTIMATED deciding measurement hedges the pick. A real chest with
+  // an estimated waist still earns the money chip on a shirt — the "~" and
+  // the badge follow the measurement the pick was read from (rec.primaryKey).
+  const decidingEstimated = !!(
+    profile &&
+    profile.estimated &&
+    rec &&
+    rec.primaryKey &&
+    (!bodyProfile || bodyProfile[rec.primaryKey] == null)
+  );
+  const precise = !!(recSize && rec.garment != null && rec.body != null) && !decidingEstimated;
   const chartRunValues = chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
   // Listing Size axis (Weidian variants) when no chart text yet — show run chips.
   const variantValues = pickSizeValuesFromVariants(item.variants);
@@ -185,7 +195,7 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
           <div className="cz-detail-fit-cell">
             <span className="cz-detail-fit-k">You</span>
             <span className="cz-detail-fit-v">
-              {profile && profile.estimated ? "~" : ""}
+              {decidingEstimated ? "~" : ""}
               {formatMeasure(rec.body, units)}
             </span>
           </div>

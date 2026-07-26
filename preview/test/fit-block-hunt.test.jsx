@@ -91,6 +91,31 @@ describe("FitBlock chart hunt", () => {
     expect(huntMock).not.toHaveBeenCalled();
   });
 
+  it("earns the precise badge when the deciding measurement is real", async () => {
+    huntMock.mockResolvedValue(null);
+    const item = { ...noChartItem("hunt-b2"), sizeNotes: CHART_TEXT };
+    const user = userEvent.setup();
+    // Chest measured; waist/hip estimated by effectiveBodyProfile. A shirt
+    // decides on chest, so the verdict is not a guess.
+    renderBody(item);
+
+    await user.click(screen.getByRole("button", { name: /Size · fit/ }));
+    expect(await screen.findByText("Read from the seller's chart")).toBeInTheDocument();
+    expect(screen.queryByText("Best guess")).not.toBeInTheDocument();
+  });
+
+  it("hedges the badge when the deciding measurement is estimated", async () => {
+    huntMock.mockResolvedValue(null);
+    const item = { ...noChartItem("hunt-b3"), sizeNotes: CHART_TEXT };
+    const user = userEvent.setup();
+    // No chest — every tape number comes from the height/weight estimate.
+    renderBody(item, { bodyProfile: { height: "180", weight: "75" } });
+
+    await user.click(screen.getByRole("button", { name: /Size · fit/ }));
+    expect(await screen.findByText("Best guess")).toBeInTheDocument();
+    expect(screen.queryByText("Read from the seller's chart")).not.toBeInTheDocument();
+  });
+
   it("a failed hunt falls back to the static empty copy", async () => {
     huntMock.mockResolvedValue(null);
     const user = userEvent.setup();
