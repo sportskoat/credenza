@@ -4686,6 +4686,40 @@ export default function Credenza() {
     }
   };
 
+  // Seeds the full-screen album: the stored images first, then the Yupoo
+  // album relayed to data URLs (photo.yupoo.com hotlinks refuse to render
+  // cross-origin). Restored 2026-07-25 with the gallery (Kyle: bring back
+  // the old swipe-through photos).
+  const loadAlbumPhotos = async (item, { signal } = {}) => {
+    const isHotlink = (src) => /^https?:\/\/photo\.yupoo\.com\//i.test(src || "");
+    const existing = mergeFashionImages(
+      item.image ? [item.image] : [],
+      item.gallery || []
+    ).filter((src) => !isHotlink(src));
+    const albumUrl = yupooAlbumUrl(item);
+    if (!albumUrl || existing.length >= 8) return existing.slice(0, 8);
+    const data = await fetchYupooImages(albumUrl, { signal });
+    if (!data || (signal && signal.aborted)) return existing.slice(0, 8);
+
+    const photos = [...existing];
+    for (const src of mergeFashionImages(data.images || [])) {
+      if (photos.length >= 8 || (signal && signal.aborted)) break;
+      const dataUrl = await relayImageDataUrl(src, data.url || albumUrl, signal);
+      if (dataUrl) photos.push(dataUrl);
+    }
+    const merged = mergeFashionImages(photos).slice(0, 8);
+    if (!(signal && signal.aborted)) {
+      updateItem(item.id, (current) => ({
+        image: current.image || merged[0] || null,
+        gallery: mergeFashionImages(
+          current.gallery || [],
+          merged.filter((src) => src !== current.image)
+        ).slice(0, 12),
+      }));
+    }
+    return merged;
+  };
+
   // Auto-fetch a preview image after stash. Best-effort enhancement: silent on
   // every failure, never touches status, never overwrites a manual image (the
   // functional patch checks current.image in case one landed mid-flight).
@@ -6042,6 +6076,7 @@ export default function Credenza() {
       onOpen={recordOpen}
       buyLabel={buyLabel}
       onSetPrimaryImage={setPrimaryImage}
+      onLoadPhotos={loadAlbumPhotos}
       onAttachPhoto={attachGalleryImage}
       onRemovePhoto={removePhotoBySrc}
       onToggleFavorite={toggleFavorite}
@@ -6457,6 +6492,7 @@ export default function Credenza() {
           onAttachPhoto={attachGalleryImage}
           onRemovePhoto={removePhotoBySrc}
           onSetCover={setPrimaryImage}
+          onLoadPhotos={loadAlbumPhotos}
           onOpenSizes={() => {
             setDetailSheetId(null);
             setBodySheetOpen(true);

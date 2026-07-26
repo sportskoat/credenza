@@ -29,6 +29,7 @@ export default function DetailSheet({
   onAttachPhoto,
   onRemovePhoto,
   onSetCover,
+  onLoadPhotos = null,
   onOpenSizes,
   onClose,
 }) {
@@ -146,6 +147,8 @@ export default function DetailSheet({
           onAttachPhoto={onAttachPhoto}
           onRemovePhoto={onRemovePhoto}
           onOpenSizes={onOpenSizes}
+          onSetPrimaryImage={onSetCover}
+          onLoadPhotos={onLoadPhotos}
           heroPager
           flushRef={bodyFlushRef}
           renderHeroActions={({ photos, photoIdx, resetPager }) => ({

@@ -48,6 +48,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     measureUnits,
     onOpenSizes,
     onSetPrimaryImage,
+    onLoadPhotos,
     fitPref = null,
     reduced,
   },
@@ -588,6 +589,8 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                       onAttachPhoto={onAttachPhoto}
                       onRemovePhoto={onRemovePhoto}
                       onOpenSizes={onOpenSizes}
+                      onSetPrimaryImage={onSetPrimaryImage}
+                      onLoadPhotos={onLoadPhotos}
                       heroPager
                       renderHeroActions={({ photos, photoIdx, resetPager }) => ({
                         // One-tap cover action on the desktop pager (same
@@ -656,6 +659,7 @@ export default function CoverFlowCarousel({
   onOpen,
   buyLabel,
   onSetPrimaryImage,
+  onLoadPhotos,
   onAttachPhoto,
   onRemovePhoto,
   onToggleFavorite,
@@ -1187,6 +1191,7 @@ export default function CoverFlowCarousel({
                   measureUnits={measureUnits}
                   onOpenSizes={onOpenSizes}
                   onSetPrimaryImage={onSetPrimaryImage}
+                  onLoadPhotos={onLoadPhotos}
                   fitPref={
                     fitPrefs && item.category && fitPrefs[item.category]
                       ? fitPrefs[item.category]

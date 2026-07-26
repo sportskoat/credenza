@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight } from "lucide-react";
+import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import {
   EditPhotosManager,
   HaulAccordionField,
@@ -173,6 +174,8 @@ export default function DetailBody({
   onAttachPhoto,
   onRemovePhoto,
   onOpenSizes,
+  onSetPrimaryImage = null,
+  onLoadPhotos = null,
   heroPager = false,
   renderHeroActions = null,
   flushRef = null,
@@ -187,6 +190,17 @@ export default function DetailBody({
   const [photoIdx, setPhotoIdx] = useState(0);
   const trackRef = useRef(null);
   const photos = heroPager ? itemPhotoList(item, 12) : [];
+
+  // Full-screen album (restored 2026-07-25, Kyle: "the old photos where you
+  // could swipe through each photo... it was so good"). A tap on the hero
+  // photo opens it at that photo; its "Use as cover" is the same explicit
+  // cover path as the hero action. photoView = { startIndex } | null.
+  const [photoView, setPhotoView] = useState(null);
+
+  const resetPager = () => {
+    setPhotoIdx(0);
+    if (trackRef.current) trackRef.current.scrollTo({ left: 0 });
+  };
 
   // The draft stays null until the first edit. A null draft skips the
   // write-through effect, so opening the surface never fires a phantom save.
@@ -463,7 +477,19 @@ export default function DetailBody({
             >
               {photos.length ? (
                 photos.map((src, i) => (
-                  <img key={src + "-" + i} src={src} alt="" loading="lazy" decoding="async" />
+                  // The photo itself is the gallery trigger (Kyle 2026-07-25:
+                  // "click on the photo to have that old scroll through
+                  // carousel"). A swipe still pages — a moved touch cancels
+                  // the click, a still tap opens the album.
+                  <button
+                    key={src + "-" + i}
+                    type="button"
+                    className="cz-detail-hero-slide"
+                    aria-label={"Open photo " + (i + 1) + " full screen"}
+                    onClick={() => setPhotoView({ startIndex: i })}
+                  >
+                    <img src={src} alt="" loading="lazy" decoding="async" />
+                  </button>
                 ))
               ) : (
                 <div className="cz-detail-hero-empty" />
@@ -484,10 +510,7 @@ export default function DetailBody({
                 render={renderHeroActions}
                 photos={photos}
                 photoIdx={photoIdx}
-                resetPager={() => {
-                  setPhotoIdx(0);
-                  if (trackRef.current) trackRef.current.scrollTo({ left: 0 });
-                }}
+                resetPager={resetPager}
               />
             ) : null}
           </div>
@@ -615,6 +638,19 @@ export default function DetailBody({
             shipping fees. It never changes your item price.
           </p>
         </div>
+      ) : null}
+      {photoView ? (
+        <PhotoCoverFlow
+          item={item}
+          images={photos}
+          startIndex={photoView.startIndex}
+          onClose={() => setPhotoView(null)}
+          onSetPrimaryImage={(id, src) => {
+            if (onSetPrimaryImage) onSetPrimaryImage(id, src);
+            resetPager();
+          }}
+          onLoadPhotos={onLoadPhotos}
+        />
       ) : null}
     </>
   );
