@@ -5,54 +5,75 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-26 (ALBUM PHOTOS — honest count, 40-photo extraction, size charts held out of the gallery, thumb-strip glitch fixed — plus MODAL STACK SCROLLBARS HIDDEN (`7e065dc` — replaces the earlier stable-gutter fix), **all COMMITTED on branch `worktree-fansbuy-links-no-flip`, 685 tests passing, NOT merged to main, NOT deployed**. That branch also holds SETTINGS MODAL STACK and FANSBUY LINK FIX + CAROUSEL FLIP RETIRED — see the sections below. **The worktree has NO git remote, so no push and no PR are possible from it. NEXT STEP: Kyle decides whether to merge `worktree-fansbuy-links-no-flip` into `main`. Do not merge or deploy without a fresh explicit instruction.** Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
+**Last updated:** 2026-07-26 (**SIX MOBILE ISSUES — ALL SIX FIXED** in `e135126` + `1032918`: shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left. **688 tests pass. COMMITTED on branch `worktree-fansbuy-links-no-flip`, NOT merged, NOT deployed.** See the section below for the root cause of each.) Prior: (ALBUM PHOTOS — honest count, 40-photo extraction, size charts held out of the gallery, thumb-strip glitch fixed — plus MODAL STACK SCROLLBARS HIDDEN (`7e065dc` — replaces the earlier stable-gutter fix), **all COMMITTED on branch `worktree-fansbuy-links-no-flip`, 685 tests passing, NOT merged to main, NOT deployed**. That branch also holds SETTINGS MODAL STACK and FANSBUY LINK FIX + CAROUSEL FLIP RETIRED — see the sections below. **The worktree has NO git remote, so no push and no PR are possible from it. NEXT STEP: Kyle decides whether to merge `worktree-fansbuy-links-no-flip` into `main`. Do not merge or deploy without a fresh explicit instruction.** Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
 
-## 2026-07-26 — SIX OPEN ISSUES from Kyle's mobile pass. IN PROGRESS, nothing fixed yet.
+## 2026-07-26 — SIX ISSUES from Kyle's mobile pass — ✅ ALL SIX FIXED (`e135126` + `1032918`, NOT deployed)
 
-Kyle reported six problems from the LIVE mobile web app at credenzafashion.com.
-A read-only root-cause workflow (6 investigators + adversarial verifiers +
-completeness critic) was launched. NO code is changed yet. Do not assume any of
-these are fixed.
+Kyle reported six problems from the LIVE mobile web app. All six are fixed and
+committed on branch `worktree-fansbuy-links-no-flip`. **688 tests pass.** The
+build compiles; its 2 `css-syntax-error` warnings are PRE-EXISTING — that was
+proved by building with and without the changes and comparing the count.
 
-1. **Chart-hunt loading text overlaps other text.** "It's like the text is over
-   the other text… looks really sloppy." Suspect: the shimmer loading state from
-   commit `fb23196` stacks a loading label on the resting text in the fit block.
-   Start at `components/SizeRecommendation.jsx`, `components/DetailBody.jsx`.
+**Do not deploy. Do not merge. Kyle authorizes both separately.**
 
-2. **Card price clipped in the phone shelf grid.** Screenshot shows "$31.8" cut
-   mid-character and "Weidian gallery · 9 phot" truncated. "There should be no
-   overlap or cutoff on the prices." Start at `components/CardFrontInfo.jsx`,
-   `components/CardMetaLinks.jsx`, and the `.cz-front-*` CSS.
+1. ✅ **Chart-hunt loading text looked doubled.** The `.t-shimmer` primitive
+   draws a SECOND copy of the string in an absolute `::before` and clips a
+   gradient to it. That only registers on a single-line SIZED box. The hunting
+   rule set `display: inline`, and the sentence wraps on a phone, so the two
+   copies broke at different points and both stayed visible.
+   Fix: a new single-layer `.t-shimmer-wrap` variant in `credenza-fashion.css`.
+   It clips the gradient to the real glyphs, so it cannot double at any width.
+   `components/DetailBody.jsx:216` uses it. This is STRONGER than restoring
+   `inline-block` — two layers can always misregister on a wrapping line.
 
-3. **Weidian description size chart is never picked up.**
-   `https://weidian.com/item.html?itemID=7739297298` has a clear chart IMAGE in
-   Product Details (S/M/L/XL, Shoulder 52-58, Chest 110-128, Length 67-76). The
-   app says "AI sizing needs the chart photo on this listing." Prime suspect:
-   the Weidian resolver extracts only the main carousel gallery, never the
-   description/detail images. The new `isChartTile` work was YUPOO ONLY — Weidian
-   has no equivalent.
+2. ✅ **Card price clipped mid-glyph in the phone grid.** `.cz-card-text` and
+   its toggle are flex/grid items, which default to `min-width: auto`. The
+   block therefore grew to the intrinsic width of its widest `nowrap` line, and
+   the card shell (`overflow: hidden`) cut the price. Every `text-overflow:
+   ellipsis` rule below was DEAD: ellipsis shrinks to the box, and the box was
+   never smaller than the text.
+   Fix: `min-width: 0` + `grid-template-columns: minmax(0, 1fr)` on both.
+   The price never yields (`flex: 0 0 auto`); the size LABEL ellipsizes first,
+   because "YOUR USUAL" repeats on every card and the VALUE is the information.
 
-4. **Close/exit buttons stick and stop responding in the photo viewer.** The X
-   renders in a pressed state and taps do nothing. Suspects: a `:hover`/`:active`
-   rule with no `@media (hover: hover)` guard (iOS latches :hover after a tap), a
-   press-state class never cleared on `pointercancel`/`touchcancel`, or a leaving
-   layer that keeps `pointer-events`.
+3. ✅ **Weidian description size chart never picked up.** Diagnosed against
+   LIVE data, not by inference. Each link works: the Weidian description API
+   returns 20 images for item 7739297298 and image 1 IS the chart; `resolve.js`
+   returns it at `descImages[0]`; `parseSizeChart` reads 4 rows from it;
+   `huntSizeChart` finds it when `descImages` is populated.
+   The single gap: `descImages` shipped in `b794602` (2026-07-25) and is only
+   ever populated at IMPORT time. Cards saved before that — plus any card whose
+   resolve was skipped, capped, offline, or failed — hold an empty list. The
+   hunt was blind to the one place the chart was.
+   Fix: new `fetchDescImages()` in `credenza-fashion.jsx` (same resolve call the
+   importer makes; respects plan limit, offline state, abort signal; returns []
+   and never throws), called as a LAST RESORT in `components/size-chart-hunt.js`
+   — only when `descImages` is EMPTY and every other path missed. 3 new tests.
 
-5. **Money counter digits smear and overlap.** Header shows "$44.10" with doubled
-   glyphs. STRONG LEAD found by hand: `ReelCounter` in `components/atoms.jsx`
-   (~line 228-250) arms an SVG motion blur while spinning and clears it ONLY in
-   `settle()`, which fires from `onTransitionEnd`. If that event never arrives —
-   interrupted transition, hidden element, unchanged transform — the blur stays
-   armed forever. That matches a permanently smeared counter.
+4. ✅ **Gallery close buttons stuck and did nothing.** React removed the
+   `<dialog>` node without ever calling `close()`, so the browser kept the stale
+   dialog in the TOP LAYER: it still painted above everything, but its React
+   handlers were gone. `ModalShell.jsx` already carried this exact fix (Kyle
+   2026-07-24, "closing stuff gives me a blank screen"); the gallery never got
+   it.
+   Fix: `PhotoCoverFlow.jsx` closes the dialog in the effect cleanup, and all
+   six close paths route through one guarded `requestClose()`.
 
-6. **Move the status tag to the TOP LEFT of the card.** "bought, want, shipped"
-   sits bottom-left today; Kyle wants it top-left. The favourite heart is top
-   RIGHT, so check collision at the ~175px phone column. Find EVERY surface that
-   positions the pill (grid card, rack card, carousel card, desktop panel) —
-   Kyle wants it consistent. Start at `components/Card.jsx:92`.
+5. ✅ **Money counter digits stayed smeared.** `ReelDigit` armed an SVG motion
+   blur on each spin and cleared it ONLY from `onTransitionEnd`. That event is
+   NOT guaranteed — it does not fire on a hidden tab, on a node detached
+   mid-tween, on an interrupted tween, or when the compositor drops the
+   transition. One missed event left the digits permanently smeared.
+   Fix: a `setTimeout` fallback settles the digit regardless, and the filter is
+   ATTACHED only while travelling (a filter left on the element keeps pushing
+   glyphs through the rasteriser, so they read soft even at `stdDeviation` 0).
+
+6. ✅ **Status tag moved to the TOP LEFT of the card.** The base
+   `.cz-card-status` rule and the carousel already placed it top-left. The
+   two-line card override was the only rule pushing it to the bottom.
 
 ---
 
