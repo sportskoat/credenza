@@ -1,7 +1,7 @@
 // The silent chart hunt prefers the seller's Product Details photos
-// (resolve descImages) over the top gallery — chart tables live in the
-// description feed, never in the gallery (Kyle 2026-07-25, Weidian item
-// 7718340223: chart was desc photo #1, gallery scan found nothing).
+// (resolve descImages) over the top gallery when both exist (Weidian
+// 7718340223: chart was desc photo #1). Gallery still matters: charts also
+// land early in the product carousel (Kyle 2026-07-25 Mook tee, slide 2/9).
 // Full stub of the app module: no importOriginal (circular-module mocks
 // with importOriginal do not apply reliably here).
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -68,5 +68,25 @@ describe("huntSizeChart description-photo priority", () => {
       "https://si.geilicdn.com/gallery-1.jpg",
       "https://si.geilicdn.com/gallery-2.jpg",
     ]);
+  });
+
+  it("scans gallery from the start so early chart slides are not dropped", async () => {
+    // Kyle 2026-07-25: Mook tee chart is photo 2/9. Old code used slice(-10)
+    // and skipped the front of longer galleries.
+    visionMock.mockResolvedValue(CHART);
+    const gallery = Array.from({ length: 14 }, (_, i) => `https://si.geilicdn.com/g-${i}.jpg`);
+    // Put the "chart" at index 1 (second slide) — must be in the first window.
+    const found = await huntSizeChart(
+      item({
+        image: "https://si.geilicdn.com/main.jpg",
+        gallery,
+        descImages: [],
+      })
+    );
+    expect(found).toEqual({ text: CHART, source: { via: "gallery-photos", photos: 10 } });
+    const firstWindow = visionMock.mock.calls[0][0];
+    expect(firstWindow[0]).toBe("https://si.geilicdn.com/main.jpg");
+    expect(firstWindow).toContain("https://si.geilicdn.com/g-0.jpg");
+    expect(firstWindow).toContain("https://si.geilicdn.com/g-1.jpg");
   });
 });

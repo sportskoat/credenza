@@ -128,6 +128,29 @@ describe("FitBlock chart hunt", () => {
     expect(huntMock).toHaveBeenCalledTimes(1);
   });
 
+  it("does not stick on Looking when a remount aborts the first hunt", async () => {
+    // Strict Mode / panel remount used to leave hunting=true after abort and
+    // mark the item tried, so the spinner never cleared (Kyle 2026-07-25).
+    let resolveHunt;
+    huntMock.mockImplementation(() => new Promise((resolve) => { resolveHunt = resolve; }));
+    const item = noChartItem("hunt-stuck");
+    const user = userEvent.setup();
+    const { unmount } = renderBody(item);
+    await user.click(screen.getByRole("button", { name: /Size · fit/ }));
+    expect(await screen.findByText("Looking for the seller's size chart…")).toBeInTheDocument();
+    unmount();
+    // Stale resolve must not throw; hunting cleared on unmount.
+    resolveHunt(null);
+
+    huntMock.mockResolvedValue(null);
+    renderBody(item);
+    await user.click(screen.getByRole("button", { name: /Size · fit/ }));
+    // A completed null hunt must clear the spinner (retry allowed after abort).
+    await waitFor(() => {
+      expect(screen.queryByText("Looking for the seller's size chart…")).not.toBeInTheDocument();
+    });
+  });
+
   it("shows usual tops as the hero when body prefs exist but no chart", async () => {
     // Kyle 2026-07-25: saving body prefs still left "No recommendation" and
     // promoted the raw S–2XL run as the big size. Usual size must surface.

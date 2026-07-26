@@ -172,6 +172,23 @@ Kyle bug: save measurements → still **No recommendation** + hero showed full s
 
 If the chart hunt fails (no desc photo / vision miss), usual size is the honest answer.
 
+### 4.3c Chart hunt: early gallery + stuck spinner (product, 2026-07-25 night)
+
+Kyle: Mook tee gallery slide 2/9 is a clear size chart; FitBlock stayed on **Looking for the seller’s size chart…**.
+
+**Root causes:**
+
+1. Gallery path used `localPhotos.slice(-10)` only → dropped early charts on long galleries.
+2. `chartHuntTried.add` ran before the hunt finished; abort left `hunting` true and blocked retry.
+
+**Landed (no deploy):**
+
+1. `components/size-chart-hunt.js` — forward windows of 10 from the start; gallery cap 20 photos.
+2. `components/DetailBody.jsx` — mark tried only after a completed hunt; clear hunting on abort/unmount.
+3. Tests: early-gallery scan + remount-abort in `size-chart-hunt` + `fit-block-hunt`.
+
+Vision still needs host allowlist + `PREVIEW_SECRET` / free cap. A miss after a finished hunt is honest empty/usual — not a forever spinner.
+
 ### 4.4 Link context L0 (pure, 2026-07-25 night)
 
 Offline community mention index for stashed items only (not a W2C catalog).

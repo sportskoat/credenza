@@ -89,28 +89,38 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
   useEffect(() => {
     if (chart || SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return;
     if (chartHuntTried.has(item.id)) return;
-    chartHuntTried.add(item.id);
     let cancelled = false;
     const controller = new AbortController();
     setHunting(true);
     (async () => {
-      const found = await huntSizeChart(item, { signal: controller.signal });
-      if (cancelled) return;
-      setHunting(false);
-      // Older hunts returned bare text; the source tag ships with the text now.
-      const text = typeof found === "string" ? found : found && found.text;
-      if (text) {
-        onSaveEdit(item.id, {
-          sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text,
-          ...(found && found.source
-            ? { sizeChartSource: { ...found.source, at: new Date().toISOString() } }
-            : {}),
-        });
+      try {
+        const found = await huntSizeChart(item, { signal: controller.signal });
+        if (cancelled) return;
+        // Mark tried only after a completed (non-aborted) hunt so React
+        // Strict Mode / panel remounts can retry instead of sticking on
+        // "Looking for the seller's size chart…" forever
+        // (Kyle 2026-07-25, chart visible in gallery while fit block spun).
+        chartHuntTried.add(item.id);
+        // Older hunts returned bare text; the source tag ships with the text now.
+        const text = typeof found === "string" ? found : found && found.text;
+        if (text) {
+          onSaveEdit(item.id, {
+            sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text,
+            ...(found && found.source
+              ? { sizeChartSource: { ...found.source, at: new Date().toISOString() } }
+              : {}),
+          });
+        }
+      } finally {
+        if (!cancelled) setHunting(false);
       }
     })();
     return () => {
       cancelled = true;
       controller.abort();
+      // Clear the spinner on unmount / effect re-run. Do not leave hunting=true
+      // after an abort; the next mount will start a fresh hunt if not tried.
+      setHunting(false);
     };
   }, [chart, item, onSaveEdit]);
 

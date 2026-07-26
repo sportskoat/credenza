@@ -4,7 +4,8 @@
 // charts stopped arriving and every card read "No size chart on this
 // listing". Yupoo album text first, then a vision scan of album photos,
 // then the seller's Product Details photos (resolve descImages — chart
-// tables live there, never in the top gallery), then the gallery photos.
+// tables often live there), then the gallery photos (charts also appear
+// early in the product gallery — Kyle 2026-07-25 Mook tee, slide 2/9).
 // Returns { text, source } — text parseable by parseSizeChart plus a
 // provenance tag for the breakdown footer (handoff turn 3 §5) — or null.
 // Callers throttle (one hunt per item per session) and persist the text
@@ -18,6 +19,30 @@ import {
   parseSizeChart,
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
+
+/** Vision caps at 10 images per call. Cap gallery/desc windows to control cost. */
+const VISION_WINDOW = 10;
+/** Max gallery photos to scan (2 windows). Charts are usually early. */
+const MAX_GALLERY_SCAN = 20;
+
+/**
+ * Scan photo lists in forward windows of 10.
+ * @returns {Promise<{ text: string, photos: number } | null>}
+ */
+async function visionWindows(photos, { signal, referer, maxPhotos } = {}) {
+  const list = (photos || []).filter((src) => typeof src === "string" && /^https?:\/\//i.test(src));
+  const capped = typeof maxPhotos === "number" ? list.slice(0, maxPhotos) : list;
+  for (let i = 0; i < capped.length; i += VISION_WINDOW) {
+    if (signal && signal.aborted) return null;
+    const window = capped.slice(i, i + VISION_WINDOW);
+    const chartText = await fetchChartFromPhotos(window, { signal, referer });
+    if (signal && signal.aborted) return null;
+    if (chartText && parseSizeChart(chartText)) {
+      return { text: chartText, photos: window.length };
+    }
+  }
+  return null;
+}
 
 export async function huntSizeChart(item, { signal } = {}) {
   const album = yupooAlbumUrl(item);
@@ -33,39 +58,52 @@ export async function huntSizeChart(item, { signal } = {}) {
     }
     const albumPhotos = (data && data.images) || [];
     if (albumPhotos.length) {
-      const window = albumPhotos.slice(-10);
-      const chartText = await fetchChartFromPhotos(window, { signal, referer: album });
+      // Yupoo charts often sit at the end of the album — try the tail first.
+      const tail = albumPhotos.slice(-VISION_WINDOW);
+      const chartText = await fetchChartFromPhotos(tail, { signal, referer: album });
+      if (signal && signal.aborted) return null;
       if (chartText && parseSizeChart(chartText)) {
-        return { text: chartText, source: { via: "album-photos", photos: window.length } };
+        return { text: chartText, source: { via: "album-photos", photos: tail.length } };
+      }
+      // Then walk the front of long albums if the tail missed.
+      if (albumPhotos.length > VISION_WINDOW) {
+        const headHit = await visionWindows(albumPhotos.slice(0, -VISION_WINDOW), {
+          signal,
+          referer: album,
+          maxPhotos: MAX_GALLERY_SCAN,
+        });
+        if (headHit) {
+          return { text: headHit.text, source: { via: "album-photos", photos: headHit.photos } };
+        }
       }
     }
   }
-  // Weidian Product Details path: the description feed carries the chart
-  // table images (Kyle 2026-07-25, item 7718340223). Charts sit near the
-  // top, so scan forward windows of 10 (vision caps at 10 per call).
+  // Weidian Product Details path: the description feed often carries the chart
+  // table images (Kyle 2026-07-25, item 7718340223). Charts sit near the top,
+  // so scan forward windows of 10.
   const descPhotos = (item.descImages || []).filter(
     (src) => typeof src === "string" && /^https?:\/\//i.test(src)
   );
-  for (let i = 0; i < descPhotos.length; i += 10) {
-    const window = descPhotos.slice(i, i + 10);
-    const chartText = await fetchChartFromPhotos(window, {
+  if (descPhotos.length) {
+    const hit = await visionWindows(descPhotos, {
       signal,
       referer: item.url || undefined,
     });
-    if (signal && signal.aborted) return null;
-    if (chartText && parseSizeChart(chartText)) {
-      return { text: chartText, source: { via: "desc-photos", photos: window.length } };
+    if (hit) {
+      return { text: hit.text, source: { via: "desc-photos", photos: hit.photos } };
     }
   }
-  // Gallery fallback: resolve already filled it with CDN URLs.
+  // Gallery path: charts also appear early in the product carousel (Kyle
+  // 2026-07-25 Mook Palace tee — size chart is photo 2/9). Never only the
+  // last 10 — that dropped early charts when the gallery was long.
   if (localPhotos.length) {
-    const window = localPhotos.slice(-10);
-    const chartText = await fetchChartFromPhotos(window, {
+    const hit = await visionWindows(localPhotos, {
       signal,
       referer: item.url || undefined,
+      maxPhotos: MAX_GALLERY_SCAN,
     });
-    if (chartText && parseSizeChart(chartText)) {
-      return { text: chartText, source: { via: "gallery-photos", photos: window.length } };
+    if (hit) {
+      return { text: hit.text, source: { via: "gallery-photos", photos: hit.photos } };
     }
   }
   return null;
