@@ -107,6 +107,11 @@ export function ModalShell({
   const page2Ref = useRef(null);
   const holdTimer = useRef(null);
   const onSub = !!subPage;
+  // Render the incoming sub-page in the SAME pass that sets it. Waiting for
+  // the hold effect to copy it into state cost one render (~44ms measured),
+  // during which the stack held the old height and then jumped. `held` still
+  // covers the way back, where the outgoing page must outlive the prop.
+  const shownSub = subPage || held;
 
   useEffect(() => {
     if (subPage) {
@@ -138,6 +143,12 @@ export function ModalShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subPage, reduced]);
 
+  // The sub-page owns the header while it is up: its own title, and Back in
+  // place of Close. Close stays reachable — Escape and the backdrop still work.
+  // Declared above the measure effect, which reads the destination width.
+  const headerTitle = onSub && subPage.title ? subPage.title : title;
+  const shellMaxWidth = onSub && subPage.maxWidth ? subPage.maxWidth : maxWidth;
+
   // Measure the visible page and drive the stack height, so t-resize has two
   // pixel values to tween between. Layout effect: a paint at the wrong height
   // reads as a jump. jsdom reports 0 for every box — a 0 height would hide the
@@ -146,16 +157,44 @@ export function ModalShell({
   // Measure the INNER wrapper, never the page box. The pages are absolutely
   // positioned, so a page box is sized BY the stack height — reading it back
   // returns the height just set and the stack can only ever grow.
+  //
+  // Measure at the FINAL width, not the live one (Kyle 2026-07-26: "it
+  // stretches and locks into place a couple of times"). The dialog tweens its
+  // width over 300ms. A height read mid-tween sees content wrapped to an
+  // in-between width, so the target moved 4 times in one push and each move
+  // restarted the height tween. Pinning the wrapper to the destination width
+  // for the read gives one target, set once, before the tween starts.
   useLayoutEffect(() => {
     if (!stacked) return undefined;
     const inner = () => {
       const el = onSub ? page2Ref.current : page1Ref.current;
       return el && el.firstElementChild ? el.firstElementChild : null;
     };
+    // The wrapper is inside the surface, which is inside the dialog. The
+    // dialog's border box is what maxWidth caps, so subtract the surface
+    // border to get the content width the wrapper will settle at.
+    const finalInnerWidth = () => {
+      const page = onSub ? page2Ref.current : page1Ref.current;
+      const dialog = dialogRef.current;
+      if (!page || !dialog || typeof window === "undefined") return null;
+      const viewport = window.innerWidth || 0;
+      if (!viewport) return null;
+      // Mirrors .cz-modal: width: min(720px, 100% - 32px), capped by maxWidth.
+      const outer = Math.min(720, viewport - 32, shellMaxWidth);
+      const inset = dialog.getBoundingClientRect().width - page.clientWidth;
+      const w = outer - (Number.isFinite(inset) && inset > 0 ? inset : 0);
+      return w > 0 ? w : null;
+    };
     const measure = () => {
       const el = inner();
       if (!el) return;
+      const target = finalInnerWidth();
+      // Pin, read, restore — all inside one layout pass, so nothing paints at
+      // the pinned width.
+      const prev = el.style.width;
+      if (target != null) el.style.width = target + "px";
       const h = el.scrollHeight;
+      if (target != null) el.style.width = prev;
       if (h > 0) setStackH(h);
     };
     measure();
@@ -166,16 +205,11 @@ export function ModalShell({
     const ro = new window.ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [stacked, onSub, held, children]);
+  }, [stacked, onSub, shownSub, children, shellMaxWidth]);
 
   const requestBack = useCallback(() => {
     if (onBack) onBack();
   }, [onBack]);
-
-  // The sub-page owns the header while it is up: its own title, and Back in
-  // place of Close. Close stays reachable — Escape and the backdrop still work.
-  const headerTitle = onSub && subPage.title ? subPage.title : title;
-  const shellMaxWidth = onSub && subPage.maxWidth ? subPage.maxWidth : maxWidth;
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click-to-close; keyboard users close via Escape (onCancel)
@@ -274,7 +308,7 @@ export function ModalShell({
               aria-hidden={!onSub || undefined}
               inert={!onSub ? "" : undefined}
             >
-              {held ? <div key={held.key}>{held.node}</div> : null}
+              {shownSub ? <div key={shownSub.key}>{shownSub.node}</div> : null}
             </div>
           </div>
         ) : (

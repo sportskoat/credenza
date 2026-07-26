@@ -4454,6 +4454,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   overflow: hidden;
   min-height: 1px;
 }
+/* One clock for the whole gesture (Kyle 2026-07-26: "it seems like they kind
+   of move left to right… not very smooth"). The slide ran 250ms and the box
+   resize 300ms on a different curve, so the page arrived while the box was
+   still growing and the two motions read as separate steps. Scoped to the
+   stack: the standalone t-page-slide and t-resize keep their own defaults. */
+.cz-modal-stack,
+.cz-modal.t-modal {
+  --resize-dur: 260ms;
+  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cz-modal-stack {
+  --page-slide-dur: 260ms;
+  --page-fade-dur: 200ms;
+  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
 .cz-modal-page {
   /* Each page scrolls on its own: a tall sub-page must not stretch the modal
      past the surface cap. overscroll-behavior stops the scroll chaining to
