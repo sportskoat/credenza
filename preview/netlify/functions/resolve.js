@@ -105,6 +105,70 @@ function classifyBuyLink(raw) {
 }
 
 /** Parse world.taobao HTML for title + main image (og tags). Price often absent. */
+// The world.taobao SEO page embeds a JSON island (`var b = {...}` next to
+// __ICE_APP_CONTEXT__) with normalItemResponse: the real title, the full
+// gallery list, the actual price, and the seller name — everything og tags
+// lack. Taobao's description photos stay unreachable server-side (every
+// mtop gateway answers RGV587 anti-bot, 2026-07-25), so this island is the
+// richest sanctioned source. Brace-walk with string/escape tracking.
+function parseWorldTaobaoIsland(html) {
+  const src = String(html || "");
+  const marker = src.indexOf('"loaderData"');
+  if (marker === -1) return null;
+  const assign = src.lastIndexOf("var b = ", marker);
+  if (assign === -1) return null;
+  const open = src.indexOf("{", assign);
+  if (open === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = open; i < src.length; i++) {
+    const ch = src[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') inString = !inString;
+    if (inString) continue;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          const data = JSON.parse(src.slice(open, i + 1));
+          const httpData =
+            data && data.loaderData && data.loaderData["pdp-pc"] && data.loaderData["pdp-pc"].data
+              ? data.loaderData["pdp-pc"].data.httpData || {}
+              : {};
+          const item = (httpData.normalItemResponse && httpData.normalItemResponse.item) || {};
+          const price = (httpData.normalItemResponse && httpData.normalItemResponse.itemPrice) || {};
+          const seller = (httpData.normalItemResponse && httpData.normalItemResponse.seller) || {};
+          const norm = (u) => {
+            if (typeof u !== "string" || !u) return null;
+            const clean = u.startsWith("//") ? "https:" + u : u;
+            return /^https:\/\//i.test(clean) ? clean : null;
+          };
+          const images = (Array.isArray(item.images) ? item.images : []).map(norm).filter(Boolean);
+          const priceNum = parseFloat(price.promotionPrice || price.originalPrice || "");
+          return {
+            title: typeof item.title === "string" ? item.title.trim() : "",
+            images: [...new Set(images)],
+            priceCny: isFinite(priceNum) && priceNum > 0 && priceNum < 1e6 ? priceNum : null,
+            sellerName: typeof seller.shopName === "string" ? seller.shopName.trim() : "",
+          };
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function parseWorldTaobaoHtml(html) {
   const src = String(html || "");
   const og = (prop) => {
@@ -163,17 +227,20 @@ async function fetchTaobaoWorldFacts(itemId, signal) {
   if (!res.ok) throw { status: 502, msg: `Taobao page failed (${res.status})` };
   const buf = await readCapped(res, MAX_HTML_BYTES);
   const html = buf.toString("utf8");
+  const island = parseWorldTaobaoIsland(html);
   const parsed = parseWorldTaobaoHtml(html);
-  if (!parsed.title && !parsed.mainImage) throw { status: 404, msg: "Taobao item not found" };
+  const images = island && island.images.length ? island.images : parsed.images;
+  if (!island && !parsed.title && !parsed.mainImage) throw { status: 404, msg: "Taobao item not found" };
   return {
     itemId: String(itemId),
-    title: parsed.title || `Taobao item ${itemId}`,
-    mainImage: parsed.mainImage,
-    images: parsed.images,
-    priceCny: parsed.priceCny,
-    priceCnyHigh: parsed.priceCnyHigh,
+    title: (island && island.title) || parsed.title || `Taobao item ${itemId}`,
+    mainImage: images[0] || parsed.mainImage,
+    images,
+    priceCny: (island && island.priceCny != null ? island.priceCny : null) ?? parsed.priceCny,
+    priceCnyHigh: null,
     stock: null,
     attrGroups: [],
+    sellerName: (island && island.sellerName) || "",
   };
 }
 
@@ -579,6 +646,7 @@ async function handle(event) {
       summary: (enriched && enriched.summary) || "",
       category: (enriched && enriched.category) || "other",
       sizeNotes: (enriched && enriched.sizeNotes) || "",
+      seller: facts.sellerName || "",
       priceCny: facts.priceCny,
       priceCnyHigh: facts.priceCnyHigh,
       priceUsd: facts.priceCny != null ? Math.round(facts.priceCny * usdPerCny * 100) / 100 : null,
@@ -607,6 +675,7 @@ exports._test = {
   ali1688ItemId,
   classifyBuyLink,
   parseWorldTaobaoHtml,
+  parseWorldTaobaoIsland,
   parse1688Html,
   descImageUrls,
 };

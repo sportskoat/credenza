@@ -13,9 +13,14 @@ const {
   ali1688ItemId,
   classifyBuyLink,
   parseWorldTaobaoHtml,
+  parseWorldTaobaoIsland,
   parse1688Html,
   descImageUrls,
 } = _test;
+const WORLD_TAOBAO_FIXTURE = require("fs").readFileSync(
+  require("path").join(__dirname, "fixtures/resolve/world-taobao-item-752339164885.html"),
+  "utf8"
+);
 
 describe("classifyBuyLink", () => {
   it("classifies Weidian itemIDs", () => {
@@ -144,5 +149,35 @@ describe("descImageUrls (Weidian Product Details photos)", () => {
     expect(descImageUrls(many)).toHaveLength(20);
     expect(descImageUrls(null)).toEqual([]);
     expect(descImageUrls("nope")).toEqual([]);
+  });
+});
+
+describe("parseWorldTaobaoIsland (SEO data island)", () => {
+  it("reads title, gallery, real price, and seller from a live capture", () => {
+    const island = parseWorldTaobaoIsland(WORLD_TAOBAO_FIXTURE);
+    expect(island).toBeTruthy();
+    expect(island.title).toContain("Tagkita");
+    expect(island.images.length).toBeGreaterThan(0);
+    expect(island.images[0]).toMatch(/^https:\/\/img\.alicdn\.com\//);
+    expect(island.priceCny).toBe(145);
+    expect(island.sellerName).toContain("金鯊");
+  });
+
+  it("normalizes protocol-relative image URLs and drops junk", () => {
+    const html =
+      'var b = {"loaderData":{"pdp-pc":{"data":{"httpData":{"normalItemResponse":{' +
+      '"item":{"title":" Tee ","images":["//img.alicdn.com/a.jpg","notaurl","https://img.alicdn.com/a.jpg"]},' +
+      '"itemPrice":{"promotionPrice":"88.50"},"seller":{"shopName":"Shop"}}}}}}};';
+    const island = parseWorldTaobaoIsland(html);
+    expect(island.title).toBe("Tee");
+    expect(island.images).toEqual(["https://img.alicdn.com/a.jpg"]);
+    expect(island.priceCny).toBe(88.5);
+    expect(island.sellerName).toBe("Shop");
+  });
+
+  it("returns null when the island is absent or broken", () => {
+    expect(parseWorldTaobaoIsland("<html><body>no island</body></html>")).toBe(null);
+    expect(parseWorldTaobaoIsland('var b = {"loaderData": {broken')).toBe(null);
+    expect(parseWorldTaobaoIsland("")).toBe(null);
   });
 });
