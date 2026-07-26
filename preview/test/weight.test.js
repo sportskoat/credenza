@@ -12,9 +12,12 @@ describe("itemWeightGrams (A6)", () => {
     expect(itemWeightGrams({ category: "shoes", weightGrams: 400 })).toBe(400);
   });
 
-  it("falls back to the category default", () => {
+  it("falls back to the category band mid from weight-estimate", () => {
     expect(itemWeightGrams({ category: "shirt" })).toBe(CATEGORY_WEIGHT_GRAMS.shirt);
     expect(itemWeightGrams({ category: "shoes" })).toBe(CATEGORY_WEIGHT_GRAMS.shoes);
+    // Mids mirror WEIGHT_BANDS via CATEGORY_TO_WEIGHT_KEY (tee / low_sneaker).
+    expect(CATEGORY_WEIGHT_GRAMS.shirt).toBe(200);
+    expect(CATEGORY_WEIGHT_GRAMS.shoes).toBe(900);
   });
 
   it("rejects garbage overrides and falls back", () => {
@@ -22,6 +25,14 @@ describe("itemWeightGrams (A6)", () => {
     expect(itemWeightGrams({ category: "pants", weightGrams: -50 })).toBe(CATEGORY_WEIGHT_GRAMS.pants);
     expect(itemWeightGrams({ category: "pants", weightGrams: "abc" })).toBe(CATEGORY_WEIGHT_GRAMS.pants);
     expect(itemWeightGrams({ category: "pants", weightGrams: null })).toBe(CATEGORY_WEIGHT_GRAMS.pants);
+  });
+
+  it("prefers title keyword bands over the coarse category mid", () => {
+    expect(itemWeightGrams({ category: "shirt", title: "Heavyweight hoodie" })).toBe(850);
+  });
+
+  it("reads grams from listing notes before category bands", () => {
+    expect(itemWeightGrams({ category: "shirt", note: "Ship weight 380g" })).toBe(380);
   });
 
   it("returns null when neither override nor category is known", () => {

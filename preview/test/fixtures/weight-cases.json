@@ -1,16 +1,16 @@
 {
-  "version": 1,
-  "note": "Golden cases for itemWeightGrams / haulWeightGrams / volumetric / chargeable. Pure layer only. CATEGORY_WEIGHT_GRAMS values must match credenza-fashion.jsx.",
+  "version": 2,
+  "note": "Golden cases for itemWeightGrams / haulWeightGrams / volumetric / chargeable. CATEGORY_WEIGHT_GRAMS mids come from weight-estimate WEIGHT_BANDS via CATEGORY_TO_WEIGHT_KEY (2026-07-25 product wire).",
   "categoryDefaultsGrams": {
-    "shirt": 250,
-    "pants": 600,
-    "shorts": 350,
-    "shoes": 1100,
-    "outerwear": 900,
+    "shirt": 200,
+    "pants": 700,
+    "shorts": 300,
+    "shoes": 900,
+    "outerwear": 500,
     "accessory": 200,
-    "socks": 100,
-    "bag": 700,
-    "hat": 150,
+    "socks": 80,
+    "bag": 900,
+    "hat": 120,
     "other": 300
   },
   "itemWeightGrams": [
@@ -27,27 +27,27 @@
     {
       "id": "category-shirt",
       "item": { "category": "shirt" },
-      "expect": 250
+      "expect": 200
     },
     {
       "id": "category-shoes",
       "item": { "category": "shoes" },
-      "expect": 1100
+      "expect": 900
     },
     {
       "id": "garbage-zero-falls-back",
       "item": { "category": "pants", "weightGrams": 0 },
-      "expect": 600
+      "expect": 700
     },
     {
       "id": "garbage-negative-falls-back",
       "item": { "category": "pants", "weightGrams": -50 },
-      "expect": 600
+      "expect": 700
     },
     {
       "id": "garbage-string-falls-back",
       "item": { "category": "pants", "weightGrams": "abc" },
-      "expect": 600
+      "expect": 700
     },
     {
       "id": "unknown-category-null",
@@ -63,6 +63,16 @@
       "id": "rounds-fractional-override",
       "item": { "weightGrams": 123.7 },
       "expect": 124
+    },
+    {
+      "id": "title-hoodie-beats-shirt-category",
+      "item": { "category": "shirt", "title": "Heavyweight hoodie batch" },
+      "expect": 850
+    },
+    {
+      "id": "listing-text-grams",
+      "item": { "category": "shirt", "note": "Ship weight 380g after QC" },
+      "expect": 380
     }
   ],
   "haulWeightGrams": [
@@ -72,7 +82,7 @@
         { "category": "shirt" },
         { "category": "shoes", "weightGrams": 800 }
       ],
-      "expect": 1050
+      "expect": 1000
     },
     {
       "id": "skip-returned",

@@ -30,6 +30,12 @@ import {
   shouldReplaceFashionTitle as listingShouldReplaceTitle,
 } from "./listing-facts.js";
 import {
+  WEIGHT_BANDS,
+  CATEGORY_TO_WEIGHT_KEY,
+  estimateItemWeightGrams,
+  estimateHaulWeightGrams,
+} from "./weight-estimate.js";
+import {
   AUTH_ENABLED,
   saveSession,
   sessionFromUrl,
@@ -262,29 +268,17 @@ export const CATEGORIES = {
   other: { label: "Other", dot: "#8E8E93" },
 };
 
-// A6 (docs/Monetization.md): rough per-category ship weights in grams. These
-// are conservative middles from agent warehouse scales, not listing data —
-// always render with a "~" prefix, never fake precision. A per-item
-// weightGrams override (edit form) always wins.
-export const CATEGORY_WEIGHT_GRAMS = {
-  shirt: 250,
-  pants: 600,
-  shorts: 350,
-  shoes: 1100,
-  outerwear: 900,
-  accessory: 200,
-  socks: 100,
-  bag: 700,
-  hat: 150,
-  other: 300,
-};
+// A6 (docs/Monetization.md): rough per-category ship mids in grams. Values
+// come from weight-estimate WEIGHT_BANDS so haul chips match keyword bands.
+// Always render with a "~" prefix. Manual item.weightGrams still wins.
+export const CATEGORY_WEIGHT_GRAMS = Object.fromEntries(
+  Object.entries(CATEGORY_TO_WEIGHT_KEY).map(([cat, key]) => [cat, WEIGHT_BANDS[key].mid])
+);
 
-// Effective ship weight in grams: manual override first, then the category
-// default. Returns null when neither is known (no category set).
+// Effective planning ship weight: override → listing text → title keyword →
+// category band (weight-estimate.js). Returns null when no signal.
 export function itemWeightGrams(item) {
-  const override = Number(item?.weightGrams);
-  if (Number.isFinite(override) && override > 0) return Math.round(override);
-  return CATEGORY_WEIGHT_GRAMS[item?.category || ""] || null;
+  return estimateItemWeightGrams(item);
 }
 
 // "~1.2 kg" / "~350 g". Rounds to one decimal kg — rough by design.
@@ -297,17 +291,7 @@ export function formatWeightGrams(grams) {
 // Part 5 Tier A (task 8): the haul ship weight never counts returned items —
 // they leave the warehouse back to the seller, not to you.
 export function haulWeightGrams(items) {
-  let sum = 0;
-  let known = false;
-  for (const it of items || []) {
-    if ((it?.findStatus || "want") === "returned") continue;
-    const w = itemWeightGrams(it);
-    if (w != null) {
-      sum += w;
-      known = true;
-    }
-  }
-  return known ? sum : null;
+  return estimateHaulWeightGrams(items);
 }
 
 // Part 5 Tier A (task 9): chargeable parcel weight. Carriers bill the larger

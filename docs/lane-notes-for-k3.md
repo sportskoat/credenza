@@ -148,12 +148,14 @@ Landed **without** product UI wire (your tree is dirty on fashion jsx):
 
 Priority: override → listing text / `listingWeightGrams` → title keyword → category band → null.
 
-When you are idle and want haul board bands:
+**Landed 2026-07-25 night (Claude product wire, no deploy):**
 
-1. Import `estimateItemWeight` from `weight-estimate.js`.
-2. Prefer it for display mid/low/high + reason. Keep `itemWeightGrams` as a thin wrapper if needed.
-3. Do not invent live ship dollars from bands.
-4. Show `~` always. Agent warehouse remains the final truth.
+1. `itemWeightGrams` / `haulWeightGrams` call `weight-estimate.js`.
+2. `CATEGORY_WEIGHT_GRAMS` mids come from `WEIGHT_BANDS` via `CATEGORY_TO_WEIGHT_KEY`.
+3. Title keywords and listing-note grams beat coarse category mids.
+4. Existing haul chip still uses `formatWeightGrams` (`~`). No ship-dollar invention.
+
+When you polish HaulBoard UI later: optional low–high band line via `formatWeightEstimate`. Agent warehouse remains the final truth.
 
 Kyle rule: **default no Netlify deploy** (credit burn). Commit + tests only unless he asks to ship.
 

@@ -89,7 +89,7 @@ Not wired into resolve merge or chart-vision hosts yet. That needs a quiet produ
 | `preview/test/fixtures/link-context-corpus.json` | Small golden mention index |
 | `preview/test/link-context.test.js` | L0 tests + frozen 22-post FashionReps score |
 
-Product UI not wired (K3 dirty tree). No Netlify deploy from this slice.
+Product UI: `itemWeightGrams` / `haulWeightGrams` wired through `weight-estimate.js` on 2026-07-25 night (no Netlify deploy). Link-context L0 still not on cards.
 
 ### 1.4 Revert strategy
 
