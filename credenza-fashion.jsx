@@ -1143,6 +1143,24 @@ function weidianItemId(raw) {
   return pathMatch ? pathMatch[1] : null;
 }
 
+/** Taobao / Tmall listing id — mirrors resolve.js taobaoFamilyItemId. */
+function taobaoFamilyItemId(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^www\./, "").toLowerCase();
+  const isTaobao =
+    /(^|\.)(taobao|tmall)\.com$/.test(host) || host === "m.tb.cn" || /(^|\.)tb\.cn$/.test(host);
+  if (!isTaobao) return null;
+  const id = u.searchParams.get("id") || u.searchParams.get("itemId") || u.searchParams.get("item_id");
+  if (id && /^\d{5,}$/.test(id)) return id;
+  const path = u.pathname.match(/\/item\/(\d{5,})/);
+  return path ? path[1] : null;
+}
+
 function yupooAlbumIdentity(raw) {
   try {
     const url = new URL(raw);
@@ -1175,9 +1193,10 @@ function ensureYupooAlbumUid(raw) {
 
 // First resolvable buy URL on an item: the primary URL or any paired link.
 function resolvableBuyUrl(item) {
-  if (item.url && weidianItemId(item.url)) return item.url;
+  const isResolvable = (raw) => !!(weidianItemId(raw) || taobaoFamilyItemId(raw));
+  if (item.url && isResolvable(item.url)) return item.url;
   for (const l of item.links || []) {
-    if (l && l.url && weidianItemId(l.url)) return l.url;
+    if (l && l.url && isResolvable(l.url)) return l.url;
   }
   return null;
 }

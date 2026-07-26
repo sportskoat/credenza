@@ -1,9 +1,9 @@
-// Buy-link resolver for Credenza (fashion build). Given a Weidian item URL,
-// fetches the item's public SKU API server-side (the product page itself is an
-// empty JS shell), then asks Claude to translate the Chinese title and variant
-// names into English, categorize the garment, and summarize sizing. Returns
-// structured JSON the client can drop straight onto a card. No dependencies.
+// Buy-link resolver for Credenza (fashion build). Weidian: public SKU API +
+// Claude translate. Taobao/Tmall: world.taobao.com HTML og:title/og:image (price
+// often missing — photo + title still beat monogram cards). Fail open on
+// Claude. SSRF via safeFetch for HTML hosts. No dependencies.
 
+const { safeFetch, readCapped } = require("./lib/guard.js");
 const limit = require("./lib/limit.js");
 const paidGate = require("./lib/paid-gate.js");
 
@@ -16,7 +16,10 @@ const FX_API = "https://open.er-api.com/v6/latest/CNY";
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 const TIMEOUT_MS = 20000;
 const MAX_VARIANT_VALUES = 60;
+const MAX_HTML_BYTES = 1.5 * 1024 * 1024;
 const MODEL = process.env.CREDENZA_RESOLVE_MODEL || "claude-haiku-4-5";
+// world.taobao + redirects stay on taobao hosts (not arbitrary web).
+const TAOBAO_PAGE_HOST = /(^|\.)(world\.)?taobao\.com$/i;
 
 function response(statusCode, payload, extraHeaders) {
   return {
@@ -39,6 +42,110 @@ function weidianItemId(raw) {
   if (id && /^\d{5,}$/.test(id)) return id;
   const pathMatch = u.pathname.match(/\/item\/(\d{5,})/);
   return pathMatch ? pathMatch[1] : null;
+}
+
+/** Taobao or Tmall numeric id from common listing URL shapes. */
+function taobaoFamilyItemId(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^www\./, "").toLowerCase();
+  const isTaobao = /(^|\.)(taobao|tmall)\.com$/.test(host) || host === "m.tb.cn" || /(^|\.)tb\.cn$/.test(host);
+  if (!isTaobao) return null;
+  const id =
+    u.searchParams.get("id") ||
+    u.searchParams.get("itemId") ||
+    u.searchParams.get("item_id");
+  if (id && /^\d{5,}$/.test(id)) {
+    const marketplace = /tmall/.test(host) ? "tmall" : "taobao";
+    return { marketplace, itemId: id };
+  }
+  const path = u.pathname.match(/\/item\/(\d{5,})/);
+  if (path) return { marketplace: /tmall/.test(host) ? "tmall" : "taobao", itemId: path[1] };
+  return null;
+}
+
+/** Classify a buy URL. Returns { marketplace, itemId } or null. */
+function classifyBuyLink(raw) {
+  const w = weidianItemId(raw);
+  if (w) return { marketplace: "weidian", itemId: w };
+  return taobaoFamilyItemId(raw);
+}
+
+/** Parse world.taobao HTML for title + main image (og tags). Price often absent. */
+function parseWorldTaobaoHtml(html) {
+  const src = String(html || "");
+  const og = (prop) => {
+    const re = new RegExp(
+      `<meta[^>]+(?:property|name)=["']og:${prop}["'][^>]+content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:${prop}["']`,
+      "i"
+    );
+    const m = src.match(re);
+    return (m && (m[1] || m[2]) || "").trim();
+  };
+  let title = og("title");
+  if (title) {
+    title = title
+      .replace(/\s*[-–|].{0,40}(淘寶|淘宝|Taobao|Tmall|天貓|天猫).*$/i, "")
+      .replace(/\.\.\.\s*$/, "…")
+      .trim();
+  }
+  if (!title) {
+    const t = src.match(/<title>([^<]+)<\/title>/i);
+    title = t ? t[1].replace(/\s*[-–|].{0,40}(淘寶|淘宝|Taobao|Tmall).*$/i, "").trim() : "";
+  }
+  let mainImage = og("image") || null;
+  if (mainImage && mainImage.startsWith("//")) mainImage = "https:" + mainImage;
+  // Optional price: ¥123 or "price":"123.00"
+  let priceCny = null;
+  const priceMatch =
+    src.match(/[¥￥]\s*([0-9]+(?:\.[0-9]{1,2})?)/) ||
+    src.match(/"price"\s*:\s*"?(?:¥|￥)?([0-9]+(?:\.[0-9]{1,2})?)"?/);
+  if (priceMatch) {
+    const n = parseFloat(priceMatch[1]);
+    if (isFinite(n) && n > 0 && n < 1e6) priceCny = n;
+  }
+  return {
+    title: title || "",
+    mainImage,
+    images: mainImage ? [mainImage] : [],
+    priceCny,
+    priceCnyHigh: null,
+    stock: null,
+    attrGroups: [],
+  };
+}
+
+async function fetchTaobaoWorldFacts(itemId, signal) {
+  const pageUrl = `https://world.taobao.com/item/${itemId}.htm`;
+  const res = await safeFetch(pageUrl, {
+    headers: {
+      "user-agent": UA,
+      accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+      "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8",
+    },
+    signal,
+    hosts: TAOBAO_PAGE_HOST,
+    maxRedirects: 4,
+  });
+  if (!res.ok) throw { status: 502, msg: `Taobao page failed (${res.status})` };
+  const buf = await readCapped(res, MAX_HTML_BYTES);
+  const html = buf.toString("utf8");
+  const parsed = parseWorldTaobaoHtml(html);
+  if (!parsed.title && !parsed.mainImage) throw { status: 404, msg: "Taobao item not found" };
+  return {
+    itemId: String(itemId),
+    title: parsed.title || `Taobao item ${itemId}`,
+    mainImage: parsed.mainImage,
+    images: parsed.images,
+    priceCny: parsed.priceCny,
+    priceCnyHigh: parsed.priceCnyHigh,
+    stock: null,
+    attrGroups: [],
+  };
 }
 
 async function fetchWeidianItem(itemId, signal) {
@@ -143,12 +250,13 @@ const ENRICH_TOOL = {
 };
 
 async function enrichWithClaude(apiKey, facts, signal) {
+  const groups = Array.isArray(facts.attrGroups) ? facts.attrGroups : [];
   const compact = {
     title: facts.title,
     priceCny: facts.priceCny,
-    variantGroups: facts.attrGroups.map((g) => ({
+    variantGroups: groups.map((g) => ({
       title: g.title,
-      values: g.values.map((v) => v.name),
+      values: (g.values || []).map((v) => v.name),
     })),
   };
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -163,7 +271,7 @@ async function enrichWithClaude(apiKey, facts, signal) {
       model: MODEL,
       max_tokens: 4000,
       system:
-        "You translate Chinese marketplace (Weidian) fashion listings into concise English for a personal shopping shelf. Translate faithfully, keep brand and model names recognizable, and categorize the garment. Variant values must be returned in the same order they were given.",
+        "You translate Chinese marketplace (Weidian, Taobao, Tmall) fashion listings into concise English for a personal shopping shelf. Translate faithfully, keep brand and model names recognizable, and categorize the garment. Variant values must be returned in the same order they were given. If the title is already useful English, keep it short and natural.",
       messages: [
         {
           role: "user",
@@ -204,8 +312,8 @@ async function handle(event) {
   const url = input && typeof input.url === "string" ? input.url.trim() : "";
   if (!url || url.length > 2048) return response(400, { error: "url must be a non-empty string" });
 
-  const itemId = weidianItemId(url);
-  if (!itemId) return response(422, { error: "Not a resolvable buy link" });
+  const classified = classifyBuyLink(url);
+  if (!classified) return response(422, { error: "Not a resolvable buy link" });
 
   const blocked = limit.enter(ROUTE, limit.clientKey(event));
   if (blocked) {
@@ -214,11 +322,30 @@ async function handle(event) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const [result, usdPerCny] = await Promise.all([
-      fetchWeidianItem(itemId, controller.signal),
-      fetchUsdRate(controller.signal),
-    ]);
-    const facts = extractFacts(result);
+    let facts;
+    let canonicalUrl;
+    if (classified.marketplace === "weidian") {
+      const [result, usdPerCny] = await Promise.all([
+        fetchWeidianItem(classified.itemId, controller.signal),
+        fetchUsdRate(controller.signal),
+      ]);
+      facts = extractFacts(result);
+      // stash rate on facts for response builder below
+      facts._usdPerCny = usdPerCny;
+      canonicalUrl = `https://weidian.com/item.html?itemID=${facts.itemId || classified.itemId}`;
+    } else {
+      // taobao | tmall — HTML og tags; price often null
+      const [tbFacts, usdPerCny] = await Promise.all([
+        fetchTaobaoWorldFacts(classified.itemId, controller.signal),
+        fetchUsdRate(controller.signal),
+      ]);
+      facts = tbFacts;
+      facts._usdPerCny = usdPerCny;
+      canonicalUrl =
+        classified.marketplace === "tmall"
+          ? `https://detail.tmall.com/item.htm?id=${classified.itemId}`
+          : `https://item.taobao.com/item.htm?id=${classified.itemId}`;
+    }
 
     // Translation is an enhancement: the raw facts already make a usable card,
     // so a Claude failure degrades to untranslated output instead of erroring.
@@ -231,7 +358,7 @@ async function handle(event) {
       }
     }
 
-    const variantGroups = facts.attrGroups.map((group, gi) => ({
+    const variantGroups = (facts.attrGroups || []).map((group, gi) => ({
       title:
         (enriched && enriched.variantGroups && enriched.variantGroups[gi] && enriched.variantGroups[gi].title) ||
         group.title,
@@ -247,11 +374,12 @@ async function handle(event) {
       })),
     }));
 
+    const usdPerCny = facts._usdPerCny != null ? facts._usdPerCny : FX_FALLBACK_USD_PER_CNY;
     await paidGate.recordPaidUsage(gate, "resolve");
     return response(200, {
-      source: "weidian",
-      itemId: facts.itemId,
-      url: `https://weidian.com/item.html?itemID=${facts.itemId}`,
+      source: classified.marketplace,
+      itemId: facts.itemId || classified.itemId,
+      url: canonicalUrl,
       title: (enriched && enriched.titleEn) || facts.title,
       originalTitle: facts.title,
       summary: (enriched && enriched.summary) || "",
@@ -263,7 +391,7 @@ async function handle(event) {
       usdPerCny,
       stock: facts.stock,
       mainImage: facts.mainImage,
-      images: facts.images,
+      images: facts.images || [],
       variantGroups,
       translated: !!enriched,
     });
@@ -276,6 +404,14 @@ async function handle(event) {
     limit.leave(ROUTE);
   }
 }
+
+// Pure helpers for unit tests (createRequire).
+exports._test = {
+  weidianItemId,
+  taobaoFamilyItemId,
+  classifyBuyLink,
+  parseWorldTaobaoHtml,
+};
 
 // Outcome log for every request — status + latency only, never content.
 exports.handler = async (event) => {

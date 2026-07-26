@@ -1,6 +1,6 @@
 # Spec — Empty Taobao cards after Reddit haul paste
 
-**Status:** Research only. Do not implement while K3 owns UI.  
+**Status:** LANDED 2026-07-25 — world.taobao HTML og:title/og:image path. Price often null. 1688 still open.  
 **Date:** 2026-07-25  
 **Reporter:** Kyle (screenshots of monogram Taobao cards + blank flipped backs)  
 **Owner later:** Pure/server lane after gallery lands  
@@ -172,3 +172,15 @@ Extractors can live in a **new** file such as `marketplace-ids.js` later. Do not
 - [ ] Choose Option A/B/C with Kyle if A needs a new external host
 - [ ] Implement extractors + resolve branch + fixtures
 - [ ] Gate + deploy + session-state
+
+
+---
+
+## 11. Landed (2026-07-25)
+
+1. `classifyBuyLink` / `taobaoFamilyItemId` in `resolve.js` + client `resolvableBuyUrl`.
+2. `fetchTaobaoWorldFacts` via `safeFetch` to `world.taobao.com/item/{id}.htm` (host allowlist).
+3. `parseWorldTaobaoHtml` reads og:title + og:image; optional ¥ price when present.
+4. Claude enrich runs on the same path as Weidian (fail open).
+5. Pure tests: `preview/test/resolve-function.test.js`.
+6. **Not fixed:** 1688, short tb.cn without id expansion, reliable price when og has none.
