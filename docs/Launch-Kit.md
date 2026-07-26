@@ -304,3 +304,9 @@ It is fixed and covered by a regression test.
 Cloudflare blocks automated browsers, not you. **To clear the last three, open
 one item through each in your own browser and tell me what happens.** Then I
 flip `verified`. That is 5 minutes of your time and it cannot be automated.
+
+---
+
+## Related
+
+- [[Shelf-Reimport-2026-07-22]] — personal shelf list (17 items) to paste after launch

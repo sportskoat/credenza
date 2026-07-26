@@ -109,6 +109,31 @@ before running the suite.
 
 ---
 
+## 2026-07-25 night — Customer layout (flip + smaller cards + no batch UI)
+
+NOTE (2026-07-26): item 2 below is SUPERSEDED. `useIsWideDetail` is now
+`(min-width: 768px)` and the carousel no longer flips. See the Fansbuy /
+flip section above.
+
+Kyle: cards too big; restore flip; drop batch box; status dropdown; one photo strip under hero; bigger notes.
+
+1. Carousel desktop cap ~30% smaller: min(50vw,392) × min(60vh,574). Overlay scales with it.
+2. `useIsWideDetail` always false → flip card on every width (DesktopDetailPanel not selected).
+3. DetailBody: Batch cell gone; status = full-pipeline `<select>`; photos n/12 under hero only; roomier notes.
+4. Data field `batch` still migrates/stores; just no UI. fashion-app tests updated (40 green).
+
+Local: `cd preview && npm run dev -- --host 127.0.0.1 --port 5173`.
+
+## 2026-07-25 night — Chart hunt + weight bands (Claude pure→product, no deploy)
+
+Commits on main (local, not prod):
+
+1. **`a2ea185` chart hunt.** Gallery scans forward windows of 10 from the start (cap 20) so early size-chart slides (Kyle Mook tee 2/9) are not dropped by `slice(-10)`. FitBlock marks `chartHuntTried` only after a finished hunt and clears hunting on abort so remounts do not stick on “Looking for the seller’s size chart…”.
+2. **`644e87d` weight wire.** `itemWeightGrams` / `haulWeightGrams` call `weight-estimate.js` (title keywords + listing grams beat coarse category mids). Haul chips still `~`.
+3. Prior same night: usual size FitBlock hero when no chart; pure weight-estimate + link-context L0; migrate maximal fixture.
+
+Tests green for hunt + weight suites. **No Netlify deploy.** Batch remains unsolved. Link-context UI not on cards yet.
+
 ## 2026-07-25 night — Customer walkthrough audit fixes (K3 lane, `d0ff7f1`, NOT deployed)
 
 Re-ran all four customer walkthroughs against the current build
