@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "note": "Golden cases for estimateItemWeight pure API. Spec: pure-layer-exhaustiveness-plan.md §5. Does not change product UI.",
+  "shoeboxGrams": 400,
+  "parseWeightFromText": [
+    { "id": "bare-g", "text": "480g", "expectGrams": 480 },
+    { "id": "space-g", "text": "480 g", "expectGrams": 480 },
+    { "id": "kg-dot", "text": "0.48kg", "expectGrams": 480 },
+    { "id": "kg-space", "text": "0.48 kg", "expectGrams": 480 },
+    { "id": "cn-approx", "text": "约500克", "expectGrams": 500 },
+    { "id": "cn-bare", "text": "500克", "expectGrams": 500 },
+    { "id": "one-two-kg", "text": "1.2 kg", "expectGrams": 1200 },
+    { "id": "noise", "text": "nice fleece no mass", "expectGrams": null },
+    { "id": "body-mass", "text": "I am 75kg 180cm", "expectGrams": null }
+  ],
+  "refineWeightKeyFromText": [
+    { "id": "hoodie-en", "text": "Gallery Dept hoodie black", "category": "shirt", "expectKey": "hoodie" },
+    { "id": "heavy-hoodie", "text": "heavyweight hoodie 450g fleece", "category": "shirt", "expectKey": "heavy_hoodie" },
+    { "id": "jeans", "text": "washed denim jeans", "category": "pants", "expectKey": "jeans" },
+    { "id": "sweats", "text": "logo sweatpants", "category": "pants", "expectKey": "sweatpants" },
+    { "id": "boot", "text": "Chelsea boot leather", "category": "shoes", "expectKey": "boot" },
+    { "id": "slide", "text": "Yeezy slide bone", "category": "shoes", "expectKey": "slide" },
+    { "id": "sneaker-default", "text": "AJ1 high OG", "category": "shoes", "expectKey": "low_sneaker" },
+    { "id": "tee", "text": "box logo tee", "category": "", "expectKey": "tee" },
+    { "id": "category-only-shirt", "text": "", "category": "shirt", "expectKey": "tee" },
+    { "id": "category-only-outer", "text": "", "category": "outerwear", "expectKey": "light_jacket" },
+    { "id": "empty", "text": "", "category": "", "expectKey": null }
+  ],
+  "estimateItemWeight": [
+    {
+      "id": "override-wins",
+      "item": { "category": "shirt", "weightGrams": 420, "title": "hoodie that would be 650" },
+      "expect": {
+        "grams": 420,
+        "lowGrams": 420,
+        "highGrams": 420,
+        "source": "override",
+        "confidence": "high"
+      }
+    },
+    {
+      "id": "listing-text-wins-over-category",
+      "item": { "category": "shirt", "title": "fleece hoodie", "note": "ship weight 480g" },
+      "expect": {
+        "grams": 480,
+        "source": "listing",
+        "confidence": "high"
+      }
+    },
+    {
+      "id": "listingWeightGrams-field",
+      "item": { "category": "shoes", "listingWeightGrams": 950 },
+      "expect": {
+        "grams": 950,
+        "source": "listing",
+        "confidence": "high"
+      }
+    },
+    {
+      "id": "keyword-hoodie",
+      "item": { "category": "shirt", "title": "Essentials hoodie" },
+      "expect": {
+        "grams": 650,
+        "lowGrams": 450,
+        "highGrams": 900,
+        "source": "title",
+        "confidence": "mid",
+        "key": "hoodie"
+      }
+    },
+    {
+      "id": "category-shirt-tee",
+      "item": { "category": "shirt" },
+      "expect": {
+        "grams": 200,
+        "lowGrams": 150,
+        "highGrams": 280,
+        "source": "category",
+        "confidence": "low",
+        "key": "tee"
+      }
+    },
+    {
+      "id": "category-shoes-sneaker",
+      "item": { "category": "shoes" },
+      "expect": {
+        "grams": 900,
+        "key": "low_sneaker",
+        "source": "category"
+      }
+    },
+    {
+      "id": "unknown-null",
+      "item": {},
+      "expect": {
+        "grams": null,
+        "lowGrams": null,
+        "highGrams": null,
+        "source": "unknown",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "garbage-override-falls-to-category",
+      "item": { "category": "pants", "weightGrams": 0 },
+      "expect": {
+        "grams": 700,
+        "key": "jeans",
+        "source": "category"
+      }
+    },
+    {
+      "id": "shoebox-subtract",
+      "item": { "category": "shoes", "packNoShoebox": true },
+      "expect": {
+        "grams": 500,
+        "key": "low_sneaker",
+        "source": "category"
+      },
+      "note": "900 mid − 400 box"
+    },
+    {
+      "id": "shoebox-does-not-touch-override",
+      "item": { "category": "shoes", "weightGrams": 1100, "packNoShoebox": true },
+      "expect": {
+        "grams": 1100,
+        "source": "override"
+      }
+    },
+    {
+      "id": "boot-keyword",
+      "item": { "category": "shoes", "title": "Timberland boot" },
+      "expect": {
+        "grams": 1400,
+        "key": "boot",
+        "source": "title"
+      }
+    }
+  ],
+  "estimateHaulWeightGrams": [
+    {
+      "id": "sum-two",
+      "items": [
+        { "category": "shirt", "title": "plain tee" },
+        { "category": "shoes", "weightGrams": 800 }
+      ],
+      "expect": 1000
+    },
+    {
+      "id": "skip-returned",
+      "items": [
+        { "category": "shirt", "title": "tee", "weightGrams": 300 },
+        { "category": "shoes", "weightGrams": 800, "findStatus": "returned" }
+      ],
+      "expect": 300
+    },
+    {
+      "id": "all-unknown-null",
+      "items": [{ "title": "mystery" }],
+      "expect": null
+    },
+    {
+      "id": "empty-null",
+      "items": [],
+      "expect": null
+    }
+  ]
+}

@@ -136,6 +136,27 @@ DetailBody already shows size run from variants. You do not need a UI change for
 4. Do not invent weight.  
 5. Taobao still needs a real SKU path for size/color (separate from gallery).
 
+### 4.3 Weight band estimator (pure, 2026-07-25 night)
+
+Landed **without** product UI wire (your tree is dirty on fashion jsx):
+
+| Path | Purpose |
+|------|---------|
+| `weight-estimate.js` | `estimateItemWeight`, bands, keyword refine, shoebox rule |
+| `preview/test/fixtures/weight-estimate-cases.json` | Golden cases |
+| `preview/test/weight-estimate.test.js` | Pure tests (no fashion jsx load) |
+
+Priority: override → listing text / `listingWeightGrams` → title keyword → category band → null.
+
+When you are idle and want haul board bands:
+
+1. Import `estimateItemWeight` from `weight-estimate.js`.
+2. Prefer it for display mid/low/high + reason. Keep `itemWeightGrams` as a thin wrapper if needed.
+3. Do not invent live ship dollars from bands.
+4. Show `~` always. Agent warehouse remains the final truth.
+
+Kyle rule: **default no Netlify deploy** (credit burn). Commit + tests only unless he asks to ship.
+
 ---
 
 ## 5. Your in-flight dirty tree (do not lose)
