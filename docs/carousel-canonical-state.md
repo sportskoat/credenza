@@ -5,6 +5,11 @@
 carousel ever "freaks out," cards go invisible, or interactions feel wrong,
 diff against `08f48c2` and re-read this file before rewriting anything.
 
+**Card size update (Kyle 2026-07-25):** desktop cards are 30% larger —
+`320x460` → `416x598` (CSS `.cz-carousel-card`, the JS `cardSize` mirror in
+`CoverFlowCarousel.jsx`, track heights/padding). Phone stays `80vw x 440`.
+The physics below are unchanged; only the size inputs moved.
+
 ---
 
 ## Architecture (the part that must not change)

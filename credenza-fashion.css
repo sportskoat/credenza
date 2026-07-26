@@ -10,6 +10,9 @@
   --z-sheet: 80;
   --z-gallery: 100;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* t-resize (transitions.dev): card size tweens (Kyle 2026-07-25). */
+  --resize-dur: 300ms;
+  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Danger on photo overlays (delete chips) — hardcoded dark-glass chips sit
      on arbitrary photos in both themes, so this doesn't come from a palette. */
   --cz-overlay-danger: #f87171;
@@ -358,17 +361,19 @@
   display: flex;
   align-items: center;
   gap: 3vw;
-  padding: 0 calc(50% - min(36vw, 160px));
+  padding: 0 calc(50% - min(36vw, 208px));
   transform-style: preserve-3d;
-  min-height: 480px;
+  min-height: 618px;
   pointer-events: none;
 }
 
 .cz-carousel-card {
   --cz-card-side: 0;
   flex: 0 0 auto;
-  width: min(72vw, 320px);
-  height: 460px;
+  /* Desktop card: 30% larger (Kyle 2026-07-25) — 320x460 → 416x598.
+     The ≤480px media query below keeps the phone at 80vw x 440. */
+  width: min(72vw, 416px);
+  height: 598px;
   margin: 0 -2.5vw;
   transform-style: preserve-3d;
   user-select: none;
@@ -2203,7 +2208,8 @@ a.cz-seller-quiet:focus-visible {
   position: relative;
   display: block;
   width: 100%;
-  height: 520px;
+  /* Card 598 + 30px slack top/bottom (was 520 for the 460 card). */
+  height: 658px;
   min-height: auto;
   margin: 0;
   padding: 0;
@@ -2216,18 +2222,19 @@ a.cz-seller-quiet:focus-visible {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(72vw, 320px);
-  height: 460px;
+  width: min(72vw, 416px);
+  height: 598px;
   margin: 0;
   scroll-snap-align: unset;
   transform: translate(-50%, -50%);
   transform-style: preserve-3d;
-  /* t-resize (transitions.dev): tween width + centering margin when the card
-     enters edit mode. transform stays JS-driven; is-moving still kills it. */
+  /* t-resize (transitions.dev): tween width/height + centering margin when
+     the card resizes. transform stays JS-driven; is-moving still kills it. */
   transition:
     width var(--resize-dur, 300ms) var(--resize-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    height var(--resize-dur, 300ms) var(--resize-ease, cubic-bezier(0.22, 1, 0.36, 1)),
     margin-left var(--resize-dur, 300ms) var(--resize-ease, cubic-bezier(0.22, 1, 0.36, 1));
-  will-change: width;
+  will-change: width, height;
   cursor: grab;
 }
 

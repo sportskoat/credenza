@@ -669,7 +669,7 @@ export default function CoverFlowCarousel({
   const containerRef = useRef(null);
   const [activeIndex, setActiveIndexState] = useState(0);
   const activeIndexRef = useRef(0);
-  const [cardSize, setCardSize] = useState({ width: 320, height: 460 });
+  const [cardSize, setCardSize] = useState({ width: 416, height: 598 });
   const reduced = usePrefersReducedMotion();
   const wheelAcc = useRef(0);
   const wheelTimer = useRef(null);
@@ -763,11 +763,12 @@ export default function CoverFlowCarousel({
 
   useEffect(() => {
     // Same card size for coverflow and the solo modal popup (Kyle 2026-07-23 —
-    // enlarged solo cards were too big).
+    // enlarged solo cards were too big). Desktop cards are 30% larger
+    // (Kyle 2026-07-25): 320x460 → 416x598; the phone keeps 80vw x 440.
     const update = () => {
-      const w = typeof window !== "undefined" ? window.innerWidth : 320;
-      const width = w <= 480 ? w * 0.8 : Math.min(w * 0.72, 320);
-      const height = w <= 480 ? 440 : 460;
+      const w = typeof window !== "undefined" ? window.innerWidth : 416;
+      const width = w <= 480 ? w * 0.8 : Math.min(w * 0.72, 416);
+      const height = w <= 480 ? 440 : 598;
       setCardSize({ width, height });
     };
     update();
