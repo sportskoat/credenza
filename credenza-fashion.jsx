@@ -653,7 +653,33 @@ export function parseSizeChart(text) {
   }
 
   if (rows.length < 2) return null;
-  return { rows, runHint: sizeRunHint(src) };
+  // Chinese tee charts often print 半胸 / pit-to-pit (half chest). Body profile
+  // and ease math need full circumference. Double when every chest column is
+  // in the half-chest band, or the source text says half/flat measure.
+  const rowsNorm = normalizeHalfChestRows(rows, src);
+  return { rows: rowsNorm, runHint: sizeRunHint(src) };
+}
+
+// Half-chest (pit-to-pit) → full circumference. Adult full chest is almost
+// never under ~80cm across a letter-size run; half-chest sits ~38–65.
+export function normalizeHalfChestRows(rows, src = "") {
+  if (!Array.isArray(rows) || rows.length < 2) return rows;
+  const chests = rows.map((r) => r && r.chest).filter((v) => v != null && isFinite(v));
+  if (chests.length < 2) return rows;
+  const max = Math.max(...chests);
+  const min = Math.min(...chests);
+  const halfHint =
+    /半胸|平量|pit[\s-]*to[\s-]*pit|half[\s-]*chest|1\/2[\s-]*chest|½[\s-]*chest|1\/2胸/i.test(
+      String(src || "")
+    );
+  // Full adult tops: max chest usually ≥80. Half-chest runs rarely exceed 72.
+  // Span cap avoids treating a weird partial full-chest column as half.
+  const looksHalf = halfHint || (max <= 72 && min >= 28 && max - min <= 40);
+  if (!looksHalf) return rows;
+  return rows.map((r) => {
+    if (!r || r.chest == null || !isFinite(r.chest)) return r;
+    return { ...r, chest: Math.round(r.chest * 2) };
+  });
 }
 
 // Pick a size from a parsed chart against a body profile (all cm; weight kg).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, sizeChartTextFor, usualSizeForItem } from "../../credenza-fashion.jsx";
+import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, sizeChartTextFor, usualSizeForItem } from "../../credenza-fashion.jsx";
 
 describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
   it("maps tops / bottoms / shoes slots", () => {
@@ -123,6 +123,47 @@ describe("parseSizeChart", () => {
     const chart = parseSizeChart("S: 胸围8 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70");
     expect(chart.rows[0].chest).toBeUndefined();
     expect(chart.rows[0].length).toBe(66);
+  });
+
+  // Weidian / vision charts often print pit-to-pit half chest (~43–49). Body
+  // profile is full circumference; without *2, XL reads as 19.3″ on a 39″ chest.
+  it("doubles half-chest columns into full circumference", () => {
+    const chart = parseSizeChart(
+      "S: chest 43 shoulder 49 sleeve 21 length 67\n" +
+        "M: chest 45 shoulder 51 sleeve 22 length 69\n" +
+        "L: chest 47 shoulder 53 sleeve 23 length 71\n" +
+        "XL: chest 49 shoulder 55 sleeve 24 length 73"
+    );
+    expect(chart.rows.map((r) => r.chest)).toEqual([86, 90, 94, 98]);
+    expect(chart.rows[0].shoulder).toBe(49); // not doubled
+    const rec = recommendSize(chart, { chest: 99 }, "shirt");
+    expect(rec.garment).toBeGreaterThan(80);
+    expect(rec.diff).toBeLessThan(20);
+  });
+
+  it("doubles when the source says 半胸 even if numbers are ambiguous", () => {
+    const chart = parseSizeChart(
+      "半胸 size chart\nS: 胸围50 衣长66\nM: 胸围52 衣长68\nL: 胸围54 衣长70"
+    );
+    expect(chart.rows.map((r) => r.chest)).toEqual([100, 104, 108]);
+  });
+
+  it("does not double real full-chest charts", () => {
+    const chart = parseSizeChart(
+      "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70"
+    );
+    expect(chart.rows.map((r) => r.chest)).toEqual([108, 112, 116]);
+  });
+
+  it("normalizeHalfChestRows is pure and skips non-chest rows", () => {
+    const out = normalizeHalfChestRows(
+      [
+        { size: "S", chest: 44 },
+        { size: "M", chest: 46 },
+      ],
+      ""
+    );
+    expect(out.map((r) => r.chest)).toEqual([88, 92]);
   });
 });
 
