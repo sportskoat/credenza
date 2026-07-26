@@ -21,3 +21,6 @@ preview/.agent-verify2/
 
 # UI audit screenshots (Playwright artifacts)
 preview/scripts/ui-audit/
+
+# Local Playwright / probe screenshots
+preview/.verify-shots/

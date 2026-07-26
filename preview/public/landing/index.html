@@ -6,221 +6,1657 @@
     <title>Credenza Fashion · the agent haul planner</title>
     <meta
       name="description"
-      content="Credenza is a Taobao, Weidian, and 1688 shopping organizer. Save links, sizes, QC photos, and ship estimates on one shelf — then open Buy in your preferred shopping agent."
+      content="Credenza is a Taobao, Weidian and 1688 shopping organizer. Paste a link and it becomes a card with the photos, the price and a size pick. Track QC, group it into a haul, then open Buy in your own agent."
     />
     <meta name="theme-color" content="#000000" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="canonical" href="/landing/" />
-    <meta property="og:title" content="Credenza Fashion · the agent haul planner" />
+    <link rel="canonical" href="https://credenzafashion.com/landing/" />
+    <meta property="og:title" content="Your haul lives in 40 tabs and a note app." />
     <meta
       property="og:description"
-      content="One shelf for the whole haul: links, sizes, QC, ship estimates. Buy opens in your agent."
+      content="Credenza is a Taobao, Weidian and 1688 shopping organizer. Paste a link, get a card with photos, size and QC. Buy opens in your agent."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://credenzafashion.com/landing/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Credenza Fashion: Your haul lives in 40 tabs and a note app."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Your haul lives in 40 tabs and a note app." />
+    <meta
+      name="twitter:description"
+      content="Paste a link, get a card with photos, size and QC. Buy opens in your agent."
+    />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Credenza Fashion",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "Web",
+        "url": "https://credenzafashion.com/",
+        "image": "https://credenzafashion.com/og.png",
+        "description": "Agent haul planner: stash Weidian, Yupoo, and Taobao finds, recommend size from charts, track QC, open Buy in your preferred shopping agent.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Credenza Fashion",
+          "url": "https://credenzafashion.com/",
+          "logo": "https://credenzafashion.com/icon-512.png",
+          "email": "wenselllc@gmail.com"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Credenza Fashion",
+        "url": "https://credenzafashion.com/",
+        "description": "Agent haul planner for international shopping through Chinese agents."
+      }
+    </script>
     <style>
       :root {
         color-scheme: light dark;
         --bg: #f4f4f0;
+        --bg-soft: #eeeee8;
+        --bg-panel: #e9e9e3;
         --ink: #17181a;
-        --muted: #5c5f66;
+        --ink-soft: #3d4249;
+        --sub: #4f545b;
+        --muted: #6b7078;
+        --faint: #8a9099;
         --card: #ffffff;
-        --line: rgba(23, 24, 26, 0.12);
-        --accent: #17181a;
+        --line: #d2d2c9;
+        --line-soft: #e4e4dd;
         --money: #15803d;
-        --max: 40rem;
-        --pad: 1.25rem;
-        font-family: Georgia, "Times New Roman", serif;
+        --money-deep: #137a3a;
+        --money-bright: #5fd28f;
+        --money-on-dark: #7ee2a8;
+        --like: #e11d48;
+        --action: #17181a;
+        --action-text: #f4f4f0;
+        --link-on-photo: #cfe0ff;
+        --status-shipped-bg: oklch(0.93 0.045 290);
+        --status-shipped-text: oklch(0.42 0.13 290);
+        --status-bought-bg: oklch(0.93 0.045 250);
+        --status-bought-text: oklch(0.42 0.13 250);
+        --status-qc-bg: oklch(0.94 0.06 85);
+        --status-qc-text: oklch(0.45 0.13 70);
+        --tile-weidian: rgb(255, 90, 60);
+        --tile-yupoo: rgb(55, 178, 77);
+        --tile-taobao: rgb(255, 80, 0);
+        --max: 1120px;
+        --pad-x: clamp(24px, 6.5vw, 48px);
+        --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+        --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
       }
       @media (prefers-color-scheme: dark) {
         :root {
           --bg: #000000;
+          --bg-soft: #0c0c0e;
+          --bg-panel: #141416;
           --ink: #f4f4f0;
-          --muted: #a1a1aa;
+          --ink-soft: #c8cbcf;
+          --sub: #a1a1aa;
+          --muted: #8a9099;
+          --faint: #6b7078;
           --card: #1a1a1d;
-          --line: rgba(244, 244, 240, 0.12);
-          --accent: #f4f4f0;
+          --line: rgba(244, 244, 240, 0.14);
+          --line-soft: rgba(244, 244, 240, 0.1);
           --money: #4ade80;
+          --money-deep: #4ade80;
+          --money-bright: #86efac;
+          --money-on-dark: #86efac;
+          --action: #f4f4f0;
+          --action-text: #17181a;
+          --status-shipped-bg: oklch(0.28 0.05 290);
+          --status-shipped-text: oklch(0.86 0.05 290);
+          --status-bought-bg: oklch(0.28 0.05 250);
+          --status-bought-text: oklch(0.86 0.05 250);
+          --status-qc-bg: oklch(0.3 0.05 85);
+          --status-qc-text: oklch(0.88 0.06 85);
         }
       }
       * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
       body {
         margin: 0;
         background: var(--bg);
         color: var(--ink);
-        line-height: 1.55;
-        font-size: 1.0625rem;
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
       }
-      header, main, footer {
+      a {
+        color: var(--ink);
+        text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent);
+        text-underline-offset: 3px;
+      }
+      a:hover { color: var(--money); text-decoration-color: var(--money); }
+      button { font: inherit; cursor: pointer; }
+      .wrap {
         max-width: var(--max);
         margin: 0 auto;
-        padding: var(--pad);
+        padding-left: max(var(--pad-x), env(safe-area-inset-left, 0px));
+        padding-right: max(var(--pad-x), env(safe-area-inset-right, 0px));
       }
-      header {
-        padding-top: 2.5rem;
-        padding-bottom: 0.5rem;
-      }
-      .brand {
-        font-size: 0.75rem;
+      .kicker {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        font-family: system-ui, -apple-system, sans-serif;
         color: var(--muted);
-        margin: 0 0 0.35rem;
       }
-      .brand span {
+      .serif-h {
+        margin: 12px 0 0;
+        font-family: var(--serif);
         font-weight: 600;
-        color: var(--ink);
-        letter-spacing: 0.18em;
-      }
-      .brand .sub {
-        font-weight: 400;
-        letter-spacing: 0.06em;
-        text-transform: none;
-        margin-left: 0.35rem;
-        opacity: 0.85;
-      }
-      h1 {
-        font-size: clamp(2rem, 5vw, 2.75rem);
-        font-weight: 400;
-        line-height: 1.15;
-        margin: 0 0 0.75rem;
+        line-height: 1.14;
+        letter-spacing: -0.022em;
+        text-wrap: balance;
       }
       .lede {
-        color: var(--muted);
-        margin: 0 0 1.5rem;
-        font-size: 1.1rem;
+        margin: 14px 0 0;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--ink-soft);
+        text-wrap: pretty;
       }
-      .nav {
+
+      /* Nav */
+      .topnav {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--line);
+      }
+      .topnav-inner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        max-width: var(--max);
+        margin: 0 auto;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        padding-left: max(var(--pad-x), env(safe-area-inset-left, 0px));
+        padding-right: max(var(--pad-x), env(safe-area-inset-right, 0px));
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        background: var(--action);
+        color: var(--action-text);
+        font-family: var(--serif);
+        font-size: 15px;
+        font-weight: 700;
+        flex: 0 0 auto;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+      }
+      .topnav-links {
+        display: none;
+        align-items: center;
+        gap: 22px;
+        font-size: 13.5px;
+      }
+      .topnav-links a {
+        text-decoration: none;
+        color: var(--sub);
+      }
+      .topnav-links a:hover { color: var(--money); }
+      .spacer { flex: 1; }
+      .pill-cta {
+        display: inline-flex;
+        align-items: center;
+        min-height: 38px;
+        padding: 0 17px;
+        border-radius: 999px;
+        background: var(--action);
+        color: var(--action-text);
+        font-size: 13.5px;
+        font-weight: 650;
+        text-decoration: none;
+        flex: 0 0 auto;
+      }
+      .pill-cta:hover { color: var(--action-text); opacity: 0.92; }
+      @media (min-width: 720px) {
+        .topnav-links { display: flex; }
+      }
+
+      /* Hero */
+      .hero {
+        padding: clamp(36px, 5.5vw, 72px) 0 clamp(34px, 4.5vw, 58px);
+      }
+      .hero-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+        gap: clamp(28px, 4vw, 56px);
+        align-items: center;
+      }
+      .platform-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .platform-row .dot { opacity: 0.45; }
+      .hero h1 {
+        margin: 14px 0 0;
+        font-family: var(--serif);
+        font-size: clamp(34px, 5vw, 58px);
+        font-weight: 600;
+        line-height: 1.06;
+        letter-spacing: -0.028em;
+        text-wrap: balance;
+      }
+      .hero-lede {
+        margin: 18px 0 0;
+        max-width: 32em;
+        font-size: clamp(15.5px, 1.3vw, 17.5px);
+        line-height: 1.62;
+        color: var(--ink-soft);
+        text-wrap: pretty;
+      }
+      .hero-ctas {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 28px;
+      }
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 54px;
+        padding: 0 26px;
+        border-radius: 16px;
+        background: var(--action);
+        color: var(--action-text);
+        font-size: 15.5px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .btn-primary:hover { color: var(--action-text); opacity: 0.92; }
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 54px;
+        padding: 0 20px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--ink);
+        font-size: 15px;
+        font-weight: 650;
+        text-decoration: none;
+      }
+      .trust-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+      .trust-line .live {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--money);
+      }
+
+      /* Demo */
+      .demo {
+        position: relative;
+        padding: clamp(18px, 2.4vw, 24px);
+        border-radius: 22px;
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+      }
+      .demo-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .demo-step {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .demo-replay {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 30px;
+        padding: 0 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--sub);
+        font-size: 11.5px;
+        font-weight: 650;
+      }
+      .paste-field {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 52px;
+        padding: 0 14px;
+        border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+        border-radius: 14px;
+        background: var(--card);
+      }
+      .paste-text {
+        flex: 1;
+        min-width: 0;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--ink);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .caret {
+        display: inline-block;
+        width: 1.5px;
+        height: 16px;
+        background: var(--ink);
+        flex: 0 0 auto;
+        opacity: 0;
+      }
+      .caret.is-on { animation: czCaret 1.05s step-end infinite; opacity: 1; }
+      .demo-mid {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 34px;
+      }
+      .reading {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .reading.is-on { display: inline-flex; }
+      .spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--line);
+        border-top-color: var(--ink);
+        border-radius: 999px;
+        animation: czSpin 0.7s linear infinite;
+      }
+      .demo-arrow { display: none; color: var(--muted); }
+      .demo-arrow.is-on { display: block; }
+      .demo-result {
+        min-height: 318px;
+      }
+      .demo-result-grid {
+        display: none;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .demo-result-grid.is-on {
+        display: grid;
+        animation: czFade 0.4s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+      }
+      .demo-note {
+        margin: 12px 2px 0;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--muted);
+        text-wrap: pretty;
+      }
+      .fact-list { display: grid; gap: 8px; align-content: start; }
+      .fact {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 46px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: var(--card);
+      }
+      .fact-label {
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        flex: 0 0 auto;
+      }
+      .fact-val {
+        flex: 1;
+        min-width: 0;
+        font-size: 12.5px;
+        font-weight: 650;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Product card */
+      .p-card {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--card);
+        overflow: hidden;
+        box-shadow: 0 4px 14px rgba(23, 24, 26, 0.05);
+      }
+      .p-photo {
+        position: relative;
+        aspect-ratio: 1 / 1;
+        background: var(--bg-panel);
+        overflow: hidden;
+      }
+      .p-photo img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .tile {
+        display: grid;
+        place-items: center;
+        width: 100%;
+        height: 100%;
+        color: #fff;
+        font-family: var(--serif);
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+      .tile-weidian { background: var(--tile-weidian); }
+      .tile-yupoo { background: var(--tile-yupoo); }
+      .tile-taobao { background: var(--tile-taobao); }
+      .status-pill {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .status-want {
+        background: var(--status-bought-bg);
+        color: var(--status-bought-text);
+      }
+      .status-shipped {
+        background: var(--status-shipped-bg);
+        color: var(--status-shipped-text);
+      }
+      .status-bought {
+        background: var(--status-bought-bg);
+        color: var(--status-bought-text);
+      }
+      .status-qc {
+        background: var(--status-qc-bg);
+        color: var(--status-qc-text);
+      }
+      .heart {
+        position: absolute;
+        top: 9px;
+        right: 9px;
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.88);
+        color: rgba(23, 24, 26, 0.5);
+      }
+      .heart.is-on { color: var(--like); }
+      .album-pill {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: rgba(12, 12, 14, 0.62);
+        backdrop-filter: blur(6px);
+        font-family: var(--mono);
+        font-size: 9.5px;
+        color: var(--link-on-photo);
+      }
+      .p-body {
+        display: grid;
+        gap: 4px;
+        padding: 10px 11px 12px;
+        border-top: 1px solid var(--line-soft);
+      }
+      .p-title {
+        font-family: var(--serif);
+        font-size: 14.5px;
+        font-weight: 600;
+        line-height: 1.25;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .p-meta {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .size-kind {
+        font-family: var(--mono);
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        color: var(--money-deep);
+      }
+      .size-kind.is-static { color: var(--muted); }
+      .size-live {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-weight: 700;
+        background-image: linear-gradient(
+          100deg,
+          var(--money-deep) 20%,
+          var(--money-bright) 46%,
+          var(--money-deep) 72%
+        );
+        background-size: 220% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: czShimmer 3.2s linear infinite;
+      }
+      .size-static {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .price {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--money);
+      }
+
+      /* Sections */
+      .band { border-top: 1px solid var(--line); }
+      .band-soft { background: var(--bg-soft); }
+      .section {
+        padding: clamp(48px, 6.5vw, 80px) 0;
+      }
+      .section-intro { max-width: 44rem; }
+      .section-intro .serif-h {
+        font-size: clamp(26px, 3.4vw, 38px);
+      }
+      .two-col {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+        gap: clamp(28px, 4vw, 56px);
+        align-items: center;
+      }
+      .two-col.top { align-items: start; }
+      .check-list { display: grid; gap: 9px; margin-top: 20px; }
+      .check-row {
+        display: flex;
+        gap: 9px;
+        align-items: flex-start;
+      }
+      .check-row svg { flex: 0 0 auto; margin-top: 4px; }
+      .check-row span {
+        font-size: 14.5px;
+        line-height: 1.55;
+        color: var(--ink-soft);
+      }
+
+      .shelf-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+        gap: 14px;
+        margin-top: 30px;
+      }
+      .haul-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--card);
+      }
+      .haul-bar .total {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--money);
+      }
+      .vdiv {
+        width: 1px;
+        height: 15px;
+        background: var(--line);
+      }
+
+      /* Size panel */
+      .panel {
+        padding: clamp(16px, 2vw, 22px);
+        border-radius: 22px;
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+      }
+      .panel-inner {
+        padding: 16px;
+        border: 1px solid var(--ink);
+        border-radius: 15px;
+        background: var(--card);
+      }
+      .rec-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .rec-size {
+        margin-top: 2px;
+        font-family: var(--serif);
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+      }
+      .confidence {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding-top: 5px;
+        font-size: 11.5px;
+        font-weight: 650;
+        color: var(--money);
+        text-align: right;
+      }
+      .confidence i {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--money);
+        flex: 0 0 auto;
+      }
+      .prescription {
+        margin-top: 9px;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--ink-soft);
+        text-wrap: pretty;
+      }
+      .facts-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px;
+        margin-top: 13px;
+      }
+      .fact-tile {
+        display: grid;
+        gap: 2px;
+        padding: 9px 10px;
+        border-radius: 10px;
+        background: var(--bg);
+      }
+      .fact-tile .lbl {
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .fact-tile .val {
+        font-family: var(--mono);
+        font-size: 13.5px;
+        font-weight: 700;
+      }
+      .fact-tile .val.is-money { color: var(--money); }
+      .chart {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .chart-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        padding: 8px 11px;
+      }
+      .chart-row.head {
+        padding: 7px 11px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+      }
+      .chart-row.head span {
+        font-family: var(--mono);
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .chart-row.head span:not(:first-child),
+      .chart-row span:not(:first-child) { text-align: right; }
+      .chart-row span {
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .chart-row.is-rec {
+        background: var(--action);
+        color: var(--action-text);
+      }
+      .chart-row.is-rec .size-cell { color: var(--money-on-dark); font-weight: 700; }
+      .chart-foot {
+        padding: 7px 11px;
+        border-top: 1px solid var(--line);
+        background: var(--bg);
+        font-family: var(--mono);
+        font-size: 9.5px;
+        color: var(--muted);
+      }
+
+      /* Status track */
+      .box {
+        margin-top: 20px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--card);
+      }
+      .track-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .track {
+        display: flex;
+        align-items: flex-start;
+      }
+      .track-step {
+        flex: 1;
+        display: grid;
+        gap: 8px;
+        justify-items: center;
+      }
+      .track-rail {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 16px;
+      }
+      .rail-l,
+      .rail-r {
+        position: absolute;
+        top: 7px;
+        height: 2px;
+      }
+      .rail-l { left: 0; right: 50%; }
+      .rail-r { left: 50%; right: 0; }
+      .rail-on { background: var(--action); }
+      .rail-off { background: var(--line); }
+      .rail-none { background: transparent; }
+      .dot {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        border: 2px solid var(--line);
+        background: var(--card);
+      }
+      .dot.is-done,
+      .dot.is-current {
+        border-color: var(--action);
+        background: var(--action);
+      }
+      .track-label {
+        font-size: 11.5px;
+        font-weight: 550;
+        color: var(--faint);
+      }
+      .track-label.is-done { color: var(--sub); }
+      .track-label.is-current { color: var(--ink); font-weight: 700; }
+      .gl-row {
+        display: flex;
+        gap: 7px;
+        margin-top: 14px;
+      }
+      .gl-chip {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        min-height: 40px;
+        border-radius: 11px;
+        font-size: 12.5px;
+        font-weight: 700;
+      }
+      .gl-chip.is-on {
+        border: 1px solid color-mix(in srgb, var(--money) 40%, transparent);
+        background: color-mix(in srgb, var(--money) 8%, transparent);
+        color: var(--money);
+      }
+      .gl-chip.is-off {
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--muted);
+        font-weight: 550;
+      }
+
+      /* Agents */
+      .agent-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.75rem 1.25rem;
-        font-family: system-ui, -apple-system, sans-serif;
-        font-size: 0.875rem;
-        margin-bottom: 1.5rem;
+        gap: 7px;
       }
-      a { color: var(--ink); }
-      a:hover { color: var(--money); }
-      .card {
-        background: var(--card);
+      .agent-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 13px;
         border: 1px solid var(--line);
-        border-radius: 0;
-        padding: 1.15rem 1.2rem;
-        margin: 0 0 0.85rem;
-      }
-      .card h2 {
-        font-size: 1.05rem;
-        margin: 0 0 0.4rem;
-        font-weight: 600;
-        font-family: system-ui, -apple-system, sans-serif;
-      }
-      .card p { margin: 0; color: var(--muted); }
-      .card .n {
-        font-family: system-ui, -apple-system, sans-serif;
-        font-size: 0.7rem;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--money);
-        display: block;
-        margin-bottom: 0.35rem;
-      }
-      .note {
-        margin: 1.5rem 0;
-        padding: 0.85rem 0;
-        border-top: 1px solid var(--line);
-        border-bottom: 1px solid var(--line);
-        color: var(--muted);
-        font-size: 0.98rem;
-      }
-      footer {
-        color: var(--muted);
-        font-size: 0.85rem;
-        font-family: system-ui, -apple-system, sans-serif;
-        padding-bottom: 3rem;
-      }
-      .cta {
-        display: inline-block;
-        margin-top: 0.5rem;
-        padding: 0.7rem 1.15rem;
-        background: var(--accent);
-        color: var(--bg);
-        text-decoration: none;
         border-radius: 999px;
-        font-family: system-ui, -apple-system, sans-serif;
-        font-size: 0.9rem;
-        font-weight: 600;
+        background: var(--card);
+        color: var(--sub);
+        font-size: 13px;
+        font-weight: 550;
       }
-      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .agent-chip.is-on {
+        border-color: var(--action);
+        background: var(--action);
+        color: var(--action-text);
+        font-weight: 700;
+      }
+      .buy-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 16px;
+        padding-top: 15px;
+        border-top: 1px solid var(--line);
+      }
+      .buy-price {
+        font-family: var(--mono);
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--money);
+      }
+      .buy-btn {
+        display: grid;
+        place-items: center;
+        min-width: 170px;
+        min-height: 48px;
+        padding: 0 20px;
+        border-radius: 14px;
+        background: var(--action);
+        color: var(--action-text);
+        font-size: 14.5px;
+        font-weight: 700;
+        margin-left: auto;
+      }
+      .ftc {
+        margin-top: 10px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      /* Trust */
+      .not-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 12px;
+        margin-top: 26px;
+      }
+      .not-card {
+        padding: 17px 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--card);
+      }
+      .not-card h3 {
+        margin: 0;
+        font-size: 14.5px;
+        font-weight: 700;
+      }
+      .not-card p {
+        margin: 6px 0 0;
+        font-size: 13.5px;
+        line-height: 1.55;
+        color: var(--sub);
+        text-wrap: pretty;
+      }
+
+      /* CTA band */
+      .cta-band {
+        border-top: 1px solid var(--line);
+        background: #17181a;
+        color: #f4f4f0;
+      }
+      .cta-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: clamp(20px, 3vw, 40px);
+        padding: clamp(44px, 6vw, 72px) 0;
+      }
+      .cta-band h2 {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(28px, 3.6vw, 42px);
+        font-weight: 600;
+        line-height: 1.1;
+        letter-spacing: -0.024em;
+      }
+      .cta-band p {
+        margin: 12px 0 0;
+        max-width: 32em;
+        font-size: 15.5px;
+        line-height: 1.6;
+        color: #a8adb5;
+        text-wrap: pretty;
+      }
+      .cta-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .btn-light {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 56px;
+        padding: 0 30px;
+        border-radius: 16px;
+        background: #f4f4f0;
+        color: #17181a;
+        font-size: 16px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .btn-light:hover { color: #17181a; opacity: 0.92; }
+      .link-muted {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        font-size: 13.5px;
+        color: #a8adb5;
+        text-decoration-color: rgba(168, 173, 181, 0.4);
+      }
+      .link-muted:hover { color: #f4f4f0; }
+
+      /* Footer */
+      .site-foot {
+        background: #17181a;
+        color: #8b9099;
+        border-top: 1px solid #2c2e33;
+      }
+      .site-foot-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+        padding: 22px 0 34px;
+        font-size: 13px;
+      }
+      .site-foot nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      .site-foot a {
+        color: #8b9099;
+        text-decoration-color: rgba(139, 144, 153, 0.35);
+      }
+      .site-foot a:hover { color: #f4f4f0; }
+
+      @keyframes czShimmer {
+        from { background-position: 180% 0; }
+        to { background-position: -80% 0; }
+      }
+      @keyframes czFade {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes czCaret {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+      }
+      @keyframes czSpin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
-    <header>
-      <p class="brand"><span>Credenza</span><span class="sub">Fashion</span></p>
-      <h1>The agent haul planner.</h1>
-      <p class="lede">
-        A Taobao, Weidian, and 1688 shopping organizer. Save the links, the
-        sizes, the QC photos, and the ship estimates on one shelf. When you are
-        ready, Buy opens in your shopping agent.
-      </p>
-      <nav class="nav" aria-label="Site">
-        <a href="/">Open app</a>
-        <a href="/how/">How it works</a>
-        <a href="/faq/">FAQ</a>
-        <a href="/privacy/">Privacy</a>
-        <a href="/terms/">Terms</a>
-      </nav>
+    <header class="topnav">
+      <div class="topnav-inner">
+        <a class="brand" href="/" aria-label="Credenza home">
+          <span class="mark" aria-hidden="true">C</span>
+          <span class="wordmark">CREDENZA</span>
+        </a>
+        <span class="spacer"></span>
+        <nav class="topnav-links" aria-label="Page">
+          <a href="#how">How it works</a>
+          <a href="#size">Sizing</a>
+          <a href="#trust">What it isn't</a>
+        </nav>
+        <a class="pill-cta" href="/">Open the app</a>
+      </div>
     </header>
+
     <main>
-      <article class="card">
-        <span class="n">Organize</span>
-        <h2>One shelf, not a spreadsheet</h2>
-        <p>
-          Paste a link. Credenza builds a card with the photos, the price, and
-          the seller. Group the cards into hauls with a budget and a parcel
-          estimate.
-        </p>
-      </article>
-      <article class="card">
-        <span class="n">Size</span>
-        <h2>A size pick from your measurements</h2>
-        <p>
-          Save your body profile once. Credenza reads the seller size chart and
-          recommends a size. No chart? Your usual sizes show as an estimate.
-          The math runs on your device.
-        </p>
-      </article>
-      <article class="card">
-        <span class="n">QC</span>
-        <h2>A QC review checklist</h2>
-        <p>
-          Attach the warehouse photos. Mark GL or RL. Track the item from want
-          to shipped, with the weight and the chargeable parcel estimate in
-          view.
-        </p>
-      </article>
-      <article class="card">
-        <span class="n">Buy</span>
-        <h2>Your agent, one tap</h2>
-        <p>
-          Buy opens the item in Superbuy, CNFans, Mulebuy, Kakobuy, or your
-          preferred agent. Credenza never checks out for you. Some agent links
-          carry a referral code that supports the app at no cost to you.
-        </p>
-      </article>
+      <section class="hero wrap">
+        <div class="hero-grid">
+          <div>
+            <div class="platform-row">
+              <span>Taobao</span><span class="dot">·</span>
+              <span>Weidian</span><span class="dot">·</span>
+              <span>Yupoo</span><span class="dot">·</span>
+              <span>1688</span>
+            </div>
+            <h1 id="hero-headline">Your haul lives in 40 tabs and a note app.</h1>
+            <p class="hero-lede" id="hero-lede">
+              Credenza is a Taobao, Weidian and 1688 shopping organizer. Paste a
+              link and it becomes a card with the photos, the price and a size
+              pick. Track QC, group it into a haul, then open Buy in your own agent.
+            </p>
+            <div class="hero-ctas">
+              <a class="btn-primary" href="/">Open Credenza, it's free</a>
+              <a class="btn-secondary" href="#how">See it work</a>
+            </div>
+            <div class="trust-line">
+              <span class="live" aria-hidden="true"></span>
+              <span>No account</span><span class="dot">·</span>
+              <span>Nothing to install</span><span class="dot">·</span>
+              <span>Your shelf stays on your device</span>
+            </div>
+          </div>
 
-      <p class="note">
-        Credenza is an international agent wishlist and planner. It is not a
-        marketplace and not a search engine. You bring the links from the
-        stores and the communities you already use. Your data stays on your
-        device.
-      </p>
+          <div>
+            <div class="demo" id="demo" aria-label="Paste demo">
+              <div class="demo-head">
+                <span class="demo-step" id="demo-step">Stashed</span>
+                <span class="spacer"></span>
+                <button type="button" class="demo-replay" id="demo-replay">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 5v6h-6"></path></svg>
+                  Replay
+                </button>
+              </div>
+              <div class="paste-field">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="color:var(--muted);flex:0 0 auto"><path d="M9 15l6-6"></path><path d="M11 6l1-1a4.2 4.2 0 0 1 6 6l-1 1"></path><path d="M13 18l-1 1a4.2 4.2 0 0 1-6-6l1-1"></path></svg>
+                <span class="paste-text" id="demo-typed">weidian.com/item.html?itemID=7809154670</span>
+                <span class="caret" id="demo-caret" aria-hidden="true"></span>
+              </div>
+              <div class="demo-mid">
+                <span class="reading" id="demo-reading">
+                  <span class="spinner" aria-hidden="true"></span>
+                  Reading the listing
+                </span>
+                <svg class="demo-arrow is-on" id="demo-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v13"></path><path d="M7 13l5 5 5-5"></path></svg>
+              </div>
+              <div class="demo-result">
+                <div class="demo-result-grid is-on" id="demo-result">
+                  <article class="p-card">
+                    <div class="p-photo">
+                      <img
+                        src="/landing/img/kit-jersey-black.jpg"
+                        alt="Kit jersey in black"
+                        width="900"
+                        height="900"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <span class="status-pill status-want">Want</span>
+                      <span class="album-pill">
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
+                        8
+                      </span>
+                    </div>
+                    <div class="p-body">
+                      <span class="p-title">Kit jersey · black</span>
+                      <span class="p-meta">
+                        <span class="size-kind">AI SIZE</span>
+                        <span class="size-live">L</span>
+                        <span class="price">$23.52</span>
+                      </span>
+                    </div>
+                  </article>
+                  <div class="fact-list">
+                    <div class="fact">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                      <span class="fact-label">Seller</span>
+                      <span class="fact-val">Mook-official</span>
+                    </div>
+                    <div class="fact">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                      <span class="fact-label">Photos</span>
+                      <span class="fact-val">8 from the album</span>
+                    </div>
+                    <div class="fact">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                      <span class="fact-label">Size</span>
+                      <span class="fact-val">L · from the chart</span>
+                    </div>
+                    <div class="fact">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                      <span class="fact-label">Weight</span>
+                      <span class="fact-val">~380 g</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="demo-note">One paste. Photos, price, seller and a size pick. No typing, no spreadsheet row.</p>
+          </div>
+        </div>
+      </section>
 
-      <a class="cta" href="/">Open Credenza</a>
-      <p style="margin-top:1rem;font-size:0.95rem;color:var(--muted)">
-        New here? Read <a href="/how/">how Credenza works</a>.
-      </p>
+      <section id="how" class="band band-soft">
+        <div class="wrap section">
+          <div class="section-intro">
+            <div class="kicker">The shelf</div>
+            <h2 class="serif-h">Everything you're watching, on one page.</h2>
+            <p class="lede">
+              Cards carry the photo, the size pick, the price and where it is in the
+              order. Group them into a haul and you get the running total and a
+              parcel weight estimate before you commit.
+            </p>
+          </div>
+          <div class="shelf-grid">
+            <article class="p-card">
+              <div class="p-photo">
+                <img
+                  src="/landing/img/kit-jersey-black.jpg"
+                  alt="Kit jersey in black"
+                  width="900"
+                  height="900"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span class="status-pill status-shipped">Shipped</span>
+                <span class="heart is-on" aria-hidden="true">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
+                </span>
+                <span class="album-pill">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
+                  8
+                </span>
+              </div>
+              <div class="p-body">
+                <span class="p-title">Kit jersey · black</span>
+                <span class="p-meta">
+                  <span class="size-kind">AI SIZE</span>
+                  <span class="size-live">L</span>
+                  <span class="price">$23.52</span>
+                </span>
+              </div>
+            </article>
+            <article class="p-card">
+              <div class="p-photo">
+                <img
+                  src="/landing/img/kit-shorts-black.jpg"
+                  alt="Kit shorts in black"
+                  width="900"
+                  height="900"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span class="status-pill status-bought">Bought</span>
+                <span class="heart" aria-hidden="true">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
+                </span>
+                <span class="album-pill">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
+                  6
+                </span>
+              </div>
+              <div class="p-body">
+                <span class="p-title">Kit shorts · black</span>
+                <span class="p-meta">
+                  <span class="size-kind">AI SIZE</span>
+                  <span class="size-live">L</span>
+                  <span class="price">$27.72</span>
+                </span>
+              </div>
+            </article>
+            <article class="p-card">
+              <div class="p-photo">
+                <img
+                  src="/landing/img/floral-soccer-jersey.jpg"
+                  alt="Floral soccer jersey"
+                  width="900"
+                  height="900"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span class="heart is-on" aria-hidden="true">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
+                </span>
+                <span class="album-pill">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
+                  12
+                </span>
+              </div>
+              <div class="p-body">
+                <span class="p-title">Floral soccer jersey</span>
+                <span class="p-meta">
+                  <span class="size-kind is-static">YOUR USUAL</span>
+                  <span class="size-static">L</span>
+                  <span class="price">$38.92</span>
+                </span>
+              </div>
+            </article>
+            <article class="p-card">
+              <div class="p-photo">
+                <img
+                  src="/landing/img/dry-fit-training-top.jpg"
+                  alt="Dry-fit training top"
+                  width="900"
+                  height="900"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span class="status-pill status-qc">QC</span>
+                <span class="heart" aria-hidden="true">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
+                </span>
+                <span class="album-pill">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
+                  9
+                </span>
+              </div>
+              <div class="p-body">
+                <span class="p-title">Dry-fit training top</span>
+                <span class="p-meta">
+                  <span class="size-kind is-static">SIZE</span>
+                  <span class="size-static">XL</span>
+                  <span class="price">$32.06</span>
+                </span>
+              </div>
+            </article>
+          </div>
+          <div class="haul-bar">
+            <span class="kicker" style="letter-spacing:.12em">July haul</span>
+            <span style="font-size:13.5px;color:var(--sub)">8 items</span>
+            <span class="vdiv" aria-hidden="true"></span>
+            <span style="font-size:13.5px;color:var(--sub)">est. parcel 3.4 kg</span>
+            <span class="total">$548.08</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="size" class="band">
+        <div class="wrap section two-col">
+          <div>
+            <div class="kicker">Sizing</div>
+            <h2 class="serif-h">A size pick that shows its work.</h2>
+            <p class="lede">
+              Save your measurements once. Credenza reads the seller's chart, from
+              the listing text or the photos of it, then compares it to you and
+              tells you which size and why in one sentence. No chart on the
+              listing? It says so and falls back to your usual size rather than
+              inventing a confident answer.
+            </p>
+            <div class="check-list">
+              <div class="check-row">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                <span>Reads the chart out of the listing text, or out of the album photos when the seller only posts an image.</span>
+              </div>
+              <div class="check-row">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                <span>Tells you the ease in centimetres, not a vague “runs small”.</span>
+              </div>
+              <div class="check-row">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                <span>Says when it doesn't know. No chart means no confident pick.</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-inner">
+              <div class="rec-head">
+                <div>
+                  <div class="kicker" style="font-size:9.5px;letter-spacing:.12em">We recommend</div>
+                  <div class="rec-size">Large</div>
+                </div>
+                <span class="confidence"><i aria-hidden="true"></i>Read from the seller's chart</span>
+              </div>
+              <div class="prescription">
+                Take the Large. Its 104cm chest gives you 6cm of room over your
+                98cm, which is where this jersey is meant to sit. The Medium's
+                100cm would pull across the chest.
+              </div>
+              <div class="facts-3">
+                <div class="fact-tile">
+                  <span class="lbl">You</span>
+                  <span class="val">98cm</span>
+                </div>
+                <div class="fact-tile">
+                  <span class="lbl">Garment</span>
+                  <span class="val">104cm</span>
+                </div>
+                <div class="fact-tile">
+                  <span class="lbl">Ease</span>
+                  <span class="val is-money">+6cm</span>
+                </div>
+              </div>
+              <div class="chart" role="table" aria-label="Size chart">
+                <div class="chart-row head" role="row">
+                  <span>Size</span><span>Chest</span><span>Length</span><span>Shldr</span>
+                </div>
+                <div class="chart-row" role="row">
+                  <span>S</span><span>96</span><span>68</span><span>44</span>
+                </div>
+                <div class="chart-row" role="row">
+                  <span>M</span><span>100</span><span>70</span><span>46</span>
+                </div>
+                <div class="chart-row is-rec" role="row">
+                  <span class="size-cell">L</span><span>104</span><span>72</span><span>48</span>
+                </div>
+                <div class="chart-row" role="row">
+                  <span>XL</span><span>108</span><span>74</span><span>50</span>
+                </div>
+                <div class="chart-foot">Chart read from 4 album photos · Jul 24</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band band-soft">
+        <div class="wrap section two-col top">
+          <div>
+            <div class="kicker">QC &amp; status</div>
+            <h2 class="serif-h" style="font-size:clamp(24px,3vw,32px)">Know where every parcel is.</h2>
+            <p class="lede" style="font-size:15.5px">
+              Attach the warehouse photos, mark GL or RL, and move the item along
+              the track. The shelf shows what's still a maybe and what's already
+              in the air.
+            </p>
+            <div class="box">
+              <div class="track-head">
+                <span class="kicker" style="font-size:9.5px">Status</span>
+                <span style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">In transit · agent → you</span>
+              </div>
+              <div class="track" aria-label="Order status track">
+                <span class="track-step">
+                  <span class="track-rail">
+                    <span class="rail-l rail-none"></span>
+                    <span class="rail-r rail-on"></span>
+                    <span class="dot is-done" aria-hidden="true">
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#F4F4F0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                    </span>
+                  </span>
+                  <span class="track-label is-done">Want</span>
+                </span>
+                <span class="track-step">
+                  <span class="track-rail">
+                    <span class="rail-l rail-on"></span>
+                    <span class="rail-r rail-on"></span>
+                    <span class="dot is-done" aria-hidden="true">
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#F4F4F0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+                    </span>
+                  </span>
+                  <span class="track-label is-done">Bought</span>
+                </span>
+                <span class="track-step">
+                  <span class="track-rail">
+                    <span class="rail-l rail-on"></span>
+                    <span class="rail-r rail-off"></span>
+                    <span class="dot is-current" aria-hidden="true"></span>
+                  </span>
+                  <span class="track-label is-current">Shipped</span>
+                </span>
+                <span class="track-step">
+                  <span class="track-rail">
+                    <span class="rail-l rail-off"></span>
+                    <span class="rail-r rail-none"></span>
+                    <span class="dot" aria-hidden="true"></span>
+                  </span>
+                  <span class="track-label">Received</span>
+                </span>
+              </div>
+              <div class="gl-row">
+                <span class="gl-chip is-on">GL · green light</span>
+                <span class="gl-chip is-off">RL</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="kicker">Buy</div>
+            <h2 class="serif-h" style="font-size:clamp(24px,3vw,32px)">Your agent, one tap.</h2>
+            <p class="lede" style="font-size:15.5px">
+              Pick your agent once and every Buy button opens the right item
+              there. Credenza never takes your money and never checks out for you.
+            </p>
+            <div class="box">
+              <div class="agent-row">
+                <span class="agent-chip is-on">Superbuy</span>
+                <span class="agent-chip">CNFans</span>
+                <span class="agent-chip">Mulebuy</span>
+                <span class="agent-chip">Kakobuy</span>
+                <span class="agent-chip">Hoobuy</span>
+                <span class="agent-chip">Oopbuy</span>
+              </div>
+              <div class="buy-row">
+                <span class="buy-price">$23.52</span>
+                <span class="buy-btn">Buy via Superbuy</span>
+              </div>
+              <div class="ftc">
+                Some agent links carry a referral code that funds the app. It never
+                changes your price.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="trust" class="band">
+        <div class="wrap section">
+          <div class="section-intro">
+            <div class="kicker">What Credenza isn't</div>
+            <h2 class="serif-h">A planner, not a store.</h2>
+          </div>
+          <div class="not-grid">
+            <div class="not-card">
+              <h3>Not a marketplace</h3>
+              <p>
+                Nothing is for sale here. Credenza holds links to listings you
+                found yourself and hands them to your agent.
+              </p>
+            </div>
+            <div class="not-card">
+              <h3>Not a search engine</h3>
+              <p>
+                It won't find items for you. You bring the links from the stores
+                and communities you already use.
+              </p>
+            </div>
+            <div class="not-card">
+              <h3>Not a checkout</h3>
+              <p>
+                No card details, no payments. Buy opens your agent's page and the
+                transaction happens there.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="open" class="cta-band">
+        <div class="wrap cta-inner">
+          <div style="flex:1;min-width:280px">
+            <h2>Paste your first link.</h2>
+            <p>
+              Free while it's in beta. No account, no card, nothing to install.
+              Your shelf lives on this device until you export it.
+            </p>
+          </div>
+          <div class="cta-actions">
+            <a class="btn-light" href="/">Open Credenza</a>
+            <a class="link-muted" href="/how/">Read how it works first</a>
+          </div>
+        </div>
+      </section>
     </main>
-    <footer>
-      Credenza · the agent haul planner. Free while in beta.
+
+    <footer class="site-foot">
+      <div class="wrap site-foot-inner">
+        <span>Credenza Fashion · agent haul planner</span>
+        <span class="spacer"></span>
+        <nav aria-label="Site">
+          <a href="/how/">How</a>
+          <a href="/faq/">FAQ</a>
+          <a href="/privacy/">Privacy</a>
+          <a href="/terms/">Terms</a>
+          <a href="/llms.txt">llms.txt</a>
+        </nav>
+      </div>
     </footer>
+
+    <script>
+      (function () {
+        var URL = "weidian.com/item.html?itemID=7809154670";
+        var LABELS = ["Paste anything", "Reading", "Reading the listing", "Stashed"];
+        var timers = [];
+        var stepEl = document.getElementById("demo-step");
+        var typedEl = document.getElementById("demo-typed");
+        var caretEl = document.getElementById("demo-caret");
+        var readingEl = document.getElementById("demo-reading");
+        var arrowEl = document.getElementById("demo-arrow");
+        var resultEl = document.getElementById("demo-result");
+        var replayBtn = document.getElementById("demo-replay");
+
+        function clearTimers() {
+          timers.forEach(clearTimeout);
+          timers = [];
+        }
+        function later(fn, ms) {
+          timers.push(setTimeout(fn, ms));
+        }
+        function setStep(step, typed) {
+          if (stepEl) stepEl.textContent = LABELS[step] || LABELS[3];
+          if (typedEl) typedEl.textContent = typed;
+          if (caretEl) caretEl.classList.toggle("is-on", step === 1);
+          if (readingEl) readingEl.classList.toggle("is-on", step === 2);
+          if (arrowEl) arrowEl.classList.toggle("is-on", step === 3);
+          if (resultEl) resultEl.classList.toggle("is-on", step === 3);
+        }
+        function runDemo() {
+          clearTimers();
+          var reduced =
+            window.matchMedia &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          if (reduced) {
+            setStep(3, URL);
+            return;
+          }
+          setStep(0, "");
+          later(function () {
+            setStep(1, "");
+          }, 420);
+          for (var i = 1; i <= URL.length; i++) {
+            (function (n) {
+              later(function () {
+                setStep(1, URL.slice(0, n));
+              }, 420 + n * 17);
+            })(i);
+          }
+          var end = 420 + URL.length * 17;
+          later(function () {
+            setStep(2, URL);
+          }, end + 260);
+          later(function () {
+            setStep(3, URL);
+          }, end + 1240);
+        }
+        if (replayBtn) {
+          replayBtn.addEventListener("click", function () {
+            runDemo();
+          });
+        }
+        // Autoplay once. Finished state is already in HTML for no-JS.
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", runDemo);
+        } else {
+          runDemo();
+        }
+      })();
+    </script>
   </body>
 </html>

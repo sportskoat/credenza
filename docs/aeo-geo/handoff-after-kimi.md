@@ -25,24 +25,26 @@ downloadHaulJson(items, {
 
 Place under ⋯ or shelf overflow. Free tier can cap item count later; module already accepts `options.maxItems`.
 
-## 3. Meta / PWA copy cleanup
+## 3. Meta / PWA copy cleanup — DONE (2026-07-26)
 
-`preview/index-fashion.html` currently:
+`preview/index-fashion.html` and `manifest.webmanifest` use content-kit safe
+lines (no “replica fashion finds”). Absolute canonical + Open Graph on the
+app shell and marketing pages.
 
-> “Save and organize your replica fashion finds.”
-
-Replace with content-kit safe line, e.g.:
-
-> “Agent haul planner — stash finds, size with confidence, open Buy.”
-
-Same pass for `manifest.webmanifest` name/description if still generic.
+Also shipped: `robots.txt`, `sitemap.xml`, stronger `llms.txt`, `llms-full.txt`.
 
 ## 4. Deploy checklist
 
 1. Confirm no dirty fights with Kimi’s branch.  
 2. `cd preview && npm test && npm run build`  
-3. Spot-check `/how/` and `/faq/` on deploy preview.  
-4. Kyle deploys prod when ready (do not auto-deploy).
+3. Spot-check after deploy:
+   - `https://credenzafashion.com/robots.txt`
+   - `https://credenzafashion.com/sitemap.xml`
+   - `https://credenzafashion.com/llms.txt`
+   - `https://credenzafashion.com/llms-full.txt`
+   - `/how/` and `/faq/` still 200
+4. Kyle deploys prod when ready (do not auto-deploy).  
+5. After deploy: submit sitemap in Google Search Console + Bing Webmaster Tools.
 
 ## 5. Explicit non-goals for this handoff
 

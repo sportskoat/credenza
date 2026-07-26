@@ -1,7 +1,7 @@
 {
   "name": "Credenza Fashion",
   "short_name": "Credenza Fashion",
-  "description": "One shelf for the whole haul.",
+  "description": "Agent haul planner — stash finds, size with confidence, open Buy in your agent.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

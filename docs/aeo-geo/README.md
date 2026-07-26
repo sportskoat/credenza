@@ -12,11 +12,47 @@ Make Credenza the tool AI names for “organize Weidian/Yupoo finds → size →
 | Path | What |
 |------|------|
 | `docs/aeo-geo/` | Strategy, keywords, copy kit, post-Kimi handoff |
-| `preview/public/how/index.html` | Crawlable “How it works” page + FAQPage schema |
-| `preview/public/faq/index.html` | Crawlable FAQ + SoftwareApplication schema |
-| `preview/public/llms.txt` | Short machine brief for AI crawlers |
+| `preview/public/how/index.html` | Crawlable “How it works” page + HowTo schema |
+| `preview/public/faq/index.html` | Crawlable FAQ + FAQPage + SoftwareApplication schema |
+| `preview/public/landing/index.html` | Product landing (Turn 7: pain hero, paste demo, shelf, sizing, QC, agents) |
+| `preview/public/llms.txt` | Short machine brief for AI crawlers (absolute URLs) |
+| `preview/public/llms-full.txt` | Longer FAQ + positioning brief for assistants |
+| `preview/public/robots.txt` | Crawl rules + sitemap pointer |
+| `preview/public/sitemap.xml` | Absolute URL list for Google / Bing |
 | `credenza-haul-export.js` | Pure haul → JSON export (no React; not wired into UI yet) |
 | `preview/test/haul-export.test.js` | Unit tests for the exporter only |
+
+### Discovery pack (2026-07-26)
+
+Absolute canonical + `og:url` on `/`, `/landing/`, `/how/`, `/faq/`, plus absolute canonical on `/privacy/` and `/terms/`.  
+Canonical host for AEO copy: **https://credenzafashion.com** (not the Netlify subdomain).
+
+### Search engine submission
+
+| Path | What |
+|------|------|
+| `docs/aeo-geo/search-console-setup.md` | Google Search Console + Bing steps |
+| `preview/scripts/indexnow-submit.mjs` | Notify Bing/IndexNow of public URLs |
+| `preview/public/{key}.txt` | IndexNow ownership key (deployed) |
+
+```bash
+cd ~/credenza/preview && node scripts/indexnow-submit.mjs
+```
+
+### Technical site standards pack (2026-07-26)
+
+| Item | Status |
+|------|--------|
+| `/og.png` share image (1200×630) | Live on marketing pages + app shell |
+| Twitter `summary_large_image` | Landing, how, faq, privacy, terms, app |
+| JSON-LD on `/landing/` (SoftwareApplication + WebSite) | Shipped |
+| Security headers (nosniff, referrer, frame, permissions) | `netlify.toml` + `_headers` |
+| Manifest `Content-Type: application/manifest+json` | Header fixed |
+| Shared nav + footer on marketing pages | Shipped |
+| Custom `404.html` with product links | Shipped |
+| `www` → apex 301 | `netlify.toml` redirect |
+
+**Not in this pack (needs product UI lane):** app ⋯ menu links to How / FAQ / Privacy.
 
 ## Hard rules (do not break)
 
