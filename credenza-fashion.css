@@ -4476,16 +4476,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.cz-modal-surface-stacked {
-  /* Reserve the scrollbar gutter always (Kyle 2026-07-26: "the sizing still
-     looks weird… it's because of the scroll bar"). A sub-page that overflows
-     shows a classic scrollbar on macOS when "always show" is set. That steals
-     ~15px of content width, so the text re-wraps and the measured height is
-     wrong — and the gutter appearing between pages changes the width mid
-     transition. A stable gutter keeps the content width constant whether or
-     not the bar is present. Headless Chrome uses overlay scrollbars and never
-     showed this. */
-  scrollbar-gutter: stable;
+/* Hide the scrollbar on the modal stack (Kyle 2026-07-26: "let's take out the
+   scrollbars here… I think it'll move a little bit cleaner"). A classic macOS
+   scrollbar steals ~15px of content width, so the text re-wraps and the
+   measured height is wrong — and the bar appearing between pages changes the
+   width mid transition. A stable gutter fixed the width but still showed the
+   bar over the page. Hiding it removes both the bar and the width change, and
+   it matches the rest of the app: the carousel, the shell, and the detail
+   sheet all hide theirs. The surfaces still scroll by wheel, trackpad, drag,
+   and keyboard. Headless Chrome uses overlay scrollbars and never showed the
+   original problem. */
+.cz-modal-surface-stacked,
+.cz-modal-page {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.cz-modal-surface-stacked::-webkit-scrollbar,
+.cz-modal-page::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 .cz-modal-surface-stacked .cz-modal-header {
   /* A short window scrolls the surface, which used to carry the header — and
