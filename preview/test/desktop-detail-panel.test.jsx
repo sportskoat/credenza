@@ -67,8 +67,26 @@ describe("DesktopDetailPanel (Fix B)", () => {
     renderPanel(panelItem());
     const foot = document.querySelector(".cz-detail-foot.has-price");
     expect(foot).toBeTruthy();
-    expect(foot.querySelector(".cz-detail-foot-price").textContent).toContain("229");
+    // USD primary: CNY 229 → $32.06 only — no ¥ dual line (Kyle 2026-07-26).
+    const priceText = foot.querySelector(".cz-detail-foot-price").textContent;
+    expect(priceText).toContain("$32.06");
+    expect(priceText).not.toMatch(/¥|CNY/);
     expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
+  });
+
+  it("filmstrip has add/delete and no Weidian gallery chip or right-column photos", async () => {
+    const onAttachPhoto = vi.fn();
+    const onRemovePhoto = vi.fn();
+    const user = userEvent.setup();
+    renderPanel(panelItem(), { onAttachPhoto, onRemovePhoto });
+
+    expect(screen.queryByText(/Weidian gallery/i)).toBeNull();
+    expect(document.querySelector(".cz-detail-photos")).toBeNull();
+    expect(screen.getByRole("button", { name: "Add photo" })).toBeInTheDocument();
+    // Cover (first photo) has no trash; gallery photo 2 does.
+    expect(screen.queryByRole("button", { name: "Delete photo 1" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Delete photo 2" }));
+    expect(onRemovePhoto).toHaveBeenCalledWith("dp-1", "https://si.geilicdn.com/img-2.jpg");
   });
 
   it("keeps the full-width Buy footer when no footer price is passed", () => {

@@ -16,7 +16,9 @@ import {
   linkButtons,
   parseSizeChart,
   prescriptionSentence,
+  itemUsdAmount,
   priceLabelShort,
+  pricePrimaryPref,
   recommendSize,
   resolveDisplaySize,
   sizeChartTextFor,
@@ -363,6 +365,9 @@ export default function DetailBody({
   // the pinned footer next to Buy. Null everywhere else — the phone sheet
   // and the flip-card back keep the full-width Buy.
   footerPrice = null,
+  // Desktop left filmstrip owns add/delete — hide the duplicate PHOTOS block
+  // (Kyle 2026-07-26: "we aren't seeing it in two places").
+  hidePhotosManager = false,
 }) {
   const titleInputRef = useRef(null);
   const reduced = usePrefersReducedMotion();
@@ -495,15 +500,47 @@ export default function DetailBody({
   ).sort((a, b) => a.localeCompare(b));
 
   const editorLabel = (cells.find((c) => c.key === editingCell) || {}).label || "";
-  // The price cell displays USD (priceLabelShort) but edits the stored CNY
-  // number — name the unit or the customer types dollars into a yuan field
-  // (Kyle 2026-07-25: "I change it to 60, it doesn't update").
+  const priceUnit =
+    String(view.currency || "CNY").toUpperCase() === "USD" ? "USD" : "CNY";
+  // Price cell shows the prefs primary currency; the editor labels the unit of
+  // the number in the draft (USD or CNY). Toggle sits next to Done.
   const editorLabelFull =
     editingCell === "price"
-      ? editorLabel + " · " + (String(view.currency || "CNY").toUpperCase() === "USD" ? "$ USD" : "¥ CNY")
+      ? editorLabel + " · " + (priceUnit === "USD" ? "$ USD" : "¥ CNY")
       : editingCell === "weightGrams"
         ? editorLabel + " · " + weightUnit
         : editorLabel;
+
+  // Open price with the settings primary unit pre-selected (Kyle 2026-07-26:
+  // "shouldn't default to CNY… default to USD if we have USD in the settings").
+  const openPriceEditor = () => {
+    const base = draft || buildEditDraft(item);
+    const primary = pricePrimaryPref() === "CNY" ? "CNY" : "USD";
+    if (primary === "USD") {
+      const usd = itemUsdAmount(item);
+      setDraft({
+        ...base,
+        currency: "USD",
+        price: usd != null && isFinite(usd) ? String(usd) : "",
+      });
+    } else {
+      const storedCur = String(item.currency || "CNY").toUpperCase();
+      let cny = null;
+      if ((storedCur === "CNY" || storedCur === "RMB" || storedCur === "¥") && item.price != null) {
+        cny = Number(item.price);
+      } else if (item.priceUsd != null && isFinite(Number(item.priceUsd))) {
+        cny = Math.round(Number(item.priceUsd) / 0.14);
+      } else if (item.price != null && storedCur === "USD") {
+        cny = Math.round(Number(item.price) / 0.14);
+      }
+      setDraft({
+        ...base,
+        currency: "CNY",
+        price: cny != null && isFinite(cny) ? String(cny) : "",
+      });
+    }
+    setEditingCell("price");
+  };
 
   // g/kg toggle (Kyle 2026-07-25: "weight should have a g/kg toggle next to
   // Done"). Stored value stays grams; the toggle only changes the display.
@@ -514,6 +551,24 @@ export default function DetailBody({
       setWeightText(Number.isNaN(grams) ? "" : String(+(grams / 1000).toFixed(3)));
     }
     setWeightUnit(next);
+  };
+
+  // USD ↔ CNY on the open price draft. Converts the typed number so the field
+  // does not silently change currency under the same digits.
+  const switchPriceUnit = (next) => {
+    const want = next === "USD" ? "USD" : "CNY";
+    if (want === priceUnit) return;
+    const n = parseFloat(view.price);
+    const base = draft || buildEditDraft(item);
+    if (!isFinite(n) || String(view.price || "").trim() === "") {
+      setDraft({ ...base, currency: want });
+      return;
+    }
+    if (want === "USD") {
+      setDraft({ ...base, currency: "USD", price: String(+(n * 0.14).toFixed(2)) });
+    } else {
+      setDraft({ ...base, currency: "CNY", price: String(Math.round(n / 0.14)) });
+    }
   };
 
   const renderEditor = () => {
@@ -628,7 +683,43 @@ export default function DetailBody({
         </div>
       );
     }
-    // price: numeric keypad, still 16px so iOS does not zoom.
+    // price: numeric keypad + USD/CNY unit (defaults from prefs primary).
+    if (editingCell === "price") {
+      return (
+        <div className="cz-detail-editor">
+          <span className="cz-detail-editor-label">{editorLabelFull}</span>
+          <input
+            ref={focusOnMount}
+            className="cz-detail-editor-input"
+            aria-label={editorLabelFull}
+            inputMode="decimal"
+            value={view.price}
+            onChange={(e) => edit("price", e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") setEditingCell(null);
+            }}
+          />
+          <div className="cz-detail-unit" role="group" aria-label="Price currency">
+            {["USD", "CNY"].map((u) => (
+              <button
+                key={u}
+                type="button"
+                className={"cz-detail-unit-btn" + (priceUnit === u ? " is-active" : "")}
+                aria-pressed={priceUnit === u}
+                onClick={() => switchPriceUnit(u)}
+              >
+                {u === "USD" ? "$" : "¥"}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="cz-detail-editor-done" onClick={() => setEditingCell(null)}>
+            Done
+          </button>
+        </div>
+      );
+    }
+    // Fallback numeric keypad for any other single-field cell.
     return (
       <div className="cz-detail-editor">
         <span className="cz-detail-editor-label">{editorLabelFull}</span>
@@ -763,7 +854,17 @@ export default function DetailBody({
                   (editingCell === cell.key ? " is-active" : "") +
                   (isSizeRec ? " is-rec" : "")
                 }
-                onClick={() => setEditingCell((c) => (c === cell.key ? null : cell.key))}
+                onClick={() => {
+                  if (editingCell === cell.key) {
+                    setEditingCell(null);
+                    return;
+                  }
+                  if (cell.key === "price") {
+                    openPriceEditor();
+                    return;
+                  }
+                  setEditingCell(cell.key);
+                }}
               >
                 <span className="cz-detail-cell-label">
                   {isSizeRec ? <span className="cz-detail-cell-dot" aria-hidden="true" /> : null}
@@ -814,14 +915,17 @@ export default function DetailBody({
         </div>
 
         {/* EditPhotosManager carries its own label and its own add tile.
-            The wrapper turns its grid into the handoff's 84px strip. */}
-        <div className="cz-detail-photos">
-          <EditPhotosManager
-            item={item}
-            onAttachPhoto={onAttachPhoto}
-            onRemovePhoto={onRemovePhoto}
-          />
-        </div>
+            The wrapper turns its grid into the handoff's 84px strip. Desktop
+            Fix B moves that strip under the stage — skip the second copy. */}
+        {!hidePhotosManager ? (
+          <div className="cz-detail-photos">
+            <EditPhotosManager
+              item={item}
+              onAttachPhoto={onAttachPhoto}
+              onRemovePhoto={onRemovePhoto}
+            />
+          </div>
+        ) : null}
       </div>
 
       {buyButton ? (

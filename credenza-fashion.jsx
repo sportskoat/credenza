@@ -444,6 +444,10 @@ let PRICE_PRIMARY = "USD";
 function setPricePrimaryPref(v) {
   PRICE_PRIMARY = v === "CNY" ? "CNY" : "USD";
 }
+// DetailBody price editor (and tests) read the same mirror ProfileSheet writes.
+export function pricePrimaryPref() {
+  return PRICE_PRIMARY;
+}
 
 // Fit summary prefs (design handoff PR4). Same module-mirror pattern as
 // PRICE_PRIMARY: the App syncs these from its prefs state, and flipping a
@@ -468,13 +472,16 @@ export function priceLabel(item) {
   const cny =
     currency === "CNY" && item.price != null && isFinite(item.price) ? item.price : null;
 
-  if (usd != null && cny != null) {
-    return PRICE_PRIMARY === "CNY"
-      ? formatMoney(cny, "CNY") + " · " + formatMoney(usd, "USD")
-      : formatMoney(usd, "USD") + " · " + formatMoney(cny, "CNY");
+  // One currency only (Kyle 2026-07-26): USD prefs hide ¥; CNY prefs hide $.
+  // Dual "$14.59 · ¥99" made the footer and cards fight the price toggle.
+  if (PRICE_PRIMARY === "USD") {
+    if (usd != null) return formatMoney(usd, "USD");
+    if (cny != null) return formatMoney(cny, "CNY");
+    if (item.price != null) return formatMoney(item.price, currency);
+    return "";
   }
-  if (usd != null) return formatMoney(usd, "USD");
   if (cny != null) return formatMoney(cny, "CNY");
+  if (usd != null) return formatMoney(usd, "USD");
   if (item.price != null) return formatMoney(item.price, currency);
   return "";
 }

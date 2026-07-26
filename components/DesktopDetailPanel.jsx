@@ -4,7 +4,7 @@
 // the right. The rack keeps its frozen physics; this is only the expanded
 // layer. Below 1024px the app keeps the flip card / phone sheet.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import {
   itemPhotoList,
   mergeFashionImages,
@@ -15,7 +15,6 @@ import DetailBody from "./DetailBody.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
-import { albumLinkTarget } from "./CardMetaLinks.jsx";
 
 export default function DesktopDetailPanel({
   item,
@@ -43,15 +42,27 @@ export default function DesktopDetailPanel({
   const [photoView, setPhotoView] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [haulDraft, setHaulDraft] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
   const trackRef = useRef(null);
   const menuRef = useRef(null);
+  const addInputRef = useRef(null);
+  const PHOTO_MAX = 12;
+
+  // Keep the stage in sync when attach/remove rewrites the item (or a new
+  // card opens). Lazy Yupoo load still extends the list below.
+  useEffect(() => {
+    const next = itemPhotoList(item, 24);
+    setPhotos(next);
+    setPhotoIdx((i) => Math.min(i, Math.max(0, next.length - 1)));
+  }, [item.id, item.image, item.gallery]);
 
   // Lazy Yupoo album fetch — the same contract PhotoCoverFlow uses, without
   // the 8-photo cap (the counter reads "1 / 14" for full albums).
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      if (!!yupooAlbumUrl(item) && photos.length < 8 && onLoadPhotos) {
+      const base = itemPhotoList(item, 24);
+      if (!!yupooAlbumUrl(item) && base.length < 8 && onLoadPhotos) {
         const imgs = await onLoadPhotos(item, { signal: new AbortController().signal });
         if (!cancelled) {
           setPhotos((cur) => mergeFashionImages(imgs || [], cur).slice(0, 24));
@@ -114,9 +125,19 @@ export default function DesktopDetailPanel({
     setMenuOpen(false);
   };
 
-  const albumTarget = albumLinkTarget(item);
   const price = priceLabel(item);
   const multiPhoto = photos.length > 1;
+  const canAddPhoto = photos.length < PHOTO_MAX && !!onAttachPhoto;
+
+  const pickPhotoFile = async (file) => {
+    if (!file || !onAttachPhoto) return;
+    setAddBusy(true);
+    try {
+      await onAttachPhoto(item.id, file);
+    } finally {
+      setAddBusy(false);
+    }
+  };
 
   return (
     <div
@@ -196,32 +217,67 @@ export default function DesktopDetailPanel({
               </>
             ) : null}
           </div>
-          {multiPhoto || albumTarget ? (
-            <div className="cz-dpanel-thumbs">
-              {photos.map((src, i) => (
-                <button
+          {/* Always show the strip so add/delete lives under the stage once —
+              never next to a second PHOTOS block (Kyle 2026-07-26). */}
+          <div className="cz-dpanel-thumbs">
+            {photos.map((src, i) => {
+              const isCover = i === 0 && item.image === src;
+              return (
+                <div
                   key={"thumb-" + src + "-" + i}
-                  type="button"
-                  className={"cz-dpanel-thumb" + (i === photoIdx ? " is-active" : "")}
-                  aria-label={"Show photo " + (i + 1)}
-                  aria-current={i === photoIdx ? "true" : undefined}
-                  onClick={() => goTo(i)}
+                  className={"cz-dpanel-thumb-wrap" + (i === photoIdx ? " is-active" : "")}
                 >
-                  <img src={src} alt="" draggable="false" loading="lazy" decoding="async" />
-                </button>
-              ))}
-              {albumTarget ? (
-                <a
-                  className="cz-dpanel-thumb cz-dpanel-thumb-album"
-                  href={albumTarget.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {albumTarget.label}
-                </a>
-              ) : null}
-            </div>
-          ) : null}
+                  <button
+                    type="button"
+                    className={"cz-dpanel-thumb" + (i === photoIdx ? " is-active" : "")}
+                    aria-label={"Show photo " + (i + 1)}
+                    aria-current={i === photoIdx ? "true" : undefined}
+                    onClick={() => goTo(i)}
+                  >
+                    <img src={src} alt="" draggable="false" loading="lazy" decoding="async" />
+                    {isCover ? <span className="cz-dpanel-thumb-cover">Cover</span> : null}
+                  </button>
+                  {/* No trash on cover — same rule as EditPhotosManager. */}
+                  {!isCover && onRemovePhoto ? (
+                    <button
+                      type="button"
+                      className="cz-dpanel-thumb-delete"
+                      aria-label={"Delete photo " + (i + 1)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemovePhoto(item.id, src);
+                      }}
+                    >
+                      <Trash2 size={14} strokeWidth={2.2} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+            {canAddPhoto ? (
+              <button
+                type="button"
+                className="cz-dpanel-thumb cz-dpanel-thumb-add"
+                aria-label="Add photo"
+                disabled={addBusy}
+                onClick={() => addInputRef.current && addInputRef.current.click()}
+              >
+                <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
+                <span>{addBusy ? "Adding…" : "Add"}</span>
+              </button>
+            ) : null}
+            <input
+              ref={addInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files && e.target.files[0];
+                e.target.value = "";
+                pickPhotoFile(file);
+              }}
+            />
+          </div>
         </div>
 
         <div className="cz-dpanel-right">
@@ -314,6 +370,7 @@ export default function DesktopDetailPanel({
               onSetPrimaryImage={onSetPrimaryImage}
               onLoadPhotos={onLoadPhotos}
               footerPrice={price}
+              hidePhotosManager
             />
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, itemUsdAmount, sumItemsUsd } from "../../credenza-fashion.jsx";
+import { formatMoney, itemUsdAmount, priceLabel, sumItemsUsd } from "../../credenza-fashion.jsx";
 
 describe("itemUsdAmount", () => {
   it("prefers priceUsd over CNY price", () => {
@@ -62,5 +62,20 @@ describe("formatMoney", () => {
     expect(formatMoney(12.5, "USD")).toBe("$12.50");
     expect(formatMoney(100, "CNY")).toBe("¥100");
     expect(formatMoney(null, "USD")).toBe("");
+  });
+});
+
+describe("priceLabel primary currency", () => {
+  it("shows only USD when the primary is USD", () => {
+    // Default PRICE_PRIMARY is USD. Dual ¥+$ must not appear.
+    const label = priceLabel({ price: 99, currency: "CNY", priceUsd: 14.59 });
+    expect(label).toBe("$14.59");
+    expect(label).not.toMatch(/¥/);
+  });
+
+  it("still shows USD via FX when priceUsd is missing", () => {
+    // itemUsdAmount converts 99 * 0.14 → 13.86, so USD primary still shows $.
+    const label = priceLabel({ price: 99, currency: "CNY" });
+    expect(label).toBe("$13.86");
   });
 });
