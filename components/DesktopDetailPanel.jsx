@@ -13,6 +13,7 @@ import {
 } from "../credenza-fashion.jsx";
 import DetailBody from "./DetailBody.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
+import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import { albumLinkTarget } from "./CardMetaLinks.jsx";
 
 export default function DesktopDetailPanel({
@@ -36,6 +37,9 @@ export default function DesktopDetailPanel({
 }) {
   const [photos, setPhotos] = useState(() => itemPhotoList(item, 24));
   const [photoIdx, setPhotoIdx] = useState(0);
+  // Full-screen swipe gallery at the tapped photo (the entry the flip-card
+  // hero pager used to provide). photoView = { startIndex } | null.
+  const [photoView, setPhotoView] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [haulDraft, setHaulDraft] = useState("");
   const trackRef = useRef(null);
@@ -139,9 +143,17 @@ export default function DesktopDetailPanel({
                 }}
               >
                 {photos.map((src, i) => (
-                  <div key={src + "-" + i} className="cz-dpanel-slide">
+                  // A still tap opens the full-screen gallery at this photo;
+                  // a moved swipe cancels the click and only pages.
+                  <button
+                    key={src + "-" + i}
+                    type="button"
+                    className="cz-dpanel-slide"
+                    aria-label={"Open photo " + (i + 1) + " full screen"}
+                    onClick={() => setPhotoView({ startIndex: i })}
+                  >
                     <img src={src} alt={item.title || "Item photo"} draggable={false} loading="lazy" decoding="async" />
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -298,6 +310,16 @@ export default function DesktopDetailPanel({
           </div>
         </div>
       </div>
+      {photoView ? (
+        <PhotoCoverFlow
+          item={item}
+          images={photos}
+          startIndex={photoView.startIndex}
+          onClose={() => setPhotoView(null)}
+          onSetPrimaryImage={onSetPrimaryImage}
+          onLoadPhotos={onLoadPhotos}
+        />
+      ) : null}
     </div>
   );
 }

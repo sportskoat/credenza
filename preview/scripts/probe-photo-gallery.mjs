@@ -38,24 +38,24 @@ const galleryState = (page) =>
     };
   });
 
-// ---- Desktop: grid tap → solo overlay → Space flips → tap hero photo ----
+// ---- Desktop (>=1024px, Fix B): grid tap → two-column panel → tap photo ----
 {
   const { context, page } = await newSeededPage({ viewport: { width: 1440, height: 900 } });
   await page.getByRole("button", { name: "Card view" }).click();
   await page.waitForTimeout(900);
   await page.locator("main img").first().click();
   await page.waitForTimeout(1200);
-  await page.keyboard.press(" ");
-  await page.waitForTimeout(1000);
 
-  const slides = await page.locator(".cz-carousel-overlay .cz-detail-hero-slide").count();
-  await page.locator(".cz-carousel-overlay .cz-detail-hero-slide").first().click();
+  const slides = await page.locator(".cz-dpanel-slide img").count();
+  await page.locator(".cz-dpanel-slide").first().click();
   await page.waitForTimeout(1000);
   console.log("desktop slides:", slides, JSON.stringify(await galleryState(page)));
   await page.screenshot({ path: join(outDir, "pg-1-desktop-gallery.png") });
   console.log("shot: pg-1-desktop-gallery");
 
-  const next = page.getByRole("button", { name: "Next photo" });
+  // The panel has its own "Next photo" pager — scope to the gallery dialog.
+  const gallery = page.locator("dialog.cz-photo-coverflow-backdrop");
+  const next = gallery.getByRole("button", { name: "Next photo" });
   if (await next.isVisible().catch(() => false)) {
     await next.click();
     await page.waitForTimeout(700);
@@ -64,14 +64,13 @@ const galleryState = (page) =>
     console.log("shot: pg-2-desktop-gallery-next");
   }
 
-  await page.getByRole("button", { name: "Use as cover" }).click();
+  await gallery.getByRole("button", { name: "Use as cover" }).click();
   await page.waitForTimeout(900);
   console.log("after cover:", JSON.stringify(await galleryState(page)));
 
-  // The overlay and the card must still be there behind, still flipped.
+  // The panel must still be there behind the gallery.
   const behind = await page.evaluate(() => ({
-    overlayOpen: !!document.querySelector(".cz-carousel-overlay"),
-    flippedCards: document.querySelectorAll(".cz-carousel-card-inner.is-flipped").length,
+    panelOpen: !!document.querySelector(".cz-dpanel-scrim"),
   }));
   console.log("behind:", JSON.stringify(behind));
   await context.close();

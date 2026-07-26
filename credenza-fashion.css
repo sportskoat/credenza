@@ -9664,6 +9664,11 @@ a.cz-card-seller:hover {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* The slide is a <button> (tap opens the full-screen gallery). */
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: zoom-in;
   }
   /* contain, never cover — a contact sheet must not be cropped. */
   .cz-dpanel-slide img {
