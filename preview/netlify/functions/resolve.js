@@ -13,6 +13,9 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 const WEIDIAN_API = "https://thor.weidian.com/detail/getItemSkuInfo/1.0";
+// world.taobao serves its SSR data island only to crawlers ("traffic":
+// "crawler" vs "people"). Ask for the crawler page — that is what it is for.
+const CRAWLER_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 // Product Details body (Kyle 2026-07-25: size charts live here as images —
 // the SKU feed's gallery never carries them, so the chart hunt was blind).
 const WEIDIAN_DESC_API = "https://thor.weidian.com/detail/getDetailDesc/1.0";
@@ -216,7 +219,7 @@ async function fetchTaobaoWorldFacts(itemId, signal) {
   const pageUrl = `https://world.taobao.com/item/${itemId}.htm`;
   const res = await safeFetch(pageUrl, {
     headers: {
-      "user-agent": UA,
+      "user-agent": CRAWLER_UA,
       accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8",
     },
