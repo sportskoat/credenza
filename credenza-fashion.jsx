@@ -1161,6 +1161,26 @@ function taobaoFamilyItemId(raw) {
   return path ? path[1] : null;
 }
 
+/** 1688 offer id — mirrors resolve.js ali1688ItemId. */
+function ali1688ItemId(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^www\./, "").toLowerCase();
+  if (!/(^|\.)1688\.com$/.test(host)) return null;
+  const path = u.pathname.match(/\/offer\/(\d{5,})(?:\.html)?/i);
+  if (path) return path[1];
+  const id =
+    u.searchParams.get("offerId") ||
+    u.searchParams.get("offer_id") ||
+    u.searchParams.get("id");
+  if (id && /^\d{5,}$/.test(id)) return id;
+  return null;
+}
+
 function yupooAlbumIdentity(raw) {
   try {
     const url = new URL(raw);
@@ -1193,7 +1213,7 @@ function ensureYupooAlbumUid(raw) {
 
 // First resolvable buy URL on an item: the primary URL or any paired link.
 function resolvableBuyUrl(item) {
-  const isResolvable = (raw) => !!(weidianItemId(raw) || taobaoFamilyItemId(raw));
+  const isResolvable = (raw) => !!(weidianItemId(raw) || taobaoFamilyItemId(raw) || ali1688ItemId(raw));
   if (item.url && isResolvable(item.url)) return item.url;
   for (const l of item.links || []) {
     if (l && l.url && isResolvable(l.url)) return l.url;

@@ -7,7 +7,15 @@ import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 const { _test } = require("../netlify/functions/resolve.js");
-const { weidianItemId, taobaoFamilyItemId, classifyBuyLink, parseWorldTaobaoHtml, descImageUrls } = _test;
+const {
+  weidianItemId,
+  taobaoFamilyItemId,
+  ali1688ItemId,
+  classifyBuyLink,
+  parseWorldTaobaoHtml,
+  parse1688Html,
+  descImageUrls,
+} = _test;
 
 describe("classifyBuyLink", () => {
   it("classifies Weidian itemIDs", () => {
@@ -31,6 +39,15 @@ describe("classifyBuyLink", () => {
       marketplace: "taobao",
       itemId: "856801351597",
     });
+  });
+
+  it("classifies 1688 offer ids", () => {
+    expect(classifyBuyLink("https://detail.1688.com/offer/7335890124.html")).toEqual({
+      marketplace: "1688",
+      itemId: "7335890124",
+    });
+    expect(ali1688ItemId("https://m.1688.com/offer/922443855703.html")).toBe("922443855703");
+    expect(ali1688ItemId("https://detail.1688.com/offer/12345.htm?offerId=99999999999")).toBe("12345");
   });
 
   it("rejects junk and non-buy hosts", () => {
@@ -68,6 +85,39 @@ describe("parseWorldTaobaoHtml", () => {
 
   it("returns empty facts for blank HTML", () => {
     const facts = parseWorldTaobaoHtml("");
+    expect(facts.title).toBe("");
+    expect(facts.mainImage).toBeNull();
+  });
+});
+
+describe("parse1688Html", () => {
+  it("reads og:title and og:image", () => {
+    const html = `
+      <html><head>
+      <meta property="og:title" content="夏季纯棉T恤批发-1688"/>
+      <meta property="og:image" content="//cbu01.alicdn.com/img/x.jpg"/>
+      <title>夏季纯棉T恤批发-1688</title>
+      </head></html>`;
+    const facts = parse1688Html(html);
+    expect(facts.title).toContain("T恤");
+    expect(facts.title).not.toMatch(/1688$/);
+    expect(facts.mainImage).toBe("https://cbu01.alicdn.com/img/x.jpg");
+  });
+
+  it("reads Schema.org Product JSON-LD when og is missing", () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"Product","name":"批发连帽卫衣","image":["//img.alicdn.com/imgextra/i1/x.png"],"offers":{"@type":"Offer","price":"39.90","priceCurrency":"CNY"}}
+      </script>
+      </head></html>`;
+    const facts = parse1688Html(html);
+    expect(facts.title).toBe("批发连帽卫衣");
+    expect(facts.mainImage).toBe("https://img.alicdn.com/imgextra/i1/x.png");
+    expect(facts.priceCny).toBe(39.9);
+  });
+
+  it("returns empty facts for blank HTML", () => {
+    const facts = parse1688Html("");
     expect(facts.title).toBe("");
     expect(facts.mainImage).toBeNull();
   });

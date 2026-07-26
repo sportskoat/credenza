@@ -1,6 +1,6 @@
 # Spec — Empty Taobao cards after Reddit haul paste
 
-**Status:** LANDED 2026-07-25 — world.taobao HTML og:title/og:image path. Price often null. 1688 still open.  
+**Status:** LANDED 2026-07-25 — world.taobao HTML og:title/og:image path. 1688 HTML og + JSON-LD path LANDED. Price often null / MOQ tier.  
 **Date:** 2026-07-25  
 **Reporter:** Kyle (screenshots of monogram Taobao cards + blank flipped backs)  
 **Owner later:** Pure/server lane after gallery lands  
@@ -54,7 +54,7 @@ Parser quality can still improve labels. It cannot invent marketplace photos.
 | Weidian | Yes | `thor.weidian.com/detail/getItemSkuInfo/1.0` |
 | Taobao | No | 422 |
 | Tmall | No | 422 |
-| 1688 | No | 422 |
+| 1688 | Yes (og + JSON-LD) | photo + title; price often MOQ tier |
 | Yupoo | Separate path | `yupoo.js` + album relay, not `resolve.js` |
 
 Agent wrap URLs already support Taobao for most agents (`agents.js` supports lists). Buy still works. The **card content** does not fill.
@@ -183,4 +183,5 @@ Extractors can live in a **new** file such as `marketplace-ids.js` later. Do not
 3. `parseWorldTaobaoHtml` reads og:title + og:image; optional ¥ price when present.
 4. Claude enrich runs on the same path as Weidian (fail open).
 5. Pure tests: `preview/test/resolve-function.test.js`.
-6. **Not fixed:** 1688, short tb.cn without id expansion, reliable price when og has none.
+6. **Also landed:** 1688 via `detail.1688.com/offer/{id}.html` (og + JSON-LD Product).
+7. **Not fixed:** short tb.cn without id expansion, reliable price when og has none.

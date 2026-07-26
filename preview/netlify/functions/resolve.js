@@ -1,7 +1,8 @@
 // Buy-link resolver for Credenza (fashion build). Weidian: public SKU API +
 // Claude translate. Taobao/Tmall: world.taobao.com HTML og:title/og:image (price
-// often missing — photo + title still beat monogram cards). Fail open on
-// Claude. SSRF via safeFetch for HTML hosts. No dependencies.
+// often missing — photo + title still beat monogram cards). 1688: detail page
+// HTML og + JSON-LD Product (same fail-open pattern). Fail open on Claude.
+// SSRF via safeFetch for HTML hosts. No dependencies.
 
 const { safeFetch, readCapped } = require("./lib/guard.js");
 const limit = require("./lib/limit.js");
@@ -24,6 +25,8 @@ const MAX_HTML_BYTES = 1.5 * 1024 * 1024;
 const MODEL = process.env.CREDENZA_RESOLVE_MODEL || "claude-haiku-4-5";
 // world.taobao + redirects stay on taobao hosts (not arbitrary web).
 const TAOBAO_PAGE_HOST = /(^|\.)(world\.)?taobao\.com$/i;
+// detail.1688.com and redirects stay on 1688.com only.
+const ALI1688_PAGE_HOST = /(^|\.)1688\.com$/i;
 
 function response(statusCode, payload, extraHeaders) {
   return {
@@ -72,10 +75,32 @@ function taobaoFamilyItemId(raw) {
   return null;
 }
 
+/** 1688 offer id from detail.1688.com/offer/{id}.html and common aliases. */
+function ali1688ItemId(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^www\./, "").toLowerCase();
+  if (!/(^|\.)1688\.com$/.test(host)) return null;
+  const path = u.pathname.match(/\/offer\/(\d{5,})(?:\.html)?/i);
+  if (path) return path[1];
+  const id =
+    u.searchParams.get("offerId") ||
+    u.searchParams.get("offer_id") ||
+    u.searchParams.get("id");
+  if (id && /^\d{5,}$/.test(id)) return id;
+  return null;
+}
+
 /** Classify a buy URL. Returns { marketplace, itemId } or null. */
 function classifyBuyLink(raw) {
   const w = weidianItemId(raw);
   if (w) return { marketplace: "weidian", itemId: w };
+  const a = ali1688ItemId(raw);
+  if (a) return { marketplace: "1688", itemId: a };
   return taobaoFamilyItemId(raw);
 }
 
@@ -143,6 +168,123 @@ async function fetchTaobaoWorldFacts(itemId, signal) {
   return {
     itemId: String(itemId),
     title: parsed.title || `Taobao item ${itemId}`,
+    mainImage: parsed.mainImage,
+    images: parsed.images,
+    priceCny: parsed.priceCny,
+    priceCnyHigh: parsed.priceCnyHigh,
+    stock: null,
+    attrGroups: [],
+  };
+}
+
+/**
+ * Parse 1688 detail HTML: og tags first, then Schema.org Product JSON-LD.
+ * Price often a MOQ tier; take the first positive CNY figure when present.
+ */
+function parse1688Html(html) {
+  const src = String(html || "");
+  const og = (prop) => {
+    const re = new RegExp(
+      `<meta[^>]+(?:property|name)=["']og:${prop}["'][^>]+content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:${prop}["']`,
+      "i"
+    );
+    const m = src.match(re);
+    return ((m && (m[1] || m[2])) || "").trim();
+  };
+  let title = og("title");
+  let mainImage = og("image") || null;
+  let priceCny = null;
+
+  // JSON-LD Product (common on public detail pages when og is thin).
+  const ldBlocks = src.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+  for (const block of ldBlocks) {
+    const body = block.replace(/^[\s\S]*?>/, "").replace(/<\/script>\s*$/i, "");
+    let data;
+    try {
+      data = JSON.parse(body.trim());
+    } catch {
+      continue;
+    }
+    const nodes = Array.isArray(data) ? data : data && data["@graph"] ? data["@graph"] : [data];
+    for (const node of nodes) {
+      if (!node || typeof node !== "object") continue;
+      const type = String(node["@type"] || "");
+      if (!/product/i.test(type) && type !== "Product") continue;
+      if (!title && typeof node.name === "string") title = node.name.trim();
+      if (!mainImage) {
+        const img = node.image;
+        if (typeof img === "string") mainImage = img;
+        else if (Array.isArray(img) && img.length) {
+          mainImage = typeof img[0] === "string" ? img[0] : img[0] && img[0].url;
+        } else if (img && typeof img === "object" && img.url) mainImage = img.url;
+      }
+      if (priceCny == null) {
+        const offers = node.offers;
+        const offerList = Array.isArray(offers) ? offers : offers ? [offers] : [];
+        for (const o of offerList) {
+          if (!o) continue;
+          const p = parseFloat(o.price != null ? o.price : o.lowPrice);
+          if (isFinite(p) && p > 0 && p < 1e6) {
+            priceCny = p;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (title) {
+    title = title
+      .replace(/\s*[-–|].{0,40}(1688|阿里巴巴|Alibaba).*$/i, "")
+      .replace(/\.\.\.\s*$/, "…")
+      .trim();
+  }
+  if (!title) {
+    const t = src.match(/<title>([^<]+)<\/title>/i);
+    title = t ? t[1].replace(/\s*[-–|].{0,40}(1688|阿里巴巴|Alibaba).*$/i, "").trim() : "";
+  }
+  if (mainImage && mainImage.startsWith("//")) mainImage = "https:" + mainImage;
+  if (priceCny == null) {
+    const priceMatch =
+      src.match(/[¥￥]\s*([0-9]+(?:\.[0-9]{1,2})?)/) ||
+      src.match(/"price"\s*:\s*"?(?:¥|￥)?([0-9]+(?:\.[0-9]{1,2})?)"?/);
+    if (priceMatch) {
+      const n = parseFloat(priceMatch[1]);
+      if (isFinite(n) && n > 0 && n < 1e6) priceCny = n;
+    }
+  }
+  return {
+    title: title || "",
+    mainImage,
+    images: mainImage ? [mainImage] : [],
+    priceCny,
+    priceCnyHigh: null,
+    stock: null,
+    attrGroups: [],
+  };
+}
+
+async function fetch1688Facts(itemId, signal) {
+  const pageUrl = `https://detail.1688.com/offer/${itemId}.html`;
+  const res = await safeFetch(pageUrl, {
+    headers: {
+      "user-agent": UA,
+      accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+      "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8",
+      referer: "https://www.1688.com/",
+    },
+    signal,
+    hosts: ALI1688_PAGE_HOST,
+    maxRedirects: 4,
+  });
+  if (!res.ok) throw { status: 502, msg: `1688 page failed (${res.status})` };
+  const buf = await readCapped(res, MAX_HTML_BYTES);
+  const html = buf.toString("utf8");
+  const parsed = parse1688Html(html);
+  if (!parsed.title && !parsed.mainImage) throw { status: 404, msg: "1688 item not found" };
+  return {
+    itemId: String(itemId),
+    title: parsed.title || `1688 item ${itemId}`,
     mainImage: parsed.mainImage,
     images: parsed.images,
     priceCny: parsed.priceCny,
@@ -312,7 +454,7 @@ async function enrichWithClaude(apiKey, facts, signal) {
       model: MODEL,
       max_tokens: 4000,
       system:
-        "You translate Chinese marketplace (Weidian, Taobao, Tmall) fashion listings into concise English for a personal shopping shelf. Translate faithfully, keep brand and model names recognizable, and categorize the garment. Variant values must be returned in the same order they were given. If the title is already useful English, keep it short and natural.",
+        "You translate Chinese marketplace (Weidian, Taobao, Tmall, 1688) fashion listings into concise English for a personal shopping shelf. Translate faithfully, keep brand and model names recognizable, and categorize the garment. Variant values must be returned in the same order they were given. If the title is already useful English, keep it short and natural.",
       messages: [
         {
           role: "user",
@@ -377,6 +519,14 @@ async function handle(event) {
       // stash rate on facts for response builder below
       facts._usdPerCny = usdPerCny;
       canonicalUrl = `https://weidian.com/item.html?itemID=${facts.itemId || classified.itemId}`;
+    } else if (classified.marketplace === "1688") {
+      const [aFacts, usdPerCny] = await Promise.all([
+        fetch1688Facts(classified.itemId, controller.signal),
+        fetchUsdRate(controller.signal),
+      ]);
+      facts = aFacts;
+      facts._usdPerCny = usdPerCny;
+      canonicalUrl = `https://detail.1688.com/offer/${classified.itemId}.html`;
     } else {
       // taobao | tmall — HTML og tags; price often null
       const [tbFacts, usdPerCny] = await Promise.all([
@@ -454,8 +604,10 @@ async function handle(event) {
 exports._test = {
   weidianItemId,
   taobaoFamilyItemId,
+  ali1688ItemId,
   classifyBuyLink,
   parseWorldTaobaoHtml,
+  parse1688Html,
   descImageUrls,
 };
 
