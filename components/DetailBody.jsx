@@ -176,6 +176,7 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
   const source = item.sizeChartSource && typeof item.sizeChartSource === "object" ? item.sizeChartSource : null;
   const SOURCE_LINES = {
     "album-text": "Chart read from the seller's album page",
+    "chart-photos": "Chart read from the album's size-chart photo",
     "album-photos": "Chart read from " + (source ? source.photos : 0) + " album photos",
     "desc-photos": "Chart read from " + (source ? source.photos : 0) + " listing photos",
     "gallery-photos": "Chart read from " + (source ? source.photos : 0) + " gallery photos",

@@ -49,12 +49,45 @@ export async function huntSizeChart(item, { signal } = {}) {
   const localPhotos = [item.image, ...(item.gallery || [])].filter(
     (src) => typeof src === "string" && /^https?:\/\//i.test(src)
   );
+  // Chart tiles the album parser held out of the gallery (2026-07-26). These
+  // ARE the chart, so scan them before anything else — one vision call instead
+  // of walking the whole album. Kyle: "you want to index the sizing chart
+  // because you need to understand how it's going to fit somebody, but you
+  // don't really care for it if someone is looking through photos."
+  const knownCharts = (item.chartImages || []).filter(
+    (src) => typeof src === "string" && /^https?:\/\//i.test(src)
+  );
+  if (knownCharts.length) {
+    const chartText = await fetchChartFromPhotos(knownCharts.slice(0, VISION_WINDOW), {
+      signal,
+      referer: album || item.url || undefined,
+    });
+    if (signal && signal.aborted) return null;
+    if (chartText && parseSizeChart(chartText)) {
+      return { text: chartText, source: { via: "chart-photos", photos: knownCharts.length } };
+    }
+  }
   if (album) {
     const data = await fetchYupooImages(album, { signal });
     if (signal && signal.aborted) return null;
     const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
     if (text.trim() && parseSizeChart(text)) {
       return { text: text.trim(), source: { via: "album-text", photos: 0 } };
+    }
+    // Charts the parser separated on THIS fetch, if the item did not carry
+    // them yet (enriched before chartImages existed).
+    const freshCharts = ((data && data.chartImages) || []).filter(
+      (src) => !knownCharts.includes(src)
+    );
+    if (freshCharts.length) {
+      const chartText = await fetchChartFromPhotos(freshCharts.slice(0, VISION_WINDOW), {
+        signal,
+        referer: album,
+      });
+      if (signal && signal.aborted) return null;
+      if (chartText && parseSizeChart(chartText)) {
+        return { text: chartText, source: { via: "chart-photos", photos: freshCharts.length } };
+      }
     }
     const albumPhotos = (data && data.images) || [];
     if (albumPhotos.length) {

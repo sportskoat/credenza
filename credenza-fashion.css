@@ -4476,6 +4476,17 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+.cz-modal-surface-stacked {
+  /* Reserve the scrollbar gutter always (Kyle 2026-07-26: "the sizing still
+     looks weird… it's because of the scroll bar"). A sub-page that overflows
+     shows a classic scrollbar on macOS when "always show" is set. That steals
+     ~15px of content width, so the text re-wraps and the measured height is
+     wrong — and the gutter appearing between pages changes the width mid
+     transition. A stable gutter keeps the content width constant whether or
+     not the bar is present. Headless Chrome uses overlay scrollbars and never
+     showed this. */
+  scrollbar-gutter: stable;
+}
 .cz-modal-surface-stacked .cz-modal-header {
   /* A short window scrolls the surface, which used to carry the header — and
      the back button with it — out of sight. Pin the header in stacked modals

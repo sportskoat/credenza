@@ -6,7 +6,17 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 const TIMEOUT_MS = 15000;
-const MAX_IMAGES = 8;
+// Kyle 2026-07-26: "this album has 30 different photos… we could have more
+// photos in here easily". 8 was far below what a Mook album holds (38 tiles
+// on both reference albums). These are URLs only — the client relays and
+// persists a much smaller subset, so a high cap costs nothing here.
+const MAX_IMAGES = 40;
+const MAX_CHART_IMAGES = 8;
+// Below this long edge a Yupoo tile is a banner, a spacer, or a blank —
+// never a product photo worth showing. Real photos measure 1000px+.
+const MIN_PHOTO_EDGE = 600;
+// Wider or taller than this is a strip or a banner, not a garment shot.
+const MAX_PHOTO_ASPECT = 3;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const YUPOO_HOST = /(^|\.)yupoo\.com$/;
 
@@ -209,6 +219,103 @@ function imageIdentity(url) {
   }
 }
 
+// ————— Per-photo tiles —————
+// Yupoo album pages wrap each photo in `.showalbum__children.image__main` and
+// declare the real pixel size on the <img> (data-width / data-height) plus the
+// original file under data-origin-src. Reading tiles instead of scraping loose
+// URLs gives three things the flat scrape could not: an honest photo count, a
+// size for quality vetting, and a filename for size-chart detection.
+function extractPhotoTiles(html, baseUrl) {
+  const tiles = [];
+  const blockRe = /class="[^"]*\bimage__imagewrap\b[^"]*"[\s\S]{0,1600}?<\/div>/gi;
+  const blocks = String(html).match(blockRe) || [];
+  for (const block of blocks) {
+    const attr = (name) => {
+      const m = block.match(new RegExp(`\\b${name}=["']([^"']*)["']`, "i"));
+      return m ? decodeHtml(m[1]) : "";
+    };
+    const raw = attr("data-origin-src") || attr("data-src") || attr("src");
+    if (!raw) continue;
+    let url;
+    try {
+      url = new URL(cleanEscapedUrl(raw), baseUrl).href;
+    } catch {
+      continue;
+    }
+    if (!/^https?:\/\/(?:[^/]*\.)?(?:photo|pic)\.yupoo\.com\//i.test(url) &&
+        !/^https?:\/\/photo\.yupoo\.com\//i.test(url)) continue;
+    if (!/\.(jpe?g|png|webp|gif)(?:$|\?)/i.test(url)) continue;
+    const width = Number(attr("data-width")) || 0;
+    const height = Number(attr("data-height")) || 0;
+    tiles.push({ url, width, height, alt: attr("alt") });
+  }
+  // Same identity dedupe the flat scrape uses, keeping the best variant.
+  const byIdentity = new Map();
+  const ordered = [];
+  for (const tile of tiles) {
+    const identity = imageIdentity(tile.url);
+    const existing = byIdentity.get(identity);
+    if (!existing) {
+      const record = { ...tile, identity, quality: imageQuality(tile.url) };
+      byIdentity.set(identity, record);
+      ordered.push(record);
+    } else if (imageQuality(tile.url) > existing.quality) {
+      existing.url = tile.url;
+      existing.quality = imageQuality(tile.url);
+    }
+  }
+  return ordered;
+}
+
+/**
+ * Is this tile a size chart rather than a product photo?
+ * Kyle 2026-07-26: "Don't bring in the sizing chart. Obviously, you want to
+ * index the sizing chart… but you don't really care for it if someone is
+ * looking through photos."
+ * Sellers paste charts as screenshots, so three signals converge: the filename
+ * says screenshot or size, the file is a PNG among JPG photos, and the pixel
+ * size is far below the album's own photos. Any single strong signal is enough
+ * — a wrongly hidden chart still reaches the fit block through chartImages.
+ */
+function isChartTile(tile, medianEdge) {
+  const name = String(tile.alt || tile.url).toLowerCase();
+  if (/(size[\s_-]*chart|sizing|measure|尺码|尺寸|规格)/.test(name)) return true;
+  const edge = Math.max(tile.width || 0, tile.height || 0);
+  const isPng = /\.png(?:$|\?)/i.test(tile.url);
+  if (/screenshot|screen[\s_-]*shot|截图/.test(name)) return true;
+  // A PNG that is much smaller than the album's photos is a pasted table.
+  if (isPng && medianEdge > 0 && edge > 0 && edge < medianEdge * 0.6) return true;
+  return false;
+}
+
+/**
+ * Is this tile good enough to show?
+ * Kyle 2026-07-26: "There'll be blank photos… I just think it could look quite
+ * sloppy when we don't have good photos in here."
+ * Tiles with no declared size pass — an unknown size is not evidence of a bad
+ * photo, and dropping them would empty albums that omit the attributes.
+ */
+function isDecentPhoto(tile) {
+  const w = tile.width || 0;
+  const h = tile.height || 0;
+  if (!w || !h) return true;
+  if (Math.max(w, h) < MIN_PHOTO_EDGE) return false;
+  const aspect = Math.max(w / h, h / w);
+  return aspect <= MAX_PHOTO_ASPECT;
+}
+
+function partitionTiles(tiles) {
+  const edges = tiles.map((t) => Math.max(t.width || 0, t.height || 0)).filter((n) => n > 0).sort((a, b) => a - b);
+  const medianEdge = edges.length ? edges[Math.floor(edges.length / 2)] : 0;
+  const gallery = [];
+  const charts = [];
+  for (const tile of tiles) {
+    if (isChartTile(tile, medianEdge)) charts.push(tile);
+    else if (isDecentPhoto(tile)) gallery.push(tile);
+  }
+  return { gallery, charts };
+}
+
 function extractImageUrls(html, baseUrl, jsonLd = []) {
   const candidates = [];
   const push = (raw) => {
@@ -290,7 +397,32 @@ function extractAlbumMetadata(html, album) {
     batch: extractBatch(sourceTitle, description) || (/^[A-Z0-9._-]+$/i.test(title) ? title : ""),
     description,
     buyUrl: extractBuyUrl(html, jsonLd),
-    images: extractImageUrls(html, album.requestUrl, jsonLd),
+    ...albumImages(html, album.requestUrl, jsonLd),
+  };
+}
+
+/**
+ * Split the album into what the gallery shows and what the fit block reads.
+ * `images` — vetted product photos, charts removed.
+ * `chartImages` — the chart tiles, kept so the size hunt still indexes them.
+ * `photoCount` — how many product photos the album actually holds, so the card
+ *   can say "30 photos" instead of counting what it managed to store.
+ * Falls back to the flat URL scrape when tile parsing finds nothing (older
+ * album templates, or markup Yupoo changes later).
+ */
+function albumImages(html, baseUrl, jsonLd) {
+  const tiles = extractPhotoTiles(html, baseUrl);
+  if (!tiles.length) {
+    const flat = extractImageUrls(html, baseUrl, jsonLd);
+    return { images: flat, chartImages: [], photoCount: flat.length };
+  }
+  const { gallery, charts } = partitionTiles(tiles);
+  // Never return an empty gallery because the vetting was too strict.
+  const shown = gallery.length ? gallery : tiles;
+  return {
+    images: shown.slice(0, MAX_IMAGES).map((t) => t.url),
+    chartImages: charts.slice(0, MAX_CHART_IMAGES).map((t) => t.url),
+    photoCount: shown.length,
   };
 }
 
@@ -358,5 +490,7 @@ exports._test = {
   canonicalBuyUrl,
   extractImageUrls,
   extractAlbumMetadata,
+  extractPhotoTiles,
+  partitionTiles,
   imageIdentity,
 };

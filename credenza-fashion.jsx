@@ -1788,6 +1788,14 @@ const IMAGE_MAX_INPUT_BYTES = 15 * 1024 * 1024;
 const IMAGE_TARGET_BYTES = 24 * 1024;
 const IMAGE_HARD_CAP_BYTES = 40 * 1024;
 
+// How many album photos an item keeps (Kyle 2026-07-26: "we could have more
+// photos in here easily"). Every stored photo is a ~32KB base64 string inside
+// the item JSON, so this is a storage budget, not a display limit: 20 photos
+// is roughly 640KB per card. The album link still opens the full album, and
+// the card label reports the album's real count, so a deeper album is never
+// misrepresented as a shallow one.
+export const GALLERY_MAX = 20;
+
 async function decodeImage(blob) {
   if (typeof createImageBitmap === "function") {
     try {
@@ -1977,6 +1985,8 @@ function createItem(parsed, rawText, extra) {
     tags: enriched.tags,
     image: null,
     gallery: [],
+    albumPhotoCount: 0,
+    chartImages: [],
     links: pairedLinksFromRawText(rawText, parsed.url),
     status: "ready",
     note: "",
@@ -2079,6 +2089,17 @@ export function migrateItem(old) {
         : null,
     gallery: Array.isArray(old.gallery)
       ? old.gallery.filter((g) => typeof g === "string" && (g.startsWith("data:image/") || /^https?:\/\//i.test(g)))
+      : [],
+    // How many product photos the SOURCE album holds. The gallery stores a
+    // compressed subset, so its length undercounts (Kyle 2026-07-26: "it'll
+    // say 8 photos, but this album has 30 different photos").
+    albumPhotoCount:
+      typeof old.albumPhotoCount === "number" && isFinite(old.albumPhotoCount)
+        ? Math.min(999, Math.max(0, Math.round(old.albumPhotoCount)))
+        : 0,
+    // Size-chart tiles held out of the gallery, kept for the chart hunt.
+    chartImages: Array.isArray(old.chartImages)
+      ? old.chartImages.filter((g) => typeof g === "string" && /^https?:\/\//i.test(g)).slice(0, 8)
       : [],
     links: migrateLinks(old, parsed.url, rawText),
     status: "ready",
@@ -4905,7 +4926,7 @@ export default function Credenza() {
     if (!file) return;
     try {
       const dataUrl = await compressImageBlob(file);
-      updateItem(id, (x) => ({ gallery: [...(x.gallery || []), dataUrl].slice(0, 12) }));
+      updateItem(id, (x) => ({ gallery: [...(x.gallery || []), dataUrl].slice(0, GALLERY_MAX) }));
     } catch {
       flashImportResult("Couldn't read that gallery image.");
     }
@@ -4925,7 +4946,7 @@ export default function Credenza() {
     updateItem(id, (x) => {
       const nextGallery = (x.gallery || []).filter((g) => g !== dataUrl);
       if (x.image) nextGallery.unshift(x.image);
-      return { image: dataUrl, gallery: nextGallery.slice(0, 12) };
+      return { image: dataUrl, gallery: nextGallery.slice(0, GALLERY_MAX) };
     });
 
   // Relay one URL through the preview function and return a compressed data
@@ -4969,24 +4990,28 @@ export default function Credenza() {
       item.gallery || []
     ).filter((src) => !isHotlink(src));
     const albumUrl = yupooAlbumUrl(item);
-    if (!albumUrl || existing.length >= 8) return existing.slice(0, 8);
+    if (!albumUrl || existing.length >= GALLERY_MAX) return existing.slice(0, GALLERY_MAX);
     const data = await fetchYupooImages(albumUrl, { signal });
-    if (!data || (signal && signal.aborted)) return existing.slice(0, 8);
+    if (!data || (signal && signal.aborted)) return existing.slice(0, GALLERY_MAX);
 
     const photos = [...existing];
     for (const src of mergeFashionImages(data.images || [])) {
-      if (photos.length >= 8 || (signal && signal.aborted)) break;
+      if (photos.length >= GALLERY_MAX || (signal && signal.aborted)) break;
       const dataUrl = await relayImageDataUrl(src, data.url || albumUrl, signal);
       if (dataUrl) photos.push(dataUrl);
     }
-    const merged = mergeFashionImages(photos).slice(0, 8);
+    const merged = mergeFashionImages(photos).slice(0, GALLERY_MAX);
     if (!(signal && signal.aborted)) {
       updateItem(item.id, (current) => ({
         image: current.image || merged[0] || null,
         gallery: mergeFashionImages(
           current.gallery || [],
           merged.filter((src) => src !== current.image)
-        ).slice(0, 12),
+        ).slice(0, GALLERY_MAX),
+        albumPhotoCount:
+          typeof data.photoCount === "number" && data.photoCount > 0
+            ? data.photoCount
+            : current.albumPhotoCount || 0,
       }));
     }
     return merged;
@@ -5111,7 +5136,7 @@ export default function Credenza() {
         gallery: mergeFashionImages(
           x.gallery || [],
           remoteImages.filter((src) => src !== cover)
-        ).slice(0, 12),
+        ).slice(0, GALLERY_MAX),
         links: mergeFashionLinks(x, { buyUrl: data.url || buyUrl }),
       };
     });
@@ -5134,7 +5159,7 @@ export default function Credenza() {
         const data = await fetchYupooImages(albumUrl, { signal: controller.signal });
         if (controller.signal.aborted || enrichmentTokensRef.current.get(item.id) !== token) return false;
         if (data) {
-          const albumImages = mergeFashionImages(data.images || []).slice(0, 8);
+          const albumImages = mergeFashionImages(data.images || []).slice(0, GALLERY_MAX);
           const canonicalAlbum = data.url || albumUrl;
           const links = mergeFashionLinks(item, {
             albumUrl: canonicalAlbum,
@@ -5162,7 +5187,17 @@ export default function Credenza() {
             gallery: mergeFashionImages(
               item.gallery || [],
               albumImages.filter((src) => src !== cover)
-            ).slice(0, 12),
+            ).slice(0, GALLERY_MAX),
+            // What the album really holds, not what we stored. The card label
+            // reads this so "View album · N photos" is honest.
+            albumPhotoCount:
+              typeof data.photoCount === "number" && data.photoCount > 0
+                ? data.photoCount
+                : (data.images || []).length,
+            // Charts are held out of the gallery but still fed to the size hunt.
+            chartImages: Array.isArray(data.chartImages) && data.chartImages.length
+              ? data.chartImages.slice(0, 8)
+              : item.chartImages || [],
             links,
             seller: item.seller || data.seller || data.sellerAccount || "",
             batch: item.batch || data.batch || "",
@@ -5199,7 +5234,7 @@ export default function Credenza() {
               const galleryImages = replaceAutoCover ? relayed.slice(1) : relayed;
               return {
                 image,
-                gallery: mergeFashionImages(retained, galleryImages).slice(0, 12),
+                gallery: mergeFashionImages(retained, galleryImages).slice(0, GALLERY_MAX),
               };
             });
           }

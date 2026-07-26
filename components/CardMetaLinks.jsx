@@ -49,12 +49,20 @@ function albumHostName(raw) {
 
 // Where the card's album link points and what it says. Yupoo items open the
 // full album; other known hosts open the listing's own gallery page. The
-// count is the real fetched gallery size — shown only when more than one
-// photo is known, so the label never lies about a lazy gallery. tight=true
-// is the short wording for narrow slots (thumb-strip tile).
+// count describes the ALBUM, not our copy of it — the link opens the album,
+// so counting what we stored made the label lie (Kyle 2026-07-26: "it'll say
+// 8 photos, but this album has 30 different photos"). albumPhotoCount comes
+// from the album page itself; the stored gallery is the fallback for items
+// enriched before that field existed. Shown only above one photo, so the
+// label never overstates a lazy gallery. tight=true is the short wording for
+// narrow slots (thumb-strip tile).
 export function albumLinkTarget(item, { tight = false } = {}) {
   if (!item) return null;
-  const known = Array.isArray(item.gallery) ? item.gallery.length : 0;
+  const stored = Array.isArray(item.gallery) ? item.gallery.length : 0;
+  const known = Math.max(
+    typeof item.albumPhotoCount === "number" && isFinite(item.albumPhotoCount) ? item.albumPhotoCount : 0,
+    stored
+  );
   const count = known > 1 ? " · " + known + " photos" : "";
   const yupoo = yupooAlbumUrl(item);
   if (yupoo) {

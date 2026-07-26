@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
+  GALLERY_MAX,
   mergeFashionImages,
   usePrefersReducedMotion,
   yupooAlbumUrl,
@@ -36,11 +37,11 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      if (!!yupooAlbumUrl(item) && loadedImages.length < 8 && onLoadPhotos) {
+      if (!!yupooAlbumUrl(item) && loadedImages.length < GALLERY_MAX && onLoadPhotos) {
         setLoading(true);
         const imgs = await onLoadPhotos(item, { signal: new AbortController().signal });
         if (!cancelled) {
-          setLoadedImages((cur) => mergeFashionImages(imgs || [], cur).slice(0, 8));
+          setLoadedImages((cur) => mergeFashionImages(imgs || [], cur).slice(0, GALLERY_MAX));
           setLoading(false);
         }
       }

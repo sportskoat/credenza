@@ -5,10 +5,98 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-26 (SETTINGS MODAL STACK — slide + resize in one modal — plus FANSBUY LINK FIX + CAROUSEL FLIP RETIRED, all on branch `worktree-fansbuy-links-no-flip`, NOT deployed — see the section below. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
+**Last updated:** 2026-07-26 (ALBUM PHOTOS — honest count, 40-photo extraction, size charts held out of the gallery, thumb-strip glitch fixed — plus MODAL STACK SCROLLBAR FIX, SETTINGS MODAL STACK, FANSBUY LINK FIX + CAROUSEL FLIP RETIRED, all on branch `worktree-fansbuy-links-no-flip`, NOT deployed — see the sections below. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
+
+## 2026-07-26 — Album photos: honest count, more photos, charts hidden, thumb glitch fixed (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
+
+Kyle reported four photo problems on Mook albums
+(`240336011`, `243763940`, both 38 tiles).
+
+**1. The count lied.** The card said "View album · 8 photos" for a 30+ photo
+album. Two causes. `preview/netlify/functions/yupoo.js` capped extraction at
+`MAX_IMAGES = 8`. `albumLinkTarget` then counted `item.gallery.length` — what
+we stored, not what the album holds.
+
+**2. Only 8 photos arrived.** The same cap, plus `slice(0, 8)` and
+`length < 8` gates in three client paths.
+
+**3. Size charts appeared in the gallery.** Kyle wants the chart indexed for
+fit, never shown in the swipe gallery.
+
+**4. The thumb highlight glitched left to right.** `goTo` set `photoIdx` and
+started a smooth scroll; `onScroll` recomputed the index from every
+intermediate scroll position and overwrote it mid-flight.
+
+**The fix — read per-photo tiles, not loose URLs.**
+Yupoo wraps each photo in `.showalbum__children.image__main` and declares
+`data-width`, `data-height`, `data-origin-src`, and the filename in `alt`.
+The old code scraped every `src`/`data-src`/`background-image` on the page and
+could not tell a photo from a banner. `extractPhotoTiles()` reads the tiles, so
+the function now knows how many photos exist and how big each one is.
+
+- `MAX_IMAGES` 8 → 40. These are URLs only; the client relays a subset.
+- `partitionTiles()` splits tiles into `gallery` and `charts`.
+- `isChartTile()` — filename says size/chart/screenshot/尺码, OR a PNG whose
+  long edge is under 60% of the album median. Both reference albums put the
+  chart in a ~490px PNG among 2000px JPGs. Detected 1/38 on each.
+- `isDecentPhoto()` — drops tiles under 600px long edge and strips wider than
+  3:1. Tiles with NO declared size pass: unknown is not evidence of bad.
+- The response gained `photoCount` (album truth) and `chartImages` (held-out
+  charts). The flat scrape stays as the fallback for older templates.
+- Never returns an empty gallery: if every tile fails vetting, all tiles show.
+
+**Client.** `migrateItem` gained `albumPhotoCount` and `chartImages` (the
+whitelist drops anything not listed). `albumLinkTarget` reports
+`max(albumPhotoCount, gallery.length)`, so it never understates and never
+regresses for items enriched before the field existed. New `GALLERY_MAX = 20`
+replaces the scattered 8/12 caps — this is a STORAGE budget, not a display
+limit: each stored photo is a ~32KB base64 string in the item JSON, so 20
+photos is roughly 640KB per card.
+
+**Chart hunt.** `huntSizeChart` now scans `item.chartImages` FIRST — one vision
+call on the actual chart instead of walking the album. New provenance tag
+`chart-photos` with its own footer line.
+
+**Thumb glitch.** `DesktopDetailPanel` gained a `programmatic` ref. `goTo` sets
+it before the smooth scroll; `onScroll` returns early while it is set and
+re-arms a 120ms settle timer on every event, so the lock lasts exactly as long
+as the motion. A fixed timer did NOT work — measured a late flip at t=457ms
+with a 420ms timeout, because the browser decides the scroll duration.
+
+**Verified.** Playwright at 1400x950: thumb jumps are now one transition each
+(0→1, 1→5, 5→1) with no flip-back; before the fix each jump showed a spurious
+4 then 5. Card view at 1100x900 shows "View album · 37 photos" for an item with
+`albumPhotoCount: 37` and "View album · 9 photos" for one without. Parser run
+against both live albums: 38 tiles, 37 gallery, 1 chart each.
+
+685 tests green (was 676): 5 new album-count tests, 4 new tile-parser tests,
+1 rewritten (it asserted the old 8 cap). **NOT deployed.**
+
+---
+
+## 2026-07-26 — Modal stack scrollbar fix (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
+
+Kyle: "THE SIZING STILL LOOKS WEIRD… IT'S BECAUSE OF THE SCROLL BAR."
+He was right and my probes could not see it.
+
+A sub-page that overflows shows a classic ~15px scrollbar on macOS when
+"always show scrollbars" is set. That steals content width, so the text
+re-wraps and the measured height is wrong — and the gutter appearing between
+pages changes the width mid transition.
+
+**Fix:** `scrollbar-gutter: stable` on `.cz-modal-surface-stacked`.
+
+**Why the probes missed it:** headless Chrome uses OVERLAY scrollbars. Every
+measurement reported a 2px gutter, which is the border alone. To reproduce
+this class of bug, force it:
+`::-webkit-scrollbar{width:15px;display:block!important}`. With that injected,
+the gutter held at a constant 17px across profile → agent → back, and the
+height target still changed only twice.
+
+---
 
 ## 2026-07-26 — Settings modal stack: slide + resize, one modal (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
 
