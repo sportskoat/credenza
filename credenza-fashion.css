@@ -9896,3 +9896,20 @@ a.cz-card-seller:hover {
     display: none;
   }
 }
+
+/* The generic gallery-thumb hover scale (button:has(> img):hover) must not
+   lift the panel stage slide — its z-index:1 painted the photo OVER the
+   counter and pager arrows whenever the cursor rested on the photo. Equal
+   specificity, later in the file, so this wins. */
+@media (min-width: 1024px) {
+  .cz-app[data-fashion="true"] button.cz-dpanel-slide:hover {
+    transform: none;
+    box-shadow: none;
+    z-index: auto;
+  }
+  .cz-dpanel-counter,
+  .cz-dpanel-fav,
+  .cz-dpanel-arrow {
+    z-index: 2;
+  }
+}
