@@ -107,3 +107,45 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
     expect(migrated.qcVerdictAt).toBe("2026-07-24T10:00:00.000Z");
   });
 });
+
+// ─── Maximal migrateItem round-trip (Claude pure lane, plan §11) ───
+import migrateFx from "./fixtures/migrate-maximal.json";
+
+describe("migrateItem maximal round-trip (plan §11)", () => {
+  it("keeps every mustSurvive field after JSON clone + migrate", () => {
+    const raw = JSON.parse(JSON.stringify(migrateFx.maximal));
+    const once = migrateItem(raw);
+    const twice = migrateItem(JSON.parse(JSON.stringify(once)));
+    for (const field of migrateFx.mustSurvive) {
+      expect(twice[field], field).toEqual(once[field]);
+      expect(once[field], field + " non-undefined").not.toBe(undefined);
+    }
+    // Spot-check high-value customer fields
+    expect(once.sellerYupooLinks).toEqual(["https://goat.x.yupoo.com/"]);
+    expect(once.weightGrams).toBe(950);
+    expect(once.variants[0].title).toBe("鞋码");
+    expect(once.favorite).toBe(true);
+    expect(once.findStatus).toBe("qc");
+  });
+
+  it("drops unknown fields (whitelist trap)", () => {
+    const once = migrateItem(JSON.parse(JSON.stringify(migrateFx.maximal)));
+    expect(once.unknownFieldMustDrop).toBe(undefined);
+  });
+
+  for (const edge of migrateFx.edges) {
+    it(edge.id, () => {
+      const got = migrateItem(edge.input);
+      if (edge.expect) {
+        for (const [k, v] of Object.entries(edge.expect)) {
+          expect(got[k], k).toEqual(v);
+        }
+      }
+      if (edge.expectAbsent) {
+        for (const k of edge.expectAbsent) {
+          expect(got[k], k).toBe(undefined);
+        }
+      }
+    });
+  }
+});
