@@ -382,23 +382,43 @@ async function fetchWeidianItem(itemId, signal) {
   return data.result;
 }
 
-// Type-2 blocks of the item_detail feed are the seller's description photos,
-// in page order. Charts usually sit at the top. Folded boilerplate blocks
-// (type 10000, e.g. 购前说明) stay out. Any failure is silent: the SKU facts
-// alone still make a card.
-// Pure: item_detail.desc_content blocks -> ordered, deduped photo URLs.
-// Type 2 = description photo. Folded boilerplate (type 10000) stays out.
+// Seller description photos live in item_detail.desc_content. Two shapes:
+//   type 2  — single photo block with .url (most apparel shops)
+//   type 13 — album block itemDetailImgAlbum.albumImgList[].thumbnail
+//             (common on multi-model shoe shops; was dropped before 2026-07-26)
+// Folded boilerplate (type 10000, e.g. 购前说明) stays out.
+// Pure: blocks -> ordered, deduped https photo URLs. Any failure is silent.
+function pushDescUrl(urls, raw) {
+  if (typeof raw !== "string" || !raw) return;
+  const clean = raw.split("?")[0].replace(/\.webp$/i, "");
+  if (!/^https:\/\//i.test(clean)) return;
+  if (!urls.includes(clean)) urls.push(clean);
+}
+
 function descImageUrls(descContent) {
   const blocks = Array.isArray(descContent) ? descContent : [];
   const urls = [];
   for (const block of blocks) {
-    if (!block || block.type !== 2 || typeof block.url !== "string") continue;
-    const clean = block.url.split("?")[0].replace(/\.webp$/i, "");
-    if (!/^https:\/\//i.test(clean)) continue;
-    if (!urls.includes(clean)) urls.push(clean);
+    if (!block || block.type === 10000) continue;
+    if (block.type === 2) {
+      pushDescUrl(urls, block.url);
+      continue;
+    }
+    // Type 13: nested product-detail album. Charts and table photos live here.
+    if (block.type === 13) {
+      const list =
+        block.itemDetailImgAlbum && Array.isArray(block.itemDetailImgAlbum.albumImgList)
+          ? block.itemDetailImgAlbum.albumImgList
+          : [];
+      for (const entry of list) {
+        if (!entry || typeof entry !== "object") continue;
+        pushDescUrl(urls, entry.url || entry.thumbnail || entry.img || entry.src);
+      }
+    }
   }
   return urls.slice(0, MAX_DESC_IMAGES);
 }
+
 
 async function fetchWeidianDescImages(itemId, signal) {
   try {

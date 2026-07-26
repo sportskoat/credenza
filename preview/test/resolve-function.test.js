@@ -144,11 +144,53 @@ describe("descImageUrls (Weidian Product Details photos)", () => {
     ]);
   });
 
+  it("reads type-13 album thumbnails (shoe multi-model shops)", () => {
+    // Live shape: getDetailDesc type 13 → itemDetailImgAlbum.albumImgList[].thumbnail
+    const urls = descImageUrls([
+      { type: 1, text: "Yupoo: yolo66.x.yupoo.com" },
+      {
+        type: 13,
+        itemDetailImgAlbum: {
+          albumImgList: [
+            { thumbnail: "https://si.geilicdn.com/chart_1.jpg?x=1" },
+            { thumbnail: "https://si.geilicdn.com/chart_2.jpg" },
+            { thumbnail: "https://si.geilicdn.com/chart_1.jpg" },
+            { url: "https://si.geilicdn.com/full.jpg" },
+            { thumbnail: "javascript:alert(1)" },
+          ],
+        },
+      },
+      { type: 10000, text: "购前说明", url: "https://si.geilicdn.com/legal.png" },
+    ]);
+    expect(urls).toEqual([
+      "https://si.geilicdn.com/chart_1.jpg",
+      "https://si.geilicdn.com/chart_2.jpg",
+      "https://si.geilicdn.com/full.jpg",
+    ]);
+  });
+
+  it("merges type-2 then type-13 without dropping either", () => {
+    const urls = descImageUrls([
+      { type: 2, url: "https://si.geilicdn.com/first.jpg" },
+      {
+        type: 13,
+        itemDetailImgAlbum: {
+          albumImgList: [{ thumbnail: "https://si.geilicdn.com/album.jpg" }],
+        },
+      },
+    ]);
+    expect(urls).toEqual([
+      "https://si.geilicdn.com/first.jpg",
+      "https://si.geilicdn.com/album.jpg",
+    ]);
+  });
+
   it("caps at 20 and tolerates garbage input", () => {
     const many = Array.from({ length: 30 }, (_, i) => ({ type: 2, url: `https://si.geilicdn.com/${i}.jpg` }));
     expect(descImageUrls(many)).toHaveLength(20);
     expect(descImageUrls(null)).toEqual([]);
     expect(descImageUrls("nope")).toEqual([]);
+    expect(descImageUrls([{ type: 13, itemDetailImgAlbum: null }])).toEqual([]);
   });
 });
 

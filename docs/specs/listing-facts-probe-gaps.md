@@ -161,10 +161,18 @@ Claude enrich title rewrite still needed when the paste has no human label.
 
 ### Gap F — Chart vision cost / coverage
 
-- 66 items have desc photos → FitBlock can hunt.  
-- Vision is on-demand, not free.  
-- Probe did **not** call vision; it only flags hunt possible.  
-- 31 items have **zero** desc photos → no chart from Weidian desc.
+- 66 items had type-2 desc photos in the first probe → FitBlock can hunt.
+- **Fixed 2026-07-26:** resolve also reads **type 13** albums (`itemDetailImgAlbum.albumImgList[].thumbnail`).
+  Live re-check on the 25 empty Weidian rows: **21 recovered** (≈87 / 91 Weidian now have desc photos).
+  Still empty (no type-2/13, Yupoo text only): Travis Scott Low Dunks GX, CDG AF1 GX, Nike P-6000 Anthracite, ASICS Gel-Kayano 14.
+- Vision is on-demand, not free.
+- Probe did **not** call vision; it only flags hunt possible.
+- 6 Taobao rows still have no desc photos (separate anti-bot gap).
+
+### Gap F0 — (superseded note) type-13 was the 1/3 miss
+
+First probe said 31 / 97 had no desc images. Root cause was **not** missing charts on the seller side for most cases. Resolve only accepted `desc_content` **type 2**. Multi-model shoe shops put photos in **type 13**. Landed in `resolve.js` `descImageUrls`.
+
 
 ### Gap G — Accessories with no size axis (expected empty)
 
