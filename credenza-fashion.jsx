@@ -1946,6 +1946,11 @@ export function migrateItem(old) {
     variants: Array.isArray(old.variants)
       ? old.variants.filter((g) => g && typeof g.title === "string" && Array.isArray(g.values))
       : [],
+    // Seller description photos from resolve (size charts live here). Feed the
+    // silent chart hunt; kept out of the swipe gallery on purpose.
+    descImages: Array.isArray(old.descImages)
+      ? old.descImages.filter((g) => typeof g === "string" && /^https?:\/\//i.test(g)).slice(0, 20)
+      : [],
     sizeNotes: typeof old.sizeNotes === "string" ? old.sizeNotes : "",
     seller: old.seller || "",
     batch: old.batch || "",
@@ -4848,6 +4853,7 @@ export default function Credenza() {
         // First color axis value only when the card has no colorway yet.
         colorway: x.colorway || pickColorwayFromVariants(variants) || "",
         sizeNotes: data.sizeNotes || x.sizeNotes,
+        descImages: Array.isArray(data.descImages) && data.descImages.length ? data.descImages : x.descImages,
         weightGrams: weightFromText,
         image: cover,
         gallery: mergeFashionImages(

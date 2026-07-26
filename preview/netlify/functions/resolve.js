@@ -12,6 +12,10 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 const WEIDIAN_API = "https://thor.weidian.com/detail/getItemSkuInfo/1.0";
+// Product Details body (Kyle 2026-07-25: size charts live here as images —
+// the SKU feed's gallery never carries them, so the chart hunt was blind).
+const WEIDIAN_DESC_API = "https://thor.weidian.com/detail/getDetailDesc/1.0";
+const MAX_DESC_IMAGES = 20;
 const FX_API = "https://open.er-api.com/v6/latest/CNY";
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 const TIMEOUT_MS = 20000;
@@ -164,6 +168,43 @@ async function fetchWeidianItem(itemId, signal) {
     throw { status: 404, msg: "Weidian item not found" };
   }
   return data.result;
+}
+
+// Type-2 blocks of the item_detail feed are the seller's description photos,
+// in page order. Charts usually sit at the top. Folded boilerplate blocks
+// (type 10000, e.g. 购前说明) stay out. Any failure is silent: the SKU facts
+// alone still make a card.
+// Pure: item_detail.desc_content blocks -> ordered, deduped photo URLs.
+// Type 2 = description photo. Folded boilerplate (type 10000) stays out.
+function descImageUrls(descContent) {
+  const blocks = Array.isArray(descContent) ? descContent : [];
+  const urls = [];
+  for (const block of blocks) {
+    if (!block || block.type !== 2 || typeof block.url !== "string") continue;
+    const clean = block.url.split("?")[0].replace(/\.webp$/i, "");
+    if (!/^https:\/\//i.test(clean)) continue;
+    if (!urls.includes(clean)) urls.push(clean);
+  }
+  return urls.slice(0, MAX_DESC_IMAGES);
+}
+
+async function fetchWeidianDescImages(itemId, signal) {
+  try {
+    const param = encodeURIComponent(JSON.stringify({ vItemId: itemId }));
+    const res = await fetch(`${WEIDIAN_DESC_API}?param=${param}`, {
+      headers: {
+        "user-agent": UA,
+        referer: `https://weidian.com/item.html?itemID=${itemId}`,
+        accept: "application/json",
+      },
+      signal,
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return descImageUrls(data && data.result && data.result.item_detail && data.result.item_detail.desc_content);
+  } catch {
+    return [];
+  }
 }
 
 // Flattens the Weidian result into the facts we care about. Prices arrive in
@@ -325,11 +366,14 @@ async function handle(event) {
     let facts;
     let canonicalUrl;
     if (classified.marketplace === "weidian") {
-      const [result, usdPerCny] = await Promise.all([
+      const [result, usdPerCny, descImages] = await Promise.all([
         fetchWeidianItem(classified.itemId, controller.signal),
         fetchUsdRate(controller.signal),
+        fetchWeidianDescImages(classified.itemId, controller.signal),
       ]);
       facts = extractFacts(result);
+      // Description photos the gallery never showed (size charts live here).
+      facts.descImages = descImages.filter((u) => !(facts.images || []).includes(u));
       // stash rate on facts for response builder below
       facts._usdPerCny = usdPerCny;
       canonicalUrl = `https://weidian.com/item.html?itemID=${facts.itemId || classified.itemId}`;
@@ -392,6 +436,7 @@ async function handle(event) {
       stock: facts.stock,
       mainImage: facts.mainImage,
       images: facts.images || [],
+      descImages: facts.descImages || [],
       variantGroups,
       translated: !!enriched,
     });
@@ -411,6 +456,7 @@ exports._test = {
   taobaoFamilyItemId,
   classifyBuyLink,
   parseWorldTaobaoHtml,
+  descImageUrls,
 };
 
 // Outcome log for every request — status + latency only, never content.

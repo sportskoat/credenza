@@ -55,6 +55,15 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
     expect(migrated.sourceText).toBe(base.sourceText);
   });
 
+  it("keeps descImages across a reload and gates junk", () => {
+    const migrated = migrateItem({
+      ...base,
+      descImages: ["https://si.geilicdn.com/a_467_207.jpg", "data:image/png;base64,AAAA", 42],
+    });
+    expect(migrated.descImages).toEqual(["https://si.geilicdn.com/a_467_207.jpg"]);
+    expect(migrateItem({ id: "p3", rawText: "note" }).descImages).toEqual([]);
+  });
+
   it("defaults the poster fields when they are absent", () => {
     const migrated = migrateItem({ id: "p2", rawText: "note", title: "Note" });
     expect(migrated.posterStats).toBe(null);

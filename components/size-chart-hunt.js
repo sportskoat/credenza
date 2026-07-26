@@ -3,7 +3,9 @@
 // that panel lost its last caller when every back unified on DetailBody, so
 // charts stopped arriving and every card read "No size chart on this
 // listing". Yupoo album text first, then a vision scan of album photos,
-// then a vision scan of resolved Weidian/Taobao CDN gallery photos. Returns
+// then the seller's Product Details photos (resolve descImages — chart
+// tables live there, never in the top gallery), then the gallery photos.
+// Returns
 // chart text parseable by parseSizeChart, or null. Callers throttle (one
 // hunt per item per session) and persist the text into sizeNotes.
 //
@@ -32,7 +34,21 @@ export async function huntSizeChart(item, { signal } = {}) {
       if (chartText && parseSizeChart(chartText)) return chartText;
     }
   }
-  // Weidian / Taobao path: resolve already filled the gallery with CDN URLs.
+  // Weidian Product Details path: the description feed carries the chart
+  // table images (Kyle 2026-07-25, item 7718340223). Charts sit near the
+  // top, so scan forward windows of 10 (vision caps at 10 per call).
+  const descPhotos = (item.descImages || []).filter(
+    (src) => typeof src === "string" && /^https?:\/\//i.test(src)
+  );
+  for (let i = 0; i < descPhotos.length; i += 10) {
+    const chartText = await fetchChartFromPhotos(descPhotos.slice(i, i + 10), {
+      signal,
+      referer: item.url || undefined,
+    });
+    if (signal && signal.aborted) return null;
+    if (chartText && parseSizeChart(chartText)) return chartText;
+  }
+  // Gallery fallback: resolve already filled it with CDN URLs.
   if (localPhotos.length) {
     const chartText = await fetchChartFromPhotos(localPhotos.slice(-10), {
       signal,

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 const { _test } = require("../netlify/functions/resolve.js");
-const { weidianItemId, taobaoFamilyItemId, classifyBuyLink, parseWorldTaobaoHtml } = _test;
+const { weidianItemId, taobaoFamilyItemId, classifyBuyLink, parseWorldTaobaoHtml, descImageUrls } = _test;
 
 describe("classifyBuyLink", () => {
   it("classifies Weidian itemIDs", () => {
@@ -70,5 +70,29 @@ describe("parseWorldTaobaoHtml", () => {
     const facts = parseWorldTaobaoHtml("");
     expect(facts.title).toBe("");
     expect(facts.mainImage).toBeNull();
+  });
+});
+
+describe("descImageUrls (Weidian Product Details photos)", () => {
+  it("keeps type-2 photo blocks in order, deduped and cleaned", () => {
+    const urls = descImageUrls([
+      { type: 2, url: "https://si.geilicdn.com/a_467_207.jpg?w=30&h=30" },
+      { type: 10000, text: "购前说明", url: "https://si.geilicdn.com/folded.png" },
+      { type: 2, url: "https://si.geilicdn.com/b_800_800.jpg.webp" },
+      { type: 2, url: "https://si.geilicdn.com/a_467_207.jpg" },
+      { type: 1, text: "not a photo" },
+      { type: 2, url: "javascript:alert(1)" },
+    ]);
+    expect(urls).toEqual([
+      "https://si.geilicdn.com/a_467_207.jpg",
+      "https://si.geilicdn.com/b_800_800.jpg",
+    ]);
+  });
+
+  it("caps at 20 and tolerates garbage input", () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ type: 2, url: `https://si.geilicdn.com/${i}.jpg` }));
+    expect(descImageUrls(many)).toHaveLength(20);
+    expect(descImageUrls(null)).toEqual([]);
+    expect(descImageUrls("nope")).toEqual([]);
   });
 });
