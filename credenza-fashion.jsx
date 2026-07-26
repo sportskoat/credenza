@@ -24,6 +24,12 @@ import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES } from "./credenza-find-status.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
+  extractWeightGramsFromText,
+  pickColorwayFromVariants,
+  preferCardTitle,
+  shouldReplaceFashionTitle as listingShouldReplaceTitle,
+} from "./listing-facts.js";
+import {
   AUTH_ENABLED,
   saveSession,
   sessionFromUrl,
@@ -2653,16 +2659,10 @@ export function mergeFashionImages(...groups) {
   return images;
 }
 
+// Title replace policy lives in listing-facts.js (SKU + Weidian placeholders +
+// human Reddit labels). Pure tests own the cases; product only re-exports.
 function shouldReplaceFashionTitle(title, url) {
-  const clean = String(title || "").trim();
-  if (!clean || clean === url) return true;
-  if (/^(albums?|article|read|untitled|saved link|item)$/i.test(clean)) return true;
-  // Placeholder titles from localTitle for Yupoo album/store roots.
-  if (/^[a-z0-9-]+\s·\s\d+$/i.test(clean)) return true;
-  if (/^album\s+\d+$/i.test(clean)) return true;
-  // Pure numeric album ids or short batch-looking codes alone are fine to keep
-  // once enrichment has nothing better — only replace obvious path crumbs.
-  return false;
+  return listingShouldReplaceTitle(title, url);
 }
 
 function mergeFashionLinks(item, { albumUrl, buyUrl } = {}) {
@@ -4791,12 +4791,30 @@ export default function Credenza() {
       // fashionDisplayTitle already junk-guards every candidate, data.title
       // included — no raw fallback (it bypassed the guard for "<UNKNOWN>").
       const resolvedTitle = fashionDisplayTitle(data);
+      // Keep human Reddit/haul labels over bare seller SKUs (Kyle 2026-07-25).
+      const nextTitle =
+        preserveTitle || (yupooAlbumUrl(item) && !data.translated)
+          ? x.title
+          : preferCardTitle({
+              currentTitle: x.title,
+              resolvedTitle,
+              claudeTitle: data.translated ? resolvedTitle : "",
+            }) || x.title;
+      const variants = Array.isArray(data.variantGroups)
+        ? data.variantGroups.map((group) => ({
+            title: group.title || "",
+            values: (group.values || []).map((value) => (value && value.name) || String(value)),
+          }))
+        : x.variants;
+      const weightFromText =
+        x.weightGrams ||
+        extractWeightGramsFromText(
+          [x.note, x.title, nextTitle, data.summary, data.sizeNotes].filter(Boolean).join(" ")
+        ) ||
+        null;
       return {
         status: "ready",
-        title:
-          preserveTitle || (yupooAlbumUrl(item) && !data.translated)
-            ? x.title
-            : resolvedTitle || x.title,
+        title: nextTitle,
         summary: data.summary || x.summary,
         // A hand-set price is pinned (priceManual): the resolve refreshes
         // everything else but never overwrites the customer's own number.
@@ -4807,13 +4825,11 @@ export default function Credenza() {
           ? data.category
           : x.category ||
             guessFashionCategory([data.title, data.summary, data.sizeNotes, x.title, x.summary].filter(Boolean).join(" ")),
-        variants: Array.isArray(data.variantGroups)
-          ? data.variantGroups.map((group) => ({
-              title: group.title || "",
-              values: (group.values || []).map((value) => (value && value.name) || String(value)),
-            }))
-          : x.variants,
+        variants,
+        // First color axis value only when the card has no colorway yet.
+        colorway: x.colorway || pickColorwayFromVariants(variants) || "",
         sizeNotes: data.sizeNotes || x.sizeNotes,
+        weightGrams: weightFromText,
         image: cover,
         gallery: mergeFashionImages(
           x.gallery || [],
@@ -4917,7 +4933,12 @@ export default function Credenza() {
         }
       }
 
-      const handled = await resolveBuyDetails(item, { token, signal: controller.signal });
+      const handled = await resolveBuyDetails(item, {
+        token,
+        signal: controller.signal,
+        // Same policy as the Yupoo→buy path: keep human haul labels over SKUs.
+        preserveTitle: !shouldReplaceFashionTitle(item.title, item.url),
+      });
       if (!handled && !controller.signal.aborted) {
         await fetchAutomaticImage(item, token);
         updateEnrichedItem(item.id, token, { status: "ready" });
