@@ -98,13 +98,95 @@ function ali1688ItemId(raw) {
   return null;
 }
 
-/** Classify a buy URL. Returns { marketplace, itemId } or null. */
-function classifyBuyLink(raw) {
+/**
+ * Unwrap agent front URLs to a marketplace buy target.
+ * Mirrors agents.js unwrapAgentUrl for the Netlify CommonJS side (agents.js
+ * is ESM + import.meta.env — not importable here).
+ * Returns { marketplace, itemId } or null.
+ */
+function unwrapAgentBuyLink(raw) {
+  let u;
+  try {
+    u = new URL(String(raw || "").trim());
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^www\./, "").toLowerCase();
+  // Agent hosts we recognize for inbound unwrap (wider than outbound registry).
+  const isAgent = /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|fansbuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy)\.[a-z.]{2,}$/i.test(
+    host
+  );
+  if (!isAgent) return null;
+
+  // Embedded ?url= / productLink (Superbuy family, Fansbuy with url param).
+  for (const key of ["url", "productLink", "product_url", "productUrl", "link"]) {
+    const v = u.searchParams.get(key);
+    if (!v) continue;
+    let decoded = v;
+    try {
+      decoded = decodeURIComponent(v);
+    } catch {
+      /* keep */
+    }
+    if (/%[0-9A-Fa-f]{2}/.test(decoded)) {
+      try {
+        decoded = decodeURIComponent(decoded);
+      } catch {
+        /* keep */
+      }
+    }
+    const direct = classifyBuyLinkDirect(decoded);
+    if (direct) return direct;
+  }
+
+  // Fansbuy: item-micro-{weidianId}.html (?promotionCode optional, ?url= often absent).
+  if (/(^|\.)fansbuy\.com$/i.test(host)) {
+    const m = u.pathname.match(/\/item-micro-(\d{5,})(?:\.html)?/i);
+    if (m) return { marketplace: "weidian", itemId: m[1] };
+  }
+
+  // mulebuy / joyagoo / cnfans: ?id= + shop_type|platform
+  const idQ = u.searchParams.get("id") || u.searchParams.get("itemId") || u.searchParams.get("item_id");
+  const platformQ =
+    u.searchParams.get("shop_type") ||
+    u.searchParams.get("platform") ||
+    u.searchParams.get("shopType");
+  if (idQ && /^\d{5,}$/.test(idQ) && platformQ) {
+    const p = String(platformQ).toLowerCase();
+    if (p === "weidian" || p === "2") return { marketplace: "weidian", itemId: idQ };
+    if (p === "taobao" || p === "1") return { marketplace: "taobao", itemId: idQ };
+    if (p === "tmall") return { marketplace: "tmall", itemId: idQ };
+    if (p === "1688" || p === "3") return { marketplace: "1688", itemId: idQ };
+  }
+
+  // hoobuy / oopbuy: /product/{code}/{id}
+  const pathCode = u.pathname.match(/\/product\/([a-z0-9]+)\/(\d{5,})\/?$/i);
+  if (pathCode) {
+    const p = pathCode[1].toLowerCase();
+    const id = pathCode[2];
+    if (p === "2" || p === "weidian") return { marketplace: "weidian", itemId: id };
+    if (p === "1" || p === "taobao") return { marketplace: "taobao", itemId: id };
+    if (p === "tmall") return { marketplace: "tmall", itemId: id };
+    if (p === "3" || p === "1688") return { marketplace: "1688", itemId: id };
+  }
+
+  return null;
+}
+
+/** Direct marketplace classify — no agent unwrap (avoids recursion). */
+function classifyBuyLinkDirect(raw) {
   const w = weidianItemId(raw);
   if (w) return { marketplace: "weidian", itemId: w };
   const a = ali1688ItemId(raw);
   if (a) return { marketplace: "1688", itemId: a };
   return taobaoFamilyItemId(raw);
+}
+
+/** Classify a buy URL. Returns { marketplace, itemId } or null. */
+function classifyBuyLink(raw) {
+  const direct = classifyBuyLinkDirect(raw);
+  if (direct) return direct;
+  return unwrapAgentBuyLink(raw);
 }
 
 /** Parse world.taobao HTML for title + main image (og tags). Price often absent. */
@@ -738,6 +820,7 @@ exports._test = {
   taobaoFamilyItemId,
   ali1688ItemId,
   classifyBuyLink,
+  unwrapAgentBuyLink,
   parseWorldTaobaoHtml,
   parseWorldTaobaoIsland,
   parse1688Html,

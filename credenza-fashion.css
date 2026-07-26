@@ -9731,11 +9731,13 @@ a.cz-card-seller:hover {
 }
 
 /* ═══ Fix B — two-column desktop detail panel (handoff turn 4) ═══
-   At ≥1024px the expanded card stops flipping: contain-fit photo stage on
-   the left, the shared DetailBody on the right. Rendered only at
-   ≥1024px (useIsWideDetail gates the JS); the rules are still media-guarded
-   so a resize can never leave a half-width panel. */
-@media (min-width: 1024px) {
+   Above the phone breakpoint the expanded card never flips: contain-fit photo
+   stage on the left, the shared DetailBody on the right. The JS gate is
+   useIsWideDetail; the rules stay media-guarded so a resize can never leave a
+   half-width panel. Kyle 2026-07-26: the band starts at 768px (was 1024px) so
+   the carousel has no flip at any non-phone width. Below 1024px the grid
+   collapses to one column — 634px of photo stage does not fit at 800px. */
+@media (min-width: 768px) {
   .cz-dpanel-scrim {
     position: fixed;
     inset: 0;
@@ -9756,9 +9758,14 @@ a.cz-card-seller:hover {
 
   .cz-dpanel {
     display: grid;
-    grid-template-columns: 634px minmax(0, 1fr);
-    width: min(86vw, 1180px);
-    height: min(88vh, 860px);
+    /* Tablet band (768–1023px): stack the stage over the body. The fixed
+       634px photo column only fits once the viewport clears 1024px. Row 1 is a
+       fixed share so the stage keeps real height; row 2 takes the rest and
+       scrolls (auto would size to content and overflow the panel). */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 44% minmax(0, 1fr);
+    width: min(92vw, 1180px);
+    height: min(90vh, 860px);
     border-radius: 22px;
     border: 1px solid var(--cz-hair);
     background: var(--cz-bg);
@@ -10075,6 +10082,55 @@ a.cz-card-seller:hover {
   /* Both faces are visible in the panel — nothing to flip to. */
   .cz-flip-cue {
     display: none;
+  }
+}
+
+/* ≥1024px restores the original two-column panel: fixed photo stage left,
+   scrolling DetailBody right. Below this width the block above keeps the
+   single-column stack. */
+@media (min-width: 1024px) {
+  .cz-dpanel {
+    grid-template-columns: 634px minmax(0, 1fr);
+    grid-template-rows: none;
+    width: min(86vw, 1180px);
+    height: min(88vh, 860px);
+  }
+  .cz-dpanel-left {
+    border-right: 1px solid var(--cz-hair);
+    border-bottom: none;
+  }
+}
+
+/* Tablet band (768–1023px): the columns are stacked, so the divider that
+   separates them runs horizontally, and the photo stage takes a share of the
+   height instead of the full left column. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .cz-dpanel {
+    position: relative;
+  }
+  .cz-dpanel-left {
+    border-right: none;
+    border-bottom: 1px solid var(--cz-hair);
+    min-height: 0;
+    padding: 14px;
+  }
+  .cz-dpanel-body {
+    min-height: 0;
+  }
+  /* Stacked, the head row sits halfway down the panel. Float it over the
+     panel's own top-right corner instead, beside the stage favourite. */
+  .cz-dpanel-head {
+    position: absolute;
+    top: 12px;
+    right: 60px;
+    z-index: 3;
+    padding: 0;
+  }
+  .cz-dpanel-head .cz-dpanel-icon {
+    background: rgba(12, 12, 14, 0.5);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    color: #fff;
   }
 }
 

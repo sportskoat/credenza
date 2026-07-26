@@ -5,10 +5,64 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-25 (CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
+**Last updated:** 2026-07-26 (FANSBUY LINK FIX + CAROUSEL FLIP RETIRED on branch `worktree-fansbuy-links-no-flip`, NOT deployed — see the section below. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
+
+## 2026-07-26 — Fansbuy link fix + carousel flip retired (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
+
+Kyle asked for two things: fix Fansbuy links, and stop the carousel cards
+from flipping. Both are done and verified in a live browser.
+
+**1. Fansbuy links lost the referral.** Buy opened
+`fansbuy.com/item-micro-7799601727.html?promotionCode=…` — a competitor
+agent front with someone else's promotion code. Cause: `recordOpen` gave the
+raw stored URL to `marketplaceOf()`, which returns null for `fansbuy.com`.
+The "open untouched" early return ran before the agent wrap.
+
+Fix: unwrap the agent front to its canonical marketplace URL first.
+- `recordOpen` calls `marketplaceBuyUrl()` before `marketplaceOf()`.
+- `classify`, `normalizeLinks`, `inferLinkRole`, and `resolvableBuyUrl`
+  store and read the marketplace URL, never the agent front.
+- `migrateItem` repairs items already stored with the front as their
+  primary URL. It rewrites `url`, `host`, and `canonicalKey` on load.
+- `agents.js` exports `unwrapAgentUrl()`; `resolve.js` mirrors it.
+
+Verified live: Buy now opens
+`superbuy.com/en/page/buy?url=…weidian.com…itemID=7799601727`. A legacy
+stored item migrates to `weidian:7799601727`. A fresh stash of the Fansbuy
+link stores the canonical Weidian URL.
+
+**2. The carousel no longer flips.** Two paths still reached a flip:
+- The 768–1023px band had no detail panel, so a tap flipped the card.
+- The `flipRequest` signal sets `flipped` inside `CoverFlowCard` directly.
+  It bypasses the `expandedId` gate, so Space / F / E flipped a rack card
+  under the open panel.
+
+Fix: `useIsWideDetail` moves from `(min-width: 1024px)` to
+`(min-width: 768px)`, and `renderCarousel` withholds `flipRequest` whenever
+the panel owns detail. CSS restructured: the panel media query starts at
+768px, the tablet band stacks the stage over the body
+(`grid-template-rows: 44% minmax(0, 1fr)`), and the 1024px block restores
+the two-column layout.
+
+**The flip machinery stays intact and reusable — Kyle's requirement.**
+`CoverFlowCard` is untouched. Only the breakpoint and the `flipRequest`
+prop keep the flip dormant. Re-enable it by restoring either one.
+
+Verified at 768 / 900 / 1023 / 1024 / 1105 / 1280px: zero flips on tap,
+Space, E, and across a resize; the panel opens, its body scrolls, and Buy
+stays inside the panel bounds.
+
+676 tests green, lint clean, build and typecheck pass. **NOT deployed.**
+
+**Trap found (cost ~20 minutes):** a new git worktree does NOT get
+`preview/.env` — it is gitignored. Without it `PREVIEW_SECRET` is empty and
+the Reddit reader test fails. Copy `preview/.env` into every new worktree
+before running the suite.
+
+---
 
 ## 2026-07-25 night — Customer walkthrough audit fixes (K3 lane, `d0ff7f1`, NOT deployed)
 

@@ -18,6 +18,7 @@ import {
   hashItemId,
   marketplaceOf,
   recordOutboundClick,
+  unwrapAgentUrl,
 } from "./agents.js";
 import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
@@ -1211,15 +1212,34 @@ function extractUrls(raw) {
 // Role of a supplementary link, inferred from its host. Generic on purpose —
 // rendering only knows "photos" / "buy" / "alt", never specific sites.
 function inferLinkRole(url) {
+  // Agent product fronts unwrap to marketplace buy links.
+  const unwrapped = unwrapAgentUrl(url);
+  const target = (unwrapped && unwrapped.url) || url;
   let host = "";
   try {
-    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    host = new URL(target).hostname.replace(/^www\./, "").toLowerCase();
   } catch {
     return "alt";
   }
   if (/(^|\.)yupoo\.com$/.test(host)) return "photos";
-  if (/(^|\.)(weidian\.com|weidian\.cn|taobao\.com|tmall\.com)$/.test(host)) return "buy";
+  if (/(^|\.)(weidian\.com|weidian\.cn|taobao\.com|tmall\.com|1688\.com)$/.test(host)) return "buy";
   return "alt";
+}
+
+/** Canonical marketplace product URL when `raw` is an agent front, else `raw`. */
+function marketplaceBuyUrl(raw) {
+  if (!raw || typeof raw !== "string") return raw;
+  const unwrapped = unwrapAgentUrl(raw);
+  return unwrapped && unwrapped.url ? unwrapped.url : raw;
+}
+
+/** Bare hostname (no leading www.) for a URL, or null when it does not parse. */
+function hostOf(raw) {
+  try {
+    return new URL(raw).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
 }
 
 // Weidian item ID when the URL is a resolvable product page, else null. Mirrors
@@ -1308,11 +1328,15 @@ function ensureYupooAlbumUid(raw) {
 }
 
 // First resolvable buy URL on an item: the primary URL or any paired link.
+// Agent fronts (Fansbuy item-micro, Superbuy ?url=, …) resolve to marketplace.
 function resolvableBuyUrl(item) {
-  const isResolvable = (raw) => !!(weidianItemId(raw) || taobaoFamilyItemId(raw) || ali1688ItemId(raw));
-  if (item.url && isResolvable(item.url)) return item.url;
+  const isResolvable = (raw) => {
+    const buy = marketplaceBuyUrl(raw);
+    return !!(weidianItemId(buy) || taobaoFamilyItemId(buy) || ali1688ItemId(buy));
+  };
+  if (item.url && isResolvable(item.url)) return marketplaceBuyUrl(item.url);
   for (const l of item.links || []) {
-    if (l && l.url && isResolvable(l.url)) return l.url;
+    if (l && l.url && isResolvable(l.url)) return marketplaceBuyUrl(l.url);
   }
   return null;
 }
@@ -1348,8 +1372,10 @@ function normalizeLinks(links, primaryUrl) {
   const seen = new Set();
   const out = [];
   for (const entry of links) {
-    const url = typeof entry === "string" ? entry : entry && entry.url;
+    let url = typeof entry === "string" ? entry : entry && entry.url;
     if (!url || !/^https?:\/\//.test(url)) continue;
+    // Store marketplace URLs, not agent fronts (Fansbuy item-micro, etc.).
+    url = marketplaceBuyUrl(url);
     const key = canonicalKey(classify(url), url);
     if (key === primaryKey || seen.has(key)) continue;
     seen.add(key);
@@ -1384,7 +1410,10 @@ function classify(raw) {
   const text = raw.trim();
   const urlMatch = text.match(/https?:\/\/[^\s]+/);
   if (!urlMatch) return { type: "note", url: null, host: null, videoId: null };
-  const url = urlMatch[0];
+  let url = urlMatch[0];
+  // Agent fronts (Fansbuy item-micro, Superbuy ?url=, …) store as marketplace.
+  const unwrapped = unwrapAgentUrl(url);
+  if (unwrapped && unwrapped.url) url = unwrapped.url;
   let host = "";
   try {
     host = new URL(url).hostname.replace(/^www\./, "");
@@ -2018,10 +2047,16 @@ function migrateLinks(old, primaryUrl, rawText) {
 export function migrateItem(old) {
   const createdAt = old.createdAt || old.ts || Date.now();
   const rawText = old.rawText != null ? old.rawText : old.text != null ? old.text : old.url || old.title || "";
+  // Items stashed before the agent unwrap landed hold the agent front as their
+  // primary URL (fansbuy.com/item-micro-…). Repair them on load: the canonical
+  // marketplace link is what resolve, the canonical key, and Buy all expect.
+  const unwrappedPrimary = old.url ? unwrapAgentUrl(old.url) : null;
+  const primaryUrl = unwrappedPrimary && unwrappedPrimary.url ? unwrappedPrimary.url : old.url || null;
+  const primaryHost = unwrappedPrimary && unwrappedPrimary.url ? hostOf(primaryUrl) : old.host || null;
   const parsed = {
     type: old.type || "note",
-    url: old.url || null,
-    host: old.host || null,
+    url: primaryUrl,
+    host: primaryHost,
     videoId: old.videoId || null,
   };
   const migratedKey = canonicalKey(parsed, rawText);
@@ -3179,11 +3214,14 @@ function useIsPhone() {
   return phone;
 }
 
-// Live ≥1024px check — the handoff turn 4 Fix B breakpoint. Above it the
-// expanded card is the two-column panel (no flip); below it the flip card
-// and the phone sheet stay.
+// Live above-phone check — the detail-panel breakpoint. Above it the expanded
+// card is the Fix B panel and the carousel NEVER flips (Kyle 2026-07-26: the
+// flip is retired from carousel view; it was reachable at 768–1023px and via
+// the Space/F/E flip signal). Below it the phone detail sheet owns detail.
+// The flip machinery in CoverFlowCard stays intact and reusable — only this
+// gate and the flipRequest wiring keep it dormant.
 function useIsWideDetail() {
-  const QUERY = "(min-width: 1024px)";
+  const QUERY = "(min-width: 768px)";
   const [wide, setWide] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -5212,7 +5250,10 @@ export default function Credenza() {
       lastOpenedAt: Date.now(),
       openCount: (x.openCount || 0) + 1,
     }));
-    const url = ensureYupooAlbumUid(targetUrl || item.url);
+    // An agent front (Fansbuy item-micro, Superbuy ?url=, …) is NOT a canonical
+    // link. Older items stored the front verbatim, so Buy re-opened the other
+    // agent and lost the wrap. Unwrap first; the agent wrap below then applies.
+    const url = ensureYupooAlbumUid(marketplaceBuyUrl(targetUrl || item.url));
     if (!url) return;
     const marketplace = marketplaceOf(url);
     // Photos/alt links (Yupoo, Reddit, anything off-marketplace) open untouched
@@ -6316,7 +6357,11 @@ export default function Credenza() {
       sizeScale={opts && opts.sizeScale}
       expandedId={isWideDetail ? null : expandedId}
       selectedId={selectedId}
-      flipRequest={flipRequest}
+      // The flip signal sets `flipped` inside the card directly, bypassing the
+      // expandedId gate — pressing E (or Space) flipped a rack card UNDER the
+      // open panel. Withhold it whenever the panel owns detail; the prop stays
+      // wired so the phone / future reuse path still works.
+      flipRequest={isWideDetail ? null : flipRequest}
       haulNames={haulNames}
       onDelete={setPendingDeleteId}
       onSaveEdit={saveEdit}

@@ -3,6 +3,7 @@ import {
   AGENTS,
   DEFAULT_AGENT_ID,
   OUTBOUND_KEY,
+  agentOf,
   buildAgentUrl,
   buildSignupUrl,
   extractMarketplaceItemId,
@@ -14,6 +15,7 @@ import {
   recordOutboundClick,
   resolveReferralCode,
   summarizeOutbound,
+  unwrapAgentUrl,
 } from "../../agents.js";
 
 const WEIDIAN = "https://weidian.com/item.html?itemID=7234567890";
@@ -73,6 +75,71 @@ describe("extractMarketplaceItemId", () => {
   it("returns null when no id is present", () => {
     expect(extractMarketplaceItemId("https://www.taobao.com/")).toBeNull();
     expect(extractMarketplaceItemId(YUPOO)).toBeNull();
+  });
+});
+
+describe("agentOf", () => {
+  it("recognizes fansbuy and other agent hosts", () => {
+    expect(agentOf("https://fansbuy.com/item-micro-7799601727.html")).toBe("fansbuy");
+    expect(agentOf("https://www.superbuy.com/en/page/buy?url=x")).toBe("superbuy");
+    expect(agentOf(WEIDIAN)).toBeNull();
+  });
+});
+
+describe("unwrapAgentUrl", () => {
+  // Live haul pastes (Kyle 2026-07-26) — promotionCode only, no ?url=.
+  it("unwraps Fansbuy item-micro-{id} to Weidian (with or without ?url=)", () => {
+    const haul = "https://fansbuy.com/item-micro-7799601727.html?promotionCode=52c32b7af9506121";
+    expect(unwrapAgentUrl(haul)).toEqual({
+      url: "https://weidian.com/item.html?itemID=7799601727",
+      agentId: "fansbuy",
+      marketplace: "weidian",
+      itemId: "7799601727",
+    });
+    expect(unwrapAgentUrl("https://fansbuy.com/item-micro-7809917249.html")).toMatchObject({
+      marketplace: "weidian",
+      itemId: "7809917249",
+    });
+    expect(unwrapAgentUrl("https://fansbuy.com/item-micro-7520678906.html?promotionCode=abc")).toMatchObject({
+      itemId: "7520678906",
+    });
+    // With embedded ?url= still lands on the same Weidian id.
+    const withUrl =
+      "https://fansbuy.com/item-micro-7234567890.html?url=" + encodeURIComponent(WEIDIAN);
+    expect(unwrapAgentUrl(withUrl).url).toBe(WEIDIAN);
+  });
+
+  it("unwraps Superbuy-family ?url= wraps", () => {
+    const wrapped =
+      "https://www.superbuy.com/en/page/buy?url=" + encodeURIComponent(WEIDIAN);
+    expect(unwrapAgentUrl(wrapped)).toMatchObject({
+      url: WEIDIAN,
+      agentId: "superbuy",
+      marketplace: "weidian",
+      itemId: "7234567890",
+    });
+  });
+
+  it("unwraps mulebuy / joyagoo / cnfans / hoobuy id+platform shapes", () => {
+    expect(unwrapAgentUrl("https://mulebuy.com/product/?id=7234567890&shop_type=weidian")).toMatchObject({
+      marketplace: "weidian",
+      itemId: "7234567890",
+      agentId: "mulebuy",
+    });
+    expect(unwrapAgentUrl("https://cnfans.com/product/?platform=TAOBAO&id=856801351597")).toMatchObject({
+      marketplace: "taobao",
+      itemId: "856801351597",
+    });
+    expect(unwrapAgentUrl("https://hoobuy.com/product/2/7234567890")).toMatchObject({
+      marketplace: "weidian",
+      itemId: "7234567890",
+    });
+  });
+
+  it("returns null for non-agent and unparseable agent pages", () => {
+    expect(unwrapAgentUrl(WEIDIAN)).toBeNull();
+    expect(unwrapAgentUrl("https://fansbuy.com/register?invite=x")).toBeNull();
+    expect(unwrapAgentUrl("not a url")).toBeNull();
   });
 });
 

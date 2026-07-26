@@ -247,8 +247,9 @@ export function marketplaceOf(url) {
 // entirely (Kyle, 2026-07-24: a pasted QC post became a junk "W2C" card).
 // Wider than the AGENTS registry on purpose: people link agents we have no
 // URL templates for. Returns the agent token (lowercase) or null.
+// fansbuy is outbound-verified + inbound-unwrapped (item-micro-{id} → Weidian).
 const AGENT_HOST_RE =
-  /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy)\.[a-z.]{2,}$/i;
+  /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|fansbuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy)\.[a-z.]{2,}$/i;
 
 export function agentOf(url) {
   let host;
@@ -259,6 +260,124 @@ export function agentOf(url) {
   }
   const m = AGENT_HOST_RE.exec(host);
   return m ? m[2].toLowerCase() : null;
+}
+
+// Rebuild a clean marketplace product URL from a marketplace token + numeric id.
+// Used when an agent link only exposes the id (Fansbuy item-micro, Hoobuy path).
+function canonicalMarketplaceUrl(marketplace, itemId) {
+  if (!itemId || !/^\d{5,}$/.test(String(itemId))) return null;
+  if (marketplace === "weidian") return "https://weidian.com/item.html?itemID=" + itemId;
+  if (marketplace === "taobao") return "https://item.taobao.com/item.htm?id=" + itemId;
+  if (marketplace === "tmall") return "https://detail.tmall.com/item.htm?id=" + itemId;
+  if (marketplace === "1688") return "https://detail.1688.com/offer/" + itemId + ".html";
+  return null;
+}
+
+// Map agent-specific platform tokens (shop_type / platform / path code) back to
+// our marketplace names. Numeric codes match Hoobuy/Oopbuy path layout.
+function marketplaceFromAgentPlatform(token) {
+  if (token == null || token === "") return null;
+  const t = String(token).toLowerCase();
+  if (t === "weidian" || t === "2") return "weidian";
+  if (t === "taobao" || t === "1") return "taobao";
+  if (t === "tmall") return "tmall";
+  if (t === "1688" || t === "3") return "1688";
+  return null;
+}
+
+/**
+ * Unwrap a buying-agent product link to a canonical marketplace URL.
+ * Storage and resolve always want the marketplace URL, never the agent front.
+ * Returns { url, agentId, marketplace, itemId } or null when not unwrapable.
+ *
+ * Shapes handled (2026-07-26):
+ *   - ?url= / ?productLink= / ?link= embedding a marketplace URL (Superbuy family)
+ *   - fansbuy.com/item-micro-{id}.html  → weidian (promotionCode optional)
+ *   - mulebuy/joyagoo product/?id=&shop_type=
+ *   - cnfans product/?platform=&id=
+ *   - hoobuy/oopbuy product/{code}/{id}
+ */
+export function unwrapAgentUrl(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  let u;
+  try {
+    u = new URL(raw.trim());
+  } catch (e) {
+    return null;
+  }
+  const agentId = agentOf(u.href);
+  if (!agentId) return null;
+
+  // 1) Embedded canonical marketplace URL in a query param.
+  for (const key of ["url", "productLink", "product_url", "productUrl", "link"]) {
+    const v = u.searchParams.get(key);
+    if (!v) continue;
+    let decoded = v;
+    try {
+      decoded = decodeURIComponent(v);
+    } catch (e) {
+      /* keep raw */
+    }
+    // Some agents double-encode; try once more when still percent-encoded.
+    if (/%[0-9A-Fa-f]{2}/.test(decoded)) {
+      try {
+        decoded = decodeURIComponent(decoded);
+      } catch (e) {
+        /* keep */
+      }
+    }
+    const marketplace = marketplaceOf(decoded);
+    if (!marketplace || marketplace === "yupoo") continue;
+    const extracted = extractMarketplaceItemId(decoded);
+    const itemId = extracted ? extracted.id : null;
+    const canonical = itemId
+      ? canonicalMarketplaceUrl(marketplace, itemId)
+      : decoded;
+    if (!canonical) continue;
+    return { url: canonical, agentId, marketplace, itemId };
+  }
+
+  // 2) Fansbuy Weidian micro path (live haul links often omit ?url=).
+  //    https://fansbuy.com/item-micro-7799601727.html?promotionCode=…
+  if (agentId === "fansbuy") {
+    const m = u.pathname.match(/\/item-micro-(\d{5,})(?:\.html)?/i);
+    if (m) {
+      const itemId = m[1];
+      return {
+        url: canonicalMarketplaceUrl("weidian", itemId),
+        agentId: "fansbuy",
+        marketplace: "weidian",
+        itemId,
+      };
+    }
+  }
+
+  // 3) id + platform query agents (mulebuy / joyagoo / cnfans-style).
+  const idQ = u.searchParams.get("id") || u.searchParams.get("itemId") || u.searchParams.get("item_id");
+  const platformQ =
+    u.searchParams.get("shop_type") ||
+    u.searchParams.get("platform") ||
+    u.searchParams.get("shopType");
+  if (idQ && /^\d{5,}$/.test(idQ) && platformQ) {
+    const marketplace = marketplaceFromAgentPlatform(platformQ);
+    const canonical = marketplace && canonicalMarketplaceUrl(marketplace, idQ);
+    if (canonical) {
+      return { url: canonical, agentId, marketplace, itemId: idQ };
+    }
+  }
+
+  // 4) Path agents: /product/{platformCode}/{itemId} (hoobuy / oopbuy).
+  const pathCode = u.pathname.match(/\/product\/([a-z0-9]+)\/(\d{5,})\/?$/i);
+  if (pathCode) {
+    const marketplace = marketplaceFromAgentPlatform(pathCode[1]);
+    const itemId = pathCode[2];
+    const canonical = marketplace && canonicalMarketplaceUrl(marketplace, itemId);
+    if (canonical) {
+      return { url: canonical, agentId, marketplace, itemId };
+    }
+  }
+
+  return null;
 }
 
 // Numeric item id for id-path agents (CSSBuy). Returns { marketplace, id } | null.

@@ -13,6 +13,10 @@ describe("fashionGateStatus", () => {
     expect(fashionGateStatus("https://www.reddit.com/r/FashionReps/comments/1abc123/x/")).toBe("fashion");
     expect(fashionGateStatus("https://www.superbuy.com/en/page/buy?url=...")).toBe("fashion");
     expect(fashionGateStatus("https://kakobuy.com/item/123")).toBe("fashion");
+    // Fansbuy was missing from agentOf until 2026-07-26 (item-micro haul pastes).
+    expect(
+      fashionGateStatus("https://fansbuy.com/item-micro-7799601727.html?promotionCode=52c32b7af9506121")
+    ).toBe("fashion");
   });
 
   it("passes space-obfuscated fashion links", () => {

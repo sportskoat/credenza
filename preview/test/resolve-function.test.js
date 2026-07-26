@@ -12,6 +12,7 @@ const {
   taobaoFamilyItemId,
   ali1688ItemId,
   classifyBuyLink,
+  unwrapAgentBuyLink,
   parseWorldTaobaoHtml,
   parseWorldTaobaoIsland,
   parse1688Html,
@@ -61,6 +62,32 @@ describe("classifyBuyLink", () => {
     expect(classifyBuyLink("javascript:alert(1)")).toBeNull();
     expect(classifyBuyLink("")).toBeNull();
     expect(classifyBuyLink("https://seller.x.yupoo.com/albums/1")).toBeNull();
+  });
+
+  // Kyle haul pastes 2026-07-26 — Fansbuy agent fronts must resolve like Weidian.
+  it("classifies Fansbuy item-micro links as Weidian", () => {
+    expect(
+      classifyBuyLink("https://fansbuy.com/item-micro-7799601727.html?promotionCode=52c32b7af9506121")
+    ).toEqual({ marketplace: "weidian", itemId: "7799601727" });
+    expect(classifyBuyLink("https://fansbuy.com/item-micro-7809917249.html")).toEqual({
+      marketplace: "weidian",
+      itemId: "7809917249",
+    });
+    expect(classifyBuyLink("https://fansbuy.com/item-micro-7520678906.html")).toEqual({
+      marketplace: "weidian",
+      itemId: "7520678906",
+    });
+    expect(unwrapAgentBuyLink("https://fansbuy.com/item-micro-7799601727.html")).toEqual({
+      marketplace: "weidian",
+      itemId: "7799601727",
+    });
+  });
+
+  it("classifies Superbuy-family wrapped ?url= buy links", () => {
+    const wrapped =
+      "https://www.superbuy.com/en/page/buy?url=" +
+      encodeURIComponent("https://weidian.com/item.html?itemID=7777810977");
+    expect(classifyBuyLink(wrapped)).toEqual({ marketplace: "weidian", itemId: "7777810977" });
   });
 });
 

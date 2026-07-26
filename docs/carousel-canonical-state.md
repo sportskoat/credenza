@@ -56,7 +56,7 @@ The physics below are unchanged; only the size inputs moved.
 | Input | Behavior |
 |---|---|
 | Click side card | Centers it, does **not** flip |
-| Click settled center card | Flips to back face |
+| Click settled center card | **≥768px: opens the DesktopDetailPanel — it does NOT flip** (Kyle, 2026-07-26: the flip is retired from carousel view). Below 768px the phone detail sheet owns detail. The flip rows below describe the machinery, which stays intact and reusable but is now dormant — see "Flip retired" under Traps. |
 | Click outside the active card | Moves back exactly one layer: close info bubble → commit edit draft (write-through) and return to details → unflip to the front |
 | Escape | Uses the same one-layer priority; the photo gallery owns Escape while open |
 | Click inside back/edit content | **Interactive elements** (links, buttons, fields, images, corner fan) never dismiss a layer; **inert whitespace on the back face in details mode flips the card back to the front** (Kyle, 2026-07-22, overrides the old all-inside-clicks-inert rule). Guards: edit mode, size bubble, an active text selection, and drag-release all bail; the click target check excludes `a, button, input, textarea, select, label, [role='button'], [contenteditable], dialog, img, .cz-corner-fan`. |
