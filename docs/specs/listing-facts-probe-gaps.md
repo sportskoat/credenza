@@ -19,7 +19,7 @@ No Claude vision in this probe. `chartHuntPossible` = desc photos exist for FitB
 | Can we parse **color**? | **Yes for most apparel.** 72 / 97 after axis aliases (`colorway` filled). |
 | Can we parse **batch**? | **Weak.** Title regex only. 4 / 97 (GX, LJR). |
 | Can we parse **weight**? | **Almost never from the SKU API.** 1 / 97 (title `230g`). |
-| Can FitBlock **hunt charts**? | **Often.** 66 / 97 Weidian items had desc photos (`getDetailDesc` + `vItemId`). |
+| Can FitBlock **hunt charts**? | **Strong after type-13 fix.** ≈87 / 91 Weidian have desc photos; bare Yupoo shop links also return from resolve. |
 | Taobao? | Photo + weak price from world.taobao HTML. **No size, color, desc photos, batch, or weight.** |
 | Yupoo-only / text-only rows in the paste? | Not in this 97-link buy-URL set. They need Yupoo album resolve + Reddit labels. |
 
@@ -74,8 +74,11 @@ First bad probe used wrong field names. This file uses the **production** mappin
 ### 3.2 Weidian desc photos (`getDetailDesc`)
 
 - Param must be `{ vItemId: itemId }` (not `itemId`).  
-- Type-2 URLs → `descImages` → FitBlock chart hunt + Product Details.  
-- 66 / 97 items returned ≥1 desc photo in this haul.
+- Type **2** single photos + type **13** albums → `descImages`.  
+- Type **1** text → `sellerYupooLinks` (bare `shop.x.yupoo.com` hosts).  
+- Legal type **10000** stays out.  
+- First probe type-2-only: 66 / 97. After type-13: ≈87 / 91 Weidian.
+
 
 ### 3.3 Pure helpers (`listing-facts.js`)
 
@@ -173,6 +176,12 @@ Claude enrich title rewrite still needed when the paste has no human label.
 
 First probe said 31 / 97 had no desc images. Root cause was **not** missing charts on the seller side for most cases. Resolve only accepted `desc_content` **type 2**. Multi-model shoe shops put photos in **type 13**. Landed in `resolve.js` `descImageUrls`.
 
+
+### Gap G0 — Spam size values (pure; landed)
+
+Some size axes mix S–XL with WeChat / 包退换 spam.  
+`isSpamVariantValue` + `pickSizeValuesFromVariants` strip those.  
+Size run becomes clean (e.g. Gallery Dept S–XL).
 
 ### Gap G — Accessories with no size axis (expected empty)
 
