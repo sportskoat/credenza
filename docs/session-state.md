@@ -5,10 +5,31 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-25 (HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified. Prior: SIZE BREAKDOWN + badge fix DEPLOYED. Prior: CARD-FRONT REDESIGN DEPLOYED
+**Last updated:** 2026-07-25 (CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
+
+## 2026-07-25 night — Customer walkthrough audit fixes (K3 lane, `d0ff7f1`, NOT deployed)
+
+Re-ran all four customer walkthroughs against the current build
+(`ui-haul-sample-audit`, `ui-walkthrough`, `ui-desktop-walkthrough`,
+`ui-close-audit` on a local 5199 preview). Two real defects fixed:
+
+1. **Phone tabs-row collision.** Tabs + totals + the 132px indexing chip
+   overflowed 390px and crushed into each other on every stash. The row
+   now wraps; the chip takes its own line while indexing (CSS only).
+2. **Blank detail heroes for photo-less items.** The desktop panel stage
+   was a white void and the phone sheet hero a blank dark box. Both empty
+   states now render the grid's marketplace brand tile (`CoverPlaceholder`,
+   now exported from CardCover.jsx).
+
+Probe selectors updated for the redesign everywhere (Stash button labels,
+the FAB, masthead search toggle, phone DetailSheet flow, Fix B panel flow).
+All four audits green. 644 tests, gate clean. **No deploy — Kyle is
+conserving Netlify credits; batch this with the next ship set.**
+Next offered wires (lane notes §4.3/§4.4): weight bands on the haul board,
+link-context L0 on stashed cards. Taobao resolve stays with the pure lane.
 
 ---
 
