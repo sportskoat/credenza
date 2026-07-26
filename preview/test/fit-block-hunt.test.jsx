@@ -1,0 +1,101 @@
+// FitBlock chart hunt (components/DetailBody.jsx) regression tests.
+// 2026-07-25, Kyle: "WHAT IS GOING ON WITH THE SIZING CHARTS. WHY CAN'T IT
+// WORK WITH RECOMMENDED SIZES." Root cause: the silent chart hunt lived in
+// the orphaned desktop SizeRecommendation panel, so the live FitBlock only
+// ever READ charts — it never fetched them. Opening the Size · fit cell now
+// hunts once per item (album text, then a vision read of the photos), writes
+// the find into sizeNotes, and the recommendation appears.
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
+
+vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
+
+// Import AFTER the mock registration so DetailBody binds the stub.
+const { default: DetailBody } = await import("../../components/DetailBody.jsx");
+
+const CHART_TEXT = "M: chest 116, length 70\nL: chest 120, length 72\nXL: chest 124, length 74";
+
+function noChartItem(id = "hunt-1") {
+  return {
+    id,
+    createdAt: 1753400000000,
+    url: "https://weidian.com/item.html?itemID=111",
+    title: "Celine Shirt 55or",
+    image: "https://si.geilicdn.com/img-1.jpg",
+    gallery: ["https://si.geilicdn.com/img-2.jpg"],
+    links: [{ url: "https://weidian.com/item.html?itemID=222", role: "buy" }],
+    price: 229,
+    currency: "CNY",
+    seller: "replux",
+    category: "shirt",
+    findStatus: "want",
+  };
+}
+
+function renderBody(item, extra = {}) {
+  return render(
+    <DetailBody
+      item={item}
+      bodyProfile={{ chest: "96", height: "180", weight: "75" }}
+      buyLabel="Buy via Superbuy"
+      onSaveEdit={vi.fn()}
+      onOpen={vi.fn()}
+      onAttachPhoto={vi.fn()}
+      onRemovePhoto={vi.fn()}
+      onOpenSizes={vi.fn()}
+      {...extra}
+    />
+  );
+}
+
+afterEach(() => {
+  cleanup();
+  huntMock.mockReset();
+});
+
+describe("FitBlock chart hunt", () => {
+  it("hunts once when the size cell opens with no chart, then prescribes", async () => {
+    // Hold the hunt open so the "looking" state is observable, then resolve.
+    let resolveHunt;
+    huntMock.mockImplementation(() => new Promise((resolve) => { resolveHunt = resolve; }));
+    const item = noChartItem("hunt-a");
+    const onSaveEdit = vi.fn();
+    const user = userEvent.setup();
+    renderBody(item, { onSaveEdit });
+
+    await user.click(screen.getByRole("button", { name: /Size · fit/ }));
+    expect(await screen.findByText("Looking for the seller's size chart…")).toBeInTheDocument();
+    resolveHunt(CHART_TEXT);
+
+    // The found chart writes into sizeNotes through the normal save path.
+    await waitFor(() => expect(onSaveEdit).toHaveBeenCalledWith("hunt-a", {
+      sizeNotes: CHART_TEXT,
+    }));
+    expect(huntMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the recommendation once the item carries the hunted chart", async () => {
+    huntMock.mockResolvedValue(null); // hunted already; nothing new
+    const item = { ...noChartItem("hunt-b"), sizeNotes: CHART_TEXT };
+    const user = userEvent.setup();
+    renderBody(item);
+
+    await user.click(screen.getByRole("button", { name: /Size · fit/ }));
+    expect(await screen.findByText("We recommend")).toBeInTheDocument();
+    // A chart-bearing item never hunts.
+    expect(huntMock).not.toHaveBeenCalled();
+  });
+
+  it("a failed hunt falls back to the static empty copy", async () => {
+    huntMock.mockResolvedValue(null);
+    const user = userEvent.setup();
+    renderBody(noChartItem("hunt-c"));
+
+    await user.click(screen.getByRole("button", { name: /Size · fit/ }));
+    expect(await screen.findByText(/Add your usual sizes in My sizes/)).toBeInTheDocument();
+    expect(huntMock).toHaveBeenCalledTimes(1);
+  });
+});

@@ -22,7 +22,9 @@ import {
   sizeChartTextFor,
   useWriteThroughDraft,
   usePrefersReducedMotion,
+  SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
+import { huntSizeChart } from "./size-chart-hunt.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
 // to be consistent — like the mobile back"). The phone DetailSheet and the
@@ -34,6 +36,10 @@ import {
 // shared 600ms debounce. The "Saved" chip is the only save feedback.
 
 const SAVED_HOLD_MS = 1400;
+
+// One chart hunt per item per session — the vision read costs money, and a
+// "no chart found" answer is stable enough for a session (2026-07-25).
+const chartHuntTried = new Set();
 
 // The tap that opened the editor is the focus intent, so the input takes
 // focus when it mounts. A callback ref does this without autoFocus, which
@@ -62,7 +68,7 @@ function specCells(item, view, sizeText) {
 // The fit block. It reuses recommendSize / fitSummarySentence unchanged —
 // this is presentation only. When there is no profile or no parsed chart it
 // shows the chart's own size run instead of inventing a confidence.
-function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, onDone }) {
+function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, onDone, onSaveEdit }) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
   // so the badge never claims a precise fit it does not have.
@@ -74,6 +80,35 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
   // The fit-summary pref gates the sentence; the detail pref picks its length.
   const { summary: fitSummaryOn, detail: fitDetailMode } = fitDisplayPrefs();
   const why = recSize && fitSummaryOn ? fitSummarySentence(rec, { runHint: chart && chart.runHint, units, detail: fitDetailMode }) : "";
+
+  // Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
+  // SIZES" — charts never arrived because the old hunt died with the desktop
+  // panel). Opening the fit block with no chart hunts once: Yupoo album
+  // text, then a vision read of the album/gallery photos. A found chart
+  // writes into sizeNotes, this block recomputes, and the pick appears.
+  const [hunting, setHunting] = useState(false);
+  useEffect(() => {
+    if (chart || SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return;
+    if (chartHuntTried.has(item.id)) return;
+    chartHuntTried.add(item.id);
+    let cancelled = false;
+    const controller = new AbortController();
+    setHunting(true);
+    (async () => {
+      const chartText = await huntSizeChart(item, { signal: controller.signal });
+      if (cancelled) return;
+      setHunting(false);
+      if (chartText) {
+        onSaveEdit(item.id, {
+          sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [chart, item, onSaveEdit]);
 
   return (
     <div className="cz-detail-fit">
@@ -91,7 +126,9 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
         <div className="cz-detail-fit-size">{formatSizeToken(recSize) || recSize}</div>
       ) : (
         <p className="cz-detail-fit-empty">
-          {bodyProfile
+          {hunting
+            ? "Looking for the seller's size chart…"
+            : bodyProfile
             ? bodyProfile.usualTops || bodyProfile.usualBottoms || bodyProfile.usualShoes || bodyProfile.usualSize
               ? "No size chart on this listing — the card shows your usual size as EST."
               : "No size chart on this listing. Add your usual sizes in My sizes for an estimate."
@@ -347,6 +384,7 @@ export default function DetailBody({
             onOpenSizes && onOpenSizes();
           }}
           onDone={() => setEditingCell(null)}
+          onSaveEdit={onSaveEdit}
         />
       );
     }
