@@ -8068,6 +8068,15 @@ a.cz-card-seller:hover {
     align-items: flex-end;
     gap: 8px;
     margin-bottom: 14px;
+    /* While a card indexes, tabs + totals + the 132px chip overflow 390px
+       and crush into each other — let the chip wrap to its own line. */
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .cz-view-tabs-row .cz-index-chip-row {
+    flex: 1 1 100%;
+    padding-bottom: 10px;
   }
 
   /* The tabs no longer own the full width — let the totals have their share. */

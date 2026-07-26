@@ -12,6 +12,7 @@ import {
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 import DetailBody from "./DetailBody.jsx";
+import { CoverPlaceholder } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import { albumLinkTarget } from "./CardMetaLinks.jsx";
@@ -157,7 +158,14 @@ export default function DesktopDetailPanel({
                 ))}
               </div>
             ) : (
-              <div className="cz-dpanel-slide cz-dpanel-slide-empty" />
+              // Photo-less items get the grid's brand tile, not a white void.
+              <div className="cz-dpanel-slide cz-dpanel-slide-empty">
+                <CoverPlaceholder
+                  item={item}
+                  aspectRatio="auto"
+                  style={{ width: "100%", height: "100%" }}
+                />
+              </div>
             )}
             {multiPhoto ? (
               <span className="cz-dpanel-counter" aria-live="polite">

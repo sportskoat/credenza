@@ -46,7 +46,7 @@ const sheetText = await page
   .catch(() => "");
 console.log("capture sheet holds haul (want true):", sheetText.includes("\n") && sheetText.length > 500);
 if (sheetText) {
-  await page.getByRole("button", { name: /^Stash$/ }).first().click();
+  await page.getByRole("button", { name: /^Stash( \d+ items)?$/ }).first().click();
   await page.waitForTimeout(2500);
   await page.screenshot({ path: SHOTS + "h-02-haul-inbox.png" });
   await page

@@ -72,38 +72,36 @@ await page.locator("[id^='card-']").nth(1).waitFor({ state: "visible", timeout: 
 await page.waitForTimeout(800);
 await shot("07-two-cards");
 
-// 6. Desktop default is the carousel rack: cards flip IN PLACE (no overlay).
-// Flip the FOREGROUND card to its back — background cards render no buttons.
+// 6. Desktop default is the carousel rack. At ≥1024px the rack never flips
+// (Fix B): tapping the foreground card opens the two-column detail panel.
 const first = page.locator("[id^='card-'][data-foreground='true']").first();
 await first.hover();
 await page.waitForTimeout(500);
 await shot("07b-card-hover");
-await first.getByRole("button", { name: /Flip card for details/ }).click();
+await first.getByRole("button", { name: /^Flip / }).click();
+await page.waitForTimeout(1200);
+const rackPanel = await page.locator(".cz-dpanel").count();
+const flippedCards = await page.locator(".cz-carousel-card-inner.is-flipped").count();
+console.log("rack tap → panel (want 1):", rackPanel, "flipped cards (want 0):", flippedCards);
+await shot("08-rack-panel");
+const rackBuy = await page.getByRole("button", { name: /Buy via/ }).first().isVisible().catch(() => false);
+console.log("buy row visible in the panel:", rackBuy);
+await page.keyboard.press("Escape");
 await page.waitForTimeout(900);
-await shot("08-card-back");
-const backBits = await first.evaluate((el) => ({
-  hasHaul: /Add to a haul/.test(el.textContent || ""),
-  hasStatus: /Want/.test(el.textContent || ""),
-}));
-console.log("card back bits:", JSON.stringify(backBits));
+const afterRackEsc = await state();
+console.log("after rack panel close:", JSON.stringify(afterRackEsc));
+await shot("08b-after-rack-panel");
 
-// 7. Flip back with the chevron.
-await first.getByRole("button", { name: "Flip back" }).click();
-await page.waitForTimeout(900);
-await shot("08b-card-front-again");
-
-// 8. Card view (grid): tap a card → modal over the grid → Escape closes it.
+// 7. Card view (grid): tap a card → the same panel opens over the grid →
+// Escape closes it.
 await page.getByRole("button", { name: "Card view" }).click();
 await page.waitForTimeout(800);
 await shot("08c-grid-view");
 const gridCard = page.locator("[id^='card-']").first();
 await gridCard.click();
-await page.waitForTimeout(900);
-const modalState = await page.evaluate(() => ({
-  dialogs: document.querySelectorAll("dialog[open]").length,
-  modal: !!document.querySelector(".t-modal, [class*='modal']"),
-}));
-console.log("after grid card tap:", JSON.stringify(modalState));
+await page.waitForTimeout(1000);
+const gridPanel = await page.locator(".cz-dpanel").count();
+console.log("grid tap → panel (want 1):", gridPanel);
 await shot("08d-grid-modal");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);

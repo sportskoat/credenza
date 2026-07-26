@@ -112,4 +112,10 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.queryByText("1 / 1")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Next photo" })).not.toBeInTheDocument();
   });
+
+  it("fills the stage with the marketplace brand tile when the item has no photos", () => {
+    renderPanel(panelItem({ image: null, gallery: [] }));
+    expect(document.querySelector(".cz-dpanel-slide-empty .cz-cover-tile")).toBeTruthy();
+    expect(screen.getByText("Weidian")).toBeInTheDocument();
+  });
 });

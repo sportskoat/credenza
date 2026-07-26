@@ -151,7 +151,7 @@ const MARKETPLACE_TILES = {
   yupoo: { name: "Yupoo", rgb: "55, 178, 77" },
 };
 
-function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }) {
+export function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }) {
   const loading = item.status === "enriching";
   const tileUrl =
     item.url ||

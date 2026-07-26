@@ -61,39 +61,36 @@ await shot("05-card-on-shelf");
 // 5. Stash a second card so the shelf has a pair (grid look) — this time
 // through the bottom bar's capture sheet, which exists now that the shelf
 // has a card.
-await page.getByRole("button", { name: /Open the capture sheet/ }).click();
+await page.getByRole("button", { name: /Stash to shelf/ }).click();
 await page.waitForTimeout(600);
 await shot("06-capture-sheet");
 await page
-  .getByPlaceholder(/Paste anything/)
+  .getByPlaceholder(/Paste a link, a whole Reddit haul/)
   .fill("https://weidian.com/item.html?itemID=7234567890");
-await page.getByRole("button", { name: /^Stash$/ }).first().click();
+await page.getByRole("button", { name: /^Stash( · 1 (link|note)| \d+ items| this)?$/ }).first().click();
 await page.waitForTimeout(1200);
 await shot("06-second-stash-inbox");
 await page.locator("[id^='card-']").nth(1).waitFor({ state: "visible", timeout: 25000 }).catch(() => {});
 await page.waitForTimeout(800);
 await shot("07-two-cards");
 
-// 6. Open the first card in the carousel (the photo button — on a phone a
+// 6. Open the first card — on a phone the tap opens the detail sheet (the
 // center click must NOT hit the hover-only Buy pill).
 const first = page.locator("[id^='card-']").first();
-await first.getByRole("button", { name: /Open .* in carousel/ }).click();
+await first.getByRole("button", { name: /^Open / }).click();
 await page.waitForTimeout(900);
 await shot("08-card-front-overlay");
 
-// 7. Flip the card to its back — the Buy row lives there.
-await page.locator(".cz-carousel-overlay .cz-carousel-card").first().click();
-await page.waitForTimeout(900);
+// 7. The sheet carries the detail body — the Buy row lives in its footer.
+const sheet = page.locator(".cz-detail-modal");
+const sheetOpen = await sheet.isVisible().catch(() => false);
+console.log("detail sheet open (want true):", sheetOpen);
 await shot("08b-card-back");
 const buyVisible = await page.getByRole("button", { name: /Buy via/ }).first().isVisible().catch(() => false);
-console.log("buy row visible on card back:", buyVisible);
+console.log("buy row visible in the sheet:", buyVisible);
 
-// 8. Close the overlay with Escape (regression: 2026-07-25 — Escape died on
-// the auto-focused button inside the overlay and left the page locked).
-// Layer peeling is by design: the first Escape unflips the card, the second
-// closes the overlay.
-await page.keyboard.press("Escape");
-await page.waitForTimeout(700);
+// 8. Close the sheet with Escape (regression: 2026-07-25 — Escape died on
+// the auto-focused button inside an overlay and left the page locked).
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
 const afterEsc = await state();
@@ -101,11 +98,14 @@ console.log("after card close:", JSON.stringify(afterEsc));
 if (afterEsc.scrollLocked) console.log("DEFECT: page still scroll-locked after Escape");
 await shot("09-after-card-close");
 
-// 9. Search.
-await page.getByPlaceholder("Search or paste a link").fill("yupoo");
+// 9. Search — collapsed behind the masthead icon since the shelf redesign.
+await page.getByRole("button", { name: "Search your shelf" }).click();
+await page.waitForTimeout(400);
+const searchBox = page.getByRole("textbox", { name: "Search your shelf" });
+await searchBox.fill("yupoo");
 await page.waitForTimeout(600);
 await shot("10-search");
-await page.getByPlaceholder("Search or paste a link").fill("");
+await searchBox.fill("");
 await page.waitForTimeout(400);
 
 // 10. Hauls tab.

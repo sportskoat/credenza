@@ -71,8 +71,10 @@ if (await card.isVisible().catch(() => false)) {
   await page.screenshot({ path: SHOTS + "6-after-card-close.png" });
 }
 
-// Agent sheet: open + close.
-await page.getByRole("button", { name: /Agent:/ }).click();
+// Agent sheet: open through Profile → Default agent, then close.
+await page.getByRole("button", { name: "Profile" }).click();
+await page.waitForTimeout(700);
+await page.getByRole("button", { name: /Default agent/ }).click();
 await page.waitForTimeout(800);
 await page.keyboard.press("Escape");
 await page.waitForTimeout(700);
@@ -87,7 +89,7 @@ await page.waitForTimeout(700);
 console.log("after profile close:", JSON.stringify(await shelfState()));
 
 // Capture sheet once more, close via the X this time.
-await page.getByRole("button", { name: "Open the capture sheet" }).click();
+await page.getByRole("button", { name: /Stash to shelf/ }).click();
 await page.waitForTimeout(700);
 await page.getByRole("button", { name: /Close Stash to shelf/ }).click();
 await page.waitForTimeout(700);
