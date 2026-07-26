@@ -14,40 +14,19 @@ Customer pastes a FashionReps haul. Each card keeps a human name, a photo, a pri
 
 ---
 
-## Slice A — Title (highest customer pain)
+## Slice A — Title (highest customer pain) — LANDED 2026-07-25
 
 **Bug:** Direct Weidian resolve overwrites a Reddit label with a SKU.
 
-### Files
+**Landed in** `credenza-fashion.jsx`:
 
-1. `credenza-fashion.jsx` only (merge + replace helper). No CSS. No sheets.
+1. Import `preferCardTitle`, pure `shouldReplaceFashionTitle`, colorway + weight helpers.
+2. Local `shouldReplaceFashionTitle` re-exports pure policy.
+3. Direct resolve path passes `preserveTitle: !shouldReplaceFashionTitle(...)`.
+4. Merge uses `preferCardTitle` so human labels beat SKUs.
+5. Also fills empty `colorway` from variants and `weightGrams` from note text.
 
-### Steps
-
-1. Import from `listing-facts.js`:
-   - `preferCardTitle`
-   - `shouldReplaceFashionTitle` (rename local product helper, or re-export pure one)
-2. Delete or thin the local `shouldReplaceFashionTitle` so pure policy is the only source.
-3. In **every** `resolveBuyDetails` call site, pass:
-   ```js
-   preserveTitle: !shouldReplaceFashionTitle(item.title, item.url)
-   ```
-   Including the bare path that today is only:
-   ```js
-   resolveBuyDetails(item, { token, signal: controller.signal })
-   ```
-4. Inside `resolveBuyDetails` title merge, prefer:
-   ```js
-   title: preferCardTitle({
-     currentTitle: x.title,
-     resolvedTitle: fashionDisplayTitle(data),
-     claudeTitle: data.title, // already English when translated
-   }) || x.title
-   ```
-   Or keep `preserveTitle` and still run `preferCardTitle` when not preserved.
-5. Add a client test or extend pure fixtures if any path still drops human titles.
-
-### Acceptance
+### Acceptance (still probe live after deploy)
 
 1. Paste: `Fourth3Ex Punk Wiener Longsleeve\nhttps://weidian.com/item.html?itemID=7777810977`
 2. After enrich, title is still the Reddit label (not `L29735-H64`).
