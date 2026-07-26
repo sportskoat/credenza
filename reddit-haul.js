@@ -40,15 +40,17 @@ const KNOWN_AGENTS = [
 // item.category has one vocabulary end-to-end; order mirrors
 // guessFashionCategory's precedence (hoodie → outerwear, crewneck → shirt).
 const CATEGORY_KEYWORDS = [
-  ["shoes", /\b(shoes?|sneakers?|jordans?|aj\s?\d{1,2}|dunks?|yeezys?|af1|air force|air max|new balance|nb\s?\d{3,4}|vans|old\s?skool|sk8|asics|gel-\w+|fresh foam|boots?|slides?|runners?|trainers?)\b/i],
-  ["outerwear", /\b(hoodie|jacket|coat|puffer|windbreaker|parka|bomber|denim jacket|varsity)\b/i],
+  // EN + FR (FashionReps FR hauls: baskets, ensemble, veste, casquette…)
+  ["shoes", /\b(shoes?|sneakers?|jordans?|aj\s?\d{1,2}|dunks?|yeezys?|af1|air force|air max|new balance|nb\s?\d{3,4}|vans|old\s?skool|sk8|asics|gel-\w+|fresh foam|boots?|slides?|runners?|trainers?|baskets?|chaussures?|sneakers?)\b/i],
+  ["outerwear", /\b(hoodie|jacket|coat|puffer|windbreaker|parka|bomber|denim jacket|varsity|veste|blouson|doudoune|manteau|coupe-?vent|anorak)\b/i],
   ["shorts", /\bshorts?\b/i],
-  ["pants", /\b(pants|jeans|trousers|cargos?|sweatpants|joggers?|track pants)\b/i],
-  ["socks", /\bsocks?\b/i],
-  ["hat", /\b(hat|cap|beanie)\b/i],
-  ["bag", /\b(bag|backpack|tote|duffel|crossbody|shoulder bag)\b/i],
-  ["accessory", /\b(belt|sunglasses|glasses|watch|ring|necklace|bracelet|wallet|scarf|gloves?)\b/i],
-  ["shirt", /\b(tee|t-shirt|tshirt|shirt|polo|tank|henley|crewneck|sweatshirt|sweater|knit|cardigan|vest)\b/i],
+  ["pants", /\b(pants|jeans?|trousers|cargos?|sweatpants|joggers?|track pants|pantalons?|jeans?)\b/i],
+  ["socks", /\b(socks?|chaussettes?)\b/i],
+  ["hat", /\b(hat|cap|beanie|casquette|bonnet|chapeau)\b/i],
+  ["bag", /\b(bag|backpack|tote|duffel|crossbody|shoulder bag|sacs?|sac\s?[àa]\s?dos)\b/i],
+  ["accessory", /\b(belt|sunglasses|glasses|watch|ring|necklace|bracelet|wallet|scarf|gloves?|ceinture|montre|lunettes|portefeuille|gants?)\b/i],
+  // "ensemble" (FR tracksuit/set) and tees before bare "shirt"
+  ["shirt", /\b(tees?|t-shirts?|tshirts?|shirts?|polos?|tanks?|henleys?|crewnecks?|sweatshirts?|sweaters?|knits?|cardigans?|vests?|longsleeves?|long\s*sleeves?|chemises?|pulls?|maillots?|ensembles?)\b/i],
 ];
 
 function guessCategory(label) {
@@ -57,6 +59,179 @@ function guessCategory(label) {
     if (re.test(label)) return category;
   }
   return "";
+}
+
+// Normalize a size token to a short posterSize string (M, XL, EU 43.5, 28…).
+function normalizeSizeToken(raw) {
+  if (!raw) return "";
+  let s = String(raw).trim().replace(/,/g, ".");
+  s = s.replace(/\s+/g, " ");
+  // Letter sizes stay upper-case.
+  if (/^x{0,2}[sml]$/i.test(s) || /^x{0,2}l$/i.test(s) || /^xx?xl$/i.test(s)) {
+    return s.toUpperCase();
+  }
+  // EU/US/UK prefixes
+  const region = /^(eu|us|uk)\s*(\d{1,2}(?:\.\d+)?)$/i.exec(s);
+  if (region) return region[1].toUpperCase() + " " + region[2];
+  // Bare numeric shoe/pant size
+  if (/^\d{1,2}(?:\.\d+)?$/.test(s)) return s;
+  return s.slice(0, 16);
+}
+
+// Pull posterSize / sizeNotes / weightGrams out of free-text notes so import
+// can land structured fields (edge: notes hard-sliced at 500 chars drop fit).
+// Does not invent data — only clear size/weight tokens and short fit phrases.
+export function structureItemFields(item) {
+  const out = {
+    posterSize: item.posterSize || "",
+    sizeNotes: item.sizeNotes || "",
+    weightGrams:
+      typeof item.weightGrams === "number" && item.weightGrams > 0
+        ? Math.round(item.weightGrams)
+        : null,
+    note: item.note || "",
+  };
+  let note = out.note;
+  if (!note) return out;
+
+  // Explicit meta keys first: "Taille : M", "Size: EU 43.5", "Pointure : 43"
+  const sizeKeyRe =
+    /(?:^|[.\s])(?:taille|pointure|size|shoe\s*size|fit\s*size)\s*[:：]?\s*(eu\s*)?(\d{1,2}(?:[.,]\d+)?|x{0,3}[sml]|xxl)(?:\s*(eu|us|uk))?/gi;
+  let m;
+  const sizeHits = [];
+  while ((m = sizeKeyRe.exec(note)) !== null) {
+    const region = (m[1] || m[3] || "").trim();
+    const token = normalizeSizeToken((region ? region + " " : "") + m[2]);
+    if (token) sizeHits.push({ token, index: m.index, end: m.index + m[0].length, raw: m[0] });
+  }
+  // "I took size M" / "size XL fits" when no key-form hit yet
+  if (sizeHits.length === 0) {
+    const took = /\b(?:took|take|wear(?:ing)?|ordered)\s+size\s+(x{0,3}[sml]|xxl|\d{1,2}(?:[.,]\d+)?)\b/i.exec(
+      note
+    );
+    if (took) {
+      sizeHits.push({
+        token: normalizeSizeToken(took[1]),
+        index: took.index,
+        end: took.index + took[0].length,
+        raw: took[0],
+      });
+    } else {
+      const bare = /\bsize\s+(x{0,3}[sml]|xxl)\b/i.exec(note);
+      if (bare) {
+        sizeHits.push({
+          token: normalizeSizeToken(bare[1]),
+          index: bare.index,
+          end: bare.index + bare[0].length,
+          raw: bare[0],
+        });
+      }
+    }
+  }
+  // Standalone "EU 43.5" / "US 9" near the start of the note (common FR/QC)
+  if (sizeHits.length === 0) {
+    const eu = /\b((?:EU|US|UK)\s*\d{1,2}(?:[.,]\d+)?)\b/i.exec(note);
+    if (eu && eu.index < 80) {
+      sizeHits.push({
+        token: normalizeSizeToken(eu[1]),
+        index: eu.index,
+        end: eu.index + eu[0].length,
+        raw: eu[0],
+      });
+    }
+  }
+  if (sizeHits.length && !out.posterSize) {
+    out.posterSize = sizeHits[0].token;
+  }
+
+  // Item weight: "Poids : 850g", "weight: 0.85 kg" — not haul totals like "15kg haul"
+  const wKey =
+    /(?:^|[.\s])(?:poids|weight|item\s*weight|ship(?:ping)?\s*weight)\s*[:：]?\s*(\d+(?:[.,]\d+)?)\s*(kg|g|grams?|grammes?)?\b/i.exec(
+      note
+    );
+  if (wKey && out.weightGrams == null) {
+    const n = parseFloat(wKey[1].replace(",", "."));
+    const unit = (wKey[2] || "g").toLowerCase();
+    if (Number.isFinite(n) && n > 0) {
+      out.weightGrams = unit.startsWith("kg") ? Math.round(n * 1000) : Math.round(n);
+      // Guard absurd per-item weights (haul totals mis-tagged)
+      if (out.weightGrams > 8000) out.weightGrams = null;
+    }
+  }
+
+  // Fit chatter → sizeNotes (keep short; full review stays in note)
+  const fitBits = [];
+  const fitRe =
+    /\b(runs?\s+(?:a\s+)?(?:size\s+)?(?:small|big|large|long|short)|size\s+up|size\s+down|true\s+to\s+size|tts|fits?\s+(?:me\s+)?(?:perfect|well|loose|tight|baggy|cropped|small|big|large|true)|cropped|boxy|oversized|baggy|slim\s+fit|loose\s+fit)\b[^.!?\n]{0,40}/gi;
+  let fm;
+  while ((fm = fitRe.exec(note)) !== null) {
+    const bit = fm[0].trim().replace(/\s+/g, " ");
+    if (bit.length >= 4 && !fitBits.includes(bit)) fitBits.push(bit);
+    if (fitBits.length >= 3) break;
+  }
+  // Chart-ish measurement lines
+  const chartRe =
+    /\b(?:chest|bust|length|shoulder|sleeve|waist|inseam|thigh|poitrine|longueur|manches?)\s*[:：]?\s*\d{2,3}(?:[.,]\d+)?\s*cm\b/gi;
+  let cm;
+  while ((cm = chartRe.exec(note)) !== null) {
+    const bit = cm[0].trim();
+    if (!fitBits.includes(bit)) fitBits.push(bit);
+    if (fitBits.length >= 6) break;
+  }
+  if (fitBits.length && !out.sizeNotes) {
+    out.sizeNotes = fitBits.join("; ").slice(0, 400);
+  }
+
+  // Prefer a tidy note: drop pure "Taille : M" / "Poids : 850g" lines when we
+  // already structured them, keep review sentences.
+  if (out.posterSize || out.weightGrams != null) {
+    const cleaned = note
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter((line) => {
+        if (!line) return false;
+        if (
+          out.posterSize &&
+          /^(taille|pointure|size)\s*[:：]?\s*/i.test(line) &&
+          line.length < 40
+        ) {
+          return false;
+        }
+        if (
+          out.weightGrams != null &&
+          /^(poids|weight)\s*[:：]?\s*/i.test(line) &&
+          line.length < 40
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .join("\n")
+      .trim();
+    // Single-line notes: strip leading "Taille : M " residue when it was inline
+    let oneLine = cleaned;
+    if (out.posterSize) {
+      oneLine = oneLine
+        .replace(
+          /(?:^|\s)(?:taille|pointure|size)\s*[:：]?\s*(?:eu\s*)?(?:\d{1,2}(?:[.,]\d+)?|x{0,3}[sml]|xxl)(?:\s*(?:eu|us|uk))?\s*/i,
+          " "
+        )
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+    if (out.weightGrams != null) {
+      oneLine = oneLine
+        .replace(
+          /(?:^|\s)(?:poids|weight)\s*[:：]?\s*\d+(?:[.,]\d+)?\s*(?:kg|g|grams?|grammes?)?\s*/i,
+          " "
+        )
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+    out.note = oneLine || cleaned || note;
+  }
+
+  return out;
 }
 
 // ————— URL deobfuscation —————————————————————————————————————————————————————
@@ -70,6 +245,23 @@ function guessCategory(label) {
 // Anything else stops the join, so "https://taobao.com is great" keeps its prose.
 const KNOWN_TLD_RE =
   /\.(com|cn|net|org|io|shop|vip|me|app|dev|gg|tv|cc|co\.cn|com\.cn|net\.cn|de|fr|jp|kr|hk|tw|ru)$/i;
+
+// Reddit often autolinks bare marketplace ids as phone numbers inside the URL:
+//   https://weidian.com/item.html?itemID=[7779496523](tel:7779496523)
+// Restore the numeric id so the line stays one shoppable Weidian/Taobao link
+// (15kg GTBuy haul corpus, 2026-07-25).
+export function repairTelLinkedItemIds(text) {
+  if (!text || typeof text !== "string" || !/\]\(tel:/i.test(text)) return text;
+  return text
+    .replace(
+      /\b(itemID|itemId|item_id|id)=\[(\d{5,})\]\(tel:\2\)/gi,
+      "$1=$2"
+    )
+    .replace(
+      /\b(itemID|itemId|item_id|id)=\[(\d{5,})\]\(tel:\d+\)/gi,
+      "$1=$2"
+    );
+}
 
 export function deobfuscateUrls(text) {
   if (!text || typeof text !== "string" || text.indexOf("http") === -1) return text;
@@ -158,14 +350,77 @@ function isStatsLine(line) {
 function cleanLabel(raw) {
   return (raw || "")
     .replace(/\*\*|__/g, "")
+    // Residue from Reddit phone-autolinked ids: "white ](tel:777…)"
+    .replace(/\s*\]\(tel:\d+\)/gi, "")
     .replace(/^[|\s\-*•>”"`]+|[|\s]+$/g, "")
-    .replace(/\b(w2c|w2b|find|gp'?d|qc|in\s?hand|review|link|lien|yupoo)\b\s*[:：-]?\s*/gi, "")
+    // "w2c => url", "W2C: url", "w2c -> url" — the arrow is not the product name
+    .replace(/\b(w2c|w2b|wtc|find|gp'?d|qc|in\s?hand|review|link|lien|yupoo)\b\s*[:：=.\-–—>]{0,3}\s*/gi, "")
+    // "on these Birkenstock shoes" / "on this hoodie" — deictic filler from QC titles
+    .replace(/^on\s+the(?:se|is)\s+/i, "")
     .replace(/[|–—]+/g, " ")
     // "Black jeans:" / "LJR TS: -" / "Pearlized Vans =" — the name-link
     // separator is not the name.
     .replace(/[\s:：\-–—=]+$/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+// Contact channels and pure hosts are never product names (SwagSupply "WhatsApp"
+// card, bare discord/telegram anchors).
+function isUsableLabel(label) {
+  if (!label || label.length < 3) return false;
+  if (/^(whats?\s?app|telegram|discord|wechat|instagram|\.?ig)$/i.test(label)) return false;
+  if (/^(https?:\/\/|[\w.-]+\.(com|cn|net|org|io|shop|vip)\/?)/i.test(label)) return false;
+  return true;
+}
+
+// Product names are short. Long first-person review lines that rode in as the
+// "label" from same-line text (99team) must not title a card.
+function isProductLikeLabel(label) {
+  if (!isUsableLabel(label)) return false;
+  const words = label.split(/\s+/).filter(Boolean);
+  if (words.length > 10) return false;
+  if (label.length > 70) return false;
+  if (
+    /\b(i|i'?m|i'?ve|we|my|me|please|wondering|ordered|anyone|any\s*one|does anyone|help me|what do you)\b/i.test(
+      label
+    )
+  ) {
+    return false;
+  }
+  // Full sentences that end with .!? and still look like prose.
+  if (words.length >= 6 && /[.!?]$/.test(label)) return false;
+  return true;
+}
+
+// Yupoo seller home pages (no /albums/ or /categories/) are storefront chrome.
+// When the same host already contributed an album/category item, drop the root
+// so husky-style posts stop tripling one seller (album + root + root mirror).
+function pruneRedundantYupooRoots(items) {
+  const keepHosts = new Set();
+  for (const it of items) {
+    try {
+      const u = new URL(it.url);
+      if (!/yupoo\.com$/i.test(u.hostname)) continue;
+      if (/\/(albums|categories)\//i.test(u.pathname)) {
+        keepHosts.add(u.hostname.toLowerCase());
+      }
+    } catch {
+      /* ignore bad urls */
+    }
+  }
+  if (keepHosts.size === 0) return items;
+  return items.filter((it) => {
+    try {
+      const u = new URL(it.url);
+      if (!/yupoo\.com$/i.test(u.hostname)) return true;
+      const path = (u.pathname || "/").replace(/\/+$/, "") || "/";
+      if (path === "/" && keepHosts.has(u.hostname.toLowerCase())) return false;
+      return true;
+    } catch {
+      return true;
+    }
+  });
 }
 
 // Horizontal-rule lines (OPs separate items with "⸻", "---", "***") — they
@@ -190,17 +445,54 @@ const HEADER_SIZE_RE = /\((?:size|eu|us|uk|cm)[\s\d][^)]{0,24}\)/i;
 // haul/review/weight lead-in guard so they never become an item's label.
 // Anything else stays review chatter for the previous item.
 // Returns { label, note } or null.
-function headerSplit(line, { atBoundary }) {
+// A short product head for "Name - review" / bare name-above-link lines when
+// the prior item's review is still in pending (atBoundary false). Without this
+// the next name line stays chatter on the previous card (Shiba numbered hauls).
+// Fit advice and all-lowercase review phrases must never pass.
+function isShortProductHead(head) {
+  const h = (head || "").trim();
+  if (h.length < 3 || h.length > 70) return false;
+  const words = h.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 10) return false;
+  if (/[.!?…]$/.test(h)) return false;
+  // Review lists and asides use commas; product titles rarely do.
+  if (/,/.test(h)) return false;
+  if (/\b(i|i'?m|i'?ve|we|my|me|please|anyone|ordered|wondering)\b/i.test(h)) return false;
+  if (/\b(haul|review)\b/i.test(h) || /^\d+(?:\.\d+)?\s?kg\b/i.test(h)) return false;
+  // "Size up once" / "runs small" are fit notes, not product names.
+  if (
+    /\b(size\s+up|size\s+down|runs?\s+(?:a\s+)?(?:size\s+)?(?:small|big|large)|true\s+to\s+size|tts|fits?\s+(?:me\s+)?(?:perfect|well|loose|tight|baggy|cropped|small|big))\b/i.test(
+      h
+    )
+  ) {
+    return false;
+  }
+  // Product titles are almost always title-case or ALLCAPS/brand codes.
+  // All-lowercase review ("great blank", "heavy fabric") stays as note.
+  if (!/[A-ZÀ-ÖØ-Þ]/.test(h)) return false;
+  return true;
+}
+
+function headerSplit(line, { atBoundary, nearestToUrl = false }) {
   // "(Remove space or check discord logo)" — a parenthesized aside is an
   // instruction to the reader, never an item name.
   if (/^\(.*\)$/.test(line)) return null;
   const dash = /^(.{3,90}?)\s+[-–—]\s+(.+)$/.exec(line);
   const hasSize = HEADER_SIZE_RE.test(line);
   const postChatter = (s) => /\b(haul|review)\b/i.test(s) || /^\d+(?:\.\d+)?\s?kg\b/i.test(s);
-  if (dash && (hasSize || atBoundary) && !postChatter(dash[1])) {
+  // A line immediately above the W2C URL is the usual product header even when
+  // intro chatter sits earlier in the same pending buffer (numbered hauls).
+  const asHeader = atBoundary || nearestToUrl;
+  // Dash headers fire at a block start, with a size parenthetical, OR when the
+  // left side is a short product head (next "Name - review" after prior prose).
+  if (
+    dash &&
+    (hasSize || asHeader || isShortProductHead(dash[1])) &&
+    !postChatter(dash[1])
+  ) {
     return { label: cleanLabel(dash[1]), note: dash[2].trim() };
   }
-  if (hasSize && atBoundary && !postChatter(line)) return { label: cleanLabel(line), note: "" };
+  if (hasSize && asHeader && !postChatter(line)) return { label: cleanLabel(line), note: "" };
   // "Goyard bag: good quality, the material is thinner…" — the dominant haul
   // review format (2026-07-24 corpus: 15kg GTBuy haul). Name before the colon,
   // review after. The head must look like a product name: short, few words, no
@@ -237,22 +529,36 @@ function headerSplit(line, { atBoundary }) {
       if (label.length > 2) return { label, note: colon[2].trim() };
     }
   }
-  if (
-    atBoundary &&
-    line.length <= 90 &&
-    !postChatter(line)
-  ) {
-    // A boundary line with sentence punctuation still usually LEADS with the
-    // item name ("QC NB 9060 TOP batch, what do you think?") — split at the
-    // first sentence break: name before, the rest becomes the note.
-    const split = /^(.{3,60}?)[,;!?…]\s*(.+)$/.exec(line);
-    if (split) {
-      const label = cleanLabel(split[1]);
-      if (label.length > 2) return { label, note: split[2].trim() };
-      return null;
+  // Bare product name above a W2C link — the dominant numbered-haul format
+  // ("1. CA Shirts from FireRep\nw2c => https://…"). nearestToUrl is true for
+  // the last pending line (Shiba 25kg Fansbuy, 2026-07-25).
+  if (line.length <= 90 && !postChatter(line) && (asHeader || isShortProductHead(line))) {
+    // Sentence-break split only at a true block boundary (opening QC questions).
+    // Never treat "great blank, heavy fabric" as a product title mid-buffer.
+    if (atBoundary) {
+      const split = /^(.{3,60}?)[!?…]\s*(.+)$/.exec(line);
+      if (split) {
+        const label = cleanLabel(split[1]);
+        if (label.length > 2) return { label, note: split[2].trim() };
+        return null;
+      }
+      // Comma only when the head still looks like a product (not review lists).
+      const comma = /^(.{3,60}?)[,;]\s*(.+)$/.exec(line);
+      if (comma && isShortProductHead(comma[1])) {
+        const label = cleanLabel(comma[1]);
+        if (label.length > 2) return { label, note: comma[2].trim() };
+      }
     }
-    if (line.length <= 60 && !/[.!?…,]$/.test(line) && !/,/.test(line)) {
-      return { label: cleanLabel(line), note: "" };
+    if (line.length <= 70 && !/[.!?…,]$/.test(line) && !/,/.test(line)) {
+      // Pipe batch titles: "VNS Souvenir | DOG Batch from ElderlyDogs"
+      const flat = line.replace(/\s*[|｜]\s*/g, " ");
+      if (/\s*[|｜]\s*/.test(line) && isShortProductHead(flat)) {
+        return { label: cleanLabel(flat), note: "" };
+      }
+      if (asHeader || isShortProductHead(line)) {
+        const label = cleanLabel(line);
+        if (label.length > 2) return { label, note: "" };
+      }
     }
   }
   return null;
@@ -408,7 +714,12 @@ function extractItems(text) {
       let headerIdx = -1;
       let header = null;
       for (let i = pending.length - 1; i >= 0; i--) {
-        header = headerSplit(pending[i], { atBoundary: i === 0 && pendingBoundary });
+        header = headerSplit(pending[i], {
+          atBoundary: i === 0 && pendingBoundary,
+          // The line immediately above the URL is the product header even when
+          // earlier pending lines are still review chatter for the prior item.
+          nearestToUrl: i === pending.length - 1,
+        });
         if (header) {
           headerIdx = i;
           break;
@@ -459,23 +770,67 @@ function extractItems(text) {
 // run it through the same label cleaning as inline text.
 function titleLabel(title) {
   if (!title) return "";
-  const noFlair = String(title).replace(/\[(?:qc|find|review|w2c|gp|lc)\]\s*/gi, "");
+  const raw = String(title);
+  // Bare flair brackets, then unbracketed "QC" / "(QC)" / trailing "(QC)".
+  let noFlair = raw
+    .replace(/\[(?:qc|find|review|w2c|gp|lc)\]\s*/gi, "")
+    .replace(/^\(?\s*qc\s*\)?\s*[-–—:]?\s*/i, "")
+    .replace(/\s*\(\s*qc\s*\)\s*$/i, "")
+    .replace(/\s+qc\s*$/i, "");
+  // Seller-promo titles bury the product after a colon
+  // ("Husky-reps🔥 Guys, I'm bringing…: 🔥TNF …"). Prefer the tail when the
+  // head is address/promo chatter.
+  if (/\b(guys|i'?m bringing|most proud|welcome to|join my)\b/i.test(noFlair) && /:/.test(noFlair)) {
+    const tail = noFlair.split(/:/).slice(1).join(":").trim();
+    if (tail.length > 3) noFlair = tail;
+  }
   // cleanLabel first: it strips a leading "Review:"/"QC" so the chatter guard
   // below only fires on titles that are ABOUT a haul, not tagged as one.
-  const cleaned = cleanLabel(noFlair);
+  let cleaned = cleanLabel(noFlair);
+  // Promo tails often continue as sentences after the product token
+  // ("TNF nuptse is back. Sorry I was absent…") — keep a short product head.
+  cleaned = cleaned.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+  {
+    // Allow emoji/punctuation between the product and the verb
+    // ("TNF 96n*pt*e 🔥is back…").
+    const promoCut =
+      /^(.{3,40}?)(?:[^\p{L}\p{N}]*\s*(?:is|are|was|were|looks?|seems?|coming|back)\b|(?<!\d)[.!?…](?!\d)|$)/iu.exec(
+        cleaned
+      );
+    if (promoCut) cleaned = promoCut[1].trim();
+  }
+  cleaned = cleaned.replace(/[^\p{L}\p{N}]+$/u, "").trim();
+  // Strip a trailing parenthetical flair again after clean (… (QC)).
+  cleaned = cleaned.replace(/\s*\(\s*(?:qc|find|w2c|review|gp|lc)\s*\)\s*$/i, "").trim();
+  if (!isUsableLabel(cleaned)) return "";
   // "15kg haul to EU with GTBuy (Goyard, …)" names a batch, not an item —
   // the same guard headerSplit uses on post-title lines.
   if (/\b(haul|review)\b/i.test(cleaned) || /^\d+(?:\.\d+)?\s?kg\b/i.test(cleaned)) return "";
-  const head = /^(.{3,60}?)(?:[,;!?…]|\s+[-–—]\s+|$)/.exec(cleaned);
-  const label = head ? head[1].trim() : cleaned;
-  return label.length > 2 ? label : "";
+  // Question posts ("Any one ordered S batch 99team?", "looks good?") are
+  // chatter, not product names — unless the cleaned head is still a short
+  // product phrase after deictic strip ("Birkenstock shoes").
+  if (
+    /\?/.test(raw) &&
+    /^(any(?:\s*one)?|anyone|does|did|is|are|has|have|who|what|where|can|should|would|could)\b/i.test(
+      cleaned
+    )
+  ) {
+    return "";
+  }
+  // Leftover promo heads after failed colon pull.
+  if (/\b(guys|i'?m bringing|most proud|welcome to)\b/i.test(cleaned)) return "";
+  // Split on sentence punctuation, but never on a version dot ("KZ 2.0 J4").
+  const head = /^(.{3,60}?)(?:(?<!\d)[.!?…](?!\d)|[,;]|\s+[-–—]\s+|$)/.exec(cleaned);
+  const label = cleanLabel(head ? head[1] : cleaned);
+  return isProductLikeLabel(label) ? label : "";
 }
 
 // Returns null when the paste isn't haul-shaped (caller falls through to the
 // generic import path). Otherwise:
-//   { items: [{url, label, note, category, rawLine}],
+//   { items: [{url, label, note, category, rawLine, posterSize?, sizeNotes?,
+//              weightGrams?}],
 //     stats: {heightCm?, weightKg?, usualSize?, agent?, budget?, budgetCurrency?},
-//     poster: string|null, sourceUrl: string|null }
+//     poster: string|null, sourceUrl: string|null, fromPost: boolean, title: string }
 // opts.title    — the Reddit post title, when the caller fetched one. Names
 //                 single-item posts and unlabeled items.
 // opts.fromPost — the text is known to be a fetched Reddit post body. Provenance
@@ -494,9 +849,20 @@ export function parseRedditHaul(text, opts = {}) {
   // Repair space-broken URLs before any line work — obfuscated links
   // otherwise read as URL-free chatter and the whole paste falls through.
   // Reddit's markdown escapes ("spider\_token") go at the same time.
-  const clean = deobfuscateUrls(trimmed).replace(/\\(?=[_*~])/g, "");
+  // Phone-autolinked marketplace ids (itemID=[n](tel:n)) restore next.
+  const clean = repairTelLinkedItemIds(
+    deobfuscateUrls(trimmed).replace(/\\(?=[_*~])/g, "")
+  );
 
-  const items = extractItems(clean);
+  let items = pruneRedundantYupooRoots(extractItems(clean));
+  // Contact-channel and review-prose "labels" become empty so titleLabel can
+  // recover a real name (or the card stays honestly untitled).
+  for (const it of items) {
+    if (!isProductLikeLabel(it.label)) {
+      it.label = "";
+      it.category = "";
+    }
+  }
   if (items.length === 0) return null;
 
   const sourceMatch = REDDIT_POST_RE.exec(clean);
@@ -515,20 +881,46 @@ export function parseRedditHaul(text, opts = {}) {
   }
 
   // The post title names what inline text could not. Single-item posts take it
-  // outright (the title IS the item name on a QC post); multi-item posts only
-  // fill items whose label stayed empty.
+  // outright (the title IS the item name on a QC post). Multi-item posts never
+  // stamp the same title on every unlabeled card (edge: seller-promo-title-
+  // fill-all-items). Haul/batch titles stay empty; seller-promo product tails
+  // (TNF …) fill only the first empty card — the primary SKU of the post.
   const fromTitle = titleLabel(title);
   if (fromTitle) {
     if (items.length === 1) {
       items[0].label = fromTitle;
-      items[0].category = items[0].category || guessCategory(fromTitle);
+      items[0].category = guessCategory(fromTitle);
     } else {
-      for (const it of items) {
-        if (it.label) continue;
-        it.label = fromTitle;
-        it.category = it.category || guessCategory(fromTitle);
+      // Multi-item: fill at most the first empty label with a product tail.
+      // Pure haul titles never produce fromTitle (titleLabel rejects them);
+      // seller-promo tails (TNF …) land on the primary album only.
+      const firstEmpty = items.find((it) => !isUsableLabel(it.label));
+      if (firstEmpty) {
+        firstEmpty.label = fromTitle;
+        firstEmpty.category = firstEmpty.category || guessCategory(fromTitle);
       }
     }
+  }
+
+  // Final pass: drop labels that still look like prose or contact chrome,
+  // then structure size/weight out of the note into dedicated fields.
+  for (const it of items) {
+    if (!isProductLikeLabel(it.label)) {
+      it.label = "";
+      it.category = "";
+    } else {
+      it.category = it.category || guessCategory(it.label);
+    }
+    // Guess from note when the label is a colorway-only token ("white", "blue")
+    // but the note names the product class (French FR hauls).
+    if (!it.category && it.note) {
+      it.category = guessCategory(it.note.slice(0, 120));
+    }
+    const structured = structureItemFields(it);
+    it.posterSize = structured.posterSize;
+    it.sizeNotes = structured.sizeNotes;
+    it.weightGrams = structured.weightGrams;
+    it.note = structured.note;
   }
 
   return {
@@ -536,5 +928,7 @@ export function parseRedditHaul(text, opts = {}) {
     stats,
     poster: userMatch ? userMatch[1] : null,
     sourceUrl: sourceMatch ? sourceMatch[0] : null,
+    fromPost: !!fromPost,
+    title: title || "",
   };
 }

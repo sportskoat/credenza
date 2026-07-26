@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { parseRedditHaul } from "../../reddit-haul.js";
+import { parseRedditHaul, structureItemFields } from "../../reddit-haul.js";
+import hardCases from "./fixtures/reddit-haul/hard-cases.json";
 
 const WEIDIAN_A = "https://weidian.com/item.html?itemID=7234567890";
 const WEIDIAN_B = "https://weidian.com/item.html?itemID=7299887766";
@@ -21,6 +22,26 @@ Size up once, print is thick
 
 [Album with QC pics](https://seller.x.yupoo.com/albums/172098145?uid=1) Mook hoodie https://weidian.com/item.html?itemID=7299887766
 `;
+
+describe("structureItemFields", () => {
+  it("extracts French taille and poids from a note", () => {
+    const s = structureItemFields({
+      note: "Taille : EU 43.5\nPoids : 850g\nAvis : Matériaux de qualité.",
+    });
+    expect(s.posterSize).toBe("EU 43.5");
+    expect(s.weightGrams).toBe(850);
+    expect(s.note).toMatch(/Matériaux/i);
+    expect(s.note).not.toMatch(/^Taille/i);
+  });
+
+  it("extracts English took-size and fit chatter", () => {
+    const s = structureItemFields({
+      note: "I took size M and its pretty baggy, probably size down once.",
+    });
+    expect(s.posterSize).toBe("M");
+    expect(s.sizeNotes).toMatch(/baggy|size down/i);
+  });
+});
 
 describe("parseRedditHaul", () => {
   it("parses a typical haul comment: items, stats, poster, source", () => {
@@ -413,6 +434,113 @@ Patta shirt: https://weidian.com/item.html?itemID=7648743224`,
     expect(haul.items[0].label).toBe("SLP Smoking Forever Sneakers by Anon size 42");
     expect(haul.items[0].category).toBe("shoes");
   });
+
+  it("names 'QC on these …' titles without the deictic filler (Birkenstock)", () => {
+    const haul = parseRedditHaul(
+      `Does anyone know what the extra yellow rubber is for?
+
+W2C: [https://k.youshop10.com/abHdHWuH](https://k.youshop10.com/abHdHWuH)`,
+      { title: "QC on these Birkenstock shoes, looks good?", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    expect(haul.items[0].label).toBe("Birkenstock shoes");
+    expect(haul.items[0].category).toBe("shoes");
+    expect(haul.items[0].label).not.toMatch(/^on these/i);
+  });
+
+  it("does not title a card from a question-only post title (99team)", () => {
+    const haul = parseRedditHaul(
+      `I ordered God batch from them before. https://99team.x.yupoo.com/categories/890341?isSubCate=true`,
+      {
+        title: "Any one ordered S batch 99team? The price seems too good to be true.",
+        fromPost: true,
+      }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    // Prefer empty over the full question sentence.
+    expect(haul.items[0].label).not.toMatch(/any one ordered/i);
+    expect(haul.items[0].label).not.toMatch(/\?/);
+  });
+
+  it("drops redundant yupoo roots when an album for the same host exists (Husky)", () => {
+    const haul = parseRedditHaul(
+      `[https://huskyreps.x.yupoo.com/](https://huskyreps.x.yupoo.com/) albums/212594120?uid=1
+
+(Remove space or check yupoo discord logo)
+
+[huskyreps.x.yupoo.com](http://huskyreps.x.yupoo.com)
+
+[alaskareps.x.yupoo.com](http://alaskareps.x.yupoo.com)`,
+      {
+        title: "Husky-reps🔥 Guys, I'm bringing my most proud product: 🔥TNF 96n*pt*e",
+        fromPost: true,
+      }
+    );
+    expect(haul).not.toBeNull();
+    // Album kept; husky root dropped; alaska root kept (different host).
+    expect(haul.items.some((i) => /albums\/212594120/.test(i.url))).toBe(true);
+    expect(haul.items.every((i) => i.url !== "http://huskyreps.x.yupoo.com")).toBe(true);
+    expect(haul.items.every((i) => i.url !== "https://huskyreps.x.yupoo.com")).toBe(true);
+    // Title pulls a short product head after the colon, not the promo sentence.
+    const album = haul.items.find((i) => /albums\/212594120/.test(i.url));
+    expect(album.label).toMatch(/TNF/i);
+    expect(album.label).not.toMatch(/guys/i);
+    expect(album.label).not.toMatch(/sorry|absent|winter/i);
+    expect(album.label.split(/\s+/).length).toBeLessThanOrEqual(8);
+  });
+
+  it("never cards WhatsApp / Telegram as the product label", () => {
+    const haul = parseRedditHaul(
+      `SS Final batch comparison.
+
+[Album](https://swagsupply.x.yupoo.com/albums/241175054?uid=1)
+
+WhatsApp
+https://swagsupply.x.yupoo.com/`,
+      { title: "[SwagSupply] AP x Swatch Royal Pop Comparison", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items.every((i) => !/whats\s?app/i.test(i.label || ""))).toBe(true);
+  });
+
+  it("repairs Reddit phone-autolinked weidian item ids (GTBuy tel: paste)", () => {
+    const haul = parseRedditHaul(
+      `Mertra tee: ok
+https://weidian.com/item.html?itemID=7786852242
+
+white https://weidian.com/item.html?itemID=[7779496523](tel:7779496523)
+tokyo https://weidian.com/item.html?itemID=[7475427829](tel:7475427829)`,
+      { title: "15kg haul to EU with GTBuy", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(3);
+    expect(haul.items[1].url).toBe("https://weidian.com/item.html?itemID=7779496523");
+    expect(haul.items[1].label).toBe("white");
+    expect(haul.items[2].url).toBe("https://weidian.com/item.html?itemID=7475427829");
+    expect(haul.items[2].label).toBe("tokyo");
+    expect(haul.items.every((i) => !/tel:|\]\(/.test(i.label + i.url))).toBe(true);
+  });
+});
+
+// Golden hard-case fixtures (frozen from the 22-post FashionReps corpus).
+describe("fixtures: reddit-haul hard cases", () => {
+  for (const c of hardCases) {
+    it(c.id, () => {
+      const haul = parseRedditHaul(c.selftext, { title: c.title, fromPost: true });
+      if (c.expect === null) {
+        expect(haul).toBeNull();
+        return;
+      }
+      expect(haul).not.toBeNull();
+      expect(haul.items).toHaveLength(c.expect.itemCount);
+      c.expect.items.forEach((exp, i) => {
+        expect(haul.items[i].label).toBe(exp.label);
+        expect(haul.items[i].url).toContain(exp.urlContains.replace(/\/$/, ""));
+      });
+    });
+  }
 });
 
 describe("numbered article lists with meta lines (HIPOBUY French post, 2026-07-25)", () => {
@@ -443,11 +571,147 @@ Avis (9.5/10) : Mon coloris préféré pour l'été !`;
     expect(haul.items).toHaveLength(2);
     expect(haul.items[0].label).toBe("Ensemble Nike Dri-Fit (Crystal strip blue)");
     expect(haul.items[1].label).toBe("Ensemble Nike Dri-Fit (Crystal strip green + Short noir)");
-    // "Taille : M" is an attribute — it belongs in the note, never the title.
+    // "Taille : M" is an attribute — structured out of the free-text note.
     expect(haul.items.every((i) => i.label !== "Taille")).toBe(true);
-    expect(haul.items[0].note).toContain("Taille : M");
+    expect(haul.items[0].posterSize).toBe("M");
+    expect(haul.items[1].posterSize).toBe("M");
     // The previous item's review stays with the previous item.
     expect(haul.items[0].note).toContain("Vraiment impressionnant");
     expect(haul.items[1].note).not.toContain("Vraiment impressionnant");
+    // French "Ensemble" maps to the shirt category vocabulary.
+    expect(haul.items[0].category).toBe("shirt");
+  });
+
+  it("structures size, weight, and fit from meta lines", () => {
+    const haul = parseRedditHaul(
+      `Article 1 : Baskets ASICS (Demange nyc blue)
+
+Taille : EU 43.5
+Poids : 850g
+Lien : https://detail.1688.com/offer/979306730970.html
+Avis : Matériaux de qualité, super forme.`,
+      { title: "Haul FR", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    expect(haul.items[0].label).toMatch(/ASICS/i);
+    expect(haul.items[0].category).toBe("shoes");
+    expect(haul.items[0].posterSize).toBe("EU 43.5");
+    expect(haul.items[0].weightGrams).toBe(850);
+  });
+
+  it("splits next Name - review when prior review is still pending", () => {
+    const haul = parseRedditHaul(
+      `Goyard bag - good quality, the material is thinner than it should be.
+https://weidian.com/item.html?itemID=1111111111
+
+Supreme jacket - the letters are not completely aligned when buttoned up.
+https://weidian.com/item.html?itemID=2222222222`,
+      { title: "15kg haul review", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(2);
+    expect(haul.items[0].label).toBe("Goyard bag");
+    expect(haul.items[1].label).toBe("Supreme jacket");
+    expect(haul.items[0].note).toMatch(/thinner/i);
+    expect(haul.items[1].note).toMatch(/letters/i);
+    expect(haul.items[0].note).not.toMatch(/Supreme jacket/i);
+  });
+
+  it("does not stamp a batch haul title onto every unlabeled multi-item card", () => {
+    const haul = parseRedditHaul(
+      `https://weidian.com/item.html?itemID=1111111111
+
+https://weidian.com/item.html?itemID=2222222222`,
+      { title: "15kg haul to EU with GTBuy (Goyard, Supreme)", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(2);
+    expect(haul.items.every((i) => !/15kg|haul to EU/i.test(i.label || ""))).toBe(true);
+  });
+
+  it("strips trailing (QC) flair from product titles", () => {
+    const haul = parseRedditHaul(
+      `Looks solid in hand.
+
+W2C: https://weidian.com/item.html?itemID=3333333333`,
+      { title: "Maison Margiela Gats (QC)", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(1);
+    expect(haul.items[0].label).toBe("Maison Margiela Gats");
+    expect(haul.items[0].label).not.toMatch(/\(QC\)/i);
+  });
+
+  it("structures English 'I took size M' into posterSize + sizeNotes", () => {
+    const haul = parseRedditHaul(
+      `ERD hoodie - not the most accurate batch, but for the price its very good. I took size M and its pretty baggy, probably size down.
+https://weidian.com/item.html?itemID=4444444444`,
+      { title: "Small haul", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items[0].posterSize).toBe("M");
+    expect(haul.items[0].sizeNotes).toMatch(/baggy|size down|size M/i);
+    expect(haul.items[0].category).toBe("outerwear");
+  });
+
+  it("exposes fromPost and title on the haul result", () => {
+    const haul = parseRedditHaul(
+      `QC: https://weidian.com/item.html?itemID=5555555555`,
+      { title: "NB 9060 TOP batch", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.fromPost).toBe(true);
+    expect(haul.title).toBe("NB 9060 TOP batch");
+  });
+
+  // Numbered haul with "w2c =>" + space-obfuscated hosts (Shiba 25kg Fansbuy).
+  it("names numbered items above w2c => obfuscated links (Fansbuy Germany haul)", () => {
+    const haul = parseRedditHaul(
+      `Hi yall Shiba is back with another Review! This time ive shipped another 20KG with Fansbuy, ive only paid 226$. Lets Go!
+
+1. CA Shirts from FireRep
+
+w2c => https://wei dian.com/item.html?itemID=7748579664
+
+They are a bit thicker than the usual shirts but the quality is amazing!
+
+2. NFS Double Layered Longsleeve from badmoodclub
+
+w2c => https://item. tao bao .com/item.htm?id=848112030507
+
+I decided between PV and badmoodclub but a good friend recommended me buying them from badmoodclub and damn the quality is hella good.
+
+3. Remagine Derby/Sneaker
+
+w2c => https://item. tao bao .com/item.htm?id=938429780729
+
+Quality on those are on point, you can size down twice.
+
+4. VNS Souvenir | DOG Batch from ElderlyDogs
+
+w2c => https://wei dian.com/item.html?itemID=7644670615
+
+They are fine for the price, just size down.`,
+      { title: "Review 25KG Haul to Germany Fansbuy", fromPost: true }
+    );
+    expect(haul).not.toBeNull();
+    expect(haul.items).toHaveLength(4);
+    expect(haul.items[0].label).toBe("CA Shirts from FireRep");
+    expect(haul.items[0].url).toBe("https://weidian.com/item.html?itemID=7748579664");
+    expect(haul.items[0].category).toBe("shirt");
+    expect(haul.items[0].note).toMatch(/thicker/i);
+    expect(haul.items[0].note).not.toMatch(/NFS Double/i);
+    expect(haul.items[1].label).toBe("NFS Double Layered Longsleeve from badmoodclub");
+    expect(haul.items[1].url).toBe("https://item.taobao.com/item.htm?id=848112030507");
+    expect(haul.items[1].category).toBe("shirt");
+    expect(haul.items[2].label).toBe("Remagine Derby/Sneaker");
+    expect(haul.items[2].category).toBe("shoes");
+    expect(haul.items[2].sizeNotes).toMatch(/size down/i);
+    expect(haul.items[3].label).toMatch(/VNS Souvenir/i);
+    expect(haul.items[3].label).toMatch(/ElderlyDogs/i);
+    // Batch haul title must not stamp onto every card.
+    expect(haul.items.every((i) => !/25KG|Germany/i.test(i.label || ""))).toBe(true);
+    expect(haul.stats.weightKg).toBe(20);
   });
 });
