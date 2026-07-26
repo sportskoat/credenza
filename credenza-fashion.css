@@ -8211,6 +8211,15 @@ a.cz-card-seller:hover {
   .cz-card-twoline .cz-front-size {
     font-size: 11.5px;
   }
+  /* 175px column: "YOUR USUAL Large" + a price must fit one row without
+     truncating the size. Tighter tracking + gaps buy the ~8px it needs. */
+  .cz-card-twoline .cz-front-size-label {
+    margin-right: 4px;
+    letter-spacing: 0.08em;
+  }
+  .cz-card-twoline .cz-front-meta-row {
+    gap: 4px;
+  }
   .cz-card-twoline .cz-front-price {
     font-size: 13px;
   }
