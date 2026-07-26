@@ -310,3 +310,26 @@ export function estimateHaulWeightGrams(items, opts) {
   }
   return known ? sum : null;
 }
+
+/**
+ * Display helper. Always uses ~. Empty when unknown.
+ * @param {{ grams?: number|null, lowGrams?: number|null, highGrams?: number|null } | number | null} est
+ * @returns {string}
+ */
+export function formatWeightEstimate(est) {
+  if (est == null) return "";
+  if (typeof est === "number") {
+    if (!Number.isFinite(est) || est <= 0) return "";
+    if (est < 1000) return "~" + Math.round(est) + " g";
+    return "~" + Math.round(est / 100) / 10 + " kg";
+  }
+  const mid = Number(est.grams);
+  if (!Number.isFinite(mid) || mid <= 0) return "";
+  const low = Number(est.lowGrams);
+  const high = Number(est.highGrams);
+  const fmt = (g) => (g < 1000 ? Math.round(g) + " g" : Math.round(g / 100) / 10 + " kg");
+  if (Number.isFinite(low) && Number.isFinite(high) && low > 0 && high > low && (high - low) / mid > 0.05) {
+    return "~" + fmt(mid) + " (" + fmt(low) + "–" + fmt(high) + ")";
+  }
+  return "~" + fmt(mid);
+}

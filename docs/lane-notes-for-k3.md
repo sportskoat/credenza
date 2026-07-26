@@ -157,6 +157,24 @@ When you are idle and want haul board bands:
 
 Kyle rule: **default no Netlify deploy** (credit burn). Commit + tests only unless he asks to ship.
 
+### 4.4 Link context L0 (pure, 2026-07-25 night)
+
+Offline community mention index for stashed items only (not a W2C catalog).
+
+| Path | Purpose |
+|------|---------|
+| `link-context.js` | `canonicalKeyFromUrl`, `indexCorpus`, `lookupLinkContext` |
+| `preview/test/fixtures/link-context-corpus.json` | Small golden posts + lookups |
+| `preview/test/link-context.test.js` | Pure tests |
+
+Keys: `weidian:<id>`, `taobao:<id>`, `tmall:<id>`, `1688:<id>`, `yupoo:<account>/<albumId>`.
+
+When free:
+
+1. Import lookup for a stashed card only.
+2. Show short notes + sizes + height/weight pairs.
+3. Link out to source posts. Do not rank batches. Do not add brand search.
+
 ---
 
 ## 5. Your in-flight dirty tree (do not lose)

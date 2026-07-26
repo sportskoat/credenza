@@ -11,6 +11,7 @@ import {
   WEIGHT_BANDS,
   estimateHaulWeightGrams,
   estimateItemWeight,
+  formatWeightEstimate,
   parseWeightFromText,
   refineWeightKeyFromText,
 } from "../../weight-estimate.js";
@@ -72,4 +73,23 @@ describe("estimateHaulWeightGrams", () => {
       expect(estimateHaulWeightGrams(row.items)).toBe(row.expect);
     });
   }
+});
+
+describe("formatWeightEstimate", () => {
+  it("renders mid with band when spread is material", () => {
+    const s = formatWeightEstimate({ grams: 650, lowGrams: 450, highGrams: 900 });
+    expect(s).toMatch(/^~/);
+    expect(s).toContain("650");
+    expect(s).toContain("450");
+    expect(s).toContain("900");
+  });
+
+  it("renders override as a single ~ value", () => {
+    expect(formatWeightEstimate({ grams: 420, lowGrams: 420, highGrams: 420 })).toBe("~420 g");
+  });
+
+  it("returns empty for unknown", () => {
+    expect(formatWeightEstimate(null)).toBe("");
+    expect(formatWeightEstimate({ grams: null })).toBe("");
+  });
 });

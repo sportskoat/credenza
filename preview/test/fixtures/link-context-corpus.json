@@ -1,0 +1,178 @@
+{
+  "version": 1,
+  "note": "Offline L0 corpus for link-context.js. Not a public W2C catalog — test-only mentions. Spec: pure-layer-exhaustiveness-plan.md §6.",
+  "posts": [
+    {
+      "id": "1v5k01x",
+      "title": "[QC]Maison Margiela Gats - GOAT Batch",
+      "subreddit": "FashionReps",
+      "permalink": "https://www.reddit.com/r/FashionReps/comments/1v5k01x/",
+      "selftext": "midsole flaw, suede looks good. W2c: https://weidian.com/item.html?itemID=7785888265",
+      "items": [
+        {
+          "url": "https://weidian.com/item.html?itemID=7785888265",
+          "label": "Maison Margiela Gats",
+          "note": "midsole flaw, suede looks good",
+          "category": "shoes"
+        }
+      ]
+    },
+    {
+      "id": "1v5e6k4",
+      "title": "15kg haul to EU with GTBuy",
+      "subreddit": "FashionReps",
+      "permalink": "https://www.reddit.com/r/FashionReps/comments/1v5e6k4/",
+      "posterStats": { "heightCm": 182, "weightKg": 80 },
+      "selftext": "My stats: 80kg, 182cm. Goyard bag and jackets.",
+      "items": [
+        {
+          "url": "https://weidian.com/item.html?itemID=7734454224",
+          "label": "Goyard bag",
+          "note": "material thinner; size n/a bag",
+          "category": "bag"
+        },
+        {
+          "url": "https://weidian.com/item.html?itemID=7594655800",
+          "label": "Supreme jacket",
+          "note": "took size M, recommend size down",
+          "category": "outerwear"
+        },
+        {
+          "url": "https://shop1745332803.v.weidian.com/item.html?itemID=7634330075",
+          "label": "Ralph Lauren blue jacket",
+          "note": "size XL fits good",
+          "category": "outerwear"
+        }
+      ]
+    },
+    {
+      "id": "fr-second-gats",
+      "title": "Gats in hand — TTS",
+      "subreddit": "FashionReps",
+      "permalink": "https://www.reddit.com/r/FashionReps/comments/fake_gats_2/",
+      "items": [
+        {
+          "url": "https://weidian.com/item.html?itemID=7785888265",
+          "label": "MM Gats GOAT",
+          "note": "size 43 EU fits me, 178cm 75kg",
+          "category": "shoes"
+        }
+      ]
+    },
+    {
+      "id": "yupoo-album",
+      "title": "Mook album drop",
+      "subreddit": "FashionReps",
+      "items": [
+        {
+          "url": "https://mook-official.x.yupoo.com/albums/244505824?uid=1",
+          "label": "Mook tee pack",
+          "note": "size L fits",
+          "category": "shirt"
+        }
+      ]
+    },
+    {
+      "id": "taobao-one",
+      "title": "TB find",
+      "subreddit": "FashionReps",
+      "items": [
+        {
+          "url": "https://item.taobao.com/item.htm?id=856801351597",
+          "label": "TB accessory",
+          "note": "",
+          "category": "accessory"
+        }
+      ]
+    },
+    {
+      "id": "agent-only-noise",
+      "title": "Agent signup spam",
+      "subreddit": "FashionReps",
+      "items": [
+        {
+          "url": "https://www.superbuy.com/en/page/login/?type=register&partnercode=ABC",
+          "label": "should not index",
+          "note": "invite",
+          "category": ""
+        }
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "id": "gats-two-mentions",
+      "url": "https://weidian.com/item.html?itemID=7785888265",
+      "expectKey": "weidian:7785888265",
+      "expectCount": 2,
+      "expectLabelsInclude": ["Maison Margiela Gats", "MM Gats GOAT"]
+    },
+    {
+      "id": "shop-subdomain-same-key",
+      "url": "https://shop1745332803.v.weidian.com/item.html?itemID=7634330075",
+      "expectKey": "weidian:7634330075",
+      "expectCount": 1
+    },
+    {
+      "id": "yupoo-album-key",
+      "url": "https://mook-official.x.yupoo.com/albums/244505824?uid=1",
+      "expectKey": "yupoo:mook-official/244505824",
+      "expectCount": 1
+    },
+    {
+      "id": "taobao-key",
+      "url": "https://item.taobao.com/item.htm?id=856801351597",
+      "expectKey": "taobao:856801351597",
+      "expectCount": 1
+    },
+    {
+      "id": "unknown-zero",
+      "url": "https://weidian.com/item.html?itemID=9999999999",
+      "expectKey": "weidian:9999999999",
+      "expectCount": 0
+    },
+    {
+      "id": "junk-null-key",
+      "url": "https://example.com/nope",
+      "expectKey": null,
+      "expectCount": 0
+    }
+  ],
+  "canonicalKeys": [
+    {
+      "id": "weidian-query",
+      "url": "https://weidian.com/item.html?itemID=7234567890",
+      "expect": "weidian:7234567890"
+    },
+    {
+      "id": "weidian-path",
+      "url": "https://weidian.com/item/7234567890",
+      "expect": "weidian:7234567890"
+    },
+    {
+      "id": "tmall",
+      "url": "https://detail.tmall.com/item.htm?id=680012345678",
+      "expect": "tmall:680012345678"
+    },
+    {
+      "id": "1688",
+      "url": "https://detail.1688.com/offer/712345678901.html",
+      "expect": "1688:712345678901"
+    },
+    {
+      "id": "yupoo",
+      "url": "https://seller.x.yupoo.com/albums/123456?uid=1",
+      "expect": "yupoo:seller/123456"
+    },
+    {
+      "id": "photo-host-no-account",
+      "url": "https://photo.yupoo.com/foo/bar.jpg",
+      "expect": null
+    },
+    {
+      "id": "agent-register",
+      "url": "https://www.superbuy.com/en/page/login/?type=register&partnercode=X",
+      "expect": null
+    }
+  ]
+}
