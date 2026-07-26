@@ -207,18 +207,18 @@ describe("Fashion card-back navigation and editing", () => {
     const back = container.querySelector(".cz-carousel-back");
     expect(back?.textContent || "").toMatch(/X-Large/i);
 
-    // Edit Colorway in place (Batch cell removed 2026-07-25 night).
-    await user.click(screen.getByRole("button", { name: /^Colorway/ }));
-    const colorField = await screen.findByLabelText("Colorway");
-    await user.clear(colorField);
-    await user.type(colorField, "Bone white");
+    // Edit Batch in place: tap the cell, type into the inline editor.
+    await user.click(screen.getByRole("button", { name: /Batch\s*Original/ }));
+    const batchField = await screen.findByLabelText("Batch");
+    await user.clear(batchField);
+    await user.type(batchField, "Discard me");
     // Outside click unflips the card (the flip is the only layer left).
     fireEvent.pointerDown(outside);
     fireEvent.click(outside);
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
 
-    // Write-through: the typed colorway is kept (600ms debounce).
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Bone white"), { timeout: 2000 });
+    // Write-through: the typed batch is kept, not discarded (600ms debounce).
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Discard me"), { timeout: 2000 });
   });
 
   it("unflips the back with a single Escape", async () => {
@@ -231,39 +231,39 @@ describe("Fashion card-back navigation and editing", () => {
     expect(screen.getByRole("button", { name: "Card actions" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
-    await user.click(screen.getByRole("button", { name: /^Colorway/ }));
-    await screen.findByLabelText("Colorway");
+    await user.click(screen.getByRole("button", { name: /Batch/ }));
+    await screen.findByLabelText("Batch");
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
   });
 
-  it("write-through saves Colorway from the cell editor across exit paths", async () => {
-    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ colorway: "Original" })]) });
+  it("write-through saves Batch from the cell editor across exit paths", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ batch: "Original" })]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
-    // Batch cell is gone; Colorway is the free-text cell under Size · fit.
+    // The unified back shows Batch as a spec cell (no hidden-until-edit fields).
     expect(screen.getByText("Original")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Colorway\s*Original/ }));
-    let colorField = await screen.findByLabelText("Colorway");
-    await user.clear(colorField);
-    await user.type(colorField, "Saved color");
+    await user.click(screen.getByRole("button", { name: /Batch\s*Original/ }));
+    let batchField = await screen.findByLabelText("Batch");
+    await user.clear(batchField);
+    await user.type(batchField, "Saved batch");
     // Enter closes the cell editor; the 600ms debounce commits.
-    fireEvent.keyDown(colorField, { key: "Enter" });
-    await waitFor(() => expect(screen.queryByLabelText("Colorway")).not.toBeInTheDocument());
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Saved color"), { timeout: 2000 });
+    fireEvent.keyDown(batchField, { key: "Enter" });
+    await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Saved batch"), { timeout: 2000 });
 
-    await user.click(screen.getByRole("button", { name: /Colorway\s*Saved color/ }));
-    colorField = await screen.findByLabelText("Colorway");
-    expect(colorField).toHaveValue("Saved color");
-    await user.clear(colorField);
-    await user.type(colorField, "Also kept");
+    await user.click(screen.getByRole("button", { name: /Batch\s*Saved batch/ }));
+    batchField = await screen.findByLabelText("Batch");
+    expect(batchField).toHaveValue("Saved batch");
+    await user.clear(batchField);
+    await user.type(batchField, "Also kept");
     // Done also flushes write-through — nothing is discarded.
     await user.click(screen.getByRole("button", { name: "Done" }));
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Also kept"), { timeout: 2000 });
-    await user.click(screen.getByRole("button", { name: /Colorway\s*Also kept/ }));
-    expect(await screen.findByLabelText("Colorway")).toHaveValue("Also kept");
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Also kept"), { timeout: 2000 });
+    await user.click(screen.getByRole("button", { name: /Batch\s*Also kept/ }));
+    expect(await screen.findByLabelText("Batch")).toHaveValue("Also kept");
   });
 
   it("lists hauls and opens one to browse only its cards", async () => {
@@ -978,14 +978,13 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     expect(screen.queryByRole("button", { name: /^Save$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Edit$/ })).toBeNull();
-    // Five spec cells — Batch removed (Kyle 2026-07-25 night). Status is a select.
+    // Six spec cells, Size · fit among them.
     const cells = document.querySelectorAll(".cz-detail-cell");
-    expect(cells).toHaveLength(5);
+    expect(cells).toHaveLength(6);
     const labels = Array.from(cells).map((c) =>
       c.querySelector(".cz-detail-cell-label").textContent.trim()
     );
-    expect(labels).toEqual(["Price", "Size · fit", "Colorway", "Weight", "Haul"]);
-    expect(screen.getByLabelText("Order status")).toBeInTheDocument();
+    expect(labels).toEqual(["Price", "Size · fit", "Colorway", "Weight", "Batch", "Haul"]);
   });
 
   it("a cell tap opens exactly one inline editor and the edit persists", async () => {
@@ -1022,7 +1021,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(screen.getByRole("button", { name: "Set my sizes" })).toBeInTheDocument();
   });
 
-  it("the status select lists full pipeline and commits on change", async () => {
+  it("the status track commits on one tap and keeps a sub-state", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "gl" })]),
     });
@@ -1030,13 +1029,17 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     await openSheet(user);
 
-    const select = screen.getByLabelText("Order status");
-    expect(select.tagName).toBe("SELECT");
-    expect(select.value).toBe("gl");
-    const options = Array.from(select.querySelectorAll("option")).map((o) => o.value);
-    expect(options).toEqual(["want", "bought", "shipped", "qc", "gl", "rl", "returned"]);
+    const track = screen.getByRole("radiogroup", { name: "Order status" });
+    const chips = Array.from(track.querySelectorAll("button"));
+    expect(chips.map((c) => c.textContent)).toEqual(["Want", "Bought", "Shipped", "Received"]);
+    // "gl" is a Bought sub-state, so Bought reads as the active stop.
+    expect(chips[1].getAttribute("aria-checked")).toBe("true");
 
-    await user.selectOptions(select, "shipped");
+    // Re-tapping Bought must not downgrade a live gl back to plain bought.
+    await user.click(chips[1]);
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("gl"));
+
+    await user.click(chips[2]);
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("shipped"));
   });
 });

@@ -9465,37 +9465,7 @@ a.cz-card-seller:hover {
   cursor: pointer;
 }
 
-/* ── Status select (replaces batch cell + chip track, Kyle 2026-07-25 night) ── */
-.cz-detail-status-field {
-  display: grid;
-  gap: 6px;
-  margin-top: 16px;
-}
-
-.cz-detail-status-field .cz-detail-label {
-  margin: 0;
-}
-
-.cz-detail-status-select {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 12px;
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.cz-detail-status-select:focus {
-  outline: 2px solid color-mix(in srgb, var(--cz-money) 55%, transparent);
-  outline-offset: 1px;
-}
-
-/* Legacy chip styles kept for other surfaces that still use them. */
+/* ── Status track ── */
 .cz-detail-status {
   display: flex;
   gap: 6px;
@@ -9532,17 +9502,8 @@ a.cz-card-seller:hover {
   transition: grid-template-rows 200ms ease;
 }
 
-/* Bigger default notes height on the card back (Kyle 2026-07-25 night). */
-.cz-detail-notes-wrap.is-roomy {
-  grid-template-rows: 110px;
-}
-
 .cz-detail-notes-wrap.is-open {
   grid-template-rows: 168px;
-}
-
-.cz-detail-notes-wrap.is-roomy.is-open {
-  grid-template-rows: 220px;
 }
 
 .cz-detail-notes {
@@ -9567,12 +9528,6 @@ a.cz-card-seller:hover {
 /* ── Photo strip ── */
 .cz-detail-photos {
   margin-top: 8px;
-}
-
-/* Under the hero: one photo manager only (n/12). No second strip lower. */
-.cz-detail-photos.is-under-hero {
-  margin-top: 4px;
-  margin-bottom: 4px;
 }
 
 .cz-detail-photos .cz-edit-photos-grid {
@@ -9940,7 +9895,10 @@ a.cz-card-seller:hover {
     font-size: 11.5px;
   }
 
-  /* Kyle 2026-07-25 night: flip is back on desktop. Do not hide the cue. */
+  /* Both faces are visible in the panel — nothing to flip to. */
+  .cz-flip-cue {
+    display: none;
+  }
 }
 
 /* The generic gallery-thumb hover scale (button:has(> img):hover) must not

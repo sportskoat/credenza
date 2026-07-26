@@ -4,7 +4,7 @@ import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import {
   EditPhotosManager,
   HaulAccordionField,
-  FIND_STATUS_LABELS,
+  StatusChips,
   buildEditDraft,
   buildEditPatch,
   computeRecommendedSize,
@@ -25,7 +25,6 @@ import {
   usePrefersReducedMotion,
   SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
-import { FIND_STATUSES } from "../credenza-find-status.js";
 import { huntSizeChart } from "./size-chart-hunt.js";
 import SizeChartTable from "./SizeChartTable.jsx";
 import { albumLinkTarget } from "./CardMetaLinks.jsx";
@@ -57,7 +56,6 @@ const focusOnMount = (el) => {
 // One editor at a time. "size" is special: it opens the fit block, never a
 // text field, because the size cell carries the recommendation.
 function specCells(item, view, sizeText) {
-  // Batch cell removed (Kyle 2026-07-25 night). Status lives under Size · fit.
   return [
     { key: "price", label: "Price", value: priceLabelShort(item) || "—" },
     { key: "size", label: "Size · fit", value: sizeText || "—" },
@@ -67,6 +65,7 @@ function specCells(item, view, sizeText) {
       label: "Weight",
       value: view.weightGrams ? view.weightGrams + " g" : "—",
     },
+    { key: "batch", label: "Batch", value: view.batch || "—" },
     { key: "project", label: "Haul", value: view.project || "—" },
   ];
 }
@@ -531,8 +530,9 @@ export default function DetailBody({
         </div>
       );
     }
-    if (editingCell === "colorway") {
-      // Free text — a plain 16px input is the whole editor.
+    if (editingCell === "colorway" || editingCell === "batch") {
+      // Free text with the shared combobox for colorway suggestions is
+      // overkill here; a plain 16px input is the whole editor.
       return (
         <div className="cz-detail-editor">
           <span className="cz-detail-editor-label">{editorLabelFull}</span>
@@ -540,8 +540,8 @@ export default function DetailBody({
             ref={focusOnMount}
             className="cz-detail-editor-input"
             aria-label={editorLabelFull}
-            value={view.colorway}
-            onChange={(e) => edit("colorway", e.target.value)}
+            value={view[editingCell]}
+            onChange={(e) => edit(editingCell, e.target.value)}
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === "Enter") setEditingCell(null);
@@ -685,18 +685,6 @@ export default function DetailBody({
           </div>
         ) : null}
 
-        {/* One photo strip under the big hero (Kyle 2026-07-25 night). Do not
-            repeat photos in three places — only the hero + this n/12 manager. */}
-        {heroPager ? (
-          <div className="cz-detail-photos is-under-hero">
-            <EditPhotosManager
-              item={item}
-              onAttachPhoto={onAttachPhoto}
-              onRemovePhoto={onRemovePhoto}
-            />
-          </div>
-        ) : null}
-
         {/* Title. The text itself is the tap target — there is no Title
             field and no Save button. Blur commits through the debounce. */}
         <div className="cz-detail-title-row">
@@ -770,24 +758,8 @@ export default function DetailBody({
             editor and scroll it clear of the keyboard. */}
         {editingCell ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
 
-        {/* Status under Size · fit as a select (Kyle 2026-07-25 night). Want /
-            Bought / Shipped / QC / GL / RL / Returned. Not a chip track. */}
-        <label className="cz-detail-status-field">
-          <span className="cz-detail-label">Status</span>
-          <select
-            className="cz-detail-status-select"
-            aria-label="Order status"
-            value={view.findStatus || "want"}
-            onChange={(e) => pickStatus(e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            {FIND_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {FIND_STATUS_LABELS[s] || s}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="cz-detail-label">Status · one tap</div>
+        <StatusChips mode="track" value={view.findStatus} onChange={pickStatus} label="Order status" />
 
         <div className="cz-detail-label-row">
           <span className="cz-detail-label">Notes</span>
@@ -795,31 +767,30 @@ export default function DetailBody({
             {notesOpen ? "Less" : "More"}
           </button>
         </div>
-        {/* Bigger notes field (Kyle 2026-07-25 night). Open by default height
-            is larger; More still expands fully. */}
-        <div className={"cz-detail-notes-wrap is-roomy" + (notesOpen ? " is-open" : "")}>
+        {/* The collapsed box is the same box you type in — no "+" expander
+            and no separate read view. The wrapper animates the open height
+            (grid rows, not a height transition on the textarea). */}
+        <div className={"cz-detail-notes-wrap" + (notesOpen ? " is-open" : "")}>
           <textarea
             className="cz-detail-notes"
             aria-label="Notes"
             value={view.note}
-            placeholder="QC notes, fit, what you are pairing it with…"
+            placeholder="Batch, QC notes, what you're pairing it with…"
             onChange={(e) => edit("note", e.target.value)}
             onKeyDown={(e) => e.stopPropagation()}
             onFocus={() => setNotesOpen(true)}
           />
         </div>
 
-        {/* Photos only when there is no hero pager (desktop Fix B body had no
-            hero). Flip-card and phone sheet put the strip under the hero. */}
-        {!heroPager ? (
-          <div className="cz-detail-photos">
-            <EditPhotosManager
-              item={item}
-              onAttachPhoto={onAttachPhoto}
-              onRemovePhoto={onRemovePhoto}
-            />
-          </div>
-        ) : null}
+        {/* EditPhotosManager carries its own label and its own add tile.
+            The wrapper turns its grid into the handoff's 84px strip. */}
+        <div className="cz-detail-photos">
+          <EditPhotosManager
+            item={item}
+            onAttachPhoto={onAttachPhoto}
+            onRemovePhoto={onRemovePhoto}
+          />
+        </div>
       </div>
 
       {buyButton ? (
