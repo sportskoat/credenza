@@ -95,17 +95,16 @@ Card `L29735-H64` shows price only. Listing has a size-chart **photo**.
 3. Size chart **text** (once transcribed) already parses via `parseSizeChart` — fixtures prove S–XL shoulder/bust/length.
 4. Do not scrape 购前说明 legal blocks into notes.
 
-**Confirmed product bugs (do not fix mid-gallery):**
+**Landed 2026-07-25 (Claude pure→product wire, after your gallery):**
 
-1. Direct `resolveBuyDetails` never passes `preserveTitle`. Yupoo path does.
-2. Product `shouldReplaceFashionTitle` does not flag bare SKUs or `Weidian item N` placeholders. Pure version in `listing-facts.js` does.
+1. Direct resolve passes `preserveTitle` + `preferCardTitle` (Reddit label beats SKU).
+2. Pure `shouldReplaceFashionTitle` is the product policy (SKU + Weidian placeholders).
+3. Empty `colorway` fills from first Color axis; `weightGrams` from note text when missing.
+4. `chart-vision` allows geilicdn/alicdn; SizeRecommendation hunts charts on Weidian galleries.
 
-When the product lane is free, wire:
+Still open (not your lane): Taobao resolve (`docs/specs/empty-taobao-cards.md`).
 
-1. Import `preferCardTitle` / pure `shouldReplaceFashionTitle` into resolve merge.
-2. Pass `preserveTitle: !shouldReplaceFashionTitle(...)` on **every** resolve path.
-3. `pickColorwayFromVariants` / `pickSizeRunFromVariants` into SIZE · FIT / COLORWAY empty states.
-4. Extend chart-vision host allowlist for Weidian CDNs **with** SSRF tests (`isAllowedChartImageHost` fixtures ready).
+Leave your dirty `reddit-haul.js` alone — Claude does not touch it.
 
 ---
 
