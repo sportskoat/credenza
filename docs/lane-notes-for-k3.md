@@ -76,11 +76,29 @@ Full write-up: `docs/specs/empty-taobao-cards.md`.
 |------|---------|
 | `docs/lane-notes-for-k3.md` | This file |
 | `docs/specs/empty-taobao-cards.md` | Spec for the Taobao resolve gap |
-| `preview/test/fixtures/weight-cases.json` | Golden cases for the weight helpers |
+| `docs/specs/richer-item-facts.md` | How to fill thin Weidian cards (title, chart, variants) |
+| `listing-facts.js` | Pure title policy + variant display + boilerplate filter |
+| `preview/test/fixtures/*` | weight, marketplace, title-policy, variants, charts |
+| `preview/test/listing-facts.test.js` | Fixture-driven pure tests |
 | Appends in `preview/test/agents.test.js` | Negative host / fail-open cases |
 | Appends in `preview/test/weight.test.js` | Fixture-driven weight cases |
 
 No UI. No deploy. No edits to your dirty product files.
+
+### 4.1 Thin Weidian card (Kyle 2026-07-25)
+
+Card `L29735-H64` shows price only. Listing has a size-chart **photo**.
+
+1. Yupoo chart vision works today. Weidian image hosts are **not** allowed in `chart-vision.js` yet.
+2. Reddit haul labels must beat SKU titles. Helper: `preferCardTitle` in `listing-facts.js` (not wired into product yet).
+3. Size chart **text** (once transcribed) already parses via `parseSizeChart` — fixtures prove S–XL shoulder/bust/length.
+4. Do not scrape 购前说明 legal blocks into notes.
+
+When the product lane is free, wire:
+
+1. `preferCardTitle` into resolve merge (keep haul label over SKU).
+2. `pickColorwayFromVariants` / `pickSizeRunFromVariants` into SIZE · FIT / COLORWAY empty states.
+3. Extend chart-vision host allowlist for Weidian CDNs **with** SSRF tests.
 
 ---
 

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "note": "Listing detail text that must never enter summary/sizeNotes/title.",
+  "dropIfContains": [
+    "\u8d2d\u524d\u8bf4\u660e",
+    "\u4f9d\u6cd5\u7eb3\u7a0e",
+    "\u65e0\u7406\u7531\u9000\u8d27",
+    "\u56fd\u5bb6\u836f\u76d1\u5c40",
+    "\u5212\u7ebf\u4ef7\u683c",
+    "Pre-purchase instructions",
+    "\u6d88\u8d39\u8005\u6743\u76ca\u4fdd\u62a4\u6cd5"
+  ],
+  "cases": [
+    {
+      "id": "legal-block",
+      "text": "\u8d2d\u524d\u8bf4\u660e\n\u6b64\u9875\u9762\u6240\u5c55\u793a\u7684\u5546\u54c1/\u670d\u52a1\u7684\u6807\u9898\u3001\u4ef7\u683c\u3001\u8be6\u60c5\u7b49\u4fe1\u606f\u7531\u5e97\u94fa\u7ecf\u8425\u8005\u53d1\u5e03",
+      "expectDrop": true
+    },
+    {
+      "id": "chart-footer-keep-short",
+      "text": "Size chart 1-3cm error is allowed",
+      "expectDrop": false,
+      "note": "Optional context; not a full legal block"
+    },
+    {
+      "id": "real-size-notes-keep",
+      "text": "M: \u80f8\u56f4130 \u8863\u957f64 \u80a9\u5bbd63\nRuns one size small.",
+      "expectDrop": false
+    }
+  ]
+}

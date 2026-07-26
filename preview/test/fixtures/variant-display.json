@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "note": "Map Weidian-style variantGroups to colorway string + size run display. Do not invent a chosen size.",
+  "cases": [
+    {
+      "id": "size-and-color",
+      "variantGroups": [
+        {
+          "title": "Size",
+          "values": [
+            "S",
+            "M",
+            "L",
+            "XL"
+          ]
+        },
+        {
+          "title": "Color",
+          "values": [
+            "Black",
+            "White"
+          ]
+        }
+      ],
+      "expectColorway": "Black",
+      "expectSizeRun": "S\u2013XL",
+      "expectChosenSize": ""
+    },
+    {
+      "id": "chinese-axes",
+      "variantGroups": [
+        {
+          "title": "\u5c3a\u7801",
+          "values": [
+            "S",
+            "M",
+            "L"
+          ]
+        },
+        {
+          "title": "\u989c\u8272",
+          "values": [
+            "\u9ed1\u8272",
+            "\u767d\u8272"
+          ]
+        }
+      ],
+      "expectColorway": "\u9ed1\u8272",
+      "expectSizeRun": "S\u2013L",
+      "expectChosenSize": ""
+    },
+    {
+      "id": "size-only",
+      "variantGroups": [
+        {
+          "title": "Size",
+          "values": [
+            "EU 42",
+            "EU 43",
+            "EU 44"
+          ]
+        }
+      ],
+      "expectColorway": "",
+      "expectSizeRun": "EU 42\u201344",
+      "expectChosenSize": ""
+    },
+    {
+      "id": "empty",
+      "variantGroups": [],
+      "expectColorway": "",
+      "expectSizeRun": "",
+      "expectChosenSize": ""
+    }
+  ]
+}

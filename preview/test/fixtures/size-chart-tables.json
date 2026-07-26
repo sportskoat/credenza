@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "note": "Kyle Weidian chart photo (L29735-H64 style): S-XL shoulder/bust/length. Test parseSizeChart only.",
+  "cases": [
+    {
+      "id": "labeled-chinese",
+      "text": "S: \u80a9\u5bbd61 \u80f8\u56f4124 \u8863\u957f63\nM: \u80a9\u5bbd63 \u80f8\u56f4130 \u8863\u957f64\nL: \u80a9\u5bbd65 \u80f8\u56f4136 \u8863\u957f65\nXL: \u80a9\u5bbd67 \u80f8\u56f4142 \u8863\u957f66",
+      "expectSizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "expectM": {
+        "shoulder": 63,
+        "chest": 130,
+        "length": 64
+      }
+    },
+    {
+      "id": "labeled-english",
+      "text": "S: shoulder 61 bust 124 length 63\nM: shoulder 63 bust 130 length 64\nL: shoulder 65 bust 136 length 65\nXL: shoulder 67 bust 142 length 66",
+      "expectSizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "expectM": {
+        "shoulder": 63,
+        "chest": 130,
+        "length": 64
+      }
+    },
+    {
+      "id": "table-header",
+      "text": "Size Shoulder Bust Length\nS 61 124 63\nM 63 130 64\nL 65 136 65\nXL 67 142 66",
+      "expectSizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "expectM": {
+        "shoulder": 63,
+        "chest": 130,
+        "length": 64
+      }
+    }
+  ]
+}

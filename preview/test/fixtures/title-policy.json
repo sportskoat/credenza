@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "note": "When may resolve/enrich replace the card title? Pure scoring for a future titlePolicy helper.",
+  "skuLike": [
+    "L29735-H64",
+    "M29855-51E",
+    "A1234",
+    "SKU-99-X"
+  ],
+  "humanLike": [
+    "Celine Shirt",
+    "Fourth3Ex Punk Wiener Longsleeve",
+    "Heavy fleece hoodie \u2014 480g",
+    "Maison Margiela Gats"
+  ],
+  "cases": [
+    {
+      "id": "reddit-label-beats-sku-resolve",
+      "currentTitle": "Fourth3Ex Punk Wiener Longsleeve",
+      "resolvedTitle": "L29735-H64",
+      "expectKeep": "Fourth3Ex Punk Wiener Longsleeve",
+      "reason": "Human haul label must not become a seller SKU"
+    },
+    {
+      "id": "sku-only-link-keeps-sku-until-claude",
+      "currentTitle": "L29735-H64",
+      "resolvedTitle": "L29735-H64",
+      "claudeTitle": "Graphic print tee",
+      "expectKeep": "Graphic print tee",
+      "reason": "Bare SKU link: prefer Claude English description"
+    },
+    {
+      "id": "claude-also-sku-keep-current",
+      "currentTitle": "L29735-H64",
+      "resolvedTitle": "L29735-H64",
+      "claudeTitle": "L29735-H64",
+      "expectKeep": "L29735-H64",
+      "reason": "No better string exists"
+    },
+    {
+      "id": "chinese-title-prefers-claude-en",
+      "currentTitle": "\u7f8e\u5f0f\u590d\u53e4\u5370\u82b1\u77ed\u8896",
+      "resolvedTitle": "\u7f8e\u5f0f\u590d\u53e4\u5370\u82b1\u77ed\u8896",
+      "claudeTitle": "American retro print tee",
+      "expectKeep": "American retro print tee",
+      "reason": "English shelf title for the customer"
+    },
+    {
+      "id": "manual-looking-title-not-replaced-by-sku",
+      "currentTitle": "My thrift find tee",
+      "resolvedTitle": "L29735-H64",
+      "expectKeep": "My thrift find tee",
+      "reason": "User or import human title wins over SKU"
+    }
+  ]
+}
