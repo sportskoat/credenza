@@ -40,8 +40,12 @@ export function preferCardTitle({ currentTitle = "", resolvedTitle = "", claudeT
   return claude || resolved || current || "";
 }
 
-const COLOR_AXIS = /^(color|colour|颜色|顏色|カラー|색상)$/i;
-const SIZE_AXIS = /^(size|尺码|尺寸|사이즈|サイズ)$/i;
+// Seller titles vary. Match common Weidian/Taobao axes only.
+// Do not treat bare 款式 / 版本 / 型号 as color or size.
+const COLOR_AXIS =
+  /^(color|colour|colors?|颜色|顏色|颜色分类|顏色分類|カラー|색상|색|款式\/颜色|款式\/顏色)$/i;
+const SIZE_AXIS =
+  /^(size|sizes?|尺码\d*|尺寸|鞋码|码数|长度(?:\s*\(cm\))?|사이즈|サイズ)$/i;
 
 function firstAxis(groups, re) {
   if (!Array.isArray(groups)) return null;

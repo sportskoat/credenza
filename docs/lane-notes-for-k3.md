@@ -106,6 +106,36 @@ Still open (not your lane): Taobao resolve (`docs/specs/empty-taobao-cards.md`).
 
 Leave your dirty `reddit-haul.js` alone — Claude does not touch it.
 
+### 4.2 Haul listing-facts probe (2026-07-25 night)
+
+Kyle paste: ~97 unique Weidian/Taobao buy links.
+
+**Read this for size / color / batch / weight ceiling:**
+
+- `docs/specs/listing-facts-probe-gaps.md` — STE100 gap report for you  
+- `docs/specs/listing-facts-probe-results.json` — per-link raw rows  
+
+| Capability (Weidian-heavy haul) | After pure axis aliases |
+|---------------------------------|-------------------------|
+| Photo + price | 97 / 97 |
+| Size run | 78 / 97 |
+| Colorway | 72 / 97 |
+| Desc photos → chart hunt | 66 / 97 |
+| Batch (title only) | 4 / 97 |
+| Weight | 1 / 97 |
+| Taobao variants | 0 / 6 |
+
+**Landed pure:** expand `SIZE_AXIS` / `COLOR_AXIS` for `鞋码`, `码数`, `尺码1`, `颜色分类`, `款式/颜色`, `长度(CM)`.  
+DetailBody already shows size run from variants. You do not need a UI change for that.
+
+**Your follow-ups when free (not blocking gallery):**
+
+1. Keep Reddit labels over SKU titles on multi-model shoe shops.  
+2. Optional: map `版本` axis → batch when title has no batch keyword.  
+3. Optional: strip WeChat / 包退换 spam from size value lists.  
+4. Do not invent weight.  
+5. Taobao still needs a real SKU path for size/color (separate from gallery).
+
 ---
 
 ## 5. Your in-flight dirty tree (do not lose)

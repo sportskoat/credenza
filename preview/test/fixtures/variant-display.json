@@ -71,6 +71,67 @@
       "expectColorway": "",
       "expectSizeRun": "",
       "expectChosenSize": ""
+    },
+    {
+      "id": "seller-alias-axes",
+      "note": "Real haul probe axes: 鞋码, 码数, 尺码1, 颜色分类, 款式/颜色, 长度(CM)",
+      "variantGroups": [
+        {
+          "title": "鞋码",
+          "values": ["40", "41", "42", "43"]
+        },
+        {
+          "title": "颜色分类",
+          "values": ["黑色", "白色"]
+        }
+      ],
+      "expectColorway": "黑色",
+      "expectSizeRun": "40–43",
+      "expectChosenSize": ""
+    },
+    {
+      "id": "size-alias-码数-and-style-color",
+      "variantGroups": [
+        {
+          "title": "码数",
+          "values": ["S", "M", "L", "XL", "XXL"]
+        },
+        {
+          "title": "款式/颜色",
+          "values": ["黑/白", "全黑"]
+        }
+      ],
+      "expectColorway": "黑/白",
+      "expectSizeRun": "S–XXL",
+      "expectChosenSize": ""
+    },
+    {
+      "id": "belt-length-as-size",
+      "variantGroups": [
+        {
+          "title": "长度(CM)",
+          "values": ["100", "105", "110", "115"]
+        }
+      ],
+      "expectColorway": "",
+      "expectSizeRun": "100–115",
+      "expectChosenSize": ""
+    },
+    {
+      "id": "ignore-bare-style-and-version",
+      "variantGroups": [
+        {
+          "title": "款式",
+          "values": ["Link1", "Link2"]
+        },
+        {
+          "title": "版本",
+          "values": ["GX"]
+        }
+      ],
+      "expectColorway": "",
+      "expectSizeRun": "",
+      "expectChosenSize": ""
     }
   ]
 }
