@@ -1,11 +1,12 @@
 // Size-chart-from-photos for Credenza (fashion build). Sellers on Yupoo almost
 // always post the size chart as a PHOTO in the album, not as text — the text
 // pipeline (album description / sizeNotes) comes back empty even though the
-// chart is right there in the pictures (Kyle, 2026-07-22). Given a set of
-// album image URLs, this fetches them server-side (photo.yupoo.com hotlink
-// rules make browser fetches flaky), then asks Claude vision to find the size
-// chart and transcribe it into the same line format parseSizeChart already
-// reads: one line per size, Chinese measure labels preserved ("M 胸围112 衣长70").
+// chart is right there in the pictures (Kyle, 2026-07-22). Weidian listings do
+// the same with geilicdn / alicdn product photos (Kyle, 2026-07-25). Given a
+// set of image URLs, this fetches them server-side (CDN hotlink rules make
+// browser fetches flaky), then asks Claude vision to find the size chart and
+// transcribe it into the same line format parseSizeChart already reads:
+// one line per size, Chinese measure labels preserved ("M 胸围112 衣长70").
 // The client drops that text into sizeNotes and the whole deterministic
 // chart → recommendation pipeline picks it up unchanged.
 
@@ -24,8 +25,10 @@ const TIMEOUT_MS = 25000;
 const MAX_IMAGES = 10;
 const MAX_IMAGE_BYTES = 4.5 * 1024 * 1024; // Claude per-image cap is 5MB
 const MODEL = process.env.CREDENZA_RESOLVE_MODEL || "claude-haiku-4-5";
-// SSRF lockdown (Part 3): only the Yupoo image hosts, nowhere else.
-const YUPOO_IMAGE_HOST = /(^|\.)(photo|pic)\.yupoo\.com$/;
+// SSRF lockdown (Part 3): only known marketplace image CDNs, nowhere else.
+// Yupoo album photos + Weidian / Ali product images (itemMainPic / gallery).
+const ALLOWED_IMAGE_HOST =
+  /(^|\.)((photo|pic)\.yupoo\.com|(si|wd|geili)\.geilicdn\.com|geilicdn\.com|(img|gd\d*|gw|g\.alicdn)\.alicdn\.com|alicdn\.com)$/i;
 
 function response(statusCode, payload, extraHeaders) {
   return {
@@ -35,7 +38,7 @@ function response(statusCode, payload, extraHeaders) {
   };
 }
 
-// Cheap pre-filter: parse, protocol, and the Yupoo host allowlist. The full
+// Cheap pre-filter: parse, protocol, and the image-CDN allowlist. The full
 // guard (DNS + private-address rejection, checked redirects) runs per fetch
 // inside fetchImage.
 function safeImageUrl(raw) {
@@ -47,7 +50,7 @@ function safeImageUrl(raw) {
   }
   if (u.protocol !== "https:" && u.protocol !== "http:") return null;
   const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (!YUPOO_IMAGE_HOST.test(host)) return null;
+  if (!ALLOWED_IMAGE_HOST.test(host)) return null;
   return u.toString();
 }
 
@@ -76,7 +79,7 @@ function fallbackReferer(imageUrls) {
 }
 
 // Returns { base64, mediaType } or null. Every hop of every fetch is
-// re-validated against the Yupoo allowlist + private-address rejection.
+// re-validated against the CDN allowlist + private-address rejection.
 async function fetchImage(url, referer, signal) {
   try {
     const headers = {
@@ -84,7 +87,7 @@ async function fetchImage(url, referer, signal) {
       accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
     };
     if (referer) headers.referer = referer;
-    const res = await safeFetch(url, { headers, signal, hosts: YUPOO_IMAGE_HOST, maxRedirects: 3 });
+    const res = await safeFetch(url, { headers, signal, hosts: ALLOWED_IMAGE_HOST, maxRedirects: 3 });
     if (!res.ok) return null;
     const mediaType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
     if (!/^image\/(jpeg|png|webp|gif)$/.test(mediaType)) return null;
@@ -181,7 +184,9 @@ async function handle(event) {
   }
   const urls = Array.isArray(input && input.images) ? input.images : [];
   const imageUrls = [...new Set(urls.map(safeImageUrl).filter(Boolean))].slice(0, MAX_IMAGES);
-  if (!imageUrls.length) return response(400, { error: "images must contain at least one Yupoo image URL" });
+  if (!imageUrls.length) {
+    return response(400, { error: "images must contain at least one allowed CDN image URL" });
+  }
   const referer = safeReferer(input && input.referer) || fallbackReferer(imageUrls);
 
   const blocked = limit.enter(ROUTE, limit.clientKey(event));

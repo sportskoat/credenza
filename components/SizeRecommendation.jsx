@@ -138,28 +138,46 @@ export default function SizeRecommendation({
     }
   }, [recSize, recIsEstimated, item.id, item.recommendedSize, onSaveEdit]);
 
-  // Silent chart hunt: album text first, then a vision scan of the album
-  // PHOTOS (where Yupoo charts actually live). Found charts land in sizeNotes
-  // and the pick simply appears — no "Find size chart" button anywhere.
+  // Silent chart hunt: Yupoo album text first, then a vision scan of photos
+  // (Yupoo album images, or Weidian geilicdn/alicdn gallery after resolve).
+  // Found charts land in sizeNotes and the pick simply appears.
   useEffect(() => {
     if (!sizeActive || skipped || chart) return;
+    if (chartAutoFetchTried.has(item.id)) return;
     const album = yupooAlbumUrl(item);
-    if (!album || chartAutoFetchTried.has(item.id)) return;
+    const localPhotos = [item.image, ...(item.gallery || [])].filter(
+      (src) => typeof src === "string" && /^https?:\/\//i.test(src)
+    );
+    // Need either a Yupoo album or remote gallery photos (Weidian after resolve).
+    if (!album && !localPhotos.length) return;
     chartAutoFetchTried.add(item.id);
     let cancelled = false;
     (async () => {
-      const data = await fetchYupooImages(album);
-      if (cancelled) return;
-      const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
-      if (text.trim() && parseSizeChart(text)) {
-        onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text.trim() });
-        return;
+      if (album) {
+        const data = await fetchYupooImages(album);
+        if (cancelled) return;
+        const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
+        if (text.trim() && parseSizeChart(text)) {
+          onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text.trim() });
+          return;
+        }
+        const albumPhotos = (data && data.images) || [];
+        if (albumPhotos.length) {
+          const chartText = await fetchChartFromPhotos(albumPhotos.slice(-10), { referer: album });
+          if (!cancelled && chartText && parseSizeChart(chartText)) {
+            onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText });
+            return;
+          }
+        }
       }
-      const photos = (data && data.images) || [];
-      if (!photos.length) return;
-      const chartText = await fetchChartFromPhotos(photos.slice(-10), { referer: album });
-      if (!cancelled && chartText && parseSizeChart(chartText)) {
-        onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText });
+      // Weidian / Taobao path: resolve already filled gallery with CDN URLs.
+      if (localPhotos.length) {
+        const chartText = await fetchChartFromPhotos(localPhotos.slice(-10), {
+          referer: item.url || undefined,
+        });
+        if (!cancelled && chartText && parseSizeChart(chartText)) {
+          onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText });
+        }
       }
     })();
     return () => { cancelled = true; };

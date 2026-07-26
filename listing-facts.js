@@ -122,28 +122,33 @@ export function shouldReplaceFashionTitle(title, url) {
   return false;
 }
 
-// --- Chart image hosts (chart-vision allowlist research) -----------------
-// Live server today: Yupoo only. Proposed Weidian CDNs for a later product PR.
+// --- Chart image hosts (matches chart-vision.js ALLOWED_IMAGE_HOST) --------
 // Never fetch without SSRF guard + private-IP rejection on the server.
 
-/** Hosts chart-vision may fetch today. */
+/** Yupoo album image hosts. */
 export const CHART_IMAGE_HOST_YUPOO = /(^|\.)(photo|pic)\.yupoo\.com$/i;
 
-/**
- * Proposed Weidian / Ali image CDNs (NOT live in chart-vision yet).
- * Sources: common Weidian itemMainPic hosts (geilicdn, alicdn).
- * Must pass SSRF tests before product use.
- */
-export const CHART_IMAGE_HOST_WEIDIAN_PROPOSED =
+/** Weidian / Ali product image CDNs (live in chart-vision as of 2026-07-25). */
+export const CHART_IMAGE_HOST_WEIDIAN =
   /(^|\.)((si|wd|geili)\.geilicdn\.com|geilicdn\.com|(img|gd\d*|gw|g\.alicdn)\.alicdn\.com|alicdn\.com)$/i;
 
+/** @deprecated use CHART_IMAGE_HOST_WEIDIAN */
+export const CHART_IMAGE_HOST_WEIDIAN_PROPOSED = CHART_IMAGE_HOST_WEIDIAN;
+
 /**
- * Cheap host check for chart photo URLs.
+ * Cheap host check for chart photo URLs (mirrors chart-vision allowlist).
  * @param {string} rawUrl
- * @param {{ includeWeidianProposed?: boolean }} [opts]
+ * @param {{ includeWeidian?: boolean, includeWeidianProposed?: boolean }} [opts]
+ *   includeWeidian defaults true (live). includeWeidianProposed is an alias.
  * @returns {boolean}
  */
-export function isAllowedChartImageHost(rawUrl, { includeWeidianProposed = false } = {}) {
+export function isAllowedChartImageHost(rawUrl, opts = {}) {
+  const includeWeidian =
+    opts.includeWeidian !== undefined
+      ? opts.includeWeidian
+      : opts.includeWeidianProposed !== undefined
+        ? opts.includeWeidianProposed
+        : true;
   let host;
   try {
     const u = new URL(String(rawUrl || ""));
@@ -153,7 +158,7 @@ export function isAllowedChartImageHost(rawUrl, { includeWeidianProposed = false
     return false;
   }
   if (CHART_IMAGE_HOST_YUPOO.test(host)) return true;
-  if (includeWeidianProposed && CHART_IMAGE_HOST_WEIDIAN_PROPOSED.test(host)) return true;
+  if (includeWeidian && CHART_IMAGE_HOST_WEIDIAN.test(host)) return true;
   return false;
 }
 

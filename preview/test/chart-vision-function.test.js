@@ -142,7 +142,7 @@ describe("chart-vision function", () => {
     expect(photoHeaders.referer).toBe("https://seller.x.yupoo.com/");
   });
 
-  it("rejects non-Yupoo image URLs before any fetch (SSRF lockdown)", async () => {
+  it("rejects non-allowlisted image URLs before any fetch (SSRF lockdown)", async () => {
     global.fetch = vi.fn();
     for (const url of [
       "http://169.254.169.254/latest/meta-data",
@@ -150,6 +150,8 @@ describe("chart-vision function", () => {
       "http://2130706433/", // decimal 127.0.0.1
       "https://evil.example.com/chart.jpg",
       "https://photo.yupoo.com.evil.example.com/x.jpg",
+      "https://weidian.com/item.html?itemID=1",
+      "javascript:alert(1)",
     ]) {
       const res = await handler(post([url]));
       expect(res.statusCode, url).toBe(400);
@@ -157,7 +159,30 @@ describe("chart-vision function", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("skips a photo whose redirect leaves the Yupoo hosts", async () => {
+  it("accepts Weidian geilicdn image hosts (chart photos live there)", async () => {
+    const WD = "https://si.geilicdn.com/hz_img_xxx-unadjust_800_800.jpeg";
+    global.fetch = vi.fn(async (url) => {
+      if (url === WD) {
+        return {
+          ok: true,
+          headers: { get: () => "image/jpeg" },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        };
+      }
+      return anthropicOk({
+        found: true,
+        chartText: "M: 肩宽63 胸围130 衣长64\nL: 肩宽65 胸围136 衣长65",
+        note: "",
+      });
+    });
+    const res = await handler(post([WD]));
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.found).toBe(true);
+    expect(body.chartText).toContain("胸围130");
+  });
+
+  it("skips a photo whose redirect leaves the allowlisted hosts", async () => {
     global.fetch = vi.fn(async () => ({
       status: 302,
       ok: false,

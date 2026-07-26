@@ -63,11 +63,13 @@ describe("shouldReplaceFashionTitle (title-policy fixture)", () => {
 
 describe("isAllowedChartImageHost (chart-image-hosts fixture)", () => {
   const fx = load("chart-image-hosts.json");
-  const all = [...fx.liveToday, ...fx.weidianProposed, ...fx.mustReject];
+  const all = [...fx.liveToday, ...fx.mustReject];
   for (const c of all) {
     it(c.id, () => {
-      expect(isAllowedChartImageHost(c.url, { includeWeidianProposed: false })).toBe(c.expectLive);
-      expect(isAllowedChartImageHost(c.url, { includeWeidianProposed: true })).toBe(c.expectProposed);
+      expect(isAllowedChartImageHost(c.url, { includeWeidian: false })).toBe(c.expectYupooOnly);
+      expect(isAllowedChartImageHost(c.url, { includeWeidian: true })).toBe(c.expectWithWeidian);
+      // Default matches live chart-vision (Weidian on).
+      expect(isAllowedChartImageHost(c.url)).toBe(c.expectWithWeidian);
     });
   }
 });
