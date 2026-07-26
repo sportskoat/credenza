@@ -129,6 +129,32 @@
   padding: 8px 14px;
   cursor: pointer;
   white-space: nowrap;
+  transition:
+    transform 150ms var(--ease-out),
+    background 150ms var(--ease-out),
+    color 150ms var(--ease-out),
+    opacity 150ms var(--ease-out);
+}
+
+/* Shared press scale for chrome that used to feel dead (Kyle UI audit). */
+.cz-app[data-fashion="true"] .cz-icon-button:active:not(:disabled),
+.cz-app[data-fashion="true"] .cz-view-button:active:not(:disabled),
+.cz-app[data-fashion="true"] .cz-tab:active:not(:disabled),
+.cz-app[data-fashion="true"] .cz-chip:active:not(:disabled) {
+  transform: scale(0.94);
+  transition: transform 120ms var(--ease-out);
+}
+
+.cz-detail-status-chip {
+  transition:
+    transform 120ms var(--ease-out),
+    background 120ms var(--ease-out),
+    color 120ms var(--ease-out),
+    border-color 120ms var(--ease-out);
+}
+
+.cz-detail-status-chip:active {
+  transform: scale(0.96);
 }
 
 .cz-app[data-fashion="true"] .cz-pill[data-variant="primary"] {
@@ -4327,8 +4353,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     transform var(--modal-close-dur) var(--modal-ease),
     opacity   var(--modal-close-dur) var(--modal-ease);
 }
+/* Native <dialog> keeps layout; surface no longer fights the shell tween. */
+.cz-modal.t-modal .cz-modal-surface {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+.cz-modal.t-modal::backdrop {
+  opacity: 0;
+  transition: opacity var(--modal-open-dur) var(--modal-ease);
+}
+.cz-modal.t-modal.is-open::backdrop {
+  opacity: 1;
+}
+.cz-modal.t-modal.is-closing::backdrop {
+  opacity: 0;
+  transition: opacity var(--modal-close-dur) var(--modal-ease);
+}
 @media (prefers-reduced-motion: reduce) {
   .t-modal { transition: none !important; }
+  .cz-modal.t-modal::backdrop { transition: none !important; }
 }
 
 /* ─── Text reveal (transitions.dev) — staggered line entrance ─── */
@@ -5379,6 +5423,28 @@ a.cz-card-seller:hover {
   justify-content: center;
   pointer-events: none;
 }
+/* Toast open (transitions.dev): rise + fade + soft blur. Close unmounts. */
+:root {
+  --toast-open: 350ms;
+  --toast-distance: 12px;
+  --toast-blur: 2px;
+  --toast-scale: 0.97;
+  --toast-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes cz-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+    filter: blur(var(--toast-blur));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
 .cz-app[data-fashion="true"] .cz-toast {
   width: auto;
   max-width: min(320px, 100%);
@@ -5396,6 +5462,13 @@ a.cz-card-seller:hover {
   pointer-events: auto;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+  animation: cz-toast-in var(--toast-open) var(--toast-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-app[data-fashion="true"] .cz-toast {
+    animation: none !important;
+  }
 }
 .cz-app[data-fashion="true"] .cz-toast[data-tone="error"] {
   color: var(--cz-error-text);
@@ -9499,7 +9572,7 @@ a.cz-card-seller:hover {
   display: grid;
   grid-template-rows: 62px;
   margin-top: 6px;
-  transition: grid-template-rows 200ms ease;
+  transition: grid-template-rows 200ms var(--ease-out);
 }
 
 .cz-detail-notes-wrap.is-open {

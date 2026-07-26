@@ -412,8 +412,9 @@ export function formatMoney(amount, currency) {
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 
 export function itemUsdAmount(item) {
-  if (item.priceUsd != null && isFinite(item.priceUsd)) return Number(item.priceUsd);
-  if (item.price == null || !isFinite(item.price)) return null;
+  if (!item || typeof item !== "object") return null;
+  if (item.priceUsd != null && isFinite(Number(item.priceUsd))) return Number(item.priceUsd);
+  if (item.price == null || !isFinite(Number(item.price))) return null;
   const currency = String(item.currency || "CNY").toUpperCase();
   if (currency === "USD" || currency === "$") return Number(item.price);
   if (currency === "CNY" || currency === "RMB" || currency === "¥" || currency === "CNH") {
@@ -421,6 +422,18 @@ export function itemUsdAmount(item) {
   }
   // Unknown currency: don't invent USD (would inflate the reel).
   return null;
+}
+
+// One pure sum for shelf + haul totals so chips, phone tabs, and the reel
+// never disagree. Returned cards drop out of open-haul totals only.
+export function sumItemsUsd(items, { excludeReturned = false } = {}) {
+  let sum = 0;
+  for (const it of items || []) {
+    if (excludeReturned && it && it.findStatus === "returned") continue;
+    const usd = itemUsdAmount(it);
+    if (usd != null && isFinite(usd)) sum += usd;
+  }
+  return Math.round(sum * 100) / 100;
 }
 
 // Primary price currency (settings-toggles.md #1, design handoff PR3 profile
@@ -5686,12 +5699,7 @@ export default function Credenza() {
   // A3: inside a haul the total covers non-returned items only — a returned
   // card is money coming back, not money in the parcel.
   const listTotalUsd = useMemo(
-    () =>
-      totalsItems.reduce(
-        (sum, it) =>
-          sum + (openHaulName && it.findStatus === "returned" ? 0 : (itemUsdAmount(it) || 0)),
-        0
-      ),
+    () => sumItemsUsd(totalsItems, { excludeReturned: !!openHaulName }),
     [totalsItems, openHaulName]
   );
   // A3 + A6 haul pipeline board: per-status counts, the ready-to-ship count

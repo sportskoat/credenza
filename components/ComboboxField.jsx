@@ -41,10 +41,19 @@ export default function ComboboxField({
     setClosing(true);
     setOpen(false);
     setCreating(false);
+    // Match --dropdown-close-dur so reopen does not jump from the close scale.
+    let closeMs = 150;
+    if (typeof window !== "undefined" && window.getComputedStyle) {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue(
+        "--dropdown-close-dur"
+      );
+      const n = parseFloat(raw);
+      if (Number.isFinite(n)) closeMs = n;
+    }
     closeTimer.current = setTimeout(() => {
       setClosing(false);
       closeTimer.current = null;
-    }, 160);
+    }, closeMs);
   }, [open, closing]);
 
   const placeMenu = useCallback(() => {

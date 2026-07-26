@@ -1,11 +1,24 @@
-import { useEffect, useId, useRef } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { DISPLAY, HAIR, SUB } from "../credenza-fashion.jsx";
+
+function readCloseMs() {
+  if (typeof window === "undefined" || !window.getComputedStyle) return 150;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--modal-close-dur");
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : 150;
+}
 
 export function ModalShell({ title, onClose, children, maxWidth = 720, trailing, surfaceClassName = "" }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
   const titleId = useId();
   const triggerRef = useRef(null);
+  const closeTimer = useRef(null);
+  const [phase, setPhase] = useState("enter"); // enter | open | closing
+  const reduced =
+    typeof window !== "undefined" &&
+    !!window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // Lock the page behind the sheet. A native dialog blocks taps but iOS
   // still rubber-bands the body under it (Kyle 2026-07-25: "in the settings
@@ -22,8 +35,14 @@ export function ModalShell({ title, onClose, children, maxWidth = 720, trailing,
     triggerRef.current = document.activeElement;
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
-    requestAnimationFrame(() => closeRef.current && closeRef.current.focus());
+    // Open class after paint so scale/opacity tween from the resting state.
+    const openId = requestAnimationFrame(() => {
+      setPhase("open");
+      if (closeRef.current) closeRef.current.focus();
+    });
     return () => {
+      cancelAnimationFrame(openId);
+      if (closeTimer.current) clearTimeout(closeTimer.current);
       // React removes the node without close(); a modal dialog dropped while
       // open can leave the page inert on iOS (Kyle 2026-07-24: "closing stuff
       // gives me a blank screen"). Close it first so the browser unwinds the
@@ -34,18 +53,35 @@ export function ModalShell({ title, onClose, children, maxWidth = 720, trailing,
     };
   }, []);
 
+  const requestClose = useCallback(() => {
+    if (phase === "closing") return;
+    if (reduced) {
+      onClose();
+      return;
+    }
+    setPhase("closing");
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      closeTimer.current = null;
+      onClose();
+    }, readCloseMs());
+  }, [onClose, phase, reduced]);
+
+  const phaseClass =
+    phase === "open" ? " is-open" : phase === "closing" ? " is-closing" : "";
+
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click-to-close; keyboard users close via Escape (onCancel)
     <dialog
       ref={dialogRef}
-      className="cz-modal"
+      className={"cz-modal t-modal" + phaseClass}
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        requestClose();
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
       style={{ maxWidth }}
     >
@@ -72,7 +108,7 @@ export function ModalShell({ title, onClose, children, maxWidth = 720, trailing,
             type="button"
             className="cz-icon-button"
             aria-label={"Close " + title}
-            onClick={onClose}
+            onClick={requestClose}
             style={{
               width: 40,
               height: 40,
