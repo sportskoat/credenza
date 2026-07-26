@@ -3,75 +3,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>How Credenza works · agent haul planner</title>
-    <meta
-      name="description"
-      content="Stash Weidian and Yupoo finds, pair photos with buy links, get a size recommendation, track QC, then open Buy in your preferred shopping agent. Credenza is the decision layer before the agent click."
-    />
+    <title>Open a Weidian link in your preferred agent · Credenza</title>
+    <meta name="description" content="How to open a Weidian or Taobao link in Superbuy, Sugargoo, Kakobuy, or your preferred shopping agent without rewriting stored URLs. Credenza keeps the canonical marketplace link and wraps at Buy time." />
     <meta name="theme-color" content="#000000" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="canonical" href="https://credenzafashion.com/how/" />
-    <meta property="og:title" content="How Credenza works" />
-    <meta
-      property="og:description"
-      content="One shelf for the whole haul: stash, size, QC, Buy via your agent."
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://credenzafashion.com/how/" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/open-weidian-in-agent/" />
+    <meta property="og:title" content="Open Weidian in your preferred agent" />
+    <meta property="og:description" content="Canonical URL on the shelf. Agent wrap only at Buy." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/open-weidian-in-agent/" />
     <meta property="og:site_name" content="Credenza Fashion" />
     <meta property="og:image" content="https://credenzafashion.com/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="How Credenza works" />
-    <meta
-      name="twitter:description"
-      content="One shelf for the whole haul: stash, size, QC, Buy via your agent."
-    />
+    <meta name="twitter:title" content="Open Weidian in your preferred agent" />
+    <meta name="twitter:description" content="Canonical URL on the shelf. Agent wrap only at Buy." />
     <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "HowTo",
-        "name": "Plan an agent haul with Credenza",
-        "url": "https://credenzafashion.com/how/",
-        "description": "Turn Weidian, Yupoo, and Reddit finds into cards, pick a size, and open Buy in your shopping agent.",
+        "name": "Open a Weidian link in your preferred shopping agent",
+        "url": "https://credenzafashion.com/guides/open-weidian-in-agent/",
+        "description": "Keep the canonical Weidian or Taobao URL on your shelf and open your preferred shopping agent at Buy time with Credenza.",
         "step": [
-          {
-            "@type": "HowToStep",
-            "position": 1,
-            "name": "Stash",
-            "text": "Paste a marketplace or album link (or a multi-URL line). Credenza pairs photos and buy URLs on one card."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 2,
-            "name": "Review the card",
-            "text": "See cover photo, title, price, and seller in one place, not a spreadsheet row of raw URLs."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 3,
-            "name": "Size with your body profile",
-            "text": "Save chest, waist, hip (in or cm). Paste or attach a size chart; Credenza recommends a size, including hip-only charts."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 4,
-            "name": "Run the haul pipeline",
-            "text": "Track Want → Bought → QC → GL/RL → Shipped so the active haul stays clear."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 5,
-            "name": "Open Buy in your agent",
-            "text": "One tap opens the canonical item in Superbuy, Sugargoo, Kakobuy, or your preferred agent. Credenza does not checkout for you."
-          }
+          {"@type": "HowToStep", "position": 1, "name": "Stash the canonical link", "text": "Save the Weidian, Taobao, or 1688 product URL—not only an agent deep link."},
+          {"@type": "HowToStep", "position": 2, "name": "Set preferred agent", "text": "Choose Superbuy, Sugargoo, Kakobuy, or another supported agent in settings."},
+          {"@type": "HowToStep", "position": 3, "name": "Open Buy", "text": "Credenza builds the agent URL from the canonical link at click time. Affiliate params attach only then when applicable."},
+          {"@type": "HowToStep", "position": 4, "name": "Optional original", "text": "Open the original marketplace page when you need seller details outside the agent."}
         ]
       }
     </script>
     <style>
+
       :root {
         color-scheme: light dark;
         --bg: #f4f4f0;
@@ -139,6 +105,12 @@
         line-height: 1.2;
         margin: 0 0 0.75rem;
       }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
       .lede {
         color: var(--muted);
         margin: 0 0 1.5rem;
@@ -161,14 +133,15 @@
         padding: 1.15rem 1.2rem;
         margin: 0 0 0.85rem;
       }
-      .card h2 {
-        font-size: 1.05rem;
-        margin: 0 0 0.4rem;
-        font-weight: 600;
-        font-family: system-ui, -apple-system, sans-serif;
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
       }
-      .card p { margin: 0; color: var(--muted); }
-      .card .n {
+      .card li { margin: 0.25rem 0; }
+      .n {
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 0.7rem;
         letter-spacing: 0.12em;
@@ -204,21 +177,28 @@
         font-weight: 600;
       }
       .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
     </style>
   </head>
   <body>
     <header>
       <p class="brand"><span>Credenza</span><span class="sub">Fashion</span></p>
-      <h1>How Credenza works</h1>
+      <h1>Open a Weidian link in your preferred agent</h1>
       <p class="lede">
-        One shelf for the whole haul: stash finds, decide size, keep QC context,
-        open Buy in your preferred shopping agent.
+        Store the marketplace URL once. Choose Superbuy, Sugargoo, Kakobuy, or another agent when you buy—not when you save.
       </p>
       <nav class="nav" aria-label="Site">
         <a href="/">Open app</a>
         <a href="/landing/">About</a>
-        <a href="/how/" aria-current="page">How it works</a>
-        <a href="/guides/">Guides</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
         <a href="/faq/">FAQ</a>
         <a href="/privacy/">Privacy</a>
         <a href="/terms/">Terms</a>
@@ -227,43 +207,28 @@
     </header>
     <main>
       <article class="card">
-        <span class="n">Step 1</span>
-        <h2>Stash the find</h2>
+        <span class="n">Problem</span>
+        <h2>Agent links go stale</h2>
         <p>
-          Paste a Weidian, Taobao, or Yupoo link, or a line with photos + buy URLs.
-          Credenza keeps them on <strong>one card</strong> so you are not juggling tabs and a spreadsheet.
+          Agents change URL schemes and drop platforms.
+          If every row in your sheet is a Fansbuy-only wrap, a platform change breaks the list.
         </p>
       </article>
       <article class="card">
-        <span class="n">Step 2</span>
-        <h2>See what you saved</h2>
-        <p>
-          Cover image, title, price, and seller in a quiet card. Flip for notes, status, and more photos.
-          The grid and the open card use the same mental model.
-        </p>
+        <span class="n">Pattern</span>
+        <h2>Canonical store, agent at click</h2>
+        <ul>
+          <li>Item stores the <strong>canonical</strong> marketplace URL.</li>
+          <li>You pick a preferred agent (and can change it without rewriting the shelf).</li>
+          <li>Buy opens the agent with that URL. Optional: open original Weidian/Yupoo.</li>
+          <li>Affiliate or referral params attach only on outbound Buy when the agent pays referral—not into stored data.</li>
+        </ul>
       </article>
       <article class="card">
-        <span class="n">Step 3</span>
-        <h2>Size with confidence</h2>
+        <span class="n">What Credenza is not</span>
+        <h2>No in-app checkout</h2>
         <p>
-          Save a body profile (inches or cm). When a size chart is available (including hip-only
-          臀围 sheets), Credenza recommends a size and shows why.
-        </p>
-      </article>
-      <article class="card">
-        <span class="n">Step 4</span>
-        <h2>Run the haul pipeline</h2>
-        <p>
-          Want → Bought → QC → GL / RL → Shipped. Status lives on the item so the active haul
-          stays legible when the warehouse photos land.
-        </p>
-      </article>
-      <article class="card">
-        <span class="n">Step 5</span>
-        <h2>Open Buy in your agent</h2>
-        <p>
-          Items store the <strong>canonical</strong> marketplace URL. At Buy time, Credenza opens
-          Superbuy, Sugargoo, Kakobuy, or your preferred agent. Purchases happen there, not inside Credenza.
+          Purchases complete on the agent site. Credenza is the decision layer before that click.
         </p>
       </article>
 
@@ -271,12 +236,8 @@
         Credenza is a decision layer, not a marketplace and not a W2C search engine.
         You bring the links from communities and stores you already use.
       </p>
-
       <a class="cta" href="/">Open Credenza</a>
-      <p style="margin-top:1rem;font-size:0.95rem;color:var(--muted)">
-        Questions? See the <a href="/faq/">FAQ</a>
-        or the <a href="/guides/">guides</a>.
-      </p>
+      <p class="related">Related: <a href="/guides/organize-agent-haul/">Organize the haul</a><a href="/faq/">FAQ on agents</a><a href="/how/">How it works</a></p>
     </main>
     <footer>
       Credenza Fashion · agent haul planner.

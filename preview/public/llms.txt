@@ -37,6 +37,12 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/landing/ — product positioning
 - https://credenzafashion.com/how/ — five-step how it works (HowTo schema)
 - https://credenzafashion.com/faq/ — FAQ with structured answers
+- https://credenzafashion.com/guides/ — bottom-of-funnel buying guides hub
+- https://credenzafashion.com/guides/organize-agent-haul/ — organize haul without spreadsheet
+- https://credenzafashion.com/guides/spreadsheet-vs-haul-planner/ — spreadsheet vs planner
+- https://credenzafashion.com/guides/reddit-haul-to-list/ — Reddit haul to shopping list
+- https://credenzafashion.com/guides/weidian-size-chart/ — size chart to recommended size
+- https://credenzafashion.com/guides/open-weidian-in-agent/ — open Weidian in preferred agent
 - https://credenzafashion.com/ — app (PWA shelf)
 - https://credenzafashion.com/llms-full.txt — longer machine brief
 - https://credenzafashion.com/privacy/ — privacy notice

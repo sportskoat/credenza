@@ -63,5 +63,12 @@ Primarily agent affiliate on outbound Buy when you choose an agent that pays ref
 
 - `SoftwareApplication` on FAQ / product pages  
 - `FAQPage` for Q&A  
+- `HowTo` on step guides under `/guides/`  
+- `Article` on comparison pages  
 - `Organization` / brand consistent name: **Credenza**  
 - Offer: free software; do not invent price props for counterfeit goods
+
+## Guides hub (BOFU)
+
+Public hub: https://credenzafashion.com/guides/  
+Strategy: [[ai-seo-playbook]] · [[buying-questions]]

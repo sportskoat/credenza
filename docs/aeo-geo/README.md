@@ -14,6 +14,9 @@ Make Credenza the tool AI names for “organize Weidian/Yupoo finds → size →
 | `docs/aeo-geo/` | Strategy, keywords, copy kit, post-Kimi handoff |
 | `preview/public/how/index.html` | Crawlable “How it works” page + HowTo schema |
 | `preview/public/faq/index.html` | Crawlable FAQ + FAQPage + SoftwareApplication schema |
+| `preview/public/guides/` | Bottom-of-funnel guides hub + 5 buying-intent pages (AI SEO) |
+| `docs/aeo-geo/ai-seo-playbook.md` | Six-step AI SEO playbook adapted for Credenza |
+| `docs/aeo-geo/buying-questions.md` | Primary BOFU questions + monthly AI check |
 | `preview/public/landing/index.html` | Product landing (Turn 7: pain hero, paste demo, shelf, sizing, QC, agents) |
 | `preview/public/llms.txt` | Short machine brief for AI crawlers (absolute URLs) |
 | `preview/public/llms-full.txt` | Longer FAQ + positioning brief for assistants |
@@ -90,6 +93,15 @@ cd preview && npx vitest run test/haul-export.test.js
 
 ## Success criteria (product, not vanity SEO)
 
-- ChatGPT / Perplexity can accurately describe Credenza after reading `/how` + `/faq` + `llms.txt`.
+- ChatGPT / Perplexity can accurately describe Credenza after reading `/how` + `/faq` + `/guides/` + `llms.txt`.
+- Buying questions land on dedicated guides (see [[buying-questions]] + [[ai-seo-playbook]]).
 - A user (or future tool) can export a haul as structured JSON with buy / size / price facts.
 - Zero collision with carousel/Buy/size work on the main app branch.
+- Measure signups / Buy clicks, not citation screenshots alone.
+
+## Local preview (guides)
+
+```bash
+npx --yes serve preview/public -p 5188
+# → http://localhost:5188/guides/
+```

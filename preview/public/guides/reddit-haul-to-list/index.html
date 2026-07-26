@@ -3,75 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>How Credenza works · agent haul planner</title>
-    <meta
-      name="description"
-      content="Stash Weidian and Yupoo finds, pair photos with buy links, get a size recommendation, track QC, then open Buy in your preferred shopping agent. Credenza is the decision layer before the agent click."
-    />
+    <title>Turn a Reddit haul into a shopping list · Credenza</title>
+    <meta name="description" content="How to turn a Reddit haul comment into a shopping list: paste the wall of text, get one card per item with name and links, then size and open your shopping agent. Credenza haul planner." />
     <meta name="theme-color" content="#000000" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="canonical" href="https://credenzafashion.com/how/" />
-    <meta property="og:title" content="How Credenza works" />
-    <meta
-      property="og:description"
-      content="One shelf for the whole haul: stash, size, QC, Buy via your agent."
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://credenzafashion.com/how/" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/reddit-haul-to-list/" />
+    <meta property="og:title" content="Reddit haul comment to shopping list" />
+    <meta property="og:description" content="Paste a haul comment → structured cards → size → agent Buy." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/reddit-haul-to-list/" />
     <meta property="og:site_name" content="Credenza Fashion" />
     <meta property="og:image" content="https://credenzafashion.com/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="How Credenza works" />
-    <meta
-      name="twitter:description"
-      content="One shelf for the whole haul: stash, size, QC, Buy via your agent."
-    />
+    <meta name="twitter:title" content="Reddit haul comment to shopping list" />
+    <meta name="twitter:description" content="Paste a haul comment → structured cards → size → agent Buy." />
     <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "HowTo",
-        "name": "Plan an agent haul with Credenza",
-        "url": "https://credenzafashion.com/how/",
-        "description": "Turn Weidian, Yupoo, and Reddit finds into cards, pick a size, and open Buy in your shopping agent.",
+        "name": "Turn a Reddit haul comment into a shopping list",
+        "url": "https://credenzafashion.com/guides/reddit-haul-to-list/",
+        "description": "Paste a Reddit haul comment into Credenza to create one card per item, then size and open your shopping agent.",
         "step": [
-          {
-            "@type": "HowToStep",
-            "position": 1,
-            "name": "Stash",
-            "text": "Paste a marketplace or album link (or a multi-URL line). Credenza pairs photos and buy URLs on one card."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 2,
-            "name": "Review the card",
-            "text": "See cover photo, title, price, and seller in one place, not a spreadsheet row of raw URLs."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 3,
-            "name": "Size with your body profile",
-            "text": "Save chest, waist, hip (in or cm). Paste or attach a size chart; Credenza recommends a size, including hip-only charts."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 4,
-            "name": "Run the haul pipeline",
-            "text": "Track Want → Bought → QC → GL/RL → Shipped so the active haul stays clear."
-          },
-          {
-            "@type": "HowToStep",
-            "position": 5,
-            "name": "Open Buy in your agent",
-            "text": "One tap opens the canonical item in Superbuy, Sugargoo, Kakobuy, or your preferred agent. Credenza does not checkout for you."
-          }
+          {"@type": "HowToStep", "position": 1, "name": "Copy the haul text", "text": "Copy the comment or post block that lists items and links."},
+          {"@type": "HowToStep", "position": 2, "name": "Paste into Credenza haul mode", "text": "Use Reddit haul paste so each linked item becomes a card."},
+          {"@type": "HowToStep", "position": 3, "name": "Review titles and links", "text": "Fix any name that came from weak labels; keep canonical buy URLs."},
+          {"@type": "HowToStep", "position": 4, "name": "Size and status", "text": "Add size decisions and Want/Bought/QC status on the cards you keep."},
+          {"@type": "HowToStep", "position": 5, "name": "Open Buy", "text": "Open your preferred agent when ready. Credenza does not checkout for you."}
         ]
       }
     </script>
     <style>
+
       :root {
         color-scheme: light dark;
         --bg: #f4f4f0;
@@ -139,6 +106,12 @@
         line-height: 1.2;
         margin: 0 0 0.75rem;
       }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
       .lede {
         color: var(--muted);
         margin: 0 0 1.5rem;
@@ -161,14 +134,15 @@
         padding: 1.15rem 1.2rem;
         margin: 0 0 0.85rem;
       }
-      .card h2 {
-        font-size: 1.05rem;
-        margin: 0 0 0.4rem;
-        font-weight: 600;
-        font-family: system-ui, -apple-system, sans-serif;
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
       }
-      .card p { margin: 0; color: var(--muted); }
-      .card .n {
+      .card li { margin: 0.25rem 0; }
+      .n {
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 0.7rem;
         letter-spacing: 0.12em;
@@ -204,21 +178,28 @@
         font-weight: 600;
       }
       .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
     </style>
   </head>
   <body>
     <header>
       <p class="brand"><span>Credenza</span><span class="sub">Fashion</span></p>
-      <h1>How Credenza works</h1>
+      <h1>Turn a Reddit haul into a shopping list</h1>
       <p class="lede">
-        One shelf for the whole haul: stash finds, decide size, keep QC context,
-        open Buy in your preferred shopping agent.
+        Haul posts bury links in comments. Credenza turns that paste into cards you can size and track.
       </p>
       <nav class="nav" aria-label="Site">
         <a href="/">Open app</a>
         <a href="/landing/">About</a>
-        <a href="/how/" aria-current="page">How it works</a>
-        <a href="/guides/">Guides</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
         <a href="/faq/">FAQ</a>
         <a href="/privacy/">Privacy</a>
         <a href="/terms/">Terms</a>
@@ -227,43 +208,30 @@
     </header>
     <main>
       <article class="card">
-        <span class="n">Step 1</span>
-        <h2>Stash the find</h2>
+        <span class="n">Problem</span>
+        <h2>Haul posts are not shopping lists</h2>
         <p>
-          Paste a Weidian, Taobao, or Yupoo link, or a line with photos + buy URLs.
-          Credenza keeps them on <strong>one card</strong> so you are not juggling tabs and a spreadsheet.
+          A useful haul post mixes stats, opinions, and raw marketplace links.
+          Copying into Notes loses structure. Re-finding the Weidian id later is slow.
         </p>
       </article>
       <article class="card">
-        <span class="n">Step 2</span>
-        <h2>See what you saved</h2>
-        <p>
-          Cover image, title, price, and seller in a quiet card. Flip for notes, status, and more photos.
-          The grid and the open card use the same mental model.
-        </p>
+        <span class="n">Steps</span>
+        <h2>From paste to cards</h2>
+        <ul>
+          <li>Copy the comment or OP block that holds the links.</li>
+          <li>In Credenza, use haul / Reddit paste (not a single-link stash if the block has many URLs).</li>
+          <li>Check each card: display name, buy link, photo album when present.</li>
+          <li>Drop items you will not buy. Keep notes that explain fit.</li>
+          <li>Size the keepers. Open Buy in your agent when ready.</li>
+        </ul>
       </article>
       <article class="card">
-        <span class="n">Step 3</span>
-        <h2>Size with confidence</h2>
+        <span class="n">Honest limit</span>
+        <h2>You still choose what to buy</h2>
         <p>
-          Save a body profile (inches or cm). When a size chart is available (including hip-only
-          臀围 sheets), Credenza recommends a size and shows why.
-        </p>
-      </article>
-      <article class="card">
-        <span class="n">Step 4</span>
-        <h2>Run the haul pipeline</h2>
-        <p>
-          Want → Bought → QC → GL / RL → Shipped. Status lives on the item so the active haul
-          stays legible when the warehouse photos land.
-        </p>
-      </article>
-      <article class="card">
-        <span class="n">Step 5</span>
-        <h2>Open Buy in your agent</h2>
-        <p>
-          Items store the <strong>canonical</strong> marketplace URL. At Buy time, Credenza opens
-          Superbuy, Sugargoo, Kakobuy, or your preferred agent. Purchases happen there, not inside Credenza.
+          Credenza does not rank “best batch” sellers and does not search a counterfeit catalog.
+          It structures links you already found in communities you already use.
         </p>
       </article>
 
@@ -271,12 +239,8 @@
         Credenza is a decision layer, not a marketplace and not a W2C search engine.
         You bring the links from communities and stores you already use.
       </p>
-
       <a class="cta" href="/">Open Credenza</a>
-      <p style="margin-top:1rem;font-size:0.95rem;color:var(--muted)">
-        Questions? See the <a href="/faq/">FAQ</a>
-        or the <a href="/guides/">guides</a>.
-      </p>
+      <p class="related">Related: <a href="/guides/organize-agent-haul/">Organize the haul</a><a href="/guides/weidian-size-chart/">Size charts</a><a href="/how/">How it works</a></p>
     </main>
     <footer>
       Credenza Fashion · agent haul planner.

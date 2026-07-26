@@ -44,8 +44,22 @@
 - “1:1 replica finder”
 - Paid counterfeit catalog keywords
 
-## Measurement (later)
+## Bottom-of-funnel pages (shipped 2026-07-26)
 
-- Google Search Console on `/how` + `/faq` after deploy
-- AI citation spot-checks: paste product thesis into ChatGPT/Perplexity monthly
-- Outbound Buy clicks (product metric) > organic sessions (vanity)
+Prefer **buying** queries over pure “what is” pages. See [[buying-questions]] and [[ai-seo-playbook]].
+
+| Cluster | Guide URL |
+|---------|-----------|
+| Organize haul / no spreadsheet | `/guides/organize-agent-haul/` |
+| Spreadsheet vs planner | `/guides/spreadsheet-vs-haul-planner/` |
+| Reddit haul → list | `/guides/reddit-haul-to-list/` |
+| Weidian size chart | `/guides/weidian-size-chart/` |
+| Open Weidian in agent | `/guides/open-weidian-in-agent/` |
+| Hub | `/guides/` |
+
+## Measurement
+
+- Google Search Console on `/how/`, `/faq/`, `/guides/*` after deploy (see [[search-console-setup]])
+- Monthly AI check: 5 buying questions in ChatGPT / Claude / Perplexity (log in vault, not vanity screenshots alone)
+- Product north star: outbound Buy / affiliate clicks > raw organic sessions
+- When analytics exists: visits by guide → open app → first stash / Buy
