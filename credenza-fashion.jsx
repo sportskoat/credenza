@@ -2961,6 +2961,53 @@ export async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) 
   }
 }
 
+// Fetch the seller's Product Details photos for a card that has none (Kyle
+// 2026-07-26: "the sizing charts are not picking up this 'by the way' link…
+// it's got that size chart right there in the product details of the
+// advertisement, but for whatever reason it doesn't want to pick it up").
+//
+// On Weidian the chart is usually NOT in the gallery. It lives in the
+// description feed, which resolve returns as descImages. Cards saved before
+// that shipped (b794602, 2026-07-25) — and cards whose resolve was skipped,
+// capped, offline, or failed — hold descImages: []. The hunt then scanned the
+// gallery, found nothing, and reported "No size chart on this listing" even
+// though the chart was one API call away.
+//
+// Re-resolving is cheap and idempotent: the same call the importer makes.
+// Returns a plain array of image URLs, empty when unavailable. Never throws.
+export async function fetchDescImages(item, { signal } = {}) {
+  if (!PREVIEW_SECRET) return [];
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return [];
+  if (overFreeLimit(planForLimits, "resolve")) return [];
+  const buyUrl = resolvableBuyUrl(item);
+  if (!buyUrl) return [];
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) return [];
+    signal.addEventListener("abort", abort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
+      method: "POST",
+      headers: await authHeaders({ "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET }),
+      body: JSON.stringify({ url: buyUrl }),
+      signal: controller.signal,
+    });
+    bumpUsage("resolve");
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || !Array.isArray(data.descImages)) return [];
+    return data.descImages.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u));
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", abort);
+  }
+}
+
 // A lone Reddit post URL (incl. /s/ share links and redd.it short links) —
 // the whole paste is just the URL. These auto-route to the haul path.
 const REDDIT_POST_URL_RE =

@@ -15,6 +15,7 @@
 // hunt without mocking the circular app module.
 import {
   fetchChartFromPhotos,
+  fetchDescImages,
   fetchYupooImages,
   parseSizeChart,
   yupooAlbumUrl,
@@ -137,6 +138,29 @@ export async function huntSizeChart(item, { signal } = {}) {
     });
     if (hit) {
       return { text: hit.text, source: { via: "gallery-photos", photos: hit.photos } };
+    }
+  }
+  // Last resort: the card holds NO description photos, so nothing above could
+  // read the seller's Product Details (Kyle 2026-07-26: "it's got that size
+  // chart right there in the product details of the advertisement, but for
+  // whatever reason it doesn't want to pick it up"). On Weidian the chart is
+  // usually there and not in the gallery. Cards saved before descImages
+  // shipped — and cards whose resolve was skipped, capped, or failed — carry
+  // an empty list, so the hunt was blind to the one place the chart was.
+  // Fetch the feed now, then scan it. Only runs when the list is EMPTY and
+  // everything else missed, so it costs one extra call on the cards that
+  // would otherwise report "No size chart on this listing".
+  if (!descPhotos.length && fetchDescImages) {
+    const fetched = await fetchDescImages(item, { signal });
+    if (signal && signal.aborted) return null;
+    const fresh = (fetched || []).filter(
+      (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !localPhotos.includes(src)
+    );
+    if (fresh.length) {
+      const hit = await visionWindows(fresh, { signal, referer: item.url || undefined });
+      if (hit) {
+        return { text: hit.text, source: { via: "desc-photos", photos: hit.photos } };
+      }
     }
   }
   return null;

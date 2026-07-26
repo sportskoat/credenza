@@ -6,11 +6,16 @@
 // with importOriginal do not apply reliably here).
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { visionMock, yupooMock } = vi.hoisted(() => ({ visionMock: vi.fn(), yupooMock: vi.fn() }));
+const { visionMock, yupooMock, descMock } = vi.hoisted(() => ({
+  visionMock: vi.fn(),
+  yupooMock: vi.fn(),
+  descMock: vi.fn(),
+}));
 
 vi.mock("../../credenza-fashion.jsx", () => ({
   fetchChartFromPhotos: visionMock,
   fetchYupooImages: yupooMock,
+  fetchDescImages: descMock,
   parseSizeChart: (text) => (/chest/i.test(text) ? { rows: [{ size: "M" }, { size: "L" }] } : null),
   yupooAlbumUrl: () => null,
 }));
@@ -33,6 +38,8 @@ function item(extra = {}) {
 beforeEach(() => {
   visionMock.mockReset();
   yupooMock.mockReset();
+  descMock.mockReset();
+  descMock.mockResolvedValue([]);
 });
 
 describe("huntSizeChart description-photo priority", () => {
@@ -88,5 +95,42 @@ describe("huntSizeChart description-photo priority", () => {
     expect(firstWindow[0]).toBe("https://si.geilicdn.com/main.jpg");
     expect(firstWindow).toContain("https://si.geilicdn.com/g-0.jpg");
     expect(firstWindow).toContain("https://si.geilicdn.com/g-1.jpg");
+  });
+});
+
+// Kyle 2026-07-26: "the sizing charts are not picking up this 'by the way'
+// link… it's got that size chart right there in the product details of the
+// advertisement, but for whatever reason it doesn't want to pick it up."
+// On Weidian the chart usually lives ONLY in the description feed. A card
+// saved before descImages shipped (b794602), or one whose resolve was
+// skipped/capped/failed, holds an empty list — so the hunt never saw the one
+// place the chart was, and reported "No size chart on this listing".
+describe("huntSizeChart re-fetches missing description photos", () => {
+  it("fetches Product Details when descImages is empty and everything else missed", async () => {
+    visionMock.mockResolvedValue(null); // gallery has no chart
+    descMock.mockResolvedValue([
+      "https://si.geilicdn.com/fetched-chart.jpg",
+      "https://si.geilicdn.com/fetched-2.jpg",
+    ]);
+    // The refetched window IS the chart.
+    visionMock.mockImplementation(async (urls) =>
+      (urls || []).includes("https://si.geilicdn.com/fetched-chart.jpg") ? CHART : null
+    );
+    const found = await huntSizeChart(item({ descImages: [] }));
+    expect(found).toEqual({ text: CHART, source: { via: "desc-photos", photos: 2 } });
+    expect(descMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("never re-fetches when the card already carries description photos", async () => {
+    visionMock.mockResolvedValue(null);
+    await huntSizeChart(item({ descImages: ["https://si.geilicdn.com/d-0.jpg"] }));
+    expect(descMock).not.toHaveBeenCalled();
+  });
+
+  it("stays null when the fetch returns nothing", async () => {
+    visionMock.mockResolvedValue(null);
+    descMock.mockResolvedValue([]);
+    const found = await huntSizeChart(item({ descImages: [] }));
+    expect(found).toBe(null);
   });
 });
