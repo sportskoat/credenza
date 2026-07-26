@@ -117,4 +117,14 @@ Set these on the site (all contexts):
       still answers while `REQUIRE_ACCOUNTS` is unset. **Flip
       `REQUIRE_ACCOUNTS=true` on Netlify after the 7g real-card test, then
       remove `VITE_CREDENZA_SEARCH_SECRET` from the build env.**)
-- [ ] 7g. Real-card test payment (the gate).
+- [ ] 7g. Real-card test payment (the gate). **Deferred 2026-07-26 — test later.**
+      Netlify env shape check **READY_FOR_DEPLOY**: `STRIPE_SECRET_KEY` (live
+      `sk_live_…`), `STRIPE_WEBHOOK_SECRET` (`whsec_…`), `STRIPE_PRICE_MONTHLY`
+      (`price_1TxaFB…f1aP` = $5/mo), `STRIPE_PRICE_YEARLY` (`price_1TxaFo…VFd5`
+      = $39/yr). Webhook endpoint active: Credenza Pro →
+      `https://credenzafashion.com/.netlify/functions/stripe-webhook` (6 events).
+      Customer portal enabled. **Before 7g:** redeploy so functions load env;
+      if the live secret was ever pasted in chat, roll it in Stripe and re-set
+      on Netlify in Terminal only. Prefer `sk_test_` + card `4242…` for a free
+      dry run; live key needs a real card. Do **not** set `REQUIRE_ACCOUNTS=true`
+      until 7g passes.
