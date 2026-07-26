@@ -371,9 +371,11 @@
   --cz-card-side: 0;
   flex: 0 0 auto;
   /* Desktop card: 30% larger (Kyle 2026-07-25) — 320x460 → 416x598.
-     The ≤480px media query below keeps the phone at 80vw x 440. */
-  width: min(72vw, 416px);
-  height: 598px;
+     Handoff turn 4 Fix A: cap raised to min(72vw,560) x min(86vh,820) —
+     416x598 clipped the detail back. The ≤480px media query below keeps
+     the phone at 80vw x 440. */
+  width: min(72vw, 560px);
+  height: min(86vh, 820px);
   margin: 0 -2.5vw;
   transform-style: preserve-3d;
   user-select: none;
@@ -2282,8 +2284,8 @@ a.cz-seller-quiet:focus-visible {
   position: relative;
   display: block;
   width: 100%;
-  /* Card 598 + 30px slack top/bottom (was 520 for the 460 card). */
-  height: 658px;
+  /* Card min(86vh,820) + 30px slack top/bottom (was 658 for the 598 card). */
+  height: min(calc(86vh + 60px), 880px);
   min-height: auto;
   margin: 0;
   padding: 0;
@@ -2296,8 +2298,9 @@ a.cz-seller-quiet:focus-visible {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(72vw, 416px);
-  height: 598px;
+  /* Fix A cap (matches the base rule above): min(72vw,560) x min(86vh,820). */
+  width: min(72vw, 560px);
+  height: min(86vh, 820px);
   margin: 0;
   scroll-snap-align: unset;
   transform: translate(-50%, -50%);
@@ -2323,14 +2326,16 @@ a.cz-seller-quiet:focus-visible {
 
 /* Solo grid-tap overlay: the card renders 15% smaller than the rack card
    (Kyle 2026-07-25). Matches the sizeScale={0.85} JS mirror — the JS owns
-   the centering margins, so these numbers must stay in sync with it. */
+   the centering margins, so these numbers must stay in sync with it.
+   Fix A rack cap min(72vw,560) x min(86vh,820) → overlay min(61.2vw,476)
+   x min(73.1vh,697). */
 .cz-carousel-overlay .cz-carousel-card {
-  width: min(61.2vw, 353.6px);
-  height: 508.3px;
+  width: min(61.2vw, 476px);
+  height: min(73.1vh, 697px);
 }
 
 .cz-carousel-overlay .cz-carousel-track {
-  height: 559.3px;
+  height: min(calc(73.1vh + 51px), 748px);
 }
 
 @media (prefers-reduced-motion: reduce) {

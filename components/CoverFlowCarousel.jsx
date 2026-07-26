@@ -676,7 +676,7 @@ export default function CoverFlowCarousel({
   const containerRef = useRef(null);
   const [activeIndex, setActiveIndexState] = useState(0);
   const activeIndexRef = useRef(0);
-  const [cardSize, setCardSize] = useState({ width: 416 * sizeScale, height: 598 * sizeScale });
+  const [cardSize, setCardSize] = useState({ width: 560 * sizeScale, height: 820 * sizeScale });
   const reduced = usePrefersReducedMotion();
   const wheelAcc = useRef(0);
   const wheelTimer = useRef(null);
