@@ -26,21 +26,73 @@ export function SellerLink({ item, className = "cz-seller-link", style }) {
   );
 }
 
-// Yupoo full album — quiet hyperlink under the seller (card back). Not an
-// action button: Kyle 2026-07-22 killed "More Photos" chrome in the Buy row.
-export function AlbumLink({ item, className = "cz-album-quiet", style }) {
-  const href = item ? yupooAlbumUrl(item) : null;
-  if (!href) return null;
+// Hosts whose item page doubles as the photo gallery, named for the album
+// link (handoff turn 3 §3: "Non-Yupoo hosts name themselves").
+const ALBUM_HOST_NAMES = {
+  "weidian.com": "Weidian",
+  "taobao.com": "Taobao",
+  "tmall.com": "Tmall",
+  "1688.com": "1688",
+};
+
+function albumHostName(raw) {
+  try {
+    const host = new URL(raw).hostname.replace(/^www\./, "").toLowerCase();
+    for (const key of Object.keys(ALBUM_HOST_NAMES)) {
+      if (host === key || host.endsWith("." + key)) return ALBUM_HOST_NAMES[key];
+    }
+  } catch {
+    /* not a URL */
+  }
+  return null;
+}
+
+// Where the card's album link points and what it says. Yupoo items open the
+// full album; other known hosts open the listing's own gallery page. The
+// count is the real fetched gallery size — shown only when more than one
+// photo is known, so the label never lies about a lazy gallery. tight=true
+// is the short wording for narrow slots (thumb-strip tile).
+export function albumLinkTarget(item, { tight = false } = {}) {
+  if (!item) return null;
+  const known = Array.isArray(item.gallery) ? item.gallery.length : 0;
+  const count = known > 1 ? " · " + known + " photos" : "";
+  const yupoo = yupooAlbumUrl(item);
+  if (yupoo) {
+    return { href: yupoo, label: (tight ? "Album" : "View album") + count };
+  }
+  const name = item.url ? albumHostName(item.url) : null;
+  if (!name) return null;
+  return { href: item.url, label: name + " gallery" + count };
+}
+
+// Album link on the card front (handoff turn 3 §3): --cz-link blue, ~50%
+// underline, stacked-photos glyph — the only blue on the card. MUST mount as
+// a sibling of the card's open button, never inside it: the card face is one
+// <button> and a nested <a> is invalid HTML.
+export function AlbumLink({ item, tight = false, className = "cz-album-link", style }) {
+  const target = albumLinkTarget(item, { tight });
+  if (!target) return null;
   return (
     <a
-      href={href}
+      href={target.href}
       target="_blank"
       rel="noopener noreferrer"
       className={className}
       style={style}
       onClick={(e) => e.stopPropagation()}
     >
-      Full Album
+      <svg
+        className="cz-album-glyph"
+        width="11"
+        height="11"
+        viewBox="0 0 12 12"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <rect x="3.5" y="0.8" width="7.7" height="7.7" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+        <rect x="0.8" y="3.5" width="7.7" height="7.7" rx="1.6" fill="var(--cz-card-solid, #fff)" stroke="currentColor" strokeWidth="1.3" />
+      </svg>
+      <span className="cz-album-label">{target.label}</span>
     </a>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from "../credenza-fashion.jsx";
 import { CoverImage } from "./CardCover.jsx";
 import CardFrontInfo from "./CardFrontInfo.jsx";
+import { AlbumLink } from "./CardMetaLinks.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 
 // ═══ GRID CARD (editorial front — design handoff 2a/2b) ═══
@@ -36,12 +37,10 @@ export default function Card({
       id={"card-" + item.id}
       className="cz-editorial-card"
       aria-current={selected ? "true" : undefined}
-      style={{ height: "100%" }}
     >
       <div
         className={
-          "cz-card cz-card-editorial" +
-          (phone ? " cz-card-twoline" : "") +
+          "cz-card cz-card-editorial cz-card-twoline" +
           (selected ? " is-selected" : "")
         }
         style={{
@@ -55,7 +54,6 @@ export default function Card({
           display: "grid",
           position: "relative",
           transition: reduced ? "none" : "border-color .2s, box-shadow .2s, transform .2s",
-          height: "100%",
         }}
       >
         <div className="cz-card-body">
@@ -115,33 +113,39 @@ export default function Card({
           </div>
 
           {/* Mouse-only duplicate of the open action (click the title/meta to
-              open). Keyboard + AT use the photo button above — one tab stop. */}
-          <button
-            type="button"
-            className="cz-card-toggle"
-            tabIndex={-1}
-            aria-hidden="true"
-            onClick={onToggle}
-            style={{
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              padding: 0,
-              margin: 0,
-              background: "transparent",
-              border: 0,
-              cursor: "pointer",
-            }}
-          >
-            <div className="cz-card-title cz-card-title-serif">{item.title}</div>
-            <CardFrontInfo
-              item={item}
-              bodyProfile={bodyProfile}
-              fitPrefs={fitPrefs}
-              linkSeller={false}
-              layout={phone ? "row" : "stack"}
-            />
-          </button>
+              open). Keyboard + AT use the photo button above — one tab stop.
+              The AlbumLink is a SIBLING of this button, never a child: a
+              nested <a> inside the card's one <button> is invalid HTML
+              (handoff turn 3 §3). */}
+          <div className="cz-card-text">
+            <button
+              type="button"
+              className="cz-card-toggle"
+              tabIndex={-1}
+              aria-hidden="true"
+              onClick={onToggle}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: 0,
+                margin: 0,
+                background: "transparent",
+                border: 0,
+                cursor: "pointer",
+              }}
+            >
+              <div className="cz-card-title cz-card-title-serif">{item.title}</div>
+              <CardFrontInfo
+                item={item}
+                bodyProfile={bodyProfile}
+                fitPrefs={fitPrefs}
+                linkSeller={false}
+                layout="row"
+              />
+            </button>
+            <AlbumLink item={item} />
+          </div>
         </div>
       </div>
     </article>

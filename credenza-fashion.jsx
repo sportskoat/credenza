@@ -138,6 +138,9 @@ const PALETTES = {
     // Money green that has to sit on a photo or on the dark action fill.
     // #15803d disappears against both (mobile handoff step 5/6).
     "--cz-money-on-photo": "#7ee2a8",
+    // The ONE blue on a card: the album link (handoff turn 3 §3).
+    "--cz-link": "#1d5fd0",
+    "--cz-link-on-photo": "#cfe0ff",
     // Status track tints (mobile handoff step 6). Bought = blue, shipped =
     // violet, QC = amber. Each pair is bg + text at >= 4.5:1.
     "--cz-status-bought-bg": "oklch(0.93 0.045 250)",
@@ -194,6 +197,9 @@ const PALETTES = {
     // Blackout inverts the action fill to near-white, so the "on fill" money
     // has to go DARK here. Same token, opposite end of the ramp.
     "--cz-money-on-photo": "#137a3a",
+    // The ONE blue on a card: the album link (handoff turn 3 §3).
+    "--cz-link": "#7fb2ff",
+    "--cz-link-on-photo": "#cfe0ff",
     "--cz-status-bought-bg": "oklch(0.30 0.06 250)",
     "--cz-status-bought-text": "oklch(0.84 0.10 250)",
     "--cz-status-shipped-bg": "oklch(0.30 0.06 290)",
@@ -3220,17 +3226,17 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
   return rec && rec.size ? String(rec.size).trim() : null;
 }
 
-// Card face / grid size line (Kyle 2026-07-22):
-//   chosen only     →  SIZE: LARGE
-//   rec only        →  SIZE: MEDIUM          (isRec)
-//   both, same      →  SIZE: LARGE
-//   both, differ    →  SIZE: LARGE (Rec M)
-// 2026-07-23 (Kyle): no chart on the item → no true rec, so most cards showed
-// nothing. Fall back to the profile's usual size tagged EST — visible on
-// every garment card, never reads as measured. A size set in Edit always
-// wins over any rec.
+// Card face / grid size line (handoff turn 3 §4): the LABEL says who decided.
+//   user set it in Edit        →  SIZE        --cz-sub label, plain; always wins
+//   chart found and read       →  AI SIZE     --cz-money label, 700 shimmer value
+//   chart, estimated profile   →  AI SIZE ?   amber hedge — honest, not silence
+//   no chart, profile usual    →  YOUR USUAL  --cz-faint label, plain, NO shimmer
+// "(EST)" is retired: it read like an estimated price. Returns { label,
+// value, kind } plus the legacy fields (text, isRec, isEstimate, size, rec)
+// that DetailBody and the frozen carousel front still read.
 export function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
-  if (!item) return { text: "", isRec: false };
+  const NONE = { text: "", isRec: false, label: "", value: "", kind: "none" };
+  if (!item) return NONE;
   const chosen = String(item.size || "").trim();
   const rec = computeRecommendedSize(item, bodyProfile, fitPrefs);
   if (!chosen && !rec) {
@@ -3252,32 +3258,61 @@ export function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
         ).trim()
       : "";
     if (usual) {
+      const v = formatSizeToken(usual) || usual;
       return {
-        text: "SIZE: " + formatSizeToken(usual) + " (EST)",
-        isRec: true,
+        label: "YOUR USUAL",
+        value: v,
+        kind: "usual",
+        text: "YOUR USUAL " + v,
+        // Not a recommendation: no shimmer (turn 3 §4).
+        isRec: false,
         isEstimate: true,
         size: usual,
       };
     }
-    return { text: "", isRec: false };
+    return NONE;
   }
 
-  if (chosen && rec) {
-    const same = chosen.toLowerCase() === rec.toLowerCase();
-    if (same) {
-      return { text: "SIZE: " + formatSizeToken(chosen), isRec: true, size: chosen, rec };
-    }
+  // A size set in Edit always wins over any rec — plain SIZE treatment.
+  if (chosen) {
+    const v = formatSizeToken(chosen) || chosen;
+    const differs = rec && rec.toLowerCase() !== chosen.toLowerCase();
     return {
-      text: "SIZE: " + formatSizeToken(chosen) + " (Rec " + rec.toUpperCase() + ")",
-      isRec: true,
+      label: "SIZE",
+      value: v,
+      kind: "user",
+      text: "SIZE: " + v + (differs ? " (Rec " + rec.toUpperCase() + ")" : ""),
+      isRec: false,
       size: chosen,
+      rec: rec || undefined,
+    };
+  }
+
+  const v = formatSizeToken(rec) || rec;
+  // Estimated profile (BMI-derived measurements) hedges the pick with "?".
+  const estimated = !!(
+    bodyProfile && effectiveBodyProfile(bodyProfile).estimated
+  );
+  if (estimated) {
+    return {
+      label: "AI SIZE",
+      value: v + " ?",
+      kind: "hedge",
+      text: "AI SIZE " + v + " ?",
+      isRec: true,
+      size: rec,
       rec,
     };
   }
-  if (chosen) {
-    return { text: "SIZE: " + formatSizeToken(chosen), isRec: false, size: chosen };
-  }
-  return { text: "SIZE: " + formatSizeToken(rec), isRec: true, size: rec, rec };
+  return {
+    label: "AI SIZE",
+    value: v,
+    kind: "rec",
+    text: "AI SIZE " + v,
+    isRec: true,
+    size: rec,
+    rec,
+  };
 }
 
 // Size options: listing variants first, then common apparel/shoe sizes.

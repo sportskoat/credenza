@@ -658,26 +658,59 @@
 
 /* Unified card-front info lines — grid card + carousel front read the same
    (Kyle 2026-07-23): AI size between title and seller, seller, green USD
-   price. Reserved min-heights keep Buy/Flip on one baseline across cards. */
+   price. No reserved min-heights (handoff turn 3 §1): the grid card renders
+   nothing for a missing field and lets row bottoms go ragged. The frozen
+   carousel front keeps its blank lines via the &nbsp; spans in
+   CardFrontInfo's stack layout. */
 .cz-front-size {
   margin: 0 0 2px;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
   line-height: 1.25;
-  min-height: 1.25em;
   color: color-mix(in srgb, var(--cz-ink) 70%, transparent);
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cz-front-size-text.is-rec {
-  font-weight: 650;
-  color: color-mix(in srgb, var(--cz-ink) 78%, var(--cz-money, #4ade80) 22%);
+/* Size LABEL + VALUE (handoff turn 3 §4): the label says who decided.
+   Label is 8.5px mono 700 at .1em; the value inherits the line's size
+   (12.5px desktop / 11.5px phone on the grid card). */
+.cz-front-size-label {
+  margin-right: 5px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  vertical-align: 0.08em;
+}
+.cz-front-size-label.kind-rec {
+  color: var(--cz-money);
+}
+/* Amber hedge: the theme's QC amber pair (light ≈ the handoff's #a16207),
+   so Blackout gets the light end of the ramp. */
+.cz-front-size-label.kind-hedge,
+.cz-front-size-value.kind-hedge {
+  color: var(--cz-status-qc-text);
+}
+.cz-front-size-label.kind-usual {
+  color: var(--cz-faint);
+}
+.cz-front-size-label.kind-user {
+  color: var(--cz-sub);
+}
+.cz-front-size-value {
+  font-weight: 600;
+}
+.cz-front-size-value.kind-rec {
+  font-weight: 700;
 }
 /* AI rec shimmer: keep the money-tinted base, sweep a money highlight so the
-   AI suggestion reads as "live" without shouting. */
-.cz-front-size-text.is-rec.t-shimmer {
+   AI suggestion reads as "live" without shouting. Only kind="rec" shimmers —
+   YOUR USUAL and the amber hedge are plain on purpose. */
+.cz-front-size-value.is-rec {
+  color: color-mix(in srgb, var(--cz-ink) 78%, var(--cz-money, #4ade80) 22%);
+}
+.cz-front-size-value.is-rec.t-shimmer {
   --shimmer-base: color-mix(in srgb, var(--cz-ink) 78%, var(--cz-money, #4ade80) 22%);
   --shimmer-highlight: var(--cz-money, #4ade80);
 }
@@ -686,7 +719,6 @@
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
   line-height: 1.25;
-  min-height: 1.25em;
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
@@ -698,7 +730,6 @@
   font-size: 13px;
   font-weight: 600;
   line-height: 1.25;
-  min-height: 1.25em;
   color: var(--cz-money);
 }
 /* Grid card pads via its own 14px rhythm (the carousel front-meta pads 16px). */
@@ -824,6 +855,36 @@
 .cz-album-quiet:hover {
   color: var(--cz-ink);
   text-decoration-color: var(--cz-ink);
+}
+
+/* Album link on the card front (handoff turn 3 §3): the ONLY blue on the
+   card, underlined at ~50% alpha, stacked-photos glyph before the label. */
+.cz-album-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-self: start;
+  max-width: 100%;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  color: var(--cz-link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--cz-link) 50%, transparent);
+  text-underline-offset: 2px;
+}
+.cz-album-link:hover {
+  text-decoration-color: var(--cz-link);
+}
+.cz-album-link .cz-album-glyph {
+  flex: 0 0 auto;
+}
+.cz-album-link .cz-album-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* SellerLink without a store URL renders as plain text, not a link — so no
@@ -4922,7 +4983,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   /* Tight top so meta sits near the card edge, photo closer underneath. */
   padding: 6px 12px 14px;
   min-width: 0;
-  height: 100%;
+  /* No height:100% (handoff turn 3 §1): the card takes its natural height
+     and row bottoms go ragged instead of the price sinking to the floor. */
   box-sizing: border-box;
 }
 
@@ -7997,12 +8059,14 @@ a.cz-card-seller:hover {
   }
 }
 
-/* ═══ MOBILE SHELF HANDOFF (2026-07-25) — step 2: two-line card ═══
-   Phone-only. `.cz-card-twoline` is added by Card when phone=true, so the
-   desktop grid card and the frozen carousel front keep the stacked layout.
+/* ═══ MOBILE SHELF HANDOFF (2026-07-25) — two-line card, ALL widths ═══
+   Turn 3 §2: desktop and phone use the SAME layout. `.cz-card-twoline` is
+   unconditional in Card.jsx; every structural rule lives here in the base
+   block. Only the type scale stays inside the phone media query below.
    Size + price share one baseline row (`.cz-front-meta-row`), the photo goes
-   flush to the card edge, and the hover Buy pill is gone. Card height falls
-   from ~340px to ~293px at a 175px column. */
+   flush to the card edge, and the text block packs with a grid gap — missing
+   fields render nothing, so row bottoms go ragged by design (turn 3 §1).
+   The frozen carousel front keeps `layout="stack"` and is untouched. */
 
 /* Meta row: size left, price right, one shared baseline. */
 .cz-front-meta-row {
@@ -8019,110 +8083,148 @@ a.cz-card-seller:hover {
 }
 .cz-front-meta-row .cz-front-price {
   flex: 0 0 auto;
+  /* Right-aligns the price even when the size line is missing. */
+  margin-left: auto;
   white-space: nowrap;
 }
 
+/* 14px radius + a lighter lift: the 16px/6px pair read heavy once the card
+   lost 47px of height. */
+/* !important on the shadow: Card sets it inline. The selected ring keeps
+   its own inline shadow, so exclude `.is-selected`. */
+.cz-card-editorial.cz-card-twoline {
+  border-radius: 14px !important;
+}
+.cz-card-editorial.cz-card-twoline:not(.is-selected) {
+  box-shadow: 0 4px 12px rgba(23, 24, 26, 0.05) !important;
+}
+
+/* Photo flush to the card edge — the old 6/12/14 padding framed it. */
+.cz-card-twoline .cz-card-body {
+  padding: 0;
+}
+.cz-card-twoline .cz-card-photo {
+  margin-bottom: 0;
+}
+
+/* Text block: one grid rhythm for title, meta row, seller and the album
+   link. The open button holds the title + info lines; the AlbumLink is its
+   sibling (handoff turn 3 §3 — a nested <a> in a <button> is invalid).
+   !important on the toggle because Card sets display inline. */
+.cz-card-twoline .cz-card-text {
+  display: grid;
+  gap: 5px;
+  padding: 12px 13px 13px;
+}
+.cz-card-twoline .cz-card-text .cz-card-toggle {
+  display: grid !important;
+  gap: 5px;
+}
+
+.cz-card-twoline .cz-card-title-serif {
+  font-size: 16px !important;
+  letter-spacing: -0.01em !important;
+  padding: 0 !important;
+  /* No reserved two-line height (turn 3 §1): a one-line title leaves the
+     block open and reads as a blank line. Ragged bottoms win. */
+  min-height: 0 !important;
+  margin: 0;
+}
+
+.cz-card-twoline .cz-front-size,
+.cz-card-twoline .cz-front-seller,
+.cz-card-twoline .cz-front-price {
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+}
+.cz-card-twoline .cz-front-size {
+  font-size: 12.5px;
+  color: var(--cz-sub);
+}
+.cz-card-twoline .cz-front-price {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+/* QW3 floor: --cz-faint is the lightest allowed here. Do not go lighter. */
+.cz-card-twoline .cz-front-seller {
+  font-size: 11px;
+  color: var(--cz-faint);
+}
+.cz-card-twoline .cz-front-seller .cz-seller-link.is-text {
+  color: inherit;
+}
+
+/* Heart: glass puck against the photo. QW1 grows the hit area to 44px
+   on coarse pointers, so the visible puck can stay small. */
+/* Doubled class beats the `pointer: coarse` 44px min-width/height above —
+   the drawn puck is small and QW1's ::after ring carries the 44px target. */
+.cz-card-twoline .cz-card-favorite-onphoto.cz-card-favorite-onphoto {
+  top: 8px !important;
+  right: 8px !important;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 999px;
+  /* Opaque, theme-aware — the 86%-white glass let the photo under the puck
+     set the heart's background, and the like red measured 2.12:1 over a
+     mid-tone cover (floor is 3:1). On the card solid the red holds 4.7:1
+     on Gallery and 3.9:1 on Blackout. */
+  background: var(--cz-card-solid);
+  /* Off state only — `.t-like[data-liked="true"] .t-like-heart` already
+     paints the on state with --cz-like. */
+  color: var(--cz-faint);
+  filter: none;
+}
+/* QW1: the base ring is -3px for a 38px button. A small puck needs -5px to
+   reach the 44px floor. */
+.cz-card-twoline .cz-card-favorite-onphoto::after {
+  inset: -5px;
+}
+
+/* Status chip sits on the bottom-left corner of the photo. StatusPill
+   already returns null for "want", so no extra condition is needed. */
+.cz-card-twoline .cz-card-status {
+  top: auto;
+  left: 8px;
+  bottom: 8px;
+}
+/* StatusPill puts .cz-card-status ON the pill — same element, not a wrapper. */
+.cz-card-twoline .cz-card-status.cz-status-pill {
+  font-size: 9px;
+  padding: 4px 8px;
+}
+
+/* Phone type scale (turn 3 §2 table) — the ONLY layout difference left. */
 @media (max-width: 767px) {
-  /* 14px radius + a lighter lift: the 16px/6px pair read heavy once the card
-     lost 47px of height. */
-  /* !important on the shadow: Card sets it inline. The selected ring keeps
-     its own inline shadow, so exclude `.is-selected`. */
-  .cz-card-editorial.cz-card-twoline {
-    border-radius: 14px !important;
-  }
-  .cz-card-editorial.cz-card-twoline:not(.is-selected) {
-    box-shadow: 0 4px 12px rgba(23, 24, 26, 0.05) !important;
-  }
-
-  /* Photo flush to the card edge — the old 6/12/14 padding framed it. */
-  .cz-card-twoline .cz-card-body {
-    padding: 0;
-  }
-  .cz-card-twoline .cz-card-photo {
-    margin-bottom: 0;
-  }
-
-  /* Text block: one 4px rhythm for title, meta row and seller. The photo
-     button is nested in .cz-card-photo, so the text button follows THAT.
-     !important because Card sets display and padding inline. */
-  .cz-card-twoline .cz-card-photo + .cz-card-toggle {
-    display: grid !important;
+  .cz-card-twoline .cz-card-text {
     gap: 4px;
-    padding: 10px 11px 11px !important;
+    padding: 10px 11px 11px;
   }
-
+  .cz-card-twoline .cz-card-text .cz-card-toggle {
+    gap: 4px;
+  }
   .cz-card-twoline .cz-card-title-serif {
     font-size: 14.5px !important;
-    letter-spacing: -0.01em !important;
-    padding: 0 !important;
-    /* Two lines reserved so every card in a row shares the meta baseline. */
-    min-height: 2.5em !important;
-    margin: 0;
-  }
-
-  .cz-card-twoline .cz-front-size,
-  .cz-card-twoline .cz-front-seller,
-  .cz-card-twoline .cz-front-price {
-    padding: 0;
-    margin: 0;
-    min-height: 0;
   }
   .cz-card-twoline .cz-front-size {
-    font-size: 10.5px;
-    color: var(--cz-sub);
+    font-size: 11.5px;
   }
   .cz-card-twoline .cz-front-price {
     font-size: 13px;
-    font-weight: 700;
   }
-  /* QW3 floor: --cz-faint is the lightest allowed here. Do not go lighter. */
   .cz-card-twoline .cz-front-seller {
     font-size: 10px;
-    color: var(--cz-faint);
   }
-  .cz-card-twoline .cz-front-seller .cz-seller-link.is-text {
-    color: inherit;
+  .cz-card-twoline .cz-album-link {
+    font-size: 10px;
   }
-
-  /* Heart: 34px glass puck against the photo. QW1 grows the hit area to 44px
-     on coarse pointers, so the visible puck can stay small. */
-  /* Doubled class beats the `pointer: coarse` 44px min-width/height above —
-     the drawn puck is 34px and QW1's ::after ring carries the 44px target. */
   .cz-card-twoline .cz-card-favorite-onphoto.cz-card-favorite-onphoto {
-    top: 8px !important;
-    right: 8px !important;
     width: 34px;
     height: 34px;
     min-width: 34px;
     min-height: 34px;
-    border-radius: 999px;
-    /* Opaque, theme-aware — the 86%-white glass let the photo under the puck
-       set the heart's background, and the like red measured 2.12:1 over a
-       mid-tone cover (floor is 3:1). On the card solid the red holds 4.7:1
-       on Gallery and 3.9:1 on Blackout. */
-    background: var(--cz-card-solid);
-    /* Off state only — `.t-like[data-liked="true"] .t-like-heart` already
-       paints the on state with --cz-like. */
-    color: var(--cz-faint);
-    filter: none;
-  }
-  /* QW1: the base ring is -3px for a 38px button. A 34px puck needs -5px to
-     reach the 44px floor. */
-  .cz-card-twoline .cz-card-favorite-onphoto::after {
-    inset: -5px;
-  }
-
-  /* Status chip moves to the bottom-left corner of the photo. StatusPill
-     already returns null for "want", so no extra condition is needed. */
-  .cz-card-twoline .cz-card-status {
-    top: auto;
-    left: 8px;
-    bottom: 8px;
-  }
-  /* StatusPill puts .cz-card-status ON the pill — same element, not a wrapper. */
-  .cz-card-twoline .cz-card-status.cz-status-pill {
-    font-size: 9px;
-    padding: 4px 8px;
   }
 }
 
