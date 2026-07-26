@@ -20,6 +20,7 @@ import {
   recommendSize,
   resolveDisplaySize,
   sizeChartTextFor,
+  usualSizeForItem,
   useWriteThroughDraft,
   usePrefersReducedMotion,
   SIZE_PICK_SKIP_CATEGORIES,
@@ -27,6 +28,7 @@ import {
 import { huntSizeChart } from "./size-chart-hunt.js";
 import SizeChartTable from "./SizeChartTable.jsx";
 import { albumLinkTarget } from "./CardMetaLinks.jsx";
+import { CoverPlaceholder } from "./CardCover.jsx";
 import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
@@ -77,50 +79,6 @@ function specCells(item, view, sizeText) {
 // it never invents a pick.
 function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, onDone, onSaveEdit }) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
-  // Height+weight estimates fill the tape-measure gaps — flagged estimated
-  // so the badge never claims a precise fit it does not have.
-  const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
-  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
-  const recSize = rec && rec.size ? rec.size : null;
-  // Only an ESTIMATED deciding measurement hedges the pick. A real chest with
-  // an estimated waist still earns the money chip on a shirt — the "~" and
-  // the badge follow the measurement the pick was read from (rec.primaryKey).
-  const decidingEstimated = !!(
-    profile &&
-    profile.estimated &&
-    rec &&
-    rec.primaryKey &&
-    (!bodyProfile || bodyProfile[rec.primaryKey] == null)
-  );
-  const precise = !!(recSize && rec.garment != null && rec.body != null) && !decidingEstimated;
-  const chartRunValues = chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
-  // Listing Size axis (Weidian variants) when no chart text yet — show run chips.
-  const variantValues = pickSizeValuesFromVariants(item.variants);
-  const variantRun = pickSizeRunFromVariants(item.variants);
-  const runValues = chartRunValues.length ? chartRunValues : variantValues;
-  // The fit-summary pref gates the sentence.
-  const { summary: fitSummaryOn } = fitDisplayPrefs();
-  const prescription = recSize && fitSummaryOn
-    ? prescriptionSentence(chart, rec, { units, category: item.category })
-    : "";
-  // Provenance footer (turn 3 §5): where the chart came from, when, and a
-  // See album link. Items whose chart predates the hunt tag get the plain
-  // line — the footer never invents a photo count.
-  const albumTarget = albumLinkTarget(item);
-  const source = item.sizeChartSource && typeof item.sizeChartSource === "object" ? item.sizeChartSource : null;
-  const SOURCE_LINES = {
-    "album-text": "Chart read from the seller's album page",
-    "album-photos": "Chart read from " + (source ? source.photos : 0) + " album photos",
-    "desc-photos": "Chart read from " + (source ? source.photos : 0) + " listing photos",
-    "gallery-photos": "Chart read from " + (source ? source.photos : 0) + " gallery photos",
-  };
-  const sourceLine = source && SOURCE_LINES[source.via]
-    ? SOURCE_LINES[source.via] +
-      (source.at
-        ? " · " + new Date(source.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-        : "")
-    : "Chart from the seller's listing";
-
   // Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
   // SIZES" — charts never arrived because the old hunt died with the desktop
   // panel). Opening the fit block with no chart hunts once: Yupoo album
@@ -156,37 +114,93 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
     };
   }, [chart, item, onSaveEdit]);
 
+  // Height+weight estimates fill the tape-measure gaps — flagged estimated
+  // so the badge never claims a precise fit it does not have.
+  const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
+  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
+  const recSize = rec && rec.size ? rec.size : null;
+  // Body prefs alone never invent a chart pick. When the listing has no
+  // parseable chart, surface the customer's usual size for this slot
+  // (Kyle 2026-07-25: saving measurements still showed "No recommendation"
+  // and promoted the raw S–2XL run as the hero).
+  const usualSize = !recSize ? usualSizeForItem(item, bodyProfile) : "";
+  // Only an ESTIMATED deciding measurement hedges the pick. A real chest with
+  // an estimated waist still earns the money chip on a shirt — the "~" and
+  // the badge follow the measurement the pick was read from (rec.primaryKey).
+  const decidingEstimated = !!(
+    profile &&
+    profile.estimated &&
+    rec &&
+    rec.primaryKey &&
+    (!bodyProfile || bodyProfile[rec.primaryKey] == null)
+  );
+  const precise = !!(recSize && rec.garment != null && rec.body != null) && !decidingEstimated;
+  const chartRunValues = chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
+  // Listing Size axis (Weidian variants) when no chart text yet — show run chips.
+  const variantValues = pickSizeValuesFromVariants(item.variants);
+  const variantRun = pickSizeRunFromVariants(item.variants);
+  const runValues = chartRunValues.length ? chartRunValues : variantValues;
+  const heroSize = recSize || usualSize || null;
+  const badgeLabel = hunting
+    ? "Looking for chart"
+    : precise
+      ? "Read from the seller's chart"
+      : recSize
+        ? "Best guess"
+        : usualSize
+          ? "Your usual size"
+          : "No recommendation";
+  const kickerLabel = recSize ? "We recommend" : usualSize ? "Your usual" : "Size run";
+  // The fit-summary pref gates the sentence.
+  const { summary: fitSummaryOn } = fitDisplayPrefs();
+  const prescription = recSize && fitSummaryOn
+    ? prescriptionSentence(chart, rec, { units, category: item.category })
+    : "";
+  // Provenance footer (turn 3 §5): where the chart came from, when, and a
+  // See album link. Items whose chart predates the hunt tag get the plain
+  // line — the footer never invents a photo count.
+  const albumTarget = albumLinkTarget(item);
+  const source = item.sizeChartSource && typeof item.sizeChartSource === "object" ? item.sizeChartSource : null;
+  const SOURCE_LINES = {
+    "album-text": "Chart read from the seller's album page",
+    "album-photos": "Chart read from " + (source ? source.photos : 0) + " album photos",
+    "desc-photos": "Chart read from " + (source ? source.photos : 0) + " listing photos",
+    "gallery-photos": "Chart read from " + (source ? source.photos : 0) + " gallery photos",
+  };
+  const sourceLine = source && SOURCE_LINES[source.via]
+    ? SOURCE_LINES[source.via] +
+      (source.at
+        ? " · " + new Date(source.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        : "")
+    : "Chart from the seller's listing";
+
   return (
     <div className="cz-detail-fit">
       <div className="cz-detail-fit-head">
-        <span className="cz-detail-fit-kicker">
-          {recSize ? "We recommend" : "Size run"}
-        </span>
+        <span className="cz-detail-fit-kicker">{kickerLabel}</span>
         <span className={"cz-detail-fit-badge" + (precise ? " is-precise" : "")}>
           <span className="cz-detail-fit-badge-dot" aria-hidden="true" />
-          {precise
-            ? "Read from the seller's chart"
-            : recSize
-              ? "Best guess"
-              : "No recommendation"}
+          {badgeLabel}
         </span>
       </div>
 
-      {recSize ? (
-        <div className="cz-detail-fit-size">{formatSizeToken(recSize) || recSize}</div>
-      ) : variantRun && !hunting ? (
-        <div className="cz-detail-fit-size">{variantRun}</div>
+      {heroSize && !hunting ? (
+        <div className="cz-detail-fit-size">{formatSizeToken(heroSize) || heroSize}</div>
+      ) : hunting ? (
+        <p className="cz-detail-fit-empty">Looking for the seller's size chart…</p>
       ) : (
         <p className="cz-detail-fit-empty">
-          {hunting
-            ? "Looking for the seller's size chart…"
-            : bodyProfile
-            ? bodyProfile.usualTops || bodyProfile.usualBottoms || bodyProfile.usualShoes || bodyProfile.usualSize
-              ? "No size chart on this listing — the card shows your usual size."
-              : "No size chart on this listing. Add your usual sizes in My sizes for an estimate."
-            : "Set my sizes to get a recommendation."}
+          {!bodyProfile
+            ? "Set my sizes to get a recommendation."
+            : "No size chart on this listing. Add your usual tops, bottoms, or shoes in My sizes."}
         </p>
       )}
+
+      {!recSize && !hunting && usualSize && variantRun ? (
+        <p className="cz-detail-fit-why">
+          Seller run {variantRun}. AI sizing needs the chart photo on this listing.
+        </p>
+      ) : null}
 
       {prescription ? <p className="cz-detail-fit-why">{prescription}</p> : null}
 
@@ -239,7 +253,7 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
 
       <div className="cz-detail-fit-label">Override</div>
       <div className="cz-detail-fit-chips">
-        {chipSizes(runValues, recSize || item.size).map((size) => (
+        {chipSizes(runValues, heroSize || item.size).map((size) => (
           <button
             key={size}
             type="button"
@@ -629,7 +643,15 @@ export default function DetailBody({
                   </button>
                 ))
               ) : (
-                <div className="cz-detail-hero-empty" />
+                // Photo-less items get the grid's brand tile — a blank box
+                // reads as a broken image (Kyle 2026-07-25).
+                <div className="cz-detail-hero-empty">
+                  <CoverPlaceholder
+                    item={item}
+                    aspectRatio="auto"
+                    style={{ width: "100%", height: "100%" }}
+                  />
+                </div>
               )}
             </div>
             {photos.length > 1 ? (

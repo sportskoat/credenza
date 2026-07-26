@@ -1,5 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, parseSizeChart, prescriptionSentence, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
+import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, sizeChartTextFor, usualSizeForItem } from "../../credenza-fashion.jsx";
+
+describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
+  it("maps tops / bottoms / shoes slots", () => {
+    const profile = { usualTops: "L", usualBottoms: "33", usualShoes: "10" };
+    expect(usualSizeForItem({ category: "shirt" }, profile)).toBe("L");
+    expect(usualSizeForItem({ category: "outerwear" }, profile)).toBe("L");
+    expect(usualSizeForItem({ category: "pants" }, profile)).toBe("33");
+    expect(usualSizeForItem({ category: "shoes" }, profile)).toBe("10");
+  });
+
+  it("does not invent AI size from body prefs alone", () => {
+    const item = { category: "outerwear", title: "Arc jacket" };
+    const profile = {
+      height: 183,
+      weight: 75,
+      chest: 99,
+      waist: 84,
+      hip: 99,
+      usualTops: "L",
+    };
+    expect(recommendSize(null, profile, "outerwear")).toBe(null);
+    const display = resolveDisplaySize(item, profile);
+    expect(display.kind).toBe("usual");
+    expect(display.label).toBe("YOUR USUAL");
+    expect(display.size).toBe("L");
+  });
+});
 
 describe("sizeChartTextFor", () => {
   // Kyle 2026-07-22: chart pasted into Notes gave "no values, no recommended

@@ -122,7 +122,36 @@ describe("FitBlock chart hunt", () => {
     renderBody(noChartItem("hunt-c"));
 
     await user.click(screen.getByRole("button", { name: /Size · fit/ }));
-    expect(await screen.findByText(/Add your usual sizes in My sizes/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/No size chart on this listing\. Add your usual tops, bottoms, or shoes in My sizes\./)
+    ).toBeInTheDocument();
     expect(huntMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows usual tops as the hero when body prefs exist but no chart", async () => {
+    // Kyle 2026-07-25: saving body prefs still left "No recommendation" and
+    // promoted the raw S–2XL run as the big size. Usual size must surface.
+    huntMock.mockResolvedValue(null);
+    const item = {
+      ...noChartItem("hunt-usual"),
+      variants: [{ title: "Size", values: ["S", "M", "L", "XL", "2XL"] }],
+    };
+    const user = userEvent.setup();
+    renderBody(item, {
+      bodyProfile: {
+        height: "183",
+        weight: "75",
+        chest: "99",
+        usualTops: "L",
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: /Size · fit/ }));
+    expect(await screen.findByText("Your usual")).toBeInTheDocument();
+    expect(screen.getByText("Your usual size")).toBeInTheDocument();
+    // Hero + override chip both say Large — not the full S–2XL run as hero.
+    expect(screen.getAllByText("Large").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("No recommendation")).not.toBeInTheDocument();
+    expect(screen.getByText(/Seller run S–2XL/)).toBeInTheDocument();
   });
 });

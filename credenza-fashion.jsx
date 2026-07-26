@@ -3333,6 +3333,27 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
   return rec && rec.size ? String(rec.size).trim() : null;
 }
 
+/**
+ * Slot-specific usual size from body prefs (tops / bottoms / shoes).
+ * Letter usualSize is garment-only — never used for shoes.
+ * @returns {string} empty when none
+ */
+export function usualSizeForItem(item, bodyProfile) {
+  if (!item || !bodyProfile) return "";
+  const slotKey =
+    item.category === "shoes"
+      ? "usualShoes"
+      : item.category === "pants" || item.category === "shorts"
+        ? "usualBottoms"
+        : "usualTops";
+  const genericOk = !SIZE_PICK_SKIP_CATEGORIES.has(item.category);
+  return String(
+    (genericOk || slotKey === "usualShoes" ? bodyProfile[slotKey] : "") ||
+      (genericOk ? bodyProfile.usualSize : "") ||
+      ""
+  ).trim();
+}
+
 // Card face / grid size line (handoff turn 3 §4): the LABEL says who decided.
 //   user set it in Edit        →  SIZE        --cz-sub label, plain; always wins
 //   chart found and read       →  AI SIZE     --cz-money label, 700 shimmer value
@@ -3347,23 +3368,8 @@ export function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
   const chosen = String(item.size || "").trim();
   const rec = computeRecommendedSize(item, bodyProfile, fitPrefs);
   if (!chosen && !rec) {
-    // Part 5 task 11: slot-specific usual sizes win over the single
-    // usualSize. Shoes get their own slot — a letter "usual size" is never a
-    // shoe size, so usualSize stays garment-only.
-    const slotKey =
-      item.category === "shoes"
-        ? "usualShoes"
-        : item.category === "pants" || item.category === "shorts"
-          ? "usualBottoms"
-          : "usualTops";
-    const genericOk = !SIZE_PICK_SKIP_CATEGORIES.has(item.category);
-    const usual = bodyProfile
-      ? String(
-          (genericOk || slotKey === "usualShoes" ? bodyProfile[slotKey] : "") ||
-            (genericOk ? bodyProfile.usualSize : "") ||
-            ""
-        ).trim()
-      : "";
+    // Part 5 task 11: slot-specific usual sizes (usualSizeForItem).
+    const usual = usualSizeForItem(item, bodyProfile);
     if (usual) {
       const v = formatSizeToken(usual) || usual;
       return {
