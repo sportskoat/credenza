@@ -78,6 +78,19 @@ Spec: `docs/specs/richer-item-facts.md`.
 
 Not wired into resolve merge or chart-vision hosts yet. That needs a quiet product lane.
 
+### 1.5b Landed pure slice (2026-07-25 night) — weight bands + link context L0
+
+| Path | Role |
+|------|------|
+| `weight-estimate.js` | `estimateItemWeight`, keyword refine, shoebox rule, `formatWeightEstimate` |
+| `preview/test/fixtures/weight-estimate-cases.json` | Golden bands and priority cases |
+| `preview/test/weight-estimate.test.js` | Pure tests (no fashion jsx) |
+| `link-context.js` | `canonicalKeyFromUrl`, `indexCorpus`, `lookupLinkContext` |
+| `preview/test/fixtures/link-context-corpus.json` | Small golden mention index |
+| `preview/test/link-context.test.js` | L0 tests + frozen 22-post FashionReps score |
+
+Product UI not wired (K3 dirty tree). No Netlify deploy from this slice.
+
 ### 1.4 Revert strategy
 
 Use one branch per workstream.

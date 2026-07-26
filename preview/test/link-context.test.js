@@ -2,6 +2,9 @@
  * Pure tests for link-context.js (offline L0).
  * Spec: docs/pure-layer-exhaustiveness-plan.md §6.
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import corpus from "./fixtures/link-context-corpus.json";
 import {
@@ -11,6 +14,9 @@ import {
   indexCorpus,
   lookupLinkContext,
 } from "../../link-context.js";
+import { parseRedditHaul } from "../../reddit-haul.js";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 describe("canonicalKeyFromUrl", () => {
   for (const row of corpus.canonicalKeys) {
@@ -83,5 +89,48 @@ describe("extractSizesSeen", () => {
 
   it("finds EU 43", () => {
     expect(extractSizesSeen("size 43 EU fits me")).toEqual(expect.arrayContaining(["43"]));
+  });
+});
+
+describe("frozen FashionReps corpus (22 posts)", () => {
+  const posts = JSON.parse(
+    readFileSync(join(ROOT, "preview/scripts/corpus-fashionreps.json"), "utf8")
+  );
+
+  it("indexes at least 50 marketplace keys via parseRedditHaul", () => {
+    const index = indexCorpus(posts, {
+      parseHaul: (text, opts) => parseRedditHaul(text, opts),
+    });
+    const keys = Object.keys(index);
+    expect(posts.length).toBe(22);
+    expect(keys.length).toBeGreaterThanOrEqual(50);
+    // Known haul items from the frozen set
+    expect(index["weidian:7785888265"]?.length).toBeGreaterThanOrEqual(1);
+    expect(index["weidian:7734454224"]?.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keys at least 80% of parsed shoppable item URLs", () => {
+    let urls = 0;
+    let withKey = 0;
+    for (const p of posts) {
+      const text = [p.title, p.selftext || ""].filter(Boolean).join("\n");
+      const haul = parseRedditHaul(text, { title: p.title });
+      for (const it of haul?.items || []) {
+        if (!it?.url) continue;
+        urls += 1;
+        if (canonicalKeyFromUrl(it.url)) withKey += 1;
+      }
+    }
+    expect(urls).toBeGreaterThan(40);
+    expect(withKey / urls).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it("lookup returns a human label for Gats QC", () => {
+    const index = indexCorpus(posts, {
+      parseHaul: (text, opts) => parseRedditHaul(text, opts),
+    });
+    const got = lookupLinkContext("https://weidian.com/item.html?itemID=7785888265", index);
+    expect(got.count).toBeGreaterThanOrEqual(1);
+    expect(got.mentions[0].label.toLowerCase()).toMatch(/gats|margiela|maison/);
   });
 });
