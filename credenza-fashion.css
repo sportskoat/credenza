@@ -7233,6 +7233,15 @@ a.cz-card-seller:hover {
   border-color: color-mix(in srgb, var(--cz-ink) 28%, transparent);
 }
 
+/* The native resize grip renders as a stray glyph at the sheet corner on
+   touch screens, and resizing needs a mouse anyway. Desktop keeps it. */
+@media (pointer: coarse) {
+  .cz-import-paste,
+  .cz-stash-paste {
+    resize: none;
+  }
+}
+
 .cz-import-auto {
   display: flex;
   align-items: center;
