@@ -10,6 +10,52 @@ Overwrite sections in place — this is current state, not a log.
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
 
+## 2026-07-26 — SIX OPEN ISSUES from Kyle's mobile pass. IN PROGRESS, nothing fixed yet.
+
+Kyle reported six problems from the LIVE mobile web app at credenzafashion.com.
+A read-only root-cause workflow (6 investigators + adversarial verifiers +
+completeness critic) was launched. NO code is changed yet. Do not assume any of
+these are fixed.
+
+1. **Chart-hunt loading text overlaps other text.** "It's like the text is over
+   the other text… looks really sloppy." Suspect: the shimmer loading state from
+   commit `fb23196` stacks a loading label on the resting text in the fit block.
+   Start at `components/SizeRecommendation.jsx`, `components/DetailBody.jsx`.
+
+2. **Card price clipped in the phone shelf grid.** Screenshot shows "$31.8" cut
+   mid-character and "Weidian gallery · 9 phot" truncated. "There should be no
+   overlap or cutoff on the prices." Start at `components/CardFrontInfo.jsx`,
+   `components/CardMetaLinks.jsx`, and the `.cz-front-*` CSS.
+
+3. **Weidian description size chart is never picked up.**
+   `https://weidian.com/item.html?itemID=7739297298` has a clear chart IMAGE in
+   Product Details (S/M/L/XL, Shoulder 52-58, Chest 110-128, Length 67-76). The
+   app says "AI sizing needs the chart photo on this listing." Prime suspect:
+   the Weidian resolver extracts only the main carousel gallery, never the
+   description/detail images. The new `isChartTile` work was YUPOO ONLY — Weidian
+   has no equivalent.
+
+4. **Close/exit buttons stick and stop responding in the photo viewer.** The X
+   renders in a pressed state and taps do nothing. Suspects: a `:hover`/`:active`
+   rule with no `@media (hover: hover)` guard (iOS latches :hover after a tap), a
+   press-state class never cleared on `pointercancel`/`touchcancel`, or a leaving
+   layer that keeps `pointer-events`.
+
+5. **Money counter digits smear and overlap.** Header shows "$44.10" with doubled
+   glyphs. STRONG LEAD found by hand: `ReelCounter` in `components/atoms.jsx`
+   (~line 228-250) arms an SVG motion blur while spinning and clears it ONLY in
+   `settle()`, which fires from `onTransitionEnd`. If that event never arrives —
+   interrupted transition, hidden element, unchanged transform — the blur stays
+   armed forever. That matches a permanently smeared counter.
+
+6. **Move the status tag to the TOP LEFT of the card.** "bought, want, shipped"
+   sits bottom-left today; Kyle wants it top-left. The favourite heart is top
+   RIGHT, so check collision at the ~175px phone column. Find EVERY surface that
+   positions the pill (grid card, rack card, carousel card, desktop panel) —
+   Kyle wants it consistent. Start at `components/Card.jsx:92`.
+
+---
+
 ## 2026-07-26 — TWO SESSIONS RAN IN PARALLEL. Read this before you merge.
 
 A second session shipped the Turn 7 landing page and deployed it. That work
