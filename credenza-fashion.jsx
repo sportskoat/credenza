@@ -3238,11 +3238,11 @@ export function sizeSuggestionsFor(item) {
   return out;
 }
 
-// ═══ UNIFIED EDIT FORM (standardization 2026-07-22, audit workstream C) ═══
+// ═══ UNIFIED EDIT MODEL (standardization 2026-07-22, audit workstream C) ═══
 // One draft builder, one patch builder, one write-through model (600ms
-// autosave), one field layout. Surfaces differ only in the chrome around
-// <ItemEditForm>. Draft carries only fields with inputs — summary/tags/links/
-// importance/agentLink/findSource have no editor and are left untouched.
+// autosave). The shared DetailBody is the only edit surface — draft carries
+// only fields with inputs; summary/tags/links/importance/agentLink/findSource
+// have no editor and are left untouched.
 
 export function buildEditDraft(item) {
   return {
@@ -4642,38 +4642,6 @@ export default function Credenza() {
     }
   };
 
-  const loadAlbumPhotos = async (item, { signal } = {}) => {
-    const isHotlink = (src) => /^https?:\/\/photo\.yupoo\.com\//i.test(src || "");
-    const existing = mergeFashionImages(
-      item.image ? [item.image] : [],
-      item.gallery || []
-    ).filter((src) => !isHotlink(src));
-    const albumUrl = yupooAlbumUrl(item);
-    if (!albumUrl || existing.length >= 8) return existing.slice(0, 8);
-    const data = await fetchYupooImages(albumUrl, { signal });
-    if (!data || (signal && signal.aborted)) return existing.slice(0, 8);
-
-    const photos = [...existing];
-    for (const src of mergeFashionImages(data.images || [])) {
-      if (photos.length >= 8 || (signal && signal.aborted)) break;
-      const dataUrl = await relayImageDataUrl(src, data.url || albumUrl, signal);
-      if (dataUrl) photos.push(dataUrl);
-    }
-    const merged = mergeFashionImages(photos).slice(0, 8);
-    if (!(signal && signal.aborted)) {
-      updateItem(item.id, (current) => ({
-        image: current.image || merged[0] || null,
-        gallery: mergeFashionImages(
-          current.gallery || [],
-          merged.filter((src) => src !== current.image)
-        ).slice(0, 12),
-      }));
-    }
-    return merged;
-  };
-
-  // Opens the app-level album with the item's stored images as the seed;
-  // PhotoCoverFlow lazily loads the full Yupoo album itself via onLoadPhotos.
   // Auto-fetch a preview image after stash. Best-effort enhancement: silent on
   // every failure, never touches status, never overwrites a manual image (the
   // functional patch checks current.image in case one landed mid-flight).
@@ -5503,9 +5471,8 @@ export default function Credenza() {
 
   // ————— Keyboard layer (Apple-style, all local) —————
   // Refs keep the one static listener wired to current logic; signal strings carry
-  // F/E requests down to the right card.
+  // flip requests down to the right card.
   const [flipRequest, setFlipRequest] = useState(null);
-  const [editRequest, setEditRequest] = useState(null);
   const buildDigestRef = useRef(buildDigest);
   buildDigestRef.current = buildDigest;
   const recordOpenRef = useRef(recordOpen);
@@ -5687,14 +5654,19 @@ export default function Credenza() {
           }
           return;
         }
+        // E opens the back for editing (tap a cell there). No toggle: E is an
+        // "I want to edit" intent, so an already-open back stays open.
         if (e.key === "e") {
           e.preventDefault();
           setSelectedId(sel.id);
           if (!carouselPresented) {
             openInCarouselRef.current(sel.id);
+            return;
           }
-          setExpandedId(sel.id);
-          setEditRequest(sel.id + ":" + Date.now());
+          if (ctx.expandedId !== sel.id) {
+            setExpandedId(sel.id);
+            setFlipRequest(sel.id + ":" + Date.now());
+          }
           return;
         }
         if (e.key === "Backspace" || e.key === "Delete") {
@@ -6013,14 +5985,12 @@ export default function Credenza() {
       expandedId={expandedId}
       selectedId={selectedId}
       flipRequest={flipRequest}
-      editRequest={editRequest}
       haulNames={haulNames}
       onDelete={setPendingDeleteId}
       onSaveEdit={saveEdit}
       onOpen={recordOpen}
       buyLabel={buyLabel}
       onSetPrimaryImage={setPrimaryImage}
-      onLoadPhotos={loadAlbumPhotos}
       onAttachPhoto={attachGalleryImage}
       onRemovePhoto={removePhotoBySrc}
       onToggleFavorite={toggleFavorite}

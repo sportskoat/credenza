@@ -9,33 +9,22 @@ import {
 import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
   MoreHorizontal,
-  Pen,
   RefreshCw,
 } from "lucide-react";
 import {
-  buildEditDraft,
-  buildEditPatch,
   carouselLayerZ,
-  itemPhotoList,
   linkButtons,
-  mergeFashionImages,
   usePrefersReducedMotion,
-  useWriteThroughDraft,
-  yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 import CardFrontInfo from "./CardFrontInfo.jsx";
 import { CoverImage } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import InfoBubble from "./InfoBubble.jsx";
 import DetailBody from "./DetailBody.jsx";
-import ItemEditForm from "./ItemEditForm.jsx";
-import MorphButton from "./MorphButton.jsx";
-import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import { StatusPill } from "./atoms.jsx";
 
 const CoverFlowCard = forwardRef(function CoverFlowCard(
@@ -44,7 +33,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     expanded,
     isCenter,
     flipSignal,
-    editSignal,
     haulNames = [],
     onDelete,
     onSaveEdit,
@@ -66,11 +54,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   ref
 ) {
   const [flipped, setFlipped] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [ed, setEd] = useState(null);
-  // false = edit sheet drops down out (back chevron); true = it slides back
-  // up, the reverse of how it entered (save-check button).
-  const [editExitUp, setEditExitUp] = useState(false);
   const [bubble, setBubble] = useState(null);
   // The whole exit runs in CSS on the live shell: framer's exit opacity freezes
   // on this shell, and a 0-height overflow-hidden shell still leaks ~14px into
@@ -134,7 +117,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   );
   useEffect(() => {
     measureBackEnd();
-  }, [measureBackEnd, expanded, backView, editing, item.id]);
+  }, [measureBackEnd, expanded, backView, item.id]);
 
   useEffect(() => {
     setFlipped(Boolean(expanded));
@@ -143,13 +126,12 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
         clearTimeout(bubbleCloseTimer.current);
         bubbleCloseTimer.current = null;
       }
-      setEditing(false);
       setBubble(null);
       setBubbleClosing(false);
       setBackView("details");
       setHaulDraft("");
-      // Closing the photo gallery restores focus to the fan. If the card then
-      // unflips (arrow / space elsewhere), that focused fan is invisible but
+      // A control on the back can still own focus when the card unflips
+      // (arrow / space elsewhere). That focused control is then invisible but
       // still catches Space — blur it so keys go back to the active card.
       const active = document.activeElement;
       if (active && rootRef.current?.contains(active) && typeof active.blur === "function") {
@@ -183,19 +165,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     if (flipSignal.startsWith(item.id + ":")) setFlipped(true);
   }, [flipSignal, item.id]);
 
-  const lastEditSignalRef = useRef(editSignal);
-  useEffect(() => {
-    if (!editSignal || editSignal === lastEditSignalRef.current) return;
-    lastEditSignalRef.current = editSignal;
-    if (editSignal.startsWith(item.id + ":")) {
-      setEd(buildEditDraft(item));
-      setBubble(null);
-      setBackView("details");
-      setEditExitUp(false);
-      setEditing(true);
-    }
-  }, [editSignal, item]);
-
   const activate = () => {
     if (!isCenter) {
       if (onScrollTo) onScrollTo(item.id);
@@ -206,47 +175,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   const deactivate = () => {
     if (onDeactivate) onDeactivate();
   };
-
-  // Write-through commit — the edit form persists as you type, so leaving the
-  // screen (back chevron, outside click, flip) never loses notes.
-  const commitEditRef = useWriteThroughDraft(ed, (d) => onSaveEdit(item.id, buildEditPatch(d, item)));
-  // "Saved" holds the top-right slot (same size as Save) so ⋯/pen don't jump.
-  const [editSavedFlash, setEditSavedFlash] = useState(false);
-  const editSavedTimer = useRef(null);
-  useEffect(
-    () => () => {
-      if (editSavedTimer.current) clearTimeout(editSavedTimer.current);
-    },
-    []
-  );
-
-  const discardEdit = useCallback(() => {
-    // Write-through means there's nothing to discard — flush the last keystrokes.
-    // Leave via back chevron: no "Saved" hold — return ⋯/pen immediately.
-    commitEditRef.current();
-    setEditExitUp(false);
-    setEditing(false);
-    setEd(null);
-    setEditSavedFlash(false);
-    if (editSavedTimer.current) {
-      clearTimeout(editSavedTimer.current);
-      editSavedTimer.current = null;
-    }
-  }, [commitEditRef]);
-
-  // Save: commit, slide edit sheet up, keep the TOP-RIGHT slot as a green
-  // "Saved" pill (same size as Save) so ⋯/pen don't slam in and jump the
-  // header. After a short beat, crossfade to the detail tools.
-  // Enter uses this same path (handleEditKeyDown).
-  const saveEditAndClose = useCallback(() => {
-    commitEditRef.current();
-    flushSync(() => setEditExitUp(true));
-    setEditing(false);
-    setEd(null);
-    setEditSavedFlash(true);
-    if (editSavedTimer.current) clearTimeout(editSavedTimer.current);
-    editSavedTimer.current = setTimeout(() => setEditSavedFlash(false), 900);
-  }, [commitEditRef]);
 
   const closeActions = useCallback(() => {
     setBackView("details");
@@ -276,10 +204,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
   );
 
   const dismissTopLayer = useCallback(() => {
-    if (editing) {
-      discardEdit();
-      return true;
-    }
     if (backView === "haul") {
       setBackView("actions");
       return true;
@@ -297,7 +221,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
       return true;
     }
     return false;
-  }, [editing, backView, bubble, flipped, discardEdit, closeActions, closeBubble, onDeactivate]);
+  }, [backView, bubble, flipped, closeActions, closeBubble, onDeactivate]);
 
   useImperativeHandle(
     ref,
@@ -306,42 +230,6 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
       contains: (target) => Boolean(rootRef.current?.contains(target)),
     }),
     [dismissTopLayer]
-  );
-
-  const startEdit = () => {
-    setEd(buildEditDraft(item));
-    setBubble(null);
-    setBackView("details");
-    setEditExitUp(false);
-    setEditSavedFlash(false);
-    if (editSavedTimer.current) {
-      clearTimeout(editSavedTimer.current);
-      editSavedTimer.current = null;
-    }
-    setEditing(true);
-  };
-
-  // Enter saves from any plain field. Capture phase on the edit shell so it
-  // always fires; skip open comboboxes (size picker) and bare textarea newlines.
-  const handleEditKeyDown = useCallback(
-    (e) => {
-      if (!editing) return;
-      if (e.key !== "Enter") return;
-      const t = e.target;
-      if (!t) return;
-      // Size / haul combobox owns Enter while its menu is active.
-      if (t.closest?.(".cz-combobox, .cz-combobox-menu, [role='listbox']")) return;
-      if (t.getAttribute?.("role") === "combobox") return;
-      const tag = (t.tagName || "").toUpperCase();
-      if (tag === "TEXTAREA" && !(e.metaKey || e.ctrlKey)) return;
-      // Don't steal Enter from chip/segment buttons (they toggle selection).
-      if (tag === "BUTTON") return;
-      if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return;
-      e.preventDefault();
-      e.stopPropagation();
-      saveEditAndClose();
-    },
-    [editing, saveEditAndClose]
   );
 
   const knownHauls = Array.from(
@@ -372,9 +260,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     }
   }, []);
 
-  // Edit mode must NOT move the card shell (Kyle 2026-07-22). The old
-  // is-editing width widen shifted the card a few px left — removed.
-  // Shared padding + scrollbar-gutter: stable keep details/edit aligned.
+  // Shared padding + scrollbar-gutter: stable keep details aligned.
 
   return (
     <div ref={rootRef} style={{ width: "100%", height: "100%", transformStyle: "preserve-3d" }}>
@@ -504,7 +390,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               return;
             }
             e.stopPropagation();
-            if (!flipped || editing || backView !== "details" || bubble) return;
+            if (!flipped || backView !== "details" || bubble) return;
             if (e.target.closest("a, button, input, textarea, select, label, [role='button'], [contenteditable], dialog, img, .cz-corner-fan, .cz-photo-strip, .cz-sheet-pipeline, .cz-carousel-haul-block")) return;
             const sel = window.getSelection?.();
             if (sel && !sel.isCollapsed) return;
@@ -514,7 +400,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
           <div
             className={
               "cz-carousel-back-header" +
-              (editing || backView !== "details" ? " is-editing" : "")
+              (backView !== "details" ? " is-editing" : "")
             }
           >
             <button
@@ -522,20 +408,17 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               className="cz-icon-button cz-carousel-close"
               onClick={(e) => {
                 e.stopPropagation();
-                if (editing) discardEdit();
-                else if (backView === "haul") setBackView("actions");
+                if (backView === "haul") setBackView("actions");
                 else if (backView === "actions") closeActions();
                 else if (bubble) closeBubble();
                 else deactivate();
               }}
               aria-label={
-                editing
-                  ? "Back to card"
-                  : backView === "haul"
-                    ? "Back to actions"
-                    : backView === "actions"
-                      ? "Done with actions"
-                      : bubble
+                backView === "haul"
+                  ? "Back to actions"
+                  : backView === "actions"
+                    ? "Done with actions"
+                    : bubble
                         ? "Close details"
                         : "Flip back"
               }
@@ -543,120 +426,37 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               <ChevronLeft aria-hidden="true" size={20} strokeWidth={2.2} />
             </button>
             <span className="cz-carousel-back-spacer" aria-hidden="true" />
-            {/* Fixed-width actions slot: Save → Saved → ⋯/pen crossfade.
-                Never inserts a second row (that caused the header jump). */}
-            <div className="cz-carousel-back-actions">
-              <AnimatePresence mode="wait" initial={false}>
-                {editing ? (
-                  <motion.div
-                    key="save"
-                    className="cz-back-actions-slot"
-                    initial={reduced ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={reduced ? undefined : { opacity: 0 }}
-                    transition={{ duration: reduced ? 0 : 0.16 }}
-                  >
-                    <button
-                      type="button"
-                      className="cz-card-save-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        saveEditAndClose();
-                      }}
-                      aria-label="Save changes"
-                      title="Save (Enter)"
-                    >
-                      <Check aria-hidden="true" size={16} strokeWidth={2.4} />
-                      <span>Save</span>
-                    </button>
-                  </motion.div>
-                ) : editSavedFlash ? (
-                  <motion.div
-                    key="saved"
-                    className="cz-back-actions-slot"
-                    initial={reduced ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={reduced ? undefined : { opacity: 0 }}
-                    transition={{ duration: reduced ? 0 : 0.18 }}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <span className="cz-card-save-btn is-saved">
-                      <Check aria-hidden="true" size={16} strokeWidth={2.4} />
-                      <span>Saved</span>
-                    </span>
-                  </motion.div>
-                ) : backView === "details" ? (
-                  <motion.div
-                    key="tools"
-                    className="cz-back-actions-slot"
-                    initial={reduced ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={reduced ? undefined : { opacity: 0 }}
-                    transition={{ duration: reduced ? 0 : 0.16 }}
-                  >
-                    <button
-                      type="button"
-                      className={"cz-icon-button cz-card-menu-trigger" + (backView !== "details" ? " is-open" : "")}
-                      aria-label="Card actions"
-                      aria-expanded={false}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openActions();
-                      }}
-                    >
-                      <MoreHorizontal aria-hidden="true" size={20} strokeWidth={2.2} />
-                    </button>
-                    <MorphButton
-                      iconOnly
-                      icon={Pen}
-                      activeIcon={Check}
-                      onClick={startEdit}
-                      ariaLabel="Edit card"
-                      title="Edit"
-                      className="cz-card-edit-morph"
-                    />
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </div>
+            {/* The phone sheet has no pen edit form — the desktop back does
+                not either (Kyle 2026-07-25: every back is the mobile back).
+                Tap a spec cell to edit it in place. */}
+            {backView === "details" ? (
+              <div className="cz-carousel-back-actions">
+                <button
+                  type="button"
+                  className="cz-icon-button cz-card-menu-trigger"
+                  aria-label="Card actions"
+                  aria-expanded={false}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openActions();
+                  }}
+                >
+                  <MoreHorizontal aria-hidden="true" size={20} strokeWidth={2.2} />
+                </button>
+              </div>
+            ) : null}
           </div>
 
-          {/* Edit slides in from above — the reverse of the content below it. */}
-          <AnimatePresence mode="wait" initial={false}>
-          {editing && ed ? (
-            <motion.div
-              key="edit"
-              className="cz-carousel-edit-shell"
-              initial={reduced ? false : { opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduced ? undefined : { opacity: 0, y: editExitUp ? -10 : 8 }}
-              transition={reduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              onKeyDownCapture={handleEditKeyDown}
-            >
-            <ItemEditForm
-              item={item}
-              ed={ed}
-              setEd={setEd}
-              knownHauls={knownHauls}
-              onAttachPhoto={onAttachPhoto}
-              onRemovePhoto={onRemovePhoto}
-            />
-            <p className="cz-edit-save-hint">Enter to save · Esc to close</p>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="content"
-              ref={backContentRef}
-              onScroll={handleBackScroll}
-              className={
-                "cz-carousel-back-content" + (backAtEnd ? " is-at-end" : "")
-              }
-              initial={reduced ? false : { opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduced ? undefined : { opacity: 0, y: -10 }}
-              transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
-            >
+          <motion.div
+            ref={backContentRef}
+            onScroll={handleBackScroll}
+            className={
+              "cz-carousel-back-content" + (backAtEnd ? " is-at-end" : "")
+            }
+            initial={reduced ? false : { opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
+          >
               <AnimatePresence mode="wait" initial={false}>
                 {backView === "actions" ? (
                   <motion.div
@@ -834,9 +634,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                   </motion.div>
                 )}
               </AnimatePresence>
-            </motion.div>
-          )}
-          </AnimatePresence>
+          </motion.div>
         </div>
       </motion.div>
     </div>
@@ -848,7 +646,6 @@ export default function CoverFlowCarousel({
   expandedId,
   selectedId,
   flipRequest,
-  editRequest,
   focusSignal,
   haulNames = [],
   onDelete,
@@ -856,7 +653,6 @@ export default function CoverFlowCarousel({
   onOpen,
   buyLabel,
   onSetPrimaryImage,
-  onLoadPhotos,
   onAttachPhoto,
   onRemovePhoto,
   onToggleFavorite,
@@ -875,9 +671,6 @@ export default function CoverFlowCarousel({
   const activeIndexRef = useRef(0);
   const [cardSize, setCardSize] = useState({ width: 320, height: 460 });
   const reduced = usePrefersReducedMotion();
-  const [gallery, setGallery] = useState(null);
-  const galleryTriggerRef = useRef(null);
-  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const wheelAcc = useRef(0);
   const wheelTimer = useRef(null);
   const wheelLockUntil = useRef(0);
@@ -897,13 +690,13 @@ export default function CoverFlowCarousel({
   }, [items]);
 
   useEffect(() => {
-    if (!expandedId || gallery) return;
+    if (!expandedId) return;
     const onPointerDown = (event) => {
       if (event.button != null && event.button !== 0) return;
       const item = items[activeIndexRef.current];
       const card = item ? cardRefs.current.get(item.id) : null;
       if (!card || card.contains?.(event.target)) return;
-      if (event.target.closest?.("dialog, .cz-photo-coverflow-backdrop")) return;
+      if (event.target.closest?.("dialog")) return;
       if (card.dismissTopLayer?.()) {
         outsideDismissedRef.current = true;
         setTimeout(() => {
@@ -913,7 +706,7 @@ export default function CoverFlowCarousel({
     };
     document.addEventListener("pointerdown", onPointerDown, true);
     return () => document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [expandedId, gallery, items]);
+  }, [expandedId, items]);
 
   const setActiveIndex = useCallback((index) => {
     const next = Math.max(0, Math.min(items.length - 1, index));
@@ -948,8 +741,6 @@ export default function CoverFlowCarousel({
           return;
         stage.focus({ preventScroll: true });
       });
-      // Never keep an album open for a card that is no longer centered.
-      setGallery((current) => (current ? null : current));
     }
     activeIndexRef.current = next;
     setActiveIndexState(next);
@@ -982,17 +773,6 @@ export default function CoverFlowCarousel({
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, []);
-
-  useEffect(() => {
-    const stage = containerRef.current?.parentElement;
-    if (!stage || typeof window === "undefined" || !window.ResizeObserver) return;
-    const obs = new window.ResizeObserver((entries) => {
-      const cr = entries[0].contentRect;
-      setStageSize({ width: cr.width, height: cr.height });
-    });
-    obs.observe(stage);
-    return () => obs.disconnect();
   }, []);
 
   useEffect(() => {
@@ -1132,7 +912,7 @@ export default function CoverFlowCarousel({
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
     if (event.target?.isContentEditable) return;
-    // Gallery owns its keys while open: Escape (below) AND arrows — keydowns
+    // An open dialog owns its keys: Escape (below) AND arrows — keydowns
     // from the dialog's focused button bubble through this container.
     if (event.key === "Escape") return;
     if (document.querySelector("dialog[open]")) return;
@@ -1157,7 +937,7 @@ export default function CoverFlowCarousel({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.target && /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
       if (event.target?.isContentEditable) return;
-      // Gallery owns arrows while open. NOTE: <dialog> has no role ATTRIBUTE,
+      // An open dialog owns arrows. NOTE: <dialog> has no role ATTRIBUTE,
       // so [role="dialog"] selectors never match it — must select dialog[open].
       if (document.querySelector("dialog[open]")) return;
       if (suppressMotion) return;
@@ -1175,7 +955,7 @@ export default function CoverFlowCarousel({
 
   useEffect(() => {
     const onEscape = (event) => {
-      if (event.key !== "Escape" || !expandedId || gallery) return;
+      if (event.key !== "Escape" || !expandedId) return;
       if (document.querySelector("dialog[open]")) return;
       if (dismissActiveLayer()) {
         event.preventDefault();
@@ -1184,7 +964,7 @@ export default function CoverFlowCarousel({
     };
     window.addEventListener("keydown", onEscape, true);
     return () => window.removeEventListener("keydown", onEscape, true);
-  }, [expandedId, gallery, dismissActiveLayer]);
+  }, [expandedId, dismissActiveLayer]);
 
   const markDragging = useCallback((info) => {
     // Only mark as a drag if the pointer actually moved enough to be a swipe.
@@ -1226,7 +1006,7 @@ export default function CoverFlowCarousel({
       if (!event.target.closest?.(".cz-carousel-card")) return;
       // Wheel over a flipped card's scrollable content must scroll that
       // content, not page the carousel — never preventDefault there.
-      if (event.target.closest?.(".cz-carousel-back-content, .cz-carousel-edit, .cz-carousel-edit-shell, .cz-card-actions-panel, .cz-card-haul-field")) return;
+      if (event.target.closest?.(".cz-carousel-back-content, .cz-card-actions-panel, .cz-card-haul-field")) return;
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
       if (Math.abs(delta) < 0.5) return;
       event.preventDefault();
@@ -1261,63 +1041,6 @@ export default function CoverFlowCarousel({
     };
   }, [goNext, goPrev]);
 
-  const closeGallery = useCallback(() => {
-    // Do NOT restore focus to the fan trigger. Space on that control opens
-    // the gallery; after scroll/unflip the trigger still owns focus and Space
-    // reopens the *previous* card's photos instead of flipping the active one.
-    // Land keyboard focus on the carousel stage so Space/arrows hit the right card.
-    galleryTriggerRef.current = null;
-    setGallery(null);
-    requestAnimationFrame(() => {
-      const stage = containerRef.current;
-      if (stage && typeof stage.focus === "function") stage.focus({ preventScroll: true });
-    });
-  }, []);
-
-  const openPhotos = useCallback(async (item, triggerOrOpts) => {
-    // Only the centered/active card should open the gallery. A focused fan on a
-    // side card (stale after close + scroll) used to reopen the wrong album.
-    const center = items[activeIndexRef.current];
-    if (!center || center.id !== item.id) return;
-    // A5: callers may pass an explicit image list (Warehouse QC photos) via
-    // opts.images — then the Yupoo album load is skipped, so product photos
-    // never leak into the QC viewer.
-    const customImages =
-      triggerOrOpts &&
-      typeof triggerOrOpts === "object" &&
-      !(triggerOrOpts instanceof Element) &&
-      Array.isArray(triggerOrOpts.images)
-        ? triggerOrOpts.images.filter(Boolean)
-        : null;
-    const seed = customImages || itemPhotoList(item, 8);
-    const shouldLoad = !customImages && !!yupooAlbumUrl(item) && seed.length < 8 && !!onLoadPhotos;
-    let trigger = null;
-    let startIndex = 0;
-    if (typeof triggerOrOpts === "number") {
-      startIndex = triggerOrOpts;
-    } else if (
-      triggerOrOpts &&
-      typeof triggerOrOpts === "object" &&
-      !(triggerOrOpts instanceof Element) &&
-      ("startIndex" in triggerOrOpts || "trigger" in triggerOrOpts)
-    ) {
-      startIndex = Number(triggerOrOpts.startIndex) || 0;
-      trigger = triggerOrOpts.trigger || null;
-    } else {
-      trigger = triggerOrOpts || null;
-    }
-    startIndex = Math.max(0, Math.min(Math.max(seed.length - 1, 0), startIndex));
-    galleryTriggerRef.current = trigger;
-    setGallery({ item, images: seed, startIndex });
-    if (!shouldLoad) return;
-    const controller = new AbortController();
-    const images = await onLoadPhotos(item, { signal: controller.signal });
-    setGallery((current) =>
-      current && current.item.id === item.id
-        ? { ...current, images: mergeFashionImages(images || [], current.images).slice(0, 8) }
-        : current
-    );
-  }, [onLoadPhotos, items]);
 
   if (items.length === 0) {
     return (
@@ -1442,13 +1165,11 @@ export default function CoverFlowCarousel({
                   selected={index === activeIndex}
                   isCenter={index === activeIndex}
                   flipSignal={flipRequest}
-                  editSignal={editRequest}
                   haulNames={haulNames}
                   onDelete={onDelete}
                   onSaveEdit={onSaveEdit}
                   onOpen={onOpen}
                   buyLabel={buyLabel}
-                  onOpenPhotos={openPhotos}
                   onAttachPhoto={onAttachPhoto}
                   onRemovePhoto={onRemovePhoto}
                   onToggleFavorite={onToggleFavorite}
@@ -1515,17 +1236,6 @@ export default function CoverFlowCarousel({
         </div>
       )}
 
-      {gallery && (
-        <PhotoCoverFlow
-          item={gallery.item}
-          images={gallery.images}
-          startIndex={gallery.startIndex}
-          stageSize={stageSize}
-          onClose={closeGallery}
-          onSetPrimaryImage={onSetPrimaryImage}
-          onLoadPhotos={onLoadPhotos}
-        />
-      )}
     </div>
   );
 }

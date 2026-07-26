@@ -576,16 +576,19 @@ export default function DetailBody({
           </button>
         </div>
         {/* The collapsed box is the same box you type in — no "+" expander
-            and no separate read view. */}
-        <textarea
-          className={"cz-detail-notes" + (notesOpen ? " is-open" : "")}
-          aria-label="Notes"
-          value={view.note}
-          placeholder="Batch, QC notes, what you're pairing it with…"
-          onChange={(e) => edit("note", e.target.value)}
-          onKeyDown={(e) => e.stopPropagation()}
-          onFocus={() => setNotesOpen(true)}
-        />
+            and no separate read view. The wrapper animates the open height
+            (grid rows, not a height transition on the textarea). */}
+        <div className={"cz-detail-notes-wrap" + (notesOpen ? " is-open" : "")}>
+          <textarea
+            className="cz-detail-notes"
+            aria-label="Notes"
+            value={view.note}
+            placeholder="Batch, QC notes, what you're pairing it with…"
+            onChange={(e) => edit("note", e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            onFocus={() => setNotesOpen(true)}
+          />
+        </div>
 
         {/* EditPhotosManager carries its own label and its own add tile.
             The wrapper turns its grid into the handoff's 84px strip. */}

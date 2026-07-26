@@ -188,63 +188,56 @@ describe("Fashion data and photos", () => {
 });
 
 describe("Fashion card-back navigation and editing", () => {
-  it("dismisses exactly one outside-click layer while inside clicks remain inert", async () => {
-    // Sizes bubble was removed — size lives in the single SizeRecommendation
-    // block. One-layer outside-click is still exercised via Edit → details → front.
-    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ batch: "Original" })]) });
+  it("dismisses the flip on outside click and keeps write-through edits", async () => {
+    // The pen edit form is gone (2026-07-25): the desktop back edits in place
+    // through the shared DetailBody cells, like the phone sheet. An outside
+    // click dismisses the one remaining layer — the flip — and the debounced
+    // write-through still lands because the back stays mounted.
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ batch: "Original" })]) });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const outside = container.querySelector(".cz-carousel-track");
 
     // Still on the back face. The unified back shows the chosen size in the
-    // "Size · fit" spec cell.
-    expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
+    // "Size · fit" spec cell, and the header carries only ⋯ (no pen).
+    expect(screen.getByRole("button", { name: "Card actions" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit card" })).not.toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
     const back = container.querySelector(".cz-carousel-back");
     expect(back?.textContent || "").toMatch(/X-Large/i);
 
-    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    // Edit Batch in place: tap the cell, type into the inline editor.
+    await user.click(screen.getByRole("button", { name: /Batch\s*Original/ }));
     const batchField = await screen.findByLabelText("Batch");
     await user.clear(batchField);
     await user.type(batchField, "Discard me");
-    // Outside click flushes write-through edit and returns to details (still flipped).
-    fireEvent.pointerDown(outside);
-    fireEvent.click(outside);
-    await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
-    expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
-
-    // Write-through: the typed batch is kept, not discarded.
-    await user.click(screen.getByRole("button", { name: "Edit card" }));
-    expect(await screen.findByLabelText("Batch")).toHaveValue("Discard me");
-    await user.click(screen.getByRole("button", { name: "Back to card" }));
+    // Outside click unflips the card (the flip is the only layer left).
     fireEvent.pointerDown(outside);
     fireEvent.click(outside);
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
+
+    // Write-through: the typed batch is kept, not discarded (600ms debounce).
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Discard me"), { timeout: 2000 });
   });
 
-  it("uses the same edit and details priority for Escape", async () => {
-    // Sizes bubble gone — Escape peels edit → details → front, one layer at a time.
+  it("unflips the back with a single Escape", async () => {
+    // No edit layer remains — Escape peels the flip in one step, even with a
+    // cell editor open (the window handler captures before the input).
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
-    expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Card actions" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
-    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    await user.click(screen.getByRole("button", { name: /Batch/ }));
     await screen.findByLabelText("Batch");
-    fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument();
-    expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
-
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
   });
 
-  it("write-through saves Batch from edit and keeps it after exit paths", async () => {
+  it("write-through saves Batch from the cell editor across exit paths", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ batch: "Original" })]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -252,28 +245,25 @@ describe("Fashion card-back navigation and editing", () => {
     // The unified back shows Batch as a spec cell (no hidden-until-edit fields).
     expect(screen.getByText("Original")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    await user.click(screen.getByRole("button", { name: /Batch\s*Original/ }));
     let batchField = await screen.findByLabelText("Batch");
     await user.clear(batchField);
     await user.type(batchField, "Saved batch");
-    // Save-check (header) commits write-through and exits edit.
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    // Enter closes the cell editor; the 600ms debounce commits.
+    fireEvent.keyDown(batchField, { key: "Enter" });
     await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Saved batch"));
-    // Header holds a "Saved" pill briefly before ⋯/pen return — wait for tools.
-    await waitFor(() => expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument());
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Saved batch"), { timeout: 2000 });
 
-    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    await user.click(screen.getByRole("button", { name: /Batch\s*Saved batch/ }));
     batchField = await screen.findByLabelText("Batch");
     expect(batchField).toHaveValue("Saved batch");
     await user.clear(batchField);
     await user.type(batchField, "Also kept");
-    // Back chevron also flushes write-through — nothing is discarded.
-    await user.click(screen.getByRole("button", { name: "Back to card" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Edit card" })).toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: "Edit card" }));
+    // Done also flushes write-through — nothing is discarded.
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Also kept"), { timeout: 2000 });
+    await user.click(screen.getByRole("button", { name: /Batch\s*Also kept/ }));
     expect(await screen.findByLabelText("Batch")).toHaveValue("Also kept");
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Also kept"));
   });
 
   it("lists hauls and opens one to browse only its cards", async () => {
@@ -330,9 +320,9 @@ describe("Fashion card-back navigation and editing", () => {
     render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
 
-    const edit = screen.getByRole("button", { name: "Edit card" });
-    expect(edit).toBeInTheDocument();
-    expect(edit).not.toHaveTextContent("Edit");
+    // The header carries only the ⋯ trigger — no pen edit form anymore.
+    expect(screen.getByRole("button", { name: "Card actions" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit card" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
     // Front + back can both mount a Buy button; scope to the open back face.
     const backFace = document.querySelector(".cz-carousel-back");

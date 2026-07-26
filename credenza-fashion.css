@@ -821,62 +821,6 @@
   text-decoration-color: var(--cz-ink);
 }
 
-/* Fixed-footprint slot: Save ↔ Saved ↔ ⋯/pen (paired with .cz-carousel-back-actions). */
-.cz-back-actions-slot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-  min-width: 92px;
-  min-height: 40px;
-}
-
-/* Edit header Save — same box as Saved confirmation (no second-row flash). */
-.cz-card-save-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 36px;
-  min-width: 88px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--cz-ink);
-  color: var(--cz-card-solid);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  flex-shrink: 0;
-  box-sizing: border-box;
-  transition: background 160ms var(--ease-out), color 160ms var(--ease-out), opacity 140ms var(--ease-out);
-}
-.cz-app[data-fashion="true"][data-theme="light"] .cz-card-save-btn {
-  color: #fff;
-}
-.cz-card-save-btn:hover {
-  opacity: 0.92;
-}
-.cz-card-save-btn:active {
-  transform: scale(0.97);
-}
-/* Saved stays in the same pill — no bar drop-in that shoves ⋯/pen. */
-.cz-card-save-btn.is-saved {
-  background: color-mix(in srgb, var(--cz-money, #4ade80) 20%, var(--cz-card-solid));
-  color: var(--cz-money, #4ade80);
-  cursor: default;
-  pointer-events: none;
-  opacity: 1;
-}
-.cz-edit-save-hint {
-  margin: 10px 0 4px;
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  color: var(--cz-faint);
-  font-family: system-ui, -apple-system, sans-serif;
-}
 /* SellerLink without a store URL renders as plain text, not a link — so no
    underline (an underline on dead text lies about being clickable). */
 .cz-seller-link.is-text {
@@ -2039,51 +1983,6 @@ a.cz-seller-quiet:focus-visible {
   font-size: 14px;
 }
 
-/* Carousel edit form */
-.cz-carousel-edit {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-right: 4px;
-  padding-bottom: 14px;
-}
-
-.cz-carousel-edit-shell {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 2px 6px 0 2px;
-  z-index: 1;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.cz-carousel-edit-shell::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
-.cz-carousel-field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.cz-carousel-field-grid.price-grid {
-  grid-template-columns: minmax(0, 1fr) 90px;
-}
-
-.cz-carousel-edit .cz-field-label input,
-.cz-carousel-edit .cz-field-label textarea {
-  background: var(--cz-seg);
-  border-color: var(--cz-hair);
-  color: var(--cz-ink);
-}
-
 /* Album photos spread from the settled card into a viewport-clamped ellipse. */
 .cz-carousel-orbit {
   position: absolute;
@@ -2335,13 +2234,9 @@ a.cz-seller-quiet:focus-visible {
 /* Edit mode must not move the card shell (Kyle 2026-07-22). Width stays
    locked to the face; scrollbar-gutter prevents reflow when the scroller
    appears. The old is-editing widen was the left-shift bug. */
-.cz-carousel-card.is-editing {
-  /* no-op class kept for any leftover JS toggles — geometry unchanged */
-}
 
-.cz-carousel-back-content,
-.cz-carousel-edit,
-.cz-carousel-edit-shell {
+
+.cz-carousel-back-content {
   scrollbar-gutter: stable;
 }
 
@@ -2967,32 +2862,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: none;
 }
 
-.cz-card-edit-morph {
-  min-width: 40px !important;
-  width: 40px;
-  height: 40px;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--cz-ink) !important;
-}
-
-.cz-card-edit-morph:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cz-accent) 10%, transparent) !important;
-  color: var(--cz-accent-deep) !important;
-}
-
-/* Save-check on the edit sheet: the detail view's check, permanently lit. */
-.cz-card-save-check,
-.cz-card-save-check:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cz-accent) 16%, transparent) !important;
-  color: var(--cz-accent-deep) !important;
-}
-
-.cz-card-save-check:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cz-accent) 24%, transparent) !important;
-}
-
 /* Outline star only — no filled bubble. Hit target stays ~38px. */
 .cz-favorite-button {
   width: 38px;
@@ -3266,169 +3135,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* Full-screen photo coverflow gallery.
-   Native <dialog> so it enters the browser top layer above DetailSheet. */
-.cz-photo-coverflow-backdrop {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  max-width: 100vw;
-  height: 100%;
-  max-height: 100dvh;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  z-index: var(--z-gallery);
-  display: grid;
-  place-items: center;
-  background: rgba(5, 2, 12, 0.78);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
-  color: var(--cz-ink);
-}
-.cz-photo-coverflow-backdrop::backdrop {
-  background: transparent;
-}
-
-.cz-photo-coverflow {
-  position: relative;
-  width: min(92vw, 980px);
-  height: min(84vh, 640px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 24px;
-}
-
-.cz-photo-coverflow-stage {
-  position: relative;
-  width: 100%;
-  flex: 1;
-  perspective: 1200px;
-  transform-style: preserve-3d;
-}
-
-.cz-photo-coverflow-track {
-  position: absolute;
-  inset: 0;
-  transform-style: preserve-3d;
-}
-
-.cz-photo-coverflow-card {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(70vw, 300px);
-  aspect-ratio: 3 / 4;
-  transform: translate(-50%, -50%);
-  transform-style: preserve-3d;
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-  cursor: grab;
-}
-
-.cz-photo-coverflow-card img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.cz-photo-coverflow-card:active {
-  cursor: grabbing;
-}
-
-.cz-photo-coverflow-caption {
-  position: absolute;
-  bottom: -34px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--cz-ink);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  opacity: 0.9;
-}
-
-.cz-photo-coverflow-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 14px 0 22px;
-  z-index: 2;
-}
-
-.cz-photo-coverflow-controls button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  border: 1px solid var(--cz-hair-strong);
-  background: var(--cz-seg);
-  color: var(--cz-ink);
-  cursor: pointer;
-  transition: background 150ms ease;
-  touch-action: manipulation;
-}
-
-.cz-photo-coverflow-controls button:hover {
-  background: var(--cz-hair-strong);
-}
-
-.cz-photo-coverflow-controls button.primary {
-  width: auto;
-  min-height: 44px;
-  padding: 0 16px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  border: 0;
-  font-weight: 700;
-  /* Soft oval drop only — no glow ring that squares off around the pill. */
-  box-shadow:
-    0 8px 16px rgba(0, 0, 0, 0.24),
-    0 2px 6px color-mix(in srgb, var(--cz-accent) 18%, transparent);
-  filter: none;
-  outline: none;
-}
-
-.cz-photo-coverflow-controls button.primary:hover {
-  background: var(--cz-action-fill);
-  box-shadow:
-    0 10px 20px rgba(0, 0, 0, 0.28),
-    0 3px 8px color-mix(in srgb, var(--cz-accent) 22%, transparent);
-}
-
-.cz-photo-coverflow-controls .cz-photo-coverflow-counter {
-  min-width: 54px;
-  text-align: center;
-  color: var(--cz-sub);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.cz-photo-coverflow-close {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  z-index: 2;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid var(--cz-hair-strong);
-  background: var(--cz-seg);
-  color: var(--cz-ink);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-
 @media (max-width: 480px) {
   /* Fixed heights only — viewport-relative min() made cards stretch/shrink
      between items and mid-rotate as the stage reflowed. Width stays 80vw
@@ -3443,20 +3149,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     height: 440px;
   }
 
-  .cz-photo-coverflow-card {
-    width: 74vw;
-  }
-
-  .cz-photo-coverflow-controls .cz-photo-coverflow-counter {
-    min-width: 44px;
-    font-size: 12px;
-  }
-
-  .cz-carousel-field-grid,
-  .cz-carousel-field-grid.price-grid {
-    grid-template-columns: 1fr;
-  }
-
   /* Tighter shell on phone so chrome + carousel fit without horizontal scroll */
   .cz-app[data-fashion="true"] .cz-shell {
     padding-left: 14px;
@@ -3466,25 +3158,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
   .cz-search-shell {
     min-height: 48px;
-  }
-
-  .cz-photo-coverflow-close {
-    top: max(12px, env(safe-area-inset-top, 12px));
-    right: max(12px, env(safe-area-inset-right, 12px));
-    width: 44px;
-    height: 44px;
-  }
-
-  .cz-photo-coverflow-controls {
-    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .cz-photo-coverflow-controls button {
-    min-height: 44px;
-    min-width: 44px;
   }
 
   /* Prevent iOS rubber-band from exposing raw body under fixed chrome */
@@ -3517,9 +3190,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     transition: none !important;
   }
 
-  .cz-photo-coverflow-card {
-    transition: none !important;
-  }
 }
 
 /* ═══ Shelf / Hauls tabs + haul directory ═══ */
@@ -4442,27 +4112,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 /* Kill browser/default focus outlines inside the card-back modal chrome. */
 .cz-carousel-back button:focus,
 .cz-carousel-back button:focus-visible,
-.cz-carousel-edit button:focus,
-.cz-carousel-edit button:focus-visible,
 .cz-carousel-back input:focus,
 .cz-carousel-back input:focus-visible,
-.cz-carousel-edit input:focus,
-.cz-carousel-edit input:focus-visible,
 .cz-carousel-back select:focus,
-.cz-carousel-edit select:focus,
-.cz-carousel-back textarea:focus,
-.cz-carousel-edit textarea:focus {
+.cz-carousel-back textarea:focus {
   outline: none !important;
 }
 
 .cz-app[data-fashion="true"] .cz-carousel-back .cz-field:focus-visible,
-.cz-app[data-fashion="true"] .cz-carousel-edit .cz-field:focus-visible,
-.cz-app[data-fashion="true"] .cz-carousel-back .cz-note-field:focus-visible,
-.cz-app[data-fashion="true"] .cz-carousel-edit .cz-note-field:focus-visible {
+.cz-app[data-fashion="true"] .cz-carousel-back .cz-note-field:focus-visible {
   box-shadow: none !important;
   outline: none !important;
   border-color: color-mix(in srgb, var(--cz-hair-strong) 70%, var(--cz-ink)) !important;
 }
+
+
 
 /* ─── Accordion (transitions.dev) — used for haul expand ─── */
 .t-acc-panel {
@@ -5535,18 +5199,12 @@ a.cz-card-seller:hover {
   .cz-morph-button.is-icon-only,
   .cz-favorite-button,
   .cz-starred-filter,
-  .cz-coverflow-arrow,
-  .cz-photo-coverflow-close {
-    min-height: 44px;
-  }
+
 
   .cz-morph-button.is-icon-only,
   .cz-favorite-button,
   .cz-starred-filter,
-  .cz-coverflow-arrow,
-  .cz-photo-coverflow-close {
-    min-width: 44px;
-  }
+
 
   /* The icon-only morph pins explicit 40px dims; override them outright
      (doubled class wins without !important). */
@@ -5604,68 +5262,6 @@ a.cz-card-seller:hover {
   .cz-carousel {
     padding-top: 48px;
   }
-}
-
-/* ————— Kyle pass 2026-07-22: album swipe, toast polish, zoom guard ————— */
-
-/* Horizontal pan belongs to the album, not the page — without this the
-   browser eats the swipe before framer-motion's pan gesture sees it.
-   Apply on the stage AND the track/cards so no child reclaims the gesture. */
-.cz-photo-coverflow-stage,
-.cz-photo-coverflow-track,
-.cz-photo-coverflow-card {
-  touch-action: pan-y;
-}
-
-/* Frosted circular ‹ › chevrons flanking the active album photo. */
-.cz-photo-coverflow-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0;
-  border: 1px solid var(--cz-hair-strong);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--cz-card-solid) 72%, transparent);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  color: var(--cz-ink);
-  cursor: pointer;
-  touch-action: manipulation;
-  pointer-events: auto;
-  transition: background 150ms var(--ease-out), color 150ms var(--ease-out), opacity 150ms var(--ease-out);
-}
-
-.cz-photo-coverflow-nav:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cz-card-solid) 88%, transparent);
-  color: var(--cz-ink);
-}
-
-.cz-photo-coverflow-nav:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.cz-photo-coverflow-nav-prev {
-  left: max(8px, env(safe-area-inset-left, 8px));
-}
-
-.cz-photo-coverflow-nav-next {
-  right: max(8px, env(safe-area-inset-right, 8px));
-}
-
-/* Don't let the img steal the pan (iOS image drag / smart-zoom). */
-.cz-photo-coverflow-card img {
-  pointer-events: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-user-drag: none;
 }
 
 /* Kill iOS double-tap smart-zoom across the fashion app (pinch-zoom is
@@ -6301,20 +5897,6 @@ a.cz-card-seller:hover {
    .cz-capture-sheet-links text buttons left with the Stash sheet rewrite
    (mobile handoff step 4). The sheet shows the clipboard as a preview block
    now — see the .cz-stash-* rules further down this file. */
-
-/* While the full-screen photo gallery is open, hide the solo-overlay ✕ so
-   two close buttons don't stack (Kyle: X pops up when opening more photos). */
-.cz-app[data-fashion="true"]:has(.cz-photo-coverflow-backdrop[open]) .cz-carousel-overlay-close,
-.cz-app[data-fashion="true"]:has(dialog.cz-photo-coverflow-backdrop[open]) .cz-carousel-overlay-close {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.cz-photo-coverflow-close {
-  opacity: 0.88;
-  font-size: 15px;
-  font-weight: 500;
-}
 
 /* ═══ Kyle chrome pass 2026-07-22 ═══
    1. Desktop chrome (masthead/capture/search/tabs/total) spans the shell's
@@ -8135,12 +7717,10 @@ a.cz-card-seller:hover {
 .cz-pill,
 .cz-buy-btn,
 .cz-carousel-action-btn.primary,
-.cz-card-save-btn,
 .cz-card-menu-trigger,
 .cz-carousel-close,
 .cz-photo-preview-controls button,
 .cz-morph-button.is-icon-only,
-.cz-card-edit-morph,
 .cz-favorite-button,
 .cz-starred-filter,
 .cz-mast-btn,
@@ -8159,15 +7739,12 @@ a.cz-card-seller:hover {
 .cz-carousel-close::after,
 .cz-photo-preview-controls button::after,
 .cz-morph-button.is-icon-only::after,
-.cz-card-edit-morph::after,
-.cz-photo-coverflow-close::after {
   content: "";
   position: absolute;
   inset: -2px;
 }
 /* 36px buttons: 4px ring. The masthead trio sits at gap 8px, so the rings
    meet exactly and never overlap. */
-.cz-card-save-btn::after,
 .cz-carousel-orbit-close::after,
 .cz-mast-btn::after,
 .cz-photo-preview-close::after {
@@ -8831,7 +8408,11 @@ a.cz-card-seller:hover {
 .cz-detail-hero-empty {
   flex: 0 0 100%;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  /* 4:3, not square: at 1:1 the hero ate the whole first screen and the
+     item title clipped mid-glyph behind the pinned Buy foot (probe
+     2026-07-25, iPhone 15 Pro). 4:3 keeps a big photo and always leaves
+     the title + seller line visible at open. */
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   scroll-snap-align: center;
   background: var(--cz-seg);
@@ -8846,15 +8427,16 @@ a.cz-card-seller:hover {
 }
 
 .cz-detail-dot {
-  width: 5px;
+  width: 16px;
   height: 5px;
   border-radius: 999px;
   background: oklch(1 0 0 / 0.6);
-  transition: width 160ms ease-out;
+  transform: scaleX(0.3125);
+  transition: transform 160ms ease-out, background 160ms ease-out;
 }
 
 .cz-detail-dot.is-active {
-  width: 16px;
+  transform: scaleX(1);
   background: oklch(1 0 0 / 0.95);
 }
 
@@ -9417,10 +8999,23 @@ a.cz-card-seller:hover {
 }
 
 /* ── Notes ── */
+/* The wrapper animates grid-template-rows (no height transition on the
+   textarea itself); the textarea fills the animated track. */
+.cz-detail-notes-wrap {
+  display: grid;
+  grid-template-rows: 62px;
+  margin-top: 6px;
+  transition: grid-template-rows 200ms ease;
+}
+
+.cz-detail-notes-wrap.is-open {
+  grid-template-rows: 168px;
+}
+
 .cz-detail-notes {
   width: 100%;
-  height: 62px;
-  margin-top: 6px;
+  height: 100%;
+  min-height: 0;
   padding: 12px 13px;
   border: 1px solid var(--cz-hair);
   border-radius: 12px;
@@ -9430,15 +9025,10 @@ a.cz-card-seller:hover {
   font-size: 15px;
   line-height: 1.5;
   resize: none;
-  transition: height 200ms ease;
-}
-
-.cz-detail-notes.is-open {
-  height: 168px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cz-detail-notes { transition: none; }
+  .cz-detail-notes-wrap { transition: none; }
 }
 
 /* ── Photo strip ── */
@@ -9465,6 +9055,25 @@ a.cz-card-seller:hover {
 }
 
 /* ── Pinned footer. Nothing destructive lives here. ── */
+/* Card-back fit: the back is 460px tall, not a 700px phone sheet. A square
+   hero + full foot left a 205px viewport, so a flip landed on ONLY the photo
+   — title, cells and status sat below the fold (probe 2026-07-25). Same
+   content, wider photo, tighter foot: the flip lands on photo + title +
+   the first spec cells, like the sheet does. */
+.cz-carousel-back .cz-detail-hero-track img,
+.cz-carousel-back .cz-detail-hero-empty {
+  aspect-ratio: 16 / 9;
+}
+
+.cz-carousel-back .cz-detail-foot {
+  padding: 10px 14px 14px;
+}
+
+.cz-carousel-back .cz-detail-buy {
+  height: 48px;
+  border-radius: 14px;
+}
+
 .cz-detail-foot {
   flex: 0 0 auto;
   padding: 12px 18px 22px;
