@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, parseSizeChart, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
+import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, parseSizeChart, prescriptionSentence, recommendSize, sizeChartTextFor } from "../../credenza-fashion.jsx";
 
 describe("sizeChartTextFor", () => {
   // Kyle 2026-07-22: chart pasted into Notes gave "no values, no recommended
@@ -293,6 +293,55 @@ describe("fitSummarySentence (design handoff PR4)", () => {
   it("returns an empty string without a recommendation", () => {
     expect(fitSummarySentence(null)).toBe("");
     expect(fitSummarySentence({ missing: "chest" })).toBe("");
+  });
+});
+
+describe("prescriptionSentence (handoff turn 3 §5)", () => {
+  const shirtChart = parseSizeChart(
+    "S: 胸围104 衣长66\nM: 胸围112 衣长68\nL: 胸围120 衣长70\nXL: 胸围128 衣长72"
+  );
+
+  it("names the deciding measurement and the next size down", () => {
+    // body 100 + 12 ease = 112 → M, diff 12 → "meant to sit"
+    const rec = recommendSize(shirtChart, { chest: 100 }, "shirt");
+    const s = prescriptionSentence(shirtChart, rec, { units: "cm", category: "shirt" });
+    expect(s).toBe(
+      "Take the Medium — its 112cm chest gives you 12cm of room over your 100cm, which is where this shirt is meant to sit. The Small's 104cm would pull across the chest."
+    );
+  });
+
+  it("drops the 'meant to sit' clause when the ease is off target", () => {
+    // body 85 + 12 = 97 → S (104), diff 19 — well past the 12cm target.
+    const rec = recommendSize(shirtChart, { chest: 85 }, "shirt");
+    expect(rec.size).toBe("S");
+    const s = prescriptionSentence(shirtChart, rec, { units: "cm", category: "shirt" });
+    expect(s).toContain("gives you 19cm of room over your 85cm.");
+    expect(s).not.toContain("meant to sit");
+  });
+
+  it("skips the second sentence when no smaller size exists", () => {
+    const twoChart = parseSizeChart("M: 胸围112 衣长68\nL: 胸围120 衣长70");
+    const rec = recommendSize(twoChart, { chest: 100 }, "shirt");
+    expect(rec.size).toBe("M");
+    const s = prescriptionSentence(twoChart, rec, { units: "cm", category: "shirt" });
+    expect(s).not.toContain("would");
+  });
+
+  it("uses waist wording for pants", () => {
+    const pantsChart = parseSizeChart(
+      "30: 腰围76 臀围102\n32: 腰围81 臀围107\n34: 腰围86 臀围112"
+    );
+    const rec = recommendSize(pantsChart, { waist: 79 }, "pants");
+    expect(rec.size).toBe("32");
+    const s = prescriptionSentence(pantsChart, rec, { units: "cm", category: "pants" });
+    expect(s).toContain("waist");
+    expect(s).toContain("The 30's 76cm would dig in at the waist.");
+  });
+
+  it("returns an empty string without a usable recommendation", () => {
+    expect(prescriptionSentence(shirtChart, null)).toBe("");
+    expect(prescriptionSentence(null, { size: "M" })).toBe("");
+    expect(prescriptionSentence(shirtChart, { missing: "chest" })).toBe("");
   });
 });
 

@@ -41,7 +41,7 @@ describe("huntSizeChart description-photo priority", () => {
     const found = await huntSizeChart(
       item({ descImages: ["https://si.geilicdn.com/chart_467_207.jpg", "https://si.geilicdn.com/detail-2.jpg"] })
     );
-    expect(found).toBe(CHART);
+    expect(found).toEqual({ text: CHART, source: { via: "desc-photos", photos: 2 } });
     // One vision call, and it was the description photos — not the gallery.
     expect(visionMock).toHaveBeenCalledTimes(1);
     expect(visionMock.mock.calls[0][0]).toEqual([
@@ -54,7 +54,7 @@ describe("huntSizeChart description-photo priority", () => {
     visionMock.mockResolvedValueOnce(null).mockResolvedValueOnce(CHART);
     const descImages = Array.from({ length: 12 }, (_, i) => `https://si.geilicdn.com/d-${i}.jpg`);
     const found = await huntSizeChart(item({ descImages }));
-    expect(found).toBe(CHART);
+    expect(found).toEqual({ text: CHART, source: { via: "desc-photos", photos: 2 } });
     expect(visionMock).toHaveBeenCalledTimes(2);
     expect(visionMock.mock.calls[0][0]).toHaveLength(10);
     expect(visionMock.mock.calls[1][0]).toEqual(descImages.slice(10));
@@ -63,7 +63,7 @@ describe("huntSizeChart description-photo priority", () => {
   it("falls back to the gallery when the description has no chart", async () => {
     visionMock.mockResolvedValueOnce(null).mockResolvedValueOnce(CHART);
     const found = await huntSizeChart(item({ descImages: ["https://si.geilicdn.com/d-0.jpg"] }));
-    expect(found).toBe(CHART);
+    expect(found).toEqual({ text: CHART, source: { via: "gallery-photos", photos: 2 } });
     expect(visionMock.mock.calls[1][0]).toEqual([
       "https://si.geilicdn.com/gallery-1.jpg",
       "https://si.geilicdn.com/gallery-2.jpg",

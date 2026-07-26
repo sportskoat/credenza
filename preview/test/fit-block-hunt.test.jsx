@@ -68,11 +68,13 @@ describe("FitBlock chart hunt", () => {
 
     await user.click(screen.getByRole("button", { name: /Size · fit/ }));
     expect(await screen.findByText("Looking for the seller's size chart…")).toBeInTheDocument();
-    resolveHunt(CHART_TEXT);
+    resolveHunt({ text: CHART_TEXT, source: { via: "desc-photos", photos: 10 } });
 
-    // The found chart writes into sizeNotes through the normal save path.
+    // The found chart writes into sizeNotes (+ its provenance tag) through
+    // the normal save path.
     await waitFor(() => expect(onSaveEdit).toHaveBeenCalledWith("hunt-a", {
       sizeNotes: CHART_TEXT,
+      sizeChartSource: { via: "desc-photos", photos: 10, at: expect.any(String) },
     }));
     expect(huntMock).toHaveBeenCalledTimes(1);
   });

@@ -64,6 +64,23 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
     expect(migrateItem({ id: "p3", rawText: "note" }).descImages).toEqual([]);
   });
 
+  it("keeps sizeChartSource across a reload and gates junk", () => {
+    const migrated = migrateItem({
+      ...base,
+      sizeChartSource: { via: "desc-photos", photos: 10, at: "2026-07-25T01:00:00.000Z" },
+    });
+    expect(migrated.sizeChartSource).toEqual({
+      via: "desc-photos",
+      photos: 10,
+      at: "2026-07-25T01:00:00.000Z",
+    });
+    // Junk shapes sanitize, absent defaults to null.
+    expect(
+      migrateItem({ ...base, sizeChartSource: { via: 42, photos: "lots", at: null } }).sizeChartSource
+    ).toEqual({ via: "", photos: 0, at: "" });
+    expect(migrateItem({ id: "p4", rawText: "note" }).sizeChartSource).toBe(null);
+  });
+
   it("defaults the poster fields when they are absent", () => {
     const migrated = migrateItem({ id: "p2", rawText: "note", title: "Note" });
     expect(migrated.posterStats).toBe(null);

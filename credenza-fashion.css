@@ -1882,10 +1882,23 @@ a.cz-seller-quiet:focus-visible {
   font-weight: 700;
 }
 
+/* The recommended row inverts to the action fill (handoff turn 3 §5); its
+   size cell takes the on-fill money green (#7ee2a8 on the dark fill, the
+   dark ramp on Blackout's near-white fill — the token already tracks it). */
 .cz-size-chart-table tr.is-rec th,
 .cz-size-chart-table tr.is-rec td {
-  color: var(--cz-accent, #7dd3fc);
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
   font-weight: 700;
+  border-bottom-color: transparent;
+}
+.cz-size-chart-table tr.is-rec th {
+  color: var(--cz-money-on-photo);
+  padding-left: 8px;
+  border-radius: 8px 0 0 8px;
+}
+.cz-size-chart-table tr.is-rec td:last-child {
+  border-radius: 0 8px 8px 0;
 }
 
 /* Runner-up size row — quieter highlight than the pick. */
@@ -9327,6 +9340,29 @@ a.cz-card-seller:hover {
   padding: 8px 9px;
   border-radius: 10px;
   background: var(--cz-bg);
+}
+
+/* Evidence (handoff turn 3 §5): the fetched chart table under the trio,
+   then the provenance footer with the See album link. */
+.cz-detail-fit-chart {
+  margin-top: 12px;
+  overflow-x: auto;
+}
+.cz-detail-fit-source {
+  margin-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--cz-faint);
+}
+.cz-detail-fit-album {
+  color: var(--cz-link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--cz-link) 50%, transparent);
+  text-underline-offset: 2px;
+}
+.cz-detail-fit-album:hover {
+  text-decoration-color: var(--cz-link);
 }
 
 .cz-detail-fit-k {

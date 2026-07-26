@@ -5,9 +5,10 @@
 // listing". Yupoo album text first, then a vision scan of album photos,
 // then the seller's Product Details photos (resolve descImages — chart
 // tables live there, never in the top gallery), then the gallery photos.
-// Returns
-// chart text parseable by parseSizeChart, or null. Callers throttle (one
-// hunt per item per session) and persist the text into sizeNotes.
+// Returns { text, source } — text parseable by parseSizeChart plus a
+// provenance tag for the breakdown footer (handoff turn 3 §5) — or null.
+// Callers throttle (one hunt per item per session) and persist the text
+// into sizeNotes and the tag into sizeChartSource.
 //
 // Lives in its own module (not credenza-fashion.jsx) so tests can stub the
 // hunt without mocking the circular app module.
@@ -27,11 +28,16 @@ export async function huntSizeChart(item, { signal } = {}) {
     const data = await fetchYupooImages(album, { signal });
     if (signal && signal.aborted) return null;
     const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
-    if (text.trim() && parseSizeChart(text)) return text.trim();
+    if (text.trim() && parseSizeChart(text)) {
+      return { text: text.trim(), source: { via: "album-text", photos: 0 } };
+    }
     const albumPhotos = (data && data.images) || [];
     if (albumPhotos.length) {
-      const chartText = await fetchChartFromPhotos(albumPhotos.slice(-10), { signal, referer: album });
-      if (chartText && parseSizeChart(chartText)) return chartText;
+      const window = albumPhotos.slice(-10);
+      const chartText = await fetchChartFromPhotos(window, { signal, referer: album });
+      if (chartText && parseSizeChart(chartText)) {
+        return { text: chartText, source: { via: "album-photos", photos: window.length } };
+      }
     }
   }
   // Weidian Product Details path: the description feed carries the chart
@@ -41,20 +47,26 @@ export async function huntSizeChart(item, { signal } = {}) {
     (src) => typeof src === "string" && /^https?:\/\//i.test(src)
   );
   for (let i = 0; i < descPhotos.length; i += 10) {
-    const chartText = await fetchChartFromPhotos(descPhotos.slice(i, i + 10), {
+    const window = descPhotos.slice(i, i + 10);
+    const chartText = await fetchChartFromPhotos(window, {
       signal,
       referer: item.url || undefined,
     });
     if (signal && signal.aborted) return null;
-    if (chartText && parseSizeChart(chartText)) return chartText;
+    if (chartText && parseSizeChart(chartText)) {
+      return { text: chartText, source: { via: "desc-photos", photos: window.length } };
+    }
   }
   // Gallery fallback: resolve already filled it with CDN URLs.
   if (localPhotos.length) {
-    const chartText = await fetchChartFromPhotos(localPhotos.slice(-10), {
+    const window = localPhotos.slice(-10);
+    const chartText = await fetchChartFromPhotos(window, {
       signal,
       referer: item.url || undefined,
     });
-    if (chartText && parseSizeChart(chartText)) return chartText;
+    if (chartText && parseSizeChart(chartText)) {
+      return { text: chartText, source: { via: "gallery-photos", photos: window.length } };
+    }
   }
   return null;
 }

@@ -1015,6 +1015,63 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
   return first + " — " + tail.join("; ") + ".";
 }
 
+// The prescription sentence for the size breakdown (handoff turn 3 §5): 1–2
+// short plain sentences naming the measurement that decided the pick and what
+// the next size down would do. Generated where the chart is parsed — same
+// data, no server round-trip. Example: "Take the Large — its 104cm chest
+// gives you 6cm of room over your 98cm, which is where this shirt is meant to
+// sit. The Medium's 100cm would pull across the chest."
+export function prescriptionSentence(chart, rec, { units = "cm", category = "" } = {}) {
+  if (!chart || !rec || !rec.size || rec.garment == null || rec.body == null || rec.diff == null) return "";
+  if (!isFinite(rec.garment) || !isFinite(rec.body) || !isFinite(rec.diff)) return "";
+  const measure = rec.primaryKey === "waist" ? "waist" : rec.primaryKey === "hip" ? "hip" : "chest";
+  const noun =
+    category === "outerwear"
+      ? "jacket"
+      : category === "pants"
+        ? "pants"
+        : category === "shorts"
+          ? "shorts"
+          : category === "shirt"
+            ? "shirt"
+            : "piece";
+  const sizeName = formatSizeToken(rec.size) || rec.size;
+  const garment = formatMeasure(rec.garment, units);
+  const body = formatMeasure(rec.body, units);
+  const room = formatMeasure(Math.abs(rec.diff), units);
+  // The ease targets recommendSize aims for; "meant to sit" only when the
+  // pick lands on target.
+  const target = measure === "chest" ? (category === "outerwear" ? 16 : 12) : 2;
+  const sitsRight = Math.abs(rec.diff - target) <= 4;
+  const first =
+    "Take the " +
+    sizeName +
+    " — its " +
+    garment +
+    " " +
+    measure +
+    " gives you " +
+    room +
+    " of room over your " +
+    body +
+    (sitsRight ? ", which is where this " + noun + " is meant to sit" : "") +
+    ".";
+  // Next size down: the closest smaller garment on the deciding axis.
+  const down = chart.rows
+    .filter((r) => r && r.size !== rec.size && r[rec.primaryKey] != null && r[rec.primaryKey] < rec.garment)
+    .sort((a, b) => b[rec.primaryKey] - a[rec.primaryKey])[0];
+  if (!down) return first;
+  const downName = formatSizeToken(down.size) || down.size;
+  const downVal = formatMeasure(down[rec.primaryKey], units);
+  const consequence =
+    measure === "chest"
+      ? "pull across the chest"
+      : measure === "waist"
+        ? "dig in at the waist"
+        : "pull across the hips";
+  return first + " The " + downName + "'s " + downVal + " would " + consequence + ".";
+}
+
 // Display conversion — storage is always cm/kg (seller charts are metric);
 // inches/pounds only exist at the input and display edges.
 export function formatMeasure(cm, units) {
@@ -1978,6 +2035,20 @@ export function migrateItem(old) {
       ? old.descImages.filter((g) => typeof g === "string" && /^https?:\/\//i.test(g)).slice(0, 20)
       : [],
     sizeNotes: typeof old.sizeNotes === "string" ? old.sizeNotes : "",
+    // Where the size chart came from (handoff turn 3 §5 provenance footer):
+    // { via: "album-text"|"album-photos"|"desc-photos"|"gallery-photos",
+    //   photos: N scanned, at: ISO date }. Written by the silent chart hunt.
+    sizeChartSource:
+      old.sizeChartSource && typeof old.sizeChartSource === "object"
+        ? {
+            via: typeof old.sizeChartSource.via === "string" ? old.sizeChartSource.via.slice(0, 24) : "",
+            photos:
+              typeof old.sizeChartSource.photos === "number" && isFinite(old.sizeChartSource.photos)
+                ? Math.min(99, Math.max(0, Math.round(old.sizeChartSource.photos)))
+                : 0,
+            at: typeof old.sizeChartSource.at === "string" ? old.sizeChartSource.at.slice(0, 40) : "",
+          }
+        : null,
     seller: old.seller || "",
     batch: old.batch || "",
     size: old.size || "",

@@ -10,12 +10,12 @@ import {
   computeRecommendedSize,
   effectiveBodyProfile,
   fitDisplayPrefs,
-  fitSummarySentence,
   formatMeasure,
   formatSizeToken,
   itemPhotoList,
   linkButtons,
   parseSizeChart,
+  prescriptionSentence,
   priceLabelShort,
   recommendSize,
   resolveDisplaySize,
@@ -25,6 +25,8 @@ import {
   SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
+import SizeChartTable from "./SizeChartTable.jsx";
+import { albumLinkTarget } from "./CardMetaLinks.jsx";
 import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
@@ -66,9 +68,13 @@ function specCells(item, view, sizeText) {
   ];
 }
 
-// The fit block. It reuses recommendSize / fitSummarySentence unchanged —
-// this is presentation only. When there is no profile or no parsed chart it
-// shows the chart's own size run instead of inventing a confidence.
+// The size reasoning breakdown (handoff turn 3 §5). Reading order: verdict
+// (kicker + Georgia size + confidence chip) → prescription (1-2 plain
+// sentences naming the deciding measurement and the next size down) →
+// evidence (You/Garment/Ease trio, the fetched chart table with the pick
+// inverted, provenance footer + See album) → escape (override chips + Set my
+// sizes). With no parsed chart it says so and shows the size run plainly —
+// it never invents a pick.
 function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, onDone, onSaveEdit }) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
@@ -82,15 +88,35 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
   const variantValues = pickSizeValuesFromVariants(item.variants);
   const variantRun = pickSizeRunFromVariants(item.variants);
   const runValues = chartRunValues.length ? chartRunValues : variantValues;
-  // The fit-summary pref gates the sentence; the detail pref picks its length.
-  const { summary: fitSummaryOn, detail: fitDetailMode } = fitDisplayPrefs();
-  const why = recSize && fitSummaryOn ? fitSummarySentence(rec, { runHint: chart && chart.runHint, units, detail: fitDetailMode }) : "";
+  // The fit-summary pref gates the sentence.
+  const { summary: fitSummaryOn } = fitDisplayPrefs();
+  const prescription = recSize && fitSummaryOn
+    ? prescriptionSentence(chart, rec, { units, category: item.category })
+    : "";
+  // Provenance footer (turn 3 §5): where the chart came from, when, and a
+  // See album link. Items whose chart predates the hunt tag get the plain
+  // line — the footer never invents a photo count.
+  const albumTarget = albumLinkTarget(item);
+  const source = item.sizeChartSource && typeof item.sizeChartSource === "object" ? item.sizeChartSource : null;
+  const SOURCE_LINES = {
+    "album-text": "Chart read from the seller's album page",
+    "album-photos": "Chart read from " + (source ? source.photos : 0) + " album photos",
+    "desc-photos": "Chart read from " + (source ? source.photos : 0) + " listing photos",
+    "gallery-photos": "Chart read from " + (source ? source.photos : 0) + " gallery photos",
+  };
+  const sourceLine = source && SOURCE_LINES[source.via]
+    ? SOURCE_LINES[source.via] +
+      (source.at
+        ? " · " + new Date(source.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        : "")
+    : "Chart from the seller's listing";
 
   // Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
   // SIZES" — charts never arrived because the old hunt died with the desktop
   // panel). Opening the fit block with no chart hunts once: Yupoo album
-  // text, then a vision read of the album/gallery photos. A found chart
-  // writes into sizeNotes, this block recomputes, and the pick appears.
+  // text, then a vision read of the album/desc/gallery photos. A found chart
+  // writes into sizeNotes (+ its provenance into sizeChartSource), this
+  // block recomputes, and the pick appears.
   const [hunting, setHunting] = useState(false);
   useEffect(() => {
     if (chart || SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return;
@@ -100,12 +126,17 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
     const controller = new AbortController();
     setHunting(true);
     (async () => {
-      const chartText = await huntSizeChart(item, { signal: controller.signal });
+      const found = await huntSizeChart(item, { signal: controller.signal });
       if (cancelled) return;
       setHunting(false);
-      if (chartText) {
+      // Older hunts returned bare text; the source tag ships with the text now.
+      const text = typeof found === "string" ? found : found && found.text;
+      if (text) {
         onSaveEdit(item.id, {
-          sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText,
+          sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text,
+          ...(found && found.source
+            ? { sizeChartSource: { ...found.source, at: new Date().toISOString() } }
+            : {}),
         });
       }
     })();
@@ -123,7 +154,11 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
         </span>
         <span className={"cz-detail-fit-badge" + (precise ? " is-precise" : "")}>
           <span className="cz-detail-fit-badge-dot" aria-hidden="true" />
-          {precise ? "Precise fit" : recSize ? "Best guess" : "No recommendation"}
+          {precise
+            ? "Read from the seller's chart"
+            : recSize
+              ? "Best guess"
+              : "No recommendation"}
         </span>
       </div>
 
@@ -137,13 +172,13 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
             ? "Looking for the seller's size chart…"
             : bodyProfile
             ? bodyProfile.usualTops || bodyProfile.usualBottoms || bodyProfile.usualShoes || bodyProfile.usualSize
-              ? "No size chart on this listing — the card shows your usual size as EST."
+              ? "No size chart on this listing — the card shows your usual size."
               : "No size chart on this listing. Add your usual sizes in My sizes for an estimate."
             : "Set my sizes to get a recommendation."}
         </p>
       )}
 
-      {why ? <p className="cz-detail-fit-why">{why}</p> : null}
+      {prescription ? <p className="cz-detail-fit-why">{prescription}</p> : null}
 
       {recSize && rec.garment != null && rec.body != null ? (
         <div className="cz-detail-fit-math" aria-label="Fit numbers">
@@ -165,9 +200,36 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
         </div>
       ) : null}
 
+      {chart && recSize ? (
+        <div className="cz-detail-fit-chart">
+          <SizeChartTable
+            chart={chart}
+            units={units}
+            highlight={recSize}
+            highlightAlt={rec && rec.alt ? rec.alt.size : undefined}
+          />
+          <div className="cz-detail-fit-source">
+            {sourceLine}
+            {albumTarget ? (
+              <>
+                {" · "}
+                <a
+                  href={albumTarget.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cz-detail-fit-album"
+                >
+                  See album
+                </a>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="cz-detail-fit-label">Override</div>
       <div className="cz-detail-fit-chips">
-        {runValues.map((size) => (
+        {chipSizes(runValues, recSize || item.size).map((size) => (
           <button
             key={size}
             type="button"
@@ -190,6 +252,19 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
       </button>
     </div>
   );
+}
+
+// The OVERRIDE row shows the sizes adjacent to the pick (handoff turn 3 §5).
+// A run of six or fewer fits as-is; a longer run windows ±2 around the
+// recommended (or chosen) size so the chips stay one scannable row.
+function chipSizes(runValues, anchor) {
+  const MAX = 6;
+  if (!Array.isArray(runValues) || runValues.length <= MAX) return runValues || [];
+  const idx = runValues.findIndex(
+    (s) => String(s).toUpperCase() === String(anchor || "").toUpperCase()
+  );
+  const start = Math.min(Math.max(0, (idx < 0 ? 0 : idx) - 2), runValues.length - MAX);
+  return runValues.slice(start, start + MAX);
 }
 
 // Shell chrome for the pager. The render prop gets the live pager state and
@@ -332,10 +407,11 @@ export default function DetailBody({
     : recSize
       ? formatSizeToken(recSize) || recSize
       : (() => {
-          // No chart, no rec: the usual-size EST the card face already shows
-          // (Kyle 2026-07-25: the sheet read "—" where the card read an EST).
+          // No chart, no rec: the usual-size fallback the card face shows as
+          // YOUR USUAL (handoff turn 3 §4 — "(EST)" is retired; the label
+          // says who decided, and the breakdown one tap away explains it).
           const d = resolveDisplaySize(item, bodyProfile, fitPrefs);
-          if (d.isEstimate && d.size) return (formatSizeToken(d.size) || d.size) + " (EST)";
+          if (d.isEstimate && d.size) return d.value || formatSizeToken(d.size) || d.size;
           // Listing Size axis when nothing else — show S–XL, never invent a pick.
           return pickSizeRunFromVariants(item.variants) || "";
         })();
