@@ -77,9 +77,10 @@ Full write-up: `docs/specs/empty-taobao-cards.md`.
 | `docs/lane-notes-for-k3.md` | This file |
 | `docs/specs/empty-taobao-cards.md` | Spec for the Taobao resolve gap |
 | `docs/specs/richer-item-facts.md` | How to fill thin Weidian cards (title, chart, variants) |
-| `listing-facts.js` | Pure title policy + variant display + boilerplate filter |
-| `preview/test/fixtures/*` | weight, marketplace, title-policy, variants, charts |
-| `preview/test/listing-facts.test.js` | Fixture-driven pure tests |
+| `listing-facts.js` | Pure title policy + variants + boilerplate + weight-from-text + chart hosts |
+| `preview/test/fixtures/*` | weight, marketplace, title-policy, variants, charts, hosts |
+| `preview/test/listing-facts.test.js` | 42 fixture-driven pure tests |
+| `docs/specs/product-wire-listing-facts.md` | Exact product wire steps when UI is free |
 | Appends in `preview/test/agents.test.js` | Negative host / fail-open cases |
 | Appends in `preview/test/weight.test.js` | Fixture-driven weight cases |
 
