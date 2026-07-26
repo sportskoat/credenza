@@ -214,7 +214,10 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
         <div className="cz-detail-fit-size">{formatSizeToken(heroSize) || heroSize}</div>
       ) : hunting ? (
         <p className="cz-detail-fit-empty is-hunting" aria-live="polite">
-          <span className="t-shimmer" data-text={huntLine}>
+          {/* t-shimmer-wrap: this sentence wraps to two lines on a phone, and the
+              default two-layer shimmer prints a second copy that wraps
+              differently. The wrap variant paints one layer only. */}
+          <span className="t-shimmer t-shimmer-wrap" data-text={huntLine}>
             {huntLine}
           </span>
         </p>

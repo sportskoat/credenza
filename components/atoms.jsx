@@ -207,6 +207,10 @@ export function ReelDigit({ digit, index, reduced }) {
   const stripRef = useRef(null);
   const blurRef = useRef(null);
   const spinningRef = useRef(false);
+  // Fallback timer + a live handle on settle (Kyle 2026-07-26: the money
+  // counter digits stay smeared). See the comment on the tween effect.
+  const settleTimerRef = useRef(0);
+  const settleRef = useRef(null);
   const fid = "reel-blur-" + useId().replace(/[^a-zA-Z0-9]/g, "");
 
   // Spin forward to the new digit, plus one full revolution for flavor.
@@ -231,13 +235,32 @@ export function ReelDigit({ digit, index, reduced }) {
     strip.style.transform = "translateY(" + -pos * REEL_CELL + "px)";
     // Only streak while actually travelling — the settle snap re-runs this
     // effect and must not re-arm the blur.
-    if (spinningRef.current && blurRef.current)
+    if (spinningRef.current && blurRef.current) {
       blurRef.current.setAttribute("stdDeviation", "0 " + REEL_BLUR);
+      // Attach the filter only while travelling. An SVG filter that stays on
+      // the element forces the text through the filter rasteriser on every
+      // frame, so the glyphs read soft even at stdDeviation 0. At rest the
+      // digits must be plain crisp text.
+      strip.style.filter = "url(#" + fid + ")";
+      // Belt and braces: settle on a timer as well as on transitionend.
+      // transitionend is NOT guaranteed. It does not fire when the tab is
+      // hidden, when the element is display:none or detached mid-tween, when
+      // a new total interrupts the tween, or when the compositor drops the
+      // transition. The blur was armed here and cleared ONLY in settle(), so
+      // one missed event left the digits permanently smeared — which is what
+      // Kyle saw. The timer clears the streak no matter what.
+      clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = setTimeout(
+        () => settleRef.current && settleRef.current(),
+        REEL_DUR + index * REEL_STAGGER + 120
+      );
+    }
   }, [pos, index, reduced]);
 
   // Settle: kill the streak and snap the strip back into the 0-9 window (same
   // digit, since cells repeat) so the strip never grows without bound.
   const settle = () => {
+    clearTimeout(settleTimerRef.current);
     if (!spinningRef.current) return;
     spinningRef.current = false;
     if (blurRef.current) blurRef.current.setAttribute("stdDeviation", "0 0");
@@ -245,9 +268,15 @@ export function ReelDigit({ digit, index, reduced }) {
     if (strip) {
       strip.style.transition = "none";
       strip.style.transform = "translateY(" + -(pos % 10) * REEL_CELL + "px)";
+      // Drop the filter entirely so the resting digits rasterise as plain text.
+      strip.style.filter = "none";
     }
     setPos((p) => p % 10);
   };
+  settleRef.current = settle;
+
+  // Never leave a timer behind on unmount.
+  useEffect(() => () => clearTimeout(settleTimerRef.current), []);
 
   const cells = [];
   for (let i = 0; i <= pos; i++) cells.push(i % 10);
@@ -262,7 +291,8 @@ export function ReelDigit({ digit, index, reduced }) {
       <span
         ref={stripRef}
         className="t-reel-strip"
-        style={{ transform: "translateY(" + -pos * REEL_CELL + "px)", filter: "url(#" + fid + ")" }}
+        /* No filter at rest — the tween effect attaches it while travelling. */
+        style={{ transform: "translateY(" + -pos * REEL_CELL + "px)", filter: "none" }}
         onTransitionEnd={(e) => {
           if (e.propertyName === "transform") settle();
         }}

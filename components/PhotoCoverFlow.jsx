@@ -10,6 +10,7 @@ import {
 
 export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSetPrimaryImage, onLoadPhotos }) {
   const [activeIndex, setActiveIndex] = useState(startIndex || 0);
+  const closingRef = useRef(false);
   const [loadedImages, setLoadedImages] = useState(images);
   const [loading, setLoading] = useState(false);
   const reduced = usePrefersReducedMotion();
@@ -24,8 +25,29 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
     const t = setTimeout(() => closeRef.current?.focus(), 0);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      // Close the dialog before React drops the node (Kyle 2026-07-26: "the
+      // exit-out buttons when you're in the photos section love to just stick
+      // around and not do anything"). React removes the element without ever
+      // calling close(), so the browser keeps the stale dialog in the TOP
+      // LAYER: it still paints above everything, but its React handlers are
+      // gone, so every click on the ✕ does nothing. ModalShell already carries
+      // this exact fix (Kyle 2026-07-24: "closing stuff gives me a blank
+      // screen"); the gallery never got it.
+      if (dialog && dialog.open) dialog.close();
+    };
   }, []);
+
+  // One close per open. A second click while the parent is still unmounting
+  // used to re-enter onClose and fight the teardown.
+  const requestClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    const dialog = dialogRef.current;
+    if (dialog && dialog.open) dialog.close();
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     const w = typeof window !== "undefined" ? window.innerWidth : 300;
@@ -55,7 +77,7 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
     const onKey = (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        requestClose();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         setActiveIndex((i) => Math.max(0, i - 1));
@@ -66,7 +88,7 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [loadedImages.length, onClose]);
+  }, [loadedImages.length, requestClose]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -128,12 +150,12 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
         aria-label="Album photo preview"
         onCancel={(e) => {
           e.preventDefault();
-          onClose();
+          requestClose();
         }}
-        onClick={(e) => e.target === e.currentTarget && onClose()}
+        onClick={(e) => e.target === e.currentTarget && requestClose()}
       >
         <div className="cz-photo-coverflow">
-          <button className="cz-photo-coverflow-close" ref={closeRef} onClick={onClose} aria-label="Close photo preview">✕</button>
+          <button className="cz-photo-coverflow-close" ref={closeRef} onClick={requestClose} aria-label="Close photo preview">✕</button>
           <div style={{ color: "var(--cz-sub)" }}>No photos loaded.</div>
         </div>
       </dialog>
@@ -151,12 +173,12 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
       aria-label="Album photo preview"
       onCancel={(e) => {
         e.preventDefault();
-        onClose();
+        requestClose();
       }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && requestClose()}
     >
       <div className="cz-photo-coverflow">
-        <button className="cz-photo-coverflow-close" ref={closeRef} onClick={onClose} aria-label="Close photo preview">✕</button>
+        <button className="cz-photo-coverflow-close" ref={closeRef} onClick={requestClose} aria-label="Close photo preview">✕</button>
         <motion.div
           className="cz-photo-coverflow-stage"
           ref={containerRef}
@@ -244,7 +266,7 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
             className="primary"
             onClick={() => {
               onSetPrimaryImage(item.id, loadedImages[activeIndex]);
-              onClose();
+              requestClose();
             }}
           >
             Use as cover
