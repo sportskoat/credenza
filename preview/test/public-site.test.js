@@ -1251,6 +1251,10 @@ describe("every page tells a machine what kind of page it is", () => {
     "guides/plan-a-parcel/index.html": "HowTo",
     "guides/back-up-your-shelf/index.html": "HowTo",
     "guides/weidian-size-chart/index.html": "HowTo",
+    // LB-59. The order is the point: try the local text parser, then the shelf
+    // cache, and only then send photos. A reader who does those in the wrong
+    // order spends reads they did not have to.
+    "guides/what-spends-a-chart-read/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
 
@@ -1832,6 +1836,24 @@ describe("a feature the price table sells is explained somewhere else", () => {
       row: "Ask",
       needs: ["the 25 cards closest to your question", "one press of cloud ask is one ask"],
       why: "the feature with the widest gap after link resolves had one card explaining it",
+    },
+    // LB-59. Added 2026-07-27. The next census after LB-58 ran the same
+    // <main>-stripped count over the rows with no entry here. AI size-chart
+    // reads was the thinnest: five sentences on five pages, and all five were
+    // limits lists or data-processing lists. It also carries the widest ratio
+    // on the whole table — 2 a day free against 100 on Pro, fifty times.
+    // /guides/weidian-size-chart/ exists, but its headings show it teaches how
+    // to READ a chart, not what one AI read is or what spends one.
+    //
+    // Both phrases are the mechanism. "Chart read" passes on any limits list.
+    // The first says what the counter counts — a call, so three photos of one
+    // chart are one read, which is the misunderstanding that makes 2 sound
+    // small. The second says what makes the number go further: the shelf is the
+    // cache, so a haul from one seller costs one read however many items it has.
+    {
+      row: "AI size-chart reads",
+      needs: ["the unit is the call, not the image", "spends one read, not ten"],
+      why: "the widest free-to-pro ratio on the table, and no page said what one read is",
     },
   ];
 

@@ -3120,8 +3120,17 @@ async function postChartVision({ images, photos, signal, referer }) {
       }),
       signal: controller.signal,
     });
-    bumpUsage("chartVision");
+    // LB-59. Count AFTER the status check, never before it. The server counts a
+    // chart read at chart-vision.js:281 — after Anthropic answered, so a 502
+    // "Chart read failed", a 504 timeout, a 413, and the 429 daily cap itself
+    // all cost the account nothing there. The client counter is the one that
+    // BLOCKS (overFreeLimit above returns early on it), so a client that counted
+    // failures gave a free user 2 attempts a day, not 2 reads a day, and burned
+    // the second one on an outage the user did not cause. Both 200 bodies still
+    // count, found:true and found:false alike, because the model was called
+    // either way — /guides/what-spends-a-chart-read/ says so in those words.
     if (!res.ok) return null;
+    bumpUsage("chartVision");
     const data = await res.json();
     if (!data || !data.found || typeof data.chartText !== "string") return null;
     return data.chartText.trim() || null;
@@ -3247,8 +3256,12 @@ export async function fetchDescImages(item, { signal } = {}) {
       body: JSON.stringify({ url: buyUrl }),
       signal: controller.signal,
     });
-    bumpUsage("resolve");
+    // LB-59, same rule as postChartVision: resolve.js records at line 784, on
+    // the 200 path only. A 422 "Not a resolvable buy link" is the common one
+    // here, and charging a day's quota for pasting a link the server will not
+    // even try is the worst version of the bug.
     if (!res.ok) return [];
+    bumpUsage("resolve");
     const data = await res.json();
     if (!data || !Array.isArray(data.descImages)) return [];
     return data.descImages.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u));
@@ -5851,8 +5864,11 @@ function CredenzaApp() {
         body: JSON.stringify({ url: buyUrl }),
         signal: controller.signal,
       });
-      bumpUsage("resolve");
-      if (res.ok) data = await res.json();
+      // LB-59. The importer's own resolve call, counted on success only.
+      if (res.ok) {
+        bumpUsage("resolve");
+        data = await res.json();
+      }
     } catch {
       data = null;
     } finally {
@@ -6428,7 +6444,6 @@ function CredenzaApp() {
         body: JSON.stringify({ query, shelf }),
         signal: controller.signal,
       });
-      bumpUsage("ask");
       let payload;
       try {
         payload = await res.json();
@@ -6460,6 +6475,13 @@ function CredenzaApp() {
             typeof item.why === "string"
         );
       if (!valid) throw new Error("Cloud Ask returned an invalid response.");
+
+      // LB-59. ask.js records at line 238, after the structured response passes
+      // validation — so a 429 from Anthropic, a 502, and a malformed answer are
+      // all free on the server. The client counts at the same moment, and not
+      // one line earlier: this counter is what overFreeLimit blocks on, and a
+      // free user has 5 answers a day, not 5 attempts.
+      bumpUsage("ask");
 
       setAskState({
         status: "success",

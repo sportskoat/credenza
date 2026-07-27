@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>What spends an AI chart read · Credenza</title>
+    <meta name="description" content="Free reads 2 size charts a day, Pro reads 100. What counts as one read, what costs nothing, and why a second item from the same seller is free." />
+    <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/what-spends-a-chart-read/" />
+    <meta property="og:title" content="What spends an AI size-chart read, and what costs nothing" />
+    <meta property="og:description" content="Free reads 2 size charts a day, Pro reads 100. What counts as one read, what costs nothing, and why a second item from the same seller is free." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/what-spends-a-chart-read/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="What spends an AI size-chart read, and what costs nothing" />
+    <meta name="twitter:description" content="Free reads 2 size charts a day, Pro reads 100. What counts as one read, what costs nothing, and why a second item from the same seller is free." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "What spends an AI size-chart read, and what costs nothing",
+        "url": "https://credenzafashion.com/guides/what-spends-a-chart-read/",
+        "description": "An AI chart read is one call that turns a photographed size chart into numbers Credenza can compare against your measurements. This page says what spends one, what is free, and how the daily count works on each plan.",
+        "totalTime": "PT2M",
+        "step": [
+          {
+            "@type": "HowToStep",
+            "name": "Let the local reader try the text first",
+            "text": "Paste or import the listing before you photograph anything. Credenza reads the description text on your device with no network call at all. If the seller typed the chart as text, the sizes appear straight away and no AI read is spent, because no request is ever sent."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Check the shelf for a chart you already read",
+            "text": "Open a second item from a seller whose chart you have already read. Credenza looks along your own shelf for a chart tagged with that seller and reuses it. That reuse costs zero reads, so a ten-item haul from one seller normally spends one read in total, not ten."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Send the photos only when the text has nothing",
+            "text": "Add up to 3 chart photos on the card, or let Credenza pull up to 10 album images. All of them travel in a single request and count as ONE read. Sending three frames of the same chart is not three reads; it is one read with three frames attached."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Read the result, including a miss",
+            "text": "A read that answers 'no size chart on this listing' still counts, because the model was called and answered. A read that fails — a timeout, a server error, or an image Credenza could not fetch — does not count on either the server or your device. Failures are free, misses are not."
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://credenzafashion.com/" },
+          { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://credenzafashion.com/guides/" },
+          { "@type": "ListItem", "position": 3, "name": "What spends an AI size-chart read, and what costs nothing", "item": "https://credenzafashion.com/guides/what-spends-a-chart-read/" }
+        ]
+      }
+    </script>
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>What spends an AI size-chart read, and what costs nothing</h1>
+      <p class="lede">
+        Free reads 2 charts a day. Pro reads 100. Most people never reach either
+        number, because the reads that matter are the ones Credenza does not
+        make: the local text parser, and the chart it already read for that
+        seller. This page says exactly what spends a read.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/">Support</a>
+        <a href="/contact/">Contact</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+        <main>
+      <article class="card">
+        <span class="n">The idea</span>
+        <h2>A read is one call, not one photo and not one item</h2>
+        <p>
+          A size chart on a listing is usually a picture. It is a table of
+          numbers, photographed or screenshotted, that no browser can search and
+          no spreadsheet can import. An AI chart read is the one job that turns
+          that picture back into numbers: the model looks at the frames, finds
+          the rows, and returns them as text Credenza can measure you against.
+        </p>
+        <p>
+          The unit is the call, not the image. One card, one request, one read —
+          however many frames rode along with it. That matters because the free
+          plan allows 2 chart reads a day and Pro allows 100, and the natural
+          worry is that a chart split across three photos eats three of them. It
+          does not. Three frames go up together and come back as one answer.
+        </p>
+        <p>
+          The unit is also not the item. Credenza reuses a chart it has already
+          read, so the second, fifth and tenth item from the same seller are all
+          free. More on that below, because it is the reason the daily numbers
+          are larger than they look.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Free first</span>
+        <h2>Three things happen before any read is spent</h2>
+        <p>
+          Credenza does not send a request the moment you open a card. It works
+          down a ladder, and every rung above the last one costs nothing.
+        </p>
+        <ul>
+          <li>
+            <strong>The text on your device.</strong> Many sellers type the
+            chart into the description instead of photographing it. Credenza
+            parses that text locally — no request leaves the device, so no read
+            is spent, and it works with no signal at all. It reads labelled
+            lines and simple tables, and accepts measurements between 20&nbsp;cm
+            and 250&nbsp;cm so a price or a year cannot be mistaken for a chest.
+          </li>
+          <li>
+            <strong>A chart you have already read.</strong> Before sending
+            anything, Credenza looks along your own shelf for another item by
+            the same seller whose chart was read rather than guessed. If it
+            finds one, it reuses those numbers. This costs zero reads.
+          </li>
+          <li>
+            <strong>Your own measurements.</strong> The size suggestion is
+            computed on your device from the chart and your saved body profile.
+            Comparing your chest against a chart is arithmetic, not AI, and it
+            never costs anything —
+            <a href="/guides/store-body-measurements/">storing your measurements</a>
+            explains what it uses.
+          </li>
+        </ul>
+        <p>
+          Only when the text has nothing usable, and the shelf has nothing to
+          reuse, does Credenza offer to read the photos.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">What it sends</span>
+        <h2>Up to 3 photos, or up to 10 album images, in one request</h2>
+        <p>
+          There are two ways a chart reaches the reader, and both count as one
+          read.
+        </p>
+        <p>
+          <strong>Photos you attach.</strong> You can add up to 3 chart images
+          to a card — a camera shot, a screenshot, or a saved image. Three is
+          deliberate: it covers a chart split across two frames plus a retake.
+          Each is compressed on your device before it is sent, so a large camera
+          photo does not become a large upload.
+        </p>
+        <p>
+          <strong>Album images Credenza already has.</strong> If the listing was
+          imported with a gallery, Credenza can scan up to 10 of those images
+          for a chart without you photographing anything. It fetches them from
+          the seller's own image host, not from a copy —
+          <a href="/guides/yupoo-album-to-shopping-list/">turning an album into a list</a>
+          covers how those images arrive.
+        </p>
+        <p>
+          Either way it is one call. The read has 25 seconds on the server and
+          30 on your device before it gives up, which is generous for a
+          photograph of a table and short enough that a stuck request does not
+          hold the card open.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The cache</span>
+        <h2>Your shelf is the cache, so a haul from one seller costs one read</h2>
+        <p>
+          This is the part worth understanding, because it changes what the
+          daily number means in practice.
+        </p>
+        <p>
+          When a chart is read, Credenza tags it with the seller it came from
+          and stores it on the card. Open a different card from that same seller
+          and Credenza walks your shelf, finds the tagged chart, and uses it. No
+          request is made. If several charts match, the newest wins, and a chart
+          that was actually read always beats one that was guessed from text.
+        </p>
+        <p>
+          A ten-item haul from one Weidian seller therefore spends one read, not
+          ten. A haul spread across four sellers spends four. Two a day on the
+          free plan is not two garments — it is two sellers you have never
+          measured before.
+        </p>
+        <p>
+          The cache lives on your device with the rest of the shelf. Nothing is
+          stored on a server, and clearing the shelf clears it.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Careful</span>
+        <h2>A miss counts. A failure does not.</h2>
+        <p>
+          Two outcomes look similar and are charged differently, so it is worth
+          being plain about both.
+        </p>
+        <p>
+          <strong>A miss counts.</strong> If the model looks at your photos and
+          answers "no size chart here", that is a read. The work was done and
+          the answer is real — "this listing has no chart" is useful, and it
+          cost the same as finding one. Photographing a blurry tag and hoping
+          will spend reads.
+        </p>
+        <p>
+          <strong>A failure does not count.</strong> If the request times out,
+          if the server returns an error, or if none of the album images can be
+          fetched, nothing is charged. Not on the server and not on your device.
+          You can try again immediately. This is a rule we had to fix rather
+          than one we got right first: an earlier build counted on the device
+          the moment a reply arrived, before checking whether the reply was an
+          error, so two timeouts could spend a free user's whole day. They no
+          longer can.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The count</span>
+        <h2>2 a day free, 100 a day on Pro, reset at midnight UTC</h2>
+        <p>
+          The counter is per day and it is the same counter on both plans, only
+          with a different ceiling. The day boundary is midnight UTC, not your
+          local midnight, so the reset is at a fixed hour wherever you are.
+        </p>
+        <p>
+          Nothing carries over. An unused read on Tuesday does not make three
+          available on Wednesday. There is no bundle to buy and no top-up: the
+          only way to have more in one day is Pro, and Pro's 100 is a ceiling
+          nobody organizing their own hauls is likely to meet.
+        </p>
+        <p>
+          When you reach the free limit, the card does not break. It keeps
+          whatever the local text parser found, keeps every chart already on
+          your shelf, and keeps giving size suggestions from them. Only the new
+          cloud read is unavailable, and only until the reset.
+          <a href="/pricing/">Pricing</a> lists this row next to the others.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">In practice</span>
+        <h2>How to make two a day be enough</h2>
+        <ul>
+          <li>
+            <strong>Import the listing before you photograph.</strong> The local
+            parser only sees text Credenza has. Import first and it may find the
+            chart with no read at all.
+          </li>
+          <li>
+            <strong>Do the sellers you do not know first.</strong> The read is
+            per seller in effect, so spend the day's reads on new sellers and
+            let the cache cover the rest of the haul.
+          </li>
+          <li>
+            <strong>Photograph the whole table.</strong> One clear frame of the
+            entire chart beats three tight crops. The reader keeps original
+            labels, including Chinese ones such as 胸围 and 衣长, so you do not
+            need to translate before sending.
+          </li>
+          <li>
+            <strong>Save your measurements once.</strong> A chart with nobody to
+            compare it to is just a table. The suggestion is free and instant
+            once the profile exists.
+          </li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <span class="n">After</span>
+        <h2>What the numbers are for</h2>
+        <p>
+          A chart on its own does not decide anything. Once Credenza has the
+          rows, it compares them against your saved measurements and suggests a
+          size for that garment, with the fit preference for that category
+          applied — a jacket you want roomy and a tee you want close are
+          measured against the same body with different targets.
+        </p>
+        <p>
+          The numbers stay on the card, so the decision is still there weeks
+          later when the parcel arrives and you are checking QC photos against
+          what you expected.
+          <a href="/guides/weidian-size-chart/">Reading a Weidian size chart</a>
+          covers what the columns mean, and
+          <a href="/guides/track-qc-photos/">tracking QC photos</a> covers the
+          check at the other end.
+        </p>
+      </article>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a shop. It
+        organizes the links you already found and opens Buy in the agent you
+        already use. It does not sell anything and it does not host a catalog.
+      </p>
+
+      <a class="cta" href="/">Open Credenza</a>
+
+      <p class="related">
+        Related:
+        <a href="/guides/weidian-size-chart/">Read a size chart</a> ·
+        <a href="/guides/store-body-measurements/">Store your measurements</a> ·
+        <a href="/guides/free-agent-haul-planner/">What free covers</a> ·
+        <a href="/guides/yupoo-album-to-shopping-list/">Album to shopping list</a> ·
+        <a href="/how/">How it works</a>
+      </p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/contact/">Contact</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

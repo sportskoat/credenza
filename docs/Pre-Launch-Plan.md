@@ -123,6 +123,7 @@ do it completely, and report against its acceptance criteria.
 | LB-56 | Send Ask the fields it is sold on | P0 | 2 h | LB-55 | DONE 2026-07-27 (`e103839`) — `ask.js` called its allowlist a "mirror" of the client serializer and dropped nine fields, so both questions `/how/` advertises were unanswerable by construction; the client now sends one USD price and the function accepts status, price and age, with a prompt field key |
 | LB-57 | Explain the feature the price table sells at 5 against 200 | P0 | 2 h | LB-56 | DONE 2026-07-27 — a fourth census, chrome stripped and every sentence read, found Ask explained by one card on `/how/`; five of the nine hits were the verb ("Ask the chart", "Ask for a refund"); new page `/guides/ask-your-own-shelf/`, plus a `SOLD` entry keyed on the mechanism |
 | LB-58 | Make archiving free a haul slot, and explain where a haul ends | P0 | 3 h | LB-57 | DONE 2026-07-27 — the next census narrowed on the `Hauls at once` row; checking whether `/how/` told the truth found a real app defect: `blockNewHaul` counted every haul name and ignored `archived`, so archiving never freed a slot and the app own refusal message was false; cap now counts open hauls, both messages name archiving, new page `/guides/close-a-haul/` |
+| LB-59 | Stop charging the customer for calls the server does not charge for | P0 | 3 h | LB-58 | DONE 2026-07-27 — the next census found `AI size-chart reads` the thinnest row and the widest ratio (2 against 100); verifying the mechanism before writing about it found all four client `bumpUsage` calls firing before the status check, so a timeout, a 502 and the 429 cap itself each spent a free user's quota while the server charged nothing; all four now count on success, plus new page `/guides/what-spends-a-chart-read/` and a `SOLD` entry |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3698,3 +3699,134 @@ how the census *counts*. LB-58 corrects what it is *for*. The census points at a
 promise nobody has checked; the page is the deliverable, but the promise has to
 be verified against the code before the page repeats it. Here the check failed,
 and the page would have documented a button with no consequence.
+
+---
+
+### LB-59 — the counter that charged for failures
+
+**How the census reached it.** After LB-58, the same coverage census ran over
+every price-table row with no `SOLD` entry. Five rows had none. With page chrome
+stripped and each sentence read:
+
+| Row | Sentences | Pages |
+|---|---|---|
+| QC photos an item | 39 | 18 |
+| Reddit haul paste | 27 | 12 |
+| Link options | 9 | 6 |
+| Cards on your shelf | 5 | 3 |
+| **AI size-chart reads** | **5** | **5** |
+
+`AI size-chart reads` was the thinnest, and it carries the widest ratio on the
+whole table: **2 a day free against 100 on Pro, fifty times**. Every one of the
+five sentences was a limits list or a data-processing list. `/guides/weidian-
+size-chart/` exists, but its eight headings show it teaches how to *read* a
+chart — not what one AI read is, and not what spends one.
+
+**LB-58's rule applied.** Before writing a page about what spends a read, verify
+against the code what actually spends one. That check failed.
+
+**The defect.** Four call sites in `credenza-fashion.jsx` increment the client
+usage counter. Every one of them fired the instant the fetch resolved, before the
+HTTP status was inspected:
+
+```js
+    const res = await monitoredFetch(storageBackend, "chart-vision", ...);
+    bumpUsage("chartVision");
+    if (!res.ok) return null;
+```
+
+The server charges later than that, in all three functions:
+
+| Function | Records at | After |
+|---|---|---|
+| `chart-vision.js` | line 281 | Anthropic answered |
+| `resolve.js` | line 784 | the 200 path only |
+| `ask.js` | line 238 | the structured response validated |
+
+So the two counters disagreed, and they disagreed in the direction that costs the
+customer. Free on the server, charged on the device:
+
+- a 502 `Chart read failed`
+- a 504 timeout — 25 s server, 30 s client
+- a 413 body-too-large
+- a 422 `Not a resolvable buy link`
+- **the 429 daily cap itself**
+
+**Why this is not cosmetic.** The client counter is the one that BLOCKS.
+`overFreeLimit()` in `preview/src/usage.js:84` reads it and returns early, so
+`postChartVision` refuses locally without sending a request. A free user
+therefore had 2 *attempts* a day, not 2 *reads* a day. Two timeouts in a row —
+an outage the user did not cause — spent the whole day, and the third attempt
+was refused by their own device with no request ever leaving it. The 429 case is
+the worst: hitting the cap incremented the counter that enforces the cap.
+
+**The fix.** All four sites count on success only.
+
+```js
+    if (!res.ok) return null;
+    bumpUsage("chartVision");
+```
+
+`fetchDescImages` matches it. The importer's resolve moves the bump inside the
+`res.ok` branch. Ask moves later still — after the payload passes shape
+validation — because `ask.js` records in exactly that place.
+
+Both `200` bodies from `chart-vision.js` still count, `found: true` and
+`found: false` alike, because the model was called either way. That is a
+deliberate keep, not an oversight, and the new page says so in those words:
+*a miss counts, a failure does not*.
+
+**Why every existing test passed.** `test/part7e.test.js` tests `bumpUsage` and
+`overFreeLimit` as pure functions against a fake host. Both are correct. Nothing
+tested *when* the caller invokes them, and the ordering is the whole defect.
+
+**The guard.** Two tests in `test/plan-limits.test.js`, in the block that already
+holds the enforcement rules. The first pins each of the four orderings literally.
+The second is structural: it walks back from every `bumpUsage(` to the
+`monitoredFetch(` above it and fails if the window between them contains no
+status check. That one catches a fifth call site added later with the same bug.
+
+**The page.** `/guides/what-spends-a-chart-read/`, 1390 words in `<main>`, a
+`HowTo` with four steps in the order that saves reads: local text parser, then
+the shelf cache, then photos, then how to read the result. Every number read from
+source, not from memory:
+
+| Claim on the page | Source |
+|---|---|
+| 2 a day free, 100 on Pro | `entitlements.js:32,39` `chartVisionPerDay` |
+| up to 3 chart photos | `credenza-fashion.jsx:1905` `CHART_PHOTO_MAX`, mirrored by `chart-vision.js` `MAX_INLINE_PHOTOS` |
+| up to 10 album images | `chart-vision.js` `MAX_IMAGES` |
+| one call however many frames | one request body carries `images` and `photos` together |
+| 25 s server, 30 s device | `chart-vision.js` `TIMEOUT_MS`; `postChartVision` timer |
+| local parsing costs nothing | `parseSizeChart()` at `credenza-fashion.jsx:620` — pure, no network |
+| 20 cm to 250 cm accepted | the range check inside `parseSizeChart` |
+| a second item from one seller is free | `chartCacheForSeller()` at `credenza-fashion.jsx:3152` |
+| newest chart wins, read beats guessed | the same function's ordering |
+| reset at midnight UTC | `usage.js:25` `DAY_FMT` with `timeZone: "UTC"` |
+| original labels kept, 胸围 and 衣长 | the tool schema in `chart-vision.js:175` |
+
+Registered in the six usual places plus the schema map: `sitemap.xml`,
+`llms.txt`, `llms-full.txt`, the guides-hub ItemList at position 18, a visible
+hub card under `2 · Decide the size`, and a row in
+`docs/aeo-geo/keyword-cluster.md`. Inbound body-copy links from `/how/` and
+`/pricing/` — both already carried the limits sentence and neither explained it.
+The eighth `SOLD` entry is keyed on the mechanism, not the feature name:
+`the unit is the call, not the image` and `spends one read, not ten`.
+
+**Mutation probes, all three bit:**
+
+| Probe | Result |
+|---|---|
+| delete the page | 10 rules fail (3 dangling-href, sitemap, both llms rules, hub census, schema-map completeness, the new `SOLD` entry, the prose guard) |
+| restore the chartVision bump above `res.ok` | both LB-59 tests fail |
+| restore the ask bump above the status check | both LB-59 tests fail |
+
+**Gate:** 1965 tests / 65 files pass, up from 1936. `npm run lint` 5 warnings,
+0 errors.
+
+**What this says about the census method.** LB-58 established that the census
+points at a promise nobody has checked. LB-59 shows the promise does not have to
+be *written down* to be checkable. Nothing on the site said "a failed read is
+free" — the page had to be written before the claim existed. Verifying the claim
+you are *about* to make is the same discipline as verifying one already made, and
+it found a defect that had shipped in four places.

@@ -171,6 +171,63 @@ describe("the caps are enforced where the writes happen", () => {
       expect(Object.keys(table).some((k) => /csv/i.test(k))).toBe(false);
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // LB-59. A daily counter must count what the server charges for.
+  //
+  // Every one of the four client bumpUsage() calls fired the instant the fetch
+  // resolved, BEFORE the status was inspected. The server charges later than
+  // that in all three functions: chart-vision.js records after Anthropic
+  // answers, resolve.js records on the 200 path only, ask.js records after the
+  // structured response validates. So the two counters disagreed, and they
+  // disagreed in the direction that costs the customer:
+  //
+  //   a 502, a 504, a 413, a 422 "Not a resolvable buy link", and the 429 daily
+  //   cap itself were free on the server and charged on the client.
+  //
+  // The client counter is not cosmetic. overFreeLimit() reads it and returns
+  // early, so it is the counter that BLOCKS. A free user gets 2 chart reads a
+  // day; before this fix, two timeouts in a row spent both, and the third
+  // attempt was refused locally without a request ever being sent.
+  //
+  // These assertions pin the ORDER, which is the whole defect. Each looks for
+  // the status check and the bump in one window, status check first.
+  it("counts a metered call only after the server says it succeeded", () => {
+    const clean = src.replace(/^\s*\/\/.*$/gm, "");
+
+    // postChartVision and fetchDescImages: guard clause, then bump.
+    expect(clean).toContain("    if (!res.ok) return null;\n    bumpUsage(\"chartVision\");");
+    expect(clean).toContain("    if (!res.ok) return [];\n    bumpUsage(\"resolve\");");
+
+    // The importer's resolve: the bump lives inside the res.ok branch.
+    expect(clean).toContain("      if (res.ok) {\n        bumpUsage(\"resolve\");");
+
+    // Ask counts last of all, after the payload passes shape validation —
+    // ask.js records in the same place, after its own validation.
+    const askWindow = clean.match(
+      /if \(!valid\) throw new Error\("Cloud Ask returned an invalid response\."\);[\s\S]{0,200}?bumpUsage\("ask"\)/
+    );
+    expect(askWindow, "the ask bump no longer follows the validity check").toBeTruthy();
+  });
+
+  it("never counts before the status check, at any of the four call sites", () => {
+    const clean = src.replace(/^\s*\/\/.*$/gm, "");
+    const sites = [...clean.matchAll(/bumpUsage\("(\w+)"\)/g)];
+    expect(sites.length, "a bumpUsage call site was added or removed").toBe(4);
+
+    for (const site of sites) {
+      // Look back from each bump to the fetch that precedes it. Any window
+      // that reaches the fetch WITHOUT crossing a status check is the bug.
+      const before = clean.slice(0, site.index);
+      const fetchAt = before.lastIndexOf("monitoredFetch(");
+      expect(fetchAt, `bumpUsage("${site[1]}") has no fetch above it`).toBeGreaterThan(-1);
+      const between = before.slice(fetchAt);
+      expect(
+        /res\.ok/.test(between) || /if \(!valid\)/.test(between),
+        `bumpUsage("${site[1]}") fires before any status check — a failed call would charge the customer`
+      ).toBe(true);
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
