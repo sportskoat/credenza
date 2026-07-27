@@ -10,6 +10,25 @@ import { ModalShell, PRICING, Pill } from "../credenza-fashion.jsx";
 // look-and-fit rows (Theme, sizes, fit prefs, fit summary) live in Settings
 // and Profile keeps account + data only (Kyle 2026-07-25: the two sheets
 // were duplicates). Desktop has no Settings sheet, so it gets every row.
+// LB-50. The app's route out to the site. Ordered by what a person in the
+// product actually wants next: what does this do, how do I do the thing, what
+// does it cost, and who do I ask. Keep it to four — this list sits under the
+// data rows, and a long one turns the sheet into a sitemap.
+//
+// The test at test/app-site-nav.test.js asserts every href here is a directory
+// with an index.html under preview/public. A typo here is a 404 in the one
+// place a confused person goes.
+//
+// No counts in the value column. "13 walkthroughs" was the first draft, and a
+// number here goes stale the next time a guide ships — in a file nobody edits
+// when they add a page.
+const SITE_LINKS = [
+  ["/how/", "How it works", "The shelf"],
+  ["/guides/", "Guides", "Walkthroughs"],
+  ["/pricing/", "Plans", "Free & Pro"],
+  ["/support/", "Support", "Cancel, refund, bug"],
+];
+
 export default function ProfileSheet({
   mode,
   onTheme,
@@ -331,6 +350,29 @@ export default function ProfileSheet({
             {storageLabel}
           </span>
         </div>
+        {/* LB-50. The site had twenty-one pages and the app linked to three of
+            them. Every static page carries the full nav; the app carried
+            Privacy, Terms, and a mailto. So a person inside the product could
+            not reach How it works, the guides, or the price table without
+            typing a URL, and Support was an empty compose window instead of the
+            page that answers "how do I cancel Pro".
+
+            These are real navigations out of a single-page app, so they open in
+            a new tab. A same-tab jump would drop an unsaved sheet and make Back
+            the only way home. */}
+        <div className="cz-profile-label">Learn</div>
+        {SITE_LINKS.map(([href, label, val]) => (
+          <a
+            key={href}
+            className="cz-profile-row cz-profile-row-link"
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span>{label}</span>
+            <span className="cz-profile-row-val">{val} ↗</span>
+          </a>
+        ))}
         <div className="cz-profile-legal">
           <a className="cz-profile-legal-link" href="/privacy/" target="_blank" rel="noreferrer">
             Privacy
@@ -339,7 +381,7 @@ export default function ProfileSheet({
             Terms
           </a>
           <a className="cz-profile-legal-link" href="mailto:wenselllc@gmail.com">
-            Support
+            Email us
           </a>
         </div>
         <button type="button" className="cz-profile-row cz-profile-danger" onClick={onEraseData}>

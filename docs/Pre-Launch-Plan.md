@@ -114,6 +114,7 @@ do it completely, and report against its acceptance criteria.
 | LB-47 | Write the guide for the feature the announcement runs on | P1 | 1 h | LB-46 | DONE 2026-07-27 — twelve guides now; the share link is what LB-39 calls "the announcement's engine", Pro sells 100 of them, and no guide told a buyer how to make one |
 | LB-48 | Check the share caps on every page, not just `/pricing/` | P0 | 45 m | LB-47 | DONE 2026-07-27 — the thirteenth scope defect, LB-43's shape again; four pages quote the caps and the rule opened one file by name, so `/faq/` claiming 9 links passed all 1698 tests |
 | LB-49 | Bind a price by its billing period, not by the word next to it | P0 | 45 m | LB-48 | DONE 2026-07-27 — the fourteenth scope defect, and the narrowest scope yet: a 90-character window after the word "Pro"; an invented `$7.99 a month` on a shipped guide passed all 1705 tests |
+| LB-50 | Give the app a way back to the site (Kyle) | P0 | 1 h | — | DONE 2026-07-27 — Kyle: "there needs to be some sort of navigation in the platform we have all these pages but no links to the pages"; twenty-one pages, and the app linked to three |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3011,6 +3012,78 @@ deleting every price from the site cannot make the rule vacuous.
 
 **Gate.** 1707 tests pass (62 files), 5 lint warnings and 0 errors, build
 `index-fashion-VSp8hwMs.js 363.47 kB`.
+
+### LB-50 — the app did not link to the site
+
+**Kyle found this, not a test.** His words: "I think too there needs to be some
+sort of navigation in the platform we have all these pages but no links to the
+pages."
+
+**What the audit showed.** The static site is well linked already. All
+twenty-one pages carry the same `<nav>` and the same `<footer>`: Open app,
+About, How it works, Guides, Pricing, FAQ, Support, Privacy, Terms, llms.txt.
+Any page reaches any other page in one click.
+
+The app is the part that was missing. `sheets/ProfileSheet.jsx` carried three
+outbound links, in the legal row at the bottom:
+
+```jsx
+<a href="/privacy/">Privacy</a>
+<a href="/terms/">Terms</a>
+<a href="mailto:wenselllc@gmail.com">Support</a>
+```
+
+So the direction that matters was broken. The site sends a reader into the
+product. The product could not send them back to the page that explains it.
+Somebody inside the app looking for "how do I cancel Pro" got an empty compose
+window, when `/support/` answers that under its first `<h2>`.
+
+**The fix.** A `Learn` section in the Profile sheet, above the legal row, with
+four rows:
+
+| Row | Goes to | Why this one |
+|---|---|---|
+| How it works | `/how/` | what the product does |
+| Guides | `/guides/` | how to do the thing |
+| Plans | `/pricing/` | what it costs |
+| Support | `/support/` | who to ask when it breaks |
+
+Four, not twenty-one. The sheet is a settings surface, not a sitemap. And the
+Support row is now the page; the `mailto:` stays in the legal row, relabelled
+`Email us`, because it is a different action.
+
+**Two details that are easy to get wrong.**
+
+They are anchors, not buttons, so `.cz-profile-row` alone gives them an
+underline and a visited colour — a different-looking control directly under
+identical rows. `.cz-profile-row-link` clears both.
+
+They open in a new tab. The app is one page holding unsaved sheet state; a
+same-tab jump drops it and leaves Back as the only way home.
+
+**No counts in the value column.** The Guides row first read `13 walkthroughs`.
+That number goes stale the next time a guide ships, in a file nobody opens when
+they add a page. A rule now fails any value column containing a digit.
+
+**The second half: an orphan sweep.** The rule above checks the links the app
+HAS. `every public page is reachable from the site` checks the links a page
+SHOULD have — it walks every `index.html` under `preview/public` and fails any
+page that no other HTML, TXT, or XML file links to. That is the general form of
+what Kyle noticed. All twenty-one pass today, so it ships green and catches the
+next page that ships with no way in.
+
+**Probes.** Each restored by copy and verified with `md5 -q`.
+
+| Edit | Result |
+|---|---|
+| `/support/` → `/supprt/` in `SITE_LINKS` | 3 fail — file missing, four-places, Support row |
+| `Walkthroughs` → `13 walkthroughs` | 1 fail — the stale-count rule |
+| `target="_blank"` removed | 1 fail — new-tab rule |
+| A page copied to `public/_probe/` with no inbound link | 1 fail — the orphan sweep |
+| `text-decoration: none` → `underline` in the CSS | 1 fail — the style rule |
+
+**Gate.** 1746 tests pass (63 files), 5 lint warnings and 0 errors, build
+`index-fashion-C4GAd3SD.js 363.47 kB`.
 
 ## Explicitly deferred (do NOT build before launch)
 

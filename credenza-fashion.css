@@ -5869,6 +5869,20 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-profile-row.is-static {
   cursor: default;
 }
+/* LB-50. The Learn rows are anchors, not buttons, because they leave the app.
+   .cz-profile-row was written for <button>, so an <a> arrives with the
+   underline and the visited colour a link gets by default. Strip both and it
+   sits in the same column as every row above it. */
+.cz-profile-row-link {
+  text-decoration: none;
+  color: var(--cz-ink);
+}
+.cz-profile-row-link:visited {
+  color: var(--cz-ink);
+}
+.cz-profile-row-link:hover .cz-profile-row-val {
+  color: var(--cz-ink);
+}
 .cz-profile-row-val {
   font-size: 13px;
   color: var(--cz-sub);
