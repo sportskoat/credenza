@@ -1226,6 +1226,7 @@ describe("every page tells a machine what kind of page it is", () => {
     "guides/store-body-measurements/index.html": "HowTo",
     "guides/track-qc-photos/index.html": "HowTo",
     "guides/share-a-haul-list/index.html": "HowTo",
+    "guides/plan-a-parcel/index.html": "HowTo",
     "guides/weidian-size-chart/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
@@ -1739,6 +1740,21 @@ describe("a feature the price table sells is explained somewhere else", () => {
       row: "Your shelf on more than one device",
       needs: ["shelf comes back", "keeps going up"],
       why: "the free half of this row is what somebody who lost a phone needs to read",
+    },
+    // LB-51. Added 2026-07-27 after a coverage census of every row on the price
+    // table. Counting pages OTHER than /pricing/ that mention each sold feature:
+    // Ask 9, link options 5, backup/restore 4, CSV 3, multi-device 2, parcel
+    // planner 1. The parcel planner was the thinnest, and its one mention was a
+    // /faq/ sentence naming it in a list — not an explanation of anything.
+    //
+    // Both phrases are the arithmetic, not the feature name. "Parcel planner"
+    // would pass on any page that merely lists it, which is the state this rule
+    // exists to reject. A page has explained this feature when it says which of
+    // two weights you are billed on.
+    {
+      row: "Parcel planner",
+      needs: ["volumetric weight", "chargeable weight"],
+      why: "a person who enters a box size has to be told why the number went up",
     },
   ];
 

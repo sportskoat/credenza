@@ -37,6 +37,12 @@
 - share shopping list read-only link
 - hide prices when sharing a haul
 
+### Shipping / parcel
+- volumetric weight calculator for a haul
+- why is my shipping quote heavier than my items
+- how to work out chargeable weight
+- split a haul into two parcels
+
 ### Tool / AEO prompts (what people ask ChatGPT)
 - “Best way to organize a FashionReps haul”
 - “App to plan a Superbuy haul with sizes”
@@ -73,6 +79,7 @@ built twice.
 | Store body measurements | — | `/guides/store-body-measurements/` |
 | Free agent haul planner | — | `/guides/free-agent-haul-planner/` |
 | Share a haul list | — | `/guides/share-a-haul-list/` |
+| **Plan a parcel / chargeable weight** | **volumetric weight (~4k)** | `/guides/plan-a-parcel/` |
 | Hub | — | `/guides/` |
 
 Yupoo was the largest uncovered head term on the site until 2026-07-27: ~12k a

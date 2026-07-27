@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plan the parcel before you pay to ship it · Credenza</title>
+    <meta name="description" content="Carriers bill the larger of actual weight and box size. Set a haul budget, enter the weight and the box, and see the chargeable number before you pay." />
+    <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/plan-a-parcel/" />
+    <meta property="og:title" content="Plan the parcel before you pay to ship it" />
+    <meta property="og:description" content="A big light box costs what a small heavy one does. Enter the weight, the box size, and the padding, and read the chargeable number." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/plan-a-parcel/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Plan the parcel before you pay to ship it" />
+    <meta name="twitter:description" content="A big light box costs what a small heavy one does. Enter the weight, the box size, and the padding, and read the chargeable number." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Plan the parcel before you pay to ship it",
+        "url": "https://credenzafashion.com/guides/plan-a-parcel/",
+        "description": "Set a budget on the haul, enter the parcel weight, the box size in centimetres, and the packaging, and read the chargeable weight the carrier will bill you for.",
+        "step": [
+          {"@type": "HowToStep", "position": 1, "name": "Open the haul you plan to ship", "text": "The parcel planner sits on the haul board, not on a single item. One haul is one box, so put everything you intend to ship together into the same haul first."},
+          {"@type": "HowToStep", "position": 2, "name": "Set a budget", "text": "Press Set a budget and enter a number in your haul currency. The board then reads Budget, spent, and a percentage, so the shipping estimate lands next to the money you have left."},
+          {"@type": "HowToStep", "position": 3, "name": "Enter the weight you know", "text": "Press Estimate the parcel and type the weight in grams. Use the warehouse figure if you have one. Use the sum of the listing weights if you do not."},
+          {"@type": "HowToStep", "position": 4, "name": "Enter the box size in centimetres", "text": "Fill the three boxes marked L, W, and H. Credenza divides length by width by height by 5000 to get the volumetric weight in kilograms, which is the number a large light parcel is billed on."},
+          {"@type": "HowToStep", "position": 5, "name": "Choose the packaging", "text": "No extra packaging adds nothing. Standard adds 10 percent to the actual weight. Reinforced adds 20 percent. The padding is real weight, so it belongs in the estimate."},
+          {"@type": "HowToStep", "position": 6, "name": "Read the chargeable weight", "text": "Credenza shows the larger of the padded actual weight and the volumetric weight. That is the number carriers bill. Save it, and the haul board keeps it next to the budget."}
+        ]
+      }
+    </script>
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Credenza Fashion",
+      "item": "https://credenzafashion.com/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Guides",
+      "item": "https://credenzafashion.com/guides/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Plan the parcel before you pay to ship it",
+      "item": "https://credenzafashion.com/guides/plan-a-parcel/"
+    }
+  ]
+}
+    </script>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>Plan the parcel before you pay to ship it</h1>
+      <p class="lede">
+        Shipping is quoted on a number you cannot see until the box is packed. The
+        parcel planner puts that number on the haul while you can still change it.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/">Support</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <article class="card">
+        <span class="n">The problem</span>
+        <h2>The scale is not the only thing being measured</h2>
+        <p>
+          You add up the listing weights, you get 3 kg, and you plan for a 3 kg
+          shipment. Then the warehouse packs a jacket, two hoodies, and a shoe box into
+          a carton, and the quote comes back on 4.8 kg. Nothing was wrong with your
+          addition. The carrier simply did not bill the scale.
+        </p>
+        <p>
+          Air freight sells space, not mass. A carton full of down and foam takes the
+          room of something far heavier, so every carrier bills the larger of two
+          numbers: what the parcel weighs, and what the parcel occupies. The second one
+          is called volumetric weight, and it is the one people forget.
+        </p>
+        <p>
+          You find out at the worst moment. The items are already bought, the haul is
+          already in the warehouse, and the only remaining choice is which shipping line
+          to accept. The planner moves that number earlier, to the point where you can
+          still drop an item or split the box.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 1</span>
+        <h2>Put one shipment in one haul</h2>
+        <p>
+          The parcel planner lives on the haul board, above the items. It measures a
+          haul, not a card, because a haul is what leaves the warehouse in one carton.
+        </p>
+        <p>
+          So the grouping has to be right first. If your winter order and your summer
+          order share a haul, the estimate describes a box you never intend to ship.
+          <a href="/guides/organize-agent-haul/">Organizing the haul</a> is the step
+          before this one.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 2</span>
+        <h2>Set a budget, so the estimate has something to sit against</h2>
+        <p>
+          Press <strong>Set a budget</strong> and enter a number in the haul currency.
+          The board then reads the budget, what you have spent, and the percentage of
+          the budget that is gone.
+        </p>
+        <p>
+          This matters more for shipping than for anything else on the shelf. Shipping
+          is often the second-largest line on a haul, and it arrives after every item
+          price is fixed. A budget with 96 percent already spent tells you the parcel is
+          the decision, not the last item.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 3</span>
+        <h2>Enter the weight, the box, and the padding</h2>
+        <p>
+          Press <strong>Estimate the parcel</strong>. The editor asks for three things.
+        </p>
+        <ul>
+          <li>
+            <strong>Weight (g).</strong> Grams, not kilograms. Use the warehouse figure
+            once your agent posts it. Before that,
+            <a href="/guides/estimate-haul-weight/">the haul weight estimate</a> is the
+            number to start from.
+          </li>
+          <li>
+            <strong>Box size (cm).</strong> Three fields marked L, W, and H. Centimetres,
+            outside measurements, the carton and not the garment.
+          </li>
+          <li>
+            <strong>Packaging.</strong> No extra packaging, standard, or reinforced.
+          </li>
+        </ul>
+        <p>
+          None of the three is required on its own. Weight alone gives you an answer.
+          Box alone gives you an answer. Both give you the answer that is worth having.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The arithmetic</span>
+        <h2>Length by width by height, divided by 5000</h2>
+        <p>
+          Volumetric weight is a volume converted into kilograms with a fixed divisor.
+          Credenza uses 5000, which is the common air divisor: multiply the three
+          centimetre measurements, then divide by 5000.
+        </p>
+        <p>
+          A 40 by 30 by 20 cm carton is 24,000 cubic centimetres. Divide by 5000 and the
+          volumetric weight is <strong>4.8 kg</strong>. If the contents weigh 3.2 kg,
+          the carrier bills 4.8 kg. Squash the same contents into 40 by 30 by 12 cm and
+          the volumetric weight falls to 2.88 kg, so the carrier bills the real 3.2 kg
+          instead. The items did not change. The box did.
+        </p>
+        <p>
+          Packaging is added to the weighed side only, because padding has mass but the
+          box measurement already includes it. Standard adds
+          <strong>10 percent</strong>, reinforced adds <strong>20 percent</strong>, and
+          no extra packaging adds nothing.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The result</span>
+        <h2>Chargeable weight is the larger of the two</h2>
+        <p>
+          The editor shows a line reading <strong>Chargeable</strong> as soon as it has
+          enough to compute one. That figure is the larger of the padded actual weight
+          and the volumetric weight, which is exactly what the carrier bills.
+        </p>
+        <p>
+          Save it, and the haul board replaces the button with a stat that reads the
+          chargeable weight. It sits beside the budget, so one glance covers both halves
+          of what the haul costs.
+        </p>
+        <p>
+          Every figure carries a tilde. It is an estimate, and the note under the editor
+          says so: the buying agent weighs and measures the final parcel, and that
+          measurement wins over anything computed here.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">What to do with the number</span>
+        <h2>Three decisions the estimate actually changes</h2>
+        <ul>
+          <li>
+            <strong>Split the haul.</strong> Two smaller boxes sometimes beat one large
+            one, because each is billed on its own weight rather than one shared volume.
+          </li>
+          <li>
+            <strong>Ask for compression.</strong> If volumetric beats actual, tell the
+            agent to remove shoe boxes and vacuum the padded items. You are paying for
+            air.
+          </li>
+          <li>
+            <strong>Hold an item back.</strong> A single bulky coat can decide the box
+            size for everything else. Moving it to the next haul can cost less than
+            shipping it now.
+          </li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <span class="n">Plans</span>
+        <h2>The planner is free</h2>
+        <p>
+          The parcel planner and the haul budget are on both plans. There is no daily
+          limit and no per-haul limit, because neither one calls a server — the
+          arithmetic runs on your phone.
+        </p>
+        <p>
+          What <a href="/pricing/">Pro</a> changes is how many hauls you can hold at
+          once: 2 on free, 100 on Pro. Splitting a shipment into separate hauls is the
+          normal way to use this page, and that is the limit you meet first.
+        </p>
+      </article>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a W2C search engine.
+        You bring the links from communities and stores you already use.
+      </p>
+      <a class="cta" href="/">Open Credenza</a>
+      <p class="related">Related: <a href="/guides/estimate-haul-weight/">Estimate haul weight</a> · <a href="/guides/organize-agent-haul/">Organize a haul</a> · <a href="/guides/choose-an-agent/">Choose an agent</a> · <a href="/how/">How it works</a></p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

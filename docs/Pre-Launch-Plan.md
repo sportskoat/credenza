@@ -115,6 +115,7 @@ do it completely, and report against its acceptance criteria.
 | LB-48 | Check the share caps on every page, not just `/pricing/` | P0 | 45 m | LB-47 | DONE 2026-07-27 — the thirteenth scope defect, LB-43's shape again; four pages quote the caps and the rule opened one file by name, so `/faq/` claiming 9 links passed all 1698 tests |
 | LB-49 | Bind a price by its billing period, not by the word next to it | P0 | 45 m | LB-48 | DONE 2026-07-27 — the fourteenth scope defect, and the narrowest scope yet: a 90-character window after the word "Pro"; an invented `$7.99 a month` on a shipped guide passed all 1705 tests |
 | LB-50 | Give the app a way back to the site (Kyle) | P0 | 1 h | — | DONE 2026-07-27 — Kyle: "there needs to be some sort of navigation in the platform we have all these pages but no links to the pages"; twenty-one pages, and the app linked to three |
+| LB-51 | Write the parcel planner guide | P0 | 2 h | LB-46 | DONE 2026-07-27 — a coverage census of the price table found the parcel planner explained on ONE page other than `/pricing/`, the lowest of any sold feature; new page `/guides/plan-a-parcel/`, plus a `SOLD` entry so the row stays bound |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3083,6 +3084,78 @@ next page that ships with no way in.
 | `text-decoration: none` → `underline` in the CSS | 1 fail — the style rule |
 
 **Gate.** 1746 tests pass (63 files), 5 lint warnings and 0 errors, build
+`index-fashion-C4GAd3SD.js 363.47 kB`.
+
+### LB-51 — the parcel planner was sold and never explained
+
+**How the gap was found.** LB-46 asks whether a feature the price table sells is
+explained on some page other than `/pricing/`. It enforces that for two rows. So
+I ran the same question by hand across every row, counting the pages other than
+`/pricing/` that mention each feature:
+
+| Feature the price table sells | Pages that mention it |
+|---|---|
+| Ask | 9 |
+| Link options (unlisted, expiry, no footer) | 5 |
+| Backup and restore | 4 |
+| Spreadsheet export | 3 |
+| Shelf on more than one device | 2 |
+| **Parcel planner** | **1** |
+
+The one page was `/faq/`, and it names the feature inside a list of what free
+covers. It explains nothing. A person who types a box size into the app and
+watches the number go up had no page to read.
+
+**The same gap seen from the guides hub.** Stage 5, "After you press Buy", held
+exactly one guide: `/guides/estimate-haul-weight/`. That guide is about the goods
+on the scale. It uses the word "volumetric" once, in a closing sentence about the
+warehouse, and never states the rule or the arithmetic.
+
+**The page.** `/guides/plan-a-parcel/`, "Plan the parcel before you pay to ship
+it". Eight sections and a six-step `HowTo`. Every number is read from the source,
+not invented:
+
+| Claim on the page | Source |
+|---|---|
+| Volumetric weight is length × width × height ÷ 5000 | `credenza-fashion.jsx:378` — `Math.round((l * w * h) / 5)`, the 5000 cm³/kg divisor in grams |
+| Standard packaging adds 10%, reinforced adds 20%, none adds nothing | `PACKAGING_OPTIONS`, `credenza-fashion.jsx:367-371` |
+| Chargeable weight is the larger of the two | `chargeableWeightGrams`, `credenza-fashion.jsx:383-391` — `Math.max(actual, volumetric)` |
+| Packaging multiplies the weighed side only | same function — the factor applies to `actualGrams` before the max |
+| The board reads budget, spent, and a percentage | `components/HaulBoard.jsx:95-97` |
+| Every figure carries a tilde | `formatWeightGrams`, `credenza-fashion.jsx:355-359` |
+| 2 hauls on free, 100 on Pro | `PLAN_LIMITS.haulsMax`, `lib/entitlements.js` |
+
+The worked example (40 × 30 × 20 cm → 4.8 kg volumetric against 3.2 kg actual,
+then the same goods in a 12 cm-deep box → 2.88 kg, so the real weight bills) is
+the whole point of the page in one paragraph.
+
+**Registered in all six places**, per the rule set a new guide has to clear:
+`PRIMARY` in `public-site.test.js` as `HowTo`, `sitemap.xml`, `llms.txt`,
+`llms-full.txt`, the guides hub (ItemList position 13 **and** a visible card
+under stage 5), and a row plus a new "Shipping / parcel" intent cluster in
+`docs/aeo-geo/keyword-cluster.md`.
+
+**Two inbound body-copy links**, both in prose that was already about the
+subject: the "Group the shelf into hauls" section of `/how/`, and the "Boxes,
+bags, and the padding around them" card of `/guides/estimate-haul-weight/`.
+
+**LB-46's `SOLD` array gained a third entry**, so the price-table row cannot go
+back to being unexplained. Its two phrases are `volumetric weight` and
+`chargeable weight` — the arithmetic, not the feature name. Matching on "parcel
+planner" would pass on any page that merely lists the feature, which is the
+state this rule exists to reject.
+
+| Probe | Result |
+|---|---|
+| `<main>` replaced with one short card | 3 fail — word floor (11 words), section count, in-body app link |
+| `"@type": "HowTo"` → `"Article"` | 2 fail — declared type, HowTo step count |
+| Cluster row deleted from `keyword-cluster.md` | 1 fail — LB-36 |
+| `llms.txt` bullet deleted | 1 fail — llms.txt names every guide |
+| `best batch` put in an `<h2>` | 1 fail — banned language |
+| `volumetric weight` and `chargeable weight` renamed on the page | 2 fail — the new `SOLD` entry, and its prose guard |
+| One of the two inbound links unwrapped | 1 fail — LB-21 |
+
+**Gate.** 1772 tests pass (63 files), 5 lint warnings and 0 errors, build
 `index-fashion-C4GAd3SD.js 363.47 kB`.
 
 ## Explicitly deferred (do NOT build before launch)
