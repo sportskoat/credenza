@@ -30,6 +30,29 @@ function clamp(value, max) {
   return text(value).trim().slice(0, max);
 }
 
+// Same fallback rate as itemUsdAmount in credenza-fashion.jsx and
+// FX_FALLBACK_USD_PER_CNY in netlify/functions/resolve.js. Duplicated rather
+// than imported because credenza-fashion.jsx imports this module, so an import
+// the other way is a cycle. test/search.test.js pins the three copies equal.
+const FX_FALLBACK_USD_PER_CNY = 0.14;
+
+// LB-56. Ask is sold as "what is still in Want under $40", and a price the
+// model never receives cannot answer that. One USD number per card, computed
+// the same way the shelf total is, so the model compares like with like
+// instead of guessing which of ¥299 and $40 is larger.
+function askUsd(item) {
+  if (item.priceUsd != null && isFinite(Number(item.priceUsd))) return Number(item.priceUsd);
+  if (item.price == null || !isFinite(Number(item.price))) return null;
+  const currency = String(item.currency || "CNY").toUpperCase();
+  if (currency === "USD" || currency === "$") return Number(item.price);
+  if (currency === "CNY" || currency === "RMB" || currency === "¥" || currency === "CNH") {
+    return Math.round(Number(item.price) * FX_FALLBACK_USD_PER_CNY * 100) / 100;
+  }
+  // Unknown currency: send null rather than invent a figure the model would
+  // then compare against a real one.
+  return null;
+}
+
 export function tokenizeQuery(query) {
   return (text(query).toLowerCase().match(/[a-z0-9']{2,}/g) || []).filter(
     (token) => !SEARCH_STOPWORDS.has(token)
@@ -169,5 +192,6 @@ export function serializeAskCandidates(query, items, { limit = 25, now = Date.no
     importance: ["low", "medium", "high"].includes(item.importance)
       ? item.importance
       : "medium",
+    priceUsd: askUsd(item),
   }));
 }

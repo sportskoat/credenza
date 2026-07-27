@@ -6,6 +6,14 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 
 // Mirror of the client-side serializeAskCandidates bounds — the function must
 // hold the line even if a modified client sends more.
+//
+// LB-56. This list is an allowlist: anything absent is dropped silently, which
+// is right for an unknown field and wrong for a known one. It had drifted. The
+// client sent seller, batch, size, colorway, agentLink, findSource, findStatus,
+// ageDays and importance, and this function threw all nine away before the
+// model saw them — so "which items are waiting on QC" and "what did I buy from
+// that seller" were unanswerable by construction. test/search.test.js asserts
+// the two lists match, so the next field to be added cannot drift out again.
 const MAX_SHELF_ITEMS = 25;
 const MAX_QUERY_CHARS = 1000;
 const FIELD_LIMITS = {
@@ -19,7 +27,19 @@ const FIELD_LIMITS = {
   host: 160,
   type: 40,
   url: 500,
+  seller: 80,
+  batch: 80,
+  size: 40,
+  colorway: 80,
+  agentLink: 240,
+  findSource: 240,
+  findStatus: 40,
+  importance: 40,
 };
+// Numbers, not strings, so the clamp above does not apply. Each is bounded by
+// its own rule below: a shelf age no larger than a plausible lifetime, and a
+// price rounded to cents. A hostile client cannot make either one long.
+const NUMBER_FIELDS = { ageDays: 400000, priceUsd: 1000000 };
 const LIST_LIMITS = { tags: 8, people: 8 };
 const LIST_ITEM_MAX = 60;
 
@@ -92,6 +112,14 @@ async function handle(event) {
         if (list.length) compact[field] = list;
       }
     }
+    // The string clamp above returns undefined for a number, so these two need
+    // their own pass. A price of "40" as a string is also accepted, because the
+    // model only ever compares it to another number.
+    for (const [field, max] of Object.entries(NUMBER_FIELDS)) {
+      const value = Number(item[field]);
+      if (item[field] == null || !Number.isFinite(value)) continue;
+      compact[field] = Math.min(Math.max(value, 0), max);
+    }
     compact.id = item.id.slice(0, FIELD_LIMITS.id);
     return compact;
   });
@@ -112,8 +140,15 @@ async function handle(event) {
         body: JSON.stringify({
           model: "claude-sonnet-5",
           max_tokens: 1200,
+          // LB-56. The shelf now carries status, price and age, and a code like
+          // "gl" means nothing without a key. The two questions /how/ advertises
+          // — "what is still in Want under $40" and "which items are waiting on
+          // QC" — are both filters over these fields, so the field vocabulary
+          // has to be part of the prompt, not left for the model to guess.
           system:
-            "You search a personal save-it-later shelf. Select only items that answer or meaningfully relate to the user's query. Rank the strongest matches first, use only IDs present in the supplied shelf, and keep every reason and the overall answer concise.",
+            "You search a personal save-it-later shelf for clothing finds. Select only items that answer or meaningfully relate to the user's query. Rank the strongest matches first, use only IDs present in the supplied shelf, and keep every reason and the overall answer concise.\n\n" +
+            "Field key. findStatus is the buying stage: want (not bought yet), bought (paid, at the agent's warehouse), shipped (parcel sent), qc (waiting on quality-check photos), gl (QC approved, green light), rl (QC rejected, red light), returned. priceUsd is US dollars, converted where the listing was in another currency, and is absent when no price is known. ageDays is days since the card was saved. importance is low, medium or high. seller, batch, size and colorway are the user's own notes.\n\n" +
+            "Treat a question about price, status or age as a filter over those fields. Answer it exactly: if the user asks what is still in Want under $40, return only items with findStatus want and priceUsd below 40. If a needed field is absent on an item, say so rather than guessing.",
           messages: [
             {
               role: "user",
