@@ -4657,12 +4657,19 @@ export default function Credenza() {
     let cancelled = false;
     const probe = async () => {
       try {
-        if (navigator.permissions && navigator.permissions.query) {
-          const perm = await navigator.permissions.query({ name: "clipboard-read" });
-          if (perm && perm.state === "denied") {
-            if (!cancelled) setClipPreview(null);
-            return;
-          }
+        // Granted ONLY. The old test bailed on "denied", so "prompt" fell
+        // through and read the clipboard with no user gesture — the invisible
+        // read the mobile handoff bans. No permissions API means no way to
+        // prove consent, so that path stays silent too and the plain ＋ Stash
+        // pill takes over.
+        if (!navigator.permissions || !navigator.permissions.query) {
+          if (!cancelled) setClipPreview(null);
+          return;
+        }
+        const perm = await navigator.permissions.query({ name: "clipboard-read" });
+        if (!perm || perm.state !== "granted") {
+          if (!cancelled) setClipPreview(null);
+          return;
         }
         const text = await navigator.clipboard.readText();
         if (cancelled) return;

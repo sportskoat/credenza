@@ -1046,6 +1046,82 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     });
   });
 
+  // The four tests below close the gap Kyle pointed at on 2026-07-26 ("how is
+  // this the same as this"): the turn 9 mock states the size, its neighbours,
+  // the next status step and a timeline on the first screen. The live sheet
+  // hid all four behind a tap.
+  function sizedShim(overrides = {}) {
+    // Chart S–XL against a 100 cm chest → the recommender picks Medium.
+    return installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({
+          size: "",
+          category: "tops",
+          sizeNotes:
+            "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\nXL: 胸围120 衣长72",
+          ...overrides,
+        }),
+      ]),
+      [PREFS_KEY]: JSON.stringify({
+        colorwayVersion: 4,
+        theme: "rainbow",
+        bodyProfile: { chest: 100 },
+        measureUnits: "cm",
+      }),
+    });
+  }
+
+  it("states the AI size on open, with no tap and no editor", async () => {
+    sizedShim();
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const block = document.querySelector(".cz-ai-size");
+    expect(block).not.toBeNull();
+    expect(block.className).toContain("is-ai");
+    expect(block.querySelector(".cz-ai-size-value").textContent.trim()).toBe("Medium");
+    // The recommendation is stated, not hidden behind the fit breakdown.
+    expect(document.querySelector(".cz-detail-fit")).toBeNull();
+  });
+
+  it("a neighbour chip writes the size in one tap", async () => {
+    const data = sizedShim();
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    // Neighbours of Medium in the S–XL run. The pick itself is never a chip.
+    expect(screen.getByRole("button", { name: "Use Small" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Use Large" }));
+
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].size).toBe("L"));
+    // One tap only — the chip must not open the inline editor.
+    expect(document.querySelector(".cz-detail-editor")).toBeNull();
+  });
+
+  it("names the next status step and relabels it after the tap", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    await user.click(screen.getByRole("button", { name: /^Mark bought/ }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("bought"));
+    expect(await screen.findByRole("button", { name: /^Mark shipped/ })).toBeInTheDocument();
+  });
+
+  it("generates a timeline from stored events", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const timeline = document.querySelector(".cz-detail-timeline");
+    expect(timeline).not.toBeNull();
+    expect(timeline.textContent).toMatch(/Clipped/);
+  });
+
   it("the status track commits on one tap and keeps a sub-state", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "gl" })]),

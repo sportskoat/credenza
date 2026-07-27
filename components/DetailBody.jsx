@@ -26,6 +26,8 @@ import {
   useWriteThroughDraft,
   usePrefersReducedMotion,
   SIZE_PICK_SKIP_CATEGORIES,
+  STATUS_TRACK,
+  statusTrackIndex,
 } from "../credenza-fashion.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
 import SizeChartTable from "./SizeChartTable.jsx";
@@ -71,6 +73,49 @@ function specCells(item, view, sizeText) {
     { key: "project", label: "Haul", value: view.project || "—" },
   ];
 }
+
+// One size reading, shared by the always-visible AI SIZE block and the fit
+// breakdown it opens. Both used to compute this separately, which let the
+// block and the breakdown disagree about the pick (handoff turn 9 §2).
+function readFit(item, bodyProfile, fitPref) {
+  const chart = parseSizeChart(sizeChartTextFor(item));
+  const profile = effectiveBodyProfile(bodyProfile);
+  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
+  const recSize = rec && rec.size ? rec.size : null;
+  const usualSize = !recSize ? usualSizeForItem(item, bodyProfile) : "";
+  // Only an ESTIMATED deciding measurement hedges the pick. A real chest with
+  // an estimated waist still earns the money chip on a shirt.
+  const decidingEstimated = !!(
+    profile &&
+    profile.estimated &&
+    rec &&
+    rec.primaryKey &&
+    (!bodyProfile || bodyProfile[rec.primaryKey] == null)
+  );
+  const precise = !!(recSize && rec.garment != null && rec.body != null) && !decidingEstimated;
+  const chartRunValues =
+    chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
+  const variantValues = pickSizeValuesFromVariants(item.variants);
+  return {
+    chart,
+    rec,
+    recSize,
+    usualSize,
+    decidingEstimated,
+    precise,
+    runValues: chartRunValues.length ? chartRunValues : variantValues,
+  };
+}
+
+// Where the chart came from, in the block's provenance slot (handoff turn 9
+// §2 row 1). Never invents a photo count — an item whose chart predates the
+// hunt tag gets the plain line.
+const SOURCE_SHORT = {
+  "album-text": "SELLER'S ALBUM",
+  "album-photos": "SELLER'S ALBUM",
+  "desc-photos": "SELLER'S LISTING",
+  "gallery-photos": "SELLER'S GALLERY",
+};
 
 // The size reasoning breakdown (handoff turn 3 §5). Reading order: verdict
 // (kicker + Georgia size + confidence chip) → prescription (1-2 plain
@@ -330,6 +375,206 @@ function chipSizes(runValues, anchor) {
   return runValues.slice(start, start + MAX);
 }
 
+// The two sizes either side of the pick, as one-tap apply chips (handoff
+// turn 9 §2 row 5 — "Use M", "Use XL"). The pick itself is never a chip: it
+// is already the value above. Two chips maximum, so the strip stays one row.
+function neighbourSizes(runValues, anchor) {
+  const run = Array.isArray(runValues) ? runValues.filter(Boolean) : [];
+  const key = String(anchor || "").toUpperCase();
+  const idx = run.findIndex((s) => String(s).toUpperCase() === key);
+  if (idx < 0) return run.slice(0, 2);
+  return [run[idx - 1], run[idx + 1]].filter(Boolean);
+}
+
+// The measurement column the pick was read from, so the chart row shows the
+// number that decided it rather than an arbitrary first column.
+function chartRowValue(row, primaryKey) {
+  if (!row) return null;
+  if (primaryKey && row[primaryKey] != null) return row[primaryKey];
+  for (const k of ["chest", "waist", "hip", "shoulder", "length"]) {
+    if (row[k] != null) return row[k];
+  }
+  return null;
+}
+
+// AI SIZE block (handoff turn 9 §2, "the flagship"). It is always visible —
+// the recommendation used to hide behind a chevron tap on the Size · fit
+// cell, which is exactly the gap Kyle pointed at ("how is this the same as
+// this"). Three states: ai (shimmer, chart-backed), manual (YOUR PICK, flat)
+// and fallback (NO CHART, dashed border, honest about the guess).
+function AISizeBlock({
+  fit,
+  item,
+  bodyProfile,
+  chosenSize,
+  units,
+  reduced,
+  onPickSize,
+  onOpenChart,
+  onOpenSizes,
+}) {
+  const { chart, rec, recSize, usualSize, precise, runValues } = fit;
+  const manual = !!chosenSize;
+  const shown = manual ? chosenSize : recSize || usualSize || "";
+  const state = manual ? "manual" : recSize ? "ai" : "fallback";
+  const source =
+    item.sizeChartSource && typeof item.sizeChartSource === "object" ? item.sizeChartSource : null;
+  const provenance = manual
+    ? "SET BY YOU"
+    : recSize
+      ? (source && SOURCE_SHORT[source.via]) || "SELLER'S CHART"
+      : "FELL BACK TO YOUR USUAL";
+  const headLabel = manual ? "Your pick" : recSize ? "AI size" : "No chart";
+  const shownText = formatSizeToken(shown) || shown;
+  // The aside never repeats the value. It says who else agrees with it.
+  const usualForItem = usualSizeForItem(item, bodyProfile);
+  const aside = manual
+    ? recSize && String(recSize).toUpperCase() !== String(chosenSize).toUpperCase()
+      ? "AI says " + (formatSizeToken(recSize) || recSize)
+      : ""
+    : recSize && usualForItem && String(usualForItem).toUpperCase() === String(recSize).toUpperCase()
+      ? "your usual is " + (formatSizeToken(usualForItem) || usualForItem) + " too"
+      : recSize
+        ? ""
+        : "your usual · not verified";
+  const why =
+    !manual && recSize && rec && rec.garment != null && rec.body != null
+      ? prescriptionSentence(chart, rec, { units, category: item.category })
+      : "";
+  const primaryKey = rec && rec.primaryKey ? rec.primaryKey : null;
+  const chartRow =
+    chart && Array.isArray(chart.rows)
+      ? chart.rows.filter((r) => chartRowValue(r, primaryKey) != null).slice(0, 6)
+      : [];
+  const neighbours = neighbourSizes(runValues, shown);
+  const shimmer = state === "ai" && !reduced;
+
+  return (
+    <section className={"cz-ai-size is-" + state} aria-label="Recommended size">
+      <div className="cz-ai-size-head">
+        <span className="cz-ai-size-kicker">
+          <span className="cz-ai-size-dot" aria-hidden="true" />
+          {headLabel}
+        </span>
+        <span className="cz-ai-size-prov">{provenance}</span>
+      </div>
+
+      <div className="cz-ai-size-value-row">
+        {shownText ? (
+          <span
+            className={"cz-ai-size-value" + (shimmer ? " t-shimmer" : "")}
+            data-text={shimmer ? shownText : undefined}
+          >
+            {shownText}
+          </span>
+        ) : (
+          <span className="cz-ai-size-value is-empty">—</span>
+        )}
+        {aside ? <span className="cz-ai-size-aside">{aside}</span> : null}
+        {!manual && precise ? (
+          <span className="cz-ai-size-confidence">Read from the chart</span>
+        ) : null}
+      </div>
+
+      {why ? <p className="cz-ai-size-why">{why}</p> : null}
+      {state === "fallback" ? (
+        <p className="cz-ai-size-why">
+          {usualSize
+            ? "The listing had no measurements and nothing in the album parsed as a chart. Add the chart photo and Credenza reads the cm off it."
+            : "Set your sizes to get a recommendation on this listing."}
+        </p>
+      ) : null}
+
+      {chartRow.length ? (
+        <div className="cz-ai-size-chart" aria-hidden="true">
+          {chartRow.map((row) => (
+            <span
+              key={row.size}
+              className={
+                "cz-ai-size-chart-cell" +
+                (String(row.size).toUpperCase() === String(shown).toUpperCase() ? " is-rec" : "")
+              }
+            >
+              <span className="cz-ai-size-chart-k">{formatSizeToken(row.size) || row.size}</span>
+              <span className="cz-ai-size-chart-v">
+                {formatMeasure(chartRowValue(row, primaryKey), units)}
+              </span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="cz-ai-size-foot">
+        <span className="cz-ai-size-foot-chips">
+          {/* One tap writes the size. This is the "Use M" / "Use XL" row the
+              handoff asks for — no editor, no Done, no second screen. */}
+          {neighbours.map((size) => (
+            <button
+              key={size}
+              type="button"
+              className="cz-ai-size-chip"
+              onClick={() => onPickSize(String(size))}
+            >
+              {"Use " + (formatSizeToken(size) || size)}
+            </button>
+          ))}
+          {manual && recSize ? (
+            <button type="button" className="cz-ai-size-chip is-ai" onClick={() => onPickSize("")}>
+              {"Use AI " + (formatSizeToken(recSize) || recSize)}
+            </button>
+          ) : null}
+          {!chart ? (
+            <button type="button" className="cz-ai-size-chip is-alt" onClick={onOpenSizes}>
+              Set my sizes
+            </button>
+          ) : null}
+        </span>
+        <button type="button" className="cz-ai-size-full" onClick={onOpenChart}>
+          Full chart ›
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// The status track and its one next action (handoff turn 9 §5). The four
+// chips stay as the picker; the track adds the pill that names the next
+// transition, so the common case is one tap and not a decision.
+const TRACK_NEXT = [
+  { label: "Mark bought", status: "bought" },
+  { label: "Mark shipped", status: "shipped" },
+  { label: "Mark received", status: "returned" },
+];
+
+// The timeline is generated, never typed (handoff turn 9 §6). Every row is an
+// event the app already stores; nothing here asks the user for input.
+function timelineRows(item, view, sizeText) {
+  const rows = [];
+  const day = (ms) =>
+    new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase();
+  if (item.createdAt) {
+    rows.push({
+      key: "clipped",
+      date: day(item.createdAt),
+      text: "Clipped" + (priceLabelShort(item) ? " at " + priceLabelShort(item) : ""),
+    });
+  }
+  if (sizeText && sizeText !== "—") {
+    rows.push({
+      key: "sized",
+      date: item.sizeChartSource && item.sizeChartSource.at ? day(item.sizeChartSource.at) : "",
+      text: (String(view.size || "").trim() ? "You picked " : "Sized ") + sizeText,
+    });
+  }
+  if (view.project) {
+    rows.push({ key: "haul", date: "", text: "Added to " + view.project });
+  }
+  if (item.updatedAt && item.updatedAt !== item.createdAt) {
+    rows.push({ key: "edited", date: day(item.updatedAt), text: "Last edited" });
+  }
+  return rows.slice(0, 4);
+}
+
 // Shell chrome for the pager. The render prop gets the live pager state and
 // returns { actions, overlay }: the buttons go in the top-right span, the
 // overlay (the sheet's ⋯ menu) renders as its sibling because .cz-detail-menu
@@ -486,6 +731,28 @@ export default function DetailBody({
           return pickSizeRunFromVariants(item.variants) || "";
         })();
   const cells = specCells(item, view, sizeText);
+  // One reading feeds the always-visible AI SIZE block. FitBlock keeps its own
+  // read because it also owns the silent chart hunt.
+  const fitPrefForItem = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
+  const fit = useMemo(
+    () => readFit(item, bodyProfile, fitPrefForItem),
+    [item, bodyProfile, fitPrefForItem]
+  );
+  const timeline = timelineRows(item, view, sizeText);
+  const nextStep = TRACK_NEXT[statusTrackIndex(view.findStatus)] || null;
+  const trackSub =
+    STATUS_TRACK[statusTrackIndex(view.findStatus)] +
+    (view.findStatus === "want" ? " · not ordered" : "");
+
+  // One tap writes the size straight from the AI SIZE block — no editor.
+  const applySize = (size) => {
+    const next = { ...(draft || buildEditDraft(item)), size: String(size || "") };
+    setDraft(next);
+    onSaveEdit(item.id, buildEditPatch(next, item));
+    setSavedFlash(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
+  };
   const buyButtons = linkButtons(item, { buyLabel }).filter((b) => b.role === "buy");
   // ONE primary action: the first buy link only. Two filled twins read as a
   // bug (Kyle 2026-07-25, desktop card back included).
@@ -494,7 +761,7 @@ export default function DetailBody({
     ? new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
   const subLine = [item.seller, savedDate ? "saved " + savedDate : ""].filter(Boolean).join(" · ");
-  const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
+  const fitPref = fitPrefForItem;
   const knownHauls = Array.from(
     new Set([...(haulNames || []), item.project || ""].map((n) => String(n || "").trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
@@ -890,8 +1157,59 @@ export default function DetailBody({
             editor and scroll it clear of the keyboard. */}
         {editingCell ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
 
-        <div className="cz-detail-label">Status · one tap</div>
+        {/* The recommendation is not behind a tap any more (handoff turn 9
+            §2). The block states the size, why, and the two neighbours — the
+            Size · fit cell still opens the full breakdown. */}
+        {editingCell !== "size" ? (
+          <AISizeBlock
+            fit={fit}
+            item={item}
+            bodyProfile={bodyProfile}
+            chosenSize={chosenSize}
+            units={measureUnits}
+            reduced={reduced}
+            onPickSize={applySize}
+            onOpenChart={() => setEditingCell("size")}
+            onOpenSizes={() => {
+              commitRef.current();
+              onOpenSizes && onOpenSizes();
+            }}
+          />
+        ) : null}
+
+        <div className="cz-detail-label-row">
+          <span className="cz-detail-label">Status</span>
+          <span className="cz-detail-track-sub">{trackSub}</span>
+        </div>
+        {/* The next transition is a named button, so the common path is one
+            tap and not a choice between four chips (handoff turn 9 §5). */}
+        {nextStep ? (
+          <button
+            type="button"
+            className="cz-detail-next"
+            onClick={() => pickStatus(nextStep.status)}
+          >
+            {nextStep.label}
+            <ChevronRight size={14} strokeWidth={2.6} aria-hidden="true" />
+          </button>
+        ) : null}
         <StatusChips mode="track" value={view.findStatus} onChange={pickStatus} label="Order status" />
+
+        {timeline.length ? (
+          <>
+            <div className="cz-detail-label">Timeline</div>
+            {/* Generated from events the app already stores — this section
+                never asks the user to type anything (handoff turn 9 §6). */}
+            <ol className="cz-detail-timeline">
+              {timeline.map((row) => (
+                <li key={row.key} className="cz-detail-timeline-row">
+                  <span className="cz-detail-timeline-date">{row.date}</span>
+                  <span className="cz-detail-timeline-text">{row.text}</span>
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : null}
 
         <div className="cz-detail-label-row">
           <span className="cz-detail-label">Notes</span>

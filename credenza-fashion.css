@@ -9935,7 +9935,254 @@ a.cz-card-seller:hover {
   cursor: pointer;
 }
 
+/* ── AI SIZE block (handoff turn 9 §2) ──
+   Always visible. The recommendation used to hide behind a chevron tap on the
+   Size · fit cell; the block states the pick, the reason and the two
+   neighbours without a tap. Three states: ai / manual / fallback. */
+.cz-ai-size {
+  margin-top: 16px;
+  border: 1px solid color-mix(in srgb, var(--cz-money) 40%, transparent);
+  border-radius: 14px;
+  background: var(--cz-card-solid);
+  overflow: hidden;
+}
+
+.cz-ai-size.is-manual {
+  border-color: var(--cz-hair);
+}
+
+.cz-ai-size.is-fallback {
+  border-style: dashed;
+  border-color: var(--cz-hair-strong, var(--cz-hair));
+}
+
+.cz-ai-size-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 13px 0;
+}
+
+.cz-ai-size-kicker,
+.cz-ai-size-prov {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.cz-ai-size-kicker {
+  color: var(--cz-money);
+}
+
+.cz-ai-size.is-manual .cz-ai-size-kicker {
+  color: var(--cz-sub);
+}
+
+/* No chart is a hedge, not an error — the QC amber is the app's existing
+   "we are not sure yet" hue and already clears 4.5:1 in both themes. */
+.cz-ai-size.is-fallback .cz-ai-size-kicker {
+  color: var(--cz-status-qc-text);
+}
+
+.cz-ai-size-prov {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+}
+
+.cz-ai-size-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.cz-ai-size-value-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  padding: 3px 13px 0;
+}
+
+.cz-ai-size-value {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--cz-ink);
+}
+
+.cz-ai-size-value.is-empty {
+  color: var(--cz-faint);
+}
+
+.cz-ai-size-value.t-shimmer {
+  --shimmer-base: var(--cz-money);
+  --shimmer-highlight: var(--cz-money-on-photo);
+  --shimmer-dur: 3200ms;
+}
+
+.cz-ai-size-aside,
+.cz-ai-size-confidence {
+  font-size: 12.5px;
+  color: var(--cz-sub);
+}
+
+.cz-ai-size-confidence {
+  margin-left: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+}
+
+.cz-ai-size-why {
+  margin: 7px 0 0;
+  padding: 0 13px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+}
+
+/* One cell per size, the pick filled. The measurement under each label is the
+   column the pick was read from, so the row shows the deciding number. */
+.cz-ai-size-chart {
+  display: flex;
+  gap: 5px;
+  margin-top: 11px;
+  padding: 0 13px;
+}
+
+.cz-ai-size-chart-cell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 2px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--cz-ink) 7%, transparent);
+}
+
+.cz-ai-size-chart-cell.is-rec {
+  background: var(--cz-money);
+}
+
+.cz-ai-size-chart-k {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--cz-sub);
+}
+
+.cz-ai-size-chart-v {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-ai-size-chart-cell.is-rec .cz-ai-size-chart-k,
+.cz-ai-size-chart-cell.is-rec .cz-ai-size-chart-v {
+  color: var(--cz-action-text);
+  font-weight: 700;
+}
+
+.cz-ai-size-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 11px;
+  padding: 7px 11px 7px 13px;
+  border-top: 1px solid var(--cz-hair);
+  background: color-mix(in srgb, var(--cz-ink) 3%, transparent);
+}
+
+.cz-ai-size-foot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cz-ai-size-chip {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cz-ai-size-chip.is-ai {
+  border-color: color-mix(in srgb, var(--cz-money) 55%, var(--cz-hair));
+  color: var(--cz-money);
+  font-weight: 700;
+}
+
+.cz-ai-size-chip.is-alt {
+  border-style: dashed;
+  color: var(--cz-sub);
+}
+
+.cz-ai-size-full {
+  min-height: 32px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-money);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cz-ai-size.is-manual .cz-ai-size-full,
+.cz-ai-size.is-fallback .cz-ai-size-full {
+  color: var(--cz-sub);
+}
+
 /* ── Status track ── */
+/* The sub-label names the current stop, so the track does not have to. */
+.cz-detail-track-sub {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* The one next transition, named. 44px so it is a phone target. */
+.cz-detail-next {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  border: 1px solid var(--cz-action-fill);
+  border-radius: 12px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .cz-detail-status {
   display: flex;
   gap: 6px;
@@ -9960,6 +10207,37 @@ a.cz-card-seller:hover {
   border-color: var(--cz-action-fill);
   color: var(--cz-action-text);
   font-weight: 700;
+}
+
+/* ── Timeline (handoff turn 9 §6) ──
+   A left-rule list generated from stored events. No user input. */
+.cz-detail-timeline {
+  margin: 8px 0 0;
+  padding: 0 0 0 9px;
+  border-left: 2px solid var(--cz-hair);
+  list-style: none;
+}
+
+.cz-detail-timeline-row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 4px 0;
+}
+
+.cz-detail-timeline-date {
+  flex: 0 0 40px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--cz-faint);
+}
+
+.cz-detail-timeline-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--cz-sub);
 }
 
 /* ── Notes ── */
