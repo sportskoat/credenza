@@ -78,6 +78,7 @@ do it completely, and report against its acceptance criteria.
 | LB-11 | Cut the framer-motion payload | P2 | 0.5 day | — | DONE 2026-07-26 — 25.5 KB gzip off first load |
 | LB-12 | Purge dead CSS | P2 | 0.5 day | — | DONE 2026-07-26 — 859 lines cut; focus-ring bug fixed |
 | LB-13 | Archive the legacy root files | P2 | 30 min | — | DONE 2026-07-26 — safe half; credenza-v3.jsx stays (7 tests) |
+| LB-14 | Audit the public site; lock it with a test | P1 | 0.5 day | LB-4 | DONE 2026-07-26 — 3 defects fixed; 89 tests added |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -730,6 +731,63 @@ Two files must NOT move:
 
 ---
 
+## P1 — The public site
+
+### LB-14. Audit the public site; lock it with a test — DONE 2026-07-26
+
+Commit `c6f9253`.
+
+The site is 14 hand-written HTML files under `preview/public/`. There is no
+build step and no shared partial. Every page carries its own `<style>`, its
+own `<nav>`, and its own footer. A page edited months apart from its
+neighbours drifts, and nothing fails until a reader or a crawler finds it.
+
+**What the audit checked:** D-2 nav reach on every page, D-3 compliance on
+`/pricing/`, JSON-LD parseability, FAQ schema against visible copy, internal
+link targets, canonical URLs, and `sitemap.xml` coverage in both directions.
+
+**Three defects found:**
+
+1. `/pricing/` carried `FAQPage` JSON-LD with **zero visible questions**.
+   Google's structured-data policy requires the answer be visible to the
+   reader. Invisible FAQ schema risks a manual action, and nothing on the
+   page looked wrong. The existing 14-test `pricing.test.js` passed
+   throughout. Fixed: added `details`/`summary` CSS and four visible blocks,
+   generated from the schema so the text cannot differ.
+2. `/faq/` had **six answers where schema and visible copy had drifted**.
+   One promised the $4.99 and $39.99 price in schema the reader never saw.
+   Fixed the visible copy first, because the schema held the better answer,
+   then regenerated the whole `FAQPage` block from the visible `<details>`.
+3. `/landing/` was the only page against D-2 — no Guides, no FAQ. Fixed by
+   adding both beside its in-page scroll anchors, which are a design choice
+   and stay.
+
+Also fixed one schema name that did not match its visible heading.
+
+**The parity rule.** The **visible copy is the source of truth**. The schema
+must match it word for word and in the same order. Never satisfy the test by
+editing the schema to match a wrong visible answer — fix the copy.
+
+**What came back clean:** the sitemap covers all 14 pages both ways, zero
+broken internal links, all JSON-LD parses, and `/pricing/` lists no deferred
+feature (no restock watch, no seller memory).
+
+**`preview/test/public-site.test.js` — 89 tests.** This file is the missing
+partial. It derives its page list from the filesystem, so a page added next
+week is covered when it lands, not when somebody remembers to edit an array.
+A first assertion checks the list is not empty, so a glob that matches
+nothing cannot make the rest vacuous.
+
+Four negative controls prove each key assertion bites. Strip the pricing
+`<details>` (reproduces defect 1), drift one FAQ schema answer, remove the
+landing Guides link, rename a sitemap `<loc>`. Each fails the expected test
+and nothing else. All four files were backed up first and restored.
+
+Gate after the change: 1120 tests pass (was 1031), lint clean, typecheck
+clean, build OK with unchanged chunk sizes.
+
+---
+
 ## Explicitly deferred (do NOT build before launch)
 
 - **Restock and price watch** (row 13) — needs a scheduler; zero code.
@@ -756,7 +814,8 @@ Launch when every box is checked:
       to everybody.
 - [ ] LB-3/D-1 price decision recorded here.
 - [ ] One full paid loop verified in test mode (LB-5 log exists).
-- [ ] Pricing page lists only shipped features.
+- [x] Pricing page lists only shipped features. Verified 2026-07-26 by the
+      LB-14 audit. `preview/test/public-site.test.js` holds the line.
 - [ ] A fresh build from a clean checkout passes the preflight and shows
       sign-in (the LB-6 regression can never recur silently).
 - [ ] Kyle approves one production deploy batch containing all of it.
