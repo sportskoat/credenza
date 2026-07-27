@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "vite",
     "dev:fashion": "vite",
-    "build": "vite build",
-    "build:fashion": "vite build",
+    "build": "node scripts/preflight-env.js && vite build",
+    "build:fashion": "node scripts/preflight-env.js && vite build",
     "test": "vitest run",
     "lint": "eslint ../credenza-v3.jsx ../credenza-fashion.jsx ../credenza-storage.js ../credenza-search.js ../credenza-search-fashion.js ../sheets ../components src netlify/functions",
-    "typecheck": "tsc -p jsconfig.json"
+    "typecheck": "tsc -p jsconfig.json",
+    "preflight": "node scripts/preflight-env.js"
   },
   "dependencies": {
     "framer-motion": "^12.42.2",

@@ -52,4 +52,13 @@ export default [
       },
     },
   },
+  {
+    // Build scripts and tests run in Node, not in the browser. Without this
+    // the base config's browser-only globals make every `process` reference
+    // a no-undef error.
+    files: ["**/scripts/**/*.{js,mjs}", "**/test/**/*.{js,jsx}"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 ];

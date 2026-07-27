@@ -70,7 +70,7 @@ do it completely, and report against its acceptance criteria.
 | LB-3 | Decide the price; make new Stripe Prices | P0 | 1 h + Kyle | — | DONE 2026-07-26 |
 | LB-4 | Build the public /pricing/ page | P0 | 0.5 day | LB-3 | DONE 2026-07-26 |
 | LB-5 | Run one checkout end-to-end (Part 7g) | P0 | 2 h | LB-3 | OPEN |
-| LB-6 | Add the build preflight env check | P0 | 1 h | — | OPEN |
+| LB-6 | Add the build preflight env check | P0 | 1 h | — | DONE 2026-07-26 |
 | LB-7 | Cloud sync for the shelf (Supabase) | P0 | 3–4 days | — | OPEN |
 | LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | OPEN |
 | LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | OPEN |
@@ -274,27 +274,42 @@ Test cards: use the Stripe test-cards skill or 4242 4242 4242 4242.
 - One full loop: checkout → webhook → Pro snapshot → portal cancel →
   free snapshot. Each step has evidence (screenshot or log line).
 
-### LB-6. Add the build preflight env check
+### LB-6. Add the build preflight env check — DONE 2026-07-26
 
 **Why.** Production already shipped once with `AUTH_ENABLED = false`
-because `preview/.env` was missing. The build must fail loudly instead.
+because `preview/.env` was missing. Vite inlines that value at build
+time, so the bundle simply had no sign-in in it. Nothing threw. Nothing
+logged. A silent wrong build is worse than a loud failed one.
 
-**Files.** `preview/package.json` (build script), new
-`preview/scripts/preflight-env.js` (the `scripts/` dir exists),
-`preview/.env.example` (the key list).
+**What shipped.**
+- `preview/scripts/preflight-env.js`. It reads the key list from
+  `.env.example` rather than hard-coding one, so adding a key to that
+  file is what makes the build start checking it. A key is required
+  unless the line above it reads `# optional`.
+- It checks the same union Vite would: `process.env` first, then `.env`,
+  `.env.<mode>`, `.env.local`, `.env.<mode>.local`, later files winning.
+  So it passes exactly when the build would find the value. That matters
+  on Netlify, where the values are in the environment and no `.env`
+  exists.
+- On failure it names each empty key, explains that a missing
+  `VITE_SUPABASE_` key compiles `AUTH_ENABLED` to false, and prints the
+  `netlify env:get` line for each one. Then exit 1.
+- `.env.example` was rewritten. It now lists all 23 keys the source
+  reads, splits them into required and optional, and names the nine
+  server-only secrets that must never gain a `VITE_` prefix.
+- `package.json`: `"build"` and `"build:fashion"` are now
+  `node scripts/preflight-env.js && vite build`. A new `"preflight"`
+  script runs the check alone.
 
-**Steps.**
-1. Write a Node script that loads `preview/.env` and checks every
-   `VITE_` key named in `.env.example` is present and non-empty.
-2. On failure: print the missing keys and exit 1.
-3. Wire it: `"build": "node scripts/preflight-env.js && vite build"`.
-4. Also check the deploy-time keys the functions need are documented in
-   `.env.example` (do not check their values — they live on Netlify).
+**Test.** `preview/test/preflight-env.test.js`, 10 tests. It runs the
+real script as a child process with a controlled environment, because
+the exit code is the contract. It also checks `.env.example` carries no
+filled-in value (that file is committed) and names no server secret as a
+`VITE_` key.
 
-**Acceptance.**
-- `npm run build` with `.env` renamed away fails with a clear message.
-- `npm run build` with `.env` present succeeds.
-- Full gate green.
+**Acceptance — met.** With `.env` renamed away the build stops and
+prints the three missing keys. With `.env` present the build runs and the
+bundle carries the Supabase URL. Full gate green.
 
 ### LB-7. Cloud sync for the shelf (Supabase) — THE BIG ONE
 
