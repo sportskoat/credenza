@@ -32,6 +32,7 @@
 const { safeFetch, readCapped } = require("./lib/guard.js");
 const limit = require("./lib/limit.js");
 const share = require("./lib/share-doc.js");
+const purge = require("./lib/purge.js");
 const { storeFromEnv } = require("./lib/entitlement-store.js");
 
 const ROUTE = "share-image";
@@ -246,6 +247,19 @@ async function handle(event) {
   }
 }
 
+// The cache tag goes on in one place rather than at each of the eleven return
+// paths above (LB-62). Every one of them caches, including the fallbacks, and
+// a deleted share has to take its 302 off the edge as well as its photo —
+// otherwise the card keeps drawing the Credenza mark for a haul that is gone.
+// IMAGE_CACHE runs seven days, so an untagged response here outlives the row
+// by a week. Tag only a well-formed code: anything else never reached the
+// database and has no row to be purged with.
+function tagged(res, event) {
+  const id = code(event);
+  if (!share.isShareCode(id)) return res;
+  return { ...res, headers: { ...res.headers, "netlify-cache-tag": purge.tagFor(id) } };
+}
+
 exports.handler = async (event) => {
   const started = Date.now();
   let res;
@@ -254,6 +268,7 @@ exports.handler = async (event) => {
   } catch {
     res = fallback(FAILURE_CACHE);
   }
+  res = tagged(res, event);
   limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, { ms: Date.now() - started });
   return res;
 };

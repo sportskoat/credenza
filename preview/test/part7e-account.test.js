@@ -47,6 +47,14 @@ function fakeSupabase() {
       if (userEq && userEq.startsWith("eq.")) shelves.delete(userEq.slice(3));
       return ok(null, 204);
     }
+    // The codes are listed before they are deleted, because the edge purge
+    // needs them and the rows are about to be gone (LB-62).
+    if (u.pathname === "/rest/v1/shares" && method === "GET") {
+      const userEq = u.searchParams.get("user_id");
+      let rows = [...shares.values()];
+      if (userEq && userEq.startsWith("eq.")) rows = rows.filter((r) => r.user_id === userEq.slice(3));
+      return ok(rows.map((r) => ({ ...r, title: r.data && r.data.title, count: r.data && r.data.count })));
+    }
     // Shared links (LB-8). These are PUBLIC URLs, so account deletion has to
     // take them as well — see the shares assertions below.
     if (u.pathname === "/rest/v1/shares" && method === "DELETE") {

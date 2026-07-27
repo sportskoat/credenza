@@ -126,6 +126,7 @@ do it completely, and report against its acceptance criteria.
 | LB-59 | Stop charging the customer for calls the server does not charge for | P0 | 3 h | LB-58 | DONE 2026-07-27 — the next census found `AI size-chart reads` the thinnest row and the widest ratio (2 against 100); verifying the mechanism before writing about it found all four client `bumpUsage` calls firing before the status check, so a timeout, a 502 and the 429 cap itself each spent a free user's quota while the server charged nothing; all four now count on success, plus new page `/guides/what-spends-a-chart-read/` and a `SOLD` entry |
 | LB-60 | Make the restore message able to fire, and explain the shelf limit that is real | P0 | 3 h | LB-59 | DONE 2026-07-27 — the census reached `Cards on your shelf`, the only row that reads the same on both plans; the promise verified TRUE (no code counts cards) but the same read found `credenza-fashion.jsx` displaying `merged.stats.added`, a key `mergeShelves` never returned, so "N cards restored from your account" was dead code on every sign-in; `added` now computed, guarded by a structural test over every `stats.` read, plus new page `/guides/how-many-cards-a-shelf-holds/` and a ninth `SOLD` entry |
 | LB-61 | Make `unlisted` do something, and draw the line the word does not | P0 | 3 h | LB-60 | DONE 2026-07-27 — the census reached `Link options (unlisted, expiry, no footer)`; expiry and no-footer both verified as real consequences, but `unlisted` was Pro-gated, stored and read back while changing nothing a reader could see — its only consumer was a label in the owner's own private list, and the "public profile" the Share sheet promised to hide the link from does not exist in the repo; unlisted now blanks the preview card (`share-page.js` meta tags) and refuses the unfurl photo route (`share-image.js`), guarded by a consequence test per option, plus new page `/guides/what-an-unlisted-link-hides/` and a tenth `SOLD` entry |
+| LB-62 | Make a deleted share link leave the edge, not only the database | P0 | 3 h | LB-61 | DONE 2026-07-27 — `/how/` promised a deleted link "answers 404 straight away"; verified FALSE — `share.js` DELETE removed the row and stopped, while `share-page.js` served `max-age=300, stale-while-revalidate=3600` and `share-image.js` served `max-age=604800`, so a deleted haul kept its page for an hour and its card photo for SEVEN DAYS from a cache no database delete reaches, and `grep -rn "cache-tag\|purge" netlify/` returned zero hits; `delete-account.js` had the same gap against the stronger promise; both public routes now emit `netlify-cache-tag: share-<code>` and both delete paths call `POST /api/v1/purge` after the row goes, via `lib/purge.js` (written out rather than adding `@netlify/functions`), plus new page `/guides/delete-a-shared-link/` |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -4148,3 +4149,182 @@ DELETE performs no edge-cache purge. `share-page.js` caches 300 s with 3600 s
 stale-while-revalidate; `share-image.js` caches seven days. `@netlify/functions`,
 which provides `purgeCache`, is in neither `node_modules` tree and in no
 `package.json` — so the fix needs a dependency decision, and it is its own rule.
+
+---
+
+### LB-62 — the delete that did not reach the cache
+
+LB-61 ended with the rule **assert the consequence, never the storage**. LB-62
+is what happens when that rule is applied to the sentence sitting two lines
+below the one LB-61 fixed.
+
+#### The census
+
+The census reached `/how/index.html:450-451`:
+
+> Delete a link from Profile → Shared links and the page answers 404 straight
+> away.
+
+Nine words of it are a testable claim: **straight away**. The rest is a
+navigation instruction, and that part is true.
+
+#### The verification
+
+Four reads, in order, none of them from memory:
+
+| Read | Source | Finding |
+|---|---|---|
+| Does DELETE remove the row? | `share.js:137-142` | Yes. `store.deleteShare(claims.sub, q.code)`, scoped to the owner. |
+| How long does the page cache? | `share-page.js:38` | `public, durable, max-age=300, stale-while-revalidate=3600` — up to **one hour**. |
+| How long does the photo cache? | `share-image.js:52` | `public, durable, max-age=604800, stale-while-revalidate=86400` — **seven days**. |
+| Does anything purge? | `grep -rn "cache-tag\|purge\|PURGE" netlify/ --include='*.js'` | **Zero hits.** |
+
+`netlify.toml` routes `/s/:code/img` to `share-image` and `/s/*` to
+`share-page`, both `status = 200`, and sets no cache-tag header of its own.
+
+#### The defect
+
+The row disappears. The answer does not.
+
+A shared haul page is rendered per request from one database row, so deleting
+the row does change what we would build. It does not change what is already
+built and held at the edge. A cache has no connection to a database; absent an
+instruction, it serves its stored copy until the age stamped on that copy runs
+out.
+
+So the real behaviour of "delete" was:
+
+| Surface | Actual time to disappear |
+|---|---|
+| The page | Up to 1 hour |
+| The card photo | Up to 7 days |
+| The cached 404 for a code with no row | 2 minutes |
+
+The shape of the failure is the dangerous part. The page went quiet inside an
+hour, and the photo outlived it by six days. An owner who deleted a link,
+waited, and checked the address saw a 404 and concluded it had worked — while
+the photo of their haul stayed on the open web for the rest of the week.
+
+`delete-account.js:85-95` had the identical gap. Its delete order was
+entitlement → shelf → shares → auth user, with no purge anywhere. That is the
+stronger of the two promises: one tidied-up thread is housekeeping, but an
+account deletion is somebody asking us to take their things off the open web.
+
+#### Why every existing test passed
+
+Because every test asked the database what it held.
+
+```js
+// test/share-server.test.js — before LB-62
+expect(store.shares.has(CODE)).toBe(false);
+```
+
+That assertion is true and always was. It is also exactly the mistake LB-61
+named one page earlier: it asserts the storage. The consequence — what a
+reader gets from the address after the delete — was never asked. Nine
+LB-62 probes now fail if it is not.
+
+#### The fix
+
+Two halves.
+
+**A tag on every cached answer.** Both public routes now emit
+`netlify-cache-tag: share-<code>`. `share-page.js` takes a fourth `code`
+argument on `reply()` and passes it at the four call sites that reached the
+database — the 405 and the 500 keep three arguments on purpose, because
+neither ever had a row. `share-image.js` tags once in the handler rather than
+at each of its eleven return paths, and tags only a well-formed code: anything
+else never reached the database and has no row to be purged with.
+
+`Netlify-Cache-Tag` and not `Cache-Tag`, because Netlify strips the former
+from the client response. The tag is an internal handle. A reader has no use
+for it, and no downstream cache should store it.
+
+**One call after the delete.** `lib/purge.js` posts to
+`https://api.netlify.com/api/v1/purge` with `{ site_id, cache_tags }`. It is
+written out rather than imported: `purgeCache` from `@netlify/functions` does
+the same POST in about thirty lines, and `@netlify/functions` is in no
+`package.json` and neither `node_modules` tree. Adding a dependency to this
+tree to get thirty lines is the worse trade. The request shape is pinned by
+`test/purge.test.js`, and it was read out of the package's own
+`dist/main.js`, not recalled.
+
+Three rules the callers depend on:
+
+1. **Purge after the delete, never before.** A purge that ran first leaves a
+   window in which one more request rebuilds the page from a row that is about
+   to disappear, and re-caches it on the way out.
+2. **A failed purge never fails the delete.** The row is already gone and the
+   page ages out on its own. Losing the customer's "deleted" answer to a
+   network blip is the worse outcome, so `purgeShares` returns `{ ok, reason }`
+   and the reason goes to the outcome log.
+3. **Never send a request with no tags.** From Netlify's own documentation: an
+   *empty* `cache_tags` list purges nothing, but an *absent* one purges **the
+   entire site**. One customer deleting one link must never be able to clear
+   the cache for every page Credenza serves. `purgeShares` returns
+   `no-codes` and sends nothing.
+
+`delete-account.js` reads the codes **before** deleting the rows, because the
+purge needs them and the rows are about to be unreachable.
+
+#### The page
+
+`/guides/delete-a-shared-link/` — 1,315 words in `<main>`.
+
+| Claim on the page | Source |
+|---|---|
+| Delete from Profile → Shared links | `share.js:137` DELETE branch |
+| The page answers 404 at once | `share-page.js` tag + `share.js` purge |
+| The card photo stops at the same moment | `share-image.js` tag + same purge |
+| The page is held five minutes, then up to an hour | `share-page.js:38` |
+| The photo is held seven days | `share-image.js:52` |
+| A missing page is held two minutes | `share-page.js:41` |
+| The purge runs after the row goes | `share.js:142,149` order |
+| A failed purge still answers deleted | `lib/purge.js` returns, never throws |
+| Account deletion purges every link at once | `delete-account.js` |
+| Free keeps 3 links, Pro keeps 100 | `share.js:39-40` |
+| A deleted address is never reissued | codes are random, 12 chars |
+| The haul on your shelf is untouched | sharing writes a snapshot |
+| A chat's drawn card is kept by that chat | outside our reach, stated plainly |
+
+The last row is the reason the page is worth writing. A guide that lists only
+what a delete *does* reach is the same failure as a test that asserts only
+storage — it describes the mechanism and leaves the reader with a false model.
+
+#### The probes
+
+Five mutations, run one at a time, each restored with `cp` from `/tmp` and
+verified by `md5 -q`:
+
+| Mutation | Tests that failed |
+|---|---|
+| Remove the DELETE purge call | 2 |
+| Drop the page cache tag | 2 |
+| Let a tagless purge through | 2 |
+| List account codes after the delete instead of before | 2 |
+| Tag a malformed code | 1 |
+
+Deleting the new page fails **9** rules across `public-site.test.js` and
+`plan-limits.test.js`.
+
+#### The gate
+
+2,078 tests / 66 files, up from 2,035 / 65. Lint: 5 warnings, 0 errors —
+baseline unchanged.
+
+#### What this says about the census method
+
+LB-61 said: assert the consequence, never the storage. LB-62 is the first rule
+found by **applying** LB-61 rather than by reading a new sentence. The census
+had already passed over this line twice.
+
+**LB-62: a delete that does not reach the cache is not a delete.** The row is
+not what a visitor reads. Any claim about how fast a change takes effect is a
+claim about the last layer that answers a request, not about the first layer
+that stores one — and between the two sits a cache that no database write can
+reach.
+
+The generalisation is larger than deletion. Wherever a promise contains a word
+about time — *straight away*, *immediately*, *at once*, *live* — the layer to
+verify is the one closest to the reader, and it is almost never the one the
+feature was written in.

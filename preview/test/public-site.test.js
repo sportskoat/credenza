@@ -1265,6 +1265,11 @@ describe("every page tells a machine what kind of page it is", () => {
     // The page exists because "unlisted" reads like a stronger promise than it
     // is, and a reader who buys Pro for privacy needs the line drawn first.
     "guides/what-an-unlisted-link-hides/index.html": "HowTo",
+    // LB-62. HowTo, because the last step is the one people skip: open the
+    // address yourself. The page exists because "delete" is the promise most
+    // likely to be believed without being checked, and the half that used to
+    // fail — the card photo, cached for seven days — is invisible from a 404.
+    "guides/delete-a-shared-link/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
 

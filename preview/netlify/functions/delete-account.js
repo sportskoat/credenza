@@ -20,6 +20,7 @@
 
 const limit = require("./lib/limit.js");
 const auth = require("./lib/auth.js");
+const purge = require("./lib/purge.js");
 const { storeFromEnv } = require("./lib/entitlement-store.js");
 
 const ROUTE = "delete-account";
@@ -49,7 +50,7 @@ async function deleteAuthUser(env, userId) {
   if (!res.ok && res.status !== 404) throw new Error("admin delete user -> " + res.status);
 }
 
-async function handle(event) {
+async function handle(event, context) {
   const env = process.env;
   for (const name of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
     if (!env[name]) return response(500, { error: "Server not configured: missing " + name });
@@ -90,23 +91,37 @@ async function handle(event) {
     // Shared links (LB-8) go before the auth user too. These are public URLs:
     // leaving one alive after "delete my account" would keep the customer's
     // cards on the open web after they asked us to remove them.
+    //
+    // The codes are read BEFORE the delete, because the purge needs them and
+    // the rows are about to be unreachable (LB-62). Deleting the rows and
+    // stopping there is not "take my cards off the open web": share-page
+    // holds a page for an hour and share-image holds a photo for seven days,
+    // from a cache no database delete can reach. This is the stronger of the
+    // two promises — one deleted link is a tidy-up, but this one was made to
+    // somebody who asked us to remove their data.
+    const codes = (await store.listShares(claims.sub)).map((row) => row.id);
     await store.deleteSharesForUser(claims.sub);
+    const purged = await purge.purgeShares(codes, context, env);
     await deleteAuthUser(env, claims.sub);
-    return response(200, { deleted: true });
+    const res = response(200, { deleted: true });
+    res._log = { purge: purged.reason, shares: codes.length };
+    return res;
   } finally {
     limit.leave(ROUTE);
   }
 }
 
 // Outcome log for every request — status + latency only, never content.
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
   const started = Date.now();
   let res;
   try {
-    res = await handle(event);
+    res = await handle(event, context);
   } catch {
     res = response(500, { error: "Internal error" });
   }
-  limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, { ms: Date.now() - started });
+  const extra = { ms: Date.now() - started, ...(res._log || {}) };
+  delete res._log;
+  limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, extra);
   return res;
 };

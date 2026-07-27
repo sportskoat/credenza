@@ -23,6 +23,7 @@
 
 const limit = require("./lib/limit.js");
 const share = require("./lib/share-doc.js");
+const purge = require("./lib/purge.js");
 const { storeFromEnv } = require("./lib/entitlement-store.js");
 
 const ROUTE = "share-page";
@@ -276,8 +277,15 @@ ${BRAND}
 </html>`;
 }
 
-function reply(statusCode, body, cache) {
-  return { statusCode, headers: { ...HTML, "cache-control": cache }, body };
+// The cache tag is what makes a delete take effect (LB-62). Without it the
+// only way off the edge is waiting out max-age, and PAGE_CACHE is an hour with
+// stale-while-revalidate. `Netlify-Cache-Tag` rather than `Cache-Tag`: Netlify
+// strips it from the client response, and this tag is an internal handle, not
+// something a visitor or a downstream cache has any use for.
+function reply(statusCode, body, cache, code) {
+  const headers = { ...HTML, "cache-control": cache };
+  if (code) headers["netlify-cache-tag"] = purge.tagFor(code);
+  return { statusCode, headers, body };
 }
 
 async function handle(event) {
@@ -301,13 +309,13 @@ async function handle(event) {
 
   try {
     const row = await storeFromEnv(env).loadShare(id);
-    if (!row) return reply(404, missHtml(), MISS_CACHE);
-    if (share.isExpired(row, Date.now())) return reply(404, missHtml(), MISS_CACHE);
+    if (!row) return reply(404, missHtml(), MISS_CACHE, id);
+    if (share.isExpired(row, Date.now())) return reply(404, missHtml(), MISS_CACHE, id);
 
     const doc = share.parseShareSnapshot(row.data);
-    if (!doc) return reply(404, missHtml(), MISS_CACHE);
+    if (!doc) return reply(404, missHtml(), MISS_CACHE, id);
 
-    return reply(200, pageHtml(doc, { hideFooter: row.hideFooter, unlisted: row.unlisted, code: id }), PAGE_CACHE);
+    return reply(200, pageHtml(doc, { hideFooter: row.hideFooter, unlisted: row.unlisted, code: id }), PAGE_CACHE, id);
   } finally {
     limit.leave(ROUTE);
   }

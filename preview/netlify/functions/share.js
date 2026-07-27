@@ -26,6 +26,7 @@ const limit = require("./lib/limit.js");
 const auth = require("./lib/auth.js");
 const ent = require("./lib/entitlements.js");
 const share = require("./lib/share-doc.js");
+const purge = require("./lib/purge.js");
 const { storeFromEnv } = require("./lib/entitlement-store.js");
 
 const ROUTE = "share";
@@ -105,7 +106,7 @@ async function handleCreate(event, env, claims, store, pro) {
   });
 }
 
-async function handle(event) {
+async function handle(event, context) {
   const env = process.env;
   for (const name of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
     if (!env[name]) return response(500, { error: "Server not configured: missing " + name });
@@ -139,7 +140,16 @@ async function handle(event) {
       // Scoped to this account inside the store. The service role bypasses
       // RLS, so the owner check cannot be left to the database.
       await store.deleteShare(claims.sub, q.code);
-      return response(200, { deleted: true });
+      // Then take the page and its card photo off the edge (LB-62). The row
+      // is gone, but the row is not what a visitor reads: share-page holds an
+      // hour and share-image holds seven days. The purge runs AFTER the
+      // delete so nothing can re-cache the row on the way out, and its result
+      // goes to the outcome log rather than to the caller — the customer
+      // asked to delete a link, not to hear about a cache.
+      const purged = await purge.purgeShares([q.code], context, env);
+      const res = response(200, { deleted: true });
+      res._log = { purge: purged.reason };
+      return res;
     }
 
     // Grace reads Pro but stops new cloud writes, and a share IS a cloud
@@ -154,15 +164,19 @@ async function handle(event) {
   }
 }
 
-exports.handler = async (event) => {
+// `context` is forwarded because Netlify puts the scoped purge token on it
+// for a Lambda-compatible function, and the DELETE branch needs it.
+exports.handler = async (event, context) => {
   const started = Date.now();
   let res;
   try {
-    res = await handle(event);
+    res = await handle(event, context);
   } catch {
     res = response(500, { error: "Internal error" });
   }
-  limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, { ms: Date.now() - started });
+  const extra = { ms: Date.now() - started, ...(res._log || {}) };
+  delete res._log;
+  limit.logOutcome(ROUTE, limit.clientKey(event), res.statusCode, extra);
   return res;
 };
 

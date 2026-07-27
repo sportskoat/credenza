@@ -406,12 +406,18 @@ describe("every page quotes the share caps the share function enforces", () => {
   it("finds the pages that quote a share cap", () => {
     // Without this, deleting the sentence from every page would generate zero
     // tests below and the suite would stay green while the site stopped saying
-    // how many links a plan allows. Four pages carry it today.
+    // how many links a plan allows. Five pages carry it today.
     expect(
       quoting.map((q) => q.rel).sort(),
       "fewer pages quote the share caps than expected — was a sentence deleted?"
     ).toEqual(
-      ["faq/index.html", "guides/share-a-haul-list/index.html", "how/index.html", "pricing/index.html"].sort()
+      [
+        "faq/index.html",
+        "guides/delete-a-shared-link/index.html",
+        "guides/share-a-haul-list/index.html",
+        "how/index.html",
+        "pricing/index.html",
+      ].sort()
     );
   });
 

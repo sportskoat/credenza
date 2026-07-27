@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Delete a shared haul link · Credenza</title>
+    <meta name="description" content="Deleting a share link removes the page and the preview photo at once. Here is what a deleted link answers, and what a chat window or a screenshot keeps." />
+    <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/delete-a-shared-link/" />
+    <meta property="og:title" content="Delete a shared haul link, and know what is actually gone" />
+    <meta property="og:description" content="A deleted link answers 404 at once, and the preview photo goes with it. A chat card already drawn does not come back." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/delete-a-shared-link/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Delete a shared haul link, and know what is actually gone" />
+    <meta name="twitter:description" content="A deleted link answers 404 at once, and the preview photo goes with it. A chat card already drawn does not come back." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Delete a shared haul link",
+        "url": "https://credenzafashion.com/guides/delete-a-shared-link/",
+        "description": "Remove one shared haul page from Profile, confirm it answers 404, understand what a chat window keeps, and free a slot against your share limit.",
+        "step": [
+          {"@type": "HowToStep", "position": 1, "name": "Open Profile, then Shared links", "text": "Every link you have published is listed there with its haul name, its item count, and the date you made it. The list is the only place a shared address is written down, because no page on the site links to one."},
+          {"@type": "HowToStep", "position": 2, "name": "Delete the link you are finished with", "text": "Press Delete on the row. The page stops answering at once, and the preview photo the link served stops with it. Both are removed from our edge cache in the same step, not left to expire on their own."},
+          {"@type": "HowToStep", "position": 3, "name": "Open the address yourself to confirm", "text": "Paste the address into a new tab. A deleted link answers with a plain page that says the haul is gone. If you still see the haul, you are reading your browser's own copy, so reload the page without the cache."},
+          {"@type": "HowToStep", "position": 4, "name": "Accept what a chat window keeps", "text": "A preview card that a chat already drew is stored by that chat, not by Credenza. Deleting the link cannot reach it. The same is true of a screenshot somebody took. Delete the message if the card matters."},
+          {"@type": "HowToStep", "position": 5, "name": "Use the slot you freed", "text": "A free account keeps 3 links at a time and Pro keeps 100. Deleting one returns a slot straight away, so delete the thread you have finished before you start the next haul."}
+        ]
+      }
+    </script>
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Credenza Fashion",
+      "item": "https://credenzafashion.com/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Guides",
+      "item": "https://credenzafashion.com/guides/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Delete a shared haul link",
+      "item": "https://credenzafashion.com/guides/delete-a-shared-link/"
+    }
+  ]
+}
+    </script>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>Delete a shared haul link, and know what is actually gone</h1>
+      <p class="lede">
+        A thread ends and you want the address to stop working. It does, at once
+        — and so does the photo. Here is what a delete reaches, and what it cannot.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/">Support</a>
+        <a href="/contact/">Contact</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <article class="card">
+        <span class="n">The promise</span>
+        <h2>Delete means gone, and gone has to mean now</h2>
+        <p>
+          A shared haul is a public address. You paste it into a thread, the
+          thread runs its course, and then you want the address to stop working.
+          That is the ordinary case, and it is the one worth getting right,
+          because the reason people hesitate to share a haul at all is that they
+          cannot see how to un-share it.
+        </p>
+        <p>
+          So the promise is short. Open <strong>Profile</strong>, then
+          <strong>Shared links</strong>, press Delete on the row, and the page
+          answers 404 straight away. Not in an hour. Not once something expires.
+          Straight away, on the next request, from anywhere.
+        </p>
+        <p>
+          Keeping that promise takes more work than it sounds like, and the rest
+          of this page explains why — because the difference between a delete
+          that works and a delete that looks like it works is invisible from the
+          outside until somebody catches it.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Why it is hard</span>
+        <h2>The row is not what a reader gets</h2>
+        <p>
+          A shared haul page is not a file sitting on a disk. It is built when
+          somebody asks for it: a request arrives, we read one row out of the
+          database, and we render the page from that row. Delete the row and
+          there is nothing left to render, so the next request gets a 404. That
+          much is easy.
+        </p>
+        <p>
+          The complication is that we do not rebuild the page for every reader.
+          A haul posted to a busy thread might be opened two hundred times in an
+          hour, and rebuilding it two hundred times is two hundred database
+          reads for two hundred identical answers. So the page is cached at the
+          edge — held on the servers closest to each reader — and served from
+          there without touching us at all. The photo that a chat draws in its
+          preview card is cached the same way, and held far longer, because a
+          photo does not change.
+        </p>
+        <p>
+          Now the problem is visible. Deleting the row changes what we would
+          build. It does not change what is already built and sitting at the
+          edge. A cache does not know a database exists. Unless something tells
+          it otherwise, it keeps serving the answer it last received until the
+          age we stamped on that answer runs out.
+        </p>
+        <table>
+          <thead>
+            <tr><th scope="col">What is served</th><th scope="col">How long the edge holds it</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">The haul page</th><td>Five minutes fresh, then up to an hour while it refreshes</td></tr>
+            <tr><th scope="row">The card photo</th><td>Seven days</td></tr>
+            <tr><th scope="row">A page that was never found</th><td>Two minutes</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Read the second row again. A delete that stops at the database is a
+          delete that leaves the photo of your haul on the open web for a week.
+          The page would go quiet in an hour and the picture would outlast it by
+          six days, which is the worst possible shape for this to fail in: you
+          check the address, you see the 404, you believe it worked.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">What we do</span>
+        <h2>Every cached answer carries a handle</h2>
+        <p>
+          The fix is to label things. Every page and every photo we send for a
+          shared haul goes out with a tag naming that haul's address. The tag is
+          for the cache, not for the reader — it is stripped before the response
+          reaches a browser, so nobody sees it and nothing downstream stores it.
+        </p>
+        <p>
+          When you delete the link, two things happen in order. First the row
+          goes. Then we call the cache and name the tag, and every copy of that
+          page and that photo, on every edge server holding one, is dropped.
+          The order matters: purging first would leave a gap in which one more
+          request rebuilds the page from a row that is about to disappear, and
+          re-caches it on the way out.
+        </p>
+        <p>
+          If the cache call fails — a network blip, a rate limit — your delete
+          still succeeds. The row is already gone, and the page will age out on
+          its own within the hour. Failing your delete because a cache was busy
+          would be the worse outcome, so we record the failure for ourselves and
+          tell you the link is deleted, which it is.
+        </p>
+        <p>
+          Deleting your whole account does the same thing, once, for every link
+          you ever published. That is the stronger version of the same promise.
+          One tidied-up thread is housekeeping; an account deletion is somebody
+          asking us to take their things off the open web, and leaving a card
+          photo behind for a week would not be an answer to that.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The honest part</span>
+        <h2>What a delete cannot reach</h2>
+        <p>
+          Some things are outside our reach, and a guide that does not say so is
+          not much of a guide. Here is the full division.
+        </p>
+        <table>
+          <thead>
+            <tr><th scope="col">After you delete</th><th scope="col">State</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">The page at the address</th><td>Gone at once, everywhere</td></tr>
+            <tr><th scope="row">The card photo the address served</th><td>Gone at once, everywhere</td></tr>
+            <tr><th scope="row">The haul on your own shelf</th><td>Untouched — sharing never moved it</td></tr>
+            <tr><th scope="row">A preview card a chat already drew</th><td>Kept by that chat, not by us</td></tr>
+            <tr><th scope="row">A screenshot somebody took</th><td>Theirs now</td></tr>
+            <tr><th scope="row">The address itself, if somebody saved it</th><td>Still typeable, and it answers 404</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Rows four and five are the ones to plan around. A chat client fetches
+          a page the moment an address appears in the box and keeps the card it
+          drew in its own storage. Deleting the source does not reach into
+          Discord's servers and rub out a card from last Tuesday. If the card is
+          what you want gone, delete the message that carries it.
+        </p>
+        <p>
+          If a card is a problem often enough to matter, the better move is to
+          stop it being drawn in the first place. Read
+          <a href="/guides/what-an-unlisted-link-hides/">what an unlisted link hides</a>
+          — it blanks the card at the moment of pasting, so there is nothing for
+          a chat to keep.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Housekeeping</span>
+        <h2>Deleting is also how you get a slot back</h2>
+        <p>
+          A free account keeps 3 links at a time. Pro keeps 100. The count is of
+          links standing right now, not of links you have ever made, so a delete
+          returns a slot the moment it goes through and the next share works
+          immediately.
+        </p>
+        <p>
+          If you share often, the habit worth building is to delete when the
+          thread dies rather than when you hit the cap. Reaching the cap and
+          then hunting for something to remove is a worse minute than removing
+          it when you were already finished with it. Set an expiry at the moment
+          you create the link, and the removal happens on its own — see
+          <a href="/guides/share-a-haul-list/">share a haul list without sharing your whole shelf</a>
+          for how the fields and the expiry are chosen.
+        </p>
+        <p>
+          Nothing about deleting touches the haul it came from. The shared page
+          was a snapshot taken when you pressed Share, never a live window onto
+          your shelf, and the shelf carries on exactly as it was. That is also
+          why editing an item after sharing does not change the shared page —
+          the two stopped being connected at the moment the link was made.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Answers</span>
+        <h2>Straight answers</h2>
+        <p>
+          <strong>I deleted it and I still see the haul.</strong> You are almost
+          certainly reading your own browser's copy, because you opened that
+          address before. Reload without the cache, or open the address in a
+          private window. If a different device on a different network still
+          shows it, tell us the address and we will look.
+        </p>
+        <p>
+          <strong>Can I put the same address back?</strong> No. Addresses are
+          drawn at random and never reissued, so a deleted one stays dead.
+          Sharing the haul again makes a new address, and the old one keeps
+          answering 404 forever.
+        </p>
+        <p>
+          <strong>Does deleting my account do this too?</strong> Yes, for every
+          link at once, in the same step that removes your data.
+        </p>
+        <p>
+          <strong>Where do I start?</strong>
+          <a href="/">Open Credenza</a>, build a haul, and share it when you
+          want an opinion on it. Knowing you can take it back is the point of
+          reading this before you post, not after.
+        </p>
+      </article>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/contact/">Contact</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>
