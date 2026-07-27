@@ -157,6 +157,28 @@
         font-weight: 700;
         color: var(--money);
       }
+      /* Same button the guides use. This page had no .cta rule, which is how
+         it ended up as a dead end: there was nothing to notice missing. */
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
       footer {
         color: var(--muted);
         font-size: 0.85rem;
@@ -357,6 +379,16 @@
         <a href="/faq/">The FAQ</a> answers the common questions about what Credenza is
         and is not.
       </p>
+
+      <h2>Nothing wrong — you just got here first</h2>
+      <p>
+        Most people reach this page before they have tried anything, to find out whether
+        a real person answers. One does, at the address above. If that was the question,
+        the shelf is free and needs no account, so the fastest way to judge Credenza is
+        to paste one link into it.
+      </p>
+      <a class="cta" href="/">Open Credenza</a>
+      <p class="related">Related: <a href="/how/">How it works</a><a href="/guides/">Guides by haul stage</a><a href="/faq/">FAQ</a><a href="/pricing/">Pricing</a></p>
     </main>
     <footer>
       Credenza Fashion · agent haul planner.

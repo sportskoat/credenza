@@ -1064,3 +1064,42 @@ describe("the app shell is a page too", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-30. A page a reader can reach but cannot leave forwards.
+//
+// Every guide ends the same way: a `.cta` button to the app and a `.related`
+// row to the next page. /faq/ did not. It is in the primary nav, it is the last
+// page most people read before deciding, and its final answer was "How do I
+// cancel Pro?" — so the last thing it said was how to leave. It had no `.cta`
+// rule in its stylesheet at all, which is how the omission survived: there was
+// nothing to notice missing.
+//
+// Nothing here caught it, because every rule above checks what a page SAYS.
+// None checked whether a page offers a next step.
+//
+// The floor is deliberately low — one link to the app somewhere in <main>. It
+// is not "put a button on every page"; it is "no page in the nav is a dead
+// end".
+describe("every page a reader lands on offers a way forward", () => {
+  // The legal and policy pages are exempt, with a reason. Somebody reading the
+  // Terms is checking a clause, not deciding to sign up, and a CTA under a
+  // refund paragraph reads as a sales pitch attached to a promise. They keep
+  // the nav and the footer, which is a way out, just not a persuasive one.
+  const LEGAL = new Set(["/privacy/", "/terms/"]);
+
+  for (const { rel, url, html } of PAGES) {
+    if (LEGAL.has(url)) continue;
+    it(`${rel} links into the app from its body`, () => {
+      const main = /<main[^>]*>([\s\S]*?)<\/main>/.exec(html);
+      expect(main, `${rel} has no <main>`).toBeTruthy();
+      // href="/" is the app. The nav and footer are outside <main>, so this
+      // only passes on a link the reader meets in the content.
+      const links = [...main[1].matchAll(/href="\/"/g)];
+      expect(
+        links.length,
+        `${rel} never links to the app inside <main> — a reader who finishes it has nowhere to go but back`
+      ).toBeGreaterThan(0);
+    });
+  }
+});

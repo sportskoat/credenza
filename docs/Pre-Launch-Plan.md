@@ -94,6 +94,7 @@ do it completely, and report against its acceptance criteria.
 | LB-27 | Rebuild the guides hub so it answers instead of routing | P1 | 1 h | LB-26 | DONE 2026-07-27 — 200 words to 520, ordered by haul stage; the hub floor exemption is gone |
 | LB-28 | Put the refund on the page where people decide to pay | P1 | 1 h | LB-27 | DONE 2026-07-27 — the 14-day refund was only in Terms; pricing 449 words to 851 |
 | LB-29 | Bring the app shell into the rules the 18 public pages follow | P1 | 1 h | LB-28 | DONE 2026-07-27 — the homepage had no canonical, no social card, no schema, and the stale colourway LB-26 fixed everywhere else |
+| LB-30 | Close the two pages a reader could reach but not leave forwards | P1 | 1 h | LB-29 | DONE 2026-07-27 — /faq/ and /support/ had no CTA; the FAQ ended on how to cancel |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1657,6 +1658,59 @@ not a failing run. The assertion was probed instead.
 **Gate.** 60 files / 1424 tests (1415 before). Lint 0 errors, 5 pre-existing
 warnings. Typecheck clean. Build clean, and `dist/index.html` verified to carry
 the canonical, the card, the schema, and `#000000`.
+
+### LB-30. Two pages a reader could reach but not leave — DONE 2026-07-27
+
+**The defect.** Every guide ends the same way: a `.cta` button into the app and
+a `.related` row to the next page. `/faq/` and `/support/` did not. Both are in
+the primary nav. `/faq/` is the last page most people read before they decide,
+and its final answer was *How do I cancel Pro?* — so the last thing the page
+said was how to leave.
+
+Neither page had a `.cta` rule in its stylesheet at all. That is how the
+omission survived: there was nothing rendered wrong, only something absent, and
+absence is what nobody notices.
+
+**Why no test caught it.** Every rule in `public-site.test.js` checks what a
+page *says* — its title, its description, its schema, its length, its language.
+None checked whether a page offers a next step. That is a different question and
+it needed its own rule.
+
+**The repair.**
+
+- `/faq/` gained three questions and a close. The questions answer what the page
+  did not: what happens when a link cannot be read (the card is still saved and
+  named from the store — verified against the `<UNKNOWN>` fallback at
+  `credenza-fashion.jsx:1701`), whether the shelf can be exported (JSON is free
+  at `credenza-fashion.jsx:5361`, CSV is Pro at `:5375`), and how to start. All
+  three are in the `FAQPage` schema and visible word for word, so the existing
+  parity rule binds them.
+- `/support/` gained a closing section. Most people who open it have not tried
+  anything yet and want to know a person answers. One does, at the address
+  above it, so the close says that and points at the free shelf.
+
+**The lock.** A new `every page a reader lands on offers a way forward` block.
+The floor is deliberately low — one `href="/"` inside `<main>`, not a mandated
+button. The nav and footer sit outside `<main>`, so it only passes on a link the
+reader meets in the content.
+
+`/privacy/` and `/terms/` are exempt, with a reason: somebody reading the Terms
+is checking a clause, not deciding to sign up, and a CTA under a refund
+paragraph reads as a sales pitch attached to a promise. They keep the nav and
+the footer.
+
+**Negative controls, all fired, all restored:**
+
+- the rule found `/support/` on its first run, before any fix — that is the
+  control, and it was a real second dead end rather than a tuned threshold
+- `/faq/` CTA pointed at `/pricing/` instead of the app → `faq/index.html never links to the app inside <main>`
+- `LEGAL` emptied → both `/privacy/` and `/terms/` fired, so the exemption is
+  load-bearing and not dead code
+- visible FAQ answer drifted from its schema → `faq/index.html answer to "What happens if Credenza cannot read a link?"`
+- a visible question renamed → `faq/index.html question list`
+
+**Gate.** 60 files / 1439 tests (1424 before). Lint 0 errors, 5 pre-existing
+warnings. Typecheck clean. Build clean.
 
 ## Explicitly deferred (do NOT build before launch)
 

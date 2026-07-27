@@ -131,6 +131,30 @@
         "@type": "Answer",
         "text": "Open your profile and use the Stripe customer portal. Cancel there and Pro runs to the end of the period you already paid for. Nothing you saved is deleted when Pro ends — every card, haul, and QC photo stays. Only new additions go back to the free limits. Write to wenselllc@gmail.com within 14 days of a charge for a full refund. Support lists the cancel, refund, export, and deletion steps. The terms state the full rule."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens if Credenza cannot read a link?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The card is still saved. A dead or blocked page means the title and price arrive empty, so the card is named from the store and the link, and you type the rest. Nothing is thrown away because a fetch failed, and you can add the photos and the price by hand at any point."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I get my shelf out of Credenza?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, and you do not need Pro. Export in your profile writes a JSON file of every card, which you can re-import later. Pro adds a CSV export that opens in Numbers, Excel or Sheets with the weights and totals filled in."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I start?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open Credenza and paste one link. No account, no card, and nothing to install. Add the rest of the haul when you find it, and open Buy in your agent when you are ready to order."
+      }
     }
   ]
 }
@@ -266,6 +290,35 @@
       details p {
         margin: 0.65rem 0 0;
         color: var(--muted);
+      }
+      /* This page had no .cta rule at all, so it was the one page in the
+         primary nav with no way out except the nav itself. Same shape as the
+         guides use, so the button reads identically wherever a reader meets
+         it. */
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+      .note {
+        color: var(--muted);
+        font-size: 0.95rem;
+        margin: 1.5rem 0 0;
       }
       footer {
         color: var(--muted);
@@ -438,6 +491,38 @@
           export, and deletion steps. The <a href="/terms/">terms</a> state the full rule.
         </p>
       </details>
+      <details>
+        <summary>What happens if Credenza cannot read a link?</summary>
+        <p>
+          The card is still saved. A dead or blocked page means the title and price arrive empty,
+          so the card is named from the store and the link, and you type the rest. Nothing is
+          thrown away because a fetch failed, and you can add the photos and the price by hand at
+          any point.
+        </p>
+      </details>
+      <details>
+        <summary>Can I get my shelf out of Credenza?</summary>
+        <p>
+          Yes, and you do not need Pro. Export in your profile writes a JSON file of every card,
+          which you can re-import later. Pro adds a CSV export that opens in Numbers, Excel or
+          Sheets with the weights and totals filled in.
+        </p>
+      </details>
+      <details>
+        <summary>How do I start?</summary>
+        <p>
+          Open Credenza and paste one link. No account, no card, and nothing to install. Add the
+          rest of the haul when you find it, and open Buy in your agent when you are ready to
+          order.
+        </p>
+      </details>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a W2C search engine. You bring the
+        links from communities and stores you already use.
+      </p>
+      <a class="cta" href="/">Open Credenza</a>
+      <p class="related">Related: <a href="/how/">How it works</a><a href="/guides/">Guides by haul stage</a><a href="/pricing/">What Pro costs</a><a href="/support/">Support</a></p>
     </main>
     <footer>
       Credenza Fashion · agent haul planner.
