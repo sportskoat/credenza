@@ -1255,6 +1255,11 @@ describe("every page tells a machine what kind of page it is", () => {
     // cache, and only then send photos. A reader who does those in the wrong
     // order spends reads they did not have to.
     "guides/what-spends-a-chart-read/index.html": "HowTo",
+    // LB-60. HowTo rather than FAQPage even though the title asks a question.
+    // The answer is "unlimited", which takes one sentence; the page earns its
+    // length by telling you what to DO about the bound that does exist — add
+    // freely, know photos are the weight, let the prune run, export a backup.
+    "guides/how-many-cards-a-shelf-holds/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
 
@@ -1854,6 +1859,32 @@ describe("a feature the price table sells is explained somewhere else", () => {
       row: "AI size-chart reads",
       needs: ["the unit is the call, not the image", "spends one read, not ten"],
       why: "the widest free-to-pro ratio on the table, and no page said what one read is",
+    },
+    // LB-60. Added 2026-07-27. The census after LB-59 ran the same
+    // <main>-stripped count over the rows still with no entry here. "Cards on
+    // your shelf" was the thinnest: 5 sentences across 3 pages, and every one
+    // of them was the word "Unlimited" inside a table cell or a plan bullet.
+    //
+    // It is the only row on the table that reads the SAME on both plans, which
+    // is exactly why it needed a page rather than exactly why it did not. A
+    // reader who sees "Unlimited / Unlimited" assumes it is filler. It is not
+    // filler, it is the shelf, and the honest version has a caveat we had
+    // never written down anywhere: the browser can still run out of room.
+    //
+    // The three phrases are the three things a reader has to leave with.
+    // The first is the promise, stated so it cannot be read as marketing —
+    // verified against the source, no counter exists. The second is the
+    // mechanism that makes the promise survive a full disk, and it is the
+    // sentence the app itself shows when it prunes. The third is the model
+    // that makes the whole thing predictable: text is free, photos are not.
+    {
+      row: "Cards on your shelf",
+      needs: [
+        "no code in credenza counts them",
+        "links and notes are safe",
+        "photos are what take up the room",
+      ],
+      why: "the only row that reads the same on both plans, so it looked like filler and went unexplained",
     },
   ];
 

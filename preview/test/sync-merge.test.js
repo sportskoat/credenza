@@ -7,6 +7,9 @@
 //     account).
 // Both are in this file, and a change that fixes one by breaking the other
 // fails here.
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   SHELF_DOC_VERSION,
@@ -257,5 +260,64 @@ describe("the document on the wire", () => {
     });
     expect(doc.items).toHaveLength(1);
     expect(doc.tombstones).toEqual({ a: T0 });
+  });
+});
+
+// LB-60. The restore message is the only thing a person sees when a sign-in
+// puts their shelf back, and it read `stats.added` — a key mergeShelves never
+// returned. `undefined > 0` is false, so the message never fired. A user who
+// signed in on a new phone watched cards appear with no word about where they
+// came from, and the one sentence that says "your account still has your work"
+// was dead code.
+//
+// Two guards. The first pins what the number means. The second is the class
+// guard: every key the app reads off `stats` must exist on the object the
+// merge returns, so the next invented key fails here and not in silence.
+describe("LB-60 — the restore count the app shows", () => {
+  it("counts only the cards this device did not already have", () => {
+    const local = { items: [card("1", T0)], tombstones: {} };
+    const remote = { items: [card("1", T0), card("2", T0), card("3", T0)], tombstones: {} };
+    const out = mergeShelves(local, remote, { now: T0 + 1000 });
+    expect(out.stats.added).toBe(2);
+  });
+
+  it("says nothing arrived when both sides hold the same shelf", () => {
+    // The normal sign-in. A count of remote.length here would tell a person
+    // their whole shelf was restored, every time, on every device.
+    const items = [card("1", T0), card("2", T0)];
+    const out = mergeShelves({ items, tombstones: {} }, { items, tombstones: {} }, { now: T0 + 1 });
+    expect(out.stats.added).toBe(0);
+  });
+
+  it("does not net a restore against a delete", () => {
+    // 2 arrive, 1 local card is removed by a tombstone. A subtraction would
+    // report 1 while the person watches two cards appear.
+    const local = { items: [card("1", T0)], tombstones: { 1: T0 + 5 } };
+    const remote = { items: [card("2", T0), card("3", T0)], tombstones: {} };
+    const out = mergeShelves(local, remote, { now: T0 + 1000 });
+    expect(out.items.map((x) => x.id)).toEqual(["2", "3"]);
+    expect(out.stats.added).toBe(2);
+    expect(out.stats.deleted).toBe(1);
+  });
+
+  it("exposes every stats key the app reads", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
+    const src = readFileSync(join(root, "credenza-fashion.jsx"), "utf8").replace(
+      /^\s*\/\/.*$/gm,
+      ""
+    );
+    const keys = new Set([...src.matchAll(/\bstats\.(\w+)/g)].map((m) => m[1]));
+    expect(keys.size, "no stats reader found — the regex or the call site moved").toBeGreaterThan(0);
+    const out = mergeShelves(
+      { items: [card("1", T0)], tombstones: {} },
+      { items: [card("2", T0)], tombstones: {} },
+      { now: T0 + 1 }
+    );
+    for (const key of keys) {
+      expect(
+        Object.prototype.hasOwnProperty.call(out.stats, key),
+        `credenza-fashion.jsx reads stats.${key}, which mergeShelves never returns — the value is undefined and every test on it silently passes`
+      ).toBe(true);
+    }
   });
 });

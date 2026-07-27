@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How many cards a shelf holds · Credenza</title>
+    <meta name="description" content="Cards are unlimited on both plans. What bounds a shelf is browser storage, what Credenza drops first when it fills, and how a backup makes it moot." />
+    <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/how-many-cards-a-shelf-holds/" />
+    <meta property="og:title" content="How many cards a shelf holds, and what actually runs out" />
+    <meta property="og:description" content="Cards are unlimited on both plans. What bounds a shelf is browser storage — and Credenza drops thumbnails before it ever drops a link." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/how-many-cards-a-shelf-holds/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="How many cards a shelf holds, and what actually runs out" />
+    <meta name="twitter:description" content="Cards are unlimited on both plans. What bounds a shelf is browser storage — and Credenza drops thumbnails before it ever drops a link." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "How many cards a shelf holds, and what actually runs out",
+        "url": "https://credenzafashion.com/guides/how-many-cards-a-shelf-holds/",
+        "description": "Credenza never caps the number of cards on a shelf, on free or on Pro. The real bound is the storage your browser gives one site. This page says what fills that space, what Credenza removes first when it runs out, and how to make the question stop mattering.",
+        "totalTime": "PT3M",
+        "step": [
+          {
+            "@type": "HowToStep",
+            "name": "Add cards without counting them",
+            "text": "There is no card limit to reach. The free plan and Pro both say unlimited on the pricing page, and no code anywhere in Credenza counts your cards against a number. Stash a hundred links from a Yupoo album if that is the haul you are planning. The plan caps are on metered things — AI chart reads, link resolves, Ask questions, open hauls — and a card is none of those."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Know what actually takes up the room",
+            "text": "A card is text: a title, a link, a price, a size, a note. Text is tiny — a thousand cards of pure text is smaller than one photo. Photos are what fill a shelf. Every stored image is compressed to about 32KB, an item keeps up to 20 gallery photos and up to 12 QC photos, so one heavily photographed card can be a thousand times the size of a plain one."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Let Credenza drop the right thing when space runs out",
+            "text": "If the browser refuses a save, Credenza does not fail and does not delete cards. It removes photos from the oldest cards, in a fixed order: QC and gallery photos first, then cover thumbnails, oldest first, retrying the save after each small batch. It tells you how many cards lost thumbnails, and says the line that matters — links and notes are safe."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Export a backup so the limit stops mattering",
+            "text": "Open Settings and export your shelf as .json. That file holds every card and re-imports whole, so a full browser, a cleared cache, or a new phone costs you nothing. If you have a Pro account the same job runs by itself: your shelf syncs to the account and comes back when you sign in on any device."
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Credenza",
+            "item": "https://credenzafashion.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Guides",
+            "item": "https://credenzafashion.com/guides/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "How many cards a shelf holds",
+            "item": "https://credenzafashion.com/guides/how-many-cards-a-shelf-holds/"
+          }
+        ]
+      }
+    </script>
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>How many cards a shelf holds, and what actually runs out</h1>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/">Support</a>
+        <a href="/contact/">Contact</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+        <main>
+      <p class="eyebrow">Guide · Your shelf</p>
+      <h2 class="lede">
+        Cards are unlimited on both plans, and that is not a marketing word — no
+        code in Credenza counts them. What can run out is the storage your
+        browser gives one website. Here is what fills it, what Credenza removes
+        first when it does, and the one-minute habit that makes the whole
+        question stop mattering.
+      </h2>
+
+      <article class="card">
+        <span class="n">The answer</span>
+        <h2>There is no card limit, on free or on Pro</h2>
+        <p>
+          The pricing table says <strong>Unlimited</strong> in both columns for
+          cards on your shelf, and that row is the same on both sides on purpose.
+          A shelf is the thing you are here for. Charging for the right to keep
+          one more link would be charging for the product itself.
+        </p>
+        <p>
+          The plan limits Credenza does have are all on work that costs us money
+          to do for you: AI size-chart reads, link resolves, Ask questions, QC
+          photos an item, and how many hauls you keep open at once. Every one of
+          those makes a request leave your phone. A card does not. Adding a card
+          writes a few hundred bytes to your own browser and nothing else
+          happens, so there is nothing to meter and nothing to sell you.
+        </p>
+        <p>
+          So the honest answer to "how many can I keep?" is not a number we
+          chose. It is a number your browser chose, and it is large.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The real bound</span>
+        <h2>A card is text. Photos are what take up the room.</h2>
+        <p>
+          A card is a title, a link, a price, a size, a colourway, a status and
+          your note. That is text, and text is almost free. A thousand text-only
+          cards take less space than a single photograph off your camera roll.
+          If your shelf is links and notes, you will not reach a wall.
+        </p>
+        <p>
+          Photos are the other story. Credenza compresses every image before it
+          stores it — about 640 pixels on the long edge, WebP where the browser
+          supports it, quality stepped down until the file is roughly 32KB. That
+          is small for a photo and it is still hundreds of times a card's text.
+          An item keeps up to twenty gallery photos and up to twelve QC photos,
+          so one thoroughly documented item can be most of a megabyte on its own.
+        </p>
+        <p>
+          The practical shape of that: a shelf of 300 text-only cards is nothing.
+          A shelf of 300 cards where every one carries a full QC set is a real
+          amount of data, and that is the shelf that can meet the browser's
+          ceiling. If you want a rule of thumb, count photographed items, not
+          cards.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">When it fills</span>
+        <h2>Credenza drops thumbnails, never links</h2>
+        <p>
+          Browsers do not warn you before storage runs out. They refuse the
+          write. An app that treats that refusal as a crash loses whatever you
+          just typed, and an app that treats it as "the shelf is empty" is worse.
+          Credenza treats it as a request to make room.
+        </p>
+        <p>
+          When a save is refused, the order is fixed and it is deliberate. First
+          it strips the stored QC and gallery photos from the oldest cards, three
+          cards at a time, retrying the save after each batch. Only when no
+          card has any of those left does it start on cover thumbnails, again
+          oldest first, again three at a time. It stops the moment the save
+          succeeds, so it removes the least it can.
+        </p>
+        <p>
+          What it never touches is the part you cannot get back. Your links,
+          titles, prices, sizes, notes, statuses and haul assignments are not
+          candidates for removal at any stage. A photo can be fetched again from
+          the seller's page; the note you wrote at 1am about which colourway
+          looked right cannot. When this happens you get told, in those words:
+          storage was full, thumbnails were removed from N older cards, links and
+          notes are safe.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Careful</span>
+        <h2>The one failure that is not silent</h2>
+        <p>
+          There is a case beyond a full shelf: the browser refuses the write for
+          a reason that is not space at all. Private-browsing modes, a locked-down
+          site-data setting, or a storage permission you revoked will do it.
+        </p>
+        <p>
+          Credenza does not pretend to have saved in that case. The status turns
+          to a save error and you are told to export a backup before you close
+          the tab, because the shelf on screen is real and the shelf on disk is
+          not. If you ever see that message, take it literally and export first.
+          There is also a recovery download that hands you the raw stored data
+          exactly as it was found, for the rarer case where the shelf on disk is
+          unreadable rather than unwritable.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The habit</span>
+        <h2>Export once and the ceiling stops existing</h2>
+        <p>
+          Open Settings and export your shelf. You get a
+          <code>credenza-shelf-YYYY-MM-DD.json</code> file that holds every card
+          in full, and it re-imports whole. That single file turns every version
+          of this problem — a full browser, a cleared cache, a dead phone, a
+          browser that decided to reclaim site data — into a thirty-second fix.
+        </p>
+        <p>
+          It is worth doing before a big paste. If you are about to drop a Reddit
+          haul comment or a whole Yupoo album onto the shelf, export first. Not
+          because the paste is dangerous, but because a backup taken before a
+          large change is the only one that lets you undo the change.
+        </p>
+        <p>
+          There is also a CSV export for a different job: opening your haul in
+          Numbers, Excel or Sheets to total it. That one is for reading. The
+          .json is the one that restores.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Two devices</span>
+        <h2>What an account changes, and what it does not</h2>
+        <p>
+          Your browser is always the source of truth. Credenza reads your shelf
+          from your own device first, so it is on screen before any network call
+          finishes, and it keeps working with no signal at all. An account adds a
+          copy, it does not replace the original.
+        </p>
+        <p>
+          Restoring that copy is free. Sign in on a new phone and your shelf
+          comes back, on the free plan, deliberately — a lost phone should not
+          mean lost work, and no subscription price is worth making it mean that.
+          When cards do arrive from your account, Credenza counts the ones this
+          device did not already have and tells you how many were restored.
+        </p>
+        <p>
+          What Pro adds is the continuous half: every edit keeps flowing to the
+          account so two devices stay in step without you thinking about it. On
+          free, the copy is refreshed when you sign in rather than continuously.
+        </p>
+        <p>
+          When both sides have changed, nothing is thrown away by document. Each
+          card is compared on its own timestamp, so an edit on your phone and a
+          different edit on your laptop both survive. Deletions are recorded
+          separately, so a card you deleted does not come back on the next sync —
+          and a card you edited after deleting it does, because you clearly
+          wanted it.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Sharing</span>
+        <h2>The one place a number does apply</h2>
+        <p>
+          Your own shelf is unlimited. A <em>shared link</em> is not, and it is
+          worth knowing the difference before you build a 200-item share and
+          wonder why it is refused.
+        </p>
+        <p>
+          A share is a snapshot that travels to someone else, so it has to stay
+          small enough to load quickly on a stranger's phone: up to 60 items in
+          one link. The number of shares you keep alive is the plan limit — three
+          on free, a hundred on Pro. Neither of those touches the shelf they came
+          from. Delete a share and the cards are exactly where they were.
+        </p>
+        <p>
+          If a haul is larger than one share, split it the way you would split a
+          parcel — by seller, or by what is going in which box.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">In practice</span>
+        <h2>How to keep a large shelf pleasant</h2>
+        <p>
+          Close hauls you have received. A haul is one parcel, not a folder, and
+          archiving a finished one keeps the board readable and frees a slot
+          against the two-open-hauls free limit. The cards stay on your shelf.
+        </p>
+        <p>
+          Delete the cards you have genuinely decided against. Not to save space —
+          you have the space — but because a shelf you can read is worth more
+          than a shelf that is complete. The decision is the product.
+        </p>
+        <p>
+          Let albums stay at the seller. Credenza brings in six photos from an
+          album by default and links out for the rest, which keeps a card light
+          and keeps the album one tap away. Six covers the front, the back, the
+          tag and a detail shot, which is enough to judge a piece.
+        </p>
+        <p>
+          Export monthly. It costs a minute and it removes the only version of
+          this question that has a bad answer.
+        </p>
+      </article>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace. It does not sell
+        anything, host any listing, or take a cut of what you buy. It organises
+        the links you already found and hands you back to the agent you already
+        use.
+      </p>
+
+      <a class="cta" href="/">Open Credenza</a>
+
+      <p class="related">
+        More on this: <a href="/guides/back-up-your-shelf/">back up your shelf</a>,
+        <a href="/guides/track-qc-photos/">track QC photos</a>,
+        <a href="/guides/close-a-haul/">close a haul</a>,
+        <a href="/guides/share-a-haul-list/">share a haul list</a>, and
+        <a href="/how/">how Credenza works</a>.
+      </p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/contact/">Contact</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

@@ -194,6 +194,21 @@ export function mergeShelves(local, remote, options = {}) {
   const remoteKey = JSON.stringify(remoteItems.map((x) => x && x.id));
   const mergedKey = JSON.stringify(merged.map((x) => x.id));
 
+  // LB-60. How many cards this device did NOT already have. The caller shows
+  // "N cards restored from your account" off this number, so it must count
+  // arrivals and nothing else:
+  //
+  //   NOT merged.length - localItems.length. A sync that restores 3 cards and
+  //   drops 2 to tombstones nets 1, and the person sees "1 card restored"
+  //   after watching three appear.
+  //   NOT remoteItems.length. The overlap is the normal case — the same shelf
+  //   on two devices would report every card as restored, every sign-in.
+  //
+  // A local id counts as present even if a tombstone later removed the card,
+  // because the device had it either way and nothing arrived for it.
+  const localIds = new Set(localItems.filter((x) => x && x.id).map((x) => String(x.id)));
+  const added = merged.filter((x) => !localIds.has(String(x.id))).length;
+
   return {
     items: merged,
     tombstones,
@@ -205,6 +220,7 @@ export function mergeShelves(local, remote, options = {}) {
       local: localItems.length,
       remote: remoteItems.length,
       merged: merged.length,
+      added,
       deleted,
       tombstones: Object.keys(tombstones).length,
     },

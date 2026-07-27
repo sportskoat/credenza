@@ -57,6 +57,7 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/guides/ask-your-own-shelf/ — Ask reads the cards you saved, not a catalog; what it sees, what it cannot do, what one ask costs
 - https://credenzafashion.com/guides/close-a-haul/ — a haul is a parcel, not a folder; when it ends, what archiving does, and why free counts open hauls only
 - https://credenzafashion.com/guides/what-spends-a-chart-read/ — what one AI size-chart read is: 2 a day free and 100 on Pro, one call per card whatever the photo count, free local text parsing first, and a per-seller cache that makes the rest of a haul cost nothing
+- https://credenzafashion.com/guides/how-many-cards-a-shelf-holds/ — how many cards a shelf holds: unlimited on both plans, no code counts them; the real bound is browser storage, photos fill it not text, and a full shelf drops thumbnails from the oldest cards before it ever drops a link or a note
 - https://credenzafashion.com/guides/free-agent-haul-planner/ — what the free plan includes, with the real daily numbers
 - https://credenzafashion.com/guides/yupoo-album-to-shopping-list/ — paste a Yupoo album link and get a card with photos, seller, price and the chart
 - https://credenzafashion.com/guides/share-a-haul-list/ — post one haul as a read-only link and choose which fields go in

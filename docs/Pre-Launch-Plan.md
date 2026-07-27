@@ -124,6 +124,7 @@ do it completely, and report against its acceptance criteria.
 | LB-57 | Explain the feature the price table sells at 5 against 200 | P0 | 2 h | LB-56 | DONE 2026-07-27 — a fourth census, chrome stripped and every sentence read, found Ask explained by one card on `/how/`; five of the nine hits were the verb ("Ask the chart", "Ask for a refund"); new page `/guides/ask-your-own-shelf/`, plus a `SOLD` entry keyed on the mechanism |
 | LB-58 | Make archiving free a haul slot, and explain where a haul ends | P0 | 3 h | LB-57 | DONE 2026-07-27 — the next census narrowed on the `Hauls at once` row; checking whether `/how/` told the truth found a real app defect: `blockNewHaul` counted every haul name and ignored `archived`, so archiving never freed a slot and the app own refusal message was false; cap now counts open hauls, both messages name archiving, new page `/guides/close-a-haul/` |
 | LB-59 | Stop charging the customer for calls the server does not charge for | P0 | 3 h | LB-58 | DONE 2026-07-27 — the next census found `AI size-chart reads` the thinnest row and the widest ratio (2 against 100); verifying the mechanism before writing about it found all four client `bumpUsage` calls firing before the status check, so a timeout, a 502 and the 429 cap itself each spent a free user's quota while the server charged nothing; all four now count on success, plus new page `/guides/what-spends-a-chart-read/` and a `SOLD` entry |
+| LB-60 | Make the restore message able to fire, and explain the shelf limit that is real | P0 | 3 h | LB-59 | DONE 2026-07-27 — the census reached `Cards on your shelf`, the only row that reads the same on both plans; the promise verified TRUE (no code counts cards) but the same read found `credenza-fashion.jsx` displaying `merged.stats.added`, a key `mergeShelves` never returned, so "N cards restored from your account" was dead code on every sign-in; `added` now computed, guarded by a structural test over every `stats.` read, plus new page `/guides/how-many-cards-a-shelf-holds/` and a ninth `SOLD` entry |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3830,3 +3831,127 @@ be *written down* to be checkable. Nothing on the site said "a failed read is
 free" — the page had to be written before the claim existed. Verifying the claim
 you are *about* to make is the same discipline as verifying one already made, and
 it found a defect that had shipped in four places.
+
+---
+
+### LB-60 — the restore message that could never fire
+
+**How the census reached it.** After LB-59, the same coverage census ran over the
+price-table rows still without a `SOLD` entry, `<main>` stripped and every
+sentence read:
+
+| Row | Sentences | Pages |
+|---|---|---|
+| QC photos an item | 39 | 18 |
+| Reddit haul paste | 27 | 12 |
+| Link options | 9 | 6 |
+| **Cards on your shelf** | **5** | **3** |
+
+`Cards on your shelf` was the thinnest, and all five sentences were the single
+word **Unlimited** inside a table cell or a plan bullet. It is the only row on
+the whole table that reads the same on both plans, which is exactly why it needed
+a page and not why it did not: a reader who sees `Unlimited / Unlimited` reads it
+as filler. It is not filler, it is the shelf.
+
+**LB-58's rule applied, and the promise held.** Before writing the page, verify
+the promise. `grep` across `pricing/index.html`, `lib/entitlements.js`,
+`src/usage.js`, `src/sync.js`, `share.js` and `credenza-fashion.jsx` found **no
+card counter of any kind**. `PLAN_LIMITS` has no card key. Every cap in the app
+is on a metered call — chart reads, resolves, Ask, open hauls — and a card is
+none of those. The promise survives verification.
+
+**The defect the same read exposed.** Reading the sync path to describe what an
+account changes, every `stats.` reader in the repo:
+
+```
+credenza-fashion.jsx:4747  if (merged.stats.added > 0) {
+credenza-fashion.jsx:4749      merged.stats.added +
+credenza-fashion.jsx:4750        (merged.stats.added === 1 ? " card" : " cards") +
+```
+
+`mergeShelves` in `credenza-sync-merge.js` returned
+`stats: { local, remote, merged, deleted, tombstones }`. **There is no `added`.**
+`undefined > 0` is false, so the notification *"N cards restored from your
+account"* could never appear. A person signing in on a replacement phone watched
+their shelf come back with no word about where it came from, and the one sentence
+that proves the account did its job was dead code.
+
+**Why this is not cosmetic.** The pull is the free plan's whole restore story —
+free gets the pull, Pro gets the continuous push. The message is the only
+evidence the pull did anything. Without it a sign-in is silent, and silent looks
+identical to broken.
+
+**Why every existing test passed.** `test/sync-merge.test.js` had 27 tests over
+`mergeShelves`, all correct. None asserted on a key the merge does not return,
+because a test on `undefined` passes silently. The bug lives in the gap between
+two files, and nothing tested the gap.
+
+**The fix.** Count merged cards whose id was not already on this device:
+
+```js
+const localIds = new Set(localItems.filter((x) => x && x.id).map((x) => String(x.id)));
+const added = merged.filter((x) => !localIds.has(String(x.id))).length;
+```
+
+The comment records the two wrong formulas explicitly. `merged.length -
+localItems.length` under-reports: a sync that restores 3 and tombstones 2 nets 1,
+and the person reads "1 card restored" after watching three appear.
+`remoteItems.length` reports the whole shelf as restored on every ordinary
+sign-in, because overlap is the normal case.
+
+**The guard.** Four tests in `test/sync-merge.test.js`. Three pin the meaning —
+counts only arrivals, says nothing when both sides hold the same shelf, does not
+net a restore against a delete. The fourth is structural: it reads
+`credenza-fashion.jsx`, strips comments, collects every `stats.X` read, and
+asserts each key exists on the object `mergeShelves` returns. The next invented
+key fails there instead of in silence.
+
+**The page.** `/guides/how-many-cards-a-shelf-holds/`, 1504 words in `<main>`, a
+`HowTo` with four steps in the order that keeps a big shelf safe: add without
+counting, know photos are the weight, let the prune run, export a backup. Every
+number read from source:
+
+| Claim on the page | Source |
+|---|---|
+| no card limit on either plan | `lib/entitlements.js:29-44` — `PLAN_LIMITS` has no card key |
+| nothing anywhere counts cards | `grep` over pricing, entitlements, usage, sync, share, the JSX |
+| photos are the weight, not text | `credenza-fashion.jsx:1881-1955` — compression to ~640px, WebP, ~24KB target, 40KB cap |
+| up to 20 gallery photos an item | `GALLERY_MAX` |
+| up to 12 QC photos an item | `QC_PHOTOS_STORED` |
+| photos go first, thumbnails second | `credenza-storage.js:74` — Pass A strips QC and gallery, Pass B strips covers |
+| oldest cards first, 3 at a time | the same function's `pruneBatch = 3` retry loop |
+| links and notes are never candidates | neither pass ever touches them |
+| "links and notes are safe" | the prune message the app itself shows |
+| a non-quota save failure is loud | `credenza-fashion.jsx:4660-4700` — `save-error` flash |
+| export is on both plans, CSV is Pro | `exportShelf` at `credenza-fashion.jsx:5370` |
+| pull is free, push is Pro | the two sync effects at `credenza-fashion.jsx:4705-4785` |
+| 60 items a share, 512KB | `share.js:34-39` `MAX_ITEMS`, `MAX_BYTES` |
+| 3 shares free, 100 on Pro | `share.js:61-62` |
+
+Registered in the six usual places plus the schema map: `sitemap.xml`,
+`llms.txt`, `llms-full.txt`, the guides-hub ItemList at position 19, a visible
+hub card under `Any time · Your data`, and a row in
+`docs/aeo-geo/keyword-cluster.md`. Inbound body-copy links from `/faq/` and
+`/pricing/`. The `/faq/` edit was made in **both** the `ld+json`
+`acceptedAnswer.text` and the visible `<p>`, word for word, because
+`public-site.test.js` compares them. The ninth `SOLD` entry is keyed on the three
+things a reader must leave with: `no code in credenza counts them`, `links and
+notes are safe`, `photos are what take up the room`.
+
+**Mutation probes, both bit:**
+
+| Probe | Result |
+|---|---|
+| remove `added` from the merge return | 4 failed, 27 passed — all four guards |
+| delete the page directory | 11 rules fail (3 dangling-href, sitemap, both llms files, the hub census, schema-map completeness, the keyword-cluster row, both halves of the new `SOLD` entry) |
+
+**Gate:** 1996 tests / 65 files pass, up from 1965. `npm run lint` 5 warnings,
+0 errors.
+
+**What this says about the census method.** LB-58 established that the census
+points at a promise nobody has checked. LB-59 showed the promise does not have to
+be written down to be checkable. **LB-60 shows a promise can be TRUE and still
+hide a defect beside it.** "Unlimited cards" verified true by absence — no
+counter exists — and the same read of the same code path found a message that had
+never once appeared. Verifying a claim means reading the code around it, not only
+the line that proves it.
