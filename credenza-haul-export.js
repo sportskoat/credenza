@@ -199,6 +199,159 @@ export function exportHaulBundle(items, options = {}) {
   };
 }
 
+// ————— CSV (LB-10) ——————————————————————————————————————————————————————————
+//
+// The JSON bundle above is for a tool. This is for a person opening Numbers,
+// Excel or Google Sheets. Three separate hazards, and RFC 4180 only covers the
+// first:
+//
+//  1. Quoting. A field carrying a comma, a quote, a CR or an LF must be
+//     wrapped in quotes, and an embedded quote must be doubled.
+//  2. Formula injection. A cell starting with = + - @ is EXECUTED by Excel
+//     and Sheets, quoted or not. Seller names and titles are scraped text we
+//     do not control, so every text field is neutralised first.
+//  3. Encoding. Excel reads a BOM-less file as the local codepage, so a CJK
+//     seller name arrives as mojibake. CSV_BOM below is prepended at download.
+
+/** Byte-order mark. Excel needs it to read the file as UTF-8. */
+export const CSV_BOM = "\uFEFF";
+
+/** RFC 4180 says CRLF between records. */
+const CSV_EOL = "\r\n";
+
+/**
+ * Column order for the shelf CSV. Header text is what a person reads in the
+ * spreadsheet; `key` matches the row objects csvRowForItem builds.
+ */
+export const CSV_COLUMNS = [
+  { key: "title", header: "Title" },
+  { key: "haul", header: "Haul" },
+  { key: "status", header: "Status" },
+  { key: "seller", header: "Seller" },
+  { key: "size", header: "Size" },
+  { key: "recommendedSize", header: "Recommended size" },
+  { key: "price", header: "Price" },
+  { key: "currency", header: "Currency" },
+  { key: "priceUsd", header: "Price USD" },
+  { key: "weightGrams", header: "Weight (g)" },
+  { key: "buyUrl", header: "Buy link" },
+  { key: "photosUrl", header: "Photos link" },
+  { key: "sourceUrl", header: "Source link" },
+  { key: "notes", header: "Notes" },
+  { key: "addedAt", header: "Added" },
+];
+
+// A cell Excel and Sheets treat as a formula rather than as text. The minus is
+// in the list, so numbers are checked before this runs — see csvCell.
+const FORMULA_START = /^[=+\-@\t\r]/;
+
+/**
+ * One CSV cell: neutralise, then quote if the content needs it.
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function csvCell(value) {
+  if (value == null) return "";
+  let s = typeof value === "string" ? value : String(value);
+  if (s === "") return "";
+  // A real number is safe and must stay a number, or the spreadsheet cannot
+  // total a price column. Everything else that opens like a formula gets a
+  // leading apostrophe, which both Excel and Sheets read as "this is text".
+  if (FORMULA_START.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s;
+  if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+/**
+ * Flatten one shelf item into the CSV row shape.
+ *
+ * `statusLabels` is passed in rather than copied here on purpose: the labels
+ * live in credenza-fashion.jsx (FIND_STATUS_LONG) and a second copy would
+ * drift. No map means the raw enum value ships, which is still correct.
+ *
+ * @param {FashionItem & {project?: string, weightGrams?: number}} item
+ * @param {{ statusLabels?: Record<string,string>, weightFor?: (item: object) => number|null }} [options]
+ * @returns {Record<string, string|number|null>}
+ */
+export function csvRowForItem(item, options = {}) {
+  const rec = exportItemRecord(item);
+  const labels = options.statusLabels || null;
+  const status = item.findStatus || "want";
+  // weightFor lets the app hand in its own estimator (weight-estimate.js).
+  // Without one, only a manual override is reported — never a guess this
+  // module invented.
+  const weight =
+    typeof options.weightFor === "function"
+      ? options.weightFor(item)
+      : Number.isFinite(Number(item.weightGrams)) && Number(item.weightGrams) > 0
+        ? Math.round(Number(item.weightGrams))
+        : null;
+
+  return {
+    title: rec.name,
+    haul: typeof item.project === "string" ? item.project.trim() : "",
+    status: labels && labels[status] ? labels[status] : status,
+    seller: rec.brandOrSeller || "",
+    size: rec.size || "",
+    recommendedSize: rec.recommendedSize || "",
+    price: rec.offers && rec.offers.price != null ? rec.offers.price : "",
+    currency: rec.offers && rec.offers.currency ? rec.offers.currency : "",
+    priceUsd: rec.offers && rec.offers.priceUsd != null ? rec.offers.priceUsd : "",
+    weightGrams: Number.isFinite(weight) && weight > 0 ? Math.round(weight) : "",
+    buyUrl: rec.buyUrl || "",
+    photosUrl: rec.photosUrl || "",
+    sourceUrl: rec.sourceUrl || "",
+    notes: rec.description || "",
+    addedAt: rec.createdAt ? rec.createdAt.slice(0, 10) : "",
+  };
+}
+
+/**
+ * The whole shelf as one RFC 4180 document. No BOM — downloadHaulCsv adds it.
+ * @param {FashionItem[]} items
+ * @param {{ statusLabels?: Record<string,string>, weightFor?: (item: object) => number|null, maxItems?: number }} [options]
+ * @returns {string}
+ */
+export function haulToCsv(items, options = {}) {
+  const list = Array.isArray(items) ? items : [];
+  const max =
+    typeof options.maxItems === "number" && options.maxItems > 0 ? options.maxItems : list.length;
+  const lines = [CSV_COLUMNS.map((c) => csvCell(c.header)).join(",")];
+  for (const item of list.slice(0, max)) {
+    const row = csvRowForItem(item, options);
+    lines.push(CSV_COLUMNS.map((c) => csvCell(row[c.key])).join(","));
+  }
+  // Trailing EOL: some importers drop the last record without it.
+  return lines.join(CSV_EOL) + CSV_EOL;
+}
+
+/**
+ * Browser helper: trigger a CSV download. Returns the document either way, so
+ * a non-DOM caller (a test) gets the same string the browser would save.
+ * @param {FashionItem[]} items
+ * @param {{ statusLabels?: Record<string,string>, weightFor?: (item: object) => number|null, maxItems?: number, exportedAt?: string }} [options]
+ * @param {string} [filename]
+ * @returns {string}
+ */
+export function downloadHaulCsv(items, options = {}, filename) {
+  const csv = haulToCsv(items, options);
+  const day = (options.exportedAt || new Date().toISOString()).slice(0, 10);
+  const name = filename || `credenza-shelf-${day}.csv`;
+  if (typeof document === "undefined" || typeof Blob === "undefined") return csv;
+  // text/csv, not text/plain: Safari otherwise opens the file in a tab.
+  const blob = new Blob([CSV_BOM + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return csv;
+}
+
 /**
  * Browser helper: trigger a JSON download. No-op-ish in non-DOM envs.
  * @param {FashionItem[]} items

@@ -24,6 +24,7 @@ import {
 import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES } from "./credenza-find-status.js";
+import { downloadHaulCsv } from "./credenza-haul-export.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
   extractWeightGramsFromText,
@@ -5214,6 +5215,28 @@ export default function Credenza() {
     );
   };
 
+  // CSV is the export a PERSON opens, not a tool (LB-10). The .json above is a
+  // backup you re-import; this one goes into Numbers, Excel or Sheets to total
+  // a haul. Pro only, and binary — there is no metered CSV allowance, so the
+  // gate is isProPlan, which already reads false when signed out.
+  //
+  // The labels and the weight estimator are handed in rather than copied into
+  // credenza-haul-export.js, so there is only ever one of each.
+  const exportShelfCsv = () => {
+    if (!isProPlan) {
+      notify("CSV export is a Pro feature.", {
+        actionLabel: "See Pro",
+        onAction: () => setProfileOpen(true),
+      });
+      return;
+    }
+    if (!items.length) return;
+    downloadHaulCsv(items, {
+      statusLabels: FIND_STATUS_LONG,
+      weightFor: itemWeightGrams,
+    });
+  };
+
   // Clear the whole shelf — the escape hatch for a bad bulk import (Kyle
   // 2026-07-24: 174 junk cards from one page paste). Confirm first; the toast
   // still offers an Undo for 12s after.
@@ -7387,6 +7410,8 @@ export default function Credenza() {
             onClearSamples={clearSamples}
             onClose={back}
             onExport={exportShelf}
+            onExportCsv={exportShelfCsv}
+            isPro={isProPlan}
             onClearShelf={clearShelf}
             onRestore={restoreBackup}
             embedded
@@ -7440,6 +7465,8 @@ export default function Credenza() {
           onClearSamples={clearSamples}
           onClose={() => setImportOpen(false)}
           onExport={exportShelf}
+          onExportCsv={exportShelfCsv}
+          isPro={isProPlan}
           onClearShelf={clearShelf}
           onRestore={restoreBackup}
         />

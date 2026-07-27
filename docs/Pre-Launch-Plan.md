@@ -74,7 +74,7 @@ do it completely, and report against its acceptance criteria.
 | LB-7 | Cloud sync for the shelf (Supabase) | P0 | 3–4 days | — | OPEN |
 | LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | OPEN |
 | LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | DONE 2026-07-26 |
-| LB-10 | Ship the CSV export (Pro row) | P1 | 2 h | — | OPEN |
+| LB-10 | Ship the CSV export (Pro row) | P1 | 2 h | — | DONE 2026-07-26 |
 | LB-11 | Cut the framer-motion payload | P2 | 0.5 day | — | OPEN |
 | LB-12 | Purge dead CSS | P2 | 0.5 day | — | OPEN |
 | LB-13 | Archive the legacy root files | P2 | 30 min | — | OPEN |
@@ -442,7 +442,7 @@ survives a redesign that a screenshot does not.
 - Renders at 390px on the shared page stylesheet. The device step (build
   the Shortcut on a real iPhone) still needs Kyle.
 
-### LB-10. Ship the CSV export (Pro row)
+### LB-10. Ship the CSV export (Pro row) — DONE 2026-07-26
 
 **Why.** Row 14 of the pricing table. Half-built already:
 `credenza-haul-export.js` exports `exportItemRecord`/`exportHaulBundle`
@@ -461,6 +461,31 @@ and is wired to JSON download only (`downloadHaulJson`).
   columns and no broken rows from embedded commas.
 - Free-gated; Pro downloads.
 - Full gate green.
+
+**What shipped.**
+- `credenza-haul-export.js` — `CSV_BOM`, `CSV_COLUMNS` (15 columns),
+  `csvCell`, `csvRowForItem`, `haulToCsv`, `downloadHaulCsv`.
+- `credenza-fashion.jsx` — `exportShelfCsv`, gated on `isProPlan`.
+- `sheets/ImportSheet.jsx` — the row, with a Pro badge for free users.
+- `preview/test/haul-csv.test.js` — 22 tests. The file parses the output
+  back with an RFC 4180 reader, so it tests what a spreadsheet reads
+  rather than what we wrote.
+
+**Two hazards the steps above do not name, both handled.**
+1. Formula injection. Excel and Sheets EXECUTE a cell starting with
+   `=`, `+`, `-` or `@`, quoted or not. Seller names and titles are
+   scraped text. Every such cell gets a leading apostrophe — except a
+   real number, or the price column stops totalling.
+2. The UTF-8 BOM. Without it Excel reads the file as the local codepage
+   and a CJK seller name arrives as mojibake. `downloadHaulCsv` prepends
+   it at the Blob; `haulToCsv` returns a clean document, so a parser
+   never sees a BOM inside the first header cell.
+
+**One correction made on the way.** `plan-limits.test.js` asserted the
+nudge string appeared exactly twice, matching one single-line spelling.
+A nudge written across two lines would have passed it unchecked. The
+test now counts `actionLabel: "See Pro"` and separately checks each one
+routes to the Profile sheet, whatever the line breaks.
 
 ---
 

@@ -8110,6 +8110,28 @@ a.cz-card-seller:hover {
 .cz-import-export:hover {
   color: var(--cz-ink);
 }
+/* CSV export sits directly under the .json row, tighter than the 12px default,
+   so the two exports read as one pair and the destructive row below stays
+   separate. */
+.cz-import-csv {
+  margin-top: 2px;
+}
+/* The Pro badge is a label, not a lock: the row still clicks for a free user,
+   and the click is what explains the gate. */
+.cz-import-pro {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--cz-accent-tint);
+  color: var(--cz-accent-deep);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  vertical-align: 1px;
+}
 /* Clear-shelf sits under Export — the destructive row reads danger, not ink. */
 .cz-import-clear {
   margin-top: 4px;

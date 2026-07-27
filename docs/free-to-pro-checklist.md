@@ -107,7 +107,7 @@ missing · **MISSING** no code at all.
 | 11 | Shared shelf — public link / unlisted, custom URL, expiry | **MISSING** | No share code at all. No router. |
 | 12 | Parcel planner — weight / box, volumetric, chargeable | **BUILT** | All three already compute. `credenza-fashion.jsx:319-333`. Free users get the Pro version. |
 | 13 | Restock and price watch — 3 items / every item | **MISSING** | Needs a scheduler. Nothing exists. |
-| 14 | Export to CSV or agent list — no / yes | **PARTIAL** | JSON export works (`credenza-fashion.jsx:4761`). No CSV writer. |
+| 14 | Export to CSV or agent list — no / yes | **BUILT** | CSV writer in `credenza-haul-export.js`, Pro-gated row in `sheets/ImportSheet.jsx`. JSON backup stays free. |
 | 15 | Seller memory — 5 sellers / every seller | **MISSING** | `item.seller` is a plain string per card. No seller store. |
 
 Also in the mock, not in the table:
@@ -117,7 +117,7 @@ Also in the mock, not in the table:
 | 5 share toggles (prices, notes, quality, sellers, parcel) | **MISSING** | Depends on row 11. |
 | 4 Pro share toggles (unlisted, custom URL, 30-day expiry, hide footer) | **MISSING** | Depends on row 11. |
 
-**Score: 8 BUILT · 3 PARTIAL · 4 MISSING.** (Rows 4 and 8 closed 2026-07-26.)
+**Score: 9 BUILT · 2 PARTIAL · 4 MISSING.** (Rows 4, 8 and 14 closed 2026-07-26.)
 
 ---
 
@@ -155,11 +155,24 @@ can still move cards between existing hauls.
 
 Pre-existing hauls above the cap are kept. Creation only is capped.
 
-### 4.3 Ship the CSV export (2 hours)
+### 4.3 Ship the CSV export — DONE 2026-07-26
 
-`credenza-haul-export.js` already builds the row objects and is not wired to
-any button. Add a CSV writer and one Pro-gated row in the Import sheet, next
-to the JSON export at `sheets/ImportSheet.jsx:247`.
+`credenza-haul-export.js` carries the writer: `CSV_COLUMNS`, `csvCell`,
+`csvRowForItem`, `haulToCsv` and `downloadHaulCsv`. The Import sheet shows the
+row under the .json backup. Free users see the row with a Pro badge; the click
+opens the Profile sheet.
+
+Three hazards, not one. RFC 4180 quoting covers commas, quotes and newlines.
+Formula injection does not: Excel and Sheets EXECUTE a cell that starts with
+`=`, `+`, `-` or `@`, quoted or not, and a seller name is scraped text we do
+not control. Real numbers are carved out of that guard, or a price column
+stops totalling. The UTF-8 BOM is the third: without it Excel reads the file
+as the local codepage and every CJK seller name arrives as mojibake.
+
+The gate is `isProPlan`, not `planLimit`. CSV is absent from `PLAN_LIMITS` on
+both the client and the server, so `planLimit` would fall back to a FREE
+number and read as permission. `preview/test/haul-csv.test.js` parses the
+output back with an RFC 4180 reader rather than matching a string.
 
 ### 4.4 Publish `/pricing/` — DONE 2026-07-26
 
@@ -240,8 +253,7 @@ The shared shelf teaches you the schema. Reuse it.
 ## 7. Suggested order
 
 1. ~~Decide the price (Conflict A).~~ DONE 2026-07-26.
-2. Section 4 — the four cheap fixes. 4.1, 4.2 and 4.4 DONE 2026-07-26.
-   4.3, the CSV export, is still open.
+2. ~~Section 4 — the four cheap fixes.~~ All DONE 2026-07-26.
 3. Section 6.1 parts 1 to 3 — publish and the public page.
 4. Section 6.1 part 4 — the Pro share toggles. **The first true Pro row.**
 5. Section 5.1 — body profiles.

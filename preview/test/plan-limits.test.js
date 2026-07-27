@@ -107,8 +107,26 @@ describe("the caps are enforced where the writes happen", () => {
     expect(src).toContain("const { project, ...rest } = patch;");
   });
 
-  it("routes both nudges to the Profile sheet, where the upgrade lives", () => {
-    const nudges = src.match(/actionLabel: "See Pro", onAction: \(\) => setProfileOpen\(true\)/g);
-    expect(nudges).toHaveLength(2);
+  it("routes every nudge to the Profile sheet, where the upgrade lives", () => {
+    // Count the LABEL, not one exact formatting of the call. An earlier version
+    // of this test matched a single-line spelling, so a nudge written across
+    // two lines passed it without ever being checked. Three today: the QC cap,
+    // the haul cap, and the CSV export.
+    const labels = src.match(/actionLabel: "See Pro"/g);
+    expect(labels).toHaveLength(3);
+    // Each one is followed by the Profile handler, whatever the line breaks.
+    const routed = src.match(
+      /actionLabel: "See Pro",\s*onAction: \(\) => setProfileOpen\(true\),?/g
+    );
+    expect(routed).toHaveLength(labels.length);
+  });
+
+  it("gates the CSV export on Pro itself, not on a daily allowance", () => {
+    // CSV is absent from PLAN_LIMITS on both sides, so there is no cap to read.
+    // planLimit would fall back to a FREE number and read as permission.
+    expect(src).toContain("const exportShelfCsv = () => {\n    if (!isProPlan) {");
+    for (const table of [FREE_LIMITS, PRO_LIMITS]) {
+      expect(Object.keys(table).some((k) => /csv/i.test(k))).toBe(false);
+    }
   });
 });

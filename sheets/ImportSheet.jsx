@@ -66,7 +66,7 @@ function ImportSourceCycle() {
 
 // `embedded` renders the body alone, for the Profile modal's sub-page stack
 // (Kyle 2026-07-26). The stack owns the shell, the title, and the back button.
-export default function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onClearShelf, onRestore, embedded = false }) {
+export default function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onExportCsv, onClearShelf, onRestore, isPro = false, embedded = false }) {
   const [text, setText] = useState("");
   const fileRef = useRef(null);
   const importTextId = useId();
@@ -246,6 +246,20 @@ export default function ImportSheet({ items, hasSamples, onImport, onAddSamples,
         {items.length > 0 && (
           <button type="button" className="cz-import-export" onClick={onExport}>
             Download your shelf as a .json backup
+          </button>
+        )}
+
+        {/* CSV goes to a spreadsheet, not back into Credenza. Free users see
+            the row rather than a hidden feature — the click explains the gate
+            and opens the upgrade. */}
+        {items.length > 0 && (
+          <button
+            type="button"
+            className="cz-import-export cz-import-csv"
+            onClick={onExportCsv}
+          >
+            Export a .csv for Numbers, Excel or Sheets
+            {!isPro && <span className="cz-import-pro">Pro</span>}
           </button>
         )}
 
