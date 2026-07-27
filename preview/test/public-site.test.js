@@ -1301,8 +1301,37 @@ describe("every page that names a price names the one the app charges", () => {
       // Those are sample goods, not plans, so the rule is not "only these two
       // strings may appear". It is: wherever the page says Pro costs
       // something, that figure has to be the real one.
-      const plan = [...html.matchAll(/Pro[^.<]{0,60}?(\$\d+(?:\.\d\d)?)/g)].map((m) => m[1]);
-      const real = new Set([PRICING.monthly, PRICING.yearly]);
+      //
+      // LB-43. This captured ONE price per "Pro", and every sentence on the
+      // site names two: "Pro is $4.99 a month or $39.99 a year." The lazy
+      // group stopped at $4.99, found it valid, and never read the second
+      // figure — so a wrong YEARLY price passed. Proved 2026-07-27: changing
+      // the guide's $39.99 to $79.99 left all 1641 tests green. The FAQ failed
+      // the same edit only because separate FAQ tests happen to assert both
+      // numbers; the guide has no such test, so the wrong price would ship.
+      //
+      // Take every price in the sentence, not the first. The window runs to
+      // the sentence end (`.` or a tag) exactly as before, so the mock shelf's
+      // item prices stay out of scope — they never follow the word "Pro".
+      // Two details, both learned by getting them wrong first:
+      //
+      // The window is [^<], not [^.<]. Excluding the dot to stop at the
+      // sentence end also stops inside "$4.99", so the rule read a bare "$4"
+      // and failed four correct pages. A tag boundary plus a length cap keeps
+      // the mock shelf's item prices out just as well — they never follow the
+      // word "Pro".
+      //
+      // The trailing (?![\d.]) stops "$4.99" from also yielding "$4".
+      const plan = [];
+      for (const m of html.matchAll(/Pro\b([^<]{0,90})/g)) {
+        for (const p of m[1].matchAll(/\$\d+(?:\.\d\d)?(?![\d.])/g)) plan.push(p[0]);
+      }
+      // yearlyPerMonth is the yearly plan restated as a monthly figure
+      // ("$3.33 a month"), so take the amount off the front rather than
+      // hardcoding $3.33 — a changed yearly price moves this number too, and
+      // the whole point of deriving from PRICING is that nothing drifts.
+      const perMonth = (PRICING.yearlyPerMonth.match(/\$[\d.]+/) || [])[0];
+      const real = new Set([PRICING.monthly, PRICING.yearly, perMonth]);
       for (const p of plan) {
         expect(
           real.has(p),

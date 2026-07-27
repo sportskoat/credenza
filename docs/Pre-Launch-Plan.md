@@ -107,6 +107,7 @@ do it completely, and report against its acceptance criteria.
 | LB-40 | Hold the app and the share page to the language rules the pages follow | P1 | 1 h | LB-39 | DONE 2026-07-27 — the seventh scope defect; putting "W2C best batch 1:1 replica finder" in the app's search box passed all 1617 tests |
 | LB-41 | Hold the install prompt to the same language rules | P1 | 30 m | LB-40 | DONE 2026-07-27 — the eighth scope defect, hiding inside LB-26's fix; the manifest was under test but only its colours, icons, and scope, so a banned description passed all 1629 tests |
 | LB-42 | Stop showing the buyer the server's own error strings | P0 | 1 h | LB-41 | DONE 2026-07-27 — pressing Upgrade with one variable unset showed a paying visitor "Server not configured: missing STRIPE_PRICE_MONTHLY"; 18 such strings across 8 functions, none under test |
+| LB-43 | Check the yearly price, not just the monthly one | P0 | 45 m | LB-42 | DONE 2026-07-27 — the ninth scope defect; the rule read the first price after "Pro" and every sentence names two, so a wrong yearly price passed all 1641 tests |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2517,6 +2518,81 @@ a customer what to do next.
 `index-fashion-VSp8hwMs.js` at 363.47 kB. This build is the first one made with
 `VITE_ENABLE_SYNC=true` present in `preview/.env`.
 
+---
+
+### LB-43 — the price rule read the monthly figure and stopped
+
+**How it was found.** By trying to tick the launch-gate box "LB-3/D-1 price
+decision recorded here" and refusing to tick it on the strength of the record
+alone. Kyle sent the Stripe product page the same hour: $4.99 monthly
+(Default), $39.99 yearly, zero active subscriptions. Both match D-1. The
+question left was not *is the price right today* but *does anything stop it
+drifting tomorrow*.
+
+**The defect.** `public-site.test.js` derived its allowlist from `PRICING`,
+which is the correct shape. But it collected prices with
+
+```js
+[...html.matchAll(/Pro[^.<]{0,60}?(\$\d+(?:\.\d\d)?)/g)].map((m) => m[1])
+```
+
+One capture group, one price per match. Every price sentence on the site names
+two — "Pro is $4.99 a month or $39.99 a year." The rule read $4.99, found it
+valid, and never looked at the yearly figure beside it.
+
+**Proof, 2026-07-27.** Changing `$39.99 a year` to `$79.99 a year` in
+`guides/free-agent-haul-planner/index.html` left **all 1641 tests green**. The
+same edit to `faq/index.html` did fail — but only because separate FAQ tests
+assert both numbers, and only after the JSON-LD copy was changed too. The guide
+has no such test. A wrong yearly price would have shipped.
+
+**Why this is the ninth of the class, not a stray bug.** The eight before it
+were files or fields no rule reached. This is a rule that reached the right
+file, ran on the right sentence, and read half of it. The progression is worth
+stating plainly:
+
+| | What was exempt |
+|---|---|
+| LB-22 … LB-40 | files no rule reached |
+| LB-41 | a covered file, but only its non-prose fields |
+| LB-42 | a covered code path, but only its two safe strings |
+| **LB-43** | **a covered sentence, but only its first number** |
+
+The exemption keeps shrinking. It is now smaller than a sentence. The lesson
+from LB-41 — *under test is not the same as covered* — has a sharper form:
+**a rule that stops at the first match tests the first match, not the rule.**
+
+**The fix and two mistakes made getting there.**
+
+- The window was `[^.<]`, chosen to stop at the sentence end. Excluding the dot
+  also stops inside `$4.99`, so the widened rule read a bare `$4` and failed
+  four correct pages. The window is now `[^<]{0,90}` — a tag boundary plus a
+  length cap keeps the mock shelf's item prices out just as well, because they
+  never follow the word "Pro".
+- `$4.99` also yielded `$4` until a trailing `(?![\d.])` was added. A false
+  alarm here is not harmless: it teaches the next person to loosen the rule.
+
+`$3.33` is now allowed, taken off the front of `PRICING.yearlyPerMonth` rather
+than hardcoded, so a changed yearly price moves it automatically.
+
+**Probes.**
+
+| Edit | Before | After |
+|---|---|---|
+| Guide yearly → $79.99 | 1641 pass | 1 fail |
+| FAQ yearly → $79.99 (all 4 copies) | 1 fail (wrong reason) | 1 fail |
+| Terms monthly → $8.99 | — | 2 fail |
+| llms.txt monthly → $7.99 | 1 fail | 1 fail |
+| Clean tree | 1641 pass | 1641 pass |
+| Restore each time | checksum verified | checksum verified |
+
+**Also verified while here.** Every dollar figure on the shipped site was
+swept. `$36` and `$3` survive only inside an explanatory code comment and an
+example query about item cost ("still in Want under $40"). No superseded price
+ships. `BrandIcon.jsx` matching "4.99" is an SVG path coordinate.
+
+**Gate.** 1641 tests pass (62 files), 5 lint warnings and 0 errors.
+
 ## Explicitly deferred (do NOT build before launch)
 
 - **Restock and price watch** (row 13) — needs a scheduler; zero code.
@@ -2549,7 +2625,11 @@ Launch when every box is checked:
       only a live crawler proves the seller accepts the Referer we send.
       This box stayed unchecked for a day while the code "was done" — that
       is exactly how the blank card survived.
-- [ ] LB-3/D-1 price decision recorded here.
+- [x] LB-3/D-1 price decision recorded here. $4.99 monthly, $39.99 yearly.
+      Confirmed against the live Stripe product page 2026-07-27: monthly is
+      the Default Price, both have zero active subscriptions. Every surface
+      derives from the `PRICING` export, and LB-43 widened the rule that
+      guards it — a wrong yearly price used to pass all 1641 tests.
 - [ ] One full paid loop verified in test mode (LB-5 log exists).
 - [x] Pricing page lists only shipped features. Verified 2026-07-26 by the
       LB-14 audit. `preview/test/public-site.test.js` holds the line.
