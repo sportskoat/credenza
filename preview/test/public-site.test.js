@@ -1135,6 +1135,7 @@ describe("every page tells a machine what kind of page it is", () => {
     "terms/index.html": "WebPage",
     "guides/choose-an-agent/index.html": "Article",
     "guides/estimate-haul-weight/index.html": "HowTo",
+    "guides/free-agent-haul-planner/index.html": "Article",
     "guides/open-weidian-in-agent/index.html": "HowTo",
     "guides/organize-agent-haul/index.html": "HowTo",
     "guides/reddit-haul-to-list/index.html": "HowTo",

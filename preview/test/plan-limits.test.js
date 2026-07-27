@@ -10,8 +10,8 @@
 //
 // That makes the client copy load-bearing, and a copy is exactly the thing
 // that drifts. So this file reads BOTH files and compares them.
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { FREE_LIMITS, PRO_LIMITS, planLimit } from "../src/usage.js";
@@ -24,11 +24,19 @@ const read = (rel) => readFileSync(join(ROOT, rel), "utf8");
 // that pulls in node crypto, so a test importing it would drag the whole
 // entitlement machinery in. Reading the two numbers out of the source is
 // enough: the point is that they MATCH, not what they are.
+// The slice STOPS at the closing brace of the plan's own row. An earlier
+// version sliced to the end of the file, so a key missing from the free row
+// was found in the pro row below it and returned the wrong number. Renaming
+// resolvePerDay in the free row made serverLimit("free", …) answer 1000 —
+// the Pro cap — instead of null, and the guard that exists to catch exactly
+// that reported a healthy number.
 function serverLimit(plan, key) {
   const src = read("preview/netlify/functions/lib/entitlements.js");
   const block = src.slice(src.indexOf("const PLAN_LIMITS"));
-  const planBlock = block.slice(block.indexOf(plan + ": {"));
-  const m = planBlock.match(new RegExp(key + ":\\s*(\\d+)"));
+  const start = block.indexOf(plan + ": {");
+  if (start < 0) return null;
+  const planBlock = block.slice(start, block.indexOf("}", start));
+  const m = planBlock.match(new RegExp("\\b" + key + ":\\s*(\\d+)"));
   return m ? Number(m[1]) : null;
 }
 
@@ -128,5 +136,108 @@ describe("the caps are enforced where the writes happen", () => {
     for (const table of [FREE_LIMITS, PRO_LIMITS]) {
       expect(Object.keys(table).some((k) => /csv/i.test(k))).toBe(false);
     }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LB-35. The public pages quote these numbers in prose, and nothing bound them.
+//
+// Found while shipping /guides/free-agent-haul-planner/. Changing "20 link
+// resolves" to "500 link resolves" on a shipped page passed with the suite
+// green. LB-32 bound every quoted PRICE to the PRICING export; the LIMITS are
+// quoted just as often — on /pricing/, on /faq/, and across the guides — and
+// had no equivalent.
+//
+// A wrong price is caught at the card form. A wrong limit is not caught
+// anywhere: the reader believes it, hits a 429 or a nudge that contradicts the
+// page, and the page is what they will quote back. Assistants read these pages
+// too, so a stale number becomes the answer given to somebody who never
+// visited.
+//
+// The rule reads the numbers out of the same server table the rest of this
+// file compares against, then reads every public page and checks every number
+// it sees next to a metered noun.
+describe("the public pages quote the limits the server enforces", () => {
+  const PUBLIC = join(ROOT, "preview/public");
+
+  function pages(dir = PUBLIC, out = []) {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) pages(full, out);
+      else if (name.endsWith(".html")) out.push({ rel: relative(PUBLIC, full), html: readFileSync(full, "utf8") });
+    }
+    return out;
+  }
+
+  // Each metered thing, the words a page uses for it, and the allowed numbers.
+  // Both plans are allowed for every noun: a page may legitimately say "4 QC
+  // photos" in the free column and "12 QC photos" in the Pro column, often in
+  // the same sentence. What must never appear is a number that is neither.
+  const METERED = [
+    { key: "resolvePerDay", nouns: ["link resolves", "resolves"] },
+    { key: "chartVisionPerDay", nouns: ["chart reads", "AI chart reads"] },
+    { key: "askPerDay", nouns: ["questions"] },
+    { key: "qcPhotosPerItem", nouns: ["QC photos"] },
+    { key: "haulsMax", nouns: ["hauls"] },
+  ];
+
+  // Tags become a NEWLINE, not a space, and matching is per line. Replacing
+  // them with a space joins text across element boundaries and invents claims
+  // no reader can see: a pricing table row of <td>2</td><td>100</td> next to a
+  // "QC photos an item" header read as "100 QC photos", and the rule reported
+  // drift on a page that was correct.
+  const strip = (html) => html.replace(/<[^>]*>/g, "\n").replace(/&[a-z]+;/g, " ");
+
+  it("reads a real number for every metered thing, on both plans", () => {
+    // Guard the guard. If a key is renamed in entitlements.js, serverLimit
+    // returns null, every allowed-set below becomes {null}, and the rules
+    // would fail loudly rather than pass silently — but only if this runs.
+    for (const { key } of METERED) {
+      expect(serverLimit("free", key), `free ${key}`).toBeGreaterThan(0);
+      expect(serverLimit("pro", key), `pro ${key}`).toBeGreaterThan(0);
+    }
+  });
+
+  const docs = pages();
+
+  it("found the pages to read", () => {
+    expect(docs.length, "no public pages were read").toBeGreaterThanOrEqual(18);
+  });
+
+  for (const { key, nouns } of METERED) {
+    const allowed = new Set([serverLimit("free", key), serverLimit("pro", key)]);
+    for (const noun of nouns) {
+      // Digits only. The pages also spell numbers out ("twenty resolves"), and
+      // a word list would have to be kept in sync with the prose — a second
+      // copy of the thing this rule exists to prevent. Digits are what a
+      // reader quotes back and what an assistant extracts.
+      // [\\d,]+ so "1,000 link resolves" reads as 1000. Plain \\d+ stops at the
+      // comma and reports the page claims "0 link resolves".
+      const re = new RegExp("(\\d[\\d,]*)\\s+(?:[a-z]+[- ]){0,2}" + noun.replace(/ /g, "\\s+"), "gi");
+      for (const { rel, html } of docs) {
+        const found = strip(html)
+          .split("\n")
+          .flatMap((line) => [...line.matchAll(re)])
+          .map((m) => Number(m[1].replace(/,/g, "")));
+        if (!found.length) continue;
+        it(`${rel} quotes a real number of ${noun}`, () => {
+          for (const n of found) {
+            expect(
+              allowed.has(n),
+              `${rel} says ${n} ${noun}; the server allows ${[...allowed].join(" or ")} (${key})`
+            ).toBe(true);
+          }
+        });
+      }
+    }
+  }
+
+  it("at least one page states the free daily numbers, so this rule has work", () => {
+    // Without this, deleting every number from every page would make the loop
+    // above generate zero tests and the suite would stay green while the site
+    // stopped answering the question people ask most.
+    const free = serverLimit("free", "resolvePerDay");
+    const quoted = docs.filter((p) => new RegExp(free + "\\s+link\\s+resolves", "i").test(strip(p.html)));
+    expect(quoted.length, `no page states the ${free} link resolves a free user gets`).toBeGreaterThanOrEqual(1);
   });
 });

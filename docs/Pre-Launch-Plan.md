@@ -99,6 +99,7 @@ do it completely, and report against its acceptance criteria.
 | LB-32 | Bind every quoted price to the price the app charges | P0 | 1 h | LB-31 | DONE 2026-07-27 — raising PRICING failed only the two llms files; /pricing/, /faq/ and /terms/ kept the stale number |
 | LB-33 | Assert what robots.txt says, not just that it ships | P0 | 1 h | LB-32 | DONE 2026-07-27 — replacing it with Disallow: / deindexed the whole site and the suite stayed green |
 | LB-34 | Assert the deploy contract in netlify.toml | P0 | 1 h | LB-33 | DONE 2026-07-27 — five edits that break the live site each passed with the suite green at 1503 |
+| LB-35 | Ship the free-plan guide and bind every quoted limit to the server table | P1 | 1 h | LB-34 | DONE 2026-07-27 — the last unshipped buying question; changing "20 link resolves" to 500 on a live page passed |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1958,6 +1959,90 @@ Restored from `/tmp/nt.clean` and verified by checksum
 
 **Gate.** 61 files / 1513 tests passed. Lint 0 errors, 5 warnings.
 `npx tsc -p jsconfig.json --noEmit` clean. `npm run build` clean.
+
+
+### LB-35 — the last buying question, and the numbers nobody bound
+
+`docs/aeo-geo/buying-questions.md` listed one target still unshipped:
+"Best free agent haul planner for FashionReps finds", with the note
+"Use only with safe language (no replica retail)". Every other row in
+that document is shipped.
+
+**The page.** `/guides/free-agent-haul-planner/`, Article schema. It
+answers the question by stating the real numbers rather than selling:
+20 link resolves, 2 chart reads, 5 questions a day; 4 QC photos an item;
+2 hauls at once. It gives equal space to what is NOT counted — saving a
+link, typing a size, the weight estimate, the Reddit paste, opening Buy,
+the CSV export — because a planner that meters the saving is a planner
+you cannot trust with a haul. It names the one shape of week where free
+stops being enough (a long sitting through a forty-link thread) and says
+plainly that Pro buys nothing if you never hit a limit.
+
+The title drops "FashionReps" and "best". The question is answered
+without either, and both would drag the page toward the banned set.
+
+Linked from `/pricing/` (in the free-plan card, where the reader is
+deciding), `/guides/` as a new section, and two sibling guides.
+
+**The defect it exposed.** Changing "20 link resolves" to "500 link
+resolves" on the shipped page passed with the suite green. LB-32 bound
+every quoted PRICE to the `PRICING` export. The LIMITS are quoted just as
+often — on `/pricing/`, `/faq/`, `/how/`, `/privacy/` and across the
+guides — and nothing bound them at all. This is the ninth instance of the
+same class: the rule was right, the set it ran over was too small.
+
+A wrong price is caught at the card form. A wrong limit is caught
+nowhere. The reader believes it, hits a 429 that contradicts the page,
+and quotes the page back. Assistants read these pages too, so a stale
+number becomes the answer given to somebody who never visited the site.
+
+**The repair.** Appended to `preview/test/plan-limits.test.js` rather
+than a new file — that file already reads the server table, and a third
+copy of the numbers is the thing the rule exists to prevent. It walks
+every public page, finds every digit next to a metered noun, and requires
+it to be the free or the pro number for that key. Both plans are allowed
+for every noun, because a page legitimately says "4" and "12" in the same
+sentence. What must never appear is a number that is neither.
+
+**Two regex defects found by its own first run**, both of which would
+have reported drift on correct pages:
+
+- Replacing tags with a SPACE joins text across element boundaries. A
+  pricing table row of `<td>2</td><td>100</td>` next to a "QC photos an
+  item" header read as "100 QC photos". Tags now become a newline and
+  matching is per line.
+- `\d+` stops at a thousands separator, so "1,000 link resolves" read as
+  "0 link resolves". Widened to `\d[\d,]*`, with the leading digit
+  required — `[\d,]+` alone matches a bare comma, and `Number("")` is 0,
+  which produced fifteen false failures.
+
+**A pre-existing weakness in `serverLimit`, found by the guard probe.**
+The helper sliced from the plan's row to the END OF FILE, so a key
+renamed in the free row was found in the pro row below it. Renaming
+`resolvePerDay` made `serverLimit("free", …)` return 1000 — the Pro cap —
+instead of null, and the guard that exists to catch exactly that reported
+a healthy number. The slice now stops at the row's closing brace. After
+the fix the same probe fails 4 assertions instead of 3.
+
+**Negative controls.**
+
+| Injection | Result |
+|---|---|
+| guide claims 500 link resolves | 3 failed |
+| pricing claims 50 hauls at once | 1 failed |
+| pricing claims 9 QC photos an item | 1 failed |
+| free-row key renamed in entitlements.js | 4 failed (0 before the slice fix) |
+| banned phrase on the new page | `contains "best batch"` |
+| Pro price raised on the new page | `says Pro costs $9.99` |
+
+**A probe that reverted real work, again.** `git checkout --` in the
+probe loop restored `public/pricing/index.html` and silently removed the
+link to the new guide added minutes earlier. Same class as the untracked
+file that could not be restored: the restore mechanism must match what
+was written. Caught by grepping for the link, not by the suite.
+
+**Gate.** 61 files / 1553 tests. Lint 0 errors. Typecheck clean. Build
+clean, and `/guides/free-agent-haul-planner/` present in `dist/`.
 
 
 ## Explicitly deferred (do NOT build before launch)
