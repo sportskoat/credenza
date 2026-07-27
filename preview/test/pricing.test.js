@@ -1,0 +1,178 @@
+// The price appears in two places that cannot import each other: the PRICING
+// export in credenza-fashion.jsx, which the app's Profile sheet reads, and the
+// static /pricing/ page, which is a plain HTML file with no build step.
+//
+// A public page quoting a price the checkout does not charge is the worst
+// possible drift — it is a promise the customer can screenshot. So this file
+// reads the HTML and compares it against the export.
+//
+// It also refuses the OLD prices anywhere in preview/public. $5 and $39 shipped
+// on the live app before 2026-07-26, so a stale copy is a real risk, not a
+// hypothetical one.
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { PRICING } from "../../credenza-fashion.jsx";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const PUBLIC = join(ROOT, "preview/public");
+const read = (rel) => readFileSync(join(ROOT, rel), "utf8");
+const page = read("preview/public/pricing/index.html");
+
+// Every text file under preview/public, so a stale price cannot hide in a
+// guide, in llms.txt, or in a page added after this test was written.
+function textFiles(dir) {
+  const out = [];
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) {
+      if (name === "fonts" || name === "img" || name === "assets") continue;
+      out.push(...textFiles(full));
+    } else if (/\.(html|txt|xml|webmanifest)$/.test(name)) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+describe("the /pricing/ page quotes the price the app charges", () => {
+  it("names the monthly price", () => {
+    expect(page).toContain(PRICING.monthly);
+  });
+
+  it("names the yearly price", () => {
+    expect(page).toContain(PRICING.yearly);
+  });
+
+  it("names the saving and the per-month figure", () => {
+    expect(page).toContain(PRICING.yearlySaving);
+    expect(page).toContain(PRICING.yearlyPerMonth);
+  });
+
+  it("puts the bare numbers in the Product schema, for the AI answers", () => {
+    // Schema.org wants "4.99", not "$4.99". Derive it from the export so a
+    // price change fails here instead of shipping a stale rich result.
+    expect(page).toContain('"price": "' + PRICING.monthly.replace("$", "") + '"');
+    expect(page).toContain('"price": "' + PRICING.yearly.replace("$", "") + '"');
+  });
+});
+
+describe("no stale price survives anywhere on the public site", () => {
+  const files = textFiles(PUBLIC);
+
+  it("finds the public files at all", () => {
+    // Guard the guard: an empty list would make every check below vacuous.
+    expect(files.length).toBeGreaterThan(10);
+  });
+
+  it("carries no pre-2026-07-26 price", () => {
+    // The old live strings were "$5 / month" and "$39 / year". Match the
+    // amount with a boundary so "$39.99" does not read as "$39".
+    const stale = /\$5(?![\d.])|\$39(?!\.99)(?![\d])|\$36(?![\d.])/;
+    const bad = files
+      .filter((f) => stale.test(readFileSync(f, "utf8")))
+      .map((f) => f.slice(PUBLIC.length + 1));
+    expect(bad).toEqual([]);
+  });
+});
+
+describe("the upgrade CTA goes through the app, never straight to Stripe", () => {
+  it("targets the entry parameter that opens the Profile sheet", () => {
+    // credenza-fashion.jsx reads params.get("profile") on mount and calls
+    // setProfileOpen(true). That sheet holds the real checkout button, which
+    // needs the signed-in session a static page does not have.
+    expect(page).toContain('href="/?profile=1"');
+  });
+
+  it("links no Stripe URL", () => {
+    // A checkout link on a static page would start a session with no account
+    // attached, and the webhook would have nothing to grant Pro to.
+    expect(page).not.toMatch(/stripe\.com|buy\.stripe|checkout\.stripe/i);
+  });
+
+  it("keeps the entry parameter the app actually reads", () => {
+    const app = read("credenza-fashion.jsx");
+    expect(app).toContain('params.get("profile")');
+    expect(app).toContain("setProfileOpen(true)");
+  });
+});
+
+describe("the page is reachable", () => {
+  it("is in the sitemap", () => {
+    expect(read("preview/public/sitemap.xml")).toContain(
+      "<loc>https://credenzafashion.com/pricing/</loc>"
+    );
+  });
+
+  it("is in the nav of every public page", () => {
+    // A page nothing links to is a page nobody finds. The nav is hand-written
+    // per file, so this is exactly the thing that gets missed on the next page.
+    //
+    // A real page always opens with a doctype. The search-console verification
+    // file is a bare one-line token with no markup, so that test keeps it out
+    // without naming it.
+    const pages = textFiles(PUBLIC).filter((f) =>
+      /^\s*<!doctype html/i.test(readFileSync(f, "utf8"))
+    );
+    expect(pages.length).toBeGreaterThan(10);
+    const missing = pages
+      .filter((f) => !readFileSync(f, "utf8").includes('href="/pricing/"'))
+      .map((f) => f.slice(PUBLIC.length + 1));
+    expect(missing).toEqual([]);
+  });
+
+  it("is listed for the assistants", () => {
+    expect(read("preview/public/llms.txt")).toContain("https://credenzafashion.com/pricing/");
+  });
+});
+
+describe("the page only sells what is built", () => {
+  it("names no unbuilt feature", () => {
+    // docs/free-to-pro-checklist.md rows 10, 11, 13 and 15 are MISSING. Naming
+    // one on the pricing page would be selling a feature that does not exist.
+    for (const unbuilt of [
+      "synced",
+      "sync across",
+      "shared shelf",
+      "public link",
+      "price watch",
+      "restock",
+      "seller memory",
+    ]) {
+      expect(page.toLowerCase()).not.toContain(unbuilt);
+    }
+  });
+
+  it("quotes the same caps the server enforces", () => {
+    const ent = read("preview/netlify/functions/lib/entitlements.js");
+    const cap = (plan, key) => {
+      const block = ent.slice(ent.indexOf("const PLAN_LIMITS"));
+      const planBlock = block.slice(block.indexOf(plan + ": {"));
+      const m = planBlock.match(new RegExp(key + ":\\s*(\\d+)"));
+      return m ? Number(m[1]) : null;
+    };
+    expect(cap("free", "haulsMax")).toBe(2);
+    expect(cap("pro", "haulsMax")).toBe(100);
+    // The table row reads "<td>2</td><td>100</td>" for hauls and
+    // "<td>4</td><td>12</td>" for QC photos. Check the pairs, not the page
+    // text, so a stray "2" elsewhere cannot make this pass.
+    const row = (label) => {
+      const i = page.indexOf('<th scope="row">' + label + "</th>");
+      expect(i).toBeGreaterThan(-1);
+      return page.slice(i, i + 260);
+    };
+    expect(row("Hauls at once")).toContain("<td>" + cap("free", "haulsMax") + "</td>");
+    expect(row("Hauls at once")).toContain("<td>" + cap("pro", "haulsMax") + "</td>");
+    expect(row("QC photos an item")).toContain("<td>" + cap("free", "qcPhotosPerItem") + "</td>");
+    expect(row("QC photos an item")).toContain("<td>" + cap("pro", "qcPhotosPerItem") + "</td>");
+    expect(row("Ask")).toContain("<td>" + cap("free", "askPerDay") + " a day</td>");
+    expect(row("Ask")).toContain("<td>" + cap("pro", "askPerDay") + " a day</td>");
+    expect(row("AI size-chart reads")).toContain(
+      "<td>" + cap("free", "chartVisionPerDay") + " a day</td>"
+    );
+    expect(row("AI size-chart reads")).toContain(
+      "<td>" + cap("pro", "chartVisionPerDay") + " a day</td>"
+    );
+  });
+});

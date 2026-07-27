@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ModalShell, Pill } from "../credenza-fashion.jsx";
+import { ModalShell, PRICING, Pill } from "../credenza-fashion.jsx";
 
 // Profile sheet (design handoff PR3): account entry up top, then the data
 // rows — agent, currency, import, storage. The account section (Part 7e)
@@ -168,15 +168,23 @@ export default function ProfileSheet({
                 disabled={!!busy}
                 onClick={() => run("monthly", () => onUpgrade("monthly"))}
               >
-                {busy === "monthly" ? "Opening…" : "$5 / month"}
+                {busy === "monthly" ? "Opening…" : PRICING.monthly + " / month"}
               </Pill>
               <Pill
                 style={{ flex: 1, minHeight: 46, borderRadius: 14 }}
                 disabled={!!busy}
                 onClick={() => run("yearly", () => onUpgrade("yearly"))}
               >
-                {busy === "yearly" ? "Opening…" : "$39 / year"}
+                {busy === "yearly" ? "Opening…" : PRICING.yearly + " / year"}
               </Pill>
+            </div>
+          )}
+          {/* The saving belongs under the buttons, not inside the yearly one:
+              a two-line pill breaks the row, and the number is the reason to
+              read the row again, not the label on one button. */}
+          {!isPro && (
+            <div className="cz-profile-upgrade-note">
+              {PRICING.yearlySaving} on yearly · {PRICING.yearlyPerMonth}
             </div>
           )}
           {isPro && (

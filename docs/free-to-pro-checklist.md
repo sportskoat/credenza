@@ -8,9 +8,28 @@ Written 2026-07-26. Verified against the code, not against the docs.
 
 ---
 
-## 1. Two conflicts you must decide first
+## 1. Two conflicts — both settled 2026-07-26
 
-### Conflict A — the price
+### Conflict A — the price — SETTLED
+
+**Decided: $4.99 a month, $39.99 a year.** Kyle created both Stripe Prices
+on 2026-07-26. Both hold 0 active subscriptions. The monthly Price is the
+default.
+
+The yearly is $39.99, not the mock's $36, so the mock's "$3 a month" note
+is false. Every surface says "Save 33%" and "$3.33 a month" instead —
+$4.99 × 12 = $59.88, and $59.88 − $39.99 = $19.89, a third off.
+
+One `PRICING` export in `credenza-fashion.jsx` is now the single source.
+`sheets/ProfileSheet.jsx` reads it, and `preview/test/pricing.test.js`
+fails if the static page drifts from it.
+
+Still Kyle's: put the two Price IDs in `STRIPE_PRICE_MONTHLY` and
+`STRIPE_PRICE_YEARLY` on Netlify, both contexts.
+
+The original analysis follows, for the record.
+
+### Conflict A — the price (as written)
 
 | Place | Monthly | Yearly |
 |---|---|---|
@@ -30,7 +49,16 @@ unless you migrate them.
 **Recommendation: take the mock's $4.99 / $36.** Nobody has subscribed yet,
 so the migration cost is zero today. It will not be zero later.
 
-### Conflict B — the navigation
+### Conflict B — the navigation — SETTLED
+
+**Decided: keep the live nav and add Pricing.** The order is now
+Open app · About · How it works · Guides · Pricing · FAQ · Privacy ·
+Terms · llms.txt, on all 13 public pages. No `/sizing/` page was built;
+the guides cover sizing.
+
+The original analysis follows, for the record.
+
+### Conflict B — the navigation (as written)
 
 The mock's nav is "How it works · Sizing · Pricing".
 The live nav is "How · Guides · FAQ".
@@ -69,11 +97,11 @@ missing · **MISSING** no code at all.
 | 1 | Cards on your shelf — unlimited both | **BUILT** | No cap exists. The mock says unlimited for both, so nothing to do. |
 | 2 | Buy in your agent — uncapped both | **BUILT** | `agents.js:440` |
 | 3 | Reddit haul paste — yes both | **BUILT** | `reddit-haul.js:839` |
-| 4 | Hauls at once — 2 / 100 | **PARTIAL** | `credenza-fashion.jsx:4228` creates hauls with no cap. `haulsMax` is declared and never read. |
+| 4 | Hauls at once — 2 / 100 | **BUILT** 2026-07-26 | `blockNewHaul` + the `saveEdit` guard in `credenza-fashion.jsx`. A name already on the shelf always passes, so a move between hauls is never refused. |
 | 5 | AI size-chart reads — 2 / 100 a day | **BUILT** | Server-enforced. `chart-vision.js` |
 | 6 | Link resolves — 20 / 1,000 a day | **BUILT** | Server-enforced. `resolve.js` |
 | 7 | Ask — 5 / 200 a day | **BUILT** | Server-enforced. `ask.js` |
-| 8 | QC photos per item — 4 / 12 | **PARTIAL** | `components/WarehouseQcSection.jsx:19` hard-codes 12 for everyone. Free users get the Pro cap. |
+| 8 | QC photos per item — 4 / 12 | **BUILT** 2026-07-26 | `attachQcImage` in `credenza-fashion.jsx` checks `planLimit(plan, "qcPhotosPerItem")` before the compress. |
 | 9 | Body profiles — 1 / several with fit history | **PARTIAL** | One profile object only. `credenza-fashion.jsx:4043`. No array, no history. |
 | 10 | Devices — this one local / all synced | **MISSING** | The shelf is `localStorage` only. `credenza-storage.js` |
 | 11 | Shared shelf — public link / unlisted, custom URL, expiry | **MISSING** | No share code at all. No router. |
@@ -89,7 +117,7 @@ Also in the mock, not in the table:
 | 5 share toggles (prices, notes, quality, sellers, parcel) | **MISSING** | Depends on row 11. |
 | 4 Pro share toggles (unlisted, custom URL, 30-day expiry, hide footer) | **MISSING** | Depends on row 11. |
 
-**Score: 6 BUILT · 5 PARTIAL · 4 MISSING.**
+**Score: 8 BUILT · 3 PARTIAL · 4 MISSING.** (Rows 4 and 8 closed 2026-07-26.)
 
 ---
 
@@ -97,22 +125,35 @@ Also in the mock, not in the table:
 
 Every item here is under half a day. Together they make the free plan honest.
 
-### 4.1 Enforce `qcPhotosPerItem` (30 minutes)
+### 4.1 Enforce `qcPhotosPerItem` — DONE 2026-07-26
 
-`WarehouseQcSection.jsx:19` sets `QC_PHOTO_CAP = 12` for everybody. A free
-user is meant to get 4. Pass the plan's cap in as a prop and use it.
+**Correction.** This section named `components/WarehouseQcSection.jsx:19`.
+That component is orphaned — nothing imports it and nothing mounts it, so
+capping it would have enforced nothing. The live write path is
+`attachQcImage` in `credenza-fashion.jsx`, reached from `onAttachQcPhoto`
+in `components/DetailBody.jsx`.
 
-This is the only row where a free user currently receives a paid feature
-by accident.
+The cap now comes from `planLimit(accountPlan, "qcPhotosPerItem")` in
+`preview/src/usage.js`. The check runs before the image compress, so a
+user at the cap never waits on a read we would throw away.
 
-### 4.2 Enforce `haulsMax` (1 hour)
+The store keeps a separate `QC_PHOTOS_STORED = 12`. Two numbers on
+purpose: slicing the stored array down to the free cap would delete a
+downgraded customer's existing photos.
 
-`updateHaul` at `credenza-fashion.jsx:4228` appends without checking. Read
-`haulsMax` from the plan snapshot. At the cap, show the upgrade prompt
-instead of making a third haul.
+### 4.2 Enforce `haulsMax` — DONE 2026-07-26
 
-Warning: a user who already has more than two hauls must keep them. Cap
-creation only. Never delete a haul.
+**Correction.** This section named `updateHaul` at
+`credenza-fashion.jsx:4228`. A haul is not a record — `haulNames` is a
+`useMemo` over the distinct non-empty `item.project` strings, so creating
+a haul means writing a project name no card carries yet.
+
+`blockNewHaul(name)` now guards that. `saveEdit` calls it and, on
+refusal, drops only the `project` key so a rename in the same save still
+lands. A name already on the shelf always passes, so a user over the cap
+can still move cards between existing hauls.
+
+Pre-existing hauls above the cap are kept. Creation only is capped.
 
 ### 4.3 Ship the CSV export (2 hours)
 
@@ -120,12 +161,20 @@ creation only. Never delete a haul.
 any button. Add a CSV writer and one Pro-gated row in the Import sheet, next
 to the JSON export at `sheets/ImportSheet.jsx:247`.
 
-### 4.4 Publish `/pricing/` (2 hours)
+### 4.4 Publish `/pricing/` — DONE 2026-07-26
 
-Copy `preview/public/how/index.html` as the template. The mock's compare
-table and copy drop straight in. Add "Pricing" to the nav on all 12 pages.
+`preview/public/pricing/index.html`, built from the
+`preview/public/how/index.html` template. The compare table lists only the
+BUILT rows above; rows 10, 11, 13 and 15 are omitted, because we do not
+sell a feature before it ships.
 
-Do this after you settle Conflict A.
+Pricing is in the nav and the footer on all 13 public pages, in
+`sitemap.xml`, in `llms.txt` and in `llms-full.txt`. The CTA targets
+`/?profile=1`, never Stripe — a checkout started from a static page has no
+account to grant Pro to.
+
+`preview/test/pricing.test.js` pins the price against the `PRICING` export
+and the caps against `PLAN_LIMITS`.
 
 ---
 
@@ -190,8 +239,9 @@ The shared shelf teaches you the schema. Reuse it.
 
 ## 7. Suggested order
 
-1. Decide the price (Conflict A).
-2. Section 4 — the four cheap fixes.
+1. ~~Decide the price (Conflict A).~~ DONE 2026-07-26.
+2. Section 4 — the four cheap fixes. 4.1, 4.2 and 4.4 DONE 2026-07-26.
+   4.3, the CSV export, is still open.
 3. Section 6.1 parts 1 to 3 — publish and the public page.
 4. Section 6.1 part 4 — the Pro share toggles. **The first true Pro row.**
 5. Section 5.1 — body profiles.

@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pricing · Credenza Fashion</title>
+    <meta
+      name="description"
+      content="Credenza Fashion is free to use. Pro is $4.99 a month or $39.99 a year and raises the daily AI limits, the QC photos an item, and the hauls you can run at once."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/pricing/" />
+    <meta property="og:title" content="Credenza Fashion pricing" />
+    <meta
+      property="og:description"
+      content="Free forever for the whole shelf. Pro is $4.99 a month or $39.99 a year."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://credenzafashion.com/pricing/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Credenza Fashion pricing" />
+    <meta
+      name="twitter:description"
+      content="Free forever for the whole shelf. Pro is $4.99 a month or $39.99 a year."
+    />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Credenza Fashion Pro",
+        "url": "https://credenzafashion.com/pricing/",
+        "description": "Higher daily AI limits, more QC photos an item, and more hauls at once for the Credenza Fashion agent haul planner.",
+        "brand": { "@type": "Brand", "name": "Credenza Fashion" },
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Pro monthly",
+            "price": "4.99",
+            "priceCurrency": "USD",
+            "url": "https://credenzafashion.com/pricing/",
+            "availability": "https://schema.org/InStock"
+          },
+          {
+            "@type": "Offer",
+            "name": "Pro yearly",
+            "price": "39.99",
+            "priceCurrency": "USD",
+            "url": "https://credenzafashion.com/pricing/",
+            "availability": "https://schema.org/InStock"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is Credenza Fashion free?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. The shelf holds unlimited cards on the free plan, and Buy in your agent is never capped. Pro raises the daily AI limits and a few storage caps."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What does Credenza Fashion Pro cost?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Pro is $4.99 a month, or $39.99 a year. The yearly plan saves 33% and works out at $3.33 a month."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Credenza buy the item for me?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Credenza is the decision layer before the agent click. You pay your own shopping agent — Superbuy, Sugargoo, Kakobuy, or another. Credenza never handles the purchase."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I cancel Credenza Fashion Pro?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Cancel at any time from the Stripe customer portal in the app. Your shelf and every card stay on your device after Pro ends."
+            }
+          }
+        ]
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .card p { margin: 0; color: var(--muted); }
+      .card .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+
+      /* ——— pricing-only ——— */
+      .plans {
+        display: grid;
+        gap: 0.85rem;
+        grid-template-columns: 1fr;
+        margin: 0 0 1.5rem;
+      }
+      @media (min-width: 34rem) {
+        .plans { grid-template-columns: 1fr 1fr; }
+      }
+      .plan {
+        background: var(--card);
+        border: 1px solid var(--line);
+        padding: 1.15rem 1.2rem;
+        display: flex;
+        flex-direction: column;
+      }
+      .plan .price {
+        font-size: 2rem;
+        line-height: 1.1;
+        margin: 0.15rem 0 0.1rem;
+      }
+      .plan .per {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin: 0 0 0.7rem;
+      }
+      .plan ul {
+        margin: 0 0 1rem;
+        padding-left: 1.05rem;
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      .plan li { margin-bottom: 0.25rem; }
+      .plan .cta { margin-top: auto; align-self: flex-start; }
+      /* Same shape as .card .n, but the free column is grey and Pro is green.
+         Grey says "this is the plan you already have", green says "this is the
+         paid one" — the same colour the price uses everywhere else. */
+      .plan-tag {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        display: block;
+      }
+      .plan-tag.pro { color: var(--money); }
+      .save {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--money);
+      }
+      .cmp {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+        margin: 0 0 0.75rem;
+      }
+      .cmp caption {
+        text-align: left;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        padding-bottom: 0.5rem;
+      }
+      .cmp th, .cmp td {
+        border-bottom: 1px solid var(--line);
+        padding: 0.55rem 0.4rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      .cmp thead th {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .cmp tbody th { font-weight: 400; }
+      .cmp td { color: var(--muted); white-space: nowrap; }
+      .cmp th:first-child, .cmp td:first-child { padding-left: 0; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>Pricing</h1>
+      <p class="lede">
+        The shelf is free, and it stays free. Pro raises the limits on the parts
+        that cost us money to run.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/">Guides</a>
+        <a href="/pricing/" aria-current="page">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <div class="plans">
+        <section class="plan">
+          <span class="plan-tag">Free</span>
+          <p class="price">$0</p>
+          <p class="per">No card. No trial clock.</p>
+          <ul>
+            <li>Unlimited cards on your shelf</li>
+            <li>Unlimited Buy in your own agent</li>
+            <li>Reddit haul paste</li>
+            <li>Parcel planner, in full</li>
+            <li>2 hauls at once</li>
+          </ul>
+          <a class="cta" href="/">Open Credenza</a>
+        </section>
+        <section class="plan">
+          <span class="plan-tag pro">Pro</span>
+          <p class="price">$4.99</p>
+          <p class="per">
+            a month · or $39.99 a year<br />
+            <span class="save">Save 33%</span> — $3.33 a month
+          </p>
+          <ul>
+            <li>100 hauls at once</li>
+            <li>12 QC photos an item</li>
+            <li>100 AI size-chart reads a day</li>
+            <li>1,000 link resolves a day</li>
+            <li>200 Ask questions a day</li>
+          </ul>
+          <a class="cta" href="/?profile=1">Get Pro</a>
+        </section>
+      </div>
+
+      <table class="cmp">
+        <caption>What changes</caption>
+        <thead>
+          <tr>
+            <th scope="col">&nbsp;</th>
+            <th scope="col">Free</th>
+            <th scope="col">Pro</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Cards on your shelf</th>
+            <td>Unlimited</td>
+            <td>Unlimited</td>
+          </tr>
+          <tr>
+            <th scope="row">Buy in your agent</th>
+            <td>Unlimited</td>
+            <td>Unlimited</td>
+          </tr>
+          <tr>
+            <th scope="row">Reddit haul paste</th>
+            <td>Yes</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Parcel planner</th>
+            <td>Yes</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Hauls at once</th>
+            <td>2</td>
+            <td>100</td>
+          </tr>
+          <tr>
+            <th scope="row">QC photos an item</th>
+            <td>4</td>
+            <td>12</td>
+          </tr>
+          <tr>
+            <th scope="row">AI size-chart reads</th>
+            <td>2 a day</td>
+            <td>100 a day</td>
+          </tr>
+          <tr>
+            <th scope="row">Link resolves</th>
+            <td>20 a day</td>
+            <td>1,000 a day</td>
+          </tr>
+          <tr>
+            <th scope="row">Ask</th>
+            <td>5 a day</td>
+            <td>200 a day</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="note">
+        This table lists what Credenza does today. We do not sell a feature
+        before it ships.
+      </p>
+
+      <article class="card">
+        <span class="n">Why there is a limit at all</span>
+        <h2>The AI calls cost money</h2>
+        <p>
+          Reading a size chart, resolving a Weidian link, and answering an Ask
+          question each call a paid model. Those three are the daily counters.
+          Everything else on the shelf runs on your device and is free.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Your shelf</span>
+        <h2>Your cards stay yours</h2>
+        <p>
+          The shelf lives on your device. If Pro ends, nothing is deleted: every
+          card, every haul, and every QC photo you already saved stays where it
+          is. Only new additions go back to the free caps.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Billing</span>
+        <h2>Cancel whenever you want</h2>
+        <p>
+          Stripe handles the payment and the receipts. Open the customer portal
+          from your profile in the app to change the plan or cancel. Credenza
+          never sees your card number.
+        </p>
+      </article>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a shopping agent.
+        You still pay Superbuy, Sugargoo, Kakobuy, or whichever agent you use.
+      </p>
+
+      <a class="cta" href="/?profile=1">Get Pro</a>
+      <p style="margin-top:1rem;font-size:0.95rem;color:var(--muted)">
+        Not sure yet? Read <a href="/how/">how it works</a>
+        or the <a href="/faq/">FAQ</a>.
+      </p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

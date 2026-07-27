@@ -48,6 +48,35 @@ export function bumpUsage(feature, { host, now = Date.now() } = {}) {
   } catch {}
 }
 
+// The free caps, repeated on the client because the client must answer before
+// it has a snapshot. These MUST match the free row of PLAN_LIMITS in
+// preview/netlify/functions/lib/entitlements.js — preview/test/plan-limits.test.js
+// compares the two files and fails if they drift.
+//
+// Only the per-ITEM and per-ACCOUNT caps live here. The per-DAY caps are not
+// repeated: those are counted, and a signed-out user is counted by the server,
+// not by us (see overFreeLimit).
+export const FREE_LIMITS = { qcPhotosPerItem: 4, haulsMax: 2 };
+
+// The same two caps on Pro. The client never enforces these — a Pro user is
+// under them by construction. They are here so a message can name the number
+// the customer would get, without a second copy of it in the component.
+export const PRO_LIMITS = { qcPhotosPerItem: 12, haulsMax: 100 };
+
+// What this account may use, for a cap that is not a daily counter. The
+// snapshot's `lim` already carries the right numbers for the plan, so a Pro or
+// grace user needs no special case here.
+//
+// Signed out means the free cap, NOT unlimited. This is the opposite of
+// overFreeLimit, and on purpose: a daily counter is enforced again by the
+// server on every call, so a signed-out user can be left to it. A QC photo and
+// a haul never reach a server, so if the client does not hold the line here,
+// nothing does.
+export function planLimit(plan, key) {
+  const cap = plan && plan.lim ? plan.lim[key] : null;
+  return typeof cap === "number" && cap > 0 ? cap : FREE_LIMITS[key];
+}
+
 // Is a signed-in FREE user over the daily cap for this feature? plan is the
 // decoded snapshot payload; null/expired plan or a non-free state means "not
 // over" — signed-out users answer to the server rate limits, and Pro/grace

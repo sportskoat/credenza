@@ -55,7 +55,7 @@ import {
   openPortal as accountPortal,
   deleteAccount as accountDeleteRequest,
 } from "./preview/src/account.js";
-import { overFreeLimit, bumpUsage } from "./preview/src/usage.js";
+import { overFreeLimit, bumpUsage, planLimit, PRO_LIMITS } from "./preview/src/usage.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
 
@@ -1904,6 +1904,35 @@ export const GALLERY_MAX = 20;
 // (see albumLinkTarget), so a 37-photo album never reads as a 6-photo one.
 export const RELAY_MAX = 6;
 
+// How many QC photos an item STORES. Same kind of budget as GALLERY_MAX, and
+// deliberately equal to the Pro per-item cap: nobody can legitimately reach
+// past 12, so anything beyond that is a corrupt or hand-edited record.
+//
+// The plan cap (4 free, 12 Pro) is a different number and lives in
+// PLAN_LIMITS, server-side. This one bounds the array; that one bounds the
+// add. Both the normalizer and the attach path read this, so a stored photo
+// can never survive a save and then vanish on the next reload.
+export const QC_PHOTOS_STORED = 12;
+
+// The one place the subscription price is written (Kyle decided 2026-07-26,
+// and made both Stripe Prices that day: $4.99 monthly, $39.99 yearly).
+//
+// Stripe Prices are immutable, so a price the app states and a price Stripe
+// charges can drift apart silently — the customer sees one number on the
+// button and a different number on the card. Every surface reads from here,
+// and preview/test/pricing.test.js checks the static /pricing/ page against
+// these same strings, because a plain HTML file cannot import them.
+export const PRICING = {
+  monthly: "$4.99",
+  yearly: "$39.99",
+  // 4.99 * 12 = 59.88. 59.88 - 39.99 = 19.89, which is 33% off.
+  // The mock said "works out at $3 a month"; that was true of a $36 yearly
+  // and is false of this one. State the saving instead — a third off reads
+  // stronger than $3.33 a month, and it has the advantage of being true.
+  yearlySaving: "Save 33%",
+  yearlyPerMonth: "$3.33 a month",
+};
+
 async function decodeImage(blob) {
   if (typeof createImageBitmap === "function") {
     try {
@@ -2292,7 +2321,7 @@ export function migrateItem(old) {
     // A5: Warehouse QC — photos get the same data-URL/HTTPS gate as gallery,
     // verdict stamp is an ISO string, note is free text.
     qcPhotos: Array.isArray(old.qcPhotos)
-      ? old.qcPhotos.filter((g) => typeof g === "string" && (g.startsWith("data:image/") || /^https?:\/\//i.test(g))).slice(0, 12)
+      ? old.qcPhotos.filter((g) => typeof g === "string" && (g.startsWith("data:image/") || /^https?:\/\//i.test(g))).slice(0, QC_PHOTOS_STORED)
       : [],
     qcNote: typeof old.qcNote === "string" ? old.qcNote : "",
     qcVerdictAt: typeof old.qcVerdictAt === "string" ? old.qcVerdictAt : null,
@@ -4272,6 +4301,14 @@ export default function Credenza() {
   // when AUTH_ENABLED is false (env missing → no account UI at all).
   const [accountSession, setAccountSession] = useState(null);
   const [accountPlan, setAccountPlan] = useState(null);
+  // The two caps that are NOT daily counters (LB-1, LB-2). A daily counter is
+  // re-checked by the server on every call; these two never reach a server, so
+  // the client is the only place they can hold. Signed out reads as free.
+  const isProPlan = accountPlan
+    ? accountPlan.state === "pro" || accountPlan.state === "grace"
+    : false;
+  const qcPhotoCap = planLimit(accountPlan, "qcPhotosPerItem");
+  const haulsCap = planLimit(accountPlan, "haulsMax");
   // One delayed entitlement retry per boot after a Stripe return (webhook lag).
   const upgradedRetryRef = useRef(false);
   // Account boot (Part 7e). Three entry shapes:
@@ -5331,7 +5368,37 @@ export default function Credenza() {
   };
 
   // ————— Edits, opens, removal —————
+  // LB-2: free holds 2 hauls, Pro holds 100. A haul is not a record the user
+  // creates; it is the set of distinct `project` names across the shelf. So
+  // "creating a haul" is writing a project name that no card carries yet, and
+  // that is the only thing this refuses.
+  //
+  // WARNING: this caps CREATION only. A user who already has more hauls than
+  // the cap — from a downgrade, or from an import — keeps every one of them,
+  // and can still move cards between them. Never lock or delete an existing
+  // haul.
+  const blockNewHaul = (name) => {
+    const clean = String(name || "").trim();
+    if (!clean || haulNames.includes(clean)) return false;
+    if (haulNames.length < haulsCap) return false;
+    notify(
+      isProPlan
+        ? haulsCap + " hauls is the limit. Archive one to start another."
+        : haulsCap + " hauls on Free. Pro holds " + PRO_LIMITS.haulsMax + ".",
+      isProPlan ? {} : { actionLabel: "See Pro", onAction: () => setProfileOpen(true) }
+    );
+    return true;
+  };
   const saveEdit = (id, patch) => {
+    if (patch && typeof patch === "object" && typeof patch.project === "string") {
+      // Refuse the haul, keep the rest of the edit. A user renaming a card and
+      // picking a third haul in one save should still get the rename.
+      if (blockNewHaul(patch.project)) {
+        const { project, ...rest } = patch;
+        patch = rest;
+        if (!Object.keys(patch).length) return;
+      }
+    }
     updateItem(id, patch);
     // Activation milestones (Part 6 task 4): mark on TRANSITIONS only, so a
     // debounced draft re-save of an already-GL card does not count as a fresh
@@ -5400,9 +5467,37 @@ export default function Credenza() {
   // here so a warehouse photo never contaminates the product gallery.
   const attachQcImage = async (id, file) => {
     if (!file) return;
+    // LB-1: free gets 4 QC photos an item, Pro gets 12 (the free row of
+    // PLAN_LIMITS). The check runs BEFORE the compress, so a user at the cap
+    // never waits on a read whose result we would throw away.
+    //
+    // WARNING: this caps ADDITIONS only. An item that already holds more than
+    // the cap keeps every photo — a plan that downgrades must never delete a
+    // customer's pictures.
+    const current = (items.find((x) => x.id === id) || {}).qcPhotos || [];
+    if (current.length >= qcPhotoCap) {
+      notify(
+        isProPlan
+          ? "That is " + qcPhotoCap + " QC photos on this item — remove one to add another."
+          : qcPhotoCap +
+            " QC photos an item on Free. Pro holds " +
+            PRO_LIMITS.qcPhotosPerItem +
+            ".",
+        isProPlan
+          ? {}
+          : { actionLabel: "See Pro", onAction: () => setProfileOpen(true) }
+      );
+      return;
+    }
     try {
       const dataUrl = await compressImageBlob(file);
-      updateItem(id, (x) => ({ qcPhotos: [...(x.qcPhotos || []), dataUrl].slice(0, 12) }));
+      updateItem(id, (x) => ({
+        // QC_PHOTOS_STORED, not the plan cap: the guard above already refused
+        // an add over the plan cap, so this second bound only stops a stored
+        // array growing without limit. Slicing to the plan cap here would
+        // delete the grandfathered photos the guard is written to protect.
+        qcPhotos: [...(x.qcPhotos || []), dataUrl].slice(0, QC_PHOTOS_STORED),
+      }));
     } catch {
       flashImportResult("Couldn't read that QC photo.");
     }

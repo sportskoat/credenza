@@ -6379,6 +6379,17 @@ a.cz-card-seller:hover {
   gap: 10px;
   margin-bottom: 10px;
 }
+/* The yearly saving. It sits under the two price pills, centred between them,
+   because it is a fact about the pair and not a label on either one. Money
+   green, like every other number the customer is meant to weigh. */
+.cz-profile-upgrade-note {
+  margin: -2px 0 12px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--cz-money);
+}
 .cz-profile-signin .cz-profile-row {
   margin: 10px -16px -16px;
   width: calc(100% + 32px);

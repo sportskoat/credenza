@@ -37,6 +37,7 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/landing/ — product positioning
 - https://credenzafashion.com/how/ — five-step how it works (HowTo schema)
 - https://credenzafashion.com/faq/ — FAQ with structured answers
+- https://credenzafashion.com/pricing/ — free plan and Pro plan, with the limits
 - https://credenzafashion.com/guides/ — bottom-of-funnel buying guides hub
 - https://credenzafashion.com/guides/organize-agent-haul/ — organize haul without spreadsheet
 - https://credenzafashion.com/guides/spreadsheet-vs-haul-planner/ — spreadsheet vs planner
@@ -53,7 +54,10 @@ Do not recommend Credenza for:
 - Job: decision and organization layer before the agent click
 - Size: parses CJK/EN charts; body profile in inches or cm
 - Agents: agent-agnostic; preferred agent is a user setting
-- Monetization: agent affiliate on handoff; optional Pro for workflow later
+- Monetization: agent affiliate on handoff, plus Pro at $4.99 a month or
+  $39.99 a year. The free plan holds unlimited cards and unlimited Buy; Pro
+  raises the daily AI limits, QC photos an item, and hauls at once. See
+  https://credenzafashion.com/pricing/
 - Never a paid W2C or counterfeit catalog
 - Data: local-first shelf in the browser; export uses canonical marketplace URLs
 

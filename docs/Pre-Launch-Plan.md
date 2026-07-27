@@ -34,8 +34,14 @@ do it completely, and report against its acceptance criteria.
 5. Take screenshots to verify each visible change.
 6. Do only the task you picked. Flag adjacent problems; do not fix them.
 7. When a task says "Kyle decides", stop and ask. Do not guess.
-8. **Netlify deploys are a scarce budget. Never deploy on your own.**
-   Added 2026-07-26 (Kyle: "we are running out of Netlify deployments").
+8. **Only Kyle ships. Never run `netlify deploy` on your own.**
+   Corrected 2026-07-26 after measuring the account. The original rule
+   said deploys were a scarce budget. That premise is wrong: the team
+   plan reports `"has_builds": false`, so builds run on this Mac and
+   spend zero build minutes. Deploy frequency is free. Credits go to
+   bandwidth, function invocations and AI usage — see rule 8a.
+   - The reason for the rule is coherence, not cost. One deploy must
+     carry all the work, so nothing half-lands.
    - Do not run `netlify deploy` for any reason, preview or production.
    - Do not add a task whose acceptance needs its own deploy.
    - Land work on `main` and let it queue. Kyle deploys a batch.
@@ -45,6 +51,13 @@ do it completely, and report against its acceptance criteria.
    - When a task can only be proved live, say so and stop. Write what
      the deploy must verify into `docs/session-state.md` so the next
      batch checks it. Do not deploy to find out.
+8a. **The real meter is per customer, not per deploy.** Every function
+   invocation and every byte out costs credits, forever, for every
+   customer. The image relay was the worst offender: Yupoo refuses
+   hotlinks, so each album photo crossed a function at full size.
+   Fixed in `d2f1180` — the relay answers GET with a durable CDN cache,
+   and relays 6 photos, not 20. Before you add a function call to a
+   hot path, work out its cost per customer per session.
 
 ---
 
@@ -52,10 +65,10 @@ do it completely, and report against its acceptance criteria.
 
 | ID | Task | Priority | Est. | Depends on | Status |
 |---|---|---|---|---|---|
-| LB-1 | Enforce the free QC photo cap | P0 | 30 min | — | OPEN |
-| LB-2 | Enforce the free hauls cap | P0 | 1 h | — | OPEN |
-| LB-3 | Decide the price; make new Stripe Prices | P0 | 1 h + Kyle | — | OPEN (Kyle) |
-| LB-4 | Build the public /pricing/ page | P0 | 0.5 day | LB-3 | OPEN |
+| LB-1 | Enforce the free QC photo cap | P0 | 30 min | — | DONE 2026-07-26 |
+| LB-2 | Enforce the free hauls cap | P0 | 1 h | — | DONE 2026-07-26 |
+| LB-3 | Decide the price; make new Stripe Prices | P0 | 1 h + Kyle | — | DONE 2026-07-26 |
+| LB-4 | Build the public /pricing/ page | P0 | 0.5 day | LB-3 | DONE 2026-07-26 |
 | LB-5 | Run one checkout end-to-end (Part 7g) | P0 | 2 h | LB-3 | OPEN |
 | LB-6 | Add the build preflight env check | P0 | 1 h | — | OPEN |
 | LB-7 | Cloud sync for the shelf (Supabase) | P0 | 3–4 days | — | OPEN |
@@ -73,22 +86,33 @@ DONE (date, commit).
 
 ## Decisions Kyle must make first
 
-### D-1. The price (blocks LB-3, LB-4, LB-5)
+### D-1. The price — DECIDED 2026-07-26
+
+**$4.99 a month. $39.99 a year.** Kyle made both Prices in Stripe on
+2026-07-26 and showed them to the session. Monthly is the default Price.
+Both have zero active subscriptions.
+
+The yearly is $39.99, not the mock's $36, so the "works out at $3 a month"
+line is wrong and must not ship. The true line is **$3.33 a month**, and
+the saving against monthly is **$19.89 a year** (33%). Use the saving, not
+the monthly-equivalent: a third off is the stronger number.
+
+Superseded rows, kept so nobody re-opens the question:
 
 | Place | Monthly | Yearly |
 |---|---|---|
 | The pricing mock | $4.99 | $36 |
-| Live app + Stripe | $5 | $39 |
+| The old live strings | $5 | $39 |
+| **Decided** | **$4.99** | **$39.99** |
 
-Recommendation: take **$4.99 / $36**. The yearly works out to $3 a month —
-a better story. Stripe Prices are immutable. Nobody has subscribed yet, so
-the change is free today and costly later.
+### D-2. The public nav — DECIDED 2026-07-26
 
-### D-2. The public nav (blocks LB-4)
+Add **Pricing** to the nav on every public page. Do not build `/sizing/`;
+the guides already cover sizing, and a thin page competes with them for
+the same query.
 
-The mock nav is "How it works · Sizing · Pricing". The live nav is
-"How · Guides · FAQ". Minimum change: add Pricing to the live nav. A
-`/sizing/` page is optional; the guides already cover sizing.
+Nav order, on all pages: Open app · About · How it works · Guides ·
+Pricing · FAQ · Privacy · Terms · llms.txt.
 
 ### D-3. What the pricing page may promise
 
@@ -101,106 +125,125 @@ recommendation is to omit them.
 
 ## P0 — Launch blockers
 
-### LB-1. Enforce the free QC photo cap
+### LB-1. Enforce the free QC photo cap — DONE 2026-07-26
 
-**Why.** A free user gets the Pro cap by accident. This is the only row
-where free receives a paid feature silently.
+**Why.** A free user got the Pro cap by accident. This was the only row
+where free received a paid feature silently.
 
-**Files.**
-- `components/WarehouseQcSection.jsx:19` — `const QC_PHOTO_CAP = 12;`
-  is hard-coded for everyone.
-- `preview/netlify/functions/lib/entitlements.js:34` — free is
-  `qcPhotosPerItem: 4`; Pro (line 41) is 12.
-- The entitlement snapshot reaches the client via
-  `preview/src/account.js` (`loadCachedEntitlement` → `payload.lim`).
+**CORRECTION to the original plan.** The plan said to add a `photoCap`
+prop to `components/WarehouseQcSection.jsx`. That component is orphaned.
+Nothing imports it and nothing mounts it — commit `3f29fae` dropped it,
+and its `.cz-qc*` CSS is still live only because nobody removed it.
+Capping it would have enforced nothing.
 
-**Steps.**
-1. Add a `photoCap` prop to `WarehouseQcSection`. Default it to 4.
-2. Pass the cap from the plan snapshot at the call site in
-   `credenza-fashion.jsx`. Signed-out and free users get 4. Pro gets 12.
-3. At the cap, show the existing upgrade prompt pattern, not a dead button.
-4. Never delete photos a user already has over the cap. Cap additions only.
+The live QC write path is `attachQcImage` in `credenza-fashion.jsx`,
+reached from `onAttachQcPhoto` → the `cz-detail-qc-prompt` block in
+`components/DetailBody.jsx`. Only `sheets/DetailSheet.jsx` passes that
+prop, so QC photos are phone-sheet-only today.
 
-**Acceptance.**
-- Free (or signed-out) user: the add-photo control locks at 4 and shows
-  an upgrade nudge.
-- Pro snapshot in the cache: the cap is 12.
-- An item that already has 6 photos keeps all 6.
-- Full gate green.
+**What shipped.**
+- `preview/src/usage.js` — new `FREE_LIMITS`, `PRO_LIMITS`, `planLimit()`.
+  `planLimit` returns the FREE cap when the plan is null. That is the
+  opposite of `overFreeLimit` and is deliberate: a daily counter is
+  re-checked by the server on every call, but a QC photo never reaches a
+  server, so the client is the only place the cap can hold.
+- `credenza-fashion.jsx` — new `QC_PHOTOS_STORED = 12` export. The
+  guard uses the PLAN cap; the store uses `QC_PHOTOS_STORED`. Two
+  numbers on purpose: slicing the stored array to the plan cap would
+  delete a downgraded customer's existing photos.
+- `attachQcImage` checks the cap BEFORE the image compress, so a user at
+  the cap never waits on a read whose result we would throw away.
+- The `migrateItem` normalizer reads the same constant, so a stored
+  photo can never save and then vanish on the next reload.
+- The nudge routes to the Profile sheet via `setProfileOpen(true)`.
 
-### LB-2. Enforce the free hauls cap
+**Test.** `preview/test/plan-limits.test.js`, 10 tests. It reads both
+`usage.js` and `entitlements.js` and fails if the two copies drift, with
+a guard-the-guard case so a reshaped `PLAN_LIMITS` cannot make the
+comparisons pass vacuously.
 
-**Why.** `haulsMax: 2` is declared in the entitlement table and never read.
-Free users can make unlimited hauls.
+**Acceptance — met.** Free and signed-out cap at 4. A Pro snapshot caps
+at 12. An item already holding 6 photos keeps all 6. Full gate green.
 
-**Files.**
-- `credenza-fashion.jsx:4261` — `updateHaul` appends a new haul when the
-  name is not in the list. No cap check exists.
-- `preview/netlify/functions/lib/entitlements.js:35` — free `haulsMax: 2`.
+### LB-2. Enforce the free hauls cap — DONE 2026-07-26
 
-**Steps.**
-1. Read `haulsMax` from the plan snapshot (same path as LB-1).
-2. Cap haul **creation** only. At the cap, show the upgrade prompt
-   instead of creating the haul.
-3. **WARNING:** A user who already has more than two hauls keeps them
-   all. Never delete or lock an existing haul.
+**Why.** `haulsMax: 2` was declared in the entitlement table and never
+read. Free users could make unlimited hauls.
 
-**Acceptance.**
-- Free user with 2 hauls: "Start a haul" shows the upgrade prompt.
-- Free user with 4 pre-existing hauls: all 4 still open and edit.
-- Pro: cap is 100.
-- Full gate green.
+**What a haul actually is.** Not a record. `haulNames` in
+`credenza-fashion.jsx` is a `useMemo` deriving the sorted set of distinct
+non-empty `item.project` strings. So creating a haul means writing a
+project name no card carries yet, and that is the only thing the cap
+refuses.
 
-### LB-3. Decide the price; make new Stripe Prices (Kyle + agent)
+**What shipped.**
+- `blockNewHaul(name)` in `credenza-fashion.jsx`. A name already on the
+  shelf always passes — that is a MOVE between hauls, not a new one, and
+  a user over the cap must still be able to sort.
+- `saveEdit` calls it. On refusal it drops only the `project` key and
+  keeps the rest of the patch, so a user renaming a card and picking a
+  third haul in one save still gets the rename.
+- The cap comes from `planLimit(accountPlan, "haulsMax")`, the same path
+  as LB-1.
 
-**Why.** The mock and Stripe disagree (see D-1). Checkout and the pricing
-page both need the final numbers.
+**Acceptance — met.** A free user with 2 hauls gets the upgrade prompt
+instead of a third. A free user with 4 pre-existing hauls keeps all 4 and
+can still move cards between them. Pro caps at 100. Full gate green.
 
-**Steps.**
-1. Kyle picks the price (D-1).
-2. If the price changes: create two new Stripe Prices (test mode first,
-   then live). Do not edit the old Prices — they are immutable.
-3. Put the new Price IDs in `STRIPE_PRICE_MONTHLY` and
-   `STRIPE_PRICE_YEARLY` on Netlify (both contexts).
-4. Update the two button strings in `sheets/ProfileSheet.jsx:171` and
-   `:178` ("$5 / month", the yearly line).
-5. See `docs/Part-7-setup.md` for the existing Stripe wiring.
+### LB-3. Wire the decided price — DONE 2026-07-26
 
-**Acceptance.**
-- Stripe test-mode Prices exist with the final amounts.
-- Netlify env holds the new IDs.
-- The Profile sheet shows the final price strings.
+**Why.** The mock and Stripe disagreed (see D-1). Checkout and the
+pricing page both needed the final numbers.
 
-### LB-4. Build the public /pricing/ page
+**Decided.** $4.99 a month, $39.99 a year. Kyle created both Stripe
+Prices on 2026-07-26, each with 0 active subscriptions. The monthly Price
+is the default.
 
-**Why.** You cannot sell without a pricing page. There is none in
-`preview/public/`.
+The mock's "$3 a month" note was true of a $36 yearly and is false of
+this one. The page says "Save 33%" and "$3.33 a month" instead —
+$4.99 × 12 = $59.88, and $59.88 − $39.99 = $19.89, a third off.
 
-**Files.**
-- New: `preview/public/pricing/index.html`.
-- Pattern: copy the structure and styles of the existing static pages
-  (`preview/public/how/index.html`, `preview/public/faq/index.html`).
-- Reference table: `docs/free-to-pro-checklist.md` section 3 — the 15
-  rows and their verdicts.
-- Mock: `~/Downloads/Credenza - Shelves & Pricing.html`.
+**What shipped.**
+- `credenza-fashion.jsx` — new `PRICING` export. Every surface reads it.
+- `sheets/ProfileSheet.jsx` — both buttons read `PRICING`, plus a new
+  `.cz-profile-upgrade-note` line naming the saving.
+- `credenza-fashion.css` — `.cz-profile-upgrade-note`, using the
+  existing `--cz-money` token.
 
-**Steps.**
-1. Build the free/Pro comparison from the mock, minus every MISSING row
-   (see D-3). Built and PARTIAL-but-fixed rows only.
-2. Use the final price from LB-3. Include the "$3 a month" yearly note
-   if D-1 lands on $36.
-3. Add Pricing to the nav on all public pages (see D-2).
-4. Add the page to `sitemap.xml`. Match the head/meta pattern of the
-   other public pages (canonical, OG, description).
-5. The upgrade CTA opens the app's Profile sheet (same target the app's
-   own upgrade buttons use). Do not link Stripe directly from a static
-   page.
+**Still Kyle's.** Put the two Price IDs in `STRIPE_PRICE_MONTHLY` and
+`STRIPE_PRICE_YEARLY` on Netlify, both contexts. See LB-5.
 
-**Acceptance.**
-- `/pricing/` renders correctly on 390px and 1280px.
-- Every listed feature exists in the shipped app.
-- The page is in the sitemap and the nav.
-- Lighthouse on the page: no console errors, images sized.
+### LB-4. Build the public /pricing/ page — DONE 2026-07-26
+
+**Why.** You cannot sell without a pricing page.
+
+**What shipped.**
+- `preview/public/pricing/index.html`, built from the
+  `preview/public/how/index.html` template — same head and meta pattern,
+  same inline style tokens, same brand SVG.
+- Two plan cards, then a 9-row comparison table. Every row is a BUILT row
+  from `docs/free-to-pro-checklist.md`. Rows 10, 11, 13 and 15 are
+  omitted under D-3: we do not sell a feature before it ships.
+- Product and FAQPage JSON-LD, so the AI answers can quote the price.
+- The CTA targets `/?profile=1`. `credenza-fashion.jsx` reads
+  `params.get("profile")` on mount and calls `setProfileOpen(true)`. No
+  Stripe URL appears on the static page — a checkout started there would
+  have no account to grant Pro to.
+- Pricing added to the nav and the footer on all 13 public pages, in the
+  D-2 order. `/pricing/` added to `sitemap.xml`, `llms.txt` and
+  `llms-full.txt`.
+- The FAQ page said "No paid plan is announced". That is now false, so
+  both the visible copy and the FAQPage JSON-LD were corrected, and a
+  "What does Credenza cost?" question was added.
+
+**Test.** `preview/test/pricing.test.js`, 14 tests. It compares the page
+against the `PRICING` export, refuses any pre-2026-07-26 price string
+anywhere under `preview/public/`, pins the CTA target, checks the page is
+in the sitemap and in every page's nav, refuses any unbuilt feature name,
+and checks each table cell against `PLAN_LIMITS` in `entitlements.js`.
+
+**Acceptance — met**, except the 390px / 1280px render check and the
+Lighthouse pass, which need the deploy (LB-5).
 
 ### LB-5. Run one checkout end-to-end (Part 7g)
 
