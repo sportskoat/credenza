@@ -113,6 +113,7 @@ do it completely, and report against its acceptance criteria.
 | LB-46 | Explain the two features the price table now sells | P1 | 45 m | LB-45 | DONE 2026-07-27 — the twelfth scope defect, and the third axis; every page was correct on its own, and the gap lived between them, so `/pricing/` was the only page explaining what a buyer paid for |
 | LB-47 | Write the guide for the feature the announcement runs on | P1 | 1 h | LB-46 | DONE 2026-07-27 — twelve guides now; the share link is what LB-39 calls "the announcement's engine", Pro sells 100 of them, and no guide told a buyer how to make one |
 | LB-48 | Check the share caps on every page, not just `/pricing/` | P0 | 45 m | LB-47 | DONE 2026-07-27 — the thirteenth scope defect, LB-43's shape again; four pages quote the caps and the rule opened one file by name, so `/faq/` claiming 9 links passed all 1698 tests |
+| LB-49 | Bind a price by its billing period, not by the word next to it | P0 | 45 m | LB-48 | DONE 2026-07-27 — the fourteenth scope defect, and the narrowest scope yet: a 90-character window after the word "Pro"; an invented `$7.99 a month` on a shipped guide passed all 1705 tests |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2918,6 +2919,97 @@ per-page expectation of which caps it states, and that is a list to maintain
 for a smaller defect than the one this rule closes.
 
 **Gate.** 1705 tests pass (62 files), 5 lint warnings and 0 errors, build
+`index-fashion-VSp8hwMs.js 363.47 kB`.
+
+### LB-49 — a price rule that read only the text beside one word
+
+**The finding came from a probe that did not fail.** The task was to judge
+whether the blocklist at `preview/test/pricing.test.js:72` is redundant. To
+judge it, I asked what each price rule actually catches. I added this line to a
+shipped guide, `preview/public/guides/track-qc-photos/index.html`:
+
+```html
+<p>The paid plan is $7.99 a month or $89.99 a year.</p>
+```
+
+The full suite returned `Tests 1706 passed (1706)`. Zero failures. An invented
+price, with a billing period, on a page a buyer reads, passed every rule on the
+site.
+
+**The cause.** `preview/test/public-site.test.js:1327` reads prices like this:
+
+```js
+for (const m of html.matchAll(/Pro\b([^<]{0,90})/g)) {
+  for (const p of m[1].matchAll(/\$\d+(?:\.\d\d)?(?![\d.])/g)) plan.push(p[0]);
+}
+```
+
+It only sees a price inside a 90-character window that follows the literal word
+`Pro`. LB-32 wrote that window, and LB-43 fixed it to read every price in the
+window instead of the first — but neither changed where it looks. A sentence
+that names a price without naming the plan is outside it. "The paid plan is …"
+is exactly how a person writes that sentence.
+
+The blocklist does not cover the gap either. It bans three literals:
+
+```js
+const stale = /\$5(?![\d.])|\$39(?!\.99)(?![\d])|\$36(?![\d.])/;
+```
+
+It knows the old prices. It has nothing to say about `$7.99`.
+
+**The anchor that works is the cadence, not the plan name.** A price with a
+billing period after it is a plan price, whatever sentence carries it. A price
+with no billing period is an item on the mock shelf — `$23.52`, `$548.08` on
+`/landing/` — and stays out of scope with no exemption list to maintain.
+
+**Census before writing the rule.** Every cadence-carrying price string under
+`preview/public`, and all of them are correct today, so the rule ships green:
+
+| File | Strings |
+|---|---|
+| `faq/index.html` | `$4.99 a month` ×4, `$39.99 a year` ×4 |
+| `guides/free-agent-haul-planner/index.html` | `$4.99 a month`, `$39.99 a year` |
+| `pricing/index.html` | `$4.99 a month` ×3, `$39.99 a year` ×3, `$3.33 a month` ×3 |
+| `terms/index.html` | `$4.99 a month` ×2, `$39.99 a year` ×2 |
+| `llms.txt` | `$4.99 a month`, `$39.99 a year` |
+| `llms-full.txt` | `$4.99 a month`, `$39.99 a year` |
+
+The rule lives in `pricing.test.js`, not `public-site.test.js`, for one reason:
+`public-site.test.js` builds its page list from `index.html` files, so it cannot
+see `llms.txt` or `llms-full.txt`. Both quote a price. The `textFiles` walker in
+`pricing.test.js` already reads `.html`, `.txt`, `.xml`, and `.webmanifest`.
+
+**Probes.** Each edit was applied by a script that asserts the marker count, and
+each file was restored by copy and verified by `md5 -q`.
+
+| Edit | Result |
+|---|---|
+| `$7.99 a month or $89.99 a year` on `/guides/track-qc-photos/` | 1 fail — was 0 before this rule |
+| `Credenza used to cost $5 a month.` on `/faq/` | 2 fail — cadence rule **and** blocklist |
+| `The old plan cost $39 in total.` on `/faq/` | 1 fail — blocklist only |
+| `$23.52` and `$548.08` in a sentence on `/faq/` | 0 fail — item prices stay out of scope |
+| `PRICING.monthly` `$4.99` → `$6.99` in `credenza-fashion.jsx` | 4 fail — the source of truth still drives it |
+
+**The blocklist stays, and row three is why.** The question that started this was
+whether `pricing.test.js:72` is redundant. It is not. `$39 in total` carries no
+billing period, so the cadence rule cannot see it by design, and the blocklist is
+the only rule that fails. The two rules cover different shapes: the blocklist
+catches a known-old amount anywhere; the cadence rule catches any wrong amount
+sold as a plan. Row two shows they overlap on the case that matters most.
+
+**Second assertion, and why.** A site can satisfy the rule above by never
+stating the yearly price at all. `names both plan prices with a cadence` fails
+if either `PRICING.monthly` or `PRICING.yearly` disappears from every public
+file. The yearly price is the upsell; silence about it is a real defect.
+
+**Guards.** Two, because LB-44 showed one combined count lets a dead matcher
+hide. The first asserts each `PRICING` value still parses as a dollar amount, so
+a reshaped export fails loudly instead of filling the allowed set with
+`undefined`. The second asserts at least ten cadence prices are found, so
+deleting every price from the site cannot make the rule vacuous.
+
+**Gate.** 1707 tests pass (62 files), 5 lint warnings and 0 errors, build
 `index-fashion-VSp8hwMs.js 363.47 kB`.
 
 ## Explicitly deferred (do NOT build before launch)

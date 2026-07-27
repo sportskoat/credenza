@@ -69,11 +69,91 @@ describe("no stale price survives anywhere on the public site", () => {
   it("carries no pre-2026-07-26 price", () => {
     // The old live strings were "$5 / month" and "$39 / year". Match the
     // amount with a boundary so "$39.99" does not read as "$39".
+    //
+    // LB-49 kept this. It is a blocklist of three literals, and a blocklist is
+    // the shape LB-42 argued against — but the probe showed it is not
+    // redundant. It catches a bare stale amount with no billing cadence after
+    // it, which the cadence rule below cannot see by design.
     const stale = /\$5(?![\d.])|\$39(?!\.99)(?![\d])|\$36(?![\d.])/;
     const bad = files
       .filter((f) => stale.test(readFileSync(f, "utf8")))
       .map((f) => f.slice(PUBLIC.length + 1));
     expect(bad).toEqual([]);
+  });
+
+  // LB-49. The fourteenth scope defect, and the narrowest scope yet: a rule
+  // that read only the text next to one word.
+  //
+  // LB-32 binds every quoted price to the PRICING export, and LB-43 fixed it to
+  // read every price in the sentence rather than the first. Both still only
+  // look inside a 90-character window that follows the word "Pro".
+  //
+  // So a price that never says "Pro" is invisible. Adding "The paid plan is
+  // $7.99 a month or $89.99 a year." to a guide passed all 1705 tests. On
+  // /faq/ the same edit failed — but only because the FAQ parity rule noticed
+  // an unmatched paragraph, which is an accident, not coverage.
+  //
+  // The blocklist above is not the answer either. It bans three literals it was
+  // told about. It has nothing to say about $7.99, and it would fail a mock
+  // shelf item that happened to cost $5.
+  //
+  // The anchor that works is the CADENCE, not the word "Pro". A price with a
+  // billing period after it is a plan price, whatever sentence it sits in. A
+  // price with no cadence is an item on the mock shelf — $23.52, $548.08 — and
+  // stays out of scope without being listed.
+  it("quotes no billing price the app does not charge", () => {
+    const perMonth = (PRICING.yearlyPerMonth.match(/\$[\d.]+/) || [])[0];
+
+    // Guard the guard. If PRICING is reshaped, these go undefined, the allowed
+    // set fills with junk, and every page would fail — but only if this runs.
+    for (const [name, v] of [
+      ["monthly", PRICING.monthly],
+      ["yearly", PRICING.yearly],
+      ["yearlyPerMonth", perMonth],
+    ]) {
+      expect(v, `PRICING.${name} is not a dollar amount`).toMatch(/^\$\d+(\.\d\d)?$/);
+    }
+    const real = new Set([PRICING.monthly, PRICING.yearly, perMonth]);
+
+    // (?![\d.]) so "$4.99" does not also yield "$4".
+    // The cadence list is what the site actually writes, plus the spellings a
+    // hurried edit reaches for: "a month", "per year", "/ month", "monthly".
+    const PRICE = /\$\d+(?:\.\d\d)?(?![\d.])\s*(?:a|an|per|each|\/)?\s*(?:month|year|mo|yr|monthly|yearly|annually)\b/gi;
+
+    const found = [];
+    for (const f of files) {
+      // Tags become a space here, not a newline: "$4.99</strong> a month" is
+      // one phrase to a reader, and splitting on the tag would hide it.
+      const t = readFileSync(f, "utf8").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+      for (const m of t.matchAll(PRICE)) {
+        found.push({ rel: f.slice(PUBLIC.length + 1), phrase: m[0].trim() });
+      }
+    }
+
+    // Without this, deleting every price from the site would make the loop
+    // below check nothing and stay green.
+    expect(found.length, "no file states a price with a billing period").toBeGreaterThanOrEqual(10);
+
+    const wrong = found.filter((h) => !real.has((h.phrase.match(/\$[\d.]+/) || [])[0]));
+    expect(
+      wrong.map((h) => `${h.rel}: ${h.phrase}`),
+      `the app charges ${[...real].join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("names both plan prices with a cadence, not just the monthly one", () => {
+    // A site could satisfy the rule above by never stating the yearly price.
+    // Somebody comparing plans needs both, and the yearly one is the upsell.
+    const all = files
+      .map((f) => readFileSync(f, "utf8").replace(/<[^>]*>/g, " "))
+      .join(" ")
+      .replace(/\s+/g, " ");
+    for (const [name, v] of [["monthly", PRICING.monthly], ["yearly", PRICING.yearly]]) {
+      expect(
+        new RegExp(v.replace(/[$.]/g, "\\$&") + "\\s*(?:a|an|per|/)?\\s*(?:month|year)", "i").test(all),
+        `no public file states the ${name} price with a billing period`
+      ).toBe(true);
+    }
   });
 });
 
