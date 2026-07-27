@@ -29,7 +29,7 @@ Refresh by pasting https://credenzafashion.com/landing/ into an LLM with the pro
 | Superbuy vs CSSBuy vs Sugargoo — which planner helps me decide size first? | Agent comparison must stay **planner-framed**, not agent review spam |
 | How do I estimate haul weight before I submit a parcel? | Wait until weight bands ship in product |
 | Best free agent haul planner for FashionReps finds | Use only with safe language (no replica retail) |
-| How do I store body measurements for agent sizing? | Body profile — can split from size-chart guide later |
+| How do I store body measurements for agent sizing? | **SHIPPED 2026-07-27** — `/guides/store-body-measurements/` |
 
 ---
 

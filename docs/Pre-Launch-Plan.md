@@ -81,6 +81,7 @@ do it completely, and report against its acceptance criteria.
 | LB-14 | Audit the public site; lock it with a test | P1 | 0.5 day | LB-4 | DONE 2026-07-26 — 3 defects fixed; 89 tests added |
 | LB-15 | Build the /support/ page | P1 | 2 h | LB-14 | DONE 2026-07-26 — plus the stale 404 nav |
 | LB-16 | Give every page structured data | P1 | 1 h | LB-15 | DONE 2026-07-26 — 15 WebPage/BreadcrumbList nodes |
+| LB-17 | Body-measurements guide | P1 | 1 h | LB-16 | DONE 2026-07-27 — last buying question with shipped product |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -858,6 +859,53 @@ block, point the terms trail at `/privacy/`, and change a position from 2 to
 
 Gate: 1146 tests pass, lint clean (5 pre-existing warnings), typecheck clean,
 build OK with unchanged chunk sizes.
+
+### LB-17. The body-measurements guide — DONE 2026-07-27
+
+`docs/aeo-geo/buying-questions.md` listed four secondary questions with no
+page. Three are blocked: weight bands are not built, and two need safe
+language work. One had shipped product behind it and nothing written: "How do
+I store body measurements for agent sizing?"
+
+`preview/public/guides/store-body-measurements/index.html` answers it. Nine
+sections: why a profile beats re-deciding, the eight fields, how to take each
+measure, the unit toggle, usual sizes, fit preferences, the four size labels,
+where the numbers live, and the honest tradeoff.
+
+Every claim was read out of the code first, not written from memory:
+
+- Eight fields, from `BODY_PROFILE_FIELDS` — height, weight, chest, shoulder,
+  arm length, waist, hip, inseam.
+- Storage is centimeters. The in/cm toggle converts the draft in place, so a
+  typed number is never reinterpreted as the other unit.
+- Fit preferences exist for four categories only, from `FIT_PREF_AXES`:
+  shirt, outerwear, pants, shorts.
+- `loosenessNudge` moves the pick one step. Slim is −1, baggy and oversized
+  are +1. Length never moves the letter size.
+- `effectiveBodyProfile` fills chest, waist, and hip from height and weight.
+  A measured field always wins over an estimate.
+- `resolveDisplaySize` returns four labels: SIZE, AI SIZE, AI SIZE with a
+  question mark, and YOUR USUAL.
+- The privacy claim is repeated word-for-word from `/privacy/` and `/faq/`:
+  body measurements never leave the device.
+
+The page carries `HowTo` and `BreadcrumbList` JSON-LD. It is listed in
+`sitemap.xml`, `llms.txt`, `llms-full.txt`, and the guides hub. It matches the
+existing guide idiom exactly — same `:root` tokens, header, nav with
+`aria-current` on Guides, cards, note, CTA, related links, and footer.
+
+The guide states a limit rather than hiding it: Credenza reads the chart the
+seller published, so a wrong chart gives a wrong pick, and no measurement
+knows how a fabric behaves. A profile removes the avoidable mistakes, not the
+fit risk.
+
+One negative control confirms the checks bite: blank the middle crumb name.
+It fails one test and only one.
+
+Gate: 1153 tests pass (up from 1146), lint clean (5 pre-existing warnings),
+typecheck clean, build OK with unchanged chunk sizes.
+
+---
 
 ---
 

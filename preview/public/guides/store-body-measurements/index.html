@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Store body measurements for agent sizing · Credenza</title>
+    <meta name="description" content="How to store body measurements once for agent sizing: which eight measures Credenza uses, how to take them, why the app keeps centimeters under the hood, how fit preferences move the pick, and why the numbers never leave your device." />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/store-body-measurements/" />
+    <meta property="og:title" content="Store body measurements for agent sizing" />
+    <meta property="og:description" content="Save eight measures once. Every seller chart reads against them." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/store-body-measurements/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Store body measurements for agent sizing" />
+    <meta name="twitter:description" content="Save eight measures once. Every seller chart reads against them." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Store body measurements for agent sizing",
+  "url": "https://credenzafashion.com/guides/store-body-measurements/",
+  "description": "Save a body profile in Credenza so every Weidian, Taobao, or Yupoo size chart reads against your own measurements.",
+  "step": [
+    {
+      "@type": "HowToStep",
+      "position": 1,
+      "name": "Open the body profile",
+      "text": "Open Profile, then Your sizes. The eight fields are height, weight, chest, shoulder, arm length, waist, hip, and inseam."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 2,
+      "name": "Measure over a thin layer",
+      "text": "Use a soft tape over a t-shirt, not over a coat. Keep the tape level and snug, and do not pull it tight."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 3,
+      "name": "Type in inches or centimeters",
+      "text": "Pick the unit you think in. Credenza stores centimeters under the hood and converts every typed value when you switch, so a number is never silently reinterpreted."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 4,
+      "name": "Add your usual sizes",
+      "text": "Fill the usual size for tops, bottoms, and shoes. Credenza shows one of these as YOUR USUAL on a card that has no seller chart."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 5,
+      "name": "Set fit preferences",
+      "text": "Open Profile, then Fit preferences. Set length and looseness for each category you own. Slim sizes down one step, baggy or oversized sizes up one step."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 6,
+      "name": "Read the size on the card",
+      "text": "Every card with a seller chart now shows AI SIZE with a reason line. A size you type in Edit always wins over the suggestion."
+    }
+  ]
+}
+    </script>
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Credenza Fashion",
+      "item": "https://credenzafashion.com/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Guides",
+      "item": "https://credenzafashion.com/guides/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Store body measurements for agent sizing",
+      "item": "https://credenzafashion.com/guides/store-body-measurements/"
+    }
+  ]
+}
+    </script>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>Store body measurements for agent sizing</h1>
+      <p class="lede">
+        Take eight numbers once. After that every seller chart reads against
+        your body, not against a guess.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/">Support</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <article class="card">
+        <span class="n">Why once, not every time</span>
+        <h2>The chart changes. Your body does not.</h2>
+        <p>
+          Every seller writes a different chart. Some list chest and length.
+          Some list hip only, under the heading 臀围. Some list nothing at all
+          and put the numbers in an album note.
+        </p>
+        <p>
+          You cannot fix that. You can stop re-deciding. Save your measurements
+          once, and every chart you meet reads against the same eight numbers.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 1</span>
+        <h2>The eight fields Credenza uses</h2>
+        <p>Open <strong>Profile</strong>, then <strong>Your sizes</strong>.</p>
+        <ul>
+          <li><strong>Height</strong> and <strong>weight</strong> — these two alone let Credenza estimate the rest.</li>
+          <li><strong>Chest</strong> — around the fullest part, tape level under the arms.</li>
+          <li><strong>Shoulder</strong> — seam to seam across the back.</li>
+          <li><strong>Arm length</strong> — shoulder seam to wrist bone, arm relaxed.</li>
+          <li><strong>Waist</strong> — where you wear your trousers, not the narrowest point.</li>
+          <li><strong>Hip</strong> — around the fullest part. This is the 臀围 row on a Chinese chart.</li>
+          <li><strong>Inseam</strong> — crotch to floor, no shoes.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 2</span>
+        <h2>How to take them</h2>
+        <ul>
+          <li>Use a soft tape. A metal one gives a number, not a measurement.</li>
+          <li>Measure over a t-shirt, never over a coat.</li>
+          <li>Keep the tape level and snug. Do not pull it tight.</li>
+          <li>Stand relaxed. Do not hold your breath or flex.</li>
+          <li>Measure twice. If the two differ, take the larger one.</li>
+        </ul>
+        <p>
+          No tape? Enter height and weight only. Credenza estimates chest,
+          waist, and hip from those two, and marks the result with a question
+          mark so you know it is a guess, not a measurement. A measured field
+          always wins over an estimate, so you can fill the rest in later
+          without losing anything.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 3</span>
+        <h2>Inches or centimeters, your choice</h2>
+        <p>
+          Type in the unit you think in. Credenza stores centimeters under the
+          hood, because that is what sellers publish.
+        </p>
+        <p>
+          When you flip the unit toggle, every value you already typed converts
+          with it. 38 in becomes 96.5 cm. A number is never silently
+          reinterpreted as the other unit.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 4</span>
+        <h2>Usual sizes, for the charts that do not exist</h2>
+        <p>
+          Fill in the size you usually buy for tops, bottoms, and shoes — plain
+          text, like M, 32, or US 10.
+        </p>
+        <p>
+          A card with no seller chart shows one of these, labelled
+          <strong>YOUR USUAL</strong>. The label is deliberate. It tells you the
+          number came from your habit, not from a chart, so you do not mistake a
+          default for a decision.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 5</span>
+        <h2>Fit preferences move the pick</h2>
+        <p>
+          Open <strong>Profile</strong>, then <strong>Fit preferences</strong>.
+          Each category you own gets two rows.
+        </p>
+        <ul>
+          <li><strong>Length</strong> — cropped, regular, or long. Shorts use short, mid, and long.</li>
+          <li><strong>Looseness</strong> — slim, regular, or baggy. Shirts and outerwear use oversized in place of baggy.</li>
+        </ul>
+        <p>
+          Looseness moves the letter one step. Slim sizes down. Baggy or
+          oversized sizes up. Regular changes nothing. The reason line on the
+          card names the preference that moved it, so the suggestion is never a
+          silent magic number.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">What you see after</span>
+        <h2>Four labels, four different meanings</h2>
+        <ul>
+          <li><strong>SIZE</strong> — you typed it in Edit. It always wins.</li>
+          <li><strong>AI SIZE</strong> — read from the seller chart against your measurements.</li>
+          <li><strong>AI SIZE</strong> with a question mark — same, but part of your profile was estimated from height and weight.</li>
+          <li><strong>YOUR USUAL</strong> — no chart on this item, so the card falls back to your habit.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <span class="n">Where the numbers live</span>
+        <h2>On your device, and nowhere else</h2>
+        <p>
+          Body measurements stay on the device. They are not part of the synced
+          shelf, they are not in a shared link, and no server function receives
+          them. Turning sync on does not change this.
+        </p>
+        <p>
+          Export the whole shelf as JSON at any time from
+          <strong>Profile → Import &amp; backup</strong>. Erase every device
+          record from <strong>Profile → Erase my data</strong>. The
+          <a href="/privacy/">privacy notice</a> lists each store and how to
+          delete it.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Honest tradeoff</span>
+        <h2>A profile is not a tailor</h2>
+        <p>
+          Credenza reads the chart the seller published. If that chart is wrong,
+          the suggestion inherits the error. Measurements also do not know how a
+          fabric behaves — a rigid canvas and a stretch knit at the same chest
+          number wear differently.
+        </p>
+        <p>
+          A saved profile removes the avoidable mistakes: the guess, the unit
+          mix-up, and the chart you never opened. It does not remove fit risk.
+        </p>
+      </article>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a W2C search engine.
+        You bring the links from communities and stores you already use.
+      </p>
+      <a class="cta" href="/">Open Credenza</a>
+      <p class="related">Related: <a href="/guides/weidian-size-chart/">Weidian size chart</a><a href="/faq/">FAQ on size</a><a href="/privacy/">Privacy</a></p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>
