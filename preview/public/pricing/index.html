@@ -225,6 +225,27 @@
         color: var(--muted);
         font-size: 0.98rem;
       }
+      /* The FAQPage JSON-LD on this page must have a visible counterpart.
+         Google's structured-data policy rejects schema that answers a
+         question the reader cannot see. The copy below is byte-identical to
+         the schema, and `preview/test/pricing.test.js` asserts that. */
+      details {
+        background: var(--card);
+        border: 1px solid var(--line);
+        margin: 0 0 0.65rem;
+        padding: 0.85rem 1rem;
+      }
+      summary {
+        cursor: pointer;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 600;
+        font-size: 0.98rem;
+        list-style: none;
+      }
+      summary::-webkit-details-marker { display: none; }
+      summary::before { content: "+ "; color: var(--money); font-weight: 700; }
+      details[open] summary::before { content: "– "; }
+      details p { margin: 0.65rem 0 0; color: var(--muted); }
       footer {
         color: var(--muted);
         font-size: 0.85rem;
@@ -498,6 +519,25 @@
           never sees your card number.
         </p>
       </article>
+
+
+      <h2 class="faq-h">Common questions</h2>
+        <details>
+          <summary>Is Credenza Fashion free?</summary>
+          <p>Yes. The shelf holds unlimited cards on the free plan, and Buy in your agent is never capped. Pro raises the daily AI limits and a few storage caps.</p>
+        </details>
+        <details>
+          <summary>What does Credenza Fashion Pro cost?</summary>
+          <p>Pro is $4.99 a month, or $39.99 a year. The yearly plan saves 33% and works out at $3.33 a month.</p>
+        </details>
+        <details>
+          <summary>Does Credenza buy the item for me?</summary>
+          <p>No. Credenza is the decision layer before the agent click. You pay your own shopping agent — Superbuy, Sugargoo, Kakobuy, or another. Credenza never handles the purchase.</p>
+        </details>
+        <details>
+          <summary>Can I cancel Credenza Fashion Pro?</summary>
+          <p>Yes. Cancel at any time from the Stripe customer portal in the app. Your shelf and every card stay on your device after Pro ends.</p>
+        </details>
 
       <p class="note">
         Credenza is a decision layer, not a marketplace and not a shopping agent.
