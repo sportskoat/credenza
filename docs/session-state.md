@@ -75,10 +75,164 @@ files ever disagree, this file wins.
 
 ---
 
-**Last updated:** 2026-07-26 (**BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
+**Last updated:** 2026-07-27 (**ROUTING + HEADER + SAMPLE SHELF — `5928358`, pushed, NOT deployed.** Three faults Kyle reported in one message, all fixed: every public address served the app instead of its page (dev server only; production was fine) — `preview/vite.config.js` now resolves the folder before the SPA fallback and binds `127.0.0.1` instead of IPv6 loopback; the masthead nav sat 54.9px right of centre — an equal `flex: 1 1 0` on both outer children puts it at 0.0px, measured by `preview/scripts/probe-masthead-center.mjs`; the 18-card sample shelf is deleted, generator and all, plus a silent one-time purge for devices that already hold the cards. Five new routing tests, five mutation probes all caught. 977 internal links checked, zero dead. Gate 2,114 tests / 66 files. **Two rules for every agent: LB-65 a 200 is not a page — probe the `<title>`, and a rule a comment can satisfy is not a rule; LB-66 deleting a generator does not clear data it already wrote.** See the 2026-07-27 section below. Prior: **BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
+
+## 2026-07-27 — Routing fix, header centring, sample shelf deleted (`5928358`, NOT deployed)
+
+Kyle reported three faults in one message and asked to stop for review.
+All three are fixed, committed and pushed. Read this before you touch
+`preview/vite.config.js`, the masthead CSS, or anything named `sample`.
+
+### Fault 1 — every address showed the app (LB-65)
+
+Kyle: "every single page takes you here, these are not routed right."
+
+**Cause.** A static host answers `/contact/` with
+`public/contact/index.html`. The Vite dev server does not. It fell
+through to the SPA fallback, so all twelve public addresses rendered
+the app. Production was never broken this way — Netlify resolves
+folder addresses itself, which is why live `/faq/` and `/landing/`
+always worked.
+
+**Fix.** `preview/vite.config.js`, inside
+`fashionEntryPlugin().configureServer`. A middleware resolves the
+folder before the fallback runs. Three details carry weight:
+
+- `path.length > 1` keeps the bare root `/` on the app.
+- `existsSync(candidate)` means a genuinely wrong address still
+  reaches the fallback, not a blank error.
+- The query string is stripped first, or `/faq/?ref=x` misses.
+
+**Second fix in the same file.** The dev server bound IPv6 loopback
+(`[::1]:5173`) only. `curl 127.0.0.1:5173` was refused;
+`curl localhost:5173` worked. The server block now sets
+`host: "127.0.0.1"`. **Do not change this to `host: true`** — that
+publishes the dev server to every machine on the network. A test
+forbids it.
+
+**THE RULE THIS TEACHES — LB-65: a 200 is not a page.** In an earlier
+turn I curled ten addresses, saw HTTP 200 on all ten, and told Kyle
+every page worked. The fallback answers 200 for any address. Kyle
+found the fault I had just declared absent. **Probe the title, never
+the status code:**
+
+```bash
+curl -s "http://localhost:5173/contact/" | grep -o "<title>[^<]*</title>"
+```
+
+**LB-65 corollary — a rule a comment can satisfy is not a rule.** A
+mutation probe deleted `host: "127.0.0.1"` and all tests still passed.
+The whole-file regex had matched the **explanatory comment above the
+setting**, not the setting. The test now reads the `server: {` line
+specifically. Every whole-file grep in this suite is exposed to the
+same flaw, because this codebase comments heavily and comments quote
+the code they explain. Ask of any check you write: **could this still
+pass if the feature were deleted?**
+
+### Fault 2 — the masthead nav was not centred
+
+Kyle, with a screenshot: "header here is not centered and doesn't look
+right."
+
+**Cause.** `.cz-masthead` uses `justify-content: space-between`, which
+divides only the LEFTOVER room evenly. A ~190px brand on the left and
+a single 44px avatar on the right pushed the link row right of the
+true middle. Measured: **54.9px off** at 1440, 1280 and 1024.
+
+**Fix.** `credenza-fashion.css`. `.cz-mast-nav` changed
+`flex: 0 1 auto` → `flex: 0 0 auto`, plus a new block giving the two
+outer children an equal `flex: 1 1 0`, scoped to `min-width: 768px`
+and `:not(.is-compact)` (the phone masthead hides the nav). Measured
+after: **0.0px** at all three widths.
+
+**The base rule lives inline in JSX, not in CSS** —
+`credenza-fashion.jsx:3384` holds the `.cz-masthead` display rule.
+Look there first if the layout moves.
+
+**Probe:** `preview/scripts/probe-masthead-center.mjs`. Playwright /
+webkit, three widths, prints the offset and PASS/FAIL. Needs the dev
+server up on `127.0.0.1:5173`. Run it after any masthead change.
+
+### Fault 3 — the sample shelf is deleted (LB-66)
+
+Kyle, twice: "let's take out the sample shelf for now" and "this is a
+very old credenza app, this content needs to be deleted."
+
+**Deleted:** `SAMPLE_COUNT`, `buildSampleItems()` (243 lines),
+`clearSamples` (32 lines), `addSamples`, the "Clear sample shelf"
+button, the ImportSheet sample card (30 lines) with its
+`onAddSamples` / `onClearSamples` / `hasSamples` props at both call
+sites, and 67 orphaned `.cz-import-sample*` CSS lines.
+
+`sheets/ImportSheet.jsx` signature is now:
+
+```js
+export default function ImportSheet({ items, onImport, onClose, onExport,
+  onExportCsv, onClearShelf, onRestore, isPro = false, embedded = false })
+```
+
+The empty-hero button changed from "Put it on my shelf" (which loaded
+18 demo cards) to "Paste your first link" (which focuses the paste
+field).
+
+**THE RULE THIS TEACHES — LB-66: deleting a generator does not clear
+data it already wrote.** Kyle's device still held 19 sample cards in
+local storage after every line of generator code was gone. A stale
+demo shelf reads as the real product. `credenza-fashion.jsx` now runs
+a silent one-time purge, gated on `preferencesHydrated` and a ref, and
+filtered on `item.sourceImport === "sample"`. It is deliberately
+silent — nobody asked for it, so a toast offering Undo would only
+invite them to put the demo back.
+
+### Guards added
+
+`preview/test/public-site.test.js`, a new `describe("dev server
+routing")` block, five tests:
+
+1. the folder-resolving rewrite exists in `vite.config.js`
+2. it runs inside `configureServer`, before the fallback
+3. the bare root still goes to the app
+4. the server line binds `127.0.0.1` and not `true`
+5. every `href="/…/"` in every page nav has an `index.html` on disk
+
+**Test 2 has a trap.** `swPrecache()` also declares `closeBundle()`
+and sits ABOVE `fashionEntryPlugin()` in the file. Slicing from index
+0 finds the wrong copy and yields an empty block. Search forward from
+the `configureServer` index.
+
+**Mutation probes: five run, all five caught** (one only after the
+comment fix above). Restores used `cp` from `/tmp/` and were verified
+with `md5 -q`. **`git checkout --` is never used in this repo** — a
+prior session destroyed real uncommitted work that way.
+
+### Link check
+
+`node /tmp/linkcheck.js` walked all 32 public pages: **977 links, 35
+distinct addresses, zero dead.** Every folder address has an
+`index.html`; `/` is the app; `/llms.txt` and `/icon-192.png` are
+files.
+
+### State
+
+- Gate: **2,114 tests / 66 files pass** (was 2,109). Lint: **5
+  warnings, 0 errors** — baseline, unchanged.
+- Commit `5928358` on `main`, pushed. Working tree clean.
+- **NOT deployed.** Kyle ships.
+- **`/contact/` and `/pricing/` are missing from the live site.** They
+  exist in the repo and have never been deployed. Kyle's next deploy
+  closes this. It is a shipping gap, not a routing bug.
+
+### Talking to Kyle
+
+Standing instruction, his words: "CAN YOU POINT ME TO SPECIFIC PAGES
+YOU ARE ACTUALLY WORKING ON … DUMB IT DOWN". In practice: name a page
+by its human name AND its full address ("the Contact page at
+credenzafashion.com/contact"), never as a bare path. Drop internal
+vocabulary — no "cache", "404", "edge", "database row", "SPA
+fallback".
 
 ## 2026-07-26 — Hero 2A, onboarding 3B, sign-in fix, pricing checklist — DEPLOYED
 

@@ -61,6 +61,47 @@ do it completely, and report against its acceptance criteria.
 
 ---
 
+## Verification rules — read before you write a test
+
+Each rule below is the generalisation of a real finding in this file. Each
+one was learned from a check that passed while the thing it checked was
+broken. The full story sits under the matching `### LB-nn` heading.
+
+**The one question that finds the next one: could this check still pass if
+the feature were deleted?** If yes, the check measures the wrong thing, no
+matter how green it is.
+
+| Rule | In one line |
+| --- | --- |
+| LB-51 | Count pages, not files. |
+| LB-52 | A mention is not an explanation. |
+| LB-55 | Strip the chrome before you count words. |
+| LB-57 | Read the sentence, not the keyword. |
+| LB-58 | Verify the promise against the code that keeps it. |
+| LB-59 | The promise need not be written down to be a promise. |
+| LB-60 | A true promise can hide a defect beside it. |
+| LB-61 | Assert the consequence, never the storage. |
+| LB-62 | A delete that does not reach the cache is not a delete. |
+| LB-63 | A promise that is true still needs a page. |
+| LB-64 | A rule that binds a number is blind to a sentence that has none. |
+| LB-65 | A 200 is not a page. And a rule a comment can satisfy is not a rule. |
+| LB-66 | Deleting a generator does not clear data it already wrote. |
+| LB-67 | A visual complaint deserves a number. |
+
+Three of these carry a concrete habit. Follow them literally:
+
+1. **Never prove a page exists with a status code.** Probe the `<title>`,
+   or check the file on disk with `scripts/check-internal-links.mjs`.
+2. **Never grep a whole file for a setting.** This codebase comments
+   heavily, and comments quote the code they explain. A whole-file search
+   matches the comment and passes after the setting is deleted. Read the
+   line.
+3. **Always run a revert probe.** A passing measurement proves the fault is
+   absent. It does not prove your change is what removed it. Revert the
+   change, measure again, and confirm the fault returns.
+
+---
+
 ## Status board
 
 | ID | Task | Priority | Est. | Depends on | Status |
@@ -131,9 +172,28 @@ do it completely, and report against its acceptance criteria.
 | LB-64 | Stop the About page contradicting the price page | P0 | 2 h | LB-63 | DONE 2026-07-27 — `/landing/` is the page the nav sends a stranger to first, and it ended its pitch with “Free while it’s in beta”, a sentence written before `netlify/functions/checkout.js` existed and false the day it shipped; the same page never mentioned Pro AT ALL, so a reader learned the product was free and left; added a `#cost` section (Free / Pro / If Pro ends) linking `/pricing/` and `/guides/what-happens-when-pro-ends/`, replaced the beta line with “Free to start… Pro is $4.99 a month”, and corrected “8 from the album” to “8 from the listing” on a Weidian mock (album is the Yupoo word); new rule in `plan-limits.test.js` greps every page for beta/early-access/waitlist/coming-soon and for free-forever, guarded by an assertion that checkout.js still creates a Stripe session; four mutation probes |
 | LB-65 | Every page address must serve its own page | P0 | 2 h | — | DONE 2026-07-27 — Kyle, with a screenshot of localhost:5173/contact/ rendering the app: “every single page takes you here, these are not routed right”; an hour earlier I had reported all ten addresses working on the strength of HTTP 200, and Vite answers 200 for ANY unmatched path via the SPA fallback, so a 200 proved only that something answered; added a directory-resolving middleware to `vite.config.js` that rewrites `/x/` to `public/x/index.html` when that file exists, ahead of the fallback, and bound the dev server to 127.0.0.1 (it had bound IPv6 `[::1]` only, so Kyle's earlier ERR_CONNECTION_REFUSED was a second, separate fault); new `dev server routing` block in `public-site.test.js`, five mutation probes; production was NOT broken the same way — `/faq/` and `/landing/` serve correctly live, while `/contact/` and `/pricing/` return Page not found because they have never been deployed |
 | LB-66 | Delete the sample shelf | P1 | 1 h | LB-65 | DONE 2026-07-27 — Kyle, second request: “this is a very old credenza app, this content needs to be deleted”; removed `buildSampleItems` (243 lines of demo cards), `SAMPLE_COUNT`, `clearSamples`, the ImportSheet sample card, and the “Clear sample shelf” button; the empty-shelf action “Put it on my shelf” loaded 18 demo cards and now focuses the paste field instead, reading “Paste your first link”; a device that already holds sample cards sweeps them off once after hydration, silently — a toast offering Undo would only invite the demo back |
+| LB-67 | Centre the masthead nav | P1 | 1 h | — | DONE 2026-07-27 — Kyle, with a screenshot: “header here is not centered and doesn’t look right”; `.cz-masthead` uses `justify-content: space-between`, which divides only the LEFTOVER room, so a ~190px brand on the left and a single 44px avatar on the right pushed the link row 54.9px right of the true middle at 1440, 1280 and 1024; giving the two outer children an equal `flex: 1 1 0` makes them claim equal width and puts the nav on the real centre line, scoped to `min-width: 768px` and `:not(.is-compact)` because the phone masthead hides the nav; `preview/scripts/probe-masthead-center.mjs` measures 0.0px at all three widths, and a revert probe measured 54.9px, which proves the rule is load-bearing |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
+
+### Verification tools an agent can run
+
+Run these from `preview/`. Each one answers a question a passing test
+suite does not.
+
+| Script | Answers | Needs a server |
+| --- | --- | --- |
+| `node scripts/check-internal-links.mjs` | Does every internal link have a real page file behind it? Exits 1 on any dead address. | no |
+| `node scripts/probe-masthead-center.mjs` | Is the masthead nav on the true centre line at 1440 / 1280 / 1024? | yes, on `127.0.0.1:5173` |
+
+**Do not substitute `curl` for the link check.** The dev server answers
+HTTP 200 for an address with no page (LB-65). A status code proves only
+that something answered. If you must probe over HTTP, read the title:
+
+```bash
+curl -s "http://localhost:5173/contact/" | grep -o "<title>[^<]*</title>"
+```
 
 ---
 
@@ -4725,3 +4785,70 @@ line above. A one-time sweep after hydration removes anything carrying
 It is silent on purpose. The obvious version notifies with an **Undo**, and
 Undo here means "put the demo content back" — offering it would undo the thing
 he asked for twice.
+
+---
+
+### LB-67 — the header was 54.9px off centre
+
+Kyle, with a screenshot of the app masthead: **"header here is not centered
+and doesn't look right."**
+
+He was right, and the amount is measurable: **54.9px** to the right of the
+true middle, identical at 1440, 1280 and 1024.
+
+#### Why `space-between` does not centre anything
+
+`.cz-masthead` is a flex row with three children — the brand, the nav, the
+actions — under `justify-content: space-between`. That rule is widely read as
+"put the middle child in the middle". It does not do that. It divides the
+**leftover** room evenly between the gaps.
+
+The middle child lands in the middle only when the two outer children are the
+same width. Here the brand is about 190px and the actions column is a single
+44px avatar. The 146px difference lands entirely on the nav, which is why the
+offset was the same at every width: it does not scale with the viewport, it
+equals half the imbalance between the two ends.
+
+#### The fix
+
+Give the two outer children an equal flex basis of zero:
+
+```css
+@media (min-width: 768px) {
+  .cz-masthead:not(.is-compact) .cz-brand,
+  .cz-masthead:not(.is-compact) .cz-masthead-actions {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+```
+
+Both ends now claim equal width regardless of their content, so the middle
+child sits on the real centre line. `.cz-mast-nav` also changed from
+`flex: 0 1 auto` to `flex: 0 0 auto`, so the link row keeps its intrinsic
+width instead of being squeezed by the two ends that now want to grow.
+
+The media query matters. The phone masthead hides the nav entirely, so
+below 768px there is no middle child and the rule would only distort the
+two remaining ones. `:not(.is-compact)` excludes the shrunken scroll state
+for the same reason.
+
+#### The measurement is the finding
+
+A screenshot shows that something is off. It does not show by how much, and
+"looks centred now" is the same sentence before and after a fix that moved
+nothing. `preview/scripts/probe-masthead-center.mjs` reads
+`getBoundingClientRect()` for both the masthead and the nav at three widths
+and prints the difference between their centres.
+
+Before: `54.9px`. After: `0.0px`.
+
+Then the probe was run a third time, with the fix reverted, and it printed
+`54.9px` again. That third run is the one that carries weight. Without it,
+a `0.0px` reading proves the nav is centred but not that this CSS is what
+centres it — the rule could be inert and the layout centred by something
+else. A revert that restores the fault proves the rule is load-bearing.
+
+**LB-67: a visual complaint deserves a number.** Not because the number is
+more true than the eye, but because the eye cannot compare a page against
+the same page twenty minutes ago, and a number can.
