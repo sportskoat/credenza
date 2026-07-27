@@ -49,6 +49,15 @@ export default function SettingsSheet({
       onBack={onBack}
     >
       <div className="cz-settings">
+        {/* Kyle 2026-07-27: "different options cleaner … the card that pops up
+            with all the settings is just a little bit too bland."
+
+            Six identical rows in one undifferentiated column. Account and
+            Theme have nothing to do with each other, and the three fit rows
+            belong together. They are now three named groups on their own card
+            surfaces, the same shape the Profile sheet uses. */}
+        <div className="cz-settings-label">Account</div>
+        <div className="cz-settings-group">
         <button type="button" className="cz-settings-row" onClick={onOpenAccount}>
           <span className="cz-settings-row-label">Account</span>
           <span className="cz-settings-row-val">
@@ -56,6 +65,9 @@ export default function SettingsSheet({
             <span className="cz-settings-row-chev" aria-hidden="true">›</span>
           </span>
         </button>
+        </div>
+        <div className="cz-settings-label">Look</div>
+        <div className="cz-settings-group">
         {/* Two themes only, so the row toggles instead of opening a picker.
             aria-label carries the destination — the visible value is the
             current theme, which a screen reader alone reads as ambiguous. */}
@@ -71,6 +83,9 @@ export default function SettingsSheet({
             <span className="cz-settings-row-chev" aria-hidden="true">›</span>
           </span>
         </button>
+        </div>
+        <div className="cz-settings-label">Fit</div>
+        <div className="cz-settings-group">
         <button type="button" className="cz-settings-row" onClick={onOpenSizes}>
           <span className="cz-settings-row-label">Your sizes</span>
           <span className="cz-settings-row-val">
@@ -102,6 +117,7 @@ export default function SettingsSheet({
             </span>
           </button>
         ) : null}
+        </div>
       </div>
     </ModalShell>
   );

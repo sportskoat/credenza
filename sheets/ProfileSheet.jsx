@@ -252,9 +252,18 @@ export default function ProfileSheet({
           {error && <div className="cz-profile-signin-error" role="alert">{error}</div>}
         </div>
         )}
+        {/* Kyle 2026-07-27: "different options cleaner … It's too clunky the
+            way it is right now with how everything is set up."
+
+            Every row below used to be one flat run of hairlines from Theme all
+            the way to Erase my data — eleven of them, no grouping, so finding
+            "Primary currency" meant reading the whole list. They now sit in
+            named groups, one card each: Look, Shelf, Data, Learn. The section
+            label was already in the file (.cz-profile-label, used twice); this
+            just uses it everywhere it was needed. */}
         {full ? (
         <>
-        <div className="cz-profile-label">Theme</div>
+        <div className="cz-profile-label">Look &amp; fit</div>
         <div className="cz-profile-themes">
           {themes.map(([id, label, swatch, swatchBorder]) => {
             const active = mode === id;
@@ -279,6 +288,7 @@ export default function ProfileSheet({
             );
           })}
         </div>
+        <div className="cz-profile-group">
         <button type="button" className="cz-profile-row" onClick={onOpenSizes}>
           <span>Your sizes</span>
           <span className="cz-profile-row-val">Body profile ›</span>
@@ -287,8 +297,11 @@ export default function ProfileSheet({
           <span>Fit preferences</span>
           <span className="cz-profile-row-val">Length & looseness ›</span>
         </button>
+        </div>
         </>
         ) : null}
+        <div className="cz-profile-label">Your shelf</div>
+        <div className="cz-profile-group">
         <button type="button" className="cz-profile-row" onClick={onOpenAgent}>
           <span>Default agent</span>
           <span className="cz-profile-row-val">{agentLabel} ›</span>
@@ -325,6 +338,9 @@ export default function ProfileSheet({
         </div>
         </>
         ) : null}
+        </div>
+        <div className="cz-profile-label">Your data</div>
+        <div className="cz-profile-group">
         <button type="button" className="cz-profile-row" onClick={onOpenImport}>
           <span>Import &amp; backup</span>
           <span className="cz-profile-row-val">›</span>
@@ -350,6 +366,11 @@ export default function ProfileSheet({
             {storageLabel}
           </span>
         </div>
+        <button type="button" className="cz-profile-row cz-profile-danger" onClick={onEraseData}>
+          <span>Erase my data</span>
+          <span className="cz-profile-row-val">Deletes everything ›</span>
+        </button>
+        </div>
         {/* LB-50. The site had twenty-one pages and the app linked to three of
             them. Every static page carries the full nav; the app carried
             Privacy, Terms, and a mailto. So a person inside the product could
@@ -361,6 +382,7 @@ export default function ProfileSheet({
             a new tab. A same-tab jump would drop an unsaved sheet and make Back
             the only way home. */}
         <div className="cz-profile-label">Learn</div>
+        <div className="cz-profile-group">
         {SITE_LINKS.map(([href, label, val]) => (
           <a
             key={href}
@@ -373,6 +395,7 @@ export default function ProfileSheet({
             <span className="cz-profile-row-val">{val} ↗</span>
           </a>
         ))}
+        </div>
         <div className="cz-profile-legal">
           <a className="cz-profile-legal-link" href="/privacy/" target="_blank" rel="noreferrer">
             Privacy
@@ -384,10 +407,6 @@ export default function ProfileSheet({
             Email us
           </a>
         </div>
-        <button type="button" className="cz-profile-row cz-profile-danger" onClick={onEraseData}>
-          <span>Erase my data</span>
-          <span className="cz-profile-row-val">Deletes everything ›</span>
-        </button>
       </div>
     </ModalShell>
   );

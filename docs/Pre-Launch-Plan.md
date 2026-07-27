@@ -89,6 +89,7 @@ matter how green it is.
 | LB-67 | A visual complaint deserves a number. |
 | LB-68 | One button must not hold two behaviours. |
 | LB-69 | One value, spelled many ways, is many values. |
+| LB-70 | A list is not a menu until something groups it. |
 
 Three of these carry a concrete habit. Follow them literally:
 
@@ -177,6 +178,7 @@ Three of these carry a concrete habit. Follow them literally:
 | LB-67 | Centre the masthead nav | P1 | 1 h | — | DONE 2026-07-27 — Kyle, with a screenshot: “header here is not centered and doesn’t look right”; `.cz-masthead` uses `justify-content: space-between`, which divides only the LEFTOVER room, so a ~190px brand on the left and a single 44px avatar on the right pushed the link row 54.9px right of the true middle at 1440, 1280 and 1024; giving the two outer children an equal `flex: 1 1 0` makes them claim equal width and puts the nav on the real centre line, scoped to `min-width: 768px` and `:not(.is-compact)` because the phone masthead hides the nav; `preview/scripts/probe-masthead-center.mjs` measures 0.0px at all three widths, and a revert probe measured 54.9px, which proves the rule is load-bearing |
 | LB-68 | The Stash button must open the Stash sheet everywhere | P1 | 1 h | — | DONE 2026-07-27 `35ed812` — Kyle: “The stash button just copies your clipboard in, but realistically, I think when you hit the stash button, it should pull up the stash to shelf, how it is in the mobile”; `heroStash` branched `if (isPhone) setCaptureSheetOpen(true); else stashClipboard();` and the sheet itself was gated `{isPhone && captureSheetOpen}`, so one button had two behaviours and the desktop one read `navigator.clipboard` and stashed a card the user had never seen; the sheet now renders on every screen — `ModalShell` already draws a centred dialog on desktop and a bottom sheet only under `(max-width: 767px) and (pointer: coarse)`, so no new surface was needed, and `CaptureSheet`'s textarea already calls `stopPropagation` on keydown, which retires the old KM-03 keystroke-sink objection; a deliberate ⌘V still stashes straight to the shelf on desktop, because the user chose that text and the toast carries the Undo; two tests run with NO phone media match and assert the sheet is on screen and `readText` was NOT called; revert probe re-added `isPhone &&` and the first test failed |
 | LB-69 | One type token set for the whole site | P1 | 2 h | — | DONE 2026-07-27 — Kyle: “Can we make some font standardizations for the entire website? … I want it to be the fonts that the Credenza fashion logo is made out of”; the logo is made of two families — a Georgia serif C and the UI sans word — but the site spelled those two families TEN different ways across `credenza.css`, `credenza-fashion.css`, `credenza-fashion.jsx` and 33 public HTML pages, each with a different fallback order or quote style, so the type could drift from the logo silently and did; added `--cz-display` / `--cz-sans` / `--cz-mono` to the first `:root` in `credenza.css` as the one place a stack is written, rewrote all 77 declarations in `credenza-fashion.css` and all 260 across the public pages to those tokens (each public page carries its own chrome and shares no stylesheet, so each got its own copy of the three definitions), retired `landing/index.html`'s private `--serif`/`--sans`/`--mono`, and pointed the exported `FONT`/`DISPLAY` constants at `var(--cz-sans)`/`var(--cz-display)` so the JSX and the CSS cannot drift; `test/type-tokens.test.js` strips comments first and asserts on declaration VALUES, so a comment cannot satisfy it; revert probe reintroduced one literal stack in each of the CSS and a public page, and both failed |
+| LB-70 | Group the profile, settings and measurement rows | P1 | 3 h | LB-69 | DONE 2026-07-27 — Kyle: “make the navigation and profile setting experience much better, make it cleaner, profile sign in cleaner, different options cleaner … It’s too clunky the way it is right now with how everything is set up. I think the measurements could use a little bit of a bigger, better thing. Maybe the card that pops up with all the settings is just a little bit too bland”; the Profile sheet was eleven identical rows in one flat run of hairlines from Theme to Erase my data with two section labels stranded mid-list, the Settings sheet was six more, and the measurements sheet was eight identical 14px boxes in one grid with the unit repeated inside every label (“Chest (in)”); grouped the Profile rows into four labelled cards (Look & fit, Your shelf, Your data, Learn) and the Settings rows into three (Account, Look, Fit), each group a real surface with a hairline border and no trailing rule, and gave the rows the hover state they never had; moved “Erase my data” out of its orphaned position under the legal links into the Your data group beside Import & backup and Storage; rebuilt the measurements sheet on a purpose-built `Measure` control at 20px with the unit set inside the box against the right edge, so the label is the body part alone, grouped the eight into You / Upper body / Lower body with a one-line reason per group, and added a “N of 8 filled in” count; `test/settings-grouping.test.jsx` (12 cases) asserts on the rendered consequence — the heading text, that every row resolves to a group container, and the declared font-size and min-height read out of the stylesheet with comments stripped first (LB-65); revert probe removed the group class from both sheets, dropped the card background, and shrank the input back to 14px/38px, and each mutation failed the suite naming the row and the rule
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -4941,3 +4943,56 @@ the test named both files and both values.
 **LB-69: one value, spelled many ways, is many values.** A constant is not
 created by everyone agreeing on it. It is created by there being one place to
 write it down, and a test that fails on the second place.
+
+### LB-70 — twenty-five rows and no menu
+
+Kyle: “make the navigation and profile setting experience much better, make it
+cleaner, profile sign in cleaner, different options cleaner … It’s too clunky
+the way it is right now with how everything is set up. I think the measurements
+could use a little bit of a bigger, better thing. Maybe the card that pops up
+with all the settings is just a little bit too bland.”
+
+Three sheets, one fault. The Profile sheet ran eleven rows in a single column
+of hairlines, from Theme all the way down to Erase my data, with two section
+labels stranded in the middle of the run where they read as rows themselves.
+The Settings sheet ran six more the same way. The measurements sheet put eight
+identical boxes in one grid at 14px, each label carrying its own copy of the
+unit — “Chest (in)”, “Waist (in)”, eight times.
+
+Every one of those rows was correct on its own. None of them was findable. A
+person looking for Primary currency had to read the whole list, because nothing
+in the layout said where currency would live. That is the difference between a
+list and a menu: a list is ordered, a menu is grouped, and only the second one
+lets you skip the parts that are not your question.
+
+The fix was to name the groups and give each one a surface. Profile became
+Look & fit, Your shelf, Your data, Learn. Settings became Account, Look, Fit.
+Erase my data moved out of its orphaned spot beneath the legal links and into
+Your data, next to the backup it undoes — a destructive control belongs beside
+the thing it destroys, not alone at the bottom where it reads as an afterthought.
+The rows also gained a hover state, which they had never had; that absence is
+most of why the sheet felt inert under the pointer.
+
+The measurements sheet got its own control rather than a bigger shared `Field`,
+because raising `Field` would have resized every form in the app. The unit moved
+out of the label and inside the box against the right edge, so the label is the
+body part alone. The input is 20px, which is large enough to check a typed
+number at arm’s length with a tape measure in your other hand, and clears the
+16px threshold below which iOS zooms the page on focus. The eight are grouped
+the way you take them — You, Upper body, Lower body — each group stating in one
+line why Credenza wants those numbers, because “why do you need my hip” is the
+question that stops people halfway down a form. A count above the first group
+says how many of the eight are filled in.
+
+The test asserts on what a person sees: the heading text in order, that every
+rendered row resolves to a group container, and the declared font-size and
+min-height read out of the stylesheet with comments stripped first, since this
+codebase quotes its own code in its comments and a whole-file search would match
+the explanation and keep passing after the rule was deleted (LB-65). The revert
+probe removed the group class from both sheets, dropped the card background, and
+shrank the input back to 14px — each mutation failed the suite, naming the row
+and the rule.
+
+**LB-70: a list is not a menu until something groups it.** Rows that are each
+correct can still add up to a screen nobody can read. The unit of design is not
+the row. It is the group the row sits in, and the name over the group.

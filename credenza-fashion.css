@@ -5916,6 +5916,60 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   cursor: pointer;
   text-align: left;
 }
+
+/* ── Grouped option rows (LB-70) ───────────────────────────────────────────
+   Kyle 2026-07-27: "different options cleaner … Maybe the card that pops up
+   with all the settings is just a little bit too bland."
+
+   The rows were eleven hairlines in a single column, edge to edge, with two
+   section labels in the middle of them. Nothing bounded a group, so the sheet
+   read as one long list and the labels looked like rows themselves.
+
+   A group is now a card: one surface, one border, rows inside it, and no
+   hairline under the last one. The section label sits above the card, so it
+   reads as a heading rather than another line item.
+
+   The card is a new class rather than a change to .cz-profile-row, because the
+   share sheet copies this sheet's row language on purpose (see the note on
+   .cz-share). Restyling the row itself would have moved that sheet too. Scoped
+   this way it is untouched. */
+.cz-profile-group {
+  margin-bottom: 4px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 18px;
+  background: var(--cz-card-solid);
+  overflow: hidden;
+}
+
+.cz-profile-group .cz-profile-row {
+  padding: 15px 0;
+  min-height: 54px;
+}
+
+/* No trailing hairline against the card's own border. */
+.cz-profile-group > .cz-profile-row:last-child,
+.cz-profile-group > *:last-child .cz-profile-row {
+  border-bottom: 0;
+}
+
+/* A row is a target, so it should answer the pointer. The rows had no hover
+   state at all, which is most of why the sheet felt inert. */
+.cz-profile-group .cz-profile-row:not(.is-static):hover {
+  background: color-mix(in srgb, var(--cz-ink) 5%, transparent);
+  margin: 0 -14px;
+  padding-left: 14px;
+  padding-right: 14px;
+  width: calc(100% + 28px);
+}
+
+/* The label stops being a row in the list and becomes a heading over the card
+   below it. Slightly stronger than the old value because it now carries the
+   weight of separating two surfaces. */
+.cz-profile-group + .cz-profile-label,
+.cz-profile-signin + .cz-profile-label {
+  margin-top: 20px;
+}
 .cz-profile-row.is-static {
   cursor: default;
 }
@@ -5964,6 +6018,172 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-profile-danger span:first-child {
   color: var(--cz-heart, #e11d48);
+}
+
+/* ── Your measurements (LB-70) ─────────────────────────────────────────────
+   Kyle 2026-07-27: "I think the measurements could use a little bit of a
+   bigger, better thing."
+
+   What was there: eight identical boxes in one 2-column grid, every label
+   carrying its own "(in)", the input at 14px, the whole sheet styled inline
+   with no class of its own. Nothing told you where to start or when to stop.
+
+   What it is now. The eight measurements are grouped the way you take them —
+   You, then Upper body, then Lower body — and each group states why Credenza
+   wants it. The input is 20px with the unit set inside the box against the
+   right edge, so the label is just the body part. A count above the first
+   group says how many of the eight are filled in.
+
+   20px also clears the 16px threshold below which iOS zooms the page on
+   focus, the same reason .cz-profile-signin-field input is 16px. */
+.cz-measure {
+  padding: 4px 20px 20px;
+}
+
+.cz-measure-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.cz-measure-lead {
+  margin: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-measure-units {
+  flex-shrink: 0;
+  min-width: 116px;
+}
+
+.cz-measure-count {
+  margin: 14px 0 0;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  color: var(--cz-faint);
+}
+
+/* Each group is its own card. The eight boxes used to run together in one
+   grid; a surface per group is what makes "I have finished the upper body"
+   a thing you can see rather than count. */
+.cz-measure-group {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 18px;
+  background: var(--cz-card-solid);
+}
+
+.cz-measure-group-head {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-measure-group-why {
+  margin: 3px 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-measure-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cz-measure-grid-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.cz-measure-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.cz-measure-label {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* The unit rides inside the box. The input is transparent and sits on this
+   wrapper, so the focus ring lands on the whole control and the unit never
+   looks like something you can type over. */
+.cz-measure-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-bg);
+}
+
+.cz-measure-input:focus-within {
+  border-color: var(--cz-ink);
+}
+
+.cz-measure-input input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  min-height: 54px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.cz-measure-input input:focus {
+  outline: none;
+}
+
+.cz-measure-input input::placeholder {
+  color: var(--cz-faint);
+  font-weight: 400;
+}
+
+.cz-measure-unit {
+  flex-shrink: 0;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-measure-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* One column on a phone. Two 54px boxes side by side inside a 16px card
+   leaves each about 120px, which is not enough for a label and a unit. */
+@media (max-width: 460px) {
+  .cz-measure-grid,
+  .cz-measure-grid-3 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Share a haul (LB-8) ───────────────────────────────────────────────────
@@ -8644,6 +8864,42 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* LB-70. The six rows are now three named groups on card surfaces, matching
+   the Profile sheet. See the note on .cz-profile-group for the reasoning.
+
+   The one difference is the group's own background. This sheet already sits on
+   --cz-card-solid (.cz-settings-surface), so a card of the same colour would
+   be invisible; the group drops to --cz-bg to separate from it. The Profile
+   sheet has no solid surface, so its group rises to --cz-card-solid instead.
+   Both directions produce the same result: one step of contrast. */
+.cz-settings-label {
+  margin: 20px 0 8px;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-settings-label:first-child {
+  margin-top: 8px;
+}
+
+.cz-settings-group {
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 18px;
+  background: var(--cz-bg);
+}
+
+.cz-settings-group .cz-settings-row {
+  padding: 8px 0;
+}
+
+.cz-settings-group > .cz-settings-row:last-child {
+  border-bottom: 0;
 }
 
 .cz-settings-row-label {

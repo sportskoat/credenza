@@ -3976,16 +3976,30 @@ export function sizeChartTextFor(item) {
 // US) only changes what the fields show and accept — switching converts the
 // draft in place so nothing typed is lost. Every field optional; the
 // recommender asks for whatever it's missing.
+// Kyle 2026-07-27: "I think the measurements could use a little bit of a
+// bigger, better thing." Eight identical boxes in one undifferentiated grid
+// asked the reader to sort them, and a person filling this in is holding a
+// tape measure in the other hand. The sixth column groups them the way the
+// body does — you measure yourself once, top to bottom, and each group is a
+// place to stop. BODY_MEASURE_GROUPS below sets the order and the headings.
 export const BODY_PROFILE_FIELDS = [
-  // key, label, kind ("length"|"weight"), placeholder cm, placeholder in
-  ["height", "Height", "length", "178", "70"],
-  ["weight", "Weight", "weight", "70", "154"],
-  ["chest", "Chest", "length", "96", "38"],
-  ["shoulder", "Shoulder", "length", "45", "17.7"],
-  ["sleeve", "Arm length", "length", "62", "24.5"],
-  ["waist", "Waist", "length", "80", "31.5"],
-  ["hip", "Hip", "length", "98", "38.5"],
-  ["inseam", "Inseam (leg length)", "length", "81", "32"],
+  // key, label, kind ("length"|"weight"), placeholder cm, placeholder in, group
+  ["height", "Height", "length", "178", "70", "you"],
+  ["weight", "Weight", "weight", "70", "154", "you"],
+  ["chest", "Chest", "length", "96", "38", "top"],
+  ["shoulder", "Shoulder", "length", "45", "17.7", "top"],
+  ["sleeve", "Arm length", "length", "62", "24.5", "top"],
+  ["waist", "Waist", "length", "80", "31.5", "bottom"],
+  ["hip", "Hip", "length", "98", "38.5", "bottom"],
+  ["inseam", "Inseam", "length", "81", "32", "bottom"],
+];
+
+// Heading and one-line reason per group. The reason answers "why does Credenza
+// want this", which is the question that stops people halfway down the form.
+export const BODY_MEASURE_GROUPS = [
+  ["you", "You", "Sets the baseline every chart is read against."],
+  ["top", "Upper body", "Decides the size on tees, shirts, jackets and hoodies."],
+  ["bottom", "Lower body", "Decides the size on trousers, shorts and skirts."],
 ];
 // Size facts live inside SizeRecommendation now — no second "Sizes" bubble.
 

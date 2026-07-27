@@ -1476,3 +1476,65 @@ on the Claude side.
 - Full gate green — lint 0 errors, tsc clean, 59 files / 1031 tests,
   build OK (`ShareSheet` 5.34 kB, `SharedLinksSheet` 2.42 kB).
 - Not deployed. Everything sits on `main` for Kyle's single deploy.
+
+---
+
+## 2026-07-27 — LB-70 profile, settings and measurements grouped (Claude lane)
+
+Kyle: "make the navigation and profile setting experience much better, make
+it cleaner, profile sign in cleaner, different options cleaner … It's too
+clunky the way it is right now with how everything is set up. I think the
+measurements could use a little bit of a bigger, better thing. Maybe the
+card that pops up with all the settings is just a little bit too bland."
+
+What changed, and what an agent must not undo:
+
+- `sheets/ProfileSheet.jsx` — the eleven rows now sit in four
+  `.cz-profile-group` cards under four `.cz-profile-label` headings:
+  **Look & fit, Your shelf, Your data, Learn**. The heading text is
+  asserted in order by the test. Renaming one fails the build.
+- **"Erase my data" moved.** It used to hang alone at the bottom, under
+  the legal links. It is now the last row of the Your data group, beside
+  Import & backup and Storage. Do not move it back.
+- `sheets/SettingsSheet.jsx` — the six rows now sit in three
+  `.cz-settings-group` cards under **Account, Look, Fit**.
+- `.cz-profile-group` uses `--cz-card-solid`; `.cz-settings-group` uses
+  `--cz-bg`. That is deliberate and documented in the stylesheet. The
+  settings sheet already sits on `--cz-card-solid`
+  (`.cz-settings-surface`), so its group must drop to separate; the
+  profile sheet has no solid surface, so its group must rise. Both give
+  one step of contrast. Do not "fix" them to match.
+- The card is a NEW class, not a change to `.cz-profile-row`. The share
+  sheet copies the row language on purpose (see the note on `.cz-share`),
+  so restyling the row itself would have moved that sheet too.
+- `sheets/BodyProfileSheet.jsx` — rewritten on a local `Measure` control.
+  The input is 20px with `min-height: 54px`, and the unit sits INSIDE the
+  box against the right edge, so each label is the body part alone. The
+  old labels read "Chest (in)".
+  - The shared `Field` in `components/atoms.jsx` was deliberately NOT
+    enlarged. Raising it would resize every form in the app.
+  - `BODY_PROFILE_FIELDS` in `credenza-fashion.jsx` gained a **sixth
+    column**, the group key. `BODY_MEASURE_GROUPS` beside it sets the
+    order and the headings: **You, Upper body, Lower body**. Add a
+    measurement by adding a row with a group key; the sheet needs no edit.
+  - `"Inseam (leg length)"` is now `"Inseam"`.
+  - A "N of 8 filled in" count sits above the first group.
+- `test/settings-grouping.test.jsx` — 12 cases. It asserts on rendered
+  consequence, never on a class name alone and never on a comment
+  (LB-65). It reads the declared `font-size` and `min-height` out of
+  `credenza-fashion.css` with comments stripped FIRST, because this repo
+  quotes its own code in its comments.
+  - This repo does not clear the DOM between renders. Every query in that
+    file is scoped with `within(container)`. Unscoped `screen.getByText`
+    fails with "found multiple elements".
+- Revert probe: removed the group class from both sheets, dropped the
+  card background, and shrank the input to 14px/38px. Each mutation
+  failed the suite and named the row and the rule.
+- Full gate green — lint 5 warnings / 0 errors (the known baseline),
+  build OK, 2,132 tests.
+- Not deployed. Sits on `main` for Kyle's single deploy.
+
+**Still open from the same Kyle message:** "I think the cards are a little
+bland. The top is a little bland." That is the shelf cards and the
+masthead, and it is NOT started. **The carousel is frozen — do not touch
+it.**
