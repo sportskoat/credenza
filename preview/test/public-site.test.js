@@ -1234,6 +1234,9 @@ describe("every page tells a machine what kind of page it is", () => {
     // day free, 1,000 on Pro) and says what spends one. Article, like the
     // other two explainers above.
     "guides/what-a-link-resolve-is/index.html": "Article",
+    // A procedure, unlike the explainer above it: type the question, press the
+    // button, read the answer against the cards, fix the card if it misses.
+    "guides/ask-your-own-shelf/index.html": "HowTo",
     "guides/open-weidian-in-agent/index.html": "HowTo",
     "guides/organize-agent-haul/index.html": "HowTo",
     "guides/reddit-haul-to-list/index.html": "HowTo",
@@ -1809,6 +1812,22 @@ describe("a feature the price table sells is explained somewhere else", () => {
       row: "Link resolves",
       needs: ["one link in, one resolve spent", "counts server reads, not items"],
       why: "the row with the widest free/Pro gap on the table was the one unit the site never defined",
+    },
+    // LB-57. Added 2026-07-27. Fourth census, same method as LB-55: strip the
+    // chrome, read the sentence behind every hit. Ask looked well covered at 9
+    // mentions in the LB-51 count. With nav and footer removed it was four
+    // sentences on three pages, and three of the four were limits lists that
+    // name Ask beside chart reads and link resolves. The one real explanation
+    // was a single card on /how/. The price table sells 5 a day against 200.
+    //
+    // Both phrases are the mechanism, not the feature name. "Ask" passes on
+    // any limits list. The first says what the model actually receives — a
+    // slice of your own shelf, not a catalog and not the whole shelf. The
+    // second says what the counter counts, which is the row's whole subject.
+    {
+      row: "Ask",
+      needs: ["the 25 cards closest to your question", "one press of cloud ask is one ask"],
+      why: "the feature with the widest gap after link resolves had one card explaining it",
     },
   ];
 

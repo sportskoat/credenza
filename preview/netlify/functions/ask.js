@@ -12,8 +12,8 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 // client sent seller, batch, size, colorway, agentLink, findSource, findStatus,
 // ageDays and importance, and this function threw all nine away before the
 // model saw them — so "which items are waiting on QC" and "what did I buy from
-// that seller" were unanswerable by construction. test/search.test.js asserts
-// the two lists match, so the next field to be added cannot drift out again.
+// that seller" were unanswerable by construction. test/ask-shelf-fields.test.js
+// asserts the two lists match, so the next field added cannot drift out again.
 const MAX_SHELF_ITEMS = 25;
 const MAX_QUERY_CHARS = 1000;
 const FIELD_LIMITS = {

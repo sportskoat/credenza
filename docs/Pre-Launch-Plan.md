@@ -120,6 +120,8 @@ do it completely, and report against its acceptance criteria.
 | LB-53 | Put the site in the masthead; add the address it was missing (Kyle) | P0 | 2 h | LB-50 | DONE 2026-07-27 (`1973f2c`) — Kyle: "make a header that links to all of our pages here… make a few header pages that link out to pro, contact us, guides, etc."; LB-50 put site links two taps deep in the Profile sheet, so the masthead now carries six, and `/contact/` is a new page because "contact us" had no address behind it |
 | LB-55 | Define the unit the price table sells | P0 | 2 h | LB-52 | DONE 2026-07-27 (`25b53cd`) — a third census, with page chrome stripped, found `Link resolves` mentioned five times outside `/pricing/` and defined zero times; every mention is a number in a limits list. New page `/guides/what-a-link-resolve-is/`, plus a `SOLD` entry keyed on the mechanism |
 | LB-54 | Fix the choppy transitions and the dead scroll (Kyle) | P0 | 3 h | LB-53 | DONE 2026-07-27 (`2208d32`) — Kyle: "the screens are glitchy, half of them don't work in terms of scrolling anymore, or the animations to move from one to the other are very choppy"; two defects, both invisible to the existing suite — see below |
+| LB-56 | Send Ask the fields it is sold on | P0 | 2 h | LB-55 | DONE 2026-07-27 (`e103839`) — `ask.js` called its allowlist a "mirror" of the client serializer and dropped nine fields, so both questions `/how/` advertises were unanswerable by construction; the client now sends one USD price and the function accepts status, price and age, with a prompt field key |
+| LB-57 | Explain the feature the price table sells at 5 against 200 | P0 | 2 h | LB-56 | DONE 2026-07-27 — a fourth census, chrome stripped and every sentence read, found Ask explained by one card on `/how/`; five of the nine hits were the verb ("Ask the chart", "Ask for a refund"); new page `/guides/ask-your-own-shelf/`, plus a `SOLD` entry keyed on the mechanism |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3492,3 +3494,108 @@ to the new page.
 
 **Gate.** 1873 tests pass (64 files, up from 1847 — the new page picks up 26
 per-page rules), 5 lint warnings and 0 errors. Commit `25b53cd`.
+
+### LB-56 — the Ask boundary threw away the fields Ask is sold on
+
+**The claim that was false.** Line 7 of `netlify/functions/ask.js` read "Mirror
+of the client-side serializeAskCandidates bounds". A field-by-field diff of the
+two lists showed it was not a mirror:
+
+```
+DROPPED: seller, batch, size, colorway, agentLink,
+         findSource, findStatus, ageDays, importance
+```
+
+Neither side sent a price at all.
+
+**Why that is a defect and not a preference.** `/how/` advertises Ask with
+exactly two example questions: *"what is still in Want under $40"* and *"which
+items are waiting on QC"*. Both were unanswerable by construction. `findStatus`
+was dropped at the boundary, so nothing on the wire said which stage a card was
+in. No price crossed at all, so "under $40" had nothing to compare. The model
+was asked to filter on fields it never received, and would answer anyway.
+
+`FIELD_LIMITS` is an allowlist. Silence is the correct behaviour for an unknown
+field and the wrong behaviour for a known one, which is why the drift was
+invisible: nothing threw, nothing logged, the answers were merely wrong.
+
+**The fix, in three parts.**
+
+| Part | File | What it does |
+|---|---|---|
+| One USD number per card | `credenza-search-fashion.js` | `askUsd()` converts CNY at the same 0.14 fallback the shelf total uses, and returns `null` for an unknown currency rather than inventing a figure |
+| Accept the nine, plus numbers | `ask.js` | the nine strings join `FIELD_LIMITS`; `NUMBER_FIELDS` clamps `priceUsd` and `ageDays`, because the string clamp returns `undefined` for a number |
+| A field key in the prompt | `ask.js` | `gl` means nothing to a model without a legend; all seven status codes are now spelled out, and the prompt says to treat price, status and age as filters |
+
+**The guard derives both lists from source.** `test/ask-shelf-fields.test.js`
+reads `ask.js` as text, strips its comments, scrapes the three declarations, and
+asserts set equality against the client serializer's real output. One
+allowance is named and explained: `SERVER_ONLY = ["url"]`. Three handler tests
+mock `fetch` and read the outgoing body, so the assertion is what the model
+receives, not what a constant says.
+
+**Mutation probe.** Each of the three parts is separately load-bearing:
+
+| Mutation | Result |
+|---|---|
+| remove the nine fields from `FIELD_LIMITS` | 2 failed / 7 passed |
+| remove the `NUMBER_FIELDS` pass | 2 failed / 7 passed |
+| remove the prompt vocabulary | 1 failed / 8 passed |
+
+**Gate.** 1882 tests pass (65 files), 5 lint warnings and 0 errors. Commit
+`e103839`.
+
+### LB-57 — nine mentions of Ask, one explanation
+
+**Why the census had to be repeated.** LB-51 counted mentions and put Ask at 9,
+comfortably mid-table, so it was never a candidate. LB-52 added that a mention
+is not an explanation. LB-55 added that the count must run against `<main>`
+only. This census adds the fourth correction: **read the sentence.** "Ask" is
+also an ordinary English verb, and the site uses it that way constantly:
+
+```
+guides/choose-an-agent/       "Ask the community for that." / "Ask the chart for your size."
+guides/plan-a-parcel/         "Ask for compression."
+guides/free-agent-haul-planner/  "Ask before you put forty links in."
+support/                      "Ask for a refund"
+```
+
+Five of the nine hits are the verb. Of the rest, `/faq/` and `/privacy/` name
+Ask inside limits and data-processing lists. That leaves **one card on `/how/`**
+as the whole explanation of a feature the price table sells at 5 a day free
+against 200 on Pro — the second-widest gap on the table after link resolves,
+which LB-55 fixed.
+
+**Every number was read from source.** The prior segment's error — stating a
+sync behaviour from memory and being wrong — is the reason this table exists:
+
+| Claim on the page | Source |
+|---|---|
+| 5 asks a day free, 200 on Pro | `lib/entitlements.js` `PLAN_LIMITS` |
+| The counter resets at midnight UTC | `src/usage.js` `DAY_FMT`, `en-CA` in `UTC` |
+| At most 25 cards are sent | `ask.js` `MAX_SHELF_ITEMS` |
+| The question itself is capped at 1,000 characters | `ask.js` `MAX_QUERY_CHARS` |
+| The seven buying stages and their names | `credenza-fashion.jsx` `FIND_STATUS_LONG` |
+| Price is sent as one USD number | `credenza-search-fashion.js` `askUsd` (LB-56) |
+| An ask is one press of the Cloud Ask pill | `credenza-fashion.jsx` — the pill beside the search box |
+
+**What the page says Ask cannot do.** The four failure modes are listed as
+plainly as the features, because a person who does not know the boundary blames
+the answer rather than the card: Ask cannot see a shop it never resolved, cannot
+compare a price it never received, cannot read a QC photo, and cannot search a
+field you left empty. The remedy in every case is to fix the card, not to reword
+the question.
+
+**The `SOLD` entry.** Both bound phrases are the mechanism, in keeping with
+LB-51: `"the 25 cards closest to your question"` says what the model actually
+receives, and `"one press of cloud ask is one ask"` says what the counter
+counts. The feature name alone would pass on any limits list — and, worse than
+in earlier rows, on any page that uses the verb.
+
+**Mutation probe.** Deleting the page fails 11 rules, including
+`Ask is explained on a page that is not /pricing/`, the two `llms` link rules,
+three dangling-href rules, the schema-map completeness rule and the guides-hub
+census.
+
+**Gate.** 1909 tests pass (65 files, up from 1882 — the new page picks up 27
+per-page rules), 5 lint warnings and 0 errors.

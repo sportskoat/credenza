@@ -33,7 +33,7 @@ function clamp(value, max) {
 // Same fallback rate as itemUsdAmount in credenza-fashion.jsx and
 // FX_FALLBACK_USD_PER_CNY in netlify/functions/resolve.js. Duplicated rather
 // than imported because credenza-fashion.jsx imports this module, so an import
-// the other way is a cycle. test/search.test.js pins the three copies equal.
+// the other way is a cycle. test/ask-shelf-fields.test.js pins the three equal.
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 
 // LB-56. Ask is sold as "what is still in Want under $40", and a price the
