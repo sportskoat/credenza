@@ -6,6 +6,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import DetailSheet from "../../sheets/DetailSheet.jsx";
+import {
+  lockBodyScroll,
+  unlockBodyScroll,
+} from "../../components/useBodyScrollLock.js";
 
 const PHOTO = "data:image/png;base64,iVBORw0KGgo=";
 
@@ -202,5 +206,35 @@ describe("DetailSheet overflow menu", () => {
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Make this photo the cover" }));
     expect(onSetCover).toHaveBeenCalledWith("sheet-1", PHOTO_B);
+  });
+});
+
+// 2026-07-27: the sheet shares the reference-counted body scroll lock
+// (components/useBodyScrollLock.js). Closing the sheet must not restore the
+// body while another lock (a modal under or over it) is still held.
+describe("DetailSheet body scroll lock", () => {
+  afterEach(() => {
+    document.body.style.overflow = "";
+  });
+
+  it("locks the body while open and restores the original value on close", () => {
+    document.body.style.overflow = "scroll";
+    const { unmount } = renderSheet(twoBuyLinkItem());
+    expect(document.body.style.overflow).toBe("hidden");
+    unmount();
+    expect(document.body.style.overflow).toBe("scroll");
+  });
+
+  it("does not restore the body while a nested lock remains", () => {
+    document.body.style.overflow = "scroll";
+    lockBodyScroll(); // an outer modal opened first
+    const { unmount } = renderSheet(twoBuyLinkItem());
+    expect(document.body.style.overflow).toBe("hidden");
+
+    unmount();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    unlockBodyScroll();
+    expect(document.body.style.overflow).toBe("scroll");
   });
 });

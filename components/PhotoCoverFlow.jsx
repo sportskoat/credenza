@@ -9,16 +9,22 @@ import {
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 
+function clampIndex(index, length) {
+  if (length <= 0) return 0;
+  return Math.min(Math.max(0, index || 0), length - 1);
+}
+
 export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSetPrimaryImage, onLoadPhotos }) {
-  const [activeIndex, setActiveIndex] = useState(startIndex || 0);
+  const [activeIndex, setActiveIndex] = useState(() => clampIndex(startIndex, (images || []).length));
   const closingRef = useRef(false);
-  const [loadedImages, setLoadedImages] = useState(images);
+  const [loadedImages, setLoadedImages] = useState(() => (Array.isArray(images) ? images : []));
   const [loading, setLoading] = useState(false);
   const reduced = usePrefersReducedMotion();
   const containerRef = useRef(null);
   const closeRef = useRef(null);
   const dialogRef = useRef(null);
   const [cardSize, setCardSize] = useState({ width: 300, height: 400 });
+  const canSetCover = typeof onSetPrimaryImage === "function";
 
   useEffect(() => {
     // Native <dialog>.showModal() puts the gallery in the browser top layer
@@ -40,6 +46,23 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
     };
   }, []);
 
+  // Keep local image state in sync when the parent swaps the item or gallery.
+  useEffect(() => {
+    setLoadedImages(Array.isArray(images) ? images : []);
+  }, [item.id, images]);
+
+  // Re-anchor when the open index or item changes. Clamp against the prop list
+  // so a same-render item swap does not use the previous item's length.
+  useEffect(() => {
+    setActiveIndex(clampIndex(startIndex, (Array.isArray(images) ? images : []).length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- images length only for clamp on item/start
+  }, [item.id, startIndex]);
+
+  // After merges or prop shrinks, keep the active index inside the list.
+  useEffect(() => {
+    setActiveIndex((i) => clampIndex(i, loadedImages.length));
+  }, [loadedImages.length]);
+
   // One close per open. A second click while the parent is still unmounting
   // used to re-enter onClose and fight the teardown.
   const requestClose = useCallback(() => {
@@ -59,20 +82,31 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const load = async () => {
       // RELAY_MAX, not GALLERY_MAX: six relayed photos is a full album fetch,
       // so asking again only makes a round trip that returns the same six.
-      if (!!yupooAlbumUrl(item) && loadedImages.length < RELAY_MAX && onLoadPhotos) {
-        setLoading(true);
-        const imgs = await onLoadPhotos(item, { signal: new AbortController().signal });
-        if (!cancelled) {
-          setLoadedImages((cur) => mergeFashionImages(imgs || [], cur).slice(0, GALLERY_MAX));
-          setLoading(false);
-        }
+      // Use the prop list length so a same-id images refresh still gates
+      // correctly without waiting for the sync effect.
+      const baseLen = Array.isArray(images) ? images.length : 0;
+      if (!yupooAlbumUrl(item) || baseLen >= RELAY_MAX || !onLoadPhotos) return;
+      setLoading(true);
+      try {
+        const imgs = await onLoadPhotos(item, { signal: controller.signal });
+        if (cancelled || controller.signal.aborted) return;
+        setLoadedImages((cur) => mergeFashionImages(imgs || [], cur).slice(0, GALLERY_MAX));
+      } catch {
+        // Abort and network rejection both land here; ignore stale outcomes.
+      } finally {
+        // Always clear loading for this request while it is still current.
+        if (!cancelled) setLoading(false);
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id]);
 
@@ -144,6 +178,12 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
 
   const isDragClick = () => containerRef.current?.dataset.dragging === "true";
 
+  const setCover = () => {
+    if (!canSetCover) return;
+    onSetPrimaryImage(item.id, loadedImages[activeIndex]);
+    requestClose();
+  };
+
   if (loadedImages.length === 0 && !loading) {
     return (
       // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click + Escape close
@@ -166,6 +206,7 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
   }
 
   const multiPhoto = loadedImages.length > 1;
+  const safeIndex = clampIndex(activeIndex, loadedImages.length);
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click + Escape close
@@ -190,9 +231,9 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
         >
           <div className="cz-photo-coverflow-track">
             {loadedImages.map((src, index) => {
-              const offset = index - activeIndex;
+              const offset = index - safeIndex;
               const abs = Math.abs(offset);
-              const isPast = index < activeIndex;
+              const isPast = index < safeIndex;
               const x = offset * (cardSize.width * 0.55);
               const rotateY = offset === 0 ? 0 : isPast ? 35 : -35;
               const scale = 1 - Math.min(abs * 0.08, 0.22);
@@ -222,9 +263,6 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
                   }}
                 >
                   <img src={src} alt={"Album photo " + (index + 1)} draggable={false} loading="lazy" decoding="async" />
-                  {index === activeIndex && (
-                    <div className="cz-photo-coverflow-caption">{item.title}</div>
-                  )}
                 </motion.div>
               );
             })}
@@ -236,7 +274,7 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
                 type="button"
                 className="cz-photo-coverflow-nav cz-photo-coverflow-nav-prev"
                 aria-label="Previous photo"
-                disabled={activeIndex <= 0}
+                disabled={safeIndex <= 0}
                 onClick={(e) => {
                   e.stopPropagation();
                   goPrev();
@@ -248,7 +286,7 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
                 type="button"
                 className="cz-photo-coverflow-nav cz-photo-coverflow-nav-next"
                 aria-label="Next photo"
-                disabled={activeIndex >= loadedImages.length - 1}
+                disabled={safeIndex >= loadedImages.length - 1}
                 onClick={(e) => {
                   e.stopPropagation();
                   goNext();
@@ -259,21 +297,33 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
             </>
           )}
         </motion.div>
+        {/* One caption for the active photo — outside card overflow:hidden. */}
+        {item.title ? (
+          <div
+            className="cz-photo-coverflow-caption"
+            style={{
+              position: "static",
+              bottom: "auto",
+              left: "auto",
+              transform: "none",
+              textAlign: "center",
+              marginTop: 6,
+            }}
+          >
+            {item.title}
+          </div>
+        ) : null}
         <div className="cz-photo-coverflow-controls">
           {multiPhoto && (
             <span className="cz-photo-coverflow-counter" aria-live="polite">
-              {activeIndex + 1} / {loadedImages.length}
+              {safeIndex + 1} / {loadedImages.length}
             </span>
           )}
-          <button
-            className="primary"
-            onClick={() => {
-              onSetPrimaryImage(item.id, loadedImages[activeIndex]);
-              requestClose();
-            }}
-          >
-            Use as cover
-          </button>
+          {canSetCover ? (
+            <button className="primary" onClick={setCover}>
+              Use as cover
+            </button>
+          ) : null}
         </div>
         {loading && <div style={{ color: "var(--cz-sub)", fontSize: 12 }}>Loading album…</div>}
       </div>

@@ -88,7 +88,6 @@ function specChips(view) {
       add: "+ weight",
       value: view.weightGrams ? view.weightGrams + " g" : "",
     },
-    { key: "batch", label: "Batch", add: "+ batch", value: view.batch || "" },
     { key: "project", label: "Haul", add: "+ haul", value: view.project || "" },
   ];
 }
@@ -329,7 +328,9 @@ function SizingBlock({
   units,
   runValues,
   onPickSize,
+  onChooseSize,
   onOpenChart,
+  onOpenSizes,
   reduced,
   // §3: names the seller whose cached chart sized this item. Null on every
   // other path, and the provenance falls back to SELLER'S CHART.
@@ -436,9 +437,15 @@ function SizingBlock({
           </button>
         ) : null}
         <span className="cz-sizing-foot-gap" />
+        <button type="button" className="cz-sizing-full" onClick={onChooseSize}>
+          Choose item size
+        </button>
         <button type="button" className="cz-sizing-full" onClick={onOpenChart}>
-          Full chart
+          View size chart
           <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+        <button type="button" className="cz-sizing-full" onClick={onOpenSizes}>
+          Edit sizes and measurements
         </button>
       </div>
     </section>
@@ -549,7 +556,8 @@ function SizingBlockNoChart({
   albumCount,
   onReadPhotos,
   onOpenAlbum,
-  onOpenChart,
+  onChooseSize,
+  onOpenSizes,
   runValues,
   onPickSize,
 }) {
@@ -643,9 +651,12 @@ function SizingBlockNoChart({
             ))
           : null}
         <span className="cz-sizing-foot-gap" />
-        <button type="button" className="cz-sizing-full" onClick={onOpenChart}>
-          {hasRun ? "My sizes" : "Pick a size"}
+        <button type="button" className="cz-sizing-full" onClick={onChooseSize}>
+          Choose item size
           <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+        <button type="button" className="cz-sizing-full" onClick={onOpenSizes}>
+          Edit sizes and measurements
         </button>
       </div>
     </section>
@@ -1055,6 +1066,91 @@ function FitBlock({
   );
 }
 
+function ItemSizeEditor({ item, runValues, onPickSize, onOpenSizes, onDone }) {
+  const [customSize, setCustomSize] = useState(String(item.size || ""));
+  const choices = chipSizes(runValues, item.size);
+
+  return (
+    <div className="cz-detail-fit" aria-label="Choose item size">
+      <div className="cz-detail-fit-head">
+        <span className="cz-detail-fit-kicker">Choose item size</span>
+      </div>
+      {choices.length ? (
+        <div className="cz-detail-fit-chips">
+          {choices.map((size) => (
+            <button
+              key={size}
+              type="button"
+              className={
+                "cz-detail-fit-chip" +
+                (String(item.size || "").toUpperCase() === String(size).toUpperCase()
+                  ? " is-active"
+                  : "")
+              }
+              onClick={() => onPickSize(String(size))}
+            >
+              {formatSizeToken(size) || size}
+            </button>
+          ))}
+          {item.size ? (
+            <button type="button" className="cz-detail-fit-chip is-ai" onClick={() => onPickSize("")}>
+              Clear item size
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="cz-detail-editor">
+        <span className="cz-detail-editor-label">Custom item size</span>
+        <input
+          ref={focusOnMount}
+          className="cz-detail-editor-input"
+          aria-label="Custom item size"
+          value={customSize}
+          onChange={(event) => setCustomSize(event.target.value)}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") onPickSize(customSize);
+          }}
+        />
+        <button type="button" className="cz-detail-editor-done" onClick={() => onPickSize(customSize)}>
+          Use size
+        </button>
+      </div>
+      <button type="button" className="cz-detail-fit-chip is-alt" onClick={onOpenSizes}>
+        Edit sizes and measurements
+      </button>
+      <button type="button" className="cz-detail-editor-done" onClick={onDone}>
+        Done
+      </button>
+    </div>
+  );
+}
+
+function SellerChartView({ item, chart, units, highlight, onDone }) {
+  return (
+    <div className="cz-detail-fit" aria-label="Seller size chart">
+      <div className="cz-detail-fit-head">
+        <span className="cz-detail-fit-kicker">Seller size chart</span>
+      </div>
+      {chart ? (
+        <>
+          <SizeChartTable chart={chart} units={units} highlight={highlight || undefined} />
+          <p className="cz-detail-fit-source">
+            {item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
+              ? "Cached from " + (item.sizeChartSource.seller || item.seller || "this seller")
+              : "Read from the seller's listing"}
+          </p>
+        </>
+      ) : (
+        <p className="cz-detail-fit-empty">A seller size chart is not available for this item.</p>
+      )}
+      <button type="button" className="cz-detail-editor-done" onClick={onDone}>
+        Done
+      </button>
+    </div>
+  );
+}
+
 // The OVERRIDE row shows the sizes adjacent to the pick (handoff turn 3 §5).
 // A run of six or fewer fits as-is; a longer run windows ±2 around the
 // recommended (or chosen) size so the chips stay one scannable row.
@@ -1292,6 +1388,8 @@ export default function DetailBody({
   // The draft stays null until the first edit. A null draft skips the
   // write-through effect, so opening the surface never fires a phantom save.
   const [draft, setDraft] = useState(null);
+  const draftOwnerRef = useRef(null);
+  const draftItemRef = useRef(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [editingCell, setEditingCell] = useState(null);
   const [editingTitle, setEditingTitle] = useState(false);

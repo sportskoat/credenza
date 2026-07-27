@@ -75,10 +75,48 @@ files ever disagree, this file wins.
 
 ---
 
-**Last updated:** 2026-07-27 (**ROUTING + HEADER + SAMPLE SHELF — `5928358`, pushed, NOT deployed.** Three faults Kyle reported in one message, all fixed: every public address served the app instead of its page (dev server only; production was fine) — `preview/vite.config.js` now resolves the folder before the SPA fallback and binds `127.0.0.1` instead of IPv6 loopback; the masthead nav sat 54.9px right of centre — an equal `flex: 1 1 0` on both outer children puts it at 0.0px, measured by `preview/scripts/probe-masthead-center.mjs`; the 18-card sample shelf is deleted, generator and all, plus a silent one-time purge for devices that already hold the cards. Five new routing tests, five mutation probes all caught. 977 internal links checked, zero dead. Gate 2,114 tests / 66 files. **Two rules for every agent: LB-65 a 200 is not a page — probe the `<title>`, and a rule a comment can satisfy is not a rule; LB-66 deleting a generator does not clear data it already wrote.** See the 2026-07-27 section below. Prior: **BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
+**Last updated:** 2026-07-27 (**SHARED BODY SCROLL LOCK + MODALSHELL SIMPLIFIED — pushed, NOT deployed.** New `components/useBodyScrollLock.js`: one module-scope, reference-counted body scroll lock replaces every modal's private save/restore effect; ModalShell and DetailSheet use it. ModalShell's sub-page stack lost all measurement — no `useLayoutEffect`, no `ResizeObserver`, no measured height, no max-width tween; the active page sits in normal flow and sizes the stack. Focused gate 19 tests / 2 files. The commit also carries other lanes' uncommitted work per Rule A — see the 2026-07-27 section below.) Prior: **ROUTING + HEADER + SAMPLE SHELF — `5928358`, pushed, NOT deployed.** Three faults Kyle reported in one message, all fixed: every public address served the app instead of its page (dev server only; production was fine) — `preview/vite.config.js` now resolves the folder before the SPA fallback and binds `127.0.0.1` instead of IPv6 loopback; the masthead nav sat 54.9px right of centre — an equal `flex: 1 1 0` on both outer children puts it at 0.0px, measured by `preview/scripts/probe-masthead-center.mjs`; the 18-card sample shelf is deleted, generator and all, plus a silent one-time purge for devices that already hold the cards. Five new routing tests, five mutation probes all caught. 977 internal links checked, zero dead. Gate 2,114 tests / 66 files. **Two rules for every agent: LB-65 a 200 is not a page — probe the `<title>`, and a rule a comment can satisfy is not a rule; LB-66 deleting a generator does not clear data it already wrote.** See the 2026-07-27 section below. Prior: **BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
+
+## 2026-07-27 — Shared body scroll lock + ModalShell stack simplified (NOT deployed)
+
+One lane refactored the modal layer. Read this before you touch
+`ModalShell.jsx`, `DetailSheet.jsx`, or the `.cz-modal-stack` CSS.
+
+- **New `components/useBodyScrollLock.js`.** Every modal used to save and
+  restore `document.body.style.overflow` on its own. Two open layers raced:
+  closing the inner one restored the pre-hidden value while the outer one
+  still needed the lock. The lock is now one module-scope count. The first
+  lock saves the value. Only the last release restores it. A stray extra
+  cleanup is a no-op. `ModalShell` and `DetailSheet` both use the hook.
+  `PhotoCoverFlow` and `credenza-fashion.jsx:6880` still keep their own
+  private effects — other lanes own those files. **Any new modal must use
+  the hook, never a private overflow effect.**
+- **ModalShell sub-page stack has no measurement left.** The
+  `useLayoutEffect`, the `ResizeObserver`, the measured stack height state,
+  and the dialog `max-width` tween are deleted. The dialog holds one stable
+  `maxWidth` from the prop; `subPage.maxWidth` is accepted but ignored. The
+  active page sits in normal flow and sizes the stack (new CSS rule:
+  `.cz-modal-stack[data-page="N"] .t-page[data-page-id="N"] { position:
+  relative }`). The inactive page keeps the absolute positioning from
+  `.t-page-slide`. No width or height transitions on the sub-page path.
+  The slide itself is unchanged: 8px, fade, blur.
+- Back, Escape (sub-page first, then close), Close, focus restoration, and
+  reduced-motion behavior are unchanged.
+- Tests: new `preview/test/modal-shell.test.jsx` (10 tests: nested lock
+  counting, negative-count guard, mounted pages, inert/aria-hidden, stable
+  width, Back/Escape/Close) plus 2 scroll-lock tests in
+  `detail-sheet.test.jsx`. Focused gate: 19 tests / 2 files, green.
+
+**This checkpoint commit also carries other lanes' uncommitted work**
+(Rule A: never end a turn dirty): `PhotoCoverFlow.jsx` hardening
+(`clampIndex`, `canSetCover` guard), `DetailBody.jsx`, `ComboboxField.jsx`,
+`credenza-fashion.jsx`, new `components/PhotoShelfList.jsx`, new
+`combobox-field.test.jsx` and `photo-coverflow.test.jsx`, and CSS beyond
+the modal block. Those changes were not reviewed here; their lanes own
+them.
 
 ## 2026-07-27 — Stash sheet everywhere + one type token set (LB-68, LB-69, NOT deployed)
 

@@ -95,7 +95,7 @@ import HaulBoard from "./components/HaulBoard.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
 import { SITE_NAV } from "./components/site-nav.js";
 import { TypeMark } from "./components/CardCover.jsx";
-import Card from "./components/Card.jsx";
+import PhotoShelfList from "./components/PhotoShelfList.jsx";
 import MorphButton from "./components/MorphButton.jsx";
 import HaulCoverFan from "./components/HaulCoverFan.jsx";
 import {
@@ -6970,31 +6970,6 @@ function CredenzaApp() {
     });
   };
 
-  const renderEntry = (item) => (
-    <div key={item.id}>
-      <Card
-        item={item}
-        selected={selectedId === item.id}
-        // Both halves of a 2026-07-26 merge. `main` retired the onboarding
-        // hint on the first card tap; the branch routed the open through the
-        // photo morph. The morph owns the open (phone sheet or carousel), so
-        // the hint retires alongside it rather than duplicating that choice.
-        onToggle={(nodes) => {
-          retireFirstCardHint();
-          openWithMorph(item.id, nodes);
-        }}
-        onToggleFavorite={toggleFavorite}
-        onOpen={recordOpen}
-        buyLabel={buyLabel}
-        phone={isPhone}
-        mode={mode}
-        bodyProfile={bodyProfile}
-        fitPrefs={fitPrefs}
-      />
-    </div>
-  );
-
-  
   const localStatus = (() => {
     if (storageState.status === "loading") return { label: "Opening shelf", color: FAINT };
     if (storageState.status === "load-error") return { label: "Needs recovery", color: "var(--cz-error-text)" };
@@ -7357,9 +7332,17 @@ function CredenzaApp() {
       ) : viewMode === "carousel" ? (
         <div className="cz-haul-open-stage">{carouselElement}</div>
       ) : (
-        // Time-bucket sections ("This week" / "Earlier this month" / "Older")
-        // removed 2026-07-22 — Kyle: not relevant. One flat grid.
-        <div className="cz-shelf-grid">{listItems.map(renderEntry)}</div>
+        <PhotoShelfList
+          items={listItems}
+          selectedId={selectedId}
+          onOpenDetail={(item, nodes) => {
+            retireFirstCardHint();
+            openWithMorph(item.id, nodes);
+          }}
+          onToggleFavorite={toggleFavorite}
+          bodyProfile={bodyProfile}
+          fitPrefs={fitPrefs}
+        />
       )}
 
       {/* Onboarding 3B: the one and only hint (onboarding spec, Kyle
@@ -8507,9 +8490,9 @@ function CredenzaApp() {
                   type="button"
                   className="cz-view-button"
                   onClick={() => setViewMode("cards")}
-                  aria-label="Card view"
+                  aria-label="List view"
                   aria-pressed={viewMode === "cards"}
-                  title="Cards"
+                  title="List"
                   style={{
                     fontFamily: FONT,
                     fontSize: 12,

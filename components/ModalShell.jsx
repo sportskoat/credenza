@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { DISPLAY, HAIR, SUB } from "../credenza-fashion.jsx";
+import { useBodyScrollLock } from "./useBodyScrollLock.js";
 
 function readMs(name, fallback) {
   if (typeof window === "undefined" || !window.getComputedStyle) return fallback;
@@ -15,15 +16,18 @@ function readCloseMs() {
 /*
  * `subPage` turns the shell into a two-page stack (Kyle 2026-07-26): a
  * settings row does not open a second modal on top of the first. The same
- * modal slides sideways to the sub-page and resizes to it, and a back button
- * returns. It composes two transitions.dev primitives:
- *   - t-page-slide: page 1 exits left, page 2 enters from the right.
- *   - t-resize: the dialog tweens its max-width and the stack its height.
+ * modal slides sideways to the sub-page and a back button returns.
+ *
+ * The dialog keeps ONE width (the `maxWidth` prop) and the stack keeps no
+ * measured height: the active page sits in normal flow and sizes the stack,
+ * the inactive page stays mounted but absolute for the slide (2026-07-27).
+ * The old version tweened max-width and a measured pixel height, and the
+ * mid-tween reads moved the target several times in one push.
  *
  * Pass `subPage = { key, title, maxWidth, node }` to go forward and null to go
- * back. Set `stacked` on any shell that can hold sub-pages — the stack changes
- * the pages to absolute positioning, so it must be in place BEFORE the first
- * push or the height has nothing to tween from.
+ * back. `subPage.maxWidth` is accepted for compatibility but ignored. Set
+ * `stacked` on any shell that can hold sub-pages — the stack changes the pages
+ * to absolute positioning, so it must be in place BEFORE the first push.
  */
 export function ModalShell({
   title,
@@ -49,14 +53,10 @@ export function ModalShell({
 
   // Lock the page behind the sheet. A native dialog blocks taps but iOS
   // still rubber-bands the body under it (Kyle 2026-07-25: "in the settings
-  // and you swipe down, the background moves").
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  // and you swipe down, the background moves"). The lock is shared and
+  // reference-counted: a sheet over a modal must not restore the body while
+  // the modal under it is still open.
+  useBodyScrollLock();
 
   useEffect(() => {
     triggerRef.current = document.activeElement;
@@ -102,15 +102,12 @@ export function ModalShell({
   // outgoing page must stay mounted for the length of the slide, so `held`
   // keeps the last sub-page rendered until the transition ends.
   const [held, setHeld] = useState(subPage);
-  const [stackH, setStackH] = useState(null);
-  const page1Ref = useRef(null);
-  const page2Ref = useRef(null);
   const holdTimer = useRef(null);
   const onSub = !!subPage;
   // Render the incoming sub-page in the SAME pass that sets it. Waiting for
-  // the hold effect to copy it into state cost one render (~44ms measured),
-  // during which the stack held the old height and then jumped. `held` still
-  // covers the way back, where the outgoing page must outlive the prop.
+  // the hold effect to copy it into state cost one render (~44ms measured).
+  // `held` still covers the way back, where the outgoing page must outlive
+  // the prop.
   const shownSub = subPage || held;
 
   useEffect(() => {
@@ -145,67 +142,9 @@ export function ModalShell({
 
   // The sub-page owns the header while it is up: its own title, and Back in
   // place of Close. Close stays reachable — Escape and the backdrop still work.
-  // Declared above the measure effect, which reads the destination width.
+  // `subPage.maxWidth` is ignored: the dialog holds one stable width so a push
+  // never starts a width tween (2026-07-27).
   const headerTitle = onSub && subPage.title ? subPage.title : title;
-  const shellMaxWidth = onSub && subPage.maxWidth ? subPage.maxWidth : maxWidth;
-
-  // Measure the visible page and drive the stack height, so t-resize has two
-  // pixel values to tween between. Layout effect: a paint at the wrong height
-  // reads as a jump. jsdom reports 0 for every box — a 0 height would hide the
-  // content in tests, so only a real measurement is applied.
-  //
-  // Measure the INNER wrapper, never the page box. The pages are absolutely
-  // positioned, so a page box is sized BY the stack height — reading it back
-  // returns the height just set and the stack can only ever grow.
-  //
-  // Measure at the FINAL width, not the live one (Kyle 2026-07-26: "it
-  // stretches and locks into place a couple of times"). The dialog tweens its
-  // width over 300ms. A height read mid-tween sees content wrapped to an
-  // in-between width, so the target moved 4 times in one push and each move
-  // restarted the height tween. Pinning the wrapper to the destination width
-  // for the read gives one target, set once, before the tween starts.
-  useLayoutEffect(() => {
-    if (!stacked) return undefined;
-    const inner = () => {
-      const el = onSub ? page2Ref.current : page1Ref.current;
-      return el && el.firstElementChild ? el.firstElementChild : null;
-    };
-    // The wrapper is inside the surface, which is inside the dialog. The
-    // dialog's border box is what maxWidth caps, so subtract the surface
-    // border to get the content width the wrapper will settle at.
-    const finalInnerWidth = () => {
-      const page = onSub ? page2Ref.current : page1Ref.current;
-      const dialog = dialogRef.current;
-      if (!page || !dialog || typeof window === "undefined") return null;
-      const viewport = window.innerWidth || 0;
-      if (!viewport) return null;
-      // Mirrors .cz-modal: width: min(720px, 100% - 32px), capped by maxWidth.
-      const outer = Math.min(720, viewport - 32, shellMaxWidth);
-      const inset = dialog.getBoundingClientRect().width - page.clientWidth;
-      const w = outer - (Number.isFinite(inset) && inset > 0 ? inset : 0);
-      return w > 0 ? w : null;
-    };
-    const measure = () => {
-      const el = inner();
-      if (!el) return;
-      const target = finalInnerWidth();
-      // Pin, read, restore — all inside one layout pass, so nothing paints at
-      // the pinned width.
-      const prev = el.style.width;
-      if (target != null) el.style.width = target + "px";
-      const h = el.scrollHeight;
-      if (target != null) el.style.width = prev;
-      if (h > 0) setStackH(h);
-    };
-    measure();
-    const el = inner();
-    if (!el || typeof window === "undefined" || !window.ResizeObserver) return undefined;
-    // Rows that expand in place (the fit-summary accordion) change the page
-    // height without a page change; the observer keeps the stack in step.
-    const ro = new window.ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [stacked, onSub, shownSub, children, shellMaxWidth]);
 
   const requestBack = useCallback(() => {
     if (onBack) onBack();
@@ -230,7 +169,7 @@ export function ModalShell({
       onClick={(event) => {
         if (event.target === event.currentTarget) requestClose();
       }}
-      style={{ maxWidth: shellMaxWidth }}
+      style={{ maxWidth }}
     >
       <div className={("cz-modal-surface " + (stacked ? "cz-modal-surface-stacked " : "") + surfaceClassName).trim()}>
         <div
@@ -281,9 +220,8 @@ export function ModalShell({
         </div>
         {stacked ? (
           <div
-            className="t-page-slide t-resize cz-modal-stack"
+            className="t-page-slide cz-modal-stack"
             data-page={onSub ? "2" : "1"}
-            style={stackH == null ? undefined : { height: stackH }}
           >
             {/* Page 1 keeps its subtree mounted behind the sub-page: unmounting
                 it would discard scroll position and any typed draft, and there
@@ -292,19 +230,14 @@ export function ModalShell({
             <div
               className="t-page cz-modal-page"
               data-page-id="1"
-              ref={page1Ref}
               aria-hidden={onSub || undefined}
               inert={onSub ? "" : undefined}
             >
-              {/* Both pages wrap their content in one element on purpose: the
-                  measure step reads this wrapper, which sizes to its content,
-                  not the page box, which sizes to the stack. */}
               <div>{children}</div>
             </div>
             <div
               className="t-page cz-modal-page"
               data-page-id="2"
-              ref={page2Ref}
               aria-hidden={!onSub || undefined}
               inert={!onSub ? "" : undefined}
             >

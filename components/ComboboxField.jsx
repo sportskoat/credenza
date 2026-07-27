@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 
 // Shared combobox — type free text or pick from suggestions with a
 // transitions.dev-style scale/fade menu (not the native OS datalist).

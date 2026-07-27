@@ -3,6 +3,7 @@ import { MoreHorizontal, X } from "lucide-react";
 import DetailBody from "../components/DetailBody.jsx";
 import FavoriteButton from "../components/FavoriteButton.jsx";
 import { priceLabelShort, usePrefersReducedMotion } from "../credenza-fashion.jsx";
+import { useBodyScrollLock } from "../components/useBodyScrollLock.js";
 
 // Mobile detail sheet (mobile shelf handoff step 5, 2026-07-25).
 //
@@ -74,14 +75,10 @@ export default function DetailSheet({
   }, []);
 
   // Lock the page behind the sheet — a native dialog blocks taps but iOS
-  // still rubber-bands the body under it.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  // still rubber-bands the body under it. The lock is shared and
+  // reference-counted: an editor modal over this sheet must not restore the
+  // body while the sheet is still open.
+  useBodyScrollLock();
 
   const closeSheet = () => {
     // Flush any pending write-through edit before the sheet unmounts.

@@ -164,6 +164,146 @@
   }
 }
 
+/* Photo-first list. The stored mode remains `cards` for preference compatibility. */
+.cz-photo-list {
+  display: grid;
+  gap: 10px;
+  max-width: 920px;
+  margin-inline: auto;
+}
+
+.cz-photo-list-row {
+  position: relative;
+  min-height: 132px;
+  overflow: hidden;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 5px 16px oklch(0 0 0 / 0.06);
+  transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+}
+
+.cz-photo-list-row.is-selected {
+  border-color: color-mix(in srgb, var(--cz-blue) 72%, var(--cz-hair));
+  background: color-mix(in srgb, var(--cz-blue-bg) 34%, var(--cz-card-solid));
+  box-shadow: 0 7px 20px oklch(0 0 0 / 0.08);
+}
+
+.cz-photo-list-open {
+  width: 100%;
+  min-height: 132px;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 16px;
+  padding: 0 54px 0 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cz-photo-list-photo {
+  width: 104px;
+  height: 132px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--cz-bg) 90%, var(--cz-ink));
+}
+
+.cz-photo-list-photo .cz-cover,
+.cz-photo-list-photo .cz-card-image,
+.cz-photo-list-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cz-photo-list-copy {
+  min-width: 0;
+  align-self: center;
+  display: grid;
+  gap: 9px;
+  padding-block: 16px;
+}
+
+.cz-photo-list-title {
+  overflow: hidden;
+  color: var(--cz-ink);
+  font-family: var(--cz-display);
+  font-size: clamp(18px, 2vw, 23px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-photo-list-meta .cz-front-meta-row {
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.cz-photo-list-meta .cz-front-seller {
+  margin-top: 5px;
+}
+
+.cz-photo-list-status {
+  color: var(--cz-sub);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.cz-photo-list-favorite {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+}
+
+@media (max-width: 600px) {
+  .cz-photo-list {
+    gap: 8px;
+  }
+
+  .cz-photo-list-row,
+  .cz-photo-list-open {
+    min-height: 124px;
+  }
+
+  .cz-photo-list-open {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .cz-photo-list-photo {
+    width: 96px;
+    height: 124px;
+  }
+
+  .cz-photo-list-copy {
+    gap: 7px;
+    padding-block: 12px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-photo-list-row:hover {
+    border-color: color-mix(in srgb, var(--cz-ink) 24%, var(--cz-hair));
+    box-shadow: 0 9px 24px oklch(0 0 0 / 0.09);
+  }
+
+  .cz-photo-list-row:hover .cz-photo-list-image {
+    transform: scale(1.025);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-photo-list-row,
+  .cz-photo-list-image {
+    transition: none;
+  }
+}
+
 /* Staggered list entrance */
 @keyframes cz-fashion-enter {
   from {
@@ -4279,47 +4419,43 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* ─── Settings modal stack ─── */
-/* The two primitives together: the modal slides sideways to a sub-page and
-   resizes to it, instead of stacking a second modal on top (Kyle 2026-07-26).
-   The dialog tweens max-width; the stack tweens the measured page height. */
+/* The modal slides sideways to a sub-page instead of stacking a second modal
+   on top (Kyle 2026-07-26). No size tweens (2026-07-27): the dialog holds one
+   max-width, and the stack takes its height from the active page in normal
+   flow. The old version tweened max-width and a measured pixel height, and
+   mid-tween reads moved the target several times in one push. */
 .cz-modal.t-modal {
   transition:
     transform var(--modal-open-dur) var(--modal-ease),
-    opacity   var(--modal-open-dur) var(--modal-ease),
-    max-width var(--resize-dur)     var(--resize-ease);
+    opacity   var(--modal-open-dur) var(--modal-ease);
 }
 .cz-modal-stack {
-  /* Absolutely-positioned pages give the parent no height of its own — the
-     measured height from ModalShell is the only thing holding it open. Until
-     the first measurement lands, min-height keeps the modal from collapsing
-     (jsdom and the first paint both report 0). */
+  /* Clip the inactive page: it stays mounted but absolute over the same box
+     for the slide, so taller outgoing content must not spill out. */
   overflow: hidden;
-  min-height: 1px;
 }
-/* One clock for the whole gesture (Kyle 2026-07-26: "it seems like they kind
-   of move left to right… not very smooth"). The slide ran 250ms and the box
-   resize 300ms on a different curve, so the page arrived while the box was
-   still growing and the two motions read as separate steps. Scoped to the
-   stack: the standalone t-page-slide and t-resize keep their own defaults. */
-.cz-modal-stack,
-.cz-modal.t-modal {
-  --resize-dur: 260ms;
-  --resize-ease: var(--ease-out);
+/* The ACTIVE page is in normal flow, so it alone sizes the stack — no
+   measured heights, no height tween. The inactive page keeps the absolute
+   positioning from .t-page-slide. */
+.cz-modal-stack[data-page="1"] .t-page[data-page-id="1"],
+.cz-modal-stack[data-page="2"] .t-page[data-page-id="2"] {
+  position: relative;
 }
+/* One clock for the slide and the fade (Kyle 2026-07-26: "it seems like they
+   kind of move left to right… not very smooth"). Scoped to the stack: the
+   standalone t-page-slide keeps its own defaults. */
 .cz-modal-stack {
   --page-slide-dur: 260ms;
   --page-fade-dur: 200ms;
   --page-slide-ease: var(--ease-out);
 }
 .cz-modal-page {
-  /* Each page scrolls on its own: a tall sub-page must not stretch the modal
-     past the surface cap.
-     overscroll-behavior was `contain` here, and it stopped the sheet from
+  /* overscroll-behavior was `contain` here, and it stopped the sheet from
      scrolling at all (Kyle 2026-07-27: "half of them don't work in terms of
-     scrolling anymore"). The page is never the scroller: ModalShell measures
-     the page and sets that exact height on the stack, so scrollHeight always
-     equals clientHeight and this element has nothing to scroll. `contain` on
-     a full element still absorbs the wheel, so the gesture never reached
+     scrolling anymore"). The page is never the scroller: the active page is
+     in normal flow at its content height, so scrollHeight always equals
+     clientHeight and this element has nothing to scroll. `contain` on a
+     full element still absorbs the wheel, so the gesture never reached
      .cz-modal-surface-stacked — the one box that IS over-full. Measured at
      390x844 with the profile sheet: surface 741 tall / 906 of content, and
      scrollTop stayed 0 through a wheel and a touch drag. Flipping this one
@@ -4331,14 +4467,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 /* Hide the scrollbar on the modal stack (Kyle 2026-07-26: "let's take out the
    scrollbars here… I think it'll move a little bit cleaner"). A classic macOS
-   scrollbar steals ~15px of content width, so the text re-wraps and the
-   measured height is wrong — and the bar appearing between pages changes the
-   width mid transition. A stable gutter fixed the width but still showed the
-   bar over the page. Hiding it removes both the bar and the width change, and
-   it matches the rest of the app: the carousel, the shell, and the detail
-   sheet all hide theirs. The surfaces still scroll by wheel, trackpad, drag,
-   and keyboard. Headless Chrome uses overlay scrollbars and never showed the
-   original problem. */
+   scrollbar steals ~15px of content width, so the text re-wraps and the bar
+   appearing between pages changes the width mid transition. Hiding it removes
+   both the bar and the width change, and it matches the rest of the app: the
+   carousel, the shell, and the detail sheet all hide theirs. The surfaces
+   still scroll by wheel, trackpad, drag, and keyboard. Headless Chrome uses
+   overlay scrollbars and never showed the original problem. */
 .cz-modal-surface-stacked,
 .cz-modal-page {
   scrollbar-width: none;
