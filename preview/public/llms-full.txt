@@ -102,7 +102,8 @@ Open your profile and use the Stripe customer portal. Cancel there and Pro runs
 to the end of the period you already paid for. Nothing you saved is deleted
 when Pro ends — every card, haul, and QC photo stays, and only new additions go
 back to the free limits. A refund is available within 14 days of a charge. See
-https://credenzafashion.com/terms/
+https://credenzafashion.com/support/ for the cancel, refund, export, and
+deletion steps, and https://credenzafashion.com/terms/ for the full rule.
 
 ### Is Credenza a W2C or replica search site?
 
@@ -150,5 +151,6 @@ Credenza does not sell access to a counterfeit product database.
 - https://credenzafashion.com/guides/weidian-size-chart/
 - https://credenzafashion.com/guides/track-qc-photos/
 - https://credenzafashion.com/guides/open-weidian-in-agent/
+- https://credenzafashion.com/support/
 - https://credenzafashion.com/privacy/
 - https://credenzafashion.com/terms/

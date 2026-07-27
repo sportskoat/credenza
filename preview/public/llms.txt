@@ -50,6 +50,7 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/guides/open-weidian-in-agent/ — open Weidian in preferred agent
 - https://credenzafashion.com/ — app (PWA shelf)
 - https://credenzafashion.com/llms-full.txt — longer machine brief
+- https://credenzafashion.com/support/ — cancel, refund, export, delete, report a bug
 - https://credenzafashion.com/privacy/ — privacy notice
 - https://credenzafashion.com/terms/ — product terms
 

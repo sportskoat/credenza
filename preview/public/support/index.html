@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Credenza Support — cancel, refund, export, delete</title>
+    <meta
+      name="description"
+      content="Get help with Credenza Fashion: cancel Pro, ask for a refund, export your shelf, delete your data, or report a bug. One address, one person reading it."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/support/" />
+    <meta property="og:title" content="Credenza Support" />
+    <meta
+      property="og:description"
+      content="Cancel Pro, ask for a refund, export your shelf, delete your data, or report a bug."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://credenzafashion.com/support/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header { padding-top: 2rem; }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin: 1.75rem 0 0.35rem;
+      }
+      p, li { color: var(--muted); }
+      p { margin: 0.5rem 0; }
+      ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+      li { margin: 0.3rem 0; }
+      .lede { color: var(--muted); margin: 0 0 1.25rem; }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.25rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .mailcard {
+        background: var(--card);
+        border: 1px solid var(--line);
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 1.5rem;
+      }
+      .mailcard p { margin: 0.4rem 0 0; }
+      .mailto {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .steps { counter-reset: step; list-style: none; padding-left: 0; }
+      .steps li {
+        counter-increment: step;
+        position: relative;
+        padding-left: 1.85rem;
+        margin: 0.55rem 0;
+      }
+      .steps li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 0.05rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--money);
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>Support</h1>
+      <p class="lede">
+        One address. One person reads it. Most answers are already on this page.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/" aria-current="page">Support</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <div class="mailcard">
+        <a class="mailto" href="mailto:wenselllc@gmail.com">wenselllc@gmail.com</a>
+        <p>
+          Credenza is a personal project, not a company with a support desk. One person
+          reads this address and answers within a few days.
+        </p>
+      </div>
+
+      <h2>Cancel Pro</h2>
+      <p>
+        You do not need to write to us. Cancel it yourself, at any time.
+      </p>
+      <ol class="steps">
+        <li>Open the app and go to your profile.</li>
+        <li>Open the Stripe customer portal.</li>
+        <li>Cancel the plan there.</li>
+      </ol>
+      <p>
+        Pro then runs to the end of the period you already paid for. A cancellation stops
+        the next charge. It does not refund the current period on its own. See
+        <a href="/support/#refund">Ask for a refund</a> below.
+      </p>
+      <p>
+        Nothing is deleted when Pro ends. Every card, every haul, and every QC photo you
+        already saved stays where it is. Only new additions go back to the free limits.
+        The <a href="/terms/">terms</a> state the full rule.
+      </p>
+
+      <h2 id="refund">Ask for a refund</h2>
+      <p>
+        Write to the address above within 14 days of a charge. We refund it in full, for
+        any reason. You do not have to give one.
+      </p>
+      <p>
+        After 14 days we refund the unused part of an annual plan if Credenza stops
+        working for reasons on our side.
+      </p>
+      <p>
+        Put the email address on your Credenza account in the message. That is how we find
+        the charge.
+      </p>
+
+      <h2>Export your shelf</h2>
+      <p>
+        Open Profile → Import &amp; backup and download your shelf as a .json file. Pro
+        also exports a .csv for a spreadsheet. Both files hold the marketplace links you
+        saved, so they still work if you stop using Credenza.
+      </p>
+
+      <h2>Delete your data</h2>
+      <p>
+        There are three separate things to delete, and you control the first two yourself.
+      </p>
+      <ul>
+        <li>
+          <strong>On the device:</strong> open Profile → Erase my data. This removes every
+          Credenza record on the device — the shelf, the preferences, the body
+          measurements, the click log, and the offline caches.
+        </li>
+        <li>
+          <strong>A shared link:</strong> open Profile → Shared links and delete it. The
+          page it served then answers 404.
+        </li>
+        <li>
+          <strong>The account and its server records:</strong> write to the address above.
+          We remove the account, the synced shelf, every shared link, and the plan row.
+          Cancel a paid plan first, from the Stripe customer portal.
+        </li>
+      </ul>
+      <p>
+        The <a href="/privacy/">privacy notice</a> lists every record we hold and how long
+        each one stays.
+      </p>
+
+      <h2>Report a bug</h2>
+      <p>
+        Write to the address above. Four things make a bug fixable on the first reply:
+      </p>
+      <ul>
+        <li>The link you pasted, if the problem started with a link.</li>
+        <li>Your phone or computer, and the browser.</li>
+        <li>What you expected, and what happened instead.</li>
+        <li>A screenshot.</li>
+      </ul>
+      <p>
+        Do not send your password. Nobody at Credenza will ever ask for it.
+      </p>
+
+      <h2>A size recommendation was wrong</h2>
+      <p>
+        Send the size chart and your measurements. Charts from different sellers disagree
+        with each other, and some of them are wrong. A bad chart is worth seeing, because
+        it usually shows a parsing rule that needs fixing.
+      </p>
+      <p>
+        <a href="/guides/weidian-size-chart/">The size chart guide</a> covers the common
+        cases, including hip-only 臀围 tables.
+      </p>
+
+      <h2>What support cannot do</h2>
+      <p>
+        Credenza is the decision layer before the agent click. It does not sell goods and
+        never handles your purchase, so these belong somewhere else:
+      </p>
+      <ul>
+        <li>
+          <strong>Your order, payment, or parcel</strong> — write to your shopping agent.
+          Superbuy, Sugargoo, Kakobuy, and the others each run their own support.
+        </li>
+        <li>
+          <strong>A seller who did not ship</strong> — that is between you, the seller,
+          and the agent holding the money.
+        </li>
+        <li>
+          <strong>Finding an item</strong> — Credenza organizes links you already found.
+          It is not a W2C service and holds no product catalogue.
+        </li>
+      </ul>
+      <p>
+        <a href="/faq/">The FAQ</a> answers the common questions about what Credenza is
+        and is not.
+      </p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/" aria-current="page">Support</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-// The public site is 14 hand-written HTML files with no build step. Every page
+// The public site is 16 hand-written HTML files with no build step. Every page
 // carries its own <style>, its own nav, and its own footer — there is no shared
 // partial to enforce anything. So a page added or edited months apart drifts,
 // and nothing fails until a reader or a crawler finds it.
@@ -17,6 +17,9 @@
 //      drifted apart. One of them promised the $4.99 price in the schema that
 //      the reader never saw.
 //   3. /landing/ was the only page missing Guides and FAQ from its nav.
+//   4. 404.html still carried the nav from before Guides shipped. The first
+//      version of this file only collected index.html, so it never looked.
+//      That is why DOCS exists below — a landable page is not always an index.
 //
 // The parity rule is the important one: the VISIBLE copy is the source of
 // truth, and the schema must match it exactly. Never satisfy this test by
@@ -50,6 +53,20 @@ const PAGES = pageFiles().map((full) => ({
   url: "/" + relative(PUBLIC, full).replace(/index\.html$/, ""),
   html: readFileSync(full, "utf8"),
 }));
+
+// 404.html is a page a reader lands on, so it needs the same nav and the same
+// head as the rest. It is not an index.html, so PAGES misses it — and that is
+// exactly how it kept a stale nav after Guides shipped. It is noindex, so it
+// stays out of the sitemap checks below.
+const EXTRA = ["404.html"].map((rel) => ({
+  rel,
+  url: "/" + rel,
+  html: readFileSync(join(PUBLIC, rel), "utf8"),
+}));
+
+// Every file a reader can land on. Use this for nav, links, and head checks.
+// Use PAGES for anything the sitemap governs.
+const DOCS = [...PAGES, ...EXTRA];
 
 const text = (s) =>
   s
@@ -97,11 +114,11 @@ function visibleQA(html) {
 
 it("finds the public pages at all", () => {
   // A glob that silently matches nothing would make every test below vacuous.
-  expect(PAGES.length).toBeGreaterThanOrEqual(14);
+  expect(PAGES.length).toBeGreaterThanOrEqual(15);
 });
 
 describe("structured data", () => {
-  for (const { rel, html } of PAGES) {
+  for (const { rel, html } of DOCS) {
     it(`${rel} has only parseable JSON-LD`, () => {
       for (const raw of ldBlocks(html)) {
         expect(() => JSON.parse(raw), `invalid JSON-LD in ${rel}`).not.toThrow();
@@ -110,7 +127,7 @@ describe("structured data", () => {
   }
 
   // The rule Google enforces, and the one that broke on /pricing/.
-  const withFaq = PAGES.filter(({ html }) => faqSchema(html));
+  const withFaq = DOCS.filter(({ html }) => faqSchema(html));
 
   it("at least one page carries FAQPage schema", () => {
     expect(withFaq.length).toBeGreaterThan(0);
@@ -145,9 +162,18 @@ describe("navigation", () => {
   // D-2, decided 2026-07-26: every public page reaches these. The landing page
   // header is an in-page scroll nav by design, so this checks the whole
   // document rather than the <nav> element — the footer counts.
-  const REQUIRED = ["/", "/how/", "/guides/", "/pricing/", "/faq/", "/privacy/", "/terms/"];
+  const REQUIRED = [
+    "/",
+    "/how/",
+    "/guides/",
+    "/pricing/",
+    "/faq/",
+    "/support/",
+    "/privacy/",
+    "/terms/",
+  ];
 
-  for (const { rel, html } of PAGES) {
+  for (const { rel, html } of DOCS) {
     it(`${rel} links to every other public section`, () => {
       for (const href of REQUIRED) {
         expect(html, `${rel} is missing a link to ${href}`).toContain(`href="${href}"`);
@@ -159,7 +185,7 @@ describe("navigation", () => {
 describe("links and metadata", () => {
   const urls = new Set(PAGES.map((p) => p.url));
 
-  for (const { rel, html } of PAGES) {
+  for (const { rel, html } of DOCS) {
     it(`${rel} has no broken internal page link`, () => {
       const hrefs = [...html.matchAll(/href="(\/[^"#?]*)"/g)].map((m) => m[1]);
       for (const href of hrefs) {
@@ -188,7 +214,11 @@ describe("links and metadata", () => {
       // name itself, not a page it was copied from.
       expect(html, `${rel} canonical`).toContain(
         `<link rel="canonical" href="https://credenzafashion.com${
-          rel === "index.html" ? "/" : "/" + rel.replace(/index\.html$/, "")
+          rel === "index.html"
+            ? "/"
+            : rel.endsWith("/index.html")
+              ? "/" + rel.replace(/index\.html$/, "")
+              : "/" + rel
         }" />`
       );
     });
