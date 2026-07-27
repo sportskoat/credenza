@@ -92,6 +92,7 @@ do it completely, and report against its acceptance criteria.
 | LB-25 | Hold llms.txt to the same rules as the pages | P1 | 1 h | LB-24 | DONE 2026-07-27 — both briefs were exempt from every site rule |
 | LB-26 | Lock the four shipped files that are not pages | P1 | 1 h | LB-25 | DONE 2026-07-27 — the manifest painted the wrong splash; 18 pages mis-coloured the status bar |
 | LB-27 | Rebuild the guides hub so it answers instead of routing | P1 | 1 h | LB-26 | DONE 2026-07-27 — 200 words to 520, ordered by haul stage; the hub floor exemption is gone |
+| LB-28 | Put the refund on the page where people decide to pay | P1 | 1 h | LB-27 | DONE 2026-07-27 — the 14-day refund was only in Terms; pricing 449 words to 851 |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1521,6 +1522,67 @@ restore.
 
 **Gate.** 60 files / 1410 tests passed. Lint 0 errors, 5 pre-existing warnings.
 Typecheck clean. Build clean.
+
+
+### LB-28. The refund was on the wrong page — DONE 2026-07-27
+
+**The defect.** `/terms/` has carried a 14-day full refund, for any reason,
+since launch. `/pricing/` did not mention it once. That is the wrong way round.
+Terms is the page nobody reads before paying. Pricing is the page everybody
+reads before paying. The strongest reason to risk $4.99 was written where it
+could not do any work.
+
+`/pricing/` was also the thinnest page on the site after LB-27 fixed the hub —
+449 words — and it is the one page where money changes hands.
+
+**The repair.** Three sections were added, all from facts already true.
+
+"When the free plan is enough" says most people do not need Pro, then names who
+should stay free (one or two hauls, finds added over weeks, sizes you already
+know) and who Pro pays for (a whole Reddit haul pasted at once, several hauls
+open, every item sized from its chart). Naming the reader who should not pay is
+the only way the recommendation to the reader who should is worth anything.
+
+"Paying, and getting your money back" states the refund in the words the Terms
+use: write within 14 days of the charge, refunded in full, for any reason, no
+question asked. It also states the thing a reader gets wrong on their own —
+cancelling stops the next charge but does not refund the period you are in
+unless you ask.
+
+Two questions were added to the visible FAQ and to the `FAQPage` schema, in the
+same order and byte-identical, as the existing rule requires: "Can I get a
+refund?" and "Do I need Pro to use Credenza Fashion?".
+
+One styling defect was fixed on the way past: `main > h2` had no rule on this
+page, so section headings fell back to the browser default — a bold sans-serif
+block in a serif page. `.faq-h` had been carrying a class with no declaration.
+
+Result: 851 words, 6 `h2`, 2 `h3`.
+
+**The lock.** The refund promise now lives on two pages, which is exactly the
+drift `pricing.test.js` was written to stop for prices. A refund window is a
+promise a customer can screenshot, same as a price, and if the two pages
+disagree we are held to whichever is longer. The new block asserts both pages
+state the window and the address, that neither page states any *other* "within
+N days" window, that the address is a `mailto:` and not a route that has to
+exist, and that neither page claims a free trial — the refund is the trial, and
+naming a second guarantee would imply a clock nothing in the product runs.
+
+**Four negative controls, all fired, all restored.**
+
+- `/pricing/ does not state the refund window` and
+  `/pricing/ states more than one refund window: expected [ '21' ] to deeply equal [ '14' ]`
+- `/terms/ does not state the refund window` and
+  `/terms/ states more than one refund window: expected [ '30' ] to deeply equal [ '14' ]`
+- `expected … to contain 'href="mailto:wenselllc@gmail.com"'`
+- `expected … not to contain 'free trial'`
+
+Drifting the visible refund answer alone also fired the existing schema-parity
+rule: `pricing/index.html answer to "Can I get a refund?"`. So the new copy is
+bound in both directions — to the Terms and to its own schema.
+
+**Gate.** 60 files / 1415 tests passed (1410 before). Lint 0 errors, 5
+pre-existing warnings. Typecheck clean. Build clean.
 
 
 ## Explicitly deferred (do NOT build before launch)

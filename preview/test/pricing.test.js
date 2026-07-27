@@ -228,3 +228,60 @@ describe("the page only sells what is built", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The refund promise, which now lives on two pages.
+//
+// /terms/ has carried the 14-day full refund since launch. /pricing/ did not
+// mention it at all, which is the wrong way round: Terms is the page nobody
+// reads before paying, and Pricing is the page everybody does. So the promise
+// was added to /pricing/ in the plan copy, the visible FAQ, and the FAQPage
+// schema.
+//
+// That creates exactly the drift the price checks above exist to stop. A
+// refund window is a promise a customer can screenshot, same as a price. If
+// somebody edits one page to 30 days the other still says 14, and whichever
+// number is larger is the one we are held to.
+describe("the refund promise says the same thing on every page that makes it", () => {
+  const terms = read("preview/public/terms/index.html");
+
+  // The window, and the address to write to. Both are quoted verbatim on both
+  // pages, so a change to either has to be made in both places or fail here.
+  const WINDOW = "within 14 days";
+  const EMAIL = "wenselllc@gmail.com";
+
+  it("states the window on the page where people decide to pay", () => {
+    expect(page, "/pricing/ does not state the refund window").toContain(WINDOW);
+    expect(page, "/pricing/ gives no address to ask for a refund").toContain(EMAIL);
+  });
+
+  it("states the same window in the Terms", () => {
+    expect(terms, "/terms/ does not state the refund window").toContain(WINDOW);
+    expect(terms, "/terms/ gives no address to ask for a refund").toContain(EMAIL);
+  });
+
+  it("quotes no other refund window on either page", () => {
+    // The failure mode is an edit to one page leaving a second, different
+    // number behind. Any "within N days" that is not the agreed window is a
+    // second promise, and the customer picks whichever suits them.
+    for (const [label, html] of [["/pricing/", page], ["/terms/", terms]]) {
+      const windows = [...html.matchAll(/within (\d+) days/g)].map((m) => m[1]);
+      expect(windows.length, `${label} states no refund window`).toBeGreaterThan(0);
+      expect([...new Set(windows)], `${label} states more than one refund window`).toEqual(["14"]);
+    }
+  });
+
+  it("sends refund requests to an address, never to a form that does not exist", () => {
+    // The pricing copy links the address with mailto:. A link to a contact
+    // page or a form would be a route that has to exist and be monitored;
+    // the mailbox already is.
+    expect(page).toContain('href="mailto:' + EMAIL + '"');
+  });
+
+  it("does not promise a free trial, because there is not one", () => {
+    // The refund IS the trial. Naming a trial as well would imply a second,
+    // separate guarantee and a clock that nothing in the product runs.
+    expect(page.toLowerCase()).not.toContain("free trial");
+    expect(page.toLowerCase()).not.toContain("day trial");
+  });
+});
