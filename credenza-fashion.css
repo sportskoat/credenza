@@ -361,11 +361,41 @@
 /* Glass cards for the existing grid/row views.
    Capture shell is intentionally NOT here — it uses the rounded pill language
    shared with search (see .cz-capture-shell below). */
+
+/* ————— Compositing audit (2026-07-27) —————
+   Kyle: "the animations to move from one to the other are very choppy."
+   This rule used to carry backdrop-filter: blur(18px). It is gone because it
+   was paying a per-frame bill for an effect that rendered nothing. A
+   backdrop-filter forces its own compositing layer AND re-reads every pixel
+   behind it on every frame the backdrop moves, so the cost scaled with the
+   shelf while the benefit stayed at zero.
+
+   Measured, not assumed (preview/scripts/probe-composite-cost.mjs at 390x844,
+   24 items):
+     shelf at rest        24 blurred elements, 3.82x viewport re-read per frame
+     mid modal open       25 elements, 4.69x viewport
+     mid sub-page slide   25 elements, 4.70x viewport
+   Headless Chromium composites on the CPU, so the frame-timing probes came back
+   clean and were misleading. Counting painted blurred area is what found it.
+
+   Why each half rendered nothing:
+   - article > div: --cz-card is rgba(32,32,36,0.86), so 14% of the backdrop
+     shows through, and the only thing back there is one ambient div already at
+     filter: blur(48px). Blurring an already-Gaussian field by another 18px
+     widens the kernel to sqrt(48^2+18^2)=51.3px — 7%, on a field with no edges.
+     probe-card-blur-diff.mjs: pctVisiblyChanged 0.69, and the change sits in 2
+     of 16 horizontal bands, exactly where the ambient blob passes behind.
+   - .cz-modal-surface: QW9 (2026-07-22, line ~5248) set this to
+     --cz-card-solid, which is #ffffff or #202024 — fully opaque in every theme.
+     Nothing can show through an opaque surface.
+     probe-surface-blur-diff.mjs: pctVisiblyChanged 0.00 in both themes.
+
+   Glass that sits over live content still keeps its blur — the sticky toolbar,
+   the bottom bar, the dialog scrim. Those read through to something moving.
+   Test rule: LB-54 in preview/test/app-compositing.test.js. */
 .cz-app[data-fashion="true"] article > div,
 .cz-app[data-fashion="true"] .cz-modal-surface {
   background: var(--cz-card);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
   border: 1px solid var(--cz-hair);
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
