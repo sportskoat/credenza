@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>What an unlisted link hides · Credenza</title>
+    <meta name="description" content="An unlisted haul link draws no preview card when you paste it. The page still opens for anyone holding the address. Here is exactly what changes." />
+    <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/what-an-unlisted-link-hides/" />
+    <meta property="og:title" content="What an unlisted link hides, and what it does not" />
+    <meta property="og:description" content="Unlisted changes the preview, not the page. The chat window sees nothing; the person you sent it to sees the whole haul." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/what-an-unlisted-link-hides/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="What an unlisted link hides, and what it does not" />
+    <meta name="twitter:description" content="Unlisted changes the preview, not the page. The chat window sees nothing; the person you sent it to sees the whole haul." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Share a haul link that draws no preview card",
+        "url": "https://credenzafashion.com/guides/what-an-unlisted-link-hides/",
+        "description": "Turn on the unlisted option before you create a haul link, so that pasting it into a chat shows a neutral card instead of your haul title, item count, total, and a photo.",
+        "step": [
+          {
+            "@type": "HowToStep",
+            "name": "Open the haul you want to send",
+            "text": "Open the haul on your shelf and press Share. The sheet lists the items that will go into the link, and the fields you can leave out, such as prices and seller names."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Turn on Unlisted under Link settings",
+            "text": "Switch on Unlisted in the Link settings block. This option is part of the Pro plan, together with an expiry date and a page with no Credenza footer at the bottom."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Create the link and paste it",
+            "text": "Press Create link and paste the address into your chat. The chat draws a plain card that names Credenza Fashion and nothing else. No haul title, no item count, no total, and no photo of your items."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Check what the other person sees",
+            "text": "Open the same address yourself in a private window. The page shows the full haul, because the twelve-character code in the address is the only thing that controls who reads it."
+          }
+        ]
+      }
+    </script>
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Credenza Fashion",
+      "item": "https://credenzafashion.com/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Guides",
+      "item": "https://credenzafashion.com/guides/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "What an unlisted link hides, and what it does not",
+      "item": "https://credenzafashion.com/guides/what-an-unlisted-link-hides/"
+    }
+  ]
+}
+    </script>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>What an unlisted link hides, and what it does not</h1>
+      <p class="lede">
+        Unlisted changes the preview, not the page. The chat window learns nothing.
+        The person you sent it to still sees the whole haul.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/">Support</a>
+        <a href="/contact/">Contact</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <article class="card">
+        <span class="n">The problem</span>
+        <h2>A pasted address tells the room what it holds</h2>
+        <p>
+          You send a haul to one person. You paste the address into a group chat,
+          or a Discord channel, or a direct message that sits in a thread other
+          people can scroll. Nobody clicks it. Everybody reads it anyway.
+        </p>
+        <p>
+          That is because a chat client does not wait for a human. The moment the
+          address appears in the box, the client fetches the page by itself and
+          draws a card from what it finds: the haul title you typed, how many items
+          are in it, what the total comes to, and a photo of the first item that
+          has one. Twenty people who never opened anything now know you spent four
+          hundred dollars on eleven pieces, and one of them is a coat.
+        </p>
+        <p>
+          The card is the leak. The page was never the problem, because the page
+          only opens for somebody holding the address. The preview goes to the whole
+          room.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">What unlisted does</span>
+        <h2>The card goes blank. The page does not.</h2>
+        <p>
+          Turn on <strong>Unlisted</strong> in the Share sheet, under Link settings,
+          and the card a chat draws says a Credenza haul is here and stops. No title,
+          no count, no total, and no photo. Anyone who opens the address gets the
+          haul exactly as they would without the option — every item, every field you
+          chose to include, the same page.
+        </p>
+        <p>
+          That split is the whole feature, and it is worth stating plainly, because
+          the word <em>unlisted</em> reads like a stronger promise than it is.
+        </p>
+        <table>
+          <thead>
+            <tr><th scope="col">Who sees it</th><th scope="col">Listed</th><th scope="col">Unlisted</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">The person you sent it to</th><td>The whole haul</td><td>The whole haul</td></tr>
+            <tr><th scope="row">The chat window it was pasted in</th><td>Title, count, total, photo</td><td>A plain Credenza card</td></tr>
+            <tr><th scope="row">A search engine</th><td>Nothing</td><td>Nothing</td></tr>
+            <tr><th scope="row">Somebody guessing addresses</th><td>Nothing</td><td>Nothing</td></tr>
+          </tbody>
+        </table>
+        <p>
+          The bottom two rows read the same on purpose. Every shared haul page
+          carries a <code>noindex</code> instruction whether or not you pay us,
+          so Google leaves all of them out. And the address itself is twelve
+          characters drawn at random, which is about sixty bits — far past what
+          anybody works through by trying.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">The part people miss</span>
+        <h2>The photo is fetched even when nobody clicks</h2>
+        <p>
+          Your item photos live on the seller's server, and most sellers refuse a
+          request that arrives with no referrer — which is exactly how a chat client
+          asks. So Credenza serves the preview picture itself, through its own
+          address, and hands the chat a real photo instead of a broken square.
+        </p>
+        <p>
+          That relay is useful and it is also the sharpest edge of the leak. It runs
+          with no sign-in, on a request nobody made on purpose, and the answer is
+          cached at the edge for seven days. An unlisted haul never reaches it. The
+          request is refused before we ask the seller for anything, so the seller's
+          own logs never learn that the album was shared either.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">What it is not</span>
+        <h2>Unlisted is not a password</h2>
+        <p>
+          Anyone holding the address reads the haul. That is the design: the address
+          is the key, and you gave it to somebody on purpose. If the address is
+          forwarded, the haul goes with it, unlisted or not.
+        </p>
+        <p>
+          When the address itself needs to stop working, use one of the other two
+          link options instead. Set an <strong>expiry date</strong> and the page
+          answers 404 after it passes. Or delete the link from Profile → Shared
+          links, which removes the row for good. Unlisted controls what a paste
+          reveals; expiry and deletion control how long the address lives.
+        </p>
+        <p>
+          Both of those are Pro options, together with a page that carries no
+          Credenza footer. The free plan shares hauls without any of them. See
+          <a href="/pricing/">what each plan includes</a> before you decide whether
+          the difference is worth paying for.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">How to do it</span>
+        <h2>Four steps, once per link</h2>
+        <ol>
+          <li>Open the haul on your shelf and press <strong>Share</strong>.</li>
+          <li>Switch on <strong>Unlisted</strong> under Link settings.</li>
+          <li>Press <strong>Create link</strong> and paste the address where it is going.</li>
+          <li>Open the same address in a private window to see what the other person gets.</li>
+        </ol>
+        <p>
+          Step four is worth doing once. It is the only way to see both halves of the
+          split at the same time — a blank card in the chat, a full haul on the page.
+        </p>
+        <p>
+          If you have not shared a haul before, read
+          <a href="/guides/share-a-haul-list/">how a shared haul list works</a> first.
+          It covers choosing which fields go into the page, which matters more than
+          this option does for most posts. Then
+          <a href="/">open Credenza</a> and share one.
+        </p>
+      </article>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/contact/">Contact</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

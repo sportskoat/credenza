@@ -125,6 +125,7 @@ do it completely, and report against its acceptance criteria.
 | LB-58 | Make archiving free a haul slot, and explain where a haul ends | P0 | 3 h | LB-57 | DONE 2026-07-27 — the next census narrowed on the `Hauls at once` row; checking whether `/how/` told the truth found a real app defect: `blockNewHaul` counted every haul name and ignored `archived`, so archiving never freed a slot and the app own refusal message was false; cap now counts open hauls, both messages name archiving, new page `/guides/close-a-haul/` |
 | LB-59 | Stop charging the customer for calls the server does not charge for | P0 | 3 h | LB-58 | DONE 2026-07-27 — the next census found `AI size-chart reads` the thinnest row and the widest ratio (2 against 100); verifying the mechanism before writing about it found all four client `bumpUsage` calls firing before the status check, so a timeout, a 502 and the 429 cap itself each spent a free user's quota while the server charged nothing; all four now count on success, plus new page `/guides/what-spends-a-chart-read/` and a `SOLD` entry |
 | LB-60 | Make the restore message able to fire, and explain the shelf limit that is real | P0 | 3 h | LB-59 | DONE 2026-07-27 — the census reached `Cards on your shelf`, the only row that reads the same on both plans; the promise verified TRUE (no code counts cards) but the same read found `credenza-fashion.jsx` displaying `merged.stats.added`, a key `mergeShelves` never returned, so "N cards restored from your account" was dead code on every sign-in; `added` now computed, guarded by a structural test over every `stats.` read, plus new page `/guides/how-many-cards-a-shelf-holds/` and a ninth `SOLD` entry |
+| LB-61 | Make `unlisted` do something, and draw the line the word does not | P0 | 3 h | LB-60 | DONE 2026-07-27 — the census reached `Link options (unlisted, expiry, no footer)`; expiry and no-footer both verified as real consequences, but `unlisted` was Pro-gated, stored and read back while changing nothing a reader could see — its only consumer was a label in the owner's own private list, and the "public profile" the Share sheet promised to hide the link from does not exist in the repo; unlisted now blanks the preview card (`share-page.js` meta tags) and refuses the unfurl photo route (`share-image.js`), guarded by a consequence test per option, plus new page `/guides/what-an-unlisted-link-hides/` and a tenth `SOLD` entry |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3955,3 +3956,195 @@ hide a defect beside it.** "Unlimited cards" verified true by absence — no
 counter exists — and the same read of the same code path found a message that had
 never once appeared. Verifying a claim means reading the code around it, not only
 the line that proves it.
+
+### LB-61 — the option that was gated, stored, and inert
+
+The census after LB-60 ran the same `<main>`-stripped count over the price-table
+rows with no `SOLD` entry. `Link options (unlisted, expiry, no footer)` came back
+at 9 sentences over 6 pages. LB-55 had already ruled it covered, because
+`/guides/share-a-haul-list/` names all three options in a list.
+
+| Where | What it says |
+|---|---|
+| `/pricing/` table | `Link options (unlisted, expiry, no footer)` — No / Yes |
+| `/pricing/` prose | "Pro keeps 100, and adds unlisted links, an expiry date, and a link with no Credenza footer." |
+| `/how/` | "Pro keeps 100 and adds unlisted links, an expiry date, and a page with no Credenza footer." |
+| `/guides/share-a-haul-list/` | "Pro adds an **unlisted** option and a page with **no Credenza footer**." |
+
+Naming the options was never the problem. LB-58 says verify the promise against
+the code before repeating it. The verification failed on one of the three.
+
+| Option | Gated | Stored | Enforced |
+|---|---|---|---|
+| expiry | `share.js:91` | `expires_at` | YES — `share-page.js:289` and `share-image.js:189` both call `isExpired` |
+| no footer | `share.js:97` | `hide_footer` | YES — `share-page.js:222` omits the block |
+| **unlisted** | `share.js:96` | `unlisted` | **NO** |
+
+#### The defect
+
+An exhaustive grep over `*.js`, `*.jsx`, `*.html`, `*.sql` and `*.toml` found
+every consumer of the stored flag:
+
+```
+sheets/SharedLinksSheet.jsx:34   if (row.unlisted) parts.push("Unlisted");
+lib/entitlement-store.js         the write, and the read back
+share-page.js:188                a comment naming it, in code that ignored it
+```
+
+The one real consumer is a text label in the owner's own private list, reached
+through Profile → Shared links, behind a bearer token scoped to `claims.sub`.
+The person who set the flag is the only person it was ever shown to.
+
+The Share sheet promised something else:
+
+```jsx
+// sheets/ShareSheet.jsx:186
+"Keep the link out of your public profile."
+```
+
+That string is the only occurrence of "public profile" in the repository. The
+surface it promises to keep the link out of does not exist.
+
+#### Why this is not cosmetic
+
+It is a paid option. `/pricing/` sells it in a `No / Yes` row, and someone
+reading "unlisted" while deciding whether to pay reasonably concludes the link
+is less exposed than a free one. It was not. Every share page already carries
+`<meta name="robots" content="noindex, nofollow" />` unconditionally,
+`sitemap.xml` lists no `/s/` URL, and the address is 12 random characters —
+about 60 bits. A free share and an unlisted share were equally invisible to a
+search engine and equally unguessable, which is to say the option changed
+nothing at all.
+
+#### Why every existing test passed
+
+Because every test asserted the flag round-tripped.
+
+```js
+// test/share-server.test.js:396,412 — before LB-61
+expect(row.unlisted).toBe(false);   // free
+expect(row.unlisted).toBe(true);    // pro
+```
+
+```js
+// test/pricing.test.js:380 — before LB-61
+expect(fn, "share.js no longer forces " + forced).toContain("pro && body.unlisted === true");
+```
+
+Both are correct and both are satisfied by a value that is written to a column
+and never read. A gate is not a feature. **A test that proves a flag is stored
+proves nothing about what the flag does.**
+
+#### The fix
+
+`share.js` states the standard in its own header: these are "the three options
+that change a link's behaviour after it is pasted." Pasting is exactly where the
+exposure is. A chat client fetches the address by itself, with no click and no
+session, and draws a card from the haul title, the item count, the total, and a
+photo of the first item. The page only ever opened for someone holding the
+address. The preview went to the whole room.
+
+So `unlisted` now changes the preview and leaves the page alone:
+
+- `share-page.js` — the title, description, and OG/Twitter tags fall back to a
+  neutral card; `twitter:card` drops to `summary`; `og:image` points at the site
+  card, never `/s/:code/img`. The visible `<h1>` and every item stay untouched.
+- `share-image.js` — an unlisted row is refused before the outbound fetch. That
+  order matters twice: the response caches at the edge for seven days, and a
+  refusal placed after the fetch would still tell the seller's logs that the
+  album was shared.
+- `sheets/ShareSheet.jsx` — the help string stops naming a profile that does not
+  exist: "No preview when pasted. The page still opens for anyone with the link."
+
+#### The guard
+
+Three tests per option, asserting consequence rather than storage, plus a class
+guard that generalizes the rule:
+
+```js
+// test/pricing.test.js — LB-61
+const OPTIONS = [
+  { name: "unlisted",   row: "row.unlisted",   where: [code(sharePage), code(shareImage)] },
+  { name: "hideFooter", row: "row.hideFooter", where: [code(sharePage)] },
+  { name: "expiry",     row: "isExpired(row",  where: [code(sharePage), code(shareImage)] },
+];
+```
+
+`code()` strips comments first, because `unlisted` was named in a `share-page.js`
+comment for weeks while the code ignored it. A second test reads the option
+names out of the `/pricing/` table cell and fails if the count differs from
+`OPTIONS.length` — so a fourth option cannot be sold until it has a consumer.
+
+Both control tests matter. `still serves the photo when the same row is not
+unlisted` and `leaves a listed share's preview alone` would both fail if the fix
+blanked every preview, which is the obvious wrong version of this change.
+
+#### The page
+
+`/guides/what-an-unlisted-link-hides/`, 754 words in `<main>`, `HowTo` with four
+steps. It exists because the word promises more than the feature gives, and the
+honest version needs a table:
+
+| Who sees it | Listed | Unlisted |
+|---|---|---|
+| The person you sent it to | The whole haul | The whole haul |
+| The chat window it was pasted in | Title, count, total, photo | A plain Credenza card |
+| A search engine | Nothing | Nothing |
+| Somebody guessing addresses | Nothing | Nothing |
+
+The bottom two rows read the same on purpose. Writing them any other way would
+sell the option on a guarantee that came free.
+
+| Claim on the page | Source |
+|---|---|
+| the chat fetches the page with no click | `share-page.js` OG/Twitter block |
+| title, count, total, photo make the card | `pageHtml` summary + `ogImage` |
+| unlisted blanks the card | `share-page.js` `ogTitle` / `description` |
+| the page is unchanged | `<h1>${title}</h1>`, items untouched |
+| every share page is noindex | `share-page.js:197`, unconditional |
+| 12 characters, about 60 bits | `credenza-share.js:46-63` |
+| the photo relay exists because sellers refuse no-referrer | `share-image.js` `refererFor` |
+| cached seven days at the edge | `IMAGE_CACHE` in `share-image.js` |
+| an unlisted haul never reaches the relay | `if (row.unlisted) return fallback(IMAGE_CACHE);` |
+| the seller's logs never learn | the refusal precedes `safeFetch` |
+| unlisted is not a password | the code is the access control, by design |
+| expiry answers 404 | `share-page.js:289` |
+| delete removes the row | `share.js` DELETE → `store.deleteShare` |
+| free shares hauls without the options | `share.js` forces all three off |
+
+Registered in seven places: `sitemap.xml`, `llms.txt`, `llms-full.txt`, the
+guides hub (ItemList position 20 and a visible card under `Ask`), the `PRIMARY`
+schema map, a tenth `SOLD` entry, and `docs/aeo-geo/keyword-cluster.md`. Two
+inbound body-copy links from non-guide pages: `/pricing/` and `/how/`.
+
+#### The probes
+
+| Mutation | Result |
+|---|---|
+| revert both handlers to ignore `unlisted` | 7 failed — 3 image guards, 3 page guards, and the class guard |
+| delete the page directory | 11 rules fail (3 dangling-href, sitemap, both llms files, the hub census, schema-map completeness, the keyword-cluster row, the `SOLD` entry, the prose check) |
+
+**Gate:** 2035 tests / 65 files pass, up from 1996. `npm run lint` 5 warnings,
+0 errors.
+
+#### What this says about the census method
+
+LB-59 said a promise does not have to be written down to be checkable. LB-60
+said a promise can be true and still hide a defect beside it. **LB-61 says a
+promise can be correctly gated, correctly stored, correctly read back, and still
+be false.** Every layer the tests could see was right. The flag reached the
+database, came back, and survived a round trip through two of them. What no test
+asked was whether anything downstream ever changed because of it.
+
+The rule that comes out of this: **assert the consequence, never the storage.**
+A test that reads a column proves the column exists. Ask instead what a reader
+gets, and delete the feature to see the test fail.
+
+#### Carried forward — LB-62
+
+The same read found a second, separate gap. `/how/` promises "Delete a link from
+Profile → Shared links and the page answers 404 straight away", but `share.js`
+DELETE performs no edge-cache purge. `share-page.js` caches 300 s with 3600 s
+stale-while-revalidate; `share-image.js` caches seven days. `@netlify/functions`,
+which provides `purgeCache`, is in neither `node_modules` tree and in no
+`package.json` — so the fix needs a dependency decision, and it is its own rule.

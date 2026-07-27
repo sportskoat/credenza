@@ -188,6 +188,15 @@ async function handle(event) {
     if (!row) return fallback(FAILURE_CACHE);
     if (share.isExpired(row, Date.now())) return fallback(FAILURE_CACHE);
 
+    // An unlisted share serves the Credenza mark, never an item photo. This
+    // route is the one part of a share that answers with no code in the URL
+    // path a human ever types — a chat client, a crawler or a link scanner
+    // fetches it on its own the moment the link is pasted. Serving the haul's
+    // first photo there hands the picture to every one of them. IMAGE_CACHE
+    // holds a hit for seven days at the edge, so this is also the one refusal
+    // that cannot be taken back later.
+    if (row.unlisted) return fallback(IMAGE_CACHE);
+
     const doc = share.parseShareSnapshot(row.data);
     if (!doc) return fallback(FAILURE_CACHE);
 

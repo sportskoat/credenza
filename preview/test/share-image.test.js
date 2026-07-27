@@ -305,3 +305,45 @@ describe("the referer helper", () => {
     expect(refererFor(PHOTO, "not a url")).toBe("https://photo.yupoo.com/");
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// LB-61. `unlisted` was Pro-gated, stored and read back for weeks, and changed
+// nothing a reader could see. This route is the reason it matters most: it
+// answers with no session and no click, the moment a link is pasted, and its
+// hit sits at the edge for seven days. Every one of these tests asserts a
+// CONSEQUENCE. A test that only proves the flag round-trips is the kind that
+// let the dead feature ship.
+describe("an unlisted share does not hand out its photo", () => {
+  it("serves the site card instead of the item photo", async () => {
+    current = state({ row: { id: CODE, user_id: "user-1", unlisted: true, data: doc([{ title: "Wool coat", image: PHOTO, link: ALBUM }]) } });
+    const res = await shareImage.handler(get());
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe(OG);
+  });
+
+  it("never fetches the seller at all for an unlisted row", async () => {
+    // Refusing after the fetch would still leak: the request itself tells the
+    // seller's logs that this album was shared, and costs us the round trip.
+    current = state({ row: { id: CODE, user_id: "user-1", unlisted: true, data: doc([{ title: "Wool coat", image: PHOTO, link: ALBUM }]) } });
+    sent = null;
+    await shareImage.handler(get());
+    expect(sent, "share-image fetched the seller for an unlisted row").toBe(null);
+  });
+
+  it("still serves the photo when the same row is not unlisted", async () => {
+    // The control. Without it, deleting the whole route would pass the two
+    // tests above.
+    current = state({ row: { id: CODE, user_id: "user-1", unlisted: false, data: doc([{ title: "Wool coat", image: PHOTO, link: ALBUM }]) } });
+    const res = await shareImage.handler(get());
+    expect(res.statusCode).toBe(200);
+    expect(Buffer.from(res.body, "base64")).toEqual(JPEG);
+  });
+
+  it("refuses a data: photo too, which needs no outbound fetch", async () => {
+    const inline = "data:image/jpeg;base64," + JPEG.toString("base64");
+    current = state({ row: { id: CODE, user_id: "user-1", unlisted: true, data: doc([{ title: "Phone shot", image: inline }]) } });
+    const res = await shareImage.handler(get());
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe(OG);
+  });
+});

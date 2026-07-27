@@ -1260,6 +1260,11 @@ describe("every page tells a machine what kind of page it is", () => {
     // length by telling you what to DO about the bound that does exist — add
     // freely, know photos are the weight, let the prune run, export a backup.
     "guides/how-many-cards-a-shelf-holds/index.html": "HowTo",
+    // LB-61. HowTo, because the useful part is the four steps and the check at
+    // the end — open the address yourself and see the other half of the split.
+    // The page exists because "unlisted" reads like a stronger promise than it
+    // is, and a reader who buys Pro for privacy needs the line drawn first.
+    "guides/what-an-unlisted-link-hides/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
 
@@ -1885,6 +1890,29 @@ describe("a feature the price table sells is explained somewhere else", () => {
         "photos are what take up the room",
       ],
       why: "the only row that reads the same on both plans, so it looked like filler and went unexplained",
+    },
+    // LB-61. Added 2026-07-27. The census reached "Link options (unlisted,
+    // expiry, no footer)" — 9 sentences over 6 pages. LB-55 had already ruled
+    // it covered, because /guides/share-a-haul-list/ names all three.
+    //
+    // Naming them was not the problem. Verifying them was. Expiry and the
+    // footer both changed what a reader got. `unlisted` was Pro-gated, stored,
+    // read back, and changed NOTHING — its only consumer was a text label in
+    // the owner's own private list, and the "public profile" the Share sheet
+    // promised to keep the link out of does not exist anywhere in the repo.
+    //
+    // So this entry is not "explain the option". It is "the option now does
+    // something, and the page draws the line honestly". The three phrases are
+    // the line: what changes, what does not, and the sentence that stops
+    // somebody buying Pro for a guarantee it was never going to give them.
+    {
+      row: "Link options (unlisted, expiry, no footer)",
+      needs: [
+        "the card a chat draws",
+        "the page itself is unchanged",
+        "unlisted is not a password",
+      ],
+      why: "one of the three options was gated and stored and did nothing, and the word promised more than the feature",
     },
   ];
 

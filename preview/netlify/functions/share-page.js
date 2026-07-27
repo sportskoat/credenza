@@ -171,7 +171,19 @@ function pageHtml(doc, opts) {
   const summary = [count + (count === 1 ? " item" : " items")];
   const total = money(doc.totalUsd);
   if (total) summary.push(total + " total");
-  const description = title + " — " + summary.join(" · ") + ". Shared with Credenza Fashion.";
+
+  // Unlisted changes the preview, not the page. Everything below <body> is the
+  // same for both, because the code is the access control and the person
+  // holding it was given it on purpose. What changes is what a link leaks
+  // BEFORE anyone opens it: a pasted link normally unfurls the haul's real
+  // title, its item count, its total, and a photo of an item — into whatever
+  // room it was pasted in, to people who never opened it. An unlisted link
+  // unfurls a card that says a haul is here and nothing else.
+  const unlisted = !!(opts && opts.unlisted);
+  const ogTitle = unlisted ? "A Credenza haul" : title;
+  const description = unlisted
+    ? "A private haul list shared with Credenza Fashion. Open the link to see it."
+    : title + " — " + summary.join(" · ") + ". Shared with Credenza Fashion.";
 
   // The OG image never points at the seller's own URL, even though that URL is
   // right there in the snapshot. Yupoo answers a request with no Referer with
@@ -182,7 +194,11 @@ function pageHtml(doc, opts) {
   //
   // A data: image counts as a photo here: share-image decodes it and serves it,
   // so a haul shot on a phone camera now unfurls like any other.
-  const hasPhoto = items.some((card) => card && safeSrc(card.image));
+  //
+  // An unlisted share never points at /img. share-image refuses that row too,
+  // so this is belt and braces — but the meta tag is what a crawler reads, and
+  // a crawler that never asks for the photo cannot cache it either.
+  const hasPhoto = !unlisted && items.some((card) => card && safeSrc(card.image));
   const ogImage = hasPhoto && opts && opts.code ? SITE + "/s/" + encodeURIComponent(opts.code) + "/img" : SITE + "/og.png";
 
   // noindex: a shared haul belongs to the person who shared it. It should
@@ -193,16 +209,16 @@ function pageHtml(doc, opts) {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${title} · Credenza Fashion</title>
+<title>${ogTitle} · Credenza Fashion</title>
 <meta name="robots" content="noindex, nofollow" />
 <meta name="description" content="${escapeHtml(description)}" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Credenza Fashion" />
-<meta property="og:title" content="${title}" />
+<meta property="og:title" content="${ogTitle}" />
 <meta property="og:description" content="${escapeHtml(description)}" />
 <meta property="og:image" content="${escapeHtml(ogImage)}" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${title}" />
+<meta name="twitter:card" content="${unlisted ? "summary" : "summary_large_image"}" />
+<meta name="twitter:title" content="${ogTitle}" />
 <meta name="twitter:description" content="${escapeHtml(description)}" />
 <meta name="twitter:image" content="${escapeHtml(ogImage)}" />
 <style>${STYLE}</style>
@@ -291,7 +307,7 @@ async function handle(event) {
     const doc = share.parseShareSnapshot(row.data);
     if (!doc) return reply(404, missHtml(), MISS_CACHE);
 
-    return reply(200, pageHtml(doc, { hideFooter: row.hideFooter, code: id }), PAGE_CACHE);
+    return reply(200, pageHtml(doc, { hideFooter: row.hideFooter, unlisted: row.unlisted, code: id }), PAGE_CACHE);
   } finally {
     limit.leave(ROUTE);
   }

@@ -183,7 +183,7 @@ export default function ShareSheet({
                 "Unlisted",
                 unlisted,
                 () => setUnlisted((v) => !v),
-                "Keep the link out of your public profile."
+                "No preview when pasted. The page still opens for anyone with the link."
               )}
               {proRow(
                 "Hide the Credenza footer",

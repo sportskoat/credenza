@@ -240,6 +240,77 @@ describe("the public page renders what the sharer chose", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// LB-61. The price table sells "Link options (unlisted, expiry, no footer)".
+// Expiry and no-footer both changed what a reader got. `unlisted` was gated,
+// stored and read back — and changed nothing. It passed every test because
+// every test asserted the flag round-tripped, not that it DID anything.
+//
+// What unlisted means here: the page is unchanged for whoever holds the code,
+// because the code IS the access control and it was handed over on purpose.
+// The preview is what changes — the card a link draws in a chat window, for
+// the people in that room who never opened it.
+describe("an unlisted link previews as nothing", () => {
+  const unlistedRow = { id: OTHER, user_id: "user-1", data: doc(), unlisted: true };
+
+  it("keeps the haul title out of the preview tags", async () => {
+    const sb = fakeSupabase();
+    sb.shares.set(OTHER, unlistedRow);
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    const html = (await sharePage.handler(get(OTHER))).body;
+    expect(html).not.toContain('property="og:title" content="Winter haul"');
+    expect(html).not.toContain('name="twitter:title" content="Winter haul"');
+    expect(html).toContain('<meta property="og:title" content="A Credenza haul" />');
+  });
+
+  it("keeps the item count and total out of the description", async () => {
+    const sb = fakeSupabase();
+    sb.shares.set(OTHER, { ...unlistedRow, data: doc({ totalUsd: 412.5 }) });
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    const html = (await sharePage.handler(get(OTHER))).body;
+    const metas = html.match(/<meta[^>]*(?:description|twitter:title|og:title)[^>]*>/g).join("\n");
+    expect(metas).not.toMatch(/\d+ items?/);
+    expect(metas).not.toContain("412");
+    expect(metas).not.toContain("Winter haul");
+  });
+
+  it("points og:image at the site card, never the share photo", async () => {
+    const sb = fakeSupabase();
+    sb.shares.set(OTHER, unlistedRow);
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    const html = (await sharePage.handler(get(OTHER))).body;
+    expect(html).toContain('<meta property="og:image" content="https://credenzafashion.com/og.png" />');
+    expect(html).not.toContain("/s/" + OTHER + "/img");
+  });
+
+  it("still shows the sharer everything on the page itself", async () => {
+    // The line between hiding a preview and breaking a link. Someone opened
+    // this because they were given the code. They get the whole haul.
+    const sb = fakeSupabase();
+    sb.shares.set(OTHER, unlistedRow);
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    const res = await sharePage.handler(get(OTHER));
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("<h1>Winter haul</h1>");
+    expect(res.body).toContain("Wool coat");
+  });
+
+  it("leaves a listed share's preview alone", async () => {
+    // The control. Without it, blanking every preview would pass all of the above.
+    const sb = fakeSupabase();
+    sb.shares.set(CODE, { id: CODE, user_id: "user-1", data: doc() });
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    const html = (await sharePage.handler(get(CODE))).body;
+    expect(html).toContain('<meta property="og:title" content="Winter haul" />');
+    expect(html).toContain("/s/" + CODE + "/img");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 describe("nothing from the snapshot can execute", () => {
   it("escapes text the sharer typed", () => {
     const html = sharePage._internal.itemHtml({

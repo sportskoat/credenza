@@ -474,3 +474,44 @@ describe("the refund promise says the same thing on every page that makes it", (
     expect(page.toLowerCase()).not.toContain("day trial");
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// LB-61, the class guard. The test above proves the three link options are
+// GATED. That is exactly the test that let `unlisted` ship dead: it was gated,
+// it was stored, it was read back, and nothing a reader could see ever changed.
+//
+// A gate is not a feature. This block asserts each option has a CONSEQUENCE —
+// a named consumer in a function that answers the public, reading the field
+// off the loaded row. If a fourth option is ever sold, add it here, and the
+// row-reader assertion will fail until the option actually does something.
+describe("every link option the price table sells changes what a reader gets", () => {
+  const sharePage = read("preview/netlify/functions/share-page.js");
+  const shareImage = read("preview/netlify/functions/share-image.js");
+
+  // Comments describe intent; only code creates a consequence. `unlisted` was
+  // named in a share-page comment for weeks while doing nothing.
+  const code = (src) => src.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+
+  const OPTIONS = [
+    { name: "unlisted", row: "row.unlisted", where: [code(sharePage), code(shareImage)] },
+    { name: "hideFooter", row: "row.hideFooter", where: [code(sharePage)] },
+    { name: "expiry", row: "isExpired(row", where: [code(sharePage), code(shareImage)] },
+  ];
+
+  for (const opt of OPTIONS) {
+    it(opt.name + " is read off the loaded row by a public route", () => {
+      const seen = opt.where.filter((src) => src.includes(opt.row));
+      expect(seen.length, opt.name + " is stored but no public route reads it — a dead option").toBeGreaterThan(0);
+    });
+  }
+
+  it("the pricing row names exactly the options that are wired", () => {
+    // Ties the sentence on the page to the list above. If someone sells a
+    // fourth option in this row, this fails until OPTIONS grows to match —
+    // and OPTIONS cannot grow without a real consumer.
+    const row = /<th scope="row">Link options \(([^)]+)\)<\/th>/.exec(page);
+    expect(row, "the Link options row was renamed — retune this guard").not.toBe(null);
+    const sold = row[1].split(",").map((s) => s.trim());
+    expect(sold.length, "the price table sells a different number of link options than are wired").toBe(OPTIONS.length);
+  });
+});
