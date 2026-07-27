@@ -91,6 +91,7 @@ do it completely, and report against its acceptance criteria.
 | LB-24 | Repair and lock the social link card on all 18 pages | P1 | 1 h | LB-23 | DONE 2026-07-27 — 4 pages were missing 5 tags each; 2 more had drifted text |
 | LB-25 | Hold llms.txt to the same rules as the pages | P1 | 1 h | LB-24 | DONE 2026-07-27 — both briefs were exempt from every site rule |
 | LB-26 | Lock the four shipped files that are not pages | P1 | 1 h | LB-25 | DONE 2026-07-27 — the manifest painted the wrong splash; 18 pages mis-coloured the status bar |
+| LB-27 | Rebuild the guides hub so it answers instead of routing | P1 | 1 h | LB-26 | DONE 2026-07-27 — 200 words to 520, ordered by haul stage; the hub floor exemption is gone |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1460,6 +1461,66 @@ on `self.addEventListener(` and search one handler's own body.
 
 **Gate.** 60 files / 1410 tests passed (1364 before). Lint 0 errors, 5
 pre-existing warnings. Typecheck clean. Build clean.
+
+
+### LB-27. The guides hub answers the cluster question — DONE 2026-07-27
+
+**The defect.** `/guides/` was the thinnest page on the site. A word count
+across `<main>` on all 17 content pages put it at **200 words** — below
+`pricing/` at 449 and every guide it links to. It was eight cards with one line
+each. It answered nothing itself.
+
+That matters more for a hub than for a leaf. A hub is what a search result and
+an assistant land on when the question is about the whole cluster rather than
+one guide. "How do I plan an agent haul?" has no single guide as its answer; it
+has an order. The old page did not state one, so a reader had to open eight
+tabs and infer the sequence, and an assistant reading the page found a list of
+titles with nothing to rank them by.
+
+The test made this permanent. `no guide is too thin to answer its question`
+exempted `/guides/` through a `HUBS` set with a 150-word floor, on the reasoning
+that "their job is to route, not to answer." The exemption was the bug. It said
+the thinnest page on the site was correct.
+
+**The repair.** The hub now runs the four stages a haul actually moves through,
+in order: collect the links, decide the size, judge the QC photos, open Buy in
+an agent. Each stage carries a lede that explains why the stage exists before
+listing the guides under it. The sizing lede is the longest because sizing is
+the step people skip: a listing chart is measured flat, in centimetres, garment
+by garment, so the same label is a different garment across two stores — and a
+wrong size is not a return, it is a second parcel and a second shipping fee.
+
+Two closing sections were added. "What these guides assume" states the
+boundary — you already found the items, nothing here tells you what to buy, no
+guide names a store or a seller. The second maps each guide to behaviour the
+app actually ships, using the real `STATUS_TRACK` values from
+`credenza-fashion.jsx:3722` (Want, Bought, Shipped, Received) rather than
+invented ones.
+
+The `CollectionPage` JSON-LD gained a `mainEntity` `ItemList` naming all eight
+guides in haul order with `ItemListOrderAscending`. The order is the answer, so
+it has to be in the markup and not only in the prose.
+
+Result: 520 words, 5 `h2`, 8 `h3`.
+
+**The lock.** `HUBS` is now empty and the comment records why the exemption was
+wrong. No page on the site is exempt from the 400-word floor. Leaving the hub at
+150 would have meant the new depth could silently regress back to a link list.
+
+**One outline fix, not a rule change.** The section-count rule failed first:
+`guides/index.html has 2 h2 headings and 0 summary elements`. The stage headings
+were `h3`. The stages genuinely are top-level sections, so the fix was promoting
+them to `h2` and demoting the card titles to `h3` — the document outline was
+wrong, not the threshold.
+
+**Negative control.** Raising the floor to 600 produced
+`guides/index.html has 520 words in <main>: expected 520 to be greater than or
+equal to 600`, which proves the hub is now inside the rule rather than skipped
+by it. Restored, and `git diff --stat` confirmed the `HUBS` change survived the
+restore.
+
+**Gate.** 60 files / 1410 tests passed. Lint 0 errors, 5 pre-existing warnings.
+Typecheck clean. Build clean.
 
 
 ## Explicitly deferred (do NOT build before launch)

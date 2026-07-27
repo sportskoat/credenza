@@ -29,7 +29,63 @@
         "name": "Credenza guides",
         "url": "https://credenzafashion.com/guides/",
         "description": "Bottom-of-funnel guides for planning international agent hauls with Credenza.",
-        "isPartOf": { "@type": "WebSite", "name": "Credenza Fashion", "url": "https://credenzafashion.com/" }
+        "isPartOf": { "@type": "WebSite", "name": "Credenza Fashion", "url": "https://credenzafashion.com/" },
+        "mainEntity": {
+          "@type": "ItemList",
+          "name": "Agent haul planning guides, in haul order",
+          "itemListOrder": "https://schema.org/ItemListOrderAscending",
+          "numberOfItems": 8,
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Organize an agent haul without a spreadsheet",
+              "url": "https://credenzafashion.com/guides/organize-agent-haul/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Spreadsheet vs haul planner",
+              "url": "https://credenzafashion.com/guides/spreadsheet-vs-haul-planner/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Reddit haul comment to shopping list",
+              "url": "https://credenzafashion.com/guides/reddit-haul-to-list/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 4,
+              "name": "Store body measurements for agent sizing",
+              "url": "https://credenzafashion.com/guides/store-body-measurements/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 5,
+              "name": "Weidian size chart to your size",
+              "url": "https://credenzafashion.com/guides/weidian-size-chart/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 6,
+              "name": "Track QC photos and GL/RL",
+              "url": "https://credenzafashion.com/guides/track-qc-photos/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 7,
+              "name": "Which agent should I use?",
+              "url": "https://credenzafashion.com/guides/choose-an-agent/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 8,
+              "name": "Open a Weidian link in your preferred agent",
+              "url": "https://credenzafashion.com/guides/open-weidian-in-agent/"
+            }
+          ]
+        }
       }
     </script>
     <style>
@@ -115,10 +171,31 @@
         margin: 0 0 0.75rem;
       }
       h2 {
+        font-size: 1.35rem;
+        margin: 2rem 0 0.5rem;
+        font-weight: 400;
+        line-height: 1.25;
+      }
+      h2:first-child { margin-top: 0; }
+      h2.stage {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 1.75rem 0 0.4rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid var(--line);
+      }
+      h3 {
         font-size: 1.05rem;
         margin: 0 0 0.4rem;
         font-weight: 600;
         font-family: system-ui, -apple-system, sans-serif;
+      }
+      .stage-lede {
+        color: var(--muted);
+        margin: 0 0 1rem;
       }
       .lede {
         color: var(--muted);
@@ -233,6 +310,11 @@
       <p class="lede">
         Clear answers to buying questions: organize links, size with confidence, open your agent. Not a product catalog.
       </p>
+      <p class="lede">
+        Every guide below answers one question end to end. They are ordered by
+        where a haul actually goes: you collect links, you decide a size, you
+        judge the QC photos, and you open Buy in an agent.
+      </p>
       <nav class="nav" aria-label="Site">
         <a href="/">Open app</a>
         <a href="/landing/">About</a>
@@ -247,46 +329,93 @@
       </nav>
     </header>
     <main>
+      <p class="stage-lede">
+        Four stages, in order. Most mistakes happen because a step is skipped,
+        not because a step is hard. Sizing is the step people skip.
+      </p>
+
+      <h2 class="stage">1 · Collect the links</h2>
+      <p class="stage-lede">
+        Finds arrive from a Reddit thread, a Discord drop, or a spreadsheet
+        somebody shared. They are links in a chat log until you put them in one
+        place. Start here if you have more finds than you can remember.
+      </p>
       <article class="card">
         <span class="n">Organize</span>
-        <h2><a href="/guides/organize-agent-haul/">Organize an agent haul without a spreadsheet</a></h2>
+        <h3><a href="/guides/organize-agent-haul/">Organize an agent haul without a spreadsheet</a></h3>
         <p>One shelf for Weidian, Yupoo, Taobao, and multi-link finds before you buy.</p>
       </article>
       <article class="card">
         <span class="n">Compare</span>
-        <h2><a href="/guides/spreadsheet-vs-haul-planner/">Spreadsheet vs haul planner</a></h2>
+        <h3><a href="/guides/spreadsheet-vs-haul-planner/">Spreadsheet vs haul planner</a></h3>
         <p>When a sheet is enough, and when a planner reduces mistakes on size and QC.</p>
       </article>
       <article class="card">
         <span class="n">Reddit</span>
-        <h2><a href="/guides/reddit-haul-to-list/">Reddit haul comment to shopping list</a></h2>
+        <h3><a href="/guides/reddit-haul-to-list/">Reddit haul comment to shopping list</a></h3>
         <p>Paste a haul wall of text into structured cards you can size and track.</p>
       </article>
+
+      <h2 class="stage">2 · Decide the size</h2>
+      <p class="stage-lede">
+        This is the expensive stage. A size chart on a listing is measured flat,
+        in centimetres, garment by garment — so the same label is a different
+        garment across two stores. A wrong size is not a return; it is a second
+        parcel and a second shipping fee. Do this before you buy, not after.
+      </p>
       <article class="card">
         <span class="n">Size</span>
-        <h2><a href="/guides/weidian-size-chart/">Weidian size chart to your size</a></h2>
-        <p>Body profile, chart rows (including hip-only), plain-language recommendation.</p>
-      </article>
-      <article class="card">
-        <span class="n">Size</span>
-        <h2><a href="/guides/store-body-measurements/">Store body measurements for agent sizing</a></h2>
+        <h3><a href="/guides/store-body-measurements/">Store body measurements for agent sizing</a></h3>
         <p>Eight measures, an inch/cm toggle that converts, and fit preferences that move the pick one step.</p>
       </article>
       <article class="card">
+        <span class="n">Size</span>
+        <h3><a href="/guides/weidian-size-chart/">Weidian size chart to your size</a></h3>
+        <p>Body profile, chart rows (including hip-only), plain-language recommendation.</p>
+      </article>
+
+      <h2 class="stage">3 · Judge the QC photos</h2>
+      <p class="stage-lede">
+        The agent photographs the item in the warehouse and waits for your
+        answer. Green light ships it. Red light sends it back. The photos live in
+        a chat window and scroll away, so keep them on the item they belong to.
+      </p>
+      <article class="card">
         <span class="n">QC</span>
-        <h2><a href="/guides/track-qc-photos/">Track QC photos and GL/RL</a></h2>
+        <h3><a href="/guides/track-qc-photos/">Track QC photos and GL/RL</a></h3>
         <p>Keep the photos on the item card. Decide green light or red light before the parcel ships.</p>
       </article>
+
+      <h2 class="stage">4 · Open Buy in an agent</h2>
+      <p class="stage-lede">
+        The agent is the last step, not the first. Keep the store link you found,
+        because an agent-wrapped URL only works in that one agent. Keep the
+        original and the choice stays reversible.
+      </p>
       <article class="card">
         <span class="n">Agents</span>
-        <h2><a href="/guides/choose-an-agent/">Which agent should I use?</a></h2>
+        <h3><a href="/guides/choose-an-agent/">Which agent should I use?</a></h3>
         <p>Compare on link format and marketplace coverage. Keep the store link so the choice stays reversible.</p>
       </article>
       <article class="card">
         <span class="n">Agents</span>
-        <h2><a href="/guides/open-weidian-in-agent/">Open a Weidian link in your preferred agent</a></h2>
+        <h3><a href="/guides/open-weidian-in-agent/">Open a Weidian link in your preferred agent</a></h3>
         <p>Keep the canonical URL. Open Superbuy, Sugargoo, Kakobuy, or your agent at Buy time.</p>
       </article>
+
+      <h2>What these guides assume</h2>
+      <p class="stage-lede">
+        You already found the items. You already have an agent account, or you
+        are choosing one. Nothing here tells you what to buy, and no guide names
+        a store or a seller — Credenza is a decision layer, not a marketplace.
+        The links are yours; the guides are about what to do with them.
+      </p>
+      <p class="stage-lede">
+        Every guide maps to something the app does. Credenza reads a link into a
+        card, keeps your measurements next to the chart, holds QC photos on the
+        item, and tracks each one across Want, Bought, Shipped, and Received. The
+        guide explains the decision; the app remembers it.
+      </p>
 
       <p class="note">
         Credenza is a decision layer, not a marketplace and not a W2C search engine.

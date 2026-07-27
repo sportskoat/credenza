@@ -671,9 +671,14 @@ describe("no guide is too thin to answer its question", () => {
   // page, and the pages that are legitimately different are named here with the
   // reason, not silently skipped.
   //
-  // HUBS are link lists. Their job is to route, not to answer, so they get a
-  // lower floor — high enough that an empty hub still fails.
-  const HUBS = new Set(["/guides/"]);
+  // /guides/ used to be a bare list of eight links and 200 words — the thinnest
+  // page on the site, and the one the whole guide cluster points back to. It
+  // was exempted here on the grounds that a hub routes rather than answers.
+  // That was the wrong trade: a hub is what a search result and an assistant
+  // land on, so it has to answer the cluster question itself. It now orders the
+  // guides by haul stage and explains each stage, at 520 words, so it holds the
+  // same floor as every other page. No page is exempt.
+  const HUBS = new Set();
 
   const content = PAGES.filter((p) => p.url !== "/");
 
