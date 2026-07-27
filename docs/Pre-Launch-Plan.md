@@ -102,6 +102,7 @@ do it completely, and report against its acceptance criteria.
 | LB-35 | Ship the free-plan guide and bind every quoted limit to the server table | P1 | 1 h | LB-34 | DONE 2026-07-27 — the last unshipped buying question; changing "20 link resolves" to 500 on a live page passed |
 | LB-36 | Ship the Yupoo guide, bind the relay cap to the copy, and stop the keyword doc drifting | P1 | 1 h | LB-35 | DONE 2026-07-27 — ~12k/mo head term with a shipped feature and no page; it stayed uncovered because the planning table looked full |
 | LB-37 | Make a clean checkout build the real app instead of a 21-module stub | P0 | 2 h | — | DONE 2026-07-27 — the launch gate box was unchecked because it was true; Netlify would have shipped a bundle with no icons and no app |
+| LB-38 | Cache the bytes that never change; stop re-sending 1.3 MB to every repeat visitor | P1 | 1 h | LB-37 | DONE 2026-07-27 — the live site sent max-age=0 for a 352 KB font and 884 KB of content-hashed JS; found while booting the built bundle for LB-37 |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2177,6 +2178,65 @@ understands.
 bundle. Verified in the clean clone after the fix: 21 → 2247 modules, zero bare
 specifiers in the output, sign-in present in the `ProfileSheet`, `SettingsSheet`
 and `ShareSheet` chunks, Supabase URL baked in.
+
+### LB-38 — 1.3 MB re-sent to every returning visitor
+
+LB-37 proved the bundle builds. It did not prove the bundle runs, so I served
+`dist/` over a local HTTP server and loaded it in a real browser. The app
+mounted and rendered. The request log did not look right: 12 requests for 6
+files. Every asset was fetched twice.
+
+The double fetch is the service worker claiming the page mid-load, which is
+normal. Checking whether the second fetch is free is what found the real defect.
+
+**What the live site sends.** `curl -I` against credenzafashion.com returns
+`cache-control: public, max-age=0, must-revalidate` for every file tested,
+including `/fonts/InterVariable.woff2` (352 KB) and the content-hashed
+JavaScript. That is Netlify's default when nothing says otherwise, and nothing
+did. So a returning visitor re-downloads about 1.3 MB that cannot have changed:
+
+| Path | Size | Was re-fetched |
+|------|------|----------------|
+| `/fonts/*` | 352 KB | every visit |
+| `/assets/*` | 884 KB | every visit |
+| `/img/*` + icons | 84 KB | every visit |
+
+**Why a year is safe here and nowhere else.** Vite puts a content hash in each
+asset filename. Different bytes produce a different URL, so a cached copy can
+never be stale — the browser simply stops asking. `/img/*` is not hashed, so it
+gets a day, not a year.
+
+**The inverse, which matters more.** `sw.js` must NEVER be cached. It decides
+which build a returning visitor runs. Cache it and the stale worker keeps
+serving its own old precache manifest, so a deploy reaches nobody who has
+visited before. A rule that only said "cache more" would have caused exactly
+that, so the rule asserts `max-age=0` on `sw.js` in the same test.
+
+**A second defect, found by the rule and not by me.** Netlify reads BOTH
+`preview/public/_headers` and `preview/netlify.toml` and merges them. Two
+sources for one contract can disagree, and the loser is whichever file the next
+person did not edit. Nothing would notice — the site keeps serving, just with a
+header somebody believed they had changed. The new mirror rule failed on its
+first run and named two blocks (`/google624a8f93f4906c6d.html` and `/og.png`)
+present in `_headers` and absent from `netlify.toml`. Both are now mirrored, and
+the rule checks both directions.
+
+**One existing rule had to learn something.** `_headers` names only files that
+ship, which is right, but `/assets/*` is build output and does not exist in
+`public/`. I did not relax the rule to a glob-skip. It resolves a trailing `/*`
+to its directory and requires that directory to exist, falling back to
+`preview/dist/` because `dist` is gitignored. A typo like `/asset/*` still
+fails.
+
+| Probe | Result |
+|-------|--------|
+| Cache `sw.js` for a year | 2 fail |
+| Drop `immutable` from `/assets/*` in `netlify.toml` only | 2 fail (drift caught) |
+| Delete the `/fonts/*` block from `_headers` | 2 fail |
+| Rename `/assets/*` to `/asset/*` in both files | 3 fail |
+| Restore each time | checksum verified |
+
+**Gate.** 1591 tests pass, 0 lint errors, tsc clean, build emits the full bundle.
 
 ## Explicitly deferred (do NOT build before launch)
 

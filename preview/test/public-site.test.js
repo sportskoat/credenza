@@ -837,14 +837,61 @@ describe("the files that ship but are not pages", () => {
       expect(paths.length, "_headers declares no paths").toBeGreaterThan(5);
       for (const path of paths) {
         if (path === "/*") continue; // the site-wide block
+        // A directory glob names build output, not a file in public/. Resolve
+        // it to the directory and require THAT to exist, so a renamed output
+        // directory still fails. Only a trailing /* is allowed: a glob anywhere
+        // else would let a typo match nothing and pass.
+        const glob = /^(\/[^*]*)\/\*$/.exec(path);
+        const target = glob ? glob[1] : path;
         let exists = true;
         try {
-          statSync(join(PUBLIC, path.replace(/^\//, "")));
+          statSync(join(PUBLIC, target.replace(/^\//, "")));
         } catch {
           exists = false;
         }
+        if (glob && !exists) {
+          // dist/ is gitignored and absent before the first build, so fall back
+          // to it only when public/ has no such directory.
+          try {
+            statSync(join(ROOT, "preview/dist", target.replace(/^\//, "")));
+            exists = true;
+          } catch {
+            exists = false;
+          }
+        }
         expect(exists, `_headers sets headers for ${path}, which does not ship`).toBe(true);
       }
+    });
+
+    it("caches the bytes that never change and refuses to cache the one that must not", () => {
+      // Netlify's default is `max-age=0, must-revalidate` on everything. The
+      // live site was serving that for a 352 KB font and 884 KB of
+      // content-hashed JavaScript, so every repeat visitor re-fetched ~1.3 MB
+      // that could not possibly have changed. That is paid bandwidth for zero
+      // new bytes.
+      //
+      // A content hash in the filename makes `immutable` safe by construction:
+      // different bytes produce a different URL, so a cached copy can never be
+      // stale.
+      for (const dir of ["/assets/*", "/fonts/*"]) {
+        expect(paths, `_headers has no block for ${dir}`).toContain(dir);
+        const block = headers.slice(headers.indexOf(dir + "\n"));
+        const body = block.slice(0, block.indexOf("\n/", 1) === -1 ? undefined : block.indexOf("\n/", 1));
+        expect(body, `${dir} is not cached long`).toMatch(/max-age=31536000/);
+        expect(body, `${dir} is not marked immutable`).toContain("immutable");
+      }
+
+      // The inverse, and the reason this rule cannot just say "cache more".
+      // sw.js decides which build every returning visitor runs. Cache it and a
+      // deploy never reaches anybody: the stale worker keeps serving the old
+      // precache manifest from its own cache, forever.
+      expect(paths, "_headers has no block for /sw.js").toContain("/sw.js");
+      const sw = headers.slice(headers.indexOf("/sw.js\n"));
+      const swBody = sw.slice(0, sw.indexOf("\n/", 1) === -1 ? undefined : sw.indexOf("\n/", 1));
+      expect(swBody, "sw.js must not be cached — a stale worker pins visitors to the old build").toMatch(
+        /max-age=0/
+      );
+      expect(swBody, "sw.js must not be immutable").not.toContain("immutable");
     });
 
     it("sets a content type for every file a browser guesses wrong", () => {

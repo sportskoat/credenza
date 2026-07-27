@@ -32,3 +32,25 @@
 /og.png
   Content-Type: image/png
   Cache-Control: public, max-age=86400
+
+# Content-hashed build output. The hash in the filename changes whenever the
+# bytes change, so a stale copy is impossible and a year is safe. Without this
+# Netlify serves max-age=0,must-revalidate and every repeat visitor re-fetches
+# ~880 KB of JavaScript and CSS that never changed.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 352 KB, one file, changes about never. It was being re-fetched on every visit.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Not content-hashed, so not immutable. A day is long enough to stop the repeat
+# fetch and short enough that replacing an image lands within a day.
+/img/*
+  Cache-Control: public, max-age=86400
+
+# The service worker must NOT be cached. A stale sw.js keeps serving the old
+# precache manifest, so a new deploy never reaches the visitor. This is the one
+# file where max-age=0 is the correct answer.
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate

@@ -158,6 +158,84 @@ describe("the baseline security headers still ship", () => {
     }
   });
 
+  it("agrees with public/_headers on every path both files declare", () => {
+    // Netlify reads BOTH files and merges them. Two sources for one contract
+    // means they can disagree, and the loser is whichever one the next person
+    // did not edit. Nothing here would notice: the site keeps serving, just
+    // with a header somebody thought they had changed.
+    const hd = readFileSync(join(PREVIEW, "public/_headers"), "utf8");
+    const fileBlocks = {};
+    let current = null;
+    for (const raw of hd.split("\n")) {
+      if (/^\//.test(raw)) {
+        current = raw.trim();
+        fileBlocks[current] = {};
+      } else if (current && /^\s+\S/.test(raw)) {
+        const [k, ...rest] = raw.trim().split(":");
+        fileBlocks[current][k.trim()] = rest.join(":").trim();
+      }
+    }
+
+    expect(Object.keys(fileBlocks).length, "_headers parsed to nothing").toBeGreaterThanOrEqual(8);
+
+    const tomlFor = (path) => {
+      const i = parsed.findIndex((b) => b.name === "headers" && b.values.for === path);
+      return i >= 0 ? parsed[i + 1]?.values || {} : null;
+    };
+
+    const disagreements = [];
+    for (const [path, values] of Object.entries(fileBlocks)) {
+      const other = tomlFor(path);
+      if (!other) {
+        disagreements.push(`${path}: declared in _headers, absent from netlify.toml`);
+        continue;
+      }
+      for (const [key, value] of Object.entries(values)) {
+        // Compare without whitespace: TOML writes "public, max-age=0" and
+        // _headers writes the same thing, but a stray space is not a defect.
+        const a = value.replace(/\s+/g, "");
+        const b = String(other[key] ?? "").replace(/\s+/g, "");
+        if (a !== b) disagreements.push(`${path} ${key}: _headers="${value}" netlify.toml="${other[key] ?? "(absent)"}"`);
+      }
+    }
+    // And the reverse. A path only in netlify.toml is the same defect wearing
+    // the other hat: somebody edits _headers, sees no effect, and never learns
+    // the other file exists.
+    for (const block of parsed) {
+      if (block.name !== "headers") continue;
+      const path = block.values.for;
+      if (!path || fileBlocks[path]) continue;
+      disagreements.push(`${path}: declared in netlify.toml, absent from _headers`);
+    }
+
+    expect(disagreements, "public/_headers and netlify.toml disagree").toEqual([]);
+  });
+
+  it("caches the immutable bytes and refuses to cache the service worker", () => {
+    // Netlify defaults every file to max-age=0,must-revalidate. The live site
+    // was re-sending a 352 KB font and 884 KB of content-hashed JavaScript on
+    // every repeat visit — paid bandwidth for bytes that had not changed.
+    const forOf = (path) => {
+      const i = parsed.findIndex((b) => b.name === "headers" && b.values.for === path);
+      return i >= 0 ? parsed[i + 1]?.values || {} : null;
+    };
+    for (const dir of ["/assets/*", "/fonts/*"]) {
+      const cc = forOf(dir)?.["Cache-Control"];
+      expect(cc, `${dir} has no Cache-Control`).toBeTruthy();
+      expect(cc, `${dir} is not cached for a year`).toContain("max-age=31536000");
+      expect(cc, `${dir} is not immutable`).toContain("immutable");
+    }
+
+    // The inverse, and the reason the rule above cannot simply say "cache
+    // everything". sw.js decides which build a returning visitor runs. Cache it
+    // and the stale worker keeps serving its old precache manifest, so a deploy
+    // reaches nobody who has visited before.
+    const sw = forOf("/sw.js")?.["Cache-Control"];
+    expect(sw, "/sw.js has no Cache-Control").toBeTruthy();
+    expect(sw, "sw.js must not be cached — a stale worker pins visitors to the old build").toContain("max-age=0");
+    expect(sw, "sw.js must not be immutable").not.toContain("immutable");
+  });
+
   it("serves the discovery files as the type a crawler expects", () => {
     // sitemap.xml served as text/html is ignored by search consoles. The
     // failure is silent in a browser, which renders it either way.

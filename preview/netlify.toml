@@ -52,6 +52,46 @@
   [headers.values]
     Content-Type = "application/xml; charset=utf-8"
 
+[[headers]]
+  for = "/google624a8f93f4906c6d.html"
+  [headers.values]
+    Content-Type = "text/html; charset=utf-8"
+    Cache-Control = "public, max-age=300"
+
+[[headers]]
+  for = "/og.png"
+  [headers.values]
+    Content-Type = "image/png"
+    Cache-Control = "public, max-age=86400"
+
+# Caching. Netlify's default is max-age=0,must-revalidate on every file, so the
+# live site was re-sending a 352 KB font and 884 KB of content-hashed JavaScript
+# to every returning visitor. A content hash in the filename makes `immutable`
+# safe: different bytes mean a different URL, so a cached copy cannot go stale.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Not content-hashed, so a day rather than a year.
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# sw.js is the one file that must NEVER be cached. It decides which build a
+# returning visitor runs. A stale worker keeps serving its old precache
+# manifest, so a deploy never reaches anybody.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
 # Baseline security + quality headers (all routes)
 [[headers]]
   for = "/*"
