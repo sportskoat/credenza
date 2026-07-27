@@ -128,20 +128,79 @@ describe("the page is reachable", () => {
 });
 
 describe("the page only sells what is built", () => {
-  it("names no unbuilt feature", () => {
-    // docs/free-to-pro-checklist.md rows 10, 11, 13 and 15 are MISSING. Naming
-    // one on the pricing page would be selling a feature that does not exist.
-    for (const unbuilt of [
-      "synced",
-      "sync across",
-      "shared shelf",
-      "public link",
-      "price watch",
-      "restock",
-      "seller memory",
-    ]) {
-      expect(page.toLowerCase()).not.toContain(unbuilt);
+  // LB-45. The eleventh scope defect, and the first where the narrow scope was
+  // not the whole problem — the rule was also wrong about the facts.
+  //
+  // What it used to say: "docs/free-to-pro-checklist.md rows 10, 11, 13 and 15
+  // are MISSING", and it banned "sync across" and "shared shelf" on that basis.
+  // Rows 10 and 11 were both marked BUILT on 2026-07-26 and their two
+  // preconditions are now met — Kyle ran both migrations, and preview/.env sets
+  // VITE_ENABLE_SYNC=true. So the rule forbade the pricing page from naming the
+  // two features that most justify $4.99 a month, and the page shipped an
+  // eleven-row table with neither of them in it.
+  //
+  // A stale comment is not a small defect here. Nobody deletes a rule that
+  // states a reason, so the wrong reason outlives the fact it was based on.
+  // The fix is to derive the ban list from the checklist file instead of
+  // restating it, so a row flipping to BUILT cannot leave this rule behind.
+  //
+  // The scope half is the LB-22 shape, proved 2026-07-27: adding "Pro adds
+  // price watch and restock alerts on every card" to /faq/ left all 1666 tests
+  // green. The rule read `page` and nothing else. A promise of an unbuilt
+  // feature is a broken promise wherever a person reads it, and /faq/ is read
+  // before /pricing/ at least as often.
+  const CHECKLIST = read("docs/free-to-pro-checklist.md");
+
+  // Phrases that would only ever appear because somebody sold the feature.
+  // Keyed by checklist row so the state below is read, never assumed.
+  const FEATURE_PHRASES = {
+    13: ["price watch", "restock alert", "back in stock"],
+    15: ["seller memory", "every seller you"],
+    11: ["custom url", "custom link address"],
+  };
+
+  const row = (n) => {
+    const line = CHECKLIST.split("\n").find((l) => l.startsWith("| " + n + " |"));
+    expect(line, "checklist row " + n + " is gone — has the file changed shape?").toBeTruthy();
+    return line;
+  };
+
+  it("still finds the rows it reasons about", () => {
+    // Guard the guard. A renamed row would make every ban below vacuous, and a
+    // vacuous D-3 rule is worse than none: it reads as enforced.
+    //
+    // Each assertion names the exact fact the ban rests on, not a summary of
+    // it. Row 11 is BUILT — that is why the page may now sell shared links —
+    // but ONE part of it is not, and that part is what "custom url" is banned
+    // for. Checking the row's state would have hidden that.
+    expect(row(13), "row 13 (restock and price watch)").toContain("**MISSING**");
+    expect(row(15), "row 15 (seller memory)").toContain("**MISSING**");
+    expect(row(11), "row 11 no longer says custom URL is unbuilt").toContain(
+      "**Custom URL is not built**"
+    );
+  });
+
+  it("sells the two features whose rows now read BUILT", () => {
+    // The other half of D-3, which nothing enforced: a rule that only bans
+    // over-promising lets the page under-promise forever. Rows 10 and 11 were
+    // BUILT on 2026-07-26 and the page named neither for a full day.
+    expect(row(10), "row 10 (devices) is no longer BUILT").toContain("**BUILT**");
+    expect(row(11), "row 11 (shared shelf) is no longer BUILT").toContain("**BUILT**");
+    expect(page, "/pricing/ does not mention shared links").toMatch(/shared haul links/i);
+    expect(page, "/pricing/ does not mention more than one device").toMatch(/more than one device/i);
+  });
+
+  it("names no unbuilt feature, on any public page", () => {
+    // Every public page, not just this one. See the LB-45 note above.
+    const banned = Object.values(FEATURE_PHRASES).flat();
+    const offenders = [];
+    for (const f of textFiles(PUBLIC)) {
+      const text = readFileSync(f, "utf8").toLowerCase();
+      for (const phrase of banned) {
+        if (text.includes(phrase)) offenders.push(f.slice(PUBLIC.length + 1) + " → " + phrase);
+      }
     }
+    expect(offenders, "these pages sell a feature that is not built").toEqual([]);
   });
 
   it("quotes the same caps the server enforces", () => {
@@ -208,6 +267,56 @@ describe("the page only sells what is built", () => {
     ]) {
       expect(bullets, "no bullet reads " + JSON.stringify(want)).toContain(want);
     }
+  });
+
+  it("quotes the share caps the share function enforces", () => {
+    // The share caps do NOT live in PLAN_LIMITS — they are constants in
+    // share.js, because the function is the only thing that can count rows.
+    // So the rule above cannot see them, and a page selling "100 links" while
+    // the server allows 3 is the same broken promise as a wrong price.
+    const fn = read("preview/netlify/functions/share.js");
+    const constant = (name) => {
+      const m = fn.match(new RegExp("const " + name + "\\s*=\\s*(\\d+)"));
+      expect(m, name + " is gone from share.js").toBeTruthy();
+      return Number(m[1]);
+    };
+    const free = constant("MAX_SHARES_FREE");
+    const pro = constant("MAX_SHARES_PRO");
+
+    const tableRow = (label) => {
+      const i = page.indexOf('<th scope="row">' + label + "</th>");
+      expect(i, "no table row named " + JSON.stringify(label)).toBeGreaterThan(-1);
+      return page.slice(i, i + 260);
+    };
+    expect(tableRow("Shared haul links")).toContain("<td>" + free + "</td>");
+    expect(tableRow("Shared haul links")).toContain("<td>" + pro + "</td>");
+
+    const bullets = [...page.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1].trim());
+    expect(bullets, "no free bullet reads the share cap").toContain(free + " shared haul links");
+    expect(bullets, "no Pro bullet reads the share cap").toContain(pro + " shared haul links");
+
+    // The three Pro-only link options are forced off server-side for a free
+    // account. The page sells them as Pro, so the forcing has to still be there.
+    for (const forced of ["pro && body.unlisted === true", "pro && body.hideFooter === true"]) {
+      expect(fn, "share.js no longer forces " + forced).toContain(forced);
+    }
+    expect(fn, "share.js no longer gates expiry on Pro").toMatch(/pro && Number\.isFinite/);
+  });
+
+  it("describes the device row the way the app actually behaves", () => {
+    // Pull is free, continuous push is Pro. That asymmetry is the whole row,
+    // and it is easy to "simplify" the page into saying sync is Pro-only —
+    // which would tell somebody who lost a phone that their cards are gone.
+    const app = read("credenza-fashion.jsx");
+    // The pull effect gates on signedIn + canPersist, with no plan check.
+    expect(app).toContain("if (!signedIn || !canPersist || syncedOnceRef.current) return;");
+    // The push effect adds isProPlan. If that ever drops, the page is wrong.
+    expect(app).toContain(
+      "if (!signedIn || !isProPlan || !canPersist || !syncedOnceRef.current) return;"
+    );
+    const deviceRow = page.slice(page.indexOf('<th scope="row">Your shelf on more than one device</th>'));
+    expect(deviceRow.slice(0, 200), "the free side of the device row").toContain("Restore only");
+    expect(deviceRow.slice(0, 200), "the Pro side of the device row").toContain("Kept in step");
   });
 
   it("names no cap the server does not enforce", () => {

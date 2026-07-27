@@ -109,6 +109,7 @@ do it completely, and report against its acceptance criteria.
 | LB-42 | Stop showing the buyer the server's own error strings | P0 | 1 h | LB-41 | DONE 2026-07-27 — pressing Upgrade with one variable unset showed a paying visitor "Server not configured: missing STRIPE_PRICE_MONTHLY"; 18 such strings across 8 functions, none under test |
 | LB-43 | Check the yearly price, not just the monthly one | P0 | 45 m | LB-42 | DONE 2026-07-27 — the ninth scope defect; the rule read the first price after "Pro" and every sentence names two, so a wrong yearly price passed all 1641 tests |
 | LB-44 | Check that the files a page asks for are actually there | P1 | 45 m | LB-43 | DONE 2026-07-27 — the tenth scope defect, and the first about references rather than words; renaming the landing hero to a file that does not exist passed all 1641 tests |
+| LB-45 | Sell the two features that shipped a day ago | P1 | 50 m | LB-44 | DONE 2026-07-27 — the eleventh scope defect, and the first where the rule was also wrong about the facts; a stale comment kept shared links and multi-device off the page that sells Pro |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2656,6 +2657,79 @@ guides, and every guide has at least 3 inbound links. Every page clears the
 engine") or a naming explanation, which is what the loose phrase list is for.
 
 **Gate.** 1666 tests pass (62 files), 5 lint warnings and 0 errors, build
+`index-fashion-VSp8hwMs.js 363.47 kB`.
+
+### LB-45 — the rule that kept two shipped features off the pricing page
+
+**The defect.** The pricing table had eleven rows and named neither shared
+haul links nor multi-device shelves. Those are the two features that most
+justify $4.99 a month. Both shipped on 2026-07-26.
+
+They were absent because a test forbade naming them. `pricing.test.js` banned
+the phrases "sync across" and "shared shelf", with this comment:
+
+> `docs/free-to-pro-checklist.md` rows 10, 11, 13 and 15 are MISSING.
+
+Rows 10 and 11 read **BUILT** since 2026-07-26. Both preconditions are met:
+Kyle ran `docs/sql/2026-07-26-shelves.sql` and `docs/sql/2026-07-26-shares.sql`,
+and `preview/.env` sets `VITE_ENABLE_SYNC=true`.
+
+**Why a stale comment is not a small defect.** Nobody deletes a rule that
+states a reason. The wrong reason outlives the fact it rested on, and it reads
+as deliberate to everybody who comes after. The fix is to stop restating the
+checklist and read it: each ban now asserts the exact line it depends on, so a
+row flipping to BUILT fails the guard instead of leaving the rule behind.
+
+**The eleventh scope defect, and a new half.** The old rule read `page` — the
+pricing page and nothing else. Proved 2026-07-27: adding "Pro adds price watch
+and restock alerts on every card" to `/faq/` left all 1666 tests green. That is
+the LB-22 shape for the eleventh time.
+
+The new half is the direction. Every D-3 rule so far banned **over**-promising.
+Nothing caught **under**-promising, so the page could omit a shipped feature
+forever and stay green. LB-45 adds the opposite assertion: rows 10 and 11 read
+BUILT, therefore the page must name them.
+
+**What the page now says.** Three rows and four bullets, every number pinned to
+the server:
+
+| Row | Free | Pro | Pinned against |
+|---|---|---|---|
+| Shared haul links | 3 | 100 | `share.js` `MAX_SHARES_FREE` / `MAX_SHARES_PRO` |
+| Link options (unlisted, expiry, no footer) | No | Yes | the three `pro && …` guards in `handleCreate` |
+| Your shelf on more than one device | Restore only | Kept in step | the two sync effects in `credenza-fashion.jsx` |
+
+The caps are **not** in `PLAN_LIMITS` — they are constants in `share.js`,
+because only the function can count rows. The existing cap rule reads
+`entitlements.js` and cannot see them, so LB-45 adds a second rule that reads
+`share.js` directly.
+
+**The device row needed prose.** "Restore only" against "Kept in step" is a
+riddle without one sentence, and the wrong simplification is dangerous: calling
+sync Pro-only would tell somebody who lost a phone that their cards are gone.
+Pull is free by design — `if (!signedIn || !canPersist || …)`, no plan check.
+Push is Pro — `if (!signedIn || !isProPlan || …)`. A test pins both lines, so
+the page cannot drift from the behaviour.
+
+**Probes.**
+
+| Edit | Result |
+|---|---|
+| "price watch" added to `/faq/` (old rule) | **0 fail — the scope defect** |
+| "price watch" added to `/faq/` (new rule) | 1 fail, names the file and the phrase |
+| `MAX_SHARES_PRO` 100 → 50 | 1 fail |
+| `unlisted` stops being gated on Pro | 1 fail |
+| The free pull effect gains `isProPlan` | 1 fail |
+| Checklist row 13 flipped to BUILT | 1 fail |
+| Table row renamed off the page | 1 fail |
+| Clean tree | 1670 pass |
+| Restore each time | checksum verified |
+
+**Left alone on purpose.** `llms-full.txt` already told assistants Credenza
+keeps a shelf "in sync across a phone and a laptop". That was true, and the
+pricing page contradicted it by silence. The page now agrees with it.
+
+**Gate.** 1670 tests pass (62 files), 5 lint warnings and 0 errors, build
 `index-fashion-VSp8hwMs.js 363.47 kB`.
 
 ## Explicitly deferred (do NOT build before launch)
