@@ -557,9 +557,8 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    // Import lives in the profile sheet now (design handoff PR3). A brand-new
-    // install shows the first-run intro first (CO-04); Get started dismisses it.
-    await user.click(await screen.findByRole("button", { name: "Get started" }));
+    // Import lives in the profile sheet now (design handoff PR3). The cold open
+    // lands straight on the hero — the first-run intro gate is gone (2026-07-26).
     await user.click(await screen.findByRole("button", { name: "Profile" }));
     await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -615,7 +614,6 @@ Installed Apps`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Get started" }));
     await user.click(await screen.findByRole("button", { name: "Profile" }));
     await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -635,7 +633,6 @@ Installed Apps`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Get started" }));
     await user.click(await screen.findByRole("button", { name: "Profile" }));
     await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -697,9 +694,6 @@ Vans Old Skool 36 Souvenir (EU42.5, TOP Batch) - Fits like any other Old Skool. 
 W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
 
   async function startFromEmptyShelf(user) {
-    // First-run intro (design handoff) sits in front of capture. Dismiss it.
-    const go = await screen.findByRole("button", { name: "Get started" });
-    await user.click(go);
     // Empty shelf is one field + ＋ Stash — the button opens the capture sheet.
     await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
   }
@@ -834,8 +828,7 @@ describe("Storage hydration race (audit 2026-07-24)", () => {
     const user = userEvent.setup();
     render(<Credenza />);
 
-    // Dismiss the intro and stash a note while the items load is pending.
-    await user.click(await screen.findByRole("button", { name: "Get started" }));
+    // Stash a note while the items load is pending.
     await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
     const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
     fireEvent.change(box, { target: { value: "stashed during load" } });

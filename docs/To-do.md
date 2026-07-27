@@ -149,7 +149,7 @@ Do not start these items before Gates 0 to 2 are done.
   (9px inset at each end; Kyle's overlap report). Probe: board counts, $56
   returned-excluded total, ~3 kg, GL tap flips status + stamps + re-counts.
   8 new weight unit tests. 198 tests pass. Lint 0 errors. Build clean.
-- [ ] **24.** Kyle: set the Reddit variables. Kyle: rotate the Anthropic key.
+- [x] **24.** Kyle: set the Reddit variables. Kyle: rotate the Anthropic key. ✅ 2026-07-26
 
 ## Rules for every gate
 
@@ -157,6 +157,17 @@ Do not start these items before Gates 0 to 2 are done.
 - Take screenshots to verify each fix.
 - Do not commit until Kyle says so.
 - Do not deploy until Kyle says so.
+
+## Gate 5 — Capture on phone (open)
+
+- [ ] **25.** Kyle: iOS share sheet — create Shortcut “Stash in Credenza”
+  (`/?stash=` + shared URL → Open URLs), turn Show in Share Sheet on, pin
+  via Share → More → Edit Favorites. Optional Add to Home Screen. Test
+  FashionReps share. Backend already handles stash/text/title. No deploy
+  for personal use. Steps live on [[My Checklist]].
+- [ ] **26.** Optional product: ship a short “Install share shortcut”
+  page under `/how` (or a profile tip) so other users can pin Credenza
+  without this chat. Needs Kyle approve + deploy batch.
 
 ## Waiting
 

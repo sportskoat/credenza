@@ -73,6 +73,22 @@ export default function ProfileSheet({
   return (
     <ModalShell title="Profile" onClose={onClose} maxWidth={440} stacked subPage={subPage} onBack={onBack}>
       <div className="cz-profile">
+        {/* Auth off = SAY so (Kyle 2026-07-26: "I don't know where the sign-in
+            went"). AUTH_ENABLED is false whenever the build has no Supabase
+            keys, and until now that silently deleted the whole account
+            section — indistinguishable from a bug. A local dev build is the
+            usual cause; preview/.env.example lists the two variables. */}
+        {!accountEnabled && (
+        <div className="cz-profile-signin is-off">
+          <div className="cz-profile-signin-title">Accounts are off in this build</div>
+          <div className="cz-profile-signin-sub">
+            This copy of Credenza has no sign-in server, so there is nothing to
+            sign in to. Your shelf works exactly the same and stays on this
+            device. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to turn
+            accounts back on.
+          </div>
+        </div>
+        )}
         {accountEnabled && !accountSession && (
         <div className="cz-profile-signin">
           <div className="cz-profile-signin-title">Sign in to Credenza</div>

@@ -97,6 +97,7 @@ import CoverFlowCarousel from "./components/CoverFlowCarousel.jsx";
 import DesktopDetailPanel from "./components/DesktopDetailPanel.jsx";
 import { ModalShell } from "./components/ModalShell.jsx";
 import { BrandIcon } from "./components/BrandIcon.jsx";
+import BrandMark from "./components/BrandMark.jsx";
 import { HaulAccordionField } from "./components/HaulAccordionField.jsx";
 import { EditPhotosManager } from "./components/EditPhotosManager.jsx";
 import { SegmentedControl, StatusChips } from "./components/atoms.jsx";
@@ -127,6 +128,13 @@ const PALETTES = {
     "--cz-ink": "#17181a",
     "--cz-sub": "#4f545b",
     "--cz-faint": "#6b7078",
+    // Brand mark colours are IDENTICAL in both palettes on purpose (Kyle
+    // 2026-07-26). The mark is one object across the app, the marketing site
+    // and the installed icon; a badge that re-tints per colourway is not a
+    // logo. These are sampled from the shipped icon-192.png.
+    "--cz-brand-ground": "#0f1114",
+    "--cz-brand-c": "#e9edf2",
+    "--cz-brand-rule": "#4da3ff",
     "--cz-seg": "rgba(23, 24, 26, 0.06)",
     "--cz-accent": "#17181a",
     "--cz-accent-bg": "rgba(23, 24, 26, 0.08)",
@@ -186,6 +194,10 @@ const PALETTES = {
     "--cz-ink": "#f5f5f7",
     "--cz-sub": "#b7bbc2",
     "--cz-faint": "#9ea3ab",
+    // Same three values as Gallery — see the note there.
+    "--cz-brand-ground": "#0f1114",
+    "--cz-brand-c": "#e9edf2",
+    "--cz-brand-rule": "#4da3ff",
     "--cz-seg": "rgba(255, 255, 255, 0.07)",
     "--cz-accent": "#f5f5f7",
     "--cz-accent-bg": "rgba(245, 245, 247, 0.12)",
@@ -3049,12 +3061,20 @@ const KEYFRAMES = `
 .cz-shell { max-width: 1080px; margin: 0 auto; padding: 28px 28px 0; }
 @media (max-width: 480px) { .cz-shell { padding: 16px 14px 0; } }
 .cz-masthead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.cz-brand { display: inline-flex; align-items: center; gap: 11px; margin: 0; color: var(--cz-ink); font-size: 17px; font-weight: 800; letter-spacing: .16em; }
-.cz-brand-name { display: inline-flex; align-items: baseline; gap: 8px; }
-.cz-brand-word { letter-spacing: .16em; }
-.cz-brand-sub { font-size: 14px; font-weight: 500; letter-spacing: .04em; color: var(--cz-sub); text-transform: none; }
+/* Lockup L2, stacked kicker (logo spec, Kyle 2026-07-26). "Fashion" used to
+   sit on CREDENZA's baseline at a second size, weight and colour — two of
+   everything on one line, so neither read as dominant. Stacking it costs zero
+   horizontal room, which is why the kicker now SURVIVES the compact phone
+   masthead instead of being dropped when the shelf fills. */
+.cz-brand { display: inline-flex; align-items: center; gap: 11px; margin: 0; color: var(--cz-ink); font-size: 16px; font-weight: 800; letter-spacing: .16em; }
+.cz-brand-name { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1; }
+.cz-brand-word { font-size: 16px; letter-spacing: .16em; line-height: 1; }
+.cz-brand-sub { font-size: 9.5px; font-weight: 700; letter-spacing: .34em; line-height: 1; color: var(--cz-faint); text-transform: uppercase; }
 .cz-tagline { font-family: ${FONT}; font-size: 13px; color: var(--cz-sub); margin: 0 0 14px; line-height: 1.35; }
-.cz-brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: var(--cz-action-fill); color: var(--cz-action-text); font-family: ${DISPLAY}; font-size: 17px; font-weight: 700; line-height: 1; letter-spacing: 0; }
+/* The mark is now an inline SVG (components/BrandMark.jsx) — the ground, the
+   C and the rule all live inside the viewBox, so this rule only has to size
+   and place it. It no longer renders text, so no font, colour or radius here. */
+.cz-brand-mark { display: block; flex: 0 0 auto; width: 34px; height: 34px; }
 .cz-hero-title { max-width: 560px; margin: 0 0 24px; color: var(--cz-ink); font-family: ${DISPLAY}; font-size: clamp(34px, 4.3vw, 58px); font-weight: 500; letter-spacing: -.04em; line-height: 1; }
 .cz-section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 24px 0 10px; }
 .cz-section-head h2 { margin: 0; font-family: ${DISPLAY}; font-size: 25px; font-weight: 500; letter-spacing: -.035em; line-height: 1.1; }
@@ -3139,8 +3159,13 @@ function useNotification() {
 
   const dismiss = () => {
     clearTimer();
+    // Callers that hold state behind an Undo (the removal batch) release it
+    // here rather than on their own timer. A destructive toast has no timer,
+    // so "the toast is gone" is the only honest signal that Undo is over.
+    const current = notificationRef.current;
     notificationRef.current = null;
     setNotification(null);
+    if (current && current.onDismiss) current.onDismiss();
   };
 
   const schedule = (duration) => {
@@ -3152,17 +3177,28 @@ function useNotification() {
   };
 
   const notify = (message, options = {}) => {
+    const tone = options.tone || "info";
     const next = {
       id: makeId(),
       message,
+      sub: options.sub || null,
       actionLabel: options.actionLabel || null,
       onAction: options.onAction || null,
-      tone: options.tone || "info",
-      persistent: !!options.persistent,
+      onDismiss: options.onDismiss || null,
+      tone,
+      // A destructive toast is the only route back from a deleted card, so it
+      // never expires on its own (toast spec, Kyle 2026-07-26). Callers can
+      // still opt out with persistent: false. Routine toasts keep the 5s.
+      persistent: options.persistent ?? tone === "destructive",
     };
+    // A replacing toast retires the outgoing one, so state parked behind its
+    // Undo is released here too — otherwise a "Copied" toast landing on top of
+    // a delete toast would strand the removal batch forever.
+    const outgoing = notificationRef.current;
     notificationRef.current = next;
     setNotification(next);
     schedule(next.persistent ? 0 : options.duration || 5000);
+    if (outgoing && outgoing.onDismiss) outgoing.onDismiss();
     return next.id;
   };
 
@@ -3989,7 +4025,12 @@ export default function Credenza() {
   // Session flag: user dismissed the progressive fit prompt on a card.
   // Not persisted — next session can ask again until a body profile exists.
   const [fitPromptSkipped, setFitPromptSkipped] = useState(false);
-  // First-run intro (onboarding step 1). Once dismissed, stays off via prefs.
+  // The first-run intro GATE is gone (onboarding spec, Kyle 2026-07-26): a
+  // cold open now lands straight on the hero, because the hero already says
+  // what the intro said and the paste field is the only thing to do next.
+  // The flag survives because "has this person used Credenza before" still
+  // decides one thing — whether their first card ever carries the inline hint.
+  // It stays in prefs under the same key so existing users are not re-taught.
   const [onboardingDone, setOnboardingDone] = useState(true);
   const [fitDetail, setFitDetail] = useState("concise");
   useEffect(() => {
@@ -4053,6 +4094,11 @@ export default function Credenza() {
   const online = useOnlineStatus();
   const undoBatchRef = useRef([]);
   const undoExpiryRef = useRef(null);
+  // Bumped every time a removal raises its toast. The toast's onDismiss only
+  // empties the batch if its own generation is still current, so deleting a
+  // second card — which replaces the toast and dismisses the first — does not
+  // discard the batch the second card just joined.
+  const undoGenRef = useRef(0);
   const [theme, setTheme] = useState(null);
   // New editorial gradient is the default colorway; light stays as the alt.
   const mode = theme || "rainbow";
@@ -4077,6 +4123,10 @@ export default function Credenza() {
   }, []);
   const searchRef = useRef(null);
   const deskSearchRef = useRef(null);
+  // Onboarding 3B: the empty hero's paste field, focused on desktop only.
+  // A desktop cold open should accept ⌘V immediately. A phone must NOT —
+  // focus raises the keyboard, which eats the hero the person came to read.
+  const heroFieldRef = useRef(null);
   // Capture sheet's paste box (design handoff PR3). The top capture box only
   // renders on the empty shelf; everywhere else capture focus means "open the
   // sheet and focus its textarea".
@@ -4161,6 +4211,19 @@ export default function Credenza() {
         )
         .catch(() => {});
   }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
+
+  // Onboarding 3B: focus the hero paste field on a desktop cold open, so ⌘V
+  // works with no click first. Guarded three ways — desktop width only, the
+  // field must exist (it only renders on an empty shelf), and nothing else
+  // may already hold focus. `preventScroll` stops Safari from jumping the
+  // page to the field and cropping the headline above it.
+  useEffect(() => {
+    if (!heroFieldRef.current) return;
+    if (!window.matchMedia("(min-width: 768px)").matches) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== heroFieldRef.current) return;
+    heroFieldRef.current.focus({ preventScroll: true });
+  }, [items.length]);
 
   // Part 5 Tier A: first-class haul records (budget, parcel, archive state,
   // history). item.project keeps the haul NAME; the record adds the rest.
@@ -4324,8 +4387,9 @@ export default function Credenza() {
           if (p.fitSummary === false) setFitSummary(false);
           if (p.fitDetail === "concise" || p.fitDetail === "detailed") setFitDetail(p.fitDetail);
           if (p.fitPrefs && typeof p.fitPrefs === "object") setFitPrefsByCat(p.fitPrefs);
-          // First-run intro: only brand-new prefs (no prior onboardingDone key)
-          // show the Get started screen. Existing users stay on the shelf.
+          // Only brand-new prefs (no prior onboardingDone key) count as a
+          // first run. That no longer gates a screen — it gates the one-time
+          // hint on the first card. Existing users never see it.
           if (Object.prototype.hasOwnProperty.call(p, "onboardingDone")) {
             setOnboardingDone(p.onboardingDone !== false);
           } else if (raw) {
@@ -4715,10 +4779,11 @@ export default function Credenza() {
     const backup = items;
     applyUpdate(() => []);
     setImportOpen(false);
-    notify("Shelf cleared — " + backup.length + " cards deleted.", {
+    notify("Shelf cleared", {
+      tone: "destructive",
+      sub: backup.length + (backup.length === 1 ? " card deleted." : " cards deleted."),
       actionLabel: "Undo",
       onAction: () => applyUpdate(() => backup),
-      duration: 12000,
     });
   };
 
@@ -4827,12 +4892,20 @@ export default function Credenza() {
     if (records.some((record) => record.wasExpanded)) setExpandedId(null);
     if (records.some((record) => record.wasResurfaced)) setResurfaced(null);
     if (importOpen) setImportOpen(false);
-    if (undoExpiryRef.current) clearTimeout(undoExpiryRef.current);
-    undoExpiryRef.current = setTimeout(() => {
-      undoBatchRef.current = [];
+    if (undoExpiryRef.current) {
+      clearTimeout(undoExpiryRef.current);
       undoExpiryRef.current = null;
-    }, 6200);
-    notify("Sample shelf cleared.", { actionLabel: "Undo", onAction: undoRemoved, duration: 6000 });
+    }
+    const gen = ++undoGenRef.current;
+    notify("Sample shelf cleared", {
+      tone: "destructive",
+      sub: records.length + (records.length === 1 ? " card removed." : " cards removed."),
+      actionLabel: "Undo",
+      onAction: undoRemoved,
+      onDismiss: () => {
+        if (undoGenRef.current === gen) undoBatchRef.current = [];
+      },
+    });
   };
 
   const retry = (id) => {
@@ -5352,16 +5425,25 @@ export default function Credenza() {
       setSelectedId(fallback && fallback.id !== id ? fallback.id : null);
     }
     if (resurfaced === id) setResurfaced(null);
-    if (undoExpiryRef.current) clearTimeout(undoExpiryRef.current);
-    undoExpiryRef.current = setTimeout(() => {
-      undoBatchRef.current = [];
+    // No expiry timer any more (toast spec, Kyle 2026-07-26). The destructive
+    // toast does not fade, so the batch lives exactly as long as the toast
+    // does and releases in onDismiss below. A 6.2s timer against a toast that
+    // never closes would leave a visible Undo button that quietly does nothing.
+    if (undoExpiryRef.current) {
+      clearTimeout(undoExpiryRef.current);
       undoExpiryRef.current = null;
-    }, 6200);
+    }
     const count = undoBatchRef.current.length;
-    notify(
-      count === 1 ? "Removed “" + removed.item.title + "”." : count + " cards removed.",
-      { actionLabel: "Undo", onAction: undoRemoved, duration: 6000 }
-    );
+    const gen = ++undoGenRef.current;
+    notify(count === 1 ? "Card removed" : count + " cards removed", {
+      tone: "destructive",
+      sub: count === 1 ? removed.item.title : "Undo puts them back where they were.",
+      actionLabel: "Undo",
+      onAction: undoRemoved,
+      onDismiss: () => {
+        if (undoGenRef.current === gen) undoBatchRef.current = [];
+      },
+    });
   };
 
   // ————— Digest: local scoring, local copy —————
@@ -5656,9 +5738,21 @@ export default function Credenza() {
 
   // Starred filter + view toggles only — no category chip rail.
   const toolbarActive = shelfAll.length >= 1;
-  // First run: the intro replaces the app shell (CO-04). No search field, no
-  // tabs, no bottom bar, no agent tile — on phone AND desktop.
-  const firstRunIntro = items.length === 0 && !onboardingDone;
+  // The intro gate is deleted (onboarding spec, Kyle 2026-07-26). Nothing
+  // stands in front of the app now, so every "hide this while the intro is up"
+  // condition below collapses to false. Kept as a named constant rather than
+  // deleted inline: the surrounding conditions read as one rule this way.
+  const firstRunIntro = false;
+  // A person who has never used Credenza gets ONE inline hint, on the first
+  // card that lands. It is not a tour and it is not dismissible chrome — it
+  // fades in under the card and leaves the moment they flip it.
+  const showFirstCardHint = !onboardingDone;
+  // Opening any card is the proof they read the hint, so the hint retires
+  // itself there. `onboardingDone` persists in prefs under its original key,
+  // so this is a one-time event per browser, not per session.
+  const retireFirstCardHint = () => {
+    if (!onboardingDone) setOnboardingDone(true);
+  };
   const typed = visible;
   const shelfItems = useMemo(() => {
     let a = [...typed];
@@ -6099,6 +6193,7 @@ export default function Credenza() {
   // Grid/list only: tap a card → solo t-modal over the grid. Carousel keeps
   // in-rack flip + coverflow scroll (no blurred modal — Kyle 2026-07-23).
   const openInCarousel = (id) => {
+    retireFirstCardHint();
     if (overlayCloseTimer.current) {
       clearTimeout(overlayCloseTimer.current);
       overlayCloseTimer.current = null;
@@ -6213,7 +6308,11 @@ export default function Credenza() {
       <Card
         item={item}
         selected={selectedId === item.id}
-        onToggle={() => (isPhone ? setDetailSheetId(item.id) : openInCarousel(item.id))}
+        onToggle={() => {
+          retireFirstCardHint();
+          if (isPhone) setDetailSheetId(item.id);
+          else openInCarousel(item.id);
+        }}
         onToggleFavorite={toggleFavorite}
         onOpen={recordOpen}
         buyLabel={buyLabel}
@@ -6572,6 +6671,18 @@ export default function Credenza() {
         <div className="cz-shelf-grid">{listItems.map(renderEntry)}</div>
       )}
 
+      {/* Onboarding 3B: the one and only hint (onboarding spec, Kyle
+          2026-07-26). It waits for the first card to exist, sits in flow under
+          it, and leaves for good the moment that card is flipped. Two facts
+          only — what a tap does, and who takes the money. No tour, no dots,
+          no dismiss button to argue with. */}
+      {showFirstCardHint && items.length > 0 && (
+        <p className="cz-first-hint">
+          Tap the card for sizing and QC. Buy opens your agent — Credenza never
+          takes payment.
+        </p>
+      )}
+
       {/* Sample cleanup */}
       {hasSamples && (
         <div style={{ textAlign: "center", marginTop: 24 }}>
@@ -6874,6 +6985,14 @@ export default function Credenza() {
           onToggleFitSummary={() => setFitSummary((v) => !v)}
           fitDetail={fitDetail}
           onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
+          accountEnabled={AUTH_ENABLED}
+          accountSession={accountSession}
+          accountPlan={accountPlan}
+          onOpenAccount={() => {
+            setSettingsSheetOpen(false);
+            setSettingsSubPage(null);
+            setProfileOpen(true);
+          }}
           subPage={buildSubPage(settingsSubPage, () => setSettingsSubPage(null))}
           onBack={() => setSettingsSubPage(null)}
           onClose={() => {
@@ -6984,18 +7103,19 @@ export default function Credenza() {
             The carousel/grid panels below stay full-width. */}
         <div className="cz-chrome">
         {/* Phone masthead is ONE row (mobile handoff C2): mark + wordmark, a
-            flex spacer, then Search / ⋯ Settings / Account. The "Fashion"
-            sub-word and the 45%-viewport hero drop once the shelf has items —
-            that plus the merged tabs/totals row is ~150px, the difference
-            between zero cards and one-and-a-half rows above the fold. */}
+            flex spacer, then Search / ⋯ Settings / Account. The 45%-viewport
+            hero still drops once the shelf has items — that plus the merged
+            tabs/totals row is ~150px, the difference between zero cards and
+            one-and-a-half rows above the fold.
+            "Fashion" no longer drops (logo spec, Kyle 2026-07-26): stacked
+            under the wordmark it costs no horizontal room, so the compact
+            masthead can keep the full lockup. */}
         <header className={"cz-masthead" + (isPhone && items.length > 0 ? " is-compact" : "")}>
           <h1 className="cz-brand">
-            <span className="cz-brand-mark">C</span>
+            <BrandMark size={isPhone && items.length > 0 ? 30 : 34} />
             <span className="cz-brand-name">
               <span className="cz-brand-word">CREDENZA</span>
-              {!(isPhone && items.length > 0) && (
-                <span className="cz-brand-sub">Fashion</span>
-              )}
+              <span className="cz-brand-sub">Fashion</span>
             </span>
           </h1>
           {!firstRunIntro && (
@@ -7044,45 +7164,16 @@ export default function Credenza() {
           )}
         </header>
 
-        {/* Onboarding step 1 (no hard gate): value line + Get started. After
-            that the empty shelf is the capture surface. Sign-in stays optional.
-            First run shows this intro INSTEAD of the app shell (CO-04). */}
-        {firstRunIntro && (
-          <div className="cz-onboard">
-            <p className="cz-onboard-title">One shelf for the whole haul.</p>
-            <p className="cz-onboard-copy">
-              Paste a link, get a clean card — price, photos, and your size, all sorted.
-            </p>
-            <div className="cz-onboard-actions">
-              <button
-                type="button"
-                className="cz-onboard-primary"
-                onClick={() => setOnboardingDone(true)}
-              >
-                Get started
-              </button>
-              {/* Hidden until sync exists (CO-05). */}
-              {SYNC_ENABLED && (
-              <button
-                type="button"
-                className="cz-onboard-quiet"
-                onClick={() => {
-                  setOnboardingDone(true);
-                  setProfileOpen(true);
-                }}
-              >
-                Log in
-              </button>
-              )}
-            </div>
-          </div>
-        )}
+        {/* The .cz-onboard intro gate was deleted here (onboarding spec, Kyle
+            2026-07-26). It said "One shelf for the whole haul" and offered a
+            Get started button, then revealed a hero that said the same thing
+            with a paste field already in it. Cold open now lands on the hero. */}
 
         {/* Empty shelf: centered hero. ONE capture field + ONE Stash button —
             the mobile search row below stays hidden until the shelf has items
             (Kyle 2026-07-24: four paste surfaces were three too many). The
             gray ghost tiles are gone for the same reason. */}
-        {items.length === 0 && onboardingDone && (
+        {items.length === 0 && (
           <div className="cz-empty-hero">
             <div className="cz-empty-hero-main">
               <HeroStagger />
@@ -7090,6 +7181,7 @@ export default function Credenza() {
                 <label className="cz-empty-hero-search">
                   <Search className="cz-empty-hero-search-icon" aria-hidden="true" size={16} strokeWidth={2.2} />
                   <input
+                    ref={heroFieldRef}
                     className="cz-empty-hero-search-field"
                     type="text"
                     inputMode="search"
@@ -7123,24 +7215,56 @@ export default function Credenza() {
                   Stash
                 </button>
               </div>
-              <div className="cz-empty-hero-secondary">
+              {/* Hero 2A specimen (hero spec, Kyle 2026-07-26). The empty
+                  shelf used to argue for itself in words and then offer two
+                  equal-weight links. It now SHOWS one finished card at 55%
+                  opacity — the answer to "what do I get" is the object, not a
+                  sentence about the object. The card is inert: the only way
+                  in is the caption action under it. Import drops to one quiet
+                  line, because a person with a whole haul to paste already
+                  knows they have one; a person with nothing does not. */}
+              <div className="cz-empty-hero-specimen" aria-hidden="true">
+                <div className="cz-specimen-card">
+                  <img
+                    className="cz-specimen-photo"
+                    src="/img/specimen-jersey.jpg"
+                    alt=""
+                    width="212"
+                    height="150"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="cz-specimen-body">
+                    <div className="cz-specimen-title">Mesh number jersey · black</div>
+                    <div className="cz-specimen-row">
+                      <span className="cz-specimen-size">SIZE L</span>
+                      <span className="cz-specimen-price">¥168</span>
+                    </div>
+                    <div className="cz-specimen-seller">Mook-official · Weidian</div>
+                  </div>
+                </div>
+              </div>
+              <div className="cz-empty-hero-caption">
+                <p className="cz-empty-hero-caption-line">
+                  This is what a Weidian link becomes.
+                </p>
                 <button
                   type="button"
                   className="cz-empty-hero-link is-primary"
                   disabled={interactionLocked}
-                  onClick={() => setImportOpen(true)}
-                >
-                  Import a haul
-                </button>
-                <button
-                  type="button"
-                  className="cz-empty-hero-link"
-                  disabled={interactionLocked}
                   onClick={addSamples}
                 >
-                  Try a sample shelf
+                  Put it on my shelf
                 </button>
               </div>
+              <button
+                type="button"
+                className="cz-empty-hero-link is-quiet"
+                disabled={interactionLocked}
+                onClick={() => setImportOpen(true)}
+              >
+                Import a haul
+              </button>
             </div>
           </div>
         )}
@@ -7771,7 +7895,14 @@ export default function Credenza() {
             onFocus={pauseNotification}
             onBlur={resumeNotification}
           >
-            <span className="cz-toast-message">{notification.message}</span>
+            {notification.sub ? (
+              <span className="cz-toast-text">
+                <span className="cz-toast-message">{notification.message}</span>
+                <span className="cz-toast-sub">{notification.sub}</span>
+              </span>
+            ) : (
+              <span className="cz-toast-message">{notification.message}</span>
+            )}
             {notification.actionLabel && notification.onAction && (
               <button
                 type="button"

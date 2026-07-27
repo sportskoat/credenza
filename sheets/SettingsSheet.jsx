@@ -17,11 +17,27 @@ export default function SettingsSheet({
   onToggleFitSummary,
   fitDetail,
   onCycleFitDetail,
+  accountEnabled,
+  accountSession,
+  accountPlan,
+  onOpenAccount,
   onClose,
   subPage = null,
   onBack,
 }) {
   const themeLabel = mode === "light" ? "Gallery" : "Blackout";
+  // Account row value (Kyle 2026-07-26: "on the settings, the sign-in's kind
+  // of gone"). It was never here — the account card only ever lived in the
+  // Profile sheet behind the avatar. On a phone the ⋯ menu reads as "where
+  // the settings are", so a person looking for sign-in looks here first.
+  // This row does not duplicate the card; it points at it.
+  const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
+  const isPro = planState === "pro" || planState === "grace";
+  const accountValue = !accountEnabled
+    ? "Off in this build"
+    : accountSession
+      ? (accountSession.user && accountSession.user.email) || (isPro ? "Pro" : "Free")
+      : "Sign in";
   return (
     <ModalShell
       title="Settings"
@@ -33,6 +49,13 @@ export default function SettingsSheet({
       onBack={onBack}
     >
       <div className="cz-settings">
+        <button type="button" className="cz-settings-row" onClick={onOpenAccount}>
+          <span className="cz-settings-row-label">Account</span>
+          <span className="cz-settings-row-val">
+            {accountValue}
+            <span className="cz-settings-row-chev" aria-hidden="true">›</span>
+          </span>
+        </button>
         {/* Two themes only, so the row toggles instead of opening a picker.
             aria-label carries the destination — the visible value is the
             current theme, which a screen reader alone reads as ambiguous. */}

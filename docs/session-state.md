@@ -5,10 +5,104 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
-**Last updated:** 2026-07-26 (SETTINGS MODAL STACK — slide + resize in one modal — plus FANSBUY LINK FIX + CAROUSEL FLIP RETIRED, all on branch `worktree-fansbuy-links-no-flip`, NOT deployed — see the section below. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
+**Last updated:** 2026-07-26 (HERO 2A + ONBOARDING 3B + SIGN-IN FIX — **DEPLOYED to production**, deploy `6a66b2bc5602a0684c001b9c`. See the section directly below. Prior: SETTINGS MODAL STACK — slide + resize in one modal — plus FANSBUY LINK FIX + CAROUSEL FLIP RETIRED, all on branch `worktree-fansbuy-links-no-flip`, NOT deployed — see the section below. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
+
+## 2026-07-26 — Hero 2A, onboarding 3B, sign-in fix, pricing checklist — DEPLOYED
+
+Two windows ran in parallel and were merged here. Window 1 worked on hero and
+toast. Window 2 worked on shelves and pricing. Both are complete.
+
+**Deployed to production 2026-07-26 (deploy `6a66b2bc5602a0684c001b9c`).**
+Verified live: the Supabase URL is inlined, the specimen card and first-card
+hint are in the bundle, `/img/specimen-jersey.jpg` returns 200, and the new
+brand mark is on all 12 public pages.
+
+### THE BIG ONE — sign-in was broken in PRODUCTION, not only locally
+
+Kyle said "the sign-in's kind of gone". It was gone everywhere.
+
+`AUTH_ENABLED` in `preview/src/auth.js:18` is `!!(VITE_SUPABASE_URL &&
+VITE_SUPABASE_ANON_KEY)`. It is a **compile-time** boolean. Vite inlines it.
+
+The Netlify site has **no linked git repo** — it deploys from the CLI with
+`netlify deploy --prod --dir=dist`. The build happens on this Mac. Netlify's
+build-time environment variables therefore **never reached the bundle**. The
+old live bundle contained `xl=!1`, which is `AUTH_ENABLED = false`.
+
+**The fix:** `preview/.env` now holds the five publishable `VITE_` values,
+pulled from the Netlify API. `.env` is gitignored. A backup of the old file
+is at `preview/.env.bak.*`.
+
+**WARNING for every future session: you must build with `preview/.env`
+populated, or you ship a signed-out app again.** If `.env` is ever lost, run
+`netlify env:list` and copy the five `VITE_` keys back. `preview/.env.example`
+documents them.
+
+Two extra safeguards shipped with it:
+- `sheets/ProfileSheet.jsx` now renders "Accounts are off in this build" when
+  `AUTH_ENABLED` is false, instead of rendering nothing. Silence was the bug.
+- `sheets/SettingsSheet.jsx` gained an Account row as its first row. It reads
+  "Off in this build" / "Sign in" / the signed-in email, and opens the
+  Profile sheet. Kyle looked for sign-in in Settings; it had only ever lived
+  behind the avatar.
+
+### Hero 2A — the specimen card
+
+The empty shelf used to show two equal text links. It now shows a real card:
+a photo, a title, a size, a price, and a seller. Caption: "This is what a
+Weidian link becomes." The primary action is "Put it on my shelf". Import is
+demoted to a quiet link below.
+
+`credenza-fashion.jsx` markup, `.cz-specimen-*` and `.cz-empty-hero-caption`
+in `credenza-fashion.css`, photo at `preview/public/img/specimen-jersey.jpg`
+(43 KB).
+
+### Onboarding 3B — first-card hint and desktop autofocus
+
+- A hint appears under the grid after the first card lands: "Tap the card for
+  sizing and QC. Buy opens your agent — Credenza never takes payment." It
+  retires the first time the user opens a card.
+- The hero field autofocuses on desktop only (>= 768px), and only when
+  nothing else holds focus.
+
+### CSS cleanup
+
+The `.cz-onboard*` block is deleted. The other window removed the intro gate
+JSX, so the styles had no markup left. A comment marks the spot.
+
+### Tests
+
+Ten tests in `preview/test/fashion-app.test.jsx` clicked a "Get started"
+button that no longer exists. The intro gate is gone by design
+(`const firstRunIntro = false;`). The dismiss steps are removed, and each
+test's real assertion is untouched.
+
+**Gate green: 679 tests pass, tsc clean, lint 0 errors (2 pre-existing
+warnings). The esbuild `content: ""` CSS warning is pre-existing — it is
+present at HEAD too.**
+
+### Pricing — `docs/free-to-pro-checklist.md` (NEW, read this before pricing work)
+
+The mock scored against the code: **6 BUILT, 5 PARTIAL, 4 MISSING**.
+
+Two decisions are Kyle's and are still open:
+1. **Price.** The mock says $4.99 / $36. The app and Stripe say $5 / $39.
+   Stripe Prices are immutable, so a change means two new Price objects.
+   Nobody has subscribed yet, so the cost of changing is zero today.
+2. **Nav.** The mock says "How it works · Sizing · Pricing". The live nav
+   says "How · Guides · FAQ". There is no `/pricing/` page yet.
+
+The one true hole: **a free user gets the Pro parcel planner and the Pro QC
+photo cap by accident.** `WarehouseQcSection.jsx:19` hard-codes 12 photos for
+everyone; free is meant to get 4. `haulsMax: 2` is declared and never read.
+
+The biggest missing row is the shared shelf. **Decision recorded: build
+`/s/:id` as a server-rendered Netlify function, NOT a client router.** The app
+has no router, the shelf is `localStorage` only, and a server page is the only
+way to get an Open Graph preview on a shared link.
 
 ## 2026-07-26 — Settings modal stack: slide + resize, one modal (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
 

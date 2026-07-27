@@ -24,3 +24,10 @@ preview/scripts/ui-audit/
 
 # Local Playwright / probe screenshots
 preview/.verify-shots/
+
+# Local env backups (may hold secrets)
+.env.bak.*
+preview/.env.bak.*
+
+# Downloaded production bundle copies (debug artifacts)
+preview/.live-entry.js
