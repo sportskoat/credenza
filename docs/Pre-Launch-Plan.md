@@ -128,6 +128,7 @@ do it completely, and report against its acceptance criteria.
 | LB-61 | Make `unlisted` do something, and draw the line the word does not | P0 | 3 h | LB-60 | DONE 2026-07-27 — the census reached `Link options (unlisted, expiry, no footer)`; expiry and no-footer both verified as real consequences, but `unlisted` was Pro-gated, stored and read back while changing nothing a reader could see — its only consumer was a label in the owner's own private list, and the "public profile" the Share sheet promised to hide the link from does not exist in the repo; unlisted now blanks the preview card (`share-page.js` meta tags) and refuses the unfurl photo route (`share-image.js`), guarded by a consequence test per option, plus new page `/guides/what-an-unlisted-link-hides/` and a tenth `SOLD` entry |
 | LB-62 | Make a deleted share link leave the edge, not only the database | P0 | 3 h | LB-61 | DONE 2026-07-27 — `/how/` promised a deleted link "answers 404 straight away"; verified FALSE — `share.js` DELETE removed the row and stopped, while `share-page.js` served `max-age=300, stale-while-revalidate=3600` and `share-image.js` served `max-age=604800`, so a deleted haul kept its page for an hour and its card photo for SEVEN DAYS from a cache no database delete reaches, and `grep -rn "cache-tag\|purge" netlify/` returned zero hits; `delete-account.js` had the same gap against the stronger promise; both public routes now emit `netlify-cache-tag: share-<code>` and both delete paths call `POST /api/v1/purge` after the row goes, via `lib/purge.js` (written out rather than adding `@netlify/functions`), plus new page `/guides/delete-a-shared-link/` |
 | LB-63 | Explain what happens when Pro ends, on a page that is not the price table | P1 | 2 h | LB-62 | DONE 2026-07-27 — closes the 14-row pricing census; `/pricing/:579-593` promises "If Pro ends, nothing is deleted... Only new additions go back to the free caps" and NO other page explained it (the LB-46 shape); promise verified TRUE at five code sites — `effectiveStatus()` plus 7-day `GRACE_MS`, `mayWriteCloud()` gating cloud writes not reads, `attachQcImage` capping additions only, `share.js handleCreate` forcing Pro options off at creation and never deleting, `share-page.js:318` reading Pro settings off the row with no plan check — plus a negative check confirming `stripe-webhook.js` and `entitlement-store.js` prune nothing on downgrade; new page `/guides/what-happens-when-pro-ends/` (1,079 words, Article schema), registered in eight places, three mutation probes |
+| LB-64 | Stop the About page contradicting the price page | P0 | 2 h | LB-63 | DONE 2026-07-27 — `/landing/` is the page the nav sends a stranger to first, and it ended its pitch with “Free while it’s in beta”, a sentence written before `netlify/functions/checkout.js` existed and false the day it shipped; the same page never mentioned Pro AT ALL, so a reader learned the product was free and left; added a `#cost` section (Free / Pro / If Pro ends) linking `/pricing/` and `/guides/what-happens-when-pro-ends/`, replaced the beta line with “Free to start… Pro is $4.99 a month”, and corrected “8 from the album” to “8 from the listing” on a Weidian mock (album is the Yupoo word); new rule in `plan-limits.test.js` greps every page for beta/early-access/waitlist/coming-soon and for free-forever, guarded by an assertion that checkout.js still creates a Stripe session; four mutation probes |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -4440,3 +4441,122 @@ once, on the page a reader visits last.
 
 The test for it is not a grep. It is: **if this sentence is the reason someone
 pays, does it exist anywhere they would find it before deciding?**
+
+---
+
+### LB-64 — the About page said the product was free
+
+LB-63 closed the pricing census. Every row of the price table now has a page
+behind it. LB-64 is what the census could never have found, because it only
+ever looked at the price table's own rows.
+
+#### The defect
+
+`public/landing/index.html` is the About page. The site nav sends a stranger
+there first — it is the second entry, after Open app. Its closing pitch read:
+
+> Free while it's in beta. No account, no card, nothing to install.
+
+That sentence was true when it was written. `netlify/functions/checkout.js`
+now creates a real Stripe Checkout Session against `STRIPE_PRICE_MONTHLY`, and
+`/pricing/` carries a fourteen-row table selling Pro at $4.99 a month. So the
+first page a buyer reads said the product was free and temporary, and the page
+that priced it said otherwise.
+
+**The second half is worse than the first.** The word "Pro" appeared zero times
+in the About page's body. A reader could read all 599 words, learn the product
+was free, and leave — never knowing a paid plan existed. The only route to
+`/pricing/` was the nav, which every page carries and which proves nothing.
+
+Every number on both pages was correct. All 2,102 tests were green.
+
+#### Why no existing rule caught it
+
+Every plan-limit rule in `test/plan-limits.test.js` checks a **number**
+against the code that enforces it. LB-43 checked daily counters, LB-48 checked
+share caps, LB-51 through LB-63 walked the price table row by row.
+
+Not one of them asked whether a page says the product costs money at all. A
+sentence with no number in it is invisible to every rule that binds a number.
+
+#### The fix
+
+Three edits to `public/landing/index.html`:
+
+1. The beta line became "Free to start… Pro is $4.99 a month if you outgrow the
+   free caps", linking `/pricing/`.
+2. A new `#cost` section before `#trust`, using the existing `not-grid` /
+   `not-card` classes so it needs no new CSS. Three cards: **Free · $0**,
+   **Pro · $4.99 a month**, and **If Pro ends** — the last linking
+   `/guides/what-happens-when-pro-ends/`, which LB-63 had just built.
+3. "8 from the album" became "8 from the listing". The mock shows a **Weidian**
+   item; "album" is the Yupoo word, and `resolve.js:585` returns up to ten
+   images for a Weidian listing, so eight is achievable and the count is fine.
+   Only the noun was wrong.
+
+#### Two traps hit while writing it, both predicted by earlier rules
+
+The share-cap prose rule at `plan-limits.test.js:355-430` fired twice on the
+new section, and both times it was right to.
+
+- **"20 link reads a day"** read as a share cap of 20. The rule matches a count
+  followed by up to three words then "link". Reworded to the pricing page's own
+  order — "Link resolves run 20 a day" — which puts the count after the noun.
+- **A line break between the count and the noun** hid "3 shared links" from the
+  rule entirely, and a line that ALSO mentioned resolves was skipped by the
+  `OTHER_METER` guard. The share sentence now sits on its own line, wrapped in
+  a `<span>`, because the rule strips tags to newlines and matches per line.
+
+The About page is now the sixth entry in that rule's expected-page list.
+
+#### The new rule
+
+`test/plan-limits.test.js`, "no public page calls a shipped product free or
+unreleased". Two greps over visible `<main>` text:
+
+- `UNRELEASED` — in beta, beta test, early access, waitlist, coming soon, not
+  yet launched, pre-launch.
+- `FREE_FOREVER` — free forever, free for life, always free, 100% free,
+  completely free. **Scoped claims stay legal**: "free to start", "free plan"
+  and "free while you stay under the caps" all pass, because each names its
+  limit.
+
+Guarded twice: an assertion that at least 18 pages were read, and an assertion
+that `checkout.js` still creates a Stripe session. Without the second, deleting
+checkout would make the whole block vacuous instead of failing.
+
+#### The probes
+
+Four mutations, each restored by `cp` and confirmed with `md5 -q` —
+**`git checkout --` was not used**:
+
+| Mutation | Test that failed |
+| --- | --- |
+| "3 shared links" → "5 shared links" | landing/index.html quotes a real share cap |
+| Delete the whole `#cost` section | finds the pages that quote a share cap |
+| Reinstate "Free while it is in beta" | no page says the product is in beta or unreleased |
+| "Free to start" → "Always free" | no page says the product is free forever |
+
+#### The gate
+
+2,109 tests / 66 files, up from 2,102 / 66. Lint: 5 warnings, 0 errors —
+baseline unchanged.
+
+#### What this says about the census method
+
+**LB-64: a census of the price table cannot find a page that never mentions
+price.** Thirteen findings walked the table row by row, and the whole time the
+About page was telling readers the product was free. The census was thorough in
+the wrong axis: it enumerated what the price table CLAIMS and checked each
+claim, and never asked which pages should carry a claim and carry none.
+
+The generalisation: **a rule that binds a number is blind to a sentence that
+has none.** Every check in this file to LB-63 compares a written figure to an
+enforced one. The failure mode above that layer is a page that states a
+condition — free, beta, unlimited, permanent — with nothing numeric to bind.
+Those need a word list, and a word list needs a reason to exist, which is why
+this one is anchored to checkout.js being live.
+
+The test that finds the next one is not "does this page quote the right
+number". It is: **would a stranger who reads only this page come away with a
+false idea of what Credenza costs?**

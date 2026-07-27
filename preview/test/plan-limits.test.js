@@ -406,7 +406,8 @@ describe("every page quotes the share caps the share function enforces", () => {
   it("finds the pages that quote a share cap", () => {
     // Without this, deleting the sentence from every page would generate zero
     // tests below and the suite would stay green while the site stopped saying
-    // how many links a plan allows. Five pages carry it today.
+    // how many links a plan allows. Six pages carry it today — /landing/ joined
+    // at LB-64, when the About page gained the plan section it never had.
     expect(
       quoting.map((q) => q.rel).sort(),
       "fewer pages quote the share caps than expected — was a sentence deleted?"
@@ -416,6 +417,7 @@ describe("every page quotes the share caps the share function enforces", () => {
         "guides/delete-a-shared-link/index.html",
         "guides/share-a-haul-list/index.html",
         "how/index.html",
+        "landing/index.html",
         "pricing/index.html",
       ].sort()
     );
@@ -439,5 +441,91 @@ describe("every page quotes the share caps the share function enforces", () => {
     for (const name of ["MAX_SHARES_FREE", "MAX_SHARES_PRO"]) {
       expect(all, `no page states ${name} (${shareCap(name)})`).toContain(shareCap(name));
     }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LB-64. Every rule above this line checks a NUMBER. None checked whether a
+// page says the product costs money at all.
+//
+// /landing/ is the About page — the page the nav sends a stranger to first. It
+// ended its pitch with "Free while it's in beta." That sentence was written
+// before checkout existed. By the time it was found, netlify/functions/
+// checkout.js was live and selling a real Stripe subscription at $4.99 a month,
+// and /pricing/ carried a fourteen-row table describing it.
+//
+// So the first page a buyer read said the product was free and temporary, and
+// the page that priced it said otherwise. Every number on both pages was
+// correct. 2,102 tests were green.
+//
+// "Beta" is the specific word that ages worst. It is true on the day it is
+// written and false the day the first customer pays, and nothing about the
+// codebase changes to mark the difference. A grep is the only thing that can
+// catch it, because no assertion about a value ever will.
+describe("no public page calls a shipped product free or unreleased", () => {
+  const PUBLIC = join(ROOT, "preview/public");
+
+  function pages(dir = PUBLIC, out = []) {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) pages(full, out);
+      else if (name.endsWith(".html")) out.push({ rel: relative(PUBLIC, full), html: readFileSync(full, "utf8") });
+    }
+    return out;
+  }
+
+  // Visible text only, one line per element, for the LB-35 reason: joining
+  // across tags with a space invents sentences no reader can see.
+  const strip = (html) => {
+    const m = (html.match(/<main[\s\S]*?<\/main>/i) || [""])[0];
+    return m.replace(/<[^>]*>/g, "\n").replace(/&[a-z]+;/g, " ");
+  };
+
+  // Words that claim the product is not yet a product. "Early access" and
+  // "waitlist" are here for the same reason as "beta": each is a promise about
+  // a stage, and a stage is the one thing a static page cannot keep current.
+  const UNRELEASED = /\b(in beta|beta test|early access|waitlist|coming soon|not yet launched|pre-?launch)\b/i;
+
+  // A claim that the whole product costs nothing. "Free to start", "free plan"
+  // and "free while you stay under" are all fine — they scope the claim. What
+  // is not fine is an unscoped forever.
+  const FREE_FOREVER = /\bfree (?:forever|for ?ever|for life|always)\b|\balways free\b|\b100% free\b|\bcompletely free\b/i;
+
+  const docs = pages();
+
+  it("read the public pages", () => {
+    // Guard the guard. A reshaped public/ would empty `docs` and turn both
+    // assertions below into silent passes.
+    expect(docs.length, "no public pages were read").toBeGreaterThanOrEqual(18);
+  });
+
+  it("checkout is real, so the rule below has something to protect", () => {
+    // Without this, deleting checkout.js would make the whole describe block
+    // vacuous rather than failing. The rule only matters while the product
+    // actually charges.
+    const checkout = read("preview/netlify/functions/checkout.js");
+    expect(checkout, "checkout.js no longer creates a Stripe session").toMatch(/checkout\.sessions\.create|\/v1\/checkout\/sessions/);
+  });
+
+  it("no page says the product is in beta or unreleased", () => {
+    const bad = [];
+    for (const { rel, html } of docs) {
+      for (const line of strip(html).split("\n")) {
+        const m = line.match(UNRELEASED);
+        if (m) bad.push(`${rel}: "${m[0]}" — ${line.trim().slice(0, 80)}`);
+      }
+    }
+    expect(bad, "these pages call a paid, shipped product unreleased").toEqual([]);
+  });
+
+  it("no page says the product is free forever", () => {
+    const bad = [];
+    for (const { rel, html } of docs) {
+      for (const line of strip(html).split("\n")) {
+        const m = line.match(FREE_FOREVER);
+        if (m) bad.push(`${rel}: "${m[0]}" — ${line.trim().slice(0, 80)}`);
+      }
+    }
+    expect(bad, "these pages promise a price the pricing page contradicts").toEqual([]);
   });
 });
