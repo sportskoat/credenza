@@ -101,6 +101,7 @@ do it completely, and report against its acceptance criteria.
 | LB-34 | Assert the deploy contract in netlify.toml | P0 | 1 h | LB-33 | DONE 2026-07-27 — five edits that break the live site each passed with the suite green at 1503 |
 | LB-35 | Ship the free-plan guide and bind every quoted limit to the server table | P1 | 1 h | LB-34 | DONE 2026-07-27 — the last unshipped buying question; changing "20 link resolves" to 500 on a live page passed |
 | LB-36 | Ship the Yupoo guide, bind the relay cap to the copy, and stop the keyword doc drifting | P1 | 1 h | LB-35 | DONE 2026-07-27 — ~12k/mo head term with a shipped feature and no page; it stayed uncovered because the planning table looked full |
+| LB-37 | Make a clean checkout build the real app instead of a 21-module stub | P0 | 2 h | — | DONE 2026-07-27 — the launch gate box was unchecked because it was true; Netlify would have shipped a bundle with no icons and no app |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2123,6 +2124,60 @@ than it is, which is how a 12k-a-month term goes unbuilt for a day.
 **Gate.** 1581 tests pass, 0 lint errors, tsc clean, and
 `dist/guides/yupoo-album-to-shopping-list/index.html` is 19,973 bytes.
 
+### LB-37 — the build that reported success and shipped nothing
+
+The launch gate had one unchecked box an agent could verify: "a fresh build
+from a clean checkout passes the preflight and shows sign-in." It was unchecked
+because it was false.
+
+`git clone` to `/tmp/cz-clean`, `npm ci`, `npm run build`. The preflight half
+passed: with no `.env` it exits 1 and explains why. The build half failed with
+`ENOENT: copyfile 'dist/index-fashion.html' -> 'dist/index.html'`, which is a
+red herring — `dist/` did not exist at all.
+
+**The cause.** The app root is `credenza-fashion.jsx`, one level ABOVE
+`preview/`. Node resolves a bare import by walking up from the importing file,
+so `import "framer-motion"` inside it checks `<repo>/node_modules` first and
+never reaches `preview/node_modules`, where `package.json` declares it. There is
+no root `package.json`. This machine has a stray `<repo>/node_modules` dated
+2026-07-21 that made it work here and nowhere else.
+
+**Why it was silent.** Rollup does not treat an unresolved bare import as an
+error. It prints `UNRESOLVED_IMPORT` and externalises the package. The build
+exits 0 with **21 modules instead of 2247** and emits a bundle importing bare
+specifiers no browser can resolve. Roughly 19 files were affected across
+`components/` and `sheets/`. Everything that draws an icon or animates was gone.
+Netlify would have deployed that and reported a successful build.
+
+That is the LB-6 shape exactly: a build that says success and ships a broken
+app. LB-6 fixed the missing-env case. This is the missing-module case.
+
+**The fix.** `resolve.alias` in `preview/vite.config.js` pins all four
+dependencies to this project's `node_modules`, for every importer at any depth,
+on any machine.
+
+**The rules.** Four in `preview/test/deploy-config.test.js`. Every dependency in
+`package.json` must appear in the alias block (read from `package.json`, not
+hardcoded, so a new dependency cannot escape). No alias may contain
+`../node_modules` — an alias pointing above the project would restate the bug in
+the fix. And the premise is asserted: `../credenza-fashion.jsx` exists and
+`preview/credenza-fashion.jsx` does not, so if the app root ever moves inside
+`preview/` the rule fails loudly instead of sitting there as dead weight nobody
+understands.
+
+| Probe | Result |
+|-------|--------|
+| Drop the `lucide-react` alias | 2 fail |
+| Point `framer-motion` at `../node_modules` | 1 fail |
+| Delete the whole alias block | 2 fail |
+| Add `clsx` to dependencies, do not alias it | 2 fail, names `clsx` |
+| Restore each time | checksum verified |
+
+**Gate.** 1588 tests pass, 0 lint errors, tsc clean, build emits the full
+bundle. Verified in the clean clone after the fix: 21 → 2247 modules, zero bare
+specifiers in the output, sign-in present in the `ProfileSheet`, `SettingsSheet`
+and `ShareSheet` chunks, Supabase URL baked in.
+
 ## Explicitly deferred (do NOT build before launch)
 
 - **Restock and price watch** (row 13) — needs a scheduler; zero code.
@@ -2151,8 +2206,10 @@ Launch when every box is checked:
 - [ ] One full paid loop verified in test mode (LB-5 log exists).
 - [x] Pricing page lists only shipped features. Verified 2026-07-26 by the
       LB-14 audit. `preview/test/public-site.test.js` holds the line.
-- [ ] A fresh build from a clean checkout passes the preflight and shows
-      sign-in (the LB-6 regression can never recur silently).
+- [x] A fresh build from a clean checkout passes the preflight and shows
+      sign-in (the LB-6 regression can never recur silently). Verified
+      2026-07-27 by LB-37 in `/tmp/cz-clean`. It failed the first time:
+      the build exited 0 with a 21-module stub. Fixed and re-verified.
 - [ ] Kyle approves one production deploy batch containing all of it.
       This is the ONLY deploy the whole launch spends (rule 8). Every
       task lands on `main` and waits for it.
