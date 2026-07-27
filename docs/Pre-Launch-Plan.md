@@ -110,6 +110,7 @@ do it completely, and report against its acceptance criteria.
 | LB-43 | Check the yearly price, not just the monthly one | P0 | 45 m | LB-42 | DONE 2026-07-27 — the ninth scope defect; the rule read the first price after "Pro" and every sentence names two, so a wrong yearly price passed all 1641 tests |
 | LB-44 | Check that the files a page asks for are actually there | P1 | 45 m | LB-43 | DONE 2026-07-27 — the tenth scope defect, and the first about references rather than words; renaming the landing hero to a file that does not exist passed all 1641 tests |
 | LB-45 | Sell the two features that shipped a day ago | P1 | 50 m | LB-44 | DONE 2026-07-27 — the eleventh scope defect, and the first where the rule was also wrong about the facts; a stale comment kept shared links and multi-device off the page that sells Pro |
+| LB-46 | Explain the two features the price table now sells | P1 | 45 m | LB-45 | DONE 2026-07-27 — the twelfth scope defect, and the third axis; every page was correct on its own, and the gap lived between them, so `/pricing/` was the only page explaining what a buyer paid for |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2730,6 +2731,66 @@ keeps a shelf "in sync across a phone and a laptop". That was true, and the
 pricing page contradicted it by silence. The page now agrees with it.
 
 **Gate.** 1670 tests pass (62 files), 5 lint warnings and 0 errors, build
+`index-fashion-VSp8hwMs.js 363.47 kB`.
+
+### LB-46 — a feature the price table sells and no page explains
+
+**The gap LB-45 opened.** LB-45 made `/pricing/` name shared links and
+multi-device shelves, because a page that omits a shipped feature under-sells
+it. That fixed the selling and created the next problem. Somebody pays $4.99,
+goes to find out how the thing works, and the only page that mentions it is the
+page that took the money.
+
+**The third axis of the scope-defect class.** LB-22 through LB-43 asked what a
+page SAYS. LB-44 asked what a page REFERENCES. This asks what the SITE covers.
+No single-file rule can answer that question, because every individual page was
+correct. `/how/` was correct. `/faq/` was correct. The absence lived between
+them.
+
+**Proved by negative control.** The two files were restored to their pre-LB-46
+state and the suite was run. One test failed, naming the exact phrase and the
+exact reason. Before the rule existed, that same state passed 1670 tests.
+
+**What was missing, precisely.** A page-by-page grep found the share feature
+was already explained on `/faq/` — that row is a regression guard, not a
+repair. The device row was the real hole: the phrases that explain what happens
+to a lost phone appeared on `/pricing/` and nowhere else. So the one reader who
+most needs the answer, the one whose phone is already gone, had only the price
+table to read.
+
+**Why the pricing page cannot be its own answer.** A price table lists what you
+get in the fewest words that fit a cell. "Kept in step" is a cell. It is not an
+explanation of what happens to a card added on a phone. So the rule requires a
+page OTHER than `/pricing/` to carry the explanation.
+
+**Why the match is on phrases, not keywords.** Explaining is prose. "Share"
+appears in "share sheet" on a page about saving links from a phone, and that
+page has explained nothing about shared haul links. Each row names the phrases
+that only appear when somebody has actually written the explanation.
+
+**Guard the guard.** A second test asserts every phrase is reachable in
+`text()`-stripped prose. Without it, a phrase sitting in an attribute would
+make its row pass on something no reader ever sees.
+
+**Copy added.** `/faq/` gains a 16th question, "What happens to my shelf if I
+lose my phone?", in the JSON-LD `mainEntity` and the visible `<details>` list,
+word for word — the parity rule demands it. `/how/` gains two sections: one on
+sending a haul without sending the shelf, one on keeping the shelf when the
+phone does not survive.
+
+**Probes.**
+
+| Edit | Result |
+|---|---|
+| Both `/how/` sections removed | 0 fail — `/faq/` already covered the share row |
+| `/faq/` and `/how/` at their pre-LB-46 state | **1 fail — the negative control** |
+| The share phrase removed from `/faq/` as well | 2 fail, one per row |
+| `Shared haul links` row renamed off `/pricing/` | 1 fail, defers to LB-45 by name |
+| A phrase left only inside an attribute | 2 fail, row and prose guard |
+| `/faq/` reverted, `/how/` kept | 557 pass — coverage, not one file |
+| Restore each time | checksum verified |
+
+**Gate.** 1674 tests pass (62 files), 5 lint warnings and 0 errors, build
 `index-fashion-VSp8hwMs.js 363.47 kB`.
 
 ## Explicitly deferred (do NOT build before launch)

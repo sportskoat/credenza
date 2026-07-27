@@ -1698,3 +1698,86 @@ describe("every file a page asks for is actually there", () => {
     expect(missing, `sw.js precaches ${missing.join(", ")}`).toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-46. A feature the pricing page sells and no page explains.
+//
+// LB-45 made /pricing/ name shared links and multi-device shelves, because a
+// page that omits a shipped feature under-sells it. That fixed the selling and
+// created the next gap: somebody pays $4.99, looks for how the thing works, and
+// the only page that mentions it is the one that took their money.
+//
+// The twelfth scope defect, and the third axis. LB-22 through LB-43 asked what
+// a page SAYS. LB-44 asked what a page REFERENCES. This asks what the SITE
+// covers — a question no single-file rule can answer, because every individual
+// page is correct. /how/ was fine. /faq/ was fine. The absence lived between
+// them.
+//
+// Proved 2026-07-27: before this rule, /how/ had eight sections explaining the
+// product and neither shared links nor devices was one of them, while /pricing/
+// charged for both. All 1670 tests passed.
+//
+// Why the pricing page cannot be its own answer. A price table is a list of
+// what you get, in the fewest words that fit a cell. "Kept in step" is a cell.
+// It is not an explanation of what happens to a card you add on a phone. So a
+// feature is covered when a page OTHER than /pricing/ explains it, which is
+// what this rule requires.
+describe("a feature the price table sells is explained somewhere else", () => {
+  // Each entry: the row on /pricing/ that sells it, and the phrases that mean
+  // a page has actually explained it. Explaining is prose, so the match is on
+  // meaning-carrying phrases rather than on a single keyword — "share" appears
+  // in "share sheet" on a page about saving links from a phone, and that page
+  // has explained nothing about shared haul links.
+  const SOLD = [
+    {
+      row: "Shared haul links",
+      needs: ["read-only page", "profile → shared links"],
+      why: "somebody who buys 100 links has to find out how to make one",
+    },
+    {
+      row: "Your shelf on more than one device",
+      needs: ["shelf comes back", "keeps going up"],
+      why: "the free half of this row is what somebody who lost a phone needs to read",
+    },
+  ];
+
+  const PRICING = DOCS.find((d) => d.rel === "pricing/index.html");
+
+  it("finds the pricing page at all", () => {
+    // Guard the guard. A renamed file would make every check below vacuous,
+    // and this rule reads as enforced whether or not it runs.
+    expect(PRICING, "pricing/index.html is gone — has the site changed shape?").toBeTruthy();
+  });
+
+  for (const { row, needs, why } of SOLD) {
+    it(`${row} is explained on a page that is not /pricing/`, () => {
+      // Only enforce for rows the price table actually sells. A row deleted
+      // from /pricing/ should not fail here — it should fail LB-45, which is
+      // the rule that decides what belongs on the table.
+      const sold = PRICING.html.includes(`<th scope="row">${row}</th>`);
+      expect(sold, `/pricing/ no longer has a row named "${row}" — see LB-45`).toBe(true);
+
+      const elsewhere = DOCS.filter((d) => d.rel !== "pricing/index.html");
+      for (const phrase of needs) {
+        const found = elsewhere.filter((d) => text(d.html).toLowerCase().includes(phrase));
+        expect(
+          found.map((d) => d.rel),
+          `no page except /pricing/ says ${JSON.stringify(phrase)} — ${why}`
+        ).not.toEqual([]);
+      }
+    });
+  }
+
+  it("the phrases it looks for are prose, not markup", () => {
+    // Guard the guard, second half. Every phrase above is matched against
+    // text(), so a phrase that only ever appears inside an attribute would
+    // make its row pass on something no reader sees. Assert each one is
+    // reachable in stripped text on the page that carries it.
+    const all = SOLD.flatMap((s) => s.needs);
+    expect(all.length, "no phrases to check").toBeGreaterThan(2);
+    for (const phrase of all) {
+      const hit = DOCS.some((d) => text(d.html).toLowerCase().includes(phrase));
+      expect(hit, `${JSON.stringify(phrase)} appears in no page's visible text`).toBe(true);
+    }
+  });
+});
