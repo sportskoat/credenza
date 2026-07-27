@@ -64,6 +64,20 @@ function fashionEntryPlugin() {
       server.middlewares.use((req, res, next) => {
         if (req.url === "/" || req.url === "/index.html") {
           req.url = "/index-fashion.html";
+          next();
+          return;
+        }
+        // A static host answers /contact/ with public/contact/index.html.
+        // Vite's dev server does not: it falls through to the SPA fallback,
+        // so every public page rendered the app instead (Kyle, 2026-07-27:
+        // "every single page takes you here, these are not routed right").
+        // Resolve the directory ourselves, BEFORE the fallback runs.
+        const path = (req.url || "").split("?")[0];
+        if (path.endsWith("/") && path.length > 1) {
+          const candidate = join(__dirname, "public", path.slice(1), "index.html");
+          if (existsSync(candidate)) {
+            req.url = path + "index.html";
+          }
         }
         next();
       });
@@ -182,7 +196,11 @@ function netlifyFunctionsDev() {
 
 export default defineConfig({
   plugins: [react(), fashionEntryPlugin(), swPrecache(), netlifyFunctionsDev()],
-  server: { port: 5173, strictPort: true, fs: { allow: [".."] } },
+  // host: "127.0.0.1" because the default bound IPv6 loopback ([::1]) ONLY, so
+  // http://127.0.0.1:5173 was refused while http://localhost:5173 worked
+  // (Kyle, 2026-07-27). Both addresses now answer. Not "true" — that would
+  // publish the dev server to every machine on the network.
+  server: { host: "127.0.0.1", port: 5173, strictPort: true, fs: { allow: [".."] } },
   resolve: {
     // LB-37. The app root is `../credenza-fashion.jsx` — one level ABOVE this
     // project. Node resolves a bare import by walking up from the importing

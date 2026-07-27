@@ -7576,73 +7576,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   cursor: pointer;
 }
 
-.cz-import-sample {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 15px 16px;
-  margin: 0;
-  background: color-mix(in srgb, var(--cz-ink) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 8%, transparent);
-  border-radius: 14px;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-  font: inherit;
-}
-.cz-import-sample:hover {
-  border-color: color-mix(in srgb, var(--cz-ink) 16%, transparent);
-  background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
-}
-.cz-import-sample-thumbs {
-  display: flex;
-  flex: none;
-}
-.cz-import-sample-thumb {
-  width: 34px;
-  height: 44px;
-  border-radius: 7px;
-  border: 2px solid var(--cz-card-solid, var(--cz-card, #141416));
-  background:
-    linear-gradient(150deg, color-mix(in srgb, var(--cz-ink) 18%, transparent), transparent),
-    color-mix(in srgb, var(--cz-ink) 10%, var(--cz-bg));
-}
-.cz-import-sample-thumb + .cz-import-sample-thumb {
-  margin-left: -14px;
-}
-.cz-import-sample-thumb.t2 {
-  background:
-    linear-gradient(150deg, color-mix(in srgb, #4ade80 30%, transparent), transparent),
-    color-mix(in srgb, var(--cz-ink) 12%, var(--cz-bg));
-}
-.cz-import-sample-thumb.t3 {
-  background:
-    linear-gradient(150deg, color-mix(in srgb, #f5a623 30%, transparent), transparent),
-    color-mix(in srgb, var(--cz-ink) 12%, var(--cz-bg));
-}
-.cz-import-sample-copy {
-  flex: 1;
-  min-width: 0;
-}
-.cz-import-sample-title {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--cz-ink);
-}
-.cz-import-sample-sub {
-  font-size: 12.5px;
-  line-height: 1.3;
-  color: var(--cz-sub);
-  margin-top: 3px;
-}
-.cz-import-sample-cta {
-  flex: none;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cz-ink);
-}
 .cz-import-export {
   display: block;
   width: 100%;
@@ -8072,8 +8005,27 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
+}
+
+/* True centering (Kyle 2026-07-27: "header here is not centered and doesn't
+   look right"). space-between alone divides the LEFTOVER room evenly, so a
+   ~190px brand on the left and a single 44px avatar on the right pushed the
+   link row ~75px right of the real middle. Giving the two outer children an
+   equal flex basis of 0 makes them claim equal width, which puts the nav on
+   the actual centre line. The phone masthead hides the nav, so this only
+   applies where the nav exists. */
+@media (min-width: 768px) {
+  .cz-masthead:not(.is-compact) .cz-brand,
+  .cz-masthead:not(.is-compact) .cz-masthead-actions {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .cz-masthead:not(.is-compact) .cz-masthead-actions {
+    justify-content: flex-end;
+  }
 }
 
 .cz-mast-nav-link {

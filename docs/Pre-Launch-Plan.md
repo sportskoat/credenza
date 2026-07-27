@@ -129,6 +129,8 @@ do it completely, and report against its acceptance criteria.
 | LB-62 | Make a deleted share link leave the edge, not only the database | P0 | 3 h | LB-61 | DONE 2026-07-27 — `/how/` promised a deleted link "answers 404 straight away"; verified FALSE — `share.js` DELETE removed the row and stopped, while `share-page.js` served `max-age=300, stale-while-revalidate=3600` and `share-image.js` served `max-age=604800`, so a deleted haul kept its page for an hour and its card photo for SEVEN DAYS from a cache no database delete reaches, and `grep -rn "cache-tag\|purge" netlify/` returned zero hits; `delete-account.js` had the same gap against the stronger promise; both public routes now emit `netlify-cache-tag: share-<code>` and both delete paths call `POST /api/v1/purge` after the row goes, via `lib/purge.js` (written out rather than adding `@netlify/functions`), plus new page `/guides/delete-a-shared-link/` |
 | LB-63 | Explain what happens when Pro ends, on a page that is not the price table | P1 | 2 h | LB-62 | DONE 2026-07-27 — closes the 14-row pricing census; `/pricing/:579-593` promises "If Pro ends, nothing is deleted... Only new additions go back to the free caps" and NO other page explained it (the LB-46 shape); promise verified TRUE at five code sites — `effectiveStatus()` plus 7-day `GRACE_MS`, `mayWriteCloud()` gating cloud writes not reads, `attachQcImage` capping additions only, `share.js handleCreate` forcing Pro options off at creation and never deleting, `share-page.js:318` reading Pro settings off the row with no plan check — plus a negative check confirming `stripe-webhook.js` and `entitlement-store.js` prune nothing on downgrade; new page `/guides/what-happens-when-pro-ends/` (1,079 words, Article schema), registered in eight places, three mutation probes |
 | LB-64 | Stop the About page contradicting the price page | P0 | 2 h | LB-63 | DONE 2026-07-27 — `/landing/` is the page the nav sends a stranger to first, and it ended its pitch with “Free while it’s in beta”, a sentence written before `netlify/functions/checkout.js` existed and false the day it shipped; the same page never mentioned Pro AT ALL, so a reader learned the product was free and left; added a `#cost` section (Free / Pro / If Pro ends) linking `/pricing/` and `/guides/what-happens-when-pro-ends/`, replaced the beta line with “Free to start… Pro is $4.99 a month”, and corrected “8 from the album” to “8 from the listing” on a Weidian mock (album is the Yupoo word); new rule in `plan-limits.test.js` greps every page for beta/early-access/waitlist/coming-soon and for free-forever, guarded by an assertion that checkout.js still creates a Stripe session; four mutation probes |
+| LB-65 | Every page address must serve its own page | P0 | 2 h | — | DONE 2026-07-27 — Kyle, with a screenshot of localhost:5173/contact/ rendering the app: “every single page takes you here, these are not routed right”; an hour earlier I had reported all ten addresses working on the strength of HTTP 200, and Vite answers 200 for ANY unmatched path via the SPA fallback, so a 200 proved only that something answered; added a directory-resolving middleware to `vite.config.js` that rewrites `/x/` to `public/x/index.html` when that file exists, ahead of the fallback, and bound the dev server to 127.0.0.1 (it had bound IPv6 `[::1]` only, so Kyle's earlier ERR_CONNECTION_REFUSED was a second, separate fault); new `dev server routing` block in `public-site.test.js`, five mutation probes; production was NOT broken the same way — `/faq/` and `/landing/` serve correctly live, while `/contact/` and `/pricing/` return Page not found because they have never been deployed |
+| LB-66 | Delete the sample shelf | P1 | 1 h | LB-65 | DONE 2026-07-27 — Kyle, second request: “this is a very old credenza app, this content needs to be deleted”; removed `buildSampleItems` (243 lines of demo cards), `SAMPLE_COUNT`, `clearSamples`, the ImportSheet sample card, and the “Clear sample shelf” button; the empty-shelf action “Put it on my shelf” loaded 18 demo cards and now focuses the paste field instead, reading “Paste your first link”; a device that already holds sample cards sweeps them off once after hydration, silently — a toast offering Undo would only invite the demo back |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -4560,3 +4562,166 @@ this one is anchored to checkout.js being live.
 The test that finds the next one is not "does this page quote the right
 number". It is: **would a stranger who reads only this page come away with a
 false idea of what Credenza costs?**
+
+---
+
+### LB-65 — a 200 is not a page
+
+Kyle sent a screenshot of `localhost:5173/contact/` rendering the Credenza
+app instead of the Contact page. His words: **"every single page takes you
+here, these are not routed right."**
+
+He was right. What matters is why I had told him the opposite an hour earlier.
+
+#### The false proof
+
+I had checked ten addresses like this:
+
+```
+curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/contact/   → 200
+```
+
+Ten addresses, ten 200s, and a table telling Kyle every page worked.
+
+Vite's dev server ends its middleware chain with an SPA fallback that returns
+the app shell for **any** path it does not recognise. So every one of those
+200s was the app answering, not the page. **A status code proves that
+something answered. It does not prove what answered.**
+
+The correct probe costs one more pipe:
+
+```
+curl -s http://localhost:5173/contact/ | grep -o "<title>[^<]*</title>"
+→ <title>Credenza Fashion · Agent haul planner</title>     ← the app
+curl -s http://localhost:5173/contact/index.html | grep -o "<title>[^<]*</title>"
+→ <title>Contact Credenza — who reads it and how fast</title>  ← the page
+```
+
+The second line is the important one. **The page files were correct and
+complete the whole time.** Only the clean directory address failed.
+
+#### Production was not broken the same way
+
+Before fixing anything I checked the live site, because a dev-only fault and a
+live fault deserve different treatment:
+
+| Address | Live title |
+| --- | --- |
+| `/faq/` | Credenza FAQ · agent haul planner |
+| `/landing/` | Credenza Fashion · the agent haul planner |
+| `/contact/` | **Page not found** |
+| `/pricing/` | **Page not found** |
+
+Two serve correctly, which proves the live host **does** resolve a directory
+address to its page. The other two are missing for an unrelated reason: they
+exist in this repo and have never been deployed. That is a shipping gap, not a
+routing bug, and it closes on the next deploy.
+
+#### The fix
+
+A middleware in `fashionEntryPlugin().configureServer`, ahead of the
+fallback:
+
+```js
+const path = (req.url || "").split("?")[0];
+if (path.endsWith("/") && path.length > 1) {
+  const candidate = join(__dirname, "public", path.slice(1), "index.html");
+  if (existsSync(candidate)) req.url = path + "index.html";
+}
+```
+
+Three details carry weight. `path.length > 1` keeps the bare root out, so
+opening Credenza still lands on the app. `existsSync` means a genuinely wrong
+address still reaches the fallback rather than becoming a blank error. And the
+query string is stripped first, or `/faq/?ref=x` would miss.
+
+#### The second fault, found while fixing the first
+
+Kyle's earlier screenshot showed `127.0.0.1:5173` refusing the connection
+while `localhost:5173` worked. `lsof` explained it:
+
+```
+node  65202  IPv6  TCP [::1]:5173 (LISTEN)
+```
+
+The dev server had bound the IPv6 loopback only. `localhost` resolves to both
+families; the numeric IPv4 address resolves to neither of them. Fixed with
+`host: "127.0.0.1"` — deliberately **not** `host: true`, which would publish
+the dev server to every machine on the network.
+
+#### The probes
+
+Five mutations, each restored by `cp` and confirmed with `md5 -q` —
+**`git checkout --` was not used**:
+
+| Mutation | Caught by |
+| --- | --- |
+| Delete the directory branch (the original bug) | 3 tests |
+| `existsSync(candidate)` → `candidate` | 2 tests |
+| Remove `host: "127.0.0.1"` | 1 test — **only after a fix, see below** |
+| `host: "127.0.0.1"` → `host: true` | 1 test |
+| A nav link pointed at a page that does not exist | 1 test |
+
+**Probe 3 escaped on the first run**, and that is the second lesson. The
+assertion was a whole-file `toMatch(/host: "127\.0\.0\.1"/)`, and the
+explanatory **comment above the setting quotes the value**. Deleting the real
+setting left the comment, and the comment satisfied the grep. The rule now
+reads the `server: { … }` line itself.
+
+**A rule a comment can satisfy is not a rule.** Every whole-file grep in this
+suite is exposed to it, because this codebase comments heavily and comments
+quote the code they explain.
+
+#### The gate
+
+2,114 tests / 66 files, up from 2,109 / 66. Lint: 5 warnings, 0 errors —
+baseline unchanged.
+
+#### What this says about verification
+
+**LB-65: a 200 is not a page.** The generalisation past HTTP: every check has a
+weakest reading, and a check answers the weakest question it can. "Did the
+address respond" is a weaker question than "did the right thing respond", and I
+asked the weak one because it was one command shorter.
+
+Both faults in this finding are the same shape. A status code stands in for a
+page. A comment stands in for a setting. In each case the probe matched
+something adjacent to the truth and I read it as the truth.
+
+The test that finds the next one: **could this check still pass if the feature
+were deleted?** If yes, it is measuring the wrong thing — no matter how green
+it is.
+
+---
+
+### LB-66 — the demo shelf outlived the product
+
+Kyle, on opening the app: **"this is a very old credenza app, this content
+needs to be deleted."** His shelf read **19 saved**, under headings like *From
+the back of the shelf*. Eighteen of those were `buildSampleItems()`.
+
+He had asked once before. I answered that the sample shelf costs zero Netlify
+function credits and recommended keeping it. That answer was correct and it
+missed the point: he was not asking about cost. He was telling me the first
+thing the app shows a person is not the product.
+
+#### What went
+
+- `buildSampleItems()` — 243 lines of demo cards.
+- `SAMPLE_COUNT`, `clearSamples`, and the ImportSheet sample card.
+- The "Clear sample shelf" line under the plan section.
+- The empty-shelf button **"Put it on my shelf"**, which loaded the 18 cards.
+  The specimen card above it illustrates what a Weidian link becomes, so the
+  action under it now focuses the paste field and reads **"Paste your first
+  link"** — the real version of what the specimen promises.
+
+#### The part that is not deletion
+
+Deleting the generator does not clear a shelf that already holds the cards.
+Kyle's 19 live in his browser's local storage and would have survived every
+line above. A one-time sweep after hydration removes anything carrying
+`sourceImport: "sample"`.
+
+It is silent on purpose. The obvious version notifies with an **Undo**, and
+Undo here means "put the demo content back" — offering it would undo the thing
+he asked for twice.

@@ -1966,3 +1966,91 @@ describe("a feature the price table sells is explained somewhere else", () => {
     }
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LB-65 — the dev server must serve every public page, not the app
+//
+// Kyle, 2026-07-27, with a screenshot of localhost:5173/contact/ rendering the
+// Credenza app: "every single page takes you here, these are not routed right".
+//
+// He was right, and the reason I had said otherwise the hour before is the
+// whole lesson. I had curled ten addresses, seen HTTP 200 on all ten, and
+// reported that every page worked. Vite's dev server answers 200 for ANY
+// unmatched path, because the SPA fallback hands back the app shell. A 200
+// proves that something answered. It does not prove WHAT answered.
+//
+// The fix is the directory-resolving middleware in vite.config.js. This rule
+// guards it, and it deliberately asserts on the middleware's ability to find
+// the file rather than on a status code, for exactly the reason above.
+// ═══════════════════════════════════════════════════════════════════════════
+describe("dev server routing", () => {
+  const CONFIG = readFileSync(join(ROOT, "preview/vite.config.js"), "utf8");
+
+  it("resolves a trailing-slash address to that folder's index.html", () => {
+    // The middleware must (a) look inside public/, (b) test the file exists
+    // before rewriting, and (c) rewrite to index.html. Missing (b) would turn
+    // a genuine wrong address into a blank 404 instead of the app shell, which
+    // is worse than the bug it replaces.
+    expect(CONFIG).toMatch(/join\(__dirname, "public", [\s\S]{0,40}"index\.html"\)/);
+    expect(CONFIG).toMatch(/existsSync\(candidate\)/);
+    expect(CONFIG).toMatch(/req\.url = path \+ "index\.html"/);
+  });
+
+  it("runs that rewrite inside configureServer, before the SPA fallback", () => {
+    // Vite installs its own fallback LAST, so any middleware registered in
+    // configureServer runs first. The assertion that matters is that the
+    // rewrite lives in configureServer at all — moving it to a build hook
+    // would leave dev broken again.
+    // swPrecache() declares closeBundle() too, and it sits ABOVE this plugin
+    // in the file, so the slice must start at configureServer and search
+    // forward from there — not from index 0.
+    const start = CONFIG.indexOf("configureServer(server)");
+    expect(start).toBeGreaterThan(-1);
+    const end = CONFIG.indexOf("closeBundle()", start);
+    expect(end).toBeGreaterThan(start);
+    const block = CONFIG.slice(start, end);
+    expect(block).toContain("existsSync(candidate)");
+    expect(block.length).toBeGreaterThan(200);
+  });
+
+  it("still sends the bare root to the app, not to a page", () => {
+    // /  is the app. If the directory rule ever swallowed it, opening Credenza
+    // would land on a marketing page.
+    expect(CONFIG).toContain('req.url === "/" || req.url === "/index.html"');
+    expect(CONFIG).toContain('req.url = "/index-fashion.html"');
+    // The guard that keeps the root out of the directory branch.
+    expect(CONFIG).toMatch(/path\.endsWith\("\/"\) && path\.length > 1/);
+  });
+
+  it("binds the dev server to 127.0.0.1 so the numeric address answers", () => {
+    // Kyle opened http://127.0.0.1:5173 and got ERR_CONNECTION_REFUSED, because
+    // the default bound the IPv6 loopback ([::1]) only. Both addresses must work.
+    // Not host: true — that would publish the dev server to the local network.
+    //
+    // Read the server: line, NOT the whole file. A mutation probe that deleted
+    // the setting still passed, because the comment ABOVE it quotes the value
+    // and satisfied a whole-file grep. A rule that a comment can satisfy is
+    // not a rule.
+    const line = CONFIG.split("\n").find((l) => l.trimStart().startsWith("server: {"));
+    expect(line, "no server: { … } line in vite.config.js").toBeTruthy();
+    expect(line).toContain('host: "127.0.0.1"');
+    expect(line).not.toContain("host: true");
+  });
+
+  it("has a real page file behind every address the nav offers", () => {
+    // The middleware can only rewrite to a file that exists. This walks the
+    // nav of every page and asserts each internal address has an index.html on
+    // disk — the same check the middleware makes at request time.
+    const missing = [];
+    for (const { rel, html } of DOCS) {
+      const nav = (html.match(/<nav[\s\S]*?<\/nav>/i) || [""])[0];
+      for (const m of nav.matchAll(/href="(\/[^"#?]*\/)"/g)) {
+        const target = m[1];
+        if (target === "/") continue;
+        const file = join(PUBLIC, target.slice(1), "index.html");
+        if (!existsSync(file)) missing.push(rel + " → " + target);
+      }
+    }
+    expect(missing, "nav links with no page file behind them").toEqual([]);
+  });
+});

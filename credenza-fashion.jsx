@@ -2383,8 +2383,6 @@ export function mergeLoadedItems(loaded, current) {
 // save-app branding (Raindrop / Pocket / browser bookmarks) in the UI.
 // ═══════════════════════════════════════════════════════════════════════════════════
 
-export const SAMPLE_COUNT = 18;
-
 // Quiet labels for the import preview line only (never shown as provider marketing).
 export const PROVIDER_LABELS = {
   pocket: "link list",
@@ -2677,250 +2675,6 @@ function buildImportItems(candidates, existing, source) {
     fresh.push(createItem(c.parsed, c.rawText, extra));
   }
   return { fresh, dupes, duplicates };
-}
-
-function buildSampleItems() {
-  // One realistic haul (audit 2026-07-24): the samples teach the fashion
-  // flow — capture from Weidian/Yupoo/Taobao/1688/Reddit, sizing with
-  // variants and poster stats, the status pipeline, Warehouse QC, and Buy.
-  const now = Date.now();
-  const HAUL = "Winter rotation";
-  const mk = (raw, extra, ageDays) =>
-    createItem(classify(raw), raw, {
-      project: HAUL,
-      ...extra,
-      sourceImport: "sample",
-      createdAt: now - ageDays * DAY_MS,
-      updatedAt: now - ageDays * DAY_MS,
-    });
-  return [
-    mk(
-      "https://weidian.com/item.html?itemID=7261398445",
-      {
-        title: "Heavy fleece hoodie — 480g",
-        seller: "Listenup",
-        price: 189,
-        findStatus: "bought",
-        category: "outerwear",
-        size: "L",
-        recommendedSize: "XL",
-        variants: [{ title: "Size", values: ["M", "L", "XL"] }],
-        sizeNotes: "Runs one size small. M: chest 116, L: 120, XL: 124.",
-        posterStats: { height: "183cm", weight: "78kg", size: "XL" },
-        posterUser: "winterpicks",
-        note: "Poster is 183/78 and took XL. Size up once.",
-      },
-      21
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7288102331",
-      {
-        title: "Boxy blank tee — 260g cotton",
-        seller: "Topbasics",
-        price: 89,
-        findStatus: "want",
-        category: "shirt",
-        variants: [{ title: "Size", values: ["S", "M", "L", "XL"] }],
-      },
-      20
-    ),
-    mk(
-      "https://mook-official.x.yupoo.com/albums/244505824?uid=1",
-      {
-        title: "Retro runner — gum sole",
-        seller: "Mook-official",
-        sellerAccount: "mook-official",
-        price: 320,
-        findStatus: "qc",
-        category: "shoes",
-        size: "EU 43",
-        variants: [{ title: "Size", values: ["EU 42", "EU 43", "EU 44"] }],
-        qcNote: "Check the stitching on the left heel before GL.",
-        note: "Agent photo album. QC pics came in day 3.",
-      },
-      19
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7244551890",
-      {
-        title: "Straight washed jeans",
-        seller: "Denimwork",
-        price: 158,
-        findStatus: "bought",
-        category: "pants",
-        size: "32",
-        weightGrams: 720,
-        variants: [{ title: "Size", values: ["30", "31", "32", "33"] }],
-      },
-      18
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7220773466",
-      {
-        title: "Quilted liner jacket",
-        seller: "Northerngoods",
-        price: 299,
-        findStatus: "gl",
-        category: "outerwear",
-        size: "L",
-        qcVerdictAt: new Date(now - 2 * DAY_MS).toISOString(),
-        qcNote: "Zips smooth, fill even. Cleared to ship.",
-      },
-      17
-    ),
-    mk(
-      "https://item.taobao.com/item.htm?id=8412905763",
-      {
-        title: "Ribbed beanie — charcoal",
-        price: 45,
-        findStatus: "want",
-        category: "hat",
-      },
-      16
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7299334477",
-      {
-        title: "Ripstop cargo pants",
-        seller: "Fieldsupply",
-        price: 176,
-        findStatus: "shipped",
-        category: "pants",
-        size: "M",
-        note: "Shipped with the November parcel.",
-      },
-      15
-    ),
-    mk(
-      "https://detail.1688.com/offer/7335890124.html",
-      {
-        title: "Crew socks — 3 pack",
-        price: 25,
-        findStatus: "want",
-        category: "socks",
-      },
-      14
-    ),
-    mk(
-      "https://topstoney.x.yupoo.com/albums/198233445?uid=1",
-      {
-        title: "Low court sneaker — white",
-        sellerAccount: "topstoney",
-        price: 380,
-        findStatus: "want",
-        category: "shoes",
-        note: "Compare batch with the review from r/FashionReps before GP.",
-      },
-      13
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7201445998",
-      {
-        title: "Loopwheeled crewneck",
-        seller: "Loopwheelcn",
-        price: 135,
-        findStatus: "bought",
-        category: "shirt",
-        size: "M",
-        recommendedSize: "L",
-        sizeNotes: "Shrinks a little on first wash.",
-        note: "Fits small — L after wash.",
-      },
-      12
-    ),
-    mk(
-      "https://www.reddit.com/r/FashionReps/comments/1c9r2kx/winter_rotation_review/",
-      {
-        title: "Review: graphic tee batch B",
-        price: 95,
-        findStatus: "returned",
-        category: "shirt",
-        qcNote: "Print sat crooked — RL'd and exchanged.",
-        qcVerdictAt: new Date(now - 9 * DAY_MS).toISOString(),
-        findSource: "https://www.reddit.com/r/FashionReps/comments/1c9r2kx/winter_rotation_review/",
-      },
-      11
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7277662310",
-      {
-        title: "Nylon swim shorts",
-        price: 79,
-        findStatus: "want",
-        category: "shorts",
-      },
-      10
-    ),
-    mk(
-      "https://item.taobao.com/item.htm?id=8455112098",
-      {
-        title: "Canvas tote — natural",
-        price: 68,
-        findStatus: "bought",
-        category: "bag",
-      },
-      9
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7233889045",
-      {
-        title: "Bridle leather belt",
-        price: 55,
-        findStatus: "want",
-        category: "accessory",
-      },
-      8
-    ),
-    mk(
-      "https://husky-reps.x.yupoo.com/albums/209911730?uid=1",
-      {
-        title: "Down puffer — matte black",
-        sellerAccount: "husky-reps",
-        price: 450,
-        findStatus: "want",
-        category: "outerwear",
-        sizeNotes: "Fill: 90% down. Chart in album description.",
-        note: "Wait for the December restock — current batch sold out of L.",
-      },
-      7
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7215007834",
-      {
-        title: "Wool 6-panel cap",
-        price: 49,
-        findStatus: "gl",
-        category: "hat",
-        qcVerdictAt: new Date(now - 4 * DAY_MS).toISOString(),
-      },
-      6
-    ),
-    mk(
-      "https://item.taobao.com/item.htm?id=8499001245",
-      {
-        title: "Brushed scarf — oatmeal",
-        price: 39,
-        findStatus: "want",
-        category: "accessory",
-      },
-      5
-    ),
-    mk(
-      "https://weidian.com/item.html?itemID=7255550199",
-      {
-        title: "Mesh practice jersey",
-        seller: "Courtclassic",
-        price: 118,
-        findStatus: "bought",
-        category: "shirt",
-        size: "M",
-        posterSize: "M",
-        posterStats: { height: "178cm", weight: "70kg", size: "M" },
-        note: "Poster 178/70 wears M — TTS.",
-      },
-      4
-    ),
-  ];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════
@@ -5510,54 +5264,20 @@ function CredenzaApp() {
 
   const hasSamples = useMemo(() => items.some((x) => x.sourceImport === "sample"), [items]);
 
-  const addSamples = () => {
-    if (hasSamples) return;
-    const samples = buildSampleItems();
-    applyUpdate((list) => [...samples, ...list]);
-    setImportOpen(false);
-    flashImportResult(SAMPLE_COUNT + " sample cards on the shelf. Clear them anytime.");
-    const pick = pickResurface(samples, Date.now());
-    if (pick && !resurfaced) {
-      setResurfaced(pick.id);
-      updateItem(pick.id, (x) => ({
-        resurfacedCount: (x.resurfacedCount || 0) + 1,
-        lastResurfacedAt: Date.now(),
-      }));
-    }
-  };
-
-  const clearSamples = () => {
-    const records = items
-      .map((item, index) => ({ item, index }))
-      .filter(({ item }) => item.sourceImport === "sample")
-      .map((record) => ({
-        ...record,
-        wasSelected: selectedId === record.item.id,
-        wasExpanded: expandedId === record.item.id,
-        wasResurfaced: resurfaced === record.item.id,
-      }));
-    if (!records.length) return;
-    undoBatchRef.current = records;
+  // The sample shelf is retired (Kyle 2026-07-27: "this is a very old credenza
+  // app, this content needs to be deleted"). Nothing adds sample cards any
+  // more, but a device that loaded them before still holds 18 of them in local
+  // storage, and a stale demo shelf reads as the real product. This sweeps them
+  // off once, on the first render after hydration, and never runs again because
+  // hasSamples is false from then on. It is deliberately silent: the person did
+  // not ask for it, so a toast offering Undo would only invite them to put the
+  // demo back.
+  const samplePurgeRef = useRef(false);
+  useEffect(() => {
+    if (!preferencesHydrated || samplePurgeRef.current || !hasSamples) return;
+    samplePurgeRef.current = true;
     applyUpdate((list) => list.filter((item) => item.sourceImport !== "sample"));
-    if (records.some((record) => record.wasSelected)) setSelectedId(null);
-    if (records.some((record) => record.wasExpanded)) setExpandedId(null);
-    if (records.some((record) => record.wasResurfaced)) setResurfaced(null);
-    if (importOpen) setImportOpen(false);
-    if (undoExpiryRef.current) {
-      clearTimeout(undoExpiryRef.current);
-      undoExpiryRef.current = null;
-    }
-    const gen = ++undoGenRef.current;
-    notify("Sample shelf cleared", {
-      tone: "destructive",
-      sub: records.length + (records.length === 1 ? " card removed." : " cards removed."),
-      actionLabel: "Undo",
-      onAction: undoRemoved,
-      onDismiss: () => {
-        if (undoGenRef.current === gen) undoBatchRef.current = [];
-      },
-    });
-  };
+  }, [preferencesHydrated, hasSamples]);
 
   const retry = (id) => {
     const it = items.find((x) => x.id === id);
@@ -7616,26 +7336,6 @@ function CredenzaApp() {
         </p>
       )}
 
-      {/* Sample cleanup */}
-      {hasSamples && (
-        <div style={{ textAlign: "center", marginTop: 24 }}>
-          <button
-            onClick={clearSamples}
-            style={{
-              fontFamily: FONT,
-              fontSize: 12,
-              fontWeight: 600,
-              color: SUB,
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-            }}
-          >
-            Clear sample shelf
-          </button>
-        </div>
-      )}
     </motion.section>
   );
 
@@ -7706,10 +7406,7 @@ function CredenzaApp() {
         <Suspense fallback={null}>
           <ImportSheet
             items={items}
-            hasSamples={hasSamples}
             onImport={runImport}
-            onAddSamples={addSamples}
-            onClearSamples={clearSamples}
             onClose={back}
             onExport={exportShelf}
             onExportCsv={exportShelfCsv}
@@ -7775,10 +7472,7 @@ function CredenzaApp() {
         <Suspense fallback={null}>
         <ImportSheet
           items={items}
-          hasSamples={hasSamples}
           onImport={runImport}
-          onAddSamples={addSamples}
-          onClearSamples={clearSamples}
           onClose={() => setImportOpen(false)}
           onExport={exportShelf}
           onExportCsv={exportShelfCsv}
@@ -8250,13 +7944,18 @@ function CredenzaApp() {
                 <p className="cz-empty-hero-caption-line">
                   This is what a Weidian link becomes.
                 </p>
+                {/* Was "Put it on my shelf", which loaded 18 demo cards
+                    (Kyle 2026-07-27: "this is a very old credenza app, this
+                    content needs to be deleted"). The sample shelf is gone.
+                    The action now points at the one field that starts a REAL
+                    shelf, which is what the specimen above is illustrating. */}
                 <button
                   type="button"
                   className="cz-empty-hero-link is-primary"
                   disabled={interactionLocked}
-                  onClick={addSamples}
+                  onClick={() => heroFieldRef.current?.focus()}
                 >
-                  Put it on my shelf
+                  Paste your first link
                 </button>
               </div>
               {/* Two quiet exits, one row (.cz-empty-hero-secondary already

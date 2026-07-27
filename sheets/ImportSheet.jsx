@@ -3,7 +3,6 @@ import {
   BrandIcon,
   ModalShell,
   PROVIDER_LABELS,
-  SAMPLE_COUNT,
   itemMatchesCanonicalKey,
   localTitle,
   parseImport,
@@ -66,7 +65,7 @@ function ImportSourceCycle() {
 
 // `embedded` renders the body alone, for the Profile modal's sub-page stack
 // (Kyle 2026-07-26). The stack owns the shell, the title, and the back button.
-export default function ImportSheet({ items, hasSamples, onImport, onAddSamples, onClearSamples, onClose, onExport, onExportCsv, onClearShelf, onRestore, isPro = false, embedded = false }) {
+export default function ImportSheet({ items, onImport, onClose, onExport, onExportCsv, onClearShelf, onRestore, isPro = false, embedded = false }) {
   const [text, setText] = useState("");
   const fileRef = useRef(null);
   const importTextId = useId();
@@ -212,36 +211,6 @@ export default function ImportSheet({ items, hasSamples, onImport, onAddSamples,
             />
           </label>
         </div>
-
-        {hasSamples ? (
-          <button type="button" className="cz-import-sample is-clear" onClick={onClearSamples}>
-            <div className="cz-import-sample-thumbs" aria-hidden="true">
-              <span className="cz-import-sample-thumb t1" />
-              <span className="cz-import-sample-thumb t2" />
-              <span className="cz-import-sample-thumb t3" />
-            </div>
-            <div className="cz-import-sample-copy">
-              <div className="cz-import-sample-title">Sample shelf is on</div>
-              <div className="cz-import-sample-sub">Clear the demo finds in one tap.</div>
-            </div>
-            <span className="cz-import-sample-cta">Clear ›</span>
-          </button>
-        ) : (
-          <button type="button" className="cz-import-sample" onClick={onAddSamples}>
-            <div className="cz-import-sample-thumbs" aria-hidden="true">
-              <span className="cz-import-sample-thumb t1" />
-              <span className="cz-import-sample-thumb t2" />
-              <span className="cz-import-sample-thumb t3" />
-            </div>
-            <div className="cz-import-sample-copy">
-              <div className="cz-import-sample-title">Just exploring? Try a sample shelf</div>
-              <div className="cz-import-sample-sub">
-                {SAMPLE_COUNT} fashion finds to poke at. Clears in one tap.
-              </div>
-            </div>
-            <span className="cz-import-sample-cta">Add ›</span>
-          </button>
-        )}
 
         {items.length > 0 && (
           <button type="button" className="cz-import-export" onClick={onExport}>
