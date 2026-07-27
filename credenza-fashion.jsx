@@ -1886,13 +1886,23 @@ const IMAGE_HARD_CAP_BYTES = 40 * 1024;
 // server-side; this one keeps the request small before it leaves the phone.
 const CHART_PHOTO_MAX = 3;
 
-// How many album photos an item keeps (Kyle 2026-07-26: "we could have more
-// photos in here easily"). Every stored photo is a ~32KB base64 string inside
-// the item JSON, so this is a storage budget, not a display limit: 20 photos
-// is roughly 640KB per card. The album link still opens the full album, and
-// the card label reports the album's real count, so a deeper album is never
-// misrepresented as a shallow one.
+// How many photos an item KEEPS. Every stored photo is a ~32KB base64 string
+// inside the item JSON, so this is a storage budget, not a display limit: 20
+// photos is roughly 640KB per card. Photos the customer adds by hand — camera
+// shots, QC photos, saved images — count against this and nothing else.
 export const GALLERY_MAX = 20;
+
+// How many photos we RELAY from an album (Kyle 2026-07-26: "let's only bring
+// in 6 by default they can go to the album externally for the rest").
+//
+// This is the cost cap, and it is separate from GALLERY_MAX on purpose. Yupoo
+// refuses hotlinks, so every album photo has to cross a Netlify function at
+// full size, in and out. At 20 that made one pasted album cost 20 invocations
+// plus its bandwidth. Six covers the front, the back, the tag and a detail
+// shot — enough to judge a piece — and the album link opens the rest at the
+// seller, at no cost to us. The link already reports the album's REAL count
+// (see albumLinkTarget), so a 37-photo album never reads as a 6-photo one.
+export const RELAY_MAX = 6;
 
 async function decodeImage(blob) {
   if (typeof createImageBitmap === "function") {
@@ -5427,10 +5437,15 @@ export default function Credenza() {
     }
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const res = await monitoredFetch(storageBackend, "preview", PREVIEW_ENDPOINT, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET },
-        body: JSON.stringify({ url, ...(referer ? { referer } : {}) }),
+      // GET, not POST. A POST is never CDN-cacheable, so the old shape spent
+      // one function invocation per image PER CUSTOMER, every time. The query
+      // string is the cache key, so a popular album is relayed once for
+      // everyone. See the caching note in netlify/functions/preview.js.
+      const query =
+        "?url=" + encodeURIComponent(url) + (referer ? "&referer=" + encodeURIComponent(referer) : "");
+      const res = await monitoredFetch(storageBackend, "preview", PREVIEW_ENDPOINT + query, {
+        method: "GET",
+        headers: { "x-credenza-key": PREVIEW_SECRET },
         signal: controller.signal,
       });
       if (!res.ok) return null;
@@ -5456,13 +5471,15 @@ export default function Credenza() {
       item.gallery || []
     ).filter((src) => !isHotlink(src));
     const albumUrl = yupooAlbumUrl(item);
-    if (!albumUrl || existing.length >= GALLERY_MAX) return existing.slice(0, GALLERY_MAX);
+    // RELAY_MAX, not GALLERY_MAX: an item already holding six relayed photos
+    // asks for no more, even though it has room to store twenty.
+    if (!albumUrl || existing.length >= RELAY_MAX) return existing.slice(0, GALLERY_MAX);
     const data = await fetchYupooImages(albumUrl, { signal });
     if (!data || (signal && signal.aborted)) return existing.slice(0, GALLERY_MAX);
 
     const photos = [...existing];
     for (const src of mergeFashionImages(data.images || [])) {
-      if (photos.length >= GALLERY_MAX || (signal && signal.aborted)) break;
+      if (photos.length >= RELAY_MAX || (signal && signal.aborted)) break;
       const dataUrl = await relayImageDataUrl(src, data.url || albumUrl, signal);
       if (dataUrl) photos.push(dataUrl);
     }
@@ -5625,7 +5642,9 @@ export default function Credenza() {
         const data = await fetchYupooImages(albumUrl, { signal: controller.signal });
         if (controller.signal.aborted || enrichmentTokensRef.current.get(item.id) !== token) return false;
         if (data) {
-          const albumImages = mergeFashionImages(data.images || []).slice(0, GALLERY_MAX);
+          // RELAY_MAX: every image in this list gets relayed below, one
+          // function invocation each, so the cap on the list IS the cost cap.
+          const albumImages = mergeFashionImages(data.images || []).slice(0, RELAY_MAX);
           const canonicalAlbum = data.url || albumUrl;
           const links = mergeFashionLinks(item, {
             albumUrl: canonicalAlbum,

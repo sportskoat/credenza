@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   GALLERY_MAX,
+  RELAY_MAX,
   mergeFashionImages,
   usePrefersReducedMotion,
   yupooAlbumUrl,
@@ -59,7 +60,9 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      if (!!yupooAlbumUrl(item) && loadedImages.length < GALLERY_MAX && onLoadPhotos) {
+      // RELAY_MAX, not GALLERY_MAX: six relayed photos is a full album fetch,
+      // so asking again only makes a round trip that returns the same six.
+      if (!!yupooAlbumUrl(item) && loadedImages.length < RELAY_MAX && onLoadPhotos) {
         setLoading(true);
         const imgs = await onLoadPhotos(item, { signal: new AbortController().signal });
         if (!cancelled) {

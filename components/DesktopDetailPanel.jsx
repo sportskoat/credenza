@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import {
-  GALLERY_MAX,
+  RELAY_MAX,
   itemPhotoList,
   mergeFashionImages,
   priceLabel,
@@ -77,7 +77,8 @@ export default function DesktopDetailPanel({
     let cancelled = false;
     const load = async () => {
       const base = itemPhotoList(item, 24);
-      if (!!yupooAlbumUrl(item) && base.length < GALLERY_MAX && onLoadPhotos) {
+      // RELAY_MAX, not GALLERY_MAX — see the note in PhotoCoverFlow.
+      if (!!yupooAlbumUrl(item) && base.length < RELAY_MAX && onLoadPhotos) {
         const imgs = await onLoadPhotos(item, { signal: new AbortController().signal });
         if (!cancelled) {
           setPhotos((cur) => mergeFashionImages(imgs || [], cur).slice(0, 24));
