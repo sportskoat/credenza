@@ -31,15 +31,39 @@ GitHub. The rule that caused it is dead.
 - In a worktree, first push uses `git push -u origin <branch>`. Never
   leave a worktree branch local-only.
 
-**RULE B — do not deploy. The Netlify deploy budget is nearly spent.**
+**RULE B — only Kyle ships. But deploys are NOT the thing to ration.**
 
-- Do not run `netlify deploy`, preview or production, for any reason.
-- Land work on `main` and let it queue. Kyle deploys one batch.
-- Prove your change with tests, the local dev server and screenshots.
-- Netlify functions (Stripe checkout, the webhook, the portal, resolve)
-  cannot run locally. If a task can only be proved live, stop and write
-  what the next batch must verify under "Pending live verification"
-  below. Do not deploy to find out.
+Measured 2026-07-26 against the Netlify API. The earlier belief that the
+site was "running out of deployments" was wrong, and it caused the work
+loss Rule A now prevents. The facts:
+
+- The team is `credit-personal`, 1,000 credits per period.
+- The site has **no linked git repo** (`"has_builds": false`). Netlify
+  runs no build. It receives an upload from `netlify deploy --prod`.
+- Therefore a deploy spends **zero build minutes**. 81 deploys cost
+  nothing. Deploy frequency is free.
+- Credits go to bandwidth, function invocations and AI usage. Visitors
+  drive those, not shipping.
+
+The rules that follow:
+
+- Do not run `netlify deploy`. Kyle says when to ship. That is about
+  control, not cost.
+- Batch for COHERENCE, never for cost. Do not ship a half-finished
+  feature. Frequency is free; a broken shelf is not.
+- Everything ships together. Land work on `main`. Never leave finished
+  work on a branch — one deploy must carry all of it.
+- Prove changes with tests, the local dev server and screenshots.
+- Netlify functions (Stripe checkout, the webhook, the portal, resolve,
+  preview) cannot run locally. If a task can only be proved live, write
+  what to check under "Pending live verification" below.
+
+**The real cost lever is the `preview` image relay, not deploys.**
+Yupoo and Weidian block hotlinks, so every album image is relayed
+server-side through the `preview` function, at full size, in and out.
+One pasted album used to fire up to 20 relays plus `yupoo` and
+`resolve`. That cost repeats for every user and every paste. See the
+P0 fixes: cache relayed images, and relay 6 by default instead of 20.
 
 `docs/Pre-Launch-Plan.md` rules 2 and 8 carry the same text. If the two
 files ever disagree, this file wins.
@@ -51,7 +75,7 @@ files ever disagree, this file wins.
 
 ---
 
-**Last updated:** 2026-07-26 (HERO 2A + ONBOARDING 3B + SIGN-IN FIX — **DEPLOYED to production**, deploy `6a66b2bc5602a0684c001b9c`. See the section directly below. Prior: SETTINGS MODAL STACK — slide + resize in one modal — plus FANSBUY LINK FIX + CAROUSEL FLIP RETIRED, all on branch `worktree-fansbuy-links-no-flip`, NOT deployed — see the section below. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
+**Last updated:** 2026-07-26 (**BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
@@ -149,6 +173,416 @@ The biggest missing row is the shared shelf. **Decision recorded: build
 `/s/:id` as a server-rendered Netlify function, NOT a client router.** The app
 has no router, the shelf is `localStorage` only, and a server page is the only
 way to get an Open Graph preview on a shared link.
+## 2026-07-26 — HANDOFF TURN 9 (`design_handoff_mobile_shelf 8`) — IN PROGRESS, UNCOMMITTED
+
+**SUPERSEDED 2026-07-26. Do not follow the instruction below.** It said
+"do not commit" and it lost work. RULE A at the top of this file replaces
+it: commit and push every checkpoint. This work is now committed, pushed
+and merged into `main`. Kept for the record only.
+
+> ~~**Kyle's instruction:** "ok let's chill on committing stuff im runnng
+> out of netifly deployments." All of this work is UNCOMMITTED in the
+> worktree. **Do not commit. Do not deploy. Do not merge.**~~
+>
+> That instruction rested on a wrong premise. Netlify does NOT bill per
+> deploy. This site has no linked git repo, so Netlify runs no build and
+> spends no build minutes — 81 deploys cost nothing. Credits go to
+> bandwidth, function invocations and AI usage, which visitors drive.
+> The real burn is the `preview` image relay (see the cost section
+> below), not shipping.
+
+**Which spec is live:** the handoff README line 456 addendum. **Turn 9 is the
+model to implement; it SUPERSEDES every earlier detail-view / card-back spec.**
+Turn 8 (8a/8b/8c) is exploration — read it for rationale, do not build it.
+
+**CRITICAL palette trap.** The handoff writes `--cz-accent` for its green. In
+THIS repo `--cz-accent` is INK (the chrome is deliberately near-monochrome).
+The one green is `--cz-money`. **Every turn-9 green maps to `--cz-money`.**
+Also: `--cz-surface` and `--cz-muted` do NOT exist here. Use `--cz-seg` for a
+neutral tint and `--cz-sub` for body text. Both mistakes shipped silently
+(the browser drops an undefined var) until a screenshot caught them.
+
+**State: 778 tests pass in 44 files. `npx vite build` clean (its 2
+css-syntax-error warnings are PRE-EXISTING). Main bundle 291.37 kB.**
+
+Sections DONE and verified: §10 tokens, §1 spec cells → chips, §2 sizing block,
+§5/§6 status track + timeline, §7 notes clamp/expand, §4 photo panel + album
+links, §8 Buy notch + agent picker, §9 phone sticky bar, §3 no-chart snapshot,
+§11 photo morph + card depth.
+
+Sections REMAINING: none. The turn-9 addendum is fully built.
+
+**§11 photo morph.** The card photo is the shared element and grows into the
+detail photo panel. It uses the browser's **native View Transitions API**, and
+that choice is not a preference — see `docs/carousel-canonical-state.md:170`.
+Two earlier morph attempts in this app cloned nodes with
+`getBoundingClientRect`, flew the clones through a `createPortal` overlay, and
+handed back with double-rAF plus polling. Both were glitchy. Both were deleted.
+The doc forbids reintroducing clones, `getBoundingClientRect`, or a portal for
+this transition. A view transition obeys every clause: the browser snapshots the
+frames itself, the "shared element" is only a matching `view-transition-name` on
+two nodes, and no second copy of the DOM exists at any moment. A test asserts
+the node count does not change during the morph.
+
+Parts: `runPhotoMorph` + `MORPH_NAME_PHOTO`/`MORPH_NAME_TEXT` +
+`supportsViewTransition` in `credenza-fashion.jsx`; `openWithMorph` and
+`morphOpenId` state in the app body; `photoRef`/`textRef`/`morphNodes` in
+`components/Card.jsx`; a `morphing` prop on `DesktopDetailPanel` and
+`DetailSheet` that adds `is-morphing`; four CSS blocks in
+`credenza-fashion.css` (card depth, the `::view-transition-*` animations, the
+desktop rail wipe, the phone hero).
+
+**Three traps §11 hit, all fixed and commented in place:**
+
+1. **`setMorphOpenId` must be INSIDE the `flushSync`, and the cleanup effect
+   must test "no surface is open", NOT "no surface has this id".** Setting the
+   flag before `startViewTransition` looks equivalent and is not: React commits
+   it while no detail surface is mounted, the cleanup effect sees an id with no
+   surface, and clears it before the panel reads it. The panel then mounts
+   unnamed and the morph degrades to a cross-fade. `flushSync` itself is also
+   mandatory — the browser captures the new frame the instant the callback
+   returns, and React's default batching would still hold the update.
+
+2. **A `lazy` detail surface has NO DOM in the captured new frame, and
+   preloading the chunk does NOT fix it.** React initializes a lazy component on
+   its first RENDER attempt, so the Suspense fallback tick happens regardless of
+   when the module lands. `DetailSheet` is therefore a **static import with no
+   Suspense boundary**. Its own chunk was 3.3 kB, so this is the whole cost.
+
+3. **A skipped transition rejects BOTH `ready` and `finished`.** The code only
+   awaits `finished`, so `ready` needs its own `.catch(() => {})` or the browser
+   logs an unhandled rejection on every fast double tap.
+
+Also: only ONE element may carry a given `view-transition-name` per frame, so
+the card releases its name INSIDE the callback as the panel claims it. Two
+elements sharing a name makes the browser skip the whole transition.
+
+**Verification. A skipped transition is SILENT and looks identical to a working
+one on a screenshot, so never verify this by eye.** Both real §11 bugs were
+found only by asserting a matching `::view-transition-new(cz-morph-photo)` —
+that pseudo-element existing is the browser confirming it accepted the pair.
+`scripts/probe-turn9-morph.mjs` asserts it on both platforms. Playwright does
+not composite the view-transition layer either, so its mid-flight shots show the
+shelf, not a photo in flight. To measure the flight, instrument
+`document.startViewTransition`, `pause()` the animations on `ready`, then set
+`currentTime` and read the computed pseudo-element styles. Measured: group
+280ms; box 246.5×308 at (209,241) → 467×626 at (147,71); `object-fit: cover` and
+equal `old`/`new` heights at every sample, which is the no-re-crop proof;
+`old(cz-morph-text)` 60ms; `new(cz-morph-rail)` 220ms after a 60ms delay.
+Reduced motion calls `startViewTransition` zero times and still opens the sheet.
+
+**Card depth lives on `article.cz-editorial-card`, not the inner `.cz-card`.**
+`Card.jsx` sets an INLINE `box-shadow` for the selected/rest pair, and inline
+styles win specificity, so a shadow on the inner div would never appear. Hover
+lift is −6px (was −3). Blackout needs its own alpha pair: the light-theme alphas
+over a black field are invisible.
+
+**§8 Buy notch.** The chevron segment lives INSIDE the Buy action: one
+container, one radius, split by a hairline. `BuyNotch` in
+`components/DetailBody.jsx` reads its price from `priceLabelShort(item)`, NOT
+from `footerPrice` — the phone sheet draws no footer price prop, so feeding the
+picker from the layout made it silently priceless. Without `onSelectAgent` the
+notch degrades to a plain button: a chevron that opens a list which saves
+nothing is worse than no chevron. `chooseBuyingAgent` in `credenza-fashion.jsx`
+reuses the Profile sheet's retired-agent guard. Every picker row shows the SAME
+item price on purpose — agents differ on shipping and service fee, and four
+different numbers would misrepresent what an agent changes. A test locks that.
+The list caps at `min(44vh, 320px)` and a `listRef` effect scrolls the saved
+agent into view on open; without the cap the selected row sat off-screen ABOVE
+the phone viewport while every unit test passed.
+
+**§9 phone sticky bar.** An IntersectionObserver on the hero, root = the
+sheet's own scroller. The bar is a SIBLING of that scroller, never a child — a
+child scrolls away with the content it exists to outlive. It animates its own
+height 0→44px rather than sliding a block over the title. `aria-hidden` and
+`tabIndex={-1}` while down: every control on it repeats one already in the
+sheet, so a duplicate title costs a screen reader and gains nothing.
+**No IntersectionObserver means no bar** — jsdom and old iOS see exactly the
+pre-§9 sheet, which is why the suite stayed green with the bar in the tree.
+`stickyMeta` says `AI SIZE` only when the size really is a recommendation,
+otherwise `SIZE`; the bar must not upgrade a profile guess into an AI read.
+Also in §9: 22px sheet radius (was 26), 38×4 handle, three 32px hero circles at
+gap 6 with the heart leading the cluster, and the footer price box beside the
+notch. **Trap:** the `@media (pointer: coarse)` block near line 5521 pins
+`min-width/min-height: 44px` on every `.cz-favorite-button`, which clamped the
+32px heart back to 44 and left it a puck beside two smaller circles. The hero
+rule now releases both minimums; `.cz-detail-hero-btn::after` still gives it a
+full 44px hit area.
+
+**§3 no-chart snapshot.** Three states in one place, in the order they occur.
+A live customer read outranks everything, then the no-chart ask, then the
+ordinary block. All three are in `components/DetailBody.jsx`.
+
+The ask (`SizingBlockNoChart`) only renders once the hunt has FINISHED. While
+the hunt runs the ordinary block shimmers READING CHART, and asking for a photo
+underneath that asks for work the app may be about to do itself.
+
+**Two doors into one parser.** `chart-vision.js` now accepts inline `photos`
+(base64 data URLs) beside the existing `images` (CDN URLs it fetches through its
+SSRF allowlist). Inline means the server never fetches, so there is no request
+to forge — validation is cost and shape only, and oversize is rejected BEFORE
+the Buffer is allocated. `MAX_INLINE_PHOTOS = 3`, `MAX_INLINE_BYTES = 600*1024`,
+route `bodyBytes: 2560*1024`. Client side both doors meet at `postChartVision`
+in `credenza-fashion.jsx` and return the same `chartText`.
+
+**The read STAGES, it does not commit.** `useCustomerChartRead` returns
+`{reading, chart, text, thumb, error, read, commit, dismiss, fix}`. A photo the
+customer aimed is the most likely read to be right AND the only one they can
+check against the object in their hand, so the preview exists and `commit` is a
+separate call. It writes `sizeChartSource: {via: "customer-photo", seller}`.
+
+**Fix a number** (`ChartFixGrid`, spec line 493). One 38px input per cell, in
+the table's own layout. Three traps, all hit and fixed:
+1. Resetting the editor on `chart` closed it after ONE keystroke — `chart`
+   changes on every correction. It resets on `reading` instead.
+2. Re-serializing per keystroke blanked the cell: a half-typed "1" is under the
+   parser's 20cm floor. `fix` holds the chart raw and sets `dirty`;
+   `serializeSizeChart` runs ONCE, at commit.
+3. Rebuilding a row from its own keys reordered the columns, because clearing a
+   cell deletes the key and the next keystroke appends it. It rebuilds in the
+   TABLE's column order.
+Cells always show CM even when the display unit is inches — the tag is in cm,
+and asking anyone to convert a correction back is how a second error gets in.
+
+**`serializeSizeChart`** (exported from `credenza-fashion.jsx`) emits strategy
+1's own labelled form, which `parseSizeChart` round-trips exactly. It carries NO
+half-chest wording on purpose: `normalizeHalfChestRows` doubles once at parse,
+and emitting 半胸 would double the already-doubled numbers on the way back in.
+
+**The cache IS the shelf** (`chartCacheForSeller`). Every item already carries
+its chart in `sizeNotes` and provenance in `sizeChartSource`, so a separate
+store would be a copy that can go stale against the original. Only READ charts
+qualify (`CHART_CACHE_VIA`), so a guess never spreads between items; newest `at`
+wins; the CHART's own `seller` tag outranks the item's field. `useChartHunt`
+checks it BEFORE the network and writes `via: "seller-cache"`, surfaced as
+`FROM REPLUX'S CHART (CACHED)`. `migrateItem` keeps `sizeChartSource.seller` —
+without that whitelist entry the whole lookup key vanishes on reload.
+
+**Test trap that cost an hour.** A chartless item SWAPS `SizingBlock` for
+`SizingBlockNoChart` the moment the hunt returns null, and the swap mounts a NEW
+`Full chart` node. `screen.getByRole(...)` before the swap captured a node that
+was detached by the time `userEvent.click` ran, so the click landed nowhere and
+`editingCell` stayed null. `fireEvent` worked, `userEvent` did not, and the
+button was visibly present in the dump — the tell was `btn.isConnected === false`
+on the event listener. `clickFullChart()` in `test/fit-block-hunt.test.jsx`
+awaits `findByText("No chart")` first.
+
+**QC photos are NOT gallery photos** (docs/Monetization.md A5). `attachQcImage`
+in `credenza-fashion.jsx` writes `qcPhotos`, so a warehouse photo can never
+contaminate the product gallery. The §9 QC prompt only asks while the order can
+answer: status in bought/shipped/qc AND no QC photo yet. A standing "add QC
+photos" box on a WANT item asks for something that cannot exist.
+
+**Probes** (all kept, all green): `preview/scripts/probe-turn9-notch.mjs`
+(4 shots, `t9-notch-*`), `preview/scripts/probe-turn9-sticky.mjs` (4 shots,
+`t9-sticky-*`, plus 3 console gate checks), and
+`preview/scripts/probe-turn9-nochart.mjs` (7 shots, `t9n-*`: the ask with and
+without a usual size, the scan line, the read-back, the fix grid, and the
+ordinary block after Use this chart). It stubs `**/chart-vision` per request —
+`photos` present means the customer's read, absent means the hunt, which always
+misses so §3 renders at all. **The stub MUST return `found: true`**; without it
+`postChartVision` reads the reply as a miss and every state looks broken. **The probe reads the built `dist`
+on port 4173 — run `npx vite build` BEFORE re-shooting or you photograph the
+old build.** That cost one wasted cycle. Probe scripts must live in
+`preview/scripts/`; from elsewhere they fail `ERR_MODULE_NOT_FOUND`.
+
+**Test-harness traps hit this session.** `cd .../preview && npx vitest run` —
+`cd` does not persist between Bash calls, and running from the worktree root
+produces 30 bogus `document is not defined` failures. `installShim` in
+`fashion-app.test.jsx` returns a `data` object, NOT real localStorage: assert
+on `JSON.parse(data[PREFS_KEY])`. Inside a JSX attribute list you are in JS —
+`{/* … */}` between props is a parse error; use `//`.
+
+## 2026-07-26 — SIX ISSUES from Kyle's mobile pass — ✅ ALL SIX FIXED (`e135126` + `1032918`, NOT deployed)
+
+Kyle reported six problems from the LIVE mobile web app. All six are fixed and
+committed on branch `worktree-fansbuy-links-no-flip`. **688 tests pass.** The
+build compiles; its 2 `css-syntax-error` warnings are PRE-EXISTING — that was
+proved by building with and without the changes and comparing the count.
+
+**Do not deploy. Do not merge. Kyle authorizes both separately.**
+
+1. ✅ **Chart-hunt loading text looked doubled.** The `.t-shimmer` primitive
+   draws a SECOND copy of the string in an absolute `::before` and clips a
+   gradient to it. That only registers on a single-line SIZED box. The hunting
+   rule set `display: inline`, and the sentence wraps on a phone, so the two
+   copies broke at different points and both stayed visible.
+   Fix: a new single-layer `.t-shimmer-wrap` variant in `credenza-fashion.css`.
+   It clips the gradient to the real glyphs, so it cannot double at any width.
+   `components/DetailBody.jsx:216` uses it. This is STRONGER than restoring
+   `inline-block` — two layers can always misregister on a wrapping line.
+
+2. ✅ **Card price clipped mid-glyph in the phone grid.** `.cz-card-text` and
+   its toggle are flex/grid items, which default to `min-width: auto`. The
+   block therefore grew to the intrinsic width of its widest `nowrap` line, and
+   the card shell (`overflow: hidden`) cut the price. Every `text-overflow:
+   ellipsis` rule below was DEAD: ellipsis shrinks to the box, and the box was
+   never smaller than the text.
+   Fix: `min-width: 0` + `grid-template-columns: minmax(0, 1fr)` on both.
+   The price never yields (`flex: 0 0 auto`); the size LABEL ellipsizes first,
+   because "YOUR USUAL" repeats on every card and the VALUE is the information.
+
+3. ✅ **Weidian description size chart never picked up.** Diagnosed against
+   LIVE data, not by inference. Each link works: the Weidian description API
+   returns 20 images for item 7739297298 and image 1 IS the chart; `resolve.js`
+   returns it at `descImages[0]`; `parseSizeChart` reads 4 rows from it;
+   `huntSizeChart` finds it when `descImages` is populated.
+   The single gap: `descImages` shipped in `b794602` (2026-07-25) and is only
+   ever populated at IMPORT time. Cards saved before that — plus any card whose
+   resolve was skipped, capped, offline, or failed — hold an empty list. The
+   hunt was blind to the one place the chart was.
+   Fix: new `fetchDescImages()` in `credenza-fashion.jsx` (same resolve call the
+   importer makes; respects plan limit, offline state, abort signal; returns []
+   and never throws), called as a LAST RESORT in `components/size-chart-hunt.js`
+   — only when `descImages` is EMPTY and every other path missed. 3 new tests.
+
+4. ✅ **Gallery close buttons stuck and did nothing.** React removed the
+   `<dialog>` node without ever calling `close()`, so the browser kept the stale
+   dialog in the TOP LAYER: it still painted above everything, but its React
+   handlers were gone. `ModalShell.jsx` already carried this exact fix (Kyle
+   2026-07-24, "closing stuff gives me a blank screen"); the gallery never got
+   it.
+   Fix: `PhotoCoverFlow.jsx` closes the dialog in the effect cleanup, and all
+   six close paths route through one guarded `requestClose()`.
+
+5. ✅ **Money counter digits stayed smeared.** `ReelDigit` armed an SVG motion
+   blur on each spin and cleared it ONLY from `onTransitionEnd`. That event is
+   NOT guaranteed — it does not fire on a hidden tab, on a node detached
+   mid-tween, on an interrupted tween, or when the compositor drops the
+   transition. One missed event left the digits permanently smeared.
+   Fix: a `setTimeout` fallback settles the digit regardless, and the filter is
+   ATTACHED only while travelling (a filter left on the element keeps pushing
+   glyphs through the rasteriser, so they read soft even at `stdDeviation` 0).
+
+6. ✅ **Status tag moved to the TOP LEFT of the card.** The base
+   `.cz-card-status` rule and the carousel already placed it top-left. The
+   two-line card override was the only rule pushing it to the bottom.
+
+---
+
+## 2026-07-26 — TWO SESSIONS RAN IN PARALLEL. Read this before you merge.
+
+A second session shipped the Turn 7 landing page and deployed it. That work
+replaced `preview/public/landing/index.html`, regenerated `og.png`, and ran
+IndexNow. It is LIVE at https://credenzafashion.com/landing/.
+
+This worktree (`worktree-fansbuy-links-no-flip`) did NOT touch the landing page,
+`og.png`, or any deploy script. Its copy of `preview/public/landing/index.html`
+is still the old 226-line file at commit `7113675`. There is no file conflict
+between the two efforts, with one exception:
+
+**Both sessions edit `docs/session-state.md`.** A merge of this branch into
+`main` will conflict on THIS file. The conflict is text only. Resolve it by
+keeping both sets of sections — the landing sections and the sections below.
+
+Kyle asked directly whether this session interfered with the landing work
+(2026-07-26). It did not. This session read the handoff bundle
+`~/Downloads/design_handoff_mobile_shelf 6` and made zero writes to it or to
+the landing page. The handoff bundle is NOT ported by this branch. If you pick
+that work up later, check what the other session already shipped first.
+
+---
+
+## 2026-07-26 — Album photos: honest count, more photos, charts hidden, thumb glitch fixed (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
+
+Kyle reported four photo problems on Mook albums
+(`240336011`, `243763940`, both 38 tiles).
+
+**1. The count lied.** The card said "View album · 8 photos" for a 30+ photo
+album. Two causes. `preview/netlify/functions/yupoo.js` capped extraction at
+`MAX_IMAGES = 8`. `albumLinkTarget` then counted `item.gallery.length` — what
+we stored, not what the album holds.
+
+**2. Only 8 photos arrived.** The same cap, plus `slice(0, 8)` and
+`length < 8` gates in three client paths.
+
+**3. Size charts appeared in the gallery.** Kyle wants the chart indexed for
+fit, never shown in the swipe gallery.
+
+**4. The thumb highlight glitched left to right.** `goTo` set `photoIdx` and
+started a smooth scroll; `onScroll` recomputed the index from every
+intermediate scroll position and overwrote it mid-flight.
+
+**The fix — read per-photo tiles, not loose URLs.**
+Yupoo wraps each photo in `.showalbum__children.image__main` and declares
+`data-width`, `data-height`, `data-origin-src`, and the filename in `alt`.
+The old code scraped every `src`/`data-src`/`background-image` on the page and
+could not tell a photo from a banner. `extractPhotoTiles()` reads the tiles, so
+the function now knows how many photos exist and how big each one is.
+
+- `MAX_IMAGES` 8 → 40. These are URLs only; the client relays a subset.
+- `partitionTiles()` splits tiles into `gallery` and `charts`.
+- `isChartTile()` — filename says size/chart/screenshot/尺码, OR a PNG whose
+  long edge is under 60% of the album median. Both reference albums put the
+  chart in a ~490px PNG among 2000px JPGs. Detected 1/38 on each.
+- `isDecentPhoto()` — drops tiles under 600px long edge and strips wider than
+  3:1. Tiles with NO declared size pass: unknown is not evidence of bad.
+- The response gained `photoCount` (album truth) and `chartImages` (held-out
+  charts). The flat scrape stays as the fallback for older templates.
+- Never returns an empty gallery: if every tile fails vetting, all tiles show.
+
+**Client.** `migrateItem` gained `albumPhotoCount` and `chartImages` (the
+whitelist drops anything not listed). `albumLinkTarget` reports
+`max(albumPhotoCount, gallery.length)`, so it never understates and never
+regresses for items enriched before the field existed. New `GALLERY_MAX = 20`
+replaces the scattered 8/12 caps — this is a STORAGE budget, not a display
+limit: each stored photo is a ~32KB base64 string in the item JSON, so 20
+photos is roughly 640KB per card.
+
+**Chart hunt.** `huntSizeChart` now scans `item.chartImages` FIRST — one vision
+call on the actual chart instead of walking the album. New provenance tag
+`chart-photos` with its own footer line.
+
+**Thumb glitch.** `DesktopDetailPanel` gained a `programmatic` ref. `goTo` sets
+it before the smooth scroll; `onScroll` returns early while it is set and
+re-arms a 120ms settle timer on every event, so the lock lasts exactly as long
+as the motion. A fixed timer did NOT work — measured a late flip at t=457ms
+with a 420ms timeout, because the browser decides the scroll duration.
+
+**Verified.** Playwright at 1400x950: thumb jumps are now one transition each
+(0→1, 1→5, 5→1) with no flip-back; before the fix each jump showed a spurious
+4 then 5. Card view at 1100x900 shows "View album · 37 photos" for an item with
+`albumPhotoCount: 37` and "View album · 9 photos" for one without. Parser run
+against both live albums: 38 tiles, 37 gallery, 1 chart each.
+
+685 tests green (was 676): 5 new album-count tests, 4 new tile-parser tests,
+1 rewritten (it asserted the old 8 cap). **NOT deployed.**
+
+---
+
+## 2026-07-26 — Modal stack scrollbars HIDDEN (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
+
+Kyle: "THE SIZING STILL LOOKS WEIRD… IT'S BECAUSE OF THE SCROLL BAR."
+He was right and my probes could not see it.
+
+A sub-page that overflows shows a classic ~15px scrollbar on macOS when
+"always show scrollbars" is set. That steals content width, so the text
+re-wraps and the measured height is wrong — and the gutter appearing between
+pages changes the width mid transition.
+
+**First fix:** `scrollbar-gutter: stable` on `.cz-modal-surface-stacked`. That
+held the width steady but STILL DREW THE BAR over the settings list.
+
+**Final fix (`7e065dc`), after Kyle saw the bar in a screenshot and said "let's
+take out the scrollbars here… I think it'll move a little bit cleaner":** hide
+the bar outright on `.cz-modal-surface-stacked` AND `.cz-modal-page` with
+`scrollbar-width: none` + `-ms-overflow-style: none` + a zero-size
+`::-webkit-scrollbar` rule. The stable gutter is REMOVED — hiding the bar
+solves the width problem too. This matches the rest of the app: `.cz-carousel`,
+`.cz-app[data-fashion=true]`, and `.cz-detail-scroll` all hide theirs.
+
+**Verified** with a 15px classic bar forced on and 3000px of content pushed
+into both scrollers: surface gutter 2px (its border), page gutter 0px, width
+438px identical with and without overflow, and `scrollTop = 150` lands at 150
+on both, so they still scroll. Kyle has NOT yet confirmed the motion by eye.
+
+**Why the probes missed it:** headless Chrome uses OVERLAY scrollbars. Every
+measurement reported a 2px gutter, which is the border alone. To reproduce
+this class of bug, force it:
+`::-webkit-scrollbar{width:15px;display:block!important}`. Probe kept at
+`~/.claude/jobs/7984365d/tmp/probe-modal-scrollbar3.mjs`.
+
+---
 
 ## 2026-07-26 — Settings modal stack: slide + resize, one modal (branch `worktree-fansbuy-links-no-flip`, NOT deployed)
 

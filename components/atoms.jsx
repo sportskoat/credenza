@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { FIND_STATUSES } from "../credenza-find-status.js";
 import {
   BG,
@@ -8,9 +8,11 @@ import {
   SUB,
   FAINT,
   FIND_STATUS_COLORS,
+  FIND_STATUS_DETOUR,
   FIND_STATUS_HINTS,
   FIND_STATUS_LABELS,
   FIND_STATUS_LONG,
+  FIND_STATUS_NEXT,
   FONT,
   INK,
   STATUS_TRACK,
@@ -207,7 +209,10 @@ export function ReelDigit({ digit, index, reduced }) {
   const stripRef = useRef(null);
   const blurRef = useRef(null);
   const spinningRef = useRef(false);
-  const settleTimerRef = useRef(null);
+  // Fallback timer + a live handle on settle (Kyle 2026-07-26: the money
+  // counter digits stay smeared). See the comment on the tween effect.
+  const settleTimerRef = useRef(0);
+  const settleRef = useRef(null);
   const fid = "reel-blur-" + useId().replace(/[^a-zA-Z0-9]/g, "");
 
   // Spin forward to the new digit, plus one full revolution for flavor.
@@ -234,15 +239,22 @@ export function ReelDigit({ digit, index, reduced }) {
     // effect and must not re-arm the blur.
     if (spinningRef.current && blurRef.current) {
       blurRef.current.setAttribute("stdDeviation", "0 " + REEL_BLUR);
-      // transitionend is not guaranteed. A background tab, an interrupted
-      // transition, or a re-render that re-applies the same transform all
-      // swallow it — and the digits then stay blurred forever (Kyle
-      // 2026-07-26: "$$ still lagg and stop on blur"). Always settle on a
-      // timer as well; settle() is idempotent.
+      // Attach the filter only while travelling. An SVG filter that stays on
+      // the element forces the text through the filter rasteriser on every
+      // frame, so the glyphs read soft even at stdDeviation 0. At rest the
+      // digits must be plain crisp text.
+      strip.style.filter = "url(#" + fid + ")";
+      // Belt and braces: settle on a timer as well as on transitionend.
+      // transitionend is NOT guaranteed. It does not fire when the tab is
+      // hidden, when the element is display:none or detached mid-tween, when
+      // a new total interrupts the tween, or when the compositor drops the
+      // transition. The blur was armed here and cleared ONLY in settle(), so
+      // one missed event left the digits permanently smeared — which is what
+      // Kyle saw. The timer clears the streak no matter what.
       clearTimeout(settleTimerRef.current);
       settleTimerRef.current = setTimeout(
-        () => settleRef.current(),
-        REEL_DUR + index * REEL_STAGGER + 80
+        () => settleRef.current && settleRef.current(),
+        REEL_DUR + index * REEL_STAGGER + 120
       );
     }
   }, [pos, index, reduced]);
@@ -252,6 +264,7 @@ export function ReelDigit({ digit, index, reduced }) {
   // Settle: kill the streak and snap the strip back into the 0-9 window (same
   // digit, since cells repeat) so the strip never grows without bound.
   const settle = () => {
+    clearTimeout(settleTimerRef.current);
     if (!spinningRef.current) return;
     spinningRef.current = false;
     clearTimeout(settleTimerRef.current);
@@ -260,11 +273,13 @@ export function ReelDigit({ digit, index, reduced }) {
     if (strip) {
       strip.style.transition = "none";
       strip.style.transform = "translateY(" + -(pos % 10) * REEL_CELL + "px)";
+      // Drop the filter entirely so the resting digits rasterise as plain text.
+      strip.style.filter = "none";
     }
     setPos((p) => p % 10);
   };
-  // The timer fires from a stale closure otherwise.
-  const settleRef = useRef(settle);
+  // The timer fires from a stale closure otherwise. The ref itself is
+  // declared above, next to settleTimerRef; only the handle is refreshed here.
   settleRef.current = settle;
 
   const cells = [];
@@ -280,7 +295,8 @@ export function ReelDigit({ digit, index, reduced }) {
       <span
         ref={stripRef}
         className="t-reel-strip"
-        style={{ transform: "translateY(" + -pos * REEL_CELL + "px)", filter: "url(#" + fid + ")" }}
+        /* No filter at rest — the tween effect attaches it while travelling. */
+        style={{ transform: "translateY(" + -pos * REEL_CELL + "px)", filter: "none" }}
         onTransitionEnd={(e) => {
           if (e.propertyName === "transform") settle();
         }}
@@ -490,10 +506,21 @@ export function StatusUnderline({ value, onChange, label = "Status" }) {
   );
 }
 
-// Mobile detail sheet status row (handoff step 5, audit C3). Four chips, one
+// Mobile detail sheet status row (handoff step 5, audit C3). Four stops, one
 // per human stop on STATUS_TRACK. The agent sub-states (qc/gl/rl) fold into
 // Bought and returned folds into Received, exactly as statusTrackIndex maps
 // them. A tap commits the stop's own enum value — the sheet has no Save.
+//
+// Handoff turn 9 §5 changes the SHAPE, not the model. Four equal chips gave
+// every stop the same weight, so the row reported state but never offered the
+// one action that moves the order forward. It becomes a progress TRACK — four
+// dots on 2px rails, filled behind the current stop — plus a single primary
+// pill for the next transition. The dots stay tappable, so a customer can
+// still correct a wrong stop; the pill is the fast path.
+//
+// The sub-label ("WANT · NOT ORDERED") and the detour node carry the detail
+// the four dots cannot: an off-track state renders UNDER its dot rather than
+// as a fifth column, because refund and QC-failed are not progress.
 export function StatusTrackChips({ value, onChange, label = "Status" }) {
   const current = value || "want";
   const activeIdx = statusTrackIndex(current);
@@ -505,23 +532,57 @@ export function StatusTrackChips({ value, onChange, label = "Status" }) {
     if (i === 2) return "shipped";
     return "returned";
   };
+  const next = FIND_STATUS_NEXT[current] || null;
+  const detour = FIND_STATUS_DETOUR[current] || "";
   return (
-    <div className="cz-detail-status" role="radiogroup" aria-label={label}>
-      {STATUS_TRACK.map((name, i) => {
-        const active = i === activeIdx;
-        return (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={active}
-            key={name}
-            className={"cz-detail-status-chip" + (active ? " is-active" : "")}
-            onClick={() => onChange && onChange(enumFor(i))}
-          >
-            {name}
-          </button>
-        );
-      })}
+    <div className="cz-status-row">
+      <div className="cz-detail-status" role="radiogroup" aria-label={label}>
+        {STATUS_TRACK.map((name, i) => {
+          const active = i === activeIdx;
+          return (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={active}
+              key={name}
+              className={
+                "cz-detail-status-chip" +
+                (active ? " is-active" : "") +
+                (i < activeIdx ? " is-done" : "")
+              }
+              onClick={() => onChange && onChange(enumFor(i))}
+            >
+              {/* The rail is drawn per step so it can be filled up to the
+                  current stop. Step 0 has no rail to its left. */}
+              {i > 0 ? <span className="cz-status-rail" aria-hidden="true" /> : null}
+              {/* The node wraps the dot so the detour label can be centred
+                  under it. Anchoring the label to the BUTTON would put it at
+                  the start of the rail, not at the dot. */}
+              <span className="cz-status-node">
+                <span className="cz-status-dot" aria-hidden="true" />
+                {/* Detour node: off-track states hang under their own dot. */}
+                {active && detour ? (
+                  <span className="cz-status-detour">{detour}</span>
+                ) : null}
+              </span>
+              {/* The stop name is the accessible name of the radio. It stays
+                  in the DOM so the control is still readable and testable;
+                  CSS hides it on the dots-only track. */}
+              <span className="cz-status-stop-name">{name}</span>
+            </button>
+          );
+        })}
+      </div>
+      {next ? (
+        <button
+          type="button"
+          className="cz-status-next"
+          onClick={() => onChange && onChange(next.to)}
+        >
+          {next.label}
+          <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      ) : null}
     </div>
   );
 }

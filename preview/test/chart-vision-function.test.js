@@ -221,4 +221,124 @@ describe("chart-vision function", () => {
     expect(JSON.parse(res.body).error).toMatch(/cost ceiling/);
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  // ── Handoff turn 9 §3: inline photos ──
+  // A camera frame has no CDN URL, so the album path cannot serve the customer
+  // snapping the chart themselves. `photos` is the second door to the same room.
+  const PNG_1PX =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==";
+
+  function postPhotos(photos, secret = SECRET) {
+    return {
+      httpMethod: "POST",
+      headers: { "x-credenza-key": secret },
+      body: JSON.stringify({ photos }),
+    };
+  }
+
+  it("reads a chart from an inline photo without fetching any CDN", async () => {
+    const calls = [];
+    global.fetch = vi.fn(async (url) => {
+      calls.push(url);
+      return anthropicOk({ found: true, chartText: "M 胸围112\nL 胸围116", note: "" });
+    });
+    const res = await handler(
+      postPhotos([{ data: PNG_1PX, mediaType: "image/png" }])
+    );
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.found).toBe(true);
+    expect(body.chartText).toContain("胸围112");
+    expect(body.scanned).toBe(1);
+    // The server fetched nothing but Anthropic. There is no URL to forge here,
+    // which is exactly why the allowlist does not apply to this path.
+    expect(calls).toEqual(["https://api.anthropic.com/v1/messages"]);
+  });
+
+  it("accepts a whole data: URL, because that is what FileReader produces", async () => {
+    let sentMedia = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      const sent = JSON.parse(opts.body);
+      sentMedia = sent.messages[0].content[0].source.media_type;
+      return anthropicOk({ found: true, chartText: "M 胸围112", note: "" });
+    });
+    const res = await handler(postPhotos(["data:image/webp;base64," + PNG_1PX]));
+    expect(res.statusCode).toBe(200);
+    // The data URL's own type wins: it came from the encoder, while a
+    // caller-supplied mediaType field is only a claim.
+    expect(sentMedia).toBe("image/webp");
+  });
+
+  it("rejects a photo with no usable media type or payload", async () => {
+    global.fetch = vi.fn();
+    // A media type outside the image allowlist.
+    expect((await handler(postPhotos([{ data: PNG_1PX, mediaType: "text/html" }]))).statusCode).toBe(400);
+    // Not base64 at all.
+    expect((await handler(postPhotos([{ data: "!!!!", mediaType: "image/png" }]))).statusCode).toBe(400);
+    // An empty list is the same as no input.
+    expect((await handler(postPhotos([]))).statusCode).toBe(400);
+    // No Claude call is worth spending on a malformed body.
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("names both doors when neither images nor photos are usable", async () => {
+    global.fetch = vi.fn();
+    const res = await handler(postPhotos([{ data: "", mediaType: "image/png" }]));
+    expect(res.statusCode).toBe(400);
+    // A caller who sent `photos` must not be told about CDN URLs alone — they
+    // would go looking in the wrong place.
+    expect(JSON.parse(res.body).error).toMatch(/images.*photos|photos.*images/i);
+  });
+
+  it("puts the customer's own frame before the album photos", async () => {
+    // When someone snapped the chart themselves, that photo is the one they
+    // mean, and Claude reads the images in order.
+    let sentTypes = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      if (url === IMG) {
+        return {
+          ok: true,
+          headers: { get: () => "image/jpeg" },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        };
+      }
+      const sent = JSON.parse(opts.body);
+      sentTypes = sent.messages[0].content
+        .filter((b) => b.type === "image")
+        .map((b) => b.source.media_type);
+      return anthropicOk({ found: true, chartText: "M 胸围112", note: "" });
+    });
+    const req = {
+      httpMethod: "POST",
+      headers: { "x-credenza-key": SECRET },
+      body: JSON.stringify({ images: [IMG], photos: [{ data: PNG_1PX, mediaType: "image/png" }] }),
+    };
+    const res = await handler(req);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).scanned).toBe(2);
+    expect(sentTypes).toEqual(["image/png", "image/jpeg"]);
+  });
+
+  it("caps how many inline frames one request may carry", async () => {
+    let count = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      const sent = JSON.parse(opts.body);
+      count = sent.messages[0].content.filter((b) => b.type === "image").length;
+      return anthropicOk({ found: true, chartText: "M 胸围112", note: "" });
+    });
+    const many = Array.from({ length: 8 }, () => ({ data: PNG_1PX, mediaType: "image/png" }));
+    const res = await handler(postPhotos(many));
+    expect(res.statusCode).toBe(200);
+    // Three covers a chart split across two frames plus a retake.
+    expect(count).toBe(3);
+  });
+
+  it("keeps a body cap that an inline photo can actually fit inside", async () => {
+    // The cap moved from 64KB to 2.5MB for §3. A cap below one compressed
+    // frame would 413 every snapshot before the parser ever saw it.
+    expect(limit.ROUTES["chart-vision"].bodyBytes).toBeGreaterThan(600 * 1024);
+    const huge = "A".repeat(limit.ROUTES["chart-vision"].bodyBytes + 10);
+    const res = await handler(postPhotos([{ data: huge, mediaType: "image/png" }]));
+    expect(res.statusCode).toBe(413);
+  });
 });

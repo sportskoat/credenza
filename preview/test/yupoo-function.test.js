@@ -82,14 +82,74 @@ describe("Yupoo function", () => {
     });
   });
 
-  it("excludes UI assets, collapses size variants, prefers the best variant, and caps at eight", async () => {
+  // The fixture has no per-photo tile markup, so this exercises the flat-scrape
+  // fallback that older album templates still need.
+  it("falls back to the flat scrape: excludes UI assets, collapses size variants, prefers the best variant", async () => {
     const result = await handler(post());
-    const { images } = JSON.parse(result.body);
-    expect(images).toHaveLength(8);
+    const { images, chartImages, photoCount } = JSON.parse(result.body);
+    expect(images).toHaveLength(10);
+    expect(photoCount).toBe(10);
+    expect(chartImages).toEqual([]);
     expect(images.some((url) => url.includes("s.yupoo.com"))).toBe(false);
     expect(images[0]).toContain("asset0/original.jpg");
     expect(images.slice(1).every((url) => url.endsWith("/big.jpg"))).toBe(true);
-    expect(new Set(images.map(_test.imageIdentity)).size).toBe(8);
+    expect(new Set(images.map(_test.imageIdentity)).size).toBe(10);
+  });
+
+  // ————— Per-photo tiles (2026-07-26) —————
+  // Kyle: "this album has 30 different photos"; "don't bring in the sizing
+  // chart"; "make sure that they're only halfway decent photos".
+  const tile = (hash, { w = 2000, h = 2000, alt = hash + ".jpg", ext = "jpg" } = {}) => `
+    <div class="showalbum__children image__main" data-id="${hash}">
+      <div class="image__imagewrap" data-type="photo">
+        <img alt="${alt}" data-width="${w}" data-height="${h}"
+          data-src="https://photo.yupoo.com/mook-official/${hash}/big.${ext}"
+          data-origin-src="https://photo.yupoo.com/mook-official/${hash}/o.${ext}"
+          src="https://photo.yupoo.com/mook-official/${hash}/small.${ext}">
+      </div>
+    </div>`;
+
+  it("reads per-photo tiles, so the count matches the album not the fetch cap", () => {
+    const html = Array.from({ length: 30 }, (_, i) => tile("p" + i)).join("");
+    const tiles = _test.extractPhotoTiles(html, ALBUM);
+    expect(tiles).toHaveLength(30);
+    expect(_test.partitionTiles(tiles).gallery).toHaveLength(30);
+  });
+
+  it("holds size-chart tiles out of the gallery and returns them separately", () => {
+    const html = [
+      tile("chart", { w: 491, h: 490, alt: "screenshot_2026-06-02_09-53-02.png", ext: "png" }),
+      tile("named", { w: 1200, h: 1400, alt: "size chart.jpg" }),
+      ...Array.from({ length: 6 }, (_, i) => tile("p" + i)),
+    ].join("");
+    const { gallery, charts } = _test.partitionTiles(_test.extractPhotoTiles(html, ALBUM));
+    expect(gallery).toHaveLength(6);
+    expect(charts.map((c) => c.alt)).toEqual([
+      "screenshot_2026-06-02_09-53-02.png",
+      "size chart.jpg",
+    ]);
+    expect(gallery.every((g) => !/chart|named/.test(g.url))).toBe(true);
+  });
+
+  it("drops tiny and strip-shaped tiles, and keeps tiles with no declared size", () => {
+    const html = [
+      tile("tiny", { w: 120, h: 120 }),
+      tile("strip", { w: 2400, h: 300 }),
+      tile("good", { w: 1440, h: 1440 }),
+      `<div class="image__imagewrap"><img alt="unknown.jpg"
+         data-origin-src="https://photo.yupoo.com/mook-official/unk/o.jpg"></div>`,
+    ].join("");
+    const { gallery } = _test.partitionTiles(_test.extractPhotoTiles(html, ALBUM));
+    expect(gallery.map((g) => g.alt)).toEqual(["good.jpg", "unknown.jpg"]);
+  });
+
+  it("never returns an empty gallery when every tile fails vetting", async () => {
+    const html = `<!doctype html><html><head><title>￥1 X</title></head><body>
+      ${tile("a", { w: 100, h: 100 })}${tile("b", { w: 100, h: 100 })}</body></html>`;
+    global.fetch = vi.fn(async () => ({ ok: true, status: 200, text: async () => html }));
+    const { images, photoCount } = JSON.parse((await handler(post())).body);
+    expect(images).toHaveLength(2);
+    expect(photoCount).toBe(2);
   });
 
   it("rejects unauthorized and non-album requests before fetching", async () => {

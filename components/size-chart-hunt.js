@@ -15,6 +15,7 @@
 // hunt without mocking the circular app module.
 import {
   fetchChartFromPhotos,
+  fetchDescImages,
   fetchYupooImages,
   parseSizeChart,
   yupooAlbumUrl,
@@ -49,12 +50,45 @@ export async function huntSizeChart(item, { signal } = {}) {
   const localPhotos = [item.image, ...(item.gallery || [])].filter(
     (src) => typeof src === "string" && /^https?:\/\//i.test(src)
   );
+  // Chart tiles the album parser held out of the gallery (2026-07-26). These
+  // ARE the chart, so scan them before anything else — one vision call instead
+  // of walking the whole album. Kyle: "you want to index the sizing chart
+  // because you need to understand how it's going to fit somebody, but you
+  // don't really care for it if someone is looking through photos."
+  const knownCharts = (item.chartImages || []).filter(
+    (src) => typeof src === "string" && /^https?:\/\//i.test(src)
+  );
+  if (knownCharts.length) {
+    const chartText = await fetchChartFromPhotos(knownCharts.slice(0, VISION_WINDOW), {
+      signal,
+      referer: album || item.url || undefined,
+    });
+    if (signal && signal.aborted) return null;
+    if (chartText && parseSizeChart(chartText)) {
+      return { text: chartText, source: { via: "chart-photos", photos: knownCharts.length } };
+    }
+  }
   if (album) {
     const data = await fetchYupooImages(album, { signal });
     if (signal && signal.aborted) return null;
     const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
     if (text.trim() && parseSizeChart(text)) {
       return { text: text.trim(), source: { via: "album-text", photos: 0 } };
+    }
+    // Charts the parser separated on THIS fetch, if the item did not carry
+    // them yet (enriched before chartImages existed).
+    const freshCharts = ((data && data.chartImages) || []).filter(
+      (src) => !knownCharts.includes(src)
+    );
+    if (freshCharts.length) {
+      const chartText = await fetchChartFromPhotos(freshCharts.slice(0, VISION_WINDOW), {
+        signal,
+        referer: album,
+      });
+      if (signal && signal.aborted) return null;
+      if (chartText && parseSizeChart(chartText)) {
+        return { text: chartText, source: { via: "chart-photos", photos: freshCharts.length } };
+      }
     }
     const albumPhotos = (data && data.images) || [];
     if (albumPhotos.length) {
@@ -104,6 +138,29 @@ export async function huntSizeChart(item, { signal } = {}) {
     });
     if (hit) {
       return { text: hit.text, source: { via: "gallery-photos", photos: hit.photos } };
+    }
+  }
+  // Last resort: the card holds NO description photos, so nothing above could
+  // read the seller's Product Details (Kyle 2026-07-26: "it's got that size
+  // chart right there in the product details of the advertisement, but for
+  // whatever reason it doesn't want to pick it up"). On Weidian the chart is
+  // usually there and not in the gallery. Cards saved before descImages
+  // shipped — and cards whose resolve was skipped, capped, or failed — carry
+  // an empty list, so the hunt was blind to the one place the chart was.
+  // Fetch the feed now, then scan it. Only runs when the list is EMPTY and
+  // everything else missed, so it costs one extra call on the cards that
+  // would otherwise report "No size chart on this listing".
+  if (!descPhotos.length && fetchDescImages) {
+    const fetched = await fetchDescImages(item, { signal });
+    if (signal && signal.aborted) return null;
+    const fresh = (fetched || []).filter(
+      (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !localPhotos.includes(src)
+    );
+    if (fresh.length) {
+      const hit = await visionWindows(fresh, { signal, referer: item.url || undefined });
+      if (hit) {
+        return { text: hit.text, source: { via: "desc-photos", photos: hit.photos } };
+      }
     }
   }
   return null;

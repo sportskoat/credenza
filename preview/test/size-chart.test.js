@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, sizeChartTextFor, usualSizeForItem } from "../../credenza-fashion.jsx";
+import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, usualSizeForItem } from "../../credenza-fashion.jsx";
 
 describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
   it("maps tops / bottoms / shoes slots", () => {
@@ -526,5 +526,71 @@ describe("effectiveBodyProfile estimates", () => {
     const rec = recommendSize(chart, effectiveBodyProfile({ height: 178, weight: 70 }), "tops");
     expect(rec).not.toBeNull();
     expect(["S", "M"]).toContain(rec.size);
+  });
+});
+
+// ── serializeSizeChart (handoff turn 9 §3, "Fix a number") ──
+//
+// A corrected cell has to become text the parser reads back identically. The
+// chart is derived, `sizeNotes` is stored, and every render re-parses — so a
+// serialization that does not round-trip loses the correction on the next paint.
+describe("serializeSizeChart", () => {
+  const TEXT = "M: chest 116, length 70\nL: chest 120, length 72\nXL: chest 124, length 74";
+
+  it("round-trips a parsed chart through the parser unchanged", () => {
+    const chart = parseSizeChart(TEXT);
+    const again = parseSizeChart(serializeSizeChart(chart));
+    expect(again.rows).toEqual(chart.rows);
+  });
+
+  it("emits the parser's own labelled form", () => {
+    expect(serializeSizeChart(parseSizeChart(TEXT))).toBe(
+      "M: chest 116, length 70\nL: chest 120, length 72\nXL: chest 124, length 74"
+    );
+  });
+
+  it("carries no half-chest wording, so the doubling rule stays out", () => {
+    // A half-chest chart is doubled ONCE, at parse. Emitting 半胸 or
+    // "pit to pit" would double the already-doubled numbers on the way back in.
+    const half = parseSizeChart("半胸\nM 半胸 52\nL 半胸 55\nXL 半胸 58");
+    expect(half.rows[0].chest).toBe(104);
+    const text = serializeSizeChart(half);
+    expect(text).not.toMatch(/半胸|pit|half/i);
+    expect(parseSizeChart(text).rows[0].chest).toBe(104);
+  });
+
+  it("keeps every measurement column the parser names", () => {
+    const chart = parseSizeChart(
+      "M: chest 100, waist 80, hip 96, shoulder 44, sleeve 60, length 70\n" +
+        "L: chest 104, waist 84, hip 100, shoulder 46, sleeve 62, length 72"
+    );
+    const text = serializeSizeChart(chart);
+    for (const label of ["chest", "waist", "hip", "shoulder", "sleeve", "length"]) {
+      expect(text, label).toContain(label);
+    }
+    expect(parseSizeChart(text).rows).toEqual(chart.rows);
+  });
+
+  it("drops a value outside the parser's own cm band", () => {
+    // 5cm and 900cm are not measurements. Emitting them would produce text the
+    // parser then refuses, so the correction would silently vanish.
+    expect(serializeSizeChart({ rows: [{ size: "M", chest: 5 }, { size: "L", chest: 900 }] })).toBe("");
+  });
+
+  it("rounds a fractional value to whole cm", () => {
+    expect(serializeSizeChart({ rows: [{ size: "M", chest: 115.6 }] })).toBe("M: chest 116");
+  });
+
+  it("skips a row with no measurement left in it", () => {
+    expect(
+      serializeSizeChart({ rows: [{ size: "M", chest: 116 }, { size: "L" }] })
+    ).toBe("M: chest 116");
+  });
+
+  it("returns an empty string for junk", () => {
+    expect(serializeSizeChart(null)).toBe("");
+    expect(serializeSizeChart({})).toBe("");
+    expect(serializeSizeChart({ rows: [] })).toBe("");
+    expect(serializeSizeChart({ rows: [{ chest: 116 }] })).toBe("");
   });
 });

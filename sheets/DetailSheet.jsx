@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { MoreHorizontal, X } from "lucide-react";
 import DetailBody from "../components/DetailBody.jsx";
-import { usePrefersReducedMotion } from "../credenza-fashion.jsx";
+import FavoriteButton from "../components/FavoriteButton.jsx";
+import { priceLabelShort, usePrefersReducedMotion } from "../credenza-fashion.jsx";
 
 // Mobile detail sheet (mobile shelf handoff step 5, 2026-07-25).
 //
@@ -18,20 +19,37 @@ import { usePrefersReducedMotion } from "../credenza-fashion.jsx";
 
 export default function DetailSheet({
   item,
+  // §3 seller cache: the whole shelf, passed straight to DetailBody so a chart
+  // already read for this seller sizes this item with no network call.
+  shelfItems = null,
   haulNames = [],
   bodyProfile,
   fitPrefs,
   measureUnits = "cm",
   buyLabel = "Buy",
+  // §8: the Buy notch picks the agent in place. Both must arrive together —
+  // DetailBody hides the chevron when it cannot save the choice.
+  preferredAgent = null,
+  onSelectAgent = null,
   onSaveEdit,
   onRemove,
   onOpen,
   onAttachPhoto,
   onRemovePhoto,
   onSetCover,
+  // §9: the heart joins the ⋯ / ✕ cluster on the photo. The phone had no way
+  // to favourite an item from the detail at all — only from the shelf card.
+  onToggleFavorite = null,
+  onAttachQcPhoto = null,
   onLoadPhotos = null,
   onOpenSizes,
   onClose,
+  // §11 photo morph: true when this sheet arrived from a card tap through a
+  // view transition. The photo hero then claims the shared
+  // view-transition-name and the sheet drops its own slide-up — the morph IS
+  // the entrance, and playing both would slide the surface while the photo
+  // inside it is still flying.
+  morphing = false,
 }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
@@ -123,7 +141,14 @@ export default function DetailSheet({
         if (e.target === e.currentTarget) closeSheet();
       }}
     >
-      <div ref={surfaceRef} className={"cz-detail-surface" + (reduced ? " is-still" : "")}>
+      <div
+        ref={surfaceRef}
+        className={
+          "cz-detail-surface" +
+          (reduced ? " is-still" : "") +
+          (morphing ? " is-morphing" : "")
+        }
+      >
         <div
           className="cz-detail-grip"
           aria-hidden="true"
@@ -137,11 +162,20 @@ export default function DetailSheet({
 
         <DetailBody
           item={item}
+          shelfItems={shelfItems}
           haulNames={haulNames}
           bodyProfile={bodyProfile}
           fitPrefs={fitPrefs}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
+          preferredAgent={preferredAgent}
+          onSelectAgent={onSelectAgent}
+          onRequestClose={closeSheet}
+          onAttachQcPhoto={onAttachQcPhoto}
+          // §9 footer: "price in a white hair-bordered box + the notched Buy
+          // filling the rest". The price left the chip row in §1, so the
+          // footer is now the only place the phone states it.
+          footerPrice={priceLabelShort(item)}
           onSaveEdit={onSaveEdit}
           onOpen={onOpen}
           onAttachPhoto={onAttachPhoto}
@@ -154,6 +188,16 @@ export default function DetailSheet({
           renderHeroActions={({ photos, photoIdx, resetPager }) => ({
             actions: (
               <>
+                {/* §9: "one cluster, top-right" — heart, ⋯, ✕, in that order.
+                    FavoriteButton owns the burst animation; the hero class
+                    only gives it the frosted circle its neighbours have. */}
+                {onToggleFavorite ? (
+                  <FavoriteButton
+                    item={item}
+                    onToggle={onToggleFavorite}
+                    className="cz-detail-hero-btn cz-detail-hero-fav"
+                  />
+                ) : null}
                 {/* ⋯ opens a menu — never the delete itself (Kyle 2026-07-25:
                     "the three dots simply remove the article of clothing").
                     The cover action follows the pager: swipe to a photo, then

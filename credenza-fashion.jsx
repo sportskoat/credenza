@@ -1,4 +1,5 @@
 import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronLeft, Heart, MoreHorizontal, Plus, Search, User, X } from "lucide-react";
 import {
@@ -69,7 +70,7 @@ const BodyProfileSheet = lazy(() => import("./sheets/BodyProfileSheet.jsx"));
 const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsSheet = lazy(() => import("./sheets/SettingsSheet.jsx"));
-const DetailSheet = lazy(() => import("./sheets/DetailSheet.jsx"));
+
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
 // lazy: the shelf paints them on first load, so a chunk fetch would only add
@@ -95,6 +96,18 @@ import {
 import ComboboxField from "./components/ComboboxField.jsx";
 import CoverFlowCarousel from "./components/CoverFlowCarousel.jsx";
 import DesktopDetailPanel from "./components/DesktopDetailPanel.jsx";
+// NOT lazy, and §11 is why. The photo morph needs the sheet's hero to EXIST in
+// the frame the browser snapshots, and a lazy component renders its Suspense
+// fallback for one tick on first open — so the browser found nothing to pair the
+// card photo with and the morph silently degraded to a cross-fade, on the first
+// open of a session only. Preloading the chunk does not fix it: React initializes
+// a lazy component on its first RENDER attempt, not when the module lands, so the
+// fallback tick happens regardless. Its own chunk was 3.3kB (DetailBody already
+// sits in the main bundle for the desktop panel), so a static import is the whole
+// cost. Verified by scripts/probe-turn9-morph.mjs — it asserts a matching
+// ::view-transition-new(cz-morph-photo), which is the browser confirming it
+// accepted the pair.
+import DetailSheet from "./sheets/DetailSheet.jsx";
 import { ModalShell } from "./components/ModalShell.jsx";
 import { BrandIcon } from "./components/BrandIcon.jsx";
 import BrandMark from "./components/BrandMark.jsx";
@@ -179,6 +192,23 @@ const PALETTES = {
        this gradient and light text over it measured ~2:1. #656a72 holds
        4.9:1 against --cz-action-text through the whole sweep. */
     "--cz-gradient-3": "#656a72",
+    /* Handoff turn 9 §10. The detail view stops rendering em-dash cells and
+       renders chips instead, so it needs a chip fill, a warm "no chart"
+       warning pair, and three quiet surface tints (photo strip, footer,
+       inset footer strip). --cz-hair-strong already exists above.
+       NOTE on green: the handoff writes --cz-accent for its green. In THIS
+       repo --cz-accent is ink (the chrome is deliberately near-monochrome —
+       see the palette comment above), and the one green is --cz-money.
+       Every turn-9 green therefore maps to --cz-money. */
+    "--cz-chip-fill": "#E6E6DE",
+    "--cz-warn": "#C0932a",
+    /* The warning LABEL is body text on the canvas, so it needs the 4.5:1
+       floor; #C0932a measures ~2.6:1 and is used for the dot only. */
+    "--cz-warn-ink": "#8a6714",
+    "--cz-accent-tint": "rgba(20, 122, 58, 0.06)",
+    "--cz-strip-bg": "#EAEAE4",
+    "--cz-footer-bg": "#EFEFE9",
+    "--cz-inset-bg": "#FAFAF6",
   },
   // Blackout dark: true-black field, neutral #1a1a1d surfaces, zero blue cast.
   // Money green + heart red are the only hue; everything else is grayscale.
@@ -238,6 +268,19 @@ const PALETTES = {
     "--cz-gradient-1": "#1a1a1d",
     "--cz-gradient-2": "#3a3a40",
     "--cz-gradient-3": "#a3a3ab",
+    /* Blackout equivalents for turn 9 §10. The light values are warm paper
+       tints; on a true-black field they invert to raised neutral surfaces.
+       The three surface tints step ABOVE --cz-card-solid (#202024) so an
+       inset strip still reads as inset, not as a hole in the card. */
+    "--cz-chip-fill": "rgba(255, 255, 255, 0.10)",
+    "--cz-warn": "#d9a83c",
+    /* On black the warning label goes light, not dark: #8a6714 would vanish.
+       #e8bf63 measures ~9.6:1 on the card surface. */
+    "--cz-warn-ink": "#e8bf63",
+    "--cz-accent-tint": "rgba(74, 222, 128, 0.10)",
+    "--cz-strip-bg": "#151517",
+    "--cz-footer-bg": "#0c0c0e",
+    "--cz-inset-bg": "#26262b",
   },
 };
 
@@ -702,6 +745,45 @@ export function normalizeHalfChestRows(rows, src = "") {
     if (!r || r.chest == null || !isFinite(r.chest)) return r;
     return { ...r, chest: Math.round(r.chest * 2) };
   });
+}
+
+// A parsed chart back to text (handoff turn 9 §3, "Fix a number").
+//
+// The chart is never the stored thing — `sizeNotes` is, and every render parses
+// it again. So a corrected number has to become TEXT the parser reads back the
+// same way, or the fix would survive one render and vanish on the next.
+//
+// The emitted form is strategy 1's own shape ("L: chest 120, length 72"), which
+// parseSizeChart round-trips exactly. It carries no half-chest wording, so
+// normalizeHalfChestRows leaves the corrected numbers alone.
+export const CHART_SERIAL_LABELS = {
+  chest: "chest",
+  waist: "waist",
+  hip: "hip",
+  shoulder: "shoulder",
+  sleeve: "sleeve",
+  length: "length",
+  pantsLength: "pants length",
+};
+export function serializeSizeChart(chart) {
+  const rows = chart && Array.isArray(chart.rows) ? chart.rows : [];
+  const lines = [];
+  for (const row of rows) {
+    if (!row || !row.size) continue;
+    const parts = [];
+    for (const key of Object.keys(row)) {
+      if (key === "size") continue;
+      const label = CHART_SERIAL_LABELS[key];
+      const value = row[key];
+      // Only whole cm in the parser's own band survive the round trip.
+      if (!label || value == null || !isFinite(value)) continue;
+      const n = Math.round(value);
+      if (n < 20 || n > 250) continue;
+      parts.push(label + " " + n);
+    }
+    if (parts.length) lines.push(String(row.size) + ": " + parts.join(", "));
+  }
+  return lines.join("\n");
 }
 
 // Pick a size from a parsed chart against a body profile (all cm; weight kg).
@@ -1799,6 +1881,18 @@ function makeId() {
 const IMAGE_MAX_INPUT_BYTES = 15 * 1024 * 1024;
 const IMAGE_TARGET_BYTES = 24 * 1024;
 const IMAGE_HARD_CAP_BYTES = 40 * 1024;
+// Inline chart frames per read (handoff turn 9 §3). Three covers a chart split
+// across two frames plus a retake. chart-vision.js enforces the same cap
+// server-side; this one keeps the request small before it leaves the phone.
+const CHART_PHOTO_MAX = 3;
+
+// How many album photos an item keeps (Kyle 2026-07-26: "we could have more
+// photos in here easily"). Every stored photo is a ~32KB base64 string inside
+// the item JSON, so this is a storage budget, not a display limit: 20 photos
+// is roughly 640KB per card. The album link still opens the full album, and
+// the card label reports the album's real count, so a deeper album is never
+// misrepresented as a shallow one.
+export const GALLERY_MAX = 20;
 
 async function decodeImage(blob) {
   if (typeof createImageBitmap === "function") {
@@ -1989,6 +2083,8 @@ function createItem(parsed, rawText, extra) {
     tags: enriched.tags,
     image: null,
     gallery: [],
+    albumPhotoCount: 0,
+    chartImages: [],
     links: pairedLinksFromRawText(rawText, parsed.url),
     status: "ready",
     note: "",
@@ -2092,6 +2188,17 @@ export function migrateItem(old) {
     gallery: Array.isArray(old.gallery)
       ? old.gallery.filter((g) => typeof g === "string" && (g.startsWith("data:image/") || /^https?:\/\//i.test(g)))
       : [],
+    // How many product photos the SOURCE album holds. The gallery stores a
+    // compressed subset, so its length undercounts (Kyle 2026-07-26: "it'll
+    // say 8 photos, but this album has 30 different photos").
+    albumPhotoCount:
+      typeof old.albumPhotoCount === "number" && isFinite(old.albumPhotoCount)
+        ? Math.min(999, Math.max(0, Math.round(old.albumPhotoCount)))
+        : 0,
+    // Size-chart tiles held out of the gallery, kept for the chart hunt.
+    chartImages: Array.isArray(old.chartImages)
+      ? old.chartImages.filter((g) => typeof g === "string" && /^https?:\/\//i.test(g)).slice(0, 8)
+      : [],
     links: migrateLinks(old, parsed.url, rawText),
     status: "ready",
     note: old.note || "",
@@ -2126,8 +2233,12 @@ export function migrateItem(old) {
       : [],
     sizeNotes: typeof old.sizeNotes === "string" ? old.sizeNotes : "",
     // Where the size chart came from (handoff turn 3 §5 provenance footer):
-    // { via: "album-text"|"album-photos"|"desc-photos"|"gallery-photos",
-    //   photos: N scanned, at: ISO date }. Written by the silent chart hunt.
+    // { via: "album-text"|"album-photos"|"desc-photos"|"gallery-photos"|
+    //        "customer-photo"|"seller-cache",
+    //   photos: N scanned, at: ISO date, seller: who it belongs to }.
+    // Written by the silent chart hunt, and by the customer's own read (turn 9
+    // §3). `seller` exists so a chart read once can size the next item from the
+    // same seller — see chartCacheForSeller.
     sizeChartSource:
       old.sizeChartSource && typeof old.sizeChartSource === "object"
         ? {
@@ -2137,6 +2248,10 @@ export function migrateItem(old) {
                 ? Math.min(99, Math.max(0, Math.round(old.sizeChartSource.photos)))
                 : 0,
             at: typeof old.sizeChartSource.at === "string" ? old.sizeChartSource.at.slice(0, 40) : "",
+            seller:
+              typeof old.sizeChartSource.seller === "string"
+                ? old.sizeChartSource.seller.slice(0, 60)
+                : "",
           }
         : null,
     seller: old.seller || "",
@@ -2919,7 +3034,12 @@ export async function fetchYupooImages(albumUrl, { signal } = {}) {
 // in the same format parseSizeChart reads, or null when nothing was found.
 // `referer` should be the album page URL: the photo CDN rejects requests
 // whose referer is not a yupoo album page.
-export async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) {
+// One poster for both chart-vision inputs. `images` are CDN URLs the server
+// fetches through its allowlist; `photos` are inline base64 frames the customer
+// took or picked, which no allowlist can cover because a camera frame has no
+// URL. Handoff turn 9 §3: "the same parser endpoint as a clipboard paste — one
+// ingest path, image or text". Two exported wrappers keep the call sites plain.
+async function postChartVision({ images, photos, signal, referer }) {
   if (!PREVIEW_SECRET) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
   // Part 7e: a signed-in FREE user over the daily cap skips the cloud read;
@@ -2936,7 +3056,11 @@ export async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) 
     const res = await monitoredFetch(storageBackend, "chart-vision", CHART_VISION_ENDPOINT, {
       method: "POST",
       headers: await authHeaders({ "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET }),
-      body: JSON.stringify({ images: imageUrls, ...(referer ? { referer } : {}) }),
+      body: JSON.stringify({
+        ...(images && images.length ? { images } : {}),
+        ...(photos && photos.length ? { photos } : {}),
+        ...(referer ? { referer } : {}),
+      }),
       signal: controller.signal,
     });
     bumpUsage("chartVision");
@@ -2946,6 +3070,133 @@ export async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) 
     return data.chartText.trim() || null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", abort);
+  }
+}
+
+export async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) {
+  const images = (imageUrls || []).filter((u) => typeof u === "string" && u);
+  if (!images.length) return null;
+  return postChartVision({ images, signal, referer });
+}
+
+// Handoff turn 9 §3: "on success the chart is cached against the seller, so the
+// next item from that seller sizes instantly".
+//
+// The cache IS the shelf. Every item already carries its chart in sizeNotes and
+// its provenance in sizeChartSource, so a separate store would be a second copy
+// that can go stale against the first. This walks the shelf for another item by
+// the same seller whose chart was READ (not guessed), and returns its text.
+//
+// Only reads that came from a real chart qualify. A fallback is not a chart, and
+// copying a guess between items would spread it silently.
+const CHART_CACHE_VIA = new Set([
+  "album-text",
+  "album-photos",
+  "chart-photos",
+  "desc-photos",
+  "gallery-photos",
+  "customer-photo",
+]);
+
+export function chartCacheForSeller(items, item) {
+  const seller = String((item && item.seller) || "").trim().toLowerCase();
+  if (!seller) return null;
+  let best = null;
+  for (const other of items || []) {
+    if (!other || other.id === (item && item.id)) continue;
+    const src = other.sizeChartSource;
+    if (!src || !CHART_CACHE_VIA.has(src.via)) continue;
+    // The chart's own seller tag wins over the item's. A chart cached from a
+    // different seller must not travel just because the cards ended up adjacent.
+    const owner = String(src.seller || other.seller || "").trim().toLowerCase();
+    if (owner !== seller) continue;
+    const text = sizeChartTextFor(other);
+    if (!text || !parseSizeChart(text)) continue;
+    // Newest wins: a seller who reissues a chart means the later one.
+    if (!best || String(src.at || "") > String(best.at || "")) {
+      best = { text, at: src.at || "", seller: other.seller || item.seller || "" };
+    }
+  }
+  return best;
+}
+
+// Handoff turn 9 §3: the customer snapshots or uploads the chart themselves.
+// Takes what a camera capture, a file picker, or an already-stored local photo
+// gives you — a File/Blob, or a `data:` URL — and posts it INLINE. The server
+// never fetches anything on this path, so no allowlist applies.
+//
+// A `data:` URL passes straight through. Local photos (gallery tiles, QC shots)
+// are already compressed to ~24KB when they are saved, so re-encoding one would
+// only lose detail off the chart's smallest digits.
+//
+// Returns chart text parseSizeChart can read, or null. Never throws: a bad
+// frame is a normal outcome here, and the caller shows the retry affordance.
+export async function readChartFromPhotoFiles(files, { signal, referer } = {}) {
+  const list = (Array.isArray(files) ? files : [files]).filter(Boolean).slice(0, CHART_PHOTO_MAX);
+  if (!list.length) return null;
+  const photos = [];
+  for (const file of list) {
+    if (typeof file === "string") {
+      if (/^data:image\//i.test(file)) photos.push(file);
+      continue;
+    }
+    try {
+      // compressImageBlob returns a whole data: URL. The function reads the
+      // media type off that URL rather than trusting a separate field, so pass
+      // it through unchanged.
+      photos.push(await compressImageBlob(file));
+    } catch {
+      // One undecodable frame must not lose the others.
+    }
+  }
+  if (!photos.length) return null;
+  return postChartVision({ photos, signal, referer });
+}
+
+// Fetch the seller's Product Details photos for a card that has none (Kyle
+// 2026-07-26: "the sizing charts are not picking up this 'by the way' link…
+// it's got that size chart right there in the product details of the
+// advertisement, but for whatever reason it doesn't want to pick it up").
+//
+// On Weidian the chart is usually NOT in the gallery. It lives in the
+// description feed, which resolve returns as descImages. Cards saved before
+// that shipped (b794602, 2026-07-25) — and cards whose resolve was skipped,
+// capped, offline, or failed — hold descImages: []. The hunt then scanned the
+// gallery, found nothing, and reported "No size chart on this listing" even
+// though the chart was one API call away.
+//
+// Re-resolving is cheap and idempotent: the same call the importer makes.
+// Returns a plain array of image URLs, empty when unavailable. Never throws.
+export async function fetchDescImages(item, { signal } = {}) {
+  if (!PREVIEW_SECRET) return [];
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return [];
+  if (overFreeLimit(planForLimits, "resolve")) return [];
+  const buyUrl = resolvableBuyUrl(item);
+  if (!buyUrl) return [];
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) return [];
+    signal.addEventListener("abort", abort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
+      method: "POST",
+      headers: await authHeaders({ "content-type": "application/json", "x-credenza-key": PREVIEW_SECRET }),
+      body: JSON.stringify({ url: buyUrl }),
+      signal: controller.signal,
+    });
+    bumpUsage("resolve");
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || !Array.isArray(data.descImages)) return [];
+    return data.descImages.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u));
+  } catch {
+    return [];
   } finally {
     clearTimeout(timer);
     if (signal) signal.removeEventListener("abort", abort);
@@ -3102,6 +3353,108 @@ export function usePrefersReducedMotion() {
     };
   }, []);
   return reduced;
+}
+
+// ═══ Card → detail photo morph (handoff turn 9 §11) ═══
+//
+// The card's photo is the shared element: it grows from its shelf rect into the
+// detail photo panel in ~280ms, the card text fades at 60ms, and the info rail
+// wipes in from the photo's inner edge.
+//
+// This uses the BROWSER's View Transition API and nothing else. Read
+// docs/carousel-canonical-state.md before changing it: two earlier morphs in
+// this app cloned nodes with getBoundingClientRect(), flew the clones through a
+// createPortal overlay to hand-computed landing coordinates, and handed back to
+// the real element with a double-rAF plus a polling retry. Both were visibly
+// glitchy and both were removed. The rule that came out of it is explicit —
+// no clones, no rect measurement, no portal. A view transition satisfies it: the
+// browser snapshots the old and new frames itself, so the "shared element" is
+// only a matching `view-transition-name` on the two photos. There is no second
+// copy of the DOM at any point.
+//
+// Progressive enhancement, not a dependency. Safari < 18 and Firefox have no
+// startViewTransition, and jsdom has none either, so the fallback path is the
+// plain state update the app did before this existed. Nothing waits on the
+// transition and nothing reads its result.
+export const MORPH_NAME_PHOTO = "cz-morph-photo";
+export const MORPH_NAME_TEXT = "cz-morph-text";
+
+export function supportsViewTransition() {
+  return (
+    typeof document !== "undefined" && typeof document.startViewTransition === "function"
+  );
+}
+
+// Open a detail surface through the photo morph.
+//
+//   source — the tapped card's nodes: { photo, text }. The photo is the shared
+//            element and carries MORPH_NAME_PHOTO; the text block carries
+//            MORPH_NAME_TEXT so the CSS can fade it on its own 60ms timing.
+//            Either may be missing — a photo-less card still animates its text.
+//   update — applies the state change. It must be synchronous, so the caller
+//            wraps it in flushSync: the browser captures the new frame the
+//            moment this callback returns, and React's default batching would
+//            still be holding the update at that point. The browser would
+//            snapshot an unchanged DOM and animate nothing.
+//
+// The source tags are released INSIDE the callback, not after the transition.
+// The detail panel's photo stage claims MORPH_NAME_PHOTO when it mounts, and two
+// elements sharing one view-transition-name in a single frame makes the browser
+// skip the entire transition. So the card owns the name for the old frame and
+// hands it over for the new one.
+export function runPhotoMorph({ source, update, reduced = false }) {
+  const nodes = source || {};
+  const pairs = [
+    [nodes.photo, MORPH_NAME_PHOTO],
+    [nodes.text, MORPH_NAME_TEXT],
+  ];
+  const tag = () => {
+    for (const [el, name] of pairs) {
+      if (el && el.style) el.style.viewTransitionName = name;
+    }
+  };
+  const clear = () => {
+    for (const [el] of pairs) {
+      if (el && el.style) el.style.viewTransitionName = "";
+    }
+  };
+  if (reduced || !supportsViewTransition()) {
+    update();
+    return Promise.resolve(false);
+  }
+  tag();
+  let transition;
+  try {
+    transition = document.startViewTransition(() => {
+      update();
+      clear();
+    });
+  } catch (err) {
+    // Never let a transition failure swallow the navigation itself.
+    clear();
+    update();
+    return Promise.resolve(false);
+  }
+  // A skipped transition rejects BOTH `ready` and `finished`. We only await
+  // `finished`, so `ready` would reject with no handler and the browser would
+  // log an unhandled rejection on every fast double tap. Claim it and drop it.
+  if (transition.ready && typeof transition.ready.catch === "function") {
+    transition.ready.catch(() => {});
+  }
+  // A skipped transition (a second one started, or a duplicate name slipped
+  // through) rejects `finished`. The DOM still updated, so this is not an
+  // error — swallow it so the tap cannot throw either, and make sure the tags
+  // come off in both outcomes.
+  return transition.finished.then(
+    () => {
+      clear();
+      return true;
+    },
+    () => {
+      clear();
+      return false;
+    }
+  );
 }
 
 // Touch devices and phone-width screens have no cursor to follow — ambient
@@ -3329,6 +3682,43 @@ export function statusTrackIndex(status) {
       return 0;
   }
 }
+
+// Handoff turn 9 §5. The track shows HOW FAR along an order is; the sub-label
+// says WHERE it is right now, in the customer's own words. Both are needed —
+// four dots alone cannot tell "bought" from "QC photos are waiting for you".
+// Mono, right-aligned in the section header. Read as "STAGE · DETAIL".
+export const FIND_STATUS_SUBLABEL = {
+  want: "WANT · NOT ORDERED",
+  bought: "BOUGHT · WITH THE AGENT",
+  shipped: "IN TRANSIT · AGENT → YOU",
+  qc: "QC · PHOTOS WAITING",
+  gl: "QC PASSED · READY TO SHIP",
+  rl: "QC FAILED · YOUR CALL",
+  returned: "RECEIVED · DONE",
+};
+
+// The one action that moves an order forward, per current stop. A track that
+// only reports state makes the customer hunt for the control that changes it.
+// `null` means the stop is terminal, or the choice is not ours to make: rl
+// (keep or send back) and gl (the agent ships, not the customer) both need a
+// real decision, so neither gets a one-tap primary.
+export const FIND_STATUS_NEXT = {
+  want: { label: "Mark bought", to: "bought" },
+  bought: { label: "Mark shipped", to: "shipped" },
+  qc: { label: "Approve QC", to: "gl" },
+  gl: { label: "Mark shipped", to: "shipped" },
+  rl: null,
+  shipped: { label: "Mark received", to: "returned" },
+  returned: null,
+};
+
+// Off-track states (§5: "render as a labelled detour node, not a fifth step").
+// These sit UNDER the current dot; they are not stops on the four-stop track.
+export const FIND_STATUS_DETOUR = {
+  qc: "QC photos",
+  rl: "QC failed",
+};
+
 export const FIND_STATUS_COLORS = {
   want: { bg: "oklch(0.35 0.02 280)", text: "oklch(0.85 0 0)", dot: "oklch(0.7 0.02 280)" },
   bought: { bg: "oklch(0.35 0.08 250)", text: "oklch(0.9 0.1 250)", dot: "oklch(0.65 0.14 250)" },
@@ -4046,6 +4436,11 @@ export default function Credenza() {
   // Mobile detail sheet (handoff step 5). On a phone a card tap opens this
   // instead of the carousel overlay; desktop keeps the carousel unchanged.
   const [detailSheetId, setDetailSheetId] = useState(null);
+  // §11: the id whose detail surface opened through the photo morph. The
+  // surface reads it to claim the shared view-transition-name and to skip its
+  // own entrance animation — the morph IS the entrance. Null on every other
+  // open (reduced motion, no browser support, keyboard, a deep link).
+  const [morphOpenId, setMorphOpenId] = useState(null);
   // Per-category Length/Looseness taste (design turn 5). Shape:
   // { [category]: { length, looseness, dismissed } }. Persisted in prefs.
   const [fitPrefs, setFitPrefsByCat] = useState({});
@@ -4985,9 +5380,21 @@ export default function Credenza() {
     if (!file) return;
     try {
       const dataUrl = await compressImageBlob(file);
-      updateItem(id, (x) => ({ gallery: [...(x.gallery || []), dataUrl].slice(0, 12) }));
+      updateItem(id, (x) => ({ gallery: [...(x.gallery || []), dataUrl].slice(0, GALLERY_MAX) }));
     } catch {
       flashImportResult("Couldn't read that gallery image.");
+    }
+  };
+  // QC photos are NOT gallery photos (docs/Monetization.md A5): the gallery is
+  // what the seller shows, QC is what the agent found. §9's QC prompt writes
+  // here so a warehouse photo never contaminates the product gallery.
+  const attachQcImage = async (id, file) => {
+    if (!file) return;
+    try {
+      const dataUrl = await compressImageBlob(file);
+      updateItem(id, (x) => ({ qcPhotos: [...(x.qcPhotos || []), dataUrl].slice(0, 12) }));
+    } catch {
+      flashImportResult("Couldn't read that QC photo.");
     }
   };
   // Remove by exact src so edit-mode can drop either the cover or a gallery tile.
@@ -5005,7 +5412,7 @@ export default function Credenza() {
     updateItem(id, (x) => {
       const nextGallery = (x.gallery || []).filter((g) => g !== dataUrl);
       if (x.image) nextGallery.unshift(x.image);
-      return { image: dataUrl, gallery: nextGallery.slice(0, 12) };
+      return { image: dataUrl, gallery: nextGallery.slice(0, GALLERY_MAX) };
     });
 
   // Relay one URL through the preview function and return a compressed data
@@ -5049,24 +5456,28 @@ export default function Credenza() {
       item.gallery || []
     ).filter((src) => !isHotlink(src));
     const albumUrl = yupooAlbumUrl(item);
-    if (!albumUrl || existing.length >= 8) return existing.slice(0, 8);
+    if (!albumUrl || existing.length >= GALLERY_MAX) return existing.slice(0, GALLERY_MAX);
     const data = await fetchYupooImages(albumUrl, { signal });
-    if (!data || (signal && signal.aborted)) return existing.slice(0, 8);
+    if (!data || (signal && signal.aborted)) return existing.slice(0, GALLERY_MAX);
 
     const photos = [...existing];
     for (const src of mergeFashionImages(data.images || [])) {
-      if (photos.length >= 8 || (signal && signal.aborted)) break;
+      if (photos.length >= GALLERY_MAX || (signal && signal.aborted)) break;
       const dataUrl = await relayImageDataUrl(src, data.url || albumUrl, signal);
       if (dataUrl) photos.push(dataUrl);
     }
-    const merged = mergeFashionImages(photos).slice(0, 8);
+    const merged = mergeFashionImages(photos).slice(0, GALLERY_MAX);
     if (!(signal && signal.aborted)) {
       updateItem(item.id, (current) => ({
         image: current.image || merged[0] || null,
         gallery: mergeFashionImages(
           current.gallery || [],
           merged.filter((src) => src !== current.image)
-        ).slice(0, 12),
+        ).slice(0, GALLERY_MAX),
+        albumPhotoCount:
+          typeof data.photoCount === "number" && data.photoCount > 0
+            ? data.photoCount
+            : current.albumPhotoCount || 0,
       }));
     }
     return merged;
@@ -5191,7 +5602,7 @@ export default function Credenza() {
         gallery: mergeFashionImages(
           x.gallery || [],
           remoteImages.filter((src) => src !== cover)
-        ).slice(0, 12),
+        ).slice(0, GALLERY_MAX),
         links: mergeFashionLinks(x, { buyUrl: data.url || buyUrl }),
       };
     });
@@ -5214,7 +5625,7 @@ export default function Credenza() {
         const data = await fetchYupooImages(albumUrl, { signal: controller.signal });
         if (controller.signal.aborted || enrichmentTokensRef.current.get(item.id) !== token) return false;
         if (data) {
-          const albumImages = mergeFashionImages(data.images || []).slice(0, 8);
+          const albumImages = mergeFashionImages(data.images || []).slice(0, GALLERY_MAX);
           const canonicalAlbum = data.url || albumUrl;
           const links = mergeFashionLinks(item, {
             albumUrl: canonicalAlbum,
@@ -5242,7 +5653,17 @@ export default function Credenza() {
             gallery: mergeFashionImages(
               item.gallery || [],
               albumImages.filter((src) => src !== cover)
-            ).slice(0, 12),
+            ).slice(0, GALLERY_MAX),
+            // What the album really holds, not what we stored. The card label
+            // reads this so "View album · N photos" is honest.
+            albumPhotoCount:
+              typeof data.photoCount === "number" && data.photoCount > 0
+                ? data.photoCount
+                : (data.images || []).length,
+            // Charts are held out of the gallery but still fed to the size hunt.
+            chartImages: Array.isArray(data.chartImages) && data.chartImages.length
+              ? data.chartImages.slice(0, 8)
+              : item.chartImages || [],
             links,
             seller: item.seller || data.seller || data.sellerAccount || "",
             batch: item.batch || data.batch || "",
@@ -5279,7 +5700,7 @@ export default function Credenza() {
               const galleryImages = replaceAutoCover ? relayed.slice(1) : relayed;
               return {
                 image,
-                gallery: mergeFashionImages(retained, galleryImages).slice(0, 12),
+                gallery: mergeFashionImages(retained, galleryImages).slice(0, GALLERY_MAX),
               };
             });
           }
@@ -5380,6 +5801,13 @@ export default function Credenza() {
     preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate || preferredAgentInfo.idUrlTemplate)
       ? "Buy via " + preferredAgentInfo.name
       : "Buy";
+  // §8: the Buy notch picks the agent where the choice matters. It uses the
+  // same guard as the Profile agent sheet — a retired agent never becomes the
+  // default, whatever the caller sends.
+  const chooseBuyingAgent = useCallback((id) => {
+    const a = getAgent(id);
+    if (a && !a.retired) setPreferredAgent(a.id);
+  }, []);
   const agentBarLabel =
     preferredAgentInfo && (preferredAgentInfo.urlTemplate || preferredAgentInfo.idPathTemplate || preferredAgentInfo.idUrlTemplate)
       ? preferredAgentInfo.name
@@ -6310,15 +6738,53 @@ export default function Credenza() {
     };
   }, [carouselOverlay]);
 
+  // §11: a card tap opens the detail through the photo morph. The card hands up
+  // its photo node; that node carries the shared view-transition-name for the
+  // one frame the browser needs to snapshot it, then gives it back.
+  //
+  // flushSync is required, not defensive. startViewTransition captures the "new"
+  // frame as soon as its callback returns, and React's default batching would
+  // still be holding the state update at that moment — the browser would
+  // snapshot the unchanged DOM and animate nothing.
+  const openWithMorph = (id, nodes) => {
+    // A morph only runs when the browser can do one. The detail surface's own
+    // entrance and the morph are two answers to the same question, so the
+    // surface stands down for exactly the opens the morph handles.
+    const morphing =
+      !reducedMotion && supportsViewTransition() && !!(nodes && nodes.photo);
+    runPhotoMorph({
+      source: nodes,
+      reduced: reducedMotion,
+      update: () => {
+        // The morph flag is set INSIDE this flush, with the open itself. Setting
+        // it before startViewTransition looks equivalent and is not: React
+        // commits it while no detail surface is mounted yet, the cleanup effect
+        // below sees an id with no surface, and clears the flag again before the
+        // panel ever reads it. The panel then mounts unnamed, the browser finds
+        // no "new" snapshot to pair with the card photo, and the morph silently
+        // degrades to a cross-fade — verified by probe-turn9-morph.mjs, which
+        // reported old(cz-morph-photo) with no matching new().
+        flushSync(() => {
+          setMorphOpenId(morphing ? id : null);
+          if (isPhone) setDetailSheetId(id);
+          else openInCarousel(id);
+        });
+      },
+    });
+  };
+
   const renderEntry = (item) => (
     <div key={item.id}>
       <Card
         item={item}
         selected={selectedId === item.id}
-        onToggle={() => {
+        // Both halves of a 2026-07-26 merge. `main` retired the onboarding
+        // hint on the first card tap; the branch routed the open through the
+        // photo morph. The morph owns the open (phone sheet or carousel), so
+        // the hint retires alongside it rather than duplicating that choice.
+        onToggle={(nodes) => {
           retireFirstCardHint();
-          if (isPhone) setDetailSheetId(item.id);
-          else openInCarousel(item.id);
+          openWithMorph(item.id, nodes);
         }}
         onToggleFavorite={toggleFavorite}
         onOpen={recordOpen}
@@ -6481,6 +6947,8 @@ export default function Credenza() {
       onSaveEdit={saveEdit}
       onOpen={recordOpen}
       buyLabel={buyLabel}
+      preferredAgent={preferredAgent}
+      onSelectAgent={chooseBuyingAgent}
       onSetPrimaryImage={setPrimaryImage}
       onLoadPhotos={loadAlbumPhotos}
       onAttachPhoto={attachGalleryImage}
@@ -6539,6 +7007,8 @@ export default function Credenza() {
       }
       measureUnits={measureUnits}
       buyLabel={buyLabel}
+      preferredAgent={preferredAgent}
+      onSelectAgent={chooseBuyingAgent}
       onSaveEdit={saveEdit}
       onOpen={recordOpen}
       onAttachPhoto={attachGalleryImage}
@@ -6550,8 +7020,25 @@ export default function Credenza() {
       onDelete={setPendingDeleteId}
       onClose={onClose}
       closing={closing}
+      // §11: true only when this panel arrived through the photo morph.
+      morphing={morphOpenId === panelItem.id}
+      shelfItems={items}
     />
   );
+
+  // §11: the morph flag lives exactly as long as the surface it opened, so a
+  // later keyboard open of the SAME card cannot inherit it, skip its own
+  // entrance, and appear with no animation at all.
+  //
+  // The condition is "no surface is open", NOT "no surface has this id". The
+  // stricter test clears the flag in the gap between setting it and the surface
+  // mounting, which is the whole window the morph needs it in. A different card
+  // opening overwrites the flag in its own flush, so the loose test is enough.
+  useEffect(() => {
+    if (!morphOpenId) return;
+    if (detailSheetId || carouselOverlay) return;
+    setMorphOpenId(null);
+  }, [morphOpenId, detailSheetId, carouselOverlay]);
 
   // The sheet closes itself when its card leaves the shelf (Undo expiry, a
   // filter change, a delete), so a stale id can never render an empty sheet.
@@ -7013,30 +7500,37 @@ export default function Credenza() {
       {/* Mobile detail sheet (handoff step 5): one surface for reading AND
           editing. No edit mode, no Save button — every value is its own tap
           target and each edit writes through the shared 600ms debounce. */}
+      {/* No Suspense boundary: DetailSheet is a static import now (see §11 at
+          the import). A boundary here would defer the first render by a tick
+          again and take the morph's landing element with it. */}
       {isPhone && detailItem && (
-        <Suspense fallback={null}>
         <DetailSheet
           key={detailItem.id}
           item={detailItem}
+          shelfItems={items}
           haulNames={haulNames}
           bodyProfile={bodyProfile}
           fitPrefs={fitPrefs}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
+          preferredAgent={preferredAgent}
+          onSelectAgent={chooseBuyingAgent}
           onSaveEdit={saveEdit}
           onRemove={remove}
           onOpen={recordOpen}
           onAttachPhoto={attachGalleryImage}
           onRemovePhoto={removePhotoBySrc}
           onSetCover={setPrimaryImage}
+          onToggleFavorite={toggleFavorite}
+          onAttachQcPhoto={attachQcImage}
           onLoadPhotos={loadAlbumPhotos}
           onOpenSizes={() => {
             setDetailSheetId(null);
             setBodySheetOpen(true);
           }}
           onClose={() => setDetailSheetId(null)}
+          morphing={morphOpenId === detailItem.id}
         />
-        </Suspense>
       )}
 
       {/* Grid/list card popup only — carousel stays in-rack (Kyle 2026-07-23).

@@ -6,23 +6,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import {
+  GALLERY_MAX,
   itemPhotoList,
   mergeFashionImages,
   priceLabel,
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 import DetailBody from "./DetailBody.jsx";
+import { AlbumLinksRow } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 
 export default function DesktopDetailPanel({
   item,
+  // §3 seller cache: the whole shelf, passed straight to DetailBody.
+  shelfItems = null,
   haulNames = [],
   bodyProfile,
   fitPrefs = null,
   measureUnits = "cm",
   buyLabel = "Buy",
+  preferredAgent = null,
+  onSelectAgent = null,
   onSaveEdit,
   onOpen,
   onAttachPhoto,
@@ -34,6 +40,11 @@ export default function DesktopDetailPanel({
   onDelete,
   onClose,
   closing = false,
+  // §11 photo morph: true when this panel arrived from a card tap through a
+  // view transition. The stage then claims the shared view-transition-name so
+  // the card's photo grows into it, and the right rail wipes in from the
+  // photo's inner edge. False on every other open — the panel just appears.
+  morphing = false,
 }) {
   const [photos, setPhotos] = useState(() => itemPhotoList(item, 24));
   const [photoIdx, setPhotoIdx] = useState(0);
@@ -44,6 +55,10 @@ export default function DesktopDetailPanel({
   const [haulDraft, setHaulDraft] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const trackRef = useRef(null);
+  // True while a programmatic smooth scroll runs. The scroll handler stands
+  // down for that window so it cannot overwrite the target index.
+  const programmatic = useRef(false);
+  const settleTimer = useRef(null);
   const menuRef = useRef(null);
   const addInputRef = useRef(null);
   const PHOTO_MAX = 12;
@@ -62,7 +77,7 @@ export default function DesktopDetailPanel({
     let cancelled = false;
     const load = async () => {
       const base = itemPhotoList(item, 24);
-      if (!!yupooAlbumUrl(item) && base.length < 8 && onLoadPhotos) {
+      if (!!yupooAlbumUrl(item) && base.length < GALLERY_MAX && onLoadPhotos) {
         const imgs = await onLoadPhotos(item, { signal: new AbortController().signal });
         if (!cancelled) {
           setPhotos((cur) => mergeFashionImages(imgs || [], cur).slice(0, 24));
@@ -80,14 +95,40 @@ export default function DesktopDetailPanel({
   // window listener never steps the carousel behind the panel. Escape is NOT
   // handled here — the app-level handler peels this layer (and a gallery
   // dialog guard keeps it from closing under an open album view).
+  // Release the index lock once the track has been quiet for 120ms. Every
+  // scroll event re-arms it, so the lock lasts exactly as long as the motion.
+  const armSettle = useCallback(() => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      programmatic.current = false;
+      settleTimer.current = null;
+    }, 120);
+  }, []);
+  useEffect(
+    () => () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+    },
+    []
+  );
   const goTo = useCallback(
     (next) => {
       const clamped = Math.max(0, Math.min(photos.length - 1, next));
       setPhotoIdx(clamped);
       const track = trackRef.current;
-      if (track && track.scrollTo) track.scrollTo({ left: clamped * track.clientWidth, behavior: "smooth" });
+      if (track && track.scrollTo) {
+        // Own the index until the smooth scroll comes to rest (Kyle 2026-07-26:
+        // "the little green square around the selected photo kind of glitches
+        // left to right"). The scroll handler rounds scrollLeft to an index on
+        // every frame, so a smooth scroll past a midpoint made the highlight
+        // flip to a neighbour and back. While this flag is set the handler
+        // stands down. The scroll handler clears it once scrolling stops —
+        // a fixed timer cannot, because the browser decides the duration.
+        programmatic.current = true;
+        armSettle();
+        track.scrollTo({ left: clamped * track.clientWidth, behavior: "smooth" });
+      }
     },
-    [photos.length]
+    [photos.length, armSettle]
   );
   useEffect(() => {
     const onKey = (e) => {
@@ -151,7 +192,7 @@ export default function DesktopDetailPanel({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="cz-dpanel">
+      <div className={"cz-dpanel" + (morphing ? " is-morphing" : "")}>
         <div className="cz-dpanel-left">
           <div className="cz-dpanel-stage">
             {photos.length ? (
@@ -159,6 +200,14 @@ export default function DesktopDetailPanel({
                 ref={trackRef}
                 className="cz-dpanel-track"
                 onScroll={(e) => {
+                  // A programmatic smooth scroll already set the index. Reading
+                  // it back from the intermediate scroll positions made the
+                  // thumb highlight flip to a neighbour and back. Re-arm on
+                  // every event so the lock ends when the motion does.
+                  if (programmatic.current) {
+                    armSettle();
+                    return;
+                  }
                   const el = e.currentTarget;
                   const next = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
                   if (next !== photoIdx) setPhotoIdx(next);
@@ -278,6 +327,11 @@ export default function DesktopDetailPanel({
               }}
             />
           </div>
+          {/* §4: "Both album links return, as a 2-up row below the strip."
+              The desktop panel draws its own stage and strip, so it mounts
+              the same row here — the shared body's copy hangs off its hero,
+              which this panel does not render. */}
+          <AlbumLinksRow item={item} />
         </div>
 
         <div className="cz-dpanel-right">
@@ -357,11 +411,14 @@ export default function DesktopDetailPanel({
           <div className="cz-dpanel-body">
             <DetailBody
               item={item}
+              shelfItems={shelfItems}
               haulNames={haulNames}
               bodyProfile={bodyProfile}
               fitPrefs={fitPrefs}
               measureUnits={measureUnits}
               buyLabel={buyLabel}
+              preferredAgent={preferredAgent}
+              onSelectAgent={onSelectAgent}
               onSaveEdit={onSaveEdit}
               onOpen={onOpen}
               onAttachPhoto={onAttachPhoto}
@@ -370,7 +427,6 @@ export default function DesktopDetailPanel({
               onSetPrimaryImage={onSetPrimaryImage}
               onLoadPhotos={onLoadPhotos}
               footerPrice={price}
-              hidePhotosManager
             />
           </div>
         </div>

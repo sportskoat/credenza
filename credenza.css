@@ -424,11 +424,9 @@ button {
   .cz-sort-select,
   /* Mobile detail sheet (handoff step 6). The sheet sets its own heights;
      these entries hold the floor if a rule above ever shrinks. */
-  .cz-detail-cell,
   .cz-detail-status-chip,
   .cz-detail-fit-chip,
   .cz-detail-editor-done,
-  .cz-detail-more,
   .cz-detail-title-btn {
     min-height: 44px;
   }

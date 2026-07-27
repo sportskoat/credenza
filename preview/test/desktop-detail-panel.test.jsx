@@ -74,14 +74,18 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
   });
 
-  it("filmstrip has add/delete and no Weidian gallery chip or right-column photos", async () => {
+  it("filmstrip has add/delete and no right-column photos block", async () => {
     const onAttachPhoto = vi.fn();
     const onRemovePhoto = vi.fn();
     const user = userEvent.setup();
     renderPanel(panelItem(), { onAttachPhoto, onRemovePhoto });
 
-    expect(screen.queryByText(/Weidian gallery/i)).toBeNull();
+    // The right column still carries no second PHOTOS block — the left
+    // filmstrip is the one place that adds and deletes. The album link that
+    // used to sit in this column returned to the LEFT one in handoff turn 9
+    // §4, under the strip, so it is no longer a chip in the rail.
     expect(document.querySelector(".cz-detail-photos")).toBeNull();
+    expect(document.querySelector(".cz-dpanel-left .cz-album-links")).not.toBeNull();
     expect(screen.getByRole("button", { name: "Add photo" })).toBeInTheDocument();
     // Cover (first photo) has no trash; gallery photo 2 does.
     expect(screen.queryByRole("button", { name: "Delete photo 1" })).toBeNull();

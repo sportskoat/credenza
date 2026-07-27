@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload, X } from "lucide-react";
+import { listAgents } from "../agents.js";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import {
   EditPhotosManager,
@@ -9,6 +10,11 @@ import {
   buildEditPatch,
   computeRecommendedSize,
   effectiveBodyProfile,
+  chartCacheForSeller,
+  fetchChartFromPhotos,
+  readChartFromPhotoFiles,
+  serializeSizeChart,
+  FIND_STATUS_SUBLABEL,
   fitDisplayPrefs,
   formatMeasure,
   formatSizeToken,
@@ -26,12 +32,10 @@ import {
   useWriteThroughDraft,
   usePrefersReducedMotion,
   SIZE_PICK_SKIP_CATEGORIES,
-  STATUS_TRACK,
-  statusTrackIndex,
 } from "../credenza-fashion.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
 import SizeChartTable from "./SizeChartTable.jsx";
-import { albumLinkTarget } from "./CardMetaLinks.jsx";
+import { albumLinkTarget, AlbumLinksRow } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
 
@@ -57,85 +61,79 @@ const focusOnMount = (el) => {
   if (el) el.focus();
 };
 
-// One editor at a time. "size" is special: it opens the fit block, never a
-// text field, because the size cell carries the recommendation.
-function specCells(item, view, sizeText) {
+// One editor at a time.
+//
+// Handoff turn 9 §1: the six-cell grid is gone. It rendered a fixed grid in
+// which three cells (colorway, weight, batch) were em-dashes on a typical
+// item, so the flagship — sizing — read as one more piece of metadata, and
+// the rail sat half empty. Cells become CHIPS instead:
+//
+//   - a SET field is a solid chip showing its value;
+//   - an UNSET field is a dashed add-chip labelled "+ colorway";
+//   - an em-dash is never rendered.
+//
+// Two fields leave the row entirely. PRICE moves to the footer beside Buy
+// (§1). SIZE is promoted to its own block (§2). Both are still editable —
+// the chip row is a display and edit surface for the SHORT facts only.
+//
+// Each chip opens the same inline editor the cell opened, so the editor
+// switch below is unchanged.
+function specChips(view) {
   return [
-    { key: "price", label: "Price", value: priceLabelShort(item) || "—" },
-    { key: "size", label: "Size · fit", value: sizeText || "—" },
-    { key: "colorway", label: "Colorway", value: view.colorway || "—" },
+    { key: "colorway", label: "Colorway", add: "+ colorway", value: view.colorway || "" },
     {
       key: "weightGrams",
       label: "Weight",
-      value: view.weightGrams ? view.weightGrams + " g" : "—",
+      add: "+ weight",
+      value: view.weightGrams ? view.weightGrams + " g" : "",
     },
-    { key: "batch", label: "Batch", value: view.batch || "—" },
-    { key: "project", label: "Haul", value: view.project || "—" },
+    { key: "batch", label: "Batch", add: "+ batch", value: view.batch || "" },
+    { key: "project", label: "Haul", add: "+ haul", value: view.project || "" },
   ];
 }
 
-// One size reading, shared by the always-visible AI SIZE block and the fit
-// breakdown it opens. Both used to compute this separately, which let the
-// block and the breakdown disagree about the pick (handoff turn 9 §2).
-function readFit(item, bodyProfile, fitPref) {
-  const chart = parseSizeChart(sizeChartTextFor(item));
-  const profile = effectiveBodyProfile(bodyProfile);
-  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
-  const recSize = rec && rec.size ? rec.size : null;
-  const usualSize = !recSize ? usualSizeForItem(item, bodyProfile) : "";
-  // Only an ESTIMATED deciding measurement hedges the pick. A real chest with
-  // an estimated waist still earns the money chip on a shirt.
-  const decidingEstimated = !!(
-    profile &&
-    profile.estimated &&
-    rec &&
-    rec.primaryKey &&
-    (!bodyProfile || bodyProfile[rec.primaryKey] == null)
-  );
-  const precise = !!(recSize && rec.garment != null && rec.body != null) && !decidingEstimated;
-  const chartRunValues =
-    chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
-  const variantValues = pickSizeValuesFromVariants(item.variants);
-  return {
-    chart,
-    rec,
-    recSize,
-    usualSize,
-    decidingEstimated,
-    precise,
-    runValues: chartRunValues.length ? chartRunValues : variantValues,
-  };
-}
-
-// Where the chart came from, in the block's provenance slot (handoff turn 9
-// §2 row 1). Never invents a photo count — an item whose chart predates the
-// hunt tag gets the plain line.
-const SOURCE_SHORT = {
-  "album-text": "SELLER'S ALBUM",
-  "album-photos": "SELLER'S ALBUM",
-  "desc-photos": "SELLER'S LISTING",
-  "gallery-photos": "SELLER'S GALLERY",
-};
-
-// The size reasoning breakdown (handoff turn 3 §5). Reading order: verdict
-// (kicker + Georgia size + confidence chip) → prescription (1-2 plain
-// sentences naming the deciding measurement and the next size down) →
-// evidence (You/Garment/Ease trio, the fetched chart table with the pick
-// inverted, provenance footer + See album) → escape (override chips + Set my
-// sizes). With no parsed chart it says so and shows the size run plainly —
-// it never invents a pick.
-function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, onDone, onSaveEdit }) {
-  const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
-  // Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
-  // SIZES" — charts never arrived because the old hunt died with the desktop
-  // panel). Opening the fit block with no chart hunts once: Yupoo album
-  // text, then a vision read of the album/desc/gallery photos. A found chart
-  // writes into sizeNotes (+ its provenance into sizeChartSource), this
-  // block recomputes, and the pick appears.
+// Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
+// SIZES" — charts never arrived because the old hunt died with the desktop
+// panel). With no chart, hunt once: Yupoo album text, then a vision read of
+// the album/desc/gallery photos. A found chart writes into sizeNotes (+ its
+// provenance into sizeChartSource) and the pick appears.
+//
+// This was a bare effect inside FitBlock. Turn 9 §2 makes the sizing block
+// always visible, so the hunt has to start when the DETAIL opens, not when
+// somebody taps a size cell. It is a hook so exactly one component owns it —
+// two callers would fire two vision reads, and those cost money.
+// `enabled` exists because a hook cannot be called conditionally. FitBlock
+// still calls this, but passes enabled=false when its parent already owns the
+// hunt — otherwise both would fire and pay for two vision reads.
+//
+// Turn 9 §3 adds one step BEFORE the network: the seller cache. A chart read
+// once for a seller sizes every later item from that seller with no call at
+// all, which is the whole point of "the next item from that seller sizes
+// instantly". It costs a walk of the shelf against a network round trip.
+function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null) {
   const [hunting, setHunting] = useState(false);
   useEffect(() => {
+    if (!enabled) return;
     if (chart || SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return;
     if (chartHuntTried.has(item.id)) return;
+    // Seller cache first. It is free, and a chart the customer already accepted
+    // for this seller beats anything a fresh vision read would guess.
+    if (shelfItems && shelfItems.length) {
+      const cached = chartCacheForSeller(shelfItems, item);
+      if (cached) {
+        chartHuntTried.add(item.id);
+        onSaveEdit(item.id, {
+          sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + cached.text,
+          sizeChartSource: {
+            via: "seller-cache",
+            photos: 0,
+            at: new Date().toISOString(),
+            seller: cached.seller || item.seller || "",
+          },
+        });
+        return;
+      }
+    }
     let cancelled = false;
     const controller = new AbortController();
     setHunting(true);
@@ -169,8 +167,15 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
       // after an abort; the next mount will start a fresh hunt if not tried.
       setHunting(false);
     };
-  }, [chart, item, onSaveEdit]);
+  }, [enabled, chart, item, onSaveEdit, shelfItems]);
+  return hunting;
+}
 
+// One source of truth for the sizing verdict. FitBlock computed all of this
+// inline; turn 9 §2 adds a second consumer (the always-visible sizing block),
+// and two copies of this arithmetic would drift.
+function useSizeVerdict(item, bodyProfile, fitPref, units) {
+  const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
   // so the badge never claims a precise fit it does not have.
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
@@ -192,11 +197,673 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
     (!bodyProfile || bodyProfile[rec.primaryKey] == null)
   );
   const precise = !!(recSize && rec.garment != null && rec.body != null) && !decidingEstimated;
-  const chartRunValues = chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
+  const chartRunValues =
+    chart && Array.isArray(chart.rows) ? chart.rows.map((r) => r.size).filter(Boolean) : [];
   // Listing Size axis (Weidian variants) when no chart text yet — show run chips.
   const variantValues = pickSizeValuesFromVariants(item.variants);
   const variantRun = pickSizeRunFromVariants(item.variants);
   const runValues = chartRunValues.length ? chartRunValues : variantValues;
+  // The fit-summary pref gates the sentence.
+  const { summary: fitSummaryOn } = fitDisplayPrefs();
+  const prescription =
+    recSize && fitSummaryOn
+      ? prescriptionSentence(chart, rec, { units, category: item.category })
+      : "";
+  return {
+    chart,
+    rec,
+    recSize,
+    usualSize,
+    decidingEstimated,
+    precise,
+    runValues,
+    variantRun,
+    prescription,
+  };
+}
+
+// ── Timeline (handoff turn 9 §6) ──
+//
+// "It is generated from existing events — no new user input." Nothing here
+// asks the customer for anything; every row is read off fields the item
+// already carries. That is the point: the space the six-cell grid wasted now
+// answers "what has happened to this item", which the app already knows.
+//
+// Rows, oldest first: clipped (+ price), sized (+ where the size came from),
+// added to a haul. The next ACTION is not a row — §5's pill owns that, and
+// duplicating it would give one action two controls.
+//
+// Dates are absolute and short (JUL 18). Relative dates ("2 days ago") go
+// stale in a stored item and would need a re-render to stay true.
+function buildTimeline(item, sizeText, sizeFrom) {
+  const rows = [];
+  const stamp = (ms) => {
+    const d = new Date(ms);
+    if (isNaN(d.getTime())) return "";
+    return d
+      .toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      .toUpperCase();
+  };
+
+  if (item.createdAt) {
+    const price = priceLabelShort(item);
+    rows.push({
+      key: "clipped",
+      date: stamp(item.createdAt),
+      // The seller name is the useful half of "clipped from" — a bare host
+      // ("photo.yupoo.com") tells the customer nothing they did not see.
+      text: "Clipped" + (item.seller ? " from " + item.seller : "") + (price ? " · " + price : ""),
+    });
+  }
+
+  // The size row only earns its place once a size exists. "Sized —" is the
+  // em-dash problem §1 just removed from the chip row.
+  if (sizeText) {
+    rows.push({
+      key: "sized",
+      date: stamp(item.updatedAt || item.createdAt),
+      text: "Sized",
+      strong: sizeText,
+      tail: sizeFrom ? " " + sizeFrom : "",
+    });
+  }
+
+  if (item.project) {
+    rows.push({
+      key: "hauled",
+      date: stamp(item.updatedAt || item.createdAt),
+      text: "Added to",
+      strong: item.project,
+      tail: " haul",
+    });
+  }
+
+  return rows;
+}
+
+function Timeline({ rows }) {
+  if (!rows.length) return null;
+  return (
+    <ol className="cz-timeline">
+      {rows.map((row) => (
+        <li key={row.key} className="cz-timeline-row">
+          <span className="cz-timeline-date">{row.date}</span>
+          <span className="cz-timeline-text">
+            {row.text}
+            {row.strong ? <strong> {row.strong}</strong> : null}
+            {row.tail || ""}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// ── Sizing block (handoff turn 9 §2) — "the flagship" ──
+//
+// Sizing used to be one of six equal spec cells, so the single field with a
+// REASON attached read like metadata, and you had to tap it to learn anything.
+// It is now its own always-visible card, directly under the chip row.
+//
+// Rows, in the handoff's order:
+//   1. header      — dot + AI SIZE + right-aligned provenance
+//   2. value       — Georgia, shimmered while it is the AI pick
+//   3. prescription— names the real numbers (pit-to-pit, ease)
+//   4. chart row   — one cell per size, the pick inverted
+//   5. footer      — override chips + Full chart
+//
+// States: `ai` (shimmer on), `manual` (header YOUR PICK, flat ink, no
+// shimmer), and no-chart (§3, rendered by SizingBlockNoChart below).
+//
+// It does NOT own the hunt. FitBlock still runs that, because the hunt writes
+// through onSaveEdit and must not fire twice; this block is fed the result.
+function SizingBlock({
+  chart,
+  rec,
+  recSize,
+  usualSize,
+  chosenSize,
+  precise,
+  hunting,
+  units,
+  runValues,
+  onPickSize,
+  onOpenChart,
+  reduced,
+  // §3: names the seller whose cached chart sized this item. Null on every
+  // other path, and the provenance falls back to SELLER'S CHART.
+  cachedFrom = "",
+}) {
+  const isManual = !!chosenSize;
+  const heroSize = chosenSize || recSize || usualSize || "";
+  const heroLabel = formatSizeToken(heroSize) || heroSize;
+
+  // Provenance, right-aligned in the header. Mono, uppercase, and short —
+  // the phone gets the trimmed form via CSS, not a second string.
+  const provenance = hunting
+    ? "READING CHART"
+    : isManual
+      ? "SET BY YOU"
+      : precise
+        ? cachedFrom
+          ? "FROM " + String(cachedFrom).toUpperCase() + "'S CHART (CACHED)"
+          : "SELLER'S CHART"
+        : recSize
+          ? "BEST GUESS"
+          : "YOUR USUAL";
+
+  // "your usual is L too" — only worth saying when the AI pick and the
+  // customer's usual size agree. Silent otherwise; a disagreement is the
+  // prescription's job to explain, not a subtitle's.
+  const aside =
+    !isManual && recSize && usualSize && String(recSize).toUpperCase() === String(usualSize).toUpperCase()
+      ? "your usual too"
+      : isManual
+        ? "you picked this"
+        : "";
+
+  // The chart row: one cell per size showing the deciding measurement, so the
+  // pick is legible without opening the full table. rec.primaryKey names the
+  // measure the recommendation was actually read from.
+  const key = rec && rec.primaryKey ? rec.primaryKey : "chest";
+  const cells =
+    chart && Array.isArray(chart.rows)
+      ? chart.rows.filter((r) => r.size && r[key] != null).slice(0, 6)
+      : [];
+
+  return (
+    <section className={"cz-sizing" + (isManual ? " is-manual" : "")} aria-label="Sizing">
+      <div className="cz-sizing-head">
+        <span className="cz-sizing-dot" aria-hidden="true" />
+        <span className="cz-sizing-kicker">{isManual ? "Your pick" : "AI size"}</span>
+        <span className="cz-sizing-prov">{provenance}</span>
+      </div>
+
+      <div className="cz-sizing-value-row">
+        {heroLabel ? (
+          <span
+            className={
+              "cz-sizing-value" + (!isManual && !reduced && recSize ? " t-shimmer" : "")
+            }
+            data-text={!isManual && !reduced && recSize ? heroLabel : undefined}
+          >
+            {heroLabel}
+          </span>
+        ) : (
+          <span className="cz-sizing-value is-empty">—</span>
+        )}
+        {aside ? <span className="cz-sizing-aside">{aside}</span> : null}
+      </div>
+
+      {cells.length ? (
+        <div className="cz-sizing-chart" aria-hidden="true">
+          {cells.map((row) => (
+            <span
+              key={row.size}
+              className={
+                "cz-sizing-cell" +
+                (String(row.size).toUpperCase() === String(heroSize).toUpperCase() ? " is-pick" : "")
+              }
+            >
+              <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
+              <span className="cz-sizing-cell-v">{formatMeasure(row[key], units)}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="cz-sizing-foot">
+        {/* Override chips: the two sizes either side of the pick. The whole
+            run belongs in the full chart, not in a footer strip. */}
+        {chipSizes(runValues, heroSize)
+          .filter((s) => String(s).toUpperCase() !== String(heroSize).toUpperCase())
+          .slice(0, 2)
+          .map((size) => (
+            <button
+              key={size}
+              type="button"
+              className="cz-sizing-override"
+              onClick={() => onPickSize(String(size))}
+            >
+              Use {formatSizeToken(size) || size}
+            </button>
+          ))}
+        {/* Clear a hand pick so the AI size returns (Kyle 2026-07-26). */}
+        {isManual && recSize ? (
+          <button type="button" className="cz-sizing-override" onClick={() => onPickSize("")}>
+            Use AI size
+          </button>
+        ) : null}
+        <span className="cz-sizing-foot-gap" />
+        <button type="button" className="cz-sizing-full" onClick={onOpenChart}>
+          Full chart
+          <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// The customer's own chart read (handoff turn 9 §3). Separate from useChartHunt
+// because the hunt is automatic and silent, and this one is a deliberate act
+// with a result the customer confirms before it lands.
+//
+// The read STAGES its chart; it does not commit. A vision read of a photo the
+// customer aimed themselves is the most likely of all the reads to be right,
+// and also the only one they can check against the thing in their hand. So the
+// preview exists, and `commit` is a separate call.
+function useCustomerChartRead(item, onSaveEdit) {
+  const [state, setState] = useState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false });
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  // A different item means a stale preview. Drop it rather than offer someone
+  // else's chart on this card.
+  useEffect(() => {
+    setState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false });
+  }, [item.id]);
+
+  const read = async (sources, { thumb = "", referer = "" } = {}) => {
+    setState({ reading: true, chart: null, text: "", thumb, error: "", dirty: false });
+    const list = Array.isArray(sources) ? sources : [sources];
+    // Remote album photos go down the images door (the server fetches them
+    // through its allowlist); files and data: URLs go inline. Never both.
+    const remote = list.filter((s) => typeof s === "string" && /^https?:\/\//i.test(s));
+    const text = remote.length
+      ? await fetchChartFromPhotos(remote, { referer: referer || item.url || undefined })
+      : await readChartFromPhotoFiles(list, { referer: referer || item.url || undefined });
+    if (!alive.current) return;
+    const chart = text ? parseSizeChart(text) : null;
+    if (!chart) {
+      setState({
+        reading: false,
+        chart: null,
+        text: "",
+        thumb,
+        dirty: false,
+        error: text
+          ? "I read the photo but could not find sizes in it. Try a straighter shot of the table."
+          : "I could not read that photo. Try again with the whole table in frame.",
+      });
+      return;
+    }
+    setState({ reading: false, chart, text, thumb, error: "", dirty: false });
+  };
+
+  const commit = () => {
+    if (!state.text) return;
+    // Corrections live on the staged chart, so the text comes from IT and not
+    // from the raw read. Fall back to the read when nothing was corrected, or
+    // when a correction emptied the chart past the point of serializing.
+    const fixed = state.dirty ? serializeSizeChart(state.chart) : "";
+    const text = fixed && parseSizeChart(fixed) ? fixed : state.text;
+    onSaveEdit(item.id, {
+      sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text,
+      sizeChartSource: {
+        via: "customer-photo",
+        photos: 1,
+        at: new Date().toISOString(),
+        ...(item.seller ? { seller: String(item.seller).slice(0, 60) } : {}),
+      },
+    });
+    setState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false });
+  };
+
+  const dismiss = () => setState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false });
+
+  // A corrected cell rewrites the staged chart. It does NOT re-parse: a
+  // half-typed "1" is under the parser's 20cm floor, so a round trip per
+  // keystroke would blank the cell under the customer's fingers. The text is
+  // regenerated once, at commit.
+  const fix = (nextChart) => {
+    setState((prev) => ({ ...prev, chart: nextChart, dirty: true, error: "" }));
+  };
+
+  return { ...state, read, commit, dismiss, fix };
+}
+
+// ── No chart → snapshot into the parser (handoff turn 9 §3) ──
+//
+// The hunt looked at the album text, the chart tiles, the description feed and
+// the gallery, and none of it parsed. The old block said "No size chart on this
+// listing" and stopped, which leaves the customer holding the one thing the app
+// cannot get on its own: a photo of the chart. So this state asks for it.
+//
+// Dashed border and a warn dot on purpose — every other sizing state states a
+// fact it verified, and this one states a fallback. The value still renders,
+// because a usual size is better than a dash, but it renders FLAT ink with
+// "not verified" beside it so it never reads as a recommendation.
+//
+// The two actions differ only in `capture`: on a phone, `capture` opens the
+// camera directly, and without it the picker offers the photo library. Both are
+// labels wrapping a file input, because a label is the only element that opens
+// a picker without JS clicking a hidden node.
+function SizingBlockNoChart({
+  usualSize,
+  albumPhotos,
+  albumCount,
+  onReadPhotos,
+  onOpenAlbum,
+  onOpenChart,
+}) {
+  const heroLabel = formatSizeToken(usualSize) || usualSize || "";
+  const thumbs = (albumPhotos || []).slice(0, 2);
+  const take = (e) => {
+    const files = [...(e.target.files || [])];
+    e.target.value = "";
+    if (files.length) onReadPhotos(files);
+  };
+
+  return (
+    <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing">
+      <div className="cz-sizing-head">
+        <span className="cz-sizing-dot" aria-hidden="true" />
+        <span className="cz-sizing-kicker">No chart</span>
+        <span className="cz-sizing-prov">FELL BACK TO YOUR USUAL</span>
+      </div>
+
+      <div className="cz-sizing-value-row">
+        {heroLabel ? (
+          <>
+            <span className="cz-sizing-value">{heroLabel}</span>
+            <span className="cz-sizing-aside">your usual · not verified</span>
+          </>
+        ) : (
+          <>
+            <span className="cz-sizing-value is-empty">—</span>
+            <span className="cz-sizing-aside">no usual size saved</span>
+          </>
+        )}
+      </div>
+
+      <p className="cz-sizing-nochart-body">
+        The listing had no measurements and nothing in the album parsed as a
+        chart. Send me the chart photo and I&rsquo;ll read the cm off it.
+      </p>
+
+      <div className="cz-sizing-actions">
+        <label className="cz-sizing-action is-primary">
+          <Camera size={16} strokeWidth={2} aria-hidden="true" />
+          Snapshot chart
+          {/* `capture` is a hint, not a guarantee: a desktop browser ignores it
+              and shows the ordinary picker, which is the right fallback. */}
+          <input type="file" accept="image/*" capture="environment" onChange={take} />
+        </label>
+        <label className="cz-sizing-action">
+          <Upload size={16} strokeWidth={2} aria-hidden="true" />
+          Upload photo
+          <input type="file" accept="image/*" multiple onChange={take} />
+        </label>
+      </div>
+
+      {albumCount ? (
+        <button type="button" className="cz-sizing-albumrow" onClick={onOpenAlbum}>
+          <span className="cz-sizing-albumthumbs" aria-hidden="true">
+            {thumbs.map((src, i) => (
+              <img key={src + i} className="cz-sizing-albumthumb" src={src} alt="" loading="lazy" />
+            ))}
+          </span>
+          <span className="cz-sizing-albumtext">
+            or pick from this item&rsquo;s {albumCount} album photo
+            {albumCount === 1 ? "" : "s"}
+          </span>
+          <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      ) : null}
+
+      {/* The full chart sheet is still the way in for a chart the customer
+          would rather type, and the only route to My sizes from here. §3
+          replaced the old static "no chart" copy, and that copy carried this
+          link — losing it would strand anyone whose photo will not read. */}
+      <div className="cz-sizing-foot">
+        <span className="cz-sizing-foot-gap" />
+        <button type="button" className="cz-sizing-full" onClick={onOpenChart}>
+          Full chart
+          <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// ── Reading / read-back state (handoff turn 9 §3, "Parsing state") ──
+//
+// Shown while the customer's photo is in the vision read, and again with the
+// result before it lands. The provenance slot counts what came back —
+// `4 ROWS · 3 COLUMNS` — because a count is the fastest way to see the read
+// went wrong: one row means it caught a caption, not a table.
+//
+// The scan line rides the source thumb while the read is open. It is decoration
+// with a job: it says the photo is the thing being worked on, not an attachment.
+function SizingBlockReading({ reading, chart, thumb, error, units, onUse, onRetry, onFix }) {
+  // "Fix a number" (spec §3): the vision read gets a digit wrong often enough
+  // that a chart with one bad cell must be salvageable. Without this the only
+  // options are accept a wrong chart or throw the whole read away.
+  const [fixing, setFixing] = useState(false);
+  const rows = chart && Array.isArray(chart.rows) ? chart.rows : [];
+  // The measurement keys the parser actually filled, in the order the table had
+  // them. `size` is the row label, not a measurement.
+  const columns = rows.length
+    ? Object.keys(rows[0]).filter((k) => k !== "size" && rows[0][k] != null)
+    : [];
+  const provenance = reading
+    ? "READING…"
+    : chart
+      ? rows.length + " ROW" + (rows.length === 1 ? "" : "S") + " · " +
+        columns.length + " COLUMN" + (columns.length === 1 ? "" : "S")
+      : "COULD NOT READ";
+  const preview = rows.slice(0, 6);
+  const key = columns[0] || "chest";
+  // A new read replaces the cells, so the editor must close. Watch `reading`,
+  // not `chart`: `chart` changes on every corrected keystroke, and closing on
+  // that would eject the customer after one digit.
+  useEffect(() => {
+    if (reading) setFixing(false);
+  }, [reading]);
+
+  return (
+    <section
+      className={"cz-sizing cz-sizing-reading" + (error ? " is-error" : "")}
+      aria-label="Sizing"
+      aria-busy={reading || undefined}
+    >
+      <div className="cz-sizing-head">
+        <span className="cz-sizing-dot" aria-hidden="true" />
+        <span className="cz-sizing-kicker">{error ? "No chart" : "Reading chart"}</span>
+        <span className="cz-sizing-prov">{provenance}</span>
+      </div>
+
+      <div className="cz-sizing-read-row">
+        {thumb ? (
+          <span className={"cz-sizing-read-thumb" + (reading ? " is-scanning" : "")}>
+            <img src={thumb} alt="" />
+          </span>
+        ) : null}
+        <p className="cz-sizing-read-text">
+          {reading
+            ? "Reading the numbers off your photo…"
+            : error
+              ? error
+              : columns.length
+                ? "I found " + listPhrase(columns.map(measureWord)) + " for " +
+                  rows.length + " size" + (rows.length === 1 ? "" : "s") + "."
+                : "I read the table but could not name its columns."}
+        </p>
+      </div>
+
+      {fixing && chart ? (
+        <ChartFixGrid rows={rows} columns={columns} units={units} onFix={onFix} />
+      ) : preview.length ? (
+        <div className="cz-sizing-chart" aria-hidden="true">
+          {preview.map((row) => (
+            <span key={row.size} className="cz-sizing-cell">
+              <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
+              <span className="cz-sizing-cell-v">{formatMeasure(row[key], units)}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {!reading ? (
+        <div className="cz-sizing-actions">
+          {chart ? (
+            <button type="button" className="cz-sizing-action is-primary" onClick={onUse}>
+              Use this chart
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="cz-sizing-read-retry"
+            onClick={chart ? () => setFixing((v) => !v) : onRetry}
+          >
+            {chart ? (fixing ? "Done fixing" : "Fix a number") : "Try another photo"}
+          </button>
+          {/* Rejecting the whole read still needs a way out, and it must not be
+              the same button as the per-cell fix. */}
+          {chart ? (
+            <button type="button" className="cz-sizing-read-retry is-wide" onClick={onRetry}>
+              Not this one
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+// Per-cell numeric editor for a read chart (handoff turn 9 §3, "Fix a number").
+//
+// One input per cell, in the table's own layout, so a wrong digit is corrected
+// where it is seen. Every cell shows CM regardless of the display unit: the
+// numbers on the tag are cm, and asking someone to convert their correction
+// back to cm is how a second error gets in.
+//
+// The edit lifts to the parent as a whole replacement chart, because the chart
+// is derived from text and only the text is stored. A blank cell drops the
+// measurement rather than storing zero.
+function ChartFixGrid({ rows, columns, units, onFix }) {
+  const cols = columns.length ? columns : ["chest"];
+  const setCell = (rowIndex, key, raw) => {
+    const digits = String(raw).replace(/[^0-9]/g, "").slice(0, 3);
+    const next = rows.map((row, i) => {
+      if (i !== rowIndex) return row;
+      // Rebuild in the TABLE's column order, not the row's current key order.
+      // Clearing a cell drops its key, so rebuilding from the row would append
+      // the column on the next keystroke — and the serialized text, and with it
+      // the chart's column order, would follow.
+      const copy = { size: row.size };
+      for (const k of cols) {
+        const value = k === key ? (digits ? parseInt(digits, 10) : null) : row[k];
+        if (value != null && isFinite(value)) copy[k] = value;
+      }
+      // Keep any measurement the table header does not show.
+      for (const k of Object.keys(row)) {
+        if (k !== "size" && !cols.includes(k) && copy[k] == null) copy[k] = row[k];
+      }
+      return copy;
+    });
+    onFix({ rows: next });
+  };
+
+  return (
+    <div className="cz-sizing-fix">
+      <div className="cz-sizing-fix-head">
+        <span className="cz-sizing-fix-size" />
+        {cols.map((key) => (
+          <span key={key} className="cz-sizing-fix-col">
+            {measureWord(key)}
+            {units === "in" ? " (cm)" : ""}
+          </span>
+        ))}
+      </div>
+      {rows.map((row, i) => (
+        <div key={String(row.size) + i} className="cz-sizing-fix-row">
+          <span className="cz-sizing-fix-size">{formatSizeToken(row.size) || row.size}</span>
+          {cols.map((key) => (
+            <input
+              key={key}
+              className="cz-sizing-fix-cell"
+              type="text"
+              inputMode="numeric"
+              maxLength={3}
+              aria-label={(formatSizeToken(row.size) || row.size) + " " + measureWord(key) + " in cm"}
+              value={row[key] == null ? "" : String(Math.round(row[key]))}
+              onChange={(e) => setCell(i, key, e.target.value)}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Name a parsed column the way a person would say it out loud. The parser's
+// keys are terse on purpose; this is the only place they are read aloud.
+const MEASURE_WORDS = {
+  chest: "chest",
+  bust: "bust",
+  waist: "waist",
+  hip: "hips",
+  hips: "hips",
+  length: "length",
+  shoulder: "shoulders",
+  sleeve: "sleeve",
+  inseam: "inseam",
+  thigh: "thigh",
+  height: "height",
+  weight: "weight",
+};
+function measureWord(key) {
+  return MEASURE_WORDS[key] || String(key);
+}
+
+// "chest, length and shoulders" — an Oxford-free list, because it is read as a
+// sentence and not as a spec.
+function listPhrase(words) {
+  if (words.length <= 1) return words[0] || "";
+  if (words.length === 2) return words[0] + " and " + words[1];
+  return words.slice(0, -1).join(", ") + " and " + words[words.length - 1];
+}
+
+// The size reasoning breakdown (handoff turn 3 §5). Reading order: verdict
+// (kicker + Georgia size + confidence chip) → prescription (1-2 plain
+// sentences naming the deciding measurement and the next size down) →
+// evidence (You/Garment/Ease trio, the fetched chart table with the pick
+// inverted, provenance footer + See album) → escape (override chips + Set my
+// sizes). With no parsed chart it says so and shows the size run plainly —
+// it never invents a pick.
+function FitBlock({
+  item,
+  bodyProfile,
+  fitPref,
+  units,
+  onPickSize,
+  onOpenSizes,
+  onDone,
+  onSaveEdit,
+  // The parent owns the hunt now (turn 9 §2: the sizing block is always
+  // visible, so the hunt starts with the detail view). When the parent passes
+  // its flag, use it; standalone callers still run their own.
+  hunting: huntingProp,
+}) {
+  const {
+    chart,
+    rec,
+    recSize,
+    usualSize,
+    decidingEstimated,
+    precise,
+    runValues,
+    variantRun,
+    prescription,
+  } = useSizeVerdict(item, bodyProfile, fitPref, units);
+  const parentOwnsHunt = huntingProp !== undefined;
+  const ownHunting = useChartHunt(item, chart, onSaveEdit, !parentOwnsHunt);
+  const hunting = parentOwnsHunt ? huntingProp : ownHunting;
   const heroSize = recSize || usualSize || null;
   const huntLine = "Looking for the seller's size chart…";
   const badgeLabel = hunting
@@ -209,11 +876,6 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
           ? "Your usual size"
           : "No recommendation";
   const kickerLabel = recSize ? "We recommend" : usualSize ? "Your usual" : "Size run";
-  // The fit-summary pref gates the sentence.
-  const { summary: fitSummaryOn } = fitDisplayPrefs();
-  const prescription = recSize && fitSummaryOn
-    ? prescriptionSentence(chart, rec, { units, category: item.category })
-    : "";
   // Provenance footer (turn 3 §5): where the chart came from, when, and a
   // See album link. Items whose chart predates the hunt tag get the plain
   // line — the footer never invents a photo count.
@@ -221,9 +883,15 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
   const source = item.sizeChartSource && typeof item.sizeChartSource === "object" ? item.sizeChartSource : null;
   const SOURCE_LINES = {
     "album-text": "Chart read from the seller's album page",
+    "chart-photos": "Chart read from the album's size-chart photo",
     "album-photos": "Chart read from " + (source ? source.photos : 0) + " album photos",
     "desc-photos": "Chart read from " + (source ? source.photos : 0) + " listing photos",
     "gallery-photos": "Chart read from " + (source ? source.photos : 0) + " gallery photos",
+    "customer-photo": "Chart read from your photo",
+    // Turn 9 §3: "surface that as FROM <seller>'s CHART (CACHED)". The seller
+    // is named because the value of a cache the customer cannot see is zero.
+    "seller-cache":
+      "From " + ((source && source.seller) || "this seller") + "'s chart (cached)",
   };
   const sourceLine = source && SOURCE_LINES[source.via]
     ? SOURCE_LINES[source.via] +
@@ -258,7 +926,10 @@ function FitBlock({ item, bodyProfile, fitPref, units, onPickSize, onOpenSizes, 
         <div className="cz-detail-fit-size">{formatSizeToken(heroSize) || heroSize}</div>
       ) : hunting ? (
         <p className="cz-detail-fit-empty is-hunting" aria-live="polite">
-          <span className="t-shimmer" data-text={huntLine}>
+          {/* t-shimmer-wrap: this sentence wraps to two lines on a phone, and the
+              default two-layer shimmer prints a second copy that wraps
+              differently. The wrap variant paints one layer only. */}
+          <span className="t-shimmer t-shimmer-wrap" data-text={huntLine}>
             {huntLine}
           </span>
         </p>
@@ -375,206 +1046,6 @@ function chipSizes(runValues, anchor) {
   return runValues.slice(start, start + MAX);
 }
 
-// The two sizes either side of the pick, as one-tap apply chips (handoff
-// turn 9 §2 row 5 — "Use M", "Use XL"). The pick itself is never a chip: it
-// is already the value above. Two chips maximum, so the strip stays one row.
-function neighbourSizes(runValues, anchor) {
-  const run = Array.isArray(runValues) ? runValues.filter(Boolean) : [];
-  const key = String(anchor || "").toUpperCase();
-  const idx = run.findIndex((s) => String(s).toUpperCase() === key);
-  if (idx < 0) return run.slice(0, 2);
-  return [run[idx - 1], run[idx + 1]].filter(Boolean);
-}
-
-// The measurement column the pick was read from, so the chart row shows the
-// number that decided it rather than an arbitrary first column.
-function chartRowValue(row, primaryKey) {
-  if (!row) return null;
-  if (primaryKey && row[primaryKey] != null) return row[primaryKey];
-  for (const k of ["chest", "waist", "hip", "shoulder", "length"]) {
-    if (row[k] != null) return row[k];
-  }
-  return null;
-}
-
-// AI SIZE block (handoff turn 9 §2, "the flagship"). It is always visible —
-// the recommendation used to hide behind a chevron tap on the Size · fit
-// cell, which is exactly the gap Kyle pointed at ("how is this the same as
-// this"). Three states: ai (shimmer, chart-backed), manual (YOUR PICK, flat)
-// and fallback (NO CHART, dashed border, honest about the guess).
-function AISizeBlock({
-  fit,
-  item,
-  bodyProfile,
-  chosenSize,
-  units,
-  reduced,
-  onPickSize,
-  onOpenChart,
-  onOpenSizes,
-}) {
-  const { chart, rec, recSize, usualSize, precise, runValues } = fit;
-  const manual = !!chosenSize;
-  const shown = manual ? chosenSize : recSize || usualSize || "";
-  const state = manual ? "manual" : recSize ? "ai" : "fallback";
-  const source =
-    item.sizeChartSource && typeof item.sizeChartSource === "object" ? item.sizeChartSource : null;
-  const provenance = manual
-    ? "SET BY YOU"
-    : recSize
-      ? (source && SOURCE_SHORT[source.via]) || "SELLER'S CHART"
-      : "FELL BACK TO YOUR USUAL";
-  const headLabel = manual ? "Your pick" : recSize ? "AI size" : "No chart";
-  const shownText = formatSizeToken(shown) || shown;
-  // The aside never repeats the value. It says who else agrees with it.
-  const usualForItem = usualSizeForItem(item, bodyProfile);
-  const aside = manual
-    ? recSize && String(recSize).toUpperCase() !== String(chosenSize).toUpperCase()
-      ? "AI says " + (formatSizeToken(recSize) || recSize)
-      : ""
-    : recSize && usualForItem && String(usualForItem).toUpperCase() === String(recSize).toUpperCase()
-      ? "your usual is " + (formatSizeToken(usualForItem) || usualForItem) + " too"
-      : recSize
-        ? ""
-        : "your usual · not verified";
-  const why =
-    !manual && recSize && rec && rec.garment != null && rec.body != null
-      ? prescriptionSentence(chart, rec, { units, category: item.category })
-      : "";
-  const primaryKey = rec && rec.primaryKey ? rec.primaryKey : null;
-  const chartRow =
-    chart && Array.isArray(chart.rows)
-      ? chart.rows.filter((r) => chartRowValue(r, primaryKey) != null).slice(0, 6)
-      : [];
-  const neighbours = neighbourSizes(runValues, shown);
-  const shimmer = state === "ai" && !reduced;
-
-  return (
-    <section className={"cz-ai-size is-" + state} aria-label="Recommended size">
-      <div className="cz-ai-size-head">
-        <span className="cz-ai-size-kicker">
-          <span className="cz-ai-size-dot" aria-hidden="true" />
-          {headLabel}
-        </span>
-        <span className="cz-ai-size-prov">{provenance}</span>
-      </div>
-
-      <div className="cz-ai-size-value-row">
-        {shownText ? (
-          <span
-            className={"cz-ai-size-value" + (shimmer ? " t-shimmer" : "")}
-            data-text={shimmer ? shownText : undefined}
-          >
-            {shownText}
-          </span>
-        ) : (
-          <span className="cz-ai-size-value is-empty">—</span>
-        )}
-        {aside ? <span className="cz-ai-size-aside">{aside}</span> : null}
-        {!manual && precise ? (
-          <span className="cz-ai-size-confidence">Read from the chart</span>
-        ) : null}
-      </div>
-
-      {why ? <p className="cz-ai-size-why">{why}</p> : null}
-      {state === "fallback" ? (
-        <p className="cz-ai-size-why">
-          {usualSize
-            ? "The listing had no measurements and nothing in the album parsed as a chart. Add the chart photo and Credenza reads the cm off it."
-            : "Set your sizes to get a recommendation on this listing."}
-        </p>
-      ) : null}
-
-      {chartRow.length ? (
-        <div className="cz-ai-size-chart" aria-hidden="true">
-          {chartRow.map((row) => (
-            <span
-              key={row.size}
-              className={
-                "cz-ai-size-chart-cell" +
-                (String(row.size).toUpperCase() === String(shown).toUpperCase() ? " is-rec" : "")
-              }
-            >
-              <span className="cz-ai-size-chart-k">{formatSizeToken(row.size) || row.size}</span>
-              <span className="cz-ai-size-chart-v">
-                {formatMeasure(chartRowValue(row, primaryKey), units)}
-              </span>
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="cz-ai-size-foot">
-        <span className="cz-ai-size-foot-chips">
-          {/* One tap writes the size. This is the "Use M" / "Use XL" row the
-              handoff asks for — no editor, no Done, no second screen. */}
-          {neighbours.map((size) => (
-            <button
-              key={size}
-              type="button"
-              className="cz-ai-size-chip"
-              onClick={() => onPickSize(String(size))}
-            >
-              {"Use " + (formatSizeToken(size) || size)}
-            </button>
-          ))}
-          {manual && recSize ? (
-            <button type="button" className="cz-ai-size-chip is-ai" onClick={() => onPickSize("")}>
-              {"Use AI " + (formatSizeToken(recSize) || recSize)}
-            </button>
-          ) : null}
-          {!chart ? (
-            <button type="button" className="cz-ai-size-chip is-alt" onClick={onOpenSizes}>
-              Set my sizes
-            </button>
-          ) : null}
-        </span>
-        <button type="button" className="cz-ai-size-full" onClick={onOpenChart}>
-          Full chart ›
-        </button>
-      </div>
-    </section>
-  );
-}
-
-// The status track and its one next action (handoff turn 9 §5). The four
-// chips stay as the picker; the track adds the pill that names the next
-// transition, so the common case is one tap and not a decision.
-const TRACK_NEXT = [
-  { label: "Mark bought", status: "bought" },
-  { label: "Mark shipped", status: "shipped" },
-  { label: "Mark received", status: "returned" },
-];
-
-// The timeline is generated, never typed (handoff turn 9 §6). Every row is an
-// event the app already stores; nothing here asks the user for input.
-function timelineRows(item, view, sizeText) {
-  const rows = [];
-  const day = (ms) =>
-    new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase();
-  if (item.createdAt) {
-    rows.push({
-      key: "clipped",
-      date: day(item.createdAt),
-      text: "Clipped" + (priceLabelShort(item) ? " at " + priceLabelShort(item) : ""),
-    });
-  }
-  if (sizeText && sizeText !== "—") {
-    rows.push({
-      key: "sized",
-      date: item.sizeChartSource && item.sizeChartSource.at ? day(item.sizeChartSource.at) : "",
-      text: (String(view.size || "").trim() ? "You picked " : "Sized ") + sizeText,
-    });
-  }
-  if (view.project) {
-    rows.push({ key: "haul", date: "", text: "Added to " + view.project });
-  }
-  if (item.updatedAt && item.updatedAt !== item.createdAt) {
-    rows.push({ key: "edited", date: day(item.updatedAt), text: "Last edited" });
-  }
-  return rows.slice(0, 4);
-}
-
 // Shell chrome for the pager. The render prop gets the live pager state and
 // returns { actions, overlay }: the buttons go in the top-right span, the
 // overlay (the sheet's ⋯ menu) renders as its sibling because .cz-detail-menu
@@ -586,6 +1057,117 @@ function HeroActionsSlot({ render, photos, photoIdx, resetPager }) {
       {result.actions ? <span className="cz-detail-hero-actions">{result.actions}</span> : null}
       {result.overlay || null}
     </>
+  );
+}
+
+// The Buy button gets a notch (handoff turn 9 §8). One container, one radius,
+// split by a hairline: the label opens the agent, the chevron segment opens
+// the agent LIST. Before this the only way to change agent was Profile →
+// Buying agent, three taps away from the moment the choice matters.
+//
+// The list is the item's own price against every agent, repeated. That
+// repetition IS the message: "Item price is the same everywhere — agents
+// differ on shipping and service fee." A picker that showed four different
+// numbers would be lying about what an agent changes.
+function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
+  const [open, setOpen] = useState(false);
+  // The price comes from the item, not from the footer layout: the phone sheet
+  // draws no footer price at all, and the picker still has to show a number.
+  const price = priceLabelShort(item);
+  const wrapRef = useRef(null);
+  const listRef = useRef(null);
+  // No picker without a way to save the choice — the notch would open a list
+  // that cannot do anything. Standalone callers get the plain button.
+  const canPick = typeof onSelectAgent === "function";
+
+  // The list scrolls, so opening it on row 1 can hide the saved agent. Put the
+  // current choice on screen before the user reads anything.
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const row = listRef.current.querySelector(".is-active");
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        // The sheet closes on Escape too. Stop here so one press closes one
+        // layer, innermost first.
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onDocDown, true);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onDocDown, true);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
+
+  const buy = (
+    <button type="button" className="cz-detail-buy" onClick={() => onOpen(item, url)}>
+      {label}
+    </button>
+  );
+  if (!canPick) return buy;
+
+  return (
+    <div className="cz-buy-notch-wrap" ref={wrapRef}>
+      <div className="cz-buy-notch">
+        {buy}
+        <button
+          type="button"
+          className="cz-buy-notch-toggle"
+          aria-label="Choose buying agent"
+          aria-expanded={open}
+          aria-haspopup="true"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <ChevronDown size={17} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      </div>
+      {open ? (
+        <div className="cz-agent-pop">
+          <div
+            className="cz-agent-pop-list"
+            role="radiogroup"
+            aria-label="Buying agent"
+            ref={listRef}
+          >
+            {listAgents().map((agent) => {
+              const active = agent.id === preferredAgent;
+              return (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  key={agent.id}
+                  className={"cz-agent-pop-row" + (active ? " is-active" : "")}
+                  onClick={() => {
+                    onSelectAgent(agent.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="cz-agent-pop-dot" aria-hidden="true" />
+                  <span className="cz-agent-pop-name">{agent.name}</span>
+                  {/* Same number on every row, on purpose. */}
+                  {price ? <span className="cz-agent-pop-price">{price}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+          <p className="cz-agent-pop-note">
+            Item price is the same everywhere — agents differ on shipping and service fee.
+            Your pick sticks as the default.
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -607,12 +1189,26 @@ export default function DetailBody({
   renderHeroActions = null,
   flushRef = null,
   // Fix B (handoff turn 4): the desktop two-column panel puts the price in
-  // the pinned footer next to Buy. Null everywhere else — the phone sheet
-  // and the flip-card back keep the full-width Buy.
+  // the pinned footer next to Buy. §9 gives the phone sheet the same row, in
+  // its own boxed treatment. Null on the flip-card back, which keeps the
+  // full-width Buy.
   footerPrice = null,
-  // Desktop left filmstrip owns add/delete — hide the duplicate PHOTOS block
-  // (Kyle 2026-07-26: "we aren't seeing it in two places").
-  hidePhotosManager = false,
+  // §8: the notch picks the agent. Without onSelectAgent the notch does not
+  // render at all — a chevron that opens a list that saves nothing is worse
+  // than no chevron.
+  preferredAgent = null,
+  onSelectAgent = null,
+  // §9: the phone sheet's own close action, so the sticky bar can carry it.
+  // Absent on the desktop back, which never scrolls its photo out of a
+  // viewport and already has a card header.
+  onRequestClose = null,
+  // §9 QC prompt. QC photos are the agent's, not the seller's, so they take
+  // their own writer — never onAttachPhoto, which fills the product gallery.
+  onAttachQcPhoto = null,
+  // §3 seller cache: the whole shelf, so a chart already read for this seller
+  // sizes this item with no network call. Optional — callers that do not pass
+  // it simply fall back to the network hunt.
+  shelfItems = null,
 }) {
   const titleInputRef = useRef(null);
   const reduced = usePrefersReducedMotion();
@@ -624,6 +1220,34 @@ export default function DetailBody({
   const [photoIdx, setPhotoIdx] = useState(0);
   const trackRef = useRef(null);
   const photos = heroPager ? itemPhotoList(item, 12) : [];
+
+  // §9 sticky bar. The photo block used to leave a stranded sliver of image
+  // above the title as you scrolled. The bar replaces that sliver: thumb,
+  // title, size · price, close. It only exists where the shell gives us a
+  // close action, which is the phone sheet.
+  const heroRef = useRef(null);
+  const scrollRef = useRef(null);
+  const [heroGone, setHeroGone] = useState(false);
+  const wantsStickyBar = heroPager && typeof onRequestClose === "function";
+  useEffect(() => {
+    if (!wantsStickyBar) return undefined;
+    const hero = heroRef.current;
+    const root = scrollRef.current;
+    // jsdom has no IntersectionObserver, and neither does an old iOS. No
+    // observer means no bar — the sheet reads exactly as it did before §9.
+    if (!hero || !root || typeof IntersectionObserver === "undefined") return undefined;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e) setHeroGone(!e.isIntersecting);
+      },
+      // The bar arrives as the LAST of the photo leaves, not the first: a
+      // threshold of 0 flips the moment one pixel is gone.
+      { root, threshold: 0 }
+    );
+    io.observe(hero);
+    return () => io.disconnect();
+  }, [wantsStickyBar, item.id]);
 
   // Full-screen album (restored 2026-07-25, Kyle: "the old photos where you
   // could swipe through each photo... it was so good"). A tap on the hero
@@ -714,6 +1338,20 @@ export default function DetailBody({
     savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
   };
 
+  // Turn 9 §2: the sizing block is always visible, so the parent owns both the
+  // verdict and the hunt. FitBlock (the full chart sheet) is handed the same
+  // hunting flag rather than starting a second vision read.
+  const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
+  const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits);
+  const hunting = useChartHunt(item, verdict.chart, onSaveEdit, true, shelfItems);
+  // §3: the customer's own chart read, and the album photos its third option
+  // offers. Remote URLs only — a local data: URL cannot go down the images door.
+  const chartRead = useCustomerChartRead(item, onSaveEdit);
+  const sizingAlbumPhotos = useMemo(
+    () => itemPhotoList(item, 12).filter((src) => /^https?:\/\//i.test(src)),
+    [item]
+  );
+
   const recSize = computeRecommendedSize(item, bodyProfile, fitPrefs);
   const chosenSize = String(view.size || "").trim();
   const sizeIsRec = !chosenSize && !!recSize;
@@ -730,29 +1368,38 @@ export default function DetailBody({
           // Listing Size axis when nothing else — show S–XL, never invent a pick.
           return pickSizeRunFromVariants(item.variants) || "";
         })();
-  const cells = specCells(item, view, sizeText);
-  // One reading feeds the always-visible AI SIZE block. FitBlock keeps its own
-  // read because it also owns the silent chart hunt.
-  const fitPrefForItem = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
-  const fit = useMemo(
-    () => readFit(item, bodyProfile, fitPrefForItem),
-    [item, bodyProfile, fitPrefForItem]
+  const chips = specChips(view);
+  // Timeline (§6). sizeFrom names WHO decided the size, in the same vocabulary
+  // the sizing block's provenance uses — "from the seller's chart" only when a
+  // real chart was read, never for the profile fallback.
+  const timeline = buildTimeline(
+    item,
+    sizeText,
+    chosenSize
+      ? "yourself"
+      : verdict.precise
+        ? "from the seller's chart"
+        : recSize
+          ? "from your measurements"
+          : ""
   );
-  const timeline = timelineRows(item, view, sizeText);
-  const nextStep = TRACK_NEXT[statusTrackIndex(view.findStatus)] || null;
-  const trackSub =
-    STATUS_TRACK[statusTrackIndex(view.findStatus)] +
-    (view.findStatus === "want" ? " · not ordered" : "");
-
-  // One tap writes the size straight from the AI SIZE block — no editor.
-  const applySize = (size) => {
-    const next = { ...(draft || buildEditDraft(item)), size: String(size || "") };
-    setDraft(next);
-    onSaveEdit(item.id, buildEditPatch(next, item));
-    setSavedFlash(true);
-    if (savedTimer.current) clearTimeout(savedTimer.current);
-    savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
-  };
+  // §9 sticky bar meta: "AI SIZE L · $34.61". The size half names WHO decided
+  // it, in the sizing block's own vocabulary — the bar must not upgrade a
+  // profile guess into an AI read. Either half may be missing; the separator
+  // only appears between two real values.
+  const stickyMeta = [
+    sizeText ? (sizeIsRec ? "AI SIZE " : "SIZE ") + sizeText : "",
+    priceLabelShort(item),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  // The QC prompt is a question about the order's next step, so it only asks
+  // while the order can answer: with the agent, and nothing arrived yet.
+  const QC_PROMPT_STATUSES = ["bought", "shipped", "qc"];
+  const showQcPrompt =
+    typeof onAttachQcPhoto === "function" &&
+    QC_PROMPT_STATUSES.includes(view.findStatus) &&
+    !(Array.isArray(item.qcPhotos) && item.qcPhotos.filter(Boolean).length);
   const buyButtons = linkButtons(item, { buyLabel }).filter((b) => b.role === "buy");
   // ONE primary action: the first buy link only. Two filled twins read as a
   // bug (Kyle 2026-07-25, desktop card back included).
@@ -761,12 +1408,18 @@ export default function DetailBody({
     ? new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
   const subLine = [item.seller, savedDate ? "saved " + savedDate : ""].filter(Boolean).join(" · ");
-  const fitPref = fitPrefForItem;
   const knownHauls = Array.from(
     new Set([...(haulNames || []), item.project || ""].map((n) => String(n || "").trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
 
-  const editorLabel = (cells.find((c) => c.key === editingCell) || {}).label || "";
+  // Editor labels. Price and Size no longer appear in the chip row (§1 moves
+  // price to the footer, §2 promotes size to its own block), but both still
+  // open the same editors — so the label map is not the chip list.
+  const EDITOR_LABELS = { price: "Price", size: "Size · fit" };
+  const editorLabel =
+    EDITOR_LABELS[editingCell] ||
+    (chips.find((c) => c.key === editingCell) || {}).label ||
+    "";
   const priceUnit =
     String(view.currency || "CNY").toUpperCase() === "USD" ? "USD" : "CNY";
   // Price cell shows the prefs primary currency; the editor labels the unit of
@@ -861,6 +1514,9 @@ export default function DetailBody({
           }}
           onDone={() => setEditingCell(null)}
           onSaveEdit={onSaveEdit}
+          // The parent already hunts (turn 9 §2). Pass the flag so this does
+          // not start a second vision read for the same item.
+          hunting={hunting}
         />
       );
     }
@@ -1011,11 +1667,40 @@ export default function DetailBody({
 
   return (
     <>
-      <div className={"cz-detail-scroll" + (editingCell ? " is-editing" : "")}>
+      {/* Sticky bar (§9). It pins under the drag handle once the photo block
+          has scrolled away, so the sheet always says which item you are in.
+          aria-hidden while it is up: every control on it repeats one that is
+          already in the sheet, so a screen reader gains nothing and a
+          duplicate title is worse than no bar. */}
+      {wantsStickyBar ? (
+        <div className={"cz-detail-stickybar" + (heroGone ? " is-up" : "")} aria-hidden={!heroGone}>
+          {photos.length ? (
+            <img className="cz-detail-stickybar-thumb" src={photos[0]} alt="" decoding="async" />
+          ) : null}
+          <span className="cz-detail-stickybar-text">
+            <span className="cz-detail-stickybar-title">{view.title || "Saved item"}</span>
+            {stickyMeta ? <span className="cz-detail-stickybar-meta">{stickyMeta}</span> : null}
+          </span>
+          <button
+            type="button"
+            className="cz-detail-stickybar-close"
+            aria-label="Close"
+            tabIndex={heroGone ? 0 : -1}
+            onClick={onRequestClose}
+          >
+            <X size={16} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      <div
+        ref={scrollRef}
+        className={"cz-detail-scroll" + (editingCell ? " is-editing" : "")}
+      >
         {heroPager ? (
           // Photo pager. The dots track the scroll position — one snap per
           // photo, so a swipe is the only gesture needed.
-          <div className="cz-detail-hero">
+          <div className="cz-detail-hero" ref={heroRef}>
             <div
               ref={trackRef}
               className="cz-detail-hero-track"
@@ -1074,6 +1759,25 @@ export default function DetailBody({
           </div>
         ) : null}
 
+        {/* Photo panel tail (§4). The thumb strip and the two album links are
+            "its own row below" the photo, not chrome over it — so they move
+            here, directly under the hero, instead of sitting at the bottom of
+            the rail. The desktop panel has no hero of its own here: it draws
+            its stage and strip in the left column and mounts the same row
+            there, so this block stays tied to the hero that owns it. */}
+        {heroPager ? (
+          <div className="cz-detail-photo-tail">
+            <div className="cz-detail-photos">
+              <EditPhotosManager
+                item={item}
+                onAttachPhoto={onAttachPhoto}
+                onRemovePhoto={onRemovePhoto}
+              />
+            </div>
+            <AlbumLinksRow item={item} />
+          </div>
+        ) : null}
+
         {/* Title. The text itself is the tap target — there is no Title
             field and no Save button. Blur commits through the debounce. */}
         <div className="cz-detail-title-row">
@@ -1109,118 +1813,167 @@ export default function DetailBody({
           ) : null}
         </div>
 
-        <div className="cz-detail-cells">
-          {cells.map((cell) => {
-            const isSizeRec = cell.key === "size" && sizeIsRec;
+        {/* Chip row (§1). A set field is a solid chip carrying its value; an
+            unset field is a dashed add-chip. No em-dash is ever rendered —
+            that was the whole diagnosis: three of six cells were em-dashes on
+            a typical item, so the grid looked broken and pushed the real
+            content down. Price and size are NOT here (footer / own block). */}
+        <div className="cz-detail-chips">
+          {chips.map((chip) => {
+            const isSet = !!chip.value;
             return (
               <button
-                key={cell.key}
+                key={chip.key}
                 type="button"
                 className={
-                  "cz-detail-cell" +
-                  (editingCell === cell.key ? " is-active" : "") +
-                  (isSizeRec ? " is-rec" : "")
+                  "cz-detail-chip" +
+                  (isSet ? " is-set" : " is-add") +
+                  (editingCell === chip.key ? " is-active" : "")
                 }
+                // The visible label of an add-chip is "+ colorway", which does
+                // not say what tapping does. Name the action for a screen
+                // reader; a set chip already reads its own value.
+                aria-label={isSet ? chip.label + ": " + chip.value : "Add " + chip.label}
                 onClick={() => {
-                  if (editingCell === cell.key) {
+                  if (editingCell === chip.key) {
                     setEditingCell(null);
                     return;
                   }
-                  if (cell.key === "price") {
-                    openPriceEditor();
-                    return;
-                  }
-                  setEditingCell(cell.key);
+                  setEditingCell(chip.key);
                 }}
               >
-                <span className="cz-detail-cell-label">
-                  {isSizeRec ? <span className="cz-detail-cell-dot" aria-hidden="true" /> : null}
-                  {cell.label}
-                </span>
-                <span className="cz-detail-cell-value">
-                  <span
-                    className={isSizeRec && !reduced ? "cz-detail-cell-rec t-shimmer" : undefined}
-                    data-text={isSizeRec && !reduced ? cell.value : undefined}
-                  >
-                    {cell.value}
-                  </span>
-                  {cell.key === "size" ? (
-                    <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
-                  ) : null}
-                </span>
+                {isSet ? chip.value : chip.add}
               </button>
             );
           })}
         </div>
 
+        {/* Sizing block (§2) — the flagship, always visible. It used to be one
+            of six equal cells, so the only field carrying a REASON read as
+            metadata and took a tap to reveal. The prescription sits outside
+            the card so a long sentence never stretches the chart row. */}
+        {editingCell !== "size" ? (
+          <>
+            {/* Three states, in the order they occur. A live read outranks
+                everything: it is the only one the customer started by hand.
+                §3's no-chart form comes next, and only once the automatic hunt
+                has finished — while it is still hunting the ordinary block
+                shimmers READING CHART, and asking for a photo underneath that
+                would be asking for work the app may be about to do itself. */}
+            {chartRead.reading || chartRead.chart || chartRead.error ? (
+              <SizingBlockReading
+                reading={chartRead.reading}
+                chart={chartRead.chart}
+                thumb={chartRead.thumb}
+                error={chartRead.error}
+                units={measureUnits}
+                onUse={chartRead.commit}
+                onRetry={chartRead.dismiss}
+                onFix={chartRead.fix}
+              />
+            ) : !verdict.chart && !hunting ? (
+              <SizingBlockNoChart
+                usualSize={chosenSize || verdict.usualSize}
+                albumPhotos={sizingAlbumPhotos}
+                albumCount={sizingAlbumPhotos.length}
+                onReadPhotos={(files) => {
+                  const thumb = files[0] ? URL.createObjectURL(files[0]) : "";
+                  chartRead.read(files, { thumb });
+                }}
+                onOpenAlbum={() => {
+                  // The album photos are already on the card, so read them
+                  // straight through the URL door instead of making the
+                  // customer re-pick a photo the app is holding.
+                  chartRead.read(sizingAlbumPhotos.slice(0, 3), {
+                    thumb: sizingAlbumPhotos[0] || "",
+                  });
+                }}
+                onOpenChart={() => setEditingCell("size")}
+              />
+            ) : (
+              <SizingBlock
+                chart={verdict.chart}
+                rec={verdict.rec}
+                recSize={verdict.recSize}
+                usualSize={verdict.usualSize}
+                chosenSize={chosenSize}
+                precise={verdict.precise}
+                hunting={hunting}
+                units={measureUnits}
+                runValues={verdict.runValues}
+                reduced={reduced}
+                cachedFrom={
+                  item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
+                    ? item.sizeChartSource.seller || item.seller || ""
+                    : ""
+                }
+                onPickSize={(size) => {
+                  const next = { ...(draft || buildEditDraft(item)), size: String(size || "") };
+                  setDraft(next);
+                  onSaveEdit(item.id, buildEditPatch(next, item));
+                }}
+                onOpenChart={() => setEditingCell("size")}
+              />
+            )}
+            {verdict.prescription && !chartRead.reading && !chartRead.chart ? (
+              <p className="cz-sizing-why">{verdict.prescription}</p>
+            ) : null}
+          </>
+        ) : null}
+
         {/* The slot ref lets the keyboard-settle effect find the open
             editor and scroll it clear of the keyboard. */}
         {editingCell ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
 
-        {/* The recommendation is not behind a tap any more (handoff turn 9
-            §2). The block states the size, why, and the two neighbours — the
-            Size · fit cell still opens the full breakdown. */}
-        {editingCell !== "size" ? (
-          <AISizeBlock
-            fit={fit}
-            item={item}
-            bodyProfile={bodyProfile}
-            chosenSize={chosenSize}
-            units={measureUnits}
-            reduced={reduced}
-            onPickSize={applySize}
-            onOpenChart={() => setEditingCell("size")}
-            onOpenSizes={() => {
-              commitRef.current();
-              onOpenSizes && onOpenSizes();
-            }}
-          />
-        ) : null}
-
-        <div className="cz-detail-label-row">
+        {/* Status (§5). The header carries the rule and the right-aligned
+            sub-label; the track carries the progress and the next action. */}
+        <div className="cz-detail-rule-head">
           <span className="cz-detail-label">Status</span>
-          <span className="cz-detail-track-sub">{trackSub}</span>
+          <span className="cz-detail-rule" aria-hidden="true" />
+          <span className="cz-detail-rule-note">
+            {FIND_STATUS_SUBLABEL[view.findStatus || "want"] || ""}
+          </span>
         </div>
-        {/* The next transition is a named button, so the common path is one
-            tap and not a choice between four chips (handoff turn 9 §5). */}
-        {nextStep ? (
-          <button
-            type="button"
-            className="cz-detail-next"
-            onClick={() => pickStatus(nextStep.status)}
-          >
-            {nextStep.label}
-            <ChevronRight size={14} strokeWidth={2.6} aria-hidden="true" />
-          </button>
-        ) : null}
+        {/* StatusChips owns the named next-step pill (§5). It is drawn there,
+            not here, because only the track knows which stops are terminal
+            and which need a real decision rather than a one-tap primary. */}
         <StatusChips mode="track" value={view.findStatus} onChange={pickStatus} label="Order status" />
 
+        {/* Timeline (§6). Generated from fields the item already carries, so
+            it renders only when there is something true to say. */}
         {timeline.length ? (
           <>
-            <div className="cz-detail-label">Timeline</div>
-            {/* Generated from events the app already stores — this section
-                never asks the user to type anything (handoff turn 9 §6). */}
-            <ol className="cz-detail-timeline">
-              {timeline.map((row) => (
-                <li key={row.key} className="cz-detail-timeline-row">
-                  <span className="cz-detail-timeline-date">{row.date}</span>
-                  <span className="cz-detail-timeline-text">{row.text}</span>
-                </li>
-              ))}
-            </ol>
+            <div className="cz-detail-rule-head">
+              <span className="cz-detail-label">Timeline</span>
+              <span className="cz-detail-rule" aria-hidden="true" />
+            </div>
+            <Timeline rows={timeline} />
           </>
         ) : null}
 
-        <div className="cz-detail-label-row">
-          <span className="cz-detail-label">Notes</span>
-          <button type="button" className="cz-detail-more" onClick={() => setNotesOpen((v) => !v)}>
-            {notesOpen ? "Less" : "More"}
-          </button>
-        </div>
-        {/* The collapsed box is the same box you type in — no "+" expander
-            and no separate read view. The wrapper animates the open height
-            (grid rows, not a height transition on the textarea). */}
-        <div className={"cz-detail-notes-wrap" + (notesOpen ? " is-open" : "")}>
+        {/* Notes (§7). The header moves INSIDE the box, so the box reads as
+            one object instead of a label with a field under it.
+            §7: "Never a fixed 2-line box, never a truncation with no way
+            out." Collapsed clamps to 3 lines; EXPAND grows it. The box stays
+            the same box you type in — there is still no mode to enter and no
+            "+" to hunt for, which is what turn 5 fixed and §7 keeps. */}
+        <div className={"cz-detail-notes-box" + (notesOpen ? " is-open" : "")}>
+          <div className="cz-detail-notes-head">
+            <span className="cz-detail-notes-kicker">Notes</span>
+            <span className="cz-detail-notes-gap" />
+            <button
+              type="button"
+              className="cz-detail-notes-toggle"
+              onClick={() => setNotesOpen((v) => !v)}
+            >
+              {notesOpen ? (
+                <Minimize2 size={11} strokeWidth={2.2} aria-hidden="true" />
+              ) : (
+                <Maximize2 size={11} strokeWidth={2.2} aria-hidden="true" />
+              )}
+              {notesOpen ? "Collapse" : "Expand"}
+            </button>
+          </div>
           <textarea
             className="cz-detail-notes"
             aria-label="Notes"
@@ -1232,41 +1985,74 @@ export default function DetailBody({
           />
         </div>
 
-        {/* EditPhotosManager carries its own label and its own add tile.
-            The wrapper turns its grid into the handoff's 84px strip. Desktop
-            Fix B moves that strip under the stage — skip the second copy. */}
-        {!hidePhotosManager ? (
-          <div className="cz-detail-photos">
-            <EditPhotosManager
-              item={item}
-              onAttachPhoto={onAttachPhoto}
-              onRemovePhoto={onRemovePhoto}
-            />
+        {/* QC prompt (§9). It is the LAST block, after the notes, because it
+            asks about a moment that has not happened yet. It appears only
+            while the order is actually with the agent and no QC photo has
+            arrived — a standing "add QC photos" box on a WANT item is asking
+            for something that cannot exist. */}
+        {showQcPrompt ? (
+          <div className="cz-detail-qc-prompt">
+            <Camera size={17} strokeWidth={1.9} aria-hidden="true" />
+            <span className="cz-detail-qc-prompt-text">
+              Add QC photos when your order arrives at the agent
+            </span>
+            <label className="cz-detail-qc-prompt-btn">
+              Add
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  onAttachQcPhoto(item.id, e.target.files && e.target.files[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </div>
         ) : null}
+
       </div>
 
       {buyButton ? (
         <div className={"cz-detail-foot" + (footerPrice ? " has-price" : "")}>
           {footerPrice ? (
             <div className="cz-detail-foot-row">
-              <span className="cz-detail-foot-price">{footerPrice}</span>
+              {/* §1 moved price out of the chip row into the footer. The chip
+                  was the only way to open the price editor, so the footer has
+                  to carry that job now, or price becomes uneditable. */}
               <button
                 type="button"
-                className="cz-detail-buy"
-                onClick={() => onOpen(item, buyButton.url)}
+                className={
+                  "cz-detail-foot-price" + (editingCell === "price" ? " is-active" : "")
+                }
+                aria-label={"Edit price: " + footerPrice}
+                onClick={() => {
+                  if (editingCell === "price") {
+                    setEditingCell(null);
+                    return;
+                  }
+                  openPriceEditor();
+                }}
               >
-                {buyButton.label}
+                {footerPrice}
               </button>
+              <BuyNotch
+                item={item}
+                label={buyButton.label}
+                url={buyButton.url}
+                preferredAgent={preferredAgent}
+                onSelectAgent={onSelectAgent}
+                onOpen={onOpen}
+              />
             </div>
           ) : (
-            <button
-              type="button"
-              className="cz-detail-buy"
-              onClick={() => onOpen(item, buyButton.url)}
-            >
-              {buyButton.label}
-            </button>
+            <BuyNotch
+              item={item}
+              label={buyButton.label}
+              url={buyButton.url}
+              preferredAgent={preferredAgent}
+              onSelectAgent={onSelectAgent}
+              onOpen={onOpen}
+            />
           )}
           <p className="cz-detail-disclosure">
             Buy links may include a referral code. Credenza may earn a commission on agent

@@ -189,3 +189,21 @@ co-rendering on top of each other — which is exactly the DOM-measurement
 anti-pattern this doc already warns against for the carousel itself. If this
 transition is ever rewritten, do not reintroduce clone elements, `getBoundingClientRect`,
 or a portal for it.
+
+### The one compliant shared-element transition (2026-07-26)
+
+The card → detail photo morph (handoff §11) IS a shared-element transition, and
+it does not violate the rule above. It uses the browser's native View
+Transitions API: the browser snapshots the old and new frames itself, the
+"shared element" is only a matching `view-transition-name` on two nodes, and no
+clone, no `getBoundingClientRect` call, and no portal exist at any point. A test
+in `preview/test/photo-morph.test.jsx` asserts the DOM node count does not
+change during the morph.
+
+Read this as the pattern to copy for any future shared-element transition.
+`runPhotoMorph` in `credenza-fashion.jsx` is the helper; `docs/session-state.md`
+records its three traps. Two rules carry over from the failures above: verify by
+asserting a matching `::view-transition-new(...)` pseudo-element, never by eye —
+a skipped transition is silent and a screenshot cannot tell it from a working
+one. And never hand-compute a landing coordinate; if a landing element does not
+exist in the new frame, fix why it is missing.
