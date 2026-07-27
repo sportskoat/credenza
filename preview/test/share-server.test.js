@@ -180,20 +180,47 @@ describe("the public page renders what the sharer chose", () => {
 
     const html = (await sharePage.handler(get(CODE))).body;
     expect(html).toContain('<meta property="og:title" content="Winter haul" />');
-    expect(html).toContain('<meta property="og:image" content="https://cdn.example.com/coat.jpg" />');
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
     // A shared haul is the sharer's, not search-index material.
     expect(html).toContain('content="noindex, nofollow"');
   });
 
-  it("falls back to the site card when no photo is a fetchable URL", async () => {
+  // LB-39. The seller's own photo URL used to go straight into og:image, and
+  // Yupoo answers a crawler (no Referer) with an HTML error page — so the card
+  // drew blank. The picture now comes from our own route, which re-fetches it
+  // with a Referer the seller accepts.
+  it("points the card picture at our own relay, never the seller's URL", async () => {
+    const sb = fakeSupabase();
+    sb.shares.set(CODE, { id: CODE, user_id: "user-1", data: doc() });
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    const html = (await sharePage.handler(get(CODE))).body;
+    expect(html).toContain(`<meta property="og:image" content="https://credenzafashion.com/s/${CODE}/img" />`);
+    expect(html).toContain(`<meta name="twitter:image" content="https://credenzafashion.com/s/${CODE}/img" />`);
+    expect(html).not.toContain('og:image" content="https://cdn.example.com/coat.jpg"');
+  });
+
+  // The relay decodes an inline photo and serves it, so a haul shot on a phone
+  // camera unfurls like any other. Before LB-39 this fell back to the site card.
+  it("uses the relay for an inline photo too", async () => {
     const sb = fakeSupabase();
     sb.shares.set(CODE, {
       id: CODE,
       user_id: "user-1",
-      // A crawler cannot fetch a data: URL, so an honest fallback beats a
-      // broken unfurl.
       data: doc({ items: [{ title: "Coat", image: "data:image/png;base64,AAAA" }] }),
+    });
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    const html = (await sharePage.handler(get(CODE))).body;
+    expect(html).toContain(`<meta property="og:image" content="https://credenzafashion.com/s/${CODE}/img" />`);
+  });
+
+  it("falls back to the site card when the haul carries no photo at all", async () => {
+    const sb = fakeSupabase();
+    sb.shares.set(CODE, {
+      id: CODE,
+      user_id: "user-1",
+      data: doc({ items: [{ title: "Coat" }, { title: "Boots", image: "javascript:alert(1)" }] }),
     });
     vi.stubGlobal("fetch", sb.fetchMock);
 

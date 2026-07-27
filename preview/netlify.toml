@@ -10,6 +10,15 @@
   status = 301
   force = true
 
+# The card picture for a shared haul (LB-39). MUST stay above the /s/* rule
+# below: Netlify takes the first rule that matches, and /s/* would swallow
+# /s/<code>/img and answer it with HTML. The :code placeholder arrives as a
+# query parameter, which is why share-image reads the query before the path.
+[[redirects]]
+  from = "/s/:code/img"
+  to = "/.netlify/functions/share-image?code=:code"
+  status = 200
+
 # Shared hauls (LB-8). The page is server-rendered so a crawler that does not
 # run JavaScript still gets an Open Graph card. status = 200 rewrites the path
 # without a redirect, so the visitor's address bar keeps /s/<code>.

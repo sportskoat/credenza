@@ -112,6 +112,23 @@ describe("every rewrite points at something that exists", () => {
     ).toBe(true);
   });
 
+  // LB-39. The card picture lives under the share path, so the two rules
+  // overlap and Netlify takes the first match. Ordered the other way, /s/*
+  // swallows /s/<code>/img and answers a crawler with HTML where it asked for
+  // an image — which is the exact defect LB-39 removed, returning by a
+  // different door. Nothing else in the repo would notice.
+  it("matches the share picture before the share page", () => {
+    const img = redirects.findIndex((r) => r.values.from === "/s/:code/img");
+    const page = redirects.findIndex((r) => r.values.from === "/s/*");
+    expect(img, "netlify.toml no longer rewrites /s/:code/img").toBeGreaterThanOrEqual(0);
+    expect(page, "netlify.toml no longer rewrites /s/*").toBeGreaterThanOrEqual(0);
+    expect(img, "/s/:code/img is declared after /s/*, so it never matches").toBeLessThan(page);
+    expect(redirects[img].values.status, "/s/:code/img status").toBe("200");
+    // The code must reach the function. Without the query it gets an empty
+    // code and every card falls back to the generic site image.
+    expect(redirects[img].values.to, "/s/:code/img target").toContain("?code=:code");
+  });
+
   it("redirects www to the apex, and not the other way round", () => {
     // Reversed, this is an infinite loop on the canonical host: the apex is
     // where every canonical tag, the sitemap, and robots.txt point.
@@ -127,7 +144,11 @@ describe("every rewrite points at something that exists", () => {
     for (const r of redirects) {
       const to = r.values.to || "";
       if (!to.startsWith("/.netlify/functions/")) continue;
-      const name = to.slice("/.netlify/functions/".length).split("/")[0];
+      // A target may carry a path and a query — /.netlify/functions/x?code=:c
+      // is how a :placeholder reaches a function. Take the name only. Without
+      // the `?` split this rule reported a missing function for a real one,
+      // which is the failure mode that trains people to ignore a red test.
+      const name = to.slice("/.netlify/functions/".length).split(/[/?#]/)[0];
       expect(files.has(name + ".js"), `${r.values.from} rewrites to a missing function ${name}`).toBe(true);
     }
   });

@@ -72,7 +72,7 @@ do it completely, and report against its acceptance criteria.
 | LB-5 | Run one checkout end-to-end (Part 7g) | P0 | 2 h | LB-3 | OPEN |
 | LB-6 | Add the build preflight env check | P0 | 1 h | — | DONE 2026-07-26 |
 | LB-7 | Cloud sync for the shelf (Supabase) | P0 | 3–4 days | — | CODE DONE 2026-07-26 — dormant, needs Kyle |
-| LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | CODE DONE 2026-07-26 — needs the shares migration |
+| LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | CODE DONE 2026-07-26 — needs the shares migration; the OG picture was broken until LB-39 |
 | LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | DONE 2026-07-26 |
 | LB-10 | Ship the CSV export (Pro row) | P1 | 2 h | — | DONE 2026-07-26 |
 | LB-11 | Cut the framer-motion payload | P2 | 0.5 day | — | DONE 2026-07-26 — 25.5 KB gzip off first load |
@@ -103,6 +103,7 @@ do it completely, and report against its acceptance criteria.
 | LB-36 | Ship the Yupoo guide, bind the relay cap to the copy, and stop the keyword doc drifting | P1 | 1 h | LB-35 | DONE 2026-07-27 — ~12k/mo head term with a shipped feature and no page; it stayed uncovered because the planning table looked full |
 | LB-37 | Make a clean checkout build the real app instead of a 21-module stub | P0 | 2 h | — | DONE 2026-07-27 — the launch gate box was unchecked because it was true; Netlify would have shipped a bundle with no icons and no app |
 | LB-38 | Cache the bytes that never change; stop re-sending 1.3 MB to every repeat visitor | P1 | 1 h | LB-37 | DONE 2026-07-27 — the live site sent max-age=0 for a 352 KB font and 884 KB of content-hashed JS; found while booting the built bundle for LB-37 |
+| LB-39 | Give the share card a picture: relay the photo instead of hotlinking it | P0 | 2 h | LB-8 | DONE 2026-07-27 — LB-8's own acceptance criterion was not met; every Discord unfurl drew a blank card because Yupoo answers a crawler with HTTP 567 |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -478,7 +479,9 @@ router** — the only way a shared link gets an Open Graph image.
 
 **Acceptance.**
 - A share link pasted into Discord/Slack shows a preview card with image
-  and title.
+  and title. — **This one failed when it was finally run by hand. The card
+  had no picture. See LB-39: the seller refuses a crawler, so the photo is
+  relayed through `/s/:code/img` instead of hotlinked.**
 - Toggled-off fields are absent from the served HTML, not hidden by CSS.
 - An expired or deleted share returns 404 with a branded page.
 - Full gate green.
@@ -2238,6 +2241,99 @@ fails.
 
 **Gate.** 1591 tests pass, 0 lint errors, tsc clean, build emits the full bundle.
 
+### LB-39 — the share card that had no picture
+
+LB-8 shipped with a written acceptance criterion: *"A share link pasted into
+Discord/Slack shows a preview card with image and title."* Nothing in the repo
+tested it, because every rule in `public-site.test.js` walks files under
+`preview/public/`, and the share page is a function. So I ran the criterion by
+hand against a live Yupoo photo.
+
+**What a crawler actually gets.** The URL is the one the app stores in a share
+snapshot and used to put straight into `og:image`.
+
+| Request | Referer | Result |
+|---------|---------|--------|
+| browser UA | none | HTTP **567**, `text/html`, 7352 bytes |
+| **Discordbot UA** | none | HTTP **567**, `text/html`, 7352 bytes |
+| browser UA | the Yupoo host | HTTP 200, `image/jpeg`, 57400 bytes |
+
+Yupoo enforces hotlink protection by Referer, and a crawler sends no Referer.
+Discord, Slack and Twitter were fetching an error page. The card had a title, a
+description and no picture — and it failed silently, which is the worst way for
+a growth loop to fail.
+
+**Which Referer works, measured second, because guessing here would have
+shipped the same bug with more code.**
+
+| Referer sent | Result |
+|--------------|--------|
+| `https://huskyreps.x.yupoo.com/` | 200 |
+| `https://photo.yupoo.com/` | 200 |
+| `https://credenzafashion.com/` | **567** |
+
+Any yupoo-family origin passes. Our own does not. So the value matters, not just
+the presence, and the relay must never send the site origin.
+
+**Why the existing relay could not be reused.** `preview.js` already defeats
+hotlink protection, and reaching for it was my first instinct. Reading it first
+showed why that fails: line 205 requires an `x-credenza-key` header. A crawler
+has no key and would have received a 401 — the same blank card, now with a
+relay in front of it.
+
+**The fix.** A new public function, `share-image.js`, at `/s/:code/img`. It
+takes a share **code**, never a URL: there is no parameter a caller can aim, so
+a keyless route is not an open proxy. It loads the row with the service role,
+reads the first photo, and re-fetches it with a Referer the seller accepts —
+the saved seller page when it belongs to the same operator, the photo's own
+origin otherwise. The bytes come back through `safeFetch`, so the SSRF guards
+still apply to a URL that came from our own database.
+
+**Two things the tests forced.**
+
+1. *The bytes decide the type, not the header.* `preview.js` prefers the
+   declared `content-type` and sniffs only as a fallback, which is safe when it
+   answers our own bundle. This route answers Discord, and the server it fetches
+   is actively refusing us. A hotlink block that returned 200 with
+   `content-type: image/jpeg` and a page of HTML would have been published as
+   the card. The probe proved it: my first version passed HTML through.
+2. *A failure is still a picture.* Every failure path returns 302 to
+   `/og.png`. A 404 would leave the card blank, which is the defect this file
+   exists to remove.
+
+An inline `data:` photo now works too. It used to fall back to the generic site
+card, so a haul shot on a phone camera never unfurled with its own picture.
+
+**Ordering is load-bearing.** Netlify takes the first matching redirect. With
+`/s/*` declared first it swallows `/s/<code>/img` and answers a crawler with
+HTML where it asked for an image — the same defect returning by a different
+door. A rule now asserts the order.
+
+**One existing rule was too narrow.** `deploy-config.test.js` split a redirect
+target on `/` only, so `share-image?code=:code` read as a function named
+`share-image?code=:code` and reported a missing function for a real one. Fixed
+to split on `?` and `#` too. A rule that cries wolf teaches people to ignore it.
+
+| Probe | Result |
+|-------|--------|
+| Omit the Referer header | 3 fail |
+| Send `credenzafashion.com` as the Referer | 3 fail |
+| Trust the declared content-type | 4 fail |
+| Return 404 instead of the site card | 8 fail |
+| Bypass `safeFetch` | 1 fail |
+| Honour a caller-supplied `url` parameter | 1 fail |
+| Drop `?code=:code` from the rewrite | 1 fail |
+| Rename the img rule so `/s/*` swallows it | 1 fail |
+| Move the img rule below `/s/*` | 1 fail |
+| Put the raw seller URL back in `og:image` | 2 fail |
+| Restore each time | checksum verified |
+
+**Gate.** 1617 tests pass, 0 lint errors, tsc clean, build emits the full bundle.
+
+**Still needs Kyle.** The relay cannot be verified end-to-end until the shares
+migration runs — there is no share to fetch. After the deploy: create a share,
+paste the link into Discord, confirm the card shows the photo.
+
 ## Explicitly deferred (do NOT build before launch)
 
 - **Restock and price watch** (row 13) — needs a scheduler; zero code.
@@ -2262,6 +2358,11 @@ Launch when every box is checked:
 - [ ] LB-8: Kyle ran `docs/sql/2026-07-26-shares.sql`. Without the
       table every share attempt fails, and the Share button is visible
       to everybody.
+- [ ] LB-39: after the deploy, paste one real share link into Discord and
+      confirm the card shows the photo. The relay is covered by tests, but
+      only a live crawler proves the seller accepts the Referer we send.
+      This box stayed unchecked for a day while the code "was done" — that
+      is exactly how the blank card survived.
 - [ ] LB-3/D-1 price decision recorded here.
 - [ ] One full paid loop verified in test mode (LB-5 log exists).
 - [x] Pricing page lists only shipped features. Verified 2026-07-26 by the

@@ -173,11 +173,17 @@ function pageHtml(doc, opts) {
   if (total) summary.push(total + " total");
   const description = title + " — " + summary.join(" · ") + ". Shared with Credenza Fashion.";
 
-  // The OG image is the first shared photo, and only when it is a real URL:
-  // a data: URL is not fetchable by a crawler, so falling back to the site
-  // card is the honest result rather than a broken unfurl.
-  const first = items.find((card) => card && safeHref(card.image));
-  const ogImage = first ? safeHref(first.image) : SITE + "/og.png";
+  // The OG image never points at the seller's own URL, even though that URL is
+  // right there in the snapshot. Yupoo answers a request with no Referer with
+  // HTTP 567 and a page of HTML (measured 2026-07-27, LB-39), and a crawler
+  // sends no Referer — so the card that was supposed to carry the photo carried
+  // nothing. /s/:code/img re-fetches the same photo with a Referer the seller
+  // accepts and hands back the bytes. See share-image.js.
+  //
+  // A data: image counts as a photo here: share-image decodes it and serves it,
+  // so a haul shot on a phone camera now unfurls like any other.
+  const hasPhoto = items.some((card) => card && safeSrc(card.image));
+  const ogImage = hasPhoto && opts && opts.code ? SITE + "/s/" + encodeURIComponent(opts.code) + "/img" : SITE + "/og.png";
 
   // noindex: a shared haul belongs to the person who shared it. It should
   // unfurl in a chat, not accumulate in a search index — and an unlisted
@@ -285,7 +291,7 @@ async function handle(event) {
     const doc = share.parseShareSnapshot(row.data);
     if (!doc) return reply(404, missHtml(), MISS_CACHE);
 
-    return reply(200, pageHtml(doc, { hideFooter: row.hideFooter }), PAGE_CACHE);
+    return reply(200, pageHtml(doc, { hideFooter: row.hideFooter, code: id }), PAGE_CACHE);
   } finally {
     limit.leave(ROUTE);
   }

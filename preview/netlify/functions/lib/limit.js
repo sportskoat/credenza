@@ -31,6 +31,11 @@ const ROUTES = {
   // Discord is a legitimate burst — and the CDN answers most of it without
   // waking the function. This counter only ever sees cache misses.
   "share-page": { paid: false, perIpPerMin: 60, routePerMin: 600, maxConcurrent: 8, bodyBytes: 1024 },
+  // The card picture for /s/:code. One page unfurl is one image fetch, so the
+  // ceiling matches share-page rather than preview's. Concurrency is lower
+  // because each call holds an outbound socket to a seller's host, and a slow
+  // seller must not be able to occupy the whole instance.
+  "share-image": { paid: false, perIpPerMin: 60, routePerMin: 600, maxConcurrent: 6, bodyBytes: 1024 },
 };
 
 // USD per million tokens, [input, output]. Keep current with the console.
