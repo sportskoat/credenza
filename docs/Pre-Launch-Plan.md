@@ -87,6 +87,7 @@ do it completely, and report against its acceptance criteria.
 | LB-20 | Fix the search snippets; lock the language rules | P1 | 1 h | LB-19 | DONE 2026-07-27 — 13 descriptions and 1 title rewritten; 1 banned phrase found |
 | LB-21 | Fix the internal link graph | P1 | 1 h | LB-20 | DONE 2026-07-27 — 2 guides had one inbound link; 6 links added, graph locked |
 | LB-22 | Fill the thin guides; lock a length floor | P1 | 2 h | LB-21 | DONE 2026-07-27 — 5 guides expanded; stale pipeline fixed on 4 files; floor locked |
+| LB-23 | Fill /how/; widen the length floor to every page | P1 | 1.5 h | LB-22 | DONE 2026-07-27 — /how/ 248 → 967 words; floor now covers 17 pages |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1196,6 +1197,64 @@ legitimately needs 450 words passes.
   h2 headings". One edit proved both assertions can fail.
 
 **Gate.** 60 files / 1264 tests passed (1247 before). Lint 0 errors, 5
+pre-existing warnings. Typecheck clean. Build clean.
+
+### LB-23. The length floor only guarded one directory — DONE 2026-07-27
+
+LB-22 locked a 400-word floor on `/guides/`. That scope was the defect. A sweep
+of every page after LB-22 shipped found `/how/` at **248 words in `<main>`** —
+thinner than all nine guides, in the top nav, and carrying a `HowTo` schema. The
+suite stayed green because the floor never looked outside `/guides/`.
+
+**The page.** `/how/` had five step cards, each one paragraph. It named the
+five steps and stopped, so a reader who landed there still had to open a guide
+to learn anything. It is now **967 words in `<main>`, 8 `<h2>`**. Every added
+claim came from source, not from copywriting:
+
+| Claim added | Source |
+|---|---|
+| Multi-link paste sorts by host: Yupoo → photos, Weidian/Taobao/Tmall/1688 → buy, rest → extra | `inferLinkRole`, `credenza-fashion.jsx:1320` |
+| Automod-broken links are repaired before the address is read | `deobfuscateUrls`, `reddit-haul.js:266` |
+| Six album photos relayed; album link keeps the real count | `RELAY_MAX = 6`, `credenza-fashion.jsx:1921` |
+| 20 hand-added photos an item | `GALLERY_MAX = 20`, `credenza-fashion.jsx:1909` |
+| Tops 12 cm ease, outerwear 16 cm, bottoms 2 cm | `recommendSize`, ease branches |
+| Hip-only 臀围 charts return a size | `recommendSize`, `has("hip")` fallback |
+| Chart labels read: 胸围 腰围 臀围 肩宽 袖长, plus half-chest columns | `MEASURE_PAIR_RE`, `credenza-fashion.jsx:587` |
+| Runner-up size and a named missing measure | `recommendSize` returns `alt` and `{ missing }` |
+| The four stops, with QC/GL/RL inside Bought | `STATUS_TRACK` + `statusTrackIndex` |
+| Ten agents named, plus "no agent" | `agents.js` — CSSBuy is `retired: true`, so it is not named |
+| Agent links unwrap to the marketplace URL | `marketplaceBuyUrl` / `unwrapAgentUrl` |
+| A haul carries name, budget, parcel weight and dims; CNY converts per item | `migrateHaul`, `credenza-fashion.jsx:397` |
+| 2 hauls free / 100 Pro; Ask 5/200; charts 2/100; resolves 20/1000 | `PLAN_LIMITS`, `entitlements.js:29` |
+| CSV has 15 named columns, and export is Pro | `CSV_COLUMNS` + `exportShelfCsv` Pro gate, `credenza-fashion.jsx:5375` |
+
+Nothing dormant is named. Shared links and cloud sync stay off the page for the
+same reason `test/pricing.test.js` forbids them — LB-7 and LB-8 need Kyle's
+migrations first.
+
+**The floor now covers every page.** `test/public-site.test.js` no longer
+filters to `/guides/`:
+
+- 400 words in `<main>` for every content page, 17 of them.
+- `/guides/` is the one hub, at 150 words — enough that an empty hub still
+  fails, low enough that a link list is not asked to be an essay.
+- The section check counts `<h2>` **plus** `<summary>`. `/faq/` scans by 12
+  `<details>` blocks and carries one `<h1>`; that serves a reader the same way
+  headings do, so it counts rather than being skipped.
+- A `found the pages` guard asserts ≥16 pages and ≥9 guides, so a URL-shape
+  change cannot empty the list and pass by checking nothing.
+
+**Negative controls.**
+
+- NC-1 — stubbed `<main>` on `/how/`. Failed both: "has 1 words in `<main>`" and
+  "has 0 h2 headings and 0 summary elements". The old floor did not fail here at
+  all, which is the proof the widening was needed.
+- NC-2 — stubbed `<main>` on `/guides/`. Failed against the 150 floor, so the
+  hub exemption is a lower bar and not an exemption.
+
+Both restored from backup; 249/249 passed again.
+
+**Gate.** 60 files / 1282 tests passed (1264 before). Lint 0 errors, 5
 pre-existing warnings. Typecheck clean. Build clean.
 
 ## Explicitly deferred (do NOT build before launch)

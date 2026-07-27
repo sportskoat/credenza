@@ -180,7 +180,14 @@
         font-weight: 600;
         font-family: system-ui, -apple-system, sans-serif;
       }
-      .card p { margin: 0; color: var(--muted); }
+      .card p { margin: 0 0 0.5rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
       .card .n {
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 0.7rem;
@@ -279,6 +286,18 @@
           Credenza keeps them on <strong>one card</strong> so you are not juggling tabs and a spreadsheet.
         </p>
         <p>
+          Paste more than one link at once and Credenza sorts them by host. A Yupoo
+          address becomes the photo album. A Weidian, Taobao, Tmall, or 1688 address
+          becomes the buy link. Anything else is kept as an extra link on the same
+          card. That is why a Reddit comment full of raw URLs can become one card
+          instead of five.
+        </p>
+        <p>
+          Links broken to dodge a subreddit automod still work. Credenza repairs
+          <em>https:/ /item.weidian.com</em> and host-then-path splits before it reads
+          the address, so you can copy the comment as it was written.
+        </p>
+        <p>
           On a phone you do not have to paste at all. Put Credenza in the share sheet and
           the find lands on the shelf from wherever you found it —
           <a href="/how/stash-from-your-phone/">set that up here</a>.
@@ -291,13 +310,43 @@
           Cover image, title, price, and seller in a quiet card. Flip for notes, status, and more photos.
           The grid and the open card use the same mental model.
         </p>
+        <p>
+          Credenza brings in six photos from an album, not the whole album. Six covers
+          the front, the back, the tag, and a detail shot, which is enough to judge a
+          piece on a phone. The album link stays on the card and reports the real
+          count, so a 37-photo album never reads as a six-photo one. Open the album at
+          the seller for the rest.
+        </p>
+        <p>
+          Photos you add by hand — a camera shot, a saved image, a QC photo — are
+          separate. A card holds up to 20 of those.
+        </p>
       </article>
       <article class="card">
         <span class="n">Step 3</span>
         <h2>Size with confidence</h2>
         <p>
-          Save a body profile (inches or cm). When a size chart is available (including hip-only
-          臀围 sheets), Credenza recommends a size and shows why.
+          Save a body profile once, in inches or centimeters. Chest, waist, hip,
+          shoulder, and sleeve are all read. The profile stays on the device.
+        </p>
+        <p>
+          Paste or attach a seller chart and Credenza reads the rows. It handles the
+          Chinese labels sellers actually use — 胸围, 腰围, 臀围, 肩宽, 袖长 — and the
+          half-chest columns where the number is pit to pit rather than the full
+          circumference.
+        </p>
+        <p>Then it picks a size, with the ease the garment needs:</p>
+        <ul>
+          <li><strong>Tops</strong> — matched on chest, with about 12 cm of ease.</li>
+          <li><strong>Outerwear</strong> — matched on chest, with about 16 cm, because a jacket goes over a layer.</li>
+          <li><strong>Pants and shorts</strong> — matched on waist, with about 2 cm.</li>
+          <li><strong>Hip-only sheets</strong> — matched on hip. Many Yupoo pants charts list 臀围 and nothing else, and those still return a size.</li>
+        </ul>
+        <p>
+          You get the size, the runner-up size, and the reason. If the chart lists a
+          measure your profile does not have, Credenza says which one is missing rather
+          than guessing.
+          <a href="/guides/weidian-size-chart/">Read the size chart guide</a>.
         </p>
       </article>
       <article class="card">
@@ -308,6 +357,15 @@
           stays legible when the warehouse photos land. QC, GL and RL are not a
           fifth stop — they sit inside Bought, while the agent holds the parcel.
         </p>
+        <ul>
+          <li><strong>Want</strong> — saved, not paid for. Most of the shelf sits here.</li>
+          <li><strong>Bought</strong> — paid. QC photos, green light, and red light all report inside this stop.</li>
+          <li><strong>Shipped</strong> — the parcel left the warehouse.</li>
+          <li><strong>Received</strong> — it arrived. A returned item shows in this slot too.</li>
+        </ul>
+        <p>
+          <a href="/guides/track-qc-photos/">See how QC photos attach to the card</a>.
+        </p>
       </article>
       <article class="card">
         <span class="n">Step 5</span>
@@ -316,11 +374,67 @@
           Items store the <strong>canonical</strong> marketplace URL. At Buy time, Credenza opens
           Superbuy, Sugargoo, Kakobuy, or your preferred agent. Purchases happen there, not inside Credenza.
         </p>
+        <p>
+          Ten agents are built in today: Superbuy, Sugargoo, Kakobuy, Fansbuy, Mulebuy,
+          Joyagoo, CNFans, Hoobuy, Oopbuy, and AllChinaBuy. You can also pick
+          <em>no agent</em> and open the marketplace directly.
+        </p>
+        <p>
+          Because the card holds the marketplace URL and not an agent URL, switching
+          agents does not break your shelf. Change the preference and every Buy button
+          points somewhere new. Paste an agent link and Credenza unwraps it back to the
+          marketplace first, so the card stays portable.
+          <a href="/guides/choose-an-agent/">Compare the agents</a>.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Along the way</span>
+        <h2>Group the shelf into hauls</h2>
+        <p>
+          A haul is a parcel, not a folder. Each one carries a name, a budget, and the
+          parcel weight and dimensions you plan to ship. Items priced in CNY convert to
+          USD per item, so a mixed-currency haul still adds up to one number you can
+          compare against the budget.
+        </p>
+        <p>
+          The free plan runs 2 hauls at once. Pro runs 100. Archive a finished haul and
+          the shelf stays clean without losing the record.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Along the way</span>
+        <h2>Ask questions about your own shelf</h2>
+        <p>
+          Ask reads the shelf you built, not a product catalog. Questions like "what is
+          still in Want under $40" or "which items are waiting on QC" are answered from
+          your cards.
+        </p>
+        <p>
+          Ask, size-chart reads, and link resolves call a paid model, so they carry
+          daily limits: 5, 2, and 20 a day on the free plan; 200, 100, and 1,000 on Pro.
+          Everything else on the free plan is uncapped, including the number of cards
+          and the number of times you open Buy.
+          <a href="/pricing/">See the full limits</a>.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Along the way</span>
+        <h2>Take the haul out as a spreadsheet</h2>
+        <p>
+          Export the shelf as a CSV with 15 columns: title, haul, status, seller, size,
+          recommended size, price, currency, price in USD, weight in grams, buy link,
+          photos link, source link, notes, and the date added.
+        </p>
+        <p>
+          It opens in Excel, Numbers, and Google Sheets. Export is a Pro feature.
+          <a href="/guides/spreadsheet-vs-haul-planner/">Read why a spreadsheet stops scaling</a>.
+        </p>
       </article>
 
       <p class="note">
         Credenza is a decision layer, not a marketplace and not a W2C search engine.
-        You bring the links from communities and stores you already use.
+        You bring the links from communities and stores you already use. Credenza never
+        handles the purchase and never sees a card number.
       </p>
 
       <a class="cta" href="/">Open Credenza</a>

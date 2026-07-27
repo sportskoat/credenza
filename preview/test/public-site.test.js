@@ -468,25 +468,45 @@ describe("no guide is too thin to answer its question", () => {
     return t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   };
 
-  const guides = PAGES.filter((p) => p.url.startsWith("/guides/") && p.url !== "/guides/");
+  // The first version of this block only looked at /guides/. That scope is why
+  // /how/ sat at 248 words — thinner than every guide, in the top nav, and
+  // carrying a HowTo schema — while the suite stayed green. A floor that covers
+  // one directory only proves that directory. So the floor now covers every
+  // page, and the pages that are legitimately different are named here with the
+  // reason, not silently skipped.
+  //
+  // HUBS are link lists. Their job is to route, not to answer, so they get a
+  // lower floor — high enough that an empty hub still fails.
+  const HUBS = new Set(["/guides/"]);
 
-  it("found the guides", () => {
+  const content = PAGES.filter((p) => p.url !== "/");
+
+  it("found the pages", () => {
     // Without this, a change to the URL shape would empty the list and every
     // assertion below would pass by checking nothing.
-    expect(guides.length).toBeGreaterThanOrEqual(8);
+    expect(content.length).toBeGreaterThanOrEqual(16);
+    expect(content.filter((p) => p.url.startsWith("/guides/")).length).toBeGreaterThanOrEqual(9);
   });
 
-  for (const { rel, html } of guides) {
+  for (const { rel, url, html } of content) {
+    const floor = HUBS.has(url) ? 150 : 400;
+
     it(`${rel} says enough to be worth landing on`, () => {
       const words = bodyText(html).split(" ").filter(Boolean).length;
-      expect(words, `${rel} has ${words} words in <main>`).toBeGreaterThanOrEqual(400);
+      expect(words, `${rel} has ${words} words in <main>`).toBeGreaterThanOrEqual(floor);
     });
 
     it(`${rel} breaks its answer into sections`, () => {
       // One wall of text is the other failure mode. A reader scanning for the
-      // part that applies to them needs headings to scan.
+      // part that applies to them needs headings to scan. /faq/ scans by
+      // <summary> inside <details> rather than by <h2>, which serves the reader
+      // the same way, so both count.
       const h2 = (html.match(/<h2[\s>]/g) || []).length;
-      expect(h2, `${rel} has ${h2} h2 headings`).toBeGreaterThanOrEqual(4);
+      const summaries = (html.match(/<summary[\s>]/g) || []).length;
+      expect(
+        h2 + summaries,
+        `${rel} has ${h2} h2 headings and ${summaries} summary elements`
+      ).toBeGreaterThanOrEqual(4);
     });
   }
 });
