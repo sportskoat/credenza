@@ -7490,7 +7490,7 @@ function CredenzaApp() {
         // the iPhone notch / home-indicator zones in standalone PWA mode.
         padding:
           "env(safe-area-inset-top, 0px) 0 calc(104px + env(safe-area-inset-bottom, 0px))",
-        transition: "background .25s",
+        transition: "background 250ms var(--ease-out)",
       }}
     >
       <style>{KEYFRAMES}</style>

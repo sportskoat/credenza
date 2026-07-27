@@ -124,13 +124,16 @@ describe("§3 no-chart state", () => {
     expect(document.querySelector(".cz-sizing-value.is-empty")).not.toBe(null);
   });
 
-  it("keeps Full chart, so a photo that will not read is not a dead end", async () => {
+  it("keeps a sheet route, so a photo that will not read is not a dead end", async () => {
     const user = userEvent.setup();
     renderBody(chartless());
 
-    // Wait for the swap: the no-chart block mounts a NEW Full chart node.
+    // Wait for the swap: the no-chart block mounts a NEW footer button. It
+    // reads "Pick a size" here — with no chart parsed, the sheet opens on
+    // the size-run override picker, and a "Full chart" label would promise
+    // a chart it cannot show.
     await screen.findByText("No chart");
-    await user.click(screen.getByRole("button", { name: /Full chart/ }));
+    await user.click(screen.getByRole("button", { name: /Pick a size/ }));
     expect(await screen.findByText("Set my sizes")).toBeInTheDocument();
   });
 

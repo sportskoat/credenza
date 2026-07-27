@@ -32,11 +32,26 @@ const SOURCE_OF_TRUTH = path.join(REPO, "credenza.css");
 // Pull every `font-family: <value>` declaration out of CSS text, skipping
 // anything inside a /* comment */ so a quoted example cannot fail the build.
 function declarations(text) {
-  const stripped = text.replace(/\/\*[\s\S]*?\*\//g, "");
+  // Strip @font-face blocks too: that rule is the one place besides the
+  // :root token block that must name the literal family, since it is what
+  // the --cz-sans token points at.
+  const stripped = text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/@font-face\s*{[^}]*}/g, "");
   const out = [];
   const re = /font-family\s*:\s*([^;}]+)/g;
   let m;
   while ((m = re.exec(stripped))) out.push(m[1].trim().replace(/\s*!important$/, ""));
+  // The `font:` shorthand also names a family, and seven controls used it to
+  // smuggle the old system stack past this test (Kyle 2026-07-27: "the new
+  // font is not on here"). Extract the family tail — everything after the
+  // size (and optional /line-height) token — and hold it to the same rule.
+  const reShort = /(?:^|[;{])\s*font\s*:\s*([^;}]+)/g;
+  while ((m = reShort.exec(stripped))) {
+    const value = m[1].trim().replace(/\s*!important$/, "");
+    const tail = value.match(/[\d.]+(?:px|em|rem|%)(?:\s*\/\s*[\d.]+[a-z%]*)?\s+(.+)$/i);
+    out.push((tail ? tail[1] : value).trim());
+  }
   return out;
 }
 
@@ -62,7 +77,7 @@ describe("Type tokens are the only font stacks (LB-69)", () => {
     }
     // And each one still names a real family, not an empty value.
     expect(css).toMatch(/--cz-display:\s*Georgia/);
-    expect(css).toMatch(/--cz-sans:\s*ui-sans-serif/);
+    expect(css).toMatch(/--cz-sans:\s*"Clash Grotesk"/);
     expect(css).toMatch(/--cz-mono:\s*ui-monospace/);
   });
 

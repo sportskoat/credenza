@@ -40,6 +40,7 @@ function swPrecache() {
         "/icon-192.png",
         "/icon-512.png",
         "/fonts/InterVariable.woff2",
+        "/fonts/ClashGrotesk-Variable.woff2",
         ...assets,
       ];
       const swPath = join(outDir, "sw.js");

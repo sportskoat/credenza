@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload, X } from "lucide-react";
 import { listAgents } from "../agents.js";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
@@ -549,9 +550,13 @@ function SizingBlockNoChart({
   onReadPhotos,
   onOpenAlbum,
   onOpenChart,
+  runValues,
+  onPickSize,
 }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const thumbs = (albumPhotos || []).slice(0, 2);
+  const runChips = chipSizes(runValues, usualSize);
+  const hasRun = runChips.length > 0;
   const take = (e) => {
     const files = [...(e.target.files || [])];
     e.target.value = "";
@@ -618,11 +623,28 @@ function SizingBlockNoChart({
       {/* The full chart sheet is still the way in for a chart the customer
           would rather type, and the only route to My sizes from here. §3
           replaced the old static "no chart" copy, and that copy carried this
-          link — losing it would strand anyone whose photo will not read. */}
+          link — losing it would strand anyone whose photo will not read.
+          The label must not say "Full chart" here: with no chart parsed the
+          sheet opens on the size-run override picker, and a button that
+          promises a chart it cannot show reads as a bug (Kyle 2026-07-27).
+          When the listing size run is already inline, the link only opens
+          profile / manual chart entry — so it reads "My sizes". */}
       <div className="cz-sizing-foot">
+        {hasRun
+          ? runChips.map((size) => (
+              <button
+                key={size}
+                type="button"
+                className="cz-sizing-override"
+                onClick={() => onPickSize && onPickSize(String(size))}
+              >
+                {formatSizeToken(size) || size}
+              </button>
+            ))
+          : null}
         <span className="cz-sizing-foot-gap" />
         <button type="button" className="cz-sizing-full" onClick={onOpenChart}>
-          Full chart
+          {hasRun ? "My sizes" : "Pick a size"}
           <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
         </button>
       </div>
@@ -1209,6 +1231,13 @@ export default function DetailBody({
   // sizes this item with no network call. Optional — callers that do not pass
   // it simply fall back to the network hunt.
   shelfItems = null,
+  // The two-column panel can place Timeline + Notes under its photo without
+  // taking ownership of the notes draft. Undefined keeps them inline for
+  // every existing caller; null suppresses the pre-mount desktop frame.
+  logNotesTarget = undefined,
+  // Desktop left-column CHART chip: bumping this opens the same size sheet
+  // the sizing-block footer link opens. 0 / absent does nothing on mount.
+  openChartSignal = 0,
 }) {
   const titleInputRef = useRef(null);
   const reduced = usePrefersReducedMotion();
@@ -1325,6 +1354,13 @@ export default function DetailBody({
     };
   }, [editingCell]);
 
+  // Desktop CHART chip (and any other host) opens the size sheet by bumping
+  // openChartSignal. Skip 0 so the first paint never auto-opens the sheet.
+  useEffect(() => {
+    if (!openChartSignal) return;
+    setEditingCell("size");
+  }, [openChartSignal]);
+
   const edit = (key, value) =>
     setDraft((d) => ({ ...(d || buildEditDraft(item)), [key]: value }));
 
@@ -1369,6 +1405,9 @@ export default function DetailBody({
           return pickSizeRunFromVariants(item.variants) || "";
         })();
   const chips = specChips(view);
+  // Chip-row editors mount under the chips; price/size keep the lower slot.
+  const chipEditing = !!(editingCell && chips.some((c) => c.key === editingCell));
+  const lowerEditing = !!(editingCell && !chipEditing);
   // Timeline (§6). sizeFrom names WHO decided the size, in the same vocabulary
   // the sizing block's provenance uses — "from the seller's chart" only when a
   // real chart was read, never for the profile fallback.
@@ -1665,6 +1704,56 @@ export default function DetailBody({
     );
   };
 
+  const logNotesBlock = (
+    <>
+      {/* Timeline (§6). Generated from fields the item already carries, so
+          it renders only when there is something true to say. */}
+      {timeline.length ? (
+        <>
+          <div className="cz-detail-rule-head">
+            <span className="cz-detail-label">Timeline</span>
+            <span className="cz-detail-rule" aria-hidden="true" />
+          </div>
+          <Timeline rows={timeline} />
+        </>
+      ) : null}
+
+      {/* Notes (§7). The header moves INSIDE the box, so the box reads as
+          one object instead of a label with a field under it.
+          §7: "Never a fixed 2-line box, never a truncation with no way
+          out." Collapsed clamps to 3 lines; EXPAND grows it. The box stays
+          the same box you type in — there is still no mode to enter and no
+          "+" to hunt for, which is what turn 5 fixed and §7 keeps. */}
+      <div className={"cz-detail-notes-box" + (notesOpen ? " is-open" : "")}>
+        <div className="cz-detail-notes-head">
+          <span className="cz-detail-notes-kicker">Notes</span>
+          <span className="cz-detail-notes-gap" />
+          <button
+            type="button"
+            className="cz-detail-notes-toggle"
+            onClick={() => setNotesOpen((v) => !v)}
+          >
+            {notesOpen ? (
+              <Minimize2 size={11} strokeWidth={2.2} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={11} strokeWidth={2.2} aria-hidden="true" />
+            )}
+            {notesOpen ? "Collapse" : "Expand"}
+          </button>
+        </div>
+        <textarea
+          className="cz-detail-notes"
+          aria-label="Notes"
+          value={view.note}
+          placeholder="Batch, QC notes, what you're pairing it with…"
+          onChange={(e) => edit("note", e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+          onFocus={() => setNotesOpen(true)}
+        />
+      </div>
+    </>
+  );
+
   return (
     <>
       {/* Sticky bar (§9). It pins under the drag handle once the photo block
@@ -1848,6 +1937,11 @@ export default function DetailBody({
           })}
         </div>
 
+        {/* Chip editors sit under the chip row so the input is next to the
+            field that opened it. Price/size keep the lower slot. One slot
+            only — the keyboard-reveal effect always finds editorSlotRef. */}
+        {chipEditing ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
+
         {/* Sizing block (§2) — the flagship, always visible. It used to be one
             of six equal cells, so the only field carrying a REASON read as
             metadata and took a tap to reveal. The prescription sits outside
@@ -1876,6 +1970,12 @@ export default function DetailBody({
                 usualSize={chosenSize || verdict.usualSize}
                 albumPhotos={sizingAlbumPhotos}
                 albumCount={sizingAlbumPhotos.length}
+                runValues={verdict.runValues}
+                onPickSize={(size) => {
+                  const next = { ...(draft || buildEditDraft(item)), size: String(size || "") };
+                  setDraft(next);
+                  onSaveEdit(item.id, buildEditPatch(next, item));
+                }}
                 onReadPhotos={(files) => {
                   const thumb = files[0] ? URL.createObjectURL(files[0]) : "";
                   chartRead.read(files, { thumb });
@@ -1921,69 +2021,29 @@ export default function DetailBody({
           </>
         ) : null}
 
-        {/* The slot ref lets the keyboard-settle effect find the open
-            editor and scroll it clear of the keyboard. */}
-        {editingCell ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
+        {/* Price / size (and any non-chip) editor. Chip keys use the slot
+            under the chip row instead. */}
+        {lowerEditing ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
 
-        {/* Status (§5). The header carries the rule and the right-aligned
-            sub-label; the track carries the progress and the next action. */}
+        {/* Status (§5). The header carries the rule and the sub-label; the
+            track carries the progress and the next action. */}
         <div className="cz-detail-rule-head">
           <span className="cz-detail-label">Status</span>
-          <span className="cz-detail-rule" aria-hidden="true" />
           <span className="cz-detail-rule-note">
             {FIND_STATUS_SUBLABEL[view.findStatus || "want"] || ""}
           </span>
+          <span className="cz-detail-rule" aria-hidden="true" />
         </div>
         {/* StatusChips owns the named next-step pill (§5). It is drawn there,
             not here, because only the track knows which stops are terminal
             and which need a real decision rather than a one-tap primary. */}
         <StatusChips mode="track" value={view.findStatus} onChange={pickStatus} label="Order status" />
 
-        {/* Timeline (§6). Generated from fields the item already carries, so
-            it renders only when there is something true to say. */}
-        {timeline.length ? (
-          <>
-            <div className="cz-detail-rule-head">
-              <span className="cz-detail-label">Timeline</span>
-              <span className="cz-detail-rule" aria-hidden="true" />
-            </div>
-            <Timeline rows={timeline} />
-          </>
-        ) : null}
-
-        {/* Notes (§7). The header moves INSIDE the box, so the box reads as
-            one object instead of a label with a field under it.
-            §7: "Never a fixed 2-line box, never a truncation with no way
-            out." Collapsed clamps to 3 lines; EXPAND grows it. The box stays
-            the same box you type in — there is still no mode to enter and no
-            "+" to hunt for, which is what turn 5 fixed and §7 keeps. */}
-        <div className={"cz-detail-notes-box" + (notesOpen ? " is-open" : "")}>
-          <div className="cz-detail-notes-head">
-            <span className="cz-detail-notes-kicker">Notes</span>
-            <span className="cz-detail-notes-gap" />
-            <button
-              type="button"
-              className="cz-detail-notes-toggle"
-              onClick={() => setNotesOpen((v) => !v)}
-            >
-              {notesOpen ? (
-                <Minimize2 size={11} strokeWidth={2.2} aria-hidden="true" />
-              ) : (
-                <Maximize2 size={11} strokeWidth={2.2} aria-hidden="true" />
-              )}
-              {notesOpen ? "Collapse" : "Expand"}
-            </button>
-          </div>
-          <textarea
-            className="cz-detail-notes"
-            aria-label="Notes"
-            value={view.note}
-            placeholder="Batch, QC notes, what you're pairing it with…"
-            onChange={(e) => edit("note", e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
-            onFocus={() => setNotesOpen(true)}
-          />
-        </div>
+        {logNotesTarget === undefined
+          ? logNotesBlock
+          : logNotesTarget === null
+            ? null
+            : createPortal(logNotesBlock, logNotesTarget)}
 
         {/* QC prompt (§9). It is the LAST block, after the notes, because it
             asks about a moment that has not happened yet. It appears only

@@ -66,11 +66,13 @@ afterEach(() => {
 
 // A chartless item re-renders when the hunt returns nothing: turn 9 §3 swaps
 // the ordinary sizing block for the no-chart block, and that mounts a fresh
-// "Full chart" button. A node captured before the swap is detached, so the
-// click lands nowhere. Wait for the swap, then query the live node.
+// footer button. A node captured before the swap is detached, so the click
+// lands nowhere. Wait for the swap, then query the live node. No-chart with
+// a listing size run labels the footer "My sizes" (run chips are inline);
+// without a run it stays "Pick a size". Both open the same sheet.
 async function clickFullChart(user) {
   await screen.findByText("No chart");
-  await user.click(screen.getByRole("button", { name: /Full chart/ }));
+  await user.click(screen.getByRole("button", { name: /My sizes|Pick a size/ }));
 }
 
 describe("FitBlock chart hunt", () => {

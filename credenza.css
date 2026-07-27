@@ -1,3 +1,9 @@
+@font-face {
+  font-family: "Clash Grotesk";
+  src: url("/fonts/ClashGrotesk-Variable.woff2") format("woff2-variations");
+  font-weight: 200 700;
+  font-display: swap;
+}
 /* ═══ Type tokens — the ONLY place a font stack is written ═══
    Kyle 2026-07-27: "Can we make some font standardizations for the entire
    website? They're a little bit more different. They're kind of giving regular
@@ -22,9 +28,14 @@
    test/type-tokens.test.js fails the build on one. */
 :root {
   --cz-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
-  --cz-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  --cz-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --cz-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-press: 120ms;
+  --dur-micro: 140ms;
+  --dur-open: 250ms;
+  --dur-resize: 300ms;
 
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
@@ -85,8 +96,8 @@ button {
 .cz-tab,
 .cz-view-button {
   transition-property: color, background-color, border-color, box-shadow, opacity, transform;
-  transition-duration: 160ms;
-  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  transition-duration: var(--dur-micro);
+  transition-timing-function: var(--ease-out);
 }
 
 .cz-pill:active:not(:disabled),
@@ -262,8 +273,8 @@ button {
     0 10px 28px oklch(0 0 0 / 0.12),
     0 2px 7px oklch(0 0 0 / 0.08);
   pointer-events: auto;
-  transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1),
-    transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: opacity var(--dur-micro) var(--ease-out),
+    transform var(--dur-micro) var(--ease-out);
 }
 
 .cz-toast[data-entering="true"] {
@@ -304,8 +315,8 @@ button {
     0 4px 14px oklch(0 0 0 / 0.12);
   opacity: 1;
   transform: scale(1);
-  transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1),
-    transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
 }
 
 .cz-modal:not([open]) .cz-modal-surface {
@@ -482,6 +493,15 @@ button {
   .cz-modal-surface {
     transition-duration: 0.01ms !important;
     transform: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

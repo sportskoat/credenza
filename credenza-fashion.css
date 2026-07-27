@@ -11,8 +11,8 @@
   --z-gallery: 100;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   /* t-resize (transitions.dev): card size tweens (Kyle 2026-07-25). */
-  --resize-dur: 300ms;
-  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --resize-dur: var(--dur-resize);
+  --resize-ease: var(--ease-out);
   /* Danger on photo overlays (delete chips) — hardcoded dark-glass chips sit
      on arbitrary photos in both themes, so this doesn't come from a palette. */
   --cz-overlay-danger: #f87171;
@@ -224,7 +224,7 @@
 .cz-app[data-fashion="true"] .cz-pill {
   font-family: var(--cz-sans);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--cz-action-muted-text);
   background: var(--cz-action-muted-bg);
@@ -235,10 +235,10 @@
   cursor: pointer;
   white-space: nowrap;
   transition:
-    transform 150ms var(--ease-out),
-    background 150ms var(--ease-out),
-    color 150ms var(--ease-out),
-    opacity 150ms var(--ease-out);
+    transform var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    color var(--dur-micro) var(--ease-out),
+    opacity var(--dur-micro) var(--ease-out);
 }
 
 /* Shared press scale for chrome that used to feel dead (Kyle UI audit). */
@@ -247,15 +247,15 @@
 .cz-app[data-fashion="true"] .cz-tab:active:not(:disabled),
 .cz-app[data-fashion="true"] .cz-chip:active:not(:disabled) {
   transform: scale(0.94);
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .cz-detail-status-chip {
   transition:
-    transform 120ms var(--ease-out),
-    background 120ms var(--ease-out),
-    color 120ms var(--ease-out),
-    border-color 120ms var(--ease-out);
+    transform var(--dur-press) var(--ease-out),
+    background var(--dur-press) var(--ease-out),
+    color var(--dur-press) var(--ease-out),
+    border-color var(--dur-press) var(--ease-out);
 }
 
 .cz-detail-status-chip:active {
@@ -284,7 +284,7 @@
 
 /* Status radio group in edit */
 .cz-app[data-fashion="true"] [role="radiogroup"][aria-label="Status"] button {
-  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
 }
 
 .cz-app[data-fashion="true"] [role="radiogroup"][aria-label="Status"] button:active {
@@ -293,7 +293,7 @@
 
 /* Gallery thumbnail hover */
 .cz-app[data-fashion="true"] button:has(> img) {
-  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+  transition: transform var(--dur-micro) var(--ease-out), box-shadow var(--dur-micro) var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -932,7 +932,7 @@
   flex-shrink: 0;
   overflow: hidden;
   box-sizing: border-box;
-  transition: opacity 140ms var(--ease-out), transform 120ms var(--ease-out);
+  transition: opacity var(--dur-micro) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 
 .cz-buy-btn-label {
@@ -1038,7 +1038,7 @@
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
   border-bottom: 0;
-  transition: color 140ms var(--ease-out), text-decoration-color 140ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), text-decoration-color var(--dur-micro) var(--ease-out);
 }
 
 .cz-front-seller a.cz-seller-link:hover,
@@ -1107,7 +1107,7 @@
   justify-content: center;
   padding: 0;
   flex-shrink: 0;
-  transition: transform 120ms var(--ease-out), color 120ms var(--ease-out), background 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), background var(--dur-press) var(--ease-out);
 }
 
 .cz-card-menu-trigger:hover,
@@ -1169,9 +1169,9 @@
   text-align: left;
   cursor: pointer;
   transition:
-    transform 140ms var(--ease-out),
-    background 140ms var(--ease-out),
-    border-color 140ms var(--ease-out);
+    transform var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
 }
 
 .cz-card-action-row:hover {
@@ -1201,7 +1201,7 @@
 
 .cz-card-action-meta {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--cz-sub);
   max-width: 46%;
   overflow: hidden;
@@ -1223,7 +1223,7 @@
   font-weight: 750;
   letter-spacing: -0.01em;
   cursor: pointer;
-  transition: transform 140ms var(--ease-out), opacity 140ms var(--ease-out), background 140ms var(--ease-out);
+  transition: transform var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
 .cz-card-actions-done:hover {
@@ -1277,7 +1277,7 @@
   color: var(--cz-ink);
   font: inherit;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .cz-card-haul-field input:focus {
@@ -1337,7 +1337,7 @@
   padding: 0;
   z-index: 1;
   flex-shrink: 0;
-  transition: transform 120ms var(--ease-out), color 120ms var(--ease-out), background 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), background var(--dur-press) var(--ease-out);
 }
 
 .cz-carousel-close:hover {
@@ -1487,7 +1487,7 @@
   background: var(--cz-seg);
   border: 1px solid var(--cz-hair);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--cz-sub);
   max-width: 100%;
   overflow: hidden;
@@ -1558,7 +1558,7 @@
   background: var(--cz-seg);
   overflow: hidden;
   cursor: pointer;
-  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+  transition: transform var(--dur-micro) var(--ease-out), box-shadow var(--dur-micro) var(--ease-out);
 }
 
 .cz-carousel-gallery button img {
@@ -1600,11 +1600,11 @@
   color: var(--cz-ink);
   cursor: pointer;
   transition:
-    transform 160ms var(--ease-out),
-    background 160ms var(--ease-out),
-    color 160ms var(--ease-out),
-    border-color 160ms var(--ease-out),
-    box-shadow 160ms var(--ease-out);
+    transform var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    color var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out),
+    box-shadow var(--dur-micro) var(--ease-out);
   text-align: center;
   justify-content: center;
   overflow: hidden;
@@ -1859,7 +1859,7 @@
   cursor: pointer;
   font-size: 15px;
   line-height: 1;
-  transition: color 120ms var(--ease-out), transform 120ms var(--ease-out);
+  transition: color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 
 .cz-info-bubble-header button:hover {
@@ -2189,7 +2189,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--cz-ink);
-  font: 650 12px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font: 600 12px/1 var(--cz-sans);
   white-space: nowrap;
   cursor: pointer;
   -webkit-backdrop-filter: none;
@@ -2429,7 +2429,7 @@
   color: var(--cz-faint);
   text-align: center;
   text-wrap: pretty;
-  animation: cz-hint-in 380ms ease 600ms both;
+  animation: cz-hint-in 380ms var(--ease-out) 600ms both;
 }
 @keyframes cz-hint-in {
   from {
@@ -2452,7 +2452,7 @@
    invites a tap belongs in the caption under it. */
 .cz-empty-hero-specimen {
   opacity: 0.55;
-  animation: cz-specimen-in 420ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  animation: cz-specimen-in 420ms var(--ease-out) 120ms both;
 }
 @media (prefers-reduced-motion: reduce) {
   .cz-empty-hero-specimen {
@@ -2810,7 +2810,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   backdrop-filter: none;
   /* Soft halo so the outline reads on light and dark covers. */
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
-  transition: color 160ms var(--ease-out), transform 120ms var(--ease-out), filter 160ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), transform var(--dur-press) var(--ease-out), filter var(--dur-micro) var(--ease-out);
 }
 
 .cz-favorite-button:hover {
@@ -2854,13 +2854,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .t-like-heart {
   color: currentColor;
-  transition: color 150ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out);
 }
 
 .t-like-heart path {
   fill: transparent;
   stroke: currentColor;
-  transition: fill 150ms var(--ease-out), stroke 150ms var(--ease-out);
+  transition: fill var(--dur-micro) var(--ease-out), stroke var(--dur-micro) var(--ease-out);
 }
 
 .t-like[data-liked="true"] .t-like-heart {
@@ -2932,7 +2932,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: transparent;
   color: var(--cz-sub);
   cursor: pointer;
-  transition: color 140ms var(--ease-out), background 140ms var(--ease-out), transform 120ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 
 .cz-starred-filter:hover {
@@ -3006,7 +3006,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: transparent;
   color: var(--cz-sub);
   cursor: pointer;
-  transition: background 150ms var(--ease-out), color 150ms var(--ease-out);
+  transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
 
 .cz-coverflow-arrow:hover:not(:disabled) {
@@ -3145,11 +3145,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 9px 0 11px;
   margin-bottom: -1px;
   cursor: pointer;
-  transition: color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
 }
 
 .cz-view-tabs .cz-tab[aria-selected="true"] {
-  font-weight: 650;
+  font-weight: 600;
   color: var(--cz-ink);
   border-bottom-color: var(--cz-accent);
 }
@@ -3218,7 +3218,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: transparent;
   color: var(--cz-ink);
   cursor: pointer;
-  transition: transform 150ms var(--ease-out);
+  transition: transform var(--dur-micro) var(--ease-out);
 }
 
 .cz-haul-card:hover {
@@ -3352,7 +3352,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 8px;
   margin-bottom: 14px;
   min-height: 36px;
-  animation: cz-haul-head-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: cz-haul-head-in 280ms var(--ease-out) both;
 }
 
 .cz-haul-open-head-row {
@@ -3473,7 +3473,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-haul-board-label {
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -3565,7 +3565,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    change (item count, haul/shelf label) plays the same quiet opacity-only
    settle as the haul title above it, instead of snapping to new text. */
 .cz-fade-text-in {
-  animation: cz-haul-head-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: cz-haul-head-in 280ms var(--ease-out) both;
 }
 
 .cz-haul-back {
@@ -3584,7 +3584,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
-  transition: background 140ms var(--ease-out), transform 120ms var(--ease-out);
+  transition: background var(--dur-micro) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 
 .cz-haul-back:hover {
@@ -3620,7 +3620,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
-  transition: background 140ms var(--ease-out), transform 120ms var(--ease-out);
+  transition: background var(--dur-micro) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 
 .cz-haul-share:hover {
@@ -3693,7 +3693,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-total-count {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--cz-ink);
@@ -3703,7 +3703,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-total-sep {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--cz-faint);
   user-select: none;
 }
@@ -3722,7 +3722,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-total-chip-label {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--cz-ink);
@@ -3732,7 +3732,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-total-chip .t-reel {
   color: var(--cz-money, #4ade80);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3828,11 +3828,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 /* ═══ Transitions.dev dropdown + combobox (haul / size) ═══ */
 :root {
-  --dropdown-open-dur: 250ms;
-  --dropdown-close-dur: 150ms;
+  --dropdown-open-dur: var(--dur-open);
+  --dropdown-close-dur: var(--dur-micro);
   --dropdown-pre-scale: 0.97;
   --dropdown-closing-scale: 0.99;
-  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dropdown-ease: var(--ease-out);
 }
 
 .t-dropdown {
@@ -3902,8 +3902,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   appearance: none;
   -webkit-appearance: none;
   transition:
-    border-color 140ms var(--ease-out),
-    background 140ms var(--ease-out);
+    border-color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
 }
 
 .cz-combobox-input::placeholder {
@@ -3937,7 +3937,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
   cursor: pointer;
   padding: 0;
-  transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
 .cz-combobox-clear:hover {
@@ -3969,7 +3969,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
   cursor: pointer;
   padding: 0;
-  transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
 .cz-combobox-control.is-open .cz-combobox-chevron {
@@ -4022,7 +4022,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 600;
   padding: 9px 10px;
   cursor: pointer;
-  transition: background 120ms var(--ease-out);
+  transition: background var(--dur-press) var(--ease-out);
 }
 
 .cz-combobox-option:hover,
@@ -4093,7 +4093,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .t-acc-panel {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: grid-template-rows var(--dur-open) var(--ease-out);
 }
 .t-acc[data-open="true"] .t-acc-panel {
   grid-template-rows: 1fr;
@@ -4103,8 +4103,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   opacity: 0;
   filter: blur(2px);
   transition:
-    opacity 250ms cubic-bezier(0.22, 1, 0.36, 1),
-    filter 250ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity var(--dur-open) var(--ease-out),
+    filter var(--dur-open) var(--ease-out);
 }
 .t-acc[data-open="true"] .t-acc-panel-inner {
   opacity: 1;
@@ -4114,7 +4114,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: inline-flex;
   transform: scaleY(1);
   transform-origin: center;
-  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--dur-open) var(--ease-out);
   color: var(--cz-sub);
 }
 .t-acc-chevron path { vector-effect: non-scaling-stroke; }
@@ -4138,7 +4138,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   --panel-close-dur: 350ms;
   --panel-translate-y: 8px;
   --panel-blur: 2px;
-  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --panel-ease: var(--ease-out);
 }
 .t-panel-slide {
   transform: translateY(var(--panel-translate-y));
@@ -4166,11 +4166,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 /* ─── Modal open / close (transitions.dev) ─── */
 :root {
-  --modal-open-dur: 250ms;
-  --modal-close-dur: 150ms;
+  --modal-open-dur: var(--dur-open);
+  --modal-close-dur: var(--dur-micro);
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
-  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --modal-ease: var(--ease-out);
 }
 .t-modal {
   transform-origin: center;
@@ -4222,14 +4222,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    Page 1 exits left, page 2 enters from the right. Used by the settings modal
    stack (Kyle 2026-07-26) so a sub-page slides in place of a second modal. */
 :root {
-  --page-slide-dur: 250ms;
-  --page-fade-dur: 250ms;
+  --page-slide-dur: var(--dur-open);
+  --page-fade-dur: var(--dur-open);
   --page-slide-distance: 8px;
   --page-blur: 3px;
   --page-stagger: 0ms;
   --page-exit-enabled: 1;
-  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-slide-ease: var(--ease-out);
+  --page-fade-ease: var(--ease-out);
 }
 .t-page-slide {
   position: relative;
@@ -4304,12 +4304,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-modal-stack,
 .cz-modal.t-modal {
   --resize-dur: 260ms;
-  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --resize-ease: var(--ease-out);
 }
 .cz-modal-stack {
   --page-slide-dur: 260ms;
   --page-fade-dur: 200ms;
-  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-slide-ease: var(--ease-out);
 }
 .cz-modal-page {
   /* Each page scrolls on its own: a tall sub-page must not stretch the modal
@@ -4375,7 +4375,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 1px solid var(--cz-hair);
   border-radius: 999px;
   cursor: pointer;
-  transition: background 140ms var(--ease-out), transform 140ms var(--ease-out);
+  transition: background var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
 }
 .cz-modal-back:hover {
   background: var(--cz-accent-bg);
@@ -4390,7 +4390,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   --stagger-distance: 12px;
   --stagger-stagger: 40ms;
   --stagger-blur: 3px;
-  --stagger-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --stagger-ease: var(--ease-out);
 }
 .t-stagger-line {
   display: block;
@@ -4414,7 +4414,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   transform: translateY(0);
   filter: blur(0);
   transition:
-    opacity 200ms ease,
+    opacity 200ms var(--ease-out),
     transform 0s linear,
     filter 0s linear;
   transition-delay: 0s;
@@ -4523,7 +4523,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 600;
   cursor: pointer;
   text-align: left;
-  transition: border-color 140ms var(--ease-out), background 140ms var(--ease-out);
+  transition: border-color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
 /* Card-back haul field: slightly denser so Buy has room. */
@@ -4585,7 +4585,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 600;
   padding: 9px 10px;
   cursor: pointer;
-  transition: background 120ms var(--ease-out);
+  transition: background var(--dur-press) var(--ease-out);
 }
 
 .cz-haul-acc-option:hover,
@@ -4759,7 +4759,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   /* Quiet until the tile is interacted with — an always-on red trash over
      every photo read as clutter (Kyle 2026-07-22). */
   opacity: 0.55;
-  transition: background 140ms var(--ease-out), opacity 140ms var(--ease-out);
+  transition: background var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
 }
 
 .cz-edit-photo-tile:hover .cz-edit-photo-delete,
@@ -4799,7 +4799,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out), background 140ms var(--ease-out);
+  transition: border-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
 .cz-edit-photo-add:hover {
@@ -5022,7 +5022,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   color: color-mix(in srgb, var(--cz-ink) 55%, transparent);
-  transition: color 0.15s ease;
+  transition: color var(--dur-micro) var(--ease-out);
 }
 
 .cz-flip-cue-label {
@@ -5033,7 +5033,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--cz-ink) 62%, transparent);
-  transition: color 0.15s ease;
+  transition: color var(--dur-micro) var(--ease-out);
 }
 
 .cz-flip-cue:hover .cz-flip-cue-icon,
@@ -5207,7 +5207,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: linear-gradient(90deg, var(--cz-gradient-1), var(--cz-gradient-2), var(--cz-gradient-3));
   /* Progress via scaleX, same compositor-only pattern as the carousel dots. */
   transform-origin: left center;
-  transition: transform 160ms var(--ease-out);
+  transition: transform var(--dur-micro) var(--ease-out);
 }
 
 .cz-index-chip.is-done .cz-index-chip-fill {
@@ -5333,7 +5333,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   --toast-distance: 12px;
   --toast-blur: 2px;
   --toast-scale: 0.97;
-  --toast-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --toast-ease: var(--ease-out);
 }
 
 @keyframes cz-toast-in {
@@ -6627,7 +6627,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
 }
 
 .cz-carousel-overlay-close:hover {
@@ -6676,7 +6676,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   z-index: 2;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
   pointer-events: none;
 }
 /* Hover/focus only — a selected-but-left card must not keep Buy up
@@ -7233,7 +7233,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
   font: inherit;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
@@ -7443,7 +7443,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 500;
   cursor: pointer;
   text-align: center;
-  transition: background 140ms var(--ease-out), color 140ms var(--ease-out);
+  transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
 .cz-fit-pref-chip:hover:not(.is-active) {
   color: var(--cz-ink);
@@ -7615,7 +7615,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   transform: translateY(0);
   filter: blur(0);
   opacity: 1;
-  transition: transform 150ms ease-in-out, filter 150ms ease-in-out, opacity 150ms ease-in-out;
+  transition: transform var(--dur-micro) var(--ease-out), filter var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
   will-change: transform, filter, opacity;
 }
 .cz-import-source-swap.is-exit {
@@ -7753,7 +7753,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 13px;
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
-  font: 600 15px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 600 15px/1 var(--cz-sans);
   cursor: pointer;
 }
 .cz-import-primary:hover:not(:disabled) {
@@ -7773,7 +7773,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   height: 48px;
   border: 1px dashed color-mix(in srgb, var(--cz-ink) 22%, transparent);
   border-radius: 13px;
-  font: 500 13.5px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 500 13.5px/1 var(--cz-sans);
   color: var(--cz-sub);
   cursor: pointer;
   background: transparent;
@@ -7803,7 +7803,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 10px 4px 2px;
   border: 0;
   background: transparent;
-  font: 500 12.5px/1.3 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 500 12.5px/1.3 var(--cz-sans);
   color: var(--cz-sub);
   text-align: center;
   cursor: pointer;
@@ -8036,7 +8036,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 17px;
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
-  font: 700 15px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 700 15px/1 var(--cz-sans);
   cursor: pointer;
 }
 
@@ -8058,7 +8058,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 0;
   background: transparent;
   color: var(--cz-sub);
-  font: 500 13px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 500 13px/1 var(--cz-sans);
   cursor: pointer;
 }
 
@@ -8091,7 +8091,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: block;
   margin-bottom: 4px;
   color: var(--cz-ink);
-  font-weight: 650;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -8106,7 +8106,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   flex: 1;
   height: 46px;
   border-radius: 13px;
-  font: 600 15px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 600 15px/1 var(--cz-sans);
   cursor: pointer;
 }
 
@@ -8270,7 +8270,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   letter-spacing: -0.01em;
   text-decoration: none;
   white-space: nowrap;
-  transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
 .cz-mast-nav-link:hover {
@@ -8312,8 +8312,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-card-solid);
   color: var(--cz-sub);
   cursor: pointer;
-  transition: color 140ms var(--ease-out), background 140ms var(--ease-out),
-    border-color 140ms var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
 }
 
 .cz-mast-btn:hover {
@@ -8753,7 +8753,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-action-text);
   box-shadow: var(--cz-fab-shadow);
   cursor: pointer;
-  transition: transform 140ms var(--ease-out);
+  transition: transform var(--dur-micro) var(--ease-out);
 }
 
 .cz-stash-fab:active {
@@ -9118,7 +9118,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 999px;
   background: oklch(1 0 0 / 0.6);
   transform: scaleX(0.3125);
-  transition: transform 160ms ease-out, background 160ms ease-out;
+  transition: transform var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
 .cz-detail-dot.is-active {
@@ -9236,7 +9236,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-seg);
   color: var(--cz-ink);
   cursor: pointer;
-  transition: background 150ms ease;
+  transition: background var(--dur-micro) var(--ease-out);
   touch-action: manipulation;
 }
 
@@ -9332,7 +9332,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   cursor: pointer;
   touch-action: manipulation;
   pointer-events: auto;
-  transition: background 150ms var(--ease-out), color 150ms var(--ease-out), opacity 150ms var(--ease-out);
+  transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
 }
 
 .cz-photo-coverflow-nav:hover:not(:disabled) {
@@ -9575,7 +9575,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  animation: cz-detail-fade 160ms ease-out both;
+  animation: cz-detail-fade var(--dur-micro) var(--ease-out) both;
 }
 
 @keyframes cz-detail-fade {
@@ -9856,7 +9856,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 12px;
   background: var(--cz-card-solid);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--cz-ink);
   cursor: pointer;
 }
@@ -10118,7 +10118,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: none;
   border: 0;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--cz-money);
   white-space: nowrap;
   cursor: pointer;
@@ -10150,7 +10150,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 1px solid var(--cz-ink);
   border-radius: 12px;
   background: var(--cz-card-solid);
-  animation: cz-detail-fade 160ms ease-out both;
+  animation: cz-detail-fade var(--dur-micro) var(--ease-out) both;
 }
 
 .cz-detail-editor.is-block {
@@ -10238,7 +10238,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 1px solid color-mix(in srgb, var(--cz-money) 42%, transparent);
   border-radius: 14px;
   background: var(--cz-card-solid);
-  animation: cz-detail-fade 160ms ease-out both;
+  animation: cz-detail-fade var(--dur-micro) var(--ease-out) both;
 }
 
 .cz-detail-fit-head {
@@ -10516,13 +10516,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 9px;
   margin-top: 10px;
-  /* No vertical padding: the 44px coarse-pointer floor on the dot buttons
-     already sets the row height, and adding padding on top of it would make
-     the track taller than the Buy button. */
-  padding: 0 12px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 12px;
-  background: var(--cz-card-solid);
+  /* Unboxed on the canvas: dots + advance pill sit as plain content. The
+     44px coarse-pointer floor on the dot buttons still sets the row height. */
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .cz-detail-status {
@@ -10561,36 +10560,50 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   flex: 1;
   height: 2px;
   min-width: 12px;
-  background: var(--cz-hair-strong);
+  background: var(--cz-hair);
+  transition: background var(--dur-micro) var(--ease-out);
 }
 
 /* A rail is filled when the step it leads INTO is done or current. */
 .cz-detail-status-chip.is-done .cz-status-rail,
 .cz-detail-status-chip.is-active .cz-status-rail {
-  background: var(--cz-action-fill);
+  background: var(--cz-ink);
 }
 
 .cz-status-dot {
   flex: 0 0 auto;
-  width: 11px;
-  height: 11px;
-  border: 2px solid var(--cz-hair-strong);
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--cz-hair);
   border-radius: 999px;
-  background: transparent;
+  background: var(--cz-bg-elevated);
+  transition:
+    width var(--dur-micro) var(--ease-out),
+    height var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
 }
 
+/* Reached stops behind the current one stay base size, filled with ink. */
 .cz-detail-status-chip.is-done .cz-status-dot {
-  border-color: var(--cz-action-fill);
-  background: var(--cz-action-fill);
+  border-color: var(--cz-ink);
+  background: var(--cz-ink);
 }
 
-/* The current stop is bigger AND filled — size alone is too quiet at 11px,
+/* The current stop is bigger AND filled — size alone is too quiet at 9px,
    fill alone does not separate it from the stops already behind it. */
 .cz-detail-status-chip.is-active .cz-status-dot {
   width: 13px;
   height: 13px;
-  border-color: var(--cz-action-fill);
-  background: var(--cz-action-fill);
+  border-color: var(--cz-ink);
+  background: var(--cz-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-status-rail,
+  .cz-status-dot {
+    transition: none !important;
+  }
 }
 
 /* The stop name is the radio's accessible name. It stays in the DOM for
@@ -10642,16 +10655,20 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-status-next {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  /* Clash Grotesk sits heavier and taller than the system stack this pill
+     was tuned for: 650 read as a blob, the 2px gap glued the chevron to the
+     label, and `normal` line-height dropped the text off optical centre. */
+  gap: 5px;
   flex: 0 0 auto;
   min-height: 34px;
-  padding: 0 12px;
+  padding: 0 13px;
   border: 0;
   border-radius: 999px;
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -10696,7 +10713,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-timeline-text strong {
-  font-weight: 650;
+  font-weight: 600;
   color: var(--cz-ink);
 }
 
@@ -10717,7 +10734,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 12px;
   background: var(--cz-card-solid);
   overflow: hidden;
-  transition: grid-template-rows 200ms var(--ease-out);
+  transition: grid-template-rows var(--dur-open) var(--ease-out);
 }
 
 /* §7: expanded it "grows to fill the rail". A fixed tall track is the honest
@@ -10853,7 +10870,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-album-tile-name {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--cz-ink);
 }
 
@@ -10961,7 +10978,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-action-text);
   cursor: pointer;
 }
-.cz-buy-notch-toggle svg { transition: transform 160ms var(--ease-out); }
+.cz-buy-notch-toggle svg { transition: transform var(--dur-micro) var(--ease-out); }
 .cz-buy-notch-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 
 /* The picker opens UPWARD. The notch lives in the footer, so a downward card
@@ -11077,8 +11094,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
-    border-color 160ms ease,
-    background 160ms ease;
+    border-color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
 }
 
 .cz-detail-foot-price:active {
@@ -11113,8 +11130,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-bottom: 1px solid transparent;
   background: var(--cz-bg);
   transition:
-    height 160ms var(--ease-out),
-    border-color 160ms var(--ease-out);
+    height var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
 }
 .cz-detail-stickybar.is-up {
   height: 44px;
@@ -11205,7 +11222,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-card-solid);
   color: var(--cz-ink);
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
 }
 .cz-detail-qc-prompt-btn input { display: none; }
@@ -11241,7 +11258,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-dpanel-scrim.is-closing {
     opacity: 0;
     pointer-events: none;
-    transition: opacity var(--modal-close-dur, 150ms) var(--modal-ease, ease);
+    transition: opacity var(--modal-close-dur, 150ms) var(--modal-ease, var(--ease-out));
   }
 
   .cz-dpanel {
@@ -11383,23 +11400,119 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     flex: 0 0 auto;
   }
 
-  /* §4: the 2-up links row sits under the strip in the left column, at the
-     desktop step (44px, 7px gap). */
-  .cz-dpanel-left .cz-album-links {
+  /* Right-side cluster after the filmstrip: category, N MORE, CHART chip. */
+  .cz-dpanel-thumb-side {
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    padding-left: 10px;
+  }
+  .cz-dpanel-thumb-side-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: 0;
+  }
+  .cz-dpanel-cat {
+    font-family: var(--cz-mono);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cz-ink);
+    white-space: nowrap;
+  }
+  .cz-dpanel-more {
+    font-family: var(--cz-mono);
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cz-sub);
+    white-space: nowrap;
+  }
+  .cz-dpanel-chart-chip {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 54px;
+    min-height: 54px;
+    padding: 6px 4px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--cz-money);
+    cursor: pointer;
+  }
+  .cz-dpanel-chart-chip-label {
+    font-family: var(--cz-mono);
+    font-size: 7.5px;
+    font-weight: 800;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    color: var(--cz-money);
+  }
+  /* Album + seller meta under the strip — text + hairline only, no tiles. */
+  .cz-dpanel-meta {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
     margin-top: 10px;
-    gap: 7px;
+    min-width: 0;
   }
-  .cz-dpanel-left .cz-album-link-tile {
-    min-height: 44px;
-    padding: 0 12px;
-    gap: 8px;
+  .cz-dpanel-meta-album {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--cz-ink);
+    cursor: pointer;
+    text-align: left;
   }
-  .cz-dpanel-left .cz-album-tile-name {
-    font-size: 12.5px;
+  .cz-dpanel-meta-seller {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
   }
-  .cz-dpanel-left .cz-album-tile-kicker {
-    font-size: 9.5px;
+  .cz-dpanel-meta-name {
+    font-size: 12px;
+    font-weight: 650;
+    color: var(--cz-ink);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  a.cz-dpanel-meta-name:hover {
+    text-decoration: underline;
+  }
+  .cz-dpanel-meta-kicker {
+    font-family: var(--cz-mono);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cz-sub);
+  }
+  .cz-dpanel-meta-div {
+    flex: 0 0 auto;
+    width: 1px;
+    height: 22px;
+    background: var(--cz-hair);
   }
   .cz-dpanel-thumbs::-webkit-scrollbar {
     display: none;
@@ -11523,6 +11636,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-dpanel-menu-wrap {
     position: relative;
   }
+  .cz-dpanel-menu-note {
+    margin: 2px 0 0;
+    padding: 6px 12px 8px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--cz-sub);
+  }
   .cz-dpanel-menu {
     position: absolute;
     top: 42px;
@@ -11587,7 +11707,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
   .cz-dpanel-body .cz-detail-foot-price {
     font-family: var(--cz-mono);
-    font-size: 26px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--cz-money);
     white-space: nowrap;
@@ -11618,17 +11738,92 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    single-column stack. */
 @media (min-width: 1024px) {
   .cz-dpanel {
-    /* §4 sets the photo column at 500px. The turn-9 addendum supersedes the
-       turn-4 634px. The 134px goes to the rail, where the sizing block, the
+    /* §4 sets the photo column at 470px. The turn-9 addendum supersedes the
+       turn-4 634px. The spare width goes to the rail, where the sizing block, the
        track and the timeline all read better wide. */
-    grid-template-columns: 500px minmax(0, 1fr);
-    grid-template-rows: none;
-    width: min(86vw, 1180px);
-    height: min(88vh, 860px);
+    grid-template-columns: 470px minmax(0, 1fr);
+    /* Turn 12 option B, second half: the card hugs its content. A sparse
+       card used to hold the full 860px and show the void on the right; now
+       the taller column sets the height, the shorter one stretches to meet
+       it, and only past the cap does the right rail scroll (A composes
+       with B — the mock's own recommendation). The row must be minmax(0,1fr),
+       not `none`: under max-height alone the columns lose their definite
+       height, flex:1 children stop resolving, and the Buy footer clips off
+       the panel bottom (Kyle 2026-07-27). */
+    grid-template-rows: minmax(0, 1fr);
+    width: min(86vw, 1080px);
+    height: auto;
+    min-height: 540px;
+    max-height: min(86vh, 820px);
+  }
+  /* In the uncapped (short-content) case the left column is content-sized,
+     so the stage must bound itself — otherwise the photo track resolves to
+     the image's natural height and the column explodes past the cap. */
+  .cz-dpanel-left .cz-dpanel-stage {
+    max-height: 48vh;
   }
   .cz-dpanel-left {
     border-right: 1px solid var(--cz-hair);
     border-bottom: none;
+  }
+  .cz-dpanel-lognotes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .cz-dpanel-left .cz-dpanel-stage {
+    /* A long timeline below must not crush the photo stage: its flexible
+       share keeps a usable floor while the new slot scrolls. */
+    min-height: 260px;
+  }
+  .cz-dpanel-lognotes .cz-detail-notes {
+    font-size: 13.5px;
+  }
+  /* Desktop notes never resize the card (Kyle 2026-07-27: "when you expand
+     the notes, the whole card expands — that shouldn't be a thing at all").
+     The box's animated 73px→185px track is pinned to one height here, the
+     text scrolls inside it, and the Expand toggle goes away — expansion has
+     nothing left to do. The phone sheet keeps its grow-on-open behavior. */
+  .cz-dpanel-lognotes .cz-detail-notes-box,
+  .cz-dpanel-lognotes .cz-detail-notes-box.is-open {
+    grid-template-rows: auto 118px;
+  }
+  .cz-dpanel-lognotes .cz-detail-notes-box .cz-detail-notes {
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+  .cz-dpanel-lognotes .cz-detail-notes-toggle {
+    display: none;
+  }
+  .cz-dpanel-lognotes .cz-timeline-text {
+    font-size: 12px;
+    color: var(--cz-sub);
+  }
+  /* The head row held only ⋯ and ✕ but claimed a full 56px band, so the
+     title sat low under dead space (Kyle 2026-07-27). Float the two icons
+     over the rail's top-right corner — the same treatment the tablet band
+     already uses — and let the title own the top of the column. The title
+     row keeps clear of the floated icons via padding, not by moving them. */
+  .cz-dpanel-right {
+    position: relative;
+  }
+  .cz-dpanel-head {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    z-index: 3;
+    padding: 0;
+  }
+  .cz-dpanel-body .cz-detail-scroll {
+    padding-top: 12px;
+  }
+  .cz-dpanel-body .cz-detail-title-row {
+    padding-right: 92px;
   }
 }
 

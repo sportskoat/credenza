@@ -1075,14 +1075,16 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
   // Handoff turn 9 §2: the "Size · fit" cell is retired. Sizing is its own
   // always-visible block, and its "Full chart" button opens the same sheet.
-  it("Full chart opens the fit block, never a bare text input", async () => {
+  it("the sizing footer opens the fit block, never a bare text input", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
+    // Chartless item with a listing size run: footer is "My sizes" (the run
+    // chips are inline), not Full chart. Still opens the fit sheet.
     expect(document.querySelector(".cz-sizing")).not.toBeNull();
-    await user.click(screen.getByRole("button", { name: /Full chart/ }));
+    await user.click(screen.getByRole("button", { name: /My sizes/ }));
     expect(document.querySelector(".cz-detail-fit")).not.toBeNull();
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
     expect(screen.getByRole("button", { name: "Set my sizes" })).toBeInTheDocument();

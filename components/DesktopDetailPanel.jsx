@@ -13,7 +13,7 @@ import {
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 import DetailBody from "./DetailBody.jsx";
-import { AlbumLinksRow } from "./CardMetaLinks.jsx";
+import { SellerLink } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
@@ -52,8 +52,16 @@ export default function DesktopDetailPanel({
   // hero pager used to provide). photoView = { startIndex } | null.
   const [photoView, setPhotoView] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [haulDraft, setHaulDraft] = useState("");
   const [addBusy, setAddBusy] = useState(false);
+  const [logNotesEl, setLogNotesEl] = useState(null);
+  // Bumped by the left-column CHART chip; DetailBody opens its size sheet.
+  const [openChartSignal, setOpenChartSignal] = useState(0);
+  const [isWide, setIsWide] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia &&
+      window.matchMedia("(min-width: 1024px)").matches
+  );
   const trackRef = useRef(null);
   // True while a programmatic smooth scroll runs. The scroll handler stands
   // down for that window so it cannot overwrite the target index.
@@ -62,6 +70,18 @@ export default function DesktopDetailPanel({
   const menuRef = useRef(null);
   const addInputRef = useRef(null);
   const PHOTO_MAX = 12;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsWide(mq.matches);
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
 
   // Keep the stage in sync when attach/remove rewrites the item (or a new
   // card opens). Lazy Yupoo load still extends the list below.
@@ -159,17 +179,19 @@ export default function DesktopDetailPanel({
     return () => window.removeEventListener("pointerdown", onDown);
   }, [menuOpen]);
 
-  const assignHaul = (name) => {
-    const trimmed = String(name || "").trim();
-    if (!trimmed) return;
-    onSaveEdit && onSaveEdit(item.id, { project: trimmed });
-    setHaulDraft("");
-    setMenuOpen(false);
-  };
-
   const price = priceLabel(item);
   const multiPhoto = photos.length > 1;
   const canAddPhoto = photos.length < PHOTO_MAX && !!onAttachPhoto;
+  // Album total beyond the thumbs already on screen. albumPhotoCount is the
+  // real album size when we know it; fall back to the loaded list.
+  const albumKnown = Math.max(
+    typeof item.albumPhotoCount === "number" && isFinite(item.albumPhotoCount)
+      ? item.albumPhotoCount
+      : 0,
+    photos.length
+  );
+  const moreCount = Math.max(0, albumKnown - photos.length);
+  const categoryLabel = (item.category ? String(item.category) : "garment").toUpperCase();
 
   const pickPhotoFile = async (file) => {
     if (!file || !onAttachPhoto) return;
@@ -327,12 +349,59 @@ export default function DesktopDetailPanel({
                 pickPhotoFile(file);
               }}
             />
+            <div className="cz-dpanel-thumb-side">
+              <div className="cz-dpanel-thumb-side-text">
+                <span className="cz-dpanel-cat">{categoryLabel}</span>
+                {moreCount > 0 ? (
+                  <span className="cz-dpanel-more">{moreCount} MORE</span>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="cz-dpanel-chart-chip"
+                aria-label="Open size chart"
+                onClick={() => setOpenChartSignal((n) => n + 1)}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <path d="M3 10h18M9 4v16M15 4v16" />
+                </svg>
+                <span className="cz-dpanel-chart-chip-label">CHART</span>
+              </button>
+            </div>
           </div>
-          {/* §4: "Both album links return, as a 2-up row below the strip."
-              The desktop panel draws its own stage and strip, so it mounts
-              the same row here — the shared body's copy hangs off its hero,
-              which this panel does not render. */}
-          <AlbumLinksRow item={item} />
+          {/* Album opens the full-screen pager; seller is the store link.
+              Replaces the old 2-up AlbumLinksRow tiles on this panel only. */}
+          <div className="cz-dpanel-meta">
+            <button
+              type="button"
+              className="cz-dpanel-meta-album"
+              onClick={() => setPhotoView({ startIndex: 0 })}
+            >
+              <span className="cz-dpanel-meta-name">
+                {photos.length} photo{photos.length === 1 ? "" : "s"}
+              </span>
+              <span className="cz-dpanel-meta-kicker">ALBUM</span>
+            </button>
+            <span className="cz-dpanel-meta-div" aria-hidden="true" />
+            <div className="cz-dpanel-meta-seller">
+              <SellerLink item={item} className="cz-dpanel-meta-name" />
+              <span className="cz-dpanel-meta-kicker">SELLER</span>
+            </div>
+          </div>
+          {/* Wide screens use the spare photo-column depth for the shared
+              Timeline + Notes tree; DetailBody still owns its draft writer. */}
+          {isWide ? <div className="cz-dpanel-lognotes" ref={setLogNotesEl} /> : null}
         </div>
 
         <div className="cz-dpanel-right">
@@ -348,48 +417,11 @@ export default function DesktopDetailPanel({
                 <MoreHorizontal aria-hidden="true" size={18} strokeWidth={2.2} />
               </button>
               {menuOpen ? (
+                // One action only. Haul assignment lives on the body's
+                // + haul chip — the menu used to duplicate it with its own
+                // input and rows, and two writers for the same field is how
+                // hauls got clobbered (Kyle 2026-07-27: "make this right").
                 <div className="cz-dpanel-menu" role="menu" aria-label="Card actions">
-                  <div className="cz-dpanel-menu-haul">
-                    <input
-                      type="text"
-                      value={haulDraft}
-                      placeholder={item.project ? "Move to haul…" : "Add to haul…"}
-                      aria-label="Haul name"
-                      onChange={(e) => setHaulDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        e.stopPropagation();
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          assignHaul(haulDraft);
-                        }
-                      }}
-                    />
-                    {haulNames.map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        role="menuitem"
-                        className={"cz-card-action-row" + (item.project === name ? " is-current" : "")}
-                        onClick={() => assignHaul(name)}
-                      >
-                        <span>{name}</span>
-                        {item.project === name ? <span className="cz-card-action-meta">Current</span> : null}
-                      </button>
-                    ))}
-                  </div>
-                  {item.project ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="cz-card-action-row"
-                      onClick={() => {
-                        onSaveEdit && onSaveEdit(item.id, { project: "" });
-                        setMenuOpen(false);
-                      }}
-                    >
-                      <span>Remove from haul</span>
-                    </button>
-                  ) : null}
                   <button
                     type="button"
                     role="menuitem"
@@ -400,8 +432,10 @@ export default function DesktopDetailPanel({
                       onDelete && onDelete(item.id);
                     }}
                   >
+                    <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
                     <span>Remove card</span>
                   </button>
+                  <p className="cz-dpanel-menu-note">Haul lives on the chip below now.</p>
                 </div>
               ) : null}
             </div>
@@ -428,6 +462,8 @@ export default function DesktopDetailPanel({
               onSetPrimaryImage={onSetPrimaryImage}
               onLoadPhotos={onLoadPhotos}
               footerPrice={price}
+              logNotesTarget={isWide ? logNotesEl : undefined}
+              openChartSignal={openChartSignal}
             />
           </div>
         </div>

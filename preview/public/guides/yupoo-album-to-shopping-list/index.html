@@ -96,15 +96,21 @@
   ]
 }
     </script>
+    <link rel="preload" href="/fonts/ClashGrotesk-Variable.woff2" as="font" type="font/woff2" crossorigin />
     <style>
+      @font-face {
+        font-family: "Clash Grotesk";
+        src: url("/fonts/ClashGrotesk-Variable.woff2") format("woff2-variations");
+        font-weight: 200 700;
+        font-display: swap;
+      }
 
       :root {
         /* Type tokens. The same three families the app uses. The logo is
            made of the serif C and the tracked sans word, so nothing on this
            site may name a family of its own (Kyle 2026-07-27). */
         --cz-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
-        --cz-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-          "Segoe UI", sans-serif;
+        --cz-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         --cz-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
         color-scheme: light dark;
         --bg: #f4f4f0;

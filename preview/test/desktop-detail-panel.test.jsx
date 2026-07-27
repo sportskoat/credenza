@@ -81,11 +81,11 @@ describe("DesktopDetailPanel (Fix B)", () => {
     renderPanel(panelItem(), { onAttachPhoto, onRemovePhoto });
 
     // The right column still carries no second PHOTOS block — the left
-    // filmstrip is the one place that adds and deletes. The album link that
-    // used to sit in this column returned to the LEFT one in handoff turn 9
-    // §4, under the strip, so it is no longer a chip in the rail.
+    // filmstrip is the one place that adds and deletes. Album + seller meta
+    // sit under the strip (replacing the old AlbumLinksRow tiles).
     expect(document.querySelector(".cz-detail-photos")).toBeNull();
-    expect(document.querySelector(".cz-dpanel-left .cz-album-links")).not.toBeNull();
+    expect(document.querySelector(".cz-dpanel-left .cz-dpanel-meta")).not.toBeNull();
+    expect(document.querySelector(".cz-dpanel-left .cz-album-links")).toBeNull();
     expect(screen.getByRole("button", { name: "Add photo" })).toBeInTheDocument();
     // Cover (first photo) has no trash; gallery photo 2 does.
     expect(screen.queryByRole("button", { name: "Delete photo 1" })).toBeNull();
@@ -112,7 +112,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
   });
 
-  it("the ⋯ menu assigns a haul and removes the card", async () => {
+  it("the ⋯ menu holds only Remove card — haul lives on the chip", async () => {
     const onSaveEdit = vi.fn();
     const onDelete = vi.fn();
     const onClose = vi.fn();
@@ -120,13 +120,15 @@ describe("DesktopDetailPanel (Fix B)", () => {
     renderPanel(panelItem(), { haulNames: ["Summer Europe"], onSaveEdit, onDelete, onClose });
 
     await user.click(screen.getByRole("button", { name: "Card actions" }));
-    await user.click(screen.getByRole("menuitem", { name: /Summer Europe/ }));
-    expect(onSaveEdit).toHaveBeenCalledWith("dp-1", { project: "Summer Europe" });
+    // The menu must not duplicate haul assignment: two writers for the same
+    // field is how hauls got clobbered. The chip row owns it now.
+    expect(screen.queryByRole("menuitem", { name: /Summer Europe/ })).toBeNull();
+    expect(screen.getByText("Haul lives on the chip below now.")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Card actions" }));
     await user.click(screen.getByRole("menuitem", { name: /Remove card/ }));
     expect(onDelete).toHaveBeenCalledWith("dp-1");
     expect(onClose).toHaveBeenCalled();
+    expect(onSaveEdit).not.toHaveBeenCalled();
   });
 
   it("renders no pager chrome for a single photo", () => {
