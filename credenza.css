@@ -1,4 +1,31 @@
+/* ═══ Type tokens — the ONLY place a font stack is written ═══
+   Kyle 2026-07-27: "Can we make some font standardizations for the entire
+   website? They're a little bit more different. They're kind of giving regular
+   Claude design, where I want it to be the fonts that the Credenza fashion
+   logo is made out of."
+
+   The logo is made of exactly two families. The C is the serif. The word
+   CREDENZA and its kicker are the sans, tracked wide. Nothing else. Every
+   rule in this app now names one of these three tokens, so the site and the
+   logo can never drift apart again.
+
+   Before this block there were TEN spellings of these three families across
+   credenza.css, credenza-fashion.css and credenza-fashion.jsx — same fonts,
+   different fallback order, different quote marks. Each one was a place the
+   type could silently change.
+
+   --cz-display  the logo's serif. Headings, titles, prices, numbers.
+   --cz-sans     the logo's sans. Body copy, labels, controls.
+   --cz-mono     data the eye scans in columns: IDs, codes, sizes, weights.
+
+   A literal font stack anywhere outside this block is a defect. The test
+   test/type-tokens.test.js fails the build on one. */
 :root {
+  --cz-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --cz-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --cz-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

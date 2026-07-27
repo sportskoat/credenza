@@ -311,8 +311,14 @@ export const BLUE_BG = "var(--cz-accent-bg)";
 export const BLUE_DK = "var(--cz-accent-deep)";
 export const ACTION_FILL = "var(--cz-action-fill)";
 
-export const FONT = "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-export const DISPLAY = "Georgia, 'Iowan Old Style', 'Times New Roman', serif";
+// Type. These name the same two tokens the CSS uses, so the JSX and the
+// stylesheet can never drift apart. The stacks themselves live in exactly one
+// place: the :root block at the top of credenza.css. Do not spell a font
+// family here (Kyle 2026-07-27: "make some font standardizations for the
+// entire website … the fonts that the Credenza fashion logo is made out of").
+export const FONT = "var(--cz-sans)";
+export const DISPLAY = "var(--cz-display)";
+export const MONO = "var(--cz-mono)";
 
 // Internal type keys are stable (match stored data); labels are display-only.
 export const TYPES = {

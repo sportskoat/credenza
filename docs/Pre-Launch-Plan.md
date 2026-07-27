@@ -87,6 +87,8 @@ matter how green it is.
 | LB-65 | A 200 is not a page. And a rule a comment can satisfy is not a rule. |
 | LB-66 | Deleting a generator does not clear data it already wrote. |
 | LB-67 | A visual complaint deserves a number. |
+| LB-68 | One button must not hold two behaviours. |
+| LB-69 | One value, spelled many ways, is many values. |
 
 Three of these carry a concrete habit. Follow them literally:
 
@@ -173,6 +175,8 @@ Three of these carry a concrete habit. Follow them literally:
 | LB-65 | Every page address must serve its own page | P0 | 2 h | — | DONE 2026-07-27 — Kyle, with a screenshot of localhost:5173/contact/ rendering the app: “every single page takes you here, these are not routed right”; an hour earlier I had reported all ten addresses working on the strength of HTTP 200, and Vite answers 200 for ANY unmatched path via the SPA fallback, so a 200 proved only that something answered; added a directory-resolving middleware to `vite.config.js` that rewrites `/x/` to `public/x/index.html` when that file exists, ahead of the fallback, and bound the dev server to 127.0.0.1 (it had bound IPv6 `[::1]` only, so Kyle's earlier ERR_CONNECTION_REFUSED was a second, separate fault); new `dev server routing` block in `public-site.test.js`, five mutation probes; production was NOT broken the same way — `/faq/` and `/landing/` serve correctly live, while `/contact/` and `/pricing/` return Page not found because they have never been deployed |
 | LB-66 | Delete the sample shelf | P1 | 1 h | LB-65 | DONE 2026-07-27 — Kyle, second request: “this is a very old credenza app, this content needs to be deleted”; removed `buildSampleItems` (243 lines of demo cards), `SAMPLE_COUNT`, `clearSamples`, the ImportSheet sample card, and the “Clear sample shelf” button; the empty-shelf action “Put it on my shelf” loaded 18 demo cards and now focuses the paste field instead, reading “Paste your first link”; a device that already holds sample cards sweeps them off once after hydration, silently — a toast offering Undo would only invite the demo back |
 | LB-67 | Centre the masthead nav | P1 | 1 h | — | DONE 2026-07-27 — Kyle, with a screenshot: “header here is not centered and doesn’t look right”; `.cz-masthead` uses `justify-content: space-between`, which divides only the LEFTOVER room, so a ~190px brand on the left and a single 44px avatar on the right pushed the link row 54.9px right of the true middle at 1440, 1280 and 1024; giving the two outer children an equal `flex: 1 1 0` makes them claim equal width and puts the nav on the real centre line, scoped to `min-width: 768px` and `:not(.is-compact)` because the phone masthead hides the nav; `preview/scripts/probe-masthead-center.mjs` measures 0.0px at all three widths, and a revert probe measured 54.9px, which proves the rule is load-bearing |
+| LB-68 | The Stash button must open the Stash sheet everywhere | P1 | 1 h | — | DONE 2026-07-27 `35ed812` — Kyle: “The stash button just copies your clipboard in, but realistically, I think when you hit the stash button, it should pull up the stash to shelf, how it is in the mobile”; `heroStash` branched `if (isPhone) setCaptureSheetOpen(true); else stashClipboard();` and the sheet itself was gated `{isPhone && captureSheetOpen}`, so one button had two behaviours and the desktop one read `navigator.clipboard` and stashed a card the user had never seen; the sheet now renders on every screen — `ModalShell` already draws a centred dialog on desktop and a bottom sheet only under `(max-width: 767px) and (pointer: coarse)`, so no new surface was needed, and `CaptureSheet`'s textarea already calls `stopPropagation` on keydown, which retires the old KM-03 keystroke-sink objection; a deliberate ⌘V still stashes straight to the shelf on desktop, because the user chose that text and the toast carries the Undo; two tests run with NO phone media match and assert the sheet is on screen and `readText` was NOT called; revert probe re-added `isPhone &&` and the first test failed |
+| LB-69 | One type token set for the whole site | P1 | 2 h | — | DONE 2026-07-27 — Kyle: “Can we make some font standardizations for the entire website? … I want it to be the fonts that the Credenza fashion logo is made out of”; the logo is made of two families — a Georgia serif C and the UI sans word — but the site spelled those two families TEN different ways across `credenza.css`, `credenza-fashion.css`, `credenza-fashion.jsx` and 33 public HTML pages, each with a different fallback order or quote style, so the type could drift from the logo silently and did; added `--cz-display` / `--cz-sans` / `--cz-mono` to the first `:root` in `credenza.css` as the one place a stack is written, rewrote all 77 declarations in `credenza-fashion.css` and all 260 across the public pages to those tokens (each public page carries its own chrome and shares no stylesheet, so each got its own copy of the three definitions), retired `landing/index.html`'s private `--serif`/`--sans`/`--mono`, and pointed the exported `FONT`/`DISPLAY` constants at `var(--cz-sans)`/`var(--cz-display)` so the JSX and the CSS cannot drift; `test/type-tokens.test.js` strips comments first and asserts on declaration VALUES, so a comment cannot satisfy it; revert probe reintroduced one literal stack in each of the CSS and a public page, and both failed |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -4852,3 +4856,88 @@ else. A revert that restores the fault proves the rule is load-bearing.
 **LB-67: a visual complaint deserves a number.** Not because the number is
 more true than the eye, but because the eye cannot compare a page against
 the same page twenty minutes ago, and a number can.
+
+---
+
+### LB-68 — one button, two behaviours
+
+Kyle: **"The stash button just copies your clipboard in, but realistically, I
+think when you hit the stash button, it should pull up the stash to shelf, how
+it is in the mobile."**
+
+The code branched on the screen:
+
+```js
+if (isPhone) setCaptureSheetOpen(true);
+else stashClipboard();
+```
+
+And the sheet itself was gated `{isPhone && captureSheetOpen && (`. So the same
+control did two different things, and the desktop one read
+`navigator.clipboard` and put a card on the shelf that the user had never seen.
+The sheet exists to prevent exactly that. Desktop was the one screen that
+skipped it.
+
+Two beliefs kept the split alive, and both had expired.
+
+The first was that desktop had no surface for the sheet. `ModalShell` already
+draws a centred `<dialog>` and becomes a bottom sheet only under
+`(max-width: 767px) and (pointer: coarse)`. The surface was already there.
+
+The second was KM-03: a desktop sheet would swallow keystrokes meant for the
+window. `CaptureSheet`'s textarea calls `e.stopPropagation()` on keydown. That
+was fixed some time ago, and the comment explaining the gate was never reread.
+
+One line stays different on purpose. A deliberate ⌘V still stashes straight to
+the shelf on desktop, because the user picked that text and pressed that key,
+and the toast carries the Undo. The BUTTON is a different gesture — nothing has
+been chosen yet — so it opens the sheet on every screen.
+
+The tests run with no phone media match and assert two things that survive no
+implementation: the sheet's own title is on screen, and `readText` was never
+called. A revert probe re-added `isPhone &&` and the first test failed.
+
+**LB-68: one button must not hold two behaviours.** A branch on screen size is
+a layout decision. When it changes what the control DOES, it is two products
+sharing a label, and only one of them was ever designed.
+
+---
+
+### LB-69 — ten spellings of two fonts
+
+Kyle: **"Can we make some font standardizations for the entire website? They're
+a little bit more different. They're kind of giving regular Claude design, where
+I want it to be the fonts that the Credenza fashion logo is made out of."**
+
+The logo is made of two families. A Georgia serif C, and the UI sans stack for
+the word CREDENZA and its kicker. That is the whole palette.
+
+The site named those two families ten different ways. `credenza-fashion.css`
+held 77 `font-family` declarations. The public pages held 260 more. Some wrote
+`Georgia, "Times New Roman", serif`; others `Georgia, 'Iowan Old Style', "Times
+New Roman", serif`. Some wrote `system-ui, -apple-system, sans-serif`; others
+led with `ui-sans-serif`. `landing/index.html` had invented its own private
+`--serif` / `--sans` / `--mono`, defined nowhere else.
+
+Every one of those spellings resolves to a slightly different face on some
+machine. That is what Kyle was seeing. Not a wrong font — a drifting one.
+
+The fix is three tokens in one `:root` in `credenza.css`, and nothing else
+anywhere. The exported `FONT` and `DISPLAY` constants now hold
+`"var(--cz-sans)"` and `"var(--cz-display)"`, so the inline styles in the JSX
+read the same declaration the stylesheet does. The public pages share no
+stylesheet — each carries its own chrome — so each got its own copy of the
+three definitions, and the test checks that a page which USES a token also
+DEFINES it. A page that used one without defining it would render in the
+browser default face, which is the drift, wearing the fix's clothes.
+
+The test strips `/* comments */` before it looks for declarations. This
+codebase quotes its own code in its comments, so a whole-file grep for a font
+stack matches the explanation and keeps passing after the rule is deleted
+(LB-65). It asserts on the VALUE of each declaration. A revert probe put one
+literal stack back into `credenza-fashion.css` and one into the FAQ page, and
+the test named both files and both values.
+
+**LB-69: one value, spelled many ways, is many values.** A constant is not
+created by everyone agreeing on it. It is created by there being one place to
+write it down, and a test that fails on the second place.

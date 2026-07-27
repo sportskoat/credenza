@@ -222,7 +222,7 @@
    every Pill render. Variants ride data-variant; callers' inline styles are
    layout-only (flex, margins) and still win. */
 .cz-app[data-fashion="true"] .cz-pill {
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--cz-sans);
   font-size: 13px;
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -724,7 +724,7 @@
    per-status bg/text colors come inline from FIND_STATUS_COLORS. Positioning
    is per-surface: .cz-card-status (grid photo), .cz-carousel-status (carousel). */
 .cz-status-pill {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -757,7 +757,7 @@
   bottom: 10px;
   right: 10px;
   z-index: 2;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 12.5px;
   font-weight: 700;
   padding: 6px 11px;
@@ -798,7 +798,7 @@
 
 .cz-carousel-title {
   margin: 0 0 6px;
-  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  font-family: var(--cz-display);
   font-size: 17px;
   font-weight: 500;
   letter-spacing: -0.03em;
@@ -822,7 +822,7 @@
    CardFrontInfo's stack layout. */
 .cz-front-size {
   margin: 0 0 2px;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 11px;
   line-height: 1.25;
   color: color-mix(in srgb, var(--cz-ink) 70%, transparent);
@@ -874,7 +874,7 @@
 }
 .cz-front-seller {
   margin: 0 0 4px;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 11px;
   line-height: 1.25;
   letter-spacing: 0.02em;
@@ -884,7 +884,7 @@
   color: color-mix(in srgb, var(--cz-ink) 82%, transparent);
 }
 .cz-front-price {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.25;
@@ -995,7 +995,7 @@
   gap: 5px;
   justify-self: start;
   max-width: 100%;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1384,7 +1384,7 @@
 
 .cz-carousel-back-title {
   margin: 0;
-  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  font-family: var(--cz-display);
   font-size: 18px;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -2165,7 +2165,7 @@
   letter-spacing: 0.01em;
   line-height: 1.2;
   color: var(--cz-faint);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--cz-sans);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2276,7 +2276,7 @@
   color: var(--cz-ink);
   font-size: 14px;
   line-height: 1.45;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--cz-sans);
   padding: 8px 4px;
   outline: none;
   box-shadow: none;
@@ -2711,7 +2711,7 @@ a.cz-empty-hero-link {
   border-radius: 0 !important;
   color: var(--cz-ink);
   font-size: 13.5px;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--cz-sans);
   box-shadow: none !important;
   outline: none !important;
 }
@@ -3511,7 +3511,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-haul-board-dim-label {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -5073,7 +5073,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-card-title {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 17px;
   font-weight: 500;
   letter-spacing: -0.03em;
@@ -5711,7 +5711,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   line-height: 1;
 }
 .cz-desk-clip-host {
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: var(--cz-mono);
   font-size: 12px;
   line-height: 1;
   color: color-mix(in srgb, var(--cz-action-text) 60%, transparent);
@@ -5793,7 +5793,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 10px;
   margin: 12px 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -5825,7 +5825,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 3px 10px;
   border: 1px solid var(--cz-hair);
   border-radius: 999px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -5861,7 +5861,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-profile-label {
   margin: 18px 0 8px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -5988,7 +5988,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-share-label {
   margin: 18px 0 2px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -6044,7 +6044,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-share-row-val {
   flex-shrink: 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -6069,7 +6069,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 999px;
   background: var(--cz-ink);
   color: var(--cz-bg);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -6169,7 +6169,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   margin-bottom: 10px;
 }
 .cz-share-link {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 13px;
   line-height: 1.5;
   color: var(--cz-ink);
@@ -6213,7 +6213,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
 }
 .cz-links-url {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 11.5px;
   color: var(--cz-faint);
   overflow-wrap: anywhere;
@@ -6430,7 +6430,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     0 16px 36px rgba(23, 24, 26, 0.12);
 }
 .cz-card-title-serif {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif !important;
+  font-family: var(--cz-display) !important;
   font-size: 17px !important;
   font-weight: 600 !important;
   line-height: 1.25 !important;
@@ -6492,7 +6492,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   box-sizing: border-box;
 }
 .cz-fit-prompt-title {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
@@ -6625,7 +6625,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   box-sizing: border-box;
 }
 .cz-fit4-empty-title {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 18px;
   font-weight: 500;
   line-height: 1.25;
@@ -6700,7 +6700,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: transparent;
   text-align: left;
   cursor: pointer;
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 24px;
   font-weight: 500;
   line-height: 1.1;
@@ -7256,7 +7256,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   box-sizing: border-box;
 }
 .cz-fit-pref-ask-title {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 18px;
   font-weight: 500;
   line-height: 1.25;
@@ -7367,7 +7367,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 /* ── Import sheet 8a (Import shelf handoff) ─────────────────────────────── */
 .cz-import-body {
   padding: 22px 24px 24px;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--cz-sans);
 }
 
 .cz-import-works {
@@ -7444,7 +7444,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 14px;
   background: color-mix(in srgb, var(--cz-ink) 3%, var(--cz-bg));
   color: var(--cz-ink);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 13.5px;
   line-height: 1.7;
   resize: vertical;
@@ -7650,7 +7650,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-stash-body {
   padding: 16px 18px 24px;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--cz-sans);
 }
 
 /* State A — what the clipboard holds, verbatim. An obfuscated or truncated
@@ -7678,7 +7678,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-stash-clipcard-label {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -7690,7 +7690,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   margin: 0;
   max-height: 96px;
   overflow: hidden;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 13px;
   line-height: 1.5;
   color: var(--cz-ink);
@@ -7709,7 +7709,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 16px;
   background: var(--cz-bg);
   color: var(--cz-ink);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 16px;
   line-height: 1.5;
   resize: vertical;
@@ -7751,7 +7751,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-stash-ready-text {
   min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 11.5px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7794,14 +7794,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-stash-row-code {
   flex: none;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10.5px;
   color: var(--cz-faint);
 }
 
 .cz-stash-list-more {
   padding: 8px 12px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10.5px;
   color: var(--cz-faint);
 }
@@ -8044,7 +8044,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 7px 11px;
   border-radius: 999px;
   color: var(--cz-sub);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--cz-sans);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -8194,7 +8194,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 /* The mock drops the "TOTAL SHELF COST" caps entirely. Lowercase keeps
    "18 saved" narrow enough to sit beside a five-figure total at 393px. */
 .cz-tabs-count {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -8207,7 +8207,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-tabs-total,
 .cz-tabs-total .t-reel {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 12px;
   font-weight: 650;
   color: var(--cz-money);
@@ -8592,7 +8592,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-stash-clip-host {
   min-width: 0;
   max-width: 132px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -8656,7 +8656,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 12px;
   color: var(--cz-faint);
   white-space: nowrap;
@@ -9228,7 +9228,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 8px;
   background: transparent;
   color: var(--cz-ink);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
@@ -9267,7 +9267,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-detail-title {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 22px;
   font-weight: 600;
   line-height: 1.2;
@@ -9283,7 +9283,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 10px;
   background: var(--cz-card-solid);
   color: var(--cz-ink);
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 21px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -9291,7 +9291,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-detail-sub {
   margin-top: 6px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 11.5px;
   color: var(--cz-faint);
 }
@@ -9305,7 +9305,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 999px;
   background: var(--cz-money-bg);
   color: var(--cz-money);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -9410,7 +9410,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizing-kicker {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -9421,7 +9421,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-sizing-prov {
   margin-left: auto;
   min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9.5px;
   letter-spacing: 0.06em;
   color: var(--cz-faint);
@@ -9439,7 +9439,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizing-value {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 21px;
   font-weight: 600;
   line-height: 1.15;
@@ -9514,7 +9514,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizing-cell-k {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9px;
   color: var(--cz-faint);
 }
@@ -9771,7 +9771,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-sizing-fix-size {
   flex: 0 0 46px;
   min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9.5px;
   color: var(--cz-faint);
   overflow: hidden;
@@ -9782,7 +9782,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-sizing-fix-col {
   flex: 1;
   min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9px;
   color: var(--cz-faint);
   text-align: center;
@@ -9894,7 +9894,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-detail-editor-label {
   flex: 0 0 auto;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -9984,7 +9984,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-detail-fit-kicker {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -9996,7 +9996,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -10051,7 +10051,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-detail-fit-size {
   margin-top: 4px;
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 26px;
   font-weight: 600;
   color: var(--cz-ink);
@@ -10110,7 +10110,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-detail-fit-source {
   margin-top: 8px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10.5px;
   letter-spacing: 0.02em;
   color: var(--cz-faint);
@@ -10126,7 +10126,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-detail-fit-k {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -10135,7 +10135,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-detail-fit-v {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 13.5px;
   font-weight: 700;
   color: var(--cz-ink);
@@ -10147,7 +10147,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-detail-fit-label {
   margin: 16px 0 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -10203,7 +10203,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-detail-label {
   display: block;
   margin: 20px 0 0;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -10236,7 +10236,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-detail-rule-note {
   flex: 0 0 auto;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9.5px;
   letter-spacing: 0.06em;
   color: var(--cz-faint);
@@ -10359,7 +10359,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   left: 50%;
   margin-top: 2px;
   transform: translateX(-50%);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9px;
   letter-spacing: 0.04em;
   color: var(--cz-warn-ink);
@@ -10416,7 +10416,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-timeline-date {
   flex: 0 0 40px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 10px;
   color: var(--cz-faint);
 }
@@ -10471,7 +10471,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-detail-notes-kicker {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -10492,7 +10492,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 0;
   background: transparent;
   color: var(--cz-sub);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -10593,7 +10593,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-album-tile-kicker {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -10766,7 +10766,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 /* Same number on every row, on purpose — see the note below the list. */
 .cz-agent-pop-price {
   flex: 0 0 auto;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 12.5px;
   font-weight: 700;
   color: var(--cz-money);
@@ -10802,7 +10802,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 1px solid var(--cz-hair);
   border-radius: 14px;
   background: var(--cz-card-solid);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 15px;
   font-weight: 700;
   color: var(--cz-money);
@@ -10869,7 +10869,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--cz-display);
   font-size: 15px;
   color: var(--cz-ink);
 }
@@ -10878,7 +10878,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--cz-mono);
   font-size: 9px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -11060,7 +11060,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
     color: #fff;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-family: var(--cz-mono);
     font-size: 11.5px;
     font-weight: 600;
   }
@@ -11321,7 +11321,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     gap: 18px;
   }
   .cz-dpanel-body .cz-detail-foot-price {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-family: var(--cz-mono);
     font-size: 26px;
     font-weight: 700;
     color: var(--cz-money);

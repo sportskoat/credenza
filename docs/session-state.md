@@ -80,6 +80,61 @@ files ever disagree, this file wins.
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
 
+## 2026-07-27 — Stash sheet everywhere + one type token set (LB-68, LB-69, NOT deployed)
+
+Two of the five asks in Kyle's current goal are closed. Read this before you
+touch the Stash button, any `font-family`, or the exported `FONT`/`DISPLAY`.
+
+### LB-68 — the Stash button now opens the sheet on every screen (`35ed812`)
+
+Kyle: "The stash button just copies your clipboard in, but realistically, I
+think when you hit the stash button, it should pull up the stash to shelf, how
+it is in the mobile."
+
+`heroStash` branched `if (isPhone) … else stashClipboard()`, and the sheet was
+gated `{isPhone && captureSheetOpen && (`. Desktop read the clipboard and
+stashed a card the user never saw. The sheet now renders on every screen.
+
+- No new surface was needed. `ModalShell` already draws a centred `<dialog>`
+  and becomes a bottom sheet only under `(max-width: 767px) and (pointer:
+  coarse)`.
+- The old KM-03 objection is dead: `CaptureSheet`'s textarea already calls
+  `stopPropagation` on keydown.
+- A deliberate ⌘V still stashes straight to the shelf on desktop. That is a
+  different gesture — the user chose the text — and the toast carries Undo.
+- `stashClipboard` still exists. The desktop clip banner and the phone clip
+  pill both call it, and both already show the clipboard first.
+
+### LB-69 — three type tokens, and nothing else names a font
+
+Kyle: "Can we make some font standardizations for the entire website? … I want
+it to be the fonts that the Credenza fashion logo is made out of."
+
+The logo is two families. The site spelled them ten ways across four kinds of
+file, so the type drifted per machine.
+
+- **`--cz-display`, `--cz-sans`, `--cz-mono` are defined in the first `:root`
+  of `credenza.css`. That is the ONLY place a font stack may be written.**
+- All 77 declarations in `credenza-fashion.css` and all 260 across the 33
+  public HTML pages now name a token. Zero literal stacks remain.
+- Each public page carries its own chrome and shares no stylesheet, so each
+  page holds its own copy of the three definitions. A new public page must
+  copy that block, or its type falls back to the browser default face.
+- `landing/index.html`'s private `--serif` / `--sans` / `--mono` are retired.
+- Exported `FONT` and `DISPLAY` in `credenza-fashion.jsx` now hold
+  `"var(--cz-sans)"` and `"var(--cz-display)"`. A new `MONO` joins them.
+  Never spell a family in JSX — the same rule as the hex-colour ban.
+- `preview/test/type-tokens.test.js` fails the build on a literal stack. It
+  strips comments first, so a quoted example cannot satisfy it.
+
+Gate 2,120 tests / 67 files. Lint 5 warnings, 0 errors (unchanged set).
+
+### Still open in Kyle's goal
+- Navigation, profile and settings card: cleaner sign-in, grouped options,
+  bigger measurement inputs.
+- Shelf cards and the masthead read bland. Give both more presence. **The
+  carousel is frozen — do not touch it.**
+
 ## 2026-07-27 — Routing fix, header centring, sample shelf deleted (`5928358`, NOT deployed)
 
 Kyle reported three faults in one message and asked to stop for review.
