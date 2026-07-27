@@ -17,7 +17,7 @@ Refresh by pasting https://credenzafashion.com/landing/ into an LLM with the pro
 | 4 | How do I pick a size from a Weidian size chart? | how | `/guides/weidian-size-chart/` | shipped |
 | 5 | How do I open a Weidian link in Superbuy / my preferred agent? | how | `/guides/open-weidian-in-agent/` | shipped |
 | 6 | What tool keeps Yupoo photos and buy links on one card? | best / what tool | `/guides/organize-agent-haul/` (same cluster) | covered |
-| 7 | How do I track QC photos and GL/RL for an agent haul? | how | `/how/` + FAQ | partial — guide later |
+| 7 | How do I track QC photos and GL/RL for an agent haul? | how | `/guides/track-qc-photos/` | shipped |
 | 8 | Alternatives to a spreadsheet for planning Chinese agent hauls | alternatives | `/guides/spreadsheet-vs-haul-planner/` | shipped |
 
 ---

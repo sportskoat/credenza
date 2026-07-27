@@ -46,6 +46,7 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/guides/spreadsheet-vs-haul-planner/ — spreadsheet vs planner
 - https://credenzafashion.com/guides/reddit-haul-to-list/ — Reddit haul to shopping list
 - https://credenzafashion.com/guides/weidian-size-chart/ — size chart to recommended size
+- https://credenzafashion.com/guides/track-qc-photos/ — track QC photos and GL/RL
 - https://credenzafashion.com/guides/open-weidian-in-agent/ — open Weidian in preferred agent
 - https://credenzafashion.com/ — app (PWA shelf)
 - https://credenzafashion.com/llms-full.txt — longer machine brief
