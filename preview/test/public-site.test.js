@@ -1230,6 +1230,10 @@ describe("every page tells a machine what kind of page it is", () => {
     "guides/estimate-haul-weight/index.html": "HowTo",
     "guides/free-agent-haul-planner/index.html": "Article",
     "guides/yupoo-album-to-shopping-list/index.html": "HowTo",
+    // Not a procedure. This page defines a unit the price table sells (20 a
+    // day free, 1,000 on Pro) and says what spends one. Article, like the
+    // other two explainers above.
+    "guides/what-a-link-resolve-is/index.html": "Article",
     "guides/open-weidian-in-agent/index.html": "HowTo",
     "guides/organize-agent-haul/index.html": "HowTo",
     "guides/reddit-haul-to-list/index.html": "HowTo",
@@ -1787,6 +1791,24 @@ describe("a feature the price table sells is explained somewhere else", () => {
       row: "Spreadsheet export (.csv)",
       needs: ["total a haul", "price usd"],
       why: "the reason to pay for this row is a spreadsheet that adds up, which needs one currency column",
+    },
+    // LB-55. Added 2026-07-27. A third census, this time with chrome stripped
+    // so nav and footer links could not inflate the count, and reading the
+    // actual sentence behind every mention. "Link options" looked thin at 5
+    // but is genuinely explained on /guides/share-a-haul-list/. "Link resolves"
+    // was thin at 5 AND every one of the five was a number inside a limits
+    // list: /how/, /faq/ and /privacy/ name it beside Ask and chart reads;
+    // /guides/free-agent-haul-planner/ gives the rate. The price table sold
+    // 20 a day against 1,000 a day for a unit the site never defined.
+    //
+    // Both phrases are the mechanism. "Link resolve" itself would pass on any
+    // of those five limits lists. "Midnight UTC" would pass on the free-plan
+    // guide, which already says it. These two say what the unit IS and what
+    // the counter counts, so only a page that defines it can satisfy them.
+    {
+      row: "Link resolves",
+      needs: ["one link in, one resolve spent", "counts server reads, not items"],
+      why: "the row with the widest free/Pro gap on the table was the one unit the site never defined",
     },
   ];
 

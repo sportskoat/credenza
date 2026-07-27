@@ -87,6 +87,7 @@ built twice.
 | Share a haul list | — | `/guides/share-a-haul-list/` |
 | **Plan a parcel / chargeable weight** | **volumetric weight (~4k)** | `/guides/plan-a-parcel/` |
 | **Back up / export the shelf** | — | `/guides/back-up-your-shelf/` |
+| **What a link resolve is** | **taobao link to english (~2k)** | `/guides/what-a-link-resolve-is/` |
 | Hub | — | `/guides/` |
 
 Yupoo was the largest uncovered head term on the site until 2026-07-27: ~12k a
