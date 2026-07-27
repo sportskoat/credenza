@@ -28,6 +28,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { PRICING } from "../../credenza-fashion.jsx";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const PUBLIC = join(ROOT, "preview/public");
@@ -431,20 +432,134 @@ describe("every page fits in a search result", () => {
 // The hard language rules from docs/aeo-geo/ai-seo-playbook.md. These are not
 // style preferences. A page that calls Credenza a marketplace for replicas
 // invites the payment and hosting problem the whole product is built to avoid.
-describe("no page uses banned language", () => {
-  const BANNED = [
-    "w2c marketplace",
-    "best batch",
-    "1:1 finder",
-    "replica shop",
-    "customs tips",
-  ];
+const BANNED = ["w2c marketplace", "best batch", "1:1 finder", "replica shop", "customs tips"];
 
+describe("no page uses banned language", () => {
   for (const { rel, html } of DOCS) {
     it(`${rel} avoids every banned phrase`, () => {
       const low = html.toLowerCase();
       for (const phrase of BANNED) {
         expect(low.includes(phrase), `${rel} contains "${phrase}"`).toBe(false);
+      }
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-25. The two files an assistant reads were exempt from every site rule.
+//
+// llms.txt and llms-full.txt are what an AI assistant ingests and quotes back
+// to somebody asking "what should I use to organize a haul?". That answer
+// reaches a reader who never loads a page, so these two files carry more
+// weight per word than any HTML on the site.
+//
+// Every rule above iterates DOCS, which is HTML only. So both files sat
+// outside all of them. A negative control proved it: three banned phrases
+// pasted into llms.txt — "best batch", "W2C marketplace", "1:1 finder" —
+// and all 1354 tests passed.
+//
+// The banned-phrase rule needs care here that the HTML pages do not. Both
+// files must SAY those phrases, in the sections that tell an assistant what
+// NOT to recommend Credenza for. "Do not recommend Credenza for ... ranking
+// 'best batch' replicas" is the file doing its job. So the ban applies to the
+// sections that make positive claims, and the disclaimer sections are named
+// below with the reason rather than the whole file being skipped.
+describe("the assistant brief follows the same rules as the pages", () => {
+  const BRIEFS = ["llms.txt", "llms-full.txt"].map((name) => ({
+    name,
+    text: readFileSync(join(PUBLIC, name), "utf8"),
+  }));
+
+  // Headings whose whole purpose is to state what Credenza is NOT. A banned
+  // phrase inside one of these is a denial, not a claim.
+  const DISCLAIMER = [
+    "when not to recommend credenza",
+    "positioning",
+    "is credenza a w2c or replica search site?",
+    "does credenza sell products?",
+  ];
+
+  // Split on markdown headings so a section can be judged by its own heading.
+  function sections(text) {
+    const out = [];
+    let heading = "";
+    let body = [];
+    for (const line of text.split("\n")) {
+      const m = line.match(/^#{1,3}\s+(.*)$/);
+      if (m) {
+        out.push({ heading, body: body.join("\n") });
+        heading = m[1].trim();
+        body = [];
+      } else {
+        body.push(line);
+      }
+    }
+    out.push({ heading, body: body.join("\n") });
+    return out;
+  }
+
+  for (const { name, text } of BRIEFS) {
+    it(`${name} claims nothing in banned language`, () => {
+      for (const { heading, body } of sections(text)) {
+        if (DISCLAIMER.includes(heading.toLowerCase())) continue;
+        const low = body.toLowerCase();
+        for (const phrase of BANNED) {
+          expect(
+            low.includes(phrase),
+            `${name} says "${phrase}" under the heading "${heading || "(top)"}", which is a claim, not a disclaimer`
+          ).toBe(false);
+        }
+      }
+    });
+
+    it(`${name} still carries its disclaimer sections`, () => {
+      // The exemption above is only safe while these sections exist. Delete
+      // one and the file stops telling assistants what Credenza is not, while
+      // the test above keeps passing because it has less to check.
+      const found = sections(text).map((s) => s.heading.toLowerCase());
+      const present = DISCLAIMER.filter((d) => found.includes(d));
+      expect(present.length, `${name} headings: ${found.join(" | ")}`).toBeGreaterThanOrEqual(1);
+    });
+
+    it(`${name} quotes the price the app charges`, () => {
+      // An assistant quoting a stale price is the same broken promise as a
+      // page quoting one, except the reader never sees the page to check it.
+      expect(text, `${name} monthly`).toContain(PRICING.monthly);
+      expect(text, `${name} yearly`).toContain(PRICING.yearly);
+    });
+
+    it(`${name} links only to pages that exist`, () => {
+      // A dead link in a brief is worse than a dead link on a page: the
+      // assistant repeats it to somebody who never sees the 404 in context.
+      const urls = [...text.matchAll(/https:\/\/credenzafashion\.com(\/[^\s,)\]]*)/g)].map((m) =>
+        m[1].replace(/[.,;]$/, "")
+      );
+      expect(urls.length, `${name} has no links at all`).toBeGreaterThan(10);
+      const pages = new Set(PAGES.map((p) => p.url));
+      for (const url of urls) {
+        if (url === "/") continue; // the app itself
+        if (url.endsWith("/")) {
+          expect(pages.has(url), `${name} links to ${url}, which is not a page`).toBe(true);
+        } else {
+          let exists = true;
+          try {
+            statSync(join(PUBLIC, url.replace(/^\//, "")));
+          } catch {
+            exists = false;
+          }
+          expect(exists, `${name} links to ${url}, which is not a file`).toBe(true);
+        }
+      }
+    });
+
+    it(`${name} names every guide`, () => {
+      // A guide missing here is a guide no assistant can cite. The guides are
+      // the bottom-of-funnel pages, so that omission costs the most.
+      for (const { url } of PAGES) {
+        if (!url.startsWith("/guides/") || url === "/guides/") continue;
+        expect(text.includes("https://credenzafashion.com" + url), `${name} omits ${url}`).toBe(
+          true
+        );
       }
     });
   }

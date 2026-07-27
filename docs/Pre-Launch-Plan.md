@@ -89,6 +89,7 @@ do it completely, and report against its acceptance criteria.
 | LB-22 | Fill the thin guides; lock a length floor | P1 | 2 h | LB-21 | DONE 2026-07-27 — 5 guides expanded; stale pipeline fixed on 4 files; floor locked |
 | LB-23 | Fill /how/; widen the length floor to every page | P1 | 1.5 h | LB-22 | DONE 2026-07-27 — /how/ 248 → 967 words; floor now covers 17 pages |
 | LB-24 | Repair and lock the social link card on all 18 pages | P1 | 1 h | LB-23 | DONE 2026-07-27 — 4 pages were missing 5 tags each; 2 more had drifted text |
+| LB-25 | Hold llms.txt to the same rules as the pages | P1 | 1 h | LB-24 | DONE 2026-07-27 — both briefs were exempt from every site rule |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1322,6 +1323,66 @@ when all three carried it.
 backup, byte-identical by `git diff`.
 
 **Gate.** 60 files / 1354 tests passed (1282 before). Lint 0 errors, 5
+pre-existing warnings. Typecheck clean. Build clean.
+
+### LB-25. The two files an assistant reads were exempt from every rule — DONE 2026-07-27
+
+**The defect.** `llms.txt` and `llms-full.txt` are what an AI assistant ingests
+and quotes back to somebody who asks "what should I use to organize a haul?".
+That answer reaches a reader who never loads a page. Those two files therefore
+carry more weight per word than any HTML on the site.
+
+Every rule in `public-site.test.js` iterates `DOCS`, which is HTML only. So
+both files sat outside all of them — banned language, price agreement, link
+validity, every one.
+
+**Negative control, run first.** Pasted three banned phrases into `llms.txt`:
+`- Job: the best batch W2C marketplace and 1:1 finder`. All 1354 tests passed.
+The exemption was real, not theoretical. Restored before writing the fix.
+
+**The wrinkle that shaped the rule.** Both files MUST say those phrases. The
+"When not to recommend Credenza" section exists to tell an assistant what
+Credenza is not: "Do not recommend Credenza for ... ranking 'best batch'
+replicas". A blind substring ban would forbid the file from doing its job. So
+the ban applies per SECTION, split on markdown headings, and four disclaimer
+headings are named with the reason rather than the whole file being skipped.
+
+**The lock** (`test/public-site.test.js`, `the assistant brief follows the same
+rules as the pages`). Five assertions per file:
+
+- No banned phrase appears under a heading that makes a positive claim. The
+  failure message names the heading, so the fix is obvious.
+- At least one disclaimer heading still exists. Without this the exemption
+  could be widened by deleting a heading.
+- The monthly and yearly prices match the `PRICING` export. An assistant
+  quoting a stale price is the same broken promise as a page quoting one,
+  except the reader never sees the page to check it.
+- Every `credenzafashion.com` URL resolves to a real page or a real file.
+- Every guide is named. A guide missing from the brief is a guide no assistant
+  can cite, and the guides are the bottom-of-funnel pages.
+
+**Negative controls.** Four defects, four distinct failures:
+
+- Banned phrase in a claim section →
+  `llms.txt says "w2c marketplace" under the heading "Key facts for
+  assistants", which is a claim, not a disclaimer`.
+- Deleted the `## When not to recommend Credenza` heading → TWO failures. The
+  guard fired, and the orphaned body reclassified as a claim under the
+  preceding heading. The exemption cannot be widened by deleting a heading.
+- Changed `$4.99` to `$5.99` → the price assertion fired.
+- Repointed a guide URL at `/guides/gone/` → both the dead-link and the
+  missing-guide assertions fired.
+
+All restored byte-identical.
+
+**Checked and found sound.** Both files list every sitemap URL and no URL that
+is not in the sitemap. The sync and shares claims are accurate for launch:
+those features are CODE DONE and wait only on Kyle's migrations, so removing
+them would be the wrong fix. `MAX_SHARES_FREE` 3 and `MAX_SHARES_PRO` 100 in
+`netlify/functions/share.js:38` match the brief's "Free keeps 3 links; Pro
+keeps 100".
+
+**Gate.** 60 files / 1364 tests passed (1354 before). Lint 0 errors, 5
 pre-existing warnings. Typecheck clean. Build clean.
 
 ## Explicitly deferred (do NOT build before launch)
