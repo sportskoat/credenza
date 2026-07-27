@@ -1178,3 +1178,86 @@ describe("every page tells a machine what kind of page it is", () => {
     });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-32. The price on the pages a customer reads before paying.
+//
+// Found by a negative control on the price itself. Raising PRICING.monthly from
+// $4.99 to $6.99 in credenza-fashion.jsx failed exactly two assertions —
+// llms.txt and llms-full.txt. /pricing/, /faq/ and /terms/ all kept quoting
+// $4.99 and the suite stayed green.
+//
+// That is the scope defect again, and this is the worst place yet to find it.
+// The two files it did cover are read by assistants. The three it missed are
+// read by the person about to enter a card. A page that quotes a price the
+// checkout does not charge is not a stale string; it is a promise the product
+// breaks at the moment of payment, and /terms/ quotes it as a term.
+//
+// Prices are also the one number on the site that a human changes in a hurry —
+// in Stripe first, then in the app, and then, if nothing objects, nowhere else.
+describe("every page that names a price names the one the app charges", () => {
+  // Derived, not listed. A page that starts quoting a price later is picked up
+  // automatically — the opposite of the PRIMARY table above, where an
+  // exhaustive list is the point. Here the risk is a page nobody thought to add.
+  const priced = DOCS.filter((p) => /\$\d/.test(p.html));
+
+  it("found the pages that quote a price", () => {
+    // Without this the filter could silently empty and every case below would
+    // pass by checking nothing.
+    expect(priced.length, "no page quotes a price at all").toBeGreaterThanOrEqual(3);
+    const urls = priced.map((p) => p.url);
+    for (const must of ["/pricing/", "/faq/", "/terms/"]) {
+      expect(urls, `${must} no longer quotes a price`).toContain(must);
+    }
+  });
+
+  for (const { rel, html } of priced) {
+    it(`${rel} quotes no price the app does not charge`, () => {
+      // /landing/ shows a mock shelf full of item prices — $23.52, $548.08.
+      // Those are sample goods, not plans, so the rule is not "only these two
+      // strings may appear". It is: wherever the page says Pro costs
+      // something, that figure has to be the real one.
+      const plan = [...html.matchAll(/Pro[^.<]{0,60}?(\$\d+(?:\.\d\d)?)/g)].map((m) => m[1]);
+      const real = new Set([PRICING.monthly, PRICING.yearly]);
+      for (const p of plan) {
+        expect(
+          real.has(p),
+          `${rel} says Pro costs ${p}; the app charges ${PRICING.monthly} or ${PRICING.yearly}`
+        ).toBe(true);
+      }
+    });
+  }
+
+  it("the pricing page states both plans, not just the cheaper one", () => {
+    const page = DOCS.find((p) => p.url === "/pricing/");
+    expect(page.html, "pricing page monthly").toContain(PRICING.monthly);
+    expect(page.html, "pricing page yearly").toContain(PRICING.yearly);
+  });
+
+  it("the terms state the price they bind the reader to", () => {
+    const page = DOCS.find((p) => p.url === "/terms/");
+    expect(page.html, "terms monthly").toContain(PRICING.monthly);
+    expect(page.html, "terms yearly").toContain(PRICING.yearly);
+  });
+
+  it("the FAQ answers the price question with the real price", () => {
+    const page = DOCS.find((p) => p.url === "/faq/");
+    expect(page.html, "faq monthly").toContain(PRICING.monthly);
+    expect(page.html, "faq yearly").toContain(PRICING.yearly);
+  });
+
+  // The saving is arithmetic on the two prices, so it goes stale the moment
+  // either one moves — and unlike the prices it is not obviously wrong when it
+  // does. Recompute it rather than trusting the string.
+  it("the yearly saving the pricing page claims is arithmetically true", () => {
+    const page = DOCS.find((p) => p.url === "/pricing/");
+    const m = Number(PRICING.monthly.replace("$", ""));
+    const y = Number(PRICING.yearly.replace("$", ""));
+    const pct = Math.round((1 - y / (m * 12)) * 100);
+    expect(PRICING.yearlySaving, "PRICING.yearlySaving is wrong").toBe(`Save ${pct}%`);
+    expect(page.html, `pricing page should claim Save ${pct}%`).toContain(`Save ${pct}%`);
+    const per = (y / 12).toFixed(2);
+    expect(PRICING.yearlyPerMonth, "PRICING.yearlyPerMonth is wrong").toBe(`$${per} a month`);
+    expect(page.html, `pricing page should say $${per} a month`).toContain(`$${per} a month`);
+  });
+});

@@ -96,6 +96,7 @@ do it completely, and report against its acceptance criteria.
 | LB-29 | Bring the app shell into the rules the 18 public pages follow | P1 | 1 h | LB-28 | DONE 2026-07-27 — the homepage had no canonical, no social card, no schema, and the stale colourway LB-26 fixed everywhere else |
 | LB-30 | Close the two pages a reader could reach but not leave forwards | P1 | 1 h | LB-29 | DONE 2026-07-27 — /faq/ and /support/ had no CTA; the FAQ ended on how to cancel |
 | LB-31 | Ship the haul-weight guide and lock the schema type every page declares | P1 | 1 h | LB-30 | DONE 2026-07-27 — the guide cluster stopped at Buy, and no rule checked the node that says what a page IS |
+| LB-32 | Bind every quoted price to the price the app charges | P0 | 1 h | LB-31 | DONE 2026-07-27 — raising PRICING failed only the two llms files; /pricing/, /faq/ and /terms/ kept the stale number |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1786,6 +1787,50 @@ retyped. Each restored from a checksummed copy.
 
 **Gate:** 60 files / 1488 tests, lint 0 errors, typecheck clean, build clean.
 Verified the guide reaches `dist/` with its sitemap, `llms.txt` and hub entries.
+
+### LB-32 — the price on the pages a customer reads before paying
+
+**The defect.** Raising `PRICING.monthly` from `$4.99` to `$6.99` in
+`credenza-fashion.jsx` failed exactly two assertions: `llms.txt` and
+`llms-full.txt`. `/pricing/`, `/faq/` and `/terms/` all kept quoting `$4.99` and
+the suite stayed green.
+
+The scope defect again, and this is the worst place it has appeared. The two
+files the rule covered are read by assistants. The three it missed are read by
+the person about to enter a card. A page quoting a price the checkout does not
+charge is not a stale string — it is a promise the product breaks at the moment
+of payment, and `/terms/` quotes it as a term.
+
+Prices are also the one number here that a human changes in a hurry: in Stripe
+first, then in the app, and then, if nothing objects, nowhere else. Kyle set
+$4.99 and $39.99 in Stripe on 2026-07-26. Every surface currently agrees. The
+point of this rule is that they still agree after the next change.
+
+**The lock.** The page set is DERIVED, not listed — any page containing a `$`
+figure is checked. That is the opposite choice from LB-31's `PRIMARY` table, and
+deliberately so: there the risk is a page dropping out of an exhaustive list;
+here the risk is a page nobody thought to add.
+
+`/landing/` shows a mock shelf of item prices ($23.52, $548.08), so the rule is
+not "only two strings may appear". It matches "Pro … $N" and requires that
+figure to be the real one, wherever it appears.
+
+A separate case recomputes the yearly saving from the two prices. The saving is
+arithmetic, so it goes stale the moment either price moves — and unlike a price
+it is not obviously wrong when it does. `Save 33%` and `$3.33 a month` are now
+derived and compared, not trusted.
+
+**Negative controls, both fired:**
+
+1. Monthly to `$6.99` — the originally-silent probe. Now fails on `/pricing/`,
+   `/faq/`, `/terms/` and both llms files.
+2. Yearly to `$49.99` — fails the same five, plus `PRICING.yearlySaving is
+   wrong: expected 'Save 33%' to be 'Save 17%'`. The arithmetic check caught the
+   claim that would otherwise have survived a price rise unnoticed.
+
+Restored by checksum, not by `git diff` — see the LB-31 note on why.
+
+**Gate:** 60 files / 1498 tests, lint 0 errors, typecheck clean, build clean.
 
 ## Explicitly deferred (do NOT build before launch)
 
