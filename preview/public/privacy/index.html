@@ -139,7 +139,7 @@
         </span>
       </p>
       <h1>Privacy notice</h1>
-      <p class="lede">Last updated July 24, 2026.</p>
+      <p class="lede">Last updated July 26, 2026.</p>
       <nav class="nav" aria-label="Site">
         <a href="/">Open app</a>
         <a href="/landing/">About</a>
@@ -155,10 +155,77 @@
     <main>
       <h2>The short version</h2>
       <p>
-        Your shelf lives on your device, not on our servers. Credenza has no accounts and no
-        user database today. The server functions see only what one feature needs for one
-        request. They keep no content.
+        Your shelf lives on your device. Credenza works with no account at all. If you make
+        an account, four optional features can store data on our servers: your plan, your
+        synced shelf, your shared links, and your daily usage counters. Each one is listed
+        below. Everything else stays on the device, and the server functions keep no content.
       </p>
+
+      <h2>If you make an account</h2>
+      <p>
+        An account is optional. The app runs without one. You need an account only for Pro,
+        cloud sync, and shared links.
+      </p>
+      <ul>
+        <li>
+          Supabase Auth stores your email address and a hashed password, or the sign-in
+          provider you chose. Credenza never sees a plain password.
+        </li>
+        <li>
+          Your account id ties every server record below to you. That id is a random UUID,
+          not your email.
+        </li>
+      </ul>
+      <p>
+        Delete the account and every record below goes with it, in the same operation.
+        Write to the address at the end of this page to request that.
+      </p>
+
+      <h2>What Pro stores</h2>
+      <p>
+        Stripe takes the payment. Credenza never sees your card number, and no card data
+        touches our servers. Stripe processes your payment details under its own privacy
+        policy.
+      </p>
+      <p>Our server keeps one row for your plan. That row holds:</p>
+      <ul>
+        <li>Your plan and billing status, and the date the paid period ends.</li>
+        <li>Your Stripe customer and subscription identifiers, so a renewal finds you.</li>
+        <li>
+          Daily usage counters per feature — how many size-chart reads, link resolves, and
+          Ask questions you used today. These are counts, never the content of a request.
+        </li>
+      </ul>
+
+      <h2>What cloud sync stores</h2>
+      <p>
+        Cloud sync is off until you turn it on. When it is on, the server holds one copy of
+        your shelf so a second device can read it: items, photos, notes, sizes, prices,
+        hauls, and QC records. It is the same shelf, stored so you do not lose it with the
+        device.
+      </p>
+      <p>
+        Row-level security binds that copy to your account id. Another signed-in account
+        cannot read it. Your body measurements are not part of the synced shelf, and stay on
+        the device.
+      </p>
+
+      <h2>What a shared link stores</h2>
+      <p>
+        A shared link is public by design. When you make one, the server stores a snapshot
+        of the items you chose, under a random 12-character code. Anyone with that code can
+        read the snapshot. Treat the code like the link it is.
+      </p>
+      <ul>
+        <li>You choose which fields go in the snapshot: prices, notes, quality, sellers, parcel.</li>
+        <li>A field you switched off is absent from the snapshot, not hidden by styling.</li>
+        <li>Shared pages carry a no-index instruction, so search engines skip them.</li>
+        <li>Credenza counts no views. There is no visitor log for a shared page.</li>
+        <li>
+          Delete a link from Profile → Shared links, and the page it served answers 404. Set
+          an expiry and the link stops working on its own.
+        </li>
+      </ul>
 
       <h2>What stays on your device</h2>
       <p>Credenza stores these records in your browser's local storage:</p>
@@ -184,6 +251,11 @@
         <li>Size-chart scan: the album photo URLs you asked to scan.</li>
         <li>Reddit import: the one post URL you asked to read.</li>
         <li>Ask: your question and a compact summary of up to 25 shelf items you chose to search.</li>
+        <li>
+          Image relay: the album photo URL, because Yupoo refuses a direct browser request.
+          Credenza relays 6 photos an album by default and caches them; the rest open at the
+          album itself.
+        </li>
       </ul>
       <p>
         Each function logs one outcome line per request: the route, a hashed client key, the
@@ -199,6 +271,19 @@
         click log to Anthropic.
       </p>
 
+      <h2>Who else processes your data</h2>
+      <p>Credenza uses four processors. Each one has its own privacy policy.</p>
+      <ul>
+        <li><strong>Netlify</strong> — hosting and the server functions.</li>
+        <li><strong>Supabase</strong> — accounts, the synced shelf, shared links, and plan rows.</li>
+        <li><strong>Stripe</strong> — payment, receipts, and the customer portal.</li>
+        <li><strong>Anthropic</strong> — Ask, the size-chart scan, and listing translation.</li>
+      </ul>
+      <p>
+        Credenza sells no data, and runs no advertising network, no analytics product, and
+        no third-party tracking pixel.
+      </p>
+
       <h2>Referral links</h2>
       <p>
         Buy links may include a referral code. Credenza may earn a commission on agent
@@ -210,17 +295,34 @@
       <ul>
         <li>On-device records stay until you erase them.</li>
         <li>Server functions keep no content after a request ends.</li>
+        <li>A synced shelf stays until you delete the account or turn sync off and erase it.</li>
+        <li>A shared link stays until you delete it, or until its expiry passes.</li>
+        <li>
+          Your plan row stays while the account exists. We keep it after a cancellation so a
+          later renewal restores the same account.
+        </li>
         <li>Anthropic's retention follows the Anthropic API terms.</li>
+        <li>Stripe's retention follows Stripe's terms. Tax law requires it to keep receipts.</li>
       </ul>
 
       <h2>Export and deletion</h2>
       <p>
         Export: open Profile → Import &amp; backup and download your shelf as a .json file.
+        Pro also exports a .csv for a spreadsheet.
       </p>
       <p>
-        Delete: open Profile → Erase my data. This removes every Credenza record on the
-        device: the shelf, the preferences, the body measurements, the click log, and the
-        offline caches.
+        Delete on the device: open Profile → Erase my data. This removes every Credenza
+        record on the device: the shelf, the preferences, the body measurements, the click
+        log, and the offline caches.
+      </p>
+      <p>
+        Delete a shared link: open Profile → Shared links and delete it. The page it served
+        then answers 404.
+      </p>
+      <p>
+        Delete the account and its server records: write to the address below. We remove the
+        account, the synced shelf, every shared link, and the plan row. Cancel a paid plan
+        first, from the Stripe customer portal in your profile.
       </p>
 
       <h2>Contact</h2>

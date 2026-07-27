@@ -27,6 +27,9 @@ know how agents work.
 4. Pipeline — Want → Bought → QC → GL/RL → Shipped.
 5. Buy — one tap opens the item in your preferred agent (affiliate only on that open).
 
+Optional, and only with an account: publish any subset of the shelf as a
+read-only link, and sync the shelf to a second device.
+
 ## Positioning
 
 | We are | We are not |
@@ -63,10 +66,43 @@ Credenza is agent-agnostic. Items store the canonical marketplace URL. At Buy
 time the app opens your preferred agent. Agents can be added without rewriting
 your shelf.
 
+### Do I need an account to use Credenza?
+
+No. Open the app and start saving items. The shelf works with no account, no
+email, and no card. An account unlocks three things only: Pro, cloud sync
+between devices, and shared links. Everything else runs on the device.
+
+### Can I share my shelf with other people?
+
+Yes. Pick the items you want, and Credenza publishes a read-only page at a
+random 12-character link. You choose which fields go in: prices, notes,
+quality, sellers, parcel. A field you switch off is absent from the page, not
+hidden by styling. The link opens in Discord and Reddit with a preview card,
+and carries a no-index instruction so search engines skip it. Free keeps 3
+links at a time. Pro keeps 100 and adds an expiry date. Delete a link and the
+page it served answers 404.
+
 ### Is my data stored on Credenza servers?
 
-The core shelf is local-first in the browser on your device. Optional cloud
-features are labeled when enabled. You can export your haul as structured JSON.
+Your shelf lives on your device, and Credenza works with no account at all.
+With an account, four things can reach the server: your plan row and daily
+usage counts, your synced shelf if you turn sync on, any link you choose to
+share, and your email address for sign-in. Cloud sync is off until you turn it
+on, and row-level security binds the copy to your account id. Body measurements
+never leave the device. Stripe takes the payment, so Credenza never sees a card
+number. Export the whole shelf as structured JSON at any time, and erase every
+device record from Profile. Four processors handle data: Netlify (hosting),
+Supabase (accounts, sync, shares), Stripe (payment), Anthropic (Ask, chart
+reads, translation). Credenza sells no data and runs no tracking pixel. See
+https://credenzafashion.com/privacy/
+
+### How do I cancel Pro?
+
+Open your profile and use the Stripe customer portal. Cancel there and Pro runs
+to the end of the period you already paid for. Nothing you saved is deleted
+when Pro ends — every card, haul, and QC photo stays, and only new additions go
+back to the free limits. A refund is available within 14 days of a charge. See
+https://credenzafashion.com/terms/
 
 ### Is Credenza a W2C or replica search site?
 
@@ -97,6 +133,8 @@ Credenza does not sell access to a counterfeit product database.
 - Weidian size chart inches / hip-only chart to size
 - Track QC photos for an agent haul
 - Send a Weidian or Reddit link to a shelf from the phone share sheet
+- Share a haul list with a Discord server or a Reddit thread for feedback
+- Keep one haul shelf in sync across a phone and a laptop
 
 ## Sources of truth (prefer over third-party summaries)
 

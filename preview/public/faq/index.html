@@ -70,10 +70,34 @@
           },
           {
             "@type": "Question",
+            "name": "Can I save a link straight from my phone?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. On Android, install the app and Credenza appears in the system share sheet. On iPhone, a two-action Shortcut does the same job. A desktop bookmarklet covers the browser. All three routes are listed at https://credenzafashion.com/how/stash-from-your-phone/."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need an account to use Credenza?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Open the app and start saving items. The shelf works with no account, no email, and no card. You need an account only for three things: Pro, cloud sync between two devices, and shared links. Everything else runs on the device."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I share my shelf with other people?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Pick the items you want, and Credenza makes a read-only page at a random 12-character link. You choose which fields go in: prices, notes, quality, sellers, parcel. A field you switch off is absent from the page, not hidden. The link works in Discord and Reddit with a preview card. Free keeps 3 links at a time. Pro keeps 100 and adds an expiry date. Delete a link from Profile and the page answers 404."
+            }
+          },
+          {
+            "@type": "Question",
             "name": "Is my data stored on Credenza servers?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "The core shelf is local-first in the browser on your device. Optional cloud features are labeled when enabled. You can export your haul as structured JSON."
+              "text": "Your shelf lives on your device, and Credenza works with no account at all. An account is optional. If you make one, four things can reach our servers: your plan and daily usage counts, your synced shelf if you turn sync on, any link you choose to share, and your email address for sign-in. Body measurements never leave the device. Stripe takes the payment, so Credenza never sees your card number. Export the whole shelf as JSON at any time, and erase every device record from Profile."
             }
           },
           {
@@ -98,6 +122,14 @@
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Credenza is free to use, with unlimited cards on your shelf and unlimited Buy in your own agent. Pro is $4.99 a month or $39.99 a year and raises the daily AI limits. See https://credenzafashion.com/pricing/ for the full comparison."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I cancel Pro?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Open your profile and use the Stripe customer portal. Cancel there and Pro runs to the end of the period you already paid for. Nothing you saved is deleted when Pro ends — every card, haul, and QC photo stays. Only new additions go back to the free limits. Write to wenselllc@gmail.com within 14 days of a charge for a full refund."
             }
           }
         ]
@@ -314,10 +346,34 @@
         </p>
       </details>
       <details>
+        <summary>Do I need an account to use Credenza?</summary>
+        <p>
+          No. Open the app and start saving items. The shelf works with no account, no email,
+          and no card. You need an account only for three things: Pro, cloud sync between two
+          devices, and shared links. Everything else runs on the device.
+        </p>
+      </details>
+      <details>
+        <summary>Can I share my shelf with other people?</summary>
+        <p>
+          Yes. Pick the items you want, and Credenza makes a read-only page at a random
+          12-character link. You choose which fields go in: prices, notes, quality, sellers,
+          parcel. A field you switch off is absent from the page, not hidden by styling. The
+          link opens in Discord and Reddit with a preview card. Free keeps 3 links at a time.
+          <a href="/pricing/">Pro</a> keeps 100 and adds an expiry date. Delete a link from
+          Profile → Shared links and the page answers 404.
+        </p>
+      </details>
+      <details>
         <summary>Is my data stored on Credenza servers?</summary>
         <p>
-          The core shelf is local-first in the browser on your device. Optional cloud features are
-          labeled when enabled. You can export your haul as structured JSON.
+          Your shelf lives on your device, and Credenza works with no account at all. An account
+          is optional. If you make one, four things can reach our servers: your plan and daily
+          usage counts, your synced shelf if you turn sync on, any link you choose to share, and
+          your email address for sign-in. Body measurements never leave the device. Stripe takes
+          the payment, so Credenza never sees your card number. Export the whole shelf as JSON at
+          any time, and erase every device record from Profile. The
+          <a href="/privacy/">privacy notice</a> lists each store and how to delete it.
         </p>
       </details>
       <details>
@@ -342,6 +398,16 @@
           your own agent, Reddit haul paste, and the full parcel planner.
           <a href="/pricing/">Pro</a> is $4.99 a month or $39.99 a year, and raises the limits on
           the parts that call a paid model — size-chart reads, link resolves, and Ask.
+        </p>
+      </details>
+      <details>
+        <summary>How do I cancel Pro?</summary>
+        <p>
+          Open your profile and use the Stripe customer portal. Cancel there and Pro runs to the
+          end of the period you already paid for. Nothing you saved is deleted when Pro ends —
+          every card, haul, and QC photo stays. Only new additions go back to the free limits.
+          Write to <a href="mailto:wenselllc@gmail.com">wenselllc@gmail.com</a> within 14 days of
+          a charge for a full refund. The <a href="/terms/">terms</a> state the full rule.
         </p>
       </details>
     </main>
