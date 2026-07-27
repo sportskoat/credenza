@@ -88,6 +88,7 @@ do it completely, and report against its acceptance criteria.
 | LB-21 | Fix the internal link graph | P1 | 1 h | LB-20 | DONE 2026-07-27 — 2 guides had one inbound link; 6 links added, graph locked |
 | LB-22 | Fill the thin guides; lock a length floor | P1 | 2 h | LB-21 | DONE 2026-07-27 — 5 guides expanded; stale pipeline fixed on 4 files; floor locked |
 | LB-23 | Fill /how/; widen the length floor to every page | P1 | 1.5 h | LB-22 | DONE 2026-07-27 — /how/ 248 → 967 words; floor now covers 17 pages |
+| LB-24 | Repair and lock the social link card on all 18 pages | P1 | 1 h | LB-23 | DONE 2026-07-27 — 4 pages were missing 5 tags each; 2 more had drifted text |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1255,6 +1256,72 @@ filters to `/guides/`:
 Both restored from backup; 249/249 passed again.
 
 **Gate.** 60 files / 1282 tests passed (1264 before). Lint 0 errors, 5
+pre-existing warnings. Typecheck clean. Build clean.
+
+### LB-24. The link card was broken on the four oldest pages — DONE 2026-07-27
+
+**The defect.** Most people meet a page as a pasted link, not as a search
+result. Discord, Reddit, Slack and iMessage build that card from the `og:` and
+`twitter:` tags. When a tag is absent the card degrades quietly: no image, or
+the bare URL where the title belongs. The page itself renders correctly, so
+nothing shows the fault except pasting the link somewhere and looking at it.
+
+Exactly four pages had drifted:
+
+| Page | Missing |
+| --- | --- |
+| `404.html` | `twitter:title`, `twitter:description`, `og:image:width`, `og:image:height`, `og:image:alt` |
+| `/support/` | the same five |
+| `/privacy/` | the same five |
+| `/terms/` | the same five |
+
+All eight guides were complete. That correlation is the finding, not a
+coincidence: those four are the oldest pages on the site, written before the
+card pattern settled. No test asserted a social tag, so the pattern spread
+forward to every new page and never went back to the old ones. This is the same
+failure mode as LB-23 — a rule that lives only in the newest files.
+
+**Repair.** One script patched all four, asserting each anchor appeared exactly
+once per file. Each page reuses its own `og:title` and `og:description` text
+verbatim, so the card and the page cannot disagree. `og.png` was confirmed to
+be genuinely 1200x630 by reading the PNG IHDR header, rather than trusting the
+number the other pages already asserted.
+
+**The test found two more on its first run.** `/landing/` and
+`/how/stash-from-your-phone/` each carried a `twitter:description` that was a
+shortened copy of the `og:description` — the closing clause dropped. Sixteen of
+eighteen pages already matched exactly, so this was drift and not intent. Both
+were equalized to the fuller text.
+
+**The lock** (`test/public-site.test.js`, `every page renders a link card`). It
+runs over `DOCS`, so `404.html` is covered — that page has now drifted twice,
+once on the nav after Guides shipped and once here on five tags. Four
+assertions per page:
+
+- All 13 tags are present and none is empty.
+- `og:url` names the page's own URL. A copied `og:url` still renders a card,
+  pointing at the wrong page — the same damage a copied canonical does.
+- `og:image` and `twitter:image` name `og.png`, `og:image:width` is 1200,
+  `og:image:height` is 630, and `twitter:card` is `summary_large_image`.
+  Renderers lay the card out before the image loads; with no dimensions they
+  guess, and the large card falls back to the small one.
+- `twitter:title` equals `og:title` and `twitter:description` equals
+  `og:description`. Twitter falls back to the `og:` tags anyway, so carrying
+  both only helps when they agree. Two texts that drift apart is worse than one
+  text, because only one of them gets proofread.
+
+The tags are hand-wrapped across lines when long, so the matcher reads across
+newlines. A single-line regex reported three pages as missing `og:description`
+when all three carried it.
+
+**Negative control.** Deleted `og:image:height` from `/faq/` and repointed its
+`og:url` at `/how/`. Three failures, each naming the page and the tag:
+`faq/index.html is missing og:image:height`;
+`faq/index.html og:url: expected 'https://credenzafashion.com/how/' to be
+'https://credenzafashion.com/faq/'`; and the sizing assertion. Restored from
+backup, byte-identical by `git diff`.
+
+**Gate.** 60 files / 1354 tests passed (1282 before). Lint 0 errors, 5
 pre-existing warnings. Typecheck clean. Build clean.
 
 ## Explicitly deferred (do NOT build before launch)

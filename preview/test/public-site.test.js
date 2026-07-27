@@ -274,6 +274,87 @@ describe("links and metadata", () => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-24. The card that shows when somebody pastes the link.
+//
+// A link pasted into Discord, Reddit or iMessage is rendered from the og: and
+// twitter: tags, not from the page. When a tag is missing the card degrades
+// silently: no image, or the raw URL as the title. The page itself looks fine,
+// so nothing reveals it except pasting the link somewhere and looking.
+//
+// Four pages had drifted that way — 404.html, /support/, /privacy/ and /terms/
+// were each missing twitter:title, twitter:description, og:image:width,
+// og:image:height and og:image:alt. All eight guides were complete. The
+// correlation is the whole story: those four are the oldest pages, written
+// before the card pattern settled, and NO test asserted a social tag. So the
+// pattern spread forward to new pages and never went back to the old ones.
+//
+// This block asserts values, not just presence. A page that copies another
+// page's og:url still renders a card — pointing at the wrong page.
+describe("every page renders a link card", () => {
+  // The tags are hand-wrapped across lines when they are long, so a
+  // single-line regex misses them. Match across newlines instead.
+  const META = /<meta\s+(?:property|name)="([^"]+)"\s+content="([^"]*)"\s*\/?>/gs;
+
+  const OG_IMAGE = "https://credenzafashion.com/og.png";
+
+  for (const { rel, html } of DOCS) {
+    const tags = new Map([...html.matchAll(META)].map((m) => [m[1], m[2]]));
+    const canonical =
+      "https://credenzafashion.com" +
+      (rel.endsWith("/index.html") ? "/" + rel.replace(/index\.html$/, "") : "/" + rel);
+
+    it(`${rel} carries every tag the card is built from`, () => {
+      for (const tag of [
+        "og:title",
+        "og:description",
+        "og:type",
+        "og:url",
+        "og:site_name",
+        "og:image",
+        "og:image:width",
+        "og:image:height",
+        "og:image:alt",
+        "twitter:card",
+        "twitter:title",
+        "twitter:description",
+        "twitter:image",
+      ]) {
+        expect(tags.has(tag), `${rel} is missing ${tag}`).toBe(true);
+        expect((tags.get(tag) || "").trim(), `${rel} has an empty ${tag}`).not.toBe("");
+      }
+    });
+
+    it(`${rel} points its card at itself`, () => {
+      // og:url is what the card links to and what a scraper treats as the
+      // page's identity. A copied one hands both to another page, the same
+      // way a copied canonical hands over the ranking.
+      expect(tags.get("og:url"), `${rel} og:url`).toBe(canonical);
+    });
+
+    it(`${rel} names an image the renderer can size`, () => {
+      // Discord and Slack lay the card out before the image loads. Without
+      // width and height they guess, and the large-image card falls back to
+      // the small one. og.png is 1200x630 on disk.
+      expect(tags.get("og:image"), `${rel} og:image`).toBe(OG_IMAGE);
+      expect(tags.get("twitter:image"), `${rel} twitter:image`).toBe(OG_IMAGE);
+      expect(tags.get("og:image:width"), `${rel} og:image:width`).toBe("1200");
+      expect(tags.get("og:image:height"), `${rel} og:image:height`).toBe("630");
+      expect(tags.get("twitter:card"), `${rel} twitter:card`).toBe("summary_large_image");
+    });
+
+    it(`${rel} says the same thing on both cards`, () => {
+      // Twitter falls back to the og: tags when a twitter: one is absent, so
+      // carrying both only helps if they agree. Two texts that drift apart is
+      // worse than one text, because only one of them gets proofread.
+      expect(tags.get("twitter:title"), `${rel} twitter:title`).toBe(tags.get("og:title"));
+      expect(tags.get("twitter:description"), `${rel} twitter:description`).toBe(
+        tags.get("og:description")
+      );
+    });
+  }
+});
+
 describe("the sitemap", () => {
   const sitemap = readFileSync(join(PUBLIC, "sitemap.xml"), "utf8");
   const listed = new Set(
