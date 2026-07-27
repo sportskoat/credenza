@@ -1270,6 +1270,11 @@ describe("every page tells a machine what kind of page it is", () => {
     // likely to be believed without being checked, and the half that used to
     // fail — the card photo, cached for seven days — is invisible from a 404.
     "guides/delete-a-shared-link/index.html": "HowTo",
+    // LB-63. Article, not HowTo: the page states a policy rather than giving a
+    // procedure. It exists because /pricing/ promises "If Pro ends, nothing is
+    // deleted... Only new additions go back to the free caps" and no other page
+    // said what that means for a haul, a share link, or a second device.
+    "guides/what-happens-when-pro-ends/index.html": "Article",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
 

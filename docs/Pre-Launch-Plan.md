@@ -127,6 +127,7 @@ do it completely, and report against its acceptance criteria.
 | LB-60 | Make the restore message able to fire, and explain the shelf limit that is real | P0 | 3 h | LB-59 | DONE 2026-07-27 — the census reached `Cards on your shelf`, the only row that reads the same on both plans; the promise verified TRUE (no code counts cards) but the same read found `credenza-fashion.jsx` displaying `merged.stats.added`, a key `mergeShelves` never returned, so "N cards restored from your account" was dead code on every sign-in; `added` now computed, guarded by a structural test over every `stats.` read, plus new page `/guides/how-many-cards-a-shelf-holds/` and a ninth `SOLD` entry |
 | LB-61 | Make `unlisted` do something, and draw the line the word does not | P0 | 3 h | LB-60 | DONE 2026-07-27 — the census reached `Link options (unlisted, expiry, no footer)`; expiry and no-footer both verified as real consequences, but `unlisted` was Pro-gated, stored and read back while changing nothing a reader could see — its only consumer was a label in the owner's own private list, and the "public profile" the Share sheet promised to hide the link from does not exist in the repo; unlisted now blanks the preview card (`share-page.js` meta tags) and refuses the unfurl photo route (`share-image.js`), guarded by a consequence test per option, plus new page `/guides/what-an-unlisted-link-hides/` and a tenth `SOLD` entry |
 | LB-62 | Make a deleted share link leave the edge, not only the database | P0 | 3 h | LB-61 | DONE 2026-07-27 — `/how/` promised a deleted link "answers 404 straight away"; verified FALSE — `share.js` DELETE removed the row and stopped, while `share-page.js` served `max-age=300, stale-while-revalidate=3600` and `share-image.js` served `max-age=604800`, so a deleted haul kept its page for an hour and its card photo for SEVEN DAYS from a cache no database delete reaches, and `grep -rn "cache-tag\|purge" netlify/` returned zero hits; `delete-account.js` had the same gap against the stronger promise; both public routes now emit `netlify-cache-tag: share-<code>` and both delete paths call `POST /api/v1/purge` after the row goes, via `lib/purge.js` (written out rather than adding `@netlify/functions`), plus new page `/guides/delete-a-shared-link/` |
+| LB-63 | Explain what happens when Pro ends, on a page that is not the price table | P1 | 2 h | LB-62 | DONE 2026-07-27 — closes the 14-row pricing census; `/pricing/:579-593` promises "If Pro ends, nothing is deleted... Only new additions go back to the free caps" and NO other page explained it (the LB-46 shape); promise verified TRUE at five code sites — `effectiveStatus()` plus 7-day `GRACE_MS`, `mayWriteCloud()` gating cloud writes not reads, `attachQcImage` capping additions only, `share.js handleCreate` forcing Pro options off at creation and never deleting, `share-page.js:318` reading Pro settings off the row with no plan check — plus a negative check confirming `stripe-webhook.js` and `entitlement-store.js` prune nothing on downgrade; new page `/guides/what-happens-when-pro-ends/` (1,079 words, Article schema), registered in eight places, three mutation probes |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -4328,3 +4329,114 @@ The generalisation is larger than deletion. Wherever a promise contains a word
 about time — *straight away*, *immediately*, *at once*, *live* — the layer to
 verify is the one closest to the reader, and it is almost never the one the
 feature was written in.
+
+---
+
+### LB-63 — the promise the price table sells and no page explains
+
+The pricing census that ran from LB-51 is now CLOSED. All 14 rows of
+`public/pricing/index.html` have a page that explains them. LB-63 is the last
+row, and it is not a row at all — it is the paragraph under the table.
+
+#### The promise
+
+`public/pricing/index.html:579-593`, verbatim:
+
+> The shelf lives on your device. If Pro ends, nothing is deleted: every card,
+> every haul, and every QC photo you already saved stays where it is. Only new
+> additions go back to the free caps.
+
+That is the strongest retention promise on the site. It decides whether a
+reader will pay at all. **No page other than `/pricing/` explained it**, which
+is the LB-46 shape exactly: the price table sells something and only the price
+table describes it.
+
+#### Verification — five code sites plus one negative check
+
+The promise was checked against the code before the page was written, not
+after.
+
+1. `netlify/functions/lib/entitlements.js` — `effectiveStatus()` keeps a
+   cancelled subscription on Pro until `currentPeriodEnd`, then returns
+   `"grace"` while `graceUntil > now`. `GRACE_MS` is 7 days. `mayWriteCloud()`
+   returns true only for `"pro"`, so grace reads Pro limits while continuous
+   saving to the account pauses.
+2. `credenza-fashion.jsx:5688-5721` `attachQcImage` caps **additions** only.
+   Its comment refuses to slice stored photos to the plan cap: "Slicing to the
+   plan cap here would delete the grandfathered photos the guard is written to
+   protect."
+3. `netlify/functions/share.js:78-107` `handleCreate` refuses a new share over
+   the cap and never deletes an existing one.
+4. `netlify/functions/share-page.js:318` reads `row.unlisted` and
+   `row.hideFooter` **with no plan check**, so a link made on Pro keeps its Pro
+   settings after Pro ends. The plan is read when a link is MADE, not when it
+   is opened.
+5. `preview/src/sync.js` has no plan gate anywhere in 273 lines. The gate lives
+   in the app: pull is free (the restore story), push is Pro.
+
+**Negative check.** `stripe-webhook.js` and `entitlement-store.js` were grepped
+for any pruning, trimming, or revoking on downgrade. Nothing exists. The only
+delete paths on the whole site are user-initiated — `deleteShare` and
+`deleteSharesForUser`.
+
+The promise is TRUE in every particular. LB-63 is not a broken feature. It is a
+true promise with no page behind it.
+
+#### Three false leads, recorded because each cost time
+
+- `components/WarehouseQcSection.jsx:19` hardcodes `QC_PHOTO_CAP = 12`, the Pro
+  number. It looked like free users getting the Pro cap. **It is orphaned** —
+  `grep -rn "WarehouseQc"` returns exactly one hit, its own definition. Already
+  recorded at line 180 of this document under LB-1.
+- Pricing row 12 ("Your shelf on more than one device") looked uncovered
+  because `grep -rn "Restore only"` hit only `/pricing/`. It is covered by
+  `/guides/back-up-your-shelf/`, section "Route 3 The account". **Search for
+  the concept, not the price table’s wording** — LB-52 and LB-57 again.
+- D-2 names "About" in the nav and no `/about/` directory exists. The nav’s
+  About points at `/landing/`, which exists. No broken link.
+
+#### The fix
+
+New page `public/guides/what-happens-when-pro-ends/index.html` — 1,079 words,
+**Article** schema, not HowTo, because it states a policy rather than giving a
+procedure. It carries six sections: the short answer, the grace period, a
+row-by-row table mapping each paid row to what you keep, the three that
+surprise people, getting your shelf out, and coming back.
+
+Registered in eight places: `sitemap.xml`, `llms.txt`, `llms-full.txt`, the
+guides-hub ItemList (position 22), the guides-hub visible card, `PRIMARY` in
+`test/public-site.test.js`, `docs/aeo-geo/keyword-cluster.md`, and two inbound
+body-copy links from non-guides pages (`/pricing/` and `/support/`) to satisfy
+LB-21.
+
+#### The probes
+
+Three mutations, each restored by `cp` and confirmed with `md5 -q` —
+**`git checkout --` was not used**:
+
+| Mutation | Test that failed |
+| --- | --- |
+| Remove the page from `PRIMARY` | covers every page, so a new page cannot slip in unlisted |
+| Remove the `/support/` inbound link | is linked from at least two other pages |
+| Remove the `llms.txt` and `sitemap.xml` lines | lists .../ ; llms.txt names every guide |
+
+#### The gate
+
+2,102 tests / 66 files, up from 2,078 / 66. Lint: 5 warnings, 0 errors —
+baseline unchanged.
+
+#### What this says about the census method
+
+The share-cap prose test at `test/plan-limits.test.js:355-430` did **not** need
+a sixth entry. Its regex wants a number next to the word "link"; the new page
+says "while you hold more than 3", which the pattern does not match. Predicted
+otherwise and checked rather than assumed — the check took one test run.
+
+**LB-63: a promise that is true still needs a page.** LB-58 said verify the
+promise against the code. LB-61 said the feature must have a consequence. Both
+assume the failure is in the software. LB-63 is the case where the software is
+right, the sentence is right, and the gap is that the sentence appears exactly
+once, on the page a reader visits last.
+
+The test for it is not a grep. It is: **if this sentence is the reason someone
+pays, does it exist anywhere they would find it before deciding?**
