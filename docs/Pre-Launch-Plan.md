@@ -118,6 +118,7 @@ do it completely, and report against its acceptance criteria.
 | LB-51 | Write the parcel planner guide | P0 | 2 h | LB-46 | DONE 2026-07-27 — a coverage census of the price table found the parcel planner explained on ONE page other than `/pricing/`, the lowest of any sold feature; new page `/guides/plan-a-parcel/`, plus a `SOLD` entry so the row stays bound |
 | LB-52 | Explain the three ways a shelf leaves the app | P0 | 2 h | LB-51 | DONE 2026-07-27 — the LB-51 census counted mentions, not explanations; the two thinnest rows shared one repeated sentence that named buttons only; new page `/guides/back-up-your-shelf/` covers .json, .csv and sync merge, plus two `SOLD` entries |
 | LB-53 | Put the site in the masthead; add the address it was missing (Kyle) | P0 | 2 h | LB-50 | DONE 2026-07-27 (`1973f2c`) — Kyle: "make a header that links to all of our pages here… make a few header pages that link out to pro, contact us, guides, etc."; LB-50 put site links two taps deep in the Profile sheet, so the masthead now carries six, and `/contact/` is a new page because "contact us" had no address behind it |
+| LB-55 | Define the unit the price table sells | P0 | 2 h | LB-52 | DONE 2026-07-27 (`25b53cd`) — a third census, with page chrome stripped, found `Link resolves` mentioned five times outside `/pricing/` and defined zero times; every mention is a number in a limits list. New page `/guides/what-a-link-resolve-is/`, plus a `SOLD` entry keyed on the mechanism |
 | LB-54 | Fix the choppy transitions and the dead scroll (Kyle) | P0 | 3 h | LB-53 | DONE 2026-07-27 (`2208d32`) — Kyle: "the screens are glitchy, half of them don't work in terms of scrolling anymore, or the animations to move from one to the other are very choppy"; two defects, both invisible to the existing suite — see below |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
@@ -3425,3 +3426,69 @@ Launch when every box is checked:
 LB-8, LB-9, LB-10 are strongly recommended before any public
 announcement post — the share link is the announcement's engine — but
 they do not block flipping the site live.
+
+### LB-55 — the widest gap on the price table was an undefined word
+
+**How the gap was found.** LB-51 counted mentions. LB-52 added that a mention is
+not an explanation. This census added a third correction: **count against
+`<main>` only.** Every one of the 26 public pages carries the same nav and the
+same footer, so a raw file-level count credits every page with every link. With
+chrome stripped, the rows not already bound by LB-45/46/51/52 ranked:
+
+```
+ 21 Cards on your shelf      21 Hauls at once        15 AI size-chart reads
+ 14 QC photos an item        14 Ask                  10 Reddit haul paste
+  6 Buy in your agent         5 Link resolves         5 Link options
+```
+
+Two rows tied at the bottom. Reading the actual sentences separated them.
+**"Link options" is genuinely covered** — `/guides/share-a-haul-list/` explains
+unlisted, expiry and the footer toggle in prose. **"Link resolves" is not.** All
+five mentions are the same shape: a number inside a limits list. `/how/`,
+`/faq/` and `/privacy/` name it beside Ask and chart reads. The free-plan guide
+gives the rate ("twenty resolves a day is twenty new finds a day"). The Yupoo
+guide comes closest with one clause — "a paired Weidian or Taobao link is a link
+resolve" — on a page about albums.
+
+**Why that matters more than the other thin rows.** `Link resolves` is the
+widest free/Pro gap on the table: 20 a day against 1,000. A person deciding
+between $0 and $4.99 has to price a unit the site never named.
+
+**Every claim was read from source, not from memory.** A prior segment stated a
+sync behaviour from memory and was wrong, so the page was built from a
+claim-to-source table first:
+
+| Claim on the page | Source |
+|---|---|
+| Weidian, Taobao/Tmall and 1688 are the three stores | `resolve.js` `classifyBuyLinkDirect` |
+| Nineteen agent fronts unwrap to the store link first | `resolve.js` host regex |
+| Weidian prices arrive in fen, divided by 100 | `resolve.js` `extractFacts` |
+| Taobao is fetched as a crawler | `resolve.js` `CRAWLER_UA` — "world.taobao serves its SSR data island only to crawlers" |
+| Size charts come from the description feed, not the gallery | `resolve.js` `descImageUrls`, block types 2 and 13 |
+| The FX fallback is 0.14 USD per CNY | `resolve.js` `FX_FALLBACK_USD_PER_CNY` |
+| A translation failure still returns a card | `resolve.js` — "a Claude failure degrades to untranslated output instead of erroring" |
+| 20 a day free, 1,000 on Pro | `lib/entitlements.js` `PLAN_LIMITS` |
+| The counter resets at midnight UTC | `lib/paid-gate.js` `secondsToUtcMidnight` |
+| A resolve counts only when the read succeeds | `resolve.js` — `recordPaidUsage` sits after the fetch |
+| A hand-typed price survives a re-resolve | `credenza-fashion.jsx` — `x.priceManual ? x.price : …` |
+| Over the limit behaves exactly like offline | `resolveBuyDetails` — both early-return false |
+
+The page also lists **what spends nothing**, which is most of the app: editing,
+sorting, hauls, Buy, QC photos, the parcel planner, the backup file and the CSV
+export never call a server at all.
+
+**The `SOLD` entry.** LB-51 established that the bound phrases must be the
+mechanism, never the feature name — "link resolve" would pass on any of the five
+limits lists this rule exists to reject. A second trap appeared here: "midnight
+UTC" would have passed on the free-plan guide, which already says it. The two
+phrases chosen say what the unit **is** and what the counter **counts**:
+`one link in, one resolve spent` and `counts server reads, not items`. Both were
+checked against every file under `preview/public/` before use; both were unique
+to the new page.
+
+| Probe | Result |
+|---|---|
+| delete `/guides/what-a-link-resolve-is/` | 12 fail, including `Link resolves is explained on a page that is not /pricing/` |
+
+**Gate.** 1873 tests pass (64 files, up from 1847 — the new page picks up 26
+per-page rules), 5 lint warnings and 0 errors. Commit `25b53cd`.
