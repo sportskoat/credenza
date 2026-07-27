@@ -97,6 +97,7 @@ do it completely, and report against its acceptance criteria.
 | LB-30 | Close the two pages a reader could reach but not leave forwards | P1 | 1 h | LB-29 | DONE 2026-07-27 — /faq/ and /support/ had no CTA; the FAQ ended on how to cancel |
 | LB-31 | Ship the haul-weight guide and lock the schema type every page declares | P1 | 1 h | LB-30 | DONE 2026-07-27 — the guide cluster stopped at Buy, and no rule checked the node that says what a page IS |
 | LB-32 | Bind every quoted price to the price the app charges | P0 | 1 h | LB-31 | DONE 2026-07-27 — raising PRICING failed only the two llms files; /pricing/, /faq/ and /terms/ kept the stale number |
+| LB-33 | Assert what robots.txt says, not just that it ships | P0 | 1 h | LB-32 | DONE 2026-07-27 — replacing it with Disallow: / deindexed the whole site and the suite stayed green |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1831,6 +1832,49 @@ derived and compared, not trusted.
 Restored by checksum, not by `git diff` — see the LB-31 note on why.
 
 **Gate:** 60 files / 1498 tests, lint 0 errors, typecheck clean, build clean.
+
+### LB-33 — the one file that can switch the whole site off
+
+**The defect.** Replacing `robots.txt` with `Disallow: /` passed. The suite
+stayed green at 460 tests. Those four characters remove every page on this site
+from every search index and every AI crawler.
+
+LB-25 brought `manifest.webmanifest`, `_headers` and `sw.js` under test as
+"shipped files nothing asserts". `robots.txt` was missed, and it has the largest
+blast radius of the four: no visible change, and the entire `docs/aeo-geo/`
+effort stops working silently. Nobody notices for weeks, because the site looks
+perfect to anybody who visits it directly.
+
+The only existing coverage was accidental — a `_headers` rule referencing
+`/robots.txt` fails if the file is deleted. That proves the file exists. It says
+nothing about whether the file lets anybody in.
+
+**The lock.** The file is parsed into user-agent groups rather than grepped. A
+blanket `Disallow: /` is a real defect; a narrow `Disallow: /private/` is
+legitimate, and a naive `includes("Disallow: /")` cannot tell them apart.
+
+Five rules: no group blocks the whole site; no `Disallow` prefix hides a URL
+that `sitemap.xml` advertises (asking to be indexed and refusing in the same
+breath is what a search console reports as an error); the `Sitemap:` line names
+the canonical origin, not the Netlify subdomain; and `llms.txt`,
+`llms-full.txt`, `sitemap.xml` stay reachable, since blocking those is the
+quietest way to undo `docs/aeo-geo/`.
+
+**Negative controls, all six fired:**
+
+1. Blanket `Disallow: /` — the originally-silent probe.
+2. `Disallow: /guides/` — caught by the sitemap-contradiction rule.
+3. `Disallow: /llms` — caught by the assistant-files rule.
+4. `Sitemap:` line dropped.
+5. `Sitemap:` pointed at `credenza-kyle.netlify.app` instead of the canonical
+   origin.
+6. A second group blocking GPTBot alone while `*` stays open — the subtle one, a
+   single crawler excluded with the file still reading as permissive.
+
+Restored by checksum.
+
+**Gate:** 60 files / 1503 tests, lint 0 errors, typecheck clean, build clean.
+Verified `robots.txt` reaches `dist/` unchanged.
 
 ## Explicitly deferred (do NOT build before launch)
 

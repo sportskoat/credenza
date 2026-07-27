@@ -1261,3 +1261,101 @@ describe("every page that names a price names the one the app charges", () => {
     expect(page.html, `pricing page should say $${per} a month`).toContain(`$${per} a month`);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-33. The one file that can switch the whole site off.
+//
+// Found by a negative control. Replacing robots.txt with "Disallow: /" — which
+// removes every page on this site from every search index and every AI crawler
+// — passed. The suite stayed green at 460.
+//
+// LB-25 brought manifest.webmanifest, _headers and sw.js under test as "shipped
+// files nothing asserts". robots.txt was missed, and it is the one with the
+// largest blast radius: four characters, no visible change, and the entire
+// AEO/GEO effort in docs/aeo-geo/ stops working silently. Nobody notices for
+// weeks, because the site looks perfect to anybody who visits it directly.
+//
+// The only existing coverage was accidental — a _headers rule referencing
+// /robots.txt fails if the file is deleted. That checks the file exists. It
+// says nothing about whether the file lets anybody in.
+describe("robots.txt lets crawlers in and points them at the map", () => {
+  const robots = readFileSync(join(PUBLIC, "robots.txt"), "utf8");
+
+  // Parse into groups rather than grepping the whole file. A blanket
+  // "Disallow: /" under one user-agent is a real rule, and a naive
+  // text.includes("Disallow: /") would also match a narrow, legitimate
+  // "Disallow: /private/" — different meaning, same substring.
+  const groups = [];
+  let current = null;
+  for (const raw of robots.split("\n")) {
+    const line = raw.replace(/#.*$/, "").trim();
+    if (!line) continue;
+    const [key, ...rest] = line.split(":");
+    const field = key.trim().toLowerCase();
+    const value = rest.join(":").trim();
+    if (field === "user-agent") {
+      if (!current || current.rules.length) {
+        current = { agents: [], rules: [] };
+        groups.push(current);
+      }
+      current.agents.push(value);
+    } else if (current) {
+      current.rules.push({ field, value });
+    }
+  }
+
+  it("parses into at least one group, so the rules below check something", () => {
+    expect(groups.length, "robots.txt declares no user-agent group").toBeGreaterThan(0);
+  });
+
+  it("blocks no crawler from the whole site", () => {
+    for (const g of groups) {
+      const blanket = g.rules.find((r) => r.field === "disallow" && (r.value === "/" || r.value === "*"));
+      expect(
+        blanket,
+        `robots.txt disallows all of "/" for ${g.agents.join(", ")} — this removes every page from every index`
+      ).toBeFalsy();
+    }
+  });
+
+  it("blocks no page that is in the sitemap", () => {
+    // A narrow Disallow is legitimate. A narrow Disallow that hides a page the
+    // sitemap advertises is a contradiction: the site asks to be indexed and
+    // refuses in the same breath, and search consoles report it as an error.
+    const listed = PAGES.map((p) => p.url);
+    for (const g of groups) {
+      for (const rule of g.rules) {
+        if (rule.field !== "disallow" || !rule.value) continue;
+        for (const url of listed) {
+          expect(
+            url.startsWith(rule.value),
+            `robots.txt disallows "${rule.value}", which hides ${url} — a page sitemap.xml asks to have indexed`
+          ).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("names the sitemap, at a URL that matches the one the pages canonicalise to", () => {
+    const line = robots.split("\n").find((l) => l.trim().toLowerCase().startsWith("sitemap:"));
+    expect(line, "robots.txt names no sitemap").toBeTruthy();
+    const url = line.slice(line.indexOf(":") + 1).trim();
+    expect(url, "robots.txt sitemap URL").toBe(ORIGIN + "/sitemap.xml");
+  });
+
+  it("does not hide the files assistants are meant to read", () => {
+    // llms.txt and llms-full.txt exist to be fetched by assistants. Blocking
+    // them would be the quietest possible way to undo docs/aeo-geo/.
+    for (const path of ["/llms.txt", "/llms-full.txt", "/sitemap.xml"]) {
+      for (const g of groups) {
+        for (const rule of g.rules) {
+          if (rule.field !== "disallow" || !rule.value) continue;
+          expect(
+            path.startsWith(rule.value),
+            `robots.txt disallows "${rule.value}", which hides ${path}`
+          ).toBe(false);
+        }
+      }
+    }
+  });
+});
