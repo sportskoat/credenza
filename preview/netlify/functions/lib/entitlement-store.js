@@ -78,6 +78,87 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     await req("/shelves?user_id=eq." + encodeURIComponent(userId), { method: "DELETE" });
   }
 
+  // ── Shared shelves (LB-8) ─────────────────────────────────────────────────
+  // The `shares` table has NO anon select policy on purpose, so the service
+  // role is the only public reader. Every read below asks for ONE exact code;
+  // nothing here ever returns a list to an unauthenticated caller.
+
+  async function createShare(row) {
+    await req("/shares", {
+      method: "POST",
+      headers: { prefer: "return=minimal" },
+      body: JSON.stringify({
+        id: row.id,
+        user_id: row.userId,
+        data: row.data,
+        unlisted: row.unlisted === true,
+        hide_footer: row.hideFooter === true,
+        expires_at: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
+      }),
+    });
+    return row.id;
+  }
+
+  // The public read. Returns null for a code that does not exist — the caller
+  // renders the branded 404 and never distinguishes "wrong code" from
+  // "deleted share", because telling them apart is a probe oracle.
+  async function loadShare(code) {
+    const res = await req(
+      "/shares?id=eq." + encodeURIComponent(code) + "&select=id,user_id,data,unlisted,hide_footer,expires_at&limit=1"
+    );
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length || !rows[0]) return null;
+    const r = rows[0];
+    return {
+      id: r.id,
+      userId: r.user_id,
+      data: r.data,
+      unlisted: r.unlisted === true,
+      hideFooter: r.hide_footer === true,
+      expiresAt: r.expires_at ? Date.parse(r.expires_at) : null,
+    };
+  }
+
+  // The owner's own list. `data` is left out: the list needs titles and
+  // counts, not every card, and a shelf of 60 cards per row makes the
+  // response large for no gain.
+  async function listShares(userId) {
+    const res = await req(
+      "/shares?user_id=eq." +
+        encodeURIComponent(userId) +
+        "&select=id,unlisted,hide_footer,created_at,expires_at,data-%3E%3Etitle,data-%3E%3Ecount" +
+        "&order=created_at.desc&limit=200"
+    );
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return [];
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.title || "",
+      count: Number(r.count) || 0,
+      unlisted: r.unlisted === true,
+      hideFooter: r.hide_footer === true,
+      createdAt: r.created_at ? Date.parse(r.created_at) : null,
+      expiresAt: r.expires_at ? Date.parse(r.expires_at) : null,
+    }));
+  }
+
+  // Scoped by user_id as well as id. The service role bypasses RLS, so the
+  // owner check has to live in the query — without it, any signed-in caller
+  // could delete any share whose code they had seen.
+  async function deleteShare(userId, code) {
+    await req("/shares?user_id=eq." + encodeURIComponent(userId) + "&id=eq." + encodeURIComponent(code), {
+      method: "DELETE",
+    });
+  }
+
+  // Account deletion (Part 7e). `on delete cascade` would do this, but the
+  // shelf row is removed explicitly for the same reason: "delete my account"
+  // must not depend on a database detail to take the customer's cards off a
+  // public URL.
+  async function deleteSharesForUser(userId) {
+    await req("/shares?user_id=eq." + encodeURIComponent(userId), { method: "DELETE" });
+  }
+
   async function isEventProcessed(eventId) {
     const res = await req("/processed_events?event_id=eq." + encodeURIComponent(eventId) + "&select=event_id");
     const rows = await res.json();
@@ -103,6 +184,11 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     saveEntitlement,
     deleteEntitlement,
     deleteShelf,
+    createShare,
+    loadShare,
+    listShares,
+    deleteShare,
+    deleteSharesForUser,
     isEventProcessed,
     markEventProcessed,
   };

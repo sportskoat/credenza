@@ -57,6 +57,8 @@ import {
   deleteAccount as accountDeleteRequest,
 } from "./preview/src/account.js";
 import { overFreeLimit, bumpUsage, planLimit, PRO_LIMITS } from "./preview/src/usage.js";
+import { buildShareSnapshot, makeShareCode, expiryFromDays } from "./credenza-share.js";
+import { createShare, copyLink } from "./preview/src/share-api.js";
 import { SYNC_READY, pullShelf, createShelfPusher, deleteRemoteShelf } from "./preview/src/sync.js";
 import {
   mergeShelves,
@@ -78,6 +80,7 @@ const BodyProfileSheet = lazy(() => import("./sheets/BodyProfileSheet.jsx"));
 const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsSheet = lazy(() => import("./sheets/SettingsSheet.jsx"));
+const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -4312,6 +4315,9 @@ export default function Credenza() {
   // Import / Theme rows live in their own ⋯ sheet.
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
+  // LB-8: the share sheet, open on one named haul. A string, not a boolean —
+  // the sheet needs to know WHICH haul, and the name is the haul's identity.
+  const [shareHaulName, setShareHaulName] = useState(null);
   // Account (Part 7e): the Supabase session on this device + the decoded
   // entitlement snapshot (plan badge, limits). Both null when signed out or
   // when AUTH_ENABLED is false (env missing → no account UI at all).
@@ -6645,6 +6651,62 @@ export default function Credenza() {
     setSelectedId(null);
   }, [activeHaul, reducedMotion]);
 
+  // ── Shared hauls (LB-8) ──────────────────────────────────────────────────
+  // The cards a share covers: the whole haul, never the search-narrowed view.
+  // A person who searched "hoodie" and then tapped Share meant to share the
+  // haul, not their search. Newest first, because the cap keeps the first 60.
+  const shareItemsFor = useCallback(
+    (haulName) => {
+      const name = String(haulName || "").trim();
+      if (!name) return [];
+      return items
+        .filter((item) => item.status === "ready" && typeof item.project === "string" && item.project.trim() === name)
+        .slice()
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+        .map((item) => ({
+          ...item,
+          // The snapshot takes priceUsd only. A CNY card carries `price` and a
+          // null priceUsd until enrichment fills it, so the shared page would
+          // print nothing where the shelf prints a number. Normalize here,
+          // where the FX fallback already lives.
+          priceUsd: itemUsdAmount(item),
+        }));
+    },
+    [items]
+  );
+
+  const shareHaulItems = useMemo(
+    () => (shareHaulName ? shareItemsFor(shareHaulName) : []),
+    [shareHaulName, shareItemsFor]
+  );
+
+  // Build, post, answer with the URL. Throws with the server's message so the
+  // sheet can print it — an over-cap or offline share is a normal outcome.
+  const createHaulShare = useCallback(
+    async (options) => {
+      const session = await getValidSession();
+      if (!session) {
+        setAccountSession(null);
+        throw new Error("Your sign-in expired — sign in again first.");
+      }
+      const now = Date.now();
+      const doc = buildShareSnapshot(shareItemsFor(shareHaulName), {
+        fields: options.fields,
+        title: shareHaulName,
+        now,
+      });
+      const result = await createShare(session.accessToken, {
+        code: makeShareCode(),
+        doc,
+        unlisted: options.unlisted,
+        hideFooter: options.hideFooter,
+        expiresAt: expiryFromDays(options.expiryDays, now),
+      });
+      return result.url;
+    },
+    [shareHaulName, shareItemsFor]
+  );
+
   useEffect(() => {
     if (view === "inbox" && inboxItems.length === 0) setView("shelf");
   }, [view, inboxItems.length]);
@@ -7787,6 +7849,27 @@ export default function Credenza() {
         </Suspense>
       )}
 
+      {/* Share a haul (LB-8). One sheet, opened on one named haul. It holds
+          the draft toggles; the app owns the network call, because the sheet
+          must never see a token. */}
+      {shareHaulName && (
+        <Suspense fallback={null}>
+          <ShareSheet
+            haulName={shareHaulName}
+            itemCount={shareHaulItems.length}
+            isPro={isProPlan}
+            signedIn={AUTH_ENABLED && !!accountSession}
+            onCreate={createHaulShare}
+            onCopy={copyLink}
+            onUpgrade={() => {
+              setShareHaulName(null);
+              setProfileOpen(true);
+            }}
+            onClose={() => setShareHaulName(null)}
+          />
+        </Suspense>
+      )}
+
       {/* Mobile detail sheet (handoff step 5): one surface for reading AND
           editing. No edit mode, no Save button — every value is its own tap
           target and each edit writes through the shared 600ms debounce. */}
@@ -8585,6 +8668,20 @@ export default function Credenza() {
                 All hauls
               </button>
               <h2 className="cz-haul-open-title">{openHaulName}</h2>
+              {/* LB-8. The action sits beside the title, not in the board
+                  below it: sharing is something you do to this haul, and the
+                  title is what a reader of the link will see at the top of
+                  the page. Hidden when the haul is empty — a link to nothing
+                  is not worth offering. */}
+              {totalsItems.length > 0 && (
+                <button
+                  type="button"
+                  className="cz-haul-share"
+                  onClick={() => setShareHaulName(openHaulName)}
+                >
+                  Share
+                </button>
+              )}
             </div>
             {/* A3 + A6 pipeline board: where every card sits in the buy →
                 warehouse → ship flow, the ready-to-ship count, and the rough

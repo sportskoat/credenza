@@ -16,6 +16,7 @@ const JWT_SECRET = "jwt-secret";
 function fakeSupabase() {
   const entitlements = new Map(); // user_id -> row
   const shelves = new Map(); // user_id -> synced shelf document (LB-7)
+  const shares = new Map(); // code -> share row (LB-8)
   const deletedUsers = [];
   const fetchMock = async (url, init = {}) => {
     const u = new URL(String(url));
@@ -46,9 +47,19 @@ function fakeSupabase() {
       if (userEq && userEq.startsWith("eq.")) shelves.delete(userEq.slice(3));
       return ok(null, 204);
     }
+    // Shared links (LB-8). These are PUBLIC URLs, so account deletion has to
+    // take them as well — see the shares assertions below.
+    if (u.pathname === "/rest/v1/shares" && method === "DELETE") {
+      const userEq = u.searchParams.get("user_id");
+      if (userEq && userEq.startsWith("eq.")) {
+        const owner = userEq.slice(3);
+        for (const [code, row] of shares) if (row.user_id === owner) shares.delete(code);
+      }
+      return ok(null, 204);
+    }
     throw new Error("unexpected " + method + " " + u.pathname + u.search);
   };
-  return { entitlements, shelves, deletedUsers, fetchMock };
+  return { entitlements, shelves, shares, deletedUsers, fetchMock };
 }
 
 const tokenFor = (sub) => signJwt({ sub, exp: Math.floor(Date.now() / 1000) + 3600 }, JWT_SECRET);
@@ -89,6 +100,10 @@ describe("delete-account function", () => {
     // The customer's cards on our server (LB-7). Delete my account has to
     // take these too, or "delete my account" is not true.
     sb.shelves.set("user-1", { v: 1, items: [{ id: "a" }] });
+    // A live public share link. Leaving this alive after "delete my account"
+    // keeps the customer's cards on the open web.
+    sb.shares.set("abcdefghjkmn", { id: "abcdefghjkmn", user_id: "user-1", data: { v: 1, items: [] } });
+    sb.shares.set("zzzzzzzzzzzz", { id: "zzzzzzzzzzzz", user_id: "someone-else", data: { v: 1, items: [] } });
     vi.stubGlobal("fetch", sb.fetchMock);
 
     const res = await deleteAccount.handler(post(tokenFor("user-1")));
@@ -96,6 +111,9 @@ describe("delete-account function", () => {
     expect(JSON.parse(res.body).deleted).toBe(true);
     expect(sb.entitlements.has("user-1")).toBe(false);
     expect(sb.shelves.has("user-1")).toBe(false);
+    expect(sb.shares.has("abcdefghjkmn")).toBe(false);
+    // Another account's share survives.
+    expect(sb.shares.has("zzzzzzzzzzzz")).toBe(true);
     expect(sb.deletedUsers).toEqual(["user-1"]);
   });
 

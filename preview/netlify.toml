@@ -10,6 +10,14 @@
   status = 301
   force = true
 
+# Shared hauls (LB-8). The page is server-rendered so a crawler that does not
+# run JavaScript still gets an Open Graph card. status = 200 rewrites the path
+# without a redirect, so the visitor's address bar keeps /s/<code>.
+[[redirects]]
+  from = "/s/*"
+  to = "/.netlify/functions/share-page"
+  status = 200
+
 # Discovery files
 [[headers]]
   for = "/sitemap.xml"

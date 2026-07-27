@@ -1215,3 +1215,46 @@ on the Claude side.
 - Tests: 60 new (merge 27, transport 17, wiring 16, account 6 extended).
   Full gate green — lint 0 errors, tsc clean, 55 files / 935 tests, build OK.
 - Not deployed. Everything sits on `main` for Kyle's single deploy.
+
+## 2026-07-26 — LB-8 shared shelf: code complete, dormant (Claude lane)
+- A haul can now become a public page at `/s/<code>`. Nothing works yet:
+  Kyle must run `docs/sql/2026-07-26-shares.sql` in Supabase first. Until
+  then every share attempt fails, and the Share button is still visible.
+- **The link is server-rendered, not a client route.** `/s/*` rewrites to
+  `preview/netlify/functions/share-page.js` at status 200. That is the
+  only way a shared link gets an Open Graph preview card. There is still
+  no router in this app, and this does not add one.
+- The share document is described twice, because the repo runs two module
+  systems: `credenza-share.js` (ESM, builds) and
+  `preview/netlify/functions/lib/share-doc.js` (CommonJS, reads).
+  `preview/test/share-parity.test.js` fails the build if they disagree.
+  Never edit one without the other.
+- **A field the sharer turned off is ABSENT from the document.** Not
+  hidden by CSS, not sent and ignored. Five toggles: prices, notes,
+  quality, sellers, parcel. Default is photos and titles only. QC photos
+  are never shared at all.
+- **No view counter, on purpose.** The page is CDN-cached, so a counter
+  fed by cache misses would report far below the truth. The reason is
+  written into the migration file so nobody adds the column back.
+- A share is a cloud write, so the plan test is
+  `ent.mayWriteCloud(record, now)` — grace reads Pro but makes no new
+  links. Free keeps 3 links, Pro 100. Caps: 60 items, 512 KB.
+- The client sends all three Pro flags whatever the plan says. The server
+  forces them off for a free account rather than refusing. A stale plan
+  badge must never cost somebody their link.
+- `sheets/ShareSheet.jsx` holds the draft and nothing else. It never sees
+  a token; `onCreate` is the app's callback.
+- **Custom share URLs are NOT built.** The code is always 12 random
+  characters. Do not list it on the pricing page.
+- **The sheet promises a list that does not exist:** "Delete it any time
+  from Profile → Shared links." `listShares` and `deleteShare` are
+  already written in `preview/src/share-api.js`. Build the Profile
+  section before launch, or change the sentence.
+- Tests: 27 new in `share-client.test.js`, on top of `share-doc`,
+  `share-server` and `share-parity`. One of them fails the build if
+  `ShareSheet.jsx` uses a `cz-` class the stylesheet has no rule for —
+  the sheet is lazy-loaded, so an unstyled class stays invisible until
+  somebody opens it.
+- Full gate green — lint 0 errors, tsc clean, 59 files / 1020 tests,
+  build OK (`ShareSheet` is its own 5.34 kB chunk).
+- Not deployed. Everything sits on `main` for Kyle's single deploy.

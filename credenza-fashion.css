@@ -4047,6 +4047,36 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   box-shadow: none;
 }
 
+/* LB-8 Share, beside the haul title. Same pill language as the back button,
+   mirrored: it sits at the end of the row, so `margin-left: auto` pushes it
+   there without a spacer element. */
+.cz-haul-share {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 6px 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.cz-haul-share:hover {
+  background: color-mix(in srgb, var(--cz-accent) 14%, var(--cz-card-solid));
+}
+
+.cz-haul-share:active {
+  transform: scale(0.97);
+}
+
 .cz-haul-open-title {
   margin: 0;
   font-size: 22px;
@@ -6499,6 +6529,216 @@ a.cz-card-seller:hover {
 }
 .cz-profile-danger span:first-child {
   color: var(--cz-heart, #e11d48);
+}
+
+/* ── Share a haul (LB-8) ───────────────────────────────────────────────────
+   The share sheet borrows the profile sheet's language on purpose: the same
+   full-width rows, the same hairline between them, the same monospace section
+   label. A person who has opened Profile once already knows how to read this.
+   The one new idea is the locked row — a Pro control that stays legible and
+   stays inert, rather than a disabled control that disappears. */
+.cz-share {
+  display: block;
+}
+.cz-share-lead {
+  margin: 0 0 4px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+.cz-share-lead strong {
+  color: var(--cz-ink);
+  font-weight: 700;
+}
+.cz-share-label {
+  margin: 18px 0 2px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-share-rows {
+  display: block;
+}
+.cz-share-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--cz-hair);
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-share-rows > .cz-share-row:last-child {
+  border-bottom: 0;
+}
+.cz-share-row-static {
+  cursor: default;
+  flex-wrap: wrap;
+}
+.cz-share-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.cz-share-row-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+/* The help line is the whole point of the row: it says what the reader of the
+   link will see, in the tense of the current setting. */
+.cz-share-row-help {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+.cz-share-row-val {
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+}
+.cz-share-row[aria-pressed="true"] .cz-share-row-val {
+  color: var(--cz-money);
+  font-weight: 700;
+}
+/* Locked: readable, not greyed into illegibility. The Pro tag carries the
+   reason, so the row does not need to shout it. */
+.cz-share-row.is-locked {
+  cursor: default;
+}
+.cz-share-row.is-locked .cz-share-row-label,
+.cz-share-row.is-locked .cz-share-row-help,
+.cz-share-row.is-locked .cz-share-row-val {
+  color: var(--cz-faint);
+}
+.cz-share-pro-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cz-ink);
+  color: var(--cz-bg);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.cz-share-expiry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.cz-share-expiry-opt {
+  padding: 6px 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.cz-share-expiry-opt.is-on {
+  border-color: transparent;
+  background: var(--cz-ink);
+  color: var(--cz-bg);
+}
+.cz-share-row.is-locked .cz-share-expiry-opt {
+  cursor: default;
+  color: var(--cz-faint);
+}
+.cz-share-upsell {
+  display: block;
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 11px 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.cz-share-error {
+  margin: 14px 0 0;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cz-heart, #e11d48) 10%, transparent);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--cz-heart, #e11d48);
+}
+.cz-share-actions {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+/* Fine print. --cz-faint, not --cz-sub: this is the promise, not the offer,
+   and it should read as a footnote under the button that makes the promise. */
+.cz-share-fine {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+.cz-share-note {
+  padding: 14px 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+}
+.cz-share-note-title {
+  margin-bottom: 5px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+.cz-share-note-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+/* The finished link. Monospace and breakable: it exists to be read back and
+   checked, and a code that overflows its box cannot be checked. */
+.cz-share-link-box {
+  padding: 12px 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-card-solid);
+  margin-bottom: 10px;
+}
+.cz-share-link {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-ink);
+  overflow-wrap: anywhere;
 }
 
 /* Fit headline (design handoff 3c) — reason line + optional prose under the size. */

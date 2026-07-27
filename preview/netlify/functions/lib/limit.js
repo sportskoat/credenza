@@ -24,6 +24,13 @@ const ROUTES = {
   checkout: { paid: false, perIpPerMin: 10, routePerMin: 60, maxConcurrent: 2, bodyBytes: 1024 },
   portal: { paid: false, perIpPerMin: 10, routePerMin: 60, maxConcurrent: 2, bodyBytes: 1024 },
   "delete-account": { paid: false, perIpPerMin: 5, routePerMin: 30, maxConcurrent: 2, bodyBytes: 1024 },
+  // Creating a share writes a whole snapshot, so the body cap is the size of
+  // one document (SHARE_MAX_BYTES) plus room for the JSON wrapper.
+  share: { paid: false, perIpPerMin: 20, routePerMin: 120, maxConcurrent: 4, bodyBytes: 640 * 1024 },
+  // The public /s/:code page. Generous, because a link posted to a busy
+  // Discord is a legitimate burst — and the CDN answers most of it without
+  // waking the function. This counter only ever sees cache misses.
+  "share-page": { paid: false, perIpPerMin: 60, routePerMin: 600, maxConcurrent: 8, bodyBytes: 1024 },
 };
 
 // USD per million tokens, [input, output]. Keep current with the console.

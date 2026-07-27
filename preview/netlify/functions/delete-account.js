@@ -87,6 +87,10 @@ async function handle(event) {
     // entitlement above: a failure here leaves a retryable state instead of
     // a stranded row nobody can reach.
     await store.deleteShelf(claims.sub);
+    // Shared links (LB-8) go before the auth user too. These are public URLs:
+    // leaving one alive after "delete my account" would keep the customer's
+    // cards on the open web after they asked us to remove them.
+    await store.deleteSharesForUser(claims.sub);
     await deleteAuthUser(env, claims.sub);
     return response(200, { deleted: true });
   } finally {

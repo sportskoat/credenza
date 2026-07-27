@@ -1,0 +1,228 @@
+// LB-8, the client half: the transport in share-api.js and the wiring in
+// credenza-fashion.jsx.
+//
+// The document builder is tested in share-doc.test.js and the two-module
+// agreement in share-parity.test.js. Nothing here re-tests those.
+//
+// The transport tests run the real functions against a stub fetch. The wiring
+// tests read the source, because the behaviour under test is "which call site
+// exists" — a share built from the search-narrowed list, or a price that is
+// null on the shared page and a number on the shelf, is a source-level
+// mistake that a render test would only catch with a live server.
+
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { createShare, listShares, deleteShare, copyLink } from "../src/share-api.js";
+
+const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+const app = read("../../credenza-fashion.jsx");
+const sheet = read("../../sheets/ShareSheet.jsx");
+const api = read("../src/share-api.js");
+const css = read("../../credenza-fashion.css");
+
+// A fetch that records the call and answers whatever it was given.
+function stubFetch(response) {
+  const calls = [];
+  const impl = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: response.ok !== false,
+      status: response.status || 200,
+      json: async () => response.body,
+    };
+  };
+  return { impl, calls };
+}
+
+describe("the transport carries the token and nothing else", () => {
+  it("sends the access token as a bearer on create", async () => {
+    const { impl, calls } = stubFetch({ body: { code: "abc", url: "https://x.test/s/abc" } });
+    await createShare("tok-123", { code: "abc", doc: { v: 1, items: [] } }, { fetchImpl: impl });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].init.headers.authorization).toBe("Bearer tok-123");
+    expect(calls[0].init.method).toBe("POST");
+  });
+
+  it("sends the three Pro options whatever the plan is", async () => {
+    // The server forces them off for a free account rather than refusing the
+    // share. Withholding them here would make a stale plan badge cost someone
+    // their link.
+    const { impl, calls } = stubFetch({ body: { url: "https://x.test/s/abc" } });
+    await createShare(
+      "tok",
+      { code: "abc", doc: {}, unlisted: true, hideFooter: true, expiresAt: 999 },
+      { fetchImpl: impl }
+    );
+    const sent = JSON.parse(calls[0].init.body);
+    expect(sent.unlisted).toBe(true);
+    expect(sent.hideFooter).toBe(true);
+    expect(sent.expiresAt).toBe(999);
+  });
+
+  it("coerces the three Pro options, so undefined never reaches the server as null", async () => {
+    const { impl, calls } = stubFetch({ body: { url: "https://x.test/s/abc" } });
+    await createShare("tok", { code: "abc", doc: {} }, { fetchImpl: impl });
+    const sent = JSON.parse(calls[0].init.body);
+    expect(sent.unlisted).toBe(false);
+    expect(sent.hideFooter).toBe(false);
+    expect(sent.expiresAt).toBe(null);
+  });
+
+  it("throws the server's own message, so the sheet can print it", async () => {
+    const { impl } = stubFetch({ ok: false, status: 402, body: { error: "Free accounts keep 3 links." } });
+    await expect(createShare("tok", { code: "a", doc: {} }, { fetchImpl: impl })).rejects.toThrow(
+      "Free accounts keep 3 links."
+    );
+  });
+
+  it("throws when the server answers 200 with no link", async () => {
+    // A create that reports success and returns nothing would leave the sheet
+    // showing an empty link box.
+    const { impl } = stubFetch({ body: { code: "abc" } });
+    await expect(createShare("tok", { code: "a", doc: {} }, { fetchImpl: impl })).rejects.toThrow(
+      "The server gave no link"
+    );
+  });
+
+  it("answers an empty list rather than undefined when the server sends neither", async () => {
+    const { impl } = stubFetch({ body: {} });
+    expect(await listShares("tok", { fetchImpl: impl })).toEqual([]);
+  });
+
+  it("escapes the code in the delete query", async () => {
+    const { impl, calls } = stubFetch({ body: { ok: true } });
+    await deleteShare("tok", "a b&c", { fetchImpl: impl });
+    expect(calls[0].init.method).toBe("DELETE");
+    expect(calls[0].url).toContain("?code=a%20b%26c");
+  });
+});
+
+describe("a blocked clipboard is not a failed share", () => {
+  it("returns false when the browser has no clipboard", async () => {
+    expect(await copyLink("https://x.test/s/a", {})).toBe(false);
+    expect(await copyLink("https://x.test/s/a", null)).toBe(false);
+  });
+
+  it("returns false when the browser refuses, rather than throwing", async () => {
+    const host = { clipboard: { writeText: async () => { throw new Error("denied"); } } };
+    expect(await copyLink("https://x.test/s/a", host)).toBe(false);
+  });
+
+  it("returns true and writes the link when it works", async () => {
+    let written = null;
+    const host = { clipboard: { writeText: async (v) => { written = v; } } };
+    expect(await copyLink("https://x.test/s/a", host)).toBe(true);
+    expect(written).toBe("https://x.test/s/a");
+  });
+});
+
+describe("the app shares the haul, not the view", () => {
+  it("builds the share list from items, not from the search-narrowed list", () => {
+    // listItems is the searched, sorted, on-screen list. A person who searched
+    // "hoodie" inside a haul and then tapped Share meant the haul.
+    expect(app).toContain("const shareItemsFor = useCallback(");
+    expect(app).toMatch(/const shareItemsFor = useCallback\(\s*\(haulName\) => \{[\s\S]{0,600}?return items\s*\n\s*\.filter\(/);
+    expect(app).toMatch(/const shareItemsFor = useCallback\([\s\S]*?\},\s*\n\s*\[items\]\s*\n\s*\);/);
+  });
+
+  it("normalizes the price through itemUsdAmount", () => {
+    // A CNY card carries `price` and a null priceUsd until enrichment. Without
+    // this the shared page prints nothing where the shelf prints a number.
+    expect(app).toContain("priceUsd: itemUsdAmount(item),");
+  });
+
+  it("shares finished cards only", () => {
+    expect(app).toContain('item.status === "ready"');
+  });
+
+  it("re-reads the session before every create", () => {
+    // A share is a cloud write. An expired token must produce a sentence, not
+    // a 401 the sheet has to translate.
+    expect(app).toMatch(/const createHaulShare = useCallback\(\s*async \(options\) => \{\s*\n\s*const session = await getValidSession\(\);/);
+    expect(app).toContain("Your sign-in expired");
+  });
+
+  it("stamps one `now` into both the document and the expiry", () => {
+    // Two Date.now() calls would let a 1-day link expire a millisecond early
+    // or late relative to its own snapshot. One reading, used twice.
+    expect(app).toMatch(/const now = Date\.now\(\);[\s\S]{0,900}?expiresAt: expiryFromDays\(options\.expiryDays, now\)/);
+  });
+
+  it("offers Share only on a haul that has cards", () => {
+    expect(app).toMatch(/totalsItems\.length > 0 && \(\s*\n\s*<button[\s\S]{0,200}?cz-haul-share/);
+  });
+
+  it("opens the sheet on a named haul, and closes it by clearing the name", () => {
+    expect(app).toContain("setShareHaulName(openHaulName)");
+    expect(app).toContain("onClose={() => setShareHaulName(null)}");
+  });
+
+  it("lazy-loads the sheet like every other sheet", () => {
+    expect(app).toContain('const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));');
+    expect(app).toMatch(/\{shareHaulName && \(\s*\n\s*<Suspense fallback=\{null\}>/);
+  });
+});
+
+describe("the sheet never sees a token", () => {
+  it("does not import the transport or the session", () => {
+    expect(sheet).not.toContain("share-api");
+    expect(sheet).not.toContain("accessToken");
+    expect(sheet).not.toContain("getValidSession");
+  });
+
+  it("does the network call through the callback the app passed", () => {
+    expect(sheet).toContain("const url = await onCreate({");
+  });
+
+  it("gates all three Pro options on isPro before they leave the sheet", () => {
+    expect(sheet).toContain("unlisted: isPro && unlisted,");
+    expect(sheet).toContain("hideFooter: isPro && hideFooter,");
+    expect(sheet).toContain("expiryDays: isPro ? expiryDays : null,");
+  });
+
+  it("tells a signed-out person why, instead of offering a button that 401s", () => {
+    expect(sheet).toContain("Sign in to share");
+    expect(sheet).toMatch(/\{!signedIn \?/);
+  });
+
+  it("keeps a locked row visible to a screen reader", () => {
+    // `disabled` would hide the row from assistive technology, and the row is
+    // the only place the Pro offer is stated.
+    expect(sheet).toContain("aria-disabled={!isPro}");
+    expect(sheet).not.toMatch(/className="cz-share-row[^"]*"\s*\n\s*disabled=/);
+  });
+});
+
+describe("the endpoint the client calls is the one the site serves", () => {
+  it("names the function path, not an /api/ prefix", () => {
+    // There is no /api/ prefix on this site. Every client endpoint is
+    // /.netlify/functions/<name>.
+    expect(api).toContain('"/.netlify/functions/share"');
+    expect(api).not.toContain("/api/");
+  });
+});
+
+describe("every class the sheet uses exists in the stylesheet", () => {
+  // The sheet is lazy-loaded, so an unstyled class does not show up until
+  // someone opens it. This test opens it at build time instead.
+  it("has a rule for each cz- class name in ShareSheet.jsx", () => {
+    const used = new Set();
+    for (const m of sheet.matchAll(/"(cz-[a-z0-9-]+)/g)) used.add(m[1]);
+    for (const m of sheet.matchAll(/\s(cz-[a-z0-9-]+)/g)) used.add(m[1]);
+    const missing = [...used].filter((name) => !css.includes("." + name));
+    expect(missing).toEqual([]);
+  });
+
+  it("styles the Share button in the haul header", () => {
+    expect(css).toContain(".cz-haul-share");
+  });
+
+  it("uses tokens, not literal hex, in the share rules", () => {
+    const block = css.slice(css.indexOf(".cz-share {"), css.indexOf(".cz-share-link {"));
+    // The one exception is the --cz-heart fallback, which the profile sheet
+    // already writes the same way.
+    const hexes = (block.match(/#[0-9a-fA-F]{3,8}\b/g) || []).filter((h) => h !== "#e11d48");
+    expect(hexes).toEqual([]);
+  });
+});

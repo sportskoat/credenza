@@ -72,7 +72,7 @@ do it completely, and report against its acceptance criteria.
 | LB-5 | Run one checkout end-to-end (Part 7g) | P0 | 2 h | LB-3 | OPEN |
 | LB-6 | Add the build preflight env check | P0 | 1 h | — | DONE 2026-07-26 |
 | LB-7 | Cloud sync for the shelf (Supabase) | P0 | 3–4 days | — | CODE DONE 2026-07-26 — dormant, needs Kyle |
-| LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | OPEN |
+| LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | CODE DONE 2026-07-26 — needs the shares migration |
 | LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | DONE 2026-07-26 |
 | LB-10 | Ship the CSV export (Pro row) | P1 | 2 h | — | DONE 2026-07-26 |
 | LB-11 | Cut the framer-motion payload | P2 | 0.5 day | — | OPEN |
@@ -430,7 +430,7 @@ the acceptance list is covered by the unit tests above.
 
 ## P1 — The growth loop
 
-### LB-8. Shared shelf `/s/:id` with OG preview (after LB-7)
+### LB-8. Shared shelf `/s/:id` with OG preview — CODE DONE 2026-07-26
 
 **Why.** Every haul shared on Reddit or Discord with a real preview card
 is free acquisition. This is the viral loop. The decision is recorded in
@@ -457,6 +457,63 @@ router** — the only way a shared link gets an Open Graph image.
 - Toggled-off fields are absent from the served HTML, not hidden by CSS.
 - An expired or deleted share returns 404 with a branded page.
 - Full gate green.
+
+**What shipped.**
+
+The share document is described twice, because the repo has two module
+systems. `credenza-share.js` is ESM and builds documents in the browser.
+`preview/netlify/functions/lib/share-doc.js` is CommonJS and reads them
+in the function. `preview/test/share-parity.test.js` fails the build if
+the two ever disagree on the version, the code alphabet, the caps, or
+the expiry rule. Without it, a version bump in one file would answer 404
+on every existing link with no error anywhere to say why.
+
+| File | What it does |
+|---|---|
+| `credenza-share.js` | Builds the frozen snapshot. A field the sharer turned OFF is absent from the object, never merely hidden. Drops inline photos oldest-last to fit 512 KB. |
+| `preview/netlify/functions/lib/share-doc.js` | The CommonJS reader half. Parse, code check, expiry. |
+| `preview/netlify/functions/share.js` | Create, list, delete. Free keeps 3 links, Pro 100. Caps: 60 items, 512 KB. |
+| `preview/netlify/functions/share-page.js` | Renders `/s/:code`. Escapes everything, `noindex`, `nofollow ugc` on seller links. |
+| `preview/netlify.toml` | `/s/*` → the function, status 200. |
+| `preview/src/share-api.js` | The client transport. Mirrors `account.js`. |
+| `sheets/ShareSheet.jsx` | The share sheet. Holds the draft only — never a token. |
+| `docs/sql/2026-07-26-shares.sql` | The migration. **Kyle runs it.** |
+
+**Decisions worth keeping.**
+- **No view counter.** The `/s/:code` page is CDN-cached, so a counter
+  fed only by cache misses would report far below the truth. A number
+  that lies is worse than no number. The reason is recorded in the
+  migration file so nobody adds the column back.
+- **A share is a cloud write.** The plan test uses
+  `ent.mayWriteCloud(record, now)`, not `effectiveStatus`. Grace reads
+  Pro but makes no new links.
+- **Pro options are forced off, never refused.** The client sends all
+  three flags whatever the plan says. A stale plan badge cannot cost
+  somebody their link.
+- **The share covers the haul, not the search.** A person who searched
+  "hoodie" inside a haul and then tapped Share meant the haul.
+- **Prices are normalized through `itemUsdAmount`.** A CNY card carries
+  `price` and a null `priceUsd` until enrichment. Without this the
+  shared page would print nothing where the shelf prints a number.
+- **A locked Pro row stays a row.** `aria-disabled`, not `disabled` — a
+  disabled button vanishes from a screen reader, and that row is the
+  only place the Pro offer is stated.
+
+**Tests.** `share-doc`, `share-server`, `share-parity`, `share-client`.
+The last one also fails if `ShareSheet.jsx` uses a `cz-` class that
+`credenza-fashion.css` has no rule for — the sheet is lazy-loaded, so an
+unstyled class would otherwise stay invisible until someone opened it.
+
+**Left for Kyle.**
+1. Run `docs/sql/2026-07-26-shares.sql` in the Supabase SQL editor.
+2. After the deploy, paste one link into Discord and confirm the
+   preview card. The OG image cannot be verified from this machine.
+
+**Deferred, and stated as a promise in the UI.** The share sheet's fine
+print reads "Delete it any time from Profile → Shared links." That list
+is not built yet. `listShares` and `deleteShare` are already written in
+`preview/src/share-api.js`, so it is a Profile sheet section and
+nothing more. Build it before launch, or change the sentence.
 
 ### LB-9. Ship the "Install share shortcut" page — DONE 2026-07-26
 
@@ -603,6 +660,11 @@ Launch when every box is checked:
 - [ ] LB-1 through LB-7 DONE.
 - [ ] LB-7: Kyle ran the shelves migration AND set `VITE_ENABLE_SYNC=true`.
       The code is done, but sync does nothing until both happen.
+- [ ] LB-8: Kyle ran `docs/sql/2026-07-26-shares.sql`. Without the
+      table every share attempt fails, and the Share button is visible
+      to everybody.
+- [ ] LB-8: the Profile → Shared links list exists, or the share
+      sheet's fine print no longer promises it.
 - [ ] LB-3/D-1 price decision recorded here.
 - [ ] One full paid loop verified in test mode (LB-5 log exists).
 - [ ] Pricing page lists only shipped features.

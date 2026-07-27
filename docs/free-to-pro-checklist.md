@@ -104,7 +104,7 @@ missing · **MISSING** no code at all.
 | 8 | QC photos per item — 4 / 12 | **BUILT** 2026-07-26 | `attachQcImage` in `credenza-fashion.jsx` checks `planLimit(plan, "qcPhotosPerItem")` before the compress. |
 | 9 | Body profiles — 1 / several with fit history | **PARTIAL** | One profile object only. `credenza-fashion.jsx:4043`. No array, no history. |
 | 10 | Devices — this one local / all synced | **BUILT** 2026-07-26, dormant | LB-7. `credenza-sync-merge.js` (merge) + `preview/src/sync.js` (transport) + three effects in `credenza-fashion.jsx`. Pull is free (restore after a lost phone). Continuous push is Pro. Off until Kyle runs `docs/sql/2026-07-26-shelves.sql` and sets `VITE_ENABLE_SYNC=true`. |
-| 11 | Shared shelf — public link / unlisted, custom URL, expiry | **MISSING** | No share code at all. No router. |
+| 11 | Shared shelf — public link / unlisted, custom URL, expiry | **BUILT** 2026-07-26, minus custom URL | LB-8. `credenza-share.js` (snapshot) + `share.js` / `share-page.js` (server) + `sheets/ShareSheet.jsx`. Free keeps 3 links; Pro keeps 100 and unlocks unlisted, expiry, hide-footer. **Custom URL is not built** — the code is always a random 12 characters. Off until Kyle runs `docs/sql/2026-07-26-shares.sql`. |
 | 12 | Parcel planner — weight / box, volumetric, chargeable | **BUILT** | All three already compute. `credenza-fashion.jsx:319-333`. Free users get the Pro version. |
 | 13 | Restock and price watch — 3 items / every item | **MISSING** | Needs a scheduler. Nothing exists. |
 | 14 | Export to CSV or agent list — no / yes | **BUILT** | CSV writer in `credenza-haul-export.js`, Pro-gated row in `sheets/ImportSheet.jsx`. JSON backup stays free. |
@@ -114,10 +114,15 @@ Also in the mock, not in the table:
 
 | Row | Verdict | Note |
 |---|---|---|
-| 5 share toggles (prices, notes, quality, sellers, parcel) | **MISSING** | Depends on row 11. |
-| 4 Pro share toggles (unlisted, custom URL, 30-day expiry, hide footer) | **MISSING** | Depends on row 11. |
+| 5 share toggles (prices, notes, quality, sellers, parcel) | **BUILT** 2026-07-26 | All five. A toggled-off field is absent from the snapshot, not hidden by CSS. Default is photos and titles only. |
+| 4 Pro share toggles (unlisted, custom URL, 30-day expiry, hide footer) | **PARTIAL** 2026-07-26 | Three of four: unlisted, expiry (1/7/30 days or never), hide footer. Custom URL is not built. |
 
-**Score: 9 BUILT · 2 PARTIAL · 4 MISSING.** (Rows 4, 8 and 14 closed 2026-07-26.)
+**Score: 10 BUILT · 2 PARTIAL · 3 MISSING.** (Rows 4, 8, 11 and 14
+closed 2026-07-26.)
+
+**Do not sell the custom share URL.** Rows 11 and the Pro toggle row
+both say it is missing. The pricing page must not list it (D-3: never
+list a deferred feature).
 
 ---
 
