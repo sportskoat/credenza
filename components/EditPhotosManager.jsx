@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { Plus, Trash2 } from "lucide-react";
 import { itemPhotoList, usePrefersReducedMotion } from "../credenza-fashion.jsx";
 

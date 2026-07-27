@@ -1,6 +1,7 @@
 import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { flushSync } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
+import { loadMotionFeatures } from "./components/motion-features.js";
 import { Check, ChevronLeft, Heart, MoreHorizontal, Plus, Search, User, X } from "lucide-react";
 import {
   createStorageBackend,
@@ -4218,7 +4219,19 @@ export const BODY_PROFILE_FIELDS = [
 // ═══ MAIN APP ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
 
+// LB-11. The framer-motion feature bundle loads through LazyMotion, so it
+// lands in its own chunk instead of the entry. `strict` makes a stray
+// `motion.` import throw instead of silently re-inflating the entry chunk.
+// See `components/motion-features.js` for why this must be `domMax`.
 export default function Credenza() {
+  return (
+    <LazyMotion features={loadMotionFeatures} strict>
+      <CredenzaApp />
+    </LazyMotion>
+  );
+}
+
+function CredenzaApp() {
   const [items, setItems] = useState([]);
   // Deleted-card gravestones for cloud sync (LB-7): { id: deletedAtMs }.
   // Without these, a merge that unions two devices resurrects everything the

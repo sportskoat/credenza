@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 
 // Photo fan on the card back (Kyle 2026-07-22): keep the little-card fan
 // language — flat grid looked like a dump (size-chart cells etc.).

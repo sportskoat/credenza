@@ -189,8 +189,13 @@ export default defineConfig({
       output: {
         // Vendor split: the framework half of the bundle caches separately and
         // downloads in parallel with the app chunk.
+        //
+        // LB-11: "framer-motion" is deliberately NOT in this list. Naming it
+        // here forces the whole library, feature bundle included, into one
+        // eager chunk. That defeats the LazyMotion split in
+        // `components/motion-features.js`. Leave it out.
         manualChunks: {
-          vendor: ["react", "react-dom", "framer-motion", "lucide-react"],
+          vendor: ["react", "react-dom", "lucide-react"],
         },
       },
     },

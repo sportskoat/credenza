@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   GALLERY_MAX,

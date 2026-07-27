@@ -75,7 +75,7 @@ do it completely, and report against its acceptance criteria.
 | LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | CODE DONE 2026-07-26 — needs the shares migration |
 | LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | DONE 2026-07-26 |
 | LB-10 | Ship the CSV export (Pro row) | P1 | 2 h | — | DONE 2026-07-26 |
-| LB-11 | Cut the framer-motion payload | P2 | 0.5 day | — | OPEN |
+| LB-11 | Cut the framer-motion payload | P2 | 0.5 day | — | DONE 2026-07-26 — 25.5 KB gzip off first load |
 | LB-12 | Purge dead CSS | P2 | 0.5 day | — | DONE 2026-07-26 — 859 lines cut; focus-ring bug fixed |
 | LB-13 | Archive the legacy root files | P2 | 30 min | — | DONE 2026-07-26 — safe half; credenza-v3.jsx stays (7 tests) |
 
@@ -615,14 +615,56 @@ routes to the Profile sheet, whatever the line breaks.
 
 ## P2 — Speed and code health (post-launch acceptable, pre-launch nice)
 
-### LB-11. Cut the framer-motion payload
+### LB-11. Cut the framer-motion payload — DONE 2026-07-26
 
-The vendor chunk is 277 KB raw and framer-motion dominates it. Switch to
-`LazyMotion` + the `m` component with `domAnimation` features. Expected
-cut: ~25–30 KB gzip from first load. Touch every `motion.` usage in
-`credenza-fashion.jsx`, `components/`, and `sheets/`. Verify every
-animation still runs (carousel physics, sheet transitions, the settings
-modal stack). Full gate + manual motion pass on desktop and phone.
+First-load JavaScript went from 190.14 KB gzip to 164.63 KB gzip. That is
+a **25.5 KB cut**, at the top of the estimate. The feature bundle now
+loads in its own chunk after the first paint.
+
+**The spec was wrong about `domAnimation`. Do not use it here.** The
+carousel and the photo cover flow both use `onPan`, and pan ships in the
+`drag` feature bundle, not the animation one. `domAnimation` drops pan and
+kills both swipe gestures. The app must load `domMax`.
+
+**Measured, because the obvious reading is wrong.** Loading `domMax`
+eagerly saves nothing at all — it is 164 bytes LARGER than plain `motion`.
+The entire win comes from loading it late, through an async
+`features={() => import(...)}` function. Numbers from an isolated esbuild
+bundle: plain `motion` 88,163 gzip; `LazyMotion` + eager `domMax` 88,327;
+`LazyMotion` + eager `domAnimation` 74,638 (but no pan).
+
+**Two things had to change together, or the win is zero.**
+
+1. Every file imports `m`, not `motion`. One leftover `motion` import
+   pulls the features straight back into the entry chunk: measured 89,695
+   gzip with one stray import, against 62,294 with none. All seven files
+   use `import { m as motion }`, so all 42 JSX call sites are unchanged.
+   `strict` is on, so a future stray import fails loudly.
+2. `preview/vite.config.js` no longer names `framer-motion` in the
+   `vendor` manualChunks list. Naming it there forces the whole library
+   into one eager chunk and defeats the split completely. This was the
+   real blocker, and it is not obvious from reading the component code.
+
+**The carousel freeze.** `components/CoverFlowCarousel.jsx` is frozen, and
+the split needs all seven files. The change there is the import line only,
+aliased so all 21 JSX usages are byte-identical. That is the smallest
+possible edit that still works.
+
+**Verification.** `preview/scripts/probe-lazymotion.mjs` drives a real
+browser and asserts three feature families: an `animate` transform lands
+on the carousel cards, a mouse swipe moves the carousel active index
+(pan), and `whileHover` produces `matrix(1.02, …)` on the search Clear
+button. It also fails on any framer-motion console error, which is how
+`strict` reports a stray import.
+
+The pan assertion was proved to bite: flipping the loader to
+`domAnimation` makes it fail with "swipe did not move the carousel", and
+flipping back makes it pass. A probe that cannot fail proves nothing.
+
+Pixel diff before against after, at 390 / 768 / 1024 / 1280 in card and
+grid view: every view under 0.03% of pixels, against a 2.1% image-load
+noise floor measured in LB-12. Gate: 1031 tests pass, lint 0 errors, tsc
+clean, build OK.
 
 ### LB-12. Purge dead CSS — DONE 2026-07-26
 
