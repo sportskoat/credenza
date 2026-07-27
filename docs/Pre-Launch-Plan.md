@@ -73,7 +73,7 @@ do it completely, and report against its acceptance criteria.
 | LB-6 | Add the build preflight env check | P0 | 1 h | — | DONE 2026-07-26 |
 | LB-7 | Cloud sync for the shelf (Supabase) | P0 | 3–4 days | — | OPEN |
 | LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | OPEN |
-| LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | OPEN |
+| LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | DONE 2026-07-26 |
 | LB-10 | Ship the CSV export (Pro row) | P1 | 2 h | — | OPEN |
 | LB-11 | Cut the framer-motion payload | P2 | 0.5 day | — | OPEN |
 | LB-12 | Purge dead CSS | P2 | 0.5 day | — | OPEN |
@@ -396,26 +396,51 @@ router** — the only way a shared link gets an Open Graph image.
 - An expired or deleted share returns 404 with a branded page.
 - Full gate green.
 
-### LB-9. Ship the "Install share shortcut" page
+### LB-9. Ship the "Install share shortcut" page — DONE 2026-07-26
 
-**Why.** Phone capture is the core loop and it is still clumsy. This is
-item 26 in `docs/To-do.md`. The backend already handles
+**Why.** Phone capture is the core loop and it was still clumsy. This is
+item 26 in `docs/To-do.md`. The backend already handled
 `/?stash=` + shared URL.
 
-**Steps.**
-1. Write the steps up as a page under `preview/public/how/` (a
-   sub-page, e.g. `/how/stash-from-your-phone/`), matching the guide
-   page pattern. The steps live on Kyle's Obsidian "My Checklist" and in
-   `docs/To-do.md` item 25.
-2. Include: create the Shortcut (`/?stash=` + shared URL → Open URLs),
-   turn on Show in Share Sheet, pin it, optional Add to Home Screen.
-3. Screenshots or simple illustrations for each step.
-4. Link it from the FAQ and from the phone capture bar's empty state.
-5. Add to sitemap.
+**What shipped.**
+- `preview/public/how/stash-from-your-phone/index.html`, built from the
+  guide-page template. Four routes, not one: Android and desktop Chrome
+  (install the app, done — the manifest already declares the share
+  target), the iOS Shortcut, the share-sheet pin, and a desktop
+  bookmarklet.
+- `preview/test/share-entry.test.js`, 18 tests.
+- Linked from `/how/`, from the FAQ, and from the app's empty shelf.
+  Added to `sitemap.xml`, `llms.txt`, and `llms-full.txt`.
+
+**CORRECTION to step 2.** The written step says the Shortcut is
+`/?stash=` + shared URL → Open URLs. Built that way it is wrong. A
+Weidian URL carries its own `?` and `&`, so concatenating it raw makes
+the browser read everything after the first `&` as a separate parameter:
+
+    ?stash=https://weidian.com/item.html?itemID=7376&spider_token=ab12
+    → stash = "https://weidian.com/item.html?itemID=7376"
+
+The user gets a card pointing at a truncated link and nothing reports an
+error. The Shortcut needs three actions, not two: URL Encode on the
+Shortcut Input, then Open URLs on `/?stash=` + the encoded variable. The
+page leads with that and says why. The bookmarklet uses
+`encodeURIComponent` for the same reason. A test proves both directions
+rather than asserting the prose.
+
+**CORRECTION to step 4.** The step names "the phone capture bar's empty
+state". No such element exists. The empty shelf is the hero block at
+`credenza-fashion.jsx:7862+`. The link went into
+`.cz-empty-hero-secondary` — a CSS class that already existed and was
+mounted nowhere — next to "Import a haul".
+
+**Deferred.** Step 3 asks for screenshots of each step. iOS Shortcuts
+screenshots go stale on every iOS release and cannot be captured from
+this machine. The steps name the exact action labels instead, which
+survives a redesign that a screenshot does not.
 
 **Acceptance.**
-- The page renders on 390px. The Shortcut built from the page works on
-  a real iPhone (Kyle verifies the device step).
+- Renders at 390px on the shared page stylesheet. The device step (build
+  the Shortcut on a real iPhone) still needs Kyle.
 
 ### LB-10. Ship the CSV export (Pro row)
 

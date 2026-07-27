@@ -164,10 +164,15 @@ Do not start these items before Gates 0 to 2 are done.
   (`/?stash=` + shared URL → Open URLs), turn Show in Share Sheet on, pin
   via Share → More → Edit Favorites. Optional Add to Home Screen. Test
   FashionReps share. Backend already handles stash/text/title. No deploy
-  for personal use. Steps live on [[My Checklist]].
-- [ ] **26.** Optional product: ship a short “Install share shortcut”
-  page under `/how` (or a profile tip) so other users can pin Credenza
-  without this chat. Needs Kyle approve + deploy batch.
+  for personal use. Steps live on [[My Checklist]] and now also at
+  `/how/stash-from-your-phone/` — follow that page instead, it adds the
+  URL Encode action the checklist is missing.
+- [x] **26.** DONE 2026-07-26 (LB-9). `/how/stash-from-your-phone/`
+  ships the setup for other users: Android share target, the iOS
+  Shortcut, the share-sheet pin, and a desktop bookmarklet. Linked from
+  `/how/`, the FAQ, and the app's empty shelf. Note the Shortcut needs a
+  URL Encode action, or a Weidian link truncates at its first `&` — see
+  the CORRECTION in the pre-launch plan. Waiting on Kyle's deploy batch.
 
 ## Waiting
 

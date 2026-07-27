@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stash from your phone · Credenza</title>
+    <meta name="description" content="Send a Weidian, Taobao, Yupoo, or Reddit link straight to your Credenza shelf from the share sheet. Android and desktop Chrome need only the installed app. iOS needs a two-action Shortcut, listed here." />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/how/stash-from-your-phone/" />
+    <meta property="og:title" content="Stash from your phone" />
+    <meta property="og:description" content="Put Credenza in the share sheet. Save a find in two taps, without leaving the app you found it in." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/how/stash-from-your-phone/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Stash from your phone" />
+    <meta name="twitter:description" content="Put Credenza in the share sheet. Save a find in two taps." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Stash a link to Credenza from the iPhone share sheet",
+        "url": "https://credenzafashion.com/how/stash-from-your-phone/",
+        "description": "Build a two-action iOS Shortcut that sends a shared link to your Credenza shelf. Android and desktop Chrome need no Shortcut — installing the app is enough.",
+        "totalTime": "PT3M",
+        "tool": [{"@type": "HowToTool", "name": "Apple Shortcuts"}],
+        "step": [
+          {"@type": "HowToStep", "position": 1, "name": "Create the Shortcut", "text": "Open Shortcuts, tap plus, and name it Stash in Credenza."},
+          {"@type": "HowToStep", "position": 2, "name": "Accept a shared URL", "text": "Open the shortcut details. Turn on Show in Share Sheet and set the accepted input to URLs and Text."},
+          {"@type": "HowToStep", "position": 3, "name": "Encode the link", "text": "Add the URL Encode action and set its input to Shortcut Input. A marketplace link carries its own question mark and ampersands, so it must be encoded before it becomes part of another URL."},
+          {"@type": "HowToStep", "position": 4, "name": "Open Credenza", "text": "Add the Open URLs action. Set the URL to https://credenzafashion.com/?stash= followed by the URL Encoded Text variable."},
+          {"@type": "HowToStep", "position": 5, "name": "Pin it in the share sheet", "text": "Share any product page, scroll to the bottom, tap Edit Actions, and pin Stash in Credenza to the top."},
+          {"@type": "HowToStep", "position": 6, "name": "Test it", "text": "Share a Weidian or Reddit link. Credenza opens with the card already on the shelf."}
+        ]
+      }
+    </script>
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul, .card ol {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.4rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.88em;
+        background: rgba(127, 127, 127, 0.14);
+        padding: 0.1em 0.35em;
+        border-radius: 3px;
+        word-break: break-all;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      .warn {
+        border-left: 3px solid var(--money);
+        padding: 0.15rem 0 0.15rem 0.9rem;
+        margin: 0.9rem 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>Stash from your phone</h1>
+      <p class="lede">
+        You find things in Reddit, in a Discord link, in the Weidian app. Put Credenza in
+        the share sheet and the find lands on your shelf without you leaving the app you
+        found it in.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/" aria-current="page">How it works</a>
+        <a href="/guides/">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <article class="card">
+        <span class="n">Android · Chrome · Edge</span>
+        <h2>Install the app. That is the whole setup.</h2>
+        <p>
+          Credenza declares itself a share target. Once the app is installed, the system
+          share sheet lists it next to Messages and Gmail. No shortcut to build.
+        </p>
+        <ol>
+          <li>Open <a href="/">credenzafashion.com</a> in Chrome.</li>
+          <li>Open the browser menu and choose <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</li>
+          <li>Share any product page. Pick <strong>Credenza</strong>.</li>
+        </ol>
+        <p class="warn">
+          Share must go through the installed app, not the browser tab. If Credenza is not
+          in the sheet, the install did not finish.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">iPhone · iPad</span>
+        <h2>Build the Shortcut once</h2>
+        <p>
+          iOS does not offer web apps to the share sheet. A two-action Shortcut does the
+          same job. It takes about three minutes.
+        </p>
+        <ol>
+          <li>Open <strong>Shortcuts</strong>. Tap <strong>+</strong>. Name it <strong>Stash in Credenza</strong>.</li>
+          <li>
+            Open the shortcut details (the <strong>i</strong> button). Turn on
+            <strong>Show in Share Sheet</strong>. Set the accepted input to
+            <strong>URLs</strong> and <strong>Text</strong>.
+          </li>
+          <li>
+            Add the <strong>URL Encode</strong> action. Set its input to
+            <strong>Shortcut Input</strong>.
+          </li>
+          <li>
+            Add the <strong>Open URLs</strong> action. Set the URL to
+            <code>https://credenzafashion.com/?stash=</code> and then insert the
+            <strong>URL Encoded Text</strong> variable directly after the
+            <code>=</code> sign.
+          </li>
+          <li>Save.</li>
+        </ol>
+        <p class="warn">
+          Do not skip the URL Encode step. A Weidian link carries its own
+          <code>?</code> and <code>&amp;</code>. Pasted in raw, the browser reads
+          everything after the first <code>&amp;</code> as a separate parameter and
+          Credenza receives half a link.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">iPhone · step two</span>
+        <h2>Pin it so it is one tap</h2>
+        <p>
+          A new Shortcut sits at the bottom of the share sheet, under everything else.
+          Pin it once and it stays at the top.
+        </p>
+        <ol>
+          <li>Share any web page.</li>
+          <li>Scroll the sheet to the bottom. Tap <strong>Edit Actions</strong>.</li>
+          <li>Tap the green <strong>+</strong> next to <strong>Stash in Credenza</strong>.</li>
+          <li>Drag it to the top of Favorites. Tap <strong>Done</strong>.</li>
+        </ol>
+        <p>
+          Optional: open Credenza in Safari, tap Share, and choose
+          <strong>Add to Home Screen</strong>. The app then opens full screen instead of
+          in a browser tab.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Desktop</span>
+        <h2>Drag one bookmark to the bar</h2>
+        <p>
+          On a laptop, a bookmarklet does the same thing from any product page. Make a new
+          bookmark and put this in the URL field instead of an address:
+        </p>
+        <p>
+          <code>javascript:location.href='https://credenzafashion.com/?stash='+encodeURIComponent(location.href)</code>
+        </p>
+        <p>
+          Click it on a Weidian, Taobao, or Yupoo page. Credenza opens with the item
+          stashed.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">What arrives</span>
+        <h2>Credenza reads three things</h2>
+        <ul>
+          <li><strong>The link</strong> — classified as Weidian, Taobao, 1688, Yupoo, or a Reddit post.</li>
+          <li><strong>The page title</strong> — used as the card title until you rename it.</li>
+          <li><strong>Any selected text</strong> — kept with the card, so a pasted size chart is parsed later.</li>
+        </ul>
+        <p>
+          Share the same item twice and Credenza does not duplicate it. It opens the card
+          you already have and tells you so.
+        </p>
+      </article>
+
+      <p class="note">
+        Nothing here needs an account, and nothing is sent to a server to save the card.
+        The shelf is local-first in your browser. Sharing to Credenza opens your own app
+        on your own device.
+      </p>
+      <a class="cta" href="/">Open Credenza</a>
+      <p class="related">Related: <a href="/how/">How it works</a><a href="/guides/reddit-haul-to-list/">Reddit haul to list</a><a href="/faq/">FAQ</a></p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

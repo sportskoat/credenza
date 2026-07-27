@@ -7872,14 +7872,29 @@ export default function Credenza() {
                   Put it on my shelf
                 </button>
               </div>
-              <button
-                type="button"
-                className="cz-empty-hero-link is-quiet"
-                disabled={interactionLocked}
-                onClick={() => setImportOpen(true)}
-              >
-                Import a haul
-              </button>
+              {/* Two quiet exits, one row (.cz-empty-hero-secondary already
+                  existed for exactly this and was unused). Stacking them would
+                  have made the second read as a third-tier action. The share
+                  link belongs on the empty shelf specifically: a person with no
+                  cards is the one who has not set up capture yet. */}
+              <div className="cz-empty-hero-secondary">
+                <button
+                  type="button"
+                  className="cz-empty-hero-link is-quiet"
+                  disabled={interactionLocked}
+                  onClick={() => setImportOpen(true)}
+                >
+                  Import a haul
+                </button>
+                <a
+                  className="cz-empty-hero-link is-quiet"
+                  href="/how/stash-from-your-phone/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Stash from your phone
+                </a>
+              </div>
             </div>
           </div>
         )}

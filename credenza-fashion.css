@@ -2993,6 +2993,18 @@ a.cz-seller-quiet:focus-visible {
   font-size: 13.5px;
   color: var(--cz-faint);
 }
+/* The quiet row carries the spacing, so its children must not add their own on
+   top of it. Without this the two links sit 16px lower than the caption block
+   they belong to. */
+.cz-empty-hero-secondary .cz-empty-hero-link.is-quiet {
+  margin-top: 0;
+}
+/* One of the two quiet exits is an anchor, not a button. Match it to the
+   button so the pair reads as one row and not as a link beside a control. */
+a.cz-empty-hero-link {
+  text-decoration: none;
+  line-height: inherit;
+}
 .cz-empty-hero-link:hover {
   color: var(--cz-ink);
 }
