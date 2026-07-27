@@ -174,5 +174,57 @@ describe("the page only sells what is built", () => {
     expect(row("AI size-chart reads")).toContain(
       "<td>" + cap("pro", "chartVisionPerDay") + " a day</td>"
     );
+    // Link resolves was the one row this test skipped, and it is the row most
+    // likely to drift unnoticed: the copy writes 1,000 where the server writes
+    // 1000, so a careless eye reads them as different numbers and "fixes" one.
+    const comma = (n) => n.toLocaleString("en-US");
+    expect(row("Link resolves")).toContain("<td>" + comma(cap("free", "resolvePerDay")) + " a day</td>");
+    expect(row("Link resolves")).toContain("<td>" + comma(cap("pro", "resolvePerDay")) + " a day</td>");
+  });
+
+  it("repeats the same caps in the plan bullet lists", () => {
+    // The bullets sit above the table and are read far more often than it.
+    // A number that agrees with the server in the table and disagrees in the
+    // bullets is still a broken promise, and the table check cannot see it.
+    const ent = read("preview/netlify/functions/lib/entitlements.js");
+    const cap = (plan, key) => {
+      const block = ent.slice(ent.indexOf("const PLAN_LIMITS"));
+      const planBlock = block.slice(block.indexOf(plan + ": {"));
+      const m = planBlock.match(new RegExp(key + ":\\s*(\\d+)"));
+      return m ? Number(m[1]) : null;
+    };
+    const bullets = [...page.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1].trim());
+    // Guard the guard: no bullets found means every check below passes on
+    // nothing. The two plan cards carry ten between them.
+    expect(bullets.length).toBeGreaterThan(8);
+    const comma = (n) => n.toLocaleString("en-US");
+    for (const want of [
+      cap("free", "haulsMax") + " hauls at once",
+      cap("pro", "haulsMax") + " hauls at once",
+      cap("pro", "qcPhotosPerItem") + " QC photos an item",
+      cap("pro", "chartVisionPerDay") + " AI size-chart reads a day",
+      comma(cap("pro", "resolvePerDay")) + " link resolves a day",
+      cap("pro", "askPerDay") + " Ask questions a day",
+    ]) {
+      expect(bullets, "no bullet reads " + JSON.stringify(want)).toContain(want);
+    }
+  });
+
+  it("names no cap the server does not enforce", () => {
+    // D-3 applied to numbers. A row heading with no key in PLAN_LIMITS is a
+    // limit the page promises and nothing implements.
+    const ent = read("preview/netlify/functions/lib/entitlements.js");
+    const known = [
+      ...ent.slice(ent.indexOf("const PLAN_LIMITS")).matchAll(/(\w+):\s*\d+/g),
+    ].map((m) => m[1]);
+    for (const key of [
+      "haulsMax",
+      "qcPhotosPerItem",
+      "askPerDay",
+      "chartVisionPerDay",
+      "resolvePerDay",
+    ]) {
+      expect(known, key + " is not in PLAN_LIMITS").toContain(key);
+    }
   });
 });

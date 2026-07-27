@@ -83,7 +83,7 @@ do it completely, and report against its acceptance criteria.
 | LB-16 | Give every page structured data | P1 | 1 h | LB-15 | DONE 2026-07-26 — 15 WebPage/BreadcrumbList nodes |
 | LB-17 | Body-measurements guide | P1 | 1 h | LB-16 | DONE 2026-07-27 — last buying question with shipped product |
 | LB-18 | Agent comparison guide | P1 | 1 h | LB-17 | DONE 2026-07-27 — planner-framed, from the verified registry |
-| LB-19 | Lock the pricing page numbers | P0 | 1 h | LB-18 | DONE 2026-07-27 — a public price promise now fails the build if it drifts |
+| LB-19 | Lock the pricing page numbers | P0 | 1 h | LB-18 | DONE 2026-07-27 — the Link resolves row and both bullet lists now fail the build if they drift |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -952,65 +952,51 @@ build OK with unchanged chunk sizes.
 
 ---
 
-### LB-19. The pricing page numbers had no test — DONE 2026-07-27
+### LB-19. Two pricing-page numbers had no test — DONE 2026-07-27
 
-**The gap.** The same plan table exists in three places:
+**A correction first.** The first attempt at this row added a whole new
+`describe` block to `test/plan-limits.test.js`. That was wrong.
+`preview/test/pricing.test.js` already existed and already locked four of
+the five comparison-table rows to `PLAN_LIMITS`. Seven of the nine new tests
+repeated it. The block was removed before commit. **Grep for an existing test
+file before writing a new one.**
 
-1. `preview/netlify/functions/lib/entitlements.js` — `PLAN_LIMITS`. This is what
-   the product actually enforces.
-2. `preview/src/usage.js` — `FREE_LIMITS` and `PRO_LIMITS`. The client copy.
-3. `preview/public/pricing/index.html` — nine numbers, in prose and in a table.
+**The two real gaps.**
 
-`test/plan-limits.test.js` locked copy 2 to copy 1. Nothing locked copy 3 to
-anything. A drift in copy 3 is the worst of the three: the customer reads the
-number, pays, and then meets a different limit. That is a refund, not a bug
-report.
+1. **The `Link resolves` row was the one row `pricing.test.js` skipped.** It is
+   also the row most likely to drift unnoticed: the copy writes `1,000` where
+   the server writes `1000`, so an eye scanning for a mismatch finds one that
+   is not there and "fixes" the wrong side.
+2. **Neither bullet list was checked at all.** The two plan cards carry ten
+   bullets above the table, and a reader meets them first. A number that agrees
+   with the server in the table and disagrees in a bullet is still a broken
+   promise, and the table check cannot see it.
 
-**What the page says (read out of the HTML, not remembered).**
+**What shipped.** Three additions to the existing
+`describe("the page only sells what is built")` block in
+`preview/test/pricing.test.js`:
 
-| Row | Free | Pro | Server key |
-| --- | --- | --- | --- |
-| Hauls at once | 2 | 100 | `haulsMax` |
-| QC photos an item | 4 | 12 | `qcPhotosPerItem` |
-| AI size-chart reads | 2 a day | 100 a day | `chartVisionPerDay` |
-| Link resolves | 20 a day | 1,000 a day | `resolvePerDay` |
-| Ask | 5 a day | 200 a day | `askPerDay` |
-
-All ten cells agree with `PLAN_LIMITS` today. The point is that they keep
-agreeing.
-
-**What the test does.** A new `describe` block at the end of
-`test/plan-limits.test.js`, because that is where the plan numbers already
-live. `public-site.test.js` is about page structure, not billing.
-
-- It reads each row by its `<th scope="row">` label and takes the next two
-  `<td>` cells as Free then Pro.
-- It strips the thousands separator, so the page's `1,000` compares to the
-  server's `1000`.
-- It checks that a daily cap still SAYS "a day". A cap that loses those two
-  words reads as a total, which is a different promise.
-- It checks the Pro bullet list above the table repeats the same numbers. That
-  list is read far more often than the table.
-- It checks every row label maps to a real key in `PLAN_LIMITS`. This is D-3
-  applied to numbers: list only limits the product enforces.
-
-**The vacuity guard.** A separate `it` asserts every expected row is present
-before any comparison runs. Without it, a renamed row makes `tableRow` return
-null and every check below passes on nothing. `test/plan-limits.test.js`
-already set this precedent with "Guard the guard".
+- The `Link resolves` pair, with `toLocaleString("en-US")` supplying the
+  thousands separator so `1000` compares to `1,000`.
+- A new `it` that reads every `<li>` and requires six of them to match a
+  number derived from `PLAN_LIMITS`. It carries a vacuity guard
+  (`bullets.length > 8`), because an empty list would pass on nothing.
+- A new `it` that requires each of the five row keys to exist in
+  `PLAN_LIMITS`. This is D-3 applied to numbers: the page must not promise a
+  limit nothing enforces.
 
 **Negative controls (both run, both restored).**
 
-- NC-1 — changed the free QC cell from `4` to `6`. Result: 1 failed, 19 passed.
-  The named test was `the "QC photos an item" row matches PLAN_LIMITS`.
-- NC-2 — renamed the `Link resolves` row to `Link lookups`. Result: 2 failed,
-  18 passed. The vacuity guard failed alongside the row check, which is the
-  behaviour it exists for.
+- NC-1 — changed the free `Link resolves` cell from `20 a day` to `25 a day`.
+  Result: 1 failed, 15 passed.
+- NC-2 — changed the Pro bullet from `1,000` to `2,000` and left the table
+  correct. Result: 1 failed (`repeats the same caps in the plan bullet
+  lists`), 15 passed. **This is the case the old test could not see.**
 
-**Gate.** 60 files / 1169 tests passed (1160 before). Lint 0 errors, 5
-pre-existing warnings. Typecheck clean. Build unchanged: index-fashion
-362.73 KB / 117.30 KB gzip, vendor 149.10 KB / 47.33 KB, index 147.13 KB /
-50.39 KB. The LB-11 split still holds.
+**Gate.** 60 files / 1162 tests passed (1160 before: two net new, seven
+duplicates removed). Lint 0 errors, 5 pre-existing warnings. Typecheck clean.
+Build unchanged: index-fashion 362.73 KB / 117.30 KB gzip, vendor
+149.10 KB / 47.33 KB, index 147.13 KB / 50.39 KB.
 
 ## Explicitly deferred (do NOT build before launch)
 
