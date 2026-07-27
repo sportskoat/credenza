@@ -1538,3 +1538,46 @@ What changed, and what an agent must not undo:
 bland. The top is a little bland." That is the shelf cards and the
 masthead, and it is NOT started. **The carousel is frozen — do not touch
 it.**
+
+---
+
+## 2026-07-27 — LB-71 shelf-card depth and the masthead edge (Claude lane)
+
+Closes the last half of Kyle's goal: "I think the cards are a little bland.
+The top is a little bland."
+
+**What changed**
+
+1. `credenza-fashion.css` — `.cz-card-editorial.cz-card-twoline:not(.is-selected)`
+   now casts two shadow layers, `0 1px 2px` contact plus `0 8px 20px` ambient.
+   A new `.cz-app[data-theme="dark"]` variant uses 0.5 / 0.4 alpha.
+2. `credenza-fashion.jsx` KEYFRAMES — `.cz-masthead` gained
+   `padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--cz-hair)`.
+3. `credenza-fashion.jsx` KEYFRAMES — `.cz-brand-word` 16px → 19px,
+   `.cz-brand` 16px → 19px, `.cz-brand-sub` 9.5px → 10.5px, gap 11px → 12px.
+
+**Facts a future agent must not lose**
+
+- The wrapper `.cz-editorial-card` (`credenza-fashion.css:60-75`) already had the
+  correct two-layer pair. The inner `!important` rule was cancelling it. Do not
+  add a single-blur override on the inner selector again.
+- Blackout needs its own alphas, 0.3 or higher. The light-theme alphas are
+  invisible over a black field.
+- The masthead has NO `.css` file. Its rules live in the `KEYFRAMES` template
+  literal in `credenza-fashion.jsx` (~line 3140), injected at ~line 7486.
+- `.cz-masthead.is-compact` keeps its own phone sizes in
+  `credenza-fashion.css:8335-8390`. The 19px wordmark is desktop only.
+- `components/Card.jsx` was deliberately not touched. Its inline shadow is
+  already overridden by the `!important` CSS rule.
+
+**Verification**
+
+- `preview/test/card-masthead-depth.test.jsx`, 7 cases, all pass. It strips
+  `/* comments */` before every read (LB-65) and counts shadow layers with the
+  colour functions removed first.
+- Four revert probes: flat blur restored, border removed, wordmark shrunk,
+  Blackout given light alphas. Each failed the suite by name and value.
+- Full suite 69 files / 2,139 tests pass. Lint 5 warnings, 0 errors (baseline).
+  Build clean.
+
+**Not deployed.** Only Kyle ships.

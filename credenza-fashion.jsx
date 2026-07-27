@@ -3141,16 +3141,26 @@ const KEYFRAMES = `
 *, *::before, *::after { box-sizing: border-box; }
 .cz-shell { max-width: 1080px; margin: 0 auto; padding: 28px 28px 0; }
 @media (max-width: 480px) { .cz-shell { padding: 16px 14px 0; } }
-.cz-masthead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+/* Kyle 2026-07-27: "The top is a little bland." The masthead had no edge. A
+   mark, a link row and an avatar floated on the bare canvas, so the page began
+   with nothing — the first thing that looked like a boundary was the search
+   field. The hairline gives the header a bottom, which is the whole of what a
+   masthead is. The padding is what makes the rule read as the header's own
+   edge rather than a stray divider. */
+.cz-masthead { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--cz-hair); }
 /* Lockup L2, stacked kicker (logo spec, Kyle 2026-07-26). "Fashion" used to
    sit on CREDENZA's baseline at a second size, weight and colour — two of
    everything on one line, so neither read as dominant. Stacking it costs zero
    horizontal room, which is why the kicker now SURVIVES the compact phone
    masthead instead of being dropped when the shelf fills. */
-.cz-brand { display: inline-flex; align-items: center; gap: 11px; margin: 0; color: var(--cz-ink); font-size: 16px; font-weight: 800; letter-spacing: .16em; }
+.cz-brand { display: inline-flex; align-items: center; gap: 12px; margin: 0; color: var(--cz-ink); font-size: 19px; font-weight: 800; letter-spacing: .16em; }
 .cz-brand-name { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1; }
-.cz-brand-word { font-size: 16px; letter-spacing: .16em; line-height: 1; }
-.cz-brand-sub { font-size: 9.5px; font-weight: 700; letter-spacing: .34em; line-height: 1; color: var(--cz-faint); text-transform: uppercase; }
+/* 19px, up from 16 (Kyle 2026-07-27: "The top is a little bland"). At 16 the
+   wordmark measured smaller than the shelf's own section heading, so the page
+   named its sections louder than it named itself. The phone masthead keeps its
+   own compact sizes below — this is the desktop lockup only. */
+.cz-brand-word { font-size: 19px; letter-spacing: .16em; line-height: 1; }
+.cz-brand-sub { font-size: 10.5px; font-weight: 700; letter-spacing: .34em; line-height: 1; color: var(--cz-faint); text-transform: uppercase; }
 .cz-tagline { font-family: ${FONT}; font-size: 13px; color: var(--cz-sub); margin: 0 0 14px; line-height: 1.35; }
 /* The mark is now an inline SVG (components/BrandMark.jsx) — the ground, the
    C and the rule all live inside the viewBox, so this rule only has to size

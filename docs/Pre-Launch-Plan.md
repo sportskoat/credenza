@@ -90,6 +90,7 @@ matter how green it is.
 | LB-68 | One button must not hold two behaviours. |
 | LB-69 | One value, spelled many ways, is many values. |
 | LB-70 | A list is not a menu until something groups it. |
+| LB-71 | A single blur is a sticker, and a header with no edge is not a header. |
 
 Three of these carry a concrete habit. Follow them literally:
 
@@ -179,6 +180,7 @@ Three of these carry a concrete habit. Follow them literally:
 | LB-68 | The Stash button must open the Stash sheet everywhere | P1 | 1 h | — | DONE 2026-07-27 `35ed812` — Kyle: “The stash button just copies your clipboard in, but realistically, I think when you hit the stash button, it should pull up the stash to shelf, how it is in the mobile”; `heroStash` branched `if (isPhone) setCaptureSheetOpen(true); else stashClipboard();` and the sheet itself was gated `{isPhone && captureSheetOpen}`, so one button had two behaviours and the desktop one read `navigator.clipboard` and stashed a card the user had never seen; the sheet now renders on every screen — `ModalShell` already draws a centred dialog on desktop and a bottom sheet only under `(max-width: 767px) and (pointer: coarse)`, so no new surface was needed, and `CaptureSheet`'s textarea already calls `stopPropagation` on keydown, which retires the old KM-03 keystroke-sink objection; a deliberate ⌘V still stashes straight to the shelf on desktop, because the user chose that text and the toast carries the Undo; two tests run with NO phone media match and assert the sheet is on screen and `readText` was NOT called; revert probe re-added `isPhone &&` and the first test failed |
 | LB-69 | One type token set for the whole site | P1 | 2 h | — | DONE 2026-07-27 — Kyle: “Can we make some font standardizations for the entire website? … I want it to be the fonts that the Credenza fashion logo is made out of”; the logo is made of two families — a Georgia serif C and the UI sans word — but the site spelled those two families TEN different ways across `credenza.css`, `credenza-fashion.css`, `credenza-fashion.jsx` and 33 public HTML pages, each with a different fallback order or quote style, so the type could drift from the logo silently and did; added `--cz-display` / `--cz-sans` / `--cz-mono` to the first `:root` in `credenza.css` as the one place a stack is written, rewrote all 77 declarations in `credenza-fashion.css` and all 260 across the public pages to those tokens (each public page carries its own chrome and shares no stylesheet, so each got its own copy of the three definitions), retired `landing/index.html`'s private `--serif`/`--sans`/`--mono`, and pointed the exported `FONT`/`DISPLAY` constants at `var(--cz-sans)`/`var(--cz-display)` so the JSX and the CSS cannot drift; `test/type-tokens.test.js` strips comments first and asserts on declaration VALUES, so a comment cannot satisfy it; revert probe reintroduced one literal stack in each of the CSS and a public page, and both failed |
 | LB-70 | Group the profile, settings and measurement rows | P1 | 3 h | LB-69 | DONE 2026-07-27 — Kyle: “make the navigation and profile setting experience much better, make it cleaner, profile sign in cleaner, different options cleaner … It’s too clunky the way it is right now with how everything is set up. I think the measurements could use a little bit of a bigger, better thing. Maybe the card that pops up with all the settings is just a little bit too bland”; the Profile sheet was eleven identical rows in one flat run of hairlines from Theme to Erase my data with two section labels stranded mid-list, the Settings sheet was six more, and the measurements sheet was eight identical 14px boxes in one grid with the unit repeated inside every label (“Chest (in)”); grouped the Profile rows into four labelled cards (Look & fit, Your shelf, Your data, Learn) and the Settings rows into three (Account, Look, Fit), each group a real surface with a hairline border and no trailing rule, and gave the rows the hover state they never had; moved “Erase my data” out of its orphaned position under the legal links into the Your data group beside Import & backup and Storage; rebuilt the measurements sheet on a purpose-built `Measure` control at 20px with the unit set inside the box against the right edge, so the label is the body part alone, grouped the eight into You / Upper body / Lower body with a one-line reason per group, and added a “N of 8 filled in” count; `test/settings-grouping.test.jsx` (12 cases) asserts on the rendered consequence — the heading text, that every row resolves to a group container, and the declared font-size and min-height read out of the stylesheet with comments stripped first (LB-65); revert probe removed the group class from both sheets, dropped the card background, and shrank the input back to 14px/38px, and each mutation failed the suite naming the row and the rule
+| LB-71 | Give the shelf cards depth and the masthead an edge | P1 | 2 h | LB-70 | DONE 2026-07-27 — Kyle: “I think the cards are a little bland. The top is a little bland”; the shelf card declared one flat blur, `0 4px 12px` at 5% alpha, with `!important` — so it overrode the two-layer contact + ambient pair the wrapper `.cz-editorial-card` already set and flattened the card back into the page, and the masthead had no bottom edge at all, so the mark, the link row and the avatar floated on the bare canvas and the first thing on the page that looked like a boundary was the search field; the card now casts the same two layers as its wrapper, a tight `0 1px 2px` contact shadow plus a wide `0 8px 20px` ambient one, with a separate Blackout pair at 0.5/0.4 alpha because those light-theme alphas are invisible over a black field; the masthead closes with a `1px solid var(--cz-hair)` rule at 14px padding above and 18px margin below, and the wordmark went 16px → 19px because at 16 it measured smaller than the shelf’s own section headings, so the page named its sections louder than it named itself; `test/card-masthead-depth.test.jsx` (7 cases) counts the shadow layers with the colour functions removed first, asserts the tight layer sits within 2px and blurs no more than 4px, asserts every Blackout alpha is at least 0.3, and reads the masthead rules out of the `KEYFRAMES` template literal in `credenza-fashion.jsx` with comments stripped (LB-65) because the masthead has no `.css` file; four revert probes restored the flat blur, removed the border, shrank the wordmark, and gave Blackout the light alphas, and each failed the suite naming the value |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -4996,3 +4998,35 @@ and the rule.
 **LB-70: a list is not a menu until something groups it.** Rows that are each
 correct can still add up to a screen nobody can read. The unit of design is not
 the row. It is the group the row sits in, and the name over the group.
+
+
+### LB-71 — one blur and no edge
+
+Kyle looked at the shelf and said the cards were bland and the top was bland.
+Both complaints had the same shape: a thing that should read as an object read
+as a picture of an object instead.
+
+The card was the clearer case. `.cz-editorial-card`, the wrapper, already cast
+two shadows — a tight dark one where the card meets the shelf, and a wide faint
+one above it. The comment above that rule says exactly why: "a single blur can
+be one or the other and reads as a sticker either way." But the inner
+`.cz-card-editorial.cz-card-twoline` rule then declared `0 4px 12px` at 5%
+alpha with `!important`, which won, and the card went back to being a sticker.
+The right depth was already written down. It was being overridden one selector
+later by a rule added to solve a height problem.
+
+The masthead was simpler and worse. It had no bottom border. A brand mark, a
+row of links and an avatar sat on bare canvas, and the first element on the
+page with a visible boundary was the search field — so the page appeared to
+start below the header. One hairline fixes it, because a bottom edge is most of
+what a masthead is. The wordmark was also 16px against 25px section headings
+underneath, which meant the page announced "Shelf" more loudly than it
+announced "CREDENZA".
+
+Neither fix invented anything. Both applied a value the codebase had already
+chosen, in the one place that had been left out.
+
+**LB-71: a single blur is a sticker, and a header with no edge is not a
+header.** When a repeated element already has a rule that gets depth right,
+check whether a later, more specific rule is quietly cancelling it before
+writing a third one.
