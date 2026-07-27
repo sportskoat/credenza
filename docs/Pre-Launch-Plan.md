@@ -79,6 +79,7 @@ do it completely, and report against its acceptance criteria.
 | LB-12 | Purge dead CSS | P2 | 0.5 day | — | DONE 2026-07-26 — 859 lines cut; focus-ring bug fixed |
 | LB-13 | Archive the legacy root files | P2 | 30 min | — | DONE 2026-07-26 — safe half; credenza-v3.jsx stays (7 tests) |
 | LB-14 | Audit the public site; lock it with a test | P1 | 0.5 day | LB-4 | DONE 2026-07-26 — 3 defects fixed; 89 tests added |
+| LB-15 | Build the /support/ page | P1 | 2 h | LB-14 | DONE 2026-07-26 — plus the stale 404 nav |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -785,6 +786,41 @@ and nothing else. All four files were backed up first and restored.
 
 Gate after the change: 1120 tests pass (was 1031), lint clean, typecheck
 clean, build OK with unchanged chunk sizes.
+
+### LB-15. Build the /support/ page — DONE 2026-07-26
+
+Credenza takes money. A customer who wants to cancel, get a refund, export a
+shelf, or delete an account needs one place to look. Before this the contact
+address appeared only inside the body copy of three pages. Stripe also expects
+a reachable support route on a site that charges a card.
+
+`/support/` answers seven things: cancel Pro, ask for a refund, export your
+shelf, delete your data, report a bug, report a wrong size recommendation, and
+what support cannot do. Every rule on it comes from `/terms/` or `/privacy/`,
+so the three pages cannot contradict each other. If a rule changes, change it
+in the terms first, then here.
+
+The last section is the one that saves the most mail. Credenza never handles a
+purchase, so orders, payments, parcels, and sellers who did not ship go to the
+shopping agent. Finding an item is not a Credenza job either.
+
+Support now appears in the nav and the footer of all 16 pages, in
+`sitemap.xml`, in `llms.txt`, and in `llms-full.txt`. The FAQ cancel answer
+links to it, and the FAQ schema was regenerated from the visible copy after
+the edit.
+
+**A second defect, found by the same work.** `404.html` still carried the nav
+from before Guides shipped. The LB-14 test missed it because `pageFiles()`
+only collected files named `index.html`. A landable page is not always an
+index. The test now builds a `DOCS` list that adds `404.html`, and uses it for
+nav, links, and head checks. `PAGES` still drives the sitemap checks, because
+`404.html` is `noindex` and must stay out of the sitemap.
+
+Four more negative controls confirm the new checks bite: strip every Guides
+link from `404.html`, delete the support page (17 failures), point the 404
+canonical at the wrong URL, and drop the support entry from the sitemap.
+
+Gate: 1131 tests pass, lint clean, typecheck clean, build OK.
 
 ---
 
