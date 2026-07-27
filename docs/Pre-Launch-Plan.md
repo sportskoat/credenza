@@ -117,6 +117,8 @@ do it completely, and report against its acceptance criteria.
 | LB-50 | Give the app a way back to the site (Kyle) | P0 | 1 h | — | DONE 2026-07-27 — Kyle: "there needs to be some sort of navigation in the platform we have all these pages but no links to the pages"; twenty-one pages, and the app linked to three |
 | LB-51 | Write the parcel planner guide | P0 | 2 h | LB-46 | DONE 2026-07-27 — a coverage census of the price table found the parcel planner explained on ONE page other than `/pricing/`, the lowest of any sold feature; new page `/guides/plan-a-parcel/`, plus a `SOLD` entry so the row stays bound |
 | LB-52 | Explain the three ways a shelf leaves the app | P0 | 2 h | LB-51 | DONE 2026-07-27 — the LB-51 census counted mentions, not explanations; the two thinnest rows shared one repeated sentence that named buttons only; new page `/guides/back-up-your-shelf/` covers .json, .csv and sync merge, plus two `SOLD` entries |
+| LB-53 | Put the site in the masthead; add the address it was missing (Kyle) | P0 | 2 h | LB-50 | DONE 2026-07-27 (`1973f2c`) — Kyle: "make a header that links to all of our pages here… make a few header pages that link out to pro, contact us, guides, etc."; LB-50 put site links two taps deep in the Profile sheet, so the masthead now carries six, and `/contact/` is a new page because "contact us" had no address behind it |
+| LB-54 | Fix the choppy transitions and the dead scroll (Kyle) | P0 | 3 h | LB-53 | DONE 2026-07-27 (`2208d32`) — Kyle: "the screens are glitchy, half of them don't work in terms of scrolling anymore, or the animations to move from one to the other are very choppy"; two defects, both invisible to the existing suite — see below |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3230,6 +3232,147 @@ disk. The script now restores from a shell `trap` on EXIT, which runs on every
 path. The page was rebuilt from its generator with no loss.
 
 **Gate.** 1799 tests pass (63 files), 5 lint warnings and 0 errors.
+
+### LB-53 — the app had 25 pages and a masthead that named none of them
+
+**Kyle, 2026-07-27, with two screenshots.** The first was the desktop masthead:
+a brand mark on the left, a wide empty middle, one circular avatar on the right.
+The second was a close-up of that avatar carrying a blue focus ring.
+
+> we should probably just make a header that links to all of our pages here, set
+> this up as part of your goal, make it easy to navigate, fix the profile pop up
+> … fix all and make a few header pages that link out to pro, contact us,
+> guides, etc.
+
+**LB-50 had already put the site inside the app, but two taps deep.** It added
+four links to the Profile sheet. That closes "can you reach the site at all". It
+does not close "is the site visible", and the screenshot is the proof — the
+widest part of the app named nothing.
+
+**One list, two consumers.** `components/site-nav.js` holds six entries. The
+masthead maps it. `test/app-site-nav.test.js` reads the same list back out of the
+source and resolves every `href` against `preview/public`, so a link to a
+directory with no `index.html` fails the suite. That check has to be a source
+test: the app is a bundle and the site is static HTML on the same host, so
+nothing inside the JSX can tell you whether `/guides/` resolves.
+
+| Width | What the masthead shows |
+|---|---|
+| ≥1024px | all six |
+| 767–1023px | four — the two the Profile sheet already covers drop out |
+| <767px | none; the sheet is the way out |
+
+A test binds those three rows together, so a future change cannot hide a link at
+every width at once.
+
+**"Contact us" had no address behind it.** The phrase appears in the ask, and the
+site had no such page — `/support/` answers product questions, which is a
+different job. `/contact/` is 886 words with `ContactPage` and `BreadcrumbList`
+schema. `scripts/build-contact.py` builds it and lifts the chrome byte-for-byte
+out of `/support/`, so a re-run reproduces the file rather than drifting from it.
+It is registered in the sitemap, both llms briefs, the `PRIMARY` schema map, and
+the nav and footer of all 24 other pages.
+
+**It joins the required-nav set, so it is exempt from LB-21.** Every page carries
+it in chrome. An inbound link to a page that every page already links to proves
+nothing about editorial intent, which is the only thing LB-21 measures.
+
+**The blue ring was correct behaviour with a missing style.** `ModalShell`
+restores focus to the trigger on unmount — a keyboard user has to land somewhere.
+On the Escape path the restored button matches `:focus-visible`, and `.cz-avatar`
+and `.cz-mast-btn` were absent from the app's `:focus-visible` list, so Chrome's
+own `outline: auto` painted. Reproduced on that path only: mouse-close and
+backdrop-close both stayed clean. The fix adds the two selectors to the list. It
+does not remove the ring — a keyboard user still gets one, in the app's own
+colour.
+
+**Gate.** 1840 tests pass (63 files), 5 lint warnings and 0 errors. Commit
+`1973f2c`.
+
+### LB-54 — the transitions were paying for blur that rendered nothing
+
+The second half of the same message: "the screens are glitchy, half of them don't
+work in terms of scrolling anymore, or the animations to move from one to the
+other are very choppy." The scroll half shipped in LB-53. This is the animation
+half.
+
+**The first two probes came back clean, and that was a fact about the harness.**
+`probe-page-slide-frames.mjs` and `probe-tab-switch-frames.mjs` both time frames.
+Headless Chromium composites on the CPU with no GPU, so `backdrop-filter` and
+`filter: blur()` cost near zero there and full price on a phone. A timing probe
+in that environment cannot price compositing at all. Two further traps sat in the
+same place: headless runs rAF at ~8.3ms, not 16.7ms, so a fixed 33ms dropped-frame
+threshold reports nothing — the working test is `gap > median * 2`.
+
+**Counting painted area found it.** `probe-composite-cost.mjs` walks every visible
+element and reports blurred area as a multiple of the viewport, at 390×844 with 24
+items:
+
+| Moment | Before | After |
+|---|---|---|
+| shelf at rest | 24 blurred elements, 3.82x viewport re-read per frame | 0 elements, 0.00x |
+| mid modal open | 25 elements, 4.69x | 0.00x |
+| mid sub-page slide | 25 elements, 4.70x | 0.00x |
+
+A `backdrop-filter` forces its own compositing layer **and** re-reads every pixel
+behind it on every frame the backdrop moves. So the cost scaled with the shelf
+while the benefit stayed flat.
+
+**One rule, both halves dead.** `backdrop-filter: blur(18px)` sat on a shared
+selector list covering `article > div` (every card) and `.cz-modal-surface` (the
+sheet). Each half was measured, not argued:
+
+| Half | Why nothing rendered | Measurement |
+|---|---|---|
+| the cards | `--cz-card` is `rgba(32,32,36,0.86)`, so 14% shows through, and the only thing behind is one ambient div already at `filter: blur(48px)`. Blurring an already-Gaussian field by another 18px widens the kernel to √(48²+18²)=51.3px — 7%, on a field with no edges | `probe-card-blur-diff.mjs`: `pctVisiblyChanged` 0.69, confined to 2 of 16 horizontal bands, exactly where the ambient blob passes |
+| the sheet | QW9 (2026-07-22) set `.cz-modal-surface` to `--cz-card-solid`. That token is `#ffffff` / `#202024` in `credenza-fashion.jsx` — bare hex, fully opaque. Nothing can show through | `probe-surface-blur-diff.mjs`: `pctVisiblyChanged` 0.00 in both themes |
+
+**Reading the token generalized a two-theme screenshot.** The diff probe covers
+the themes it renders. Reading `--cz-card-solid` out of the JSX covers every
+theme, because both definitions are bare six-digit hex and there is no third.
+QW9 had orphaned that blur five days earlier.
+
+**This is not a ban on `backdrop-filter`.** The sticky toolbar, the bottom bar,
+and the dialog scrim all read through to moving content and keep their blur. The
+test asserts at least eight survive, so removing them would be a different
+regression and would fail.
+
+**Two probe defects found and fixed, both of the same kind: a zero that could
+have meant a broken selector.**
+
+| Probe | Defect | Fix |
+|---|---|---|
+| `probe-surface-blur-diff.mjs` | reported `pctChanged: 0`, which is the answer I wanted and also what a missed selector reports | a `live()` guard that throws unless a visible `.cz-modal-surface` exists, carries a blur before, and has none after. Re-run: `visible=1 area=0.88x vp bd=blur(18px)` |
+| `probe-dead-blur.mjs` | reported "no blurred elements" in all four states, with no proof the detector worked | an injected control — one opaque and one translucent blurred box — that throws if either goes undetected. Output now leads with `control OK` |
+
+**A harness defect, second in two rows.** LB-52's `set -e` fault has a sibling: a
+`trap 'cp /tmp/czf.css.keep credenza-fashion.css' EXIT` handler fired after the
+shell had `cd`'d, so it wrote a stray file one level down and left the real CSS
+mutated. Caught by hashing, not by reading. **A `trap` handler runs in whatever
+directory the shell ended in, so it must use absolute paths.**
+
+**`preview/test/app-compositing.test.js`** (7 tests) pins both halves of the
+message — the blur removal and LB-53's scroll fix. It also pins the two facts the
+argument rests on, so a change to either re-opens the question loudly:
+`--cz-card` stays in the card rule, and `--cz-card-solid` stays bare hex.
+
+| Probe | Result |
+|---|---|
+| `backdrop-filter` restored on the shared rule | 1 fail |
+| `overscroll-behavior: contain` restored on `.cz-modal-page` | 2 fail — the ban and its positive twin |
+
+**A test that failed against its own comment.** `ruleBody()` returned the rule
+text including the audit comment, and that comment quotes
+`overscroll-behavior: contain` while describing its removal. Fixed by stripping
+comments before asserting on declarations. **A CSS source test must strip
+comments, or prose about a property reads as the property.**
+
+**Left open, deliberately.** Entering a 120-item shelf still costs one ~56ms long
+task. That is script cost — mounting 120 cards — not compositing, so this fix does
+not touch it, and it is one frame on an unusually large shelf.
+
+**Gate.** 1847 tests pass (64 files), 5 lint warnings and 0 errors. Commit
+`2208d32`.
 
 ## Explicitly deferred (do NOT build before launch)
 
