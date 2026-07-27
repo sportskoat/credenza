@@ -477,6 +477,7 @@ on every existing link with no error anywhere to say why.
 | `preview/netlify.toml` | `/s/*` → the function, status 200. |
 | `preview/src/share-api.js` | The client transport. Mirrors `account.js`. |
 | `sheets/ShareSheet.jsx` | The share sheet. Holds the draft only — never a token. |
+| `sheets/SharedLinksSheet.jsx` | Profile → Shared links. List and delete. |
 | `docs/sql/2026-07-26-shares.sql` | The migration. **Kyle runs it.** |
 
 **Decisions worth keeping.**
@@ -509,11 +510,15 @@ unstyled class would otherwise stay invisible until someone opened it.
 2. After the deploy, paste one link into Discord and confirm the
    preview card. The OG image cannot be verified from this machine.
 
-**Deferred, and stated as a promise in the UI.** The share sheet's fine
-print reads "Delete it any time from Profile → Shared links." That list
-is not built yet. `listShares` and `deleteShare` are already written in
-`preview/src/share-api.js`, so it is a Profile sheet section and
-nothing more. Build it before launch, or change the sentence.
+**Profile → Shared links — BUILT 2026-07-26.** The share sheet's fine
+print names that route, so the route exists. `sheets/SharedLinksSheet.jsx`
+lists every link this account has made and deletes them one at a time,
+two-tap like Erase my data. The row shows only when signed in, because
+the links live on the server. `share-client.test.js` fails the build if
+the row is renamed away from the sentence that points at it.
+
+Each URL is built against `window.location.origin`, not the default
+production host, so a preview build lists preview links.
 
 ### LB-9. Ship the "Install share shortcut" page — DONE 2026-07-26
 
@@ -663,8 +668,6 @@ Launch when every box is checked:
 - [ ] LB-8: Kyle ran `docs/sql/2026-07-26-shares.sql`. Without the
       table every share attempt fails, and the Share button is visible
       to everybody.
-- [ ] LB-8: the Profile → Shared links list exists, or the share
-      sheet's fine print no longer promises it.
 - [ ] LB-3/D-1 price decision recorded here.
 - [ ] One full paid loop verified in test mode (LB-5 log exists).
 - [ ] Pricing page lists only shipped features.

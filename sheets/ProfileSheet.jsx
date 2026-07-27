@@ -24,6 +24,7 @@ export default function ProfileSheet({
   onOpenSizes,
   onOpenFitPrefs,
   onOpenImport,
+  onOpenSharedLinks,
   storageLabel,
   storageColor,
   onEraseData,
@@ -309,6 +310,16 @@ export default function ProfileSheet({
           <span>Import &amp; backup</span>
           <span className="cz-profile-row-val">›</span>
         </button>
+        {/* LB-8. Signed in only: the links live on the server, so a signed-out
+            person has none and the row would open an empty page. The share
+            sheet's fine print names this row by name — do not rename it
+            without changing that sentence too. */}
+        {accountEnabled && accountSession && onOpenSharedLinks ? (
+          <button type="button" className="cz-profile-row" onClick={onOpenSharedLinks}>
+            <span>Shared links</span>
+            <span className="cz-profile-row-val">Manage ›</span>
+          </button>
+        ) : null}
         <div className="cz-profile-row is-static">
           <span>Storage</span>
           <span className="cz-profile-row-val cz-profile-storage">

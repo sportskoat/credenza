@@ -18,6 +18,8 @@ import { createShare, listShares, deleteShare, copyLink } from "../src/share-api
 const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 const app = read("../../credenza-fashion.jsx");
 const sheet = read("../../sheets/ShareSheet.jsx");
+const links = read("../../sheets/SharedLinksSheet.jsx");
+const profile = read("../../sheets/ProfileSheet.jsx");
 const api = read("../src/share-api.js");
 const css = read("../../credenza-fashion.css");
 
@@ -203,13 +205,77 @@ describe("the endpoint the client calls is the one the site serves", () => {
   });
 });
 
-describe("every class the sheet uses exists in the stylesheet", () => {
-  // The sheet is lazy-loaded, so an unstyled class does not show up until
-  // someone opens it. This test opens it at build time instead.
-  it("has a rule for each cz- class name in ShareSheet.jsx", () => {
+describe("the promise in the fine print is kept", () => {
+  // ShareSheet tells people to delete links from Profile → Shared links. If
+  // that row disappears, or is renamed, the sentence becomes a lie.
+  it("states the route in the share sheet", () => {
+    expect(sheet).toContain("Profile → Shared links");
+  });
+
+  it("gives Profile a row with that exact name", () => {
+    expect(profile).toContain("<span>Shared links</span>");
+    expect(profile).toContain("onOpenSharedLinks");
+  });
+
+  it("shows the row only to a signed-in account", () => {
+    // The links live on the server. A signed-out person has none, and the
+    // page would only ever be empty.
+    expect(profile).toContain("accountEnabled && accountSession && onOpenSharedLinks");
+  });
+
+  it("routes the row to the links sub-page", () => {
+    expect(app).toContain('onOpenSharedLinks={() => setProfileSubPage("links")}');
+    expect(app).toContain('if (key === "links")');
+    expect(app).toContain("onList={listHaulShares}");
+    expect(app).toContain("onDelete={deleteHaulShare}");
+  });
+
+  it("builds each link URL against this origin, not a hard-coded host", () => {
+    // A preview build must list preview links. shareUrl defaults to the
+    // production host, so the origin has to be passed in.
+    expect(app).toContain("shareUrl(row.id, origin)");
+    expect(app).toContain("window.location.origin");
+  });
+
+  it("re-reads the session before listing and before deleting", () => {
+    expect(app).toMatch(/const listHaulShares = useCallback\(async \(\) => \{\s*\n\s*const session = await getValidSession\(\);/);
+    expect(app).toMatch(/const deleteHaulShare = useCallback\(async \(code\) => \{\s*\n\s*const session = await getValidSession\(\);/);
+  });
+
+  it("never lets the links sheet see a token", () => {
+    expect(links).not.toContain("share-api");
+    expect(links).not.toContain("accessToken");
+    expect(links).not.toContain("getValidSession");
+  });
+
+  it("makes delete two-tap, like Erase my data", () => {
+    expect(links).toContain("Tap to confirm");
+    expect(links).toContain("armedCode");
+  });
+
+  it("tracks busy per code, so two rows never both look busy", () => {
+    expect(links).toContain("const [busyCode, setBusyCode] = useState");
+    expect(links).not.toContain("const [busy, setBusy] = useState(false)");
+  });
+
+  it("distinguishes a failed load from an empty list", () => {
+    // Showing "No shared links yet" after a network error tells somebody
+    // their links are gone.
+    expect(links).toContain("The list could not be loaded.");
+    expect(links).toContain("No shared links yet.");
+  });
+});
+
+describe("every class the sheets use exists in the stylesheet", () => {
+  // The sheets are lazy-loaded, so an unstyled class does not show up until
+  // someone opens one. This test opens them at build time instead.
+  it.each([
+    ["ShareSheet.jsx", sheet],
+    ["SharedLinksSheet.jsx", links],
+  ])("has a rule for each cz- class name in %s", (_name, src) => {
     const used = new Set();
-    for (const m of sheet.matchAll(/"(cz-[a-z0-9-]+)/g)) used.add(m[1]);
-    for (const m of sheet.matchAll(/\s(cz-[a-z0-9-]+)/g)) used.add(m[1]);
+    for (const m of src.matchAll(/"(cz-[a-z0-9-]+)/g)) used.add(m[1]);
+    for (const m of src.matchAll(/\s(cz-[a-z0-9-]+)/g)) used.add(m[1]);
     const missing = [...used].filter((name) => !css.includes("." + name));
     expect(missing).toEqual([]);
   });

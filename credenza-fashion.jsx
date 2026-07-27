@@ -57,8 +57,8 @@ import {
   deleteAccount as accountDeleteRequest,
 } from "./preview/src/account.js";
 import { overFreeLimit, bumpUsage, planLimit, PRO_LIMITS } from "./preview/src/usage.js";
-import { buildShareSnapshot, makeShareCode, expiryFromDays } from "./credenza-share.js";
-import { createShare, copyLink } from "./preview/src/share-api.js";
+import { buildShareSnapshot, makeShareCode, expiryFromDays, shareUrl } from "./credenza-share.js";
+import { createShare, listShares, deleteShare, copyLink } from "./preview/src/share-api.js";
 import { SYNC_READY, pullShelf, createShelfPusher, deleteRemoteShelf } from "./preview/src/sync.js";
 import {
   mergeShelves,
@@ -81,6 +81,7 @@ const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsSheet = lazy(() => import("./sheets/SettingsSheet.jsx"));
 const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
+const SharedLinksSheet = lazy(() => import("./sheets/SharedLinksSheet.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -6707,6 +6708,31 @@ export default function Credenza() {
     [shareHaulName, shareItemsFor]
   );
 
+  // Profile → Shared links. The list comes from the server, because a link
+  // made on a phone must be deletable from a laptop and the shelf has never
+  // held the codes. The server sends the code alone; the URL is built here,
+  // against this origin, so a preview build lists preview links.
+  const listHaulShares = useCallback(async () => {
+    const session = await getValidSession();
+    if (!session) {
+      setAccountSession(null);
+      throw new Error("Your sign-in expired — sign in again first.");
+    }
+    const rows = await listShares(session.accessToken);
+    const origin =
+      typeof window !== "undefined" && window.location ? window.location.origin : undefined;
+    return rows.map((row) => ({ ...row, url: shareUrl(row.id, origin) }));
+  }, []);
+
+  const deleteHaulShare = useCallback(async (code) => {
+    const session = await getValidSession();
+    if (!session) {
+      setAccountSession(null);
+      throw new Error("Your sign-in expired — sign in again first.");
+    }
+    return deleteShare(session.accessToken, code);
+  }, []);
+
   useEffect(() => {
     if (view === "inbox" && inboxItems.length === 0) setView("shelf");
   }, [view, inboxItems.length]);
@@ -7629,6 +7655,20 @@ export default function Credenza() {
           />
         </Suspense>
       );
+    if (key === "links")
+      return page(
+        "Shared links",
+        480,
+        <Suspense fallback={null}>
+          <SharedLinksSheet
+            onList={listHaulShares}
+            onDelete={deleteHaulShare}
+            onCopy={copyLink}
+            onClose={back}
+            embedded
+          />
+        </Suspense>
+      );
     return null;
   };
 
@@ -7794,6 +7834,7 @@ export default function Credenza() {
           onOpenSizes={() => setProfileSubPage("sizes")}
           onOpenFitPrefs={() => setProfileSubPage("fit")}
           onOpenImport={() => setProfileSubPage("import")}
+          onOpenSharedLinks={() => setProfileSubPage("links")}
           storageLabel={localStatus.label}
           storageColor={localStatus.color}
           onEraseData={eraseEverything}

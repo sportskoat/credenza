@@ -1246,15 +1246,24 @@ on the Claude side.
   a token; `onCreate` is the app's callback.
 - **Custom share URLs are NOT built.** The code is always 12 random
   characters. Do not list it on the pricing page.
-- **The sheet promises a list that does not exist:** "Delete it any time
-  from Profile → Shared links." `listShares` and `deleteShare` are
-  already written in `preview/src/share-api.js`. Build the Profile
-  section before launch, or change the sentence.
-- Tests: 27 new in `share-client.test.js`, on top of `share-doc`,
+- **The list the sheet promises is BUILT:** `sheets/SharedLinksSheet.jsx`.
+  The share sheet's fine print says "Delete it any time from Profile →
+  Shared links", so that route exists. Reach it from Profile → Shared
+  links; it is a `buildSubPage` key, `links`. Details worth keeping:
+  - The row shows only when signed in. The links live on the server, so
+    a signed-out person has none.
+  - Delete is two-tap, like Erase my data. The armed state is filled
+    red, because the resting state already uses red text.
+  - The server sends the code, not the URL. `listHaulShares` builds each
+    URL against `window.location.origin`, so a preview build lists
+    preview links.
+  - A failed load sets the error AND an empty list. "No shared links
+    yet" after a network error reads as "your links are gone".
+- Tests: 38 in `share-client.test.js`, on top of `share-doc`,
   `share-server` and `share-parity`. One of them fails the build if
-  `ShareSheet.jsx` uses a `cz-` class the stylesheet has no rule for —
-  the sheet is lazy-loaded, so an unstyled class stays invisible until
+  either sheet uses a `cz-` class the stylesheet has no rule for — the
+  sheets are lazy-loaded, so an unstyled class stays invisible until
   somebody opens it.
-- Full gate green — lint 0 errors, tsc clean, 59 files / 1020 tests,
-  build OK (`ShareSheet` is its own 5.34 kB chunk).
+- Full gate green — lint 0 errors, tsc clean, 59 files / 1031 tests,
+  build OK (`ShareSheet` 5.34 kB, `SharedLinksSheet` 2.42 kB).
 - Not deployed. Everything sits on `main` for Kyle's single deploy.
