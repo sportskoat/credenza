@@ -116,6 +116,7 @@ do it completely, and report against its acceptance criteria.
 | LB-49 | Bind a price by its billing period, not by the word next to it | P0 | 45 m | LB-48 | DONE 2026-07-27 — the fourteenth scope defect, and the narrowest scope yet: a 90-character window after the word "Pro"; an invented `$7.99 a month` on a shipped guide passed all 1705 tests |
 | LB-50 | Give the app a way back to the site (Kyle) | P0 | 1 h | — | DONE 2026-07-27 — Kyle: "there needs to be some sort of navigation in the platform we have all these pages but no links to the pages"; twenty-one pages, and the app linked to three |
 | LB-51 | Write the parcel planner guide | P0 | 2 h | LB-46 | DONE 2026-07-27 — a coverage census of the price table found the parcel planner explained on ONE page other than `/pricing/`, the lowest of any sold feature; new page `/guides/plan-a-parcel/`, plus a `SOLD` entry so the row stays bound |
+| LB-52 | Explain the three ways a shelf leaves the app | P0 | 2 h | LB-51 | DONE 2026-07-27 — the LB-51 census counted mentions, not explanations; the two thinnest rows shared one repeated sentence that named buttons only; new page `/guides/back-up-your-shelf/` covers .json, .csv and sync merge, plus two `SOLD` entries |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3157,6 +3158,78 @@ state this rule exists to reject.
 
 **Gate.** 1772 tests pass (63 files), 5 lint warnings and 0 errors, build
 `index-fashion-C4GAd3SD.js 363.47 kB`.
+
+### LB-52 — a mention is not an explanation
+
+**How the gap was found.** The LB-51 census counted mentions. It did not ask
+whether the mention explained anything. So I re-read the actual sentences behind
+the two next-thinnest rows, and both were the same sentence, repeated:
+
+> open Profile → Import & backup and download your shelf as a .json file. Pro
+> also exports a .csv for a spreadsheet.
+
+`/support/` said it. `/privacy/` said it. That is where the buttons are. It is
+not what the files hold, and not when to press them.
+
+| Feature the price table sells | Pages other than `/pricing/` |
+|---|---|
+| QC photos an item | 13 |
+| Buy in your agent | 12 |
+| Ask | 9 |
+| Reddit haul paste | 8 |
+| AI size-chart reads | 8 |
+| Shared haul links | 6 |
+| **Spreadsheet export (.csv)** | **3** |
+| **Backup and restore (.json)** | **2** |
+
+**One page answers both rows,** because backup, CSV, and sync are one job — your
+data leaving the app. `/guides/back-up-your-shelf/` runs 1245 words in `<main>`
+across eight sections: why a browser-local shelf needs a file at all, the three
+routes out (.json, .csv, the account), what the merge does when two devices
+disagree, the load-error screen, when to take the backup, and what each plan
+gets.
+
+**Every number on the page was read from source, not from memory.**
+
+| Claim on the page | Source |
+|---|---|
+| 15 CSV columns, in order | `credenza-haul-export.js:226-242` |
+| a leading `'` on anything formula-shaped | `credenza-haul-export.js` `FORMULA_START`, `csvCell` |
+| a restore skips cards already on the shelf | `credenza-fashion.jsx:5471-5495` |
+| a deletion record is not in the backup | `credenza-fashion.jsx:1883` |
+| deletions expire after 90 days | `credenza-sync-merge.js:39` |
+| newer stamp wins; local order first | `credenza-sync-merge.js:148-200` |
+| pull is free, push is Pro | `credenza-fashion.jsx:4692-4703` |
+| the four buttons on the load-error screen | `credenza-fashion.jsx:7460-7496` |
+
+**LB-46's `SOLD` array gained two entries**, one per row, so the page cannot
+quietly lose half its subject. The phrases were chosen by testing every
+candidate against the whole site first. Rejected because no page contains them:
+`clearing site data`, `download the .json`, `the shelf, not a screenshot`,
+`opens like a formula`. Accepted, because each is in visible text and unique to
+the new page: `restore the same file twice`, `the record of your deletions`,
+`total a haul`, `price usd`.
+
+| Probe | Result |
+|---|---|
+| `<main>` replaced with one short card | 8 fail — word floor, section count, and six binding rules |
+| `"@type": "HowTo"` → `"Article"` | 2 fail — declared type, HowTo step count |
+| `restore the same file twice` renamed | 2 fail — the `SOLD` entry, and its prose guard |
+| `the record of your deletions` renamed | 2 fail — same pair |
+| `total a haul` renamed | 2 fail — the second `SOLD` entry |
+| `price usd` renamed | 2 fail — same pair |
+| `best batch` put in an `<h2>` | 1 fail — banned language |
+| Cluster row deleted from `keyword-cluster.md` | 1 fail — LB-36 |
+| `llms.txt` bullet deleted | 1 fail — llms.txt names every guide |
+| The `/support/` inbound link unwrapped | 1 fail — LB-21 |
+
+**A harness defect found and fixed.** The probe script used `set -e`, so a failed
+precondition exited before the restore. The next probe's opening backup then
+copied the damaged file over the good one. It destroyed the page's `<main>` on
+disk. The script now restores from a shell `trap` on EXIT, which runs on every
+path. The page was rebuilt from its generator with no loss.
+
+**Gate.** 1799 tests pass (63 files), 5 lint warnings and 0 errors.
 
 ## Explicitly deferred (do NOT build before launch)
 

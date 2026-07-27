@@ -51,6 +51,7 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/guides/choose-an-agent/ — compare agents on link format, not hype
 - https://credenzafashion.com/guides/open-weidian-in-agent/ — open Weidian in preferred agent
 - https://credenzafashion.com/guides/estimate-haul-weight/ — estimate parcel weight before you submit it
+- https://credenzafashion.com/guides/back-up-your-shelf/ — get the shelf out: .json backup, .csv for a spreadsheet, and what sync merges
 - https://credenzafashion.com/guides/plan-a-parcel/ — chargeable weight: carriers bill the larger of actual weight and box size
 - https://credenzafashion.com/guides/free-agent-haul-planner/ — what the free plan includes, with the real daily numbers
 - https://credenzafashion.com/guides/yupoo-album-to-shopping-list/ — paste a Yupoo album link and get a card with photos, seller, price and the chart

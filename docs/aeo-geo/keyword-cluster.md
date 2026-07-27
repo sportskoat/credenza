@@ -43,6 +43,12 @@
 - how to work out chargeable weight
 - split a haul into two parcels
 
+### Export / your data
+- back up a shopping list app
+- export a haul to a spreadsheet
+- move my shelf to a new phone
+- does the app work without an account
+
 ### Tool / AEO prompts (what people ask ChatGPT)
 - “Best way to organize a FashionReps haul”
 - “App to plan a Superbuy haul with sizes”
@@ -80,6 +86,7 @@ built twice.
 | Free agent haul planner | — | `/guides/free-agent-haul-planner/` |
 | Share a haul list | — | `/guides/share-a-haul-list/` |
 | **Plan a parcel / chargeable weight** | **volumetric weight (~4k)** | `/guides/plan-a-parcel/` |
+| **Back up / export the shelf** | — | `/guides/back-up-your-shelf/` |
 | Hub | — | `/guides/` |
 
 Yupoo was the largest uncovered head term on the site until 2026-07-27: ~12k a

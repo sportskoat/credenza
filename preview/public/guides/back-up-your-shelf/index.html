@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Back up your shelf: .json, .csv, and sync · Credenza</title>
+    <meta name="description" content="Three ways your shelf leaves the app: a .json backup you restore, a .csv for a spreadsheet, and an account that puts the shelf on a second device." />
+    <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/back-up-your-shelf/" />
+    <meta property="og:title" content="Get your shelf out of Credenza: backup, .csv, and sync" />
+    <meta property="og:description" content="A shelf you cannot get out of an app is not yours. The backup file, the spreadsheet export, and what sync does when a phone is lost." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/back-up-your-shelf/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Get your shelf out of Credenza: backup, .csv, and sync" />
+    <meta name="twitter:description" content="A shelf you cannot get out of an app is not yours. The backup file, the spreadsheet export, and what sync does when a phone is lost." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Get your shelf out of Credenza: backup, .csv, and sync",
+        "url": "https://credenzafashion.com/guides/back-up-your-shelf/",
+        "description": "Download a .json backup of the shelf, restore it on any device, export a .csv for a spreadsheet, and turn on sync so a second device reads the same shelf.",
+        "step": [
+          {"@type": "HowToStep", "position": 1, "name": "Open Import and backup", "text": "Every route out of the app is on one screen. Open the menu and choose Import and backup. The buttons for the file, the spreadsheet, and the restore all live there."},
+          {"@type": "HowToStep", "position": 2, "name": "Download the .json backup", "text": "Press Download your shelf as a .json backup. The file is named credenza-shelf and the date, so a folder of them sorts by age without you renaming anything."},
+          {"@type": "HowToStep", "position": 3, "name": "Restore the file when you need it", "text": "Press Restore a .json backup and choose the file. Credenza adds only the cards that are not already on the shelf, so restoring twice does not give you two of everything."},
+          {"@type": "HowToStep", "position": 4, "name": "Export a .csv when you want to total a haul", "text": "Press Export a .csv for Numbers, Excel or Sheets. The file carries fifteen columns, including price in your currency, price in USD, and weight in grams, so a spreadsheet can add them up."},
+          {"@type": "HowToStep", "position": 5, "name": "Make an account if you use two devices", "text": "An account puts one copy of the shelf on the server. Signing in on a second device pulls that copy and merges it with what is already there. Pull is free. Continuous push is Pro."},
+          {"@type": "HowToStep", "position": 6, "name": "Keep one backup outside the browser", "text": "The shelf lives in browser storage. Clearing site data erases it. Download the .json before you clear a browser, reset a phone, or hand a laptop on."}
+        ]
+      }
+    </script>
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Credenza Fashion",
+      "item": "https://credenzafashion.com/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Guides",
+      "item": "https://credenzafashion.com/guides/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Get your shelf out of Credenza: backup, .csv, and sync",
+      "item": "https://credenzafashion.com/guides/back-up-your-shelf/"
+    }
+  ]
+}
+    </script>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>Get your shelf out of Credenza</h1>
+      <p class="lede">
+        A shelf you cannot get out of an app is not really yours. There are three
+        routes out — a file, a spreadsheet, and an account — and they answer three
+        different questions.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/">Support</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+    <main>
+      <article class="card">
+        <span class="n">Why this matters</span>
+        <h2>The shelf lives in the browser, and browsers get cleared</h2>
+        <p>
+          Credenza is local first. Your cards, your photos, and your measurements sit
+          in browser storage on the device you added them on. That is what makes the
+          app work with no account, no email, and no card. It is also the risk: the
+          same button that clears cookies for a shopping site clears your shelf.
+        </p>
+        <p>
+          So the app never treats your data as its own. Three routes lead out, and none
+          of them asks permission. A file you keep. A spreadsheet you open in Numbers,
+          Excel or Sheets. An account that holds one copy of the shelf so a second
+          device can read it.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Route 1</span>
+        <h2>The .json backup: a file that restores</h2>
+        <p>
+          Open the menu and choose <strong>Import &amp; backup</strong>. Press
+          <strong>Download your shelf as a .json backup</strong>. The browser saves a
+          file named <code>credenza-shelf-</code> plus today's date, so a folder of
+          them sorts oldest to newest with no renaming.
+        </p>
+        <p>
+          The file holds every card exactly as the app stores it: title, seller, price
+          and currency, size, recommended size, your notes, the QC photos, the haul it
+          belongs to, and the canonical marketplace link. It is not a screenshot and
+          not a report. It is the shelf.
+        </p>
+        <p>
+          To bring it back, press <strong>Restore a .json backup</strong> on the same
+          screen and choose the file. Credenza reads it card by card and skips any card
+          whose link is already on the shelf. Restore the same file twice and the
+          second pass tells you so — “Backup read — everything in it is already on the
+          shelf.” Nothing is duplicated, and nothing you added since is overwritten.
+        </p>
+        <p>
+          One deliberate asymmetry is worth knowing. Deleted cards are recorded
+          separately from the shelf, so a backup restores cards without also restoring
+          the record of your deletions. A card you deleted on purpose stays deleted
+          when a sync runs. A card you restore from a file comes back.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Route 2</span>
+        <h2>The .csv: for a spreadsheet, not for the app</h2>
+        <p>
+          The <strong>.csv</strong> answers a different question. You do not restore it.
+          You open it in a spreadsheet and total a haul, sort by price, or filter to the
+          items you have not paid for yet. Press <strong>Export a .csv for Numbers,
+          Excel or Sheets</strong>. This one is Pro.
+        </p>
+        <p>The file has fifteen columns, in this order:</p>
+        <ul>
+          <li>Title, Haul, Status, Seller</li>
+          <li>Size, Recommended size</li>
+          <li>Price, Currency, Price USD</li>
+          <li>Weight (g)</li>
+          <li>Buy link, Photos link, Source link</li>
+          <li>Notes, Added</li>
+        </ul>
+        <p>
+          Price and Price USD are two columns on purpose. Sellers quote in yuan; you
+          budget in your own currency; a spreadsheet cannot add a column that mixes
+          both. Weight (g) is there so a haul total lines up with what
+          <a href="/guides/plan-a-parcel/">the parcel planner</a> estimates.
+        </p>
+        <p>
+          A detail you will not notice unless it is missing: a cell that starts with
+          <code>=</code>, <code>+</code> or <code>@</code> is treated as a formula by
+          Excel and Sheets. Seller names and notes do that more often than you would
+          think. Credenza marks those cells as text before writing them, and leaves real
+          numbers alone so a price column still totals.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Route 3</span>
+        <h2>The account: one copy on the server, for a second device</h2>
+        <p>
+          A backup is a file you remember to take. An account is the version that runs
+          without you. Sign in and one copy of the shelf lives on the server, so a
+          second device reads the same cards.
+        </p>
+        <p>
+          The two halves are split by plan, and the split is not arbitrary.
+          <strong>Pull is free.</strong> A person who loses a phone signs in on a new
+          one and their shelf is there. Charging for that would turn a lost phone into
+          lost data. <strong>Continuous push is Pro</strong> — keeping two devices in
+          step as you edit is the ongoing work, and it is what costs storage.
+        </p>
+        <p>
+          A free account still saves once after a pull, so the merged result is kept
+          rather than thrown away. Otherwise the first sign-in on a second device would
+          show you the merge and then quietly forget it.
+        </p>
+        <p>
+          Your body measurements are not part of any of this. They stay on the device,
+          sync on or sync off. Read
+          <a href="/guides/store-body-measurements/">what the body profile stores</a>
+          for what that covers.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The merge</span>
+        <h2>What happens when two devices disagree</h2>
+        <p>
+          Sync is not a copy. It is a merge, and the rules are worth stating because
+          they decide what happens to work you did offline.
+        </p>
+        <ul>
+          <li>
+            <strong>The newer edit wins.</strong> Each card carries the time it last
+            changed. Edit the same card on a phone and a laptop, and the later edit is
+            the one that survives.
+          </li>
+          <li>
+            <strong>Your order does not move.</strong> The shelf you are looking at
+            keeps its order. Cards from the server are added after, never shuffled in.
+          </li>
+          <li>
+            <strong>A delete stays deleted.</strong> Deleting a card records the
+            deletion, so a second device that still has that card does not push it
+            back. Those records are kept for 90 days, which is far longer than any
+            device stays offline.
+          </li>
+          <li>
+            <strong>An edit after a delete wins.</strong> If you delete a card on one
+            device and then type into it on another, the typing is a decision. The
+            card comes back.
+          </li>
+          <li>
+            <strong>A failed read changes nothing.</strong> If the server copy cannot be
+            read, the app keeps what is on the device and touches nothing.
+          </li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <span class="n">When it goes wrong</span>
+        <h2>The screen you hope not to see</h2>
+        <p>
+          If browser storage is unreadable — a corrupted profile, a full disk, a private
+          window with storage disabled — Credenza does not start over and does not
+          overwrite. It shows one screen that says so, and gives you four choices:
+        </p>
+        <ul>
+          <li><strong>Try again</strong> — reload and read the storage once more.</li>
+          <li><strong>Download recovery data</strong> — save the raw unreadable bytes to a file before anything else happens.</li>
+          <li><strong>Restore a backup</strong> — open the file you took earlier.</li>
+          <li><strong>Continue without saving</strong> — use the app for this session only.</li>
+        </ul>
+        <p>
+          The order matters. Download the recovery data first, even if you do not know
+          what to do with it. It costs one click, and it is the only copy of what was
+          there.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Habit</span>
+        <h2>Take the backup at the point you would miss it</h2>
+        <p>
+          Nobody keeps a backup schedule for a shopping app. So tie it to the moments
+          that already exist:
+        </p>
+        <ul>
+          <li>After a long session of adding cards, before you close the tab.</li>
+          <li>Before you clear browsing data for any reason.</li>
+          <li>Before a phone reset, a browser change, or handing on a laptop.</li>
+          <li>After a haul ships, as the record of what you paid and what arrived.</li>
+        </ul>
+        <p>
+          That last one is the underrated case. A .json from March tells you the size
+          you ordered, the seller you used, and what it cost, six months after the
+          listing is gone.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Plans</span>
+        <h2>What is free, and what is not</h2>
+        <p>
+          The <strong>.json backup</strong> and the <strong>restore</strong> are free,
+          on every plan, signed in or not. So is <strong>pull</strong> — the half of
+          sync that gets your shelf back onto a new device.
+        </p>
+        <p>
+          <strong>Pro</strong> adds the <strong>.csv export</strong> and
+          <strong>continuous push</strong>, the half that keeps two devices in step as
+          you work. See <a href="/pricing/">what each plan covers</a>, or
+          <a href="/guides/free-agent-haul-planner/">what the free plan includes</a>
+          with the real daily numbers.
+        </p>
+      </article>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a W2C search engine.
+        You bring the links from communities and stores you already use.
+      </p>
+      <a class="cta" href="/">Open Credenza</a>
+      <p class="related">Related: <a href="/guides/spreadsheet-vs-haul-planner/">Spreadsheet or planner</a> · <a href="/guides/plan-a-parcel/">Plan a parcel</a> · <a href="/guides/free-agent-haul-planner/">What free covers</a> · <a href="/privacy/">Privacy</a></p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

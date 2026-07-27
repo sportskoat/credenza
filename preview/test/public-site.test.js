@@ -1227,6 +1227,7 @@ describe("every page tells a machine what kind of page it is", () => {
     "guides/track-qc-photos/index.html": "HowTo",
     "guides/share-a-haul-list/index.html": "HowTo",
     "guides/plan-a-parcel/index.html": "HowTo",
+  "guides/back-up-your-shelf/index.html": "HowTo",
     "guides/weidian-size-chart/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
@@ -1755,6 +1756,26 @@ describe("a feature the price table sells is explained somewhere else", () => {
       row: "Parcel planner",
       needs: ["volumetric weight", "chargeable weight"],
       why: "a person who enters a box size has to be told why the number went up",
+    },
+    // LB-52. Added 2026-07-27. The LB-51 census counted mentions; it did not
+    // ask whether the mention explained anything. Re-reading the two next-
+    // thinnest rows showed both mentions were the same sentence, repeated:
+    // /support/ and /privacy/ each said "download your shelf as a .json file.
+    // Pro also exports a .csv". That is where the buttons are, not what the
+    // files hold or when to press them.
+    //
+    // Both rows are one job — your data leaving the app — so one page answers
+    // both, and both rows are bound here so the page cannot quietly lose half
+    // its subject.
+    {
+      row: "Backup and restore (.json)",
+      needs: ["restore the same file twice", "the record of your deletions"],
+      why: "a backup nobody trusts to restore is not a backup; say what a second restore does",
+    },
+    {
+      row: "Spreadsheet export (.csv)",
+      needs: ["total a haul", "price usd"],
+      why: "the reason to pay for this row is a spreadsheet that adds up, which needs one currency column",
     },
   ];
 
