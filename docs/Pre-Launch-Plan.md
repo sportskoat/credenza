@@ -80,6 +80,7 @@ do it completely, and report against its acceptance criteria.
 | LB-13 | Archive the legacy root files | P2 | 30 min | — | DONE 2026-07-26 — safe half; credenza-v3.jsx stays (7 tests) |
 | LB-14 | Audit the public site; lock it with a test | P1 | 0.5 day | LB-4 | DONE 2026-07-26 — 3 defects fixed; 89 tests added |
 | LB-15 | Build the /support/ page | P1 | 2 h | LB-14 | DONE 2026-07-26 — plus the stale 404 nav |
+| LB-16 | Give every page structured data | P1 | 1 h | LB-15 | DONE 2026-07-26 — 15 WebPage/BreadcrumbList nodes |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -821,6 +822,42 @@ link from `404.html`, delete the support page (17 failures), point the 404
 canonical at the wrong URL, and drop the support entry from the sitemap.
 
 Gate: 1131 tests pass, lint clean, typecheck clean, build OK.
+
+### LB-16. Give every page structured data — DONE 2026-07-26
+
+Three pages carried no JSON-LD at all: `/privacy/`, `/terms/`, and
+`/support/`. No page on the site carried a `BreadcrumbList`. An assistant that
+reads the site had no machine-readable way to learn where a page sits, and the
+three pages with nothing were the ones a buyer needs most.
+
+The legal and support pages now carry one `WebPage` node each. The node names
+the page, its canonical URL, its description, the parent `WebSite`, the
+publisher with the support address, and a nested `breadcrumb`. No `FAQPage`
+was added to any of them — none has visible `<details>`, and inventing that
+schema is exactly the defect LB-14 fixed on `/pricing/`.
+
+The other twelve pages got a top-level `BreadcrumbList`. The guides and
+`/how/stash-from-your-phone/` carry a three-step trail: home, the section,
+then the page. The rest carry two steps.
+
+`preview/test/public-site.test.js` now holds the line. One test per indexable
+page checks four things: a `BreadcrumbList` exists, the positions run 1..N
+with no gap, the first crumb is the site root, and the last crumb is that
+page's own URL. A trail that ends anywhere else points a crawler at the wrong
+URL. `404.html` is exempt, because it is `noindex` and has no place in the
+tree.
+
+The reader function looks in both places a breadcrumb can live: a top-level
+block, and the `breadcrumb` property of a `WebPage`. Both forms are valid
+schema.org, and forcing one shape would have meant a worse `WebPage` node on
+the three legal pages.
+
+Three negative controls confirm the checks bite: delete the guides-index
+block, point the terms trail at `/privacy/`, and change a position from 2 to
+4. Each fails one test and only one.
+
+Gate: 1146 tests pass, lint clean (5 pre-existing warnings), typecheck clean,
+build OK with unchanged chunk sizes.
 
 ---
 

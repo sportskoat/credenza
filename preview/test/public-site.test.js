@@ -88,6 +88,23 @@ function ldBlocks(html) {
   return out;
 }
 
+const ORIGIN = "https://credenzafashion.com";
+
+// Find one schema node by @type. A BreadcrumbList is a top-level block on most
+// pages, but the WebPage blocks on /privacy/, /terms/, and /support/ nest theirs
+// under the "breadcrumb" property. Both forms are valid, so look in both.
+function ldNode(html, type) {
+  for (const raw of ldBlocks(html)) {
+    const parsed = JSON.parse(raw);
+    for (const node of Array.isArray(parsed) ? parsed : [parsed]) {
+      if (node["@type"] === type) return node;
+      const nested = node.breadcrumb;
+      if (nested && nested["@type"] === type) return nested;
+    }
+  }
+  return null;
+}
+
 function faqSchema(html) {
   for (const raw of ldBlocks(html)) {
     const parsed = JSON.parse(raw);
@@ -122,6 +139,33 @@ describe("structured data", () => {
     it(`${rel} has only parseable JSON-LD`, () => {
       for (const raw of ldBlocks(html)) {
         expect(() => JSON.parse(raw), `invalid JSON-LD in ${rel}`).not.toThrow();
+      }
+    });
+  }
+
+  // Every indexable page tells an assistant where it sits. 404.html is noindex,
+  // so it is exempt — it has no place in the tree.
+  for (const { rel, url, html } of PAGES) {
+    it(`${rel} carries a BreadcrumbList that ends on itself`, () => {
+      const trail = ldNode(html, "BreadcrumbList");
+      expect(trail, `${rel} has no BreadcrumbList`).toBeTruthy();
+
+      const items = trail.itemListElement;
+      // Positions run 1..N with no gap. A gap makes the trail unreadable.
+      expect(items.map((x) => x.position), `${rel} positions`).toEqual(
+        items.map((_, i) => i + 1)
+      );
+
+      // The trail starts at the site root and ends on this page. A trail that
+      // ends somewhere else points a crawler at the wrong URL.
+      expect(items[0].item, `${rel} first crumb`).toBe(ORIGIN + "/");
+      expect(items[items.length - 1].item, `${rel} last crumb`).toBe(
+        ORIGIN + url
+      );
+
+      // Every crumb needs a name a reader recognises.
+      for (const item of items) {
+        expect(item.name, `${rel} crumb name`).toBeTruthy();
       }
     });
   }
