@@ -56,6 +56,7 @@ import {
   checkout as accountCheckout,
   openPortal as accountPortal,
   deleteAccount as accountDeleteRequest,
+  safeErrorMessage,
 } from "./preview/src/account.js";
 import { overFreeLimit, bumpUsage, planLimit, PRO_LIMITS } from "./preview/src/usage.js";
 import { buildShareSnapshot, makeShareCode, expiryFromDays, shareUrl } from "./credenza-share.js";
@@ -6416,7 +6417,18 @@ function CredenzaApp() {
       } catch {
         throw new Error("Cloud Ask returned an unreadable response.");
       }
-      if (!res.ok) throw new Error(payload.error || "Cloud Ask could not answer right now.");
+      // LB-42. askState.error renders below the Ask box verbatim, and ask.js
+      // answers a failure with "Anthropic rate limit reached; try again
+      // shortly", "Anthropic rejected the configured API key", and
+      // "Server not configured: missing ANTHROPIC_API_KEY". Those name our
+      // vendor and our environment to somebody who can act on neither.
+      // safeErrorMessage keeps the daily-cap line, which is the one message a
+      // free user needs, and replaces the rest by status code.
+      if (!res.ok) {
+        const err = new Error(safeErrorMessage(res.status, payload && payload.error, "Cloud Ask"));
+        err.serverError = payload && payload.error;
+        throw err;
+      }
       const knownIds = new Set(shelfAll.map((item) => item.id));
       const valid =
         payload &&

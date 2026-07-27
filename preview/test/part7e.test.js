@@ -23,6 +23,7 @@ import {
   checkout,
   openPortal,
   deleteAccount,
+  safeErrorMessage,
   ENTITLEMENT_KEY,
 } from "../src/account.js";
 import { usageToday, bumpUsage, overFreeLimit, USAGE_KEY } from "../src/usage.js";
@@ -293,5 +294,95 @@ describe("checkout + portal", () => {
 
     const paying = async () => okJson({ error: "Cancel your subscription in Manage billing first, then delete the account." }, 409);
     await expect(deleteAccount("tok-1", { fetchImpl: paying })).rejects.toThrow("Cancel your subscription");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-42. The billing screen repeated the server's own words back to the buyer.
+//
+// ProfileSheet.run() catches what post() throws and renders err.message into
+// the sheet. post() threw `data.error` — the server's string. So pressing
+// Upgrade with one variable unset showed a paying visitor
+// "Server not configured: missing STRIPE_PRICE_MONTHLY".
+//
+// The two tests directly above look like they covered this. They do not. Both
+// assert a message written FOR a user — "No billing account yet" and "Cancel
+// your subscription…". Those are the two safe strings in the whole path. The
+// eight that name Stripe or an environment variable had nothing on them. That
+// is the LB-41 lesson again: under test is not the same as covered.
+//
+// The rule is an allowlist. A blocklist of vendor names passes every message
+// written after the blocklist, and the failing string is always the one nobody
+// thought about.
+describe("no billing failure shows the server's own words", () => {
+  const LEAKS = [
+    ["Server not configured: missing STRIPE_PRICE_MONTHLY", 500],
+    ["Server not configured: missing CREDENZA_SEARCH_SECRET", 500],
+    ["Stripe did not return a checkout URL", 502],
+    ["Stripe error: No such price: price_123", 502],
+    ["Anthropic rate limit reached; try again shortly", 429],
+    ["Internal error", 500],
+    ["Invalid JSON body", 400],
+  ];
+
+  for (const [serverError, status] of LEAKS) {
+    it(`replaces "${serverError.slice(0, 42)}"`, async () => {
+      const failing = async () => okJson({ error: serverError }, status);
+      let thrown = null;
+      await checkout("tok-1", "monthly", { fetchImpl: failing }).catch((e) => {
+        thrown = e;
+      });
+      expect(thrown, "checkout should reject").toBeTruthy();
+      expect(thrown.message, "the server string must not reach the screen").not.toBe(serverError);
+      // Vendor and environment names, checked on the rendered message rather
+      // than on this one string, so a reworded server error cannot slip past.
+      for (const word of ["stripe", "anthropic", "supabase", "secret", "_key", "price_"]) {
+        expect(
+          thrown.message.toLowerCase().includes(word),
+          `rendered message says "${word}": ${thrown.message}`
+        ).toBe(false);
+      }
+      // Still available to a developer in the console.
+      expect(thrown.serverError, "the real error must survive for debugging").toBe(serverError);
+      expect(thrown.status).toBe(status);
+    });
+  }
+
+  it("keeps the two messages that were written for the person reading them", async () => {
+    // Guard the guard. A rule that replaced everything would pass every check
+    // above and quietly delete the one sentence that names the next action.
+    const keep = async () => okJson({ error: "No billing account yet" }, 400);
+    await expect(openPortal("tok-1", { fetchImpl: keep })).rejects.toThrow("No billing account yet");
+
+    const paying = async () =>
+      okJson({ error: "Cancel your subscription in Manage billing first, then delete the account." }, 409);
+    await expect(deleteAccount("tok-1", { fetchImpl: paying })).rejects.toThrow(
+      "Cancel your subscription in Manage billing first, then delete the account."
+    );
+  });
+
+  it("keeps the daily cap line, which is generated and cannot be listed", async () => {
+    // paid-gate.js builds this from the feature name, so it is matched on
+    // shape. It is the only message that tells a free user why the button
+    // stopped working, and it names no vendor and no variable.
+    const capped = async () => okJson({ error: "Daily ask limit reached — upgrade to Pro for more" }, 429);
+    await expect(checkout("tok-1", "monthly", { fetchImpl: capped })).rejects.toThrow(
+      "Daily ask limit reached — upgrade to Pro for more"
+    );
+  });
+
+  it("names the right thing when the subject is not billing", () => {
+    // A 500 on the Ask box must not say "Billing is not answering".
+    expect(safeErrorMessage(500, "Anthropic exploded", "Cloud Ask")).toBe(
+      "Cloud Ask is not answering right now. Try again in a minute."
+    );
+    expect(safeErrorMessage(500, "Stripe exploded")).toBe(
+      "Billing is not answering right now. Try again in a minute."
+    );
+  });
+
+  it("tells a signed-out person to sign in rather than what broke", () => {
+    expect(safeErrorMessage(401, "Unauthorized")).toBe("Your sign-in expired — sign in again first.");
+    expect(safeErrorMessage(429, "Too fast")).toBe("Too many tries — wait a moment and try again.");
   });
 });

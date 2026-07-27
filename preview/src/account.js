@@ -60,6 +60,52 @@ export function clearCachedEntitlement(host = typeof window !== "undefined" ? wi
   } catch {}
 }
 
+// LB-42. What the billing screen is allowed to repeat back to a person.
+//
+// ProfileSheet.run() catches whatever post() throws and renders err.message
+// straight into the sheet. Until now that message was the server's own `error`
+// field, so pressing Upgrade with one env var unset showed the visitor
+// "Server not configured: missing STRIPE_PRICE_MONTHLY". Others in the same
+// path: "Stripe did not return a checkout URL", "Stripe error: …",
+// "Server not configured: missing CREDENZA_SEARCH_SECRET". They name our
+// vendor and our environment to somebody who can act on neither.
+//
+// This is an ALLOWLIST, on purpose. A blocklist of vendor names passes every
+// message written after the blocklist — and the failing string is always the
+// one nobody thought about. Anything not listed here becomes a sentence we
+// wrote, chosen by status code.
+const SERVER_MESSAGES_A_PERSON_SHOULD_SEE = new Set([
+  // The only server text in this path aimed at the visitor rather than at us.
+  // It names the exact next action, and Stripe requires the order.
+  "Cancel your subscription in Manage billing first, then delete the account.",
+  "No billing account yet",
+  "Sign in to use this feature",
+]);
+
+// Chosen by what the person can do next, not by what broke. `subject` names
+// the thing that failed in our words — "Billing", "Cloud Ask" — because a 500
+// on the checkout screen and a 500 on the Ask box need different sentences.
+function messageForStatus(status, subject) {
+  if (status === 401 || status === 403) return "Your sign-in expired — sign in again first.";
+  if (status === 404) return "That is not available on this account.";
+  if (status === 429) return "Too many tries — wait a moment and try again.";
+  if (status >= 500) return subject + " is not answering right now. Try again in a minute.";
+  return "Something went wrong — try again.";
+}
+
+// Exported for the test that pins this behaviour, and for any future caller
+// that has to make the same decision.
+export function safeErrorMessage(status, serverError, subject = "Billing") {
+  const text = typeof serverError === "string" ? serverError.trim() : "";
+  // A daily-cap message is generated ("Daily ask limit reached — upgrade to
+  // Pro for more"), so it cannot be listed literally. It names no vendor and
+  // no variable, and it is the one message that tells a free user why the
+  // button stopped working, so it passes on shape.
+  if (/^Daily \w+ limit reached/.test(text)) return text;
+  if (SERVER_MESSAGES_A_PERSON_SHOULD_SEE.has(text)) return text;
+  return messageForStatus(status, subject);
+}
+
 async function post(endpoint, accessToken, body, fetchImpl) {
   const call = fetchImpl || fetch;
   const res = await call(endpoint, {
@@ -71,7 +117,14 @@ async function post(endpoint, accessToken, body, fetchImpl) {
     body: body ? JSON.stringify(body) : "",
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+  if (!res.ok) {
+    const err = new Error(safeErrorMessage(res.status, data && data.error));
+    // The real text still reaches the console, where a developer looks and a
+    // visitor does not. Losing it entirely would trade one defect for another.
+    err.serverError = data && data.error;
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 

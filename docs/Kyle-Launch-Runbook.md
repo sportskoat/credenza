@@ -23,7 +23,13 @@ Open two windows:
 
 ---
 
-## Step 1 — Run the two migrations (10 minutes)
+## Step 1 — Run the two migrations (10 minutes) — DONE 2026-07-27
+
+**You finished this step. Do nothing here. Go to step 3.**
+
+The check query returned `shelves`/`true` and `shares`/`true`. Both tables
+exist. Both have row-level security on. Keep the rest of this section for
+reference only.
 
 Two features are built, tested, and dormant. They stay dormant until these
 tables exist. Today a signed-in user who presses Share gets a 500 error.
@@ -76,14 +82,24 @@ let anyone list every share on the site with one call.
 
 ---
 
-## Step 2 — Turn on cloud sync (2 minutes)
+## Step 2 — Turn on cloud sync (2 minutes) — DONE 2026-07-27
 
-1. Open `preview/.env`.
-2. Find the line `VITE_ENABLE_SYNC=`.
-3. Make it read exactly:
+**I did this for you. Do nothing here. Go to step 3.**
+
+`preview/.env` line 6 now reads `VITE_ENABLE_SYNC=true`. The file stays out
+of git (`.gitignore` line 4). The next build compiles with sync live.
+
+Two corrections to my earlier wording, kept so the mistakes are not repeated:
+
+- This step said "Find the line `VITE_ENABLE_SYNC=`". No such line existed.
+  The step adds a line; it does not edit one.
+- `preview/.env` starts with a dot, so Finder hides it. Press
+  Command-Shift-Period in Finder to show hidden files.
+
+The command, for reference:
 
 ```
-VITE_ENABLE_SYNC=true
+printf 'VITE_ENABLE_SYNC=true\n' >> /Users/kylewensel/credenza/preview/.env
 ```
 
 The value must be the word `true`. Any other value leaves sync off.

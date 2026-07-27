@@ -106,6 +106,7 @@ do it completely, and report against its acceptance criteria.
 | LB-39 | Give the share card a picture: relay the photo instead of hotlinking it | P0 | 2 h | LB-8 | DONE 2026-07-27 — LB-8's own acceptance criterion was not met; every Discord unfurl drew a blank card because Yupoo answers a crawler with HTTP 567 |
 | LB-40 | Hold the app and the share page to the language rules the pages follow | P1 | 1 h | LB-39 | DONE 2026-07-27 — the seventh scope defect; putting "W2C best batch 1:1 replica finder" in the app's search box passed all 1617 tests |
 | LB-41 | Hold the install prompt to the same language rules | P1 | 30 m | LB-40 | DONE 2026-07-27 — the eighth scope defect, hiding inside LB-26's fix; the manifest was under test but only its colours, icons, and scope, so a banned description passed all 1629 tests |
+| LB-42 | Stop showing the buyer the server's own error strings | P0 | 1 h | LB-41 | DONE 2026-07-27 — pressing Upgrade with one variable unset showed a paying visitor "Server not configured: missing STRIPE_PRICE_MONTHLY"; 18 such strings across 8 functions, none under test |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2446,6 +2447,76 @@ LB-19 happened.
 draws no text — its failure path is a 302 to `/og.png`, a picture. So the
 manifest was the last shipped prose with no language rule on it.
 
+---
+
+### LB-42 — the app repeated the server's own error strings to the buyer
+
+**How it was found.** Not by a sweep. By taking LB-41's generalisation
+seriously and asking the next question: *which files are under test, but whose
+user-visible content is not?* The answer was the billing path.
+
+**The defect.** `preview/src/account.js` `post()` threw
+`new Error(data.error || "HTTP " + res.status)` — the server's own string.
+`sheets/ProfileSheet.jsx:59-70` catches that and calls `setError(err.message)`,
+which renders straight into the sheet. So a person who pressed Upgrade while
+one Netlify variable was unset read:
+
+> Server not configured: missing STRIPE_PRICE_MONTHLY
+
+That is a paying customer being shown our vendor and our environment. They can
+act on neither. The same shape existed in Cloud Ask: `credenza-fashion.jsx:6419`
+threw `payload.error`, rendered at line 8442, so a rate-limited free user read
+"Anthropic rate limit reached; try again shortly".
+
+**The size of it.** 18 such strings across 8 functions — `checkout.js`,
+`portal.js`, `ask.js`, `reddit.js`, `chart-vision.js`, `preview.js`,
+`yupoo.js`, `lib/paid-gate.js`. A grep for "Server not configured" across
+`preview/test/` returned zero. None were under test.
+
+**Why the existing tests missed it.** `part7e.test.js` already had two tests
+on this exact code path. Both asserted messages written *for* a user — "No
+billing account yet" and "Cancel your subscription in Manage billing first".
+Those are the two safe strings in the whole path. The eight that name Stripe or
+an environment variable had nothing on them. This is the LB-41 lesson a second
+time: **under test is not the same as covered**, and a suite can sit directly
+on a defect while testing only the parts that were already correct.
+
+**Allowlist, not blocklist.** A blocklist of vendor names passes every message
+written after the blocklist, and the failing string is always the one nobody
+thought about. `safeErrorMessage(status, serverError, subject)` passes three
+listed messages and one matched by shape, and replaces everything else with a
+sentence chosen by status code. `subject` exists because a 500 on the Ask box
+must not say "Billing is not answering" — it takes `"Cloud Ask"` there.
+
+**The two messages that had to survive.**
+
+| Message | Why it passes |
+|---|---|
+| "Cancel your subscription in Manage billing first, then delete the account." | names the exact next action, and Stripe requires that order |
+| "Daily … limit reached — upgrade to Pro for more" | generated from the feature name in `lib/paid-gate.js:53`, so it cannot be listed literally; matched by shape `/^Daily \w+ limit reached/`. It is the only message that tells a free user why the button stopped working. |
+
+**The real error is not destroyed.** `post()` attaches `err.serverError` and
+`err.status`. A developer reads the console; a visitor does not. Losing it
+entirely would trade one defect for another.
+
+**Probes.**
+
+| Edit | Result |
+|---|---|
+| Revert `post()` to the old passthrough | 7 fail |
+| Disable the allowlist (over-block) | 3 fail — guard-the-guard |
+| Disable the daily-cap shape rule | 1 fail |
+| Clean tree | 29 pass in the file |
+| Restore each time | checksum `bb78a4aa…` verified |
+
+The over-block probe matters most. A rule that replaced *every* server message
+would pass all seven leak tests and silently delete the one sentence that tells
+a customer what to do next.
+
+**Gate.** 1641 tests pass (62 files), 5 lint warnings and 0 errors, build emits
+`index-fashion-VSp8hwMs.js` at 363.47 kB. This build is the first one made with
+`VITE_ENABLE_SYNC=true` present in `preview/.env`.
+
 ## Explicitly deferred (do NOT build before launch)
 
 - **Restock and price watch** (row 13) — needs a scheduler; zero code.
@@ -2465,11 +2536,14 @@ Do not list deferred features on the pricing page (D-3).
 Launch when every box is checked:
 
 - [ ] LB-1 through LB-7 DONE.
-- [ ] LB-7: Kyle ran the shelves migration AND set `VITE_ENABLE_SYNC=true`.
-      The code is done, but sync does nothing until both happen.
-- [ ] LB-8: Kyle ran `docs/sql/2026-07-26-shares.sql`. Without the
-      table every share attempt fails, and the Share button is visible
-      to everybody.
+- [x] LB-7: Kyle ran the shelves migration AND `VITE_ENABLE_SYNC=true` is set.
+      Verified 2026-07-27. Kyle ran both migrations in the Supabase SQL editor;
+      `select tablename, rowsecurity from pg_tables` returned `shelves`/`true`
+      and `shares`/`true`. The flag is line 6 of `preview/.env` (gitignored),
+      so the next build compiles with sync live. Runbook steps 1 and 2 done.
+- [x] LB-8: Kyle ran `docs/sql/2026-07-26-shares.sql`. Verified by the same
+      `pg_tables` query above — `shares`, row-level security on. The table has
+      no public select policy, so the share function stays the only reader.
 - [ ] LB-39: after the deploy, paste one real share link into Discord and
       confirm the card shows the photo. The relay is covered by tests, but
       only a live crawler proves the seller accepts the Referer we send.
