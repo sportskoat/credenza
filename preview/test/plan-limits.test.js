@@ -130,3 +130,94 @@ describe("the caps are enforced where the writes happen", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-19. The pricing page is a third copy of the same table.
+//
+// /pricing/ names nine numbers in prose and in a comparison table. None of
+// them was checked against anything until now. A number that drifts here is
+// worse than one that drifts in code: the customer reads a promise, pays, and
+// then meets a different limit. That is a refund and a complaint, not a bug
+// report.
+//
+// So read the numbers back out of the HTML and compare them to the server
+// table. The HTML is the promise; entitlements.js is what the product does.
+describe("the pricing page promises what the server gives", () => {
+  const html = read("preview/public/pricing/index.html");
+
+  // Pull the Free and Pro cells out of one row of the comparison table. The
+  // row label is the <th scope="row">; the two <td>s that follow are Free
+  // then Pro, in that order.
+  function tableRow(label) {
+    const at = html.indexOf(`<th scope="row">${label}</th>`);
+    if (at === -1) return null;
+    const cells = [
+      ...html.slice(at, at + 400).matchAll(/<td>([^<]*)<\/td>/g),
+    ].map((m) => m[1].trim());
+    return cells.length >= 2 ? { free: cells[0], pro: cells[1] } : null;
+  }
+
+  // "1,000 a day" and "1,000" both mean 1000. Read the first number out.
+  const num = (cell) => Number(String(cell).replace(/[^0-9]/g, ""));
+
+  const ROWS = [
+    ["Hauls at once", "haulsMax", false],
+    ["QC photos an item", "qcPhotosPerItem", false],
+    ["AI size-chart reads", "chartVisionPerDay", true],
+    ["Link resolves", "resolvePerDay", true],
+    ["Ask", "askPerDay", true],
+  ];
+
+  it("has every row this test expects to find", () => {
+    // Guard the guard. A renamed row would make every check below vacuous,
+    // because tableRow returns null and the loop would compare nothing.
+    for (const [label] of ROWS) {
+      expect(tableRow(label), `no "${label}" row in the pricing table`).toBeTruthy();
+    }
+  });
+
+  for (const [label, key, perDay] of ROWS) {
+    it(`the "${label}" row matches PLAN_LIMITS`, () => {
+      const row = tableRow(label);
+      expect(num(row.free), `${label} free cell`).toBe(serverLimit("free", key));
+      expect(num(row.pro), `${label} pro cell`).toBe(serverLimit("pro", key));
+      // A daily cap must SAY it is daily, or the reader takes it for a total.
+      if (perDay) {
+        expect(row.free, `${label} free cell must say "a day"`).toMatch(/a day/);
+        expect(row.pro, `${label} pro cell must say "a day"`).toMatch(/a day/);
+      }
+    });
+  }
+
+  it("the Pro feature list repeats the same numbers", () => {
+    // The bullet list above the table is read far more often than the table.
+    // It must not say something the table contradicts.
+    const bullets = [...html.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]);
+    const has = (re) => bullets.some((b) => re.test(b));
+    expect(has(new RegExp(`^${serverLimit("pro", "haulsMax")} hauls at once$`))).toBe(true);
+    expect(has(new RegExp(`^${serverLimit("pro", "qcPhotosPerItem")} QC photos an item$`))).toBe(true);
+    expect(has(new RegExp(`^${serverLimit("pro", "chartVisionPerDay")} AI size-chart reads a day$`))).toBe(true);
+    expect(has(new RegExp(`^${serverLimit("pro", "askPerDay")} Ask questions a day$`))).toBe(true);
+    // 1000 is written with a thousands separator in the copy.
+    expect(has(/^1,000 link resolves a day$/)).toBe(true);
+    expect(serverLimit("pro", "resolvePerDay")).toBe(1000);
+  });
+
+  it("the Free feature list names the free haul cap", () => {
+    const bullets = [...html.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]);
+    expect(
+      bullets.some((b) => b === `${serverLimit("free", "haulsMax")} hauls at once`)
+    ).toBe(true);
+  });
+
+  it("lists no cap that is not a real limit", () => {
+    // D-3: list only built features. A row here that has no key in
+    // PLAN_LIMITS is a promise with no enforcement behind it.
+    const src = read("preview/netlify/functions/lib/entitlements.js");
+    const known = [...src.slice(src.indexOf("const PLAN_LIMITS")).matchAll(/(\w+):\s*\d+/g)]
+      .map((m) => m[1]);
+    for (const [, key] of ROWS) {
+      expect(known, `${key} is not in PLAN_LIMITS`).toContain(key);
+    }
+  });
+});
