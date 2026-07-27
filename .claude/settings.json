@@ -15,6 +15,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash /Users/kylewensel/credenza/.claude/hooks/unpushed-guard.sh"
+          },
+          {
+            "type": "command",
             "command": "bash /Users/kylewensel/credenza/.claude/hooks/checkpoint-reminder.sh"
           }
         ]

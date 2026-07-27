@@ -12,7 +12,19 @@ do it completely, and report against its acceptance criteria.
 ## Rules for every executor agent
 
 1. Read `docs/session-state.md` before you start. Update it before you stop.
-2. Do not commit until Kyle says so. Do not deploy until Kyle says so.
+2. **Commit and push every checkpoint. Never leave a worktree dirty.**
+   This rule replaced "do not commit until Kyle says so" on 2026-07-26,
+   after that rule stranded 4,244 uncommitted lines in one worktree and
+   11 unpushed commits across three others. Committing is not shipping.
+   Pushing is not shipping. Only `netlify deploy --prod` ships.
+   - Commit when the gate in rule 3 passes. Do not wait for approval.
+   - `git push` immediately after every commit. A commit that lives on
+     one laptop is not saved. GitHub is the only durable record.
+   - Before your turn ends, run `git status`. If it is not clean, make a
+     `WIP:` commit and push that. A messy checkpoint beats a lost one.
+   - If you work in a worktree, push its branch with `-u origin <branch>`
+     on the first push. Never let a worktree branch stay local-only.
+   - Deploys still need Kyle. See rule 8.
 3. Run the full gate after your change: `cd preview && npm run test`,
    `npm run lint`, `npm run typecheck`, `npm run build`. All must pass.
 4. **WARNING:** Build with `preview/.env` populated. A build without it
@@ -22,6 +34,17 @@ do it completely, and report against its acceptance criteria.
 5. Take screenshots to verify each visible change.
 6. Do only the task you picked. Flag adjacent problems; do not fix them.
 7. When a task says "Kyle decides", stop and ask. Do not guess.
+8. **Netlify deploys are a scarce budget. Never deploy on your own.**
+   Added 2026-07-26 (Kyle: "we are running out of Netlify deployments").
+   - Do not run `netlify deploy` for any reason, preview or production.
+   - Do not add a task whose acceptance needs its own deploy.
+   - Land work on `main` and let it queue. Kyle deploys a batch.
+   - Verify your change with tests, the local `vite` dev server and
+     screenshots. Local proof replaces a deploy, except for the
+     Netlify functions, which cannot run locally without a deploy.
+   - When a task can only be proved live, say so and stop. Write what
+     the deploy must verify into `docs/session-state.md` so the next
+     batch checks it. Do not deploy to find out.
 
 ---
 
@@ -189,8 +212,11 @@ untested payment path is not a payment path.
 Test cards: use the Stripe test-cards skill or 4242 4242 4242 4242.
 
 **Steps.**
-1. Deploy the current build to a Netlify preview (not production) with
-   test-mode Stripe keys. Kyle approves the deploy first.
+1. Wait for Kyle's batch deploy. Do not deploy for this task (rule 8).
+   The batch must carry test-mode Stripe keys. Stripe checkout, the
+   webhook and the portal are Netlify functions, so this is the one
+   task that cannot be proved locally. Do every other task first, then
+   run this against the batch that ships them.
 2. Sign in with a real test account (magic link or Google).
 3. Buy monthly with the test card. Confirm the webhook fires and the
    entitlement record flips to Pro.
@@ -411,6 +437,8 @@ Launch when every box is checked:
 - [ ] A fresh build from a clean checkout passes the preflight and shows
       sign-in (the LB-6 regression can never recur silently).
 - [ ] Kyle approves one production deploy batch containing all of it.
+      This is the ONLY deploy the whole launch spends (rule 8). Every
+      task lands on `main` and waits for it.
 
 LB-8, LB-9, LB-10 are strongly recommended before any public
 announcement post — the share link is the announcement's engine — but

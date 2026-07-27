@@ -5,6 +5,52 @@ repo must **read it first** and **update it before context runs low** (see
 `.claude/settings.json` Stop hook, which nags when this file goes stale).
 Overwrite sections in place — this is current state, not a log.
 
+---
+
+## READ THIS FIRST — two rules that override every older note
+
+Set 2026-07-26 by Kyle: "we still need to make sure when we commit
+something, it stays in commit. we've been losing progress" and "we are
+running out of Netlify deployments".
+
+**RULE A — commit and push every checkpoint. Never end a turn dirty.**
+
+The old rule was "do not commit until Kyle says so". That rule lost work.
+On 2026-07-26 an audit found 4,244 uncommitted lines in the worktree
+`fansbuy-links-no-flip`, 9 unpushed commits on that branch, and 2 unpushed
+commits on `main`. All of it existed on one laptop only. It is now on
+GitHub. The rule that caused it is dead.
+
+- Committing is not shipping. Pushing is not shipping. Only
+  `netlify deploy --prod` ships. Never conflate them again.
+- Commit as soon as the gate passes: `cd preview && npm run test`,
+  `npm run lint`, `npm run typecheck`, `npm run build`.
+- Run `git push` immediately after every commit.
+- Before your turn ends, run `git status`. If it is not clean, make a
+  `WIP:` commit and push it. A messy checkpoint beats a lost one.
+- In a worktree, first push uses `git push -u origin <branch>`. Never
+  leave a worktree branch local-only.
+
+**RULE B — do not deploy. The Netlify deploy budget is nearly spent.**
+
+- Do not run `netlify deploy`, preview or production, for any reason.
+- Land work on `main` and let it queue. Kyle deploys one batch.
+- Prove your change with tests, the local dev server and screenshots.
+- Netlify functions (Stripe checkout, the webhook, the portal, resolve)
+  cannot run locally. If a task can only be proved live, stop and write
+  what the next batch must verify under "Pending live verification"
+  below. Do not deploy to find out.
+
+`docs/Pre-Launch-Plan.md` rules 2 and 8 carry the same text. If the two
+files ever disagree, this file wins.
+
+### Pending live verification (next batch deploy must check)
+
+- LB-5: one full Stripe loop in test mode — checkout, webhook, Pro
+  snapshot, portal cancel, free snapshot.
+
+---
+
 **Last updated:** 2026-07-26 (HERO 2A + ONBOARDING 3B + SIGN-IN FIX — **DEPLOYED to production**, deploy `6a66b2bc5602a0684c001b9c`. See the section directly below. Prior: SETTINGS MODAL STACK — slide + resize in one modal — plus FANSBUY LINK FIX + CAROUSEL FLIP RETIRED, all on branch `worktree-fansbuy-links-no-flip`, NOT deployed — see the section below. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES committed, NOT deployed — Kyle holds deploys for credits; Grok takes over next. Prior: HANDOFF TURN 4 SHIPPED — Fix A card-cap raise + Fix B two-column panel live and verified.
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
