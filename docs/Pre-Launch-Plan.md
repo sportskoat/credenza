@@ -95,6 +95,7 @@ do it completely, and report against its acceptance criteria.
 | LB-28 | Put the refund on the page where people decide to pay | P1 | 1 h | LB-27 | DONE 2026-07-27 — the 14-day refund was only in Terms; pricing 449 words to 851 |
 | LB-29 | Bring the app shell into the rules the 18 public pages follow | P1 | 1 h | LB-28 | DONE 2026-07-27 — the homepage had no canonical, no social card, no schema, and the stale colourway LB-26 fixed everywhere else |
 | LB-30 | Close the two pages a reader could reach but not leave forwards | P1 | 1 h | LB-29 | DONE 2026-07-27 — /faq/ and /support/ had no CTA; the FAQ ended on how to cancel |
+| LB-31 | Ship the haul-weight guide and lock the schema type every page declares | P1 | 1 h | LB-30 | DONE 2026-07-27 — the guide cluster stopped at Buy, and no rule checked the node that says what a page IS |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1711,6 +1712,80 @@ the footer.
 
 **Gate.** 60 files / 1439 tests (1424 before). Lint 0 errors, 5 pre-existing
 warnings. Typecheck clean. Build clean.
+
+### LB-31 — the stage after Buy, and the schema nobody checked
+
+**The gap.** The guide cluster covered four haul stages and stopped at "open Buy
+in an agent". Shipping is what happens next, it is priced by weight, and the
+weight is quoted at the end — after the goods are paid for. That is the wrong
+order to learn a number in.
+
+`docs/aeo-geo/buying-questions.md:30` listed the haul-weight question as blocked
+on "Wait until weight bands ship in product". That blocker was stale.
+`weight-estimate.js` ships `WEIGHT_BANDS` with 21 categories at low/mid/high,
+plus `estimateHaulWeightGrams` and `formatWeightEstimate`, and
+`credenza-fashion.jsx:6640` already renders `weightLabel` on the haul board.
+
+**The guide.** `preview/public/guides/estimate-haul-weight/` describes only
+verified behaviour: the five-step priority order (manual override → listing text
+→ title keyword → category default → nothing, never invent), the `~` prefix, the
+low-high range shown only when the spread exceeds 5%, returned items excluded
+from the total, and English-and-Chinese keyword matching.
+
+It does NOT mention `packNoShoebox`. That function exists in the pure layer and
+`SHOEBOX_GRAMS` with it, but a grep across every `.jsx` returns zero hits — it
+is exposed in no UI. The guide says to add packaging yourself instead, which is
+true. This is the same discipline that the pricing-copy error taught: verify the
+app does a thing before writing that it does.
+
+Registered in `sitemap.xml`, `llms.txt`, `llms-full.txt`, the `/guides/` hub
+(as a fifth stage, "5 · After you press Buy", plus an `ItemList` entry), and
+inbound links from `/guides/choose-an-agent/` and `/guides/organize-agent-haul/`
+— the two pages a reader is on immediately before shipping becomes their
+problem.
+
+**The defect the negative controls found.** Probing the new page, replacing
+`"@type": "HowTo"` with `"Article"` changed nothing. The suite stayed green.
+
+Every schema rule in `public-site.test.js` checked the `BreadcrumbList`, which
+says where a page sits. None checked the node that says what a page IS. That
+matters more on these pages than an ordinary schema check: a `HowTo` with six
+ordered steps is a recipe an assistant can follow, and the same prose with the
+schema deleted is just text. The difference is invisible in a browser, which is
+why nothing noticed.
+
+**The lock.** A new block asserts each of the 18 pages still declares the type
+it was written as, from a written-down table rather than one derived from the
+files — deriving it would make the rule tautological, passing whatever the page
+happened to say. A coverage guard fails if a page is missing from the table, so
+a new page cannot slip in unchecked. A second rule requires every `HowTo` to
+carry at least three real `HowToStep`s with text, because a `HowTo` with no
+steps is the failure that looks fine: the node is present, so a type check
+passes, and the recipe is empty.
+
+The table does not dictate which type. `/guides/choose-an-agent/` and
+`/guides/spreadsheet-vs-haul-planner/` are `Article`, because they compare
+rather than instruct, and that is correct.
+
+**Two probe failures worth recording.**
+
+1. A probe injecting `1:1` did not fire, and I nearly read that as a coverage
+   gap. The ban list holds phrases — `"1:1 finder"`, not bare `1:1` — so the
+   probe was wrong, not the rule. Re-run with `best batch` it fired.
+2. Restoring that probe with `git checkout` silently did nothing, because the
+   new guide is untracked and `git checkout` cannot restore a file it does not
+   know. The injected `1:1` stayed in the file through three further test runs.
+   **A new file has no git baseline. Restore it from a copy, and verify with a
+   checksum rather than with `git diff`.** This is the second time a restore has
+   failed quietly; the first reverted real work, this one preserved a defect.
+
+**Negative controls, all fired:** guide schema downgraded to `Article`; `HowTo`
+steps emptied to `[]`; a page removed from the `PRIMARY` table; title emptied;
+`best batch` injected; `<main>` gutted to one sentence; `BreadcrumbList`
+retyped. Each restored from a checksummed copy.
+
+**Gate:** 60 files / 1488 tests, lint 0 errors, typecheck clean, build clean.
+Verified the guide reaches `dist/` with its sitemap, `llms.txt` and hub entries.
 
 ## Explicitly deferred (do NOT build before launch)
 

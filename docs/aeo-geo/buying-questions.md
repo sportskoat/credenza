@@ -27,7 +27,7 @@ Refresh by pasting https://credenzafashion.com/landing/ into an LLM with the pro
 | Question | Note |
 |----------|------|
 | Superbuy vs CSSBuy vs Sugargoo — which planner helps me decide size first? | **SHIPPED 2026-07-27** — `/guides/choose-an-agent/`. Planner-framed: compares link format and coverage, not service quality. CSSBuy is retired in product, so the title names Sugargoo and Kakobuy instead. |
-| How do I estimate haul weight before I submit a parcel? | Wait until weight bands ship in product |
+| How do I estimate haul weight before I submit a parcel? | **SHIPPED 2026-07-27** |
 | Best free agent haul planner for FashionReps finds | Use only with safe language (no replica retail) |
 | How do I store body measurements for agent sizing? | **SHIPPED 2026-07-27** — `/guides/store-body-measurements/` |
 

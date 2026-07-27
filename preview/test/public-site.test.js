@@ -1103,3 +1103,78 @@ describe("every page a reader lands on offers a way forward", () => {
     });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-31. A page that describes itself to a machine as nothing in particular.
+//
+// Found by a negative control, not by reading. Replacing the new guide's
+// "@type": "HowTo" with "Article" changed nothing — the suite stayed green.
+// Every rule above checks the BreadcrumbList, which says where a page sits.
+// None checked the node that says what a page IS.
+//
+// That matters more here than an ordinary schema check. These pages are written
+// to be answered from: a HowTo with six ordered steps is a recipe an assistant
+// can follow, and the same prose with the schema deleted is just text. The
+// difference is invisible in a browser, which is why nothing noticed.
+//
+// The rule asserts each page still declares the type it was written as. It does
+// NOT dictate which type — /guides/choose-an-agent/ is an Article because it
+// compares rather than instructs, and that is correct.
+describe("every page tells a machine what kind of page it is", () => {
+  // Written down rather than derived from the files, deliberately. Deriving the
+  // expected type from the page would make this rule tautological: it would
+  // pass whatever the page happened to say.
+  const PRIMARY = {
+    "faq/index.html": "FAQPage",
+    "guides/index.html": "CollectionPage",
+    "how/index.html": "HowTo",
+    "landing/index.html": "SoftwareApplication",
+    "pricing/index.html": "Product",
+    "privacy/index.html": "WebPage",
+    "support/index.html": "WebPage",
+    "terms/index.html": "WebPage",
+    "guides/choose-an-agent/index.html": "Article",
+    "guides/estimate-haul-weight/index.html": "HowTo",
+    "guides/open-weidian-in-agent/index.html": "HowTo",
+    "guides/organize-agent-haul/index.html": "HowTo",
+    "guides/reddit-haul-to-list/index.html": "HowTo",
+    "guides/spreadsheet-vs-haul-planner/index.html": "Article",
+    "guides/store-body-measurements/index.html": "HowTo",
+    "guides/track-qc-photos/index.html": "HowTo",
+    "guides/weidian-size-chart/index.html": "HowTo",
+    "how/stash-from-your-phone/index.html": "HowTo",
+  };
+
+  it("covers every page, so a new page cannot slip in unlisted", () => {
+    // Without this, adding a page and forgetting to list it above would leave
+    // it unchecked and the suite green — the exact scope defect this file has
+    // now hit five times.
+    const listed = new Set(Object.keys(PRIMARY));
+    for (const { rel } of PAGES) {
+      expect(listed.has(rel), `${rel} has no expected schema type in PRIMARY`).toBe(true);
+    }
+    expect(Object.keys(PRIMARY).length).toBe(PAGES.length);
+  });
+
+  for (const { rel, html } of PAGES) {
+    it(`${rel} declares itself a ${PRIMARY[rel]}`, () => {
+      const type = PRIMARY[rel];
+      expect(ldNode(html, type), `${rel} no longer carries a ${type} node`).toBeTruthy();
+    });
+  }
+
+  // A HowTo with no steps is the failure mode that looks fine: the node is
+  // present, so a type check passes, and the recipe is empty.
+  for (const { rel, html } of PAGES) {
+    if (PRIMARY[rel] !== "HowTo") continue;
+    it(`${rel} gives its HowTo real steps`, () => {
+      const node = ldNode(html, "HowTo");
+      expect(Array.isArray(node.step), `${rel} HowTo has no step array`).toBe(true);
+      expect(node.step.length, `${rel} HowTo has ${node.step.length} steps`).toBeGreaterThanOrEqual(3);
+      for (const s of node.step) {
+        expect(s["@type"], `${rel} step is not a HowToStep`).toBe("HowToStep");
+        expect((s.text || "").length, `${rel} step "${s.name}" has no text`).toBeGreaterThan(40);
+      }
+    });
+  }
+});
