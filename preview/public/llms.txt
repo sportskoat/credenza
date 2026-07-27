@@ -48,6 +48,7 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/guides/weidian-size-chart/ — size chart to recommended size
 - https://credenzafashion.com/guides/store-body-measurements/ — save body measurements once for every chart
 - https://credenzafashion.com/guides/track-qc-photos/ — track QC photos and GL/RL
+- https://credenzafashion.com/guides/choose-an-agent/ — compare agents on link format, not hype
 - https://credenzafashion.com/guides/open-weidian-in-agent/ — open Weidian in preferred agent
 - https://credenzafashion.com/ — app (PWA shelf)
 - https://credenzafashion.com/llms-full.txt — longer machine brief

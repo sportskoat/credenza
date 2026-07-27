@@ -82,6 +82,7 @@ do it completely, and report against its acceptance criteria.
 | LB-15 | Build the /support/ page | P1 | 2 h | LB-14 | DONE 2026-07-26 — plus the stale 404 nav |
 | LB-16 | Give every page structured data | P1 | 1 h | LB-15 | DONE 2026-07-26 — 15 WebPage/BreadcrumbList nodes |
 | LB-17 | Body-measurements guide | P1 | 1 h | LB-16 | DONE 2026-07-27 — last buying question with shipped product |
+| LB-18 | Agent comparison guide | P1 | 1 h | LB-17 | DONE 2026-07-27 — planner-framed, from the verified registry |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -904,6 +905,47 @@ It fails one test and only one.
 
 Gate: 1153 tests pass (up from 1146), lint clean (5 pre-existing warnings),
 typecheck clean, build OK with unchanged chunk sizes.
+
+---
+
+### LB-18. The agent comparison guide — DONE 2026-07-27
+
+The second unblocked secondary question: "Superbuy vs CSSBuy vs Sugargoo —
+which planner helps me decide size first?" The note on it warned that an agent
+comparison must stay planner-framed, not turn into agent review spam.
+
+`preview/public/guides/choose-an-agent/index.html` holds that line. It refuses
+to rank agents on service quality, because nobody can verify shipping speed or
+claim handling from a web page, and it says so. It compares the three things a
+reader can check: link format, marketplace coverage, and whether the item page
+needs a login.
+
+The facts come from `agents.js`, not from forum opinion:
+
+- Full-URL agents: Superbuy, AllChinaBuy, Sugargoo, Kakobuy.
+- Id-plus-platform agents: Hoobuy and Oopbuy (numeric codes), CNFans,
+  Mulebuy, and Joyagoo (platform names).
+- Fansbuy is Weidian only.
+- Sugargoo gates item pages behind a login. The bounce is their rule, not a
+  broken link.
+- CSSBuy is `retired: true` — they refuse purchasing-agent service to US
+  customers. The title names Sugargoo and Kakobuy in their place, and the page
+  says stored CSSBuy links still fail open to the store page.
+
+The referral disclosure is copied word-for-word from `/privacy/` and
+`/terms/`. The page then adds the thing that makes the disclosure credible: it
+names CNFans, which pays nothing since its programme ended, in the same list
+as the agents that pay.
+
+The argument is the product thesis, stated plainly: agent choice is
+reversible, a lost link is not. Store the canonical link, pick the agent at
+click time, decide size before you press Buy.
+
+One negative control: replace the absolute canonical with a relative one. It
+fails one test and only one.
+
+Gate: 1160 tests pass, lint clean (5 pre-existing warnings), typecheck clean,
+build OK with unchanged chunk sizes.
 
 ---
 
