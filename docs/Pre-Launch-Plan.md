@@ -71,7 +71,7 @@ do it completely, and report against its acceptance criteria.
 | LB-4 | Build the public /pricing/ page | P0 | 0.5 day | LB-3 | DONE 2026-07-26 |
 | LB-5 | Run one checkout end-to-end (Part 7g) | P0 | 2 h | LB-3 | OPEN |
 | LB-6 | Add the build preflight env check | P0 | 1 h | — | DONE 2026-07-26 |
-| LB-7 | Cloud sync for the shelf (Supabase) | P0 | 3–4 days | — | OPEN |
+| LB-7 | Cloud sync for the shelf (Supabase) | P0 | 3–4 days | — | CODE DONE 2026-07-26 — dormant, needs Kyle |
 | LB-8 | Shared shelf `/s/:id` with OG preview | P1 | 2–3 days | LB-7 | OPEN |
 | LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | DONE 2026-07-26 |
 | LB-10 | Ship the CSV export (Pro row) | P1 | 2 h | — | DONE 2026-07-26 |
@@ -364,6 +364,68 @@ shared shelf (LB-8).
 - Signed-out use is unchanged.
 - Full gate green.
 
+#### LB-7 result — CODE DONE 2026-07-26, dormant until Kyle acts
+
+All five steps are built and tested. Sync stays off until two manual
+actions happen. Both need Kyle; an agent cannot do either.
+
+**Kyle must do, in this order:**
+1. Run `docs/sql/2026-07-26-shelves.sql` in the Supabase SQL editor. It
+   creates `public.shelves` with row-level security and four owner-only
+   policies. Verification queries are at the foot of that file.
+2. Set `VITE_ENABLE_SYNC=true` in the Netlify build environment and in
+   `preview/.env`.
+
+Warning: do not set the flag before the table exists. Every sync call
+answers 404. The app degrades quietly and nothing syncs, so the flag
+would be a lie.
+
+**Decision taken (item 5 above), NOT yet confirmed by Kyle.** The agent
+built the plan's own recommendation: pull is free, push is Pro.
+- Pull runs for any signed-in account. It is the restore story. A person
+  who loses a phone signs in and the shelf returns. Paywalling that turns
+  a lost phone into lost data.
+- Continuous push is Pro. Keeping two devices in step is the feature the
+  mock sells, and it is the part that costs storage.
+- A free account still saves once, right after the first merge, so
+  signing in never throws away what is on the device.
+
+**What was built.**
+| File | Role |
+|---|---|
+| `credenza-sync-merge.js` | Pure merge core. No fetch, no DOM, no clock. |
+| `preview/src/sync.js` | Transport: pull, push, delete, debounced pusher. |
+| `docs/sql/2026-07-26-shelves.sql` | The migration. Kyle runs it. |
+| `credenza-fashion.jsx` | Tombstone state, load, persist, three effects. |
+| `credenza-storage.js` | Tombstone key added to the erase sweep. |
+| `netlify/functions/lib/entitlement-store.js` | `deleteShelf`. |
+| `netlify/functions/delete-account.js` | Deletes the shelf row too. |
+
+**The two failure modes the design refuses.**
+- A plain union of two devices resurrects every deleted card. So a delete
+  writes a tombstone, kept beside the shelf in
+  `credenza-fashion-tombstones-v1`, swept after 90 days.
+- Treating absence as a delete lets one signed-in empty device erase the
+  whole account. So only an explicit tombstone newer than the card
+  deletes it. Absence never deletes.
+
+Wins are per item, by `updatedAt`. Never per document. Never per field.
+On an exact tie the winner is chosen from the two cards alone, so both
+devices pick the same one and never push at each other.
+
+**Tests.** 60 new tests, all green:
+- `test/sync-merge.test.js` — 27, the merge rules.
+- `test/sync-transport.test.js` — 17, injected fetch, no network.
+- `test/sync-wiring.test.js` — 16, the call sites in the JSX.
+- `test/part7e-account.test.js` — 6, now covers the shelf delete.
+
+Full gate green: lint 0 errors, `tsc` clean, 55 files / 935 tests,
+`npm run build` OK.
+
+**Left for the acceptance run, after Kyle does steps 1 and 2.** The
+two-device tests can only run against a real table. Everything else in
+the acceptance list is covered by the unit tests above.
+
 ---
 
 ## P1 — The growth loop
@@ -539,6 +601,8 @@ Do not list deferred features on the pricing page (D-3).
 Launch when every box is checked:
 
 - [ ] LB-1 through LB-7 DONE.
+- [ ] LB-7: Kyle ran the shelves migration AND set `VITE_ENABLE_SYNC=true`.
+      The code is done, but sync does nothing until both happen.
 - [ ] LB-3/D-1 price decision recorded here.
 - [ ] One full paid loop verified in test mode (LB-5 log exists).
 - [ ] Pricing page lists only shipped features.

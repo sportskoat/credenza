@@ -70,6 +70,14 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     await req("/entitlements?user_id=eq." + encodeURIComponent(userId), { method: "DELETE" });
   }
 
+  // The synced shelf (LB-7). `on delete cascade` on shelves.user_id would
+  // clear this when the auth user goes, but the row is deleted explicitly
+  // anyway: the cascade is a database detail, and "delete my account" must
+  // not depend on one to remove the customer's cards from our server.
+  async function deleteShelf(userId) {
+    await req("/shelves?user_id=eq." + encodeURIComponent(userId), { method: "DELETE" });
+  }
+
   async function isEventProcessed(eventId) {
     const res = await req("/processed_events?event_id=eq." + encodeURIComponent(eventId) + "&select=event_id");
     const rows = await res.json();
@@ -89,7 +97,15 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     }
   }
 
-  return { loadEntitlement, loadByStripeCustomer, saveEntitlement, deleteEntitlement, isEventProcessed, markEventProcessed };
+  return {
+    loadEntitlement,
+    loadByStripeCustomer,
+    saveEntitlement,
+    deleteEntitlement,
+    deleteShelf,
+    isEventProcessed,
+    markEventProcessed,
+  };
 }
 
 function storeFromEnv(env = process.env) {

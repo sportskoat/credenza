@@ -57,6 +57,13 @@ import {
   deleteAccount as accountDeleteRequest,
 } from "./preview/src/account.js";
 import { overFreeLimit, bumpUsage, planLimit, PRO_LIMITS } from "./preview/src/usage.js";
+import { SYNC_READY, pullShelf, createShelfPusher, deleteRemoteShelf } from "./preview/src/sync.js";
+import {
+  mergeShelves,
+  addTombstones,
+  clearTombstones,
+  sweepTombstones,
+} from "./credenza-sync-merge.js";
 import "./credenza.css";
 import "./credenza-fashion.css";
 
@@ -1866,6 +1873,9 @@ function localDigestCopy(picks, gem, weekCount, now) {
 
 const STORE_KEY = "credenza-fashion-items-v1";
 const V2_KEY = "credenza-items-v1";
+// Deleted-card gravestones (LB-7). Kept beside the shelf, not inside it, so a
+// .json backup restores cards without also restoring the record of deletions.
+export const TOMBSTONE_KEY = "credenza-fashion-tombstones-v1";
 
 // When a host storage shim exists (the extension), it IS the backend — failed
 // reads and writes must surface instead of silently splitting or emptying the shelf.
@@ -4206,6 +4216,11 @@ export const BODY_PROFILE_FIELDS = [
 
 export default function Credenza() {
   const [items, setItems] = useState([]);
+  // Deleted-card gravestones for cloud sync (LB-7): { id: deletedAtMs }.
+  // Without these, a merge that unions two devices resurrects everything the
+  // user ever removed. They must outlive a reload, so they persist next to
+  // the shelf — a tombstone that only lives in memory is no tombstone at all.
+  const [tombstones, setTombstones] = useState({});
   const [storageState, setStorageState] = useState({ status: "loading", raw: null, error: null });
   const loaded = storageState.status !== "loading";
   const canPersist = storageState.status === "ready" || storageState.status === "save-error";
@@ -4580,6 +4595,19 @@ export default function Credenza() {
   const reduced = usePrefersReducedMotion();
 
   const applyUpdate = (fn) => setItems(fn);
+  // Record a delete so a later merge does not bring the card back. Undo calls
+  // forgetDeleted, which is why the tombstone is not written straight to disk
+  // here — the save effect below does that once state settles.
+  const markDeleted = useCallback((ids) => {
+    const list = Array.isArray(ids) ? ids : [ids];
+    if (!list.length) return;
+    setTombstones((current) => addTombstones(current, list, Date.now()));
+  }, []);
+  const forgetDeleted = useCallback((ids) => {
+    const list = Array.isArray(ids) ? ids : [ids];
+    if (!list.length) return;
+    setTombstones((current) => clearTombstones(current, list));
+  }, []);
   const updateItem = (id, patch) =>
     applyUpdate((list) =>
       list.map((x) =>
@@ -4630,6 +4658,95 @@ export default function Credenza() {
     // runs free. Listing it would re-stringify the shelf every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canPersist, items]);
+
+  // Gravestones persist beside the shelf. A failed write costs a resurrected
+  // card on the next merge, not data — so this one stays quiet.
+  useEffect(() => {
+    if (!canPersist) return;
+    storageBackend.set(TOMBSTONE_KEY, JSON.stringify(tombstones)).catch(() => {});
+  }, [canPersist, tombstones]);
+
+  // ————— Cloud sync (LB-7) —————————————————————————————————————————————————————
+  //
+  // Two halves, deliberately split by plan:
+  //
+  //   PULL is free. It is the restore story — a person who loses a phone signs
+  //   in and their shelf is there. Paywalling that turns a lost phone into
+  //   lost data, and no price is worth that.
+  //   PUSH is Pro. Keeping two devices in step continuously is the feature the
+  //   mock sells, and it is the one that costs us storage.
+  //
+  // A free account still gets ONE push after a pull, so the merged result is
+  // saved rather than dropped. Otherwise the first sign-in on a second device
+  // would show the merge and then quietly forget it.
+  const shelfStateRef = useRef({ items: [], tombstones: {} });
+  shelfStateRef.current = { items, tombstones };
+  const syncedOnceRef = useRef(false);
+  const pusherRef = useRef(null);
+  const signedIn = SYNC_READY && !!accountSession;
+
+  if (SYNC_READY && !pusherRef.current) {
+    pusherRef.current = createShelfPusher({ getState: () => shelfStateRef.current });
+  }
+
+  // Pull on sign-in, exactly once per session. The shelf on screen is already
+  // hydrated from localStorage by now, which is the point: the user never
+  // waits on the network to see their own cards.
+  useEffect(() => {
+    if (!signedIn || !canPersist || syncedOnceRef.current) return;
+    syncedOnceRef.current = true;
+    let cancelled = false;
+    (async () => {
+      const remote = await pullShelf();
+      if (cancelled) return;
+      // "invalid" and "error" both mean: keep local, touch nothing. Only a
+      // document we could actually read is allowed to change the shelf.
+      if (remote.status !== "ok" && remote.status !== "empty") return;
+      const local = shelfStateRef.current;
+      const merged = mergeShelves(local, remote.status === "ok" ? remote.doc : null, {
+        now: Date.now(),
+      });
+      if (merged.changedLocal) {
+        setItems(merged.items);
+        setTombstones(merged.tombstones);
+        if (merged.stats.added > 0) {
+          notify(
+            merged.stats.added +
+              (merged.stats.added === 1 ? " card" : " cards") +
+              " restored from your account."
+          );
+        }
+      }
+      // Save the merge back, free plan included — see the note above.
+      if (merged.changedRemote || remote.status === "empty") {
+        shelfStateRef.current = { items: merged.items, tombstones: merged.tombstones };
+        pusherRef.current?.flush();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn, canPersist]);
+
+  // Continuous push: Pro only, debounced, and only after the pull has run —
+  // pushing before the merge would overwrite the account with this device's
+  // shelf, which is the exact accident tombstones exist to prevent.
+  useEffect(() => {
+    if (!signedIn || !isProPlan || !canPersist || !syncedOnceRef.current) return;
+    pusherRef.current?.schedule();
+  }, [signedIn, isProPlan, canPersist, items, tombstones]);
+
+  // A tab closing is the last chance to save. visibilitychange fires on phone
+  // app-switch where unload does not, so it is the one that matters.
+  useEffect(() => {
+    if (!signedIn || !isProPlan) return;
+    const flush = () => {
+      if (document.visibilityState === "hidden") pusherRef.current?.flush();
+    };
+    document.addEventListener("visibilitychange", flush);
+    return () => document.removeEventListener("visibilitychange", flush);
+  }, [signedIn, isProPlan]);
 
   useEffect(() => {
     if (preferencesHydrated && ["ready", "saving", "save-error"].includes(storageState.status))
@@ -4765,6 +4882,18 @@ export default function Credenza() {
           window.history.replaceState(null, "", window.location.pathname);
         }
       } catch {}
+      // Gravestones for cloud sync (LB-7). Read beside the shelf, swept of
+      // anything older than the TTL. A bad read is an empty map, never a
+      // reason to fail the load — the shelf itself is what matters here.
+      storageBackend
+        .get(TOMBSTONE_KEY)
+        .then((raw) => {
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            setTombstones(sweepTombstones(parsed, Date.now()));
+          }
+        })
+        .catch(() => {});
       // Merge, do not replace (audit 2026-07-24): a stash during the load
       // window used to vanish here. lastSavedRef keeps the stored snapshot,
       // so the save effect persists the merged list once status is ready.
@@ -4995,6 +5124,7 @@ export default function Credenza() {
       actionLabel: "Undo",
       onAction: () => {
         applyUpdate((list) => list.filter((x) => x.id !== id));
+        markDeleted(id);
         setIndexingJobs((jobs) => jobs.filter((j) => j.id !== id));
       },
       duration: 3000,
@@ -5249,13 +5379,20 @@ export default function Credenza() {
     );
     if (!confirmed) return;
     const backup = items;
+    const ids = backup.map((x) => x.id);
     applyUpdate(() => []);
+    // Clearing is a delete of every card, so every card needs a gravestone.
+    // Without them, signing in on another device pours the whole shelf back.
+    markDeleted(ids);
     setImportOpen(false);
     notify("Shelf cleared", {
       tone: "destructive",
       sub: backup.length + (backup.length === 1 ? " card deleted." : " cards deleted."),
       actionLabel: "Undo",
-      onAction: () => applyUpdate(() => backup),
+      onAction: () => {
+        applyUpdate(() => backup);
+        forgetDeleted(ids);
+      },
     });
   };
 
@@ -5276,6 +5413,13 @@ export default function Credenza() {
       "Delete ALL Credenza data on this device? This removes the shelf, your sizes, every preference, and the click log. There is no Undo. Download a .json backup first if you want one."
     );
     if (!confirmed) return;
+    // The remote row first, while the session key still exists — the sweep
+    // below removes it. A failure here is not a reason to keep local data:
+    // the user asked for this device to be clean, and the account sheet's
+    // Delete account is the path that guarantees the server side.
+    try {
+      if (SYNC_READY) await deleteRemoteShelf();
+    } catch {}
     try {
       await eraseAllCredenzaData(window);
     } catch {}
@@ -5964,6 +6108,10 @@ export default function Credenza() {
       }
       return next;
     });
+    // Lift the gravestones too. Restoring the card without clearing its
+    // tombstone means the next merge deletes it a second time, and the user
+    // never asked for that.
+    forgetDeleted(batch.map((record) => record.item.id));
     const restore = batch[batch.length - 1];
     if (restore.wasSelected) setSelectedId(restore.item.id);
     if (restore.wasExpanded) setExpandedId(restore.item.id);
@@ -5986,6 +6134,7 @@ export default function Credenza() {
       wasResurfaced: resurfaced === id,
     };
     applyUpdate((list) => list.filter((item) => item.id !== id));
+    markDeleted(id);
     undoBatchRef.current.push(removed);
     if (expandedId === id) setExpandedId(null);
     // Move focus to the right neighbor whenever this card was the active one

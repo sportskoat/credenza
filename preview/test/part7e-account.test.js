@@ -15,6 +15,7 @@ const JWT_SECRET = "jwt-secret";
 
 function fakeSupabase() {
   const entitlements = new Map(); // user_id -> row
+  const shelves = new Map(); // user_id -> synced shelf document (LB-7)
   const deletedUsers = [];
   const fetchMock = async (url, init = {}) => {
     const u = new URL(String(url));
@@ -40,9 +41,14 @@ function fakeSupabase() {
       if (userEq && userEq.startsWith("eq.")) entitlements.delete(userEq.slice(3));
       return ok(null, 204);
     }
+    if (u.pathname === "/rest/v1/shelves" && method === "DELETE") {
+      const userEq = u.searchParams.get("user_id");
+      if (userEq && userEq.startsWith("eq.")) shelves.delete(userEq.slice(3));
+      return ok(null, 204);
+    }
     throw new Error("unexpected " + method + " " + u.pathname + u.search);
   };
-  return { entitlements, deletedUsers, fetchMock };
+  return { entitlements, shelves, deletedUsers, fetchMock };
 }
 
 const tokenFor = (sub) => signJwt({ sub, exp: Math.floor(Date.now() / 1000) + 3600 }, JWT_SECRET);
@@ -77,16 +83,39 @@ describe("delete-account function", () => {
     expect((await deleteAccount.handler(post("garbage"))).statusCode).toBe(401);
   });
 
-  it("deletes the record and the auth user", async () => {
+  it("deletes the record, the synced shelf, and the auth user", async () => {
     const sb = fakeSupabase();
     sb.entitlements.set("user-1", { user_id: "user-1", record: ent.newEntitlement("user-1") });
+    // The customer's cards on our server (LB-7). Delete my account has to
+    // take these too, or "delete my account" is not true.
+    sb.shelves.set("user-1", { v: 1, items: [{ id: "a" }] });
     vi.stubGlobal("fetch", sb.fetchMock);
 
     const res = await deleteAccount.handler(post(tokenFor("user-1")));
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).deleted).toBe(true);
     expect(sb.entitlements.has("user-1")).toBe(false);
+    expect(sb.shelves.has("user-1")).toBe(false);
     expect(sb.deletedUsers).toEqual(["user-1"]);
+  });
+
+  it("leaves the synced shelf alone when the delete is refused", async () => {
+    const sb = fakeSupabase();
+    sb.entitlements.set("user-9", {
+      user_id: "user-9",
+      record: {
+        ...ent.newEntitlement("user-9"),
+        plan: "pro",
+        billingStatus: "active",
+        stripeCustomerId: "cus_9",
+        stripeSubscriptionId: "sub_9",
+      },
+    });
+    sb.shelves.set("user-9", { v: 1, items: [{ id: "a" }] });
+    vi.stubGlobal("fetch", sb.fetchMock);
+
+    expect((await deleteAccount.handler(post(tokenFor("user-9")))).statusCode).toBe(409);
+    expect(sb.shelves.has("user-9")).toBe(true);
   });
 
   it("works when the account has no record yet (auth user still goes)", async () => {

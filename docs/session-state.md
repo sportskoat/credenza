@@ -1190,3 +1190,28 @@ on the Claude side.
   skip the block (no cm→letter mapping). 16 new tests, 120 total green,
   tsc + build clean, WebKit iPhone verified (pick / pants / no-chart).
 - Not deployed — waiting on Kyle's word. Branch: mobile-fix-loop.
+
+## 2026-07-26 — LB-7 cloud sync: code complete, dormant (Claude lane)
+- The shelf can now live on the server. Nothing syncs yet: the feature is
+  behind `VITE_ENABLE_SYNC`, which stays unset until Kyle runs
+  `docs/sql/2026-07-26-shelves.sql` in Supabase. Do not set the flag first
+  — every call answers 404 and the app fails quietly.
+- **Kyle must do two things, in order:** (1) run that SQL, (2) set
+  `VITE_ENABLE_SYNC=true` on Netlify and in `preview/.env`.
+- Split: `credenza-sync-merge.js` is a pure merge core (no fetch, no DOM,
+  no clock) and `preview/src/sync.js` is the transport (PostgREST over
+  plain fetch, no Supabase SDK — same rule as `auth.js`).
+- Deletes write tombstones to `credenza-fashion-tombstones-v1`, swept
+  after 90 days. Two rules that must never change: a union without
+  tombstones resurrects every deleted card, and absence must NEVER mean
+  delete or one empty signed-in device erases the whole account.
+- Wins are per card, by `updatedAt`. Never per document, never per field.
+  On an exact tie the winner comes from the two cards alone, so both
+  devices pick the same one instead of pushing at each other forever.
+- Free vs Pro (the plan's own recommendation; Kyle has NOT confirmed):
+  pull is free because it is the lost-phone restore story; continuous
+  push is Pro. A free account still saves once after the first merge.
+- `delete-account.js` and Erase my data both remove the remote row.
+- Tests: 60 new (merge 27, transport 17, wiring 16, account 6 extended).
+  Full gate green — lint 0 errors, tsc clean, 55 files / 935 tests, build OK.
+- Not deployed. Everything sits on `main` for Kyle's single deploy.

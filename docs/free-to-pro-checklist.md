@@ -103,7 +103,7 @@ missing · **MISSING** no code at all.
 | 7 | Ask — 5 / 200 a day | **BUILT** | Server-enforced. `ask.js` |
 | 8 | QC photos per item — 4 / 12 | **BUILT** 2026-07-26 | `attachQcImage` in `credenza-fashion.jsx` checks `planLimit(plan, "qcPhotosPerItem")` before the compress. |
 | 9 | Body profiles — 1 / several with fit history | **PARTIAL** | One profile object only. `credenza-fashion.jsx:4043`. No array, no history. |
-| 10 | Devices — this one local / all synced | **MISSING** | The shelf is `localStorage` only. `credenza-storage.js` |
+| 10 | Devices — this one local / all synced | **BUILT** 2026-07-26, dormant | LB-7. `credenza-sync-merge.js` (merge) + `preview/src/sync.js` (transport) + three effects in `credenza-fashion.jsx`. Pull is free (restore after a lost phone). Continuous push is Pro. Off until Kyle runs `docs/sql/2026-07-26-shelves.sql` and sets `VITE_ENABLE_SYNC=true`. |
 | 11 | Shared shelf — public link / unlisted, custom URL, expiry | **MISSING** | No share code at all. No router. |
 | 12 | Parcel planner — weight / box, volumetric, chargeable | **BUILT** | All three already compute. `credenza-fashion.jsx:319-333`. Free users get the Pro version. |
 | 13 | Restock and price watch — 3 items / every item | **MISSING** | Needs a scheduler. Nothing exists. |
@@ -240,13 +240,22 @@ The work splits into four parts:
 
 Parts 1 to 3 are the free tier. Part 4 is the paywall.
 
-### 6.2 Cross-device sync (3 or more days)
+### 6.2 Cross-device sync — BUILT 2026-07-26 (LB-7), dormant
 
-Do not start this until the shared shelf ships. A publish snapshot is a
-one-way write. Sync is two-way, which means conflict resolution, and that
-is a different and much larger problem.
+This shipped before the shared shelf, not after. The plan below expected
+the shared shelf to teach the schema first. It did not, because the
+schema turned out to be the shelf array that already exists.
 
-The shared shelf teaches you the schema. Reuse it.
+Conflict resolution is solved in `credenza-sync-merge.js`, which is pure
+and has 27 tests. Wins are per card, by `updatedAt`. Deletes carry
+tombstones, so a merge cannot resurrect a removed card. Absence never
+deletes, so an empty signed-in device cannot erase an account.
+
+Sync does nothing until Kyle runs `docs/sql/2026-07-26-shelves.sql` and
+sets `VITE_ENABLE_SYNC=true`. See the LB-7 result section in
+`docs/Pre-Launch-Plan.md`.
+
+The shared shelf (LB-8) can now reuse this schema instead of the reverse.
 
 ---
 
@@ -258,7 +267,7 @@ The shared shelf teaches you the schema. Reuse it.
 4. Section 6.1 part 4 — the Pro share toggles. **The first true Pro row.**
 5. Section 5.1 — body profiles.
 6. Section 5.2 — watch, if the running cost is acceptable.
-7. Section 6.2 — sync. Last.
+7. ~~Section 6.2 — sync.~~ BUILT 2026-07-26. It came early, not last.
 
 After step 4 the paywall has something to sell that the free plan does not
 already give away. Today it does not.

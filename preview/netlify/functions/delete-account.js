@@ -6,7 +6,8 @@
 //   1. The entitlement row (plan, usage counters, Stripe link). First, so a
 //      failed auth-user delete leaves a retryable state, not an orphan user
 //      with no record.
-//   2. The Supabase auth user (admin API, service role).
+//   2. The synced shelf row (LB-7), for the same reason.
+//   3. The Supabase auth user (admin API, service role).
 //
 // Local data is NOT touched — the shelf lives on the device; Erase my data is
 // the tool for that, and the client says so next to this button.
@@ -82,6 +83,10 @@ async function handle(event) {
     }
 
     await store.deleteEntitlement(claims.sub);
+    // The synced shelf goes before the auth user, same reason as the
+    // entitlement above: a failure here leaves a retryable state instead of
+    // a stranded row nobody can reach.
+    await store.deleteShelf(claims.sub);
     await deleteAuthUser(env, claims.sub);
     return response(200, { deleted: true });
   } finally {
