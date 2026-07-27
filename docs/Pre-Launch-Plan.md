@@ -112,6 +112,7 @@ do it completely, and report against its acceptance criteria.
 | LB-45 | Sell the two features that shipped a day ago | P1 | 50 m | LB-44 | DONE 2026-07-27 — the eleventh scope defect, and the first where the rule was also wrong about the facts; a stale comment kept shared links and multi-device off the page that sells Pro |
 | LB-46 | Explain the two features the price table now sells | P1 | 45 m | LB-45 | DONE 2026-07-27 — the twelfth scope defect, and the third axis; every page was correct on its own, and the gap lived between them, so `/pricing/` was the only page explaining what a buyer paid for |
 | LB-47 | Write the guide for the feature the announcement runs on | P1 | 1 h | LB-46 | DONE 2026-07-27 — twelve guides now; the share link is what LB-39 calls "the announcement's engine", Pro sells 100 of them, and no guide told a buyer how to make one |
+| LB-48 | Check the share caps on every page, not just `/pricing/` | P0 | 45 m | LB-47 | DONE 2026-07-27 — the thirteenth scope defect, LB-43's shape again; four pages quote the caps and the rule opened one file by name, so `/faq/` claiming 9 links passed all 1698 tests |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2856,6 +2857,67 @@ The last probe is the one worth keeping. LB-21 needs **two**, and cutting to one
 failed, so the rule bites at the boundary and not just at zero.
 
 **Gate.** 1698 tests pass (62 files), 5 lint warnings and 0 errors, build
+`index-fashion-VSp8hwMs.js 363.47 kB`.
+
+### LB-48 — the share caps on three pages nothing read
+
+**Found by writing LB-47.** The new guide quotes both share caps. Before
+committing it I asked which rule checks that number, and traced the answer.
+
+**The defect.** LB-35 binds every quoted limit to `PLAN_LIMITS`. The share caps
+are not in `PLAN_LIMITS` — they are constants in `share.js`, because only the
+function can count rows. `pricing.test.js` knows this and binds them, and it was
+right to. But it binds ONE file: it opens `preview/public/pricing/index.html` by
+name. Four pages quote the caps — `/pricing/`, `/faq/`, `/how/`, and the new
+guide — and three of them were unread.
+
+Changing `3 links at a time` to `9 links at a time` on `/faq/` passed all 1698
+tests. That is the negative control.
+
+This is LB-43's shape a second time: the rule was right about the number and
+wrong about how many places carry it. Thirteenth scope defect, Axis 1.
+
+**Why it is worse than a wrong daily counter.** A daily counter that reads high
+costs the reader one 429. A share cap that reads high is read as headroom by
+somebody deciding whether to pay. They post three links, try a fourth, and the
+server refuses on the plan the page told them allows nine.
+
+**The rule.** Appended to `preview/test/plan-limits.test.js`. It reads both
+constants out of `share.js`, walks every HTML file under `preview/public/`, and
+checks every number that sits next to a link noun.
+
+Two spellings, because the pages use two:
+
+| Spelling | Where it appears |
+|---|---|
+| `3 shared haul links` | the price table and the plan bullets |
+| `Free keeps 3 links at a time` | the prose — the number is not next to the noun |
+
+A line about resolves or photos is skipped. Those lines also contain the word
+"link" and a count, and their numbers belong to `PLAN_LIMITS`, not to the caps.
+Tags become a NEWLINE and matching is per line, for the reason LB-35 gives.
+
+**Probes.** Restore by checksum after each one.
+
+| Edit | Result |
+|---|---|
+| `3 links at a time` → `9` on `/faq/` | 1 fail — the negative control |
+| Pro cap wrong on `/how/` **and** the guide | 2 fail, one per page |
+| `MAX_SHARES_FREE` 3 → 5 in `share.js` | 6 fail — every page is now stale |
+| Free-cap sentence deleted from `/how/` | 0 fail — the Pro sentence still quotes |
+| Both cap sentences deleted from `/how/` | 1 fail — `fewer pages quote the share caps` |
+
+Probe 3 is the direction that matters. A cap change in the function fails on
+every page at once, so the failure list is the edit list.
+
+Probe 4 is the honest limit, and it is recorded rather than fixed. A page that
+drops one of its two cap sentences still passes, because the other sentence
+keeps it in the quoting set. The page census catches a page that goes silent
+entirely; it does not catch a page that goes half silent. Fixing that needs a
+per-page expectation of which caps it states, and that is a list to maintain
+for a smaller defect than the one this rule closes.
+
+**Gate.** 1705 tests pass (62 files), 5 lint warnings and 0 errors, build
 `index-fashion-VSp8hwMs.js 363.47 kB`.
 
 ## Explicitly deferred (do NOT build before launch)

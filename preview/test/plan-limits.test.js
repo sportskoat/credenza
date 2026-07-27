@@ -241,3 +241,106 @@ describe("the public pages quote the limits the server enforces", () => {
     expect(quoted.length, `no page states the ${free} link resolves a free user gets`).toBeGreaterThanOrEqual(1);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LB-48. The share caps are quoted on four pages, and one page was checked.
+//
+// The rule above reads PLAN_LIMITS. The share caps are NOT in PLAN_LIMITS —
+// they are constants in share.js, because only the function can count rows.
+// pricing.test.js knows that and binds them, but it binds ONE file: it opens
+// preview/public/pricing/index.html by name.
+//
+// Four pages quote the caps: /pricing/, /faq/, /how/, and the share guide.
+// Changing "3 links at a time" to "9 links at a time" on /faq/ passed all
+// 1698 tests. This is LB-43's shape again — the rule was right about the
+// number and wrong about how many places carry it.
+//
+// It is worse than a wrong daily counter. A daily counter that reads high
+// costs the reader a 429. A share cap that reads high is read as headroom by
+// somebody deciding whether to pay: they post three links, try a fourth, and
+// the server refuses on the plan the page told them allows nine.
+describe("every page quotes the share caps the share function enforces", () => {
+  const PUBLIC = join(ROOT, "preview/public");
+
+  function pages(dir = PUBLIC, out = []) {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) pages(full, out);
+      else if (name.endsWith(".html")) out.push({ rel: relative(PUBLIC, full), html: readFileSync(full, "utf8") });
+    }
+    return out;
+  }
+
+  const fn = read("preview/netlify/functions/share.js");
+  const shareCap = (name) => {
+    const m = fn.match(new RegExp("const " + name + "\\s*=\\s*(\\d+)"));
+    return m ? Number(m[1]) : null;
+  };
+
+  it("reads both caps out of share.js", () => {
+    // Guard the guard. A rename makes shareCap null, the allowed set becomes
+    // {null}, and every page below would fail — but only if this runs first.
+    expect(shareCap("MAX_SHARES_FREE"), "MAX_SHARES_FREE is gone").toBeGreaterThan(0);
+    expect(shareCap("MAX_SHARES_PRO"), "MAX_SHARES_PRO is gone").toBeGreaterThan(0);
+  });
+
+  const allowed = new Set([shareCap("MAX_SHARES_FREE"), shareCap("MAX_SHARES_PRO")]);
+
+  // Tags become a NEWLINE and matching is per line, for the reason LB-35 gives:
+  // a space joins text across elements and invents claims no reader can see.
+  const strip = (html) => html.replace(/<[^>]*>/g, "\n").replace(/&[a-z]+;/g, " ");
+
+  // Two spellings, because the pages use two. "3 shared haul links" is the
+  // table and the plan bullets. "Free keeps 3 links at a time" is the prose,
+  // and the number there is not adjacent to the noun.
+  const NEXT_TO_NOUN = /(\d[\d,]*)\s+(?:[a-z]+[- ]){0,3}links?\b/gi;
+  const AFTER_KEEPS = /\bkeeps\s+(\d[\d,]*)/gi;
+
+  // A line about resolves or photos also contains the word "link" or a count,
+  // and those numbers belong to PLAN_LIMITS, not to the share caps.
+  const OTHER_METER = /resolv|photo/i;
+
+  const quoting = [];
+  for (const { rel, html } of pages()) {
+    const nums = [];
+    for (const line of strip(html).split("\n")) {
+      if (!/link/i.test(line) || OTHER_METER.test(line)) continue;
+      for (const m of [...line.matchAll(NEXT_TO_NOUN), ...line.matchAll(AFTER_KEEPS)]) {
+        nums.push(Number(m[1].replace(/,/g, "")));
+      }
+    }
+    if (nums.length) quoting.push({ rel, nums });
+  }
+
+  it("finds the pages that quote a share cap", () => {
+    // Without this, deleting the sentence from every page would generate zero
+    // tests below and the suite would stay green while the site stopped saying
+    // how many links a plan allows. Four pages carry it today.
+    expect(
+      quoting.map((q) => q.rel).sort(),
+      "fewer pages quote the share caps than expected — was a sentence deleted?"
+    ).toEqual(
+      ["faq/index.html", "guides/share-a-haul-list/index.html", "how/index.html", "pricing/index.html"].sort()
+    );
+  });
+
+  for (const { rel, nums } of quoting) {
+    it(`${rel} quotes a real share cap`, () => {
+      for (const n of nums) {
+        expect(
+          allowed.has(n),
+          `${rel} says ${n} shared links; share.js allows ${[...allowed].join(" or ")}`
+        ).toBe(true);
+      }
+    });
+  }
+
+  it("both caps are actually stated somewhere, not just the free one", () => {
+    // A page could satisfy every rule above by naming only the free cap. The
+    // Pro cap is the one somebody is deciding to pay for.
+    const all = quoting.flatMap((q) => q.nums);
+    for (const name of ["MAX_SHARES_FREE", "MAX_SHARES_PRO"]) {
+      expect(all, `no page states ${name} (${shareCap(name)})`).toContain(shareCap(name));
+    }
+  });
+});
