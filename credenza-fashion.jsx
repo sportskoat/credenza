@@ -93,6 +93,7 @@ const SharedLinksSheet = lazy(() => import("./sheets/SharedLinksSheet.jsx"));
 import DigestDeck from "./components/DigestDeck.jsx";
 import HaulBoard from "./components/HaulBoard.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
+import { SITE_NAV } from "./components/site-nav.js";
 import { TypeMark } from "./components/CardCover.jsx";
 import Card from "./components/Card.jsx";
 import MorphButton from "./components/MorphButton.jsx";
@@ -8058,6 +8059,28 @@ function CredenzaApp() {
               <span className="cz-brand-sub">Fashion</span>
             </span>
           </h1>
+          {/* Site navigation. The masthead used to be a brand mark, a wide
+              empty middle, and one avatar (Kyle 2026-07-27, with a screenshot
+              of it). Desktop and tablet get the full row; the phone masthead
+              has no width for it, so ≤767px hides this and the Profile sheet
+              stays the way out (LB-50). Links open in a new tab: the app is a
+              PWA holding unsaved capture state, and navigating away in place
+              would drop it. */}
+          {!firstRunIntro && (
+            <nav className="cz-mast-nav" aria-label="Credenza site">
+              {SITE_NAV.map(({ href, label }) => (
+                <a
+                  key={href}
+                  className="cz-mast-nav-link"
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {label}
+                </a>
+              ))}
+            </nav>
+          )}
           {!firstRunIntro && (
           <div className="cz-masthead-actions">
             {/* Search collapses to this icon on phone; the pill below reveals

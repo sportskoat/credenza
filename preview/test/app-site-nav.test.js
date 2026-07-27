@@ -117,6 +117,113 @@ describe("the app links out to the site it belongs to", () => {
   });
 });
 
+// LB-53. The masthead nav (Kyle 2026-07-27: "we should probably just make a
+// header that links to all of our pages here… make it easy to navigate… make a
+// few header pages that link out to pro, contact us, guides, etc.").
+//
+// The rule above covers the Profile sheet, which is two taps deep. This covers
+// the row that ships in the masthead itself, and it is the same filesystem rule
+// for the same reason: nothing in the JSX can tell you whether /contact/
+// resolves. One list lives in components/site-nav.js and this reads it back out
+// of the source.
+describe("the masthead reaches the site", () => {
+  const NAV_SRC = readFileSync(join(ROOT, "components/site-nav.js"), "utf8");
+  const APP = readFileSync(join(ROOT, "credenza-fashion.jsx"), "utf8");
+  const CSS = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
+
+  function siteNav() {
+    const block = NAV_SRC.match(/export const SITE_NAV = \[([\s\S]*?)\n\];/);
+    if (!block) return null;
+    return [...block[1].matchAll(/href:\s*"([^"]+)",\s*label:\s*"([^"]+)"/g)].map((m) => ({
+      href: m[1],
+      label: m[2],
+    }));
+  }
+
+  const nav = siteNav();
+
+  it("finds the SITE_NAV array at all", () => {
+    // Guard the guard, same as SITE_LINKS above. A rename makes siteNav() null
+    // and every loop below generates zero tests.
+    expect(nav, "SITE_NAV is gone from components/site-nav.js").not.toBeNull();
+    expect(nav.length, "SITE_NAV is empty").toBeGreaterThanOrEqual(4);
+  });
+
+  for (const { href, label } of nav || []) {
+    it(`masthead ${href} is a page that exists`, () => {
+      expect(href.startsWith("/") && href.endsWith("/"), `${href} is not a site directory path`).toBe(true);
+      expect(
+        existsSync(join(PUBLIC, href.slice(1), "index.html")),
+        `${href} has no index.html under preview/public`
+      ).toBe(true);
+    });
+
+    it(`masthead ${href} has a label that fits a header`, () => {
+      // The masthead is one row between a wordmark and an avatar. A label long
+      // enough to wrap pushes the avatar off the edge before the media query
+      // that hides this can help.
+      expect(label.length, `${href} has an empty label`).toBeGreaterThan(2);
+      expect(label.length, `${href} label "${label}" is too long for the masthead`).toBeLessThanOrEqual(14);
+      expect(
+        /\b\d+\b/.test(label),
+        `${href} label "${label}" carries a number — it will go stale`
+      ).toBe(false);
+    });
+  }
+
+  it("reaches the pages the request named", () => {
+    // Kyle named three by hand. The rest is "etc." — this pins the three so a
+    // future trim cannot quietly drop one.
+    const hrefs = (nav || []).map((l) => l.href);
+    for (const must of ["/pricing/", "/contact/", "/guides/"]) {
+      expect(hrefs, `the masthead cannot reach ${must}`).toContain(must);
+    }
+  });
+
+  it("renders SITE_NAV in the masthead rather than a second hand-written list", () => {
+    // Two lists drift. The point of the module is that the header and this test
+    // read the same one.
+    expect(APP, "credenza-fashion.jsx does not import SITE_NAV").toMatch(
+      /import \{ SITE_NAV \} from "\.\/components\/site-nav\.js"/
+    );
+    expect(APP, "the masthead does not map SITE_NAV").toContain("SITE_NAV.map");
+    expect(APP, "the masthead nav has no accessible name").toContain('className="cz-mast-nav"');
+  });
+
+  it("opens masthead links in a new tab", () => {
+    // Same reason as the Profile rows: the app holds unsaved capture state and
+    // a same-tab jump drops it.
+    const row = APP.match(/className="cz-mast-nav-link"[\s\S]{0,200}/);
+    expect(row, "the masthead links no longer use cz-mast-nav-link").not.toBeNull();
+    expect(row[0], "masthead links do not open in a new tab").toContain('target="_blank"');
+    expect(row[0], 'target="_blank" without rel="noreferrer"').toContain('rel="noreferrer"');
+  });
+
+  it("keeps a way out on phones, where the masthead nav is hidden", () => {
+    // The CSS hides .cz-mast-nav below 767px — six links do not fit beside a
+    // wordmark on a 390px screen. That is only safe while the Profile sheet
+    // still carries site links, so bind the two together here.
+    expect(CSS, ".cz-mast-nav has no rule in credenza-fashion.css").toContain(".cz-mast-nav");
+    expect(CSS, "the masthead nav is not hidden on phone widths").toMatch(
+      /@media \(max-width: 767px\) \{\s*\.cz-mast-nav \{\s*display: none;/
+    );
+    expect(
+      (siteLinks() || []).length,
+      "the masthead is hidden on phones and the Profile sheet no longer carries site links"
+    ).toBeGreaterThanOrEqual(4);
+  });
+
+  it("styles the masthead links with the app's focus ring, not the browser's", () => {
+    // The same defect that put a blue Chrome outline on the avatar (Kyle
+    // 2026-07-27, with a screenshot). A new interactive element in the masthead
+    // has to be added to the :focus-visible list or it inherits outline: auto.
+    expect(CSS, "cz-mast-nav-link has no :focus-visible rule").toContain(
+      ".cz-mast-nav-link:focus-visible"
+    );
+    expect(CSS, "the avatar has no :focus-visible rule").toContain(".cz-avatar:focus-visible");
+  });
+});
+
 // The second half of the same defect. The rule above checks the links the app
 // HAS. This checks the links it SHOULD have — that no page ships on the site
 // with no way in from anywhere.

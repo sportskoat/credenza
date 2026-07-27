@@ -214,6 +214,11 @@ describe("navigation", () => {
     "/pricing/",
     "/faq/",
     "/support/",
+    // Added 2026-07-27 with /contact/. Support answers a question the site
+    // already knows; Contact is the address for the ones it does not. A reader
+    // who runs out of documentation has to find a person from wherever they
+    // are, so this belongs in the same required set, not one page deep.
+    "/contact/",
     "/privacy/",
     "/terms/",
   ];
@@ -598,6 +603,11 @@ describe("no deep page depends on the hub alone", () => {
     "/pricing/",
     "/faq/",
     "/support/",
+    // /contact/ ships in the nav and the footer of all 24 pages, so an inbound
+    // link to it proves nothing about its place in the site — same as the rest
+    // of this set. Without this line the rule would demand two body-copy
+    // inbound links for a page every page already carries in its chrome.
+    "/contact/",
     "/privacy/",
     "/terms/",
   ]);
@@ -1214,6 +1224,7 @@ describe("every page tells a machine what kind of page it is", () => {
     "pricing/index.html": "Product",
     "privacy/index.html": "WebPage",
     "support/index.html": "WebPage",
+    "contact/index.html": "ContactPage",
     "terms/index.html": "WebPage",
     "guides/choose-an-agent/index.html": "Article",
     "guides/estimate-haul-weight/index.html": "HowTo",
@@ -1227,7 +1238,7 @@ describe("every page tells a machine what kind of page it is", () => {
     "guides/track-qc-photos/index.html": "HowTo",
     "guides/share-a-haul-list/index.html": "HowTo",
     "guides/plan-a-parcel/index.html": "HowTo",
-  "guides/back-up-your-shelf/index.html": "HowTo",
+    "guides/back-up-your-shelf/index.html": "HowTo",
     "guides/weidian-size-chart/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };

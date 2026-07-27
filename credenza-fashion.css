@@ -413,7 +413,16 @@
 .cz-app[data-fashion="true"] .cz-field:focus-visible,
 .cz-app[data-fashion="true"] .cz-capture:focus-visible,
 .cz-app[data-fashion="true"] .cz-search-input:focus-visible,
-.cz-app[data-fashion="true"] .cz-note-field:focus-visible {
+.cz-app[data-fashion="true"] .cz-note-field:focus-visible,
+/* The masthead buttons were missing from this list, so nothing here matched
+   them and the browser's own outline painted instead (Kyle 2026-07-27, with a
+   screenshot of the avatar wearing a blue ring). It shows up on the way OUT of
+   the profile sheet: ModalShell restores focus to the trigger, and because the
+   key that closed the sheet was Escape, the button matches :focus-visible.
+   Restoring focus is correct — a keyboard user has to land somewhere. The ring
+   just has to be the app's ring, not Chrome's. */
+.cz-app[data-fashion="true"] .cz-avatar:focus-visible,
+.cz-app[data-fashion="true"] .cz-mast-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--cz-focus), 0 0 0 4px var(--cz-glow-weak);
 }
@@ -4274,10 +4283,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-modal-page {
   /* Each page scrolls on its own: a tall sub-page must not stretch the modal
-     past the surface cap. overscroll-behavior stops the scroll chaining to
-     the locked page behind the dialog. */
+     past the surface cap.
+     overscroll-behavior was `contain` here, and it stopped the sheet from
+     scrolling at all (Kyle 2026-07-27: "half of them don't work in terms of
+     scrolling anymore"). The page is never the scroller: ModalShell measures
+     the page and sets that exact height on the stack, so scrollHeight always
+     equals clientHeight and this element has nothing to scroll. `contain` on
+     a full element still absorbs the wheel, so the gesture never reached
+     .cz-modal-surface-stacked — the one box that IS over-full. Measured at
+     390x844 with the profile sheet: surface 741 tall / 906 of content, and
+     scrollTop stayed 0 through a wheel and a touch drag. Flipping this one
+     value to `auto` moved it the full 165px.
+     The chain still stops at the dialog: .cz-modal-surface carries its own
+     overscroll-behavior: contain, so nothing reaches the page behind. */
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
 }
 /* Hide the scrollbar on the modal stack (Kyle 2026-07-26: "let's take out the
    scrollbars here… I think it'll move a little bit cleaner"). A classic macOS
@@ -8010,6 +8030,61 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
+}
+
+/* ─── Masthead site nav (Kyle 2026-07-27) ──────────────────────────────────
+   The row of page links between the brand and the avatar. The masthead is
+   justify-content: space-between, so three children put this in the middle
+   with no spacer element.
+   Quiet by default and full-contrast on hover: this is wayfinding, not a call
+   to action, and six links at full weight would out-shout the hero. */
+.cz-mast-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.cz-mast-nav-link {
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: var(--cz-sub);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.cz-mast-nav-link:hover {
+  color: var(--cz-ink);
+  background: var(--cz-action-muted-bg);
+}
+
+.cz-app[data-fashion="true"] .cz-mast-nav-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--cz-focus), 0 0 0 4px var(--cz-glow-weak);
+}
+
+/* Below 900px the six links crowd the wordmark and the avatar. Drop the two
+   the Profile sheet already covers (LB-50 keeps Support reachable there), and
+   keep the three that answer a question the app cannot: what it does, how, and
+   what it costs. */
+@media (max-width: 1023px) {
+  .cz-mast-nav-link[href="/faq/"],
+  .cz-mast-nav-link[href="/contact/"] {
+    display: none;
+  }
+}
+
+/* Phone has no room for any of it. The Profile sheet is the way out here. */
+@media (max-width: 767px) {
+  .cz-mast-nav {
+    display: none;
+  }
 }
 
 .cz-mast-btn {
