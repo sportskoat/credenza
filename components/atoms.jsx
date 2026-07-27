@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { FIND_STATUSES } from "../credenza-find-status.js";
 import {
   BG,
@@ -8,9 +8,11 @@ import {
   SUB,
   FAINT,
   FIND_STATUS_COLORS,
+  FIND_STATUS_DETOUR,
   FIND_STATUS_HINTS,
   FIND_STATUS_LABELS,
   FIND_STATUS_LONG,
+  FIND_STATUS_NEXT,
   FONT,
   INK,
   STATUS_TRACK,
@@ -502,10 +504,21 @@ export function StatusUnderline({ value, onChange, label = "Status" }) {
   );
 }
 
-// Mobile detail sheet status row (handoff step 5, audit C3). Four chips, one
+// Mobile detail sheet status row (handoff step 5, audit C3). Four stops, one
 // per human stop on STATUS_TRACK. The agent sub-states (qc/gl/rl) fold into
 // Bought and returned folds into Received, exactly as statusTrackIndex maps
 // them. A tap commits the stop's own enum value — the sheet has no Save.
+//
+// Handoff turn 9 §5 changes the SHAPE, not the model. Four equal chips gave
+// every stop the same weight, so the row reported state but never offered the
+// one action that moves the order forward. It becomes a progress TRACK — four
+// dots on 2px rails, filled behind the current stop — plus a single primary
+// pill for the next transition. The dots stay tappable, so a customer can
+// still correct a wrong stop; the pill is the fast path.
+//
+// The sub-label ("WANT · NOT ORDERED") and the detour node carry the detail
+// the four dots cannot: an off-track state renders UNDER its dot rather than
+// as a fifth column, because refund and QC-failed are not progress.
 export function StatusTrackChips({ value, onChange, label = "Status" }) {
   const current = value || "want";
   const activeIdx = statusTrackIndex(current);
@@ -517,23 +530,57 @@ export function StatusTrackChips({ value, onChange, label = "Status" }) {
     if (i === 2) return "shipped";
     return "returned";
   };
+  const next = FIND_STATUS_NEXT[current] || null;
+  const detour = FIND_STATUS_DETOUR[current] || "";
   return (
-    <div className="cz-detail-status" role="radiogroup" aria-label={label}>
-      {STATUS_TRACK.map((name, i) => {
-        const active = i === activeIdx;
-        return (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={active}
-            key={name}
-            className={"cz-detail-status-chip" + (active ? " is-active" : "")}
-            onClick={() => onChange && onChange(enumFor(i))}
-          >
-            {name}
-          </button>
-        );
-      })}
+    <div className="cz-status-row">
+      <div className="cz-detail-status" role="radiogroup" aria-label={label}>
+        {STATUS_TRACK.map((name, i) => {
+          const active = i === activeIdx;
+          return (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={active}
+              key={name}
+              className={
+                "cz-detail-status-chip" +
+                (active ? " is-active" : "") +
+                (i < activeIdx ? " is-done" : "")
+              }
+              onClick={() => onChange && onChange(enumFor(i))}
+            >
+              {/* The rail is drawn per step so it can be filled up to the
+                  current stop. Step 0 has no rail to its left. */}
+              {i > 0 ? <span className="cz-status-rail" aria-hidden="true" /> : null}
+              {/* The node wraps the dot so the detour label can be centred
+                  under it. Anchoring the label to the BUTTON would put it at
+                  the start of the rail, not at the dot. */}
+              <span className="cz-status-node">
+                <span className="cz-status-dot" aria-hidden="true" />
+                {/* Detour node: off-track states hang under their own dot. */}
+                {active && detour ? (
+                  <span className="cz-status-detour">{detour}</span>
+                ) : null}
+              </span>
+              {/* The stop name is the accessible name of the radio. It stays
+                  in the DOM so the control is still readable and testable;
+                  CSS hides it on the dots-only track. */}
+              <span className="cz-status-stop-name">{name}</span>
+            </button>
+          );
+        })}
+      </div>
+      {next ? (
+        <button
+          type="button"
+          className="cz-status-next"
+          onClick={() => onChange && onChange(next.to)}
+        >
+          {next.label}
+          <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      ) : null}
     </div>
   );
 }

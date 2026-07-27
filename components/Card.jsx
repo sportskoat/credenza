@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   BLUE,
   BLUE_BG,
@@ -31,6 +32,12 @@ export default function Card({
 }) {
   const reduced = usePrefersReducedMotion();
   const buy = linkButtons(item, { buyLabel }).find((b) => b.role === "buy") || null;
+  // The photo morph's source nodes (§11). The shelf passes them straight to the
+  // browser's view transition — nothing measures or clones them. The photo is
+  // the shared element; the text block fades out on its own short timing.
+  const photoRef = useRef(null);
+  const textRef = useRef(null);
+  const morphNodes = () => ({ photo: photoRef.current, text: textRef.current });
 
   return (
     <article
@@ -62,12 +69,15 @@ export default function Card({
                 not a button, and Star + Buy are siblings of this button,
                 never children — no nested interactive controls. */}
             <button
+              ref={photoRef}
               type="button"
               className="cz-card-toggle"
               aria-label={
                 "Open " + (item.title || "saved item") + (phone ? "" : " in carousel")
               }
-              onClick={onToggle}
+              // The photo box IS the morph source, so the tap hands its node to
+              // the opener. A caller that ignores the argument still works.
+              onClick={() => onToggle(morphNodes())}
               style={{
                 display: "block",
                 width: "100%",
@@ -117,13 +127,13 @@ export default function Card({
               The AlbumLink is a SIBLING of this button, never a child: a
               nested <a> inside the card's one <button> is invalid HTML
               (handoff turn 3 §3). */}
-          <div className="cz-card-text">
+          <div className="cz-card-text" ref={textRef}>
             <button
               type="button"
               className="cz-card-toggle"
               tabIndex={-1}
               aria-hidden="true"
-              onClick={onToggle}
+              onClick={() => onToggle(morphNodes())}
               style={{
                 display: "block",
                 width: "100%",

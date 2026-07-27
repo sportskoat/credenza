@@ -30,6 +30,8 @@ import { StatusPill } from "./atoms.jsx";
 const CoverFlowCard = forwardRef(function CoverFlowCard(
   {
     item,
+    // §3 seller cache: the whole shelf, for DetailBody's cache lookup.
+    shelfItems = null,
     expanded,
     isCenter,
     flipSignal,
@@ -38,6 +40,8 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onSaveEdit,
     onOpen,
     buyLabel,
+    preferredAgent,
+    onSelectAgent,
     onAttachPhoto,
     onRemovePhoto,
     onToggleFavorite,
@@ -579,11 +583,14 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                         chevron, ⋯ and edit pen. */}
                     <DetailBody
                       item={item}
+                      shelfItems={shelfItems}
                       haulNames={knownHauls}
                       bodyProfile={bodyProfile}
                       fitPrefs={fitPref && item.category ? { [item.category]: fitPref } : null}
                       measureUnits={measureUnits}
                       buyLabel={buyLabel}
+                      preferredAgent={preferredAgent}
+                      onSelectAgent={onSelectAgent}
                       onSaveEdit={onSaveEdit}
                       onOpen={onOpen}
                       onAttachPhoto={onAttachPhoto}
@@ -658,6 +665,8 @@ export default function CoverFlowCarousel({
   onSaveEdit,
   onOpen,
   buyLabel,
+  preferredAgent,
+  onSelectAgent,
   onSetPrimaryImage,
   onLoadPhotos,
   onAttachPhoto,
@@ -1172,6 +1181,7 @@ export default function CoverFlowCarousel({
                     else cardRefs.current.delete(item.id);
                   }}
                   item={item}
+                  shelfItems={items}
                   expanded={expandedId === item.id}
                   selected={index === activeIndex}
                   isCenter={index === activeIndex}
@@ -1181,6 +1191,8 @@ export default function CoverFlowCarousel({
                   onSaveEdit={onSaveEdit}
                   onOpen={onOpen}
                   buyLabel={buyLabel}
+                  preferredAgent={preferredAgent}
+                  onSelectAgent={onSelectAgent}
                   onAttachPhoto={onAttachPhoto}
                   onRemovePhoto={onRemovePhoto}
                   onToggleFavorite={onToggleFavorite}

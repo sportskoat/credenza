@@ -10,6 +10,214 @@ Overwrite sections in place — this is current state, not a log.
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
 
+## 2026-07-26 — HANDOFF TURN 9 (`design_handoff_mobile_shelf 8`) — IN PROGRESS, UNCOMMITTED
+
+**Kyle's instruction:** "ok let's chill on committing stuff im runnng out of
+netifly deployments." All of this work is UNCOMMITTED in the worktree.
+**Do not commit. Do not deploy. Do not merge.** Kyle lifts each separately.
+
+**Which spec is live:** the handoff README line 456 addendum. **Turn 9 is the
+model to implement; it SUPERSEDES every earlier detail-view / card-back spec.**
+Turn 8 (8a/8b/8c) is exploration — read it for rationale, do not build it.
+
+**CRITICAL palette trap.** The handoff writes `--cz-accent` for its green. In
+THIS repo `--cz-accent` is INK (the chrome is deliberately near-monochrome).
+The one green is `--cz-money`. **Every turn-9 green maps to `--cz-money`.**
+Also: `--cz-surface` and `--cz-muted` do NOT exist here. Use `--cz-seg` for a
+neutral tint and `--cz-sub` for body text. Both mistakes shipped silently
+(the browser drops an undefined var) until a screenshot caught them.
+
+**State: 778 tests pass in 44 files. `npx vite build` clean (its 2
+css-syntax-error warnings are PRE-EXISTING). Main bundle 291.37 kB.**
+
+Sections DONE and verified: §10 tokens, §1 spec cells → chips, §2 sizing block,
+§5/§6 status track + timeline, §7 notes clamp/expand, §4 photo panel + album
+links, §8 Buy notch + agent picker, §9 phone sticky bar, §3 no-chart snapshot,
+§11 photo morph + card depth.
+
+Sections REMAINING: none. The turn-9 addendum is fully built.
+
+**§11 photo morph.** The card photo is the shared element and grows into the
+detail photo panel. It uses the browser's **native View Transitions API**, and
+that choice is not a preference — see `docs/carousel-canonical-state.md:170`.
+Two earlier morph attempts in this app cloned nodes with
+`getBoundingClientRect`, flew the clones through a `createPortal` overlay, and
+handed back with double-rAF plus polling. Both were glitchy. Both were deleted.
+The doc forbids reintroducing clones, `getBoundingClientRect`, or a portal for
+this transition. A view transition obeys every clause: the browser snapshots the
+frames itself, the "shared element" is only a matching `view-transition-name` on
+two nodes, and no second copy of the DOM exists at any moment. A test asserts
+the node count does not change during the morph.
+
+Parts: `runPhotoMorph` + `MORPH_NAME_PHOTO`/`MORPH_NAME_TEXT` +
+`supportsViewTransition` in `credenza-fashion.jsx`; `openWithMorph` and
+`morphOpenId` state in the app body; `photoRef`/`textRef`/`morphNodes` in
+`components/Card.jsx`; a `morphing` prop on `DesktopDetailPanel` and
+`DetailSheet` that adds `is-morphing`; four CSS blocks in
+`credenza-fashion.css` (card depth, the `::view-transition-*` animations, the
+desktop rail wipe, the phone hero).
+
+**Three traps §11 hit, all fixed and commented in place:**
+
+1. **`setMorphOpenId` must be INSIDE the `flushSync`, and the cleanup effect
+   must test "no surface is open", NOT "no surface has this id".** Setting the
+   flag before `startViewTransition` looks equivalent and is not: React commits
+   it while no detail surface is mounted, the cleanup effect sees an id with no
+   surface, and clears it before the panel reads it. The panel then mounts
+   unnamed and the morph degrades to a cross-fade. `flushSync` itself is also
+   mandatory — the browser captures the new frame the instant the callback
+   returns, and React's default batching would still hold the update.
+
+2. **A `lazy` detail surface has NO DOM in the captured new frame, and
+   preloading the chunk does NOT fix it.** React initializes a lazy component on
+   its first RENDER attempt, so the Suspense fallback tick happens regardless of
+   when the module lands. `DetailSheet` is therefore a **static import with no
+   Suspense boundary**. Its own chunk was 3.3 kB, so this is the whole cost.
+
+3. **A skipped transition rejects BOTH `ready` and `finished`.** The code only
+   awaits `finished`, so `ready` needs its own `.catch(() => {})` or the browser
+   logs an unhandled rejection on every fast double tap.
+
+Also: only ONE element may carry a given `view-transition-name` per frame, so
+the card releases its name INSIDE the callback as the panel claims it. Two
+elements sharing a name makes the browser skip the whole transition.
+
+**Verification. A skipped transition is SILENT and looks identical to a working
+one on a screenshot, so never verify this by eye.** Both real §11 bugs were
+found only by asserting a matching `::view-transition-new(cz-morph-photo)` —
+that pseudo-element existing is the browser confirming it accepted the pair.
+`scripts/probe-turn9-morph.mjs` asserts it on both platforms. Playwright does
+not composite the view-transition layer either, so its mid-flight shots show the
+shelf, not a photo in flight. To measure the flight, instrument
+`document.startViewTransition`, `pause()` the animations on `ready`, then set
+`currentTime` and read the computed pseudo-element styles. Measured: group
+280ms; box 246.5×308 at (209,241) → 467×626 at (147,71); `object-fit: cover` and
+equal `old`/`new` heights at every sample, which is the no-re-crop proof;
+`old(cz-morph-text)` 60ms; `new(cz-morph-rail)` 220ms after a 60ms delay.
+Reduced motion calls `startViewTransition` zero times and still opens the sheet.
+
+**Card depth lives on `article.cz-editorial-card`, not the inner `.cz-card`.**
+`Card.jsx` sets an INLINE `box-shadow` for the selected/rest pair, and inline
+styles win specificity, so a shadow on the inner div would never appear. Hover
+lift is −6px (was −3). Blackout needs its own alpha pair: the light-theme alphas
+over a black field are invisible.
+
+**§8 Buy notch.** The chevron segment lives INSIDE the Buy action: one
+container, one radius, split by a hairline. `BuyNotch` in
+`components/DetailBody.jsx` reads its price from `priceLabelShort(item)`, NOT
+from `footerPrice` — the phone sheet draws no footer price prop, so feeding the
+picker from the layout made it silently priceless. Without `onSelectAgent` the
+notch degrades to a plain button: a chevron that opens a list which saves
+nothing is worse than no chevron. `chooseBuyingAgent` in `credenza-fashion.jsx`
+reuses the Profile sheet's retired-agent guard. Every picker row shows the SAME
+item price on purpose — agents differ on shipping and service fee, and four
+different numbers would misrepresent what an agent changes. A test locks that.
+The list caps at `min(44vh, 320px)` and a `listRef` effect scrolls the saved
+agent into view on open; without the cap the selected row sat off-screen ABOVE
+the phone viewport while every unit test passed.
+
+**§9 phone sticky bar.** An IntersectionObserver on the hero, root = the
+sheet's own scroller. The bar is a SIBLING of that scroller, never a child — a
+child scrolls away with the content it exists to outlive. It animates its own
+height 0→44px rather than sliding a block over the title. `aria-hidden` and
+`tabIndex={-1}` while down: every control on it repeats one already in the
+sheet, so a duplicate title costs a screen reader and gains nothing.
+**No IntersectionObserver means no bar** — jsdom and old iOS see exactly the
+pre-§9 sheet, which is why the suite stayed green with the bar in the tree.
+`stickyMeta` says `AI SIZE` only when the size really is a recommendation,
+otherwise `SIZE`; the bar must not upgrade a profile guess into an AI read.
+Also in §9: 22px sheet radius (was 26), 38×4 handle, three 32px hero circles at
+gap 6 with the heart leading the cluster, and the footer price box beside the
+notch. **Trap:** the `@media (pointer: coarse)` block near line 5521 pins
+`min-width/min-height: 44px` on every `.cz-favorite-button`, which clamped the
+32px heart back to 44 and left it a puck beside two smaller circles. The hero
+rule now releases both minimums; `.cz-detail-hero-btn::after` still gives it a
+full 44px hit area.
+
+**§3 no-chart snapshot.** Three states in one place, in the order they occur.
+A live customer read outranks everything, then the no-chart ask, then the
+ordinary block. All three are in `components/DetailBody.jsx`.
+
+The ask (`SizingBlockNoChart`) only renders once the hunt has FINISHED. While
+the hunt runs the ordinary block shimmers READING CHART, and asking for a photo
+underneath that asks for work the app may be about to do itself.
+
+**Two doors into one parser.** `chart-vision.js` now accepts inline `photos`
+(base64 data URLs) beside the existing `images` (CDN URLs it fetches through its
+SSRF allowlist). Inline means the server never fetches, so there is no request
+to forge — validation is cost and shape only, and oversize is rejected BEFORE
+the Buffer is allocated. `MAX_INLINE_PHOTOS = 3`, `MAX_INLINE_BYTES = 600*1024`,
+route `bodyBytes: 2560*1024`. Client side both doors meet at `postChartVision`
+in `credenza-fashion.jsx` and return the same `chartText`.
+
+**The read STAGES, it does not commit.** `useCustomerChartRead` returns
+`{reading, chart, text, thumb, error, read, commit, dismiss, fix}`. A photo the
+customer aimed is the most likely read to be right AND the only one they can
+check against the object in their hand, so the preview exists and `commit` is a
+separate call. It writes `sizeChartSource: {via: "customer-photo", seller}`.
+
+**Fix a number** (`ChartFixGrid`, spec line 493). One 38px input per cell, in
+the table's own layout. Three traps, all hit and fixed:
+1. Resetting the editor on `chart` closed it after ONE keystroke — `chart`
+   changes on every correction. It resets on `reading` instead.
+2. Re-serializing per keystroke blanked the cell: a half-typed "1" is under the
+   parser's 20cm floor. `fix` holds the chart raw and sets `dirty`;
+   `serializeSizeChart` runs ONCE, at commit.
+3. Rebuilding a row from its own keys reordered the columns, because clearing a
+   cell deletes the key and the next keystroke appends it. It rebuilds in the
+   TABLE's column order.
+Cells always show CM even when the display unit is inches — the tag is in cm,
+and asking anyone to convert a correction back is how a second error gets in.
+
+**`serializeSizeChart`** (exported from `credenza-fashion.jsx`) emits strategy
+1's own labelled form, which `parseSizeChart` round-trips exactly. It carries NO
+half-chest wording on purpose: `normalizeHalfChestRows` doubles once at parse,
+and emitting 半胸 would double the already-doubled numbers on the way back in.
+
+**The cache IS the shelf** (`chartCacheForSeller`). Every item already carries
+its chart in `sizeNotes` and provenance in `sizeChartSource`, so a separate
+store would be a copy that can go stale against the original. Only READ charts
+qualify (`CHART_CACHE_VIA`), so a guess never spreads between items; newest `at`
+wins; the CHART's own `seller` tag outranks the item's field. `useChartHunt`
+checks it BEFORE the network and writes `via: "seller-cache"`, surfaced as
+`FROM REPLUX'S CHART (CACHED)`. `migrateItem` keeps `sizeChartSource.seller` —
+without that whitelist entry the whole lookup key vanishes on reload.
+
+**Test trap that cost an hour.** A chartless item SWAPS `SizingBlock` for
+`SizingBlockNoChart` the moment the hunt returns null, and the swap mounts a NEW
+`Full chart` node. `screen.getByRole(...)` before the swap captured a node that
+was detached by the time `userEvent.click` ran, so the click landed nowhere and
+`editingCell` stayed null. `fireEvent` worked, `userEvent` did not, and the
+button was visibly present in the dump — the tell was `btn.isConnected === false`
+on the event listener. `clickFullChart()` in `test/fit-block-hunt.test.jsx`
+awaits `findByText("No chart")` first.
+
+**QC photos are NOT gallery photos** (docs/Monetization.md A5). `attachQcImage`
+in `credenza-fashion.jsx` writes `qcPhotos`, so a warehouse photo can never
+contaminate the product gallery. The §9 QC prompt only asks while the order can
+answer: status in bought/shipped/qc AND no QC photo yet. A standing "add QC
+photos" box on a WANT item asks for something that cannot exist.
+
+**Probes** (all kept, all green): `preview/scripts/probe-turn9-notch.mjs`
+(4 shots, `t9-notch-*`), `preview/scripts/probe-turn9-sticky.mjs` (4 shots,
+`t9-sticky-*`, plus 3 console gate checks), and
+`preview/scripts/probe-turn9-nochart.mjs` (7 shots, `t9n-*`: the ask with and
+without a usual size, the scan line, the read-back, the fix grid, and the
+ordinary block after Use this chart). It stubs `**/chart-vision` per request —
+`photos` present means the customer's read, absent means the hunt, which always
+misses so §3 renders at all. **The stub MUST return `found: true`**; without it
+`postChartVision` reads the reply as a miss and every state looks broken. **The probe reads the built `dist`
+on port 4173 — run `npx vite build` BEFORE re-shooting or you photograph the
+old build.** That cost one wasted cycle. Probe scripts must live in
+`preview/scripts/`; from elsewhere they fail `ERR_MODULE_NOT_FOUND`.
+
+**Test-harness traps hit this session.** `cd .../preview && npx vitest run` —
+`cd` does not persist between Bash calls, and running from the worktree root
+produces 30 bogus `document is not defined` failures. `installShim` in
+`fashion-app.test.jsx` returns a `data` object, NOT real localStorage: assert
+on `JSON.parse(data[PREFS_KEY])`. Inside a JSX attribute list you are in JS —
+`{/* … */}` between props is a parse error; use `//`.
+
 ## 2026-07-26 — SIX ISSUES from Kyle's mobile pass — ✅ ALL SIX FIXED (`e135126` + `1032918`, NOT deployed)
 
 Kyle reported six problems from the LIVE mobile web app. All six are fixed and

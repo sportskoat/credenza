@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import Credenza from "../../credenza-fashion.jsx";
@@ -177,10 +177,15 @@ describe("Fashion data and photos", () => {
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
 
     // Unified back (2026-07-25): one filled buy action in the pinned foot —
-    // the phone-sheet rule (two filled twins read as a bug).
+    // the phone-sheet rule (two filled twins read as a bug). Handoff turn 9 §8
+    // adds the agent-picker chevron INSIDE that action: one container, one
+    // radius, split by a hairline. So the foot holds one notch, not two buttons.
     const foot = container.querySelector(".cz-detail-foot");
     expect(foot).toBeTruthy();
-    const buys = [...foot.querySelectorAll("button")];
+    expect(foot.querySelectorAll(".cz-buy-notch").length).toBe(1);
+    const buys = [...foot.querySelectorAll("button")].filter(
+      (b) => !b.classList.contains("cz-buy-notch-toggle")
+    );
     expect(buys.length).toBe(1);
     expect(buys[0]).toHaveTextContent(/Buy/);
     expect(screen.queryByRole("button", { name: /More Photos/i })).not.toBeInTheDocument();
@@ -208,7 +213,7 @@ describe("Fashion card-back navigation and editing", () => {
     expect(back?.textContent || "").toMatch(/X-Large/i);
 
     // Edit Batch in place: tap the cell, type into the inline editor.
-    await user.click(screen.getByRole("button", { name: /Batch\s*Original/ }));
+    await user.click(screen.getByRole("button", { name: /Batch: Original/ }));
     const batchField = await screen.findByLabelText("Batch");
     await user.clear(batchField);
     await user.type(batchField, "Discard me");
@@ -245,7 +250,7 @@ describe("Fashion card-back navigation and editing", () => {
     // The unified back shows Batch as a spec cell (no hidden-until-edit fields).
     expect(screen.getByText("Original")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Batch\s*Original/ }));
+    await user.click(screen.getByRole("button", { name: /Batch: Original/ }));
     let batchField = await screen.findByLabelText("Batch");
     await user.clear(batchField);
     await user.type(batchField, "Saved batch");
@@ -254,7 +259,7 @@ describe("Fashion card-back navigation and editing", () => {
     await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Saved batch"), { timeout: 2000 });
 
-    await user.click(screen.getByRole("button", { name: /Batch\s*Saved batch/ }));
+    await user.click(screen.getByRole("button", { name: /Batch: Saved batch/ }));
     batchField = await screen.findByLabelText("Batch");
     expect(batchField).toHaveValue("Saved batch");
     await user.clear(batchField);
@@ -262,7 +267,7 @@ describe("Fashion card-back navigation and editing", () => {
     // Done also flushes write-through — nothing is discarded.
     await user.click(screen.getByRole("button", { name: "Done" }));
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Also kept"), { timeout: 2000 });
-    await user.click(screen.getByRole("button", { name: /Batch\s*Also kept/ }));
+    await user.click(screen.getByRole("button", { name: /Batch: Also kept/ }));
     expect(await screen.findByLabelText("Batch")).toHaveValue("Also kept");
   });
 
@@ -915,13 +920,14 @@ describe("Fashion accessibility (Part 5)", () => {
     const { container } = render(<Credenza />);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    // Unified back: the haul editor opens from the Haul spec cell, then the
-    // accordion head expands the same listbox the old card back used.
+    // Unified back: the haul editor opens from the Haul chip (turn 9 §1 —
+    // spec cells became chips), then the accordion head expands the same
+    // listbox the old card back used.
     const back = container.querySelector(".cz-carousel-back");
-    const haulCell = [...back.querySelectorAll(".cz-detail-cell")].find((c) =>
-      /Haul/.test(c.textContent || "")
+    const haulChip = [...back.querySelectorAll(".cz-detail-chip")].find((c) =>
+      /haul/i.test(c.textContent || "")
     );
-    await user.click(haulCell);
+    await user.click(haulChip);
     await user.click(await screen.findByRole("button", { name: /Add to a haul/i }));
     const listbox = await screen.findByRole("listbox", { name: "Hauls" });
     const options = [...listbox.querySelectorAll('[role="option"]')];
@@ -978,22 +984,31 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     expect(screen.queryByRole("button", { name: /^Save$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Edit$/ })).toBeNull();
-    // Six spec cells, Size · fit among them.
-    const cells = document.querySelectorAll(".cz-detail-cell");
-    expect(cells).toHaveLength(6);
-    const labels = Array.from(cells).map((c) =>
-      c.querySelector(".cz-detail-cell-label").textContent.trim()
-    );
-    expect(labels).toEqual(["Price", "Size · fit", "Colorway", "Weight", "Batch", "Haul"]);
+    // Handoff turn 9 §1: the six-cell grid is retired. Four short facts render
+    // as chips; price moves to the footer and size gets its own block. An
+    // em-dash is never rendered — an unset field is a dashed add-chip.
+    const chips = document.querySelectorAll(".cz-detail-chip");
+    expect(chips).toHaveLength(4);
+    // The fixture carries a batch and nothing else, so exactly one chip is
+    // solid and the other three are dashed add-chips.
+    expect(Array.from(chips).map((c) => c.textContent.trim())).toEqual([
+      "+ colorway",
+      "+ weight",
+      "M32126-109E",
+      "+ haul",
+    ]);
+    expect(document.querySelector(".cz-detail-chips").textContent).not.toContain("—");
   });
 
-  it("a cell tap opens exactly one inline editor and the edit persists", async () => {
+  it("a chip tap opens exactly one inline editor and the edit persists", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
-    await user.click(screen.getByRole("button", { name: /^Colorway/ }));
+    // The fixture has no colorway, so the chip is a dashed add-chip. Its
+    // visible text is "+ colorway"; its accessible name says the action.
+    await user.click(screen.getByRole("button", { name: "Add Colorway" }));
     const input = await screen.findByLabelText("Colorway");
     // 16px is the iOS zoom floor; the editor sets it in CSS, so assert the
     // class that carries it rather than a computed style jsdom does not load.
@@ -1009,13 +1024,16 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("the Size · fit cell opens the fit block, never a bare text input", async () => {
+  // Handoff turn 9 §2: the "Size · fit" cell is retired. Sizing is its own
+  // always-visible block, and its "Full chart" button opens the same sheet.
+  it("Full chart opens the fit block, never a bare text input", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
-    await user.click(screen.getByRole("button", { name: /^Size · fit/ }));
+    expect(document.querySelector(".cz-sizing")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: /Full chart/ }));
     expect(document.querySelector(".cz-detail-fit")).not.toBeNull();
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
     expect(screen.getByRole("button", { name: "Set my sizes" })).toBeInTheDocument();
@@ -1043,7 +1061,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     await openSheet(user);
 
-    await user.click(screen.getByRole("button", { name: /^Size · fit/ }));
+    await user.click(screen.getByRole("button", { name: /Full chart/ }));
     const restore = await screen.findByRole("button", { name: "Use AI Recommendation" });
     await user.click(restore);
 
@@ -1073,6 +1091,318 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     await user.click(chips[2]);
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("shipped"));
+  });
+
+  // ── Handoff turn 9 §5 / §6 ──
+  it("the next-action pill advances the status in one tap", async () => {
+    // §5: the four equal chips reported state but offered no way forward. A
+    // single right-aligned primary owns the next transition.
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "want" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    // The sub-label says where the order is, in the customer's words.
+    expect(screen.getByText("WANT · NOT ORDERED")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Mark bought/ }));
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("bought"));
+    // The pill re-aims at the new next step; it is not a one-shot control.
+    expect(await screen.findByRole("button", { name: /Mark shipped/ })).toBeInTheDocument();
+  });
+
+  it("an off-track status shows a detour node, never a fifth step", async () => {
+    // §5: "Off-track states render as a labelled detour node, not a fifth
+    // step." A failed QC is a decision, so it gets no one-tap primary either.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "rl" })]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const track = screen.getByRole("radiogroup", { name: "Order status" });
+    // Still four stops — the detour did not become a column.
+    expect(track.querySelectorAll("button")).toHaveLength(4);
+    expect(screen.getByText("QC failed")).toBeInTheDocument();
+    expect(screen.getByText("QC FAILED · YOUR CALL")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Mark / })).toBeNull();
+  });
+
+  it("the timeline is generated from what the item already carries", async () => {
+    // §6: "generated from existing events — no new user input". The fixture
+    // has a seller, a price, a hand size, and no haul, so it earns two rows.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ project: "" })]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const rows = document.querySelectorAll(".cz-timeline-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain("Clipped from Mook-official");
+    expect(rows[1].textContent).toContain("Sized");
+    // A haul row appears only when the item is in a haul.
+    expect(document.querySelector(".cz-timeline").textContent).not.toContain("Added to");
+  });
+
+  // ── Handoff turn 9 §4 ──
+  it("both album links return, to two different destinations", async () => {
+    // §4: "These are two different destinations and must not be merged."
+    // Left opens every photo of THIS item; right opens the seller's store.
+    // Merging them is what lost the seller's profile.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const row = document.querySelector(".cz-album-links");
+    const tiles = row.querySelectorAll("a.cz-album-link-tile");
+    expect(tiles).toHaveLength(2);
+    expect(tiles[0].getAttribute("href")).toBe(
+      "https://mook-official.x.yupoo.com/albums/244505824?uid=1"
+    );
+    expect(tiles[1].getAttribute("href")).toBe("https://mook-official.x.yupoo.com/");
+    // The kickers name the KIND of destination, so the two never read alike.
+    expect(tiles[0].textContent).toContain("All photos");
+    expect(tiles[1].textContent).toContain("Seller");
+  });
+
+  it("the album row sits under the photo strip, not at the bottom of the rail", async () => {
+    // §4: the strip and the links are "its own row below" the photo. §9 puts
+    // them there in the phone order too — photo, strip, links, then title.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const tail = document.querySelector(".cz-detail-photo-tail");
+    expect(tail.querySelector(".cz-detail-photos")).not.toBeNull();
+    expect(tail.querySelector(".cz-album-links")).not.toBeNull();
+    // The tail precedes the title, so the photo block is one object.
+    const title = document.querySelector(".cz-detail-title-btn");
+    expect(tail.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("omits a tile it cannot point anywhere, never an empty one", async () => {
+    // Same rule as §1: omit, never invent. No seller account means no store
+    // link, so the row shows the album alone rather than a dead tile.
+    installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ seller: "", sellerAccount: "" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const tiles = document.querySelectorAll(".cz-album-links a.cz-album-link-tile");
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].textContent).toContain("All photos");
+  });
+
+  // ── Handoff turn 9 §7 ──
+  it("notes start clamped and Expand opens the same box", async () => {
+    // §7: "Never a fixed 2-line box, never a truncation with no way out."
+    // The label lives inside the box, so the box reads as one object. The
+    // toggle changes the box height only — it never swaps in a second field,
+    // so focus and the autosave path stay on the one textarea.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const box = document.querySelector(".cz-detail-notes-box");
+    const field = screen.getByRole("textbox", { name: "Notes" });
+    expect(box.contains(field)).toBe(true);
+    expect(box.classList.contains("is-open")).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: /Expand/ }));
+    expect(box.classList.contains("is-open")).toBe(true);
+    // Same node, not a replacement — the box is the field you type in.
+    expect(screen.getByRole("textbox", { name: "Notes" })).toBe(field);
+
+    await user.click(screen.getByRole("button", { name: /Collapse/ }));
+    expect(box.classList.contains("is-open")).toBe(false);
+  });
+
+  it("typing in the notes opens the box, so text is never hidden as you write", async () => {
+    // A clamped box that stays clamped while you type is the truncation §7
+    // rejects. Focus opens it.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ note: "" })]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const box = document.querySelector(".cz-detail-notes-box");
+    expect(box.classList.contains("is-open")).toBe(false);
+    await user.click(screen.getByRole("textbox", { name: "Notes" }));
+    expect(box.classList.contains("is-open")).toBe(true);
+  });
+
+  // ── Handoff turn 9 §8 ──
+  it("the Buy notch changes the agent in place and the label follows", async () => {
+    // §8: the chevron segment opens the agent list at the moment the choice
+    // matters. Before this the only path was Profile → Buying agent.
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem()]),
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, preferredAgent: "superbuy" }),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    expect(screen.getByRole("button", { name: /Buy via Superbuy/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Choose buying agent" }));
+
+    const list = screen.getByRole("radiogroup", { name: "Buying agent" });
+    // The saved agent is the checked radio, so the list says which one is live.
+    expect(screen.getByRole("radio", { name: /Superbuy/ })).toBeChecked();
+
+    await user.click(within(list).getByRole("radio", { name: /Sugargoo/ }));
+    // The choice sticks as the default — the label and the stored pref agree.
+    expect(await screen.findByRole("button", { name: /Buy via Sugargoo/ })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(JSON.parse(data[PREFS_KEY]).preferredAgent).toBe("sugargoo")
+    );
+    // Picking closes the list: the choice is made, the notch is the answer.
+    expect(screen.queryByRole("radiogroup", { name: "Buying agent" })).toBeNull();
+  });
+
+  it("every agent row shows the same item price, because that is the truth", async () => {
+    // §8: "Item price is the same everywhere — agents differ on shipping and
+    // service fee." Four different numbers would lie about what an agent
+    // changes, so the repetition is the message.
+    installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ price: 249, currency: "CNY" })]),
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, preferredAgent: "superbuy" }),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+    await user.click(screen.getByRole("button", { name: "Choose buying agent" }));
+
+    const prices = [...document.querySelectorAll(".cz-agent-pop-price")].map(
+      (el) => el.textContent
+    );
+    expect(prices.length).toBeGreaterThan(1);
+    expect(new Set(prices).size).toBe(1);
+    expect(
+      screen.getByText(/agents differ on shipping and service fee/i)
+    ).toBeInTheDocument();
+  });
+
+  // ── Handoff turn 9 §9 ──
+  it("states the price once, in the footer box next to the notch", async () => {
+    // §9: "price in a white hair-bordered box + the notched Buy filling the
+    // rest". §1 took the price out of the chip row, so the footer is the only
+    // place the phone says the number. Two places would be two chances to
+    // disagree.
+    installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ price: 229, currency: "CNY" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    // 229 CNY at the 0.14 fallback rate. The box shows USD because that is
+    // what priceLabelShort prefers everywhere else on the shelf.
+    const box = document.querySelector(".cz-detail-foot-price");
+    expect(box).not.toBeNull();
+    expect(box.textContent).toBe("$32.06");
+    // One box, one notch, in that order — the notch takes the rest of the row.
+    const row = box.closest(".cz-detail-foot-row");
+    expect(row.querySelectorAll(".cz-detail-foot-price")).toHaveLength(1);
+    expect(row.querySelector(".cz-buy-notch")).not.toBeNull();
+    // The chips no longer carry it (§1), so the number appears exactly once.
+    expect(document.querySelector(".cz-detail-chips").textContent).not.toContain("32.06");
+  });
+
+  it("leads the hero cluster with the heart, and the heart writes through", async () => {
+    // §9: "one cluster, top-right" — heart, ⋯, ✕. The heart used to live in
+    // the card face only, so the sheet had no way to star what you were
+    // reading.
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const sheet = await openSheet(user);
+
+    const cluster = sheet.querySelector(".cz-detail-hero-actions");
+    expect(cluster).not.toBeNull();
+    const labels = [...cluster.querySelectorAll("button")].map((b) =>
+      b.getAttribute("aria-label")
+    );
+    expect(labels).toEqual(["Star Palace x Nike jersey", "More actions", "Close"]);
+
+    await user.click(within(cluster).getByRole("button", { name: /^Star / }));
+    // The star is a real write, not a hero-only flourish.
+    await waitFor(() =>
+      expect(JSON.parse(data[STORE_KEY])[0].favorite).toBe(true)
+    );
+    expect(
+      within(cluster).getByRole("button", { name: /^Unstar / })
+    ).toBeInTheDocument();
+  });
+
+  it("asks for QC photos only while the order is with the agent", async () => {
+    // §9: the QC prompt asks about a moment that has not happened yet, so it
+    // only asks while the order can answer. A standing "add QC photos" box on
+    // a WANT item asks for something that cannot exist.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "want" })]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+    expect(document.querySelector(".cz-detail-qc-prompt")).toBeNull();
+
+    cleanup();
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "shipped" })]) });
+    render(<Credenza />);
+    await openSheet(user);
+    expect(document.querySelector(".cz-detail-qc-prompt")).not.toBeNull();
+    expect(
+      screen.getByText(/Add QC photos when your order arrives at the agent/i)
+    ).toBeInTheDocument();
+
+    // Once a QC photo exists the question is answered, so the box goes away.
+    cleanup();
+    installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({ findStatus: "shipped", qcPhotos: [PHOTO_2] }),
+      ]),
+    });
+    render(<Credenza />);
+    await openSheet(user);
+    expect(document.querySelector(".cz-detail-qc-prompt")).toBeNull();
+  });
+
+  it("keeps the sticky bar out of the tree where no observer exists", async () => {
+    // §9's bar is driven by IntersectionObserver, which jsdom does not have —
+    // and neither does an old iOS. No observer must mean no bar, never a bar
+    // stuck up over the title. The gate is the observer, so the markup is
+    // present but stays in its closed state.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const sheet = await openSheet(user);
+
+    const bar = sheet.querySelector(".cz-detail-stickybar");
+    expect(bar).not.toBeNull();
+    expect(bar.classList.contains("is-up")).toBe(false);
+    // Down means hidden: it repeats controls the sheet already shows, so a
+    // screen reader gains nothing and its ✕ must not take a tab stop.
+    expect(bar).toHaveAttribute("aria-hidden", "true");
+    expect(bar.querySelector(".cz-detail-stickybar-close")).toHaveAttribute("tabindex", "-1");
+    // It says which item you are in, and it names who chose the size.
+    expect(bar.querySelector(".cz-detail-stickybar-title").textContent).toBe(
+      "Palace x Nike jersey"
+    );
+    // "SIZE", not "AI SIZE": the fixture carries a chosen size, so the bar
+    // must not upgrade a saved choice into a recommendation. The token is
+    // spelled the way the sizing block spells it.
+    expect(bar.querySelector(".cz-detail-stickybar-meta").textContent).toBe(
+      "SIZE X-Large · $32.06"
+    );
+    // The bar is a SIBLING of the scroller: a child would scroll away with
+    // the content it exists to outlive.
+    expect(bar.parentElement.querySelector(".cz-detail-scroll")).not.toBeNull();
+    expect(bar.closest(".cz-detail-scroll")).toBeNull();
   });
 });
 

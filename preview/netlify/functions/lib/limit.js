@@ -9,7 +9,13 @@
 // known limitation in docs/session-state.md.
 
 const ROUTES = {
-  "chart-vision": { paid: true, perIpPerMin: 10, routePerMin: 60, maxConcurrent: 3, bodyBytes: 64 * 1024 },
+  // chart-vision carries INLINE photos since handoff turn 9 §3 (a camera frame
+  // has no CDN URL, so the allowlist path cannot serve it). Three frames at the
+  // function's 600KB-each ceiling, plus base64's 4/3 expansion and the JSON
+  // wrapper, is the real worst case. 2.5MB holds it with room; the per-photo
+  // and per-count caps inside chart-vision.js are the tighter limits, and the
+  // client compresses each frame to about 24KB before it ever posts.
+  "chart-vision": { paid: true, perIpPerMin: 10, routePerMin: 60, maxConcurrent: 3, bodyBytes: 2560 * 1024 },
   ask: { paid: true, perIpPerMin: 20, routePerMin: 120, maxConcurrent: 4, bodyBytes: 64 * 1024 },
   resolve: { paid: true, perIpPerMin: 20, routePerMin: 120, maxConcurrent: 4, bodyBytes: 8 * 1024 },
   yupoo: { paid: false, perIpPerMin: 30, routePerMin: 180, maxConcurrent: 8, bodyBytes: 8 * 1024 },

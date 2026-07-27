@@ -24,7 +24,12 @@
   --cz-placeholder: var(--cz-faint);
 }
 
-/* Fashion variant: product-card hover lift */
+/* ═══ §11 card depth (handoff turn 9) ═══
+   Shelf cards get a two-layer contact shadow and a +6px hover lift, "so they
+   don't read flat before the morph starts". Two layers, not one: a tight dark
+   shadow is the contact point where the card meets the shelf, and a wide soft
+   one is the ambient occlusion above it. A single blur can be one or the other
+   and reads as a sticker either way. */
 .cz-app[data-fashion="true"] article {
   transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
 }
@@ -40,11 +45,111 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  /* §11: +6px, up from 3. The lift has to be legible as an invitation, and the
+     card's own inline box-shadow (Card.jsx, the selected/rest pair) still wins
+     specificity on the wrapper — so the depth lives on this article, which the
+     inline style never touches. */
   .cz-app[data-fashion="true"] article:hover {
-    transform: translateY(-3px);
+    transform: translateY(-6px);
     box-shadow:
-      0 20px 40px oklch(0 0 0 / 0.12),
-      0 6px 12px oklch(0 0 0 / 0.08);
+      0 2px 4px oklch(0 0 0 / 0.14),
+      0 22px 44px oklch(0 0 0 / 0.13);
+  }
+}
+
+/* Resting contact shadow. The card reads as an object on a shelf rather than a
+   rectangle pasted onto the page — the tight layer is the contact, the wide one
+   the ambient shade. Blackout gets its own pair below: the same alphas over a
+   black field are invisible. */
+.cz-app[data-fashion="true"] .cz-editorial-card {
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.10),
+    0 10px 24px oklch(0 0 0 / 0.07);
+  border-radius: 16px;
+}
+
+.cz-app[data-fashion="true"][data-theme="dark"] .cz-editorial-card {
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.55),
+    0 12px 28px oklch(0 0 0 / 0.45);
+}
+
+/* ═══ §11 card → detail photo morph ═══
+   The card's photo is the shared element: it grows from its shelf rect into the
+   detail photo panel in ~280ms ease-out with no re-crop, the card's text fades
+   at 60ms, and the info rail wipes in from the photo's inner edge.
+   ─────────────────────────────────────────────────────────────────────────────
+   This is the browser's View Transition API and nothing else. Read
+   docs/carousel-canonical-state.md before changing it: two earlier morph
+   attempts in this app cloned DOM nodes with getBoundingClientRect(), flew the
+   clones through a createPortal overlay to hand-computed coordinates, and handed
+   back to the real element via double-rAF plus polling. Both were visibly
+   glitchy; both were deleted. The rule from that post-mortem is explicit — no
+   clones, no rect measurement, no portal. A view transition obeys it: the
+   browser snapshots the frames itself and the "shared element" is only a
+   matching view-transition-name on two nodes. No second copy of the DOM exists.
+
+   Every rule here is inside @supports. In Firefox and Safari < 18 the whole
+   block is dead CSS and the app keeps the entrance animations it already had. */
+@supports (view-transition-name: none) {
+  ::view-transition-group(cz-morph-photo) {
+    /* The spec'd 280ms ease-out. This drives BOTH the position/size tween and
+       the cross-fade of the two photo snapshots. */
+    animation-duration: 280ms;
+    animation-timing-function: var(--ease-out);
+  }
+
+  /* "No re-crop." The two photos are different aspect ratios — a 4/5 card cover
+     and a contain-fit stage — and the default cross-fade would stretch each
+     snapshot to the group's animating box, so the image would visibly squash
+     and un-squash on the way across. Scaling both snapshots by the same factor
+     keeps the photo's own proportions for the whole flight. */
+  ::view-transition-old(cz-morph-photo),
+  ::view-transition-new(cz-morph-photo) {
+    animation-duration: 280ms;
+    animation-timing-function: var(--ease-out);
+    height: 100%;
+    object-fit: cover;
+    overflow: clip;
+  }
+
+  /* Card text fades at 60ms — quick, because it is the one element that has no
+     counterpart on the other side. It must be gone before the eye follows the
+     photo, or it reads as a leftover. */
+  ::view-transition-old(cz-morph-text) {
+    animation: cz-morph-text-out 60ms linear both;
+  }
+  ::view-transition-new(cz-morph-text) {
+    /* The detail side has no text with this name, so there is no new snapshot to
+       animate. The rule exists so a future surface that DOES claim the name
+       cannot inherit the 60ms fade meant for a disappearing element. */
+    animation: none;
+  }
+
+  @keyframes cz-morph-text-out {
+    to { opacity: 0; }
+  }
+
+  /* The rest of the page cross-fades under the morph. The root's default
+       animation is a 250ms fade, which is close enough to the photo's 280ms to
+       read as one motion; matching it exactly keeps them from finishing apart. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 280ms;
+    animation-timing-function: var(--ease-out);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The JS path already skips startViewTransition under reduced motion, so this
+     is the belt: a transition begun before the preference changed ends at once
+     rather than mid-flight. */
+  @supports (view-transition-name: none) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
   }
 }
 
@@ -8795,7 +8900,9 @@ a.cz-card-seller:hover {
   height: calc(100dvh - 88px);
   overflow: hidden;
   background: var(--cz-bg);
-  border-radius: 26px 26px 0 0;
+  /* §9: 22px, not 26. A tighter corner reads as a sheet pinned to the edge
+     rather than a floating card. */
+  border-radius: 22px 22px 0 0;
   box-shadow: 0 -12px 40px oklch(0 0 0 / 0.24);
   animation: cz-detail-up 260ms cubic-bezier(0.22, 0.9, 0.3, 1) both;
 }
@@ -8807,6 +8914,30 @@ a.cz-card-seller:hover {
 
 .cz-detail-surface.is-still {
   animation: none;
+}
+
+/* ═══ §11 morph — the receiving side (phone sheet) ═══
+   .is-morphing is set only when this sheet arrived from a card tap through a
+   view transition. Two things change.
+
+   1. The slide-up goes away. The morph IS the entrance; playing both slides the
+      whole surface upward while the photo inside it is still flying to its
+      landing box, and the photo's own snapshot would be animating against a
+      moving parent. The sheet just exists, and the photo does the motion.
+   2. The photo hero claims the card photo's shared name, so the card's cover
+      grows into it. Nothing is cloned — see the §11 block near the top of this
+      file and docs/carousel-canonical-state.md for why that matters here.
+
+   Both are gated on .is-morphing: a keyboard open, a deep link, or reduced
+   motion has no morph, and a sheet with no slide-up and no morph would simply
+   appear with no transition at all. */
+@supports (view-transition-name: none) {
+  .cz-detail-surface.is-morphing {
+    animation: none;
+  }
+  .cz-detail-surface.is-morphing .cz-detail-hero {
+    view-transition-name: cz-morph-photo;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -8824,7 +8955,8 @@ a.cz-card-seller:hover {
 }
 
 .cz-detail-grip span {
-  width: 40px;
+  /* §9: 38×4. */
+  width: 38px;
   height: 4px;
   border-radius: 999px;
   background: var(--cz-hair-strong);
@@ -9222,19 +9354,41 @@ a.cz-card-seller:hover {
   top: 10px;
   right: 10px;
   display: flex;
-  gap: 8px;
+  /* §9: "one cluster, top-right". A tighter gap so three 32px circles read as
+     one group rather than three separate pucks. */
+  gap: 6px;
 }
 
-/* 36px on purpose: these sit on the photo, away from the thumb rail, and the
-   44px rule below would cover the image. Everything in the reachable half of
-   the sheet is 44px. */
+/* The heart is a FavoriteButton, which brings its own 38px box and transparent
+   background. Inside the cluster it has to match its two neighbours exactly,
+   so the hero class wins on size and the fill comes from .cz-detail-hero-btn.
+   The heart colour stays FavoriteButton's — that is the like state, not
+   chrome. */
+.cz-detail-hero-fav.cz-favorite-button {
+  width: 32px;
+  height: 32px;
+  /* The coarse-pointer block above pins min-width/min-height 44px on every
+     .cz-favorite-button, which clamped a 32px width straight back to 44 and
+     left the heart a puck beside two smaller circles. Releasing the minimums
+     costs no reach: .cz-detail-hero-btn::after still gives this button the
+     full 44px hit area, and it wins over the heart's own 3px ring by order. */
+  min-width: 0;
+  min-height: 0;
+  filter: none;
+}
+
+/* 32px on purpose (§9): these sit on the photo, away from the thumb rail, and
+   a 44px circle would cover the image. Everything in the reachable half of
+   the sheet is 44px, and the ::after below gives this one the same hit area. */
 .cz-detail-hero-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  /* §9: "header buttons on the photo shrink to 32px frosted circles". The
+     visual is 32px; the ::after below still gives the finger a full 44px. */
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -9374,110 +9528,560 @@ a.cz-card-seller:hover {
 }
 
 /* ── Spec cells ── */
-.cz-detail-cells {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+/* ── Spec chips (handoff turn 9 §1) ──
+   The 3x2 cell grid is retired. It reserved a fixed box for every field, and
+   on a typical item colorway, weight and batch were all em-dashes — so a
+   third of the sheet was empty boxes and the real content (sizing) was pushed
+   below the fold. Chips size to their content and wrap, so an item with one
+   fact set costs one chip, not six boxes.
+
+   A SET field is a solid chip. An UNSET field is a dashed add-chip reading
+   "+ colorway". An em-dash is never rendered. */
+.cz-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 16px;
 }
 
-.cz-detail-cell {
-  display: grid;
-  gap: 3px;
-  align-content: center;
-  min-height: 56px;
-  padding: 9px 10px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 12px;
-  background: var(--cz-card-solid);
+.cz-detail-chip {
+  display: inline-flex;
+  align-items: center;
+  /* 30px is the handoff height. It is under the 44px touch floor, so the row
+     gets vertical padding from the gap and each chip carries a transparent
+     outline hit area via padding — the label itself is short. */
+  min-height: 30px;
+  max-width: 100%;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  line-height: 1.2;
   text-align: left;
   cursor: pointer;
-}
-
-.cz-detail-cell.is-active {
-  background: var(--cz-action-fill);
-  border-color: var(--cz-action-fill);
-  color: var(--cz-action-text);
-}
-
-.cz-detail-cell-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  /* 10px is the floor the handoff sets. Tracking pays for the extra pixel so
-     the widest label ("Size · fit") still fits one third of the row. */
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-
-.cz-detail-cell.is-active .cz-detail-cell-label {
-  color: var(--cz-action-text-divider);
-}
-
-.cz-detail-cell-value {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-  font-size: 14px;
-  font-weight: 650;
-  color: var(--cz-ink);
-}
-
-.cz-detail-cell-value > span:first-child {
+  /* A long haul name must not push the row wider than the sheet. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cz-detail-cell.is-active .cz-detail-cell-value {
+.cz-detail-chip.is-set {
+  background: var(--cz-chip-fill);
+  color: var(--cz-sub);
+}
+
+.cz-detail-chip.is-add {
+  border-style: dashed;
+  border-color: var(--cz-hair-strong);
+  background: transparent;
+  color: var(--cz-faint);
+}
+
+.cz-detail-chip.is-active {
+  background: var(--cz-action-fill);
+  border-color: var(--cz-action-fill);
+  border-style: solid;
   color: var(--cz-action-text);
 }
 
-/* The Size · fit cell only wears the money treatment while the value is
-   still the recommendation. A user-set size renders like any other cell. */
-.cz-detail-cell.is-rec {
-  border-color: color-mix(in srgb, var(--cz-money) 42%, transparent);
+@media (min-width: 1024px) {
+  .cz-detail-chips {
+    gap: 7px;
+  }
 }
 
-.cz-detail-cell.is-rec .cz-detail-cell-label {
+/* ── Sizing block (handoff turn 9 §2) — the flagship ──
+   Sizing is the only field on the sheet that carries a REASON, so it gets a
+   card of its own instead of a third-width cell. Green border, because the
+   money green is the one hue in this near-monochrome system and the sizing
+   verdict is what the app is for. */
+.cz-sizing {
+  margin-top: 14px;
+  border: 1px solid color-mix(in srgb, var(--cz-money) 40%, transparent);
+  border-radius: 14px;
+  background: var(--cz-card-solid);
+  overflow: hidden;
+}
+
+.cz-sizing-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 13px 0;
+}
+
+.cz-sizing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cz-money);
+  flex: 0 0 auto;
+}
+
+.cz-sizing-kicker {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--cz-money);
 }
 
-.cz-detail-cell-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
+.cz-sizing-prov {
+  margin-left: auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--cz-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-sizing-value-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  padding: 3px 13px 0;
+  min-width: 0;
+}
+
+.cz-sizing-value {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--cz-money);
+}
+
+/* The shimmer marks a LIVE recommendation. A hand-picked size renders flat,
+   so the treatment always means "the app decided this, not you". */
+.cz-sizing-value.t-shimmer {
+  --shimmer-base: var(--cz-money);
+  --shimmer-highlight: color-mix(in srgb, var(--cz-money) 45%, white 55%);
+}
+
+.cz-sizing.is-manual .cz-sizing-value {
+  color: var(--cz-ink);
+}
+
+.cz-sizing.is-manual .cz-sizing-dot {
+  background: var(--cz-faint);
+}
+
+.cz-sizing.is-manual .cz-sizing-kicker {
+  color: var(--cz-faint);
+}
+
+.cz-sizing.is-manual {
+  border-color: var(--cz-hair);
+}
+
+.cz-sizing-value.is-empty {
+  color: var(--cz-faint);
+}
+
+.cz-sizing-aside {
+  padding-bottom: 5px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--cz-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The prescription sits OUTSIDE the card. Inside, a two-line sentence pushed
+   the chart row down and made the block look ragged at different lengths. */
+.cz-sizing-why {
+  margin: 8px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* One cell per size, showing the measurement the pick was read from — the
+   verdict is checkable without opening the full table. */
+.cz-sizing-chart {
+  display: flex;
+  gap: 4px;
+  padding: 10px 13px 0;
+}
+
+.cz-sizing-cell {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 6px 2px;
+  border-radius: 8px;
+  background: var(--cz-seg);
+}
+
+.cz-sizing-cell-k {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9px;
+  color: var(--cz-faint);
+}
+
+.cz-sizing-cell-v {
+  font-size: 11px;
+  color: var(--cz-sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.cz-sizing-cell.is-pick {
   background: var(--cz-money);
 }
 
-.cz-detail-cell.is-rec .cz-detail-cell-value {
+.cz-sizing-cell.is-pick .cz-sizing-cell-k {
   font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.cz-sizing-cell.is-pick .cz-sizing-cell-v {
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ── No chart → snapshot into the parser (handoff turn 9 §3) ──
+   Dashed, because this is the one sizing state that states a fallback rather
+   than a fact. Warn amber on the dot and the label; the value stays flat ink,
+   so a usual size never borrows the green a verified pick earns. */
+.cz-sizing-nochart {
+  border: 1px dashed var(--cz-hair-strong);
+  padding-bottom: 12px;
+}
+
+.cz-sizing-nochart .cz-sizing-dot {
+  background: var(--cz-warn);
+}
+
+.cz-sizing-nochart .cz-sizing-kicker {
+  color: var(--cz-warn-ink);
+}
+
+.cz-sizing-nochart .cz-sizing-value {
+  color: var(--cz-ink);
+}
+
+.cz-sizing-nochart-body {
+  margin: 7px 13px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* 50/50, so neither door reads as the afterthought. The album row below is the
+   third option and gets the quieter tinted strip. */
+.cz-sizing-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 11px 13px 0;
+}
+
+.cz-sizing-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cz-ink);
+  cursor: pointer;
+}
+
+.cz-sizing-action.is-primary {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
+/* The label IS the control. The input only has to exist for the picker. */
+.cz-sizing-action input {
+  display: none;
+}
+
+.cz-sizing-albumrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 26px);
+  margin: 9px 13px 0;
+  padding: 7px 9px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 11px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-sub);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-sizing-albumthumbs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+}
+
+.cz-sizing-albumthumb {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  border: 1px solid var(--cz-hair);
+  object-fit: cover;
+  background: var(--cz-seg);
+}
+
+.cz-sizing-albumtext {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+/* ── Reading the customer's chart photo (handoff turn 9 §3) ── */
+.cz-sizing-reading {
+  padding-bottom: 12px;
+}
+
+.cz-sizing-reading.is-error {
+  border-color: var(--cz-hair-strong);
+}
+
+.cz-sizing-reading.is-error .cz-sizing-dot {
+  background: var(--cz-warn);
+}
+
+.cz-sizing-reading.is-error .cz-sizing-kicker {
+  color: var(--cz-warn-ink);
+}
+
+.cz-sizing-read-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 9px 13px 0;
+}
+
+.cz-sizing-read-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 96px;
+  height: 96px;
+  border-radius: 10px;
+  border: 1px solid var(--cz-hair);
+  background: var(--cz-seg);
+  overflow: hidden;
+}
+
+.cz-sizing-read-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* The scan line says the photo is being WORKED ON, not merely attached. It
+   runs only while the read is open, and stops the moment a result exists. */
+.cz-sizing-read-thumb.is-scanning::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--cz-money);
+  box-shadow: 0 0 9px 2px color-mix(in srgb, var(--cz-money) 55%, transparent);
+  animation: cz-sizing-scan 1.5s ease-in-out infinite;
+}
+
+@keyframes cz-sizing-scan {
+  0% { top: 0; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: calc(100% - 2px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the line — it marks WHICH photo is being read — but stop the travel. */
+  .cz-sizing-read-thumb.is-scanning::after {
+    animation: none;
+    top: 50%;
+  }
+}
+
+.cz-sizing-read-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-sizing-read-retry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  color: var(--cz-sub);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* With no chart to accept, the retry is the only action and takes the row. */
+.cz-sizing-actions > .cz-sizing-read-retry:only-child {
+  grid-column: 1 / -1;
+}
+
+/* Three actions now (accept, fix, reject), so the row wraps to two lines: the
+   filled accept pill keeps its half, and "Not this one" takes the full width
+   underneath. It is the destructive one and must not sit beside the fix. */
+.cz-sizing-read-retry.is-wide {
+  grid-column: 1 / -1;
+  min-height: 38px;
+}
+
+/* ── Fix a number (handoff turn 9 §3) ── */
+.cz-sizing-fix {
+  display: grid;
+  gap: 4px;
+  padding: 10px 13px 0;
+}
+
+.cz-sizing-fix-head,
+.cz-sizing-fix-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The size label column. Fixed so every row's inputs line up under the
+   header, whatever the label's width. */
+.cz-sizing-fix-size {
+  flex: 0 0 46px;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  color: var(--cz-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-sizing-fix-col {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9px;
+  color: var(--cz-faint);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 38px tall: below the 46px action target, because these are keyed one after
+   another inside an open editor rather than aimed at cold. */
+.cz-sizing-fix-cell {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 4px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 8px;
+  background: var(--cz-card-solid);
+  font-size: 13px;
+  color: var(--cz-ink);
+  text-align: center;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.cz-sizing-fix-cell:focus-visible {
+  outline: none;
+  border-color: var(--cz-money);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cz-money) 22%, transparent);
+}
+
+.cz-sizing-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 13px;
+  border-top: 1px solid var(--cz-hair);
+  background: var(--cz-inset-bg);
+}
+
+.cz-sizing-foot-gap {
+  flex: 1;
+}
+
+.cz-sizing-override {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: var(--cz-card-solid);
+  font-size: 12px;
+  color: var(--cz-sub);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cz-sizing-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+  background: none;
+  border: 0;
+  font-size: 12px;
+  font-weight: 650;
   color: var(--cz-money);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.cz-detail-cell-rec.t-shimmer {
-  --shimmer-base: var(--cz-money);
-  --shimmer-highlight: var(--cz-money-on-photo);
-}
-
-/* Inverted, the money green has to lift off the near-black fill. */
-.cz-detail-cell.is-active.is-rec .cz-detail-cell-label,
-.cz-detail-cell.is-active.is-rec .cz-detail-cell-value {
-  color: var(--cz-money-on-photo);
-}
-
-.cz-detail-cell.is-active .cz-detail-cell-dot {
-  background: var(--cz-money-on-photo);
-}
-
-.cz-detail-cell.is-active .cz-detail-cell-rec.t-shimmer {
-  --shimmer-base: var(--cz-money-on-photo);
-  --shimmer-highlight: var(--cz-action-text);
+@media (min-width: 1024px) {
+  .cz-sizing-value {
+    font-size: 23px;
+  }
+  .cz-sizing-why {
+    font-size: 13px;
+  }
+  /* Desktop earns the fuller provenance string; the phone shows the short
+     form. Same element, so no second string in the JSX. */
+  .cz-sizing {
+    box-shadow:
+      0 1px 0 color-mix(in srgb, var(--cz-money) 8%, transparent),
+      0 8px 22px color-mix(in srgb, var(--cz-money) 7%, transparent);
+  }
 }
 
 /* ── The one inline editor ── */
@@ -9816,73 +10420,304 @@ a.cz-card-seller:hover {
   color: var(--cz-faint);
 }
 
-.cz-detail-label-row {
+/* ── Section rule head (handoff turn 9 §5/§6) ──
+   Label, a hairline that eats the slack, then an optional right-aligned mono
+   note. The rule is what lets the note sit hard right without a fixed width. */
+.cz-detail-rule-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 8px;
+  margin-top: 20px;
 }
 
-.cz-detail-more {
-  min-height: 44px;
-  padding: 0 6px;
-  border: 0;
-  background: transparent;
-  color: var(--cz-sub);
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
+/* The label is a block with its own top margin on its own; inside the rule
+   head the flex row owns the spacing. */
+.cz-detail-rule-head .cz-detail-label {
+  margin: 0;
+  flex: 0 0 auto;
 }
 
-/* ── Status track ── */
-.cz-detail-status {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.cz-detail-status-chip {
+.cz-detail-rule {
   flex: 1;
-  min-height: 44px;
-  padding: 0 4px;
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+.cz-detail-rule-note {
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+/* ── Status track (handoff turn 9 §5) ──
+   Four chips became a progress track. The dots stay real radio buttons so a
+   wrong stop is still one tap to correct; the pill is the fast path forward. */
+.cz-status-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  /* No vertical padding: the 44px coarse-pointer floor on the dot buttons
+     already sets the row height, and adding padding on top of it would make
+     the track taller than the Buy button. */
+  padding: 0 12px;
   border: 1px solid var(--cz-hair);
   border-radius: 12px;
   background: var(--cz-card-solid);
-  color: var(--cz-sub);
+}
+
+.cz-detail-status {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Each step owns the rail to its LEFT, so filling the rail is a per-step
+   decision and needs no separate rail elements between the buttons. */
+.cz-detail-status-chip {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex: 1;
+  /* Only the first step is content-width; the rest stretch through their
+     rail. Without this the four dots bunch at the left edge. */
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  /* A bare 13px dot is not a tap target. The button is full-height so the
+     whole column is tappable; credenza.css raises this to 44px on coarse
+     pointers. */
+  min-height: 40px;
+}
+
+.cz-detail-status-chip:first-child {
+  flex: 0 0 auto;
+}
+
+.cz-status-rail {
+  flex: 1;
+  height: 2px;
+  min-width: 12px;
+  background: var(--cz-hair-strong);
+}
+
+/* A rail is filled when the step it leads INTO is done or current. */
+.cz-detail-status-chip.is-done .cz-status-rail,
+.cz-detail-status-chip.is-active .cz-status-rail {
+  background: var(--cz-action-fill);
+}
+
+.cz-status-dot {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.cz-detail-status-chip.is-done .cz-status-dot {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+}
+
+/* The current stop is bigger AND filled — size alone is too quiet at 11px,
+   fill alone does not separate it from the stops already behind it. */
+.cz-detail-status-chip.is-active .cz-status-dot {
+  width: 13px;
+  height: 13px;
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+}
+
+/* The stop name is the radio's accessible name. It stays in the DOM for
+   screen readers and tests; the visible track is dots only. */
+.cz-status-stop-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The dot's own box. It exists so the detour label can hang centred UNDER
+   the dot; anchored to the button, the label would start at the rail. */
+.cz-status-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+/* Detour node (§5): an off-track state hangs under its own dot rather than
+   becoming a fifth step, because QC-failed is not progress. It is taken out
+   of flow so it cannot stretch the track row or push the rails apart. */
+.cz-status-detour {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-top: 2px;
+  transform: translateX(-50%);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--cz-warn-ink);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* The label needs room below the dots, so the track row grows only when a
+   detour is showing. Padding-bottom (not a taller box) keeps the dots and
+   rails centred on the same line. :has keeps the cost off the common case. */
+.cz-status-row:has(.cz-status-detour) .cz-detail-status-chip {
+  padding-bottom: 14px;
+}
+
+.cz-status-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 650;
   cursor: pointer;
 }
 
-.cz-detail-status-chip.is-active {
-  background: var(--cz-action-fill);
-  border-color: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  font-weight: 700;
+.cz-status-next:active {
+  transform: scale(0.97);
 }
 
-/* ── Notes ── */
-/* The wrapper animates grid-template-rows (no height transition on the
-   textarea itself); the textarea fills the animated track. */
-.cz-detail-notes-wrap {
+/* ── Timeline (handoff turn 9 §6) ──
+   Left-rule list. The date column is fixed so the sentences align, which is
+   what makes three rows scan as one history and not three notes. */
+.cz-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0 0 0 5px;
+  border-left: 2px solid var(--cz-hair);
+  list-style: none;
+}
+
+.cz-timeline-row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding-left: 9px;
+}
+
+.cz-timeline-date {
+  flex: 0 0 40px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--cz-faint);
+}
+
+.cz-timeline-text {
+  /* min-width:0 is what makes the flex child shrink; without it a long
+     seller name pushes the row past the rail. */
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+
+.cz-timeline-text strong {
+  font-weight: 650;
+  color: var(--cz-ink);
+}
+
+/* ── Notes (handoff turn 9 §7) ──
+   The label moved inside the box, so the header, the clamp, and the text are
+   one object. The box animates its own height through grid-template-rows —
+   animating the textarea's height instead fights the browser's own sizing. */
+.cz-detail-notes-box {
   display: grid;
-  grid-template-rows: 62px;
-  margin-top: 6px;
+  /* auto = the header; the second track is the clamped text. The track must
+     end EXACTLY on a line boundary, or the clip shows a sliver of the next
+     line. So the box owns the bottom gap and the textarea owns only its top
+     one: 5 top + 3 lines at 15px/1.5 (67.5) = 72.5, rounded to 73. */
+  grid-template-rows: auto 73px;
+  margin-top: 8px;
+  padding-bottom: 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card-solid);
+  overflow: hidden;
   transition: grid-template-rows 200ms var(--ease-out);
 }
 
-.cz-detail-notes-wrap.is-open {
-  grid-template-rows: 168px;
+/* §7: expanded it "grows to fill the rail". A fixed tall track is the honest
+   version here — the phone sheet scrolls, so flex:1 would only stretch the
+   box on desktop and leave the phone unchanged. */
+.cz-detail-notes-box.is-open {
+  /* 8 lines by the same arithmetic: 5 + 8 × 22.5 = 185. */
+  grid-template-rows: auto 185px;
+}
+
+.cz-detail-notes-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px 0;
+}
+
+.cz-detail-notes-kicker {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-detail-notes-gap {
+  flex: 1;
+}
+
+.cz-detail-notes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
 .cz-detail-notes {
+  /* Explicit: there is no global border-box reset in this stylesheet, and the
+     row arithmetic above counts the padding inside the track. */
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 12px 13px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 12px;
-  background: var(--cz-card-solid);
+  padding: 5px 12px 0;
+  border: 0;
+  background: transparent;
   color: var(--cz-ink);
   font-family: inherit;
   font-size: 15px;
@@ -9890,13 +10725,88 @@ a.cz-card-seller:hover {
   resize: none;
 }
 
+/* Collapsed, the box shows 3 lines and no scrollbar — the EXPAND control is
+   the way out, not a hidden scroll gutter. */
+.cz-detail-notes-box:not(.is-open) .cz-detail-notes {
+  overflow: hidden;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cz-detail-notes-wrap { transition: none; }
+  .cz-detail-notes-box { transition: none; }
+}
+
+/* ── Photo panel tail (handoff turn 9 §4) ──
+   The strip and the album links sit directly under the photo, as one block.
+   §9 puts them there in the phone order too: photo → strip → album links →
+   title. They are no longer chrome over the image and no longer stranded at
+   the bottom of the rail. */
+.cz-detail-photo-tail {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 10px;
 }
 
 /* ── Photo strip ── */
 .cz-detail-photos {
-  margin-top: 8px;
+  margin-top: 0;
+}
+
+/* §4: "a 2-up 44px/42px row below the strip". Two destinations, equal width,
+   never merged: left is every photo of THIS item, right is the seller's whole
+   store. A grid (not flex) so a long seller name cannot starve the album
+   tile. */
+.cz-album-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.cz-album-link-tile {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 11px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  text-decoration: none;
+}
+
+.cz-album-link-tile svg {
+  flex: 0 0 auto;
+}
+
+.cz-album-tile-text {
+  display: grid;
+  min-width: 0;
+}
+
+/* The name is the destination; the kicker says which KIND of destination it
+   is. Both ellipsize — a seller account can be longer than the tile. */
+.cz-album-tile-name,
+.cz-album-tile-kicker {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-album-tile-name {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--cz-ink);
+}
+
+.cz-album-tile-kicker {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
 }
 
 .cz-detail-photos .cz-edit-photos-grid {
@@ -9936,6 +10846,10 @@ a.cz-card-seller:hover {
   height: 48px;
   border-radius: 14px;
 }
+/* The notch owns the corners now, so the tighter card radius belongs to it. */
+.cz-carousel-back .cz-buy-notch {
+  border-radius: 14px;
+}
 
 .cz-detail-foot {
   flex: 0 0 auto;
@@ -9957,6 +10871,268 @@ a.cz-card-seller:hover {
   font-weight: 700;
   cursor: pointer;
 }
+
+/* ── Buy notch + agent picker (handoff turn 9 §8) ──
+   One container, one radius, split by a hairline. The label opens the agent.
+   The chevron segment opens the agent LIST. Before this the only way to change
+   agent was Profile → Buying agent, three taps from the moment of the choice. */
+.cz-buy-notch-wrap { position: relative; }
+.cz-buy-notch {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--cz-action-fill);
+}
+/* The button keeps its own colours but gives up its box: the notch owns the
+   fill and the corners, so the two segments read as one control. */
+.cz-buy-notch .cz-detail-buy {
+  flex: 1;
+  min-width: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.cz-buy-notch-toggle {
+  flex: 0 0 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The divider is the only seam. A gap or a second radius would split the
+     notch into two buttons, which is not what it is. */
+  border: 0;
+  border-left: 1px solid rgba(244, 244, 240, 0.22);
+  background: transparent;
+  color: var(--cz-action-text);
+  cursor: pointer;
+}
+.cz-buy-notch-toggle svg { transition: transform 160ms var(--ease-out); }
+.cz-buy-notch-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+/* The picker opens UPWARD. The notch lives in the footer, so a downward card
+   would fall off the sheet. */
+.cz-agent-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 4;
+  width: min(300px, 100%);
+  padding: 7px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 14px 34px rgba(23, 24, 26, 0.16);
+}
+/* Twelve agents at 42px each is taller than a phone sheet. The cap keeps the
+   card inside the sheet; the JS scrolls the saved agent into view on open, so
+   the current choice is always the first thing the list shows. */
+.cz-agent-pop-list {
+  display: flex;
+  flex-direction: column;
+  max-height: min(44vh, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.cz-agent-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-agent-pop-row.is-active { background: var(--cz-seg); }
+.cz-agent-pop-dot {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--cz-hair-strong, var(--cz-hair));
+  border-radius: 50%;
+  background: transparent;
+}
+/* The one green in the picker marks the saved default. Green means money in
+   this palette, and this row is the one that decides where the money goes. */
+.cz-agent-pop-row.is-active .cz-agent-pop-dot {
+  border-color: var(--cz-money);
+  box-shadow: inset 0 0 0 3px var(--cz-card-solid);
+  background: var(--cz-money);
+}
+.cz-agent-pop-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.cz-agent-pop-row.is-active .cz-agent-pop-name { font-weight: 700; }
+/* Same number on every row, on purpose — see the note below the list. */
+.cz-agent-pop-price {
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+.cz-agent-pop-note {
+  margin: 5px 4px 2px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-buy-notch-toggle svg { transition: none; }
+}
+
+/* ── Phone footer price + Buy (handoff turn 9 §9) ──
+   "Price in a white hair-bordered box + the notched Buy filling the rest,
+   gap:9px." §1 took the price out of the chip row, so this row is the only
+   place the phone states it. The desktop panel overrides both rules below. */
+.cz-detail-foot-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.cz-detail-foot-price {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  height: 50px;
+  padding: 0 13px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-card-solid);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cz-money);
+  white-space: nowrap;
+}
+.cz-detail-foot-row .cz-buy-notch-wrap { flex: 1; min-width: 0; }
+.cz-detail-foot-row .cz-detail-buy { height: 50px; }
+
+/* ── Sticky bar (handoff turn 9 §9) ──
+   "When the photo block leaves the viewport, a 44px bar pins under the
+   handle." It replaces the sliver of photo that used to strand above the
+   title. The bar is a sibling of the scroller, not a child: a child would
+   scroll with the content it is meant to outlive. */
+.cz-detail-stickybar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  /* Closed state: zero height, no border, nothing painted. The bar is only
+     ever ONE row tall, so it animates its own height rather than sliding a
+     44px block over the first line of the title. */
+  height: 0;
+  padding: 0 14px;
+  overflow: hidden;
+  border-bottom: 1px solid transparent;
+  background: var(--cz-bg);
+  transition:
+    height 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+.cz-detail-stickybar.is-up {
+  height: 44px;
+  border-bottom-color: var(--cz-hair);
+}
+.cz-detail-stickybar-thumb {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--cz-seg);
+}
+.cz-detail-stickybar-text { flex: 1; display: grid; min-width: 0; }
+.cz-detail-stickybar-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  color: var(--cz-ink);
+}
+.cz-detail-stickybar-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-detail-stickybar-close {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-seg);
+  color: var(--cz-ink);
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-detail-stickybar { transition: none; }
+}
+
+/* ── QC prompt (handoff turn 9 §9) ──
+   "Dashed 12px box, camera glyph." Dashed on purpose: it is the one block in
+   the sheet that holds nothing yet. Every other box states a fact. */
+.cz-detail-qc-prompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 11px 12px;
+  border: 1px dashed var(--cz-hair-strong);
+  border-radius: 12px;
+  color: var(--cz-faint);
+}
+.cz-detail-qc-prompt-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+  /* --cz-sub, not --cz-faint: this is a sentence the user has to read, so it
+     takes the body floor. --cz-faint is for labels. */
+  color: var(--cz-sub);
+}
+/* A label, not a button: the file input is the control, and a label is the
+   only element that can open a file picker without JS clicking a hidden node. */
+.cz-detail-qc-prompt-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.cz-detail-qc-prompt-btn input { display: none; }
 
 .cz-detail-disclosure {
   margin: 8px 0 0;
@@ -10009,12 +11185,15 @@ a.cz-card-seller:hover {
     overflow: hidden;
   }
 
-  /* Left column: photo stage + thumb strip. */
+  /* Left column: photo stage + thumb strip + album links (§4). The 16px
+     padding is the handoff's. The background stays a color-mix rather than
+     the handoff's literal #EAEAE4 — a fixed light grey would be a bright
+     panel edge in Blackout, and the mix lands on the same colour in Gallery. */
   .cz-dpanel-left {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding: 20px;
+    padding: 16px;
     background: color-mix(in srgb, var(--cz-bg) 94%, black);
     border-right: 1px solid var(--cz-hair);
   }
@@ -10085,20 +11264,22 @@ a.cz-card-seller:hover {
     color: #fff;
   }
   /* Pager arrows: always visible (touch has no hover), disabled at the
-     ends rather than wrapping. */
+     ends rather than wrapping. §4 makes them LIGHT frosted, not dark: the
+     stage box is white and holds contact sheets, so a dark puck reads as a
+     hole punched in the photo. */
   .cz-dpanel-arrow {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(12, 12, 14, 0.5);
+    border: 1px solid rgba(23, 24, 26, 0.1);
+    background: rgba(255, 255, 255, 0.78);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-    color: #fff;
+    box-shadow: 0 4px 14px rgba(23, 24, 26, 0.14);
+    color: var(--cz-ink);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -10117,10 +11298,32 @@ a.cz-card-seller:hover {
   .cz-dpanel-thumbs {
     display: flex;
     gap: 8px;
-    margin-top: 12px;
+    margin-top: 10px;
     overflow-x: auto;
     scrollbar-width: none;
     padding-bottom: 2px;
+    /* The strip and the links row are fixed height; the stage above takes
+       whatever is left. Without this the strip shrinks before the photo. */
+    flex: 0 0 auto;
+  }
+
+  /* §4: the 2-up links row sits under the strip in the left column, at the
+     desktop step (44px, 7px gap). */
+  .cz-dpanel-left .cz-album-links {
+    flex: 0 0 auto;
+    margin-top: 10px;
+    gap: 7px;
+  }
+  .cz-dpanel-left .cz-album-link-tile {
+    min-height: 44px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .cz-dpanel-left .cz-album-tile-name {
+    font-size: 12.5px;
+  }
+  .cz-dpanel-left .cz-album-tile-kicker {
+    font-size: 9.5px;
   }
   .cz-dpanel-thumbs::-webkit-scrollbar {
     display: none;
@@ -10129,13 +11332,15 @@ a.cz-card-seller:hover {
     position: relative;
     flex: 0 0 auto;
   }
+  /* §4: 66px desktop squares, hair border at rest. 104px squares ate the
+     stage's height on a 860px panel. */
   .cz-dpanel-thumb {
     flex: 0 0 auto;
-    width: 104px;
-    height: 104px;
+    width: 66px;
+    height: 66px;
     padding: 0;
-    border: 2px solid transparent;
-    border-radius: 9px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 8px;
     overflow: hidden;
     background: #fff;
     cursor: pointer;
@@ -10148,9 +11353,12 @@ a.cz-card-seller:hover {
     height: 100%;
     object-fit: cover;
   }
+  /* §4 marks the active thumb with a 2px --cz-ink border, not the green.
+     Green is reserved for money; selection is chrome. */
   .cz-dpanel-thumb.is-active,
   .cz-dpanel-thumb-wrap.is-active .cz-dpanel-thumb {
-    border-color: var(--cz-money);
+    border-width: 2px;
+    border-color: var(--cz-ink);
   }
   .cz-dpanel-thumb-cover {
     position: absolute;
@@ -10283,8 +11491,10 @@ a.cz-card-seller:hover {
   .cz-dpanel-body .cz-detail-sub {
     font-size: 11.5px;
   }
-  .cz-dpanel-body .cz-detail-cell {
-    min-height: 60px;
+  /* Desktop chips step up one notch (§1: "gap 6px phone / 7px desktop"). */
+  .cz-dpanel-body .cz-detail-chip {
+    min-height: 32px;
+    font-size: 13px;
   }
   .cz-dpanel-body .cz-detail-notes {
     font-size: 14.5px;
@@ -10306,9 +11516,15 @@ a.cz-card-seller:hover {
     color: var(--cz-money);
     white-space: nowrap;
   }
+  /* The notch is the flex child in the footer row; the button inside it
+     already stretches. Sizing the button here would leave the chevron
+     segment floating at the row's natural width. */
+  .cz-dpanel-body .cz-detail-foot-row .cz-buy-notch-wrap,
   .cz-dpanel-body .cz-detail-foot-row .cz-detail-buy {
     flex: 1;
     min-width: 230px;
+  }
+  .cz-dpanel-body .cz-detail-foot-row .cz-detail-buy {
     height: 54px;
   }
   .cz-dpanel-body .cz-detail-disclosure {
@@ -10326,7 +11542,10 @@ a.cz-card-seller:hover {
    single-column stack. */
 @media (min-width: 1024px) {
   .cz-dpanel {
-    grid-template-columns: 634px minmax(0, 1fr);
+    /* §4 sets the photo column at 500px. The turn-9 addendum supersedes the
+       turn-4 634px. The 134px goes to the rail, where the sizing block, the
+       track and the timeline all read better wide. */
+    grid-template-columns: 500px minmax(0, 1fr);
     grid-template-rows: none;
     width: min(86vw, 1180px);
     height: min(88vh, 860px);
@@ -10367,6 +11586,73 @@ a.cz-card-seller:hover {
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
     color: #fff;
+  }
+}
+
+/* ═══ §11 morph — the receiving side (desktop panel) ═══
+   .is-morphing is set only when this panel arrived from a card tap through a
+   view transition. The photo stage claims the card photo's shared name so the
+   photo grows into it; the right rail wipes in from the photo's inner edge.
+
+   The names go on the panel's OWN nodes, so the panel is the new frame and the
+   card is the old one. Nothing is cloned. The gate matters: on a keyboard open
+   or in reduced motion there is no morph, and naming the stage anyway would
+   pull it out of the root snapshot and give it a bare cross-fade of its own. */
+@supports (view-transition-name: none) {
+  @media (min-width: 768px) {
+    .cz-dpanel.is-morphing .cz-dpanel-stage {
+      view-transition-name: cz-morph-photo;
+    }
+    /* The rail is not a shared element — it has no counterpart on the card — so
+       it gets a named wipe of its own. 60ms behind the photo: the photo has to
+       commit to its flight before anything else moves, or the two motions read
+       as a scatter. */
+    .cz-dpanel.is-morphing .cz-dpanel-right {
+      view-transition-name: cz-morph-rail;
+    }
+    ::view-transition-new(cz-morph-rail) {
+      animation: cz-morph-rail-in 220ms var(--ease-out) 60ms both;
+    }
+    ::view-transition-old(cz-morph-rail) {
+      animation: none;
+    }
+  }
+
+  /* "Wipes in from the photo's inner edge" — the photo is on the left, so the
+     rail's inner edge is its own left edge, and the reveal runs left → right.
+     A clip, not a slide: the rail's content stays where it lands, so no text
+     moves during the reveal. The tablet band stacks the columns, so there the
+     inner edge is the top one. */
+  @keyframes cz-morph-rail-in {
+    from {
+      clip-path: inset(0 100% 0 0);
+      opacity: 0.4;
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+      opacity: 1;
+    }
+  }
+
+  /* Stacked band: the rail sits UNDER the photo, so its inner edge is the top
+     one and the wipe runs downward. A second keyframe name rather than
+     redefining the first inside a media query — @keyframes is a global name and
+     a conditional redefinition of one is a trap for the next reader. */
+  @keyframes cz-morph-rail-in-down {
+    from {
+      clip-path: inset(0 0 100% 0);
+      opacity: 0.4;
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+      opacity: 1;
+    }
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    ::view-transition-new(cz-morph-rail) {
+      animation-name: cz-morph-rail-in-down;
+    }
   }
 }
 

@@ -13,17 +13,22 @@ import {
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 import DetailBody from "./DetailBody.jsx";
+import { AlbumLinksRow } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 
 export default function DesktopDetailPanel({
   item,
+  // §3 seller cache: the whole shelf, passed straight to DetailBody.
+  shelfItems = null,
   haulNames = [],
   bodyProfile,
   fitPrefs = null,
   measureUnits = "cm",
   buyLabel = "Buy",
+  preferredAgent = null,
+  onSelectAgent = null,
   onSaveEdit,
   onOpen,
   onAttachPhoto,
@@ -35,6 +40,11 @@ export default function DesktopDetailPanel({
   onDelete,
   onClose,
   closing = false,
+  // §11 photo morph: true when this panel arrived from a card tap through a
+  // view transition. The stage then claims the shared view-transition-name so
+  // the card's photo grows into it, and the right rail wipes in from the
+  // photo's inner edge. False on every other open — the panel just appears.
+  morphing = false,
 }) {
   const [photos, setPhotos] = useState(() => itemPhotoList(item, 24));
   const [photoIdx, setPhotoIdx] = useState(0);
@@ -182,7 +192,7 @@ export default function DesktopDetailPanel({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="cz-dpanel">
+      <div className={"cz-dpanel" + (morphing ? " is-morphing" : "")}>
         <div className="cz-dpanel-left">
           <div className="cz-dpanel-stage">
             {photos.length ? (
@@ -317,6 +327,11 @@ export default function DesktopDetailPanel({
               }}
             />
           </div>
+          {/* §4: "Both album links return, as a 2-up row below the strip."
+              The desktop panel draws its own stage and strip, so it mounts
+              the same row here — the shared body's copy hangs off its hero,
+              which this panel does not render. */}
+          <AlbumLinksRow item={item} />
         </div>
 
         <div className="cz-dpanel-right">
@@ -396,11 +411,14 @@ export default function DesktopDetailPanel({
           <div className="cz-dpanel-body">
             <DetailBody
               item={item}
+              shelfItems={shelfItems}
               haulNames={haulNames}
               bodyProfile={bodyProfile}
               fitPrefs={fitPrefs}
               measureUnits={measureUnits}
               buyLabel={buyLabel}
+              preferredAgent={preferredAgent}
+              onSelectAgent={onSelectAgent}
               onSaveEdit={onSaveEdit}
               onOpen={onOpen}
               onAttachPhoto={onAttachPhoto}
@@ -409,7 +427,6 @@ export default function DesktopDetailPanel({
               onSetPrimaryImage={onSetPrimaryImage}
               onLoadPhotos={onLoadPhotos}
               footerPrice={price}
-              hidePhotosManager
             />
           </div>
         </div>

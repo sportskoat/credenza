@@ -104,3 +104,61 @@ export function AlbumLink({ item, tight = false, className = "cz-album-link", st
     </a>
   );
 }
+
+// Both destinations, side by side (handoff turn 9 §4: "These are two
+// different destinations and must not be merged"). Left = every photo of THIS
+// item. Right = everything else the seller sells. Merging them into one
+// "View album" is what lost the seller's profile in the first place.
+//
+// The handoff draws "SELLER · 212 ITEMS". We do not know how many items a
+// seller lists — that number lives on their profile page, not in our copy —
+// so the sub-label stops at SELLER. Counting the user's own shelf would put a
+// true number under a false meaning. Same rule as §1: omit, never invent.
+export function AlbumLinksRow({ item, className = "cz-album-links" }) {
+  if (!item) return null;
+  const album = albumLinkTarget(item, { tight: true });
+  const sellerHref = sellerStoreUrl(item);
+  if (!album && !(sellerHref && item.seller)) return null;
+  return (
+    <div className={className}>
+      {album ? (
+        <a
+          href={album.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="cz-album-link-tile"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="14" height="14" rx="2" />
+            <path d="M21 7v11a2 2 0 0 1-2 2H8" />
+          </svg>
+          <span className="cz-album-tile-text">
+            <span className="cz-album-tile-name">{album.label}</span>
+            <span className="cz-album-tile-kicker">All photos</span>
+          </span>
+        </a>
+      ) : null}
+      {sellerHref && item.seller ? (
+        <a
+          href={sellerHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="cz-album-link-tile"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 20a8 8 0 0 1 16 0" />
+            <circle cx="12" cy="8" r="4" />
+          </svg>
+          <span className="cz-album-tile-text">
+            <span className="cz-album-tile-name">{item.seller}</span>
+            <span className="cz-album-tile-kicker">Seller</span>
+          </span>
+        </a>
+      ) : null}
+    </div>
+  );
+}
