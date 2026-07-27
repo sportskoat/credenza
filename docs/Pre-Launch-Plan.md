@@ -105,6 +105,7 @@ do it completely, and report against its acceptance criteria.
 | LB-38 | Cache the bytes that never change; stop re-sending 1.3 MB to every repeat visitor | P1 | 1 h | LB-37 | DONE 2026-07-27 — the live site sent max-age=0 for a 352 KB font and 884 KB of content-hashed JS; found while booting the built bundle for LB-37 |
 | LB-39 | Give the share card a picture: relay the photo instead of hotlinking it | P0 | 2 h | LB-8 | DONE 2026-07-27 — LB-8's own acceptance criterion was not met; every Discord unfurl drew a blank card because Yupoo answers a crawler with HTTP 567 |
 | LB-40 | Hold the app and the share page to the language rules the pages follow | P1 | 1 h | LB-39 | DONE 2026-07-27 — the seventh scope defect; putting "W2C best batch 1:1 replica finder" in the app's search box passed all 1617 tests |
+| LB-41 | Hold the install prompt to the same language rules | P1 | 30 m | LB-40 | DONE 2026-07-27 — the eighth scope defect, hiding inside LB-26's fix; the manifest was under test but only its colours, icons, and scope, so a banned description passed all 1629 tests |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2382,6 +2383,68 @@ would guard nothing. Only what a user can read counts.
 
 **Gate.** 1629 tests pass (62 files), 0 lint errors, tsc clean, build emits the
 full bundle.
+
+### LB-41 — the install prompt, the one shipped sentence with no rule on it
+
+**The eighth instance, and it hid inside the fix for the sixth.** LB-26 brought
+`manifest.webmanifest` under test after finding it painted the wrong splash
+colour. That fix then checked the file's colours, its icons, and its scope —
+every field except the two a person actually reads.
+
+`name` and `description` are the install prompt. They are the last words shown
+before somebody puts the app on a home screen, and no rule reached them.
+
+I replaced the description with
+`W2C best batch 1:1 replica finder with customs tips.` and ran the full suite.
+**All 1629 tests passed.** It would have shipped.
+
+I ran the same edit against the app shell's `<title>` as a control. **1 test
+failed**, so `index.html` was already covered by LB-29. The gap was this file
+alone.
+
+| ID | What was exempt |
+|---|---|
+| LB-22 | the length floor covered `/guides/` only |
+| LB-24 | social tags were checked on new pages only |
+| LB-25 | the rule iterated HTML, so `llms.txt` was exempt |
+| LB-26 | the rule iterated DOCS, so four shipped files were exempt |
+| LB-29 | the app shell was outside every rule |
+| LB-39 | the share page is a function, so no page rule reached it |
+| LB-40 | the language rule reads `preview/public/` and nothing else |
+| LB-41 | the manifest was under test, but only its non-prose fields |
+
+**LB-41 is the one worth generalising from.** The others were files nobody had
+looked at. This one was looked at, fixed, and covered — and the cover stopped
+exactly where the prose started. Bringing a file under test is not the same as
+bringing its user-visible content under test.
+
+**Why the word list and not the phrase list.** The check uses LB-40's five
+words, not the five phrases at the top of `public-site.test.js`. A manifest has
+one sentence to work with. A bare "replica" there is a positioning claim, not a
+passing mention inside an explainer, so the stricter list is the right one.
+
+**Where the check lives.** Inside the existing LB-26 `describe("the manifest")`
+block, not a new top-level one. A second block reading the same file is how
+LB-19 happened.
+
+**Probes.**
+
+| Edit | Result |
+|---|---|
+| Banned phrase in `description` | 1 fail |
+| Banned word in `name` | 1 fail |
+| Delete `description` entirely | 1 fail (guard-the-guard) |
+| Clean file | 528 pass |
+| Restore each time | checksum verified |
+
+**Gate.** 1630 tests pass (62 files), 5 lint warnings and 0 errors, build emits
+`index-fashion-0Wmw74AY.js` at 362.73 kB.
+
+**What is left in this class.** I swept every non-HTML file under
+`preview/public/`. `sw.js` has no user-visible string. `robots.txt`,
+`sitemap.xml`, and the two verification files carry no prose. `share-image.js`
+draws no text — its failure path is a 302 to `/og.png`, a picture. So the
+manifest was the last shipped prose with no language rule on it.
 
 ## Explicitly deferred (do NOT build before launch)
 

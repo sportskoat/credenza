@@ -28,18 +28,28 @@ Open two windows:
 Two features are built, tested, and dormant. They stay dormant until these
 tables exist. Today a signed-in user who presses Share gets a 500 error.
 
+**Warning: paste the contents of each file, not its path.** A path in the
+SQL editor gives `ERROR: 42601: syntax error at or near "docs"`.
+
 ### 1a. The shelf table
 
-1. Open the Supabase SQL editor.
-2. Open `docs/sql/2026-07-26-shelves.sql`.
-3. Copy the whole file. Paste it. Run it.
+1. Run this command in the terminal. It copies the file contents:
+   ```
+   pbcopy < /Users/kylewensel/credenza/docs/sql/2026-07-26-shelves.sql
+   ```
+2. Open the Supabase SQL editor for project `uaweaziqrybvxfbacllb`.
+3. Select all the text in the editor. Delete it.
+4. Press Command-V. Press Run.
 
-It is safe to run twice.
+Expect `Success. No rows returned`. It is safe to run twice.
 
 ### 1b. The shares table
 
-1. Open `docs/sql/2026-07-26-shares.sql`.
-2. Copy the whole file. Paste it. Run it.
+1. Run this command in the terminal:
+   ```
+   pbcopy < /Users/kylewensel/credenza/docs/sql/2026-07-26-shares.sql
+   ```
+2. Clear the editor. Paste. Run.
 
 Run 1a first. The shares table does not depend on the shelves table, but
 the file says to, and following the file is faster than checking.
@@ -49,11 +59,15 @@ the file says to, and following the file is faster than checking.
 In the SQL editor, run:
 
 ```sql
-select table_name from information_schema.tables
-where table_schema = 'public' order by table_name;
+select tablename, rowsecurity from pg_tables
+where schemaname = 'public' and tablename in ('shelves','shares');
 ```
 
-You must see `shares` and `shelves` in the list.
+Expect two rows. Expect `true` in the `rowsecurity` column for both.
+
+A missing row means that file did not run. A `false` means the table
+exists with no row-level security, which lets one account read another
+account's shelf. **Stop and tell me if you see `false`.**
 
 **Warning: the shares table gives the anon role no select policy.** That is
 correct. The `/s/:code` function reads it with the service role and only

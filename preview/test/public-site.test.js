@@ -787,6 +787,41 @@ describe("the files that ship but are not pages", () => {
       expect(manifest.scope, "manifest scope").toBe("/");
       expect(manifest.display, "manifest display").toBe("standalone");
     });
+
+    // LB-41. The eighth instance of the scope defect, and it hid inside the
+    // fix for the sixth. LB-26 brought this file under test, then checked its
+    // colours, its icons, and its scope — every field except the two a person
+    // reads. name and description are the install prompt. They are the last
+    // words shown before somebody puts the app on a home screen, and they were
+    // the only shipped prose no rule reached.
+    //
+    // Negative control, 2026-07-27: replacing the description with "W2C best
+    // batch 1:1 replica finder with customs tips." left all 1629 tests green.
+    // The same edit to the app shell's title failed 1 test, so index.html was
+    // already covered by LB-29 — the gap was this file alone.
+    //
+    // The word list is LB-40's, not the phrase list at the top of this file.
+    // A manifest has one sentence to work with, so a bare "replica" there is a
+    // positioning claim, not a passing mention inside an explainer.
+    it("says nothing in the install prompt the pages may not say", () => {
+      const WORDS = ["w2c", "replica", "1:1", "best batch", "customs tips"];
+      const READ_BY_A_PERSON = ["name", "short_name", "description"];
+
+      for (const field of READ_BY_A_PERSON) {
+        const value = manifest[field];
+        // Guard the guard. A renamed field would make every check below pass
+        // against undefined, which is the failure this whole block is about.
+        expect(typeof value, `manifest ${field} is missing`).toBe("string");
+        expect(value.length, `manifest ${field} is empty`).toBeGreaterThan(0);
+
+        for (const word of WORDS) {
+          expect(
+            value.toLowerCase().includes(word),
+            `manifest ${field} says "${word}" — see docs/aeo-geo/ai-seo-playbook.md`
+          ).toBe(false);
+        }
+      }
+    });
   });
 
   describe("every page's theme colour", () => {
