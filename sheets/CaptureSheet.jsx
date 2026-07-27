@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { ModalShell, stashPreview } from "../credenza-fashion.jsx";
 
-// Stash sheet (mobile shelf handoff step 4, 2026-07-25).
+// Stash sheet. Built for the phone (shelf handoff step 4, 2026-07-25), opened
+// on every screen since 2026-07-27 — the desktop ＋ Stash button used to read
+// the clipboard with no review step, which is the one thing this sheet exists
+// to prevent.
 //
 // One rule governs this sheet: nothing is stashed that is not on screen
 // first. Every button shows what it will create before it creates it.
@@ -170,7 +173,8 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
           </button>
         )}
 
-        {/* The only Import entry point on the phone. Files need Profile. */}
+        {/* This sheet takes text only. A file needs Profile → Import, on
+            every screen, so the pointer belongs here. */}
         <p className="cz-stash-foot">Restoring a backup or a CSV? Profile → Import</p>
       </div>
     </ModalShell>

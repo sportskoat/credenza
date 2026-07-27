@@ -684,6 +684,62 @@ Installed Apps`;
   });
 });
 
+// LB-68 (Kyle 2026-07-27): "The stash button just copies your clipboard in,
+// but realistically, I think when you hit the stash button, it should pull up
+// the stash to shelf, how it is in the mobile."
+//
+// The Stash button used to split: phone opened this sheet, desktop called
+// stashClipboard() and read navigator.clipboard silently. One button, two
+// behaviors, and the desktop one showed the user nothing before it acted.
+//
+// These tests run with NO phone media match, so they fail the moment the sheet
+// is gated behind isPhone again. They assert the SHEET is on screen and the
+// clipboard was NOT read — not that a handler was called. Deleting the sheet
+// cannot make them pass.
+describe("Stash sheet on desktop (LB-68, Kyle 2026-07-27)", () => {
+  it("the desktop Stash button opens the sheet instead of reading the clipboard", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const readText = vi.fn(() => Promise.resolve("https://weidian.com/item.html?itemID=1"));
+    const had = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { readText },
+    });
+    try {
+      const user = userEvent.setup();
+      render(<Credenza />);
+      await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
+
+      // The sheet is on screen: its own title and its own paste box.
+      expect(await screen.findByText("Stash to shelf")).toBeInTheDocument();
+      expect(
+        await screen.findByPlaceholderText(/Paste a link, a whole/)
+      ).toBeInTheDocument();
+      // And nothing was taken from the clipboard behind the user's back.
+      expect(readText).not.toHaveBeenCalled();
+    } finally {
+      if (had) Object.defineProperty(navigator, "clipboard", had);
+      else delete navigator.clipboard;
+    }
+  });
+
+  it("a link typed in the desktop bar still stashes without the sheet", async () => {
+    // The sheet is for an EMPTY field. Text already in the field is already
+    // reviewed, so the button must keep stashing it in one press.
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const field = await screen.findByPlaceholderText("Paste a link");
+    fireEvent.change(field, {
+      target: { value: "https://weidian.com/item.html?itemID=7649592219" },
+    });
+    await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
+
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
+    expect(screen.queryByText("Stash to shelf")).toBeNull();
+  });
+});
+
 describe("Auto-detect capture (one setup, Kyle 2026-07-24)", () => {
   // The capture sheet is the mobile bottom sheet (KM-03): these tests run on
   // an emulated phone viewport so the sheet renders at all.

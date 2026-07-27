@@ -4921,8 +4921,12 @@ function CredenzaApp() {
   };
 
   // The hero bar (empty shelf) stashes what sits in its field. An empty field
-  // opens the phone capture sheet, or reads the clipboard on desktop. One
-  // field, one button, one behavior everywhere (Kyle 2026-07-24).
+  // opens the Stash sheet — on desktop as well as on the phone (Kyle
+  // 2026-07-27: "when you hit the stash button, it should pull up the stash to
+  // shelf, how it is in the mobile"). It used to read the clipboard silently on
+  // desktop, so the button did something the user never saw and never asked
+  // for. The sheet shows the clipboard first and asks before it stashes.
+  // One field, one button, one behavior everywhere.
   const heroStash = () => {
     const text = search.trim();
     if (text) {
@@ -4931,8 +4935,7 @@ function CredenzaApp() {
       if (result.status !== "empty" && result.status !== "gated") setSearch("");
       return;
     }
-    if (isPhone) setCaptureSheetOpen(true);
-    else stashClipboard();
+    setCaptureSheetOpen(true);
   };
 
   // One tap: read the clipboard and stash it directly. Browsers guard clipboard
@@ -4972,11 +4975,12 @@ function CredenzaApp() {
     }
   };
 
-  // Capture focus router (phone only — KM-03 removed the desktop sheet). On
-  // desktop the flash message already tells the user to paste with ⌘V, and
-  // the paste handler stashes that paste directly.
+  // Capture focus router. The Stash sheet now opens on every screen, so a
+  // blocked clipboard read has somewhere to land on desktop too: the sheet
+  // opens with its paste box focused, and the user pastes into a box they can
+  // see. This used to return early on desktop, which left the failure message
+  // pointing at a surface that did not exist.
   function focusCapture() {
-    if (!isPhone) return;
     setCaptureSheetOpen(true);
     requestAnimationFrame(() => {
       if (sheetCaptureRef.current) sheetCaptureRef.current.focus();
@@ -6738,9 +6742,9 @@ function CredenzaApp() {
           return;
         }
       }
-      // No type-anywhere (KM-01/KM-03): printable keys never leave the field
-      // the user is in, and the desktop has no capture sheet to steal focus
-      // into. Search is focused with ⌘K; stash is the ＋ Stash button.
+      // No type-anywhere (KM-01): printable keys never leave the field the
+      // user is in, and nothing opens the Stash sheet behind their back.
+      // Search is focused with ⌘K; stash is the ＋ Stash button.
     };
     const onPaste = (e) => {
       if (
@@ -6765,8 +6769,12 @@ function CredenzaApp() {
       if (isTyping(e)) return;
       const text = e.clipboardData && e.clipboardData.getData("text");
       if (text && text.trim()) {
-        // Desktop has no capture sheet (KM-03): a paste stashes straight to
-        // the shelf. Phone keeps the review step in the bottom sheet.
+        // A deliberate ⌘V is its own review step: the user chose the text and
+        // pressed the key, so desktop stashes it straight to the shelf and the
+        // toast carries the Undo. The phone opens the sheet because a paste
+        // there is a longer reach and the text is easier to get wrong.
+        // (The Stash BUTTON opens the sheet on both — that is a different
+        // gesture, with nothing chosen yet.)
         if (window.matchMedia("(max-width: 767px)").matches) {
           setInput(text.trim());
           setCaptureSheetOpen(true);
@@ -7525,10 +7533,14 @@ function CredenzaApp() {
         </Suspense>
       )}
 
-      {/* Capture sheet is the mobile bottom sheet only (KM-03): the desktop
-          modal read as the wrong shell and was the KM-01 keystroke sink.
-          Desktop stashes via the ＋ Stash button (one-tap clipboard) or ⌘V. */}
-      {isPhone && captureSheetOpen && (
+      {/* The Stash sheet, on every screen (Kyle 2026-07-27: "when you hit the
+          stash button, it should pull up the stash to shelf, how it is in the
+          mobile"). It was phone-only, and desktop read the clipboard silently
+          instead — one button with two different behaviors. ModalShell already
+          renders a centered dialog on desktop and a bottom sheet on a phone,
+          so one surface covers both. The KM-01 keystroke sink is handled
+          inside the sheet: its textarea calls stopPropagation on keydown. */}
+      {captureSheetOpen && (
         <Suspense fallback={null}>
         <CaptureSheet
           clip={clipPreview}
@@ -8032,9 +8044,9 @@ function CredenzaApp() {
               type="button"
               className="cz-desk-stash-btn"
               disabled={interactionLocked}
-              onClick={stashClipboard}
-              aria-label="Stash the clipboard in one tap"
-              title="Stash the clipboard in one tap"
+              onClick={heroStash}
+              aria-label="Stash a link or note"
+              title="Stash a link or note"
             >
               <span className="cz-desk-stash-plus" aria-hidden="true">
                 ＋

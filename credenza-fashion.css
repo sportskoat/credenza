@@ -7633,7 +7633,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    straight through it on a busy shelf. */
 .cz-stash-surface {
   background: var(--cz-card-solid);
-  border-radius: 26px 26px 0 0;
+  /* All four corners by default. The sheet opens on desktop too now (Kyle
+     2026-07-27), where the dialog floats in the middle of the window — a flat
+     bottom edge there reads as a box cut off by nothing. */
+  border-radius: 22px;
+}
+
+/* Phones only: the sheet is anchored to the bottom edge, so the bottom
+   corners have no gap to round against. Same gate as .cz-modal in
+   credenza.css — a narrow DESKTOP window keeps the centered dialog. */
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-stash-surface {
+    border-radius: 26px 26px 0 0;
+  }
 }
 
 .cz-stash-body {
