@@ -76,8 +76,8 @@ do it completely, and report against its acceptance criteria.
 | LB-9 | Ship the "Install share shortcut" page | P1 | 0.5 day | — | DONE 2026-07-26 |
 | LB-10 | Ship the CSV export (Pro row) | P1 | 2 h | — | DONE 2026-07-26 |
 | LB-11 | Cut the framer-motion payload | P2 | 0.5 day | — | OPEN |
-| LB-12 | Purge dead CSS | P2 | 0.5 day | — | OPEN |
-| LB-13 | Archive the legacy root files | P2 | 30 min | — | OPEN |
+| LB-12 | Purge dead CSS | P2 | 0.5 day | — | DONE 2026-07-26 — 859 lines cut; focus-ring bug fixed |
+| LB-13 | Archive the legacy root files | P2 | 30 min | — | DONE 2026-07-26 — safe half; credenza-v3.jsx stays (7 tests) |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -624,14 +624,45 @@ cut: ~25–30 KB gzip from first load. Touch every `motion.` usage in
 animation still runs (carousel physics, sheet transitions, the settings
 modal stack). Full gate + manual motion pass on desktop and phone.
 
-### LB-12. Purge dead CSS
+### LB-12. Purge dead CSS — DONE 2026-07-26
 
-`credenza-fashion.css` is 10,489 lines / 181 KB built. Known dead zones:
-the retired card-flip styles (flip stays dormant by design — keep the
-machinery, remove only selectors with no remaining markup), the deleted
-`.cz-onboard*` block's leftovers, and legacy shell rules. Method: grep
-each top-level selector against the JSX; remove unmatched; screenshot
-diff the app at 390 / 768 / 1024 / 1280 before and after.
+`credenza-fashion.css` went from 12,264 to 11,405 lines. The built CSS
+went from 190.75 KB to 190.69 KB, so the win is maintenance, not payload.
+A dead rule costs almost nothing after gzip. It costs a lot of reading.
+
+**Method.** A script found every class token in a selector position, then
+searched the whole source tree for each one. 97 classes had no match. That
+raw list is not proof, because classes are also built by concatenation, so
+a second pass looked for string literals ending in a hyphen next to a `+`.
+That found 13 concat prefixes and cleared 12 of the 97 as live:
+
+- `is-past` comes from `"is-" + state` in `components/atoms.jsx`.
+- `kind-hedge` / `kind-rec` / `kind-user` / `kind-usual` come from
+  `"cz-front-size-label kind-" + size.kind` in `components/CardFrontInfo.jsx`.
+- `cz-haul-stat-gl` / `-rl` / `-returned` come from
+  `"cz-haul-stat cz-haul-stat-" + s` in `credenza-fashion.jsx`.
+
+Carousel selectors were excluded by name. The carousel is frozen for every
+agent, so no rule naming it was touched.
+
+**Guards that caught real mistakes.** The first purge attempt rewound each
+span to the start of its line, which ate the opening brace of a parent
+`@media` block. A brace-balance assert caught it before the file was
+written. The second run asserts that the balance is unchanged, and a
+class-set diff proves that the 65 removed classes are all on the dead list
+and that nothing was added.
+
+**A real bug found on the way.** The build printed two `css-syntax-error`
+warnings that predate this task. A selector list at old line 8770 ended
+with a comma and no `{`, so esbuild dropped the whole rule. The 2px focus
+rings on `.cz-pill`, `.cz-buy-btn`, `.cz-card-menu-trigger` and the rest
+never rendered. Fixed. The build is now warning-free.
+
+**Verification.** `preview/scripts/css-purge-shots.mjs` shoots the app at
+390 / 768 / 1024 / 1280 in both card and grid view. Seven of eight views
+differ by under 0.05% of pixels. `1280-grid` differs by 2.1%, so the same
+CSS was shot twice: the second pair differ by the same 2.1%. The variance
+is a remote-image load race, not a layout change.
 
 ### LB-13. Archive the legacy root files
 
