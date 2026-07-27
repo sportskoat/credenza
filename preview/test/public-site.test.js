@@ -368,3 +368,82 @@ describe("no page uses banned language", () => {
     });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-21. A page the nav does not carry needs links from the body copy.
+//
+// Eight pages sit in the site nav, so every page links to them. The deep pages
+// — the guides and /how/stash-from-your-phone/ — do not. They rely entirely on
+// links written by hand into other pages' body copy, and nothing checked that
+// those links existed.
+//
+// Two guides had exactly one: the hub listing. A crawler that reaches a page by
+// one route treats it as marginal, and a reader following a topic never arrives
+// at all. This test requires two body-copy links, from pages OTHER than the
+// hub, so the hub listing alone cannot satisfy it.
+describe("no deep page depends on the hub alone", () => {
+  // The site nav. Every page carries these, so an inbound link to one proves
+  // nothing about the page's place in the site.
+  const NAV = new Set([
+    "/landing/",
+    "/how/",
+    "/guides/",
+    "/pricing/",
+    "/faq/",
+    "/support/",
+    "/privacy/",
+    "/terms/",
+  ]);
+
+  const urls = new Set(PAGES.map((p) => p.url));
+  const deep = PAGES.filter((p) => !NAV.has(p.url) && p.url !== "/");
+
+  // Who links to whom, ignoring the hub and the page's own self-links.
+  const inbound = (target) =>
+    PAGES.filter(
+      (p) =>
+        p.url !== target &&
+        p.url !== "/guides/" &&
+        p.html.includes(`href="${target}"`)
+    ).map((p) => p.url);
+
+  it("found deep pages to check", () => {
+    // Guard the guard: if PAGES is ever reshaped, an empty list would pass
+    // the loop below by never running it.
+    expect(deep.length).toBeGreaterThan(5);
+  });
+
+  for (const { url, rel } of deep) {
+    it(`${rel} is linked from at least two other pages`, () => {
+      const from = inbound(url);
+      expect(
+        from.length,
+        `${url} is linked only from [${from.join(", ")}] besides the guides hub`
+      ).toBeGreaterThanOrEqual(2);
+    });
+  }
+
+  it("the guides hub lists every guide", () => {
+    // The reverse direction. A guide missing from the hub is invisible to a
+    // reader browsing by topic, even if other guides link to it.
+    const hub = PAGES.find((p) => p.url === "/guides/");
+    expect(hub, "no /guides/ page").toBeTruthy();
+    const guides = PAGES.filter(
+      (p) => p.url.startsWith("/guides/") && p.url !== "/guides/"
+    );
+    expect(guides.length).toBeGreaterThan(5);
+    for (const g of guides) {
+      expect(hub.html.includes(`href="${g.url}"`), `hub does not list ${g.url}`).toBe(true);
+    }
+  });
+
+  it("links no page that does not exist", () => {
+    // A related-links block is hand-written on every page. A typo there is a
+    // 404 the author never sees.
+    for (const { rel, html } of DOCS) {
+      for (const href of [...html.matchAll(/href="(\/[^"#?]*\/)"/g)].map((m) => m[1])) {
+        expect(urls.has(href), `${rel} links ${href}, which has no page`).toBe(true);
+      }
+    }
+  });
+});

@@ -85,6 +85,7 @@ do it completely, and report against its acceptance criteria.
 | LB-18 | Agent comparison guide | P1 | 1 h | LB-17 | DONE 2026-07-27 — planner-framed, from the verified registry |
 | LB-19 | Lock the pricing page numbers | P0 | 1 h | LB-18 | DONE 2026-07-27 — the Link resolves row and both bullet lists now fail the build if they drift |
 | LB-20 | Fix the search snippets; lock the language rules | P1 | 1 h | LB-19 | DONE 2026-07-27 — 13 descriptions and 1 title rewritten; 1 banned phrase found |
+| LB-21 | Fix the internal link graph | P1 | 1 h | LB-20 | DONE 2026-07-27 — 2 guides had one inbound link; 6 links added, graph locked |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1067,6 +1068,70 @@ including 404):
 **Gate.** 60 files / 1235 tests passed (1162 before; 73 added, three per page
 plus the guards). Lint 0 errors, 5 pre-existing warnings. Typecheck clean.
 Build unchanged.
+
+### LB-21. Two guides were reachable by one route — DONE 2026-07-27
+
+**The gap.** Eight pages sit in the site nav, so all 19 pages link to them.
+The nine deep pages — the eight guides and `/how/stash-from-your-phone/` — are
+not in the nav. They depend entirely on links written by hand into other pages'
+body copy, and nothing checked that those links existed.
+
+Measured inbound links, excluding the nav and excluding the guides hub:
+
+| Page | Before | After |
+| --- | --- | --- |
+| `/guides/choose-an-agent/` | 1 | 2 |
+| `/guides/track-qc-photos/` | 0 | 2 |
+| `/guides/spreadsheet-vs-haul-planner/` | 1 | 2 |
+| `/guides/store-body-measurements/` | 1 | 2 |
+| `/guides/open-weidian-in-agent/` | 2 | 2 |
+| everything else | ≥2 | ≥2 |
+
+`/guides/track-qc-photos/` was the worst case: the hub listing was its only
+route in. A crawler that reaches a page by one route treats it as marginal, and
+a reader following a topic never arrives at all.
+
+**Six links added, each chosen for topic, not for count.**
+
+- The spreadsheet comparison argues a sheet cannot hold a QC photo → links the
+  QC guide.
+- The size-chart guide ends on "still not a tailor" → links the measurements
+  guide, which is the way to make the pick better.
+- The open-in-agent guide is about which agent wraps which link format → links
+  the agent comparison.
+- The organize guide covers the whole Want → Bought → QC flow → links the QC
+  guide.
+- `/faq/` "Which shopping agents are supported?" → links the agent comparison.
+- `/faq/` "What is Credenza?" → links the spreadsheet comparison, for the reader
+  who keeps a haul in a sheet today.
+
+**Both FAQ edits changed the schema in the same step.** `/faq/` carries FAQPage
+JSON-LD, and LB-14's rule is that the visible copy is the source of truth. The
+existing "save a link from my phone" answer set the pattern: the schema text
+carries the anchor's words as plain text. Both new sentences follow it exactly.
+
+**What the test does.** A new `describe` block in
+`preview/test/public-site.test.js`:
+
+- Every deep page needs at least two inbound links from pages other than the
+  guides hub. Excluding the hub is the point: a hub listing alone is what the
+  two thin guides already had.
+- The guides hub must list every guide. This is the reverse direction — a guide
+  missing from the hub is invisible to a reader browsing by topic.
+- No page may link a URL with no page behind it.
+- A vacuity guard asserts more than five deep pages were found.
+
+**Negative controls (both run, both restored).**
+
+- NC-1 — removed the new FAQ link to the spreadsheet guide, dropping it back to
+  one inbound. Failed exactly that page's test.
+- NC-2 — typed `/guides/track-qc-photo/` (singular) in the organize guide's
+  related block. Failed three tests: the broken-link check, the new
+  does-not-exist check, and the QC guide's inbound count, because a typo'd link
+  is not an inbound link.
+
+**Gate.** 60 files / 1247 tests passed (1235 before). Lint 0 errors, 5
+pre-existing warnings. Typecheck clean. Build unchanged.
 
 ## Explicitly deferred (do NOT build before launch)
 
