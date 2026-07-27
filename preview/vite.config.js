@@ -183,6 +183,31 @@ function netlifyFunctionsDev() {
 export default defineConfig({
   plugins: [react(), fashionEntryPlugin(), swPrecache(), netlifyFunctionsDev()],
   server: { port: 5173, strictPort: true, fs: { allow: [".."] } },
+  resolve: {
+    // LB-37. The app root is `../credenza-fashion.jsx` — one level ABOVE this
+    // project. Node resolves a bare import by walking up from the importing
+    // file, so `import "framer-motion"` inside it looks in `<repo>/node_modules`
+    // FIRST and never reaches `preview/node_modules`, where package.json
+    // actually declares it.
+    //
+    // On this machine that accidentally worked: a stray `<repo>/node_modules`
+    // has sat there since 2026-07-21. On a clean checkout there is no such
+    // directory, and rollup does not treat the miss as an error — it prints
+    // UNRESOLVED_IMPORT and externalises the package. The build then "succeeds"
+    // with 21 modules instead of 2247 and emits a bundle importing bare
+    // specifiers no browser can resolve. Every component that draws an icon or
+    // animates is gone.
+    //
+    // So the failure mode was silent, machine-specific, and total. Aliasing
+    // pins both packages to the copy this project installs, for every importer
+    // at any depth, on any machine.
+    alias: {
+      "framer-motion": resolve(__dirname, "node_modules/framer-motion"),
+      "lucide-react": resolve(__dirname, "node_modules/lucide-react"),
+      react: resolve(__dirname, "node_modules/react"),
+      "react-dom": resolve(__dirname, "node_modules/react-dom"),
+    },
+  },
   build: {
     rollupOptions: {
       input: FASHION ? resolve(__dirname, "index-fashion.html") : resolve(__dirname, "index.html"),

@@ -173,3 +173,70 @@ describe("the baseline security headers still ship", () => {
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-37. A clean checkout could not build the app, and every local build hid it.
+//
+// The app root is `../credenza-fashion.jsx` — one level ABOVE this project.
+// Node resolves a bare import by walking up from the importing file, so
+// `import "framer-motion"` inside it checks `<repo>/node_modules` first and
+// never reaches `preview/node_modules`, where package.json declares it.
+//
+// On this machine that accidentally worked: a stray `<repo>/node_modules` had
+// sat there since 2026-07-21. A fresh `git clone` + `npm ci` has no such
+// directory. Rollup does not treat the miss as an error — it prints
+// UNRESOLVED_IMPORT and externalises the package. The build then "succeeds":
+// exit 0, 21 modules instead of 2247, and a bundle importing bare specifiers no
+// browser can resolve. Everything that draws an icon or animates is gone.
+//
+// That is the same shape as the LB-6 regression the launch gate exists to
+// prevent — a build that reports success and ships a broken app — and the gate
+// box for it ("a fresh build from a clean checkout passes the preflight and
+// shows sign-in") was still unchecked. It was unchecked because it was true.
+//
+// The fix is a resolve.alias pinning these to the copy this project installs.
+// These tests assert the alias exists AND that nothing reintroduces a bare
+// dependency that could resolve past it.
+describe("bare imports resolve on a machine without a stray root node_modules", () => {
+  const config = readFileSync(join(PREVIEW, "vite.config.js"), "utf8");
+  const pkg = JSON.parse(readFileSync(join(PREVIEW, "package.json"), "utf8"));
+
+  // Everything the app imports by bare name. Read from package.json rather than
+  // hardcoded, so adding a dependency cannot quietly escape this rule.
+  const BARE = Object.keys(pkg.dependencies ?? {});
+
+  it("declares the runtime dependencies it imports", () => {
+    expect(BARE.length, "package.json has no dependencies to check").toBeGreaterThanOrEqual(4);
+  });
+
+  it("aliases every runtime dependency to this project's node_modules", () => {
+    const alias = config.slice(config.indexOf("alias: {"), config.indexOf("build: {"));
+    expect(alias.length, "no resolve.alias block found in vite.config.js").toBeGreaterThan(0);
+    const missing = BARE.filter(
+      (dep) => !new RegExp(`["']?${dep.replace(/[/\\-]/g, "\\$&")}["']?\\s*:`).test(alias)
+    );
+    expect(
+      missing,
+      "these dependencies are imported by name from ../credenza-fashion.jsx but not aliased; " +
+        "on a clean checkout they resolve to nothing and rollup externalises them silently"
+    ).toEqual([]);
+  });
+
+  it("points the aliases at preview/node_modules, not the repo root", () => {
+    // The whole defect was resolution landing one level up. An alias written
+    // with "../node_modules" would restate the bug in the fix.
+    const alias = config.slice(config.indexOf("alias: {"), config.indexOf("build: {"));
+    expect(alias, "an alias points above the project root").not.toMatch(/\.\.\/node_modules/);
+    for (const dep of BARE) {
+      expect(alias, `${dep} is not resolved from this project`).toContain(`node_modules/${dep}`);
+    }
+  });
+
+  it("keeps the app root outside preview, which is why the alias is needed", () => {
+    // If credenza-fashion.jsx ever moves inside preview/, normal resolution
+    // works and this rule becomes dead weight. Assert the premise so the next
+    // reader learns why the alias exists instead of deleting it as noise.
+    expect(existsSync(join(PREVIEW, "../credenza-fashion.jsx")), "app root moved").toBe(true);
+    expect(existsSync(join(PREVIEW, "credenza-fashion.jsx")), "app root is now inside preview/; the alias may be removable").toBe(false);
+  });
+});
