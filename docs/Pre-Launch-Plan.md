@@ -104,6 +104,7 @@ do it completely, and report against its acceptance criteria.
 | LB-37 | Make a clean checkout build the real app instead of a 21-module stub | P0 | 2 h | — | DONE 2026-07-27 — the launch gate box was unchecked because it was true; Netlify would have shipped a bundle with no icons and no app |
 | LB-38 | Cache the bytes that never change; stop re-sending 1.3 MB to every repeat visitor | P1 | 1 h | LB-37 | DONE 2026-07-27 — the live site sent max-age=0 for a 352 KB font and 884 KB of content-hashed JS; found while booting the built bundle for LB-37 |
 | LB-39 | Give the share card a picture: relay the photo instead of hotlinking it | P0 | 2 h | LB-8 | DONE 2026-07-27 — LB-8's own acceptance criterion was not met; every Discord unfurl drew a blank card because Yupoo answers a crawler with HTTP 567 |
+| LB-40 | Hold the app and the share page to the language rules the pages follow | P1 | 1 h | LB-39 | DONE 2026-07-27 — the seventh scope defect; putting "W2C best batch 1:1 replica finder" in the app's search box passed all 1617 tests |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2333,6 +2334,54 @@ to split on `?` and `#` too. A rule that cries wolf teaches people to ignore it.
 **Still needs Kyle.** The relay cannot be verified end-to-end until the shares
 migration runs — there is no share to fetch. After the deploy: create a share,
 paste the link into Discord, confirm the card shows the photo.
+
+### LB-40 — the language rule stopped at the edge of the public folder
+
+**Found by a negative control, not by reading.** LB-20 wrote the banned-phrase
+rule and LB-29 extended it to the app shell. Both walk files under
+`preview/public/`. The two biggest copy surfaces we own are not there.
+
+I changed the app's own search placeholder to
+`W2C best batch 1:1 replica finder` and ran the full suite. **1617 tests passed.**
+I changed the share page footer to `the best batch 1:1 replica W2C finder.` and
+ran its two test files. **539 tests passed.** Both would have shipped.
+
+This is the **seventh** instance of the same shape:
+
+| ID | What was exempt |
+|---|---|
+| LB-22 | the length floor covered `/guides/` only |
+| LB-24 | social tags were checked on new pages only |
+| LB-25 | the rule iterated HTML, so `llms.txt` was exempt |
+| LB-26 | the rule iterated DOCS, so four shipped files were exempt |
+| LB-29 | the app shell was outside every rule |
+| LB-39 | the share page is a function, so no page rule reached it |
+| LB-40 | the language rule reads `preview/public/` and nothing else |
+
+**Why this list and not squeamishness.** The five phrases come from
+`docs/aeo-geo/ai-seo-playbook.md`. They reframe the product from a haul planner
+into a replica catalogue. That is the positioning we deliberately refuse, and
+the app is where a user reads our words most.
+
+**Comments are stripped before the check, on purpose.**
+`credenza-fashion.jsx:1304` says `// obfuscate W2C links to dodge automod`. That
+comment is correct — it explains why the Reddit parser handles a format it does
+not endorse. A rule that fired on it would be deleted within a day, and then it
+would guard nothing. Only what a user can read counts.
+
+**Probes.**
+
+| Edit | Result |
+|---|---|
+| Banned phrase in the app placeholder | 4 fail |
+| Banned phrase in the share page footer | 4 fail |
+| All five phrases in a line comment | 0 fail (correct) |
+| All five phrases in a block comment | 0 fail (correct) |
+| Make the stripper return `""` | 2 fail (guard-the-guard) |
+| Restore each time | checksum verified |
+
+**Gate.** 1629 tests pass (62 files), 0 lint errors, tsc clean, build emits the
+full bundle.
 
 ## Explicitly deferred (do NOT build before launch)
 

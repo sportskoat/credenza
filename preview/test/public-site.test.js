@@ -1449,3 +1449,83 @@ describe("the keyword cluster doc lists every shipped guide", () => {
     expect(phantom, "docs/aeo-geo/keyword-cluster.md lists guides that do not exist").toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-40. The language rule stopped at the edge of preview/public/.
+//
+// The seventh instance of the same shape. LB-22 scoped a length floor to
+// /guides/, LB-24 checked social tags on new pages only, LB-25 iterated HTML so
+// llms.txt was exempt, LB-26 iterated DOCS so four shipped files were exempt,
+// LB-29 left the app shell out, LB-39 left the share page out because it is a
+// function. Each time the exemption was where the defect hid.
+//
+// Here the exemption covers the two biggest copy surfaces we own:
+//
+//   * credenza-fashion.jsx — every label, placeholder, button and empty state
+//     in the product. It is what a user actually reads, all day.
+//   * share-page.js — public HTML served to anyone with a link, and the page
+//     a chat client unfurls.
+//
+// Negative control, 2026-07-27: replacing the search placeholder with
+// "W2C best batch 1:1 replica finder" left all 1617 tests green. Doing the same
+// to the share page footer left all 539 in its two files green. Both shipped.
+//
+// The banned list is docs/aeo-geo/ai-seo-playbook.md. It is not squeamishness:
+// those phrases reframe the product from a planner into a replica catalogue,
+// which is the positioning we deliberately do not take.
+//
+// COMMENTS ARE STRIPPED FIRST, deliberately. `// obfuscate W2C links to dodge
+// automod` at credenza-fashion.jsx:1304 is correct and must stay — it explains
+// why the Reddit parser handles a format it does not endorse. A rule that fired
+// on it would be edited away within a day. Only what a user can read counts.
+describe("the product's own words obey the language rules the pages obey", () => {
+  // Same list as the shell rule above, and the playbook it comes from.
+  const BANNED = ["w2c", "replica", "1:1", "best batch", "customs tips"];
+
+  // Strip line comments, block comments, and import paths, then keep what is
+  // left. Crude next to a parser, and right for the only question asked of it:
+  // could a user see this string? A false negative here (a banned word hidden
+  // in a template expression) is survivable; a false positive that fires on a
+  // correct comment is not, because it teaches people to ignore the suite.
+  function visibleText(src) {
+    return src
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .split("\n")
+      .map((line) => line.replace(/(^|[^:])\/\/.*$/, "$1"))
+      .filter((line) => !/^\s*import\s/.test(line))
+      .join("\n");
+  }
+
+  const SURFACES = [
+    ["credenza-fashion.jsx", join(ROOT, "credenza-fashion.jsx")],
+    ["preview/netlify/functions/share-page.js", join(ROOT, "preview/netlify/functions/share-page.js")],
+  ];
+
+  for (const [label, path] of SURFACES) {
+    describe(label, () => {
+      const src = readFileSync(path, "utf8");
+      const text = visibleText(src);
+
+      it("has text left after the comments are stripped", () => {
+        // Guard the guard. A regex that ate the whole file would make every
+        // check below pass on an empty string.
+        expect(text.length, `${label}: nothing survived comment stripping`).toBeGreaterThan(
+          src.length / 4
+        );
+      });
+
+      for (const banned of BANNED) {
+        it(`never says "${banned}" where a user can read it`, () => {
+          const hits = text
+            .split("\n")
+            .map((line, i) => [i + 1, line])
+            .filter(([, line]) => line.toLowerCase().includes(banned));
+          expect(
+            hits.map(([n, line]) => `${label}:${n} ${line.trim()}`),
+            `${label} says "${banned}" outside a comment — see docs/aeo-geo/ai-seo-playbook.md`
+          ).toEqual([]);
+        });
+      }
+    });
+  }
+});
