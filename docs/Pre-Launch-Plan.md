@@ -84,6 +84,7 @@ do it completely, and report against its acceptance criteria.
 | LB-17 | Body-measurements guide | P1 | 1 h | LB-16 | DONE 2026-07-27 — last buying question with shipped product |
 | LB-18 | Agent comparison guide | P1 | 1 h | LB-17 | DONE 2026-07-27 — planner-framed, from the verified registry |
 | LB-19 | Lock the pricing page numbers | P0 | 1 h | LB-18 | DONE 2026-07-27 — the Link resolves row and both bullet lists now fail the build if they drift |
+| LB-20 | Fix the search snippets; lock the language rules | P1 | 1 h | LB-19 | DONE 2026-07-27 — 13 descriptions and 1 title rewritten; 1 banned phrase found |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -997,6 +998,75 @@ file before writing a new one.**
 duplicates removed). Lint 0 errors, 5 pre-existing warnings. Typecheck clean.
 Build unchanged: index-fashion 362.73 KB / 117.30 KB gzip, vendor
 149.10 KB / 47.33 KB, index 147.13 KB / 50.39 KB.
+
+### LB-20. Thirteen search results ended mid-sentence — DONE 2026-07-27
+
+**The gap.** Google shows roughly 160 characters of a meta description and
+roughly 60 of a title. Thirteen of eighteen public pages ran past the
+description limit. One ran past the title limit. The cut always landed on the
+closing clause, which is the clause that says what makes Credenza different.
+
+What the reader lost, before the fix:
+
+| Page | Length | The clause that never appeared |
+| --- | --- | --- |
+| `/guides/store-body-measurements/` | 233 | "and why the numbers never leave your device" |
+| `/guides/choose-an-agent/` | 220 | "so you can switch agents without losing your list" |
+| `/guides/weidian-size-chart/` | 216 | "before you open your agent" |
+| `/guides/track-qc-photos/` | 213 | "and decide before the parcel ships" |
+| `/landing/` | 202 | "then open Buy in your own agent" |
+| `/how/stash-from-your-phone/` | 201 | "iOS needs a two-action Shortcut" |
+| `/guides/open-weidian-in-agent/` | 201 | "and wraps at Buy time" |
+| `/how/` | 198 | "the decision layer before the agent click" |
+| `/guides/reddit-haul-to-list/` | 185 | "Credenza haul planner" |
+| `/faq/` | 179 | "without being a W2C marketplace" |
+| `/guides/organize-agent-haul/` | 179 | "Free haul planner" |
+| `/guides/index` | 169 | "Not a marketplace" |
+| `/guides/spreadsheet-vs-haul-planner/` | 168 | "need one card" |
+
+The `/guides/choose-an-agent/` title was 76 characters. Shortened to
+`Superbuy vs Sugargoo vs Kakobuy · decide size first` (51).
+
+All thirteen descriptions are rewritten to 147–156 characters. Every one keeps
+its closing point and ends in a full stop.
+
+**A defect the test found on its first run.** The same commit adds a check for
+the hard language rules in `docs/aeo-geo/ai-seo-playbook.md`. It failed
+immediately on `/guides/reddit-haul-to-list/`, which read:
+
+> Credenza does not rank "best batch" sellers and does not search a
+> counterfeit catalog.
+
+The phrase sat inside a denial, so a human reads it correctly. An answer engine
+that lifts a phrase can drop the negation, and the playbook's rule is literal.
+Reworded to "does not rank sellers, score batches, or search a counterfeit
+catalog" — same meaning, no banned string.
+
+**What the tests do.** Two new `describe` blocks in
+`preview/test/public-site.test.js`, over `DOCS` (all 19 landable pages,
+including 404):
+
+- Title at most 60 characters.
+- Description between 70 and 160 characters. A ceiling AND a floor: too long
+  is cut mid-clause, too short wastes the only sentence the page gets.
+- Description ends in `.`, `!` or `?`. Copy written to a limit is easy to leave
+  dangling on a comma.
+- No page contains any of the five banned phrases.
+- A vacuity guard asserts `DOCS.length > 10`, because an empty list would pass
+  every loop by never running it.
+
+**Negative controls (all four run, all restored).**
+
+- NC-1 — pushed the `/how/` description past 160. Failed the truncation test.
+- NC-2 — removed its terminal full stop, keeping the length legal. Failed the
+  mid-sentence test only.
+- NC-3 — cut it to 15 characters. Failed the truncation test on the floor.
+- NC-4 — injected "best batch" into `/support/`, which was clean. Failed the
+  banned-language test for that page only.
+
+**Gate.** 60 files / 1235 tests passed (1162 before; 73 added, three per page
+plus the guards). Lint 0 errors, 5 pre-existing warnings. Typecheck clean.
+Build unchanged.
 
 ## Explicitly deferred (do NOT build before launch)
 

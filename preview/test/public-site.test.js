@@ -297,3 +297,74 @@ describe("the sitemap", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-20. A snippet that gets cut mid-clause.
+//
+// Google shows roughly 160 characters of a description and roughly 60 of a
+// title. Thirteen pages ran past the description limit and one past the title
+// limit, so the search result ended mid-word and the closing point — the part
+// that says what makes Credenza different — never appeared.
+//
+// The limits are not exact; Google measures pixels, not characters. That is
+// why this test uses them as a CEILING to write under, not a target to hit.
+// A page that fits is safe on every rendering; a page that runs 60 characters
+// over is cut on all of them.
+describe("every page fits in a search result", () => {
+  const text = (html, re) => {
+    const m = html.match(re);
+    return m ? m[1].replace(/\s+/g, " ").trim() : null;
+  };
+
+  for (const { rel, html } of DOCS) {
+    const title = text(html, /<title>([\s\S]*?)<\/title>/);
+    const desc = text(html, /name="description"\s+content="([\s\S]*?)"/);
+
+    it(`${rel} has a title that survives truncation`, () => {
+      expect(title, `${rel} has no <title>`).toBeTruthy();
+      expect(title.length, `title is ${title.length} chars: ${title}`).toBeLessThanOrEqual(60);
+    });
+
+    it(`${rel} has a description that survives truncation`, () => {
+      expect(desc, `${rel} has no meta description`).toBeTruthy();
+      // Too long is cut mid-clause. Too short wastes the only sentence the
+      // page gets to argue with, and reads as a stub.
+      expect(desc.length, `description is ${desc.length} chars: ${desc}`).toBeLessThanOrEqual(160);
+      expect(desc.length, `description is only ${desc.length} chars: ${desc}`).toBeGreaterThanOrEqual(70);
+    });
+
+    it(`${rel} does not end its description mid-sentence`, () => {
+      // A description written to a limit is easy to leave dangling. Require
+      // real terminal punctuation, so nobody ships a trailing comma or "and".
+      expect(desc, `${rel} description does not end in . ! or ?`).toMatch(/[.!?]$/);
+    });
+  }
+
+  it("checked more than one page", () => {
+    // Guard the guard: an empty DOCS list would pass every loop above by
+    // never running it.
+    expect(DOCS.length).toBeGreaterThan(10);
+  });
+});
+
+// The hard language rules from docs/aeo-geo/ai-seo-playbook.md. These are not
+// style preferences. A page that calls Credenza a marketplace for replicas
+// invites the payment and hosting problem the whole product is built to avoid.
+describe("no page uses banned language", () => {
+  const BANNED = [
+    "w2c marketplace",
+    "best batch",
+    "1:1 finder",
+    "replica shop",
+    "customs tips",
+  ];
+
+  for (const { rel, html } of DOCS) {
+    it(`${rel} avoids every banned phrase`, () => {
+      const low = html.toLowerCase();
+      for (const phrase of BANNED) {
+        expect(low.includes(phrase), `${rel} contains "${phrase}"`).toBe(false);
+      }
+    });
+  }
+});
