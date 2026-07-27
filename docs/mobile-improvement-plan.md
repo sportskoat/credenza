@@ -6,7 +6,7 @@ shelf; fresh WebKit/iPhone-15-Pro screenshots (`docs/mobile-shots/`, regenerated
 against local dev this session); full color-token inventory + WCAG computation
 (subagent report); full interactive-element census (subagent report); docs:
 `Monetization.md`, `carousel-canonical-state.md`, `session-state.md`,
-`settings-toggles.md`, `fashion-app-brief.md`, `V3-SPEC.md`.
+`settings-toggles.md`, `fashion-app-brief.md`, `docs/legacy/V3-SPEC.md`.
 **Builds on:** the 2026-07-21 six-fix mobile pass (grid columns, bottom sheets,
 16px inputs, coarse-pointer fan/carousel/rAF fixes) — those all verified present;
 this plan is the "fix more later" round.

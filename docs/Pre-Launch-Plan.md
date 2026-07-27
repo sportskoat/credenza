@@ -635,12 +635,25 @@ diff the app at 390 / 768 / 1024 / 1280 before and after.
 
 ### LB-13. Archive the legacy root files
 
-Move `credenza-v2.jsx`, `credenza-v3.jsx`, `credenza-v3-walnut.jsx`,
-`credenza-v2/v3` CSS, and `V3-SPEC.md` into `docs/legacy/` (or a
-`legacy/` dir). They are dead build targets (see `preview/vite.config.js`
-comment). Update the lint script paths in `preview/package.json`.
-Confirm nothing imports them: `grep -rn "credenza-v3" preview/src
-components sheets`.
+DONE for the safe half (2026-07-26). The original spec was wrong on two
+points, corrected here so nobody repeats the mistake.
+
+Moved into `docs/legacy/`, with a README that says why:
+`credenza-v2.jsx`, `credenza-v3-walnut.jsx`, `V3-SPEC.md`. Grep proves no
+code imports any of the three.
+
+Two files must NOT move:
+
+- `credenza.css` is live, not legacy. `credenza-fashion.jsx:69` imports
+  it, and it holds `.cz-shelf-grid`. There is no separate v2/v3 CSS file
+  to archive — the original spec invented one.
+- `credenza-v3.jsx` is not import-free. Three places still import it:
+  `preview/src/main.jsx`, `extension/src/main.jsx`, and
+  `preview/test/app.test.jsx` (7 passing tests). The lint script in
+  `preview/package.json` also names it. It is not a Vite build input for
+  the fashion app, but archiving it means deleting or repointing those
+  7 tests and touching the dormant Chrome extension. That is a scope
+  call for Kyle, not an agent. Left in place on purpose.
 
 ---
 
