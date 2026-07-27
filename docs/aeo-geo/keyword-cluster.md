@@ -31,6 +31,12 @@
 - agent affiliate haul planner
 - convert Weidian link to Superbuy
 
+### Share / post
+- share a haul list without a spreadsheet
+- post a haul to Reddit with photos
+- share shopping list read-only link
+- hide prices when sharing a haul
+
 ### Tool / AEO prompts (what people ask ChatGPT)
 - “Best way to organize a FashionReps haul”
 - “App to plan a Superbuy haul with sizes”
@@ -66,6 +72,7 @@ built twice.
 | Track QC photos | — | `/guides/track-qc-photos/` |
 | Store body measurements | — | `/guides/store-body-measurements/` |
 | Free agent haul planner | — | `/guides/free-agent-haul-planner/` |
+| Share a haul list | — | `/guides/share-a-haul-list/` |
 | Hub | — | `/guides/` |
 
 Yupoo was the largest uncovered head term on the site until 2026-07-27: ~12k a

@@ -111,6 +111,7 @@ do it completely, and report against its acceptance criteria.
 | LB-44 | Check that the files a page asks for are actually there | P1 | 45 m | LB-43 | DONE 2026-07-27 — the tenth scope defect, and the first about references rather than words; renaming the landing hero to a file that does not exist passed all 1641 tests |
 | LB-45 | Sell the two features that shipped a day ago | P1 | 50 m | LB-44 | DONE 2026-07-27 — the eleventh scope defect, and the first where the rule was also wrong about the facts; a stale comment kept shared links and multi-device off the page that sells Pro |
 | LB-46 | Explain the two features the price table now sells | P1 | 45 m | LB-45 | DONE 2026-07-27 — the twelfth scope defect, and the third axis; every page was correct on its own, and the gap lived between them, so `/pricing/` was the only page explaining what a buyer paid for |
+| LB-47 | Write the guide for the feature the announcement runs on | P1 | 1 h | LB-46 | DONE 2026-07-27 — twelve guides now; the share link is what LB-39 calls "the announcement's engine", Pro sells 100 of them, and no guide told a buyer how to make one |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2791,6 +2792,70 @@ phone does not survive.
 | Restore each time | checksum verified |
 
 **Gate.** 1674 tests pass (62 files), 5 lint warnings and 0 errors, build
+`index-fashion-VSp8hwMs.js 363.47 kB`.
+
+### LB-47 — a guide for the feature the announcement runs on
+
+**Why.** LB-46 made `/pricing/` and `/how/` and `/faq/` agree about the share
+link. It did not give the reader a page to go to. LB-39 calls the share link
+"the announcement's engine": the launch post is a shared haul. Pro sells 100
+links at once. The site had eleven guides — stash, size, QC, agents, shipping,
+plans — and none of them was about sharing. A buyer who pays for 100 links had
+nowhere to learn how to make one.
+
+This is not a scope defect. No rule was too narrow. The gap was a missing page,
+and the tests were right to stay quiet about it, because a test can only check
+the pages that exist.
+
+**What shipped.** `/guides/share-a-haul-list/` — 726 words in `<main>`, eight
+`<h2>` cards, a 5-step `HowTo` schema, breadcrumbs, the standard disclaimer, and
+a CTA. The cards run: why a haul post is a bad list; the read-only page at a
+random 12-character address; a switched-off field is absent from the page source,
+not hidden by styling; the preview card Reddit and Discord render; delete and the
+page answers 404; free 3 links, Pro 100; four uses for the link; two habits.
+
+**The six places a new guide must be registered.** Each one is a separate rule,
+and each one failed on its own in a probe:
+
+| Place | Rule it satisfies |
+|---|---|
+| `PRIMARY` map in `preview/test/public-site.test.js` | schema type, and `Object.keys(PRIMARY).length === PAGES.length` |
+| `preview/public/sitemap.xml` | crawl |
+| `preview/public/llms.txt` | assistant ingest |
+| `preview/public/llms-full.txt` | assistant ingest, long form |
+| `preview/public/guides/index.html` | hub ItemList **and** the visible card |
+| `docs/aeo-geo/keyword-cluster.md` | LB-36 — a cluster row per guide |
+
+Plus LB-21: at least two inbound body-copy links from pages that are not the
+guides hub. The three chosen are `/how/` (in the share card LB-46 added),
+`/guides/track-qc-photos/` (the "second opinion" card already told the reader to
+post QC photos somewhere), and `/guides/reddit-haul-to-list/` (a new "The other
+direction" card — that guide reads a thread in, this one posts back out).
+
+**Three rules caught the first draft, and all three were right.** Title 61 chars
+against a 60 limit. Description 170 against 160. And LB-21 reported
+`linked only from []` — the page existed and nothing pointed at it.
+
+**A pre-existing defect found on the way.** Two lines in `llms-full.txt` had lost
+their `- ` list marker, so `/guides/free-agent-haul-planner/` and
+`/guides/yupoo-album-to-shopping-list/` were not list items in the section an
+assistant ingests. Repaired in the same pass.
+
+**Probes.** Restore by checksum after each one.
+
+| Edit | Result |
+|---|---|
+| `<main>` gutted | 2 fail — word floor and section count |
+| `HowTo` → `Article` | 2 fail — schema type and step count |
+| Cluster row removed from `keyword-cluster.md` | 1 fail with LB-36's message |
+| Bullet removed from `llms.txt` | 1 fail naming the exact URL |
+| `best batch` put in an `<h2>` | 1 fail — the banned-phrase rule reaches new pages |
+| Two of three inbound links removed | 1 fail — `linked only from [/how/]` |
+
+The last probe is the one worth keeping. LB-21 needs **two**, and cutting to one
+failed, so the rule bites at the boundary and not just at zero.
+
+**Gate.** 1698 tests pass (62 files), 5 lint warnings and 0 errors, build
 `index-fashion-VSp8hwMs.js 363.47 kB`.
 
 ## Explicitly deferred (do NOT build before launch)

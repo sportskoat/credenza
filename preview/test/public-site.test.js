@@ -1225,6 +1225,7 @@ describe("every page tells a machine what kind of page it is", () => {
     "guides/spreadsheet-vs-haul-planner/index.html": "Article",
     "guides/store-body-measurements/index.html": "HowTo",
     "guides/track-qc-photos/index.html": "HowTo",
+    "guides/share-a-haul-list/index.html": "HowTo",
     "guides/weidian-size-chart/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
