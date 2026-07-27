@@ -706,3 +706,196 @@ describe("no guide is too thin to answer its question", () => {
     });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-26. The four shipped files that are not HTML, and so were never checked.
+//
+// Every rule above iterates DOCS or PAGES, which are HTML. That left four files
+// that ship on every deploy with nothing asserting them: manifest.webmanifest,
+// _headers, sw.js, and the theme-color meta that pairs with the manifest.
+// share-entry.test.js pins the manifest's share_target and the sitemap already
+// has a block, so the gap is the rest of the manifest plus the other two files.
+//
+// Two defects were sitting in it.
+//
+// First: the manifest declared "#F4F4F0" for theme_color and background_color.
+// That is the Gallery colorway. The app's default is Blackout — mode defaults
+// to "rainbow" and credenza-fashion.jsx sets the live meta tag to "#000000" for
+// it. So the install splash screen painted warm-white and then handed over to a
+// black app. Nothing on screen said so; a manifest is only read by the OS at
+// install time, which is the one moment nobody is looking at a test.
+//
+// Second: all 18 public pages declared a single unconditional
+// <meta name="theme-color" content="#000000">, while every one of them defines
+// --bg: #f4f4f0 and only overrides it to #000000 under prefers-color-scheme:
+// dark. So a reader in light mode got a black iOS status bar above a warm-white
+// page. The fix is the media-scoped pair, which is what the meta tag is for.
+describe("the files that ship but are not pages", () => {
+  const manifest = JSON.parse(readFileSync(join(PUBLIC, "manifest.webmanifest"), "utf8"));
+
+  // The app's own default. credenza-fashion.jsx:4586 writes this into the live
+  // meta tag whenever mode is "rainbow", and mode defaults to "rainbow".
+  const APP_DARK = "#000000";
+  const APP_LIGHT = "#f4f4f0";
+
+  describe("the manifest", () => {
+    it("paints its splash in the colorway the app opens in", () => {
+      // background_color is the splash screen. theme_color is the OS chrome
+      // around the installed app. Both are read once, at install, so a stale
+      // value is invisible until somebody installs and sees the flash.
+      expect(manifest.theme_color.toLowerCase(), "manifest theme_color").toBe(APP_DARK);
+      expect(manifest.background_color.toLowerCase(), "manifest background_color").toBe(APP_DARK);
+    });
+
+    it("names icons that exist at the size it claims", () => {
+      // A manifest can claim any size it likes. The OS scales whatever it finds
+      // to the box it wanted, so a 192 icon labelled 512 just looks soft — it
+      // never errors. Read the real dimensions out of the PNG header instead.
+      expect(manifest.icons.length, "manifest icons").toBeGreaterThanOrEqual(2);
+      for (const icon of manifest.icons) {
+        const png = readFileSync(join(PUBLIC, icon.src.replace(/^\//, "")));
+        // IHDR is the first chunk of every PNG: width and height are big-endian
+        // uint32 at byte 16 and byte 20.
+        const width = png.readUInt32BE(16);
+        const height = png.readUInt32BE(20);
+        expect(`${width}x${height}`, `${icon.src} on disk`).toBe(icon.sizes);
+        expect(icon.type, `${icon.src} type`).toBe("image/png");
+      }
+    });
+
+    it("scopes itself to the app the service worker serves", () => {
+      // start_url outside scope makes the install open in a browser tab rather
+      // than standalone. sw.js falls back to "/index.html" for navigations, so
+      // the shell it serves has to be the one start_url asks for.
+      expect(manifest.start_url, "manifest start_url").toBe("/");
+      expect(manifest.scope, "manifest scope").toBe("/");
+      expect(manifest.display, "manifest display").toBe("standalone");
+    });
+  });
+
+  describe("every page's theme colour", () => {
+    // Match across newlines: the tags are hand-wrapped when they are long.
+    const THEME = /<meta\s+name="theme-color"\s+content="([^"]+)"(?:\s+media="([^"]*)")?\s*\/?>/gs;
+
+    for (const { rel, html } of DOCS) {
+      it(`${rel} colours the status bar to match what it renders`, () => {
+        const tags = [...html.matchAll(THEME)].map((m) => ({
+          content: m[1].toLowerCase(),
+          media: (m[2] || "").toLowerCase(),
+        }));
+        const light = tags.find((t) => t.media.includes("light"));
+        const dark = tags.find((t) => t.media.includes("dark"));
+        expect(light, `${rel} declares no light-mode theme-color`).toBeTruthy();
+        expect(dark, `${rel} declares no dark-mode theme-color`).toBeTruthy();
+        expect(light.content, `${rel} light theme-color`).toBe(APP_LIGHT);
+        expect(dark.content, `${rel} dark theme-color`).toBe(APP_DARK);
+      });
+
+      it(`${rel} colours it the same as its own background`, () => {
+        // The status bar sits directly above the page. This asserts the two
+        // against each other rather than against a constant, so a page that
+        // restyles its palette cannot leave the meta tag behind.
+        const decls = [...html.matchAll(/--bg:\s*(#[0-9a-fA-F]{3,8})/g)].map((m) =>
+          m[1].toLowerCase()
+        );
+        expect(decls.length, `${rel} defines no --bg`).toBe(2);
+        expect(decls[0], `${rel} light --bg`).toBe(APP_LIGHT);
+        expect(decls[1], `${rel} dark --bg`).toBe(APP_DARK);
+      });
+    }
+  });
+
+  describe("the header rules", () => {
+    const headers = readFileSync(join(PUBLIC, "_headers"), "utf8");
+    // A path block starts at column 0 with a slash. Everything indented under
+    // it is a header for that path.
+    const paths = headers
+      .split("\n")
+      .filter((line) => /^\//.test(line))
+      .map((line) => line.trim());
+
+    it("names only files that ship", () => {
+      // Netlify applies a block by path match and says nothing when the path
+      // does not exist. So a renamed file silently loses its Content-Type, and
+      // llms.txt starts downloading instead of rendering.
+      expect(paths.length, "_headers declares no paths").toBeGreaterThan(5);
+      for (const path of paths) {
+        if (path === "/*") continue; // the site-wide block
+        let exists = true;
+        try {
+          statSync(join(PUBLIC, path.replace(/^\//, "")));
+        } catch {
+          exists = false;
+        }
+        expect(exists, `_headers sets headers for ${path}, which does not ship`).toBe(true);
+      }
+    });
+
+    it("sets a content type for every file a browser guesses wrong", () => {
+      // These four have no extension a static host maps confidently. Without an
+      // explicit type llms.txt downloads and the manifest is ignored, which
+      // means the install prompt never appears.
+      for (const path of ["/llms.txt", "/llms-full.txt", "/manifest.webmanifest", "/sitemap.xml"]) {
+        expect(paths, `_headers has no block for ${path}`).toContain(path);
+      }
+      expect(headers, "_headers manifest content type").toContain("application/manifest+json");
+    });
+
+    it("keeps the site-wide protections", () => {
+      // The /* block is the only place these are set. Losing nosniff turns the
+      // Content-Type work above into a suggestion.
+      expect(paths[0], "_headers first block").toBe("/*");
+      for (const header of ["X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options"]) {
+        expect(headers, `_headers is missing ${header}`).toContain(header);
+      }
+    });
+  });
+
+  describe("the service worker", () => {
+    const sw = readFileSync(join(PUBLIC, "sw.js"), "utf8");
+
+    it("waits for the app before replacing itself", () => {
+      // A worker that calls skipWaiting() on install swaps the code under a
+      // session that is mid-edit. This one waits for the app to post
+      // SKIP_WAITING, which the app only sends when the reader presses Restart.
+      expect(sw, "sw.js does not listen for SKIP_WAITING").toContain("SKIP_WAITING");
+      // Bound the search to the install handler's own body — up to the next
+      // listener — or a lazy match runs on into the message handler, where
+      // skipWaiting belongs, and the check passes on the wrong text.
+      const handlers = sw.split(/self\.addEventListener\(/).slice(1);
+      const install = handlers.find((h) => /^\s*["']install["']/.test(h)) || "";
+      expect(install, "sw.js has no install handler").not.toBe("");
+      expect(
+        install.includes("skipWaiting"),
+        "sw.js calls skipWaiting during install, which swaps code mid-session"
+      ).toBe(false);
+    });
+
+    it("serves the shell when the network is gone", () => {
+      // Without this a navigation offline gets the browser's error page, even
+      // though the shell is sitting in the cache.
+      expect(sw, "sw.js has no navigate fallback").toContain('cache.match("/index.html")');
+    });
+
+    it("leaves other origins alone", () => {
+      // Thumbnails come from Weidian and Taobao. Caching them would put third
+      // party images in the app's own cache and make it grow without limit.
+      expect(sw, "sw.js does not check the request origin").toContain("self.location.origin");
+    });
+
+    it("drops the caches an older build left behind", () => {
+      // The cache name carries a hash of the precache list, so every build gets
+      // a new one. Without the sweep on activate they accumulate for the life
+      // of the install.
+      const activate =
+        sw
+          .split(/self\.addEventListener\(/)
+          .slice(1)
+          .find((h) => /^\s*["']activate["']/.test(h)) || "";
+      expect(activate, "sw.js has no activate handler").not.toBe("");
+      expect(activate.includes("caches.delete"), "sw.js activate never deletes an old cache").toBe(
+        true
+      );
+    });
+  });
+});

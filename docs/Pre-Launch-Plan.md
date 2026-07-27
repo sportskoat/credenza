@@ -90,6 +90,7 @@ do it completely, and report against its acceptance criteria.
 | LB-23 | Fill /how/; widen the length floor to every page | P1 | 1.5 h | LB-22 | DONE 2026-07-27 — /how/ 248 → 967 words; floor now covers 17 pages |
 | LB-24 | Repair and lock the social link card on all 18 pages | P1 | 1 h | LB-23 | DONE 2026-07-27 — 4 pages were missing 5 tags each; 2 more had drifted text |
 | LB-25 | Hold llms.txt to the same rules as the pages | P1 | 1 h | LB-24 | DONE 2026-07-27 — both briefs were exempt from every site rule |
+| LB-26 | Lock the four shipped files that are not pages | P1 | 1 h | LB-25 | DONE 2026-07-27 — the manifest painted the wrong splash; 18 pages mis-coloured the status bar |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1384,6 +1385,82 @@ keeps 100".
 
 **Gate.** 60 files / 1364 tests passed (1354 before). Lint 0 errors, 5
 pre-existing warnings. Typecheck clean. Build clean.
+
+### LB-26. The four shipped files that are not pages — DONE 2026-07-27
+
+**The defect.** Every rule in `test/public-site.test.js` iterates `DOCS` or
+`PAGES`, which are HTML. Four files ship on every deploy with nothing asserting
+them: `manifest.webmanifest`, `_headers`, `sw.js`, and the `theme-color` meta
+tag that pairs with the manifest. This is the same shape as LB-22, LB-24 and
+LB-25: a rule covers only the files it was written against.
+
+Two real defects were sitting in the gap.
+
+1. **The manifest painted the wrong splash screen.** It declared
+   `"theme_color": "#F4F4F0"` and `"background_color": "#F4F4F0"`. That is the
+   Gallery colorway. The app's default is Blackout — `mode` defaults to
+   `"rainbow"` and `credenza-fashion.jsx:4586` writes `#000000` into the live
+   meta tag for it. So an installed app flashed warm-white on launch and then
+   handed over to a black screen. A manifest is read by the OS once, at install
+   time, which is the one moment nobody is watching a test.
+2. **All 18 public pages mis-coloured the status bar in light mode.** Each
+   declared one unconditional `<meta name="theme-color" content="#000000">`,
+   while each defines `--bg: #f4f4f0` and only overrides it to `#000000` under
+   `prefers-color-scheme: dark`. A reader in light mode got a black iOS status
+   bar above a warm-white page. All 18 were wrong identically, which is the
+   signature of a copied pattern rather than drift.
+
+**The repair.** Set both manifest colours to `#000000`. Replaced the single
+meta tag on all 18 pages with the media-scoped pair, which is what the tag is
+for:
+
+```html
+<meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+```
+
+**The lock.** A new `the files that ship but are not pages` block. It reads each
+manifest icon's real dimensions out of the PNG IHDR header rather than trusting
+the JSON, because the OS scales whatever it finds and a mislabelled icon only
+looks soft — it never errors. It asserts each page's two `theme-color` values
+against that page's own two `--bg` declarations, not against a constant, so a
+page that restyles its palette cannot leave the meta tag behind. It asserts
+every path in `_headers` exists on disk, because Netlify applies a block by path
+match and says nothing when the path is absent. And it holds `sw.js` to four
+behaviours: no `skipWaiting` inside the install handler, a navigate fallback to
+the cached shell, a same-origin check, and an old-cache sweep on activate.
+
+**Verified against the real bytes.** Every icon claim is accurate: `icon-16`
+16x16, `icon-48` 48x48, `icon-128` 128x128, `icon-180` 180x180, `icon-192`
+192x192, `icon-512` 512x512, `og.png` 1200x630.
+
+**Negative controls (nine, each restored).**
+
+- Reverted the manifest to `#F4F4F0` → `manifest theme_color: expected
+  '#f4f4f0' to be '#000000'`.
+- Relabelled `icon-512.png` as `1024x1024` → `/icon-512.png on disk: expected
+  '512x512' to be '1024x1024'`.
+- Restored the old unconditional tag on `/faq/` → `faq/index.html declares no
+  light-mode theme-color`.
+- Repainted `/terms/` light `--bg` to `#ffffff` without touching its meta tag →
+  `terms/index.html light --bg: expected '#ffffff' to be '#f4f4f0'`.
+- Renamed the `/llms-full.txt` header block → TWO failures, `_headers sets
+  headers for /llms-renamed.txt, which does not ship` and `_headers has no
+  block for /llms-full.txt`. A rename should fire both.
+- Added `self.skipWaiting()` to the install handler → `sw.js calls skipWaiting
+  during install, which swaps code mid-session`.
+- Repointed the navigate fallback at `/shell.html` → `sw.js has no navigate
+  fallback`.
+
+**One test bug the controls found.** The first `skipWaiting` check used
+`/addEventListener\(\s*["']install["'][\s\S]*?skipWaiting/`. The lazy match ran
+past the install handler into the message handler, where `skipWaiting` belongs,
+and reported a defect that was not there. Both handler checks now split `sw.js`
+on `self.addEventListener(` and search one handler's own body.
+
+**Gate.** 60 files / 1410 tests passed (1364 before). Lint 0 errors, 5
+pre-existing warnings. Typecheck clean. Build clean.
+
 
 ## Explicitly deferred (do NOT build before launch)
 
