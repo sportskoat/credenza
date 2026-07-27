@@ -110,9 +110,43 @@ describe("the caps are enforced where the writes happen", () => {
     // A name already on the shelf always passes: that is a MOVE between hauls,
     // not a new one, and a user over the cap must still be able to sort.
     expect(src).toContain("if (!clean || haulNames.includes(clean)) return false;");
-    expect(src).toContain("if (haulNames.length < haulsCap) return false;");
     // The refusal drops the project key and keeps the rest of the edit.
     expect(src).toContain("const { project, ...rest } = patch;");
+  });
+
+  // LB-58. The cap counted every haul name on the shelf. Archiving set a flag
+  // that hid the haul from the directory and changed nothing about the count,
+  // so the app's own refusal message — "Archive one to start another" — was
+  // false, and /how/ promising "archive a finished haul and the shelf stays
+  // clean" described a button with no consequence.
+  //
+  // This is the shape LB-1 and LB-2 established: a cap that is not wrong in
+  // arithmetic but is wrong about which set it counts. It survived because
+  // every existing assertion read the OLD line as a literal string.
+  it("counts OPEN hauls, so archiving a finished one frees a slot", () => {
+    // The archived set is derived where the cap is applied, not read from a
+    // directory memo that only exists on the Hauls tab.
+    expect(src).toContain(
+      'const archivedNames = new Set(hauls.filter((h) => h.archived).map((h) => h.name));'
+    );
+    expect(src).toContain(
+      "const activeHauls = haulNames.filter((n) => !archivedNames.has(n));"
+    );
+    expect(src).toContain("if (activeHauls.length < haulsCap) return false;");
+    // The superseded line must be gone. Leaving both would cap on the larger
+    // set first and the fix would never run.
+    expect(src).not.toContain("if (haulNames.length < haulsCap) return false;");
+  });
+
+  it("offers the free user the free way out, not only the paid one", () => {
+    // Before LB-58 the free branch named Pro and nothing else, because on free
+    // there was no other way out. There is now, and a message that hides it
+    // sells an upgrade for a problem a button solves.
+    const free = src.match(/" open hauls on Free\.[\s\S]{0,120}?PRO_LIMITS\.haulsMax/);
+    expect(free, "the free haul-cap message no longer reads as expected").toBeTruthy();
+    expect(free[0]).toContain("Archive a finished one to start another");
+    // Both branches say the same way out.
+    expect(src).toContain('" open hauls is the limit. Archive a finished one to start another."');
   });
 
   it("routes every nudge to the Profile sheet, where the upgrade lives", () => {

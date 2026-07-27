@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Close a haul and start the next one · Credenza</title>
+    <meta name="description" content="A haul is a parcel, not a folder. When to close one, what archiving does to your shelf, and why the free limit of two counts open hauls only." />
+    <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/guides/close-a-haul/" />
+    <meta property="og:title" content="When a haul is finished, and how to start the next one" />
+    <meta property="og:description" content="A haul is a parcel, not a folder. When to close one, what archiving does, and how the free limit of two open hauls works." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://credenzafashion.com/guides/close-a-haul/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — the agent haul planner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="When a haul is finished, and how to start the next one" />
+    <meta name="twitter:description" content="A haul is a parcel, not a folder. When to close one, what archiving does, and how the free limit of two open hauls works." />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "When a haul is finished, and how to start the next one",
+        "url": "https://credenzafashion.com/guides/close-a-haul/",
+        "description": "A haul in Credenza is one parcel. This page says when a haul is finished, what archiving does to the shelf and to your haul count, and how the free limit of two open hauls works.",
+        "totalTime": "PT2M",
+        "step": [
+          {
+            "@type": "HowToStep",
+            "name": "Check that every card in the haul has left Want",
+            "text": "Open the haul and read the status track. A haul is finished when nothing in it is still waiting on you — every card reads Shipped, Approved or Returned. A card still in Want means the parcel is not closed, it is short one item."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Save the parcel estimate before you archive",
+            "text": "Enter the weight and the box size on the haul board while the parcel is still real. The chargeable weight is stored on the haul record, so the next time you plan a similar parcel you have a real number from your own shipment instead of a guess."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Press Archive on the haul board",
+            "text": "Archiving hides the haul from the Hauls tab and closes it. Nothing is deleted. Every card keeps its haul name, its photos, its price and its status, and the running total for that haul is still there when you open it again."
+          },
+          {
+            "@type": "HowToStep",
+            "name": "Start the next haul",
+            "text": "Archiving frees a slot against the open-haul limit, so on the free plan you can archive a shipped haul and immediately name a third. Open any card, press the three-dot menu, and type a new haul name to create it."
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://credenzafashion.com/" },
+          { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://credenzafashion.com/guides/" },
+          { "@type": "ListItem", "position": 3, "name": "When a haul is finished, and how to start the next one", "item": "https://credenzafashion.com/guides/close-a-haul/" }
+        ]
+      }
+    </script>
+
+    <style>
+
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f4f0;
+        --ink: #17181a;
+        --muted: #5c5f66;
+        --card: #ffffff;
+        --line: rgba(23, 24, 26, 0.12);
+        --accent: #17181a;
+        --money: #15803d;
+        --max: 40rem;
+        --pad: 1.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --ink: #f4f4f0;
+          --muted: #a1a1aa;
+          --card: #1a1a1d;
+          --line: rgba(244, 244, 240, 0.12);
+          --accent: #f4f4f0;
+          --money: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 1.0625rem;
+      }
+      header, main, footer {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: var(--pad);
+      }
+      header {
+        padding-top: 2rem;
+        padding-bottom: 0.5rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0 0 0.35rem;
+        color: inherit;
+        text-decoration: none;
+        flex: 0 0 auto;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .brand:hover { color: inherit; opacity: 0.9; }
+      .mark { display: block; flex: 0 0 auto; }
+      .brand-name {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        line-height: 1;
+      }
+      .wordmark {
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        line-height: 1;
+      }
+      .kicker {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0 0 0.75rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.4rem;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--money); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 1.15rem 1.2rem;
+        margin: 0 0 0.85rem;
+      }
+      .card p { margin: 0 0 0.65rem; color: var(--muted); }
+      .card p:last-child { margin-bottom: 0; }
+      .card ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--muted);
+      }
+      .card li { margin: 0.25rem 0; }
+      .n {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--money);
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .note {
+        margin: 1.5rem 0;
+        padding: 0.85rem 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding-bottom: 3rem;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.7rem 1.15rem;
+        background: var(--accent);
+        color: var(--bg);
+        text-decoration: none;
+        border-radius: 999px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .cta:hover { opacity: 0.9; color: var(--bg); }
+      .related {
+        margin-top: 1.25rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .related a { margin-right: 0.75rem; }
+
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+          <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+          <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+          <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+        </svg>
+        <span class="brand-name">
+          <span class="wordmark">CREDENZA</span>
+          <span class="kicker">Fashion</span>
+        </span>
+      </p>
+      <h1>When a haul is finished, and how to start the next one</h1>
+      <p class="lede">
+        A haul is a parcel, not a folder. It has an end. This page says where
+        the end is, what archiving does, and why the free limit of two is a
+        limit on open hauls rather than on hauls you have ever run.
+      </p>
+      <nav class="nav" aria-label="Site">
+        <a href="/">Open app</a>
+        <a href="/landing/">About</a>
+        <a href="/how/">How it works</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/support/">Support</a>
+        <a href="/contact/">Contact</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+        <main>
+      <article class="card">
+        <span class="n">The idea</span>
+        <h2>A haul ends when the parcel ships</h2>
+        <p>
+          A folder never ends. You put things in it, and it stays open for as
+          long as you own the computer. A haul is not that. A haul is one
+          parcel that one agent packs and one courier carries, and the day it
+          leaves the warehouse the haul is over.
+        </p>
+        <p>
+          Credenza groups your shelf that way on purpose. The running total,
+          the parcel weight and the budget are all read off the cards in one
+          haul, and every one of those numbers is only meaningful for a group
+          that ships together. Two months of finds in a single haul gives you a
+          total you will never pay and a weight you will never post.
+        </p>
+        <p>
+          So the useful question is not "how do I organize my shelf". It is
+          "which of these am I buying this time". A haul is the answer to the
+          second question.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 1</span>
+        <h2>Read the status track before you close anything</h2>
+        <p>
+          Open the haul. Every card in it carries a buying stage: Want, Bought,
+          Shipped, Quality check, Approved, Red light or Returned. The haul is
+          finished when nothing in it is still waiting on a decision from you.
+        </p>
+        <p>
+          In practice that means every card reads Shipped, Approved or
+          Returned. A card still in Want is the common trap. It looks like a
+          finished haul with one leftover, and it is actually a parcel you have
+          not fully paid for yet.
+        </p>
+        <p>
+          If one card is genuinely not coming this time, move it out. Open the
+          card, press the three-dot menu, and clear the haul name or pick a
+          different one. The card stays on your shelf with its photos, its
+          price and its notes. It just stops counting against this parcel.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 2</span>
+        <h2>Save the parcel estimate while the parcel is still real</h2>
+        <p>
+          The haul board has a parcel editor: weight in grams, box length,
+          width and height, and a packaging choice. Fill it in before you
+          archive, not after.
+        </p>
+        <p>
+          The reason is that the number is worth more later than now. Once the
+          parcel has actually shipped, you know what the agent really charged
+          you, and the estimate on the record becomes a real measurement of a
+          real box you posted. The next time you plan a similar haul you can
+          compare against your own shipment instead of guessing.
+        </p>
+        <p>
+          The arithmetic is explained in full on
+          <a href="/guides/plan-a-parcel/">how to plan a parcel</a>, including
+          why a light box can still be billed as a heavy one.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Step 3</span>
+        <h2>Archive hides the haul. It never deletes anything.</h2>
+        <p>
+          Press Archive on the haul board. The haul leaves the Hauls tab, and
+          the tab shows an "Archived" button with a count so you can bring it
+          back into view whenever you want.
+        </p>
+        <p>What archiving does not do:</p>
+        <ul>
+          <li>It does not delete a card. Every item keeps its haul name.</li>
+          <li>It does not drop your QC photos, your prices or your notes.</li>
+          <li>It does not clear the budget or the parcel estimate.</li>
+          <li>It does not break a shared link you already made.</li>
+        </ul>
+        <p>
+          Press Unarchive on the same button and the haul comes straight back
+          to the tab, unchanged. Archiving is reversible in one tap, which is
+          why it is the right way to close a haul and deleting is not.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">The limit</span>
+        <h2>Two open hauls on free, not two hauls ever</h2>
+        <p>
+          The free plan runs two hauls at once. Pro runs a hundred. The word
+          doing the work in that sentence is <em>at once</em>: the count is of
+          open hauls, and an archived haul does not count.
+        </p>
+        <p>
+          So a free account is not limited to two parcels. It is limited to two
+          parcels in flight. Archive a haul that has shipped and the slot comes
+          back immediately, which means the free plan supports as many hauls
+          over a year as you have the patience to run — two at a time.
+        </p>
+        <p>
+          That matches how buying actually works. Most people have one parcel
+          being packed and one being planned. Two is not a sample of the
+          product; for a lot of people it is the whole product.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">Careful</span>
+        <h2>The cap stops new hauls, never existing ones</h2>
+        <p>
+          If you end a Pro subscription while five hauls are open, you keep all
+          five. Nothing locks, nothing hides, and you can still move cards
+          between them, edit them, share them and export them.
+        </p>
+        <p>
+          The only thing the free plan stops is naming a <em>new</em> haul
+          while you are over the limit. Archive one you have finished and you
+          can name another. This is deliberate: a plan change should never put
+          your own records behind a paywall.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="n">When not to</span>
+        <h2>Three times a haul should stay open</h2>
+        <ul>
+          <li>
+            <strong>A card is in Quality check.</strong> QC can fail. A red
+            light means the item comes back to the warehouse and goes into a
+            later parcel, and you want the haul open while that is decided.
+          </li>
+          <li>
+            <strong>You have not paid the shipping invoice.</strong> The agent
+            quotes the parcel after it is packed. Until you have accepted that
+            quote the weight can still change.
+          </li>
+          <li>
+            <strong>You are still adding to it.</strong> An open haul is a
+            shopping list. Close it when the list stops changing, not when it
+            gets long.
+          </li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <span class="n">After</span>
+        <h2>What a finished haul is still good for</h2>
+        <p>
+          An archived haul is a record of one purchase: what you paid, what it
+          weighed, which seller it came from and how the QC went. That is the
+          reference you want the next time the same seller comes up.
+        </p>
+        <p>
+          You can still ask about it. Ask searches your whole shelf, archived
+          hauls included, so "what did I buy from that seller in the spring
+          haul" works months later —
+          <a href="/guides/ask-your-own-shelf/">how to ask your own shelf</a>
+          covers what Ask can and cannot see.
+        </p>
+        <p>
+          You can also export it. The .json backup and the Pro .csv export both
+          include archived hauls, so a finished parcel survives a new phone.
+          See <a href="/guides/back-up-your-shelf/">how to back up your shelf</a>.
+        </p>
+      </article>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a shop. It
+        organizes the links you already found and opens Buy in the agent you
+        already use. It does not sell anything and it does not host a catalog.
+      </p>
+
+      <a class="cta" href="/">Open Credenza</a>
+
+      <p class="related">
+        Related:
+        <a href="/guides/organize-agent-haul/">Organize a haul</a> ·
+        <a href="/guides/plan-a-parcel/">Plan a parcel</a> ·
+        <a href="/guides/track-qc-photos/">Track QC photos</a> ·
+        <a href="/guides/free-agent-haul-planner/">What free covers</a> ·
+        <a href="/how/">How it works</a>
+      </p>
+    </main>
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/contact/">Contact</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

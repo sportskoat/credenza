@@ -122,6 +122,7 @@ do it completely, and report against its acceptance criteria.
 | LB-54 | Fix the choppy transitions and the dead scroll (Kyle) | P0 | 3 h | LB-53 | DONE 2026-07-27 (`2208d32`) — Kyle: "the screens are glitchy, half of them don't work in terms of scrolling anymore, or the animations to move from one to the other are very choppy"; two defects, both invisible to the existing suite — see below |
 | LB-56 | Send Ask the fields it is sold on | P0 | 2 h | LB-55 | DONE 2026-07-27 (`e103839`) — `ask.js` called its allowlist a "mirror" of the client serializer and dropped nine fields, so both questions `/how/` advertises were unanswerable by construction; the client now sends one USD price and the function accepts status, price and age, with a prompt field key |
 | LB-57 | Explain the feature the price table sells at 5 against 200 | P0 | 2 h | LB-56 | DONE 2026-07-27 — a fourth census, chrome stripped and every sentence read, found Ask explained by one card on `/how/`; five of the nine hits were the verb ("Ask the chart", "Ask for a refund"); new page `/guides/ask-your-own-shelf/`, plus a `SOLD` entry keyed on the mechanism |
+| LB-58 | Make archiving free a haul slot, and explain where a haul ends | P0 | 3 h | LB-57 | DONE 2026-07-27 — the next census narrowed on the `Hauls at once` row; checking whether `/how/` told the truth found a real app defect: `blockNewHaul` counted every haul name and ignored `archived`, so archiving never freed a slot and the app own refusal message was false; cap now counts open hauls, both messages name archiving, new page `/guides/close-a-haul/` |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -3599,3 +3600,101 @@ census.
 
 **Gate.** 1909 tests pass (65 files, up from 1882 — the new page picks up 27
 per-page rules), 5 lint warnings and 0 errors.
+
+---
+
+### LB-58 — the archive button that did nothing
+
+**How this one was found.** The LB-46 census moved to the next unexplained row
+in the price table: `Hauls at once`, 2 on Free against 100 on Pro. Raw word
+counts were useless here — "haul" is in the product description, so it appears
+in 122 sentences across 23 pages. Filtering to the *lifecycle* of a haul — when
+one ends, what archiving does, what the cap counts — left two sentences on the
+whole site, both on `/how/`:
+
+```
+The free plan runs 2 hauls at once. Pro runs 100.
+Archive a finished haul and the shelf stays clean without losing the record.
+```
+
+**Checking the second sentence found a defect, not a gap.** Before writing a
+page around that promise I read the code that keeps it. Reproduced in Node with
+a two-haul shelf and one haul archived:
+
+```
+haulNames (what the cap counts): 2
+archived: [ 'Spring haul' ]
+blocked after archiving one? true
+```
+
+`blockNewHaul` counted `haulNames.length`. `haulNames` is a `useMemo` over
+`items` that collects every non-empty `item.project` string. It has no knowledge
+of archived state at all. The `archived` flag lives on the separate `hauls`
+record array, and before this fix exactly one thing read it: `haulDirectory`,
+which uses it to hide the haul from the Hauls tab.
+
+So archiving hid a haul and freed nothing. That makes three separate statements
+false at once:
+
+| Where | What it said |
+|---|---|
+| The app, Pro branch | "Archive one to start another." |
+| The app, Free branch | named Pro and nothing else |
+| `/how/` | "Archive a finished haul and the shelf stays clean" |
+
+The Free branch is the worst of the three. It sold an upgrade for a problem a
+button was supposed to solve, and the button did not work.
+
+**The fix.** Derive the archived set where the cap is applied, and cap on open
+hauls:
+
+```js
+const archivedNames = new Set(hauls.filter((h) => h.archived).map((h) => h.name));
+const activeHauls = haulNames.filter((n) => !archivedNames.has(n));
+if (activeHauls.length < haulsCap) return false;
+```
+
+A name with no haul record at all still counts. That is deliberate: the board
+creates the record on first save, so most hauls exist only as project strings on
+cards, and treating "no record" as "archived" would remove the cap entirely.
+
+Both notify branches now name archiving, because after the fix both branches
+have a free way out.
+
+**Why every existing test passed the broken version.** `test/plan-limits.test.js`
+asserted `expect(src).toContain("if (haulNames.length < haulsCap) return false;")`.
+That is the defective line, read as a literal string and confirmed present. The
+assertion was true and the behaviour was wrong. This is the LB-1 and LB-2 shape
+again: a cap whose arithmetic is right and whose *set* is wrong. The stale
+assertion had to be deleted, not extended, and a `not.toContain` on the old line
+replaced it so the fix cannot be silently reverted.
+
+**The page.** `/guides/close-a-haul/`, a `HowTo` with four steps: read the
+status track, save the parcel estimate, press Archive, start the next haul. Its
+claims and their sources:
+
+| Claim on the page | Source |
+|---|---|
+| Two open hauls on Free, 100 on Pro | `src/usage.js` `FREE_LIMITS` / `PRO_LIMITS`, `lib/entitlements.js` `PLAN_LIMITS` |
+| The count is of open hauls | `credenza-fashion.jsx` `blockNewHaul` (this fix) |
+| The seven buying stages | `credenza-fashion.jsx` `FIND_STATUS_LONG` |
+| Archiving is one flag and is reversible | `credenza-fashion.jsx` — the Archive handler toggles `archived` |
+| The Archived (N) toggle on the Hauls tab | `credenza-fashion.jsx` `haulDirectory` `archivedCount` |
+| The parcel editor fields and packaging choices | `components/HaulBoard.jsx`, `PACKAGING_OPTIONS` |
+| A downgrade never locks an existing haul | `blockNewHaul` caps creation only |
+| Archived hauls stay in Ask and in exports | `serializeAskCandidates` sends `project`; export includes every item |
+
+**Mutation probes, three.** Deleting the page fails 8 rules (three dangling-href
+rules, both `llms` link rules, the sitemap completeness rule, the hub census and
+the schema-map completeness rule). Restoring the old `haulNames.length` line
+fails `counts OPEN hauls, so archiving a finished one frees a slot`. Stripping
+"Archive a finished one to start another" out of the Free message fails
+`offers the free user the free way out, not only the paid one`.
+
+**Gate.** 1936 tests pass (65 files, up from 1911), 5 lint warnings, 0 errors.
+
+**What this says about the census method.** LB-51 through LB-57 each corrected
+how the census *counts*. LB-58 corrects what it is *for*. The census points at a
+promise nobody has checked; the page is the deliverable, but the promise has to
+be verified against the code before the page repeats it. Here the check failed,
+and the page would have documented a button with no consequence.

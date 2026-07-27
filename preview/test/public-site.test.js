@@ -1237,6 +1237,10 @@ describe("every page tells a machine what kind of page it is", () => {
     // A procedure, unlike the explainer above it: type the question, press the
     // button, read the answer against the cards, fix the card if it misses.
     "guides/ask-your-own-shelf/index.html": "HowTo",
+    // LB-58. A procedure with an order that matters: the parcel estimate has
+    // to be saved before the haul leaves the tab, and the cards have to leave
+    // Want before the parcel is real.
+    "guides/close-a-haul/index.html": "HowTo",
     "guides/open-weidian-in-agent/index.html": "HowTo",
     "guides/organize-agent-haul/index.html": "HowTo",
     "guides/reddit-haul-to-list/index.html": "HowTo",

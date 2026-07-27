@@ -5566,14 +5566,31 @@ function CredenzaApp() {
   // the cap — from a downgrade, or from an import — keeps every one of them,
   // and can still move cards between them. Never lock or delete an existing
   // haul.
+  // LB-58. The cap counts ACTIVE hauls. It used to count every name on the
+  // shelf, which made the free plan's own message a lie: "Archive one to start
+  // another" was the Pro copy, /how/ says "archive a finished haul and the
+  // shelf stays clean", and archiving freed nothing. A haul is a parcel — it
+  // ends when the parcel ships — so a shelf with two shipped hauls and no way
+  // to start a third is a dead end, not a limit.
+  //
+  // Only a haul with an explicit archived record is excluded. A name with no
+  // record at all still counts, because that is the common case: the board
+  // creates the record on first save, so most hauls exist as project strings.
   const blockNewHaul = (name) => {
     const clean = String(name || "").trim();
     if (!clean || haulNames.includes(clean)) return false;
-    if (haulNames.length < haulsCap) return false;
+    const archivedNames = new Set(hauls.filter((h) => h.archived).map((h) => h.name));
+    const activeHauls = haulNames.filter((n) => !archivedNames.has(n));
+    if (activeHauls.length < haulsCap) return false;
     notify(
+      // Both halves say the same way out, because after LB-58 both halves have
+      // one. Telling a free user only about Pro hides the free fix.
       isProPlan
-        ? haulsCap + " hauls is the limit. Archive one to start another."
-        : haulsCap + " hauls on Free. Pro holds " + PRO_LIMITS.haulsMax + ".",
+        ? haulsCap + " open hauls is the limit. Archive a finished one to start another."
+        : haulsCap +
+          " open hauls on Free. Archive a finished one to start another, or Pro holds " +
+          PRO_LIMITS.haulsMax +
+          ".",
       isProPlan ? {} : { actionLabel: "See Pro", onAction: () => setProfileOpen(true) }
     );
     return true;
