@@ -98,6 +98,7 @@ do it completely, and report against its acceptance criteria.
 | LB-31 | Ship the haul-weight guide and lock the schema type every page declares | P1 | 1 h | LB-30 | DONE 2026-07-27 — the guide cluster stopped at Buy, and no rule checked the node that says what a page IS |
 | LB-32 | Bind every quoted price to the price the app charges | P0 | 1 h | LB-31 | DONE 2026-07-27 — raising PRICING failed only the two llms files; /pricing/, /faq/ and /terms/ kept the stale number |
 | LB-33 | Assert what robots.txt says, not just that it ships | P0 | 1 h | LB-32 | DONE 2026-07-27 — replacing it with Disallow: / deindexed the whole site and the suite stayed green |
+| LB-34 | Assert the deploy contract in netlify.toml | P0 | 1 h | LB-33 | DONE 2026-07-27 — five edits that break the live site each passed with the suite green at 1503 |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1875,6 +1876,89 @@ Restored by checksum.
 
 **Gate:** 60 files / 1503 tests, lint 0 errors, typecheck clean, build clean.
 Verified `robots.txt` reaches `dist/` unchanged.
+
+### LB-34 — the file that decides whether the deploy works at all
+
+`netlify.toml` is the deploy contract. It names the directory the build
+publishes, the directory functions load from, the rewrite that makes
+`/s/:id` resolve, the redirect that keeps the canonical host canonical,
+and the baseline security headers. Nothing asserted any of it.
+
+The only mention of the file anywhere in `test/` was a comment in
+`test/share-parity.test.js:58`. A comment is not a rule.
+
+**The defect.** Five separate edits, each of which breaks the live site,
+all passed with the suite green at 1503 tests:
+
+1. `to = "/.netlify/functions/share-page"` → `share-pge`. The rewrite
+   points at a function that does not exist, so every shared shelf link
+   404s. Shares are the growth loop.
+2. `publish = "dist"` → `"build"`. The deploy publishes a directory Vite
+   never wrote. The site goes empty, and the Netlify UI reports success.
+3. `functions = "netlify/functions"` → `"netlify/fns"`. No function
+   loads: checkout, entitlement, resolve, share.
+4. `X-Content-Type-Options` → `X-Content-Type-Opts`. The header silently
+   stops being sent. Nothing in the repo can see this.
+5. The www→apex redirect reversed to point at `www.`. That is an
+   infinite redirect loop on the canonical host — the host every
+   canonical tag, the sitemap and `robots.txt` point at.
+
+This matters more here than in most repos because of rule 8. Kyle spends
+one production deploy for the whole launch. A broken toml is not a fast
+rollback; it is the entire batch.
+
+**The repair.** `preview/test/deploy-config.test.js`, 10 rules. It parses
+the toml rather than grepping it: blocks are split on `[table]` and
+`[[array]]` headers, and values are read as quoted strings or bare
+scalars. Bare scalars matter — `status = 301` and `force = true` carry no
+quotes, and the first version of the parser skipped them, so
+`www redirect status` read `undefined`. An assertion against `undefined`
+is vacuous. Both first-run failures were the parser, not the file.
+
+The rules assert:
+
+- `publish` is `dist`, the directory Vite builds to, and `command` is
+  `npm run build`.
+- `functions` names a directory that exists, and that directory really
+  holds `checkout.js`, `entitlement.js`, `resolve.js` and `share.js` —
+  the paid path, every paste, and the share.
+- `/s/*` rewrites to a function whose file exists in that directory, at
+  `status = 200`. The 200 is checked explicitly: a 301 would rewrite the
+  address bar and change the URL people paste into Discord.
+- No `[[redirects]]` anywhere targets a `/.netlify/functions/` name with
+  no matching file.
+- The www redirect points at the apex, not back at www, at 301.
+- All four baseline headers are present under their exact names, and
+  `Permissions-Policy` really denies camera, microphone and geolocation.
+- The discovery files carry the Content-Type a crawler expects.
+  `sitemap.xml` served as `text/html` is ignored by search consoles and
+  renders fine in a browser, so the failure is invisible by hand.
+
+**The parse guard.** The first rule asserts the parse produced a
+`[build]` block, at least two redirects, and at least ten blocks total.
+Without it, a change to the file's shape would empty every list and every
+rule below would pass by checking nothing. This suite exists because five
+real breakages were silent. It must not become silent itself.
+
+**Negative controls — eight, all fired.**
+
+| Injection | Result |
+|---|---|
+| `share-page` → `share-pge` | 2 failed |
+| `publish = "build"` | 1 failed |
+| `functions = "netlify/fns"` | 3 failed |
+| `X-Content-Type-Options` renamed | 1 failed |
+| apex redirect reversed to www | 1 failed |
+| sitemap Content-Type → `text/html` | `expected 'text/html; charset=utf-8' to contain 'application/xml'` |
+| `/s/*` status 200 → 301 | `/s/* status: expected '301' to be '200'` |
+| `camera=()` dropped | `Permissions-Policy does not deny camera` |
+
+Restored from `/tmp/nt.clean` and verified by checksum
+(`a19ce67dd9aa74624bfa5344c5b30cfd`), not by `git diff`.
+
+**Gate.** 61 files / 1513 tests passed. Lint 0 errors, 5 warnings.
+`npx tsc -p jsconfig.json --noEmit` clean. `npm run build` clean.
+
 
 ## Explicitly deferred (do NOT build before launch)
 
