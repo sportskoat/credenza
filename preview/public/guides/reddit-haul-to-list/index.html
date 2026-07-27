@@ -154,6 +154,14 @@
         padding-left: 1.15rem;
         color: var(--muted);
       }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.88em;
+        background: rgba(127, 127, 127, 0.14);
+        padding: 0.1em 0.35em;
+        border-radius: 3px;
+        word-break: break-all;
+      }
       .card li { margin: 0.25rem 0; }
       .n {
         font-family: system-ui, -apple-system, sans-serif;
@@ -276,6 +284,77 @@
           <li>Drop items you will not buy. Keep notes that explain fit.</li>
           <li>Size the keepers. Open Buy in your agent when ready.</li>
         </ul>
+      </article>
+      <article class="card">
+        <span class="n">What the paste contains</span>
+        <h2>Four kinds of link in one wall of text</h2>
+        <p>
+          A haul comment is not a tidy list. It mixes things that look alike and mean
+          different things.
+        </p>
+        <ul>
+          <li><strong>Marketplace links</strong> — Weidian, Taobao, Tmall and 1688. These become the buy link on a card.</li>
+          <li><strong>Agent links</strong> — a Superbuy or CNFans wrap around a marketplace item. These carry a real item too.</li>
+          <li><strong>Yupoo albums</strong> — photos, no checkout. They belong on the card, not as the buy link.</li>
+          <li><strong>Everything else</strong> — the poster's other threads, an invite link, a chat handle. These are not items.</li>
+        </ul>
+        <p>
+          The last group is why a plain link scrape produces junk. An agent signup link
+          looks exactly like an agent item link until you read the path.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Naming</span>
+        <h2>Why cards used to be called “W2C”</h2>
+        <p>
+          The word beside a link is often not the item. It says W2C, or link, or the URL
+          again, or the seller's name. Take it literally and you get a shelf of
+          identical cards.
+        </p>
+        <ul>
+          <li>A label that names a host, or reads link or W2C, is dropped. The card stays honestly untitled rather than wrongly titled.</li>
+          <li>A “Name: my thoughts on it” line splits into a name and a note.</li>
+          <li>On a post with one item, the post title is the item name. That is what a QC post is.</li>
+          <li>On a post with many items, the title is never stamped on every card.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <span class="n">Broken links</span>
+        <h2>Reddit damages URLs on the way in</h2>
+        <p>
+          Posters break links on purpose to dodge filters, and Reddit breaks them by
+          accident. Both are repaired before parsing, or the whole paste reads as
+          chatter with no links in it.
+        </p>
+        <ul>
+          <li>Spaces inserted mid-URL, as in <code>https:// weidian.com</code>.</li>
+          <li>Reddit's backslash escapes, as in <code>spider\_token</code>.</li>
+          <li>Phone numbers: your phone turns a long item id into a dial link.</li>
+          <li>Yupoo album paths split from their domain across two lines.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <span class="n">How well it works</span>
+        <h2>Measured on 22 real posts</h2>
+        <p>
+          The parser was tested against 22 real r/FashionReps posts, not invented
+          examples. Before the 2026-07-24 rewrite: 12 of 22 parsed. After: 21 of 22
+          parsed, and all 77 items came out with a name.
+        </p>
+        <p>
+          The remaining failure is a seller promotion post, which is an advertisement
+          rather than a haul. Known rough edges: a promotion post labels cards with the
+          seller name.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">When it declines</span>
+        <h2>One link is not a haul</h2>
+        <p>
+          A paste with a single link and no post context returns nothing here, and the
+          ordinary single-link stash handles it instead. Guessing haul shape from one
+          URL would card the wrong things far more often than it helped.
+        </p>
       </article>
       <article class="card">
         <span class="n">Honest limit</span>

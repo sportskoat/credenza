@@ -24,7 +24,7 @@ Not a marketplace. Not a W2C search engine. A haul OS for people who already kno
 1. **Stash** — paste a link, a multi-URL line, or (soon) a full Reddit haul comment.  
 2. **See the card** — cover photo, title, price, seller.  
 3. **Size** — paste or pull a size chart; match it to your body profile (in or cm).  
-4. **Pipeline** — Want → Bought → QC → GL/RL → Shipped.  
+4. **Pipeline** — Want → Bought → Shipped → Received. QC, GL and RL sit inside Bought.  
 5. **Buy** — one tap opens the item in your preferred agent (affiliate only on that open).
 
 ## Positioning table (public)

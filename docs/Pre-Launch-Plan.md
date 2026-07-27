@@ -86,6 +86,7 @@ do it completely, and report against its acceptance criteria.
 | LB-19 | Lock the pricing page numbers | P0 | 1 h | LB-18 | DONE 2026-07-27 — the Link resolves row and both bullet lists now fail the build if they drift |
 | LB-20 | Fix the search snippets; lock the language rules | P1 | 1 h | LB-19 | DONE 2026-07-27 — 13 descriptions and 1 title rewritten; 1 banned phrase found |
 | LB-21 | Fix the internal link graph | P1 | 1 h | LB-20 | DONE 2026-07-27 — 2 guides had one inbound link; 6 links added, graph locked |
+| LB-22 | Fill the thin guides; lock a length floor | P1 | 2 h | LB-21 | DONE 2026-07-27 — 5 guides expanded; stale pipeline fixed on 4 files; floor locked |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1132,6 +1133,70 @@ carries the anchor's words as plain text. Both new sentences follow it exactly.
 
 **Gate.** 60 files / 1247 tests passed (1235 before). Lint 0 errors, 5
 pre-existing warnings. Typecheck clean. Build unchanged.
+
+### LB-22. Five guides described the feature and stopped — DONE 2026-07-27
+
+**The defect.** The guides are the bottom of the funnel. Somebody searches
+"how do I open a Weidian link in Superbuy" and lands on one. Five guides were
+207–279 words against 576–821 for the rest. The difference was not style. The
+thin ones named the feature and stopped. A reader who still has the question
+leaves, and a page nobody finishes does not hold a ranking.
+
+**What was written.** Every new claim was read out of the source before it was
+written. Nothing was invented.
+
+| Guide | Before | After | Source of the new facts |
+| --- | --- | --- | --- |
+| `open-weidian-in-agent` | 207 | 561 | `agents.js` — 3 template kinds, `extractMarketplaceItemId`, `buildAgentUrl` fail-open reasons |
+| `weidian-size-chart` | 229 | 603 | `credenza-fashion.jsx` — `MEASURE_PAIR_RE`, `normalizeHalfChestRows`, `sizeRunHint`, `recommendSize` ease |
+| `reddit-haul-to-list` | 224 | 657 | `reddit-haul.js` + `docs/session-state.md:749` — the 22-post measurement |
+| `spreadsheet-vs-haul-planner` | 274 | 670 | `credenza-haul-export.js` `CSV_COLUMNS`; `public/pricing/index.html` |
+| `organize-agent-haul` | 215 | 593 | `STATUS_TRACK`, `migrateHaul`, `GALLERY_MAX`, `agents.js` |
+
+**Three defects the rewrite of `organize-agent-haul` also cleared.**
+
+1. It recommended **CSSBuy**, which `agents.js` marks `retired: true`. CSSBuy
+   refuses purchasing-agent service to USA customers (Kyle's call 2026-07-20),
+   and `choose-an-agent` already says so. Replaced with CNFans and Hoobuy.
+2. It stated the pipeline as `Want → Bought → QC → GL/RL → Shipped`. The named
+   constant is `STATUS_TRACK = ["Want", "Bought", "Shipped", "Received"]`.
+   `statusTrackIndex` maps `qc`, `gl` and `rl` to index 1 — inside Bought.
+3. Its HowTo JSON-LD carried the same wrong order in step 4.
+
+**The same stale pipeline was on three more files.** `public/how/index.html`
+carried it twice (visible copy and HowTo JSON-LD), `public/llms-full.txt` once,
+and `docs/aeo-geo/content-kit.md` once. All four now read
+`Want → Bought → Shipped → Received`, with QC, GL and RL named as sub-states of
+Bought. The `GL/RL` mentions that describe QC tracking rather than stage order
+were left alone.
+
+**A correction caught before it shipped.** A draft card said "export the shelf
+to CSV" with no plan qualifier. `exportShelfCsv` is gated on `isProPlan`, and
+`public/pricing/index.html` lists spreadsheet export Free=No / Pro=Yes. The
+card was rewritten as two items: the free `.json` backup, and the Pro `.csv`
+export with a `/pricing/` link.
+
+**The floor, and why the test found what the audit missed.** A hand word-count
+audit counted the whole `<body>`, which carries about 65 words of nav, brand
+mark and footer on every page. `organize-agent-haul` measured 279 that way and
+looked acceptable. The test slices `<main>` only and read it as 215. The test
+found a defect the manual pass had cleared.
+
+`no guide is too thin to answer its question` requires ≥400 words in `<main>`
+and ≥4 `<h2>` per guide, plus a `guides.length >= 8` vacuity guard. The floor
+sits well below the pages as written (561–670), because it guards against a
+page being **gutted**, not against a page being concise. A guide that
+legitimately needs 450 words passes.
+
+**Negative controls (both run, both restored).**
+
+- NC-1 — replaced the `<main>` of `organize-agent-haul` with a one-line stub.
+  Failed the word floor: "has 3 words in `<main>`".
+- NC-2 — the same stub removed every `<h2>`. Failed the section check: "has 0
+  h2 headings". One edit proved both assertions can fail.
+
+**Gate.** 60 files / 1264 tests passed (1247 before). Lint 0 errors, 5
+pre-existing warnings. Typecheck clean. Build clean.
 
 ## Explicitly deferred (do NOT build before launch)
 

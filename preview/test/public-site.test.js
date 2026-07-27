@@ -447,3 +447,46 @@ describe("no deep page depends on the hub alone", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-22. A guide too thin to answer the question it ranks for.
+//
+// The guides are bottom-of-funnel pages: somebody searches "how do I open a
+// Weidian link in Superbuy" and lands on one. Four of them were 207-279 words
+// against 576-821 for the rest, and the difference was not style. The thin
+// ones described the feature and stopped; the thick ones answered the
+// question. A reader who still has the question leaves, and a page nobody
+// finishes does not hold a ranking either.
+//
+// The floor is deliberately well below the pages as written (561-670 words),
+// because this test guards against a page being GUTTED, not against a page
+// being concise. A guide that legitimately needs 450 words should pass.
+describe("no guide is too thin to answer its question", () => {
+  const bodyText = (html) => {
+    let t = html.slice(html.indexOf("<main>"), html.indexOf("</main>"));
+    t = t.replace(/<script[\s\S]*?<\/script>/g, "").replace(/<style[\s\S]*?<\/style>/g, "");
+    return t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  };
+
+  const guides = PAGES.filter((p) => p.url.startsWith("/guides/") && p.url !== "/guides/");
+
+  it("found the guides", () => {
+    // Without this, a change to the URL shape would empty the list and every
+    // assertion below would pass by checking nothing.
+    expect(guides.length).toBeGreaterThanOrEqual(8);
+  });
+
+  for (const { rel, html } of guides) {
+    it(`${rel} says enough to be worth landing on`, () => {
+      const words = bodyText(html).split(" ").filter(Boolean).length;
+      expect(words, `${rel} has ${words} words in <main>`).toBeGreaterThanOrEqual(400);
+    });
+
+    it(`${rel} breaks its answer into sections`, () => {
+      // One wall of text is the other failure mode. A reader scanning for the
+      // part that applies to them needs headings to scan.
+      const h2 = (html.match(/<h2[\s>]/g) || []).length;
+      expect(h2, `${rel} has ${h2} h2 headings`).toBeGreaterThanOrEqual(4);
+    });
+  }
+});

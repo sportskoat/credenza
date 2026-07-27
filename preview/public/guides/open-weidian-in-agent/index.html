@@ -153,6 +153,14 @@
         padding-left: 1.15rem;
         color: var(--muted);
       }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.88em;
+        background: rgba(127, 127, 127, 0.14);
+        padding: 0.1em 0.35em;
+        border-radius: 3px;
+        word-break: break-all;
+      }
       .card li { margin: 0.25rem 0; }
       .n {
         font-family: system-ui, -apple-system, sans-serif;
@@ -276,10 +284,72 @@
         </ul>
       </article>
       <article class="card">
+        <span class="n">The three link shapes</span>
+        <h2>Agents do not all want the same thing</h2>
+        <p>
+          This is why a stored agent link is fragile. The agents split into three
+          groups, and a link built for one group means nothing to another.
+        </p>
+        <ul>
+          <li><strong>Wrap the whole URL.</strong> Superbuy, Sugargoo, Kakobuy and AllChinaBuy take the marketplace URL as a query parameter.</li>
+          <li><strong>Want the item id.</strong> CNFans, Hoobuy, Oopbuy and Mulebuy take the numeric id plus their own name for the platform. The URL itself is discarded.</li>
+          <li><strong>Want both.</strong> Fansbuy puts the id in the path and the URL in a parameter, and only for Weidian.</li>
+        </ul>
+        <p>
+          Convert a shelf from group one to group two and you cannot do it by
+          find-and-replace. You need the id, which is inside the original link you
+          overwrote.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Where the id lives</span>
+        <h2>Each marketplace hides it somewhere else</h2>
+        <ul>
+          <li><strong>Weidian</strong> — <code>itemID</code> in the query string.</li>
+          <li><strong>Taobao and Tmall</strong> — <code>id</code> in the query string.</li>
+          <li><strong>1688</strong> — the number in <code>/offer/&lt;id&gt;.html</code>, or <code>offerId</code>.</li>
+        </ul>
+        <p>
+          Credenza reads the id at Buy time, from the canonical link it kept. You never
+          copy a number by hand.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">When it cannot wrap</span>
+        <h2>The link still opens</h2>
+        <p>
+          Three cases fail: the agent does not serve that marketplace, the id is not in
+          the URL, or the link is a Yupoo album, which is a photo page and not an item.
+        </p>
+        <p>
+          In every case Buy opens the original link untouched. A haul planner that
+          returned a dead end on an unsupported link would be worse than a plain
+          bookmark, so it never does that.
+        </p>
+      </article>
+      <article class="card">
+        <span class="n">Switching agents</span>
+        <h2>A one-field change, not a migration</h2>
+        <p>
+          Your agent choice is a setting, not a property of each item. Change it once
+          and every Buy button on the shelf points somewhere new. Nothing stored
+          changes, so switching back costs the same nothing.
+        </p>
+        <p>
+          Compare the agents themselves in
+          <a href="/guides/choose-an-agent/">which agent should I use</a>.
+        </p>
+      </article>
+      <article class="card">
         <span class="n">What Credenza is not</span>
         <h2>No in-app checkout</h2>
         <p>
           Purchases complete on the agent site. Credenza is the decision layer before that click.
+        </p>
+        <p>
+          Some Buy links carry a referral code, which is how a free planner pays for the
+          AI it runs. The code attaches to the outbound click only. It is never written
+          into your stored link, and it never changes which agent you see.
         </p>
       </article>
 

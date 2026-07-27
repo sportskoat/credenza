@@ -24,7 +24,8 @@ know how agents work.
 1. Stash — paste a link, a multi-URL line, or a Reddit haul comment.
 2. See the card — cover photo, title, price, seller.
 3. Size — paste or pull a size chart; match it to your body profile (in or cm).
-4. Pipeline — Want → Bought → QC → GL/RL → Shipped.
+4. Pipeline — Want → Bought → Shipped → Received. QC, GL and RL are not a
+   fifth stop; they sit inside Bought, while the agent holds the parcel.
 5. Buy — one tap opens the item in your preferred agent (affiliate only on that open).
 
 Optional, and only with an account: publish any subset of the shelf as a
