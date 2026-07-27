@@ -1593,3 +1593,108 @@ describe("the product's own words obey the language rules the pages obey", () =>
     });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-44. Every rule above reads what a page SAYS. None checked that the files
+// a page ASKS FOR are there.
+//
+// The tenth scope defect, and the first one that is not about words at all.
+// Proved 2026-07-27: renaming the landing hero to
+// /landing/img/kit-jersey-black-MISSING.jpg left all 1641 tests green. That is
+// a broken picture in the first screen of the page that converts, and the
+// length floor, the schema parity rule, and the language rules all pass it —
+// because the markup is still perfectly well-formed prose. Nothing reads the
+// filesystem.
+//
+// The shrinking exemption, restated: LB-41 taught that bringing a file under
+// test is not the same as bringing its CONTENT under test. LB-42 extended that
+// to code paths, LB-43 to a rule that stopped at its first match. LB-44 names
+// the axis none of them touched — the pages were under test for everything
+// they SAY and for nothing they REFERENCE.
+//
+// Two things this rule has to know, both learned by getting them wrong:
+//
+// Paths resolve against public/ OR dist/. sw.js precaches "/index.html", which
+// is the app shell — Vite emits it into dist/ and public/ copies over the top,
+// so it exists at deploy time and not on disk here. Checking public/ alone
+// reports a false miss on the one file the whole app depends on, and a false
+// alarm teaches the next person to delete the rule.
+//
+// The manifest and the service worker count. LB-41 was the manifest being
+// under test for its colours and not its prose; the same file names two icons,
+// and a missing icon is an install with no picture. sw.js names its precache
+// list, and a precache entry that 404s makes install() reject — which fails
+// the whole service worker, not just that one file.
+describe("every file a page asks for is actually there", () => {
+  const DIST = join(ROOT, "preview/dist");
+
+  // public/ is copied over dist/ at build time, so either location ships.
+  const shipped = (p) => existsSync(join(PUBLIC, p)) || existsSync(join(DIST, p));
+
+  // src/href on images, and the og:image / twitter:image content attribute,
+  // which may carry the full origin. Query strings and fragments are stripped
+  // because the file on disk has neither.
+  const IMG = /(?:src|href)="(\/[^"?#]+\.(?:jpg|jpeg|png|webp|svg|avif|gif|ico))"/gi;
+  const META = /content="(?:https:\/\/credenzafashion\.com)?(\/[^"?#]+\.(?:jpg|jpeg|png|webp|svg|avif|gif))"/gi;
+
+  function referenced(html) {
+    const out = new Set();
+    for (const m of html.matchAll(IMG)) out.add(m[1]);
+    for (const m of html.matchAll(META)) out.add(m[1]);
+    return [...out];
+  }
+
+  // Count each matcher on its own, never the sum. The first version of this
+  // guard asserted the combined total was over 20, and a probe walked through
+  // it: replacing IMG with a pattern matching nothing still left 21 META hits,
+  // over the threshold, and all 552 tests passed. A guard that one dead matcher
+  // survives is the LB-43 shape again — the rule checked the first thing that
+  // answered and stopped. So each matcher carries its own floor.
+  const countWith = (re) =>
+    DOCS.reduce((n, d) => n + new Set([...d.html.matchAll(re)].map((m) => m[1])).size, 0);
+
+  it("the picture matcher still matches pictures", () => {
+    const n = countWith(IMG);
+    expect(n, `found ${n} src/href image references across ${DOCS.length} pages`).toBeGreaterThan(15);
+  });
+
+  it("the social-card matcher still matches social cards", () => {
+    // og:image and twitter:image. Every page carries both, so this floor
+    // tracks the page count rather than a guess.
+    const n = countWith(META);
+    expect(n, `found ${n} og:image/twitter:image references across ${DOCS.length} pages`).toBeGreaterThan(15);
+  });
+
+  for (const { rel, html } of DOCS) {
+    const refs = referenced(html);
+    if (!refs.length) continue;
+    it(`${rel} points at pictures that exist`, () => {
+      const missing = refs.filter((p) => !shipped(p.replace(/^\//, "")));
+      expect(missing, `${rel} asks for ${missing.join(", ")}`).toEqual([]);
+    });
+  }
+
+  it("the manifest icons exist", () => {
+    const manifest = JSON.parse(readFileSync(join(PUBLIC, "manifest.webmanifest"), "utf8"));
+    expect(manifest.icons.length, "a manifest with no icons installs with no picture").toBeGreaterThan(0);
+    const missing = manifest.icons.map((i) => i.src).filter((p) => !shipped(p.replace(/^\//, "")));
+    expect(missing, `manifest.webmanifest asks for ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("the service worker precaches only files that ship", () => {
+    // A precache entry that 404s rejects install(), and the service worker
+    // never activates — so one wrong path costs the whole offline mode, not
+    // one asset.
+    const sw = readFileSync(join(PUBLIC, "sw.js"), "utf8");
+    const paths = [
+      ...new Set(
+        [...sw.matchAll(/["'](\/[^"']*\.(?:js|css|html|png|jpg|jpeg|webp|svg|woff2?|json|webmanifest))["']/g)].map(
+          (m) => m[1]
+        )
+      ),
+    ];
+    expect(paths.length, "found no precache paths — has sw.js changed shape?").toBeGreaterThan(0);
+    const missing = paths.filter((p) => !shipped(p.replace(/^\//, "")));
+    expect(missing, `sw.js precaches ${missing.join(", ")}`).toEqual([]);
+  });
+});

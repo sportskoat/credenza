@@ -108,6 +108,7 @@ do it completely, and report against its acceptance criteria.
 | LB-41 | Hold the install prompt to the same language rules | P1 | 30 m | LB-40 | DONE 2026-07-27 — the eighth scope defect, hiding inside LB-26's fix; the manifest was under test but only its colours, icons, and scope, so a banned description passed all 1629 tests |
 | LB-42 | Stop showing the buyer the server's own error strings | P0 | 1 h | LB-41 | DONE 2026-07-27 — pressing Upgrade with one variable unset showed a paying visitor "Server not configured: missing STRIPE_PRICE_MONTHLY"; 18 such strings across 8 functions, none under test |
 | LB-43 | Check the yearly price, not just the monthly one | P0 | 45 m | LB-42 | DONE 2026-07-27 — the ninth scope defect; the rule read the first price after "Pro" and every sentence names two, so a wrong yearly price passed all 1641 tests |
+| LB-44 | Check that the files a page asks for are actually there | P1 | 45 m | LB-43 | DONE 2026-07-27 — the tenth scope defect, and the first about references rather than words; renaming the landing hero to a file that does not exist passed all 1641 tests |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2592,6 +2593,70 @@ example query about item cost ("still in Want under $40"). No superseded price
 ships. `BrandIcon.jsx` matching "4.99" is an SVG path coordinate.
 
 **Gate.** 1641 tests pass (62 files), 5 lint warnings and 0 errors.
+
+### LB-44 — every rule read what a page says, none read what it asks for
+
+**The defect.** Renaming the landing hero to
+`/landing/img/kit-jersey-black-MISSING.jpg` left all 1641 tests green. That is
+a broken picture in the first screen of the page that converts. The length
+floor, the schema parity rule, and the language rules all pass it, because the
+markup is still well-formed prose. Nothing read the filesystem.
+
+**Why this one is different from the nine before it.** LB-22 through LB-43 were
+all about words — a page too thin, a phrase not allowed, a price not checked.
+Every one of them was fixed by widening which files a text rule reads. LB-44 is
+the first defect on a different axis. The pages were under test for everything
+they SAY and for nothing they REFERENCE. Widening the text rules further would
+never have found it.
+
+**The site was clean when the rule landed.** 46 image references across 20
+pages, 2 manifest icons, 1 service-worker precache path, all present. That is
+the point: the rule guards a state that is correct today and unguarded
+tomorrow.
+
+**Two things the rule has to know, both learned by getting them wrong.**
+
+Paths resolve against `preview/public/` OR `preview/dist/`. `sw.js` precaches
+`/index.html`, which is the app shell — Vite emits it into `dist/` and
+`public/` copies over the top, so it exists at deploy time and not on disk in
+`public/`. Checking `public/` alone reports a false miss on the one file the
+whole app depends on. A false alarm is not harmless; it teaches the next
+person to delete the rule.
+
+The manifest and the service worker count as callers. A missing manifest icon
+is an install with no picture. A precache entry that 404s rejects `install()`,
+so one wrong path costs the whole offline mode rather than one asset.
+
+**The guard needed a second pass, and a probe caught it.** The first version
+asserted the COMBINED reference count was over 20. Probe D replaced the image
+matcher with a pattern matching nothing — and it passed, because the 21
+`og:image` hits alone cleared the threshold. That is the LB-43 shape again: the
+rule checked the first thing that answered and stopped. Each matcher now
+carries its own floor, and probes D2 and E prove each one separately.
+
+**Probes.**
+
+| Edit | Result |
+|---|---|
+| Landing hero → a file that does not exist | 1 fail, names the file |
+| Manifest icon → a file that does not exist | 2 fail (LB-41's block also fires) |
+| `sw.js` precache → a file that does not exist | 1 fail — also proves the `dist/` branch works |
+| `og:image` on `/faq/` → a file that does not exist | 2 fail |
+| Kill the image matcher (combined guard) | **0 fail — the defect in the guard** |
+| Kill the image matcher (split guard) | 1 fail |
+| Kill the social-card matcher (split guard) | 1 fail |
+| Clean tree | 1666 pass |
+| Restore each time | checksum verified |
+
+**Also checked while here, all clean.** The nav is identical on all 20 pages
+and matches D-2 in full, including `/llms.txt`. Every internal link resolves.
+The sitemap and both `llms` files list every page. The guide hub links all 11
+guides, and every guide has at least 3 inbound links. Every page clears the
+400-word floor. Every use of "W2C" on a page is a denial ("not a W2C search
+engine") or a naming explanation, which is what the loose phrase list is for.
+
+**Gate.** 1666 tests pass (62 files), 5 lint warnings and 0 errors, build
+`index-fashion-VSp8hwMs.js 363.47 kB`.
 
 ## Explicitly deferred (do NOT build before launch)
 
