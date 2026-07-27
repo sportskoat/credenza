@@ -207,6 +207,7 @@ export function ReelDigit({ digit, index, reduced }) {
   const stripRef = useRef(null);
   const blurRef = useRef(null);
   const spinningRef = useRef(false);
+  const settleTimerRef = useRef(null);
   const fid = "reel-blur-" + useId().replace(/[^a-zA-Z0-9]/g, "");
 
   // Spin forward to the new digit, plus one full revolution for flavor.
@@ -231,15 +232,29 @@ export function ReelDigit({ digit, index, reduced }) {
     strip.style.transform = "translateY(" + -pos * REEL_CELL + "px)";
     // Only streak while actually travelling — the settle snap re-runs this
     // effect and must not re-arm the blur.
-    if (spinningRef.current && blurRef.current)
+    if (spinningRef.current && blurRef.current) {
       blurRef.current.setAttribute("stdDeviation", "0 " + REEL_BLUR);
+      // transitionend is not guaranteed. A background tab, an interrupted
+      // transition, or a re-render that re-applies the same transform all
+      // swallow it — and the digits then stay blurred forever (Kyle
+      // 2026-07-26: "$$ still lagg and stop on blur"). Always settle on a
+      // timer as well; settle() is idempotent.
+      clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = setTimeout(
+        () => settleRef.current(),
+        REEL_DUR + index * REEL_STAGGER + 80
+      );
+    }
   }, [pos, index, reduced]);
+
+  useEffect(() => () => clearTimeout(settleTimerRef.current), []);
 
   // Settle: kill the streak and snap the strip back into the 0-9 window (same
   // digit, since cells repeat) so the strip never grows without bound.
   const settle = () => {
     if (!spinningRef.current) return;
     spinningRef.current = false;
+    clearTimeout(settleTimerRef.current);
     if (blurRef.current) blurRef.current.setAttribute("stdDeviation", "0 0");
     const strip = stripRef.current;
     if (strip) {
@@ -248,6 +263,9 @@ export function ReelDigit({ digit, index, reduced }) {
     }
     setPos((p) => p % 10);
   };
+  // The timer fires from a stale closure otherwise.
+  const settleRef = useRef(settle);
+  settleRef.current = settle;
 
   const cells = [];
   for (let i = 0; i <= pos; i++) cells.push(i % 10);

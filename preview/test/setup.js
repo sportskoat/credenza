@@ -4,6 +4,14 @@ import { expect } from "vitest";
 
 expect.extend(matchers);
 
+// Referral codes are build-time env (agents.js reads import.meta.env). Vite
+// loads preview/.env into the test run too, so a developer with real codes
+// configured saw agent tests fail while CI passed (2026-07-26). Start every
+// run from "no codes"; the tests that want one call vi.stubEnv themselves.
+for (const key of Object.keys(import.meta.env)) {
+  if (key.startsWith("VITE_CREDENZA_REF_")) import.meta.env[key] = "";
+}
+
 // jsdom lacks matchMedia; the app reads prefers-color-scheme and
 // prefers-reduced-motion through it on mount. Default is "no query matches"
 // (a desktop viewport). Tests that exercise phone-only UI (the capture
