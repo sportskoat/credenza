@@ -1136,6 +1136,7 @@ describe("every page tells a machine what kind of page it is", () => {
     "guides/choose-an-agent/index.html": "Article",
     "guides/estimate-haul-weight/index.html": "HowTo",
     "guides/free-agent-haul-planner/index.html": "Article",
+    "guides/yupoo-album-to-shopping-list/index.html": "HowTo",
     "guides/open-weidian-in-agent/index.html": "HowTo",
     "guides/organize-agent-haul/index.html": "HowTo",
     "guides/reddit-haul-to-list/index.html": "HowTo",
@@ -1358,5 +1359,46 @@ describe("robots.txt lets crawlers in and points them at the map", () => {
         }
       }
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-36. docs/aeo-geo/keyword-cluster.md listed five shipped guides while eleven
+// were live. Nobody wrote a wrong fact — the table simply stopped being updated,
+// and a table that is 45% complete reads exactly like one that is 100% complete.
+//
+// The cost was real and specific: Yupoo (~12k/mo, the second-largest head term
+// on the site, with a shipped feature behind it) sat uncovered for a day because
+// the planning doc looked full. This is the inverse of every other rule in this
+// file. Those stop a page from making a false claim. This one stops a doc from
+// making the site look more finished than it is, which is how work gets skipped.
+describe("the keyword cluster doc lists every shipped guide", () => {
+  const GUIDES = join(ROOT, "preview/public/guides");
+  const doc = readFileSync(join(ROOT, "docs/aeo-geo/keyword-cluster.md"), "utf8");
+
+  const shipped = readdirSync(GUIDES, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort();
+
+  it("found the shipped guides", () => {
+    expect(shipped.length, "no guide directories under public/guides").toBeGreaterThanOrEqual(10);
+  });
+
+  it("names every shipped guide, so no cluster looks uncovered when it is not", () => {
+    const missing = shipped.filter((slug) => !doc.includes(`/guides/${slug}/`));
+    expect(
+      missing,
+      "these guides are live but absent from docs/aeo-geo/keyword-cluster.md — add the row in the same commit that ships the page"
+    ).toEqual([]);
+  });
+
+  it("does not name a guide that was never shipped", () => {
+    // The other direction: a row for a page that does not exist sends a reader
+    // to a 404 and marks a cluster covered when nothing covers it.
+    const listed = [...doc.matchAll(/`\/guides\/([a-z0-9-]+)\/`/g)].map((m) => m[1]);
+    expect(listed.length, "no guide URLs parsed out of the doc").toBeGreaterThanOrEqual(10);
+    const phantom = [...new Set(listed)].filter((slug) => !shipped.includes(slug));
+    expect(phantom, "docs/aeo-geo/keyword-cluster.md lists guides that do not exist").toEqual([]);
   });
 });

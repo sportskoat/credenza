@@ -100,6 +100,7 @@ do it completely, and report against its acceptance criteria.
 | LB-33 | Assert what robots.txt says, not just that it ships | P0 | 1 h | LB-32 | DONE 2026-07-27 — replacing it with Disallow: / deindexed the whole site and the suite stayed green |
 | LB-34 | Assert the deploy contract in netlify.toml | P0 | 1 h | LB-33 | DONE 2026-07-27 — five edits that break the live site each passed with the suite green at 1503 |
 | LB-35 | Ship the free-plan guide and bind every quoted limit to the server table | P1 | 1 h | LB-34 | DONE 2026-07-27 — the last unshipped buying question; changing "20 link resolves" to 500 on a live page passed |
+| LB-36 | Ship the Yupoo guide, bind the relay cap to the copy, and stop the keyword doc drifting | P1 | 1 h | LB-35 | DONE 2026-07-27 — ~12k/mo head term with a shipped feature and no page; it stayed uncovered because the planning table looked full |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -2044,6 +2045,83 @@ was written. Caught by grepping for the link, not by the suite.
 **Gate.** 61 files / 1553 tests. Lint 0 errors. Typecheck clean. Build
 clean, and `/guides/free-agent-haul-planner/` present in `dist/`.
 
+
+### LB-36 — the biggest term we had already built and never sold
+
+**The page.** `/guides/yupoo-album-to-shopping-list/`. Yupoo is the second-largest
+head term in [[keyword-cluster]] at ~12k a month, behind only superbuy, and it had
+three named intent lines. The feature has shipped for weeks. There was no page.
+
+It stayed uncovered for a specific and avoidable reason: the "Bottom-of-funnel
+pages" table in that doc listed five guides while eleven were live. A table that
+is 45% complete reads exactly like one that is 100% complete. I only found the gap
+by listing `public/guides/` on disk instead of trusting the doc.
+
+Every claim on the page was checked against source before it was written, because
+I have shipped copy that sold a dormant feature before:
+
+- Reading an album is unmetered — `limit.js` marks `yupoo` as `paid: false`.
+- Six photos are relayed with the album as referrer — `RELAY_MAX`, `enrichFashionItem`.
+- The link reports the album's real count — `albumLinkTarget`, via `Math.max`.
+- The chart comes from the description text first, the tiles second — `SizeRecommendation.jsx`.
+- Chart tiles are held out of the gallery but still read.
+- A paired store link costs one link resolve; a chart read off a photo costs one chart read.
+
+**The defect the page found.** Three negative controls on the new page were silent.
+Two were defects in my prose, not the rule: I had written "20 of those a day" and
+"2 a day on free" — bare numbers attached to pronouns. That is bad writing before
+it is an untestable string, because a reader skimming sees a number with nothing
+attached to it. Naming the noun fixed both, and both probes then fired.
+
+The third was real. `RELAY_MAX = 6` is Kyle's own instruction ("only bring in 6 by
+default"), it is quoted on four public pages, and `relay-cap.test.js` bound it only
+inside the app. Changing "Six album photos are copied onto the card" to "Twenty"
+left all 1581 tests green.
+
+This is the eleventh instance of one defect class. The rule is never wrong; the SET
+it runs over is too small. LB-32 bound prices in `llms.txt` but not the three pages
+a customer reads. LB-35 bound quoted prices but not quoted limits. LB-36 binds a
+quoted limit that is not in the plan table at all.
+
+It matters most on `/privacy/`, which says "Credenza relays 6 photos an album by
+default and caches them". That is a statement about what leaves the reader's device
+and what we retain, in the document that governs it. A privacy page describing a
+data flow the product no longer performs is not a stale string. It is the wrong
+disclosure.
+
+**The rule** (appended to `test/relay-cap.test.js`, which already owned the
+constant — a third source of truth would be the LB-19 mistake again). Three
+decisions in it were forced by real copy:
+
+1. **Tags divide, newlines join.** Replacing a tag with a space invents claims no
+   reader can see. Splitting on newlines instead cuts a wrapped `<p>` in half, and
+   `/guides/organize-agent-haul/` wraps mid-sentence. Source line wrapping is not
+   a boundary a reader perceives; a tag is.
+2. **Both spellings.** Three of the four sentences write "six", one writes "6". A
+   word list is affordable here because there is one number to spell, not a table.
+3. **A relaying verb, not a noun phrase.** "N photos" alone matches three innocent
+   things. A rule that flagged them would train the next reader to edit correct
+   copy until the test stopped complaining.
+
+| Injection | Page | Result |
+|---|---|---|
+| six → twenty photos from an album | `/how/` | fails |
+| relays 6 → 20 photos an album | `/privacy/` | fails |
+| up to six → twenty photos onto the card | `/guides/organize-agent-haul/` | fails |
+| 6 → 20 album photos are copied | `/guides/yupoo-album-to-shopping-list/` | fails |
+| Chart read from 4 → 3 album photos | `/landing/` | passes — sample timeline caption, not the cap |
+| 12 → 13 QC photos an item | `/pricing/` | passes — `qcPhotosPerItem`, a different budget |
+| Free keeps 4 → 5 QC photos | `/guides/track-qc-photos/` | passes — same |
+
+**The second rule** (in `public-site.test.js`) makes the doc drift impossible to
+repeat: every directory under `public/guides/` must appear in `keyword-cluster.md`,
+and every URL in that doc must exist on disk. Both directions probed, both fail.
+This is the inverse of every other rule in that file — those stop a page from
+making a false claim; this stops a doc from making the site look more finished
+than it is, which is how a 12k-a-month term goes unbuilt for a day.
+
+**Gate.** 1581 tests pass, 0 lint errors, tsc clean, and
+`dist/guides/yupoo-album-to-shopping-list/index.html` is 19,973 bytes.
 
 ## Explicitly deferred (do NOT build before launch)
 
