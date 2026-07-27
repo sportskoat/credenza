@@ -24,7 +24,7 @@
 // The parity rule is the important one: the VISIBLE copy is the source of
 // truth, and the schema must match it exactly. Never satisfy this test by
 // editing the schema to match a wrong visible answer — fix the copy.
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -372,9 +372,20 @@ describe("the sitemap", () => {
   }
 
   it("lists no page that does not exist", () => {
+    // "/" used to be skipped here, on the reasoning that it is the app itself
+    // and not a file under public/. Half of that is true and the conclusion was
+    // wrong: it is not under public/, but it is very much a file, at
+    // preview/index.html. The skip is what let the homepage drift out of every
+    // head, social, and schema rule on this page — see the shell block below.
     const urls = new Set(PAGES.map((p) => p.url));
     for (const loc of listed) {
-      if (loc === "/") continue; // the app itself, not a file under public/
+      if (loc === "/") {
+        expect(
+          existsSync(join(ROOT, "preview/index.html")),
+          "sitemap.xml lists /, which has no file"
+        ).toBe(true);
+        continue;
+      }
       expect(urls.has(loc), `sitemap.xml lists ${loc}, which has no file`).toBe(true);
     }
   });
@@ -902,5 +913,154 @@ describe("the files that ship but are not pages", () => {
         true
       );
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LB-29. The app shell, which is the homepage and was outside every rule above.
+//
+// PUBLIC points at preview/public. The shell ships from preview/index.html, one
+// directory up, so pageFiles() never saw it and DOCS never contained it. The
+// sitemap rule made the exemption explicit — `if (loc === "/") continue; // the
+// app itself, not a file under public/` — on the reasoning that / has no file.
+// It has a file. It is the first URL in the sitemap and the one people paste
+// into a chat when they share the product.
+//
+// This is the fifth time a rule was scoped to a set that did not contain
+// everything the rule was about: LB-22 scoped a length floor to /guides/,
+// LB-24 checked social tags on new pages only, LB-25 iterated HTML so llms.txt
+// was exempt, LB-26 iterated DOCS so four shipped files were exempt. Same
+// shape each time — the exemption is where the defect hides.
+//
+// Three defects were sitting in it.
+//
+// First: theme-color was "#F4F4F0". That is the Gallery colourway, and the app
+// opens in Blackout — the exact defect LB-26 fixed on all 18 public pages and
+// in the manifest. The shell was missed because it is not under public/. So the
+// browser painted a warm-white status bar for the moment before React mounted
+// and rewrote the tag to black.
+//
+// Second: no canonical. Netlify serves the shell for every unmatched path, so
+// /?anything and /#anything are all the same page with no canonical to collapse
+// them.
+//
+// Third: no og: or twitter: tags at all. Every one of the 18 public pages has
+// the full set. The homepage — the URL that actually gets shared — had none, so
+// a paste into Discord or iMessage produced a bare link with no card.
+describe("the app shell is a page too", () => {
+  const shell = readFileSync(join(ROOT, "preview/index.html"), "utf8");
+
+  it("is the file the sitemap's / entry points at", () => {
+    // Guard the guard. If the shell ever moves, this fails loudly rather than
+    // letting every check below pass on an empty string.
+    expect(shell.length, "preview/index.html is empty").toBeGreaterThan(500);
+    expect(shell, "preview/index.html does not mount the app").toContain('id="root"');
+    const sitemap = readFileSync(join(PUBLIC, "sitemap.xml"), "utf8");
+    expect(sitemap, "sitemap.xml does not list the homepage").toContain(
+      "<loc>" + ORIGIN + "/</loc>"
+    );
+  });
+
+  it("paints the colourway the app opens in", () => {
+    // One tag, not the media-scoped pair the public pages carry:
+    // credenza-fashion.jsx rewrites this with a single querySelector when the
+    // reader switches colourway, and it would leave a second tag stale.
+    const tags = [...shell.matchAll(/<meta\s+name="theme-color"\s+content="([^"]+)"/g)];
+    expect(tags.length, "the shell declares more than one theme-color").toBe(1);
+    expect(tags[0][1].toLowerCase(), "shell theme-color").toBe("#000000");
+  });
+
+  it("keeps the live tag the app rewrites", () => {
+    // If the selector in the app and the tag in the shell ever disagree, the
+    // colourway switch silently stops moving the status bar.
+    const app = readFileSync(join(ROOT, "credenza-fashion.jsx"), "utf8");
+    expect(app, "the app no longer queries the theme-color tag").toContain(
+      'meta[name="theme-color"]'
+    );
+  });
+
+  it("declares itself canonical", () => {
+    // The shell answers every unmatched path, so without this each of them is
+    // a separate URL with identical content.
+    expect(shell, "the shell has no canonical").toContain(
+      '<link rel="canonical" href="' + ORIGIN + '/" />'
+    );
+  });
+
+  it("says what the product is, at a length a search result can use", () => {
+    // It read "One shelf for the whole haul." — five words, true but useless
+    // to anyone who has not already been told what Credenza is.
+    const m = /<meta\s+name="description"\s+content="([^"]+)"/s.exec(shell)
+      || /<meta\s*\n\s*name="description"\s*\n\s*content="([^"]+)"/s.exec(shell);
+    expect(m, "the shell has no description").toBeTruthy();
+    const desc = m[1];
+    // The same floor the public pages are held to: long enough that Google
+    // does not rewrite it, short enough that it is not truncated.
+    expect(desc.length, "shell description length").toBeGreaterThanOrEqual(70);
+    expect(desc.length, "shell description length").toBeLessThanOrEqual(200);
+  });
+
+  it("carries the social card the public pages all carry", () => {
+    // The homepage is the URL people paste. It had no og: or twitter: tags at
+    // all, so it was the one page on the site that produced a bare link.
+    const tags = new Map(
+      [...shell.matchAll(/<meta\s+(?:property|name)="((?:og|twitter):[^"]+)"\s*\n?\s*content="([^"]*)"/gs)].map(
+        (m) => [m[1], m[2]]
+      )
+    );
+    for (const key of [
+      "og:title",
+      "og:description",
+      "og:type",
+      "og:url",
+      "og:site_name",
+      "og:image",
+      "og:image:width",
+      "og:image:height",
+      "og:image:alt",
+      "twitter:card",
+      "twitter:title",
+      "twitter:description",
+      "twitter:image",
+    ]) {
+      expect(tags.has(key), `the shell is missing ${key}`).toBe(true);
+    }
+    expect(tags.get("og:url"), "shell og:url").toBe(ORIGIN + "/");
+    expect(tags.get("og:image"), "shell og:image").toBe(ORIGIN + "/og.png");
+    expect(tags.get("twitter:card"), "shell twitter:card").toBe("summary_large_image");
+    // Twitter falls back to og: when a twitter: tag is absent, so the two have
+    // to agree or the same link reads differently on two services.
+    expect(tags.get("twitter:title"), "shell twitter:title").toBe(tags.get("og:title"));
+    expect(tags.get("twitter:description"), "shell twitter:description").toBe(
+      tags.get("og:description")
+    );
+  });
+
+  it("tells an assistant what kind of thing it is", () => {
+    // Every public page has structured data. The app itself had none, so the
+    // one URL that IS the product was the one an assistant could say least
+    // about.
+    const node = ldNode(shell, "WebApplication");
+    expect(node, "the shell has no WebApplication schema").toBeTruthy();
+    expect(node.url, "shell schema url").toBe(ORIGIN + "/");
+    expect(node.applicationCategory, "shell applicationCategory").toBeTruthy();
+    expect(node.description.length, "shell schema description").toBeGreaterThan(70);
+  });
+
+  it("names no price in its schema, because the app is free to open", () => {
+    // /pricing/ owns the paid numbers and pricing.test.js binds them to the
+    // PRICING export. A second price here would be a second source of truth
+    // that nothing checks.
+    const node = ldNode(shell, "WebApplication");
+    expect(node.offers.price, "shell offer price").toBe("0");
+    expect(shell, "the shell quotes a paid price").not.toMatch(/\$\d/);
+  });
+
+  it("obeys the same language rules as every other page", () => {
+    // The banned list from docs/aeo-geo/ai-seo-playbook.md. The shell was
+    // outside the rule that enforces this everywhere else.
+    for (const banned of ["w2c", "replica", "1:1", "best batch", "customs"]) {
+      expect(shell.toLowerCase(), `the shell says "${banned}"`).not.toContain(banned);
+    }
   });
 });

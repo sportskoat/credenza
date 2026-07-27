@@ -93,6 +93,7 @@ do it completely, and report against its acceptance criteria.
 | LB-26 | Lock the four shipped files that are not pages | P1 | 1 h | LB-25 | DONE 2026-07-27 — the manifest painted the wrong splash; 18 pages mis-coloured the status bar |
 | LB-27 | Rebuild the guides hub so it answers instead of routing | P1 | 1 h | LB-26 | DONE 2026-07-27 — 200 words to 520, ordered by haul stage; the hub floor exemption is gone |
 | LB-28 | Put the refund on the page where people decide to pay | P1 | 1 h | LB-27 | DONE 2026-07-27 — the 14-day refund was only in Terms; pricing 449 words to 851 |
+| LB-29 | Bring the app shell into the rules the 18 public pages follow | P1 | 1 h | LB-28 | DONE 2026-07-27 — the homepage had no canonical, no social card, no schema, and the stale colourway LB-26 fixed everywhere else |
 
 Update the Status column in place: OPEN → IN PROGRESS (agent, date) →
 DONE (date, commit).
@@ -1584,6 +1585,78 @@ bound in both directions — to the Terms and to its own schema.
 **Gate.** 60 files / 1415 tests passed (1410 before). Lint 0 errors, 5
 pre-existing warnings. Typecheck clean. Build clean.
 
+
+### LB-29. The homepage was outside every rule — DONE 2026-07-27
+
+**The defect.** `preview/test/public-site.test.js` sets `PUBLIC = preview/public`
+and walks it for `index.html` files. The app shell ships from
+`preview/index.html`, one directory up. So the homepage — the first URL in
+`sitemap.xml`, and the URL a person pastes when they share the product — was in
+no rule the other 18 pages follow.
+
+The sitemap rule stated the exemption out loud:
+
+    if (loc === "/") continue; // the app itself, not a file under public/
+
+Half of that is true. It is not under `public/`. It is still a file.
+
+**This is the fifth instance of the same class.** LB-22 scoped a length floor to
+`/guides/`, so `/how/` sat at 248 words. LB-24 checked social tags on new pages
+only. LB-25 iterated HTML, so both `llms.txt` files were exempt. LB-26 iterated
+`DOCS`, so four shipped non-HTML files were never asserted. Each time the bug
+was not in the rule but in the set the rule ran over. The exemption is where it
+hides.
+
+**Three real defects were sitting in the gap.**
+
+1. `theme-color` was `#F4F4F0`. That is Gallery. The app opens in Blackout —
+   `credenza-fashion.jsx:4581`, `const mode = theme || "rainbow"`. This is the
+   exact stale-colourway defect LB-26 repaired on all 18 public pages and in the
+   manifest; the shell was missed because of the scope. The browser painted a
+   warm-white status bar for the frame before React mounted and rewrote it.
+2. No canonical. Netlify serves the shell for every unmatched path, so
+   `/?anything` was a separate URL with identical content.
+3. No `og:` or `twitter:` tags, and no structured data. Every public page has
+   the full set. The one URL that *is* the product had none, so a paste into
+   Discord or iMessage produced a bare link and an assistant had nothing to
+   read.
+
+**The repair.** `preview/index.html` head rewritten: full title, a
+151-character description, canonical, the complete `og:`/`twitter:` set pointing
+at the same `og.png`, a `WebApplication` schema with a free `Offer`, and
+`theme-color` at `#000000`.
+
+**One deliberate difference from the public pages.** The shell carries ONE
+`theme-color` tag, not the media-scoped pair. `credenza-fashion.jsx:4584` reads
+it with a single `document.querySelector('meta[name="theme-color"]')`. A pair
+would leave the second tag stale and the browser would honour whichever media
+query matched. A test asserts the count is exactly 1, and a second test asserts
+the app still queries that tag, so the two cannot drift apart silently.
+
+**The lock.** A `the app shell is a page too` block in `public-site.test.js`,
+plus the sitemap rule corrected to assert the file exists rather than skip the
+URL. The shell has no `<nav>`, no footer, and no prose `<main>` — React renders
+the body — so it gets its own head-only block rather than joining `DOCS`.
+
+**Negative controls, all fired, all restored (`git diff --stat` confirmed 52
+insertions intact after each):**
+
+- colourway back to `#F4F4F0` → `shell theme-color: expected '#f4f4f0' to be '#000000'`
+- canonical removed → `the shell has no canonical`
+- description back to the old five words → `shell description length: expected 29 to be greater than or equal to 70`
+- `twitter:description` renamed → `the shell is missing twitter:description`
+- `"Replica ShoppingApplication"` in the schema → `the shell says "replica"`
+- offer price set to `$4.99` → `shell offer price: expected '$4.99' to be '0'`
+- homepage path pointed at a name that does not exist → `sitemap.xml lists /, which has no file`
+
+Deleting `preview/index.html` outright was tried first as the control for the
+last rule. It cannot work: Vite needs that file as its root entry, so vitest
+collects nothing and reports `Tests  no tests`. A run that collects nothing is
+not a failing run. The assertion was probed instead.
+
+**Gate.** 60 files / 1424 tests (1415 before). Lint 0 errors, 5 pre-existing
+warnings. Typecheck clean. Build clean, and `dist/index.html` verified to carry
+the canonical, the card, the schema, and `#000000`.
 
 ## Explicitly deferred (do NOT build before launch)
 
