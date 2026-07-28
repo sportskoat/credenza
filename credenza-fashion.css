@@ -13244,10 +13244,23 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
        height, flex:1 children stop resolving, and the Buy footer clips off
        the panel bottom (Kyle 2026-07-27). */
     grid-template-rows: minmax(0, 1fr);
-    width: min(86vw, 1080px);
+    /* The vw/vh caps divide by the 1.25 zoom below (86 / 1.25 = 68.8): zoom
+       scales px but not viewport units, so an 86vw cap would render at
+       107.5% of the window and clip the card's top icons. 68.8 keeps the
+       rendered card inside 86% of the window, same as a 125% browser zoom. */
+    width: min(68.8vw, 1080px);
     height: auto;
     min-height: 540px;
-    max-height: min(86vh, 820px);
+    max-height: min(68.8vh, 820px);
+    /* Kyle 2026-07-28: at 100% browser zoom the card's type read small; the
+       125% browser-zoom frame was the better read. Render the card at that
+       scale directly: zoom multiplies every px inside (type, chips, the
+       372px photo column, the footer) by one factor, so the card matches
+       the 125% frame exactly — hand-bumped sizes never stay uniform. The
+       vw/vh caps above resolve against the real viewport, so short windows
+       still bound the card and the rail scrolls past the cap. Desktop only:
+       the tablet band and the phone keep their own scale. */
+    zoom: 1.25;
   }
   /* In the uncapped (short-content) case the left column is content-sized,
      so the stage must bound itself — otherwise the photo track resolves to

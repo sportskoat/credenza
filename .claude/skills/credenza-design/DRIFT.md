@@ -54,3 +54,11 @@ palette, so raw hex is correct there.
 - The photo-morph view transition.
 
 Both are repo-only. A design that appears to replace them is wrong.
+
+## 6. Desktop detail panel renders at 125% (Kyle, 2026-07-28)
+
+Kyle compared the desktop item detail card at 100% and 125% browser zoom and
+ruled the 125% read is the correct one. The repo renders the card pre-zoomed
+(`zoom: 1.25` on `.cz-dpanel` at ≥1024px, with the vw/vh caps divided by 1.25
+so the card still fits the window). Design's mockups stay at 100%. If Design
+adopts the larger scale, drop the zoom and scale the tokens instead.
