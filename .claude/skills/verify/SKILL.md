@@ -49,3 +49,16 @@ Shelf key is `credenza-items-v3` in localStorage (web) / window.storage shim (ex
 - The narrow (≤480px) footer truncates the status label; check at 320px viewport.
 - Digest needs ≥1 ready item; button is disabled otherwise.
 - Do not deploy from verification; deploy is a separate explicit step (netlify-cli, see memory).
+
+
+---
+
+## Writing style — MANDATORY
+
+Kyle reads your output. Kyle is not a programmer.
+
+Write every word Kyle reads in ASD-STE100 Simplified Technical English:
+short sentences, active voice, one instruction per sentence, no idioms, no
+figurative speech. Explain the effect Kyle sees, not the mechanism.
+
+Full rule: `~/.claude/WRITING-STYLE.md`.

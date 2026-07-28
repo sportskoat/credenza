@@ -38,3 +38,16 @@ The linter warns on all three. See `eslint.config.js`.
 
 Credenza is an agent haul planner. It never takes money, never checks out, and
 never sells. Do not add a marketplace surface. See `docs/Monetization.md`.
+
+
+---
+
+## Writing style — MANDATORY
+
+Kyle reads your output. Kyle is not a programmer.
+
+Write every word Kyle reads in ASD-STE100 Simplified Technical English:
+short sentences, active voice, one instruction per sentence, no idioms, no
+figurative speech. Explain the effect Kyle sees, not the mechanism.
+
+Full rule: `~/.claude/WRITING-STYLE.md`.
