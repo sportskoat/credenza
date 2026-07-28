@@ -76,9 +76,9 @@ limit table. It matches the mock exactly:
 
 | Limit | Free | Pro |
 |---|---|---|
-| `askPerDay` | 5 | 200 |
-| `chartVisionPerDay` | 2 | 100 |
-| `resolvePerDay` | 20 | 1000 |
+| `askPerDay` | 5 | 40 |
+| `chartVisionPerDay` | 2 | 15 |
+| `resolvePerDay` | 20 | 250 |
 | `qcPhotosPerItem` | 4 | 12 |
 | `haulsMax` | 2 | 100 |
 

@@ -134,7 +134,7 @@ describe("paid gate (via ask)", () => {
     expect(sb.anthropicCalls.length).toBe(0);
   });
 
-  it("account path: Pro caps are generous (200/day) — a free-cap record still runs", async () => {
+  it("account path: Pro caps are generous (40/day) — a free-cap record still runs", async () => {
     const sb = fakeBackends();
     let record = ent.newEntitlement("user-3");
     for (let i = 0; i < 5; i++) record = ent.recordUsage(record, "ask");

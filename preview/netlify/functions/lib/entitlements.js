@@ -34,10 +34,15 @@ const PLAN_LIMITS = {
     qcPhotosPerItem: 4,
     haulsMax: 2,
   },
+  // Pro caps are sized so one account maxing ALL three costs about $3 a day
+  // (Kyle 2026-07-27): ask 40 × ~$0.020 (sonnet, 25-item shelf) + chart 15 ×
+  // ~$0.015 (haiku vision, ~3 frames) + resolve 250 × ~$0.008 (haiku) ≈ $3.02.
+  // The old row (200/100/1000) could burn ~$9.70 a day against a $5/month
+  // plan. Free stays as it was — generous enough to learn the product on.
   pro: {
-    askPerDay: 200,
-    chartVisionPerDay: 100,
-    resolvePerDay: 1000,
+    askPerDay: 40,
+    chartVisionPerDay: 15,
+    resolvePerDay: 250,
     qcPhotosPerItem: 12,
     haulsMax: 100,
   },
