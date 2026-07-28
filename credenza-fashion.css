@@ -10458,6 +10458,190 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   line-height: 1.35;
 }
 
+/* ── Fit read table (split-rail handoff 2026-07-28) ──
+   Per-measurement fit bars under the pick. Desktop grid literals are
+   load-bearing: 70px name / track / 40 / 40 / 54, gap 10, rows 7px 0 over a
+   top hairline. The phone override below narrows every column. */
+.cz-fitread {
+  margin-top: 13px;
+}
+
+.cz-fitread-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 40px 40px 54px;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-fitread-heads {
+  border-top: 0;
+  padding: 0 0 5px;
+}
+
+.cz-fitread-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--cz-faint);
+}
+
+.cz-fitread-scale {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--cz-placeholder);
+}
+
+.cz-fitread-head {
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--cz-placeholder);
+  text-align: right;
+}
+
+.cz-fitread-head-short {
+  display: none;
+}
+
+.cz-fitread-name {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-fitread.is-ghost .cz-fitread-name {
+  color: var(--cz-placeholder);
+}
+
+/* The marker overflows the 5px track by design (2×13px at top -4px), so the
+   track itself must NOT clip — the band inside carries its own radius. */
+.cz-fitread-track {
+  position: relative;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--cz-chip-fill);
+}
+
+.cz-fitread-band {
+  position: absolute;
+  left: 36%;
+  width: 30%;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--cz-fit-band);
+}
+
+.cz-fitread-mark {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 13px;
+  border-radius: 1px;
+  background: var(--cz-money);
+}
+
+.cz-fitread-mark.is-warn {
+  background: var(--cz-warn);
+}
+
+.cz-fitread-theirs {
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-ink);
+  text-align: right;
+}
+
+.cz-fitread-theirs.is-unknown {
+  color: var(--cz-hair-strong);
+}
+
+.cz-fitread-yours {
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-placeholder);
+  text-align: right;
+}
+
+.cz-fitread-ease {
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-money);
+  text-align: right;
+}
+
+.cz-fitread-ease.is-warn {
+  color: var(--cz-warn-ink);
+}
+
+.cz-fitread-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  padding-top: 7px;
+  border-top: 1px solid var(--cz-hair);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cz-placeholder);
+}
+
+.cz-fitread-footlinks {
+  display: flex;
+  gap: 12px;
+}
+
+.cz-fitread-footlink {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--cz-link);
+  cursor: pointer;
+}
+
+/* Phone: every column narrows (54 / track / 30 / 30 / 40, gap 8, rows 8px 0)
+   and the mono numbers drop a half step so five columns fit a 360px card. */
+@media (max-width: 480px) {
+  .cz-fitread-row {
+    grid-template-columns: 54px 1fr 30px 30px 40px;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .cz-fitread-heads {
+    padding: 0 0 5px;
+  }
+
+  .cz-fitread-theirs,
+  .cz-fitread-yours,
+  .cz-fitread-ease {
+    font-size: 11px;
+  }
+
+  .cz-fitread-head-long {
+    display: none;
+  }
+
+  .cz-fitread-head-short {
+    display: inline;
+  }
+}
+
 /* ── Reading the customer's chart photo (handoff turn 9 §3) ── */
 .cz-sizing-reading {
   padding-bottom: 12px;

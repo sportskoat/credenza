@@ -21,6 +21,7 @@ import {
   fitDisplayPrefs,
   fitPrefHasChoice,
   fitPrefLabel,
+  fitReadRows,
   formatMeasure,
   formatSizeToken,
   itemPhotoList,
@@ -521,6 +522,101 @@ function SizingBlockNoChart({ usualSize, albumPhotos, albumCount, onOpenAlbum })
         </button>
       ) : null}
     </section>
+  );
+}
+
+// ── Fit read table (split-rail handoff 2026-07-28) ──
+//
+// Per-measurement fit bars under the pick: how far each garment measure sits
+// from the body on a tight↔loose track, with a fixed 36–66% tolerance band.
+// With no chart the table ghosts — names in placeholder, YOURS kept, no
+// tracks' band or marks — so the customer sees what a chart would unlock.
+// Row math lives in fitReadRows (pure, tested on its own).
+function FitReadTable({ rows, hasChart, units, onEditMeasures, onForgetChart }) {
+  if (!rows.length) return null;
+  const insideCount = rows.filter((r) => r.mark != null && !r.warn).length;
+  const scoredCount = rows.filter((r) => r.mark != null).length;
+  // Copy deck: "All four inside tolerance." — the count is spelled out.
+  const COUNT_WORDS = ["", "one", "two", "three", "four", "five", "six", "seven"];
+  const word = (n) => COUNT_WORDS[n] || String(n);
+  const footnote = !hasChart
+    ? "Your measurements, waiting on theirs."
+    : scoredCount === 0
+      ? "Waiting on your measurements."
+      : scoredCount === 1
+        ? insideCount === 1
+          ? "Inside tolerance."
+          : "Outside tolerance."
+        : insideCount === scoredCount
+          ? "All " + word(scoredCount) + " inside tolerance."
+          : word(insideCount).replace(/^./, (c) => c.toUpperCase()) +
+            " of " +
+            word(scoredCount) +
+            " inside tolerance.";
+  return (
+    <div className={"cz-fitread" + (hasChart ? "" : " is-ghost")}>
+      <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
+        <span className="cz-fitread-kicker">FIT READ</span>
+        {hasChart ? (
+          <span className="cz-fitread-scale">
+            <span>TIGHT</span>
+            <span>TRUE</span>
+            <span>LOOSE</span>
+          </span>
+        ) : (
+          <span />
+        )}
+        {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
+            grid never has to fit six letters over a 30px column. */}
+        <span className="cz-fitread-head">
+          <span className="cz-fitread-head-long">THEIRS</span>
+          <span className="cz-fitread-head-short">THRS</span>
+        </span>
+        <span className="cz-fitread-head">
+          <span className="cz-fitread-head-long">YOURS</span>
+          <span className="cz-fitread-head-short">YOU</span>
+        </span>
+        <span className="cz-fitread-head">EASE</span>
+      </div>
+      {rows.map((r) => (
+        <div key={r.key} className="cz-fitread-row">
+          <span className="cz-fitread-name">{r.name}</span>
+          <span className="cz-fitread-track">
+            {hasChart ? <span className="cz-fitread-band" /> : null}
+            {r.mark != null ? (
+              <span
+                className={"cz-fitread-mark" + (r.warn ? " is-warn" : "")}
+                style={{ left: r.mark + "%" }}
+              />
+            ) : null}
+          </span>
+          <span className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}>
+            {r.theirs != null ? formatMeasure(r.theirs, units) : "—"}
+          </span>
+          <span className="cz-fitread-yours">
+            {r.yours != null ? formatMeasure(r.yours, units) : "—"}
+          </span>
+          <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
+            {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : ""}
+          </span>
+        </div>
+      ))}
+      <div className="cz-fitread-foot">
+        <span className="cz-fitread-footnote">{footnote}</span>
+        <span className="cz-fitread-footlinks">
+          {onEditMeasures ? (
+            <button type="button" className="cz-fitread-footlink" onClick={onEditMeasures}>
+              Edit my measurements
+            </button>
+          ) : null}
+          {hasChart && onForgetChart ? (
+            <button type="button" className="cz-fitread-footlink" onClick={onForgetChart}>
+              Forget this chart
+            </button>
+          ) : null}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -1549,6 +1645,22 @@ export default function DetailBody({
   // The parent owns the sizing verdict and the chart hunt.
   const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
   const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits, fitDetail);
+  // Split rail: the per-measurement fit bars. YOURS uses the same effective
+  // profile the pick math used, so the table's ease always agrees with
+  // rec.diff — a raw-profile table would show a different chest than the one
+  // the recommendation was scored against.
+  const fitRows = useMemo(
+    () =>
+      SIZE_PICK_SKIP_CATEGORIES.has(item.category)
+        ? []
+        : fitReadRows(
+            verdict.chart,
+            verdict.rec,
+            effectiveBodyProfile(bodyProfile),
+            item.category
+          ),
+    [verdict.chart, verdict.rec, bodyProfile, item.category]
+  );
   // CH-14: the toggle's label follows the same value the sentence length does.
   const fitDetailPref = fitDetail || fitDisplayPrefs().detail;
   // CH-08: the 4f ask, local to this card. Reset when the card changes.
@@ -2108,6 +2220,16 @@ export default function DetailBody({
                   </button>
                 ) : null}
               </p>
+            ) : null}
+
+            {!askingMeasures ? (
+              <FitReadTable
+                rows={fitRows}
+                hasChart={!!verdict.chart}
+                units={measureUnits}
+                onEditMeasures={onOpenSizes ? openProfileSizes : null}
+                onForgetChart={null}
+              />
             ) : null}
 
             <SellerChartSection

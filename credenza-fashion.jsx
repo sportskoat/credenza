@@ -961,6 +961,84 @@ export function recommendSize(chart, profile, category, fitPref = null) {
   return applyFitPreference(baseRec, chart, fitPref, category);
 }
 
+// ── Fit read rows (split-rail handoff 2026-07-28) ──
+//
+// One row per measurement on the PICKED chart row: name, theirs (garment cm),
+// yours (body cm), signed ease, a 0–100 mark on the tight↔loose track, and a
+// warn flag when the ease falls outside tolerance. The spec fixes the
+// tolerance band at 36–66% of the track; the mark maps ease onto it so
+// "ideal ease" for the measurement lands at the band's center (51%).
+//
+// Rows come from the parsed chart, not a hard-coded list ("drive them from
+// the parsed chart"). Order is worn-garment order per the spec: tops
+// chest / length / shoulder / sleeve, bottoms waist / hip / thigh / length.
+// The parser has no thigh key, so a bottoms chart shows what it has.
+const FIT_READ_LABELS = {
+  chest: "Chest",
+  shoulder: "Shoulder",
+  sleeve: "Sleeve",
+  waist: "Waist",
+  hip: "Hip",
+  pantsLength: "Length",
+  length: "Body length",
+};
+const FIT_READ_TOP_ORDER = ["chest", "length", "shoulder", "sleeve"];
+const FIT_READ_BOTTOM_ORDER = ["waist", "hip", "pantsLength", "length"];
+// Ideal wearing ease per measurement (garment minus body, cm) and the ± slack
+// that still counts as inside tolerance. Chest/waist/hip mirror the targets
+// recommendSize aims for; shoulder's +2/×0.4 weight becomes a wider slack.
+const FIT_READ_EASE = {
+  chest: { ideal: 12, span: 6 },
+  shoulder: { ideal: 2, span: 3 },
+  sleeve: { ideal: 1, span: 4 },
+  waist: { ideal: 2, span: 3 },
+  hip: { ideal: 2, span: 4 },
+};
+
+export function fitReadRows(chart, rec, profile, category) {
+  const picked = rec && rec.row ? rec.row : null;
+  const p = profile || {};
+  const isBottoms =
+    (rec && (rec.primaryKey === "waist" || rec.primaryKey === "hip")) ||
+    category === "pants" ||
+    category === "shorts";
+  const order = isBottoms ? FIT_READ_BOTTOM_ORDER : FIT_READ_TOP_ORDER;
+  // Body length on a bottoms chart is the same "Length" idea as 裤长; only
+  // one of the two keys renders, pantsLength first.
+  const rows = [];
+  for (const key of order) {
+    if (isBottoms && key === "length" && picked && picked.pantsLength != null) continue;
+    const theirs = picked && picked[key] != null ? picked[key] : null;
+    // 裤长 is OUTSEAM; the closest body field (inseam) measures a different
+    // leg segment, so bottoms Length never claims a "yours" or an ease.
+    const bodyKey = key === "pantsLength" ? null : key === "length" && isBottoms ? null : key;
+    const rawYours = bodyKey != null && p[bodyKey] != null ? Number(p[bodyKey]) : null;
+    const yours = rawYours != null && isFinite(rawYours) ? rawYours : null;
+    if (theirs == null && yours == null) continue;
+    const target = FIT_READ_EASE[key] || null;
+    const ease = theirs != null && yours != null ? theirs - yours : null;
+    let mark = null;
+    let warn = false;
+    if (ease != null && target) {
+      // Band center 51%, half-width 15%: ease at ideal → 51, at ideal±span →
+      // the band edges (36 / 66). Beyond that the mark keeps moving and warns.
+      mark = Math.max(2, Math.min(98, 51 + ((ease - target.ideal) / target.span) * 15));
+      warn = mark < 36 || mark > 66;
+    }
+    rows.push({
+      key,
+      name: FIT_READ_LABELS[key] || key,
+      theirs,
+      yours,
+      ease,
+      mark,
+      warn,
+    });
+  }
+  // Body length has no ease target — it is information, not a fit verdict.
+  return rows;
+}
+
 // Per-category Length + Looseness axes (design 5a/5b). Unset axis = no skew.
 // Only garment categories that go through recommendSize.
 export const FIT_PREF_AXES = {
