@@ -6857,10 +6857,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-card-editorial {
   border-radius: 16px !important;
 }
-.cz-card-editorial:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cz-ink) 12%, transparent),
-    0 16px 36px rgba(23, 24, 26, 0.12);
+/* CH-05: the whole hover treatment is fine-pointer only. On touch the first
+   tap fires :hover, the card lifts under the finger, and the tap reads as a
+   jitter instead of an open. Touch gets no rest→hover state at all. */
+@media (hover: hover) and (pointer: fine) {
+  .cz-card-editorial:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--cz-ink) 12%, transparent),
+      0 16px 36px rgba(23, 24, 26, 0.12);
+  }
 }
 .cz-card-title-serif {
   font-family: var(--cz-display) !important;
