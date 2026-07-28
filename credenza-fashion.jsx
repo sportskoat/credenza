@@ -222,6 +222,11 @@ const PALETTES = {
        floor; #C0932a measures ~2.6:1 and is used for the dot only. */
     "--cz-warn-ink": "#8a6714",
     "--cz-accent-tint": "rgba(20, 122, 58, 0.06)",
+    /* Split-rail handoff (2026-07-28): the fit-read tolerance band and the
+       pick sheen. Both are --cz-money with alpha; named so Blackout can ride
+       its own green (#4ade80) without a raw rgba in the CSS. */
+    "--cz-fit-band": "rgba(20, 122, 58, 0.20)",
+    "--cz-sheen": "rgba(20, 122, 58, 0.16)",
     "--cz-strip-bg": "#EAEAE4",
     "--cz-footer-bg": "#EFEFE9",
     "--cz-inset-bg": "#FAFAF6",
@@ -294,6 +299,10 @@ const PALETTES = {
        #e8bf63 measures ~9.6:1 on the card surface. */
     "--cz-warn-ink": "#e8bf63",
     "--cz-accent-tint": "rgba(74, 222, 128, 0.10)",
+    /* Split-rail handoff (2026-07-28): Blackout rides its own money green.
+       The band lightens a step (0.18) so it does not glow on true black. */
+    "--cz-fit-band": "rgba(74, 222, 128, 0.18)",
+    "--cz-sheen": "rgba(74, 222, 128, 0.16)",
     "--cz-strip-bg": "#151517",
     "--cz-footer-bg": "#0c0c0e",
     "--cz-inset-bg": "#26262b",
