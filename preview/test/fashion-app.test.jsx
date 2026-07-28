@@ -889,19 +889,27 @@ describe("Link-only ambient clipboard capture", () => {
     }
   });
 
-  it("shows a new same-host link after dismissing the previous link", async () => {
+  it("shows a new same-host link after stashing the previous link", async () => {
+    // CH-04 deleted the ✕ — the banner is informational and tappable only.
+    // The fingerprint memory now guards the stash path: after a stash the
+    // same link stays hidden, but a NEW link from the same host must still
+    // produce a fresh banner on the next focus probe.
     const readText = vi
       .fn()
-      .mockResolvedValueOnce("https://weidian.com/item.html?itemID=111")
-      .mockResolvedValue("https://weidian.com/item.html?itemID=222");
-    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+      .mockResolvedValueOnce("https://weidian.com/item.html?itemID=111") // mount probe
+      .mockResolvedValueOnce("https://weidian.com/item.html?itemID=111") // stash read
+      .mockResolvedValue("https://weidian.com/item.html?itemID=222"); // focus probe
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const restoreClipboard = installClipboard(readText);
     try {
       render(<Credenza />);
       await waitFor(() =>
         expect(document.querySelector(".cz-desk-clip-banner")).not.toBeNull()
       );
-      fireEvent.click(document.querySelector(".cz-desk-clip-dismiss"));
+      // No ✕ inside or beside the banner (CH-04 accept).
+      expect(document.querySelector(".cz-desk-clip-dismiss")).toBeNull();
+      fireEvent.click(document.querySelector(".cz-desk-clip-banner"));
+      await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(2));
       expect(document.querySelector(".cz-desk-clip-banner")).toBeNull();
 
       fireEvent.focus(window);
@@ -938,6 +946,25 @@ describe("Link-only ambient clipboard capture", () => {
     const event = new Event("paste", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "clipboardData", {
       value: { getData: () => "review notes without a link" },
+    });
+
+    fireEvent(field, event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(JSON.parse(data[STORE_KEY])).toHaveLength(1);
+  });
+
+  it("leaves a URL search paste to the browser too (CH-04)", async () => {
+    // The desktop field only ever searches. A pasted link lands as text and
+    // filters the shelf; it must never become a card from this field.
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    render(<Credenza />);
+    await screen.findAllByText("Palace x Nike jersey");
+    const field = document.querySelector(".cz-desk-search-field");
+    expect(field).not.toBeNull();
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", {
+      value: { getData: () => "https://weidian.com/item.html?itemID=7649592219" },
     });
 
     fireEvent(field, event);

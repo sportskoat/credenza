@@ -5893,25 +5893,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     text-align: left;
     cursor: pointer;
   }
-  .cz-desk-clip-dismiss {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    border: 0;
-    border-radius: 13px;
-    background: var(--cz-action-fill);
-    color: color-mix(in srgb, var(--cz-action-text) 60%, transparent);
-    cursor: pointer;
-  }
-  .cz-desk-clip-dismiss:hover {
-    color: var(--cz-action-text);
-  }
-}
-.cz-desk-clip-dismiss:focus-visible {
-  outline: 2px solid var(--cz-focus);
-  outline-offset: 2px;
 }
 .cz-desk-clip-banner:focus-visible {
   outline: 2px solid var(--cz-focus);

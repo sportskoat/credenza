@@ -5116,13 +5116,6 @@ function CredenzaApp() {
     };
   }, []);
 
-  // X on the banner: hide it and remember the complete link set. Another URL
-  // from the same host must still produce a new shortcut.
-  const dismissClipPreview = () => {
-    if (clipPreview) clipDismissedRef.current = clipPreview.fingerprint;
-    setClipPreview(null);
-  };
-
   // ————— Import: local parsing, local enrichment, dedupe against the shelf —————
   // Notifications own their timers so stale messages cannot dismiss newer ones.
   const flashImportResult = (message, action, persistent = false) =>
@@ -8034,9 +8027,9 @@ function CredenzaApp() {
           </div>
         )}
 
-        {/* Desktop top bar (≥768px), search handoff 6a: one permanent search
-            field + one solid ＋ Stash button. Search filters the shelf. Stash
-            opens the shared review sheet when the field is empty. */}
+        {/* Desktop top bar (≥768px), CH-04: one permanent search field that
+            only filters + one solid ＋ Stash button that always opens the
+            shared review sheet. */}
         {items.length > 0 && (
           <div className="cz-desk-capture">
             <label className="cz-desk-search-shell">
@@ -8070,9 +8063,9 @@ function CredenzaApp() {
                     e.target.blur();
                   }
                 }}
-                // Same paste-to-stash as the mobile row below — a URL pasted
-                // here stashes instead of searching for nothing (Part 6).
-                onPaste={onSearchPaste}
+                // CH-04: this field only ever searches. Paste lands as text
+                // and filters; the ＋ Stash button owns capture. (Stash is an
+                // event, search is ambient — they never share one control.)
                 placeholder="Search your shelf"
               />
             </label>
@@ -8080,7 +8073,7 @@ function CredenzaApp() {
               type="button"
               className="cz-desk-stash-btn"
               disabled={interactionLocked}
-              onClick={heroStash}
+              onClick={() => setCaptureSheetOpen(true)}
               aria-label="Stash a link or note"
               title="Stash a link or note"
             >
@@ -8115,15 +8108,6 @@ function CredenzaApp() {
                 </span>
                 <span className="cz-desk-clip-host">{clipPreview.host}</span>
               </span>
-            </button>
-            <button
-              type="button"
-              className="cz-desk-clip-dismiss"
-              onClick={dismissClipPreview}
-              aria-label="Dismiss the clipboard banner"
-              title="Dismiss"
-            >
-              <X size={14} strokeWidth={2.2} aria-hidden="true" />
             </button>
           </div>
         )}
