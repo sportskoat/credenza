@@ -1,0 +1,15 @@
+/* One easing curve for everything. Four durations. Nothing bounces. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-fade: cubic-bezier(0.22, 0.9, 0.3, 1);
+
+  --dur-press: 120ms;    /* :active scale */
+  --dur-micro: 140ms;    /* colour, opacity, hover */
+  --dur-open: 250ms;     /* sheets, overlays */
+  --dur-resize: 300ms;   /* height/accordion */
+
+  /* Press scale — the whole system uses two values, nothing else */
+  --press-scale: 0.96;        /* pills, chips, tabs, icon buttons */
+  --press-scale-large: 0.98;  /* full-width rows and Buy */
+  --hover-lift: -2px;         /* cards and action rows only */
+}

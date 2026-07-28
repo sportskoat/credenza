@@ -1,0 +1,51 @@
+/* Spacing, radii and the touch floors. Values are lifted verbatim from the
+   product — Credenza does not sit on a 4/8px grid, and rounding these is a
+   defect (10px card gaps, 13px card text padding, 42px Buy, 52px hero field). */
+:root {
+  /* Space scale actually in use */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;   /* shelf grid gap */
+  --space-5: 12px;
+  --space-6: 14px;   /* card body inline padding */
+  --space-7: 16px;
+  --space-8: 18px;   /* view-tab gap */
+  --space-9: 22px;
+  --space-10: 28px;
+  --space-12: 48px;
+
+  /* Shell + container */
+  --shell-max: 1080px;      /* app: one container for the whole shelf */
+  --site-max: 1120px;       /* marketing site */
+  --shell-pad-desktop: 28px;
+  --shell-pad-tablet: 22px;
+  --shell-pad-phone: 16px;
+  --shell-pad-small: 14px;
+  --site-pad-x: clamp(24px, 6.5vw, 48px);
+
+  /* Radii */
+  --radius-pill: 999px;      /* every pill, chip, status flag, heart */
+  --radius-field: 10px;      /* form input */
+  --radius-row: 11px;        /* fact rows */
+  --radius-card-tight: 14px; /* two-line grid card, paste field, marketing card */
+  --radius-card: 16px;       /* editorial grid card, primary CTA */
+  --radius-sheet: 18px;      /* phone bottom sheet top corners */
+  --radius-panel: 20px;      /* empty states */
+  --radius-frame: 22px;      /* marketing demo frame */
+  --radius-mark: 31%;        /* brand mark ground: 12.4 on a 40 box */
+
+  /* Touch floors — non-negotiable */
+  --tap-min: 44px;           /* coarse pointer */
+  --control-h: 40px;         /* fine pointer pill / icon button */
+  --buy-h: 42px;
+  --field-h: 52px;           /* hero search + stash */
+  --cta-h: 54px;             /* marketing primary/secondary */
+
+  /* Grid */
+  --shelf-gap: 10px;
+  --shelf-cols-phone: 2;
+  --shelf-cols-tablet: 3;
+  --shelf-cols-desktop: 4;
+  --card-aspect: 4 / 5;
+}

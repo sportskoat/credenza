@@ -53,6 +53,39 @@ export default [
     },
   },
   {
+    // Design-system adherence, ported from the Claude Design project's
+    // _adherence.oxlintrc.json. See .claude/skills/credenza-design/.
+    //
+    // WARNINGS, NOT ERRORS, ON PURPOSE. The repo carries ~194 raw hex values
+    // that predate these rules; erroring would fail every build. Warn now,
+    // burn the count down, tighten to "error" once it reaches zero.
+    //
+    // Scoped to the UI layer only. credenza-fashion.jsx is excluded because it
+    // DEFINES the palette — raw hex is correct there and nowhere else.
+    files: ["components/**/*.{js,jsx}", "sheets/**/*.{js,jsx}", "preview/src/**/*.{js,jsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "warn",
+        {
+          selector: "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+          message:
+            "Raw hex colour. Use a design-system token: var(--cz-*). See .claude/skills/credenza-design/tokens/colors.css",
+        },
+        {
+          selector: "Literal[value=/\\b\\d+px\\b/]",
+          message:
+            "Raw px value. Use a spacing, radius, or type token. See .claude/skills/credenza-design/tokens/spacing.css",
+        },
+        {
+          selector:
+            "Property[key.name='fontFamily'] > Literal[value=/^(?!.*Clash Grotesk).*$/]",
+          message:
+            "Only Clash Grotesk is allowed. Use var(--cz-sans), var(--cz-display), or var(--cz-mono).",
+        },
+      ],
+    },
+  },
+  {
     // Build scripts and tests run in Node, not in the browser. Without this
     // the base config's browser-only globals make every `process` reference
     // a no-undef error.
