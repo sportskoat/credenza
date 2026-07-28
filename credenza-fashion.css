@@ -12311,6 +12311,74 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-dpanel-body .cz-detail-scroll {
     padding: 18px 20px 0;
   }
+
+  /* ── Footer (spec :140–150) ── The disclosure moves inline to the right of
+     the bar. The spec is explicit that it is never a footnote. (2026-07-28) */
+  .cz-dpanel-body .cz-detail-foot {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 20px 11px;
+    border-top: 1px solid var(--cz-hair);
+    background: var(--cz-footer-bg);
+  }
+  .cz-dpanel-body .cz-detail-foot-row {
+    flex: 1;
+    min-width: 0;
+    gap: 14px;
+  }
+  /* Spec :146 — the price goes in the display face, not mono. System mono at
+     600/20px read heavier than everything around it. The element stays a
+     button: it is the only opener for the price editor. */
+  .cz-dpanel-body .cz-detail-foot-price {
+    height: 44px;
+    padding: 0 12px;
+    font-family: var(--cz-display);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .cz-dpanel-body .cz-detail-foot-row .cz-detail-buy,
+  .cz-dpanel-body .cz-detail-foot .cz-detail-buy {
+    height: 44px;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .cz-dpanel-body .cz-detail-foot .cz-buy-notch,
+  .cz-dpanel-body .cz-detail-foot .cz-detail-buy {
+    border-radius: 999px;
+  }
+  .cz-dpanel-body .cz-detail-foot .cz-buy-notch .cz-detail-buy {
+    border-radius: 0;
+  }
+  .cz-dpanel-body .cz-detail-foot .cz-buy-notch-toggle {
+    flex: 0 0 42px;
+    border-left: 1px solid var(--cz-action-text-divider);
+  }
+  /* Spec :149. The prototype's literal left/bottom offsets are frame
+     coordinates; the picker stays anchored to its own notch here. */
+  .cz-dpanel-body .cz-detail-foot .cz-agent-pop {
+    z-index: 6;
+    width: 210px;
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(23, 24, 26, 0.18);
+  }
+  .cz-dpanel-body .cz-detail-foot .cz-agent-pop-row {
+    min-height: 30px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .cz-dpanel-body .cz-detail-disclosure {
+    flex: 0 0 auto;
+    max-width: 150px;
+    margin: 0;
+    text-align: left;
+    font-size: 10px;
+    line-height: 1.4;
+    font-weight: 500;
+    color: var(--cz-placeholder);
+  }
   .cz-dpanel-body .cz-detail-title-row {
     padding-right: 92px;
   }
