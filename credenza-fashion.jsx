@@ -2323,6 +2323,9 @@ export function migrateItem(old) {
     currency: old.currency || "CNY",
     priceUsd: typeof old.priceUsd === "number" && !isNaN(old.priceUsd) ? old.priceUsd : null,
     priceManual: old.priceManual === true,
+    // CH-07 follow-up: the hand-picked-category pin must survive migration
+    // (backup restore, share import), same as the hand-set-price pin above.
+    categoryManual: old.categoryManual === true,
     category: CATEGORIES[old.category]
       ? old.category
       : guessFashionCategory(
