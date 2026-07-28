@@ -9851,6 +9851,32 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   transform: translate(-50%, -50%);
 }
 
+/* ── Phone hero chrome (split-rail spec :168) ──
+   The frosted puck goes away on a phone. At 44px a blurred circle is a heavy
+   grey disc sitting on the photo; a bare glyph with a drop-shadow stays legible
+   over any image and gives back the whole 44px as a real target. */
+@media (max-width: 767px) {
+  .cz-detail-hero-actions { gap: 2px; }
+  .cz-detail-hero-btn {
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+  }
+  /* The visual is the target now, so the extra hit box is dead weight. */
+  .cz-detail-hero-btn::after { display: none; }
+  .cz-detail-hero-fav.cz-favorite-button {
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+  }
+}
+
 /* ⋯ menu (mobile handoff follow-up, 2026-07-25): the overflow button opens
    actions, never the delete itself. Hairline card, no shadow — the sheet is
    a quiet surface. */
@@ -9924,6 +9950,16 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   line-height: 1.2;
   letter-spacing: -0.02em;
   color: var(--cz-ink);
+}
+
+/* Phone title (split-rail spec :170). The title is the one thing on the sheet
+   that has to win against the photo above it, so it goes up, not down. */
+@media (max-width: 767px) {
+  .cz-detail-title {
+    font-size: 26px;
+    line-height: 1.06;
+    letter-spacing: -0.035em;
+  }
 }
 
 .cz-detail-title-input {
@@ -10264,6 +10300,27 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-detail-profile-sizes {
   color: var(--cz-sub);
+}
+
+/* Phone chart actions (split-rail spec :171): stacked full width, 44px each.
+   Two half-width buttons cut "Read this album's 4 photos" to two lines and
+   left the labels unreadable at 390px. */
+@media (max-width: 767px) {
+  .cz-detail-chart-actions {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+  .cz-detail-chart-upload,
+  .cz-detail-profile-sizes {
+    width: 100%;
+  }
+  .cz-sizing-actions {
+    grid-template-columns: 1fr;
+  }
+  .cz-sizing-action {
+    min-height: 44px;
+  }
 }
 
 /* ── Sizing recommendation ── */
@@ -10793,6 +10850,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
   .cz-fitread-head-short {
     display: inline;
+  }
+
+  /* Spec :171 drops TRUE from the scale on a phone. The track is 1fr here, so
+     three labels crowd the middle one against its neighbours. TIGHT and LOOSE
+     still name both ends, and the band already marks true. */
+  .cz-fitread-scale > span:nth-child(2) {
+    display: none;
   }
 }
 
@@ -11502,6 +11566,38 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-detail-notes-box { transition: none; }
 }
 
+/* ── Phone note row (split-rail spec :178) ──
+   "44px dashed row expanding to an 84px textarea." An empty note took 100px of
+   a 390px sheet to say nothing. Empty and unfocused, the box collapses to one
+   dashed 44px row; the textarea IS that row, so a tap focuses it and the focus
+   opens the box. The head hides by row height, not display:none, so the grid
+   keeps both items in their own rows. */
+@media (max-width: 767px) {
+  .cz-detail-notes-box:not(.is-open):has(.cz-detail-notes:placeholder-shown) {
+    grid-template-rows: 0 44px;
+    padding-bottom: 0;
+    border-style: dashed;
+  }
+  .cz-detail-notes-box:not(.is-open):has(.cz-detail-notes:placeholder-shown)
+    .cz-detail-notes-head {
+    overflow: hidden;
+    padding: 0;
+  }
+  .cz-detail-notes-box:not(.is-open):has(.cz-detail-notes:placeholder-shown)
+    .cz-detail-notes {
+    /* A textarea cannot centre its own text, so the top padding does it:
+       (44 - 24) / 2 = 10. */
+    padding: 10px 12px 0;
+  }
+  .cz-detail-notes-box.is-open {
+    grid-template-rows: auto 84px;
+  }
+  /* Under 16px iOS zooms the whole sheet on focus. */
+  .cz-detail-notes {
+    font-size: 16px;
+  }
+}
+
 /* ── Photo panel tail (handoff turn 9 §4) ──
    The strip and the album links sit directly under the photo, as one block.
    §9 puts them there in the phone order too: photo → strip → album links →
@@ -11592,6 +11688,43 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   flex: 0 0 auto;
   width: 84px;
   height: 84px;
+}
+
+/* ── Phone thumb strip (split-rail spec :169) ──
+   "horizontal flex, flex: 1 each, 48px tall, gap 6px". The tiles stop being
+   84px squares that scroll off the edge and become one row that fits: every
+   photo is visible without a sideways gesture. */
+@media (max-width: 767px) {
+  .cz-detail-photos .cz-edit-photos-grid {
+    gap: 6px;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
+  .cz-detail-photos .cz-edit-photos-grid > * {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    height: 48px;
+    aspect-ratio: auto;
+  }
+  /* The delete puck is 26px on a 84px tile. On a 48px tile it would cover
+     half the photo, so it drops to the tile corner at 22px. */
+  .cz-detail-photos .cz-edit-photo-delete {
+    top: 3px;
+    right: 3px;
+    width: 22px;
+    height: 22px;
+  }
+  .cz-detail-photos .cz-edit-photo-cover-badge {
+    left: 3px;
+    bottom: 3px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+  /* The cover is the selected thumb. A 1px accent ring disappears at 48px. */
+  .cz-detail-photos .cz-edit-photo-tile.is-cover {
+    box-shadow: 0 0 0 2px var(--cz-ink);
+  }
 }
 
 /* ── Pinned footer. Nothing destructive lives here. ── */
