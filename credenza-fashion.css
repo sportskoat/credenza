@@ -10114,6 +10114,101 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 8px;
 }
 
+/* ── Phone facts rows (split-rail spec :176) ── The label moves out of the
+   stack and into an 82px gutter, so each fact reads as one 48px row instead
+   of a label-over-control pair. The section hairlines already separate them.
+   Colorway stays a free-text input: the app has no fixed colorway option set,
+   and a chip list would drop every colorway a seller actually names. Haul
+   already expands its chips in place through HaulAccordionField, which is the
+   pattern the spec asks for. (2026-07-28) */
+@media (max-width: 767px) {
+  .cz-detail-facts .cz-detail-panel-field {
+    grid-template-columns: 82px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+  }
+
+  .cz-detail-facts .cz-detail-panel-field > span,
+  .cz-detail-facts .cz-detail-panel-field > label {
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* The 16px floor stays: anything smaller makes iOS zoom the page on focus.
+     Only the resting weight follows the spec's 500. */
+  .cz-detail-facts .cz-detail-panel-field .cz-detail-editor-input {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Spec :176 draws a 26px g/kg segment. The 44px touch floor is
+     non-negotiable in the same spec, so the visual shrinks and a
+     pseudo-element carries the hit area — the same trick .cz-detail-hero-btn
+     already uses on the photo. */
+  .cz-detail-facts .cz-detail-weight-row {
+    gap: 6px;
+  }
+
+  .cz-detail-facts .cz-detail-unit {
+    border-radius: 999px;
+  }
+
+  .cz-detail-facts .cz-detail-unit-btn {
+    position: relative;
+    min-height: 26px;
+    padding: 0 10px;
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .cz-detail-facts .cz-detail-unit-btn.is-active {
+    font-weight: 600;
+  }
+
+  .cz-detail-facts .cz-detail-unit-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    min-width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Haul takes the same gutter. Its head is already a full-width row that
+     expands its chip list in place, so only the label moves. */
+  .cz-detail-facts .cz-haul-acc .cz-field-label {
+    grid-template-columns: 82px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+  }
+
+  .cz-detail-facts .cz-haul-acc .cz-field-label > span {
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .cz-detail-facts .cz-haul-acc-head {
+    min-height: 44px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+}
+
 .cz-detail-chart-section {
   display: grid;
   gap: 9px;
