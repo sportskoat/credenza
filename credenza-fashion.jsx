@@ -7275,6 +7275,13 @@ function CredenzaApp() {
           ? { [panelItem.category]: fitPrefs[panelItem.category] }
           : null
       }
+      onSaveBodyProfile={(profile) => {
+        setBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
+        setFitPromptSkipped(false);
+        notify("Sizes updated.");
+      }}
+      fitPromptSkipped={fitPromptSkipped}
+      onSkipFitPrompt={() => setFitPromptSkipped(true)}
       measureUnits={measureUnits}
       buyLabel={buyLabel}
       preferredAgent={preferredAgent}
@@ -7796,6 +7803,13 @@ function CredenzaApp() {
           haulNames={haulNames}
           bodyProfile={bodyProfile}
           fitPrefs={fitPrefs}
+          onSaveBodyProfile={(profile) => {
+            setBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
+            setFitPromptSkipped(false);
+            notify("Sizes updated.");
+          }}
+          fitPromptSkipped={fitPromptSkipped}
+          onSkipFitPrompt={() => setFitPromptSkipped(true)}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
           preferredAgent={preferredAgent}

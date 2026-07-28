@@ -26,22 +26,29 @@ import SizeChartTable from "./SizeChartTable.jsx";
 const chartAutoFetchTried = new Set();
 
 // Measure fields the progressive fit ask needs for this category (design 4f).
-// Tops → chest. Bottoms → waist (+ inseam when useful). Fallback → chest + waist.
-function fitMeasureFieldsFor(category) {
+// Tops → chest. Bottoms → waist + inseam. Shoes → foot length. Fallback →
+// chest + waist. Exported for the live DetailBody ask (CH-08) — the hint is
+// the "Not sure how to measure?" line for each field.
+export function fitMeasureFieldsFor(category) {
   if (category === "pants" || category === "shorts") {
     return [
-      { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5" },
-      { key: "inseam", label: "Inseam", kind: "length", phCm: "81", phIn: "32" },
+      { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
+      { key: "inseam", label: "Inseam", kind: "length", phCm: "81", phIn: "32", hint: "On pants that fit, measure the inner seam from crotch to hem." },
+    ];
+  }
+  if (category === "shoes") {
+    return [
+      { key: "footLength", label: "Foot length", kind: "length", phCm: "26.5", phIn: "10.4", hint: "Stand on paper, mark heel and longest toe, measure between the marks." },
     ];
   }
   if (category === "outerwear" || category === "shirt") {
     return [
-      { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38" },
+      { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38", hint: "Measure around the fullest part of your chest, tape level." },
     ];
   }
   return [
-    { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38" },
-    { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5" },
+    { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38", hint: "Measure around the fullest part of your chest, tape level." },
+    { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
   ];
 }
 

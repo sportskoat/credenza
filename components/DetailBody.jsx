@@ -9,6 +9,7 @@ import {
   StatusChips,
   buildEditDraft,
   buildEditPatch,
+  CATEGORIES,
   computeRecommendedSize,
   effectiveBodyProfile,
   chartCacheForSeller,
@@ -21,6 +22,8 @@ import {
   formatSizeToken,
   itemPhotoList,
   linkButtons,
+  measureFromStorage,
+  measureToStorage,
   parseSizeChart,
   prescriptionSentence,
   itemUsdAmount,
@@ -35,6 +38,7 @@ import {
   SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
 import { CategorySelect } from "./atoms.jsx";
+import { fitMeasureFieldsFor } from "./SizeRecommendation.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
 import SizeChartTable from "./SizeChartTable.jsx";
 import { AlbumLinksRow } from "./CardMetaLinks.jsx";
@@ -983,6 +987,206 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// CH-08 (designs 4d–4g): the no-measurements flow on the live Size tab.
+// Confidence derives from data completeness — never fabricated. With an empty
+// profile the sizing slot shows no size string at all: only the ask (4d).
+
+// 4d — dashed empty prompt. Copy is canonical from Card Mockups design 4d.
+function FitEmptyPrompt({ onAdd, onSkip }) {
+  return (
+    <div className="cz-fit4-empty">
+      <div className="cz-fit4-empty-title">Will it fit you?</div>
+      <p className="cz-fit4-empty-copy">
+        Add your usual size and we’ll size every item on your shelf. Takes 10 seconds.
+      </p>
+      <button type="button" className="cz-fit4-empty-btn" onClick={onAdd}>
+        Add my size
+      </button>
+      {onSkip ? (
+        <button type="button" className="cz-fit-prompt-skip" onClick={onSkip}>
+          Skip for now
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// 4f — the ask. Only what the category needs (fitMeasureFieldsFor), prefilled
+// from the profile in display units, saved back in storage units.
+function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, onSkipFitPrompt }) {
+  const fields = fitMeasureFieldsFor(item.category);
+  const [draft, setDraft] = useState(() => {
+    const next = { usualSize: (bodyProfile && bodyProfile.usualSize) || "" };
+    for (const f of fields) {
+      next[f.key] =
+        bodyProfile && bodyProfile[f.key] != null
+          ? measureFromStorage(bodyProfile[f.key], units, f.kind)
+          : "";
+    }
+    return next;
+  });
+  const [showHints, setShowHints] = useState(false);
+  const unitHint = units === "in" ? "in" : "cm";
+  const catLabel =
+    item.category && CATEGORIES[item.category]
+      ? CATEGORIES[item.category].label.toLowerCase()
+      : "this item";
+  const fieldNames = fields.map((f) => f.label.toLowerCase()).join(" and ");
+
+  const save = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = {};
+    if ((draft.usualSize || "").trim()) next.usualSize = draft.usualSize.trim();
+    for (const f of fields) {
+      const stored = measureToStorage(draft[f.key], units, f.kind);
+      if (stored != null) next[f.key] = stored;
+    }
+    onSave(next);
+    onClose();
+  };
+
+  return (
+    <form className="cz-fit-prompt cz-fit4-ask" onSubmit={save}>
+      <div className="cz-fit-prompt-title">Your measurements</div>
+      <p className="cz-fit-prompt-copy">
+        For {catLabel} we need your {fieldNames}. Saved for every item.
+      </p>
+      <div className={"cz-fit-prompt-fields" + (fields.length === 1 ? " is-one" : "")}>
+        {fields.map((f) => (
+          <label className="cz-fit-prompt-field" key={f.key}>
+            <span className="cz-fit-prompt-label">{f.label}</span>
+            <span className="cz-fit-prompt-control">
+              <input
+                inputMode="decimal"
+                placeholder={units === "in" ? f.phIn : f.phCm}
+                value={draft[f.key] || ""}
+                onChange={(e2) =>
+                  setDraft((d) => ({ ...d, [f.key]: e2.target.value.replace(/[^\d.]/g, "") }))
+                }
+                aria-label={f.label + " in " + unitHint}
+              />
+              <span className="cz-fit-prompt-unit" aria-hidden="true">
+                {unitHint}
+              </span>
+            </span>
+          </label>
+        ))}
+        <label className="cz-fit-prompt-field cz-fit-prompt-size">
+          <span className="cz-fit-prompt-label">Usual size (backup)</span>
+          <span className="cz-fit-prompt-control">
+            <input
+              placeholder="M"
+              value={draft.usualSize || ""}
+              onChange={(e2) => setDraft((d) => ({ ...d, usualSize: e2.target.value }))}
+              aria-label="Usual size"
+            />
+          </span>
+        </label>
+      </div>
+      {showHints ? (
+        fields.map((f) =>
+          f.hint ? (
+            <p key={f.key} className="cz-fit4-alt">
+              {f.label}: {f.hint}
+            </p>
+          ) : null
+        )
+      ) : (
+        <button type="button" className="cz-fit-prompt-skip" onClick={() => setShowHints(true)}>
+          Not sure how to measure?
+        </button>
+      )}
+      <div className="cz-fit-prompt-actions">
+        <button type="submit" className="cz-fit-prompt-save">
+          Save & recalculate
+        </button>
+        <button
+          type="button"
+          className="cz-fit-prompt-skip"
+          onClick={() => {
+            onClose();
+            if (!hasUsual && onSkipFitPrompt) onSkipFitPrompt();
+          }}
+        >
+          {hasUsual ? "Skip — keep the rough size" : "Skip for now"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// 4e / 4g — the confidence strip under the sizing block. Amber when the read
+// rests on the usual size alone (the category's own measures are absent);
+// green with the You/Garment/Ease math when a real measure met a real chart.
+// Provenance strings inside SizingBlock stay untouched — this strip only adds.
+function FitConfidenceStrip({ item, verdict, bodyProfile, units, onSharpen }) {
+  const rec = verdict.rec;
+  if (verdict.precise && rec && rec.body != null && rec.garment != null) {
+    const diff = rec.diff != null ? rec.diff : rec.garment - rec.body;
+    const easeStr = (diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(diff), units);
+    return (
+      <div className="cz-fit4">
+        <div className="cz-fit4-head">
+          <span className="cz-fit4-kicker">Fit confidence</span>
+          <span className="cz-fit4-badge is-precise">
+            <span className="cz-fit4-badge-dot" aria-hidden="true" />
+            Precise fit
+          </span>
+        </div>
+        <div className="cz-fit4-math" aria-label="Fit numbers">
+          <div className="cz-fit4-math-cell">
+            <div className="cz-fit4-math-k">You</div>
+            <div className="cz-fit4-math-v">{formatMeasure(rec.body, units)}</div>
+          </div>
+          <div className="cz-fit4-math-cell">
+            <div className="cz-fit4-math-k">Garment</div>
+            <div className="cz-fit4-math-v">{formatMeasure(rec.garment, units)}</div>
+          </div>
+          <div className="cz-fit4-math-cell">
+            <div className="cz-fit4-math-k">Ease</div>
+            <div className="cz-fit4-math-v is-money">{easeStr}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  const fieldsMissing = fitMeasureFieldsFor(item.category).some(
+    (f) => !(bodyProfile && bodyProfile[f.key] != null)
+  );
+  if (!verdict.usualSize || !fieldsMissing) return null;
+  const missingKey =
+    (rec && rec.missing) ||
+    (item.category === "pants" || item.category === "shorts" ? "waist" : "chest");
+  const sharpenLabel =
+    item.category === "pants" || item.category === "shorts"
+      ? "Add waist & inseam"
+      : item.category === "shirt" || item.category === "outerwear"
+        ? "Add chest"
+        : "Add chest & waist";
+  return (
+    <div className="cz-fit4">
+      <div className="cz-fit4-head">
+        <span className="cz-fit4-kicker">Fit confidence</span>
+        <span className="cz-fit4-badge is-rough">
+          <span className="cz-fit4-badge-dot" aria-hidden="true" />
+          Rough estimate
+        </span>
+      </div>
+      <p className="cz-fit4-alt">
+        Based on your usual size alone. Add your {missingKey} for a chart-based fit.
+      </p>
+      {onSharpen ? (
+        <button type="button" className="cz-fit4-sharpen" onClick={onSharpen}>
+          <span>{sharpenLabel}</span>
+          <span className="cz-fit4-sharpen-meta">+ sharper ›</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function DetailBody({
   item,
   haulNames = [],
@@ -1026,6 +1230,12 @@ export default function DetailBody({
   // taking ownership of the notes draft. Undefined keeps them inline for
   // every existing caller; null suppresses the pre-mount desktop frame.
   logNotesTarget = undefined,
+  // CH-08 (4d–4g): the fit-prompt trio. All three optional — a caller that
+  // does not pass onSaveBodyProfile gets no prompt and no ask, only the
+  // existing sizing presentation.
+  onSaveBodyProfile = null,
+  fitPromptSkipped = false,
+  onSkipFitPrompt = null,
 }) {
   const titleInputRef = useRef(null);
   const tabRefs = useRef([]);
@@ -1217,6 +1427,9 @@ export default function DetailBody({
   // The parent owns the sizing verdict and the chart hunt.
   const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
   const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits);
+  // CH-08: the 4f ask, local to this card. Reset when the card changes.
+  const [askingMeasures, setAskingMeasures] = useState(false);
+  useEffect(() => setAskingMeasures(false), [item.id]);
   const hunting = useChartHunt(item, verdict.chart, onSaveEdit, true, shelfItems);
   // §3: the customer's own chart read, and the album photos its third option
   // offers. Remote URLs only — a local data: URL cannot go down the images door.
@@ -1659,7 +1872,28 @@ export default function DetailBody({
               onPick={pickItemSize}
             />
 
-            {!verdict.chart && !hunting ? (
+            {askingMeasures && onSaveBodyProfile ? (
+              // 4f — the ask replaces the sizing block until saved or skipped.
+              <FitMeasureAsk
+                item={item}
+                bodyProfile={bodyProfile}
+                units={measureUnits}
+                hasUsual={!!verdict.usualSize}
+                onSave={onSaveBodyProfile}
+                onClose={() => setAskingMeasures(false)}
+                onSkipFitPrompt={onSkipFitPrompt}
+              />
+            ) : !bodyProfile &&
+              !fitPromptSkipped &&
+              onSaveBodyProfile &&
+              !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
+              // 4d — empty profile: no size string, only the ask. The size
+              // chips above stay (a hand-set size is the customer's own data).
+              <FitEmptyPrompt
+                onAdd={() => setAskingMeasures(true)}
+                onSkip={onSkipFitPrompt}
+              />
+            ) : !verdict.chart && !hunting ? (
               <SizingBlockNoChart
                 usualSize={chosenSize || verdict.usualSize}
                 albumPhotos={sizingAlbumPhotos}
@@ -1688,6 +1922,21 @@ export default function DetailBody({
                 }
               />
             )}
+
+            {!askingMeasures &&
+            bodyProfile &&
+            onSaveBodyProfile &&
+            !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
+              // 4e / 4g — the confidence strip, only when a profile exists and
+              // a caller can receive the sharpened measures.
+              <FitConfidenceStrip
+                item={item}
+                verdict={verdict}
+                bodyProfile={bodyProfile}
+                units={measureUnits}
+                onSharpen={() => setAskingMeasures(true)}
+              />
+            ) : null}
 
             {verdict.prescription ? <p className="cz-sizing-why">{verdict.prescription}</p> : null}
 

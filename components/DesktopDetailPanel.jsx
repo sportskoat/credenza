@@ -26,6 +26,9 @@ export default function DesktopDetailPanel({
   haulNames = [],
   bodyProfile,
   fitPrefs = null,
+  onSaveBodyProfile = null,
+  fitPromptSkipped = false,
+  onSkipFitPrompt = null,
   measureUnits = "cm",
   buyLabel = "Buy",
   preferredAgent = null,
@@ -502,6 +505,9 @@ export default function DesktopDetailPanel({
               haulNames={haulNames}
               bodyProfile={bodyProfile}
               fitPrefs={fitPrefs}
+              onSaveBodyProfile={onSaveBodyProfile}
+              fitPromptSkipped={fitPromptSkipped}
+              onSkipFitPrompt={onSkipFitPrompt}
               measureUnits={measureUnits}
               buyLabel={buyLabel}
               preferredAgent={preferredAgent}

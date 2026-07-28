@@ -26,6 +26,9 @@ export default function DetailSheet({
   haulNames = [],
   bodyProfile,
   fitPrefs,
+  onSaveBodyProfile = null,
+  fitPromptSkipped = false,
+  onSkipFitPrompt = null,
   measureUnits = "cm",
   buyLabel = "Buy",
   // §8: the Buy notch picks the agent in place. Both must arrive together —
@@ -165,6 +168,9 @@ export default function DetailSheet({
           haulNames={haulNames}
           bodyProfile={bodyProfile}
           fitPrefs={fitPrefs}
+          onSaveBodyProfile={onSaveBodyProfile}
+          fitPromptSkipped={fitPromptSkipped}
+          onSkipFitPrompt={onSkipFitPrompt}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
           preferredAgent={preferredAgent}

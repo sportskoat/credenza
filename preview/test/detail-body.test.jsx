@@ -278,3 +278,80 @@ describe("DetailBody footer", () => {
     expect(container.querySelector(".cz-detail-disclosure")).not.toBe(null);
   });
 });
+
+// CH-08 (designs 4d–4g): confidence derives from data completeness.
+describe("DetailBody no-measurements flow", () => {
+  const trio = () => ({
+    bodyProfile: null,
+    onSaveBodyProfile: vi.fn(),
+    onSkipFitPrompt: vi.fn(),
+  });
+
+  it("4d: empty profile shows the ask and fabricates no size string", () => {
+    const { container } = render(body(item("fit4d"), trio()));
+
+    expect(screen.getByText("Will it fit you?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add my size" })).toBeInTheDocument();
+    // No sizing verdict renders — no AI pick, no usual, no provenance.
+    expect(container.querySelector(".cz-sizing")).toBe(null);
+    expect(container.querySelector(".cz-sizing-nochart")).toBe(null);
+    expect(container.querySelector(".cz-fit4-math")).toBe(null);
+  });
+
+  it("4f: the ask requests only what the category needs", () => {
+    const shorts = item("fit4f-shorts", { category: "shorts", sizeNotes: "" });
+    const first = render(body(shorts, trio()));
+    fireEvent.click(screen.getByRole("button", { name: "Add my size" }));
+    expect(screen.getByLabelText("Waist in cm")).toBeInTheDocument();
+    expect(screen.getByLabelText("Inseam in cm")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Chest in cm")).toBe(null);
+    first.unmount();
+
+    render(body(item("fit4f-tee"), trio()));
+    fireEvent.click(screen.getByRole("button", { name: "Add my size" }));
+    expect(screen.getByLabelText("Chest in cm")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Waist in cm")).toBe(null);
+    expect(screen.queryByLabelText("Inseam in cm")).toBe(null);
+  });
+
+  it("4f: save converts to storage units and calls onSaveBodyProfile", () => {
+    const handlers = trio();
+    render(body(item("fit4f-save"), handlers));
+    fireEvent.click(screen.getByRole("button", { name: "Add my size" }));
+    fireEvent.change(screen.getByLabelText("Chest in cm"), { target: { value: "96" } });
+    fireEvent.change(screen.getByLabelText("Usual size"), { target: { value: "M" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save & recalculate" }));
+
+    expect(handlers.onSaveBodyProfile).toHaveBeenCalledWith({ chest: 96, usualSize: "M" });
+    expect(screen.queryByText("Your measurements")).toBe(null);
+  });
+
+  it("4f: skip with a usual size returns to the rough state, not blank", () => {
+    const handlers = trio();
+    handlers.bodyProfile = { usualSize: "L" };
+    const { container } = render(body(item("fit4e"), handlers));
+
+    // 4e: rough estimate strip with the category's sharpen ask.
+    expect(screen.getByText("Rough estimate")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Add chest/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip — keep the rough size" }));
+
+    expect(screen.getByText("Rough estimate")).toBeInTheDocument();
+    expect(container.querySelector(".cz-sizing")).not.toBe(null);
+    expect(handlers.onSkipFitPrompt).not.toHaveBeenCalled();
+  });
+
+  it("4g: chest measurement against a chart shows the precise strip with math", () => {
+    const handlers = trio();
+    handlers.bodyProfile = { chest: "96" };
+    const { container } = render(body(item("fit4g"), handlers));
+
+    expect(screen.getByText("Precise fit")).toBeInTheDocument();
+    const math = container.querySelector(".cz-fit4-math");
+    expect(math).not.toBe(null);
+    expect(math.textContent).toContain("You");
+    expect(math.textContent).toContain("Garment");
+    expect(math.textContent).toContain("Ease");
+    expect(screen.queryByText("Rough estimate")).toBe(null);
+  });
+});
