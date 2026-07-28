@@ -57,6 +57,7 @@ export default function ProfileSheet({
   onSignOut,
   onDeleteAccount,
   full = true,
+  onOpenSettings,
   onClose,
   subPage = null,
   onBack,
@@ -315,6 +316,20 @@ export default function ProfileSheet({
         <button type="button" className="cz-profile-row" onClick={onOpenFitPrefs}>
           <span>Fit preferences</span>
           <span className="cz-profile-row-val">Length & looseness ›</span>
+        </button>
+        </div>
+        </>
+        ) : null}
+        {/* CH-03: the phone masthead lost its ⋯ button, so the avatar menu is
+            the only route to the look-and-fit sheet. Phone only — desktop
+            (full=true) keeps every row inline above. */}
+        {!full && onOpenSettings ? (
+        <>
+        <div className="cz-profile-label">Look &amp; fit</div>
+        <div className="cz-profile-group">
+        <button type="button" className="cz-profile-row" onClick={onOpenSettings}>
+          <span>Settings</span>
+          <span className="cz-profile-row-val">Theme, sizes, and fit ›</span>
         </button>
         </div>
         </>

@@ -5965,6 +5965,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-avatar:hover {
   color: var(--cz-ink);
 }
+/* CH-03: signed in → initials on the action fill instead of the glyph. */
+.cz-avatar-initials {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
 
 /* Profile sheet rows. */
 .cz-profile {
@@ -8926,24 +8939,24 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ═══ MOBILE SHELF HANDOFF (2026-07-25) — step 3: Stash button + Settings ═══
-   The fixed bottom bar is deleted. One round button takes its place, docked
-   bottom-right so it never covers a price or a heart. Agent moved into the
-   Settings sheet below. Every value reads a --cz-* token so Blackout dark
-   inherits it.
+/* ═══ MOBILE BOTTOM BAR (CH-03) — split Stash pill + Agent ══════════════════
+   With a link on the clipboard the bar is ONE split pill on --cz-action-fill:
+   left region reviews the link in the capture sheet, right region stashes in
+   one tap. Empty clipboard → a single full-width ＋ Stash pill. The Agent
+   secondary button stays beside it. Every value reads a --cz-* token so
+   Blackout dark inherits it.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* The dock spans the viewport so the button can sit against the right edge,
-   but it must not eat taps on the cards behind it. Only the children do. */
+/* The dock spans the viewport, but it must not eat taps on the cards behind
+   it. Only the children do. */
 .cz-stash-dock {
   position: fixed;
   inset: auto 0 0 0;
   z-index: 30;
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
+  align-items: stretch;
   gap: 10px;
-  padding: 0 20px calc(26px + env(safe-area-inset-bottom, 0px));
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
 }
 
@@ -8958,88 +8971,101 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-.cz-stash-fab {
-  position: relative;
-  flex: 0 0 auto;
-  width: 60px;
-  height: 60px;
-  display: grid;
-  place-items: center;
+/* The pill. Height 58, radius 17, on the action fill. As a lone button
+   (empty clipboard) it holds ＋ Stash itself; as a split container it holds
+   the clip region and the Stash ↑ region. */
+.cz-stash-pill {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  height: 58px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 17px;
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
   box-shadow: var(--cz-fab-shadow);
+  overflow: hidden;
+}
+
+.cz-stash-pill.is-solo {
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform var(--dur-micro) var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
-.cz-stash-fab:active {
-  transform: scale(0.94);
+.cz-stash-pill.is-solo:active {
+  transform: scale(0.98);
 }
 
-.cz-stash-fab:disabled {
+.cz-stash-pill.is-solo:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.cz-stash-fab:focus-visible {
+.cz-stash-pill.is-solo:focus-visible {
   outline: none;
   box-shadow: var(--cz-fab-shadow), 0 0 0 3px var(--cz-focus);
 }
 
-/* "Something is on your clipboard", readable from across the screen. The
-   ring is the page background, so the dot reads as a cutout at any theme. */
-.cz-stash-fab-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--cz-money);
-  border: 2.5px solid var(--cz-bg);
-}
-
-/* 1-tap capture. It sits left of the button and stashes without opening the
-   sheet — the same job the old split pill's right half did. */
-.cz-stash-clip {
-  flex: 0 1 auto;
+/* Left region: platform dot + CLIPBOARD · {platform} + host. Opens the
+   capture sheet for a look before stashing. */
+.cz-stash-pill-clip {
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 999px;
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
+  gap: 10px;
+  padding: 0 14px 0 16px;
+  border: 0;
+  background: none;
+  color: inherit;
   font: inherit;
-  box-shadow: var(--cz-fab-shadow);
+  text-align: left;
   cursor: pointer;
 }
 
-.cz-stash-clip:disabled {
+.cz-stash-pill-clip:disabled,
+.cz-stash-pill-go:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.cz-stash-clip:active {
-  transform: scale(0.97);
+.cz-stash-pill-clip:focus-visible,
+.cz-stash-pill-go:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--cz-focus);
 }
 
-.cz-stash-clip-dot {
+.cz-stash-pill-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.cz-stash-clip-host {
+.cz-stash-pill-meta {
   min-width: 0;
-  max-width: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cz-stash-pill-kicker {
+  font-family: var(--cz-mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.cz-stash-pill-host {
   font-family: var(--cz-mono);
   font-size: 12px;
   white-space: nowrap;
@@ -9047,21 +9073,67 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   text-overflow: ellipsis;
 }
 
-.cz-stash-clip-verb {
-  flex-shrink: 0;
-  font-size: 13px;
+/* Right region: the 1-tap verb, divided from the clip region by the
+   action-text divider hairline. */
+.cz-stash-pill-go {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0 18px;
+  border: 0;
+  border-left: 1px solid var(--cz-action-text-divider);
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-/* QW10: the shelf and the carousel clear the 60px button + its 26px pad, so
-   no card ever sits under it. 60 + 26 + 14 breathing room = 100px. */
+/* Agent stays as the secondary button (CH-03 point 3). Quiet card surface
+   next to the loud pill; 58px tall so the row reads as one bar. */
+.cz-stash-agent {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  height: 58px;
+  padding: 0 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 17px;
+  background: var(--cz-card-solid);
+  color: var(--cz-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--cz-fab-shadow);
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-stash-agent:active {
+  transform: scale(0.97);
+}
+
+.cz-stash-agent:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cz-stash-agent:focus-visible {
+  outline: none;
+  box-shadow: var(--cz-fab-shadow), 0 0 0 3px var(--cz-focus);
+}
+
+/* QW10: the shelf and the carousel clear the 58px pill + its 16px pad, so
+   no card ever sits under it. 58 + 16 + 14 breathing room = 88px. */
 @media (max-width: 767px) {
   .cz-app[data-fashion="true"] .cz-shell {
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
 
   .cz-carousel-stage {
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
 }
 

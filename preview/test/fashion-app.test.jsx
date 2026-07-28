@@ -1912,6 +1912,8 @@ describe("Phone haul board (Kyle 2026-07-25)", () => {
 // 2026-07-25 (Kyle): the phone's Settings and Profile sheets were duplicates.
 // Settings owns look-and-fit (theme, sizes, fit); Profile owns account and
 // data (agent, currency, import, storage).
+// CH-03 deleted the masthead ⋯ button, so the route into Settings is now
+// avatar → Profile → Settings row.
 describe("Phone sheet split (Kyle 2026-07-25)", () => {
   beforeEach(() => window.__setMediaMatches("(max-width: 767px)", true));
   afterEach(() => window.__setMediaMatches("(max-width: 767px)", false));
@@ -1924,7 +1926,8 @@ describe("Phone sheet split (Kyle 2026-07-25)", () => {
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Settings" }));
+    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: /^Settings/ }));
     expect(await screen.findByRole("button", { name: /Theme: Blackout/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Sizes and measurements/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Fit preferences/ })).toBeInTheDocument();

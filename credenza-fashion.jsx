@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronLeft, Heart, MoreHorizontal, Plus, Search, User, X } from "lucide-react";
+import { Check, ChevronLeft, Heart, Search, User, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -4504,6 +4504,16 @@ function CredenzaApp() {
   const syncedOnceRef = useRef(false);
   const pusherRef = useRef(null);
   const signedIn = SYNC_READY && !!accountSession;
+  // CH-03: the avatar shows initials when signed in. The account has no name
+  // field, so the initials come from the email local part: first letters of
+  // the first two dot/dash separated segments ("jo.smith@x.com" → "JS").
+  const avatarInitials = useMemo(() => {
+    const email = accountSession?.user?.email;
+    if (!signedIn || !email) return "";
+    const local = String(email).split("@")[0];
+    const parts = local.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+    return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join("");
+  }, [signedIn, accountSession]);
 
   if (SYNC_READY && !pusherRef.current) {
     pusherRef.current = createShelfPusher({ getState: () => shelfStateRef.current });
@@ -7649,6 +7659,11 @@ function CredenzaApp() {
           onSignOut={accountSignOut}
           onDeleteAccount={accountDelete}
           full={!isPhone}
+          onOpenSettings={() => {
+            setProfileOpen(false);
+            setProfileSubPage(null);
+            setSettingsSheetOpen(true);
+          }}
           subPage={buildSubPage(profileSubPage, () => setProfileSubPage(null))}
           onBack={() => setProfileSubPage(null)}
           onClose={() => {
@@ -7659,9 +7674,9 @@ function CredenzaApp() {
         </Suspense>
       )}
 
-      {/* Settings sheet (mobile handoff step 3): the phone's ⋯ menu owns the
-          look-and-fit rows. Phone only — desktop has no ⋯ button and keeps
-          every row in the profile sheet (full=true). */}
+      {/* Settings sheet: the phone's look-and-fit rows. Phone only — desktop
+          keeps every row in the profile sheet (full=true). CH-03 deleted the
+          masthead ⋯ button; the route in is now avatar → Profile → Settings. */}
       {settingsSheetOpen && (
         <Suspense fallback={null}>
         <SettingsSheet
@@ -7874,19 +7889,9 @@ function CredenzaApp() {
                 <Search size={17} strokeWidth={2.2} aria-hidden="true" />
               </button>
             )}
-            {/* Agent, Import, Export, Theme and Sizes moved here when the
-                fixed bottom bar became the single Stash button (C4). */}
-            {isPhone && items.length > 0 && (
-              <button
-                type="button"
-                className="cz-mast-btn"
-                aria-label="Settings"
-                title="Settings"
-                onClick={() => setSettingsSheetOpen(true)}
-              >
-                <MoreHorizontal size={18} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            )}
+            {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
+                top-right entry — initials when signed in, person glyph when
+                out. Settings live behind the profile menu now. */}
             <button
               type="button"
               className="cz-avatar"
@@ -7894,7 +7899,11 @@ function CredenzaApp() {
               title="Profile"
               onClick={() => setProfileOpen(true)}
             >
-              <User size={17} strokeWidth={2.2} aria-hidden="true" />
+              {avatarInitials ? (
+                <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
+              ) : (
+                <User size={17} strokeWidth={2.2} aria-hidden="true" />
+              )}
             </button>
           </div>
           )}
@@ -8690,49 +8699,65 @@ function CredenzaApp() {
         </div>
       )}
 
-      {/* Stash button — MOBILE ONLY (≤767px). It replaces the fixed bottom bar
-          (mobile handoff step 3). Desktop capture lives under the masthead, and
-          Agent moved into the Settings sheet, so one round button is the whole
-          bar now. Hidden on the first-run intro (CO-04) and on the brand-new
-          empty shelf: the hero already carries capture there (Kyle: "too many
-          buttons"). Same rule as the tabs row — it returns once something is
-          stashed.
+      {/* Mobile capture bar — MOBILE ONLY (≤767px), CH-03. With a link on the
+          clipboard the bar is ONE split pill on --cz-action-fill: the left
+          region reviews the link in the capture sheet, the right region
+          stashes it in one tap. Empty clipboard → a single full-width ＋ Stash
+          pill. The Agent secondary button stays. Hidden on the first-run intro
+          (CO-04) and on the brand-new empty shelf: the hero already carries
+          capture there (Kyle: "too many buttons").
           The container spans the viewport but passes taps through; only the
-          button and the clip pill take pointer events. */}
+          pill and the Agent button take pointer events. */}
       {!firstRunIntro && items.length > 0 && (
       <div className="cz-stash-dock">
-        {/* 1-tap capture survives the bar deletion: with a link on the
-            clipboard this pill stashes it without opening the sheet. */}
-        {clipPreview && (
+        {clipPreview ? (
+          <div className="cz-stash-pill is-split">
+            <button
+              type="button"
+              className="cz-stash-pill-clip"
+              disabled={interactionLocked}
+              onClick={() => setCaptureSheetOpen(true)}
+              title="Review the clipboard link"
+              aria-label={"Review the clipboard link: " + clipPreview.host}
+            >
+              <span className="cz-stash-pill-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
+              <span className="cz-stash-pill-meta">
+                <span className="cz-stash-pill-kicker">{"CLIPBOARD · " + clipPreview.platform}</span>
+                <span className="cz-stash-pill-host">{clipPreview.host}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="cz-stash-pill-go"
+              disabled={interactionLocked}
+              onClick={stashClipboard}
+              title="Stash the clipboard in one tap"
+              aria-label={"Stash the clipboard: " + clipPreview.host}
+            >
+              Stash ↑
+            </button>
+          </div>
+        ) : (
           <button
             type="button"
-            className="cz-stash-clip"
+            className="cz-stash-pill is-solo"
             disabled={interactionLocked}
-            onClick={stashClipboard}
-            title="Stash the clipboard in one tap"
-            aria-label={"Stash the clipboard: " + clipPreview.host}
+            onClick={() => setCaptureSheetOpen(true)}
+            title="Stash a link or note"
+            aria-label="Stash to shelf"
           >
-            <span className="cz-stash-clip-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
-            <span className="cz-stash-clip-host">{clipPreview.host}</span>
-            <span className="cz-stash-clip-verb">Stash ↑</span>
+            <span aria-hidden="true">＋</span> Stash
           </button>
         )}
         <button
           type="button"
-          className="cz-stash-fab"
+          className="cz-stash-agent"
           disabled={interactionLocked}
-          onClick={() => setCaptureSheetOpen(true)}
-          title="Stash a link or note"
-          aria-label={
-            clipPreview
-              ? "Stash to shelf. A link is on your clipboard."
-              : "Stash to shelf"
-          }
+          onClick={() => setAgentSheetOpen(true)}
+          title="Choose agent"
+          aria-label={"Agent: " + agentBarLabel}
         >
-          <Plus size={24} strokeWidth={2.2} aria-hidden="true" />
-          {/* Badge = "your clipboard has something". The pill beside it says
-              what; this only has to be visible from across the screen. */}
-          {clipPreview && <span className="cz-stash-fab-badge" aria-hidden="true" />}
+          Agent
         </button>
       </div>
       )}
