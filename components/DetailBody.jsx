@@ -2334,6 +2334,28 @@ export default function DetailBody({
               onCommit={(next) => edit("project", next)}
             />
           </section>
+
+          {/* Split rail gap 2: STATUS is the foot of the desktop facts rail
+              (spec :137-138) — four rows plus the advance pill. The phone
+              gets the same move as the approved stack: facts, then status
+              (ruling 2, 2026-07-28). StatusTrackChips keeps its markup; the
+              rail look is CSS only. */}
+          <section className="cz-detail-facts-section cz-detail-facts-status" aria-label="Status">
+            {/* Status (§5). The header carries the rule and the sub-label;
+                the track carries the progress and the next action. */}
+            <div className="cz-detail-rule-head">
+              <span className="cz-detail-label">Status</span>
+              <span className="cz-detail-rule-note">
+                {FIND_STATUS_SUBLABEL[view.findStatus || "want"] || ""}
+              </span>
+              <span className="cz-detail-rule" aria-hidden="true" />
+            </div>
+            {/* StatusChips owns the named next-step pill (§5). It is drawn
+                there, not here, because only the track knows which stops are
+                terminal and which need a real decision rather than a one-tap
+                primary. */}
+            <StatusChips mode="track" value={view.findStatus} onChange={pickStatus} label="Order status" />
+          </section>
         </div>
 
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
@@ -2358,20 +2380,6 @@ export default function DetailBody({
             savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
           }}
         />
-
-        {/* Status (§5). The header carries the rule and the sub-label; the
-            track carries the progress and the next action. */}
-        <div className="cz-detail-rule-head">
-          <span className="cz-detail-label">Status</span>
-          <span className="cz-detail-rule-note">
-            {FIND_STATUS_SUBLABEL[view.findStatus || "want"] || ""}
-          </span>
-          <span className="cz-detail-rule" aria-hidden="true" />
-        </div>
-        {/* StatusChips owns the named next-step pill (§5). It is drawn there,
-            not here, because only the track knows which stops are terminal
-            and which need a real decision rather than a one-tap primary. */}
-        <StatusChips mode="track" value={view.findStatus} onChange={pickStatus} label="Order status" />
 
         {logNotesTarget === undefined
           ? logNotesBlock
