@@ -12216,10 +12216,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    single-column stack. */
 @media (min-width: 1024px) {
   .cz-dpanel {
-    /* §4 sets the photo column at 470px. The turn-9 addendum supersedes the
-       turn-4 634px. The spare width goes to the rail, where the sizing block, the
-       track and the timeline all read better wide. */
-    grid-template-columns: 470px minmax(0, 1fr);
+    /* §4 set the photo column at 470px (turn-9 addendum, over the turn-4
+       634px). The split-rail spec (:48) supersedes both with 372px: the rail
+       now carries two columns and needs the width more than the photo does.
+       The spare width goes to the rail, where the sizing block, the track and
+       the timeline all read better wide. (2026-07-28) */
+    grid-template-columns: 372px minmax(0, 1fr);
+    /* Spec :48 — 20px frame radius. The modal is one of three surfaces the
+       system allows a real shadow. */
+    border-radius: 20px;
     /* Turn 12 option B, second half: the card hugs its content. A sparse
        card used to hold the full 860px and show the void on the right; now
        the taller column sets the height, the shorter one stretches to meet
@@ -12297,8 +12302,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     z-index: 3;
     padding: 0;
   }
+  /* Spec :56 shadow, Gallery only. Blackout keeps the deeper shadow from the
+     768px block: a 16%-ink shadow is invisible against a near-black scrim. */
+  .cz-app[data-theme="light"] .cz-dpanel {
+    box-shadow: 0 24px 60px rgba(23, 24, 26, 0.16);
+  }
+  /* Spec :77 — the rail's own padding and rhythm. */
   .cz-dpanel-body .cz-detail-scroll {
-    padding-top: 12px;
+    padding: 18px 20px 0;
   }
   .cz-dpanel-body .cz-detail-title-row {
     padding-right: 92px;
