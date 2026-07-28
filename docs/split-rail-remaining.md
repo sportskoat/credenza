@@ -47,63 +47,29 @@ no-chart caption also stopped calling a hand-picked size "your usual".
 One gated commit each, in order. Do not batch them. Kyle watches for exactly
 that.
 
-### (1) Move the size chips into Column B
+### (1) Move the size chips into Column B — DONE `d06efc4`
 
-The spec puts SIZE at the top of the 208px facts rail (`README.md:129`).
-`SizeChoiceEditor` currently renders as the first child of Column A, at
-`components/DetailBody.jsx:2079`, inside
-`<section aria-label="Size and fit">`.
+SizeChoiceEditor has its own "Size" section between "Size and fit" and
+Colorway. Desktop: rail row 1, 28px spec chips, ::after hit ring. The visible
+rail label is desktop-only; the section keeps aria-label="Size". The Other
+field stays inline (ruling 1). fashion-app.test.jsx reads the chips from the
+"Size" region now.
 
-This is a DOM move, not CSS. Grid re-orders boxes inside one parent; it cannot
-pull a node into a different parent.
+### (2) Move the status track into Column B — DONE `49072f7`
 
-Target chip style, spec `README.md:129`: 28px tall, `min-width: 40px`, padding
-`0 10px`, radius `999px`, `11px --cz-mono` / `+0.04em`. Selected is `--cz-ink`
-fill on `--cz-bg` text at weight 600. Unselected is `1px --cz-hair` on
-transparent, `--cz-sub`, weight 500.
+Rule head + StatusChips live in a "Status" section after Haul, inside
+.cz-detail-facts. The vertical radio list is CSS only; StatusTrackChips was
+not rewritten. The advance pill is the spec's 30px outlined pill, placed
+under the rows — margin-top:auto from spec :138 pins it below the fold
+because our Column A is taller than the prototype's. Phone order is now
+facts → status → category → timeline (Category kept its CH-07 spot; the
+ruling's approved list did not mention it).
 
-Trap: `credenza.css:476` has a `@media (pointer: coarse)` block pinning
-`.cz-detail-size-choice` to 44px. A 28px visual needs a 44px `::after` hit area.
-`.cz-detail-hero-btn` and the status pills already use that pattern — copy it.
+### (3) Sub line and chart-action pills — DONE `adc9f0a`
 
-Tests that will move with it, all by accessible name, so they should keep
-passing if the names hold:
-- `preview/test/fashion-app.test.jsx:1436` expects the X-Large button inside
-  `getByRole("region", { name: "Size and fit" })`.
-- `preview/test/fashion-app.test.jsx:1440,1548` read
-  `getByRole("textbox", { name: "Custom item size" })`.
-- `preview/test/fashion-app.test.jsx:1487` clicks `"Clear size"`.
-- `preview/test/sizing-nochart.test.jsx:139` and
-  `preview/test/fit-block-hunt.test.jsx:124,171` read the same textbox.
-
-If the chips leave the "Size and fit" region, `fashion-app.test.jsx:1436` fails.
-Decide whether to widen the region or update that one assertion, and say which
-in the commit message.
-
-### (2) Move the status track into Column B
-
-`StatusChips mode="track"` renders at `components/DetailBody.jsx:2356`, far
-below Category, outside `.cz-detail-facts`. The spec puts four 25px rows plus a
-`Mark bought` advance button at the foot of the rail (`README.md:133-134`).
-
-The component is `StatusTrackChips` in `components/atoms.jsx:541`. It already
-renders the advance pill from `FIND_STATUS_NEXT` and already clamps at Received.
-Do not rewrite it. Move the call site and restyle.
-
-The phone stack changes with it. That is approved — see ruling 2 above.
-
-The desktop rail CSS is at `credenza-fashion.css:12787`, inside the
-`@media (min-width: 1024px)` block. The comment there says Status was left
-outside on purpose. Update that comment when you move it.
-
-### (3) Sub line and chart-action pills
-
-- The sub line reads `saved Jul 18`. The spec wants
-  `BEVERLY-LUXURY · SAVED JUL 18` in `500 10px --cz-mono` / `+0.10em` /
-  `--cz-faint` (`README.md:97`). The seller name is `item.seller`.
-- The two chart actions stack full width. The spec wants two 32px pills in a row
-  on desktop (`README.md:106`). The phone keeps them stacked at 44px
-  (`README.md:174`) — that part is already correct.
+Sub line is 10px mono uppercase on desktop. Chart actions are two 32px
+pills in a row on desktop (upload black primary, edit outlined), still
+stacked 44px on the phone.
 
 ### (4) Colorway swatch button
 
