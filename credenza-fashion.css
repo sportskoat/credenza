@@ -10554,6 +10554,44 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-warn);
 }
 
+/* Reading state: a 30%-wide sweep loops over each track while the photo read
+   is in flight. The band/marks are gone (no chart yet), so the tracks are
+   the only place motion can say "working". */
+.cz-fitread.is-reading .cz-fitread-track {
+  overflow: hidden;
+}
+
+.cz-fitread.is-reading .cz-fitread-track::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -30%;
+  width: 30%;
+  /* The spec literal rgba(23,24,26,0.22) IS ink at 22% in the light theme.
+     Riding ink keeps the sweep visible on Blackout too. */
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--cz-ink) 22%, transparent),
+    transparent
+  );
+  animation: cz-fitread-sweep 1.1s linear infinite;
+}
+
+@keyframes cz-fitread-sweep {
+  to {
+    left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-fitread.is-reading .cz-fitread-track::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}
+
 .cz-fitread-theirs {
   font-family: var(--cz-mono);
   font-size: 12px;

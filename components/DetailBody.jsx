@@ -403,7 +403,10 @@ function SizingBlock({
 // and also the only one they can check against the thing in their hand. So the
 // preview exists, and `commit` is a separate call.
 function useCustomerChartRead(item, onSaveEdit) {
-  const [state, setState] = useState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false });
+  // `count` is how many photos the open read was handed — the fit-read
+  // footnote says "Reading four photos…" and a hard-coded four would lie
+  // about a single upload.
+  const [state, setState] = useState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false, count: 0 });
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -418,8 +421,8 @@ function useCustomerChartRead(item, onSaveEdit) {
   }, [item.id]);
 
   const read = async (sources, { thumb = "", referer = "" } = {}) => {
-    setState({ reading: true, chart: null, text: "", thumb, error: "", dirty: false });
     const list = Array.isArray(sources) ? sources : [sources];
+    setState({ reading: true, chart: null, text: "", thumb, error: "", dirty: false, count: list.length });
     // Remote album photos go down the images door (the server fetches them
     // through its allowlist); files and data: URLs go inline. Never both.
     const remote = list.filter((s) => typeof s === "string" && /^https?:\/\//i.test(s));
@@ -532,14 +535,18 @@ function SizingBlockNoChart({ usualSize, albumPhotos, albumCount, onOpenAlbum })
 // With no chart the table ghosts — names in placeholder, YOURS kept, no
 // tracks' band or marks — so the customer sees what a chart would unlock.
 // Row math lives in fitReadRows (pure, tested on its own).
-function FitReadTable({ rows, hasChart, units, onEditMeasures, onForgetChart }) {
+function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart }) {
   if (!rows.length) return null;
   const insideCount = rows.filter((r) => r.mark != null && !r.warn).length;
   const scoredCount = rows.filter((r) => r.mark != null).length;
   // Copy deck: "All four inside tolerance." — the count is spelled out.
   const COUNT_WORDS = ["", "one", "two", "three", "four", "five", "six", "seven"];
   const word = (n) => COUNT_WORDS[n] || String(n);
-  const footnote = !hasChart
+  const footnote = reading
+    ? "Reading " +
+      (readingCount === 1 ? "one photo" : word(readingCount || 0) + " photos") +
+      "…"
+    : !hasChart
     ? "Your measurements, waiting on theirs."
     : scoredCount === 0
       ? "Waiting on your measurements."
@@ -554,7 +561,11 @@ function FitReadTable({ rows, hasChart, units, onEditMeasures, onForgetChart }) 
             word(scoredCount) +
             " inside tolerance.";
   return (
-    <div className={"cz-fitread" + (hasChart ? "" : " is-ghost")}>
+    <div
+      className={
+        "cz-fitread" + (hasChart ? "" : " is-ghost") + (reading ? " is-reading" : "")
+      }
+    >
       <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
         <span className="cz-fitread-kicker">FIT READ</span>
         {hasChart ? (
@@ -2238,6 +2249,8 @@ export default function DetailBody({
                 rows={fitRows}
                 hasChart={!!verdict.chart}
                 units={measureUnits}
+                reading={chartRead.reading}
+                readingCount={chartRead.count}
                 onEditMeasures={onOpenSizes ? openProfileSizes : null}
                 onForgetChart={chartIsForgettable ? forgetChart : null}
               />

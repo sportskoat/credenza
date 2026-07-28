@@ -9,11 +9,23 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
+const { huntMock, fileReadMock } = vi.hoisted(() => ({
+  huntMock: vi.fn(),
+  fileReadMock: vi.fn(),
+}));
 vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
+// The upload door is mocked so a test can hold a photo read open and watch
+// the table's reading state; everything else in the module stays real.
+vi.mock("../../credenza-fashion.jsx", async () => {
+  const real = await vi.importActual("../../credenza-fashion.jsx");
+  return { ...real, readChartFromPhotoFiles: fileReadMock };
+});
 
-const { fitReadRows, parseSizeChart, recommendSize } = await import("../../credenza-fashion.jsx");
+// Import order is load-bearing: DetailBody must resolve first so the mocked
+// credenza-fashion module is the one bound into its graph. Importing the app
+// root first hands DetailBody the REAL readChartFromPhotoFiles.
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
+const { fitReadRows, parseSizeChart, recommendSize } = await import("../../credenza-fashion.jsx");
 
 const TOP_TEXT =
   "M: chest 116, shoulder 46, length 70\nL: chest 120, shoulder 48, length 72\nXL: chest 124, shoulder 50, length 74";
@@ -23,6 +35,7 @@ const BOTTOM_TEXT =
 afterEach(() => {
   cleanup();
   huntMock.mockReset();
+  fileReadMock.mockReset();
 });
 
 describe("fitReadRows", () => {
@@ -201,5 +214,33 @@ describe("FitReadTable in the detail body", () => {
   it("stays out of skip categories", () => {
     const { container } = renderBody(fitItem({ category: "shoes", sizeNotes: undefined }));
     expect(container.querySelector(".cz-fitread")).toBe(null);
+  });
+
+  it("shows the reading footnote and sweep while a photo read is open", async () => {
+    // The state machine rides the real request, not a timer: the footnote
+    // counts the photos handed to THIS read, and holding the promise open
+    // holds the state.
+    huntMock.mockResolvedValue(null);
+    let finish;
+    fileReadMock.mockImplementation(() => new Promise((r) => { finish = r; }));
+    const user = userEvent.setup();
+    const { container } = renderBody(
+      fitItem({ sizeNotes: undefined, sizeChartSource: undefined })
+    );
+    await screen.findByText("No chart");
+
+    await user.upload(
+      document.querySelector(".cz-detail-chart-file"),
+      new File(["xxxx"], "chart.jpg", { type: "image/jpeg" })
+    );
+
+    const table = container.querySelector(".cz-fitread");
+    expect(table.classList.contains("is-reading")).toBe(true);
+    expect(within(table).getByText("Reading one photo…")).toBeInTheDocument();
+
+    finish(TOP_TEXT);
+    // The read resolved: the reading state must drop without a timer.
+    expect(await screen.findByRole("button", { name: "Use this chart" })).toBeInTheDocument();
+    expect(container.querySelector(".cz-fitread.is-reading")).toBe(null);
   });
 });
