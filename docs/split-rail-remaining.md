@@ -71,16 +71,11 @@ Sub line is 10px mono uppercase on desktop. Chart actions are two 32px
 pills in a row on desktop (upload black primary, edit outlined), still
 stacked 44px on the phone.
 
-### (4) Colorway swatch button
+### (4) Colorway swatch button — DECLINED (Kyle, 2026-07-28)
 
-Spec `README.md:130`: a 10px swatch, the value, and an 11px chevron, opening an
-absolute menu. Options White `#E8E8E2`, Black `#1b1b1d`, Navy `#25314b`, Sand
-`#c9bda6`.
-
-Blocked on a decision. Colorway is free text today
-(`components/DetailBody.jsx:2246`). Real items carry seller-named colorways that
-are not in a fixed list. A chip-only control loses them. Ask Kyle whether the
-menu keeps a free-text row at the bottom before you build this.
+Kyle ruled: keep free text. The spec's fixed four-swatch menu would drop
+seller-named colorways ("Pigment grey"), and he did not want a Custom row
+compromise. The rail keeps the text input. Do not build the swatch menu.
 
 ## Open flags for Kyle
 
