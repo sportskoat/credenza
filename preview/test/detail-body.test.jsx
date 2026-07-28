@@ -45,45 +45,20 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("DetailBody detail tabs", () => {
-  it("selects Size and exposes one panel", () => {
-    render(body(item("tabs")));
+describe("DetailBody detail facts", () => {
+  it("shows all four facts sections at once, with no tabs", () => {
+    render(body(item("facts")));
 
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["Size", "Colorway", "Weight", "Haul"]);
-    expect(tabs.filter((tab) => tab.getAttribute("aria-selected") === "true")).toHaveLength(1);
-    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("tabindex", "0");
+    // Split rail: the old tab bar is gone; every fact is always visible.
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.queryAllByRole("tabpanel", { hidden: true })).toHaveLength(0);
 
-    const panels = screen.getAllByRole("tabpanel", { hidden: true });
-    expect(panels).toHaveLength(4);
-    expect(panels.filter((panel) => !panel.hidden)).toHaveLength(1);
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Size");
+    for (const name of ["Size and fit", "Colorway", "Weight", "Haul"]) {
+      expect(screen.getByRole("region", { name })).toBeInTheDocument();
+    }
     expect(screen.getByRole("table")).toBeInTheDocument();
-  });
-
-  it("activates tabs with Arrow keys, Home, and End", async () => {
-    const user = userEvent.setup();
-    render(body(item("keys")));
-
-    const size = screen.getByRole("tab", { name: "Size" });
-    size.focus();
-    await user.keyboard("{ArrowRight}");
-    expect(screen.getByRole("tab", { name: "Colorway" })).toHaveFocus();
-    expect(screen.getByRole("tab", { name: "Colorway" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Colorway");
-
-    await user.keyboard("{End}");
-    expect(screen.getByRole("tab", { name: "Haul" })).toHaveFocus();
-    expect(screen.getByRole("tab", { name: "Haul" })).toHaveAttribute("aria-selected", "true");
-
-    await user.keyboard("{Home}");
-    expect(size).toHaveFocus();
-    expect(size).toHaveAttribute("aria-selected", "true");
-
-    await user.keyboard("{ArrowLeft}");
-    expect(screen.getByRole("tab", { name: "Haul" })).toHaveFocus();
-    expect(screen.getByRole("tab", { name: "Haul" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("textbox", { name: "Colorway" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Weight · g")).toBeInTheDocument();
   });
 
   it("saves a direct size once and preserves Batch", () => {
@@ -136,7 +111,7 @@ describe("DetailBody detail tabs", () => {
     );
   });
 
-  it("keeps Colorway, Weight, and Haul editing inside their panels", async () => {
+  it("keeps Colorway, Weight, and Haul editing inline in their sections", async () => {
     const user = userEvent.setup();
     const onSaveEdit = vi.fn();
     const flushRef = { current: null };
@@ -148,7 +123,6 @@ describe("DetailBody detail tabs", () => {
       })
     );
 
-    await user.click(screen.getByRole("tab", { name: "Colorway" }));
     expect(screen.queryByRole("button", { name: "Done" })).toBe(null);
     await user.type(screen.getByRole("textbox", { name: "Colorway" }), "Navy");
     fireEvent.blur(screen.getByRole("textbox", { name: "Colorway" }));
@@ -157,8 +131,6 @@ describe("DetailBody detail tabs", () => {
       expect.objectContaining({ colorway: "Navy", batch: "Batch P" })
     );
 
-    await user.click(screen.getByRole("tab", { name: "Weight" }));
-    expect(screen.queryByRole("button", { name: "Done" })).toBe(null);
     fireEvent.change(screen.getByLabelText("Weight · g"), { target: { value: "450" } });
     fireEvent.blur(screen.getByLabelText("Weight · g"));
     expect(onSaveEdit).toHaveBeenLastCalledWith(
@@ -166,8 +138,6 @@ describe("DetailBody detail tabs", () => {
       expect.objectContaining({ weightGrams: 450, batch: "Batch P" })
     );
 
-    await user.click(screen.getByRole("tab", { name: "Haul" }));
-    expect(screen.queryByRole("button", { name: "Done" })).toBe(null);
     await user.click(screen.getByRole("button", { name: "Add to a haul…" }));
     await user.click(screen.getByRole("option", { name: "Summer" }));
     act(() => flushRef.current());

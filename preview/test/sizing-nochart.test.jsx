@@ -129,13 +129,13 @@ describe("§3 no-chart state", () => {
     expect(document.querySelector(".cz-sizing-value.is-empty")).not.toBe(null);
   });
 
-  it("keeps item and profile sizing in the Size panel", async () => {
+  it("keeps item and profile sizing in the Size section", async () => {
     const user = userEvent.setup();
     const onOpenSizes = vi.fn();
     renderBody(chartless(), { onOpenSizes });
 
     await screen.findByText("No chart");
-    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
     expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Edit sizes and measurements" }));

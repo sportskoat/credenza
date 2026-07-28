@@ -115,12 +115,12 @@ describe("FitBlock chart hunt", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
-  it("a failed hunt keeps the empty chart state in the Size panel", async () => {
+  it("a failed hunt keeps the empty chart state in the Size section", async () => {
     huntMock.mockResolvedValue(null);
     renderBody(noChartItem("hunt-c"));
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
     expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
     expect(screen.getByText("A seller chart is not available for this item.")).toBeInTheDocument();
     expect(huntMock).toHaveBeenCalledTimes(1);

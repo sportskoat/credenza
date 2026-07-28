@@ -113,7 +113,6 @@ describe("DetailSheet weight editor units", () => {
         onClose={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Weight" }));
     const input = screen.getByRole("textbox", { name: "Weight · g" });
     expect(input).toHaveValue("1200");
 
@@ -167,7 +166,6 @@ describe("DetailSheet overflow menu", () => {
       const user = userEvent.setup();
       renderSheet(twoBuyLinkItem(), { onSaveEdit, onShareCard, onClose });
 
-      await user.click(screen.getByRole("tab", { name: "Colorway" }));
       fireEvent.change(screen.getByRole("textbox", { name: "Colorway" }), {
         target: { value: "Bone white" },
       });

@@ -9969,55 +9969,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Detail tabs ── */
-.cz-detail-tabs {
+/* ── Detail facts (split rail) ── */
+/* The four tabs are gone. Each fact is an always-visible section; hairlines
+   separate them where the tab bar used to divide. */
+.cz-detail-facts {
   margin-top: 16px;
 }
 
-.cz-detail-tablist {
-  display: flex;
-  border-bottom: 1px solid var(--cz-hair);
-  overflow-x: auto;
-  scrollbar-width: none;
+.cz-detail-facts-section {
+  padding-top: 16px;
 }
 
-.cz-detail-tablist::-webkit-scrollbar {
-  display: none;
+.cz-detail-facts-section + .cz-detail-facts-section {
+  margin-top: 16px;
+  border-top: 1px solid var(--cz-hair);
 }
 
-.cz-detail-tab {
-  position: relative;
-  flex: 1 0 auto;
-  min-width: 72px;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 0;
-  background: transparent;
-  color: var(--cz-faint);
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.cz-detail-tab::after {
-  content: "";
-  position: absolute;
-  right: 10px;
-  bottom: -1px;
-  left: 10px;
-  height: 2px;
-  background: transparent;
-}
-
-.cz-detail-tab.is-active {
-  color: var(--cz-ink);
-}
-
-.cz-detail-tab.is-active::after {
-  background: var(--cz-action-fill);
-}
-
-.cz-detail-tab:focus-visible,
 .cz-detail-size-choice:focus-visible,
 .cz-detail-custom-size .cz-detail-editor-input:focus-visible,
 .cz-detail-panel-field .cz-detail-editor-input:focus-visible,
@@ -10026,15 +9993,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-detail-unit-btn:focus-visible {
   outline: 2px solid var(--cz-focus);
   outline-offset: 2px;
-}
-
-.cz-detail-tabpanel {
-  padding-top: 16px;
-  animation: cz-detail-fade var(--dur-micro) var(--ease-out) both;
-}
-
-.cz-detail-tabpanel[hidden] {
-  display: none;
 }
 
 .cz-detail-panel-heading {

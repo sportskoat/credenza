@@ -234,8 +234,7 @@ describe("Fashion card-back navigation and editing", () => {
     const back = container.querySelector(".cz-carousel-back");
     expect(back?.textContent || "").toMatch(/X-Large/i);
 
-    // Edit Colorway through its tab and persistent field.
-    await user.click(screen.getByRole("tab", { name: "Colorway" }));
+    // Edit Colorway through its always-visible facts field.
     const colorwayField = screen.getByRole("textbox", { name: "Colorway" });
     await user.clear(colorwayField);
     await user.type(colorwayField, "Bone white");
@@ -259,7 +258,6 @@ describe("Fashion card-back navigation and editing", () => {
     expect(screen.getByRole("button", { name: "Card actions" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
-    await user.click(screen.getByRole("tab", { name: "Colorway" }));
     const colorwayField = screen.getByRole("textbox", { name: "Colorway" });
     colorwayField.focus();
     expect(colorwayField).toHaveFocus();
@@ -274,9 +272,9 @@ describe("Fashion card-back navigation and editing", () => {
     const user = userEvent.setup();
     render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
-    expect(screen.queryByRole("tab", { name: "Batch" })).toBeNull();
+    // Batch stays hidden from the facts sections entirely.
+    expect(screen.queryByRole("region", { name: "Batch" })).toBeNull();
 
-    await user.click(screen.getByRole("tab", { name: "Colorway" }));
     let colorwayField = screen.getByRole("textbox", { name: "Colorway" });
     expect(colorwayField).toHaveValue("Original");
     await user.clear(colorwayField);
@@ -291,9 +289,8 @@ describe("Fashion card-back navigation and editing", () => {
     expect(colorwayField).toHaveValue("Bone white");
     await user.clear(colorwayField);
     await user.type(colorwayField, "Cream");
-    // A tab change also blurs the field and keeps the write-through edit.
-    await user.click(screen.getByRole("tab", { name: "Weight" }));
-    expect(screen.getByRole("tab", { name: "Weight" })).toHaveAttribute("aria-selected", "true");
+    // A click into another facts field also blurs and keeps the edit.
+    await user.click(screen.getByLabelText("Weight · g"));
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Cream"), { timeout: 2000 });
     expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Stored batch");
   });
@@ -1315,8 +1312,7 @@ describe("Fashion accessibility (Part 5)", () => {
     const { container } = render(<Credenza />);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    // The Haul tab opens the same keyboard-operated accordion listbox.
-    await user.click(screen.getByRole("tab", { name: "Haul" }));
+    // The Haul facts field opens the same keyboard-operated accordion listbox.
     await user.click(screen.getByRole("button", { name: /Add to a haul/i }));
     const listbox = await screen.findByRole("listbox", { name: "Hauls" });
     const options = [...listbox.querySelectorAll('[role="option"]')];
@@ -1365,7 +1361,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-carousel-overlay")).toBeNull();
   });
 
-  it("has no edit mode or Save button and exposes four detail tabs", async () => {
+  it("has no edit mode or Save button and shows the four facts sections", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -1373,14 +1369,12 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     expect(within(sheet).queryByRole("button", { name: /^Save$/ })).toBeNull();
     expect(within(sheet).queryByRole("button", { name: /^Edit$/ })).toBeNull();
-    expect(within(sheet).getAllByRole("tab").map((tab) => tab.textContent.trim())).toEqual([
-      "Size",
-      "Colorway",
-      "Weight",
-      "Haul",
-    ]);
-    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("tab", { name: "Batch" })).toBeNull();
+    // Split rail: no tab bar — the four facts are always-visible sections.
+    expect(within(sheet).queryAllByRole("tab")).toHaveLength(0);
+    for (const name of ["Size and fit", "Colorway", "Weight", "Haul"]) {
+      expect(within(sheet).getByRole("region", { name })).toBeInTheDocument();
+    }
+    expect(within(sheet).queryByRole("region", { name: "Batch" })).toBeNull();
   });
 
   it("the category select row shows the auto value and a pick persists with a pin", async () => {
@@ -1412,18 +1406,17 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(within(picked).queryByText("auto")).toBeNull();
   });
 
-  it("the Colorway tab exposes one editor and the edit persists", async () => {
+  it("the Colorway section exposes one editor and the edit persists", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    await user.click(within(sheet).getByRole("tab", { name: "Colorway" }));
-    const panel = within(sheet).getByRole("tabpanel");
-    const input = within(panel).getByRole("textbox", { name: "Colorway" });
+    const section = within(sheet).getByRole("region", { name: "Colorway" });
+    const input = within(section).getByRole("textbox", { name: "Colorway" });
     // 16px is the iOS zoom floor. The editor class carries this rule.
     expect(input.className).toContain("cz-detail-editor-input");
-    expect(panel.querySelectorAll(".cz-detail-editor-input")).toHaveLength(1);
+    expect(section.querySelectorAll(".cz-detail-editor-input")).toHaveLength(1);
 
     fireEvent.change(input, { target: { value: "Bone white" } });
     await waitFor(() => {
@@ -1433,15 +1426,13 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("the Size tab exposes direct choices and the profile-size route", async () => {
+  it("the Size section exposes direct choices and the profile-size route", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    const sizeTab = within(sheet).getByRole("tab", { name: "Size" });
-    expect(sizeTab).toHaveAttribute("aria-selected", "true");
-    const panel = within(sheet).getByRole("tabpanel");
+    const panel = within(sheet).getByRole("region", { name: "Size and fit" });
     expect(within(panel).getByRole("button", { name: "X-Large" })).toHaveAttribute(
       "aria-pressed",
       "true"
@@ -1470,7 +1461,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await waitFor(() => expect(editSizes).toHaveFocus());
   });
 
-  it("the Size tab clears a hand size without an obsolete AI action", async () => {
+  it("the Size section clears a hand size without an obsolete AI action", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([
         fashionItem({
@@ -1491,7 +1482,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     await openSheet(user);
 
-    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use AI size" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Clear size" }));
 
@@ -1544,7 +1535,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-detail-fit")).toBeNull();
   });
 
-  it("a Size tab choice writes the size in one tap", async () => {
+  it("a Size section choice writes the size in one tap", async () => {
     const data = sizedShim();
     const user = userEvent.setup();
     render(<Credenza />);
@@ -1554,7 +1545,6 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await user.click(screen.getByRole("button", { name: "Large" }));
 
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].size).toBe("L"));
-    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("L");
   });
 
@@ -1820,8 +1810,8 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     const row = box.closest(".cz-detail-foot-row");
     expect(row.querySelectorAll(".cz-detail-foot-price")).toHaveLength(1);
     expect(row.querySelector(".cz-buy-notch")).not.toBeNull();
-    // The detail tabs do not duplicate the footer price.
-    expect(document.querySelector(".cz-detail-tabs").textContent).not.toContain("32.06");
+    // The detail facts sections do not duplicate the footer price.
+    expect(document.querySelector(".cz-detail-facts").textContent).not.toContain("32.06");
   });
 
   it("opens the price editor from the footer box, in USD", async () => {

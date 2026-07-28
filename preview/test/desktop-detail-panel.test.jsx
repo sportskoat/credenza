@@ -84,7 +84,6 @@ describe("DesktopDetailPanel (Fix B)", () => {
       const onClose = vi.fn();
       const { container } = renderPanel(panelItem(), { onSaveEdit, onDelete, onClose });
 
-      fireEvent.click(screen.getByRole("tab", { name: "Weight" }));
       fireEvent.change(screen.getByRole("textbox", { name: "Weight · g" }), {
         target: { value: "1200" },
       });
@@ -155,16 +154,15 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(await screen.findByText("1 / 3")).toBeInTheDocument();
   });
 
-  it("leaves arrow keys with the focused detail tabs", async () => {
+  it("leaves arrow keys with a focused detail field", () => {
+    // Arrow keys inside an editing field must not page the photos.
     renderPanel(panelItem());
-    const sizeTab = screen.getByRole("tab", { name: "Size" });
-    sizeTab.focus();
+    const colorway = screen.getByRole("textbox", { name: "Colorway" });
+    colorway.focus();
 
-    fireEvent.keyDown(sizeTab, { key: "ArrowRight" });
+    fireEvent.keyDown(colorway, { key: "ArrowRight" });
 
-    const colorwayTab = screen.getByRole("tab", { name: "Colorway" });
-    await waitFor(() => expect(colorwayTab).toHaveAttribute("aria-selected", "true"));
-    expect(colorwayTab).toHaveFocus();
+    expect(colorway).toHaveFocus();
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
   });
 
@@ -232,7 +230,6 @@ describe("DesktopDetailPanel (Fix B)", () => {
       const user = userEvent.setup();
       renderPanel(panelItem(), { onSaveEdit, onShareCard, onClose });
 
-      await user.click(screen.getByRole("tab", { name: "Colorway" }));
       fireEvent.change(screen.getByRole("textbox", { name: "Colorway" }), {
         target: { value: "Bone white" },
       });

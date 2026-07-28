@@ -70,13 +70,6 @@ const focusOnMount = (el) => {
   if (el) el.focus();
 };
 
-const DETAIL_TABS = [
-  { key: "size", label: "Size" },
-  { key: "colorway", label: "Colorway" },
-  { key: "weight", label: "Weight" },
-  { key: "haul", label: "Haul" },
-];
-
 // Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
 // SIZES" — charts never arrived because the old hunt died with the desktop
 // panel). With no chart, hunt once: Yupoo album text, then a vision read of
@@ -835,48 +828,6 @@ function listPhrase(words) {
   return words.slice(0, -1).join(", ") + " and " + words[words.length - 1];
 }
 
-function DetailTabList({ activeTab, baseId, onActivate, tabRefs }) {
-  const move = (event, index) => {
-    let next = index;
-    if (event.key === "ArrowRight") next = (index + 1) % DETAIL_TABS.length;
-    else if (event.key === "ArrowLeft") next = (index - 1 + DETAIL_TABS.length) % DETAIL_TABS.length;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = DETAIL_TABS.length - 1;
-    else return;
-    event.preventDefault();
-    event.stopPropagation();
-    onActivate(DETAIL_TABS[next].key);
-    tabRefs.current[next]?.focus();
-  };
-
-  return (
-    <div className="cz-detail-tablist" role="tablist" aria-label="Item details">
-      {DETAIL_TABS.map((tab, index) => {
-        const selected = activeTab === tab.key;
-        return (
-          <button
-            key={tab.key}
-            ref={(node) => {
-              tabRefs.current[index] = node;
-            }}
-            type="button"
-            id={baseId + "-tab-" + tab.key}
-            className={"cz-detail-tab" + (selected ? " is-active" : "")}
-            role="tab"
-            aria-selected={selected}
-            aria-controls={baseId + "-panel-" + tab.key}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onActivate(tab.key)}
-            onKeyDown={(event) => move(event, index)}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, customSize, onCustomChange, onCommit, onPick }) {
   const choices = chipSizes(runValues, chosenSize || recommendedSize);
 
@@ -1472,10 +1423,9 @@ export default function DetailBody({
   fitDetail = null,
 }) {
   const titleInputRef = useRef(null);
-  const tabRefs = useRef([]);
   const chartInputRef = useRef(null);
   const chartPhotoUrlRef = useRef("");
-  const tabBaseId = "cz-detail-" + useId().replace(/:/g, "");
+  const fieldBaseId = "cz-detail-" + useId().replace(/:/g, "");
   const reduced = usePrefersReducedMotion();
 
   // The photo pager is part of the shared body — the phone sheet and the
@@ -1535,7 +1485,6 @@ export default function DetailBody({
   const [savedFlash, setSavedFlash] = useState(false);
   const [editingCell, setEditingCell] = useState(null);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [activeTab, setActiveTab] = useState("size");
   const [customSize, setCustomSize] = useState(String(item.size || ""));
   const customSizeCommittedRef = useRef(String(item.size || ""));
   const [notesOpen, setNotesOpen] = useState(false);
@@ -1579,7 +1528,6 @@ export default function DetailBody({
     setDraft(null);
     setEditingCell(null);
     setEditingTitle(false);
-    setActiveTab("size");
     setCustomSize(String(item.size || ""));
     customSizeCommittedRef.current = String(item.size || "");
   }, [item.id, item.size, commitRef]);
@@ -2123,21 +2071,11 @@ export default function DetailBody({
           ) : null}
         </div>
 
-        <div className="cz-detail-tabs">
-          <DetailTabList
-            activeTab={activeTab}
-            baseId={tabBaseId}
-            onActivate={setActiveTab}
-            tabRefs={tabRefs}
-          />
-
-          <section
-            id={tabBaseId + "-panel-size"}
-            className="cz-detail-tabpanel"
-            role="tabpanel"
-            aria-labelledby={tabBaseId + "-tab-size"}
-            hidden={activeTab !== "size"}
-          >
+        {/* Split rail: the four detail tabs are gone. Size, colorway, weight
+            and haul are always-visible facts — three of them hidden behind a
+            tab bar made the card a guessing game. */}
+        <div className="cz-detail-facts">
+          <section className="cz-detail-facts-section" aria-label="Size and fit">
             <SizeChoiceEditor
               chosenSize={chosenSize}
               recommendedSize={verdict.recSize || verdict.usualSize}
@@ -2305,13 +2243,7 @@ export default function DetailBody({
             ) : null}
           </section>
 
-          <section
-            id={tabBaseId + "-panel-colorway"}
-            className="cz-detail-tabpanel"
-            role="tabpanel"
-            aria-labelledby={tabBaseId + "-tab-colorway"}
-            hidden={activeTab !== "colorway"}
-          >
+          <section className="cz-detail-facts-section" aria-label="Colorway">
             <label className="cz-detail-panel-field">
               <span>Colorway</span>
               <input
@@ -2329,18 +2261,12 @@ export default function DetailBody({
             </label>
           </section>
 
-          <section
-            id={tabBaseId + "-panel-weight"}
-            className="cz-detail-tabpanel"
-            role="tabpanel"
-            aria-labelledby={tabBaseId + "-tab-weight"}
-            hidden={activeTab !== "weight"}
-          >
+          <section className="cz-detail-facts-section" aria-label="Weight">
             <div className="cz-detail-panel-field">
-              <label htmlFor={tabBaseId + "-weight"}>Weight</label>
+              <label htmlFor={fieldBaseId + "-weight"}>Weight</label>
               <div className="cz-detail-weight-row">
                 <input
-                  id={tabBaseId + "-weight"}
+                  id={fieldBaseId + "-weight"}
                   className="cz-detail-editor-input"
                   aria-label={"Weight · " + weightUnit}
                   inputMode="decimal"
@@ -2381,13 +2307,7 @@ export default function DetailBody({
             </div>
           </section>
 
-          <section
-            id={tabBaseId + "-panel-haul"}
-            className="cz-detail-tabpanel"
-            role="tabpanel"
-            aria-labelledby={tabBaseId + "-tab-haul"}
-            hidden={activeTab !== "haul"}
-          >
+          <section className="cz-detail-facts-section" aria-label="Haul">
             <HaulAccordionField
               label="Haul"
               value={view.project}
