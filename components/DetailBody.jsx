@@ -479,7 +479,7 @@ function useCustomerChartRead(item, onSaveEdit) {
 
 // The no-chart state keeps the usual size visible but unverified.
 // The Size panel owns the single chart upload action.
-function SizingBlockNoChart({ usualSize, albumPhotos, albumCount, onOpenAlbum }) {
+function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCount, onOpenAlbum }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const thumbs = (albumPhotos || []).slice(0, 2);
 
@@ -488,14 +488,16 @@ function SizingBlockNoChart({ usualSize, albumPhotos, albumCount, onOpenAlbum })
       <div className="cz-sizing-head">
         <span className="cz-sizing-dot" aria-hidden="true" />
         <span className="cz-sizing-kicker">No chart</span>
-        <span className="cz-sizing-prov">FELL BACK TO YOUR USUAL</span>
+        <span className="cz-sizing-prov">{isManual ? "SET BY YOU" : "FELL BACK TO YOUR USUAL"}</span>
       </div>
 
       <div className="cz-sizing-value-row">
         {heroLabel ? (
           <>
             <span className="cz-sizing-value">{heroLabel}</span>
-            <span className="cz-sizing-aside">your usual · not verified</span>
+            <span className="cz-sizing-aside">
+              {isManual ? "you picked this · not verified" : "your usual · not verified"}
+            </span>
           </>
         ) : (
           <>
@@ -833,14 +835,11 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, customSize, 
 
   return (
     <div className="cz-detail-size-editor">
-      <div className="cz-detail-panel-heading">
-        <span>Item size</span>
-        {recommendedSize ? (
-          <span className="cz-detail-panel-note">
-            Recommended {formatSizeToken(recommendedSize) || recommendedSize}
-          </span>
-        ) : null}
-      </div>
+      {/* 2026-07-28 — one place for size. The heading said "Item size" and
+          repeated the recommendation in words; the ringed chip already says
+          it. The custom field was a second full-width bar holding the same
+          value as the filled chip. Both are gone: the row below is the only
+          place the size is set. */}
       {choices.length ? (
         <div className="cz-detail-size-choices" aria-label="Item size choices">
           {choices.map((size) => {
@@ -870,11 +869,15 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, customSize, 
           ) : null}
         </div>
       ) : null}
+      {/* The odd sizes sellers really use — 170/92A, EU 44, One size — cannot
+          be chips. This stays, but as a quiet inline field beside the run, not
+          a second bar under it. */}
       <label className="cz-detail-custom-size">
-        <span>Custom size</span>
+        <span>Other</span>
         <input
           className="cz-detail-editor-input"
           aria-label="Custom item size"
+          placeholder="170/92A"
           value={customSize}
           onChange={(event) => onCustomChange(event.target.value)}
           onBlur={onCommit}
@@ -2110,6 +2113,10 @@ export default function DetailBody({
             ) : !verdict.chart && !hunting ? (
               <SizingBlockNoChart
                 usualSize={chosenSize || verdict.usualSize}
+                /* 2026-07-28 — the caption used to read "your usual" for a size
+                   the customer had just chosen by hand. The word is the same;
+                   where it came from is not. */
+                isManual={!!chosenSize}
                 albumPhotos={sizingAlbumPhotos}
                 albumCount={sizingAlbumPhotos.length}
                 onOpenAlbum={() => {

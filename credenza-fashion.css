@@ -10061,15 +10061,44 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   text-align: right;
 }
 
+/* 2026-07-28 — one place for size. The editor was a stack: heading, chip row,
+   then a full-width "Custom size" bar holding the same string as the filled
+   chip. Four places showed one value. Now the run and the odd-size field share
+   a single line, and the field is the width of a size token, not the panel. */
 .cz-detail-size-editor {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
 }
 
 .cz-detail-size-choices {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   gap: 7px;
+}
+
+.cz-detail-size-editor .cz-detail-custom-size {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.cz-detail-size-editor .cz-detail-custom-size > span {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cz-detail-size-editor .cz-detail-custom-size .cz-detail-editor-input {
+  width: 88px;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .cz-detail-size-choice {
@@ -10131,6 +10160,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     font-family: inherit;
     font-size: 13px;
     letter-spacing: normal;
+  }
+
+  /* The phone has no room for a chip run and a field on one line. The odd-size
+     field takes its own row under the chips, still inline-labelled. */
+  .cz-detail-size-editor .cz-detail-custom-size {
+    flex: 1 0 100%;
+  }
+
+  .cz-detail-size-editor .cz-detail-custom-size .cz-detail-editor-input {
+    flex: 1 1 auto;
+    width: auto;
+    font-size: 16px;
   }
 }
 
