@@ -22,9 +22,8 @@ export default function FitPrefsSheet({ value, ownedCategories, onSave, onClose,
   const cats = ownedCategories.filter((c) => FIT_PREF_AXES[c]);
   const body = (
       <div className="cz-fit-prefs-sheet">
-        <p className="cz-fit-prefs-lead">
-          How you like things to sit. We factor this into every size we suggest.
-        </p>
+        {/* No lead line: the only consumer is the settings section, which
+            carries its own lead saying the same thing (Kyle 2026-07-28). */}
         {cats.length === 0 ? (
           <p className="cz-fit-prefs-empty">
             Stash a shirt, shorts, pants, or outerwear item first. Preferences appear per category you own.

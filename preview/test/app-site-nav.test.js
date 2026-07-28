@@ -22,7 +22,10 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const PUBLIC = join(ROOT, "preview/public");
-const SHEET = readFileSync(join(ROOT, "sheets/ProfileSheet.jsx"), "utf8");
+// The links used to live in the Profile sheet. Phase 4 of the Profile
+// Settings design deleted that sheet; the About and support section owns
+// them now. Same array, same classes, new home.
+const SHEET = readFileSync(join(ROOT, "settings/AboutSupportSection.jsx"), "utf8");
 
 // Read the SITE_LINKS array out of the source rather than importing the sheet.
 // Importing pulls in credenza-fashion.jsx and a React tree; this rule only
@@ -42,7 +45,7 @@ describe("the app links out to the site it belongs to", () => {
   it("finds the SITE_LINKS array at all", () => {
     // Guard the guard. A rename makes siteLinks() null, every loop below
     // generates zero tests, and this file passes while checking nothing.
-    expect(links, "SITE_LINKS is gone from sheets/ProfileSheet.jsx").not.toBeNull();
+    expect(links, "SITE_LINKS is gone from settings/AboutSupportSection.jsx").not.toBeNull();
     expect(links.length, "SITE_LINKS is empty").toBeGreaterThanOrEqual(4);
   });
 
@@ -121,7 +124,7 @@ describe("the app links out to the site it belongs to", () => {
 // header that links to all of our pages here… make it easy to navigate… make a
 // few header pages that link out to pro, contact us, guides, etc.").
 //
-// The rule above covers the Profile sheet, which is two taps deep. This covers
+// The rule above covers the settings page, which is two taps deep. This covers
 // the row that ships in the masthead itself, and it is the same filesystem rule
 // for the same reason: nothing in the JSX can tell you whether /contact/
 // resolves. One list lives in components/site-nav.js and this reads it back out
@@ -201,7 +204,7 @@ describe("the masthead reaches the site", () => {
 
   it("keeps a way out on phones, where the masthead nav is hidden", () => {
     // The CSS hides .cz-mast-nav below 767px — six links do not fit beside a
-    // wordmark on a 390px screen. That is only safe while the Profile sheet
+    // wordmark on a 390px screen. That is only safe while the settings page
     // still carries site links, so bind the two together here.
     expect(CSS, ".cz-mast-nav has no rule in credenza-fashion.css").toContain(".cz-mast-nav");
     expect(CSS, "the masthead nav is not hidden on phone widths").toMatch(
@@ -209,7 +212,7 @@ describe("the masthead reaches the site", () => {
     );
     expect(
       (siteLinks() || []).length,
-      "the masthead is hidden on phones and the Profile sheet no longer carries site links"
+      "the masthead is hidden on phones and the About and support section no longer carries site links"
     ).toBeGreaterThanOrEqual(4);
   });
 

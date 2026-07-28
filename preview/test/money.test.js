@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, itemUsdAmount, priceLabel, sumItemsUsd } from "../../credenza-fashion.jsx";
+import { formatMoney, itemCnyAmount, itemUsdAmount, priceLabel, sumItemsCny, sumItemsUsd } from "../../credenza-fashion.jsx";
 
 describe("itemUsdAmount", () => {
   it("prefers priceUsd over CNY price", () => {
@@ -62,6 +62,48 @@ describe("formatMoney", () => {
     expect(formatMoney(12.5, "USD")).toBe("$12.50");
     expect(formatMoney(100, "CNY")).toBe("¥100");
     expect(formatMoney(null, "USD")).toBe("");
+  });
+});
+
+// Kyle 2026-07-28: "If you switch from USD to CNY, it doesn't change the
+// dollar amount." The CNY direction converts too.
+describe("itemCnyAmount", () => {
+  it("keeps the stored CNY price", () => {
+    expect(itemCnyAmount({ price: 229, currency: "CNY" })).toBe(229);
+    expect(itemCnyAmount({ price: 99, currency: "¥", priceUsd: 14.59 })).toBe(99);
+  });
+
+  it("converts USD to whole yuan with the same fallback rate", () => {
+    expect(itemCnyAmount({ price: 40, currency: "USD" })).toBe(286);
+    expect(itemCnyAmount({ priceUsd: 14.59 })).toBe(104);
+  });
+
+  it("returns null for missing or unknown currency amounts", () => {
+    expect(itemCnyAmount(null)).toBe(null);
+    expect(itemCnyAmount({})).toBe(null);
+    expect(itemCnyAmount({ price: 50, currency: "EUR" })).toBe(null);
+  });
+});
+
+describe("sumItemsCny", () => {
+  const items = [
+    { id: "a", price: 100, currency: "CNY" },
+    { id: "b", priceUsd: 14 }, // 100 yuan
+    { id: "c", price: 20, currency: "EUR" }, // ignored
+    { id: "d", price: 50, currency: "CNY", findStatus: "returned" },
+  ];
+
+  it("sums stored yuan plus converted dollars", () => {
+    expect(sumItemsCny(items)).toBe(250);
+  });
+
+  it("excludes returned items when excludeReturned is true", () => {
+    expect(sumItemsCny(items, { excludeReturned: true })).toBe(200);
+  });
+
+  it("returns 0 for empty input", () => {
+    expect(sumItemsCny([])).toBe(0);
+    expect(sumItemsCny(null)).toBe(0);
   });
 });
 

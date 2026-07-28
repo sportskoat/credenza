@@ -31,6 +31,7 @@ import {
   parseSizeChart,
   prescriptionSentence,
   itemUsdAmount,
+  itemCnyAmount,
   priceLabelShort,
   pricePrimaryPref,
   recommendSize,
@@ -146,7 +147,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
 }
 
 // One source of truth keeps the sizing verdict consistent across each view.
-function useSizeVerdict(item, bodyProfile, fitPref, units, detailOverride = null) {
+function useSizeVerdict(item, bodyProfile, fitPref, units, detailOverride = null, summaryOverride = null) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
   // so the badge never claims a precise fit it does not have.
@@ -176,10 +177,11 @@ function useSizeVerdict(item, bodyProfile, fitPref, units, detailOverride = null
   const variantRun = pickSizeRunFromVariants(item.variants);
   const runValues = chartRunValues.length ? chartRunValues : variantValues;
   // The fit-summary pref gates the sentence; the detail pref sets its length
-  // (CH-14 — FIT_DETAIL had no effect on this path before). The prop wins
+  // (CH-14 — FIT_DETAIL had no effect on this path before). The props win
   // over the mirror: the App syncs the mirror in an effect, so on the render
-  // right after a toggle only the prop is fresh.
-  const { summary: fitSummaryOn, detail: mirrorDetail } = fitDisplayPrefs();
+  // right after a toggle only the props are fresh.
+  const { summary: mirrorSummary, detail: mirrorDetail } = fitDisplayPrefs();
+  const fitSummaryOn = summaryOverride !== null ? summaryOverride : mirrorSummary;
   const fitDetail = detailOverride || mirrorDetail;
   const prescription =
     recSize && fitSummaryOn
@@ -1424,6 +1426,11 @@ export default function DetailBody({
   // one render behind the toggle.
   onCycleFitDetail = null,
   fitDetail = null,
+  // Profile Settings design (1e): the summary on/off moved out of settings
+  // onto the paragraph it gates. Same optional-prop contract as the detail
+  // pair — without them the block renders exactly as before.
+  onToggleFitSummary = null,
+  fitSummary = null,
 }) {
   const titleInputRef = useRef(null);
   const chartInputRef = useRef(null);
@@ -1611,7 +1618,7 @@ export default function DetailBody({
 
   // The parent owns the sizing verdict and the chart hunt.
   const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
-  const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits, fitDetail);
+  const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits, fitDetail, fitSummary);
   // Split rail: the per-measurement fit bars. YOURS uses the same effective
   // profile the pick math used, so the table's ease always agrees with
   // rec.diff — a raw-profile table would show a different chest than the one
@@ -1641,6 +1648,8 @@ export default function DetailBody({
   };
   // CH-14: the toggle's label follows the same value the sentence length does.
   const fitDetailPref = fitDetail || fitDisplayPrefs().detail;
+  // Design 1e: same for the summary on/off — prop fresh, mirror one behind.
+  const fitSummaryOn = fitSummary !== null ? fitSummary : fitDisplayPrefs().summary;
   // CH-08: the 4f ask, local to this card. Reset when the card changes.
   const [askingMeasures, setAskingMeasures] = useState(false);
   // CH-09 (5b): the taste ask. Auto once per category when a chart-based rec
@@ -1759,15 +1768,9 @@ export default function DetailBody({
         price: usd != null && isFinite(usd) ? String(usd) : "",
       });
     } else {
-      const storedCur = String(item.currency || "CNY").toUpperCase();
-      let cny = null;
-      if ((storedCur === "CNY" || storedCur === "RMB" || storedCur === "¥") && item.price != null) {
-        cny = Number(item.price);
-      } else if (item.priceUsd != null && isFinite(Number(item.priceUsd))) {
-        cny = Math.round(Number(item.priceUsd) / 0.14);
-      } else if (item.price != null && storedCur === "USD") {
-        cny = Math.round(Number(item.price) / 0.14);
-      }
+      // Same conversion the card labels use (itemCnyAmount, Kyle 2026-07-28)
+      // — the editor opens with the amount the customer just saw.
+      const cny = itemCnyAmount(item);
       setOwnedDraft({
         ...base,
         currency: "CNY",
@@ -2181,6 +2184,32 @@ export default function DetailBody({
                     <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
                   </button>
                 ) : null}
+                {/* Design 1e: the summary on/off lived two rows deep in
+                    settings to control this one paragraph. It sits on the
+                    paragraph now. */}
+                {typeof onToggleFitSummary === "function" ? (
+                  <button
+                    type="button"
+                    className="cz-sizing-detail-toggle"
+                    aria-label="Turn the fit summary off"
+                    onClick={onToggleFitSummary}
+                  >
+                    Hide
+                  </button>
+                ) : null}
+              </p>
+            ) : typeof onToggleFitSummary === "function" && !fitSummaryOn && verdict.recSize ? (
+              // Summary off but a pick exists: the way back on stays where the
+              // sentence would be, not back in a settings sheet.
+              <p className="cz-sizing-why">
+                <button
+                  type="button"
+                  className="cz-sizing-detail-toggle"
+                  aria-label="Turn the fit summary on"
+                  onClick={onToggleFitSummary}
+                >
+                  Show fit summary
+                </button>
               </p>
             ) : null}
 

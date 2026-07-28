@@ -300,9 +300,10 @@ describe("checkout + portal", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // LB-42. The billing screen repeated the server's own words back to the buyer.
 //
-// ProfileSheet.run() catches what post() throws and renders err.message into
-// the sheet. post() threw `data.error` — the server's string. So pressing
-// Upgrade with one variable unset showed a paying visitor
+// ProfileSheet.run() — now AccountPlanSection.run(), same pattern — catches
+// what post() throws and renders err.message into the section. post() threw
+// `data.error` — the server's string. So pressing Upgrade with one variable
+// unset showed a paying visitor
 // "Server not configured: missing STRIPE_PRICE_MONTHLY".
 //
 // The two tests directly above look like they covered this. They do not. Both

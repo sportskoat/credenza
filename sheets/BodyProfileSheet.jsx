@@ -104,8 +104,7 @@ export default function BodyProfileSheet({ value, units = "in", onSave, onChange
     <div className="cz-measure">
       <div className="cz-measure-head">
         <p className="cz-measure-lead">
-          Measure your body, not a garment you own. Credenza adds the ease when
-          it reads a seller chart, and converts the metric numbers for you.
+          Measure your body, not a garment. Credenza adds the ease.
         </p>
         <div className="cz-measure-units">
           <SegmentedControl
@@ -121,14 +120,15 @@ export default function BodyProfileSheet({ value, units = "in", onSave, onChange
       </div>
 
       <p className="cz-measure-count">
-        {filled} of {BODY_PROFILE_FIELDS.length} filled in. Every one you add
-        sharpens the size Credenza picks.
+        {filled} of {BODY_PROFILE_FIELDS.length} filled in.
       </p>
 
-      {BODY_MEASURE_GROUPS.map(([group, heading, why]) => (
+      {/* Kyle 2026-07-28: "reduce the overall text… consolidate it so it's on
+          one screen." The per-group reasons (the `why` in BODY_MEASURE_GROUPS)
+          no longer render — the headings carry the grouping alone. */}
+      {BODY_MEASURE_GROUPS.map(([group, heading]) => (
         <section className="cz-measure-group" key={group}>
           <h3 className="cz-measure-group-head">{heading}</h3>
-          <p className="cz-measure-group-why">{why}</p>
           <div className="cz-measure-grid">
             {BODY_PROFILE_FIELDS.filter((f) => f[5] === group).map(([key, label, kind, phCm, phIn]) => (
               <Measure
@@ -146,9 +146,6 @@ export default function BodyProfileSheet({ value, units = "in", onSave, onChange
 
       <section className="cz-measure-group">
         <h3 className="cz-measure-group-head">Usual sizes</h3>
-        <p className="cz-measure-group-why">
-          What you buy most often. Shown as EST on cards that carry no size chart.
-        </p>
         <div className="cz-measure-grid cz-measure-grid-3">
           <Field label="Tops" value={usual.usualTops} onChange={setUsualKey("usualTops")} placeholder="M" />
           <Field label="Bottoms" value={usual.usualBottoms} onChange={setUsualKey("usualBottoms")} placeholder="32" />
@@ -160,9 +157,13 @@ export default function BodyProfileSheet({ value, units = "in", onSave, onChange
         <Pill primary onClick={save} style={{ flex: 1, justifyContent: "center", minHeight: 46 }}>
           Save measurements
         </Pill>
-        <Pill subtle onClick={onClose}>
-          Cancel
-        </Pill>
+        {/* Embedded in the settings page there is nothing to cancel back to —
+            onClose is a no-op there, so the button only renders in the modal. */}
+        {embedded ? null : (
+          <Pill subtle onClick={onClose}>
+            Cancel
+          </Pill>
+        )}
       </div>
     </div>
   );

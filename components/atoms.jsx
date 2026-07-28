@@ -313,14 +313,17 @@ export function ReelDigit({ digit, index, reduced }) {
   );
 }
 
-export function ReelCounter({ value }) {
+export function ReelCounter({ value, currency = "USD" }) {
   const reduced = usePrefersReducedMotion();
+  // CNY totals are whole yuan (itemCnyAmount rounds) — no decimal reels.
   const text =
-    "$" +
-    Math.max(0, value).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    currency === "CNY"
+      ? "¥" + Math.max(0, Math.round(value)).toLocaleString("en-US")
+      : "$" +
+        Math.max(0, value).toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
   const len = text.length;
   return (
     <span className="t-reel">
@@ -630,11 +633,11 @@ export function StatusPill({ status, variant = "pill", className, style }) {
   );
 }
 
-// Price display. "overlay" = USD-first short pill pinned over a photo;
-// "hero" = full ¥+$ card-back hero; "meta" = inline full label in a text row.
+// Price display. "overlay" = short pill pinned over a photo; "hero" = full
+// card-back hero; "meta" = inline full label in a text row.
 export function PriceChip({ item, variant = "overlay", className, style }) {
-  // Hero is USD-only (Kyle 2026-07-22: "remove the yen price, keep the
-  // dollar") — priceLabelShort is USD-first with a CNY fallback.
+  // One currency per chip (Kyle 2026-07-22), following the primary pref —
+  // both directions convert (Kyle 2026-07-28).
   const label = variant === "meta" ? priceLabel(item) : priceLabelShort(item);
   if (!label) return null;
   if (variant === "hero") {

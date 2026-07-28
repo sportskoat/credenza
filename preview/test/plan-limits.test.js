@@ -14,7 +14,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { FREE_LIMITS, PRO_LIMITS, planLimit } from "../src/usage.js";
+import { FREE_LIMITS, PRO_LIMITS, PLAN_CAPS, planLimit } from "../src/usage.js";
 import { QC_PHOTOS_STORED } from "../../credenza-fashion.jsx";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -56,6 +56,27 @@ describe("plan limits agree with the server", () => {
   it("matches the Pro caps the nudge copy names", () => {
     expect(PRO_LIMITS.qcPhotosPerItem).toBe(serverLimit("pro", "qcPhotosPerItem"));
     expect(PRO_LIMITS.haulsMax).toBe(serverLimit("pro", "haulsMax"));
+  });
+
+  // PLAN_CAPS is the table the Account and plan screen prints. Every key is
+  // bound here — a displayed cap that drifts from the server is a printed
+  // promise the server breaks (LB-35 covers the public pages; this covers
+  // the in-app table).
+  it("binds every PLAN_CAPS key to the server table, both plans", () => {
+    for (const key of ["askPerDay", "chartVisionPerDay", "resolvePerDay", "qcPhotosPerItem", "haulsMax"]) {
+      expect(PLAN_CAPS.free[key], `free ${key}`).toBe(serverLimit("free", key));
+      expect(PLAN_CAPS.pro[key], `pro ${key}`).toBe(serverLimit("pro", key));
+    }
+  });
+
+  it("binds the shared-links caps to the share function", () => {
+    const fn = read("preview/netlify/functions/share.js");
+    const cap = (name) => {
+      const m = fn.match(new RegExp("const " + name + "\\s*=\\s*(\\d+)"));
+      return m ? Number(m[1]) : null;
+    };
+    expect(PLAN_CAPS.free.sharedLinksMax).toBe(cap("MAX_SHARES_FREE"));
+    expect(PLAN_CAPS.pro.sharedLinksMax).toBe(cap("MAX_SHARES_PRO"));
   });
 });
 
@@ -149,16 +170,16 @@ describe("the caps are enforced where the writes happen", () => {
     expect(src).toContain('" open hauls is the limit. Archive a finished one to start another."');
   });
 
-  it("routes every nudge to the Profile sheet, where the upgrade lives", () => {
+  it("routes every nudge to the Account and plan section, where the upgrade lives", () => {
     // Count the LABEL, not one exact formatting of the call. An earlier version
     // of this test matched a single-line spelling, so a nudge written across
     // two lines passed it without ever being checked. Three today: the QC cap,
     // the haul cap, and the CSV export.
     const labels = src.match(/actionLabel: "See Pro"/g);
     expect(labels).toHaveLength(3);
-    // Each one is followed by the Profile handler, whatever the line breaks.
+    // Each one is followed by the settings navigation, whatever the line breaks.
     const routed = src.match(
-      /actionLabel: "See Pro",\s*onAction: \(\) => setProfileOpen\(true\),?/g
+      /actionLabel: "See Pro",\s*onAction: \(\) => navigateSettings\("account"\),?/g
     );
     expect(routed).toHaveLength(labels.length);
   });

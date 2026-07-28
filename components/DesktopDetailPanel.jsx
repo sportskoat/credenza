@@ -32,6 +32,8 @@ export default function DesktopDetailPanel({
   onSaveFitPref = null,
   onCycleFitDetail = null,
   fitDetail = null,
+  onToggleFitSummary = null,
+  fitSummary = null,
   measureUnits = "cm",
   buyLabel = "Buy",
   preferredAgent = null,
@@ -47,6 +49,11 @@ export default function DesktopDetailPanel({
   onShareCard,
   onDelete,
   onClose,
+  // Arrow keys step between CARDS (Kyle 2026-07-28: "when you click right on
+  // your keyboard, it should go to the next card"). The app passes a shelf
+  // walker; photos keep their chevron buttons. Without the prop (tests that
+  // render the panel bare) arrows fall back to paging photos.
+  onStepItem = null,
   closing = false,
   // §11 photo morph: true when this panel arrived from a card tap through a
   // view transition. The stage then claims the shared view-transition-name so
@@ -198,29 +205,48 @@ export default function DesktopDetailPanel({
   );
   useEffect(() => {
     const onKey = (e) => {
+      // Text-entry and roving-list controls own their arrows. Buttons do
+      // NOT exempt: the native dialog auto-focuses a button on open, and
+      // exempting buttons made every arrow press dead until a click moved
+      // focus (found live 2026-07-28).
       const interactive =
         e.target &&
         e.target.closest &&
         e.target.closest(
-          'button, input, textarea, select, [contenteditable], [role="listbox"], [role="menu"], [role="radiogroup"]'
+          'input, textarea, select, [contenteditable], [role="listbox"], [role="menu"], [role="radiogroup"]'
         );
       if (interactive) return;
       const keyDialog = e.target && e.target.closest && e.target.closest("dialog[open]");
       if (keyDialog && keyDialog !== dialogRef.current) return;
       if (dialogRef.current && dialogRef.current.querySelector("dialog[open]")) return;
+      if (e.key === "Backspace" || e.key === "Delete") {
+        // Kyle 2026-07-28: "pressing delete on this screen should give you
+        // the modal to delete the card". Stage, don't delete (KM-02) — the
+        // confirm dialog owns the call. The typing guard above keeps text
+        // editing safe.
+        if (!onDelete) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onDelete(item.id);
+        return;
+      }
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         e.stopPropagation();
-        goTo(photoIdx - 1);
+        // Cards first (Kyle 2026-07-28): with the app's walker attached,
+        // arrows move to the next card, not the next photo.
+        if (onStepItem) onStepItem(-1);
+        else goTo(photoIdx - 1);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         e.stopPropagation();
-        goTo(photoIdx + 1);
+        if (onStepItem) onStepItem(1);
+        else goTo(photoIdx + 1);
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [photoIdx, goTo]);
+  }, [photoIdx, goTo, onStepItem, onDelete, item.id]);
 
   // Click-away closes the ⋯ menu.
   useEffect(() => {
@@ -514,6 +540,8 @@ export default function DesktopDetailPanel({
               onSaveFitPref={onSaveFitPref}
               onCycleFitDetail={onCycleFitDetail}
               fitDetail={fitDetail}
+              onToggleFitSummary={onToggleFitSummary}
+              fitSummary={fitSummary}
               measureUnits={measureUnits}
               buyLabel={buyLabel}
               preferredAgent={preferredAgent}

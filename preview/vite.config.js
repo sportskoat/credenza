@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import {
-  copyFileSync,
   existsSync,
   readdirSync,
   readFileSync,
@@ -12,10 +11,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInThisContext } from "node:vm";
 
-// Fashion is the only app we build and deploy (Kyle, 2026-07-22). The legacy
-// credenza-v2/v3 entries (index.html + src/main.jsx) stay in the repo but are
-// no longer build targets — there is no non-fashion mode anymore.
-const FASHION = true;
+// Fashion is the only app (Kyle, 2026-07-22; sunset completed 2026-07-28).
+// The legacy credenza-v3 entry (index.html + src/main.jsx) is deleted: a deep
+// link on the dev server fell through to Vite's SPA fallback and served the
+// OLD app (Kyle: "this needs to be completely sunset"). index.html IS the
+// fashion entry now, so the fallback serves the right app at every depth.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Stamps the built asset list into dist/sw.js after each build so the app
@@ -34,7 +34,6 @@ function swPrecache() {
       const precache = [
         "/",
         "/index.html",
-        ...(FASHION ? ["/index-fashion.html"] : []),
         "/manifest.webmanifest",
         "/icon-180.png",
         "/icon-192.png",
@@ -53,21 +52,11 @@ function swPrecache() {
   };
 }
 
-function fashionEntryPlugin() {
-  let outDir = "dist";
+function publicPagesPlugin() {
   return {
-    name: "credenza-fashion-entry",
-    configResolved(config) {
-      outDir = config.build.outDir;
-    },
+    name: "credenza-public-pages",
     configureServer(server) {
-      if (!FASHION) return;
       server.middlewares.use((req, res, next) => {
-        if (req.url === "/" || req.url === "/index.html") {
-          req.url = "/index-fashion.html";
-          next();
-          return;
-        }
         // A static host answers /contact/ with public/contact/index.html.
         // Vite's dev server does not: it falls through to the SPA fallback,
         // so every public page rendered the app instead (Kyle, 2026-07-27:
@@ -82,10 +71,6 @@ function fashionEntryPlugin() {
         }
         next();
       });
-    },
-    closeBundle() {
-      if (!FASHION) return;
-      copyFileSync(join(outDir, "index-fashion.html"), join(outDir, "index.html"));
     },
   };
 }
@@ -196,7 +181,7 @@ function netlifyFunctionsDev() {
 }
 
 export default defineConfig({
-  plugins: [react(), fashionEntryPlugin(), swPrecache(), netlifyFunctionsDev()],
+  plugins: [react(), publicPagesPlugin(), swPrecache(), netlifyFunctionsDev()],
   // host: "127.0.0.1" because the default bound IPv6 loopback ([::1]) ONLY, so
   // http://127.0.0.1:5173 was refused while http://localhost:5173 worked
   // (Kyle, 2026-07-27). Both addresses now answer. Not "true" — that would
@@ -229,7 +214,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      input: FASHION ? resolve(__dirname, "index-fashion.html") : resolve(__dirname, "index.html"),
+      input: resolve(__dirname, "index.html"),
       output: {
         // Vendor split: the framework half of the bundle caches separately and
         // downloads in parallel with the app chunk.

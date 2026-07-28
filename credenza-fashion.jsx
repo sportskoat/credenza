@@ -77,14 +77,11 @@ import "./credenza-fashion.css";
 // stays put while the small chunk arrives. The circular import back into this
 // file is safe: the sheet chunk evaluates only after this module is done.
 const CaptureSheet = lazy(() => import("./sheets/CaptureSheet.jsx"));
-const ProfileSheet = lazy(() => import("./sheets/ProfileSheet.jsx"));
-const FitPrefsSheet = lazy(() => import("./sheets/FitPrefsSheet.jsx"));
-const BodyProfileSheet = lazy(() => import("./sheets/BodyProfileSheet.jsx"));
 const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
-const SettingsSheet = lazy(() => import("./sheets/SettingsSheet.jsx"));
+const SettingsPage = lazy(() => import("./settings/SettingsPage.jsx"));
+const AvatarMenu = lazy(() => import("./components/AvatarMenu.jsx"));
 const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
-const SharedLinksSheet = lazy(() => import("./sheets/SharedLinksSheet.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -511,6 +508,26 @@ export function itemUsdAmount(item) {
   return null;
 }
 
+// CNY mirror of itemUsdAmount (Kyle 2026-07-28: "If you switch from USD to
+// CNY, it doesn't change the dollar amount"). The stored CNY price wins when
+// the item is priced in yuan; anything else converts through the same
+// fallback rate itemUsdAmount uses, so the two directions always agree.
+// Converted yuan rounds to whole ¥ — fractions of a yuan read as noise.
+export function itemCnyAmount(item) {
+  if (!item || typeof item !== "object") return null;
+  const currency = String(item.currency || "CNY").toUpperCase();
+  if (
+    (currency === "CNY" || currency === "RMB" || currency === "¥" || currency === "CNH") &&
+    item.price != null &&
+    isFinite(Number(item.price))
+  ) {
+    return Number(item.price);
+  }
+  const usd = itemUsdAmount(item);
+  if (usd != null) return Math.round(usd / FX_FALLBACK_USD_PER_CNY);
+  return null;
+}
+
 // One pure sum for shelf + haul totals so chips, phone tabs, and the reel
 // never disagree. Returned cards drop out of open-haul totals only.
 export function sumItemsUsd(items, { excludeReturned = false } = {}) {
@@ -523,6 +540,19 @@ export function sumItemsUsd(items, { excludeReturned = false } = {}) {
   return Math.round(sum * 100) / 100;
 }
 
+// CNY twin of sumItemsUsd (Kyle 2026-07-28): the shelf total follows the
+// primary currency now, and summing the per-item rounded yuan keeps the
+// total equal to the card labels the customer can see.
+export function sumItemsCny(items, { excludeReturned = false } = {}) {
+  let sum = 0;
+  for (const it of items || []) {
+    if (excludeReturned && it && it.findStatus === "returned") continue;
+    const cny = itemCnyAmount(it);
+    if (cny != null && isFinite(cny)) sum += cny;
+  }
+  return Math.round(sum);
+}
+
 // Primary price currency (settings-toggles.md #1, design handoff PR3 profile
 // sheet): display ORDER only — stored item fields never change. The app root
 // syncs this from credenza-prefs-v1; the USD default keeps tests and any
@@ -531,14 +561,15 @@ let PRICE_PRIMARY = "USD";
 function setPricePrimaryPref(v) {
   PRICE_PRIMARY = v === "CNY" ? "CNY" : "USD";
 }
-// DetailBody price editor (and tests) read the same mirror ProfileSheet writes.
+// DetailBody price editor (and tests) read the same mirror the app syncs.
 export function pricePrimaryPref() {
   return PRICE_PRIMARY;
 }
 
 // Fit summary prefs (design handoff PR4). Same module-mirror pattern as
-// PRICE_PRIMARY: the App syncs these from its prefs state, and flipping a
-// ProfileSheet toggle re-renders the tree so FitSummary reads fresh values.
+// PRICE_PRIMARY: the App syncs these from its prefs state, and flipping the
+// toggle on the size paragraph (design 1e) re-renders the tree so FitSummary
+// reads fresh values.
 export let FIT_SUMMARY_ON = true;
 let FIT_DETAIL = "concise"; // "concise" | "detailed"
 function setFitPrefs({ summary, detail }) {
@@ -556,11 +587,12 @@ export function priceLabel(item) {
   if (item.price == null && item.priceUsd == null) return "";
   const currency = item.currency || "CNY";
   const usd = itemUsdAmount(item);
-  const cny =
-    currency === "CNY" && item.price != null && isFinite(item.price) ? item.price : null;
+  const cny = itemCnyAmount(item);
 
   // One currency only (Kyle 2026-07-26): USD prefs hide ¥; CNY prefs hide $.
   // Dual "$14.59 · ¥99" made the footer and cards fight the price toggle.
+  // Both directions CONVERT (Kyle 2026-07-28): a USD-priced item under a CNY
+  // pref shows yuan, not the dollar amount with a ¥-less label.
   if (PRICE_PRIMARY === "USD") {
     if (usd != null) return formatMoney(usd, "USD");
     if (cny != null) return formatMoney(cny, "CNY");
@@ -573,11 +605,17 @@ export function priceLabel(item) {
   return "";
 }
 
-// USD-only pill label (Kyle 2026-07-22): the dual-currency chip ate too much
-// photo on phones. USD when known, CNY fallback, whatever-currency last.
+// Pill label (Kyle 2026-07-22): one currency per chip. Follows the same
+// primary pref as priceLabel (Kyle 2026-07-28) — a toggle that changes the
+// label but not the amount reads as broken.
 export function priceLabelShort(item) {
-  const usd = itemUsdAmount(item);
-  if (usd != null) return formatMoney(usd, "USD");
+  if (PRICE_PRIMARY === "CNY") {
+    const cny = itemCnyAmount(item);
+    if (cny != null) return formatMoney(cny, "CNY");
+  } else {
+    const usd = itemUsdAmount(item);
+    if (usd != null) return formatMoney(usd, "USD");
+  }
   if (item.price != null && isFinite(item.price)) return formatMoney(item.price, item.currency || "CNY");
   return "";
 }
@@ -4225,17 +4263,11 @@ function CredenzaApp() {
   const [preferredAgent, setPreferredAgent] = useState(DEFAULT_AGENT_ID);
   // One-time "Opening in X" toast per agent; re-arms when the agent changes.
   const [agentToastSeenFor, setAgentToastSeenFor] = useState(null);
-  // First-load view: carousel is the desktop showpiece; on phones the grid is
-  // the sane default (460px card + chrome doesn't fit a 390px screen). Stored
-  // viewMode prefs are intentionally not restored — every device lands on its
-  // own sane default each session.
-  const [viewMode, setViewMode] = useState(() =>
-    typeof window !== "undefined" &&
-    !!window.matchMedia &&
-    window.matchMedia("(max-width: 767px)").matches
-      ? "cards"
-      : "carousel"
-  );
+  // First-load view: the list everywhere (Kyle 2026-07-28: "make the number
+  // one option the list view … the carousel the secondary option"). The
+  // carousel stays one tap away in the view switcher. Stored viewMode prefs
+  // are intentionally not restored — every session lands on the list.
+  const [viewMode, setViewMode] = useState("cards");
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   // "recent" = newest first (default). "starred" = only starred items.
   const [sortMode, setSortMode] = useState("recent");
@@ -4256,29 +4288,31 @@ function CredenzaApp() {
   const overlayCloseTimer = useRef(null);
   const closeCarouselOverlayRef = useRef(() => {});
   const openInCarouselRef = useRef(() => {});
+  const stepDetailItemRef = useRef(() => {});
   // Focus management for the overlay (Part 5 a11y): root node + the control
   // that opened it, so close can return focus.
   const overlayRef = useRef(null);
   const overlayTriggerRef = useRef(null);
-  // Design handoff PR3 (2026-07-23): the capture bar and Profile own the old
-  // bottom-bar ⋯ menu's jobs. captureSheetOpen controls the review surface
-  // behind the Stash pill. profileOpen controls the desktop account sheet.
-  // Profile and phone Settings contain the sizes-and-measurements editor.
+  // Design handoff PR3 (2026-07-23): the capture bar and the avatar menu own
+  // the old bottom-bar ⋯ menu's jobs. captureSheetOpen controls the review
+  // surface behind the Stash pill.
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  // Settings sub-page (Kyle 2026-07-26). Sizes / fit prefs / agent / import
-  // used to close their parent and open a SECOND modal — a hard cut, and the
-  // way back was Close, not Back. They are now pages inside the same modal:
-  // it slides sideways and resizes to the page. One of "sizes" | "fit" |
-  // "agent" | "import", or null for the parent page. `settingsSubPage` is
-  // the phone Settings sheet's own stack; the two never show at once.
-  const [profileSubPage, setProfileSubPage] = useState(null);
-  const [settingsSubPage, setSettingsSubPage] = useState(null);
   // Mobile handoff C2/C4 (2026-07-25). The phone masthead collapsed to one
-  // row, so search hides behind an icon and the old bottom bar's Agent /
-  // Import / Theme rows live in their own ⋯ sheet.
+  // row, so search hides behind an icon.
   const [searchOpen, setSearchOpen] = useState(false);
-  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
+  // Routed settings page (Profile Settings design, Phase 1). Replaces the
+  // modal stack one section at a time: /settings/<section> is a real URL
+  // with history, pushed on entry and peeled by the browser Back button.
+  // { section } — a SETTINGS_SECTIONS key, or null for the phone's list
+  // view. null settingsView = the page is closed.
+  const [settingsView, setSettingsView] = useState(null);
+  // The avatar's quick menu (design 1c) — the first surface behind the
+  // masthead avatar; the settings page sits behind its "All settings" row.
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  // The menu's Agent row opens the agent sheet ON TOP of where the menu was.
+  // Closing that sheet returns to the menu (Kyle 2026-07-28) — but only when
+  // the sheet came from the menu, not from a card's Buy notch.
+  const agentReturnToMenuRef = useRef(false);
   // LB-8: the share sheet, open on one named haul. A string, not a boolean —
   // the sheet needs to know WHICH haul, and the name is the haul's identity.
   const [shareHaulName, setShareHaulName] = useState(null);
@@ -4343,11 +4377,16 @@ function CredenzaApp() {
         if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
         else notify("Checkout cancelled — nothing was charged.");
       }
-      // Return from the Stripe Customer Portal: land on the Profile sheet,
+      // Return from the Stripe Customer Portal: land on Account and plan,
       // where billing lives (portal.js builds this return URL).
       if (params.get("profile")) {
         stripUrl();
-        setProfileOpen(true);
+        setSettingsView({ section: "account" });
+        settingsBootRef.current = true;
+        settingsSeqRef.current = 1;
+        try {
+          window.history.replaceState({ czSettings: "account", seq: 1 }, "", "/settings/account");
+        } catch {}
       }
       const session = await getValidSession();
       if (cancelled) return;
@@ -4372,46 +4411,23 @@ function CredenzaApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Settings deep links (CH-12). Settings is a modal stack, not a page, so a
-  // /settings URL is an entrance, not state: on boot it opens the right sheet
-  // over the shelf and the address goes back to "/". One-way on purpose —
-  // pushing history for every sheet would fight the phone back button, and
-  // the sheets already have their own Back. Sizes and fit follow the same
-  // breakpoint split as openSizesDestination; everything else Profile owns.
+  // Settings deep links (CH-12 + Profile Settings design Phase 4). Every
+  // /settings URL is a real address now: boot maps it onto the routed page
+  // and the address STAYS. Legacy sections (agent, import, links) normalize
+  // onto the section that owns them and the address rewrites to the
+  // canonical one.
   useEffect(() => {
     const m = /^\/settings(?:\/([a-z]+))?\/?$/.exec(window.location.pathname);
     if (!m) return;
-    try {
-      window.history.replaceState(null, "", "/");
-    } catch {}
     const section = m[1] || "";
-    const sub = {
-      sizes: "sizes",
-      fit: "fit",
-      agent: "agent",
-      shelf: "import",
-      data: "import",
-      import: "import",
-      links: "links",
-    }[section];
-    if (sub === "sizes" || sub === "fit") {
-      if (isPhone) {
-        setSettingsSubPage(sub);
-        setSettingsSheetOpen(true);
-      } else {
-        setProfileSubPage(sub);
-        setProfileOpen(true);
-      }
-    } else if (sub) {
-      setProfileSubPage(sub);
-      setProfileOpen(true);
-    } else if (!section || section === "account" || section === "about") {
-      // The list itself. The phone's list is the Settings sheet; the desktop
-      // list is the full Profile sheet. Account and about are Profile rows
-      // on both.
-      if (isPhone && !section) setSettingsSheetOpen(true);
-      else setProfileOpen(true);
-    }
+    const target = section ? normalizeSettingsSection(section) : isPhone ? null : "account";
+    setSettingsView({ section: target });
+    settingsBootRef.current = true;
+    settingsSeqRef.current = 1;
+    try {
+      const url = target ? "/settings/" + target : "/settings";
+      window.history.replaceState({ czSettings: target || "list", seq: 1 }, "", url);
+    } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -4462,6 +4478,89 @@ function CredenzaApp() {
     setAccountPlan(null);
     notify("Account deleted. Your shelf stays on this device.");
   };
+  // Restore purchase (Account and plan screen): re-read the entitlement from
+  // the server. On web there is no store receipt to restore — the Stripe
+  // webhook moves the plan, and this pulls the current truth.
+  const accountRestorePurchase = async () => {
+    const session = await getValidSession();
+    if (!session) {
+      setAccountSession(null);
+      notify("Sign in first to restore a purchase.");
+      return;
+    }
+    const payload = await refreshEntitlement(session.accessToken);
+    if (!payload) return;
+    setAccountPlan(payload);
+    notify(
+      payload.state === "pro" || payload.state === "grace"
+        ? "Pro is active on this account."
+        : "No paid plan found on this account."
+    );
+  };
+  // Routed settings navigation. Entry pushes /settings/<section>; the
+  // browser Back button peels it through popstate. Closing is ONE click out
+  // (Kyle 2026-07-28: "Back to the shelf … just toggles you through what you
+  // just had gone through"): every pushed entry carries a seq number and the
+  // ref tracks the live one, so close jumps back past the whole visit.
+  // A boot that LANDED on /settings/* owns no earlier in-app entry — closing
+  // there rewrites the address instead, because going back would leave the
+  // app (or do nothing on a fresh tab).
+  const settingsSeqRef = useRef(0);
+  const settingsBootRef = useRef(false);
+  const navigateSettings = (section) => {
+    // No section: the phone shows its list; the desktop always shows a
+    // section, and account is the front door.
+    const target = section || (isPhone ? null : "account");
+    const seq = (settingsView ? settingsSeqRef.current : 0) + 1;
+    settingsSeqRef.current = seq;
+    setSettingsView({ section: target });
+    try {
+      const url = target ? "/settings/" + target : "/settings";
+      window.history.pushState({ czSettings: target || "list", seq }, "", url);
+    } catch {}
+  };
+  const closeSettings = () => {
+    const seq = settingsSeqRef.current;
+    const booted = settingsBootRef.current;
+    settingsSeqRef.current = 0;
+    settingsBootRef.current = false;
+    if (!booted && seq > 0 && window.history.length > seq) {
+      // popstate clears the view.
+      try {
+        window.history.go(-seq);
+        return;
+      } catch {}
+    }
+    setSettingsView(null);
+    try {
+      window.history.replaceState(null, "", "/");
+    } catch {}
+  };
+  const SETTINGS_KEYS = ["account", "sizes", "fit", "shelf", "data", "about"];
+  const normalizeSettingsSection = (s) => {
+    const mapped = { agent: "shelf", import: "data", links: "data" }[s] || s;
+    return SETTINGS_KEYS.includes(mapped) ? mapped : "account";
+  };
+  useEffect(() => {
+    const onPop = () => {
+      const m = /^\/settings(?:\/([a-z]+))?\/?$/.exec(window.location.pathname);
+      if (!m) {
+        settingsSeqRef.current = 0;
+        settingsBootRef.current = false;
+        setSettingsView(null);
+        return;
+      }
+      const st = window.history.state;
+      settingsSeqRef.current = st && st.seq ? st.seq : 1;
+      const section = m[1] || "";
+      setSettingsView({
+        section: section ? normalizeSettingsSection(section) : isPhone ? null : "account",
+      });
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPhone]);
   // Module-level enrichment (chart-vision) reads the plan through the module
   // mirror — component state stays the one source of truth.
   useEffect(() => {
@@ -4482,9 +4581,13 @@ function CredenzaApp() {
   // Display order for dual-currency labels; synced into priceLabel's module
   // reader below. Persisted in credenza-prefs-v1.
   const [pricePrimary, setPricePrimary] = useState("USD");
-  useEffect(() => {
-    setPricePrimaryPref(pricePrimary);
-  }, [pricePrimary]);
+  // Sync during render, not in an effect: an effect runs AFTER the tree has
+  // rendered with the stale mirror, and module state triggers no re-render —
+  // cards kept the old currency until something else re-rendered them (Kyle
+  // 2026-07-28: "If you switch from USD to CNY, it doesn't change the dollar
+  // amount"). The parent body runs before children render, so one pass is
+  // enough.
+  setPricePrimaryPref(pricePrimary);
   // Fit summary (design handoff PR4): show/hide + Concise/Detailed length,
   // synced into the module readers FitSummary uses. Persisted in prefs.
   const [fitSummary, setFitSummary] = useState(true);
@@ -4499,9 +4602,9 @@ function CredenzaApp() {
   // It stays in prefs under the same key so existing users are not re-taught.
   const [onboardingDone, setOnboardingDone] = useState(true);
   const [fitDetail, setFitDetail] = useState("concise");
-  useEffect(() => {
-    setFitPrefs({ summary: fitSummary, detail: fitDetail });
-  }, [fitSummary, fitDetail]);
+  // Same render-time sync as pricePrimary above — the mirror must be fresh
+  // before FitSummary children read it in this render pass.
+  setFitPrefs({ summary: fitSummary, detail: fitDetail });
   // Body measurements powering the card-back size pick; persisted in
   // credenza-prefs-v1. Null until the user fills the sheet once. Storage is
   // always cm/kg — measureUnits only controls display/input (default "in",
@@ -4519,7 +4622,6 @@ function CredenzaApp() {
   // Per-category Length/Looseness taste (design turn 5). Shape:
   // { [category]: { length, looseness, dismissed } }. Persisted in prefs.
   const [fitPrefs, setFitPrefsByCat] = useState({});
-  const [fitPrefsSheetOpen, setFitPrefsSheetOpen] = useState(false);
   const saveFitPref = (category, pref) => {
     if (!category) return;
     setFitPrefsByCat((prev) => ({
@@ -4956,9 +5058,8 @@ function CredenzaApp() {
               .set(
                 "credenza-prefs-v1",
                 JSON.stringify({
-                  // "rows" view was scrapped (Kyle 2026-07-22) — anything
-                  // stored other than cards falls back to carousel.
-                  viewMode: p.viewMode === "cards" ? "cards" : "carousel",
+                  // viewMode is not carried: every session lands on the list
+                  // (Kyle 2026-07-28 — the carousel is the secondary option).
                   sortMode: p.sortMode === "starred" ? "starred" : "recent",
                   theme: "rainbow",
                   colorwayVersion: 4,
@@ -5393,7 +5494,7 @@ function CredenzaApp() {
     if (!isProPlan) {
       notify("CSV export is a Pro feature.", {
         actionLabel: "See Pro",
-        onAction: () => setProfileOpen(true),
+        onAction: () => navigateSettings("account"),
       });
       return;
     }
@@ -5572,7 +5673,7 @@ function CredenzaApp() {
           " open hauls on Free. Archive a finished one to start another, or Pro holds " +
           PRO_LIMITS.haulsMax +
           ".",
-      isProPlan ? {} : { actionLabel: "See Pro", onAction: () => setProfileOpen(true) }
+      isProPlan ? {} : { actionLabel: "See Pro", onAction: () => navigateSettings("account") }
     );
     return true;
   };
@@ -5672,7 +5773,7 @@ function CredenzaApp() {
             ".",
         isProPlan
           ? {}
-          : { actionLabel: "See Pro", onAction: () => setProfileOpen(true) }
+          : { actionLabel: "See Pro", onAction: () => navigateSettings("account") }
       );
       return;
     }
@@ -6656,6 +6757,12 @@ function CredenzaApp() {
     () => sumItemsUsd(totalsItems, { excludeReturned: !!openHaulName }),
     [totalsItems, openHaulName]
   );
+  // Kyle 2026-07-28: the total follows the primary currency too — a chip
+  // that says CNY over a dollar amount read as broken.
+  const listTotalCny = useMemo(
+    () => sumItemsCny(totalsItems, { excludeReturned: !!openHaulName }),
+    [totalsItems, openHaulName]
+  );
   // A3 + A6 haul pipeline board: per-status counts, the ready-to-ship count
   // (bought + GL per docs/Monetization.md §A3), and the rough ship weight.
   // Computed over the whole haul (totalsItems), so search inside the haul
@@ -6818,12 +6925,12 @@ function CredenzaApp() {
     importOpen,
     agentSheetOpen,
     captureSheetOpen,
-    profileOpen,
-    settingsSheetOpen,
+    settingsOpen: !!settingsView,
     viewMode,
     view,
     activeHaul,
     carouselOverlay,
+    isWideDetail,
   };
   useEffect(() => {
     // True when the user is already in a text field — type-anywhere must NOT
@@ -6858,8 +6965,7 @@ function CredenzaApp() {
           ctx.importOpen ||
           ctx.agentSheetOpen ||
           ctx.captureSheetOpen ||
-          ctx.profileOpen ||
-          ctx.settingsSheetOpen
+          ctx.settingsOpen
         )
           return;
         if (e.key === "k") {
@@ -6876,8 +6982,7 @@ function CredenzaApp() {
         ctx.importOpen ||
         ctx.agentSheetOpen ||
         ctx.captureSheetOpen ||
-        ctx.profileOpen ||
-        ctx.settingsSheetOpen
+        ctx.settingsOpen
       )
         return; // overlays handle their own keys
       if (isTyping(e)) {
@@ -6931,6 +7036,24 @@ function CredenzaApp() {
         return found >= 0 ? found : 0;
       };
 
+      // An open detail surface owns Left/Right first (Kyle 2026-07-28: "when
+      // you click right on your keyboard, it should go to the next card.
+      // That's the point of the carousel … it lets you see multiple
+      // different articles of clothing fast in that view"). Step the OPEN
+      // card along the shelf order, wrapping at the ends. preventDefault
+      // stands the rack CoverFlow down (its window listener checks
+      // defaultPrevented), so the rack behind never double-steps. The wide
+      // detail panel is a native dialog — it calls the same helper through
+      // its onStepItem prop (the dialog[open] stand-down above keeps this
+      // handler out of its way).
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const detailId = ctx.carouselOverlay || (ctx.isWideDetail ? ctx.expandedId : null);
+        if (detailId && list.length > 1) {
+          e.preventDefault();
+          stepDetailItemRef.current(detailId, e.key === "ArrowRight" ? 1 : -1);
+          return;
+        }
+      }
       // Carousel arrows are owned by CoverFlow's window listener (wrap/nudge +
       // unflip). Don't also step selection here — that double-fired and felt dead
       // at the ends. Non-carousel views still use Up/Down above.
@@ -7008,8 +7131,7 @@ function CredenzaApp() {
         kb.current.importOpen ||
         kb.current.agentSheetOpen ||
         kb.current.captureSheetOpen ||
-        kb.current.profileOpen ||
-        kb.current.settingsSheetOpen
+        kb.current.settingsOpen
       )
         return;
       if (e.defaultPrevented) return; // card-level image paste already took it
@@ -7315,16 +7437,9 @@ function CredenzaApp() {
     </motion.section>
   );
 
-  const openSizesDestination = () => {
-    if (isPhone) {
-      setSettingsSubPage("sizes");
-      setSettingsSheetOpen(true);
-      return;
-    }
-
-    setProfileSubPage("sizes");
-    setProfileOpen(true);
-  };
+  // "Sizes" entries everywhere (card fit rows, the detail surfaces) land on
+  // the routed settings page now — one destination, both breakpoints.
+  const openSizesDestination = () => navigateSettings("sizes");
 
   // Plain shelf surface — also doubles as the open-haul carousel/cards/rows
   // surface when view === "hauls" && activeHaul (branches internally on viewMode).
@@ -7378,6 +7493,8 @@ function CredenzaApp() {
       onSaveFitPref={saveFitPref}
       onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
       fitDetail={fitDetail}
+      onToggleFitSummary={() => setFitSummary((v) => !v)}
+      fitSummary={fitSummary}
       onOpenSizes={openSizesDestination}
     />
   );
@@ -7398,12 +7515,32 @@ function CredenzaApp() {
       null
     : null;
 
+  // Arrow keys walk the shelf order from inside an open detail (Kyle
+  // 2026-07-28: "when you click right on your keyboard, it should go to the
+  // next card"). One helper, two entrances: the global key handler calls it
+  // through the ref (solo overlay), the wide panel through the onStepItem
+  // prop. Wraps at the ends; a stepped-to card starts face-up.
+  const stepDetailItem = (currentId, step) => {
+    if (listItems.length < 2) return;
+    const cur = listItems.findIndex((x) => x.id === currentId);
+    const next = listItems[(Math.max(cur, 0) + step + listItems.length) % listItems.length];
+    setSelectedId(next.id);
+    if (carouselOverlay) {
+      setExpandedId(null);
+      setCarouselOverlay(next.id);
+    } else {
+      setExpandedId(next.id);
+    }
+  };
+  stepDetailItemRef.current = stepDetailItem;
+
   // Fix B (handoff turn 4): the two-column no-flip detail panel at ≥1024px.
   // Shared by the grid-tap overlay and the rack-tap expansion — same item,
   // same actions, only the close target differs.
   const renderDetailPanel = (panelItem, onClose, closing) => (
     <DesktopDetailPanel
       item={panelItem}
+      onStepItem={(step) => stepDetailItem(panelItem.id, step)}
       haulNames={haulNames}
       bodyProfile={bodyProfile}
       fitPrefs={
@@ -7421,6 +7558,8 @@ function CredenzaApp() {
       onSaveFitPref={saveFitPref}
       onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
       fitDetail={fitDetail}
+      onToggleFitSummary={() => setFitSummary((v) => !v)}
+      fitSummary={fitSummary}
       measureUnits={measureUnits}
       buyLabel={buyLabel}
       preferredAgent={preferredAgent}
@@ -7603,101 +7742,6 @@ function CredenzaApp() {
     </motion.section>
   );
 
-  // Settings sub-page bodies (Kyle 2026-07-26). Each returns the same sheet
-  // component in `embedded` mode: the body only, because the modal stack
-  // already owns the shell, the title, and the back button. `maxWidth` is
-  // what the modal tweens to — the measurements page is wider than Profile,
-  // which is the resize Kyle asked for.
-  const buildSubPage = (key, back) => {
-    if (!key) return null;
-    const page = (title, width, node) => ({ key, title, maxWidth: width, node });
-    if (key === "sizes")
-      return page(
-        "Sizes and measurements",
-        560,
-        <Suspense fallback={null}>
-          <BodyProfileSheet
-            value={bodyProfile}
-            units={measureUnits}
-            onSave={(profile) => {
-              setBodyProfile(profile);
-              notify("Sizes updated.");
-            }}
-            onChangeUnits={setMeasureUnits}
-            onClose={back}
-            embedded
-          />
-        </Suspense>
-      );
-    if (key === "fit")
-      return page(
-        "Fit preferences",
-        440,
-        <Suspense fallback={null}>
-          <FitPrefsSheet
-            value={fitPrefs}
-            ownedCategories={ownedFitPrefCategories}
-            onSave={(draft) => {
-              setFitPrefsByCat((prev) => ({ ...(prev || {}), ...(draft || {}) }));
-              notify("Fit preferences updated.");
-            }}
-            onClose={back}
-            embedded
-          />
-        </Suspense>
-      );
-    if (key === "agent")
-      return page(
-        "Buying agent",
-        520,
-        <Suspense fallback={null}>
-          <AgentSheet
-            preferredAgent={preferredAgent}
-            onSelectAgent={(id) => {
-              const a = getAgent(id);
-              if (a && !a.retired) setPreferredAgent(a.id);
-            }}
-            storageBackend={storageBackend}
-            onClose={back}
-            embedded
-          />
-        </Suspense>
-      );
-    if (key === "import")
-      return page(
-        "Import & backup",
-        520,
-        <Suspense fallback={null}>
-          <ImportSheet
-            items={items}
-            onImport={runImport}
-            onClose={back}
-            onExport={exportShelf}
-            onExportCsv={exportShelfCsv}
-            isPro={isProPlan}
-            onClearShelf={clearShelf}
-            onRestore={restoreBackup}
-            embedded
-          />
-        </Suspense>
-      );
-    if (key === "links")
-      return page(
-        "Shared links",
-        480,
-        <Suspense fallback={null}>
-          <SharedLinksSheet
-            onList={listHaulShares}
-            onDelete={deleteHaulShare}
-            onCopy={copyLink}
-            onClose={back}
-            embedded
-          />
-        </Suspense>
-      );
-    return null;
-  };
-
   return (
     <div
       className="cz-app"
@@ -7755,21 +7799,13 @@ function CredenzaApp() {
             if (a && !a.retired) setPreferredAgent(a.id);
           }}
           storageBackend={storageBackend}
-          onClose={() => setAgentSheetOpen(false)}
-        />
-        </Suspense>
-      )}
-
-      {fitPrefsSheetOpen && (
-        <Suspense fallback={null}>
-        <FitPrefsSheet
-          value={fitPrefs}
-          ownedCategories={ownedFitPrefCategories}
-          onSave={(draft) => {
-            setFitPrefsByCat((prev) => ({ ...(prev || {}), ...(draft || {}) }));
-            notify("Fit preferences updated.");
+          onClose={() => {
+            setAgentSheetOpen(false);
+            if (agentReturnToMenuRef.current) {
+              agentReturnToMenuRef.current = false;
+              setAvatarMenuOpen(true);
+            }
           }}
-          onClose={() => setFitPrefsSheetOpen(false)}
         />
         </Suspense>
       )}
@@ -7830,78 +7866,64 @@ function CredenzaApp() {
         </ModalShell>
       )}
 
-      {profileOpen && (
+      {settingsView && (
         <Suspense fallback={null}>
-        <ProfileSheet
-          mode={mode}
-          onTheme={setTheme}
-          agentLabel={agentBarLabel}
-          onOpenAgent={() => setProfileSubPage("agent")}
-          pricePrimary={pricePrimary}
-          onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
-          fitSummary={fitSummary}
-          onToggleFitSummary={() => setFitSummary((v) => !v)}
-          fitDetail={fitDetail}
-          onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
-          onOpenSizes={() => setProfileSubPage("sizes")}
-          onOpenFitPrefs={() => setProfileSubPage("fit")}
-          onOpenImport={() => setProfileSubPage("import")}
-          onOpenSharedLinks={() => setProfileSubPage("links")}
-          storageLabel={localStatus.label}
-          storageColor={localStatus.color}
-          onEraseData={eraseEverything}
-          accountEnabled={AUTH_ENABLED}
-          accountSession={accountSession}
-          accountPlan={accountPlan}
-          onMagicLink={accountSendMagicLink}
-          onGoogle={accountGoogle}
-          onUpgrade={accountUpgrade}
-          onPortal={accountOpenPortal}
-          onSignOut={accountSignOut}
-          onDeleteAccount={accountDelete}
-          full={!isPhone}
-          onOpenSettings={() => {
-            setProfileOpen(false);
-            setProfileSubPage(null);
-            setSettingsSheetOpen(true);
-          }}
-          subPage={buildSubPage(profileSubPage, () => setProfileSubPage(null))}
-          onBack={() => setProfileSubPage(null)}
-          onClose={() => {
-            setProfileOpen(false);
-            setProfileSubPage(null);
-          }}
-        />
-        </Suspense>
-      )}
-
-      {/* Settings sheet: the phone's look-and-fit rows. Phone only — desktop
-          keeps every row in the profile sheet (full=true). CH-03 deleted the
-          masthead ⋯ button; the route in is now avatar → Profile → Settings. */}
-      {settingsSheetOpen && (
-        <Suspense fallback={null}>
-        <SettingsSheet
-          mode={mode}
-          onCycleTheme={() => setTheme(mode === "light" ? "rainbow" : "light")}
-          onOpenSizes={() => setSettingsSubPage("sizes")}
-          onOpenFitPrefs={() => setSettingsSubPage("fit")}
-          fitSummary={fitSummary}
-          onToggleFitSummary={() => setFitSummary((v) => !v)}
-          fitDetail={fitDetail}
-          onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
-          accountEnabled={AUTH_ENABLED}
-          accountSession={accountSession}
-          accountPlan={accountPlan}
-          onOpenAccount={() => {
-            setSettingsSheetOpen(false);
-            setSettingsSubPage(null);
-            setProfileOpen(true);
-          }}
-          subPage={buildSubPage(settingsSubPage, () => setSettingsSubPage(null))}
-          onBack={() => setSettingsSubPage(null)}
-          onClose={() => {
-            setSettingsSheetOpen(false);
-            setSettingsSubPage(null);
+        <SettingsPage
+          section={settingsView.section}
+          onNavigate={navigateSettings}
+          onClose={closeSettings}
+          isPhone={isPhone}
+          value={{
+            accountEnabled: AUTH_ENABLED,
+            accountSession,
+            accountPlan,
+            onMagicLink: accountSendMagicLink,
+            onGoogle: accountGoogle,
+            onUpgrade: accountUpgrade,
+            onPortal: accountOpenPortal,
+            onSignOut: accountSignOut,
+            onDeleteAccount: accountDelete,
+            onRestorePurchase: accountRestorePurchase,
+            items,
+            onImport: runImport,
+            onExport: exportShelf,
+            onExportCsv: exportShelfCsv,
+            isPro: isProPlan,
+            onClearShelf: clearShelf,
+            onRestore: restoreBackup,
+            storageLabel: localStatus.label,
+            storageColor: localStatus.color,
+            onEraseData: eraseEverything,
+            sharedLinks: {
+              onList: listHaulShares,
+              onDelete: deleteHaulShare,
+              onCopy: copyLink,
+            },
+            // Sizes and Fit preferences sections: the same handlers the old
+            // sheet sub-pages used.
+            bodyProfile,
+            measureUnits,
+            onSaveBodyProfile: (profile) => {
+              setBodyProfile(profile);
+              notify("Sizes updated.");
+            },
+            onChangeUnits: setMeasureUnits,
+            fitPrefs,
+            ownedFitPrefCategories,
+            onSaveFitPrefs: (draft) => {
+              setFitPrefsByCat((prev) => ({ ...(prev || {}), ...(draft || {}) }));
+              notify("Fit preferences updated.");
+            },
+            // Shelf defaults (design 1e, rows made live per Kyle 2026-07-28):
+            // the same handlers the shelf chrome and the avatar menu use.
+            agentLabel: agentBarLabel,
+            pricePrimary,
+            fitSummary,
+            fitDetail,
+            onOpenAgent: () => setAgentSheetOpen(true),
+            onCycleCurrency: () => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY")),
+            onToggleFitSummary: () => setFitSummary((v) => !v),
+            onCycleFitDetail: () => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed")),
           }}
         />
         </Suspense>
@@ -7921,7 +7943,7 @@ function CredenzaApp() {
             onCopy={copyLink}
             onUpgrade={() => {
               setShareHaulName(null);
-              setProfileOpen(true);
+              navigateSettings("account");
             }}
             onClose={() => setShareHaulName(null)}
           />
@@ -7952,6 +7974,8 @@ function CredenzaApp() {
           onSaveFitPref={saveFitPref}
           onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
           fitDetail={fitDetail}
+          onToggleFitSummary={() => setFitSummary((v) => !v)}
+          fitSummary={fitSummary}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
           preferredAgent={preferredAgent}
@@ -8102,13 +8126,15 @@ function CredenzaApp() {
             )}
             {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
                 top-right entry — initials when signed in, person glyph when
-                out. Settings live behind the profile menu now. */}
+                out. It drops the quick menu (design 1c); the settings page
+                sits behind the menu's "All settings" row. */}
             <button
               type="button"
               className="cz-avatar"
               aria-label="Profile"
               title="Profile"
-              onClick={() => setProfileOpen(true)}
+              aria-expanded={avatarMenuOpen}
+              onClick={() => setAvatarMenuOpen((v) => !v)}
             >
               {avatarInitials ? (
                 <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
@@ -8116,6 +8142,27 @@ function CredenzaApp() {
                 <User size={17} strokeWidth={2.2} aria-hidden="true" />
               )}
             </button>
+            {avatarMenuOpen && (
+              <Suspense fallback={null}>
+              <AvatarMenu
+                accountSession={accountSession}
+                accountPlan={accountPlan}
+                avatarInitials={avatarInitials}
+                mode={mode}
+                onTheme={setTheme}
+                agentLabel={agentBarLabel}
+                onOpenAgent={() => {
+                  agentReturnToMenuRef.current = true;
+                  setAgentSheetOpen(true);
+                }}
+                pricePrimary={pricePrimary}
+                onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+                onOpenSettings={(section) => navigateSettings(section)}
+                onSignOut={accountSignOut}
+                onClose={() => setAvatarMenuOpen(false)}
+              />
+              </Suspense>
+            )}
           </div>
           )}
         </header>
@@ -8581,12 +8628,14 @@ function CredenzaApp() {
               {!(q && visible.length === 0) && (
                 <>
                   <span className="cz-tabs-total" aria-live="polite">
-                    <ReelCounter value={listTotalUsd} />
+                    <ReelCounter
+                      value={pricePrimary === "CNY" ? listTotalCny : listTotalUsd}
+                      currency={pricePrimary}
+                    />
                   </span>
                   {/* CH-14: the currency pref is changeable at the total, not
-                      only in Profile. The reel stays the USD shelf cost; the
-                      chip flips which currency the card/footer labels lead
-                      with (PRICE_PRIMARY). */}
+                      only in Profile. The reel follows the chip (Kyle
+                      2026-07-28) — cards, footer, and total agree. */}
                   <button
                     type="button"
                     className="cz-total-currency"
@@ -8678,10 +8727,13 @@ function CredenzaApp() {
                     >
                       {openHaulName ? "Haul" : sortMode === "starred" ? "Starred" : "Total"}
                     </span>
-                    <ReelCounter value={listTotalUsd} />
+                    <ReelCounter
+                      value={pricePrimary === "CNY" ? listTotalCny : listTotalUsd}
+                      currency={pricePrimary}
+                    />
                   </span>
                   {/* CH-14: same chip as the phone tabs row — one currency
-                      pref, two entrances. */}
+                      pref, two entrances. The reel follows the chip. */}
                   <button
                     type="button"
                     className="cz-total-currency"

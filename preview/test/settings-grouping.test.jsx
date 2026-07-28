@@ -4,8 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { cleanup, render, within } from "@testing-library/react";
 
-import ProfileSheet from "../../sheets/ProfileSheet.jsx";
-import SettingsSheet from "../../sheets/SettingsSheet.jsx";
+import SettingsContext from "../../settings/SettingsContext.jsx";
+import YourDataSection from "../../settings/YourDataSection.jsx";
 import BodyProfileSheet from "../../sheets/BodyProfileSheet.jsx";
 
 // LB-70 (Kyle 2026-07-27): "make the navigation and profile setting experience
@@ -43,53 +43,48 @@ function ruleBody(selector) {
 
 const noop = () => {};
 
-function renderProfile(extra = {}) {
+// The Profile and Settings sheets were deleted in Phase 4 of the Profile
+// Settings design. The grouping rules they carried now live in the routed
+// settings sections; Your data is the section with the most rows, so it
+// stands in for the rule.
+const DATA_VALUE = {
+  items: [],
+  onImport: noop,
+  onExport: noop,
+  onExportCsv: noop,
+  isPro: false,
+  onClearShelf: noop,
+  onRestore: noop,
+  storageLabel: "Plenty of room",
+  storageColor: "#22c55e",
+  onEraseData: noop,
+  sharedLinks: null,
+  accountEnabled: false,
+  accountSession: null,
+};
+
+function renderData() {
   return render(
-    <ProfileSheet
-      mode="light"
-      onTheme={noop}
-      agentLabel="Sugargoo"
-      onOpenAgent={noop}
-      pricePrimary="USD"
-      onCycleCurrency={noop}
-      fitSummary={false}
-      onToggleFitSummary={noop}
-      fitDetail="concise"
-      onCycleFitDetail={noop}
-      onOpenSizes={noop}
-      onOpenFitPrefs={noop}
-      onOpenImport={noop}
-      storageLabel="Plenty of room"
-      storageColor="#22c55e"
-      onEraseData={noop}
-      accountEnabled={false}
-      accountSession={null}
-      accountPlan={null}
-      onClose={noop}
-      {...extra}
-    />
+    <SettingsContext.Provider value={DATA_VALUE}>
+      <YourDataSection />
+    </SettingsContext.Provider>
   );
 }
 
-describe("Profile options sit in named groups (LB-70)", () => {
+describe("Settings sections keep the named groups (LB-70)", () => {
   it("shows a heading over every block of rows", () => {
-    const { container } = renderProfile();
+    const { container } = renderData();
     const headings = [...container.querySelectorAll(".cz-profile-label")].map((n) =>
       n.textContent.trim()
     );
-    // Four headings, not the two the flat list had. Without them the eleven
-    // rows read as one undifferentiated column.
-    expect(headings).toEqual(["Look & fit", "Your shelf", "Your data", "Learn"]);
+    expect(headings).toEqual(["Import & backup", "On this device"]);
   });
 
-  it("puts each option row inside a group card, not loose in the sheet", () => {
-    const { container } = renderProfile();
+  it("puts each option row inside a group card, not loose in the section", () => {
+    const { container } = renderData();
     const rows = [...container.querySelectorAll(".cz-profile-row")];
-    expect(rows.length).toBeGreaterThan(5);
+    expect(rows.length).toBeGreaterThan(1);
     for (const row of rows) {
-      // Sign-in card rows are the one exception: they bleed to that card's
-      // own edge on purpose and have their own surface already.
-      if (row.closest(".cz-profile-signin")) continue;
       expect(
         row.closest(".cz-profile-group"),
         `row "${row.textContent.trim()}" is not inside a group card`
@@ -105,59 +100,11 @@ describe("Profile options sit in named groups (LB-70)", () => {
   });
 
   it("keeps the danger row with the data it erases", () => {
-    const { container } = renderProfile();
+    const { container } = renderData();
     const erase = within(container).getByText("Erase my data").closest(".cz-profile-row");
     const group = erase.closest(".cz-profile-group");
     // It used to hang alone at the bottom of the sheet, under the legal links.
-    expect(within(group).getByText("Import & backup")).toBeTruthy();
     expect(within(group).getByText("Storage")).toBeTruthy();
-  });
-});
-
-describe("Settings rows sit in named groups (LB-70)", () => {
-  const renderSettings = () =>
-    render(
-      <SettingsSheet
-        mode="light"
-        onCycleTheme={noop}
-        onOpenSizes={noop}
-        onOpenFitPrefs={noop}
-        fitSummary={false}
-        onToggleFitSummary={noop}
-        fitDetail="concise"
-        onCycleFitDetail={noop}
-        accountEnabled={false}
-        accountSession={null}
-        accountPlan={null}
-        onOpenAccount={noop}
-        onClose={noop}
-      />
-    );
-
-  it("shows a heading over every block of rows", () => {
-    const { container } = renderSettings();
-    const headings = [...container.querySelectorAll(".cz-settings-label")].map((n) =>
-      n.textContent.trim()
-    );
-    expect(headings).toEqual(["Account", "Look", "Fit"]);
-  });
-
-  it("puts every row inside a group card", () => {
-    const { container } = renderSettings();
-    const rows = [...container.querySelectorAll(".cz-settings-row")];
-    expect(rows.length).toBeGreaterThan(3);
-    for (const row of rows) {
-      expect(
-        row.closest(".cz-settings-group"),
-        `row "${row.textContent.trim()}" is not inside a group card`
-      ).not.toBeNull();
-    }
-  });
-
-  it("the group card is a real surface", () => {
-    const body = ruleBody(".cz-settings-group");
-    expect(body).toMatch(/border:\s*1px solid var\(--cz-hair\)/);
-    expect(body).toMatch(/border-radius:\s*18px/);
   });
 });
 
@@ -173,11 +120,11 @@ describe("Measurements are big and grouped (LB-70)", () => {
       n.textContent.trim()
     );
     expect(heads).toEqual(["You", "Upper body", "Lower body", "Usual sizes"]);
-    // Every group states why Credenza wants it. A heading with no reason is
-    // the flat form again with dividers drawn on it.
-    const whys = [...container.querySelectorAll(".cz-measure-group-why")];
-    expect(whys).toHaveLength(heads.length);
-    for (const why of whys) expect(why.textContent.trim().length).toBeGreaterThan(20);
+    // Kyle 2026-07-28: "reduce just the overall text… consolidate it so it's
+    // on one screen." The per-group reason lines are gone — the headings
+    // carry the grouping alone. If they come back, the section stops fitting
+    // on one screen.
+    expect(container.querySelectorAll(".cz-measure-group-why")).toHaveLength(0);
   });
 
   it("labels each box with the body part alone and shows the unit inside it", () => {
@@ -223,38 +170,5 @@ describe("Measurements are big and grouped (LB-70)", () => {
     const height = body.match(/min-height:\s*(\d+)px/);
     expect(height, ".cz-measure-input input has no min-height").not.toBeNull();
     expect(Number(height[1])).toBeGreaterThanOrEqual(48);
-  });
-});
-
-describe("The referral disclosure sits on the plan card (CH-15)", () => {
-  it("is visible on the free plan card without expanding anything", () => {
-    const { container } = renderProfile({
-      accountEnabled: true,
-      accountSession: { user: { email: "kyle@example.com" } },
-      accountPlan: { state: "free" },
-      onUpgrade: noop,
-      onPortal: noop,
-      onSignOut: noop,
-      onDeleteAccount: noop,
-    });
-    expect(
-      within(container).getByText(
-        /Pro is a cap lift, not a key\. Some agent links carry a referral code that funds the app\. It never changes your price\./
-      )
-    ).toBeTruthy();
-  });
-
-  it("does not show upgrade copy to a Pro member", () => {
-    const { container } = renderProfile({
-      accountEnabled: true,
-      accountSession: { user: { email: "kyle@example.com" } },
-      accountPlan: { state: "pro" },
-      onUpgrade: noop,
-      onPortal: noop,
-      onSignOut: noop,
-      onDeleteAccount: noop,
-    });
-    expect(within(container).queryByText(/cap lift, not a key/)).toBeNull();
-    expect(within(container).getByText("Manage billing")).toBeTruthy();
   });
 });

@@ -1,7 +1,8 @@
 // DesktopDetailPanel (handoff turn 4 Fix B) regression tests: the two-column
-// ≥1024px detail layer — photo pager with counter + ←/→ keys, footer price
-// next to Buy, and the ⋯ actions menu. Layout itself is CSS; these guard the
-// behavior contract.
+// ≥1024px detail layer — photo pager with counter + chevrons, arrow keys
+// stepping between cards (Kyle 2026-07-28), footer price next to Buy, and
+// the ⋯ actions menu. Layout itself is CSS; these guard the behavior
+// contract.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -145,13 +146,44 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.queryByRole("button", { name: "Open size chart" })).toBeNull();
   });
 
-  it("shows the photo counter and pages with the arrow keys", async () => {
+  it("shows the photo counter and pages with the pager buttons", async () => {
+    // Arrows step CARDS now (Kyle 2026-07-28: "when you click right on your
+    // keyboard, it should go to the next card"). Photos page with the
+    // chevrons.
+    const user = userEvent.setup();
     renderPanel(panelItem());
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await user.click(screen.getByRole("button", { name: "Next photo" }));
     expect(await screen.findByText("2 / 3")).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    await user.click(screen.getByRole("button", { name: "Previous photo" }));
     expect(await screen.findByText("1 / 3")).toBeInTheDocument();
+  });
+
+  it("arrow keys step between cards through onStepItem (Kyle 2026-07-28)", () => {
+    const onStepItem = vi.fn();
+    renderPanel(panelItem(), { onStepItem });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(onStepItem).toHaveBeenCalledWith(1);
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(onStepItem).toHaveBeenCalledWith(-1);
+    // The photo pager did not move — arrows belong to the cards now.
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+  });
+
+  it("Delete and Backspace stage the delete modal (Kyle 2026-07-28)", () => {
+    // "Pressing delete on this screen should give you the modal to delete
+    // the card" — staged through onDelete, never fired while typing.
+    const onDelete = vi.fn();
+    renderPanel(panelItem(), { onDelete });
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(onDelete).toHaveBeenCalledWith("dp-1");
+    fireEvent.keyDown(window, { key: "Backspace" });
+    expect(onDelete).toHaveBeenCalledTimes(2);
+
+    const colorway = screen.getByRole("textbox", { name: "Colorway" });
+    colorway.focus();
+    fireEvent.keyDown(colorway, { key: "Backspace" });
+    expect(onDelete).toHaveBeenCalledTimes(2);
   });
 
   it("leaves arrow keys with a focused detail field", () => {

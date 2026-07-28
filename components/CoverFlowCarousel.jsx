@@ -60,6 +60,8 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
     onSaveFitPref = null,
     onCycleFitDetail = null,
     fitDetail = null,
+    onToggleFitSummary = null,
+    fitSummary = null,
     reduced,
   },
   ref
@@ -609,6 +611,8 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                       onSaveFitPref={onSaveFitPref}
                       onCycleFitDetail={onCycleFitDetail}
                       fitDetail={fitDetail}
+                      onToggleFitSummary={onToggleFitSummary}
+                      fitSummary={fitSummary}
                       heroPager
                       renderHeroActions={({ photos, photoIdx, resetPager }) => ({
                         // One-tap cover action on the desktop pager (same
@@ -696,6 +700,8 @@ export default function CoverFlowCarousel({
   onSaveFitPref = null,
   onCycleFitDetail = null,
   fitDetail = null,
+  onToggleFitSummary = null,
+  fitSummary = null,
   // When true, skip CoverFlow springs so a haul morph can hand off silently.
   suppressMotion = false,
 }) {
@@ -1235,6 +1241,8 @@ export default function CoverFlowCarousel({
                   onSaveFitPref={onSaveFitPref}
                   onCycleFitDetail={onCycleFitDetail}
                   fitDetail={fitDetail}
+                  onToggleFitSummary={onToggleFitSummary}
+                  fitSummary={fitSummary}
                   reduced={reduced}
                 />
               </motion.div>

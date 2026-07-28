@@ -106,15 +106,29 @@ beforeEach(() => {
   });
 });
 
+// Kyle 2026-07-28: the list is the default view; the carousel is the
+// secondary option. Carousel tests opt in with one click on the view
+// switcher instead of assuming the old carousel-first startup.
+async function renderInCarousel(user) {
+  const result = render(<Credenza />);
+  await user.click(await screen.findByRole("button", { name: "Carousel view" }));
+  await screen.findByRole("listbox", { name: "Card carousel" });
+  return result;
+}
+
 describe("Fashion carousel startup", () => {
-  it("opens in carousel mode even when an older preference says cards", async () => {
+  it("opens in list view even when an older preference says carousel", async () => {
+    // Kyle 2026-07-28: "make the number one option the list view … the
+    // carousel the secondary option". Stored viewMode prefs are not
+    // restored — every session lands on the list.
     installShim({
       [STORE_KEY]: JSON.stringify([fashionItem()]),
-      [PREFS_KEY]: JSON.stringify({ viewMode: "cards", sortMode: "oldest", theme: "light" }),
+      [PREFS_KEY]: JSON.stringify({ viewMode: "carousel", sortMode: "oldest", theme: "light" }),
     });
     render(<Credenza />);
-    expect(await screen.findByRole("listbox", { name: "Card carousel" })).toBeInTheDocument();
-    expect(screen.getAllByText("Palace x Nike jersey").length).toBeGreaterThan(0);
+    await screen.findByRole("button", { name: "Open Palace x Nike jersey" });
+    expect(screen.getByRole("button", { name: "List view" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
   });
 
   it("centers a side card first and flips it only on the next click", async () => {
@@ -125,8 +139,7 @@ describe("Fashion carousel startup", () => {
       ]),
     });
     const user = userEvent.setup();
-    const { container } = render(<Credenza />);
-    await screen.findByRole("listbox", { name: "Card carousel" });
+    const { container } = await renderInCarousel(user);
     const sideFace = screen.getByRole("button", { name: /Select/ });
     await user.click(sideFace);
     expect([...container.querySelectorAll(".cz-carousel-card-inner")].every((node) => !node.classList.contains("is-flipped"))).toBe(true);
@@ -144,7 +157,7 @@ describe("Fashion data and photos", () => {
       ]),
     });
     const user = userEvent.setup();
-    const { container } = render(<Credenza />);
+    const { container } = await renderInCarousel(user);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
     // Unified back (2026-07-25): the back IS the phone sheet body — sizing
@@ -160,7 +173,7 @@ describe("Fashion data and photos", () => {
   it("shows album photos in the back pager and requires an explicit cover action", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
-    const { container } = render(<Credenza />);
+    const { container } = await renderInCarousel(user);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
     // Unified back (2026-07-25): photos ride the same pager as the phone
@@ -193,7 +206,7 @@ describe("Fashion data and photos", () => {
       ]),
     });
     const user = userEvent.setup();
-    const { container } = render(<Credenza />);
+    const { container } = await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
 
     // Unified back (2026-07-25): one filled buy action in the pinned foot —
@@ -222,7 +235,7 @@ describe("Fashion card-back navigation and editing", () => {
       [STORE_KEY]: JSON.stringify([fashionItem({ colorway: "Original", batch: "Stored batch" })]),
     });
     const user = userEvent.setup();
-    const { container } = render(<Credenza />);
+    const { container } = await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const outside = container.querySelector(".cz-carousel-track");
 
@@ -253,7 +266,7 @@ describe("Fashion card-back navigation and editing", () => {
     // cell editor open (the window handler captures before the input).
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
-    const { container } = render(<Credenza />);
+    const { container } = await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     expect(screen.getByRole("button", { name: "Card actions" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
@@ -270,7 +283,7 @@ describe("Fashion card-back navigation and editing", () => {
       [STORE_KEY]: JSON.stringify([fashionItem({ colorway: "Original", batch: "Stored batch" })]),
     });
     const user = userEvent.setup();
-    render(<Credenza />);
+    await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     // Batch stays hidden from the facts sections entirely.
     expect(screen.queryByRole("region", { name: "Batch" })).toBeNull();
@@ -346,7 +359,7 @@ describe("Fashion card-back navigation and editing", () => {
       [STORE_KEY]: JSON.stringify([fashionItem({ project: "Summer haul" })]),
     });
     const user = userEvent.setup();
-    render(<Credenza />);
+    await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
 
     // The header carries only the ⋯ trigger — no pen edit form anymore.
@@ -431,14 +444,14 @@ describe("Fashion morph controls and favorites", () => {
     });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
-    // Theme lives in the profile sheet now (design handoff PR3).
+    // Theme lives in the avatar quick menu now (Profile Settings design 1c).
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    const blackout = await screen.findByRole("button", { name: /Blackout/ });
-    expect(blackout).toHaveAttribute("aria-pressed", "false");
+    const blackout = await screen.findByRole("radio", { name: "Blackout" });
+    expect(blackout).toHaveAttribute("aria-checked", "false");
     await user.click(blackout);
     expect(container.querySelector(".cz-app")).toHaveAttribute("data-theme", "rainbow");
     await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).theme).toBe("rainbow"));
-    await user.click(screen.getByRole("button", { name: /Gallery/ }));
+    await user.click(screen.getByRole("radio", { name: "Gallery" }));
     expect(container.querySelector(".cz-app")).toHaveAttribute("data-theme", "light");
   });
 
@@ -477,7 +490,7 @@ describe("Desktop sizing destination", () => {
   beforeEach(() => window.__setMediaMatches("(min-width: 768px)", true));
   afterEach(() => window.__setMediaMatches("(min-width: 768px)", false));
 
-  it("routes customer sizing through Profile", async () => {
+  it("routes customer sizing to the settings page", async () => {
     installShim({
       [STORE_KEY]: JSON.stringify([
         fashionItem({
@@ -494,16 +507,19 @@ describe("Desktop sizing destination", () => {
     const detail = await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
     const editSizes = screen.getByRole("button", { name: "Edit sizes and measurements" });
 
+    // Phase 4: the sizes editor is the routed settings page now, not a modal
+    // over the detail. The detail stays mounted underneath.
     await user.click(editSizes);
-    expect(await screen.findByRole("dialog", { name: "Sizes and measurements" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sizes and measurements" })
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/sizes");
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
 
-    await user.click(screen.getByRole("button", { name: "Close Sizes and measurements" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "Sizes and measurements" })).toBeNull()
-    );
+    await user.click(screen.getByRole("button", { name: "Back to the shelf" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull());
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
-    await waitFor(() => expect(editSizes).toHaveFocus());
   });
 });
 
@@ -514,7 +530,7 @@ describe("Agent Buy plumbing (A2)", () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();
-    render(<Credenza />);
+    await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const buy = (await screen.findAllByRole("button", { name: "Buy via Superbuy" }))[0];
     await user.click(buy);
@@ -540,7 +556,7 @@ describe("Agent Buy plumbing (A2)", () => {
     });
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();
-    render(<Credenza />);
+    await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const buy = (await screen.findAllByRole("button", { name: "Buy" }))[0];
     await user.click(buy);
@@ -557,13 +573,18 @@ describe("Agent Buy plumbing (A2)", () => {
     // first-run intro can flash for one render and detach early grabs).
     await screen.findAllByText("Palace x Nike jersey");
     // The bottom bar is gone (mobile handoff step 3), so the Agent sheet
-    // opens from the profile sheet on desktop and from Settings on phone.
+    // opens from the avatar menu's Agent row.
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    await user.click(await screen.findByRole("button", { name: /Default agent/ }));
+    // The card detail has its own "Agent: …" button; the menu row computes
+    // as "AgentSuperbuy ›" (spans join without a space).
+    await user.click(await screen.findByRole("button", { name: /^Agent\S+ ›$/ }));
     expect(await screen.findByRole("heading", { name: "Buying agent" })).toBeInTheDocument();
     expect(screen.getByText(/Disclosure:/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Sugargoo/ }));
     await user.click(screen.getByRole("button", { name: "Close Buying agent" }));
+    // The shelf opens on the list now (Kyle 2026-07-28) — switch to the
+    // carousel before flipping a card.
+    await user.click(screen.getByRole("button", { name: "Carousel view" }));
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     await waitFor(() =>
       expect(screen.getAllByRole("button", { name: "Buy via Sugargoo" }).length).toBeGreaterThan(0)
@@ -583,7 +604,7 @@ describe("Agent Buy plumbing (A2)", () => {
     vi.stubEnv("VITE_CREDENZA_REF_SUPERBUY", "KYLE123");
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();
-    render(<Credenza />);
+    await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
     const buy = (await screen.findAllByRole("button", { name: "Buy via Superbuy" }))[0];
     await user.click(buy);
@@ -620,10 +641,12 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    // Import lives in the profile sheet now (design handoff PR3). The cold open
-    // lands straight on the hero — the first-run intro gate is gone (2026-07-26).
+    // Import lives in the settings page's Your data section now (Profile
+    // Settings design). The cold open lands straight on the hero — the
+    // first-run intro gate is gone (2026-07-26).
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
+    await user.click(await screen.findByRole("button", { name: /All settings/ }));
+    await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
     fireEvent.change(box, { target: { value: HAUL } });
 
@@ -678,7 +701,8 @@ Installed Apps`;
     render(<Credenza />);
 
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
+    await user.click(await screen.findByRole("button", { name: /All settings/ }));
+    await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
     fireEvent.change(box, { target: { value: PAGE_DUMP } });
 
@@ -697,7 +721,8 @@ Installed Apps`;
     render(<Credenza />);
 
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
+    await user.click(await screen.findByRole("button", { name: /All settings/ }));
+    await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
     fireEvent.change(box, {
       target: {
@@ -733,7 +758,8 @@ Installed Apps`;
     // first-run intro can flash for one render and detach early grabs).
     await screen.findAllByText("Real card one");
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    await user.click(await screen.findByRole("button", { name: /Import & backup/ }));
+    await user.click(await screen.findByRole("button", { name: /All settings/ }));
+    await user.click(await screen.findByRole("button", { name: /Your data/ }));
     await user.click(await screen.findByRole("button", { name: /Clear the whole shelf/ }));
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(0));
 
@@ -1258,7 +1284,8 @@ describe("Storage hydration race (audit 2026-07-24)", () => {
 describe("Fashion accessibility (Part 5)", () => {
   it("exposes the active carousel option to assistive tech", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
-    render(<Credenza />);
+    const user = userEvent.setup();
+    await renderInCarousel(user);
     const carousel = await screen.findByRole("listbox", { name: "Card carousel" });
     expect(carousel).toHaveAttribute("aria-activedescendant", "card-fashion-1");
     expect(document.getElementById("card-fashion-1")).toHaveAttribute("aria-selected", "true");
@@ -1266,8 +1293,8 @@ describe("Fashion accessibility (Part 5)", () => {
 
   it("carousel shelf has no axe violations", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
-    const { container } = render(<Credenza />);
-    await screen.findByRole("listbox", { name: "Card carousel" });
+    const user = userEvent.setup();
+    const { container } = await renderInCarousel(user);
     const results = await axe(container, {
       rules: {
         // Documented exception (Part 5): a carousel card is a rich option —
@@ -1309,7 +1336,7 @@ describe("Fashion accessibility (Part 5)", () => {
       ]),
     });
     const user = userEvent.setup();
-    const { container } = render(<Credenza />);
+    const { container } = await renderInCarousel(user);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
     // The Haul facts field opens the same keyboard-operated accordion listbox.
@@ -1444,23 +1471,25 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(screen.getByRole("button", { name: "Edit sizes and measurements" })).toBeInTheDocument();
   });
 
-  it("routes customer sizing through Settings", async () => {
+  it("routes customer sizing to the settings page", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     const detail = await openSheet(user);
     const editSizes = screen.getByRole("button", { name: "Edit sizes and measurements" });
 
+    // Phase 4: same destination as desktop — the routed sizes section.
     await user.click(editSizes);
-    expect(await screen.findByRole("dialog", { name: "Sizes and measurements" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sizes and measurements" })
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/sizes");
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
 
-    await user.click(screen.getByRole("button", { name: "Close Sizes and measurements" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "Sizes and measurements" })).toBeNull()
-    );
+    await user.click(screen.getByRole("button", { name: "Back to the shelf" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull());
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
-    await waitFor(() => expect(editSizes).toHaveFocus());
   });
 
   it("the Size section clears a hand size without an obsolete AI action", async () => {
@@ -1957,16 +1986,12 @@ describe("Phone haul board (Kyle 2026-07-25)", () => {
   });
 });
 
-// 2026-07-25 (Kyle): the phone's Settings and Profile sheets were duplicates.
-// Settings owns look-and-fit (theme, sizes, fit); Profile owns account and
-// data (agent, currency, import, storage).
-// CH-03 deleted the masthead ⋯ button, so the route into Settings is now
-// avatar → Profile → Settings row.
-describe("Phone sheet split (Kyle 2026-07-25)", () => {
-  beforeEach(() => window.__setMediaMatches("(max-width: 767px)", true));
-  afterEach(() => window.__setMediaMatches("(max-width: 767px)", false));
-
-  it("Settings shows fit rows, never agent or import", async () => {
+// Profile Settings design (2026-07-28): the avatar drops a quick menu —
+// identity, the Pro upsell, colourway, agent, currency — and the settings
+// page sits behind its All settings row. The phone Settings and Profile
+// sheets this block used to test are being replaced section by section.
+describe("Avatar quick menu and settings page (Profile Settings design)", () => {
+  it("the menu carries the switches: colourway, agent, currency, settings", async () => {
     installShim({
       [STORE_KEY]: JSON.stringify([fashionItem()]),
       [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, theme: "rainbow", sortMode: "recent" }),
@@ -1975,16 +2000,14 @@ describe("Phone sheet split (Kyle 2026-07-25)", () => {
     render(<Credenza />);
 
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    await user.click(await screen.findByRole("button", { name: /^Settings/ }));
-    expect(await screen.findByRole("button", { name: /Theme: Blackout/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Sizes and measurements/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Fit preferences/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Fit summary/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Buying agent/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Import from file/ })).toBeNull();
+    expect(await screen.findByRole("radio", { name: "Blackout" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Gallery" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Agent\S+ ›$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Currency/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /All settings/ })).toBeInTheDocument();
   });
 
-  it("Profile shows agent, currency and import, never the theme picker", async () => {
+  it("All settings opens the routed page on Account and plan", async () => {
     installShim({
       [STORE_KEY]: JSON.stringify([fashionItem()]),
       [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, theme: "rainbow", sortMode: "recent" }),
@@ -1993,52 +2016,98 @@ describe("Phone sheet split (Kyle 2026-07-25)", () => {
     render(<Credenza />);
 
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    expect(await screen.findByRole("button", { name: /Default agent/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Primary currency/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Import & backup/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Gallery/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Fit summary/ })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: /All settings/ }));
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/account");
+  });
+
+  it("on the phone, All settings opens the full-screen list that pushes to a section", async () => {
+    window.__setMediaMatches("(max-width: 767px)", true);
+    try {
+      installShim({
+        [STORE_KEY]: JSON.stringify([fashionItem()]),
+        [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, theme: "rainbow", sortMode: "recent" }),
+      });
+      const user = userEvent.setup();
+      render(<Credenza />);
+
+      await user.click(await screen.findByRole("button", { name: "Profile" }));
+      await user.click(await screen.findByRole("button", { name: /All settings/ }));
+      expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/settings");
+
+      // The list pushes to a full-screen section with a way back.
+      await user.click(await screen.findByRole("button", { name: "Account and plan" }));
+      expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/settings/account");
+      await user.click(screen.getByRole("button", { name: "Settings" }));
+      await waitFor(() => expect(window.location.pathname).toBe("/settings"));
+    } finally {
+      window.__setMediaMatches("(max-width: 767px)", false);
+    }
   });
 });
 
-// CH-12: /settings/<section> is deep-linkable. Settings stays a modal stack,
-// so the URL is an entrance: boot opens the right sheet over the shelf and
-// the address returns to "/". The netlify.toml fallback (also CH-12) is what
-// lets these paths reach the app in production at all.
+// CH-12 + Profile Settings design Phase 4: every /settings/<section> URL is
+// a real address now. Boot opens the routed page on the right section and the
+// address STAYS. The netlify.toml fallback (also CH-12) is what lets these
+// paths reach the app in production at all.
 describe("Settings deep links (CH-12)", () => {
-  it("/settings/sizes opens the measurements page directly on desktop", async () => {
+  it("/settings/sizes opens the measurements section directly on desktop", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     window.history.replaceState(null, "", "/settings/sizes");
     render(<Credenza />);
-    expect(await screen.findByRole("dialog", { name: "Sizes and measurements" })).toBeInTheDocument();
-    // The URL is an entrance, not state — it must not stick.
-    expect(window.location.pathname).toBe("/");
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sizes and measurements" })
+    ).toBeInTheDocument();
+    // The URL is state, not an entrance — it must stick.
+    expect(window.location.pathname).toBe("/settings/sizes");
   });
 
-  it("/settings/sizes opens the same page on the phone, inside Settings", async () => {
+  it("/settings/sizes opens the same section on the phone", async () => {
     window.__setMediaMatches("(max-width: 767px)", true);
     try {
       installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
       window.history.replaceState(null, "", "/settings/sizes");
       render(<Credenza />);
-      expect(await screen.findByRole("dialog", { name: "Sizes and measurements" })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "Sizes and measurements" })
+      ).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/settings/sizes");
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);
     }
   });
 
-  it("/settings alone opens the Profile sheet on desktop", async () => {
+  it("/settings alone opens the routed settings page on Account and plan", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     window.history.replaceState(null, "", "/settings");
     render(<Credenza />);
-    expect(await screen.findByRole("dialog", { name: "Profile" })).toBeInTheDocument();
+    // Profile Settings design, Phase 1: /settings is a real address now. The
+    // page opens on Account and plan and the URL STAYS — it is state, not an
+    // entrance.
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/account");
+  });
+
+  it("/settings/account opens the same routed page", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    window.history.replaceState(null, "", "/settings/account");
+    render(<Credenza />);
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
   });
 
   it("a path outside /settings opens nothing", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     window.history.replaceState(null, "", "/setting");
     render(<Credenza />);
-    await screen.findByRole("listbox", { name: "Card carousel" });
+    // The shelf hydrates on the list (Kyle 2026-07-28) — and no dialog opens.
+    await screen.findByRole("button", { name: "Open Palace x Nike jersey" });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
@@ -2051,15 +2120,24 @@ describe("Inline preference controls (CH-14)", () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    await screen.findByRole("listbox", { name: "Card carousel" });
+    // The chip lives in the shelf meta row — visible in the default list view
+    // (Kyle 2026-07-28), no carousel needed.
+    await screen.findByRole("button", { name: "Open Palace x Nike jersey" });
 
     const chip = screen.getByRole("button", { name: "Show prices in CNY" });
     expect(chip).toHaveTextContent("USD");
+    // The amounts convert with the switch (Kyle 2026-07-28: "If you switch
+    // from USD to CNY, it doesn't change the dollar amount"). ¥229 shows as
+    // $32.06 on the row and in the total reel before the flip.
+    expect(screen.getAllByText("$32.06").length).toBeGreaterThan(1);
     await user.click(chip);
 
     await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).pricePrimary).toBe("CNY"));
     // The chip now names the way back.
     expect(screen.getByRole("button", { name: "Show prices in USD" })).toHaveTextContent("CNY");
+    // Row and reel both lead with yuan now — no dollar amount survives.
+    await waitFor(() => expect(screen.queryByText("$32.06")).toBeNull());
+    expect(screen.getAllByText("¥229").length).toBeGreaterThan(1);
   });
 
   it("the phone tabs row carries the same chip", async () => {
@@ -2118,5 +2196,101 @@ describe("Inline preference controls (CH-14)", () => {
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);
     }
+  });
+
+  // Profile Settings design (1e): the Fit summary on/off row left the sheets
+  // and sits on the paragraph it gates. Off keeps the pick but drops the
+  // sentence, and the way back on stays in the same spot.
+  it("the fit sentence carries its own on/off toggle", async () => {
+    window.__setMediaMatches("(max-width: 767px)", true);
+    try {
+      const data = installShim({
+        [STORE_KEY]: JSON.stringify([
+          fashionItem({
+            size: "",
+            category: "tops",
+            sizeNotes:
+              "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\nXL: 胸围120 衣长72",
+          }),
+        ]),
+        [PREFS_KEY]: JSON.stringify({
+          colorwayVersion: 4,
+          theme: "rainbow",
+          bodyProfile: { chest: 100 },
+          measureUnits: "cm",
+        }),
+      });
+      const user = userEvent.setup();
+      render(<Credenza />);
+      await user.click(await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ }));
+      await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
+
+      expect(document.querySelector(".cz-sizing-why").textContent).toContain("Take the Medium");
+      await user.click(screen.getByRole("button", { name: "Turn the fit summary off" }));
+      await waitFor(() =>
+        expect(document.querySelector(".cz-sizing-why").textContent).not.toContain("Take the Medium")
+      );
+      // The pref persists app-wide.
+      await waitFor(() =>
+        expect(JSON.parse(data[PREFS_KEY]).fitSummary).toBe(false)
+      );
+      // The way back on lives where the sentence was.
+      await user.click(screen.getByRole("button", { name: "Turn the fit summary on" }));
+      await waitFor(() =>
+        expect(document.querySelector(".cz-sizing-why").textContent).toContain("Take the Medium")
+      );
+    } finally {
+      window.__setMediaMatches("(max-width: 767px)", false);
+    }
+  });
+});
+
+// Kyle 2026-07-28: "When you're on this screen and then you click into this
+// from the carousel, when you click right on your keyboard, it should go to
+// the next card. That's the point of the carousel, right? It lets you see
+// multiple different articles of clothing fast in that view."
+describe("Detail arrow navigation (Kyle 2026-07-28)", () => {
+  it("arrow keys walk the shelf order from inside an open detail", async () => {
+    installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({ id: "fashion-1", title: "First tee" }),
+        fashionItem({ id: "fashion-2", title: "Second jacket", createdAt: Date.now() - 1000 }),
+        fashionItem({ id: "fashion-3", title: "Third coat", createdAt: Date.now() - 2000 }),
+      ]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await user.click(await screen.findByRole("button", { name: "Open First tee" }));
+    await screen.findByRole("dialog", { name: "First tee" });
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByRole("dialog", { name: "Second jacket" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByRole("dialog", { name: "Third coat" })).toBeInTheDocument();
+    // Wraps at the end, and Left walks back.
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByRole("dialog", { name: "First tee" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(await screen.findByRole("dialog", { name: "Third coat" })).toBeInTheDocument();
+  });
+
+  it("pressing Delete in the detail stages the delete modal (Kyle 2026-07-28)", async () => {
+    // "Pressing delete on this screen should give you the modal to delete
+    // the card" — staged (KM-02), never instant.
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await user.click(await screen.findByRole("button", { name: "Open Palace x Nike jersey" }));
+    await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
+
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(await screen.findByRole("dialog", { name: "Delete this card?" })).toBeInTheDocument();
+    // Nothing deleted until the confirm button.
+    expect(JSON.parse(data[STORE_KEY])).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Keep" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Delete this card?" })).toBeNull()
+    );
+    expect(JSON.parse(data[STORE_KEY])).toHaveLength(1);
   });
 });

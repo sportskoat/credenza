@@ -48,20 +48,47 @@ export function bumpUsage(feature, { host, now = Date.now() } = {}) {
   } catch {}
 }
 
-// The free caps, repeated on the client because the client must answer before
-// it has a snapshot. These MUST match the free row of PLAN_LIMITS in
-// preview/netlify/functions/lib/entitlements.js — preview/test/plan-limits.test.js
-// compares the two files and fails if they drift.
-//
-// Only the per-ITEM and per-ACCOUNT caps live here. The per-DAY caps are not
-// repeated: those are counted, and a signed-out user is counted by the server,
-// not by us (see overFreeLimit).
-export const FREE_LIMITS = { qcPhotosPerItem: 4, haulsMax: 2 };
+// The full caps table, repeated on the client because the client must answer
+// before it has a snapshot — and because the Account and plan screen prints
+// the table. These MUST match PLAN_LIMITS in
+// preview/netlify/functions/lib/entitlements.js and the MAX_SHARES_*
+// constants in preview/netlify/functions/share.js.
+// preview/test/plan-limits.test.js compares the numbers and fails on drift.
+export const PLAN_CAPS = {
+  free: {
+    askPerDay: 5,
+    chartVisionPerDay: 2,
+    resolvePerDay: 20,
+    qcPhotosPerItem: 4,
+    haulsMax: 2,
+    sharedLinksMax: 3,
+  },
+  pro: {
+    askPerDay: 40,
+    chartVisionPerDay: 15,
+    resolvePerDay: 250,
+    qcPhotosPerItem: 12,
+    haulsMax: 100,
+    sharedLinksMax: 100,
+  },
+};
 
-// The same two caps on Pro. The client never enforces these — a Pro user is
-// under them by construction. They are here so a message can name the number
-// the customer would get, without a second copy of it in the component.
-export const PRO_LIMITS = { qcPhotosPerItem: 12, haulsMax: 100 };
+// Only the per-ITEM and per-ACCOUNT caps get their own names. The per-DAY
+// caps are counted, and a signed-out user is counted by the server, not by
+// us (see overFreeLimit). Both derive from PLAN_CAPS so this file holds one
+// copy of every number.
+export const FREE_LIMITS = {
+  qcPhotosPerItem: PLAN_CAPS.free.qcPhotosPerItem,
+  haulsMax: PLAN_CAPS.free.haulsMax,
+};
+
+// The client never enforces the Pro caps — a Pro user is under them by
+// construction. They are here so a message can name the number the customer
+// would get, without a second copy of it in the component.
+export const PRO_LIMITS = {
+  qcPhotosPerItem: PLAN_CAPS.pro.qcPhotosPerItem,
+  haulsMax: PLAN_CAPS.pro.haulsMax,
+};
 
 // What this account may use, for a cap that is not a daily counter. The
 // snapshot's `lim` already carries the right numbers for the plan, so a Pro or

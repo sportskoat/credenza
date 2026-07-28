@@ -143,7 +143,7 @@ export default function ShareSheet({
             </div>
             <p className="cz-share-fine">
               This link is a copy, frozen now. Editing the haul does not change it. Delete it any
-              time from Profile → Shared links.
+              time from Settings → Your data → Shared links.
             </p>
           </>
         ) : (

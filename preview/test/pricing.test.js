@@ -172,10 +172,11 @@ describe("no stale price survives anywhere on the public site", () => {
 });
 
 describe("the upgrade CTA goes through the app, never straight to Stripe", () => {
-  it("targets the entry parameter that opens the Profile sheet", () => {
-    // credenza-fashion.jsx reads params.get("profile") on mount and calls
-    // setProfileOpen(true). That sheet holds the real checkout button, which
-    // needs the signed-in session a static page does not have.
+  it("targets the entry parameter that opens Account and plan", () => {
+    // credenza-fashion.jsx reads params.get("profile") on mount and opens the
+    // routed settings page on the account section. That section holds the real
+    // checkout button, which needs the signed-in session a static page does
+    // not have.
     expect(page).toContain('href="/?profile=1"');
   });
 
@@ -188,7 +189,7 @@ describe("the upgrade CTA goes through the app, never straight to Stripe", () =>
   it("keeps the entry parameter the app actually reads", () => {
     const app = read("credenza-fashion.jsx");
     expect(app).toContain('params.get("profile")');
-    expect(app).toContain("setProfileOpen(true)");
+    expect(app).toContain('setSettingsView({ section: "account" })');
   });
 });
 

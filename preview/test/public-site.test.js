@@ -239,7 +239,7 @@ describe("links and metadata", () => {
     it(`${rel} has no broken internal page link`, () => {
       const hrefs = [...html.matchAll(/href="(\/[^"#?]*)"/g)].map((m) => m[1]);
       for (const href of hrefs) {
-        // "/" is the React app, which Vite builds from index-fashion.html.
+        // "/" is the React app, which Vite builds from preview/index.html.
         // It is not a file under public/, so there is nothing to look up.
         if (href === "/") continue;
         // Only directory-style links name a page. Files (/llms.txt, /og.png)
@@ -2011,10 +2011,12 @@ describe("dev server routing", () => {
     // would leave dev broken again.
     // swPrecache() declares closeBundle() too, and it sits ABOVE this plugin
     // in the file, so the slice must start at configureServer and search
-    // forward from there — not from index 0.
+    // forward from there — not from index 0. It ends at the next top-level
+    // function declaration, not at closeBundle: nothing after this plugin
+    // declares one.
     const start = CONFIG.indexOf("configureServer(server)");
     expect(start).toBeGreaterThan(-1);
-    const end = CONFIG.indexOf("closeBundle()", start);
+    const end = CONFIG.indexOf("\nfunction ", start);
     expect(end).toBeGreaterThan(start);
     const block = CONFIG.slice(start, end);
     expect(block).toContain("existsSync(candidate)");
@@ -2023,11 +2025,14 @@ describe("dev server routing", () => {
 
   it("still sends the bare root to the app, not to a page", () => {
     // /  is the app. If the directory rule ever swallowed it, opening Credenza
-    // would land on a marketing page.
-    expect(CONFIG).toContain('req.url === "/" || req.url === "/index.html"');
-    expect(CONFIG).toContain('req.url = "/index-fashion.html"');
-    // The guard that keeps the root out of the directory branch.
+    // would land on a marketing page. The guard keeps the root out of the
+    // directory branch; "/" falls through to Vite's SPA fallback, which serves
+    // index.html — the fashion app since the legacy sunset (2026-07-28).
     expect(CONFIG).toMatch(/path\.endsWith\("\/"\) && path\.length > 1/);
+    // index.html IS the app now: one build input, one entry script.
+    expect(CONFIG).toContain('input: resolve(__dirname, "index.html")');
+    const shell = readFileSync(join(ROOT, "preview/index.html"), "utf8");
+    expect(shell).toContain("/src/main-fashion.jsx");
   });
 
   it("binds the dev server to 127.0.0.1 so the numeric address answers", () => {

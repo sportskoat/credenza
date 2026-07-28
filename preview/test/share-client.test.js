@@ -19,7 +19,7 @@ const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)),
 const app = read("../../credenza-fashion.jsx");
 const sheet = read("../../sheets/ShareSheet.jsx");
 const links = read("../../sheets/SharedLinksSheet.jsx");
-const profile = read("../../sheets/ProfileSheet.jsx");
+const yourData = read("../../settings/YourDataSection.jsx");
 const api = read("../src/share-api.js");
 const css = read("../../credenza-fashion.css");
 
@@ -206,28 +206,29 @@ describe("the endpoint the client calls is the one the site serves", () => {
 });
 
 describe("the promise in the fine print is kept", () => {
-  // ShareSheet tells people to delete links from Profile → Shared links. If
-  // that row disappears, or is renamed, the sentence becomes a lie.
+  // ShareSheet tells people to delete links from Settings → Your data →
+  // Shared links. If that block disappears, or is renamed, the sentence
+  // becomes a lie.
   it("states the route in the share sheet", () => {
-    expect(sheet).toContain("Profile → Shared links");
+    expect(sheet).toContain("Settings → Your data → Shared links");
   });
 
-  it("gives Profile a row with that exact name", () => {
-    expect(profile).toContain("<span>Shared links</span>");
-    expect(profile).toContain("onOpenSharedLinks");
+  it("gives the Your data section a block with that exact name", () => {
+    expect(yourData).toContain(">Shared links</div>");
   });
 
-  it("shows the row only to a signed-in account", () => {
+  it("shows the block only to a signed-in account", () => {
     // The links live on the server. A signed-out person has none, and the
-    // page would only ever be empty.
-    expect(profile).toContain("accountEnabled && accountSession && onOpenSharedLinks");
+    // block would only ever be empty.
+    expect(yourData).toContain("const signedIn = accountEnabled && !!accountSession;");
+    expect(yourData).toContain("{signedIn && sharedLinks ? (");
   });
 
-  it("routes the row to the links sub-page", () => {
-    expect(app).toContain('onOpenSharedLinks={() => setProfileSubPage("links")}');
-    expect(app).toContain('if (key === "links")');
-    expect(app).toContain("onList={listHaulShares}");
-    expect(app).toContain("onDelete={deleteHaulShare}");
+  it("routes the block to the shared-links manager", () => {
+    expect(yourData).toContain("onList={sharedLinks.onList}");
+    expect(yourData).toContain("onDelete={sharedLinks.onDelete}");
+    expect(app).toContain("onList: listHaulShares,");
+    expect(app).toContain("onDelete: deleteHaulShare,");
   });
 
   it("builds each link URL against this origin, not a hard-coded host", () => {

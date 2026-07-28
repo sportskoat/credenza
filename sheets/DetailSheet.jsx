@@ -32,6 +32,8 @@ export default function DetailSheet({
   onSaveFitPref = null,
   onCycleFitDetail = null,
   fitDetail = null,
+  onToggleFitSummary = null,
+  fitSummary = null,
   measureUnits = "cm",
   buyLabel = "Buy",
   // §8: the Buy notch picks the agent in place. Both must arrive together —
@@ -177,6 +179,8 @@ export default function DetailSheet({
           onSaveFitPref={onSaveFitPref}
           onCycleFitDetail={onCycleFitDetail}
           fitDetail={fitDetail}
+          onToggleFitSummary={onToggleFitSummary}
+          fitSummary={fitSummary}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
           preferredAgent={preferredAgent}

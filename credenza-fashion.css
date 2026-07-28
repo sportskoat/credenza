@@ -6231,6 +6231,30 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-size: 13px;
   color: var(--cz-sub);
 }
+/* Shelf defaults section (design 1e): the "where to change it" line under a
+   read-only row's value. The row wraps so this sits under both columns. */
+.cz-profile-row:has(.cz-shelf-defaults-where) {
+  flex-wrap: wrap;
+}
+.cz-shelf-defaults-where {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--cz-sub);
+  margin-top: 2px;
+}
+
+/* Settings sections: no boxed groups (Kyle 2026-07-28: "I'm not really a fan
+   of how these white boxes look. Make it all consistent within here"). In
+   Gallery the card was a white slab on the warm-white page; in Blackout a
+   grey slab on black — and the Fit preferences section drew no boxes at all,
+   so sections disagreed. Inside settings the group is now just its rows and
+   hairlines, the Fit preferences language. The card chrome stays for the
+   sheets outside settings that still use it. */
+.cz-settings-content .cz-profile-group {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
 .cz-profile-storage {
   display: inline-flex;
   align-items: center;
@@ -6260,6 +6284,407 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-heart, #e11d48);
 }
 
+/* ── Settings page (Profile Settings design, Phase 1) ──────────────────────
+   The routed settings surface. Full-screen over the shelf: a masthead with
+   the way back, a 236px rail on desktop, a full-screen list on the phone.
+   Tokens come from the app root's palette, same as the sheets it replaces.
+   Titles track at -0.03em and kickers at 0.12em, matching the rest of the
+   app — the design doc's --track-* vars do not exist here. */
+
+.cz-settings-page {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--cz-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+}
+
+.cz-settings-page-masthead {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--cz-hair);
+  background: var(--cz-bg-elevated);
+}
+
+.cz-settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: var(--cz-card);
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+.cz-settings-back:hover {
+  border-color: var(--cz-sub);
+}
+
+.cz-settings-page-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cz-settings-page-title {
+  font-family: var(--cz-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.cz-settings-page-layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.cz-settings-nav {
+  width: 236px;
+  flex: 0 0 236px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 18px 12px;
+  border-right: 1px solid var(--cz-hair);
+  overflow-y: auto;
+}
+
+.cz-settings-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-settings-nav-item:hover {
+  color: var(--cz-ink);
+}
+.cz-settings-nav-item.is-active {
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+}
+
+.cz-settings-nav-summary {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-faint);
+}
+
+.cz-settings-nav-footer {
+  margin-top: auto;
+  padding: 14px 12px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-settings-nav-email {
+  font-size: 12px;
+  color: var(--cz-sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 34px 40px 80px;
+}
+
+.cz-settings-back-section {
+  margin-bottom: 18px;
+}
+
+.cz-settings-section {
+  max-width: 640px;
+  /* Center the column in the content pane (Kyle 2026-07-28: "is that centered
+     on the website? It doesn't look like it"). Left-aligned, a 640px section
+     in a 1200px pane leaned hard left on wide windows. */
+  margin: 0 auto;
+}
+
+.cz-settings-section-kicker {
+  font-family: var(--cz-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+  margin-bottom: 10px;
+}
+
+.cz-settings-section-head {
+  margin: 0 0 10px;
+  font-family: var(--cz-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: var(--cz-ink);
+}
+
+.cz-settings-section-lead {
+  margin: 0 0 26px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+}
+
+/* Phone: the rail becomes a full-screen list; the content pane goes edge to
+   edge. */
+@media (max-width: 767px) {
+  .cz-settings-page-layout {
+    display: block;
+    overflow-y: auto;
+  }
+  .cz-settings-nav {
+    width: auto;
+    border-right: none;
+    padding: 10px 14px 30px;
+  }
+  .cz-settings-nav-item {
+    padding: 14px 14px;
+    font-size: 15px;
+  }
+  .cz-settings-content {
+    padding: 20px 18px 70px;
+    overflow: visible;
+  }
+  .cz-settings-section-head {
+    font-size: 25px;
+  }
+}
+
+/* ── Account and plan (design 1f) ────────────────────────────────────────── */
+
+.cz-account-plan-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 18px 0 16px;
+}
+@media (max-width: 560px) {
+  .cz-account-plan-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cz-account-plan-card {
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  padding: 18px 20px 20px;
+}
+.cz-account-plan-card.is-pro {
+  border-color: var(--cz-accent);
+}
+
+.cz-account-plan-card-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.cz-account-plan-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-account-plan-badge {
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-sub);
+}
+.cz-account-plan-badge.is-money {
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+}
+
+.cz-account-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cz-account-plan-amount {
+  font-family: var(--cz-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--cz-ink);
+}
+
+.cz-account-plan-period {
+  font-size: 13px;
+  color: var(--cz-faint);
+}
+
+.cz-account-plan-sub {
+  margin-top: 9px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+
+.cz-account-plan-equiv {
+  margin: 9px 0 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-money);
+}
+
+.cz-account-plan-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--cz-faint);
+}
+
+.cz-account-plan-table {
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  padding: 4px 22px;
+  margin-bottom: 16px;
+}
+
+.cz-account-plan-table-head,
+.cz-account-plan-table-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 110px;
+  gap: 16px;
+  align-items: center;
+  padding: 13px 0;
+}
+@media (max-width: 560px) {
+  .cz-account-plan-table-head,
+  .cz-account-plan-table-row {
+    grid-template-columns: 1fr 76px 76px;
+    gap: 10px;
+  }
+}
+
+.cz-account-plan-table-head {
+  border-bottom: 1px solid var(--cz-hair);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cz-ink);
+  text-align: right;
+}
+.cz-account-plan-table-head .cz-account-plan-table-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+  text-align: left;
+}
+
+.cz-account-plan-table-row + .cz-account-plan-table-row {
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-account-plan-table-what {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-account-plan-table-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-account-plan-table-note {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+}
+
+.cz-account-plan-table-free {
+  font-size: 13px;
+  color: var(--cz-sub);
+  text-align: right;
+}
+.cz-account-plan-table-pro {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cz-ink);
+  text-align: right;
+}
+
+.cz-account-plan-keeps,
+.cz-account-plan-billing {
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  padding: 18px 22px;
+  margin-bottom: 16px;
+}
+.cz-account-plan-keeps p,
+.cz-account-plan-billing p,
+.cz-account-plan-footer p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+}
+
+.cz-account-plan-keeps-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+}
+
+.cz-account-plan-billing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cz-account-plan-footer {
+  padding-top: 20px;
+  border-top: 1px solid var(--cz-hair);
+}
+
 /* ── Your measurements (LB-70) ─────────────────────────────────────────────
    Kyle 2026-07-27: "I think the measurements could use a little bit of a
    bigger, better thing."
@@ -6277,7 +6702,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    20px also clears the 16px threshold below which iOS zooms the page on
    focus, the same reason .cz-profile-signin-field input is 16px. */
 .cz-measure {
-  padding: 4px 20px 20px;
+  padding: 4px 20px 10px;
 }
 
 .cz-measure-head {
@@ -6301,7 +6726,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-measure-count {
-  margin: 14px 0 0;
+  margin: 10px 0 0;
   font-family: var(--cz-mono);
   font-size: 11px;
   line-height: 1.5;
@@ -6313,15 +6738,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    grid; a surface per group is what makes "I have finished the upper body"
    a thing you can see rather than count. */
 .cz-measure-group {
-  margin-top: 14px;
-  padding: 16px;
+  margin-top: 10px;
+  padding: 14px;
   border: 1px solid var(--cz-hair);
   border-radius: 18px;
   background: var(--cz-card-solid);
 }
 
 .cz-measure-group-head {
-  margin: 0;
+  margin: 0 0 10px;
   font-family: var(--cz-display);
   font-size: 17px;
   font-weight: 700;
@@ -6329,17 +6754,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-ink);
 }
 
-.cz-measure-group-why {
-  margin: 3px 0 14px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--cz-sub);
-  text-wrap: pretty;
-}
-
+/* Three across: every group (2/3/3 fields) then fits on one row, which is
+   what puts the whole section on one screen (Kyle 2026-07-28). */
 .cz-measure-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -6414,7 +6833,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-measure-actions {
   display: flex;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 /* One column on a phone. Two 54px boxes side by side inside a 16px card
@@ -7704,12 +8123,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   /* ModalShell gives no body padding — own it here (Kyle 2026-07-23). */
   padding: 4px 20px 20px;
 }
-.cz-fit-prefs-lead {
-  margin: 0 0 18px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--cz-sub);
-}
 .cz-fit-prefs-empty {
   margin: 0 0 16px;
   font-size: 13px;
@@ -8545,12 +8958,162 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    Mark + wordmark, spacer, then three 36px circular buttons. The "Fashion"
    sub-word and the hero drop once the shelf has items — that plus the merged
    totals row is the ~150px that puts cards above the fold. */
+/* The avatar menu (z 70) lives INSIDE the masthead, and the carousel stage
+   is its own isolated layer (isolation: isolate) later in the DOM — so the
+   whole stage painted over the menu's lower half, and the menu's z-index
+   could not reach out of the static masthead. Give the masthead a layer of
+   its own: above the stage, still under the sheets (--z-sheet) and the
+   settings page (60). */
+.cz-masthead {
+  position: relative;
+  z-index: var(--z-chrome);
+}
+
 .cz-masthead-actions {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
+  position: relative;
 }
+
+/* ── Avatar quick menu (Profile Settings design 1c) ────────────────────────
+   The avatar's dropdown: identity, the Pro upsell, the switches that get
+   flipped, and the door into the settings page. 334px, anchored under the
+   avatar on the right. */
+
+.cz-avatar-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 70;
+  width: 334px;
+  max-width: calc(100vw - 24px);
+  background: var(--cz-card-solid);
+  border: 1px solid var(--cz-hair);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-avatar-menu-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px 12px;
+}
+
+.cz-avatar-menu-mark {
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.cz-avatar-menu-who {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cz-avatar-menu-email {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--cz-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-avatar-menu-plan {
+  font-size: 12px;
+  color: var(--cz-faint);
+}
+
+.cz-avatar-menu-upsell {
+  border: 1px solid var(--cz-hair);
+  border-radius: 13px;
+  background: var(--cz-inset-bg);
+  padding: 13px 14px;
+  margin-bottom: 8px;
+}
+
+.cz-avatar-menu-upsell-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-avatar-menu-upsell-note {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cz-money);
+}
+
+.cz-avatar-menu-upsell-cta {
+  margin-top: 10px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.cz-avatar-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-family: var(--cz-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.cz-avatar-menu-row:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-avatar-menu-row.is-control {
+  cursor: default;
+}
+.cz-avatar-menu-row.is-control:hover {
+  background: transparent;
+}
+
+.cz-avatar-menu-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--cz-ink);
+  flex: 0 0 auto;
+}
+
+.cz-avatar-menu-value {
+  font-size: 13px;
+  color: var(--cz-sub);
+}
+
+/* The colourway control takes the space the value would; keep the segment
+   group compact. */
+.cz-avatar-menu-row.is-control > div[role="radiogroup"] {
+  flex: 0 1 190px;
+  display: flex;
+}
+
 
 /* ─── Masthead site nav (Kyle 2026-07-27) ──────────────────────────────────
    The row of page links between the brand and the avatar. The masthead is

@@ -51,8 +51,8 @@ const good = [];
 const dead = [];
 
 for (const [href, from] of [...targets].sort()) {
-  // "/" is the app itself. It has no index.html in public/ because the
-  // dev server rewrites it to index-fashion.html. It is not dead.
+  // "/" is the app itself. It has no index.html in public/ because Vite
+  // builds it from preview/index.html (the fashion entry). It is not dead.
   if (href === "/") {
     good.push([href, from.size, "the app"]);
     continue;
