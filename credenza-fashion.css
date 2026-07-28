@@ -11287,6 +11287,89 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   transform: scale(0.97);
 }
 
+/* ── Phone status segment (split-rail spec :177) ──
+   On a phone the dots track becomes a segmented control: four named pills on a
+   --cz-seg ground, with the advance button full width below it. The dots read
+   as progress but never said which stop a tap writes; the names do. The model
+   does not change — the same four radios, the same enum per slot. */
+@media (max-width: 767px) {
+  .cz-status-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .cz-detail-status {
+    flex: 0 0 auto;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--cz-seg);
+  }
+  /* The rail and the dot are the old shape. The pill carries the state now. */
+  .cz-detail-status .cz-status-rail,
+  .cz-detail-status .cz-status-dot {
+    display: none;
+  }
+  /* display: contents drops the node's box, so the detour label hangs from the
+     pill itself instead of from a zero-width node at the pill's left edge. */
+  .cz-detail-status .cz-status-node { display: contents; }
+  .cz-detail-status .cz-detail-status-chip,
+  .cz-detail-status .cz-detail-status-chip:first-child {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+    /* Overrides the coarse-pointer 44px floor in credenza.css. The ::after
+       below returns the 44px hit area the floor was there to guarantee. */
+    min-height: 34px;
+    height: 34px;
+    padding: 0 4px;
+    border-radius: 999px;
+    color: var(--cz-faint);
+  }
+  .cz-detail-status .cz-detail-status-chip::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+  .cz-detail-status .cz-detail-status-chip.is-active {
+    background: var(--cz-ink);
+    color: var(--cz-bg);
+  }
+  /* The stop name stops being screen-reader-only: it is the pill's label. */
+  .cz-detail-status .cz-status-stop-name {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+    font-family: var(--cz-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .cz-detail-status .cz-detail-status-chip.is-active .cz-status-stop-name {
+    font-weight: 600;
+  }
+  .cz-status-row:has(.cz-status-detour) .cz-detail-status-chip {
+    padding-bottom: 0;
+  }
+  .cz-status-row:has(.cz-status-detour) .cz-detail-status {
+    margin-bottom: 12px;
+  }
+  .cz-status-next {
+    flex: 0 0 auto;
+    justify-content: center;
+    min-height: 44px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+}
+
 /* ── Timeline (handoff turn 9 §6) ──
    Left-rule list. The date column is fixed so the sentences align, which is
    what makes three rows scan as one history and not three notes. */
