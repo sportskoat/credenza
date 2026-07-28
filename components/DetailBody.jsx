@@ -152,7 +152,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
 }
 
 // One source of truth keeps the sizing verdict consistent across each view.
-function useSizeVerdict(item, bodyProfile, fitPref, units) {
+function useSizeVerdict(item, bodyProfile, fitPref, units, detailOverride = null) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
   // so the badge never claims a precise fit it does not have.
@@ -181,11 +181,15 @@ function useSizeVerdict(item, bodyProfile, fitPref, units) {
   const variantValues = pickSizeValuesFromVariants(item.variants);
   const variantRun = pickSizeRunFromVariants(item.variants);
   const runValues = chartRunValues.length ? chartRunValues : variantValues;
-  // The fit-summary pref gates the sentence.
-  const { summary: fitSummaryOn } = fitDisplayPrefs();
+  // The fit-summary pref gates the sentence; the detail pref sets its length
+  // (CH-14 — FIT_DETAIL had no effect on this path before). The prop wins
+  // over the mirror: the App syncs the mirror in an effect, so on the render
+  // right after a toggle only the prop is fresh.
+  const { summary: fitSummaryOn, detail: mirrorDetail } = fitDisplayPrefs();
+  const fitDetail = detailOverride || mirrorDetail;
   const prescription =
     recSize && fitSummaryOn
-      ? prescriptionSentence(chart, rec, { units, category: item.category })
+      ? prescriptionSentence(chart, rec, { units, category: item.category, detail: fitDetail })
       : "";
   return {
     chart,
@@ -1348,6 +1352,12 @@ export default function DetailBody({
   fitPromptSkipped = false,
   onSkipFitPrompt = null,
   onSaveFitPref = null,
+  // CH-14: flips the Concise/Detailed pref from the sentence itself. Optional
+  // — without it the sentence renders with no toggle, as before. The value
+  // rides along as a prop because the module mirror only syncs in an effect,
+  // one render behind the toggle.
+  onCycleFitDetail = null,
+  fitDetail = null,
 }) {
   const titleInputRef = useRef(null);
   const tabRefs = useRef([]);
@@ -1538,7 +1548,9 @@ export default function DetailBody({
 
   // The parent owns the sizing verdict and the chart hunt.
   const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
-  const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits);
+  const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits, fitDetail);
+  // CH-14: the toggle's label follows the same value the sentence length does.
+  const fitDetailPref = fitDetail || fitDisplayPrefs().detail;
   // CH-08: the 4f ask, local to this card. Reset when the card changes.
   const [askingMeasures, setAskingMeasures] = useState(false);
   // CH-09 (5b): the taste ask. Auto once per category when a chart-based rec
@@ -2074,7 +2086,29 @@ export default function DetailBody({
               />
             ) : null}
 
-            {verdict.prescription ? <p className="cz-sizing-why">{verdict.prescription}</p> : null}
+            {verdict.prescription ? (
+              <p className="cz-sizing-why">
+                {verdict.prescription}
+                {/* CH-14: the fit-detail pref is changeable on the sentence it
+                    governs, not only in Profile. Chip shows the current
+                    length; a tap flips it app-wide. */}
+                {typeof onCycleFitDetail === "function" ? (
+                  <button
+                    type="button"
+                    className="cz-sizing-detail-toggle"
+                    aria-label={
+                      fitDetailPref === "detailed"
+                        ? "Switch to the concise fit summary"
+                        : "Switch to the detailed fit summary"
+                    }
+                    onClick={onCycleFitDetail}
+                  >
+                    {fitDetailPref === "detailed" ? "Detailed" : "Concise"}
+                    <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
+                  </button>
+                ) : null}
+              </p>
+            ) : null}
 
             <SellerChartSection
               item={item}

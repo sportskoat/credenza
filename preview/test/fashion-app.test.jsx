@@ -2050,3 +2050,81 @@ describe("Settings deep links (CH-12)", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+// CH-14: agent, currency and fit detail are each changeable without opening
+// /settings. The agent already had the Buy notch; these cover the other two —
+// a currency chip on the shelf total and a length toggle on the fit sentence.
+describe("Inline preference controls (CH-14)", () => {
+  it("the shelf total carries a currency chip that flips the pref", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await screen.findByRole("listbox", { name: "Card carousel" });
+
+    const chip = screen.getByRole("button", { name: "Show prices in CNY" });
+    expect(chip).toHaveTextContent("USD");
+    await user.click(chip);
+
+    await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).pricePrimary).toBe("CNY"));
+    // The chip now names the way back.
+    expect(screen.getByRole("button", { name: "Show prices in USD" })).toHaveTextContent("CNY");
+  });
+
+  it("the phone tabs row carries the same chip", async () => {
+    window.__setMediaMatches("(max-width: 767px)", true);
+    try {
+      installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+      render(<Credenza />);
+      await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ });
+      expect(
+        await screen.findByRole("button", { name: "Show prices in CNY" })
+      ).toBeInTheDocument();
+    } finally {
+      window.__setMediaMatches("(max-width: 767px)", false);
+    }
+  });
+
+  it("the fit sentence carries a Concise/Detailed toggle that changes its length", async () => {
+    window.__setMediaMatches("(max-width: 767px)", true);
+    try {
+      installShim({
+        [STORE_KEY]: JSON.stringify([
+          fashionItem({
+            size: "",
+            category: "tops",
+            sizeNotes:
+              "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\nXL: 胸围120 衣长72",
+          }),
+        ]),
+        [PREFS_KEY]: JSON.stringify({
+          colorwayVersion: 4,
+          theme: "rainbow",
+          bodyProfile: { chest: 100 },
+          measureUnits: "cm",
+        }),
+      });
+      const user = userEvent.setup();
+      render(<Credenza />);
+      await user.click(await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ }));
+      await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
+
+      // Concise is the default: the pick, without the down-size consequence.
+      const why = document.querySelector(".cz-sizing-why");
+      expect(why.textContent).toContain("Take the Medium");
+      expect(why.textContent).not.toContain("would pull across the chest");
+
+      await user.click(screen.getByRole("button", { name: "Switch to the detailed fit summary" }));
+      await waitFor(() =>
+        expect(document.querySelector(".cz-sizing-why").textContent).toContain(
+          "would pull across the chest"
+        )
+      );
+      // The toggle now offers the way back.
+      expect(
+        screen.getByRole("button", { name: "Switch to the concise fit summary" })
+      ).toBeInTheDocument();
+    } finally {
+      window.__setMediaMatches("(max-width: 767px)", false);
+    }
+  });
+});

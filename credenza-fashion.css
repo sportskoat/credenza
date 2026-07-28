@@ -3961,6 +3961,33 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-variant-numeric: tabular-nums;
 }
 
+/* CH-14: the currency pref, changeable at the total. Rides both total rows
+   (desktop .cz-total-row, phone .cz-tabs-totals) right after the money reel.
+   Quiet chip — the reel is the reading, this is the setting. */
+.cz-total-currency {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 5px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-total-currency:hover {
+  color: var(--cz-ink);
+  border-color: var(--cz-hair-strong);
+}
+
 .t-reel {
   display: inline-flex;
   align-items: center;
@@ -10256,6 +10283,34 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   line-height: 1.5;
   color: var(--cz-sub);
   text-wrap: pretty;
+}
+
+/* CH-14: the Concise/Detailed pref, changeable on the sentence it governs.
+   Sits inline after the prose like a quiet footnote chip. */
+.cz-sizing-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  vertical-align: 1px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-sizing-detail-toggle:hover {
+  color: var(--cz-ink);
+  border-color: var(--cz-hair-strong);
 }
 
 /* One cell per size, showing the measurement the pick was read from — the

@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronLeft, Heart, Search, User, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Heart, Search, User, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -1171,7 +1171,7 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
 // data, no server round-trip. Example: "Take the Large — its 104cm chest
 // gives you 6cm of room over your 98cm, which is where this shirt is meant to
 // sit. The Medium's 100cm would pull across the chest."
-export function prescriptionSentence(chart, rec, { units = "cm", category = "" } = {}) {
+export function prescriptionSentence(chart, rec, { units = "cm", category = "", detail } = {}) {
   if (!chart || !rec || !rec.size || rec.garment == null || rec.body == null || rec.diff == null) return "";
   if (!isFinite(rec.garment) || !isFinite(rec.body) || !isFinite(rec.diff)) return "";
   const measure = rec.primaryKey === "waist" ? "waist" : rec.primaryKey === "hip" ? "hip" : "chest";
@@ -1206,6 +1206,10 @@ export function prescriptionSentence(chart, rec, { units = "cm", category = "" }
     body +
     (sitsRight ? ", which is where this " + noun + " is meant to sit" : "") +
     ".";
+  // CH-14: the Concise pref stops at the pick. Only the explicit opt shortens
+  // the sentence — a caller that passes nothing keeps the full two-sentence
+  // read, so every existing caller (and its tests) is unchanged.
+  if (detail === "concise") return first;
   // Next size down: the closest smaller garment on the deciding axis.
   const down = chart.rows
     .filter((r) => r && r.size !== rec.size && r[rec.primaryKey] != null && r[rec.primaryKey] < rec.garment)
@@ -7285,6 +7289,8 @@ function CredenzaApp() {
       onSkipFitPrompt={() => setFitPromptSkipped(true)}
       fitPrefs={fitPrefs}
       onSaveFitPref={saveFitPref}
+      onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
+      fitDetail={fitDetail}
       onOpenSizes={openSizesDestination}
     />
   );
@@ -7326,6 +7332,8 @@ function CredenzaApp() {
       fitPromptSkipped={fitPromptSkipped}
       onSkipFitPrompt={() => setFitPromptSkipped(true)}
       onSaveFitPref={saveFitPref}
+      onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
+      fitDetail={fitDetail}
       measureUnits={measureUnits}
       buyLabel={buyLabel}
       preferredAgent={preferredAgent}
@@ -7855,6 +7863,8 @@ function CredenzaApp() {
           fitPromptSkipped={fitPromptSkipped}
           onSkipFitPrompt={() => setFitPromptSkipped(true)}
           onSaveFitPref={saveFitPref}
+          onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
+          fitDetail={fitDetail}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
           preferredAgent={preferredAgent}
@@ -8482,9 +8492,25 @@ function CredenzaApp() {
               {/* CO-10: a zero-result search must not show a green $0.00 —
                   it read as a real balance. */}
               {!(q && visible.length === 0) && (
-                <span className="cz-tabs-total" aria-live="polite">
-                  <ReelCounter value={listTotalUsd} />
-                </span>
+                <>
+                  <span className="cz-tabs-total" aria-live="polite">
+                    <ReelCounter value={listTotalUsd} />
+                  </span>
+                  {/* CH-14: the currency pref is changeable at the total, not
+                      only in Profile. The reel stays the USD shelf cost; the
+                      chip flips which currency the card/footer labels lead
+                      with (PRICE_PRIMARY). */}
+                  <button
+                    type="button"
+                    className="cz-total-currency"
+                    aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
+                    title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
+                    onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+                  >
+                    {pricePrimary}
+                    <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
+                  </button>
+                </>
               )}
               {toolbarActive && !openHaulName && (
                 <button
@@ -8567,6 +8593,18 @@ function CredenzaApp() {
                     </span>
                     <ReelCounter value={listTotalUsd} />
                   </span>
+                  {/* CH-14: same chip as the phone tabs row — one currency
+                      pref, two entrances. */}
+                  <button
+                    type="button"
+                    className="cz-total-currency"
+                    aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
+                    title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
+                    onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+                  >
+                    {pricePrimary}
+                    <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
+                  </button>
                 </>
               )}
             </div>

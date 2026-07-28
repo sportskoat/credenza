@@ -30,6 +30,8 @@ export default function DetailSheet({
   fitPromptSkipped = false,
   onSkipFitPrompt = null,
   onSaveFitPref = null,
+  onCycleFitDetail = null,
+  fitDetail = null,
   measureUnits = "cm",
   buyLabel = "Buy",
   // §8: the Buy notch picks the agent in place. Both must arrive together —
@@ -173,6 +175,8 @@ export default function DetailSheet({
           fitPromptSkipped={fitPromptSkipped}
           onSkipFitPrompt={onSkipFitPrompt}
           onSaveFitPref={onSaveFitPref}
+          onCycleFitDetail={onCycleFitDetail}
+          fitDetail={fitDetail}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
           preferredAgent={preferredAgent}
