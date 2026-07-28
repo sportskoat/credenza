@@ -3,7 +3,7 @@
  * Spec: docs/specs/empty-taobao-cards.md
  */
 import { createRequire } from "node:module";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
 const { _test } = require("../netlify/functions/resolve.js");
@@ -13,6 +13,8 @@ const {
   ali1688ItemId,
   classifyBuyLink,
   unwrapAgentBuyLink,
+  taobaoShortHost,
+  classifyViaRedirect,
   parseWorldTaobaoHtml,
   parseWorldTaobaoIsland,
   parse1688Html,
@@ -264,5 +266,67 @@ describe("extractYupooLinksFromText (Weidian desc notes)", () => {
 
   it("ignores empty and non-links", () => {
     expect(extractYupooLinksFromText("SEE MY YUPOO")).toEqual([]);
+  });
+});
+
+describe("taobaoShortHost (parser audit 2026-07-27)", () => {
+  it("flags id-less Taobao-family links and nothing else", () => {
+    expect(taobaoShortHost("https://m.tb.cn/h.6abCdEf")).toBe(true);
+    expect(taobaoShortHost("https://s.click.taobao.com/t?e=m%3D2%26s%3Dabcd")).toBe(true);
+    expect(taobaoShortHost("https://item.taobao.com/item.htm?id=856801351597")).toBe(false);
+    expect(taobaoShortHost("https://example.com/h.6abCdEf")).toBe(false);
+    expect(taobaoShortHost("not a url")).toBe(false);
+  });
+});
+
+describe("classifyViaRedirect", () => {
+  const guard = require("../netlify/functions/lib/guard.js");
+  const redirect = (location) => ({
+    status: 302,
+    headers: { get: (k) => (k === "location" ? location : null) },
+  });
+  const htmlPage = (html) => ({
+    status: 200,
+    headers: { get: () => null },
+    body: null,
+    arrayBuffer: async () => new TextEncoder().encode(html).buffer,
+  });
+
+  it("follows a short link to the item page", async () => {
+    guard._setLookupForTest(async () => [{ address: "8.8.8.8" }]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => redirect("https://item.taobao.com/item.htm?id=856801351597"))
+    );
+    const hit = await classifyViaRedirect("https://m.tb.cn/h.6abCdEf");
+    expect(hit).toEqual({ marketplace: "taobao", itemId: "856801351597" });
+    vi.unstubAllGlobals();
+    guard._setLookupForTest(null);
+  });
+
+  it("reads the item URL out of an HTML interstitial", async () => {
+    guard._setLookupForTest(async () => [{ address: "8.8.8.8" }]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        htmlPage('<html><script>location="https://detail.tmall.com/item.htm?id=680012345678&spm=1"</script></html>')
+      )
+    );
+    const hit = await classifyViaRedirect("https://s.click.taobao.com/t?e=abc");
+    expect(hit).toEqual({ marketplace: "tmall", itemId: "680012345678" });
+    vi.unstubAllGlobals();
+    guard._setLookupForTest(null);
+  });
+
+  it("refuses a redirect that leaves the Taobao family", async () => {
+    guard._setLookupForTest(async () => [{ address: "8.8.8.8" }]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => redirect("https://evil.example.com/item.htm?id=856801351597"))
+    );
+    const hit = await classifyViaRedirect("https://m.tb.cn/h.6abCdEf");
+    expect(hit).toBeNull();
+    vi.unstubAllGlobals();
+    guard._setLookupForTest(null);
   });
 });

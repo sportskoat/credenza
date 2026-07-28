@@ -4,7 +4,7 @@
 // HTML og + JSON-LD Product (same fail-open pattern). Fail open on Claude.
 // SSRF via safeFetch for HTML hosts. No dependencies.
 
-const { safeFetch, readCapped } = require("./lib/guard.js");
+const { safeFetch, readCapped, assertSafeUrl } = require("./lib/guard.js");
 const limit = require("./lib/limit.js");
 const paidGate = require("./lib/paid-gate.js");
 
@@ -187,6 +187,66 @@ function classifyBuyLink(raw) {
   const direct = classifyBuyLinkDirect(raw);
   if (direct) return direct;
   return unwrapAgentBuyLink(raw);
+}
+
+// Short links carry no item id: m.tb.cn/h.xxx is THE Taobao mobile share
+// format, and s.click.taobao.com is the affiliate redirector Telegram/WeChat
+// curators paste (parser audit, 2026-07-27). Follow them to the item page —
+// every hop re-validated against the Taobao family hosts, never the open web,
+// same SSRF discipline as safeFetch — and classify where they land.
+const REDIRECT_FOLLOW_HOST = /(^|\.)((taobao|tmall)\.com|tb\.cn)$/i;
+const REDIRECT_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+const REDIRECT_BODY_BYTES = 256 * 1024;
+
+function taobaoShortHost(raw) {
+  try {
+    const host = new URL(raw).hostname.replace(/^www\./, "").toLowerCase();
+    return REDIRECT_FOLLOW_HOST.test(host) && !taobaoFamilyItemId(raw);
+  } catch {
+    return false;
+  }
+}
+
+async function classifyViaRedirect(raw, signal) {
+  let url = raw;
+  for (let i = 0; i <= 4; i++) {
+    const direct = taobaoFamilyItemId(url);
+    if (direct) return direct;
+    let u;
+    try {
+      u = await assertSafeUrl(url, { hosts: REDIRECT_FOLLOW_HOST });
+    } catch {
+      return null;
+    }
+    let res;
+    try {
+      res = await fetch(u.href, {
+        headers: { "user-agent": REDIRECT_UA, accept: "text/html,*/*;q=0.8" },
+        redirect: "manual",
+        signal,
+      });
+    } catch {
+      return null;
+    }
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) return null;
+      url = new URL(loc, u.href).href;
+      continue;
+    }
+    // A short link can answer an HTML interstitial instead of a 302. The item
+    // URL is in the body — the first link with a Taobao-family id wins.
+    const buf = await readCapped(res, REDIRECT_BODY_BYTES).catch(() => null);
+    if (!buf) return null;
+    const links = buf.toString("utf8").match(/https?:\/\/[^\s"'<>\\]+/g) || [];
+    for (const link of links) {
+      const hit = taobaoFamilyItemId(link);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  return null;
 }
 
 /** Parse world.taobao HTML for title + main image (og tags). Price often absent. */
@@ -706,7 +766,8 @@ async function handle(event) {
   if (!url || url.length > 2048) return response(400, { error: "url must be a non-empty string" });
 
   const classified = classifyBuyLink(url);
-  if (!classified) return response(422, { error: "Not a resolvable buy link" });
+  const needsRedirect = !classified && taobaoShortHost(url);
+  if (!classified && !needsRedirect) return response(422, { error: "Not a resolvable buy link" });
 
   const blocked = limit.enter(ROUTE, limit.clientKey(event));
   if (blocked) {
@@ -715,13 +776,18 @@ async function handle(event) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
+    // m.tb.cn / s.click style short links: follow inside the Taobao family and
+    // classify the landing URL. Runs behind the rate limiter — it costs an
+    // outbound fetch before any id exists.
+    const resolved = classified || (await classifyViaRedirect(url, controller.signal));
+    if (!resolved) return response(422, { error: "Not a resolvable buy link" });
     let facts;
     let canonicalUrl;
-    if (classified.marketplace === "weidian") {
+    if (resolved.marketplace === "weidian") {
       const [result, usdPerCny, descBundle] = await Promise.all([
-        fetchWeidianItem(classified.itemId, controller.signal),
+        fetchWeidianItem(resolved.itemId, controller.signal),
         fetchUsdRate(controller.signal),
-        fetchWeidianDescBundle(classified.itemId, controller.signal),
+        fetchWeidianDescBundle(resolved.itemId, controller.signal),
       ]);
       facts = extractFacts(result);
       // Description photos the gallery never showed (size charts live here).
@@ -730,27 +796,27 @@ async function handle(event) {
       facts.sellerYupooLinks = descBundle.sellerYupooLinks || [];
       // stash rate on facts for response builder below
       facts._usdPerCny = usdPerCny;
-      canonicalUrl = `https://weidian.com/item.html?itemID=${facts.itemId || classified.itemId}`;
-    } else if (classified.marketplace === "1688") {
+      canonicalUrl = `https://weidian.com/item.html?itemID=${facts.itemId || resolved.itemId}`;
+    } else if (resolved.marketplace === "1688") {
       const [aFacts, usdPerCny] = await Promise.all([
-        fetch1688Facts(classified.itemId, controller.signal),
+        fetch1688Facts(resolved.itemId, controller.signal),
         fetchUsdRate(controller.signal),
       ]);
       facts = aFacts;
       facts._usdPerCny = usdPerCny;
-      canonicalUrl = `https://detail.1688.com/offer/${classified.itemId}.html`;
+      canonicalUrl = `https://detail.1688.com/offer/${resolved.itemId}.html`;
     } else {
       // taobao | tmall — HTML og tags; price often null
       const [tbFacts, usdPerCny] = await Promise.all([
-        fetchTaobaoWorldFacts(classified.itemId, controller.signal),
+        fetchTaobaoWorldFacts(resolved.itemId, controller.signal),
         fetchUsdRate(controller.signal),
       ]);
       facts = tbFacts;
       facts._usdPerCny = usdPerCny;
       canonicalUrl =
-        classified.marketplace === "tmall"
-          ? `https://detail.tmall.com/item.htm?id=${classified.itemId}`
-          : `https://item.taobao.com/item.htm?id=${classified.itemId}`;
+        resolved.marketplace === "tmall"
+          ? `https://detail.tmall.com/item.htm?id=${resolved.itemId}`
+          : `https://item.taobao.com/item.htm?id=${resolved.itemId}`;
     }
 
     // Translation is an enhancement: the raw facts already make a usable card,
@@ -783,8 +849,8 @@ async function handle(event) {
     const usdPerCny = facts._usdPerCny != null ? facts._usdPerCny : FX_FALLBACK_USD_PER_CNY;
     await paidGate.recordPaidUsage(gate, "resolve");
     return response(200, {
-      source: classified.marketplace,
-      itemId: facts.itemId || classified.itemId,
+      source: resolved.marketplace,
+      itemId: facts.itemId || resolved.itemId,
       url: canonicalUrl,
       title: (enriched && enriched.titleEn) || facts.title,
       originalTitle: facts.title,
@@ -821,6 +887,8 @@ exports._test = {
   ali1688ItemId,
   classifyBuyLink,
   unwrapAgentBuyLink,
+  taobaoShortHost,
+  classifyViaRedirect,
   parseWorldTaobaoHtml,
   parseWorldTaobaoIsland,
   parse1688Html,

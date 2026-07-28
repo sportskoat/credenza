@@ -149,7 +149,16 @@ Do not start these items before Gates 0 to 2 are done.
   (9px inset at each end; Kyle's overlap report). Probe: board counts, $56
   returned-excluded total, ~3 kg, GL tap flips status + stamps + re-counts.
   8 new weight unit tests. 198 tests pass. Lint 0 errors. Build clean.
-- [x] **24.** Kyle: set the Reddit variables. Kyle: rotate the Anthropic key. ✅ 2026-07-26
+- [ ] **24.** Kyle: set the Reddit variables. Kyle: rotate the Anthropic key.
+  PARTIAL — corrected 2026-07-27. The new Anthropic key is on Netlify, but
+  the checklist (same day) still lists both halves open: create the Reddit
+  script app and set `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`, and disable
+  the old Anthropic key at console.anthropic.com. Also still open from the
+  synthesis queue: affiliate param verification (queue 27) and the
+  session-state / audit-shot refresh (queue 34, GR-02). GR-03 (primary
+  currency drives prices) and GR-06 (GL/RL + status counts) shipped later:
+  the 2026-07-26 price toggle and Gate 4 item 23. See
+  [[🔍 Review Misses 2026-07-27]].
 
 ## Rules for every gate
 
@@ -164,7 +173,7 @@ Do not start these items before Gates 0 to 2 are done.
   (`/?stash=` + shared URL → Open URLs), turn Show in Share Sheet on, pin
   via Share → More → Edit Favorites. Optional Add to Home Screen. Test
   FashionReps share. Backend already handles stash/text/title. No deploy
-  for personal use. Steps live on [[My Checklist]] and now also at
+  for personal use. Steps live on [[✅ My Checklist]] and now also at
   `/how/stash-from-your-phone/` — follow that page instead, it adds the
   URL Encode action the checklist is missing.
 - [x] **26.** DONE 2026-07-26 (LB-9). `/how/stash-from-your-phone/`
