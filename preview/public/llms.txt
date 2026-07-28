@@ -49,6 +49,8 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/guides/store-body-measurements/ — save body measurements once for every chart
 - https://credenzafashion.com/guides/track-qc-photos/ — track QC photos and GL/RL
 - https://credenzafashion.com/guides/choose-an-agent/ — compare agents on link format, not hype
+- https://credenzafashion.com/guides/cnfans-vs-superbuy/ — total landed cost, speed, QC photos; the beginner's agent vs the budget pick
+- https://credenzafashion.com/guides/hoobuy-vs-kakobuy/ — community trust vs polish; ratings, QC counts, the backup-agent rule
 - https://credenzafashion.com/guides/open-weidian-in-agent/ — open Weidian in preferred agent
 - https://credenzafashion.com/guides/estimate-haul-weight/ — estimate parcel weight before you submit it
 - https://credenzafashion.com/guides/back-up-your-shelf/ — get the shelf out: .json backup, .csv for a spreadsheet, and what sync merges

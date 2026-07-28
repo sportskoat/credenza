@@ -21,29 +21,33 @@ shapes). What the audit found and what was done.
   all. Yupoo album + www photos shapes are clean.
 - Discord `<url>` embed suppression survives with a clean URL.
 
-## HELD — client fixes waiting on the ChatGPT diff in credenza-fashion.jsx
+## APPLIED 2026-07-28 — client fixes (were HELD on the ChatGPT diff)
 
-Do NOT apply until that file is committed or reverted (Kyle 2026-07-27).
+The hold released when the CH-03..CH-06 commits landed. All five fixes are in
+the working tree, covered by `preview/test/parser-paste.test.js` (14 tests),
+full gate green at 2317. A sixth fix surfaced during testing: the Reddit-haul
+path had the same trailing-punctuation bug as the messy-lines path — the held
+list only covered path 4, but two bullet lines route to `parseRedditHaul`.
+Fixed in `reddit-haul.js` (same trim as `extractUrls`).
 
-1. **Trailing punctuation kept.** The messy-lines path (`parseImport` path 4)
-   uses its own `line.match(/https?:\/\/[^\s<>"')\]]+/g)` — no trailing-punct
-   trim, no deobfuscation. `https://weidian.com/item.html?itemID=123,` keeps the
-   comma, the id regex fails, the card never resolves and never dedupes against
-   the same item pasted clean. Fix: use `extractUrls(line)` (trims + dedupes).
-2. **Space-broken URLs unrepaired.** Same path: `https://wei dian.co m/...`
-   becomes a junk "https://wei" card. `extractUrls` deobfuscates via
-   reddit-haul.js; the messy-lines path does not call it. Same fix as 1.
-3. **Chinese share-text chrome leaks into titles.** `【Yeezy 350 尾货】<url>
-   复制这段描述后打开微店APP` produces titleHint "【Yeezy 350 尾货】 复制这段描述…".
-   Fix in the label builder: strip `【…】` wrappers (keep inner text), drop
-   `复制…打开…APP` instruction tails, unwrap markdown `[label](url)` to `label`,
-   and strip 「」 quotes. Taobao share text should title as `Nike Dunk Low 熊猫`.
-4. **Taokouling tokens (淘口令).** `￥CZ0001 aBcDeFg￥` has no URL and becomes an
-   empty junk card. Detect the token pattern in the URL-free branch and give the
-   card a real title ("Taobao share code — open in the Taobao app") instead.
-5. **Client resolve gate.** `resolvableBuyUrl` requires an id, so short links
-   never reach the (now capable) server. Add a `taobaoShortHost` check beside
-   the id checks so m.tb.cn/s.click cards get resolved.
+1. **Trailing punctuation kept.** FIXED. The messy-lines path now calls
+   `extractUrls(line)` (trims + dedupes). A dirty paste (`itemID=123,`) and a
+   clean paste of the same item now dedupe to ONE card with the canonical key.
+2. **Space-broken URLs unrepaired.** FIXED by the same change — `extractUrls`
+   deobfuscates via reddit-haul.js.
+3. **Chinese share-text chrome leaks into titles.** FIXED. New exported
+   `shareTextLabel(line)` unwraps `[label](url)`, drops URLs, strips
+   `【平台】` tags and 「」 quotes, and removes `复制…打开…APP` tails.
+4. **Taokouling tokens (淘口令).** FIXED. New exported `taokoulingTitle(text)`
+   detects `￥…￥` tokens (internal spaces allowed) and titles the card
+   "Taobao share code — open in the Taobao app".
+5. **Client resolve gate.** FIXED. New exported `taobaoShortHost(url)` covers
+   id-less m.tb.cn / tb.cn / s.click.taobao.com links; `resolvableBuyUrl` and
+   `isResolvable` accept them, so the cards reach the server follow-up shipped
+   above.
+6. **Reddit-haul trailing punctuation** (found by the new tests, not the audit).
+   FIXED. `reddit-haul.js` trims `/[),.;:!?'"\]]+$/` off matched URLs before the
+   agent-signup filter.
 
 ## Accepted gaps (no action)
 

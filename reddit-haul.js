@@ -648,9 +648,13 @@ function extractItems(text) {
       "$1$2"
     );
 
-    const urls = (joined.match(URL_RE) || []).filter(
-      (u) => !(agentOf(u) && AGENT_SIGNUP_RE.test(u))
-    );
+    // Trim terminal punctuation the same way the app's extractUrls does: a
+    // pasted "…itemID=123," kept the comma, the id regex failed, and the card
+    // never resolved nor deduped (parser audit 2026-07-27, fix 1 — the Reddit
+    // path had the same bug as the messy-lines path).
+    const urls = (joined.match(URL_RE) || [])
+      .map((u) => u.replace(/[),.;:!?'"\]]+$/, ""))
+      .filter((u) => !(agentOf(u) && AGENT_SIGNUP_RE.test(u)));
     const shoppable = urls.filter(shoppableOf);
 
     if (shoppable.length === 0) {

@@ -48,6 +48,15 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
     findSource: "https://www.reddit.com/r/FashionReps/comments/abc/haul/",
   };
 
+  it("keeps the hand-picked category pin across a reload (CH-07 follow-up)", () => {
+    const migrated = migrateItem({ ...base, category: "shoes", categoryManual: true });
+    expect(migrated.category).toBe("shoes");
+    expect(migrated.categoryManual).toBe(true);
+    // Absent or junk pins default to false — the auto-classify path owns it.
+    expect(migrateItem({ ...base, category: "shoes" }).categoryManual).toBe(false);
+    expect(migrateItem({ ...base, category: "shoes", categoryManual: "yes" }).categoryManual).toBe(false);
+  });
+
   it("keeps posterStats, posterUser, and sourceText across a reload", () => {
     const migrated = migrateItem(base);
     expect(migrated.posterStats).toEqual({ height: "180cm", weight: "75kg", size: "L" });

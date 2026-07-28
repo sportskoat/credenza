@@ -1276,6 +1276,12 @@ describe("every page tells a machine what kind of page it is", () => {
     // said what that means for a haul, a share link, or a second device.
     "guides/what-happens-when-pro-ends/index.html": "Article",
     "guides/two-kg-haul-shipping-cost/index.html": "HowTo",
+    // Pairwise agent comparisons, shipped 2026-07-28. Article, not HowTo: the
+    // page weighs evidence and gives a verdict; there is no procedure to step
+    // through. The procedure pages they feed (choose-an-agent, plan-a-parcel)
+    // stay HowTo.
+    "guides/cnfans-vs-superbuy/index.html": "Article",
+    "guides/hoobuy-vs-kakobuy/index.html": "Article",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
 
