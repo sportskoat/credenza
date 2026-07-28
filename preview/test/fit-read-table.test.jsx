@@ -158,6 +158,27 @@ describe("FitReadTable in the detail body", () => {
     expect(onOpenSizes).toHaveBeenCalled();
   });
 
+  it("Forget this chart clears the stored measurements", async () => {
+    // "In production this is 'the parse was wrong', so it should also clear
+    // the stored measurements for the item" — and a null sizeChartSource
+    // takes the item out of the seller-cache pool too.
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    renderBody(fitItem(), { onSaveEdit });
+    await user.click(screen.getByRole("button", { name: "Forget this chart" }));
+    expect(onSaveEdit).toHaveBeenCalledWith("fitread-1", {
+      sizeNotes: "",
+      sizeChartSource: null,
+    });
+  });
+
+  it("hides Forget when the chart came from the listing text itself", () => {
+    // Clearing sizeNotes would not kill a chart parsed from the summary, and
+    // a link that does nothing teaches the customer not to trust links.
+    renderBody(fitItem({ sizeNotes: undefined, sizeChartSource: undefined, summary: TOP_TEXT }));
+    expect(screen.queryByRole("button", { name: "Forget this chart" })).toBe(null);
+  });
+
   it("ghosts without a chart: yours kept, no band, waiting footnote", async () => {
     huntMock.mockResolvedValue(null);
     const { container } = renderBody(

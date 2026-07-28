@@ -1661,6 +1661,17 @@ export default function DetailBody({
           ),
     [verdict.chart, verdict.rec, bodyProfile, item.category]
   );
+  // "Forget this chart" (split rail): the parse was wrong, so the stored
+  // measurements go. Only offered when dropping sizeNotes actually kills the
+  // chart — one parsed from the listing's own text would survive the clear,
+  // and a link that does nothing teaches the customer not to trust links.
+  const chartIsForgettable = useMemo(
+    () => !!verdict.chart && !parseSizeChart(sizeChartTextFor({ ...item, sizeNotes: "" })),
+    [verdict.chart, item]
+  );
+  const forgetChart = () => {
+    onSaveEdit(item.id, { sizeNotes: "", sizeChartSource: null });
+  };
   // CH-14: the toggle's label follows the same value the sentence length does.
   const fitDetailPref = fitDetail || fitDisplayPrefs().detail;
   // CH-08: the 4f ask, local to this card. Reset when the card changes.
@@ -2228,7 +2239,7 @@ export default function DetailBody({
                 hasChart={!!verdict.chart}
                 units={measureUnits}
                 onEditMeasures={onOpenSizes ? openProfileSizes : null}
-                onForgetChart={null}
+                onForgetChart={chartIsForgettable ? forgetChart : null}
               />
             ) : null}
 
