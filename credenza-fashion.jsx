@@ -3480,15 +3480,17 @@ function useIsWideDetail() {
 // detail sheet (audit C3). Status meanings per docs/Monetization.md §A3.
 // FIND_STATUSES itself lives in credenza-find-status.js (shared with the Ask
 // serializer); labels/colors are display-only and stay here.
-// Short labels stay for StatusPill / dense chips. Long labels power the 4a
-// stage + 4b grouped picker (no bare QC/GL/RL initials on the card back).
+// Compact labels for pills / dense chips. CH-06: even the compact forms are
+// spelled out — no surface renders bare QC/GL/RL initials as a label. ("QC
+// photos" as a modifier stays; the initials never stand alone.) Long labels
+// power the 4a stage + the 4b grouped picker.
 export const FIND_STATUS_LABELS = {
   want: "Want",
   bought: "Bought",
   shipped: "Shipped",
-  qc: "QC",
-  gl: "GL",
-  rl: "RL",
+  qc: "Quality check",
+  gl: "Green light",
+  rl: "Red light",
   returned: "Returned",
 };
 export const FIND_STATUS_LONG = {
@@ -3497,14 +3499,23 @@ export const FIND_STATUS_LONG = {
   shipped: "Shipped",
   qc: "Quality check",
   gl: "Approved · green light",
-  rl: "Red light",
+  rl: "Rejected · red light",
   returned: "Returned",
 };
 export const FIND_STATUS_HINTS = {
   qc: "QC photos requested",
   gl: "Cleared to ship",
-  rl: "Rejected — send back or keep",
+  rl: "Send back or keep",
 };
+// 4b grouped picker (CH-06): the full pipeline, grouped by who holds the
+// order. Display-only — the enum and its order are untouched. "returned"
+// covers both arrival and an RL refund (see statusTrackIndex), so the
+// Shipping group lists it once, after Shipped.
+export const STATUS_PICKER_GROUPS = [
+  { name: "Ordering", statuses: ["want", "bought"] },
+  { name: "At the agent", statuses: ["qc", "gl", "rl"] },
+  { name: "Shipping", statuses: ["shipped", "returned"] },
+];
 // Human 4-stop track (design 4a). Agent sub-states map into Bought; returned
 // sits in the Received slot. Enum stays want|bought|shipped|qc|gl|rl|returned.
 export const STATUS_TRACK = ["Want", "Bought", "Shipped", "Received"];

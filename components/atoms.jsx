@@ -15,6 +15,7 @@ import {
   FIND_STATUS_NEXT,
   FONT,
   INK,
+  STATUS_PICKER_GROUPS,
   STATUS_TRACK,
   cx,
   priceLabel,
@@ -440,40 +441,55 @@ export function StatusStage({ value, onChange, label = "Status" }) {
             role="listbox"
             aria-label="Order status"
           >
-            {FIND_STATUSES.map((s) => {
-              const active = current === s;
-              const hint = FIND_STATUS_HINTS[s];
-              return (
-                <button
-                  type="button"
-                  key={s}
-                  role="option"
-                  aria-selected={active}
-                  className={
-                    "cz-status-picker-option" +
-                    (active ? " is-active" : "") +
-                    (hint ? " has-hint" : "")
-                  }
-                  onClick={() => {
-                    onChange && onChange(s);
-                    setOpen(false);
-                  }}
-                >
-                  <span className="cz-status-picker-option-dot" aria-hidden="true" />
-                  <span className="cz-status-picker-option-text">
-                    <span className="cz-status-picker-option-label">
-                      {FIND_STATUS_LONG[s] || FIND_STATUS_LABELS[s]}
-                    </span>
-                    {hint ? (
-                      <span className="cz-status-picker-option-hint">{hint}</span>
-                    ) : null}
-                  </span>
-                  {active ? (
-                    <Check size={12} strokeWidth={2.4} aria-hidden="true" />
-                  ) : null}
-                </button>
-              );
-            })}
+            {/* 4b (CH-06): grouped and spelled out — Ordering · At the agent
+                · Shipping. The group name is a small quiet header, not an
+                option; role="group" keeps the listbox semantics intact. */}
+            {STATUS_PICKER_GROUPS.map((group) => (
+              <div
+                key={group.name}
+                className="cz-status-picker-group"
+                role="group"
+                aria-label={group.name}
+              >
+                <div className="cz-status-picker-group-name" aria-hidden="true">
+                  {group.name}
+                </div>
+                {group.statuses.map((s) => {
+                  const active = current === s;
+                  const hint = FIND_STATUS_HINTS[s];
+                  return (
+                    <button
+                      type="button"
+                      key={s}
+                      role="option"
+                      aria-selected={active}
+                      className={
+                        "cz-status-picker-option" +
+                        (active ? " is-active" : "") +
+                        (hint ? " has-hint" : "")
+                      }
+                      onClick={() => {
+                        onChange && onChange(s);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="cz-status-picker-option-dot" aria-hidden="true" />
+                      <span className="cz-status-picker-option-text">
+                        <span className="cz-status-picker-option-label">
+                          {FIND_STATUS_LONG[s] || FIND_STATUS_LABELS[s]}
+                        </span>
+                        {hint ? (
+                          <span className="cz-status-picker-option-hint">{hint}</span>
+                        ) : null}
+                      </span>
+                      {active ? (
+                        <Check size={12} strokeWidth={2.4} aria-hidden="true" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -593,10 +609,13 @@ export function StatusTrackChips({ value, onChange, label = "Status" }) {
 export function StatusPill({ status, variant = "pill", className, style }) {
   if (!status || status === "want") return null;
   const colors = FIND_STATUS_COLORS[status] || {};
+  // CH-06: the pill spells the status out ("Quality check", never "QC") —
+  // the raw enum leaked bare initials through the uppercase transform.
+  const label = FIND_STATUS_LABELS[status] || status;
   if (variant === "chip") {
     return (
       <span className={cx("cz-meta-chip", className)} style={{ color: colors.text || INK, ...style }}>
-        {status}
+        {label}
       </span>
     );
   }
@@ -605,7 +624,7 @@ export function StatusPill({ status, variant = "pill", className, style }) {
       className={cx("cz-status-pill", className)}
       style={{ background: colors.bg || "transparent", color: colors.text || INK, ...style }}
     >
-      {status}
+      {label}
     </span>
   );
 }

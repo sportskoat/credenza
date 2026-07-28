@@ -56,8 +56,13 @@ export default function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isC
       qcNote: String(noteDraft || "").trim(),
     });
 
+  // CH-06: spelled out — no bare GL/RL/QC initials as a standalone label.
   const verdictLabel = item.qcVerdictAt
-    ? (item.findStatus === "gl" ? "GL" : item.findStatus === "rl" ? "RL" : "QC") +
+    ? (item.findStatus === "gl"
+        ? "Green light"
+        : item.findStatus === "rl"
+          ? "Red light"
+          : "Quality check") +
       " · " +
       new Date(item.qcVerdictAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
@@ -140,14 +145,14 @@ export default function WarehouseQcSection({ item, onSaveEdit, onOpenPhotos, isC
           className={"cz-qc-verdict-btn is-gl" + (item.findStatus === "gl" ? " is-active" : "")}
           onClick={() => verdict("gl")}
         >
-          GL · ship it
+          Green light · ship it
         </button>
         <button
           type="button"
           className={"cz-qc-verdict-btn is-rl" + (item.findStatus === "rl" ? " is-active" : "")}
           onClick={() => verdict("rl")}
         >
-          RL · send back
+          Red light · send back
         </button>
       </div>
       {/* Task 10 (Part 5): after an RL, record what came of it. Returned =

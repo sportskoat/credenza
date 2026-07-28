@@ -7334,6 +7334,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 6px 0 0;
   border-top: 1px solid var(--cz-hair);
 }
+/* CH-06: three quiet group headers — Ordering · At the agent · Shipping.
+   Sans and sentence case (no tracked-mono micro-label), faint so the
+   options stay the loudest text in the sheet. */
+.cz-status-picker-group + .cz-status-picker-group {
+  margin-top: 7px;
+}
+.cz-status-picker-group-name {
+  padding: 0 6px 2px;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--cz-faint);
+}
 .cz-status-picker-option {
   display: flex;
   align-items: flex-start;
