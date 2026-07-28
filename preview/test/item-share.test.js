@@ -11,14 +11,21 @@ function canvasHarness({ fail = false } = {}) {
   const calls = [];
   const context = {
     beginPath: vi.fn(),
+    clip: vi.fn(),
     drawImage: vi.fn((...args) => calls.push(["drawImage", ...args])),
+    fill: vi.fn(),
     fillRect: vi.fn((...args) => calls.push(["fillRect", ...args])),
     fillText: vi.fn((...args) => calls.push(["fillText", ...args])),
     lineTo: vi.fn(),
     measureText: vi.fn((text) => ({ width: String(text).length * 18 })),
     moveTo: vi.fn(),
+    restore: vi.fn(),
+    roundRect: vi.fn(),
+    save: vi.fn(),
+    scale: vi.fn(),
     stroke: vi.fn(),
     strokeRect: vi.fn(),
+    translate: vi.fn(),
   };
   const canvas = {
     width: 0,

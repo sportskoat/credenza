@@ -95,7 +95,7 @@ export function buildItemShareModel(item = {}, options = {}) {
     seller: cleanText(source.seller, "Saved item"),
     savedPrice: firstText(opts.savedPrice, source.savedPrice, source.priceLabel, "Price not saved"),
     facts: factCandidates.filter((fact) => fact.value).slice(0, 4),
-    footer: cleanText(opts.footer, "Saved with Credenza · credenza.app"),
+    footer: cleanText(opts.footer, "Saved with Credenza · credenzafashion.com"),
   };
 }
 
@@ -138,7 +138,7 @@ function normalizedModel(value, options) {
     seller: cleanText(value.seller, "Saved item"),
     savedPrice: cleanText(value.savedPrice, "Price not saved"),
     facts: allowedFacts,
-    footer: cleanText(value.footer, "Saved with Credenza · credenza.app"),
+    footer: cleanText(value.footer, "Saved with Credenza · credenzafashion.com"),
   };
 }
 
@@ -262,7 +262,23 @@ async function loadSafeImage(source, deps) {
   }
 }
 
-function setFont(ctx, weight, size, family = "Arial, sans-serif") {
+// Type and colour come from the design system (credenza.css tokens), not from
+// ad-hoc picks: the display serif carries titles and prices, the brand sans
+// carries labels, and data the eye scans (sizes, weights) sets in mono. An
+// exported card is the brand in someone else's chat — Arial here read as a
+// different company (Kyle 2026-07-27).
+const FONT_DISPLAY = 'Georgia, "Iowan Old Style", "Times New Roman", serif';
+const FONT_SANS = '"Clash Grotesk", Arial, ui-sans-serif, sans-serif';
+const FONT_MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+const INK = "#17181a";
+const MUTED = "#5c5f66";
+const FAINT = "#8a857c";
+const PAPER = "#f4f4f0";
+const LINE = "#dcd9d0";
+const ACCENT = "#4da3ff";
+
+function setFont(ctx, weight, size, family = FONT_SANS) {
   ctx.font = weight + " " + size + "px " + family;
 }
 
@@ -323,52 +339,118 @@ function drawCover(ctx, image, x, y, width, height) {
 }
 
 function drawPlaceholder(ctx, x, y, width, height) {
-  ctx.fillStyle = "#dedbd3";
+  ctx.fillStyle = "#eceae3";
   ctx.fillRect(x, y, width, height);
-  ctx.strokeStyle = "#c6c1b7";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = LINE;
+  ctx.lineWidth = 2;
   ctx.strokeRect(x, y, width, height);
-  ctx.fillStyle = "#77736b";
+  ctx.fillStyle = FAINT;
   ctx.textAlign = "center";
   setFont(ctx, "600", 24);
   ctx.fillText("NO COVER IMAGE", x + width / 2, y + height / 2 + 8);
   ctx.textAlign = "left";
 }
 
+// The logo's mark, replayed from the same path data share-page.js prints in
+// its header SVG: the dark rounded square, the serif C, the blue underline.
+// Scaled from the 40×40 viewBox. Path2D keeps this one string, so the mark on
+// the card can never drift from the mark on the site.
+const MARK_C_PATH =
+  "M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z";
+
+function drawMark(ctx, x, y, size) {
+  const scale = size / 40;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  if (typeof ctx.roundRect === "function") {
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 40, 40, 12.4);
+    ctx.fillStyle = "#0f1114";
+    ctx.fill();
+  } else {
+    ctx.fillStyle = "#0f1114";
+    ctx.fillRect(0, 0, 40, 40);
+  }
+  if (typeof Path2D === "function") {
+    ctx.fillStyle = "#e9edf2";
+    ctx.fill(new Path2D(MARK_C_PATH));
+  }
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(11.03, 29.66, 17.93, 2.76);
+  ctx.restore();
+}
+
+// Tracked type on canvas. letterSpacing lands in Chromium and Safari 17+;
+// elsewhere the text sets untracked, which loses polish, not legibility.
+function setTracking(ctx, px) {
+  try {
+    ctx.letterSpacing = px + "px";
+  } catch {}
+}
+
 function drawModel(ctx, model, image) {
-  ctx.fillStyle = "#f5f2ea";
+  ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
 
-  ctx.fillStyle = "#171714";
-  setFont(ctx, "800", 34);
-  ctx.fillText(model.masthead, 80, 91);
-  ctx.fillStyle = "#6f6a61";
-  setFont(ctx, "600", 18);
-  ctx.fillText("ITEM CARD", 940, 89);
+  // Header: mark + wordmark + kicker, the same lockup as the site header.
+  drawMark(ctx, 80, 58, 46);
+  ctx.fillStyle = INK;
+  setFont(ctx, "800", 30);
+  setTracking(ctx, 4);
+  ctx.fillText(model.masthead, 146, 91);
+  setTracking(ctx, 8);
+  ctx.fillStyle = MUTED;
+  setFont(ctx, "700", 13);
+  ctx.fillText("FASHION", 147, 112);
+  setTracking(ctx, 3);
+  ctx.textAlign = "right";
+  setFont(ctx, "600", 16);
+  ctx.fillText("SAVED FIND", 1120, 91);
+  ctx.textAlign = "left";
+  setTracking(ctx, 0);
 
   const cover = { x: 80, y: 145, width: 1040, height: 720 };
-  if (image) drawCover(ctx, image, cover.x, cover.y, cover.width, cover.height);
-  else drawPlaceholder(ctx, cover.x, cover.y, cover.width, cover.height);
+  if (image) {
+    if (typeof ctx.roundRect === "function") {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(cover.x, cover.y, cover.width, cover.height, 20);
+      ctx.clip();
+      drawCover(ctx, image, cover.x, cover.y, cover.width, cover.height);
+      ctx.restore();
+    } else {
+      drawCover(ctx, image, cover.x, cover.y, cover.width, cover.height);
+    }
+  } else {
+    drawPlaceholder(ctx, cover.x, cover.y, cover.width, cover.height);
+  }
 
-  ctx.fillStyle = "#171714";
-  setFont(ctx, "700", 58);
-  const titleLines = wrapText(ctx, model.title, 760, 2);
-  titleLines.forEach((line, index) => ctx.fillText(line, 80, 952 + index * 64));
+  // Title in the display serif, full width. The price used to sit beside it
+  // and squeeze it to 760px — two words and an ellipsis. It now shares the
+  // seller row below, and the title gets the whole card.
+  ctx.fillStyle = INK;
+  setFont(ctx, "500", 56, FONT_DISPLAY);
+  const titleLines = wrapText(ctx, model.title, 1040, 2);
+  titleLines.forEach((line, index) => ctx.fillText(line, 80, 952 + index * 66));
 
-  ctx.fillStyle = "#6f6a61";
-  setFont(ctx, "500", 25);
-  ctx.fillText(ellipsize(ctx, model.seller, 740), 80, titleLines.length > 1 ? 1083 : 1019);
+  const rowY = titleLines.length > 1 ? 1083 : 1017;
+  ctx.fillStyle = MUTED;
+  setFont(ctx, "500", 26);
+  ctx.fillText(ellipsize(ctx, model.seller, 640), 80, rowY);
 
-  ctx.fillStyle = "#171714";
   ctx.textAlign = "right";
-  setFont(ctx, "800", 42);
-  ctx.fillText(ellipsize(ctx, model.savedPrice, 300), 1120, 957);
-  ctx.fillStyle = "#6f6a61";
-  setFont(ctx, "600", 17);
-  ctx.fillText("SAVED PRICE", 1120, 991);
+  ctx.fillStyle = INK;
+  setFont(ctx, "500", 44, FONT_DISPLAY);
+  ctx.fillText(ellipsize(ctx, model.savedPrice, 340), 1120, rowY - 2);
+  ctx.fillStyle = FAINT;
+  setFont(ctx, "600", 15);
+  setTracking(ctx, 3);
+  ctx.fillText("SAVED PRICE", 1120, rowY + 30);
+  setTracking(ctx, 0);
   ctx.textAlign = "left";
 
-  const factsTop = 1160;
+  const factsTop = 1176;
   const cellWidth = 500;
   const cellHeight = 112;
   model.facts.forEach((fact, index) => {
@@ -376,21 +458,28 @@ function drawModel(ctx, model, image) {
     const row = Math.floor(index / 2);
     const x = 80 + column * 540;
     const y = factsTop + row * cellHeight;
-    ctx.fillStyle = "#8a857c";
-    setFont(ctx, "700", 16);
+    ctx.fillStyle = FAINT;
+    setFont(ctx, "700", 15);
+    setTracking(ctx, 2);
     ctx.fillText(fact.label.toUpperCase(), x, y);
-    ctx.fillStyle = "#171714";
-    setFont(ctx, "600", 29);
-    ctx.fillText(ellipsize(ctx, fact.value, cellWidth), x, y + 39);
+    setTracking(ctx, 0);
+    ctx.fillStyle = INK;
+    // Mono is for data the eye scans (a size, a weight). A haul name or a
+    // colorway is prose — it sets in the sans.
+    const isData = fact.label === "Size" || fact.label === "Weight";
+    setFont(ctx, isData ? "500" : "600", 27, isData ? FONT_MONO : FONT_SANS);
+    ctx.fillText(ellipsize(ctx, fact.value, cellWidth), x, y + 40);
   });
 
-  ctx.strokeStyle = "#cbc6bc";
+  ctx.strokeStyle = LINE;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(80, 1404);
   ctx.lineTo(1120, 1404);
   ctx.stroke();
-  ctx.fillStyle = "#6f6a61";
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(80, 1402, 48, 6);
+  ctx.fillStyle = MUTED;
   setFont(ctx, "500", 18);
   ctx.fillText(ellipsize(ctx, model.footer, 1040), 80, 1452);
 }

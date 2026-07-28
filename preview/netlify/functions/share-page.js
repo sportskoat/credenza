@@ -88,37 +88,42 @@ function code(event) {
 // ————— The page —————
 
 const STYLE = `
-:root{--bg:#f4f4f0;--ink:#17181a;--muted:#5c5f66;--card:#ffffff;--line:#e2e2dc}
-@media (prefers-color-scheme:dark){:root{--bg:#000000;--ink:#f4f4f0;--muted:#a1a1aa;--card:#1a1a1d;--line:#2a2a2e}}
+@font-face{font-family:"Clash Grotesk";src:url("/fonts/ClashGrotesk-Variable.woff2") format("woff2-variations");font-weight:200 700;font-display:swap}
+:root{--bg:#f4f4f0;--ink:#17181a;--muted:#5c5f66;--faint:#8a857c;--card:#ffffff;--line:#e2e2dc;
+--display:Georgia,'Iowan Old Style','Times New Roman',serif;
+--sans:'Clash Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#000000;--ink:#f4f4f0;--muted:#a1a1aa;--faint:#8a857c;--card:#1a1a1d;--line:#2a2a2e}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Georgia,'Times New Roman',serif;
-padding:2.5rem 1.25rem 3rem}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);
+padding:2.5rem 1.25rem 3rem;font-synthesis:none;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1040px;margin:0 auto}
 a{color:inherit}
 header{border-bottom:1px solid var(--line);padding-bottom:1.25rem;margin-bottom:1.5rem}
 .brand{display:inline-flex;align-items:center;gap:9px;text-decoration:none;margin:0 0 1rem}
 .brand-name{display:inline-flex;flex-direction:column;gap:3px;line-height:1}
-.wordmark{font-size:13.5px;font-weight:800;letter-spacing:.16em}
-.kicker{font-size:8.5px;font-weight:700;letter-spacing:.30em;text-transform:uppercase;color:var(--muted)}
-h1{font-size:2rem;line-height:1.15;margin:.4rem 0 .5rem;font-weight:500}
-.meta{color:var(--muted);margin:0;font-family:system-ui,-apple-system,sans-serif;font-size:.9rem}
+.wordmark{font-family:var(--sans);font-size:13.5px;font-weight:800;letter-spacing:.16em}
+.kicker{font-family:var(--sans);font-size:8.5px;font-weight:700;letter-spacing:.30em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-size:2rem;line-height:1.15;margin:.4rem 0 .5rem;font-weight:500}
+.meta{color:var(--muted);margin:0;font-family:var(--sans);font-size:.9rem}
 .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));padding:0;margin:0;list-style:none}
-.item{background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column}
+.item{background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;
+box-shadow:0 1px 2px rgb(0 0 0/.08),0 12px 24px rgb(0 0 0/.05)}
 .shot{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:var(--line)}
-.shot.empty{display:flex;align-items:center;justify-content:center;color:var(--muted);
-font-family:system-ui,-apple-system,sans-serif;font-size:.8rem}
+.shot.empty{display:flex;align-items:center;justify-content:center;color:var(--faint);
+font-family:var(--sans);font-size:.8rem}
 .body{padding:.8rem .85rem 1rem}
-.title{margin:0;font-size:1rem;line-height:1.3}
+.title{margin:0;font-family:var(--display);font-size:1.06rem;line-height:1.3;font-weight:500}
 .title a{text-decoration:none}
 .title a:hover{text-decoration:underline}
-.sub{margin:.35rem 0 0;color:var(--muted);font-family:system-ui,-apple-system,sans-serif;font-size:.85rem}
-.price{margin:.45rem 0 0;font-family:system-ui,-apple-system,sans-serif;font-size:.95rem}
-.note{margin:.5rem 0 0;font-size:.9rem;color:var(--muted)}
-.more{margin:1.5rem 0 0;color:var(--muted);font-family:system-ui,-apple-system,sans-serif;font-size:.9rem}
+.sub{margin:.35rem 0 0;color:var(--muted);font-family:var(--mono);font-size:.78rem;line-height:1.5}
+.price{margin:.45rem 0 0;font-family:var(--display);font-size:1.05rem}
+.note{margin:.5rem 0 0;font-size:.88rem;color:var(--muted)}
+.more{margin:1.5rem 0 0;color:var(--muted);font-family:var(--sans);font-size:.9rem}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding-top:1.25rem;
-font-family:system-ui,-apple-system,sans-serif;font-size:.9rem;color:var(--muted)}
-.cta{display:inline-block;margin-top:.75rem;padding:.7rem 1.1rem;background:var(--ink);color:var(--bg);
-text-decoration:none;font-family:system-ui,-apple-system,sans-serif;font-size:.95rem}
+font-family:var(--sans);font-size:.9rem;color:var(--muted)}
+.cta{display:inline-block;margin-top:.75rem;padding:.7rem 1.25rem;background:var(--ink);color:var(--bg);
+text-decoration:none;font-family:var(--sans);font-weight:600;font-size:.95rem;border-radius:999px}
 `.trim();
 
 const MARK = `<svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
