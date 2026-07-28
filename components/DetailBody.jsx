@@ -2079,16 +2079,6 @@ export default function DetailBody({
             tab bar made the card a guessing game. */}
         <div className="cz-detail-facts">
           <section className="cz-detail-facts-section" aria-label="Size and fit">
-            <SizeChoiceEditor
-              chosenSize={chosenSize}
-              recommendedSize={verdict.recSize || verdict.usualSize}
-              runValues={verdict.runValues}
-              customSize={customSize}
-              onCustomChange={setCustomSize}
-              onCommit={commitCustomSize}
-              onPick={pickItemSize}
-            />
-
             {askingMeasures && onSaveBodyProfile ? (
               // 4f — the ask replaces the sizing block until saved or skipped.
               <FitMeasureAsk
@@ -2248,6 +2238,27 @@ export default function DetailBody({
                 onFix={chartRead.fix}
               />
             ) : null}
+          </section>
+
+          {/* Split rail gap 1: SIZE is the top row of the desktop facts rail
+              (spec :133), so the editor lives in its own section between the
+              pick column and the small facts. DOM order doubles as the phone
+              order — pick → fit read → size → facts (ruling 2, 2026-07-28).
+              The visible label is desktop-only: the phone spec (:175) draws
+              the size as a bare full-width chip row. */}
+          <section className="cz-detail-facts-section" aria-label="Size">
+            <span className="cz-detail-rail-label" aria-hidden="true">
+              Size
+            </span>
+            <SizeChoiceEditor
+              chosenSize={chosenSize}
+              recommendedSize={verdict.recSize || verdict.usualSize}
+              runValues={verdict.runValues}
+              customSize={customSize}
+              onCustomChange={setCustomSize}
+              onCommit={commitCustomSize}
+              onPick={pickItemSize}
+            />
           </section>
 
           <section className="cz-detail-facts-section" aria-label="Colorway">

@@ -10029,6 +10029,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-top: 1px solid var(--cz-hair);
 }
 
+/* Split rail gap 1: the SIZE row's visible label exists for the desktop
+   facts rail only (spec :127). The phone draws the size as a bare chip row
+   (spec :175), so the label stays hidden until the 1024px block shows it.
+   The section keeps aria-label="Size", so the span is aria-hidden and
+   nothing is announced twice. (2026-07-28) */
+.cz-detail-rail-label {
+  display: none;
+}
+
 .cz-detail-size-choice:focus-visible,
 .cz-detail-custom-size .cz-detail-editor-input:focus-visible,
 .cz-detail-panel-field .cz-detail-editor-input:focus-visible,
@@ -12822,13 +12831,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 
   /* ── Split body (spec :87) ── Desktop only.
-     Column A is the pick and the fit read. Column B is a 208px facts rail.
-     Category and Status sit outside .cz-detail-facts in the DOM, so the rail
-     holds Colorway / Weight / Haul only (2026-07-28). */
+     Column A is the pick and the fit read. Column B is a 208px facts rail:
+     Size / Colorway / Weight / Haul. Category and Status still sit outside
+     .cz-detail-facts in the DOM (2026-07-28). */
   .cz-dpanel-body .cz-detail-facts {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 208px;
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto auto auto 1fr;
     column-gap: 20px;
     /* The rail hairline must run unbroken down Column B, so the rows carry
        their own 12px spacing as padding instead of a grid row-gap. */
@@ -12837,7 +12846,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Size and fit"] {
     grid-column: 1;
-    grid-row: 1 / span 3;
+    grid-row: 1 / span 4;
   }
 
   /* The mobile stack separates sections with a top hairline. In the split the
@@ -12847,6 +12856,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     border-top: none;
   }
 
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"],
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"],
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"],
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"] {
@@ -12856,17 +12866,78 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     border-left: 1px solid var(--cz-hair);
   }
 
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"] {
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] {
     grid-row: 1;
     padding-top: 16px;
   }
 
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"] {
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"] {
     grid-row: 2;
   }
 
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"] {
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"] {
     grid-row: 3;
+  }
+
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"] {
+    grid-row: 4;
+  }
+
+  /* The rail label pattern (spec :127): 10px mono over the control. */
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-rail-label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* Rail size chips (spec :133): 28px tall, 40px min-width, radius 999px,
+     11px mono. Selected is ink fill at weight 600; unselected is a hairline
+     ring at 500. The coarse-pointer floor in credenza.css pins every
+     .cz-detail-size-choice to 44px, so the visual shrinks here and a
+     pseudo-element carries the hit area — the same trick
+     .cz-detail-hero-btn uses on the photo. */
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice {
+    position: relative;
+    min-width: 40px;
+    min-height: 28px;
+    padding: 0 10px;
+    border-color: var(--cz-hair);
+    border-radius: 999px;
+    color: var(--cz-sub);
+    font-family: var(--cz-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    min-width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice.is-active {
+    font-weight: 600;
+  }
+
+  /* The odd-size field shrinks to the chip band with it. The 16px iOS floor
+     is phone-only, so a desktop 11px value is safe. */
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-custom-size .cz-detail-editor-input {
+    width: 72px;
+    min-height: 28px;
+    height: 28px;
+    font-size: 11px;
+    font-weight: 500;
   }
 
   /* Column B field pattern (spec :127). Label 10px mono over a 32px control. */

@@ -53,7 +53,7 @@ describe("DetailBody detail facts", () => {
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
     expect(screen.queryAllByRole("tabpanel", { hidden: true })).toHaveLength(0);
 
-    for (const name of ["Size and fit", "Colorway", "Weight", "Haul"]) {
+    for (const name of ["Size and fit", "Size", "Colorway", "Weight", "Haul"]) {
       expect(screen.getByRole("region", { name })).toBeInTheDocument();
     }
     expect(screen.getByRole("table")).toBeInTheDocument();

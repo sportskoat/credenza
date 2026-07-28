@@ -1371,7 +1371,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(within(sheet).queryByRole("button", { name: /^Edit$/ })).toBeNull();
     // Split rail: no tab bar — the four facts are always-visible sections.
     expect(within(sheet).queryAllByRole("tab")).toHaveLength(0);
-    for (const name of ["Size and fit", "Colorway", "Weight", "Haul"]) {
+    for (const name of ["Size and fit", "Size", "Colorway", "Weight", "Haul"]) {
       expect(within(sheet).getByRole("region", { name })).toBeInTheDocument();
     }
     expect(within(sheet).queryByRole("region", { name: "Batch" })).toBeNull();
@@ -1432,12 +1432,14 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    const panel = within(sheet).getByRole("region", { name: "Size and fit" });
-    expect(within(panel).getByRole("button", { name: "X-Large" })).toHaveAttribute(
+    // Split rail gap 1: the chips and the odd-size field are their own "Size"
+    // region now (the desktop rail row); the fit read keeps "Size and fit".
+    const sizeRail = within(sheet).getByRole("region", { name: "Size" });
+    expect(within(sizeRail).getByRole("button", { name: "X-Large" })).toHaveAttribute(
       "aria-pressed",
       "true"
     );
-    expect(within(panel).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
+    expect(within(sizeRail).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
     expect(screen.getByRole("button", { name: "Edit sizes and measurements" })).toBeInTheDocument();
   });
