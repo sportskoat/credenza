@@ -17,7 +17,10 @@ import {
   readChartFromPhotoFiles,
   serializeSizeChart,
   FIND_STATUS_SUBLABEL,
+  FIT_PREF_AXES,
   fitDisplayPrefs,
+  fitPrefHasChoice,
+  fitPrefLabel,
   formatMeasure,
   formatSizeToken,
   itemPhotoList,
@@ -38,7 +41,7 @@ import {
   SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
 import { CategorySelect } from "./atoms.jsx";
-import { fitMeasureFieldsFor } from "./SizeRecommendation.jsx";
+import { fitMeasureFieldsFor, FitPrefAxis } from "./SizeRecommendation.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
 import SizeChartTable from "./SizeChartTable.jsx";
 import { AlbumLinksRow } from "./CardMetaLinks.jsx";
@@ -1121,11 +1124,89 @@ function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, on
 // rests on the usual size alone (the category's own measures are absent);
 // green with the You/Garment/Ease math when a real measure met a real chart.
 // Provenance strings inside SizingBlock stay untouched — this strip only adds.
-function FitConfidenceStrip({ item, verdict, bodyProfile, units, onSharpen }) {
+// 5b — in-context taste ask, same copy as the orphan SizeRecommendation flow.
+// Owns its draft; mounts fresh each time, so it prefills from the live pref.
+function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone }) {
+  const catAxes = FIT_PREF_AXES[item.category];
+  const [draft, setDraft] = useState({
+    length: (fitPref && fitPref.length) || null,
+    looseness: (fitPref && fitPref.looseness) || null,
+  });
+  const catTitle = CATEGORIES[item.category]
+    ? CATEGORIES[item.category].label.toLowerCase()
+    : "this item";
+  if (!catAxes) return null;
+  return (
+    <div className="cz-fit-pref-ask">
+      <div className="cz-fit-pref-ask-title">How do you wear {catTitle}?</div>
+      <p className="cz-fit-pref-ask-copy">
+        Sets your default for all {catTitle}. Change any time in Settings.
+      </p>
+      <FitPrefAxis
+        label="Length"
+        options={catAxes.length}
+        value={draft.length}
+        onChange={(v) => setDraft((d) => ({ ...d, length: v }))}
+      />
+      <FitPrefAxis
+        label="Looseness"
+        options={catAxes.looseness}
+        value={draft.looseness}
+        onChange={(v) => setDraft((d) => ({ ...d, looseness: v }))}
+      />
+      <button
+        type="button"
+        className="cz-fit-pref-ask-save"
+        onClick={() => {
+          onSaveFitPref(item.category, {
+            length: draft.length,
+            looseness: draft.looseness,
+            dismissed: false,
+          });
+          onDone();
+        }}
+      >
+        Save preference
+      </button>
+      <button
+        type="button"
+        className="cz-fit-prompt-skip"
+        onClick={() => {
+          onSaveFitPref(item.category, {
+            length: null,
+            looseness: null,
+            dismissed: true,
+          });
+          onDone();
+        }}
+      >
+        Not sure yet
+      </button>
+    </div>
+  );
+}
+
+function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onSharpen, onEditPref }) {
   const rec = verdict.rec;
   if (verdict.precise && rec && rec.body != null && rec.garment != null) {
     const diff = rec.diff != null ? rec.diff : rec.garment - rec.body;
     const easeStr = (diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(diff), units);
+    // 5c — the preference payoff. baseWord only exists when taste actually
+    // shifted the letter size; tags surface any saved axis, shift or not.
+    const sizeWord = formatSizeToken(rec.size) || rec.size;
+    const baseWord =
+      rec.baseSize && String(rec.baseSize).toUpperCase() !== String(rec.size).toUpperCase()
+        ? formatSizeToken(rec.baseSize) || rec.baseSize
+        : null;
+    const activePref = rec.fitPref || (fitPrefHasChoice(fitPref) ? fitPref : null);
+    const lengthTag =
+      activePref && activePref.length
+        ? fitPrefLabel(item.category, "length", activePref.length)
+        : null;
+    const looseTag =
+      activePref && activePref.looseness
+        ? fitPrefLabel(item.category, "looseness", activePref.looseness)
+        : null;
     return (
       <div className="cz-fit4">
         <div className="cz-fit4-head">
@@ -1135,20 +1216,50 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, units, onSharpen }) {
             Precise fit
           </span>
         </div>
-        <div className="cz-fit4-math" aria-label="Fit numbers">
-          <div className="cz-fit4-math-cell">
-            <div className="cz-fit4-math-k">You</div>
-            <div className="cz-fit4-math-v">{formatMeasure(rec.body, units)}</div>
+        {baseWord ? (
+          <div className="cz-fit4-size-row">
+            <span className="cz-fit4-size">{sizeWord}</span>
+            <span className="cz-fit4-size-base" aria-label={"Base size " + baseWord}>
+              {baseWord}
+            </span>
+            <span className="cz-fit4-size-shift">
+              {rec.prefShift === "down" ? "sized down" : "sized up"}
+            </span>
           </div>
-          <div className="cz-fit4-math-cell">
-            <div className="cz-fit4-math-k">Garment</div>
-            <div className="cz-fit4-math-v">{formatMeasure(rec.garment, units)}</div>
+        ) : null}
+        {rec.prefReason ? <p className="cz-fit4-prose">{rec.prefReason}</p> : null}
+        {/* Kyle 2026-07-23: the math row is the no-preference payoff (4g).
+            When taste shifted the size (5c), the reason line + pref tags
+            carry the why — showing both stacked read as clutter. */}
+        {!baseWord && !lengthTag && !looseTag ? (
+          <div className="cz-fit4-math" aria-label="Fit numbers">
+            <div className="cz-fit4-math-cell">
+              <div className="cz-fit4-math-k">You</div>
+              <div className="cz-fit4-math-v">{formatMeasure(rec.body, units)}</div>
+            </div>
+            <div className="cz-fit4-math-cell">
+              <div className="cz-fit4-math-k">Garment</div>
+              <div className="cz-fit4-math-v">{formatMeasure(rec.garment, units)}</div>
+            </div>
+            <div className="cz-fit4-math-cell">
+              <div className="cz-fit4-math-k">Ease</div>
+              <div className="cz-fit4-math-v is-money">{easeStr}</div>
+            </div>
           </div>
-          <div className="cz-fit4-math-cell">
-            <div className="cz-fit4-math-k">Ease</div>
-            <div className="cz-fit4-math-v is-money">{easeStr}</div>
+        ) : null}
+        {lengthTag || looseTag ? (
+          <div className="cz-fit4-pref-bar">
+            <div className="cz-fit4-pref-tags">
+              {lengthTag ? <span className="cz-fit4-pref-tag">{lengthTag}</span> : null}
+              {looseTag ? <span className="cz-fit4-pref-tag">{looseTag}</span> : null}
+            </div>
+            {onEditPref ? (
+              <button type="button" className="cz-fit4-pref-edit" onClick={onEditPref}>
+                Edit
+              </button>
+            ) : null}
           </div>
-        </div>
+        ) : null}
       </div>
     );
   }
@@ -1236,6 +1347,7 @@ export default function DetailBody({
   onSaveBodyProfile = null,
   fitPromptSkipped = false,
   onSkipFitPrompt = null,
+  onSaveFitPref = null,
 }) {
   const titleInputRef = useRef(null);
   const tabRefs = useRef([]);
@@ -1429,7 +1541,20 @@ export default function DetailBody({
   const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits);
   // CH-08: the 4f ask, local to this card. Reset when the card changes.
   const [askingMeasures, setAskingMeasures] = useState(false);
-  useEffect(() => setAskingMeasures(false), [item.id]);
+  // CH-09 (5b): the taste ask. Auto once per category when a chart-based rec
+  // exists and the customer never answered; Edit on the pref bar reopens it.
+  const [askingPref, setAskingPref] = useState(false);
+  useEffect(() => {
+    setAskingMeasures(false);
+    setAskingPref(false);
+  }, [item.id]);
+  const needsPrefAsk =
+    !!FIT_PREF_AXES[item.category] &&
+    !!onSaveFitPref &&
+    !!verdict.chart &&
+    !!bodyProfile &&
+    !fitPrefHasChoice(fitPref) &&
+    !(fitPref && fitPref.dismissed);
   const hunting = useChartHunt(item, verdict.chart, onSaveEdit, true, shelfItems);
   // §3: the customer's own chart read, and the album photos its third option
   // offers. Remote URLs only — a local data: URL cannot go down the images door.
@@ -1923,18 +2048,29 @@ export default function DetailBody({
               />
             )}
 
-            {!askingMeasures &&
-            bodyProfile &&
-            onSaveBodyProfile &&
-            !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
+            {!askingMeasures && (askingPref || needsPrefAsk) && onSaveFitPref ? (
+              // 5b — the taste ask sits in the confidence-strip slot. The
+              // sizing block above stays, so the card is never blocked.
+              <FitPrefAsk
+                item={item}
+                fitPref={fitPref}
+                onSaveFitPref={onSaveFitPref}
+                onDone={() => setAskingPref(false)}
+              />
+            ) : !askingMeasures &&
+              bodyProfile &&
+              onSaveBodyProfile &&
+              !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
               // 4e / 4g — the confidence strip, only when a profile exists and
               // a caller can receive the sharpened measures.
               <FitConfidenceStrip
                 item={item}
                 verdict={verdict}
                 bodyProfile={bodyProfile}
+                fitPref={fitPref}
                 units={measureUnits}
                 onSharpen={() => setAskingMeasures(true)}
+                onEditPref={onSaveFitPref ? () => setAskingPref(true) : null}
               />
             ) : null}
 

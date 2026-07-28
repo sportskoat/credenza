@@ -29,6 +29,7 @@ export default function DesktopDetailPanel({
   onSaveBodyProfile = null,
   fitPromptSkipped = false,
   onSkipFitPrompt = null,
+  onSaveFitPref = null,
   measureUnits = "cm",
   buyLabel = "Buy",
   preferredAgent = null,
@@ -508,6 +509,7 @@ export default function DesktopDetailPanel({
               onSaveBodyProfile={onSaveBodyProfile}
               fitPromptSkipped={fitPromptSkipped}
               onSkipFitPrompt={onSkipFitPrompt}
+              onSaveFitPref={onSaveFitPref}
               measureUnits={measureUnits}
               buyLabel={buyLabel}
               preferredAgent={preferredAgent}

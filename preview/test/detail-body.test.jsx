@@ -355,3 +355,75 @@ describe("DetailBody no-measurements flow", () => {
     expect(screen.queryByText("Rough estimate")).toBe(null);
   });
 });
+
+describe("DetailBody per-category fit preferences (5b/5c)", () => {
+  const prefHandlers = (fitPrefs = null) => ({
+    // Numbers, as measureToStorage saves them. A chest of 96 puts the base
+    // pick at M — mid-ladder, so a looseness nudge has room to move.
+    bodyProfile: { chest: 96 },
+    fitPrefs,
+    onSaveBodyProfile: vi.fn(),
+    onSkipFitPrompt: vi.fn(),
+    onSaveFitPref: vi.fn(),
+  });
+
+  it("5b: asks once per category and never blocks the card", () => {
+    const handlers = prefHandlers();
+    const { container } = render(body(item("fit5b"), handlers));
+
+    expect(screen.getByText("How do you wear shirts?")).toBeInTheDocument();
+    // The sizing verdict stays visible behind the ask.
+    expect(container.querySelector(".cz-sizing")).not.toBe(null);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Oversized" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
+    expect(handlers.onSaveFitPref).toHaveBeenCalledWith("shirt", {
+      length: null,
+      looseness: "oversized",
+      dismissed: false,
+    });
+  });
+
+  it("5b: Not sure yet dismisses without saving a choice", () => {
+    const handlers = prefHandlers();
+    render(body(item("fit5b-skip"), handlers));
+
+    fireEvent.click(screen.getByRole("button", { name: "Not sure yet" }));
+    expect(handlers.onSaveFitPref).toHaveBeenCalledWith("shirt", {
+      length: null,
+      looseness: null,
+      dismissed: true,
+    });
+  });
+
+  it("5c: an oversized preference shows base size, shift, reason and tags", () => {
+    const handlers = prefHandlers({
+      shirt: { length: null, looseness: "oversized", dismissed: false },
+    });
+    const { container } = render(body(item("fit5c"), handlers));
+
+    // Taste shifted the letter — old size struck through, shift named.
+    expect(container.querySelector(".cz-fit4-size-base")).not.toBe(null);
+    expect(screen.getByText("sized up")).toBeInTheDocument();
+    expect(screen.getByText(/so we bumped one size/)).toBeInTheDocument();
+    // Tags + Edit carry the why; the math row stands down (clutter rule).
+    expect(screen.getByText("Oversized")).toBeInTheDocument();
+    expect(container.querySelector(".cz-fit4-math")).toBe(null);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByText("How do you wear shirts?")).toBeInTheDocument();
+  });
+
+  it("5c: a Shorts preference does not touch a Shirts card", () => {
+    const handlers = prefHandlers({
+      shirt: { length: null, looseness: null, dismissed: true },
+      shorts: { length: null, looseness: "baggy", dismissed: false },
+    });
+    const { container } = render(body(item("fit5c-cross"), handlers));
+
+    // Measurement-only verdict: math row, no shift, no borrowed tags.
+    expect(container.querySelector(".cz-fit4-math")).not.toBe(null);
+    expect(container.querySelector(".cz-fit4-size-base")).toBe(null);
+    expect(screen.queryByText("Baggy")).toBe(null);
+    expect(container.querySelector(".cz-fit4-pref-bar")).toBe(null);
+  });
+});

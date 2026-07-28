@@ -7282,6 +7282,7 @@ function CredenzaApp() {
       }}
       fitPromptSkipped={fitPromptSkipped}
       onSkipFitPrompt={() => setFitPromptSkipped(true)}
+      onSaveFitPref={saveFitPref}
       measureUnits={measureUnits}
       buyLabel={buyLabel}
       preferredAgent={preferredAgent}
@@ -7810,6 +7811,7 @@ function CredenzaApp() {
           }}
           fitPromptSkipped={fitPromptSkipped}
           onSkipFitPrompt={() => setFitPromptSkipped(true)}
+          onSaveFitPref={saveFitPref}
           measureUnits={measureUnits}
           buyLabel={buyLabel}
           preferredAgent={preferredAgent}
