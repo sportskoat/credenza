@@ -10057,6 +10057,39 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 600;
 }
 
+/* ── Phone size row (split-rail spec :175) ── The chips share the row width
+   instead of wrapping at their own widths. 44px is the touch floor and is not
+   negotiable. Clear size keeps a full row of its own — a flex:1 share would
+   squeeze a two-word label into a chip built for "XXL". (2026-07-28) */
+@media (max-width: 767px) {
+  .cz-detail-size-choices {
+    gap: 6px;
+  }
+
+  .cz-detail-size-choice {
+    flex: 1 1 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-family: var(--cz-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .cz-detail-size-choice.is-active {
+    font-weight: 600;
+  }
+
+  .cz-detail-size-choice.is-clear {
+    flex: 1 0 100%;
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: normal;
+  }
+}
+
 .cz-detail-custom-size,
 .cz-detail-panel-field {
   display: grid;
