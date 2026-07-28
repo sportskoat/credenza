@@ -3,7 +3,7 @@
 // next to Buy, and the ⋯ actions menu. Layout itself is CSS; these guard the
 // behavior contract.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import DesktopDetailPanel from "../../components/DesktopDetailPanel.jsx";
@@ -45,9 +45,107 @@ function renderPanel(item, extra = {}) {
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  document.body.style.overflow = "";
+});
 
 describe("DesktopDetailPanel (Fix B)", () => {
+  it("uses a native dialog, locks scroll, focuses Close, and restores the opener", async () => {
+    document.body.style.overflow = "scroll";
+    const opener = document.createElement("button");
+    document.body.appendChild(opener);
+    opener.focus();
+
+    let unmountPanel = () => {};
+    const onClose = vi.fn(() => unmountPanel());
+    const rendered = renderPanel(panelItem(), { onClose });
+    unmountPanel = rendered.unmount;
+    const dialog = rendered.container.querySelector("dialog.cz-dpanel-scrim");
+
+    expect(dialog).toHaveAttribute("open");
+    expect(document.body.style.overflow).toBe("hidden");
+    const closeButton = screen.getByRole("button", { name: "Close" });
+    await waitFor(() => expect(closeButton).toHaveFocus());
+
+    fireEvent.click(closeButton);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(dialog).not.toHaveAttribute("open");
+    expect(document.body.style.overflow).toBe("scroll");
+    expect(opener).toHaveFocus();
+    opener.remove();
+  });
+
+  it.each(["Close", "backdrop", "Escape", "Remove"])(
+    "flushes a pending DetailBody edit before %s",
+    (path) => {
+      const onSaveEdit = vi.fn();
+      const onDelete = vi.fn();
+      const onClose = vi.fn();
+      const { container } = renderPanel(panelItem(), { onSaveEdit, onDelete, onClose });
+
+      fireEvent.click(screen.getByRole("tab", { name: "Weight" }));
+      fireEvent.change(screen.getByRole("textbox", { name: "Weight · g" }), {
+        target: { value: "1200" },
+      });
+
+      if (path === "Close") {
+        fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      } else if (path === "backdrop") {
+        fireEvent.click(container.querySelector("dialog.cz-dpanel-scrim"));
+      } else if (path === "Escape") {
+        fireEvent(
+          container.querySelector("dialog.cz-dpanel-scrim"),
+          new Event("cancel", { bubbles: false, cancelable: true })
+        );
+      } else {
+        fireEvent.click(screen.getByRole("button", { name: "Card actions" }));
+        fireEvent.click(screen.getByRole("menuitem", { name: "Remove card" }));
+      }
+
+      expect(onSaveEdit).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onSaveEdit.mock.invocationCallOrder[0]).toBeLessThan(
+        onClose.mock.invocationCallOrder[0]
+      );
+      if (path === "Remove") {
+        expect(onDelete).toHaveBeenCalledWith("dp-1");
+        expect(onSaveEdit.mock.invocationCallOrder[0]).toBeLessThan(
+          onDelete.mock.invocationCallOrder[0]
+        );
+      } else {
+        expect(onDelete).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it("does not close the panel while a nested dialog is open", () => {
+    const onClose = vi.fn();
+    const { container } = renderPanel(panelItem(), { onClose });
+    const panelDialog = container.querySelector("dialog.cz-dpanel-scrim");
+    const nestedDialog = document.createElement("dialog");
+    nestedDialog.setAttribute("open", "");
+    panelDialog.appendChild(nestedDialog);
+
+    fireEvent(panelDialog, new Event("cancel", { bubbles: false, cancelable: true }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    nestedDialog.remove();
+    fireEvent(panelDialog, new Event("cancel", { bubbles: false, cancelable: true }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render the removed Open size chart action in the photo area", () => {
+    const gallery = Array.from(
+      { length: 20 },
+      (_, index) => `https://si.geilicdn.com/img-${index + 2}.jpg`
+    );
+    renderPanel(panelItem({ gallery, albumPhotoCount: 40 }));
+
+    expect(screen.getByRole("button", { name: "Show photo 21" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open size chart" })).toBeNull();
+  });
+
   it("shows the photo counter and pages with the arrow keys", async () => {
     renderPanel(panelItem());
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
@@ -55,6 +153,19 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(await screen.findByText("2 / 3")).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "ArrowLeft" });
     expect(await screen.findByText("1 / 3")).toBeInTheDocument();
+  });
+
+  it("leaves arrow keys with the focused detail tabs", async () => {
+    renderPanel(panelItem());
+    const sizeTab = screen.getByRole("tab", { name: "Size" });
+    sizeTab.focus();
+
+    fireEvent.keyDown(sizeTab, { key: "ArrowRight" });
+
+    const colorwayTab = screen.getByRole("tab", { name: "Colorway" });
+    await waitFor(() => expect(colorwayTab).toHaveAttribute("aria-selected", "true"));
+    expect(colorwayTab).toHaveFocus();
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
   });
 
   it("disables the pager arrows at the ends instead of wrapping", () => {
@@ -112,7 +223,47 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
   });
 
-  it("the ⋯ menu holds only Remove card — haul lives on the chip", async () => {
+  it.each(["shared", "downloaded", "cancelled", "failed"])(
+    "lists Share card before Remove card and keeps detail open after %s",
+    async (outcome) => {
+      const onSaveEdit = vi.fn();
+      const onShareCard = vi.fn().mockResolvedValue(outcome);
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      renderPanel(panelItem(), { onSaveEdit, onShareCard, onClose });
+
+      await user.click(screen.getByRole("tab", { name: "Colorway" }));
+      fireEvent.change(screen.getByRole("textbox", { name: "Colorway" }), {
+        target: { value: "Bone white" },
+      });
+      await user.click(screen.getByRole("button", { name: "Card actions" }));
+
+      const menu = screen.getByRole("menu", { name: "Card actions" });
+      const actions = [...menu.querySelectorAll('[role="menuitem"]')];
+      expect(actions.map((action) => action.textContent.trim())).toEqual([
+        "Share card",
+        "Remove card",
+      ]);
+
+      await user.click(actions[0]);
+      await expect(onShareCard.mock.results[0].value).resolves.toBe(outcome);
+      expect(onSaveEdit).toHaveBeenCalledWith(
+        "dp-1",
+        expect.objectContaining({ colorway: "Bone white" })
+      );
+      expect(onShareCard).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "dp-1", colorway: "Bone white" })
+      );
+      expect(onSaveEdit.mock.invocationCallOrder[0]).toBeLessThan(
+        onShareCard.mock.invocationCallOrder[0]
+      );
+      expect(screen.queryByRole("menu", { name: "Card actions" })).toBeNull();
+      expect(screen.getByRole("dialog", { name: "M32126-109E Shirt" })).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+    }
+  );
+
+  it("keeps haul off the More menu and removes the card", async () => {
     const onSaveEdit = vi.fn();
     const onDelete = vi.fn();
     const onClose = vi.fn();
@@ -123,9 +274,8 @@ describe("DesktopDetailPanel (Fix B)", () => {
     // The menu must not duplicate haul assignment: two writers for the same
     // field is how hauls got clobbered. The chip row owns it now.
     expect(screen.queryByRole("menuitem", { name: /Summer Europe/ })).toBeNull();
-    expect(screen.getByText("Haul lives on the chip below now.")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("menuitem", { name: /Remove card/ }));
+    await user.click(screen.getByRole("menuitem", { name: "Remove card" }));
     expect(onDelete).toHaveBeenCalledWith("dp-1");
     expect(onClose).toHaveBeenCalled();
     expect(onSaveEdit).not.toHaveBeenCalled();

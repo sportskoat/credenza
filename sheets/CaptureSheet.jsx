@@ -10,10 +10,11 @@ import { ModalShell, stashPreview } from "../credenza-fashion.jsx";
 // One rule governs this sheet: nothing is stashed that is not on screen
 // first. Every button shows what it will create before it creates it.
 //
-// Three states, all derived — the sheet holds no mode toggle:
-//   A "detected" — the clipboard holds something. Show it, then "Stash this".
+// The sheet has four states:
+//   A "detected" — the clipboard holds links. Show them, then "Stash this".
 //   B "empty"    — the clipboard is empty or unreadable. Show a paste box.
 //   C "multi"    — the text parses to more than one card. Show the list.
+//   D "note"     — a clipboard read found no links. Require one more action.
 //
 // Removed in this step: the Yupoo/Weidian/Taobao/Reddit dot row, the "Paste"
 // and "Stash this tab" text buttons, and the clipboard chip. The clipboard is
@@ -23,11 +24,12 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
   // the user asks for it. State A is the common case.
   const [showBox, setShowBox] = useState(!clip);
   const [pasteError, setPasteError] = useState("");
+  const [reviewAsNote, setReviewAsNote] = useState(false);
 
   const typed = (input || "").trim();
   // Typed text always wins: the user is looking at it.
   const source = typed || (showBox ? "" : (clip && clip.text) || "");
-  const preview = stashPreview(source);
+  const preview = stashPreview(source, { asNote: reviewAsNote });
 
   useEffect(() => {
     if (!showBox) return;
@@ -40,9 +42,8 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
     return () => cancelAnimationFrame(id);
   }, [showBox, textareaRef]);
 
-  // The one button that reads the clipboard. A tap is a user gesture, so the
-  // browser allows the read here even when the silent probe was refused. The
-  // text lands in the box first, so the user still sees what gets stashed.
+  // This button reads the clipboard after a user gesture. Links can stash now.
+  // URL-free text moves into the box and requires a second action.
   const pasteAndStash = async () => {
     setPasteError("");
     const fallback = (message) => {
@@ -65,11 +66,17 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
       return;
     }
     onInput(text);
-    onStash(text);
+    const result = onStash(text, { linksOnly: true });
+    if (result && result.status === "no-link") {
+      setShowBox(true);
+      setReviewAsNote(true);
+      setPasteError("No links found.");
+    }
   };
 
   const primaryLabel = () => {
     if (!preview) return "Paste & stash";
+    if (reviewAsNote) return "Save as 1 note";
     if (preview.count > 1) return "Stash " + preview.count + " items";
     if (!typed) return "Stash this";
     return "Stash · 1 " + (preview.rows[0].code === "note" ? "note" : "link");
@@ -77,6 +84,7 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
 
   const readyLine = () => {
     if (!preview) return null;
+    if (reviewAsNote) return "1 note from this text";
     if (preview.count > 1) return preview.count + " links in this haul · " + preview.platform;
     return typed ? "Ready to stash" : preview.label;
   };
@@ -117,13 +125,17 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
             className="cz-stash-paste"
             aria-label="Stash a link or note"
             value={input}
-            onChange={(e) => onInput(e.target.value)}
+            onChange={(e) => {
+              setReviewAsNote(false);
+              setPasteError("");
+              onInput(e.target.value);
+            }}
             onKeyDown={(e) => {
               // Keep Stash keystrokes out of the window type-anywhere path.
               e.stopPropagation();
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (typed) onStash(typed);
+                if (typed) onStash(typed, reviewAsNote ? { asNote: true } : {});
               }
             }}
             placeholder="Paste a link, a whole Reddit haul, or a note"
@@ -155,7 +167,17 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
         <button
           type="button"
           className="cz-stash-primary"
-          onClick={() => (preview ? onStash(source) : pasteAndStash())}
+          onClick={() => {
+            if (!preview) {
+              pasteAndStash();
+              return;
+            }
+            if (reviewAsNote) {
+              onStash(source, { asNote: true });
+              return;
+            }
+            onStash(source, showBox ? {} : { linksOnly: true });
+          }}
         >
           {primaryLabel()}
         </button>
@@ -166,6 +188,8 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
             className="cz-stash-alt"
             onClick={() => {
               onInput("");
+              setPasteError("");
+              setReviewAsNote(false);
               setShowBox(true);
             }}
           >

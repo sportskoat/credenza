@@ -66,7 +66,12 @@ button {
 .cz-card-toggle,
 .cz-tab,
 .cz-view-button,
-.cz-sort-select {
+.cz-sort-select,
+.cz-detail-tab,
+.cz-detail-size-choice,
+.cz-detail-chart-upload,
+.cz-detail-profile-sizes,
+.cz-detail-unit-btn {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
@@ -80,6 +85,11 @@ button {
 .cz-tab:focus-visible,
 .cz-view-button:focus-visible,
 .cz-sort-select:focus-visible,
+.cz-detail-tab:focus-visible,
+.cz-detail-size-choice:focus-visible,
+.cz-detail-chart-upload:focus-visible,
+.cz-detail-profile-sizes:focus-visible,
+.cz-detail-unit-btn:focus-visible,
 .cz-field:focus-visible,
 .cz-capture:focus-visible,
 .cz-search-input:focus-visible,
@@ -94,7 +104,12 @@ button {
 .cz-row,
 .cz-card-toggle,
 .cz-tab,
-.cz-view-button {
+.cz-view-button,
+.cz-detail-tab,
+.cz-detail-size-choice,
+.cz-detail-chart-upload,
+.cz-detail-profile-sizes,
+.cz-detail-unit-btn {
   transition-property: color, background-color, border-color, box-shadow, opacity, transform;
   transition-duration: var(--dur-micro);
   transition-timing-function: var(--ease-out);
@@ -104,7 +119,12 @@ button {
 .cz-chip:active:not(:disabled),
 .cz-icon-button:active:not(:disabled),
 .cz-tab:active:not(:disabled),
-.cz-view-button:active:not(:disabled) {
+.cz-view-button:active:not(:disabled),
+.cz-detail-tab:active:not(:disabled),
+.cz-detail-size-choice:active:not(:disabled),
+.cz-detail-chart-upload:active:not(:disabled),
+.cz-detail-profile-sizes:active:not(:disabled),
+.cz-detail-unit-btn:active:not(:disabled) {
   transform: scale(0.96);
 }
 
@@ -463,7 +483,11 @@ button {
   /* Mobile detail sheet (handoff step 6). The sheet sets its own heights;
      these entries hold the floor if a rule above ever shrinks. */
   .cz-detail-status-chip,
-  .cz-detail-fit-chip,
+  .cz-detail-tab,
+  .cz-detail-size-choice,
+  .cz-detail-chart-upload,
+  .cz-detail-profile-sizes,
+  .cz-detail-unit-btn,
   .cz-detail-editor-done,
   .cz-detail-title-btn {
     min-height: 44px;
@@ -530,6 +554,11 @@ button {
   .cz-tab,
   .cz-view-button,
   .cz-sort-select,
+  .cz-detail-tab,
+  .cz-detail-size-choice,
+  .cz-detail-chart-upload,
+  .cz-detail-profile-sizes,
+  .cz-detail-unit-btn,
   .cz-field,
   .cz-note-field,
   .cz-capture,

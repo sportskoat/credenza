@@ -1380,18 +1380,19 @@ describe("every page that names a price names the one the app charges", () => {
       // hardcoding $3.33 — a changed yearly price moves this number too, and
       // the whole point of deriving from PRICING is that nothing drifts.
       const perMonth = (PRICING.yearlyPerMonth.match(/\$[\d.]+/) || [])[0];
-      const real = new Set([PRICING.monthly, PRICING.yearly, perMonth]);
+      const real = new Set([PRICING.weekly, PRICING.monthly, PRICING.yearly, perMonth]);
       for (const p of plan) {
         expect(
           real.has(p),
-          `${rel} says Pro costs ${p}; the app charges ${PRICING.monthly} or ${PRICING.yearly}`
+          `${rel} says Pro costs ${p}; the app charges ${PRICING.weekly}, ${PRICING.monthly}, or ${PRICING.yearly}`
         ).toBe(true);
       }
     });
   }
 
-  it("the pricing page states both plans, not just the cheaper one", () => {
+  it("the pricing page states all three plans, not just the cheaper one", () => {
     const page = DOCS.find((p) => p.url === "/pricing/");
+    expect(page.html, "pricing page weekly").toContain(PRICING.weekly);
     expect(page.html, "pricing page monthly").toContain(PRICING.monthly);
     expect(page.html, "pricing page yearly").toContain(PRICING.yearly);
   });

@@ -3,7 +3,12 @@
 // (Execution-Plan Part 7d)
 //
 // POST with `Authorization: Bearer <supabase access token>` and a JSON body:
-//   { "price": "monthly" | "yearly" }
+//   { "price": "weekly" | "monthly" | "yearly" }
+//
+// The weekly plan carries a 3-day free trial (decided 2026-07-27): the card
+// is collected up front by Checkout, the first charge lands on day 4. The
+// trial lives HERE, not on the Stripe product — a product-level trial would
+// attach to every price, and a trial on a yearly plan makes no sense.
 //
 // The flow:
 //   1. Verify the token (shared auth helper) — checkout is account-only.
@@ -28,6 +33,17 @@ const { stripePost } = require("./lib/stripe.js");
 
 const ROUTE = "checkout";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+
+// Weekly only: 3 days free, card up front, first charge on day 4. Monthly
+// and yearly bill at once — a trial on a discounted anchor plan only delays
+// revenue and invites churn games.
+const TRIAL_DAYS_BY_PRICE = { weekly: 3 };
+
+const PRICE_ENV_BY_NAME = {
+  weekly: "STRIPE_PRICE_WEEKLY",
+  monthly: "STRIPE_PRICE_MONTHLY",
+  yearly: "STRIPE_PRICE_YEARLY",
+};
 
 function response(statusCode, payload, extraHeaders) {
   return {
@@ -62,12 +78,13 @@ async function handle(event) {
   } catch {
     return response(400, { error: "Invalid JSON body" });
   }
-  if (body.price !== "monthly" && body.price !== "yearly") {
-    return response(400, { error: 'Body must be { "price": "monthly" | "yearly" }' });
+  const envName = PRICE_ENV_BY_NAME[body.price];
+  if (!envName) {
+    return response(400, { error: 'Body must be { "price": "weekly" | "monthly" | "yearly" }' });
   }
-  const priceId = body.price === "monthly" ? env.STRIPE_PRICE_MONTHLY : env.STRIPE_PRICE_YEARLY;
+  const priceId = env[envName];
   if (!priceId) {
-    return response(500, { error: "Server not configured: missing STRIPE_PRICE_" + body.price.toUpperCase() });
+    return response(500, { error: "Server not configured: missing " + envName });
   }
 
   const blocked = limit.enter(ROUTE, claims.sub);
@@ -95,6 +112,9 @@ async function handle(event) {
         customer_email: record.stripeCustomerId ? undefined : claims.email || undefined,
         line_items: [{ price: priceId, quantity: 1 }],
         allow_promotion_codes: true,
+        subscription_data: TRIAL_DAYS_BY_PRICE[body.price]
+          ? { trial_period_days: TRIAL_DAYS_BY_PRICE[body.price] }
+          : undefined,
         success_url: base + "/?upgraded=1",
         cancel_url: base + "/?upgrade=cancelled",
       },

@@ -6,16 +6,10 @@
 // (album text, then a vision read of the photos), writes the find into
 // sizeNotes, and the recommendation appears.
 //
-// Handoff turn 9 §2 moved two things these tests depend on:
-//   - the hunt starts when the DETAIL opens, not when a size cell is tapped,
-//     because the sizing block is now always visible;
-//   - the retired "Size · fit" cell is replaced by the sizing block's
-//     "Full chart" button, which opens the same FitBlock sheet.
-// So the hunt assertions need no click, and the sheet assertions click
-// "Full chart". While the hunt runs the sizing block reads READING CHART.
+// The hunt starts when the detail opens. The Size tab keeps the item size,
+// recommendation, and seller chart together. No extra route opens the chart.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 
 const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
 
@@ -64,17 +58,6 @@ afterEach(() => {
   huntMock.mockReset();
 });
 
-// A chartless item re-renders when the hunt returns nothing: turn 9 §3 swaps
-// the ordinary sizing block for the no-chart block, and that mounts a fresh
-// footer button. A node captured before the swap is detached, so the click
-// lands nowhere. Wait for the swap, then query the live node. No-chart with
-// a listing size run labels the footer "My sizes" (run chips are inline);
-// without a run it stays "Pick a size". Both open the same sheet.
-async function clickFullChart(user) {
-  await screen.findByText("No chart");
-  await user.click(screen.getByRole("button", { name: /My sizes|Pick a size/ }));
-}
-
 describe("FitBlock chart hunt", () => {
   it("hunts once when the detail opens with no chart, then prescribes", async () => {
     // Hold the hunt open so the "looking" state is observable, then resolve.
@@ -100,11 +83,11 @@ describe("FitBlock chart hunt", () => {
   it("shows the recommendation once the item carries the hunted chart", async () => {
     huntMock.mockResolvedValue(null); // hunted already; nothing new
     const item = { ...noChartItem("hunt-b"), sizeNotes: CHART_TEXT };
-    const user = userEvent.setup();
     renderBody(item);
 
-    await user.click(screen.getByRole("button", { name: /Full chart/ }));
-    expect(await screen.findByText("We recommend")).toBeInTheDocument();
+    expect(screen.getByText("AI size")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Seller chart" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
     // A chart-bearing item never hunts.
     expect(huntMock).not.toHaveBeenCalled();
   });
@@ -112,37 +95,34 @@ describe("FitBlock chart hunt", () => {
   it("earns the precise badge when the deciding measurement is real", async () => {
     huntMock.mockResolvedValue(null);
     const item = { ...noChartItem("hunt-b2"), sizeNotes: CHART_TEXT };
-    const user = userEvent.setup();
     // Chest measured; waist/hip estimated by effectiveBodyProfile. A shirt
     // decides on chest, so the verdict is not a guess.
     renderBody(item);
 
-    await user.click(screen.getByRole("button", { name: /Full chart/ }));
-    expect(await screen.findByText("Read from the seller's chart")).toBeInTheDocument();
-    expect(screen.queryByText("Best guess")).not.toBeInTheDocument();
+    expect(screen.getByText("SELLER'S CHART")).toBeInTheDocument();
+    expect(screen.queryByText("BEST GUESS")).not.toBeInTheDocument();
+    expect(screen.getByText("Read from the seller's listing")).toBeInTheDocument();
   });
 
   it("hedges the badge when the deciding measurement is estimated", async () => {
     huntMock.mockResolvedValue(null);
     const item = { ...noChartItem("hunt-b3"), sizeNotes: CHART_TEXT };
-    const user = userEvent.setup();
     // No chest — every tape number comes from the height/weight estimate.
     renderBody(item, { bodyProfile: { height: "180", weight: "75" } });
 
-    await user.click(screen.getByRole("button", { name: /Full chart/ }));
-    expect(await screen.findByText("Best guess")).toBeInTheDocument();
-    expect(screen.queryByText("Read from the seller's chart")).not.toBeInTheDocument();
+    expect(screen.getByText("BEST GUESS")).toBeInTheDocument();
+    expect(screen.queryByText("SELLER'S CHART")).not.toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
-  it("a failed hunt falls back to the static empty copy", async () => {
+  it("a failed hunt keeps the empty chart state in the Size panel", async () => {
     huntMock.mockResolvedValue(null);
-    const user = userEvent.setup();
     renderBody(noChartItem("hunt-c"));
 
-    await clickFullChart(user);
-    expect(
-      await screen.findByText(/No size chart on this listing\. Add your usual tops, bottoms, or shoes in My sizes\./)
-    ).toBeInTheDocument();
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
+    expect(screen.getByText("A seller chart is not available for this item.")).toBeInTheDocument();
     expect(huntMock).toHaveBeenCalledTimes(1);
   });
 
@@ -152,21 +132,19 @@ describe("FitBlock chart hunt", () => {
     let resolveHunt;
     huntMock.mockImplementation(() => new Promise((resolve) => { resolveHunt = resolve; }));
     const item = noChartItem("hunt-stuck");
-    const user = userEvent.setup();
     const { unmount } = renderBody(item);
-    await user.click(screen.getByRole("button", { name: /Full chart/ }));
-    expect(await screen.findByText("Looking for the seller's size chart…")).toBeInTheDocument();
+    expect(await screen.findByText("READING CHART")).toBeInTheDocument();
     unmount();
     // Stale resolve must not throw; hunting cleared on unmount.
     resolveHunt(null);
 
     huntMock.mockResolvedValue(null);
     renderBody(item);
-    await user.click(screen.getByRole("button", { name: /Full chart/ }));
     // A completed null hunt must clear the spinner (retry allowed after abort).
     await waitFor(() => {
-      expect(screen.queryByText("Looking for the seller's size chart…")).not.toBeInTheDocument();
+      expect(screen.queryByText("READING CHART")).not.toBeInTheDocument();
     });
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
   });
 
   it("shows usual tops as the hero when body prefs exist but no chart", async () => {
@@ -177,7 +155,6 @@ describe("FitBlock chart hunt", () => {
       ...noChartItem("hunt-usual"),
       variants: [{ title: "Size", values: ["S", "M", "L", "XL", "2XL"] }],
     };
-    const user = userEvent.setup();
     renderBody(item, {
       bodyProfile: {
         height: "183",
@@ -187,12 +164,10 @@ describe("FitBlock chart hunt", () => {
       },
     });
 
-    await clickFullChart(user);
-    expect(await screen.findByText("Your usual")).toBeInTheDocument();
-    expect(screen.getByText("Your usual size")).toBeInTheDocument();
-    // Hero + override chip both say Large — not the full S–2XL run as hero.
+    await screen.findByText("No chart");
+    expect(screen.getByText("your usual · not verified")).toBeInTheDocument();
     expect(screen.getAllByText("Large").length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByText("No recommendation")).not.toBeInTheDocument();
-    expect(screen.getByText(/Seller run S–2XL/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Large" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
   });
 });

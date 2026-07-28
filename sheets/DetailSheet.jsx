@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MoreHorizontal, X } from "lucide-react";
+import { MoreHorizontal, Share2, X } from "lucide-react";
 import DetailBody from "../components/DetailBody.jsx";
 import FavoriteButton from "../components/FavoriteButton.jsx";
 import { priceLabelShort, usePrefersReducedMotion } from "../credenza-fashion.jsx";
@@ -43,6 +43,7 @@ export default function DetailSheet({
   onToggleFavorite = null,
   onAttachQcPhoto = null,
   onLoadPhotos = null,
+  onShareCard = null,
   onOpenSizes,
   onClose,
   // §11 photo morph: true when this sheet arrived from a card tap through a
@@ -55,6 +56,7 @@ export default function DetailSheet({
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
   const bodyFlushRef = useRef(null);
+  const bodySnapshotRef = useRef(null);
   const reduced = usePrefersReducedMotion();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -182,6 +184,7 @@ export default function DetailSheet({
           onLoadPhotos={onLoadPhotos}
           heroPager
           flushRef={bodyFlushRef}
+          snapshotRef={bodySnapshotRef}
           renderHeroActions={({ photos, photoIdx, resetPager }) => ({
             actions: (
               <>
@@ -236,6 +239,21 @@ export default function DetailSheet({
                     Make this photo the cover
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="cz-detail-menu-item"
+                  onClick={() => {
+                    if (bodyFlushRef.current) bodyFlushRef.current();
+                    setMenuOpen(false);
+                    if (onShareCard) {
+                      onShareCard({ ...item, ...(bodySnapshotRef.current || {}) });
+                    }
+                  }}
+                >
+                  <Share2 size={16} strokeWidth={2.2} aria-hidden="true" />
+                  Share card
+                </button>
                 <button
                   type="button"
                   role="menuitem"

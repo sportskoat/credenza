@@ -60,6 +60,7 @@ import {
 } from "./preview/src/account.js";
 import { overFreeLimit, bumpUsage, planLimit, PRO_LIMITS } from "./preview/src/usage.js";
 import { buildShareSnapshot, makeShareCode, expiryFromDays, shareUrl } from "./credenza-share.js";
+import { shareItemCard } from "./credenza-item-share.js";
 import { createShare, listShares, deleteShare, copyLink } from "./preview/src/share-api.js";
 import { SYNC_READY, pullShelf, createShelfPusher, deleteRemoteShelf } from "./preview/src/sync.js";
 import {
@@ -1324,6 +1325,17 @@ function extractUrls(raw) {
   return out;
 }
 
+function extractValidUrls(raw) {
+  return extractUrls(raw).filter((value) => {
+    try {
+      const url = new URL(value);
+      return /^(https?:)$/.test(url.protocol) && !!url.hostname;
+    } catch {
+      return false;
+    }
+  });
+}
+
 // Role of a supplementary link, inferred from its host. Generic on purpose —
 // rendering only knows "photos" / "buy" / "alt", never specific sites.
 function inferLinkRole(url) {
@@ -1939,7 +1951,8 @@ export const RELAY_MAX = 6;
 export const QC_PHOTOS_STORED = 12;
 
 // The one place the subscription price is written (Kyle decided 2026-07-26,
-// and made both Stripe Prices that day: $4.99 monthly, $39.99 yearly).
+// revised to three tiers + trial 2026-07-27: $2.49 weekly with a 3-day free
+// trial, $5.99 monthly, $44.99 yearly).
 //
 // Stripe Prices are immutable, so a price the app states and a price Stripe
 // charges can drift apart silently — the customer sees one number on the
@@ -1947,14 +1960,17 @@ export const QC_PHOTOS_STORED = 12;
 // and preview/test/pricing.test.js checks the static /pricing/ page against
 // these same strings, because a plain HTML file cannot import them.
 export const PRICING = {
-  monthly: "$4.99",
-  yearly: "$39.99",
-  // 4.99 * 12 = 59.88. 59.88 - 39.99 = 19.89, which is 33% off.
-  // The mock said "works out at $3 a month"; that was true of a $36 yearly
-  // and is false of this one. State the saving instead — a third off reads
-  // stronger than $3.33 a month, and it has the advantage of being true.
-  yearlySaving: "Save 33%",
-  yearlyPerMonth: "$3.33 a month",
+  weekly: "$2.49",
+  monthly: "$5.99",
+  yearly: "$44.99",
+  // The trial is weekly-only (checkout.js attaches trial_period_days there).
+  // FTC negative-option rule: the free days, the after-trial price, and the
+  // cancel path must sit next to the button that starts it.
+  weeklyTrial: "3 days free",
+  weeklyTrialNote: "3 days free, then $2.49 a week until you cancel",
+  // 5.99 * 12 = 71.88. 71.88 - 44.99 = 26.89, which is 37% off.
+  yearlySaving: "Save 37%",
+  yearlyPerMonth: "$3.75 a month",
 };
 
 async function decodeImage(blob) {
@@ -2029,10 +2045,9 @@ function clipboardImageFile(e) {
   return null;
 }
 
-// Clipboard-detected capture bar (design handoff PR3): describe what the
-// clipboard holds so the bottom bar can show "CLIPBOARD · {platform} / {host}"
-// before any tap. Link pastes get a platform dot + host; plain text gets a
-// Note preview of the first line. null = nothing usable on the clipboard.
+// Clipboard-detected capture bar (design handoff PR3): describe the first
+// valid link so the bottom bar can offer one-tap capture. URL-free text stays
+// out of this ambient shortcut and remains available through the Stash sheet.
 const CLIP_PLATFORMS = [
   [/weidian/i, "Weidian", "#ff5a3c"],
   [/yupoo/i, "Yupoo", "#37b24d"],
@@ -2044,35 +2059,21 @@ const CLIP_PLATFORMS = [
   [/kakobuy/i, "Kakobuy", "#8a5cf6"],
 ];
 function clipboardPreviewFor(raw) {
-  // Repair space-broken URLs first — an obfuscated link otherwise shows as
-  // "Link link on your clipboard / de" (Kyle 2026-07-23).
-  const text = deobfuscateUrls(raw || "").trim();
-  if (!text) return null;
-  const m = /https?:\/\/[^\s]+/i.exec(text);
+  const links = extractValidUrls(raw);
+  if (!links.length) return null;
   let host = "";
-  if (m) {
-    try {
-      host = new URL(m[0]).hostname.replace(/^www\./, "");
-    } catch {
-      host = "";
-    }
-  }
-  if (!host) {
-    const first = text.split("\n")[0].trim();
-    if (!first) return null;
-    return {
-      text,
-      platform: "Note",
-      host: first.length > 42 ? first.slice(0, 42) + "…" : first,
-      dot: "var(--cz-faint)",
-    };
+  try {
+    host = new URL(links[0]).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
   }
   const hit = CLIP_PLATFORMS.find(([re]) => re.test(host));
   return {
-    text,
+    text: links.join("\n"),
     platform: hit ? hit[1] : "Link",
     host,
     dot: hit ? hit[2] : "var(--cz-faint)",
+    fingerprint: links.map((url) => canonicalKey(classify(url), url)).join("|"),
   };
 }
 
@@ -2102,7 +2103,7 @@ function stashRowCode(parsed) {
 //
 // `count` drives the sheet state: 1 = one card, more = a haul. `rows` carry
 // what the list shows. No side effects — this never touches the shelf.
-export function stashPreview(raw) {
+export function stashPreview(raw, options = {}) {
   const text = (raw || "").trim();
   if (!text) return null;
   const row = (parsed, rawText, titleHint) => ({
@@ -2112,7 +2113,9 @@ export function stashPreview(raw) {
     platform: platformNameFor(parsed.host),
     dot: platformDotFor(parsed.host),
   });
-  let rows = parseImport(text).candidates.map((c) => row(c.parsed, c.rawText, c.titleHint));
+  let rows = options.asNote
+    ? [row(classify(text), text, "")]
+    : parseImport(text).candidates.map((c) => row(c.parsed, c.rawText, c.titleHint));
   // The parser is conservative and returns nothing for some pastes. That text
   // still stashes as one note, so the preview must say so.
   if (!rows.length) rows = [row(classify(text), text, "")];
@@ -4108,11 +4111,10 @@ function CredenzaApp() {
   // that opened it, so close can return focus.
   const overlayRef = useRef(null);
   const overlayTriggerRef = useRef(null);
-  // Design handoff PR3 (2026-07-23): the capture bar + profile own the old
-  // bottom-bar ⋯ menu's jobs. captureSheetOpen = the review surface behind
-  // the Stash pill; profileOpen = account/settings sheet from the masthead
-  // avatar; bodySheetOpen = the body-measurements form (renamed from
-  // profileSheetOpen — "profile" now means the account sheet).
+  // Design handoff PR3 (2026-07-23): the capture bar and Profile own the old
+  // bottom-bar ⋯ menu's jobs. captureSheetOpen controls the review surface
+  // behind the Stash pill. profileOpen controls the desktop account sheet.
+  // Profile and phone Settings contain the sizes-and-measurements editor.
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   // Settings sub-page (Kyle 2026-07-26). Sizes / fit prefs / agent / import
@@ -4282,8 +4284,8 @@ function CredenzaApp() {
   // event; the two jobs never share one field again.
   // Clipboard fast-path: null = nothing stashable detected.
   const [clipPreview, setClipPreview] = useState(null);
-  // Dismissed banner identity ("platform|host"). The focus re-probe keeps the
-  // banner hidden until the clipboard holds something new (Kyle 2026-07-24).
+  // Dismissed link fingerprint. The focus re-probe keeps the shortcut hidden
+  // until the clipboard holds a different normalized link set.
   const clipDismissedRef = useRef(null);
   // Display order for dual-currency labels; synced into priceLabel's module
   // reader below. Persisted in credenza-prefs-v1.
@@ -4314,7 +4316,6 @@ function CredenzaApp() {
   // US). Charts are metric; conversion happens at the edges.
   const [bodyProfile, setBodyProfile] = useState(null);
   const [measureUnits, setMeasureUnits] = useState("in");
-  const [bodySheetOpen, setBodySheetOpen] = useState(false);
   // Mobile detail sheet (handoff step 5). On a phone a card tap opens this
   // instead of the carousel overlay; desktop keeps the carousel unchanged.
   const [detailSheetId, setDetailSheetId] = useState(null);
@@ -4668,37 +4669,46 @@ function CredenzaApp() {
       }
       lastSavedRef.current = JSON.stringify(result.items);
       let it = result.items;
-      // Share-sheet / PWA share_target / bookmarklet capture: /?stash=<url or text>.
-      // Consumed before first paint so the card is just *there*, then scrubbed from
-      // the URL so refreshes don't re-stash.
+      // Share-sheet / PWA share_target / bookmarklet capture. Bare `text` and
+      // `url` parameters are ordinary navigation unless an explicit marker is
+      // present. This prevents unrelated links from creating shelf cards.
       try {
         const params = new URLSearchParams(window.location.search);
-        // Share sheets often split the URL and accompanying text across params
-        // (e.g. yupoo link in one, weidian link in the other) — combine, don't pick.
-        const pieces = [];
-        for (const k of ["stash", "text", "url"]) {
-          const v = (params.get(k) || "").trim();
-          if (v && !pieces.includes(v)) pieces.push(v);
-        }
-        const shared = pieces.join("\n");
-        if (shared) {
-          const sharedTitle = (params.get("title") || "").trim();
-          const parsed = classify(shared);
-          const key = canonicalKey(parsed, shared);
-          const dup = it.find((x) => itemMatchesCanonicalKey(x, key));
-          if (dup) {
-            notify("Already on the shelf: “" + dup.title + "” — opened it below.", { duration: DUPE_BANNER_MS });
-            setExpandedId(dup.id);
-            setTimeout(() => enrichFashionItem(dup), 0);
-          } else {
-            const extra = { sourceImport: "share" };
-            if (sharedTitle && parsed.url) extra.title = sharedTitle.slice(0, 72);
-            const sharedItem = createItem(parsed, shared, extra);
-            it = [sharedItem, ...it];
-            flashImportResult("Stashed from share.");
-            setTimeout(() => enrichFashionItem(sharedItem), 0);
+        const captureIntent = params.has("stash") || params.get("share_target") === "1";
+        if (captureIntent) {
+          // Share sheets often split the URL and accompanying text across params
+          // (e.g. yupoo link in one, weidian link in the other) — combine, don't pick.
+          const pieces = [];
+          for (const k of ["stash", "text", "url"]) {
+            const v = (params.get(k) || "").trim();
+            if (v && !pieces.includes(v)) pieces.push(v);
           }
-          window.history.replaceState(null, "", window.location.pathname);
+          const shared = pieces.join("\n");
+          if (shared) {
+            const sharedTitle = (params.get("title") || "").trim();
+            const parsed = classify(shared);
+            const key = canonicalKey(parsed, shared);
+            const dup = it.find((x) => itemMatchesCanonicalKey(x, key));
+            if (dup) {
+              notify("Already on the shelf: “" + dup.title + "” — opened it below.", { duration: DUPE_BANNER_MS });
+              setExpandedId(dup.id);
+              setTimeout(() => enrichFashionItem(dup), 0);
+            } else {
+              const extra = { sourceImport: "share" };
+              if (sharedTitle && parsed.url) extra.title = sharedTitle.slice(0, 72);
+              const sharedItem = createItem(parsed, shared, extra);
+              it = [sharedItem, ...it];
+              flashImportResult("Stashed from share.");
+              setTimeout(() => enrichFashionItem(sharedItem), 0);
+            }
+            for (const keyName of ["stash", "text", "url", "title", "share_target"]) {
+              params.delete(keyName);
+            }
+            const query = params.toString();
+            const nextUrl =
+              window.location.pathname + (query ? "?" + query : "") + window.location.hash;
+            window.history.replaceState(null, "", nextUrl);
+          }
         }
       } catch {}
       // Gravestones for cloud sync (LB-7). Read beside the shelf, swept of
@@ -4893,15 +4903,22 @@ function CredenzaApp() {
     runImport(text, { fromPost: false });
   };
 
-  // One entry point for every capture surface (Kyle 2026-07-24: "one
-  // congruent setup" — the mode tabs are gone). The paste itself decides:
-  // a Reddit post link is fetched and chopped into items; any multi-line
-  // paste goes through the import parser (haul-shaped text becomes one card
-  // per item, a plain note stays whole); a single line stashes as one card
-  // through the fashion gate.
-  const dispatchStash = (raw) => {
-    const text = (raw || "").trim();
+  // One entry point for every capture surface. Explicit fields keep the full
+  // parser. Ambient clipboard routes use linksOnly, so prose never reaches the
+  // numbered-list importer. Reviewed clipboard prose can use asNote instead.
+  const dispatchStash = (raw, options = {}) => {
+    let text = (raw || "").trim();
     if (!text) return { status: "empty" };
+    if (options.linksOnly) {
+      const links = extractValidUrls(text);
+      if (!links.length) return { status: "no-link" };
+      text = links.join("\n");
+      if (links.length > 1) {
+        runImport(text);
+        return { status: "hauling" };
+      }
+    }
+    if (options.asNote) return stash(text);
     if (REDDIT_POST_URL_RE.test(text) || /\n/.test(text)) {
       stashRedditHaul(text);
       return { status: "hauling" };
@@ -4928,14 +4945,14 @@ function CredenzaApp() {
   // showed the user what this stashes, so the sheet closes on the tap and the
   // toast carries the Undo. A haul keeps runImport's own messaging: it counts
   // the cards it made, which this cannot know before the fetch returns.
-  const stashFromSheet = (raw) => {
+  const stashFromSheet = (raw, options = {}) => {
     const text = (raw || "").trim();
-    if (!text) return;
-    const result = dispatchStash(text);
-    if (result.status === "gated") return; // the gate's toast owns this paste
+    if (!text) return { status: "empty" };
+    const result = dispatchStash(text, options);
+    if (result.status === "gated" || result.status === "no-link") return result;
     setInput("");
     setCaptureSheetOpen(false);
-    if (result.status !== "stashed") return;
+    if (result.status !== "stashed") return result;
     beginIndexingJob(result);
     const id = result.id;
     notify("Stashed · " + (result.title || "New item"), {
@@ -4948,6 +4965,7 @@ function CredenzaApp() {
       },
       duration: 3000,
     });
+    return result;
   };
 
   // The hero bar (empty shelf) stashes what sits in its field. An empty field
@@ -4998,7 +5016,15 @@ function CredenzaApp() {
       flashImportResult("Clipboard's empty.");
       return;
     }
-    const result = dispatchStash(text);
+    const result = dispatchStash(text, { linksOnly: true });
+    const currentPreview = clipboardPreviewFor(text);
+    if (result.status === "no-link") {
+      setClipPreview(null);
+      flashImportResult("No links found. Open Stash to save the text as a note.");
+      return;
+    }
+    if (currentPreview) clipDismissedRef.current = currentPreview.fingerprint;
+    setClipPreview(null);
     if (result.status === "stashed") {
       beginIndexingJob(result);
       flashImportResult("Stashed from the clipboard.");
@@ -5017,27 +5043,20 @@ function CredenzaApp() {
     });
   }
 
-  // CO-21: the empty shelf invites "Paste a link" — honor it. A pasted link
-  // stashes instead of landing in the search box (the window paste handler
-  // ignores pastes focused in inputs). Non-link text falls through to normal
-  // editing so search still works.
+  // CO-21: link pastes stash instead of landing in search. URL-free text keeps
+  // the browser's normal paste behavior, even when that text has many lines.
   const onSearchPaste = (e) => {
     const text = e.clipboardData && e.clipboardData.getData("text");
     const trimmed = (text || "").trim();
-    // Multi-line pastes (Reddit hauls, lists) and Reddit post links cannot
-    // live in a one-line input: the field strips the newlines and the haul
-    // mangles into one junk card (2026-07-25 haul audit — a 5-item HIPOBUY
-    // post became a single "1688 Offer" card). Route them exactly like the
-    // window-level paste handler does: review sheet on the phone, straight
-    // into the import parser on desktop.
-    const haulShape = /\n/.test(trimmed) || REDDIT_POST_URL_RE.test(trimmed);
-    if (!/^https?:\/\/\S+$/i.test(trimmed) && !haulShape) return;
+    const links = extractValidUrls(trimmed);
+    if (!links.length) return;
+    const linkText = links.join("\n");
     e.preventDefault();
     if (isPhone) {
-      setInput(trimmed);
+      setInput(linkText);
       setCaptureSheetOpen(true);
     } else {
-      const result = dispatchStash(trimmed);
+      const result = dispatchStash(trimmed, { linksOnly: true });
       if (result.status === "stashed") beginIndexingJob(result);
     }
   };
@@ -5070,7 +5089,7 @@ function CredenzaApp() {
         const text = await navigator.clipboard.readText();
         if (cancelled) return;
         const preview = clipboardPreviewFor(text);
-        if (preview && preview.platform + "|" + preview.host === clipDismissedRef.current) {
+        if (preview && preview.fingerprint === clipDismissedRef.current) {
           setClipPreview(null);
         } else {
           setClipPreview(preview);
@@ -5087,10 +5106,10 @@ function CredenzaApp() {
     };
   }, []);
 
-  // X on the banner: hide it and remember what was dismissed so the focus
-  // re-probe does not bring the same clipboard content back (Kyle 2026-07-24).
+  // X on the banner: hide it and remember the complete link set. Another URL
+  // from the same host must still produce a new shortcut.
   const dismissClipPreview = () => {
-    if (clipPreview) clipDismissedRef.current = clipPreview.platform + "|" + clipPreview.host;
+    if (clipPreview) clipDismissedRef.current = clipPreview.fingerprint;
     setClipPreview(null);
   };
 
@@ -5526,6 +5545,17 @@ function CredenzaApp() {
       clearTimeout(timer);
       if (signal) signal.removeEventListener("abort", abort);
     }
+  };
+
+  const shareCard = async (item) => {
+    const outcome = await shareItemCard(item, {
+      savedPrice: priceLabel(item),
+      resolveImage: (url) => relayImageDataUrl(url, item.url || ""),
+    });
+    if (outcome === "failed") {
+      notify("Couldn't create the Share Card.");
+    }
+    return outcome;
   };
 
   // Seeds the full-screen album: the stored images first, then the Yupoo
@@ -6591,7 +6621,6 @@ function CredenzaApp() {
     captureSheetOpen,
     profileOpen,
     settingsSheetOpen,
-    bodySheetOpen,
     viewMode,
     view,
     activeHaul,
@@ -6631,8 +6660,7 @@ function CredenzaApp() {
           ctx.agentSheetOpen ||
           ctx.captureSheetOpen ||
           ctx.profileOpen ||
-          ctx.settingsSheetOpen ||
-          ctx.bodySheetOpen
+          ctx.settingsSheetOpen
         )
           return;
         if (e.key === "k") {
@@ -6650,8 +6678,7 @@ function CredenzaApp() {
         ctx.agentSheetOpen ||
         ctx.captureSheetOpen ||
         ctx.profileOpen ||
-        ctx.settingsSheetOpen ||
-        ctx.bodySheetOpen
+        ctx.settingsSheetOpen
       )
         return; // overlays handle their own keys
       if (isTyping(e)) {
@@ -6783,8 +6810,7 @@ function CredenzaApp() {
         kb.current.agentSheetOpen ||
         kb.current.captureSheetOpen ||
         kb.current.profileOpen ||
-        kb.current.settingsSheetOpen ||
-        kb.current.bodySheetOpen
+        kb.current.settingsSheetOpen
       )
         return;
       if (e.defaultPrevented) return; // card-level image paste already took it
@@ -6799,17 +6825,13 @@ function CredenzaApp() {
       if (isTyping(e)) return;
       const text = e.clipboardData && e.clipboardData.getData("text");
       if (text && text.trim()) {
-        // A deliberate ⌘V is its own review step: the user chose the text and
-        // pressed the key, so desktop stashes it straight to the shelf and the
-        // toast carries the Undo. The phone opens the sheet because a paste
-        // there is a longer reach and the text is easier to get wrong.
-        // (The Stash BUTTON opens the sheet on both — that is a different
-        // gesture, with nothing chosen yet.)
+        // A phone paste opens the review sheet. An unowned desktop paste is an
+        // ambient shortcut, so only valid links can create cards there.
         if (window.matchMedia("(max-width: 767px)").matches) {
           setInput(text.trim());
           setCaptureSheetOpen(true);
         } else {
-          const result = dispatchStashRef.current(text.trim());
+          const result = dispatchStashRef.current(text.trim(), { linksOnly: true });
           if (result.status === "stashed") beginIndexingJobRef.current(result);
         }
       }
@@ -7094,6 +7116,17 @@ function CredenzaApp() {
     </motion.section>
   );
 
+  const openSizesDestination = () => {
+    if (isPhone) {
+      setSettingsSubPage("sizes");
+      setSettingsSheetOpen(true);
+      return;
+    }
+
+    setProfileSubPage("sizes");
+    setProfileOpen(true);
+  };
+
   // Plain shelf surface — also doubles as the open-haul carousel/cards/rows
   // surface when view === "hauls" && activeHaul (branches internally on viewMode).
   // Only fades when it's standing in for the open-haul carousel inside the
@@ -7144,7 +7177,7 @@ function CredenzaApp() {
       onSkipFitPrompt={() => setFitPromptSkipped(true)}
       fitPrefs={fitPrefs}
       onSaveFitPref={saveFitPref}
-      onOpenSizes={() => setBodySheetOpen(true)}
+      onOpenSizes={openSizesDestination}
     />
   );
   const carouselElement = renderCarousel(listItems);
@@ -7185,10 +7218,11 @@ function CredenzaApp() {
       onOpen={recordOpen}
       onAttachPhoto={attachGalleryImage}
       onRemovePhoto={removePhotoBySrc}
-      onOpenSizes={() => setBodySheetOpen(true)}
+      onOpenSizes={openSizesDestination}
       onSetPrimaryImage={setPrimaryImage}
       onLoadPhotos={loadAlbumPhotos}
       onToggleFavorite={toggleFavorite}
+      onShareCard={shareCard}
       onDelete={setPendingDeleteId}
       onClose={onClose}
       closing={closing}
@@ -7340,8 +7374,6 @@ function CredenzaApp() {
             openWithMorph(item.id, nodes);
           }}
           onToggleFavorite={toggleFavorite}
-          bodyProfile={bodyProfile}
-          fitPrefs={fitPrefs}
         />
       )}
 
@@ -7370,7 +7402,7 @@ function CredenzaApp() {
     const page = (title, width, node) => ({ key, title, maxWidth: width, node });
     if (key === "sizes")
       return page(
-        "Your measurements",
+        "Sizes and measurements",
         560,
         <Suspense fallback={null}>
           <BodyProfileSheet
@@ -7513,21 +7545,6 @@ function CredenzaApp() {
           }}
           storageBackend={storageBackend}
           onClose={() => setAgentSheetOpen(false)}
-        />
-        </Suspense>
-      )}
-
-      {bodySheetOpen && (
-        <Suspense fallback={null}>
-        <BodyProfileSheet
-          value={bodyProfile}
-          units={measureUnits}
-          onSave={(profile) => {
-            setBodyProfile(profile);
-            notify("Sizes updated.");
-          }}
-          onChangeUnits={setMeasureUnits}
-          onClose={() => setBodySheetOpen(false)}
         />
         </Suspense>
       )}
@@ -7722,10 +7739,8 @@ function CredenzaApp() {
           onToggleFavorite={toggleFavorite}
           onAttachQcPhoto={attachQcImage}
           onLoadPhotos={loadAlbumPhotos}
-          onOpenSizes={() => {
-            setDetailSheetId(null);
-            setBodySheetOpen(true);
-          }}
+          onShareCard={shareCard}
+          onOpenSizes={openSizesDestination}
           onClose={() => setDetailSheetId(null)}
           morphing={morphOpenId === detailItem.id}
         />
@@ -8011,9 +8026,8 @@ function CredenzaApp() {
         )}
 
         {/* Desktop top bar (≥768px), search handoff 6a: one permanent search
-            field + one solid ＋ Stash button. Search is ambient (filters the
-            shelf); Stash is the one-tap clipboard stash (KM-03 — the desktop
-            capture sheet is gone). Agent lives on Buy + profile. */}
+            field + one solid ＋ Stash button. Search filters the shelf. Stash
+            opens the shared review sheet when the field is empty. */}
         {items.length > 0 && (
           <div className="cz-desk-capture">
             <label className="cz-desk-search-shell">
@@ -8070,9 +8084,7 @@ function CredenzaApp() {
         )}
 
         {/* Clipboard fast-path (6a): a slim dark strip under the bar, only
-            when a stashable link/note is detected. One tap stashes it. It is
-            informational only — no buttons inside; the bar's ＋ Stash is the
-            canonical action. */}
+            when a valid link is detected. One tap stashes the current links. */}
         {items.length > 0 && clipPreview && (
           <div className="cz-desk-clip-wrap">
             <button
@@ -8081,9 +8093,7 @@ function CredenzaApp() {
               disabled={interactionLocked}
               onClick={stashClipboard}
               aria-label={
-                (clipPreview.platform === "Note"
-                  ? "Note on your clipboard: "
-                  : clipPreview.platform + " link on your clipboard: ") +
+                clipPreview.platform + " link on your clipboard: " +
                 clipPreview.host +
                 ". Stash it."
               }
@@ -8092,9 +8102,7 @@ function CredenzaApp() {
               <span className="cz-clip-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
               <span className="cz-desk-clip-text">
                 <span className="cz-desk-clip-title">
-                  {clipPreview.platform === "Note"
-                    ? "Note on your clipboard"
-                    : clipPreview.platform + " link on your clipboard"}
+                  {clipPreview.platform + " link on your clipboard"}
                 </span>
                 <span className="cz-desk-clip-host">{clipPreview.host}</span>
               </span>

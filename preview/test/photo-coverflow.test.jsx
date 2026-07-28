@@ -65,6 +65,53 @@ describe("PhotoCoverFlow hardening", () => {
     expect(screen.getByAltText("Album photo 1")).toBeInTheDocument();
   });
 
+  it("clears loading when an item change aborts before the next item skips loading", async () => {
+    let requestSignal;
+    const onLoadPhotos = vi.fn(
+      (_item, { signal }) =>
+        new Promise((_, reject) => {
+          requestSignal = signal;
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true }
+          );
+        })
+    );
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <PhotoCoverFlow
+        item={baseItem({
+          id: "yupoo-pending",
+          url: "https://shop123.x.yupoo.com/albums/45678",
+        })}
+        images={[PHOTO_1]}
+        startIndex={0}
+        onClose={onClose}
+        onLoadPhotos={onLoadPhotos}
+      />
+    );
+
+    expect(await screen.findByText("Loading album…")).toBeInTheDocument();
+
+    rerender(
+      <PhotoCoverFlow
+        item={baseItem({ id: "regular-2", title: "Regular Shirt" })}
+        images={[PHOTO_2]}
+        startIndex={0}
+        onClose={onClose}
+        onLoadPhotos={onLoadPhotos}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading album…")).not.toBeInTheDocument();
+    });
+    expect(requestSignal.aborted).toBe(true);
+    expect(onLoadPhotos).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Regular Shirt")).toBeInTheDocument();
+  });
+
   it("syncs a shorter image list and clamps the active index", async () => {
     const item = baseItem();
     const onClose = vi.fn();

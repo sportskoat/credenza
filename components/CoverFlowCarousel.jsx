@@ -330,7 +330,7 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               return (
                 <button
                   type="button"
-                  className="cz-buy-btn cz-border-beam"
+                  className="cz-buy-btn"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -338,14 +338,13 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
                   }}
                 >
                   <span className="cz-buy-btn-label">{buy.label}</span>
-                  <span className="cz-border-beam-glow" aria-hidden="true" />
                 </button>
               );
             })()}
             {isCenter && (
               /* Unboxed cue (Kyle 2026-07-22): text + rotating icon, no pill
-                 chrome — the Buy button owns the only boxed/beam look. It's a
-                 real button that runs the same activate() as the face tap. */
+                 chrome. The Buy button owns the only boxed action. This real
+                 button runs the same activate() action as the face tap. */
               <motion.button
                 type="button"
                 className="cz-flip-cue"

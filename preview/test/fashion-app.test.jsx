@@ -21,6 +21,25 @@ function installShim(initial = {}) {
   return data;
 }
 
+function installClipboard(readText, permissionState = "granted") {
+  const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  const permissionsDescriptor = Object.getOwnPropertyDescriptor(navigator, "permissions");
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { readText },
+  });
+  Object.defineProperty(navigator, "permissions", {
+    configurable: true,
+    value: { query: vi.fn().mockResolvedValue({ state: permissionState }) },
+  });
+  return () => {
+    if (clipboardDescriptor) Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+    else delete navigator.clipboard;
+    if (permissionsDescriptor) Object.defineProperty(navigator, "permissions", permissionsDescriptor);
+    else delete navigator.permissions;
+  };
+}
+
 function fashionItem(overrides = {}) {
   const now = Date.now();
   return {
@@ -56,6 +75,7 @@ beforeEach(() => {
   cleanup();
   localStorage.clear();
   vi.restoreAllMocks();
+  window.history.replaceState(null, "", "/");
   Object.defineProperties(HTMLElement.prototype, {
     offsetWidth: {
       configurable: true,
@@ -198,7 +218,9 @@ describe("Fashion card-back navigation and editing", () => {
     // through the shared DetailBody cells, like the phone sheet. An outside
     // click dismisses the one remaining layer — the flip — and the debounced
     // write-through still lands because the back stays mounted.
-    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ batch: "Original" })]) });
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ colorway: "Original", batch: "Stored batch" })]),
+    });
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
@@ -212,18 +234,19 @@ describe("Fashion card-back navigation and editing", () => {
     const back = container.querySelector(".cz-carousel-back");
     expect(back?.textContent || "").toMatch(/X-Large/i);
 
-    // Edit Batch in place: tap the cell, type into the inline editor.
-    await user.click(screen.getByRole("button", { name: /Batch: Original/ }));
-    const batchField = await screen.findByLabelText("Batch");
-    await user.clear(batchField);
-    await user.type(batchField, "Discard me");
+    // Edit Colorway through its tab and persistent field.
+    await user.click(screen.getByRole("tab", { name: "Colorway" }));
+    const colorwayField = screen.getByRole("textbox", { name: "Colorway" });
+    await user.clear(colorwayField);
+    await user.type(colorwayField, "Bone white");
     // Outside click unflips the card (the flip is the only layer left).
     fireEvent.pointerDown(outside);
     fireEvent.click(outside);
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
 
-    // Write-through: the typed batch is kept, not discarded (600ms debounce).
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Discard me"), { timeout: 2000 });
+    // Write-through keeps the active field and preserves the hidden Batch value.
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Bone white"), { timeout: 2000 });
+    expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Stored batch");
   });
 
   it("unflips the back with a single Escape", async () => {
@@ -236,39 +259,43 @@ describe("Fashion card-back navigation and editing", () => {
     expect(screen.getByRole("button", { name: "Card actions" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
-    await user.click(screen.getByRole("button", { name: /Batch/ }));
-    await screen.findByLabelText("Batch");
+    await user.click(screen.getByRole("tab", { name: "Colorway" }));
+    const colorwayField = screen.getByRole("textbox", { name: "Colorway" });
+    colorwayField.focus();
+    expect(colorwayField).toHaveFocus();
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
   });
 
-  it("write-through saves Batch from the cell editor across exit paths", async () => {
-    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ batch: "Original" })]) });
+  it("write-through saves Colorway across exit paths and preserves Batch", async () => {
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ colorway: "Original", batch: "Stored batch" })]),
+    });
     const user = userEvent.setup();
     render(<Credenza />);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
-    // The unified back shows Batch as a spec cell (no hidden-until-edit fields).
-    expect(screen.getByText("Original")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Batch" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: /Batch: Original/ }));
-    let batchField = await screen.findByLabelText("Batch");
-    await user.clear(batchField);
-    await user.type(batchField, "Saved batch");
-    // Enter closes the cell editor; the 600ms debounce commits.
-    fireEvent.keyDown(batchField, { key: "Enter" });
-    await waitFor(() => expect(screen.queryByLabelText("Batch")).not.toBeInTheDocument());
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Saved batch"), { timeout: 2000 });
+    await user.click(screen.getByRole("tab", { name: "Colorway" }));
+    let colorwayField = screen.getByRole("textbox", { name: "Colorway" });
+    expect(colorwayField).toHaveValue("Original");
+    await user.clear(colorwayField);
+    await user.type(colorwayField, "Bone white");
+    // Enter blurs the field and commits the current draft.
+    fireEvent.keyDown(colorwayField, { key: "Enter" });
+    await waitFor(() => expect(colorwayField).not.toHaveFocus());
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Bone white"), { timeout: 2000 });
+    expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Stored batch");
 
-    await user.click(screen.getByRole("button", { name: /Batch: Saved batch/ }));
-    batchField = await screen.findByLabelText("Batch");
-    expect(batchField).toHaveValue("Saved batch");
-    await user.clear(batchField);
-    await user.type(batchField, "Also kept");
-    // Done also flushes write-through — nothing is discarded.
-    await user.click(screen.getByRole("button", { name: "Done" }));
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Also kept"), { timeout: 2000 });
-    await user.click(screen.getByRole("button", { name: /Batch: Also kept/ }));
-    expect(await screen.findByLabelText("Batch")).toHaveValue("Also kept");
+    colorwayField = screen.getByRole("textbox", { name: "Colorway" });
+    expect(colorwayField).toHaveValue("Bone white");
+    await user.clear(colorwayField);
+    await user.type(colorwayField, "Cream");
+    // A tab change also blurs the field and keeps the write-through edit.
+    await user.click(screen.getByRole("tab", { name: "Weight" }));
+    expect(screen.getByRole("tab", { name: "Weight" })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Cream"), { timeout: 2000 });
+    expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Stored batch");
   });
 
   it("lists hauls and opens one to browse only its cards", async () => {
@@ -444,8 +471,42 @@ describe("Fashion morph controls and favorites", () => {
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].favorite).toBe(false));
     await user.click(screen.getByRole("button", { name: "Star String favorite" }));
 
-    await user.click(screen.getByRole("button", { name: "Card view" }));
+    await user.click(screen.getByRole("button", { name: "List view" }));
     expect(await screen.findByRole("button", { name: "Unstar String favorite" })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("Desktop sizing destination", () => {
+  beforeEach(() => window.__setMediaMatches("(min-width: 768px)", true));
+  afterEach(() => window.__setMediaMatches("(min-width: 768px)", false));
+
+  it("routes customer sizing through Profile", async () => {
+    installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({
+          category: "tops",
+          sizeNotes: "S: chest 108, length 66\nM: chest 112, length 68",
+        }),
+      ]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "List view" }));
+    await user.click(await screen.findByRole("button", { name: "Open Palace x Nike jersey" }));
+    const detail = await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
+    const editSizes = screen.getByRole("button", { name: "Edit sizes and measurements" });
+
+    await user.click(editSizes);
+    expect(await screen.findByRole("dialog", { name: "Sizes and measurements" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
+
+    await user.click(screen.getByRole("button", { name: "Close Sizes and measurements" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Sizes and measurements" })).toBeNull()
+    );
+    expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
+    await waitFor(() => expect(editSizes).toHaveFocus());
   });
 });
 
@@ -740,6 +801,204 @@ describe("Stash sheet on desktop (LB-68, Kyle 2026-07-27)", () => {
   });
 });
 
+describe("Link-only ambient clipboard capture", () => {
+  it("does not show a clipboard shortcut for URL-free prose", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const readText = vi.fn().mockResolvedValue(
+      "2. Review risk. Apple reviews this niche hard.\n3. Check the screenshots."
+    );
+    const restoreClipboard = installClipboard(readText);
+    try {
+      render(<Credenza />);
+      await screen.findAllByText("Palace x Nike jersey");
+      await waitFor(() => expect(readText).toHaveBeenCalled());
+      expect(screen.queryByRole("button", { name: /link on your clipboard/i })).toBeNull();
+    } finally {
+      restoreClipboard();
+    }
+  });
+
+  it("re-reads and stashes one valid clipboard link", async () => {
+    const link = "https://weidian.com/item.html?itemID=7649592219";
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const readText = vi.fn().mockResolvedValue(link);
+    const restoreClipboard = installClipboard(readText);
+    try {
+      render(<Credenza />);
+      await waitFor(() =>
+        expect(document.querySelector(".cz-desk-clip-banner")).not.toBeNull()
+      );
+      fireEvent.click(document.querySelector(".cz-desk-clip-banner"));
+
+      await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(2));
+      expect(readText.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(JSON.parse(data[STORE_KEY]).some((item) => item.url === link)).toBe(true);
+    } finally {
+      restoreClipboard();
+    }
+  });
+
+  it("imports only valid links from mixed clipboard text", async () => {
+    const first = "https://weidian.com/item.html?itemID=7649592219";
+    const second = "https://shop1850859027.v.weidian.com/item.html?itemID=7808837642";
+    const mixed = [
+      "Items from this review:",
+      first,
+      "2. Review risk. Apple reviews this niche hard.",
+      second,
+      "3. This sentence must not become a card.",
+    ].join("\n");
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const restoreClipboard = installClipboard(vi.fn().mockResolvedValue(mixed));
+    try {
+      render(<Credenza />);
+      await waitFor(() =>
+        expect(document.querySelector(".cz-desk-clip-banner")).not.toBeNull()
+      );
+      fireEvent.click(document.querySelector(".cz-desk-clip-banner"));
+
+      await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(3));
+      const imported = JSON.parse(data[STORE_KEY]).filter((item) => item.id !== "fashion-1");
+      expect(imported.map((item) => item.url).sort()).toEqual([first, second].sort());
+      expect(imported.every((item) => item.type !== "note")).toBe(true);
+      expect(imported.every((item) => !item.rawText.includes("Review risk"))).toBe(true);
+    } finally {
+      restoreClipboard();
+    }
+  });
+
+  it("rejects a stale shortcut when the clipboard changes to prose", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const readText = vi
+      .fn()
+      .mockResolvedValueOnce("https://weidian.com/item.html?itemID=7649592219")
+      .mockResolvedValue("2. Review risk. This is not a link.");
+    const restoreClipboard = installClipboard(readText);
+    try {
+      render(<Credenza />);
+      await waitFor(() =>
+        expect(document.querySelector(".cz-desk-clip-banner")).not.toBeNull()
+      );
+      fireEvent.click(document.querySelector(".cz-desk-clip-banner"));
+
+      expect(await screen.findByText(/No links found/)).toBeInTheDocument();
+      expect(document.querySelector(".cz-desk-clip-banner")).toBeNull();
+      expect(JSON.parse(data[STORE_KEY])).toHaveLength(1);
+    } finally {
+      restoreClipboard();
+    }
+  });
+
+  it("shows a new same-host link after dismissing the previous link", async () => {
+    const readText = vi
+      .fn()
+      .mockResolvedValueOnce("https://weidian.com/item.html?itemID=111")
+      .mockResolvedValue("https://weidian.com/item.html?itemID=222");
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const restoreClipboard = installClipboard(readText);
+    try {
+      render(<Credenza />);
+      await waitFor(() =>
+        expect(document.querySelector(".cz-desk-clip-banner")).not.toBeNull()
+      );
+      fireEvent.click(document.querySelector(".cz-desk-clip-dismiss"));
+      expect(document.querySelector(".cz-desk-clip-banner")).toBeNull();
+
+      fireEvent.focus(window);
+      await waitFor(() =>
+        expect(document.querySelector(".cz-desk-clip-banner")).not.toBeNull()
+      );
+    } finally {
+      restoreClipboard();
+    }
+  });
+
+  it("ignores URL-free unowned desktop paste", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    render(<Credenza />);
+    await screen.findAllByText("Palace x Nike jersey");
+
+    fireEvent.paste(window, {
+      clipboardData: {
+        getData: () => "2. Review risk.\n3. This prose has no link.",
+        items: [],
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(JSON.parse(data[STORE_KEY])).toHaveLength(1);
+  });
+
+  it("leaves URL-free search paste to the browser", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    render(<Credenza />);
+    await screen.findAllByText("Palace x Nike jersey");
+    const field = document.querySelector(".cz-desk-search-field");
+    expect(field).not.toBeNull();
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", {
+      value: { getData: () => "review notes without a link" },
+    });
+
+    fireEvent(field, event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(JSON.parse(data[STORE_KEY])).toHaveLength(1);
+  });
+});
+
+describe("Explicit query capture intent", () => {
+  it("accepts stash capture and preserves unrelated query state", async () => {
+    const link = "https://weidian.com/item.html?itemID=7649592219";
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    window.history.replaceState(
+      null,
+      "",
+      "/?ref=lookbook&stash=" + encodeURIComponent(link) + "&title=Jacket#saved"
+    );
+
+    render(<Credenza />);
+
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
+    expect(JSON.parse(data[STORE_KEY])[0].url).toBe(link);
+    expect(window.location.search).toBe("?ref=lookbook");
+    expect(window.location.hash).toBe("#saved");
+  });
+
+  it.each([
+    ["text", "ordinary clipboard prose"],
+    ["url", "https://weidian.com/item.html?itemID=7649592219"],
+  ])("ignores a bare %s parameter", async (key, value) => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const original = "/?" + key + "=" + encodeURIComponent(value);
+    window.history.replaceState(null, "", original);
+
+    render(<Credenza />);
+    await screen.findByPlaceholderText("Paste a link");
+
+    expect(JSON.parse(data[STORE_KEY])).toHaveLength(0);
+    expect(window.location.search).toBe(new URL(original, window.location.origin).search);
+  });
+
+  it("accepts a marked text-only PWA share", async () => {
+    const text = "shared note from another application";
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    window.history.replaceState(
+      null,
+      "",
+      "/?share_target=1&text=" + encodeURIComponent(text)
+    );
+
+    render(<Credenza />);
+
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
+    const [item] = JSON.parse(data[STORE_KEY]);
+    expect(item.type).toBe("note");
+    expect(item.rawText).toBe(text);
+    expect(window.location.search).toBe("");
+  });
+});
+
 describe("Auto-detect capture (one setup, Kyle 2026-07-24)", () => {
   // The capture sheet is the mobile bottom sheet (KM-03): these tests run on
   // an emulated phone viewport so the sheet renders at all.
@@ -824,6 +1083,66 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     const [item] = JSON.parse(data[STORE_KEY]);
     expect(item.type).toBe("note");
     expect(item.url).toBeNull();
+  });
+
+  it("reviews URL-free clipboard prose before saving it as one note", async () => {
+    const prose = [
+      "2. Review risk. Apple reviews this niche hard.",
+      "3. Keep replica vocabulary out of screenshots.",
+      "4. Check the store metadata before launch.",
+    ].join("\n");
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    const restoreClipboard = installClipboard(vi.fn().mockResolvedValue(prose));
+    try {
+      render(<Credenza />);
+      await startFromEmptyShelf(user);
+
+      await user.click(await screen.findByRole("button", { name: "Paste & stash" }));
+
+      const box = await screen.findByRole("textbox", { name: "Stash a link or note" });
+      await waitFor(() => expect(box).toHaveValue(prose));
+      expect(screen.getByText("No links found.")).toBeInTheDocument();
+      expect(screen.getByText("1 note from this text")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save as 1 note" })).toBeInTheDocument();
+      expect(JSON.parse(data[STORE_KEY])).toHaveLength(0);
+
+      await user.click(screen.getByRole("button", { name: "Save as 1 note" }));
+      await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
+      const [item] = JSON.parse(data[STORE_KEY]);
+      expect(item.type).toBe("note");
+      expect(item.url).toBeNull();
+      expect(item.rawText).toBe(prose);
+    } finally {
+      restoreClipboard();
+    }
+  });
+
+  it("clears clipboard note review when the user replaces the text", async () => {
+    const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    const restoreClipboard = installClipboard(
+      vi.fn().mockResolvedValue("2. Review risk. This clipboard has no link.")
+    );
+    try {
+      render(<Credenza />);
+      await startFromEmptyShelf(user);
+      await user.click(await screen.findByRole("button", { name: "Paste & stash" }));
+      await screen.findByText("No links found.");
+
+      const box = await screen.findByRole("textbox", { name: "Stash a link or note" });
+      fireEvent.change(box, {
+        target: { value: "https://weidian.com/item.html?itemID=7649592219" },
+      });
+
+      expect(screen.queryByText("No links found.")).toBeNull();
+      expect(screen.queryByText("1 note from this text")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Stash · 1 link" }));
+      await waitFor(() => expect(JSON.parse(data[STORE_KEY])).toHaveLength(1));
+      expect(JSON.parse(data[STORE_KEY])[0].url).toContain("7649592219");
+    } finally {
+      restoreClipboard();
+    }
   });
 
   it("pasted post text becomes one card per item, notes aligned — no mode pick", async () => {
@@ -969,15 +1288,9 @@ describe("Fashion accessibility (Part 5)", () => {
     const { container } = render(<Credenza />);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    // Unified back: the haul editor opens from the Haul chip (turn 9 §1 —
-    // spec cells became chips), then the accordion head expands the same
-    // listbox the old card back used.
-    const back = container.querySelector(".cz-carousel-back");
-    const haulChip = [...back.querySelectorAll(".cz-detail-chip")].find((c) =>
-      /haul/i.test(c.textContent || "")
-    );
-    await user.click(haulChip);
-    await user.click(await screen.findByRole("button", { name: /Add to a haul/i }));
+    // The Haul tab opens the same keyboard-operated accordion listbox.
+    await user.click(screen.getByRole("tab", { name: "Haul" }));
+    await user.click(screen.getByRole("button", { name: /Add to a haul/i }));
     const listbox = await screen.findByRole("listbox", { name: "Hauls" });
     const options = [...listbox.querySelectorAll('[role="option"]')];
     expect(options.length).toBeGreaterThanOrEqual(2);
@@ -1025,73 +1338,83 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-carousel-overlay")).toBeNull();
   });
 
-  it("has no edit mode and no Save button — every value is a tap target", async () => {
+  it("has no edit mode or Save button and exposes four detail tabs", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    await openSheet(user);
+    const sheet = await openSheet(user);
 
-    expect(screen.queryByRole("button", { name: /^Save$/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /^Edit$/ })).toBeNull();
-    // Handoff turn 9 §1: the six-cell grid is retired. Four short facts render
-    // as chips; price moves to the footer and size gets its own block. An
-    // em-dash is never rendered — an unset field is a dashed add-chip.
-    const chips = document.querySelectorAll(".cz-detail-chip");
-    expect(chips).toHaveLength(4);
-    // The fixture carries a batch and nothing else, so exactly one chip is
-    // solid and the other three are dashed add-chips.
-    expect(Array.from(chips).map((c) => c.textContent.trim())).toEqual([
-      "+ colorway",
-      "+ weight",
-      "M32126-109E",
-      "+ haul",
+    expect(within(sheet).queryByRole("button", { name: /^Save$/ })).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: /^Edit$/ })).toBeNull();
+    expect(within(sheet).getAllByRole("tab").map((tab) => tab.textContent.trim())).toEqual([
+      "Size",
+      "Colorway",
+      "Weight",
+      "Haul",
     ]);
-    expect(document.querySelector(".cz-detail-chips").textContent).not.toContain("—");
+    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "Batch" })).toBeNull();
   });
 
-  it("a chip tap opens exactly one inline editor and the edit persists", async () => {
+  it("the Colorway tab exposes one editor and the edit persists", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    await openSheet(user);
+    const sheet = await openSheet(user);
 
-    // The fixture has no colorway, so the chip is a dashed add-chip. Its
-    // visible text is "+ colorway"; its accessible name says the action.
-    await user.click(screen.getByRole("button", { name: "Add Colorway" }));
-    const input = await screen.findByLabelText("Colorway");
-    // 16px is the iOS zoom floor; the editor sets it in CSS, so assert the
-    // class that carries it rather than a computed style jsdom does not load.
+    await user.click(within(sheet).getByRole("tab", { name: "Colorway" }));
+    const panel = within(sheet).getByRole("tabpanel");
+    const input = within(panel).getByRole("textbox", { name: "Colorway" });
+    // 16px is the iOS zoom floor. The editor class carries this rule.
     expect(input.className).toContain("cz-detail-editor-input");
-    expect(document.querySelectorAll(".cz-detail-editor, .cz-detail-fit")).toHaveLength(1);
+    expect(panel.querySelectorAll(".cz-detail-editor-input")).toHaveLength(1);
 
     fireEvent.change(input, { target: { value: "Bone white" } });
     await waitFor(() => {
       const saved = JSON.parse(data[STORE_KEY] || "[]");
       expect(saved[0].colorway).toBe("Bone white");
     });
-    // The write-through fires the Saved chip — the only save feedback.
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  // Handoff turn 9 §2: the "Size · fit" cell is retired. Sizing is its own
-  // always-visible block, and its "Full chart" button opens the same sheet.
-  it("the sizing footer opens the fit block, never a bare text input", async () => {
+  it("the Size tab exposes direct choices and the profile-size route", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    await openSheet(user);
+    const sheet = await openSheet(user);
 
-    // Chartless item with a listing size run: footer is "My sizes" (the run
-    // chips are inline), not Full chart. Still opens the fit sheet.
-    expect(document.querySelector(".cz-sizing")).not.toBeNull();
-    await user.click(screen.getByRole("button", { name: /My sizes/ }));
-    expect(document.querySelector(".cz-detail-fit")).not.toBeNull();
+    const sizeTab = within(sheet).getByRole("tab", { name: "Size" });
+    expect(sizeTab).toHaveAttribute("aria-selected", "true");
+    const panel = within(sheet).getByRole("tabpanel");
+    expect(within(panel).getByRole("button", { name: "X-Large" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(within(panel).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
-    expect(screen.getByRole("button", { name: "Set my sizes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit sizes and measurements" })).toBeInTheDocument();
   });
 
-  it("Use AI Recommendation clears a hand size and restores the AI pick", async () => {
-    // Chart + body profile → rec L. Hand size XL shows the restore chip.
+  it("routes customer sizing through Settings", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const detail = await openSheet(user);
+    const editSizes = screen.getByRole("button", { name: "Edit sizes and measurements" });
+
+    await user.click(editSizes);
+    expect(await screen.findByRole("dialog", { name: "Sizes and measurements" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
+
+    await user.click(screen.getByRole("button", { name: "Close Sizes and measurements" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Sizes and measurements" })).toBeNull()
+    );
+    expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
+    await waitFor(() => expect(editSizes).toHaveFocus());
+  });
+
+  it("the Size tab clears a hand size without an obsolete AI action", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([
         fashionItem({
@@ -1112,9 +1435,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     await openSheet(user);
 
-    await user.click(screen.getByRole("button", { name: /Full chart/ }));
-    const restore = await screen.findByRole("button", { name: "Use AI Recommendation" });
-    await user.click(restore);
+    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("button", { name: "Use AI size" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Clear size" }));
 
     await waitFor(() => {
       const saved = JSON.parse(data[STORE_KEY] || "[]");
@@ -1165,19 +1488,18 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-detail-fit")).toBeNull();
   });
 
-  it("a neighbour chip writes the size in one tap", async () => {
+  it("a Size tab choice writes the size in one tap", async () => {
     const data = sizedShim();
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
-    // Neighbours of Medium in the S–XL run. The pick itself is never a chip.
-    expect(screen.getByRole("button", { name: "Use Small" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Use Large" }));
+    expect(screen.getByRole("button", { name: "Small" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Large" }));
 
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].size).toBe("L"));
-    // One tap only — the chip must not open the inline editor.
-    expect(document.querySelector(".cz-detail-editor")).toBeNull();
+    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("L");
   });
 
   it("names the next status step and relabels it after the tap", async () => {
@@ -1442,8 +1764,8 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     const row = box.closest(".cz-detail-foot-row");
     expect(row.querySelectorAll(".cz-detail-foot-price")).toHaveLength(1);
     expect(row.querySelector(".cz-buy-notch")).not.toBeNull();
-    // The chips no longer carry it (§1), so the number appears exactly once.
-    expect(document.querySelector(".cz-detail-chips").textContent).not.toContain("32.06");
+    // The detail tabs do not duplicate the footer price.
+    expect(document.querySelector(".cz-detail-tabs").textContent).not.toContain("32.06");
   });
 
   it("opens the price editor from the footer box, in USD", async () => {
@@ -1604,7 +1926,7 @@ describe("Phone sheet split (Kyle 2026-07-25)", () => {
 
     await user.click(await screen.findByRole("button", { name: "Settings" }));
     expect(await screen.findByRole("button", { name: /Theme: Blackout/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Your sizes/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sizes and measurements/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Fit preferences/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Fit summary/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Buying agent/ })).toBeNull();

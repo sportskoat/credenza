@@ -15,6 +15,7 @@ const portal = require("../netlify/functions/portal.js");
 
 const JWT_SECRET = "jwt-secret";
 const SK = "sk_test_123";
+const PRICE_WEEKLY = "price_week";
 const PRICE_MONTHLY = "price_month";
 const PRICE_YEARLY = "price_year";
 
@@ -70,6 +71,7 @@ beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = "svc-key";
   process.env.SUPABASE_JWT_SECRET = JWT_SECRET;
   process.env.STRIPE_SECRET_KEY = SK;
+  process.env.STRIPE_PRICE_WEEKLY = PRICE_WEEKLY;
   process.env.STRIPE_PRICE_MONTHLY = PRICE_MONTHLY;
   process.env.STRIPE_PRICE_YEARLY = PRICE_YEARLY;
   process.env.SITE_URL = "https://credenzafashion.com";
@@ -94,8 +96,30 @@ describe("checkout function", () => {
     expect((await checkout.handler(post("garbage", { price: "monthly" }))).statusCode).toBe(401);
 
     const token = tokenFor("user-1");
-    expect((await checkout.handler(post(token, { price: "weekly" }))).statusCode).toBe(400);
+    expect((await checkout.handler(post(token, { price: "daily" }))).statusCode).toBe(400);
     expect((await checkout.handler(post(token, {}))).statusCode).toBe(400);
+  });
+
+  it("attaches the 3-day trial to the weekly session, and to no other", async () => {
+    // The trial is weekly-only (decided 2026-07-27): card up front, first
+    // charge on day 4. A trial on monthly or yearly would only delay revenue.
+    const sb = fakeBackends();
+    vi.stubGlobal("fetch", sb.fetchMock);
+    const token = tokenFor("user-1", { email: "u@example.com" });
+
+    const res = await checkout.handler(post(token, { price: "weekly" }));
+    expect(res.statusCode).toBe(200);
+    const weekly = sb.stripeCalls.find((c) => c.path === "/v1/checkout/sessions");
+    expect(weekly.params["line_items[0][price]"]).toBe(PRICE_WEEKLY);
+    expect(weekly.params["subscription_data[trial_period_days]"]).toBe("3");
+
+    for (const price of ["monthly", "yearly"]) {
+      sb.stripeCalls.length = 0;
+      const r = await checkout.handler(post(token, { price }));
+      expect(r.statusCode).toBe(200);
+      const call = sb.stripeCalls.find((c) => c.path === "/v1/checkout/sessions");
+      expect(call.params["subscription_data[trial_period_days]"]).toBeUndefined();
+    }
   });
 
   it("answers 500 when the chosen price id is not configured", async () => {

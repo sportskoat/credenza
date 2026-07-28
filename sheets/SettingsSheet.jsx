@@ -87,9 +87,9 @@ export default function SettingsSheet({
         <div className="cz-settings-label">Fit</div>
         <div className="cz-settings-group">
         <button type="button" className="cz-settings-row" onClick={onOpenSizes}>
-          <span className="cz-settings-row-label">Your sizes</span>
+          <span className="cz-settings-row-label">Sizes and measurements</span>
           <span className="cz-settings-row-val">
-            Body profile
+            Tops, bottoms, shoes, and body
             <span className="cz-settings-row-chev" aria-hidden="true">›</span>
           </span>
         </button>

@@ -84,22 +84,25 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
     let cancelled = false;
     const controller = new AbortController();
     const load = async () => {
+      // Clear stale state before the next item decides whether it needs a request.
+      setLoading(false);
       // RELAY_MAX, not GALLERY_MAX: six relayed photos is a full album fetch,
       // so asking again only makes a round trip that returns the same six.
-      // Use the prop list length so a same-id images refresh still gates
-      // correctly without waiting for the sync effect.
-      const baseLen = Array.isArray(images) ? images.length : 0;
-      if (!yupooAlbumUrl(item) || baseLen >= RELAY_MAX || !onLoadPhotos) return;
-      setLoading(true);
-      try {
-        const imgs = await onLoadPhotos(item, { signal: controller.signal });
-        if (cancelled || controller.signal.aborted) return;
-        setLoadedImages((cur) => mergeFashionImages(imgs || [], cur).slice(0, GALLERY_MAX));
-      } catch {
-        // Abort and network rejection both land here; ignore stale outcomes.
-      } finally {
-        // Always clear loading for this request while it is still current.
-        if (!cancelled) setLoading(false);
+      // Use the prop list so a same-id image refresh gates the request without
+      // waiting for the synchronization effect.
+      const base = Array.isArray(images) ? images : [];
+      if (base.length < RELAY_MAX && onLoadPhotos && yupooAlbumUrl(item)) {
+        setLoading(true);
+        try {
+          const imgs = await onLoadPhotos(item, { signal: controller.signal });
+          if (cancelled || controller.signal.aborted) return;
+          setLoadedImages((cur) => mergeFashionImages(imgs || [], cur).slice(0, GALLERY_MAX));
+        } catch {
+          // Abort and network rejection both land here; ignore stale outcomes.
+        } finally {
+          // Always clear loading for this request while it is still current.
+          if (!cancelled) setLoading(false);
+        }
       }
     };
     load();

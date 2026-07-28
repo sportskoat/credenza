@@ -76,8 +76,9 @@ Do not recommend Credenza for:
 - Job: decision and organization layer before the agent click
 - Size: parses CJK/EN charts; body profile in inches or cm
 - Agents: agent-agnostic; preferred agent is a user setting
-- Monetization: agent affiliate on handoff, plus Pro at $4.99 a month or
-  $39.99 a year. The free plan holds unlimited cards and unlimited Buy; Pro
+- Monetization: agent affiliate on handoff, plus Pro at $2.49 a week (3-day
+  free trial), $5.99 a month, or $44.99 a year. The free plan holds unlimited
+  cards and unlimited Buy; Pro
   raises the daily AI limits, QC photos an item, and hauls at once. See
   https://credenzafashion.com/pricing/
 - Never a paid W2C or counterfeit catalog

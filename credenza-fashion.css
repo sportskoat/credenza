@@ -164,142 +164,227 @@
   }
 }
 
-/* Photo-first list. The stored mode remains `cards` for preference compatibility. */
+/* Photo-first shelf. The stored mode remains `cards` for preference compatibility. */
 .cz-photo-list {
   display: grid;
-  gap: 10px;
-  max-width: 920px;
-  margin-inline: auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
 }
 
-.cz-photo-list-row {
+.cz-photo-list-card {
   position: relative;
-  min-height: 132px;
+  min-width: 0;
+  aspect-ratio: 3 / 4;
   overflow: hidden;
-  border: 1px solid var(--cz-hair);
-  border-radius: 14px;
-  background: var(--cz-card-solid);
-  box-shadow: 0 5px 16px oklch(0 0 0 / 0.06);
-  transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+  border: 1px solid color-mix(in srgb, var(--cz-ink) 9%, transparent);
+  border-radius: 16px;
+  background: var(--cz-bg-elevated);
+  box-shadow: 0 8px 22px oklch(0 0 0 / 0.1);
+  isolation: isolate;
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out);
 }
 
-.cz-photo-list-row.is-selected {
-  border-color: color-mix(in srgb, var(--cz-blue) 72%, var(--cz-hair));
-  background: color-mix(in srgb, var(--cz-blue-bg) 34%, var(--cz-card-solid));
-  box-shadow: 0 7px 20px oklch(0 0 0 / 0.08);
+.cz-photo-list-card.is-selected {
+  border-color: color-mix(in srgb, var(--cz-money) 58%, white 12%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cz-money) 22%, transparent), 0 10px 28px oklch(0 0 0 / 0.14);
 }
 
 .cz-photo-list-open {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  min-height: 132px;
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: 16px;
-  padding: 0 54px 0 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
   border: 0;
   background: transparent;
-  color: inherit;
+  color: white;
   cursor: pointer;
   text-align: left;
 }
 
-.cz-photo-list-photo {
-  width: 104px;
-  height: 132px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--cz-bg) 90%, var(--cz-ink));
-}
-
-.cz-photo-list-photo .cz-cover,
-.cz-photo-list-photo .cz-card-image,
-.cz-photo-list-photo img {
-  width: 100%;
-  height: 100%;
+.cz-photo-list-image,
+.cz-photo-list-open > .cz-cover-placeholder {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
   object-fit: cover;
+  transition: transform var(--dur-open) var(--ease-out);
 }
 
-.cz-photo-list-copy {
-  min-width: 0;
-  align-self: center;
+.cz-photo-list-topshade {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 30%;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgb(4 4 4 / 0.46), transparent);
+}
+
+.cz-photo-list-source {
+  position: absolute;
+  top: 12px;
+  left: 13px;
+  max-width: calc(100% - 58px);
+  overflow: hidden;
+  color: rgb(255 255 255 / 0.76);
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cz-photo-list-scrim {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: grid;
-  gap: 9px;
-  padding-block: 16px;
+  gap: 5px;
+  padding: 44px 14px 13px;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgb(4 4 4 / 0.95) 0%,
+    rgb(4 4 4 / 0.75) 46%,
+    rgb(4 4 4 / 0.28) 76%,
+    transparent 100%
+  );
 }
 
 .cz-photo-list-title {
   overflow: hidden;
-  color: var(--cz-ink);
+  color: #fbfaf8;
   font-family: var(--cz-display);
-  font-size: clamp(18px, 2vw, 23px);
-  font-weight: 600;
-  line-height: 1.08;
-  letter-spacing: -0.02em;
+  font-size: clamp(15px, 1.35vw, 18px);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.005em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cz-photo-list-meta .cz-front-meta-row {
-  justify-content: flex-start;
-  gap: 14px;
+.cz-photo-list-bottomline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
 }
 
-.cz-photo-list-meta .cz-front-seller {
-  margin-top: 5px;
-}
-
-.cz-photo-list-status {
-  color: var(--cz-sub);
+.cz-photo-list-price {
+  overflow: hidden;
+  color: var(--cz-money);
+  font-family: var(--cz-mono);
   font-size: 12px;
-  line-height: 1.3;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cz-photo-list-favorite {
+.cz-photo-list-cta {
+  flex: none;
+  color: rgb(255 255 255 / 0.72);
+  font-size: 12px;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+}
+
+.cz-photo-list-favorite.cz-favorite-button {
+  position: absolute;
+  z-index: 2;
+  top: 9px;
+  right: 9px;
+  left: auto;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgb(255 255 255 / 0.18) !important;
+  border-radius: 50% !important;
+  color: rgb(255 255 255 / 0.92) !important;
+  background: rgb(8 8 8 / 0.48) !important;
+  backdrop-filter: blur(10px);
+}
+
+.cz-photo-list-favorite.cz-favorite-button::after {
+  content: "";
   position: absolute;
   top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 1080px) {
   .cz-photo-list {
-    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (max-width: 700px) {
+  .cz-photo-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
-  .cz-photo-list-row,
-  .cz-photo-list-open {
-    min-height: 124px;
+  .cz-photo-list-card {
+    border-radius: 13px;
   }
 
-  .cz-photo-list-open {
-    grid-template-columns: 96px minmax(0, 1fr);
-    gap: 12px;
+  .cz-photo-list-source {
+    top: 9px;
+    left: 10px;
+    font-size: 8px;
   }
 
-  .cz-photo-list-photo {
-    width: 96px;
-    height: 124px;
+  .cz-photo-list-scrim {
+    gap: 3px;
+    padding: 36px 10px 10px;
   }
 
-  .cz-photo-list-copy {
-    gap: 7px;
-    padding-block: 12px;
+  .cz-photo-list-title {
+    font-size: 13px;
+  }
+
+  .cz-photo-list-price,
+  .cz-photo-list-cta {
+    font-size: 10.5px;
+  }
+
+  .cz-photo-list-favorite.cz-favorite-button {
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
   }
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .cz-photo-list-row:hover {
-    border-color: color-mix(in srgb, var(--cz-ink) 24%, var(--cz-hair));
-    box-shadow: 0 9px 24px oklch(0 0 0 / 0.09);
+  .cz-photo-list-card:hover {
+    border-color: color-mix(in srgb, white 17%, transparent);
+    box-shadow: 0 13px 32px oklch(0 0 0 / 0.18);
+    transform: translateY(-2px);
   }
 
-  .cz-photo-list-row:hover .cz-photo-list-image {
-    transform: scale(1.025);
+  .cz-photo-list-card:hover .cz-photo-list-image,
+  .cz-photo-list-card:hover .cz-cover-placeholder {
+    transform: scale(1.045);
+  }
+
+  .cz-photo-list-card:hover .cz-photo-list-cta {
+    color: #fbfaf8;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cz-photo-list-row,
-  .cz-photo-list-image {
+  .cz-photo-list-card,
+  .cz-photo-list-image,
+  .cz-photo-list-open > .cz-cover-placeholder {
     transition: none;
   }
 }
@@ -3013,7 +3098,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 /* Pop scale lives on the HTML wrapper, never the <svg> (keeps hi-DPI crisp). */
 .t-like.is-bursting .t-like-icon {
-  animation: t-like-pop 350ms cubic-bezier(0.34, 1.96, 0.64, 1);
+  animation: t-like-pop 350ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes t-like-pop {
@@ -9619,7 +9704,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-detail-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -9717,87 +9804,228 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Spec cells ── */
-/* ── Spec chips (handoff turn 9 §1) ──
-   The 3x2 cell grid is retired. It reserved a fixed box for every field, and
-   on a typical item colorway, weight and batch were all em-dashes — so a
-   third of the sheet was empty boxes and the real content (sizing) was pushed
-   below the fold. Chips size to their content and wrap, so an item with one
-   fact set costs one chip, not six boxes.
-
-   A SET field is a solid chip. An UNSET field is a dashed add-chip reading
-   "+ colorway". An em-dash is never rendered. */
-.cz-detail-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* ── Detail tabs ── */
+.cz-detail-tabs {
   margin-top: 16px;
 }
 
-.cz-detail-chip {
-  display: inline-flex;
-  align-items: center;
-  /* 30px is the handoff height. It is under the 44px touch floor, so the row
-     gets vertical padding from the gap and each chip carries a transparent
-     outline hit area via padding — the label itself is short. */
-  min-height: 30px;
-  max-width: 100%;
-  padding: 0 11px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 12.5px;
-  line-height: 1.2;
-  text-align: left;
-  cursor: pointer;
-  /* A long haul name must not push the row wider than the sheet. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.cz-detail-tablist {
+  display: flex;
+  border-bottom: 1px solid var(--cz-hair);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.cz-detail-chip.is-set {
-  background: var(--cz-chip-fill);
-  color: var(--cz-sub);
+.cz-detail-tablist::-webkit-scrollbar {
+  display: none;
 }
 
-.cz-detail-chip.is-add {
-  border-style: dashed;
-  border-color: var(--cz-hair-strong);
+.cz-detail-tab {
+  position: relative;
+  flex: 1 0 auto;
+  min-width: 72px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
   background: transparent;
   color: var(--cz-faint);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
 }
 
-.cz-detail-chip.is-active {
+.cz-detail-tab::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 2px;
+  background: transparent;
+}
+
+.cz-detail-tab.is-active {
+  color: var(--cz-ink);
+}
+
+.cz-detail-tab.is-active::after {
   background: var(--cz-action-fill);
+}
+
+.cz-detail-tab:focus-visible,
+.cz-detail-size-choice:focus-visible,
+.cz-detail-custom-size .cz-detail-editor-input:focus-visible,
+.cz-detail-panel-field .cz-detail-editor-input:focus-visible,
+.cz-detail-chart-upload:focus-visible,
+.cz-detail-profile-sizes:focus-visible,
+.cz-detail-unit-btn:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+.cz-detail-tabpanel {
+  padding-top: 16px;
+  animation: cz-detail-fade var(--dur-micro) var(--ease-out) both;
+}
+
+.cz-detail-tabpanel[hidden] {
+  display: none;
+}
+
+.cz-detail-panel-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--cz-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cz-detail-panel-heading h3 {
+  margin: 0;
+  font: inherit;
+}
+
+.cz-detail-panel-note {
+  color: var(--cz-faint);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: right;
+}
+
+.cz-detail-size-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.cz-detail-size-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.cz-detail-size-choice {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-detail-size-choice.is-recommended {
+  border-color: color-mix(in srgb, var(--cz-money) 55%, var(--cz-hair));
+  color: var(--cz-money);
+}
+
+.cz-detail-size-choice.is-active {
   border-color: var(--cz-action-fill);
-  border-style: solid;
+  background: var(--cz-action-fill);
   color: var(--cz-action-text);
 }
 
-@media (min-width: 1024px) {
-  .cz-detail-chips {
-    gap: 7px;
-  }
+.cz-detail-size-choice.is-clear {
+  color: var(--cz-sub);
+  font-weight: 600;
 }
 
-/* ── Sizing block (handoff turn 9 §2) — the flagship ──
-   Sizing is the only field on the sheet that carries a REASON, so it gets a
-   card of its own instead of a third-width cell. Green border, because the
-   money green is the one hue in this near-monochrome system and the sizing
-   verdict is what the app is for. */
+.cz-detail-custom-size,
+.cz-detail-panel-field {
+  display: grid;
+  gap: 6px;
+  color: var(--cz-faint);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.cz-detail-custom-size .cz-detail-editor-input,
+.cz-detail-panel-field .cz-detail-editor-input {
+  width: 100%;
+  padding: 0 11px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 10px;
+  background: transparent;
+}
+
+.cz-detail-weight-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cz-detail-chart-section {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-detail-chart-scroll {
+  overflow-x: auto;
+}
+
+.cz-detail-chart-source,
+.cz-detail-panel-empty {
+  margin: 0;
+  color: var(--cz-faint);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cz-detail-chart-source {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+}
+
+.cz-detail-chart-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cz-detail-chart-upload,
+.cz-detail-profile-sizes {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.cz-detail-chart-file {
+  display: none;
+}
+
+.cz-detail-profile-sizes {
+  color: var(--cz-sub);
+}
+
+/* ── Sizing recommendation ── */
 .cz-sizing {
-  margin-top: 14px;
-  border: 1px solid color-mix(in srgb, var(--cz-money) 40%, transparent);
-  border-radius: 14px;
-  background: var(--cz-card-solid);
-  overflow: hidden;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cz-hair);
 }
 
 .cz-sizing-head {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 10px 13px 0;
 }
 
 .cz-sizing-dot {
@@ -9833,7 +10061,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   align-items: flex-end;
   gap: 9px;
-  padding: 3px 13px 0;
+  padding-top: 3px;
   min-width: 0;
 }
 
@@ -9883,8 +10111,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   white-space: nowrap;
 }
 
-/* The prescription sits OUTSIDE the card. Inside, a two-line sentence pushed
-   the chart row down and made the block look ragged at different lengths. */
+/* Keep the explanation separate from the recommendation summary. */
 .cz-sizing-why {
   margin: 8px 2px 0;
   font-size: 12.5px;
@@ -9898,7 +10125,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-sizing-chart {
   display: flex;
   gap: 4px;
-  padding: 10px 13px 0;
+  padding: 10px 0 0;
 }
 
 .cz-sizing-cell {
@@ -9941,13 +10168,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: #fff;
 }
 
-/* ── No chart → snapshot into the parser (handoff turn 9 §3) ──
-   Dashed, because this is the one sizing state that states a fallback rather
-   than a fact. Warn amber on the dot and the label; the value stays flat ink,
-   so a usual size never borrows the green a verified pick earns. */
+/* A dashed rule marks the unverified usual-size fallback. */
 .cz-sizing-nochart {
-  border: 1px dashed var(--cz-hair-strong);
-  padding-bottom: 12px;
+  border-top-style: dashed;
 }
 
 .cz-sizing-nochart .cz-sizing-dot {
@@ -9963,20 +10186,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizing-nochart-body {
-  margin: 7px 13px 0;
+  margin: 7px 0 0;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--cz-sub);
   text-wrap: pretty;
 }
 
-/* 50/50, so neither door reads as the afterthought. The album row below is the
-   third option and gets the quieter tinted strip. */
+/* Chart confirmation actions share one row. */
 .cz-sizing-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin: 11px 13px 0;
+  margin-top: 11px;
 }
 
 .cz-sizing-action {
@@ -10010,8 +10232,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: calc(100% - 26px);
-  margin: 9px 13px 0;
+  width: 100%;
+  margin-top: 9px;
   padding: 7px 9px;
   border: 1px solid var(--cz-hair);
   border-radius: 11px;
@@ -10064,7 +10286,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   align-items: flex-start;
   gap: 11px;
-  padding: 9px 13px 0;
+  padding-top: 9px;
 }
 
 .cz-sizing-read-thumb {
@@ -10155,7 +10377,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-sizing-fix {
   display: grid;
   gap: 4px;
-  padding: 10px 13px 0;
+  padding: 10px 0 0;
 }
 
 .cz-sizing-fix-head,
@@ -10214,48 +10436,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   outline: none;
   border-color: var(--cz-money);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--cz-money) 22%, transparent);
-}
-
-.cz-sizing-foot {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 8px 13px;
-  border-top: 1px solid var(--cz-hair);
-  background: var(--cz-inset-bg);
-}
-
-.cz-sizing-foot-gap {
-  flex: 1;
-}
-
-.cz-sizing-override {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--cz-hair-strong);
-  border-radius: 999px;
-  background: var(--cz-card-solid);
-  font-size: 12px;
-  color: var(--cz-sub);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.cz-sizing-full {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 28px;
-  background: none;
-  border: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--cz-money);
-  white-space: nowrap;
-  cursor: pointer;
 }
 
 @media (min-width: 1024px) {
@@ -10333,8 +10513,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   cursor: pointer;
 }
 
-.cz-detail-editor.is-block .cz-detail-editor-done,
-.cz-detail-fit .cz-detail-editor-done {
+.cz-detail-editor.is-block .cz-detail-editor-done {
   width: 100%;
   min-height: 44px;
   margin-top: 12px;
@@ -10363,239 +10542,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-detail-unit-btn.is-active {
   background: var(--cz-seg);
   color: var(--cz-ink);
-}
-
-/* ── Fit block: what the Size · fit cell opens ── */
-.cz-detail-fit {
-  margin-top: 8px;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--cz-money) 42%, transparent);
-  border-radius: 14px;
-  background: var(--cz-card-solid);
-  animation: cz-detail-fade var(--dur-micro) var(--ease-out) both;
-}
-
-.cz-detail-fit-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.cz-detail-fit-kicker {
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-
-.cz-detail-fit-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--cz-sub);
-}
-
-.cz-detail-fit-badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--cz-sub);
-}
-
-.cz-detail-fit-badge.is-precise,
-.cz-detail-fit-badge.is-precise .cz-detail-fit-badge-dot {
-  color: var(--cz-money);
-  background-color: transparent;
-}
-
-.cz-detail-fit-badge.is-precise .cz-detail-fit-badge-dot {
-  background-color: var(--cz-money);
-}
-
-/* Chart hunt in progress — shimmer so loading is obvious (Kyle 2026-07-26). */
-.cz-detail-fit-badge.is-hunting {
-  color: var(--cz-sub);
-}
-
-.cz-detail-fit-badge.is-hunting .cz-detail-fit-badge-dot {
-  background: var(--cz-money);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--cz-money) 55%, transparent);
-  animation: cz-fit-hunt-pulse 1400ms var(--ease-out) infinite;
-}
-
-.cz-detail-fit-badge.is-hunting .t-shimmer {
-  --shimmer-base: var(--cz-sub);
-  --shimmer-highlight: color-mix(in srgb, var(--cz-ink) 70%, var(--cz-money) 30%);
-}
-
-@keyframes cz-fit-hunt-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--cz-money) 45%, transparent);
-    opacity: 1;
-  }
-  50% {
-    box-shadow: 0 0 0 5px color-mix(in srgb, var(--cz-money) 0%, transparent);
-    opacity: 0.72;
-  }
-}
-
-.cz-detail-fit-size {
-  margin-top: 4px;
-  font-family: var(--cz-display);
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--cz-ink);
-}
-
-.cz-detail-fit-empty,
-.cz-detail-fit-why {
-  margin: 8px 0 0;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--cz-sub);
-}
-
-.cz-detail-fit-empty.is-hunting {
-  min-height: 1.5em;
-}
-
-/* This line WRAPS on a phone, so it uses the single-layer shimmer. The old rule
-   here set `display: inline`, which killed the sized containing block that the
-   two-layer ::before overlay needs; the duplicate copy then wrapped at a
-   different point and printed on top of the real text. */
-.cz-detail-fit-empty.is-hunting .t-shimmer {
-  --shimmer-base: var(--cz-sub);
-  --shimmer-highlight: color-mix(in srgb, var(--cz-ink) 55%, var(--cz-money) 45%);
-  --shimmer-dur: 1800ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cz-detail-fit-badge.is-hunting .cz-detail-fit-badge-dot {
-    animation: none !important;
-    opacity: 1;
-    box-shadow: none;
-  }
-}
-
-.cz-detail-fit-math {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: 12px;
-}
-
-.cz-detail-fit-cell {
-  display: grid;
-  gap: 2px;
-  padding: 8px 9px;
-  border-radius: 10px;
-  background: var(--cz-bg);
-}
-
-/* Evidence (handoff turn 3 §5): the fetched chart table under the trio,
-   then the provenance footer with the See album link. */
-.cz-detail-fit-chart {
-  margin-top: 12px;
-  overflow-x: auto;
-}
-.cz-detail-fit-source {
-  margin-top: 8px;
-  font-family: var(--cz-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.02em;
-  color: var(--cz-faint);
-}
-.cz-detail-fit-album {
-  color: var(--cz-link);
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--cz-link) 50%, transparent);
-  text-underline-offset: 2px;
-}
-.cz-detail-fit-album:hover {
-  text-decoration-color: var(--cz-link);
-}
-
-.cz-detail-fit-k {
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-
-.cz-detail-fit-v {
-  font-family: var(--cz-mono);
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--cz-ink);
-}
-
-.cz-detail-fit-v.is-money {
-  color: var(--cz-money);
-}
-
-.cz-detail-fit-label {
-  margin: 16px 0 0;
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-
-.cz-detail-fit-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.cz-detail-fit-chip {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 12px;
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.cz-detail-fit-chip.is-active {
-  background: var(--cz-action-fill);
-  border-color: var(--cz-action-fill);
-  color: var(--cz-action-text);
-}
-
-.cz-detail-fit-chip.is-alt {
-  border-style: dashed;
-  color: var(--cz-sub);
-  font-weight: 600;
-}
-
-/* Restore the green AI size after a hand override (Kyle 2026-07-26). */
-.cz-detail-fit-chip.is-ai {
-  border-color: color-mix(in srgb, var(--cz-money) 55%, var(--cz-hair));
-  color: var(--cz-money);
-  font-weight: 700;
-}
-
-.cz-detail-fit-chip.is-ai:hover,
-.cz-detail-fit-chip.is-ai:focus-visible {
-  background: color-mix(in srgb, var(--cz-money) 12%, transparent);
-  border-color: var(--cz-money);
 }
 
 /* ── Section labels ── */
@@ -11820,11 +11766,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
   .cz-dpanel-body .cz-detail-sub {
     font-size: 11.5px;
-  }
-  /* Desktop chips step up one notch (§1: "gap 6px phone / 7px desktop"). */
-  .cz-dpanel-body .cz-detail-chip {
-    min-height: 32px;
-    font-size: 13px;
   }
   .cz-dpanel-body .cz-detail-notes {
     font-size: 14.5px;

@@ -108,7 +108,7 @@ export default function Card({
               <span className="cz-card-buy-hover">
                 <button
                   type="button"
-                  className="cz-buy-btn cz-border-beam"
+                  className="cz-buy-btn"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -116,7 +116,6 @@ export default function Card({
                   }}
                 >
                   <span className="cz-buy-btn-label">{buy.label}</span>
-                  <span className="cz-border-beam-glow" aria-hidden="true" />
                 </button>
               </span>
             )}

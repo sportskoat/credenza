@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload, X } from "lucide-react";
 import { listAgents } from "../agents.js";
@@ -36,7 +36,7 @@ import {
 } from "../credenza-fashion.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
 import SizeChartTable from "./SizeChartTable.jsx";
-import { albumLinkTarget, AlbumLinksRow } from "./CardMetaLinks.jsx";
+import { AlbumLinksRow } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
 
@@ -45,9 +45,8 @@ import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-
 // desktop carousel card back both render this. Shells differ (dialog vs
 // card face); the content never does.
 //
-// There is no edit mode and no Save button: every value is its own tap
-// target, the tap opens exactly one editor, and the edit writes through the
-// shared 600ms debounce. The "Saved" chip is the only save feedback.
+// There is no edit mode or Save button. Tabs expose the editable facts.
+// Draft edits use the shared 600ms write-through path.
 
 const SAVED_HOLD_MS = 1400;
 
@@ -62,35 +61,12 @@ const focusOnMount = (el) => {
   if (el) el.focus();
 };
 
-// One editor at a time.
-//
-// Handoff turn 9 §1: the six-cell grid is gone. It rendered a fixed grid in
-// which three cells (colorway, weight, batch) were em-dashes on a typical
-// item, so the flagship — sizing — read as one more piece of metadata, and
-// the rail sat half empty. Cells become CHIPS instead:
-//
-//   - a SET field is a solid chip showing its value;
-//   - an UNSET field is a dashed add-chip labelled "+ colorway";
-//   - an em-dash is never rendered.
-//
-// Two fields leave the row entirely. PRICE moves to the footer beside Buy
-// (§1). SIZE is promoted to its own block (§2). Both are still editable —
-// the chip row is a display and edit surface for the SHORT facts only.
-//
-// Each chip opens the same inline editor the cell opened, so the editor
-// switch below is unchanged.
-function specChips(view) {
-  return [
-    { key: "colorway", label: "Colorway", add: "+ colorway", value: view.colorway || "" },
-    {
-      key: "weightGrams",
-      label: "Weight",
-      add: "+ weight",
-      value: view.weightGrams ? view.weightGrams + " g" : "",
-    },
-    { key: "project", label: "Haul", add: "+ haul", value: view.project || "" },
-  ];
-}
+const DETAIL_TABS = [
+  { key: "size", label: "Size" },
+  { key: "colorway", label: "Colorway" },
+  { key: "weight", label: "Weight" },
+  { key: "haul", label: "Haul" },
+];
 
 // Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
 // SIZES" — charts never arrived because the old hunt died with the desktop
@@ -98,13 +74,9 @@ function specChips(view) {
 // the album/desc/gallery photos. A found chart writes into sizeNotes (+ its
 // provenance into sizeChartSource) and the pick appears.
 //
-// This was a bare effect inside FitBlock. Turn 9 §2 makes the sizing block
-// always visible, so the hunt has to start when the DETAIL opens, not when
-// somebody taps a size cell. It is a hook so exactly one component owns it —
-// two callers would fire two vision reads, and those cost money.
-// `enabled` exists because a hook cannot be called conditionally. FitBlock
-// still calls this, but passes enabled=false when its parent already owns the
-// hunt — otherwise both would fire and pay for two vision reads.
+// The sizing block is always visible, so the hunt starts when the detail opens.
+// One component owns the hook because two callers would start two paid reads.
+// `enabled` lets callers disable the hook without calling it conditionally.
 //
 // Turn 9 §3 adds one step BEFORE the network: the seller cache. A chart read
 // once for a seller sizes every later item from that seller with no call at
@@ -171,9 +143,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
   return hunting;
 }
 
-// One source of truth for the sizing verdict. FitBlock computed all of this
-// inline; turn 9 §2 adds a second consumer (the always-visible sizing block),
-// and two copies of this arithmetic would drift.
+// One source of truth keeps the sizing verdict consistent across each view.
 function useSizeVerdict(item, bodyProfile, fitPref, units) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
@@ -315,8 +285,7 @@ function Timeline({ rows }) {
 // States: `ai` (shimmer on), `manual` (header YOUR PICK, flat ink, no
 // shimmer), and no-chart (§3, rendered by SizingBlockNoChart below).
 //
-// It does NOT own the hunt. FitBlock still runs that, because the hunt writes
-// through onSaveEdit and must not fire twice; this block is fed the result.
+// The parent owns the chart hunt and passes its current result into this block.
 function SizingBlock({
   chart,
   rec,
@@ -326,11 +295,6 @@ function SizingBlock({
   precise,
   hunting,
   units,
-  runValues,
-  onPickSize,
-  onChooseSize,
-  onOpenChart,
-  onOpenSizes,
   reduced,
   // §3: names the seller whose cached chart sized this item. Null on every
   // other path, and the provenance falls back to SELLER'S CHART.
@@ -413,41 +377,6 @@ function SizingBlock({
           ))}
         </div>
       ) : null}
-
-      <div className="cz-sizing-foot">
-        {/* Override chips: the two sizes either side of the pick. The whole
-            run belongs in the full chart, not in a footer strip. */}
-        {chipSizes(runValues, heroSize)
-          .filter((s) => String(s).toUpperCase() !== String(heroSize).toUpperCase())
-          .slice(0, 2)
-          .map((size) => (
-            <button
-              key={size}
-              type="button"
-              className="cz-sizing-override"
-              onClick={() => onPickSize(String(size))}
-            >
-              Use {formatSizeToken(size) || size}
-            </button>
-          ))}
-        {/* Clear a hand pick so the AI size returns (Kyle 2026-07-26). */}
-        {isManual && recSize ? (
-          <button type="button" className="cz-sizing-override" onClick={() => onPickSize("")}>
-            Use AI size
-          </button>
-        ) : null}
-        <span className="cz-sizing-foot-gap" />
-        <button type="button" className="cz-sizing-full" onClick={onChooseSize}>
-          Choose item size
-        </button>
-        <button type="button" className="cz-sizing-full" onClick={onOpenChart}>
-          View size chart
-          <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-        <button type="button" className="cz-sizing-full" onClick={onOpenSizes}>
-          Edit sizes and measurements
-        </button>
-      </div>
     </section>
   );
 }
@@ -534,45 +463,14 @@ function useCustomerChartRead(item, onSaveEdit) {
   return { ...state, read, commit, dismiss, fix };
 }
 
-// ── No chart → snapshot into the parser (handoff turn 9 §3) ──
-//
-// The hunt looked at the album text, the chart tiles, the description feed and
-// the gallery, and none of it parsed. The old block said "No size chart on this
-// listing" and stopped, which leaves the customer holding the one thing the app
-// cannot get on its own: a photo of the chart. So this state asks for it.
-//
-// Dashed border and a warn dot on purpose — every other sizing state states a
-// fact it verified, and this one states a fallback. The value still renders,
-// because a usual size is better than a dash, but it renders FLAT ink with
-// "not verified" beside it so it never reads as a recommendation.
-//
-// The two actions differ only in `capture`: on a phone, `capture` opens the
-// camera directly, and without it the picker offers the photo library. Both are
-// labels wrapping a file input, because a label is the only element that opens
-// a picker without JS clicking a hidden node.
-function SizingBlockNoChart({
-  usualSize,
-  albumPhotos,
-  albumCount,
-  onReadPhotos,
-  onOpenAlbum,
-  onChooseSize,
-  onOpenSizes,
-  runValues,
-  onPickSize,
-}) {
+// The no-chart state keeps the usual size visible but unverified.
+// The Size panel owns the single chart upload action.
+function SizingBlockNoChart({ usualSize, albumPhotos, albumCount, onOpenAlbum }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const thumbs = (albumPhotos || []).slice(0, 2);
-  const runChips = chipSizes(runValues, usualSize);
-  const hasRun = runChips.length > 0;
-  const take = (e) => {
-    const files = [...(e.target.files || [])];
-    e.target.value = "";
-    if (files.length) onReadPhotos(files);
-  };
 
   return (
-    <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing">
+    <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
       <div className="cz-sizing-head">
         <span className="cz-sizing-dot" aria-hidden="true" />
         <span className="cz-sizing-kicker">No chart</span>
@@ -594,24 +492,8 @@ function SizingBlockNoChart({
       </div>
 
       <p className="cz-sizing-nochart-body">
-        The listing had no measurements and nothing in the album parsed as a
-        chart. Send me the chart photo and I&rsquo;ll read the cm off it.
+        The listing had no measurements. Upload the seller chart to read its measurements.
       </p>
-
-      <div className="cz-sizing-actions">
-        <label className="cz-sizing-action is-primary">
-          <Camera size={16} strokeWidth={2} aria-hidden="true" />
-          Snapshot chart
-          {/* `capture` is a hint, not a guarantee: a desktop browser ignores it
-              and shows the ordinary picker, which is the right fallback. */}
-          <input type="file" accept="image/*" capture="environment" onChange={take} />
-        </label>
-        <label className="cz-sizing-action">
-          <Upload size={16} strokeWidth={2} aria-hidden="true" />
-          Upload photo
-          <input type="file" accept="image/*" multiple onChange={take} />
-        </label>
-      </div>
 
       {albumCount ? (
         <button type="button" className="cz-sizing-albumrow" onClick={onOpenAlbum}>
@@ -621,44 +503,11 @@ function SizingBlockNoChart({
             ))}
           </span>
           <span className="cz-sizing-albumtext">
-            or pick from this item&rsquo;s {albumCount} album photo
-            {albumCount === 1 ? "" : "s"}
+            Read this item&rsquo;s {albumCount} album photo{albumCount === 1 ? "" : "s"}
           </span>
           <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
         </button>
       ) : null}
-
-      {/* The full chart sheet is still the way in for a chart the customer
-          would rather type, and the only route to My sizes from here. §3
-          replaced the old static "no chart" copy, and that copy carried this
-          link — losing it would strand anyone whose photo will not read.
-          The label must not say "Full chart" here: with no chart parsed the
-          sheet opens on the size-run override picker, and a button that
-          promises a chart it cannot show reads as a bug (Kyle 2026-07-27).
-          When the listing size run is already inline, the link only opens
-          profile / manual chart entry — so it reads "My sizes". */}
-      <div className="cz-sizing-foot">
-        {hasRun
-          ? runChips.map((size) => (
-              <button
-                key={size}
-                type="button"
-                className="cz-sizing-override"
-                onClick={() => onPickSize && onPickSize(String(size))}
-              >
-                {formatSizeToken(size) || size}
-              </button>
-            ))
-          : null}
-        <span className="cz-sizing-foot-gap" />
-        <button type="button" className="cz-sizing-full" onClick={onChooseSize}>
-          Choose item size
-          <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-        <button type="button" className="cz-sizing-full" onClick={onOpenSizes}>
-          Edit sizes and measurements
-        </button>
-      </div>
     </section>
   );
 }
@@ -862,292 +711,136 @@ function listPhrase(words) {
   return words.slice(0, -1).join(", ") + " and " + words[words.length - 1];
 }
 
-// The size reasoning breakdown (handoff turn 3 §5). Reading order: verdict
-// (kicker + Georgia size + confidence chip) → prescription (1-2 plain
-// sentences naming the deciding measurement and the next size down) →
-// evidence (You/Garment/Ease trio, the fetched chart table with the pick
-// inverted, provenance footer + See album) → escape (override chips + Set my
-// sizes). With no parsed chart it says so and shows the size run plainly —
-// it never invents a pick.
-function FitBlock({
-  item,
-  bodyProfile,
-  fitPref,
-  units,
-  onPickSize,
-  onOpenSizes,
-  onDone,
-  onSaveEdit,
-  // The parent owns the hunt now (turn 9 §2: the sizing block is always
-  // visible, so the hunt starts with the detail view). When the parent passes
-  // its flag, use it; standalone callers still run their own.
-  hunting: huntingProp,
-}) {
-  const {
-    chart,
-    rec,
-    recSize,
-    usualSize,
-    decidingEstimated,
-    precise,
-    runValues,
-    variantRun,
-    prescription,
-  } = useSizeVerdict(item, bodyProfile, fitPref, units);
-  const parentOwnsHunt = huntingProp !== undefined;
-  const ownHunting = useChartHunt(item, chart, onSaveEdit, !parentOwnsHunt);
-  const hunting = parentOwnsHunt ? huntingProp : ownHunting;
-  const heroSize = recSize || usualSize || null;
-  const huntLine = "Looking for the seller's size chart…";
-  const badgeLabel = hunting
-    ? "Looking for chart"
-    : precise
-      ? "Read from the seller's chart"
-      : recSize
-        ? "Best guess"
-        : usualSize
-          ? "Your usual size"
-          : "No recommendation";
-  const kickerLabel = recSize ? "We recommend" : usualSize ? "Your usual" : "Size run";
-  // Provenance footer (turn 3 §5): where the chart came from, when, and a
-  // See album link. Items whose chart predates the hunt tag get the plain
-  // line — the footer never invents a photo count.
-  const albumTarget = albumLinkTarget(item);
-  const source = item.sizeChartSource && typeof item.sizeChartSource === "object" ? item.sizeChartSource : null;
-  const SOURCE_LINES = {
-    "album-text": "Chart read from the seller's album page",
-    "chart-photos": "Chart read from the album's size-chart photo",
-    "album-photos": "Chart read from " + (source ? source.photos : 0) + " album photos",
-    "desc-photos": "Chart read from " + (source ? source.photos : 0) + " listing photos",
-    "gallery-photos": "Chart read from " + (source ? source.photos : 0) + " gallery photos",
-    "customer-photo": "Chart read from your photo",
-    // Turn 9 §3: "surface that as FROM <seller>'s CHART (CACHED)". The seller
-    // is named because the value of a cache the customer cannot see is zero.
-    "seller-cache":
-      "From " + ((source && source.seller) || "this seller") + "'s chart (cached)",
+function DetailTabList({ activeTab, baseId, onActivate, tabRefs }) {
+  const move = (event, index) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % DETAIL_TABS.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + DETAIL_TABS.length) % DETAIL_TABS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = DETAIL_TABS.length - 1;
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+    onActivate(DETAIL_TABS[next].key);
+    tabRefs.current[next]?.focus();
   };
-  const sourceLine = source && SOURCE_LINES[source.via]
-    ? SOURCE_LINES[source.via] +
-      (source.at
-        ? " · " + new Date(source.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-        : "")
-    : "Chart from the seller's listing";
 
   return (
-    <div className="cz-detail-fit">
-      <div className="cz-detail-fit-head">
-        <span className="cz-detail-fit-kicker">{kickerLabel}</span>
-        <span
-          className={
-            "cz-detail-fit-badge" +
-            (precise ? " is-precise" : "") +
-            (hunting ? " is-hunting" : "")
-          }
-        >
-          <span className="cz-detail-fit-badge-dot" aria-hidden="true" />
-          {hunting ? (
-            <span className="t-shimmer" data-text={badgeLabel}>
-              {badgeLabel}
-            </span>
-          ) : (
-            badgeLabel
-          )}
-        </span>
-      </div>
-
-      {heroSize && !hunting ? (
-        <div className="cz-detail-fit-size">{formatSizeToken(heroSize) || heroSize}</div>
-      ) : hunting ? (
-        <p className="cz-detail-fit-empty is-hunting" aria-live="polite">
-          {/* t-shimmer-wrap: this sentence wraps to two lines on a phone, and the
-              default two-layer shimmer prints a second copy that wraps
-              differently. The wrap variant paints one layer only. */}
-          <span className="t-shimmer t-shimmer-wrap" data-text={huntLine}>
-            {huntLine}
-          </span>
-        </p>
-      ) : (
-        <p className="cz-detail-fit-empty">
-          {!bodyProfile
-            ? "Set my sizes to get a recommendation."
-            : "No size chart on this listing. Add your usual tops, bottoms, or shoes in My sizes."}
-        </p>
-      )}
-
-      {!recSize && !hunting && usualSize && variantRun ? (
-        <p className="cz-detail-fit-why">
-          Seller run {variantRun}. AI sizing needs the chart photo on this listing.
-        </p>
-      ) : null}
-
-      {prescription ? <p className="cz-detail-fit-why">{prescription}</p> : null}
-
-      {recSize && rec.garment != null && rec.body != null ? (
-        <div className="cz-detail-fit-math" aria-label="Fit numbers">
-          <div className="cz-detail-fit-cell">
-            <span className="cz-detail-fit-k">You</span>
-            <span className="cz-detail-fit-v">
-              {decidingEstimated ? "~" : ""}
-              {formatMeasure(rec.body, units)}
-            </span>
-          </div>
-          <div className="cz-detail-fit-cell">
-            <span className="cz-detail-fit-k">Garment</span>
-            <span className="cz-detail-fit-v">{formatMeasure(rec.garment, units)}</span>
-          </div>
-          <div className="cz-detail-fit-cell">
-            <span className="cz-detail-fit-k">Ease</span>
-            <span className="cz-detail-fit-v is-money">{formatMeasure(rec.diff, units)}</span>
-          </div>
-        </div>
-      ) : null}
-
-      {chart && recSize ? (
-        <div className="cz-detail-fit-chart">
-          <SizeChartTable
-            chart={chart}
-            units={units}
-            highlight={recSize}
-            highlightAlt={rec && rec.alt ? rec.alt.size : undefined}
-          />
-          <div className="cz-detail-fit-source">
-            {sourceLine}
-            {albumTarget ? (
-              <>
-                {" · "}
-                <a
-                  href={albumTarget.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="cz-detail-fit-album"
-                >
-                  See album
-                </a>
-              </>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="cz-detail-fit-label">Override</div>
-      <div className="cz-detail-fit-chips">
-        {chipSizes(runValues, heroSize || item.size).map((size) => (
+    <div className="cz-detail-tablist" role="tablist" aria-label="Item details">
+      {DETAIL_TABS.map((tab, index) => {
+        const selected = activeTab === tab.key;
+        return (
           <button
-            key={size}
+            key={tab.key}
+            ref={(node) => {
+              tabRefs.current[index] = node;
+            }}
             type="button"
-            className={
-              "cz-detail-fit-chip" +
-              (String(item.size || "").toUpperCase() === String(size).toUpperCase() ? " is-active" : "")
-            }
-            onClick={() => onPickSize(String(size))}
+            id={baseId + "-tab-" + tab.key}
+            className={"cz-detail-tab" + (selected ? " is-active" : "")}
+            role="tab"
+            aria-selected={selected}
+            aria-controls={baseId + "-panel-" + tab.key}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onActivate(tab.key)}
+            onKeyDown={(event) => move(event, index)}
           >
-            {formatSizeToken(size) || size}
+            {tab.label}
           </button>
-        ))}
-        {/* Clear the hand pick so the green AI size returns (Kyle 2026-07-26). */}
-        {recSize && String(item.size || "").trim() ? (
-          <button
-            type="button"
-            className="cz-detail-fit-chip is-ai"
-            onClick={() => onPickSize("")}
-          >
-            Use AI Recommendation
-          </button>
-        ) : null}
-        <button type="button" className="cz-detail-fit-chip is-alt" onClick={onOpenSizes}>
-          Set my sizes
-        </button>
-      </div>
-
-      <button type="button" className="cz-detail-editor-done" onClick={onDone}>
-        Done
-      </button>
+        );
+      })}
     </div>
   );
 }
 
-function ItemSizeEditor({ item, runValues, onPickSize, onOpenSizes, onDone }) {
-  const [customSize, setCustomSize] = useState(String(item.size || ""));
-  const choices = chipSizes(runValues, item.size);
+function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, customSize, onCustomChange, onCommit, onPick }) {
+  const choices = chipSizes(runValues, chosenSize || recommendedSize);
 
   return (
-    <div className="cz-detail-fit" aria-label="Choose item size">
-      <div className="cz-detail-fit-head">
-        <span className="cz-detail-fit-kicker">Choose item size</span>
+    <div className="cz-detail-size-editor">
+      <div className="cz-detail-panel-heading">
+        <span>Item size</span>
+        {recommendedSize ? (
+          <span className="cz-detail-panel-note">
+            Recommended {formatSizeToken(recommendedSize) || recommendedSize}
+          </span>
+        ) : null}
       </div>
       {choices.length ? (
-        <div className="cz-detail-fit-chips">
-          {choices.map((size) => (
-            <button
-              key={size}
-              type="button"
-              className={
-                "cz-detail-fit-chip" +
-                (String(item.size || "").toUpperCase() === String(size).toUpperCase()
-                  ? " is-active"
-                  : "")
-              }
-              onClick={() => onPickSize(String(size))}
-            >
-              {formatSizeToken(size) || size}
-            </button>
-          ))}
-          {item.size ? (
-            <button type="button" className="cz-detail-fit-chip is-ai" onClick={() => onPickSize("")}>
-              Clear item size
+        <div className="cz-detail-size-choices" aria-label="Item size choices">
+          {choices.map((size) => {
+            const active = String(chosenSize).toUpperCase() === String(size).toUpperCase();
+            const recommended =
+              !active && String(recommendedSize || "").toUpperCase() === String(size).toUpperCase();
+            return (
+              <button
+                key={size}
+                type="button"
+                className={
+                  "cz-detail-size-choice" +
+                  (active ? " is-active" : "") +
+                  (recommended ? " is-recommended" : "")
+                }
+                aria-pressed={active}
+                onClick={() => onPick(String(size))}
+              >
+                {formatSizeToken(size) || size}
+              </button>
+            );
+          })}
+          {chosenSize ? (
+            <button type="button" className="cz-detail-size-choice is-clear" onClick={() => onPick("")}>
+              Clear size
             </button>
           ) : null}
         </div>
       ) : null}
-      <div className="cz-detail-editor">
-        <span className="cz-detail-editor-label">Custom item size</span>
+      <label className="cz-detail-custom-size">
+        <span>Custom size</span>
         <input
-          ref={focusOnMount}
           className="cz-detail-editor-input"
           aria-label="Custom item size"
           value={customSize}
-          onChange={(event) => setCustomSize(event.target.value)}
+          onChange={(event) => onCustomChange(event.target.value)}
+          onBlur={onCommit}
           onKeyDown={(event) => {
             event.stopPropagation();
-            if (event.key === "Enter") onPickSize(customSize);
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onCommit();
+              event.currentTarget.blur();
+            }
           }}
         />
-        <button type="button" className="cz-detail-editor-done" onClick={() => onPickSize(customSize)}>
-          Use size
-        </button>
-      </div>
-      <button type="button" className="cz-detail-fit-chip is-alt" onClick={onOpenSizes}>
-        Edit sizes and measurements
-      </button>
-      <button type="button" className="cz-detail-editor-done" onClick={onDone}>
-        Done
-      </button>
+      </label>
     </div>
   );
 }
 
-function SellerChartView({ item, chart, units, highlight, onDone }) {
+function SellerChartSection({ item, chart, units, highlight, hunting }) {
   return (
-    <div className="cz-detail-fit" aria-label="Seller size chart">
-      <div className="cz-detail-fit-head">
-        <span className="cz-detail-fit-kicker">Seller size chart</span>
+    <section className="cz-detail-chart-section" aria-labelledby={"seller-chart-" + item.id}>
+      <div className="cz-detail-panel-heading">
+        <h3 id={"seller-chart-" + item.id}>Seller chart</h3>
+        {hunting ? <span className="cz-detail-panel-note">Reading chart</span> : null}
       </div>
       {chart ? (
         <>
-          <SizeChartTable chart={chart} units={units} highlight={highlight || undefined} />
-          <p className="cz-detail-fit-source">
+          <div className="cz-detail-chart-scroll">
+            <SizeChartTable chart={chart} units={units} highlight={highlight || undefined} />
+          </div>
+          <p className="cz-detail-chart-source">
             {item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
               ? "Cached from " + (item.sizeChartSource.seller || item.seller || "this seller")
               : "Read from the seller's listing"}
           </p>
         </>
+      ) : hunting ? (
+        <p className="cz-detail-panel-empty">Credenza is looking for the seller chart.</p>
       ) : (
-        <p className="cz-detail-fit-empty">A seller size chart is not available for this item.</p>
+        <p className="cz-detail-panel-empty">A seller chart is not available for this item.</p>
       )}
-      <button type="button" className="cz-detail-editor-done" onClick={onDone}>
-        Done
-      </button>
-    </div>
+    </section>
   );
 }
 
@@ -1306,6 +999,7 @@ export default function DetailBody({
   heroPager = false,
   renderHeroActions = null,
   flushRef = null,
+  snapshotRef = null,
   // Fix B (handoff turn 4): the desktop two-column panel puts the price in
   // the pinned footer next to Buy. §9 gives the phone sheet the same row, in
   // its own boxed treatment. Null on the flip-card back, which keeps the
@@ -1331,11 +1025,12 @@ export default function DetailBody({
   // taking ownership of the notes draft. Undefined keeps them inline for
   // every existing caller; null suppresses the pre-mount desktop frame.
   logNotesTarget = undefined,
-  // Desktop left-column CHART chip: bumping this opens the same size sheet
-  // the sizing-block footer link opens. 0 / absent does nothing on mount.
-  openChartSignal = 0,
 }) {
   const titleInputRef = useRef(null);
+  const tabRefs = useRef([]);
+  const chartInputRef = useRef(null);
+  const chartPhotoUrlRef = useRef("");
+  const tabBaseId = "cz-detail-" + useId().replace(/:/g, "");
   const reduced = usePrefersReducedMotion();
 
   // The photo pager is part of the shared body — the phone sheet and the
@@ -1390,9 +1085,14 @@ export default function DetailBody({
   const [draft, setDraft] = useState(null);
   const draftOwnerRef = useRef(null);
   const draftItemRef = useRef(null);
+  const immediateDraftRef = useRef(null);
+  const renderedItemIdRef = useRef(item.id);
   const [savedFlash, setSavedFlash] = useState(false);
   const [editingCell, setEditingCell] = useState(null);
   const [editingTitle, setEditingTitle] = useState(false);
+  const [activeTab, setActiveTab] = useState("size");
+  const [customSize, setCustomSize] = useState(String(item.size || ""));
+  const customSizeCommittedRef = useRef(String(item.size || ""));
   const [notesOpen, setNotesOpen] = useState(false);
   // The weight editor converts on the fly; weightText is the raw kg string
   // while the kg unit is active so the caret never jumps mid-type.
@@ -1401,19 +1101,53 @@ export default function DetailBody({
   const savedTimer = useRef(null);
   const editorSlotRef = useRef(null);
 
-  const view = draft || buildEditDraft(item);
+  const draftIsCurrent = draftOwnerRef.current === item.id;
+  const view = draftIsCurrent && draft ? draft : buildEditDraft(item);
+
+  useEffect(() => {
+    if (!snapshotRef) return undefined;
+    snapshotRef.current = { ...item, ...buildEditPatch(view, item), id: item.id };
+    return () => {
+      if (snapshotRef.current && snapshotRef.current.id === item.id) snapshotRef.current = null;
+    };
+  }, [snapshotRef, item, view]);
 
   const commitRef = useWriteThroughDraft(draft, (d) => {
-    onSaveEdit(item.id, buildEditPatch(d, item));
+    if (immediateDraftRef.current === d) return;
+    const ownerId = draftOwnerRef.current;
+    const ownerItem = draftItemRef.current;
+    if (!ownerId || !ownerItem) return;
+    onSaveEdit(ownerId, buildEditPatch(d, ownerItem));
     setSavedFlash(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
   });
 
+  // A pending draft belongs to the item that created it. Flush that draft to
+  // its owner before this shared body starts showing a different item.
+  useEffect(() => {
+    if (renderedItemIdRef.current === item.id) return;
+    commitRef.current();
+    renderedItemIdRef.current = item.id;
+    draftOwnerRef.current = null;
+    draftItemRef.current = null;
+    setDraft(null);
+    setEditingCell(null);
+    setEditingTitle(false);
+    setActiveTab("size");
+    setCustomSize(String(item.size || ""));
+    customSizeCommittedRef.current = String(item.size || "");
+  }, [item.id, item.size, commitRef]);
+
   // The host shell flushes pending edits before it closes.
   useEffect(() => {
-    if (flushRef) flushRef.current = () => commitRef.current();
-  });
+    if (!flushRef) return undefined;
+    const flush = () => commitRef.current();
+    flushRef.current = flush;
+    return () => {
+      if (flushRef.current === flush) flushRef.current = null;
+    };
+  }, [flushRef, commitRef]);
 
   useEffect(() => () => {
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -1452,35 +1186,52 @@ export default function DetailBody({
     };
   }, [editingCell]);
 
-  // Desktop CHART chip (and any other host) opens the size sheet by bumping
-  // openChartSignal. Skip 0 so the first paint never auto-opens the sheet.
-  useEffect(() => {
-    if (!openChartSignal) return;
-    setEditingCell("size");
-  }, [openChartSignal]);
+  const setOwnedDraft = (next) => {
+    draftOwnerRef.current = item.id;
+    draftItemRef.current = item;
+    setDraft(next);
+  };
 
-  const edit = (key, value) =>
-    setDraft((d) => ({ ...(d || buildEditDraft(item)), [key]: value }));
+  const edit = (key, value) => {
+    const sameOwner = draftOwnerRef.current === item.id;
+    if (!sameOwner) {
+      draftOwnerRef.current = item.id;
+      draftItemRef.current = item;
+    }
+    setDraft((d) => ({ ...((sameOwner && d) || buildEditDraft(item)), [key]: value }));
+  };
 
   // Status commits on the tap, not on the debounce. Mirror it into an open
   // draft so a pending write-through cannot put the old status back.
   const pickStatus = (next) => {
     onSaveEdit(item.id, { findStatus: next });
-    setDraft((d) => (d ? { ...d, findStatus: next } : d));
+    setDraft((d) =>
+      draftOwnerRef.current === item.id && d ? { ...d, findStatus: next } : d
+    );
     setSavedFlash(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
   };
 
-  // Turn 9 §2: the sizing block is always visible, so the parent owns both the
-  // verdict and the hunt. FitBlock (the full chart sheet) is handed the same
-  // hunting flag rather than starting a second vision read.
+  // The parent owns the sizing verdict and the chart hunt.
   const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
   const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits);
   const hunting = useChartHunt(item, verdict.chart, onSaveEdit, true, shelfItems);
   // §3: the customer's own chart read, and the album photos its third option
   // offers. Remote URLs only — a local data: URL cannot go down the images door.
   const chartRead = useCustomerChartRead(item, onSaveEdit);
+  useEffect(() => {
+    const url = chartPhotoUrlRef.current;
+    if (url && chartRead.thumb !== url) {
+      if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+      chartPhotoUrlRef.current = "";
+    }
+  }, [chartRead.thumb]);
+  useEffect(() => () => {
+    const url = chartPhotoUrlRef.current;
+    if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+    chartPhotoUrlRef.current = "";
+  }, []);
   const sizingAlbumPhotos = useMemo(
     () => itemPhotoList(item, 12).filter((src) => /^https?:\/\//i.test(src)),
     [item]
@@ -1488,6 +1239,10 @@ export default function DetailBody({
 
   const recSize = computeRecommendedSize(item, bodyProfile, fitPrefs);
   const chosenSize = String(view.size || "").trim();
+  useEffect(() => {
+    setCustomSize(chosenSize);
+    customSizeCommittedRef.current = chosenSize;
+  }, [item.id, chosenSize]);
   const sizeIsRec = !chosenSize && !!recSize;
   const sizeText = chosenSize
     ? formatSizeToken(chosenSize) || chosenSize
@@ -1502,10 +1257,7 @@ export default function DetailBody({
           // Listing Size axis when nothing else — show S–XL, never invent a pick.
           return pickSizeRunFromVariants(item.variants) || "";
         })();
-  const chips = specChips(view);
-  // Chip-row editors mount under the chips; price/size keep the lower slot.
-  const chipEditing = !!(editingCell && chips.some((c) => c.key === editingCell));
-  const lowerEditing = !!(editingCell && !chipEditing);
+  const lowerEditing = editingCell === "price";
   // Timeline (§6). sizeFrom names WHO decided the size, in the same vocabulary
   // the sizing block's provenance uses — "from the seller's chart" only when a
   // real chart was read, never for the profile fallback.
@@ -1549,33 +1301,18 @@ export default function DetailBody({
     new Set([...(haulNames || []), item.project || ""].map((n) => String(n || "").trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
 
-  // Editor labels. Price and Size no longer appear in the chip row (§1 moves
-  // price to the footer, §2 promotes size to its own block), but both still
-  // open the same editors — so the label map is not the chip list.
-  const EDITOR_LABELS = { price: "Price", size: "Size · fit" };
-  const editorLabel =
-    EDITOR_LABELS[editingCell] ||
-    (chips.find((c) => c.key === editingCell) || {}).label ||
-    "";
   const priceUnit =
     String(view.currency || "CNY").toUpperCase() === "USD" ? "USD" : "CNY";
-  // Price cell shows the prefs primary currency; the editor labels the unit of
-  // the number in the draft (USD or CNY). Toggle sits next to Done.
-  const editorLabelFull =
-    editingCell === "price"
-      ? editorLabel + " · " + (priceUnit === "USD" ? "$ USD" : "¥ CNY")
-      : editingCell === "weightGrams"
-        ? editorLabel + " · " + weightUnit
-        : editorLabel;
+  const priceEditorLabel = "Price · " + (priceUnit === "USD" ? "$ USD" : "¥ CNY");
 
   // Open price with the settings primary unit pre-selected (Kyle 2026-07-26:
   // "shouldn't default to CNY… default to USD if we have USD in the settings").
   const openPriceEditor = () => {
-    const base = draft || buildEditDraft(item);
+    const base = view;
     const primary = pricePrimaryPref() === "CNY" ? "CNY" : "USD";
     if (primary === "USD") {
       const usd = itemUsdAmount(item);
-      setDraft({
+      setOwnedDraft({
         ...base,
         currency: "USD",
         price: usd != null && isFinite(usd) ? String(usd) : "",
@@ -1590,7 +1327,7 @@ export default function DetailBody({
       } else if (item.price != null && storedCur === "USD") {
         cny = Math.round(Number(item.price) / 0.14);
       }
-      setDraft({
+      setOwnedDraft({
         ...base,
         currency: "CNY",
         price: cny != null && isFinite(cny) ? String(cny) : "",
@@ -1616,185 +1353,81 @@ export default function DetailBody({
     const want = next === "USD" ? "USD" : "CNY";
     if (want === priceUnit) return;
     const n = parseFloat(view.price);
-    const base = draft || buildEditDraft(item);
+    const base = view;
     if (!isFinite(n) || String(view.price || "").trim() === "") {
-      setDraft({ ...base, currency: want });
+      setOwnedDraft({ ...base, currency: want });
       return;
     }
     if (want === "USD") {
-      setDraft({ ...base, currency: "USD", price: String(+(n * 0.14).toFixed(2)) });
+      setOwnedDraft({ ...base, currency: "USD", price: String(+(n * 0.14).toFixed(2)) });
     } else {
-      setDraft({ ...base, currency: "CNY", price: String(Math.round(n / 0.14)) });
+      setOwnedDraft({ ...base, currency: "CNY", price: String(Math.round(n / 0.14)) });
     }
   };
 
-  const renderEditor = () => {
-    if (!editingCell) return null;
-    if (editingCell === "size") {
-      return (
-        <FitBlock
-          item={item}
-          bodyProfile={bodyProfile}
-          fitPref={fitPref}
-          units={measureUnits}
-          onPickSize={(size) => {
-            // Commit now so "Use AI Recommendation" (empty size) and chip
-            // picks both land before the editor closes.
-            const next = { ...(draft || buildEditDraft(item)), size: String(size || "") };
-            setDraft(next);
-            onSaveEdit(item.id, buildEditPatch(next, item));
-            setEditingCell(null);
-          }}
-          onOpenSizes={() => {
-            commitRef.current();
-            onOpenSizes && onOpenSizes();
-          }}
-          onDone={() => setEditingCell(null)}
-          onSaveEdit={onSaveEdit}
-          // The parent already hunts (turn 9 §2). Pass the flag so this does
-          // not start a second vision read for the same item.
-          hunting={hunting}
-        />
-      );
-    }
-    if (editingCell === "project") {
-      return (
-        <div className="cz-detail-editor is-block">
-          <HaulAccordionField
-            label="Haul"
-            value={view.project}
-            knownHauls={knownHauls}
-            onChange={(next) => edit("project", next)}
-            onCommit={(next) => {
-              edit("project", next);
-              setEditingCell(null);
-            }}
-          />
-          <button type="button" className="cz-detail-editor-done" onClick={() => setEditingCell(null)}>
-            Done
-          </button>
-        </div>
-      );
-    }
-    if (editingCell === "colorway" || editingCell === "batch") {
-      // Free text with the shared combobox for colorway suggestions is
-      // overkill here; a plain 16px input is the whole editor.
-      return (
-        <div className="cz-detail-editor">
-          <span className="cz-detail-editor-label">{editorLabelFull}</span>
-          <input
-            ref={focusOnMount}
-            className="cz-detail-editor-input"
-            aria-label={editorLabelFull}
-            value={view[editingCell]}
-            onChange={(e) => edit(editingCell, e.target.value)}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Enter") setEditingCell(null);
-            }}
-          />
-          <button type="button" className="cz-detail-editor-done" onClick={() => setEditingCell(null)}>
-            Done
-          </button>
-        </div>
-      );
-    }
-    if (editingCell === "weightGrams") {
-      return (
-        <div className="cz-detail-editor">
-          <span className="cz-detail-editor-label">{editorLabelFull}</span>
-          <input
-            ref={focusOnMount}
-            className="cz-detail-editor-input"
-            aria-label={editorLabelFull}
-            inputMode="decimal"
-            value={weightUnit === "kg" ? weightText : view.weightGrams}
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (weightUnit !== "kg") {
-                edit("weightGrams", raw);
-                return;
-              }
-              setWeightText(raw);
-              const kg = parseFloat(raw);
-              edit("weightGrams", raw.trim() === "" || Number.isNaN(kg) ? "" : String(Math.round(kg * 1000)));
-            }}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Enter") setEditingCell(null);
-            }}
-          />
-          <div className="cz-detail-unit" role="group" aria-label="Weight unit">
-            {["g", "kg"].map((u) => (
-              <button
-                key={u}
-                type="button"
-                className={"cz-detail-unit-btn" + (weightUnit === u ? " is-active" : "")}
-                aria-pressed={weightUnit === u}
-                onClick={() => switchWeightUnit(u)}
-              >
-                {u}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="cz-detail-editor-done" onClick={() => setEditingCell(null)}>
-            Done
-          </button>
-        </div>
-      );
-    }
-    // price: numeric keypad + USD/CNY unit (defaults from prefs primary).
-    if (editingCell === "price") {
-      return (
-        <div className="cz-detail-editor">
-          <span className="cz-detail-editor-label">{editorLabelFull}</span>
-          <input
-            ref={focusOnMount}
-            className="cz-detail-editor-input"
-            aria-label={editorLabelFull}
-            inputMode="decimal"
-            value={view.price}
-            onChange={(e) => edit("price", e.target.value)}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Enter") setEditingCell(null);
-            }}
-          />
-          <div className="cz-detail-unit" role="group" aria-label="Price currency">
-            {["USD", "CNY"].map((u) => (
-              <button
-                key={u}
-                type="button"
-                className={"cz-detail-unit-btn" + (priceUnit === u ? " is-active" : "")}
-                aria-pressed={priceUnit === u}
-                onClick={() => switchPriceUnit(u)}
-              >
-                {u === "USD" ? "$" : "¥"}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="cz-detail-editor-done" onClick={() => setEditingCell(null)}>
-            Done
-          </button>
-        </div>
-      );
-    }
-    // Fallback numeric keypad for any other single-field cell.
+  const pickItemSize = (size) => {
+    const cleaned = String(size || "").trim();
+    const next = { ...view, size: cleaned };
+    customSizeCommittedRef.current = cleaned;
+    immediateDraftRef.current = next;
+    setCustomSize(cleaned);
+    setOwnedDraft(next);
+    onSaveEdit(item.id, buildEditPatch(next, item));
+  };
+
+  const commitCustomSize = () => {
+    const cleaned = customSize.trim();
+    if (cleaned === customSizeCommittedRef.current) return;
+    pickItemSize(cleaned);
+  };
+
+  const readUploadedChart = (event) => {
+    const files = [...(event.target.files || [])];
+    event.target.value = "";
+    if (!files.length) return;
+    const previous = chartPhotoUrlRef.current;
+    if (previous && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(previous);
+    const thumb = typeof URL.createObjectURL === "function" ? URL.createObjectURL(files[0]) : "";
+    chartPhotoUrlRef.current = thumb;
+    chartRead.read(files, { thumb });
+  };
+
+  const openProfileSizes = () => {
+    commitRef.current();
+    setEditingCell(null);
+    if (onOpenSizes) onOpenSizes();
+  };
+
+  const renderPriceEditor = () => {
+    if (editingCell !== "price") return null;
     return (
       <div className="cz-detail-editor">
-        <span className="cz-detail-editor-label">{editorLabelFull}</span>
+        <span className="cz-detail-editor-label">{priceEditorLabel}</span>
         <input
           ref={focusOnMount}
           className="cz-detail-editor-input"
-          aria-label={editorLabelFull}
+          aria-label={priceEditorLabel}
           inputMode="decimal"
-          value={view[editingCell]}
-          onChange={(e) => edit(editingCell, e.target.value)}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === "Enter") setEditingCell(null);
+          value={view.price}
+          onChange={(event) => edit("price", event.target.value)}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") setEditingCell(null);
           }}
         />
+        <div className="cz-detail-unit" role="group" aria-label="Price currency">
+          {["USD", "CNY"].map((unit) => (
+            <button
+              key={unit}
+              type="button"
+              className={"cz-detail-unit-btn" + (priceUnit === unit ? " is-active" : "")}
+              aria-pressed={priceUnit === unit}
+              onClick={() => switchPriceUnit(unit)}
+            >
+              {unit === "USD" ? "$" : "¥"}
+            </button>
+          ))}
+        </div>
         <button type="button" className="cz-detail-editor-done" onClick={() => setEditingCell(null)}>
           Done
         </button>
@@ -2000,93 +1633,41 @@ export default function DetailBody({
           ) : null}
         </div>
 
-        {/* Chip row (§1). A set field is a solid chip carrying its value; an
-            unset field is a dashed add-chip. No em-dash is ever rendered —
-            that was the whole diagnosis: three of six cells were em-dashes on
-            a typical item, so the grid looked broken and pushed the real
-            content down. Price and size are NOT here (footer / own block). */}
-        <div className="cz-detail-chips">
-          {chips.map((chip) => {
-            const isSet = !!chip.value;
-            return (
-              <button
-                key={chip.key}
-                type="button"
-                className={
-                  "cz-detail-chip" +
-                  (isSet ? " is-set" : " is-add") +
-                  (editingCell === chip.key ? " is-active" : "")
-                }
-                // The visible label of an add-chip is "+ colorway", which does
-                // not say what tapping does. Name the action for a screen
-                // reader; a set chip already reads its own value.
-                aria-label={isSet ? chip.label + ": " + chip.value : "Add " + chip.label}
-                onClick={() => {
-                  if (editingCell === chip.key) {
-                    setEditingCell(null);
-                    return;
-                  }
-                  setEditingCell(chip.key);
-                }}
-              >
-                {isSet ? chip.value : chip.add}
-              </button>
-            );
-          })}
-        </div>
+        <div className="cz-detail-tabs">
+          <DetailTabList
+            activeTab={activeTab}
+            baseId={tabBaseId}
+            onActivate={setActiveTab}
+            tabRefs={tabRefs}
+          />
 
-        {/* Chip editors sit under the chip row so the input is next to the
-            field that opened it. Price/size keep the lower slot. One slot
-            only — the keyboard-reveal effect always finds editorSlotRef. */}
-        {chipEditing ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
+          <section
+            id={tabBaseId + "-panel-size"}
+            className="cz-detail-tabpanel"
+            role="tabpanel"
+            aria-labelledby={tabBaseId + "-tab-size"}
+            hidden={activeTab !== "size"}
+          >
+            <SizeChoiceEditor
+              chosenSize={chosenSize}
+              recommendedSize={verdict.recSize || verdict.usualSize}
+              runValues={verdict.runValues}
+              customSize={customSize}
+              onCustomChange={setCustomSize}
+              onCommit={commitCustomSize}
+              onPick={pickItemSize}
+            />
 
-        {/* Sizing block (§2) — the flagship, always visible. It used to be one
-            of six equal cells, so the only field carrying a REASON read as
-            metadata and took a tap to reveal. The prescription sits outside
-            the card so a long sentence never stretches the chart row. */}
-        {editingCell !== "size" ? (
-          <>
-            {/* Three states, in the order they occur. A live read outranks
-                everything: it is the only one the customer started by hand.
-                §3's no-chart form comes next, and only once the automatic hunt
-                has finished — while it is still hunting the ordinary block
-                shimmers READING CHART, and asking for a photo underneath that
-                would be asking for work the app may be about to do itself. */}
-            {chartRead.reading || chartRead.chart || chartRead.error ? (
-              <SizingBlockReading
-                reading={chartRead.reading}
-                chart={chartRead.chart}
-                thumb={chartRead.thumb}
-                error={chartRead.error}
-                units={measureUnits}
-                onUse={chartRead.commit}
-                onRetry={chartRead.dismiss}
-                onFix={chartRead.fix}
-              />
-            ) : !verdict.chart && !hunting ? (
+            {!verdict.chart && !hunting ? (
               <SizingBlockNoChart
                 usualSize={chosenSize || verdict.usualSize}
                 albumPhotos={sizingAlbumPhotos}
                 albumCount={sizingAlbumPhotos.length}
-                runValues={verdict.runValues}
-                onPickSize={(size) => {
-                  const next = { ...(draft || buildEditDraft(item)), size: String(size || "") };
-                  setDraft(next);
-                  onSaveEdit(item.id, buildEditPatch(next, item));
-                }}
-                onReadPhotos={(files) => {
-                  const thumb = files[0] ? URL.createObjectURL(files[0]) : "";
-                  chartRead.read(files, { thumb });
-                }}
                 onOpenAlbum={() => {
-                  // The album photos are already on the card, so read them
-                  // straight through the URL door instead of making the
-                  // customer re-pick a photo the app is holding.
                   chartRead.read(sizingAlbumPhotos.slice(0, 3), {
                     thumb: sizingAlbumPhotos[0] || "",
                   });
                 }}
-                onOpenChart={() => setEditingCell("size")}
               />
             ) : (
               <SizingBlock
@@ -2098,30 +1679,155 @@ export default function DetailBody({
                 precise={verdict.precise}
                 hunting={hunting}
                 units={measureUnits}
-                runValues={verdict.runValues}
                 reduced={reduced}
                 cachedFrom={
                   item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
                     ? item.sizeChartSource.seller || item.seller || ""
                     : ""
                 }
-                onPickSize={(size) => {
-                  const next = { ...(draft || buildEditDraft(item)), size: String(size || "") };
-                  setDraft(next);
-                  onSaveEdit(item.id, buildEditPatch(next, item));
-                }}
-                onOpenChart={() => setEditingCell("size")}
               />
             )}
-            {verdict.prescription && !chartRead.reading && !chartRead.chart ? (
-              <p className="cz-sizing-why">{verdict.prescription}</p>
-            ) : null}
-          </>
-        ) : null}
 
-        {/* Price / size (and any non-chip) editor. Chip keys use the slot
-            under the chip row instead. */}
-        {lowerEditing ? <div ref={editorSlotRef}>{renderEditor()}</div> : null}
+            {verdict.prescription ? <p className="cz-sizing-why">{verdict.prescription}</p> : null}
+
+            <SellerChartSection
+              item={item}
+              chart={verdict.chart}
+              units={measureUnits}
+              highlight={chosenSize || verdict.recSize}
+              hunting={hunting}
+            />
+
+            <div className="cz-detail-chart-actions">
+              <button
+                type="button"
+                className="cz-detail-chart-upload"
+                onClick={() => chartInputRef.current?.click()}
+              >
+                <Upload size={16} strokeWidth={2} aria-hidden="true" />
+                Upload chart photo
+              </button>
+              <input
+                ref={chartInputRef}
+                className="cz-detail-chart-file"
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={readUploadedChart}
+              />
+              <button type="button" className="cz-detail-profile-sizes" onClick={openProfileSizes}>
+                Edit sizes and measurements
+              </button>
+            </div>
+
+            {chartRead.reading || chartRead.chart || chartRead.error ? (
+              <SizingBlockReading
+                reading={chartRead.reading}
+                chart={chartRead.chart}
+                thumb={chartRead.thumb}
+                error={chartRead.error}
+                units={measureUnits}
+                onUse={chartRead.commit}
+                onRetry={chartRead.dismiss}
+                onFix={chartRead.fix}
+              />
+            ) : null}
+          </section>
+
+          <section
+            id={tabBaseId + "-panel-colorway"}
+            className="cz-detail-tabpanel"
+            role="tabpanel"
+            aria-labelledby={tabBaseId + "-tab-colorway"}
+            hidden={activeTab !== "colorway"}
+          >
+            <label className="cz-detail-panel-field">
+              <span>Colorway</span>
+              <input
+                className="cz-detail-editor-input"
+                aria-label="Colorway"
+                value={view.colorway}
+                placeholder="Add a colorway"
+                onChange={(event) => edit("colorway", event.target.value)}
+                onBlur={() => commitRef.current()}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
+              />
+            </label>
+          </section>
+
+          <section
+            id={tabBaseId + "-panel-weight"}
+            className="cz-detail-tabpanel"
+            role="tabpanel"
+            aria-labelledby={tabBaseId + "-tab-weight"}
+            hidden={activeTab !== "weight"}
+          >
+            <div className="cz-detail-panel-field">
+              <label htmlFor={tabBaseId + "-weight"}>Weight</label>
+              <div className="cz-detail-weight-row">
+                <input
+                  id={tabBaseId + "-weight"}
+                  className="cz-detail-editor-input"
+                  aria-label={"Weight · " + weightUnit}
+                  inputMode="decimal"
+                  value={weightUnit === "kg" ? weightText : view.weightGrams}
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    if (weightUnit !== "kg") {
+                      edit("weightGrams", raw);
+                      return;
+                    }
+                    setWeightText(raw);
+                    const kg = parseFloat(raw);
+                    edit(
+                      "weightGrams",
+                      raw.trim() === "" || Number.isNaN(kg) ? "" : String(Math.round(kg * 1000))
+                    );
+                  }}
+                  onBlur={() => commitRef.current()}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    if (event.key === "Enter") event.currentTarget.blur();
+                  }}
+                />
+                <div className="cz-detail-unit" role="group" aria-label="Weight unit">
+                  {["g", "kg"].map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      className={"cz-detail-unit-btn" + (weightUnit === unit ? " is-active" : "")}
+                      aria-pressed={weightUnit === unit}
+                      onClick={() => switchWeightUnit(unit)}
+                    >
+                      {unit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            id={tabBaseId + "-panel-haul"}
+            className="cz-detail-tabpanel"
+            role="tabpanel"
+            aria-labelledby={tabBaseId + "-tab-haul"}
+            hidden={activeTab !== "haul"}
+          >
+            <HaulAccordionField
+              label="Haul"
+              value={view.project}
+              knownHauls={knownHauls}
+              onChange={(next) => edit("project", next)}
+              onCommit={(next) => edit("project", next)}
+            />
+          </section>
+        </div>
+
+        {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
 
         {/* Status (§5). The header carries the rule and the sub-label; the
             track carries the progress and the next action. */}
@@ -2170,7 +1876,7 @@ export default function DetailBody({
 
       </div>
 
-      {buyButton ? (
+      {footerPrice || buyButton ? (
         <div className={"cz-detail-foot" + (footerPrice ? " has-price" : "")}>
           {footerPrice ? (
             <div className="cz-detail-foot-row">
@@ -2193,16 +1899,18 @@ export default function DetailBody({
               >
                 {footerPrice}
               </button>
-              <BuyNotch
-                item={item}
-                label={buyButton.label}
-                url={buyButton.url}
-                preferredAgent={preferredAgent}
-                onSelectAgent={onSelectAgent}
-                onOpen={onOpen}
-              />
+              {buyButton ? (
+                <BuyNotch
+                  item={item}
+                  label={buyButton.label}
+                  url={buyButton.url}
+                  preferredAgent={preferredAgent}
+                  onSelectAgent={onSelectAgent}
+                  onOpen={onOpen}
+                />
+              ) : null}
             </div>
-          ) : (
+          ) : buyButton ? (
             <BuyNotch
               item={item}
               label={buyButton.label}
@@ -2211,11 +1919,13 @@ export default function DetailBody({
               onSelectAgent={onSelectAgent}
               onOpen={onOpen}
             />
-          )}
-          <p className="cz-detail-disclosure">
-            Buy links may include a referral code. Credenza may earn a commission on agent
-            shipping fees. It never changes your item price.
-          </p>
+          ) : null}
+          {buyButton ? (
+            <p className="cz-detail-disclosure">
+              Buy links may include a referral code. Credenza may earn a commission on agent
+              shipping fees. It never changes your item price.
+            </p>
+          ) : null}
         </div>
       ) : null}
       {photoView ? (

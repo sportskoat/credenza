@@ -139,7 +139,8 @@ export async function refreshEntitlement(accessToken, { fetchImpl, host } = {}) 
   throw new Error("Entitlement response had no snapshot");
 }
 
-// Stripe Checkout for one of the two prices. Returns the redirect URL.
+// Stripe Checkout for one of the three prices ("weekly" carries the 3-day
+// trial). Returns the redirect URL.
 export async function checkout(accessToken, price, { fetchImpl } = {}) {
   const data = await post(CHECKOUT_ENDPOINT, accessToken, { price }, fetchImpl);
   if (!data || typeof data.url !== "string") throw new Error("Checkout gave no URL");

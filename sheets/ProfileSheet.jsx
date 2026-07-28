@@ -68,7 +68,7 @@ export default function ProfileSheet({
   // Local UI state for the account card: the email draft, one busy flag per
   // action, an inline error line, and the "check your email" confirmation.
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(""); // "link" | "google" | "monthly" | "yearly" | "portal" | "signout" | "delete"
+  const [busy, setBusy] = useState(""); // "link" | "google" | "weekly" | "monthly" | "yearly" | "portal" | "signout" | "delete"
   const [error, setError] = useState("");
   const [linkSent, setLinkSent] = useState(false);
   // Delete account is two-tap: the first tap arms it, the second sends it.
@@ -181,31 +181,50 @@ export default function ProfileSheet({
               : "Pro lifts the daily limits and funds the servers."}
           </div>
           {!isPro && (
-            <div className="cz-profile-upgrade-row">
+            <>
+              {/* Weekly leads: it carries the 3-day trial and is the lowest
+                  commitment. The trial terms sit ON the button and in the
+                  note below — FTC negative-option: the free days, the
+                  after-trial price, and the cadence next to the start. */}
               <Pill
                 primary
-                style={{ flex: 1, minHeight: 46, borderRadius: 14 }}
+                style={{ width: "100%", minHeight: 46, borderRadius: 14, marginBottom: 8 }}
                 disabled={!!busy}
-                onClick={() => run("monthly", () => onUpgrade("monthly"))}
+                onClick={() => run("weekly", () => onUpgrade("weekly"))}
               >
-                {busy === "monthly" ? "Opening…" : PRICING.monthly + " / month"}
+                {busy === "weekly"
+                  ? "Opening…"
+                  : PRICING.weeklyTrial + " — then " + PRICING.weekly + " / week"}
               </Pill>
-              <Pill
-                style={{ flex: 1, minHeight: 46, borderRadius: 14 }}
-                disabled={!!busy}
-                onClick={() => run("yearly", () => onUpgrade("yearly"))}
-              >
-                {busy === "yearly" ? "Opening…" : PRICING.yearly + " / year"}
-              </Pill>
-            </div>
+              <div className="cz-profile-upgrade-row">
+                <Pill
+                  style={{ flex: 1, minHeight: 46, borderRadius: 14 }}
+                  disabled={!!busy}
+                  onClick={() => run("monthly", () => onUpgrade("monthly"))}
+                >
+                  {busy === "monthly" ? "Opening…" : PRICING.monthly + " / month"}
+                </Pill>
+                <Pill
+                  style={{ flex: 1, minHeight: 46, borderRadius: 14 }}
+                  disabled={!!busy}
+                  onClick={() => run("yearly", () => onUpgrade("yearly"))}
+                >
+                  {busy === "yearly" ? "Opening…" : PRICING.yearly + " / year"}
+                </Pill>
+              </div>
+            </>
           )}
           {/* The saving belongs under the buttons, not inside the yearly one:
               a two-line pill breaks the row, and the number is the reason to
-              read the row again, not the label on one button. */}
+              read the row again, not the label on one button. The trial note
+              stays on its own line — it is a legal term, not a selling point. */}
           {!isPro && (
-            <div className="cz-profile-upgrade-note">
-              {PRICING.yearlySaving} on yearly · {PRICING.yearlyPerMonth}
-            </div>
+            <>
+              <div className="cz-profile-upgrade-note">
+                {PRICING.yearlySaving} on yearly · {PRICING.yearlyPerMonth}
+              </div>
+              <div className="cz-profile-upgrade-note">{PRICING.weeklyTrialNote}</div>
+            </>
           )}
           {isPro && (
             <Pill
@@ -290,8 +309,8 @@ export default function ProfileSheet({
         </div>
         <div className="cz-profile-group">
         <button type="button" className="cz-profile-row" onClick={onOpenSizes}>
-          <span>Your sizes</span>
-          <span className="cz-profile-row-val">Body profile ›</span>
+          <span>Sizes and measurements</span>
+          <span className="cz-profile-row-val">Tops, bottoms, shoes, and body ›</span>
         </button>
         <button type="button" className="cz-profile-row" onClick={onOpenFitPrefs}>
           <span>Fit preferences</span>

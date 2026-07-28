@@ -14,10 +14,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { huntMock, urlReadMock, fileReadMock } = vi.hoisted(() => ({
+const { huntMock, urlReadMock, fileReadMock, createObjectUrlMock, revokeObjectUrlMock } = vi.hoisted(() => ({
   huntMock: vi.fn(),
   urlReadMock: vi.fn(),
   fileReadMock: vi.fn(),
+  createObjectUrlMock: vi.fn(),
+  revokeObjectUrlMock: vi.fn(),
 }));
 
 vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
@@ -77,7 +79,9 @@ beforeEach(() => {
   huntMock.mockResolvedValue(null);
   urlReadMock.mockResolvedValue(null);
   fileReadMock.mockResolvedValue(null);
-  if (!URL.createObjectURL) URL.createObjectURL = () => "blob:thumb";
+  createObjectUrlMock.mockReturnValue("blob:thumb");
+  URL.createObjectURL = createObjectUrlMock;
+  URL.revokeObjectURL = revokeObjectUrlMock;
 });
 
 afterEach(() => {
@@ -85,6 +89,8 @@ afterEach(() => {
   huntMock.mockReset();
   urlReadMock.mockReset();
   fileReadMock.mockReset();
+  createObjectUrlMock.mockReset();
+  revokeObjectUrlMock.mockReset();
 });
 
 describe("§3 no-chart state", () => {
@@ -95,11 +101,10 @@ describe("§3 no-chart state", () => {
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     expect(screen.getByText("FELL BACK TO YOUR USUAL")).toBeInTheDocument();
     expect(
-      screen.getByText(/Send me the chart photo and I.ll read the cm off it\./)
+      screen.getByText("The listing had no measurements. Upload the seller chart to read its measurements.")
     ).toBeInTheDocument();
-    // Both doors into the parser, and the dashed container that marks the state.
-    expect(screen.getByText("Snapshot chart")).toBeInTheDocument();
-    expect(screen.getByText("Upload photo")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Upload chart photo" })).toHaveLength(1);
     expect(document.querySelector(".cz-sizing-nochart")).not.toBe(null);
   });
 
@@ -124,17 +129,17 @@ describe("§3 no-chart state", () => {
     expect(document.querySelector(".cz-sizing-value.is-empty")).not.toBe(null);
   });
 
-  it("keeps a sheet route, so a photo that will not read is not a dead end", async () => {
+  it("keeps item and profile sizing in the Size panel", async () => {
     const user = userEvent.setup();
-    renderBody(chartless());
+    const onOpenSizes = vi.fn();
+    renderBody(chartless(), { onOpenSizes });
 
-    // Wait for the swap: the no-chart block mounts a NEW footer button. It
-    // reads "Pick a size" here — with no chart parsed, the sheet opens on
-    // the size-run override picker, and a "Full chart" label would promise
-    // a chart it cannot show.
     await screen.findByText("No chart");
-    await user.click(screen.getByRole("button", { name: /Pick a size/ }));
-    expect(await screen.findByText("Set my sizes")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Size" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit sizes and measurements" }));
+    expect(onOpenSizes).toHaveBeenCalledTimes(1);
   });
 
   it("offers the item's own album photos as a shortcut", async () => {
@@ -144,7 +149,7 @@ describe("§3 no-chart state", () => {
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     // Three photos: the cover plus the two gallery frames.
-    expect(screen.getByText(/or pick from this item.s 3 album photos/)).toBeInTheDocument();
+    expect(screen.getByText("Read this item’s 3 album photos")).toBeInTheDocument();
     expect(document.querySelectorAll(".cz-sizing-albumthumb").length).toBe(2);
   });
 
@@ -163,7 +168,7 @@ describe("§3 read and confirm", () => {
     const { onSaveEdit } = renderBody(chartless());
 
     await screen.findByText("No chart");
-    const input = document.querySelector(".cz-sizing-action.is-primary input");
+    const input = document.querySelector(".cz-detail-chart-file");
     await user.upload(input, fakePhoto());
 
     // The read-back names what it found, and counts it.
@@ -180,7 +185,7 @@ describe("§3 read and confirm", () => {
     const { onSaveEdit } = renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
     await user.click(await screen.findByRole("button", { name: "Use this chart" }));
 
     expect(onSaveEdit).toHaveBeenCalledWith(expect.any(String), {
@@ -203,7 +208,7 @@ describe("§3 read and confirm", () => {
     renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
 
     expect(await screen.findByText("READING…")).toBeInTheDocument();
     expect(screen.getByText(/Reading the numbers off your photo/)).toBeInTheDocument();
@@ -223,7 +228,7 @@ describe("§3 read and confirm", () => {
     const { onSaveEdit } = renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
 
     expect(await screen.findByText("COULD NOT READ")).toBeInTheDocument();
     expect(screen.getByText(/whole table in frame/)).toBeInTheDocument();
@@ -239,7 +244,7 @@ describe("§3 read and confirm", () => {
     renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
 
     expect(await screen.findByText(/could not find sizes in it/)).toBeInTheDocument();
     expect(screen.getByText(/straighter shot of the table/)).toBeInTheDocument();
@@ -253,7 +258,7 @@ describe("§3 read and confirm", () => {
     const { onSaveEdit } = renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
     await user.click(await screen.findByRole("button", { name: "Fix a number" }));
 
     // One input per cell, laid out as the table. Three sizes × two columns.
@@ -282,7 +287,7 @@ describe("§3 read and confirm", () => {
     renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
     await user.click(await screen.findByRole("button", { name: "Fix a number" }));
     const large = screen.getByLabelText("Large chest in cm");
     await user.clear(large);
@@ -302,7 +307,7 @@ describe("§3 read and confirm", () => {
     renderBody(chartless(), { measureUnits: "in" });
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
     await user.click(await screen.findByRole("button", { name: "Fix a number" }));
 
     expect(screen.getByLabelText("Large chest in cm").value).toBe("120");
@@ -315,7 +320,7 @@ describe("§3 read and confirm", () => {
     renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
     await user.click(await screen.findByRole("button", { name: "Fix a number" }));
     const large = screen.getByLabelText("Large chest in cm");
     await user.clear(large);
@@ -329,11 +334,25 @@ describe("§3 read and confirm", () => {
     const { onSaveEdit } = renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
     await user.click(await screen.findByRole("button", { name: "Not this one" }));
 
     expect(await screen.findByText("FELL BACK TO YOUR USUAL")).toBeInTheDocument();
     expect(onSaveEdit).not.toHaveBeenCalled();
+    await waitFor(() => expect(revokeObjectUrlMock).toHaveBeenCalledWith("blob:thumb"));
+  });
+
+  it("revokes the upload preview on unmount", async () => {
+    fileReadMock.mockResolvedValue(CHART_TEXT);
+    const user = userEvent.setup();
+    const { unmount } = renderBody(chartless());
+
+    await screen.findByText("No chart");
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
+    await screen.findByRole("button", { name: "Use this chart" });
+    unmount();
+
+    expect(revokeObjectUrlMock).toHaveBeenCalledWith("blob:thumb");
   });
 
   it("sends album photos down the URL door, never inline", async () => {
@@ -342,7 +361,7 @@ describe("§3 read and confirm", () => {
     renderBody(chartless({ gallery: ["https://si.geilicdn.com/a.jpg"] }));
 
     await screen.findByText("No chart");
-    await user.click(screen.getByRole("button", { name: /or pick from this item/ }));
+    await user.click(screen.getByRole("button", { name: /Read this item.s 2 album photos/ }));
 
     await screen.findByText("Use this chart");
     expect(urlReadMock).toHaveBeenCalledTimes(1);
@@ -359,7 +378,7 @@ describe("§3 read and confirm", () => {
     renderBody(chartless());
 
     await screen.findByText("No chart");
-    await user.upload(document.querySelector(".cz-sizing-action.is-primary input"), fakePhoto());
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
 
     await screen.findByText("Use this chart");
     expect(fileReadMock).toHaveBeenCalledTimes(1);

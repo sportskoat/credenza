@@ -4,7 +4,7 @@
 // the right. The rack keeps its frozen physics; this is only the expanded
 // layer. Below 1024px the app keeps the flip card / phone sheet.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Share2, Trash2, X } from "lucide-react";
 import {
   RELAY_MAX,
   itemPhotoList,
@@ -17,6 +17,7 @@ import { SellerLink } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
+import { useBodyScrollLock } from "./useBodyScrollLock.js";
 
 export default function DesktopDetailPanel({
   item,
@@ -37,6 +38,7 @@ export default function DesktopDetailPanel({
   onSetPrimaryImage,
   onLoadPhotos,
   onToggleFavorite,
+  onShareCard,
   onDelete,
   onClose,
   closing = false,
@@ -54,8 +56,6 @@ export default function DesktopDetailPanel({
   const [menuOpen, setMenuOpen] = useState(false);
   const [addBusy, setAddBusy] = useState(false);
   const [logNotesEl, setLogNotesEl] = useState(null);
-  // Bumped by the left-column CHART chip; DetailBody opens its size sheet.
-  const [openChartSignal, setOpenChartSignal] = useState(0);
   const [isWide, setIsWide] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -67,9 +67,48 @@ export default function DesktopDetailPanel({
   // down for that window so it cannot overwrite the target index.
   const programmatic = useRef(false);
   const settleTimer = useRef(null);
+  const dialogRef = useRef(null);
+  const closeRef = useRef(null);
+  const bodyFlushRef = useRef(null);
+  const bodySnapshotRef = useRef(null);
+  const openerRef = useRef(null);
   const menuRef = useRef(null);
   const addInputRef = useRef(null);
   const PHOTO_MAX = 12;
+
+  // Use the same native dialog lifecycle as the mobile detail sheet. The
+  // browser then keeps Escape and nested modal dialogs on the correct layer.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    openerRef.current = document.activeElement;
+    if (dialog && !dialog.open) dialog.showModal();
+    const id = requestAnimationFrame(() => closeRef.current && closeRef.current.focus());
+    return () => {
+      cancelAnimationFrame(id);
+      if (dialog && dialog.open) dialog.close();
+      const opener = openerRef.current;
+      if (opener && opener.isConnected && typeof opener.focus === "function") {
+        opener.focus({ preventScroll: true });
+      }
+    };
+  }, []);
+
+  // Keep the shelf fixed behind this dialog. Nested editors share the same
+  // reference-counted lock, so closing one layer cannot unlock another.
+  useBodyScrollLock();
+
+  const requestClose = useCallback(
+    (reason = "close") => {
+      // A nested native dialog owns Escape while it is open. This guard also
+      // protects synthetic events and tests that bypass the browser top layer.
+      if (dialogRef.current && dialogRef.current.querySelector("dialog[open]")) return;
+      if (closing) return;
+      if (bodyFlushRef.current) bodyFlushRef.current();
+      if (reason === "remove" && onDelete) onDelete(item.id);
+      onClose();
+    },
+    [closing, item.id, onClose, onDelete]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -89,7 +128,7 @@ export default function DesktopDetailPanel({
     const next = itemPhotoList(item, 24);
     setPhotos(next);
     setPhotoIdx((i) => Math.min(i, Math.max(0, next.length - 1)));
-  }, [item.id, item.image, item.gallery]);
+  }, [item]);
 
   // Lazy Yupoo album fetch — the same contract PhotoCoverFlow uses, without
   // the 8-photo cap (the counter reads "1 / 14" for full albums).
@@ -153,8 +192,16 @@ export default function DesktopDetailPanel({
   );
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target && e.target.closest && e.target.closest("input, textarea, [contenteditable]")) return;
-      if (document.querySelector("dialog[open]")) return;
+      const interactive =
+        e.target &&
+        e.target.closest &&
+        e.target.closest(
+          'button, input, textarea, select, [contenteditable], [role="listbox"], [role="menu"], [role="radiogroup"]'
+        );
+      if (interactive) return;
+      const keyDialog = e.target && e.target.closest && e.target.closest("dialog[open]");
+      if (keyDialog && keyDialog !== dialogRef.current) return;
+      if (dialogRef.current && dialogRef.current.querySelector("dialog[open]")) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         e.stopPropagation();
@@ -204,15 +251,19 @@ export default function DesktopDetailPanel({
   };
 
   return (
-    <div
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- native backdrop click; Escape closes through onCancel
+    <dialog
+      ref={dialogRef}
       className={"cz-dpanel-scrim" + (closing ? " is-closing" : "")}
-      role="dialog"
-      aria-modal="true"
+      style={{ width: "auto", maxWidth: "none", height: "auto", maxHeight: "none", margin: 0, padding: 0, border: 0, color: "inherit" }}
       aria-label={item.title || "Saved item"}
-      onPointerDown={(e) => {
-        // Scrim tap closes; panel taps never reach here.
-        if (closing) return;
-        if (e.target === e.currentTarget) onClose();
+      onCancel={(e) => {
+        e.preventDefault();
+        requestClose();
+      }}
+      onClick={(e) => {
+        // A click on the dialog element is a click on its native backdrop.
+        if (e.target === e.currentTarget) requestClose();
       }}
     >
       <div className={"cz-dpanel" + (morphing ? " is-morphing" : "")}>
@@ -291,7 +342,14 @@ export default function DesktopDetailPanel({
           </div>
           {/* Always show the strip so add/delete lives under the stage once —
               never next to a second PHOTOS block (Kyle 2026-07-26). */}
-          <div className="cz-dpanel-thumbs">
+          <div
+            className="cz-dpanel-thumbs-row"
+            style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, minWidth: 0 }}
+          >
+            <div
+              className="cz-dpanel-thumbs"
+              style={{ flex: "1 1 auto", minWidth: 0, marginTop: 0 }}
+            >
             {photos.map((src, i) => {
               const isCover = i === 0 && item.image === src;
               return (
@@ -349,6 +407,7 @@ export default function DesktopDetailPanel({
                 pickPhotoFile(file);
               }}
             />
+            </div>
             <div className="cz-dpanel-thumb-side">
               <div className="cz-dpanel-thumb-side-text">
                 <span className="cz-dpanel-cat">{categoryLabel}</span>
@@ -356,28 +415,6 @@ export default function DesktopDetailPanel({
                   <span className="cz-dpanel-more">{moreCount} MORE</span>
                 ) : null}
               </div>
-              <button
-                type="button"
-                className="cz-dpanel-chart-chip"
-                aria-label="Open size chart"
-                onClick={() => setOpenChartSignal((n) => n + 1)}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="3" y="4" width="18" height="16" rx="2" />
-                  <path d="M3 10h18M9 4v16M15 4v16" />
-                </svg>
-                <span className="cz-dpanel-chart-chip-label">CHART</span>
-              </button>
             </div>
           </div>
           {/* Album opens the full-screen pager; seller is the store link.
@@ -417,29 +454,44 @@ export default function DesktopDetailPanel({
                 <MoreHorizontal aria-hidden="true" size={18} strokeWidth={2.2} />
               </button>
               {menuOpen ? (
-                // One action only. Haul assignment lives on the body's
-                // + haul chip — the menu used to duplicate it with its own
-                // input and rows, and two writers for the same field is how
-                // hauls got clobbered (Kyle 2026-07-27: "make this right").
                 <div className="cz-dpanel-menu" role="menu" aria-label="Card actions">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="cz-card-action-row"
+                    onClick={() => {
+                      if (bodyFlushRef.current) bodyFlushRef.current();
+                      setMenuOpen(false);
+                      if (onShareCard) {
+                        onShareCard({ ...item, ...(bodySnapshotRef.current || {}) });
+                      }
+                    }}
+                  >
+                    <Share2 size={15} strokeWidth={2.2} aria-hidden="true" />
+                    <span>Share card</span>
+                  </button>
                   <button
                     type="button"
                     role="menuitem"
                     className="cz-card-action-row danger"
                     onClick={() => {
                       setMenuOpen(false);
-                      onClose();
-                      onDelete && onDelete(item.id);
+                      requestClose("remove");
                     }}
                   >
                     <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
                     <span>Remove card</span>
                   </button>
-                  <p className="cz-dpanel-menu-note">Haul lives on the chip below now.</p>
                 </div>
               ) : null}
             </div>
-            <button type="button" className="cz-dpanel-icon" aria-label="Close" onClick={onClose}>
+            <button
+              ref={closeRef}
+              type="button"
+              className="cz-dpanel-icon"
+              aria-label="Close"
+              onClick={() => requestClose()}
+            >
               <X aria-hidden="true" size={18} strokeWidth={2.2} />
             </button>
           </div>
@@ -463,7 +515,8 @@ export default function DesktopDetailPanel({
               onLoadPhotos={onLoadPhotos}
               footerPrice={price}
               logNotesTarget={isWide ? logNotesEl : undefined}
-              openChartSignal={openChartSignal}
+              flushRef={bodyFlushRef}
+              snapshotRef={bodySnapshotRef}
             />
           </div>
         </div>
@@ -478,6 +531,6 @@ export default function DesktopDetailPanel({
           onLoadPhotos={onLoadPhotos}
         />
       ) : null}
-    </div>
+    </dialog>
   );
 }

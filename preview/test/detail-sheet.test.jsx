@@ -5,6 +5,7 @@
 // the first buy link. Desktop surfaces already do this with .find().
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import DetailSheet from "../../sheets/DetailSheet.jsx";
 import {
   lockBodyScroll,
@@ -29,7 +30,7 @@ function twoBuyLinkItem() {
   };
 }
 
-function renderSheet(item) {
+function renderSheet(item, extra = {}) {
   return render(
     <DetailSheet
       item={item}
@@ -41,6 +42,7 @@ function renderSheet(item) {
       onRemovePhoto={vi.fn()}
       onOpenSizes={vi.fn()}
       onClose={vi.fn()}
+      {...extra}
     />
   );
 }
@@ -111,8 +113,8 @@ describe("DetailSheet weight editor units", () => {
         onClose={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: /Weight/ }));
-    const input = screen.getByRole("textbox", { name: /Weight/ });
+    fireEvent.click(screen.getByRole("tab", { name: "Weight" }));
+    const input = screen.getByRole("textbox", { name: "Weight · g" });
     expect(input).toHaveValue("1200");
 
     fireEvent.click(screen.getByRole("button", { name: "kg" }));
@@ -155,6 +157,46 @@ describe("DetailSheet overflow menu", () => {
     expect(onRemove).not.toHaveBeenCalled();
     expect(screen.getByRole("menu")).toBeInTheDocument();
   });
+
+  it.each(["shared", "downloaded", "cancelled", "failed"])(
+    "lists Share card before Remove from shelf and keeps detail open after %s",
+    async (outcome) => {
+      const onSaveEdit = vi.fn();
+      const onShareCard = vi.fn().mockResolvedValue(outcome);
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      renderSheet(twoBuyLinkItem(), { onSaveEdit, onShareCard, onClose });
+
+      await user.click(screen.getByRole("tab", { name: "Colorway" }));
+      fireEvent.change(screen.getByRole("textbox", { name: "Colorway" }), {
+        target: { value: "Bone white" },
+      });
+      await user.click(screen.getByRole("button", { name: "More actions" }));
+
+      const menu = screen.getByRole("menu");
+      const actions = [...menu.querySelectorAll('[role="menuitem"]')];
+      expect(actions.map((action) => action.textContent.trim())).toEqual([
+        "Share card",
+        "Remove from shelf",
+      ]);
+
+      await user.click(actions[0]);
+      await expect(onShareCard.mock.results[0].value).resolves.toBe(outcome);
+      expect(onSaveEdit).toHaveBeenCalledWith(
+        "sheet-1",
+        expect.objectContaining({ colorway: "Bone white" })
+      );
+      expect(onShareCard).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "sheet-1", colorway: "Bone white" })
+      );
+      expect(onSaveEdit.mock.invocationCallOrder[0]).toBeLessThan(
+        onShareCard.mock.invocationCallOrder[0]
+      );
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(screen.getByRole("dialog", { name: "Test hoodie" })).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+    }
+  );
 
   it("Remove from shelf inside the menu removes and closes", () => {
     const onRemove = vi.fn();

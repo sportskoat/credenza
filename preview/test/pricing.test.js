@@ -37,6 +37,12 @@ function textFiles(dir) {
 }
 
 describe("the /pricing/ page quotes the price the app charges", () => {
+  it("names the weekly price and its trial", () => {
+    expect(page).toContain(PRICING.weekly);
+    expect(page).toContain(PRICING.weeklyTrial);
+    expect(page).toContain(PRICING.weeklyTrialNote);
+  });
+
   it("names the monthly price", () => {
     expect(page).toContain(PRICING.monthly);
   });
@@ -53,6 +59,7 @@ describe("the /pricing/ page quotes the price the app charges", () => {
   it("puts the bare numbers in the Product schema, for the AI answers", () => {
     // Schema.org wants "4.99", not "$4.99". Derive it from the export so a
     // price change fails here instead of shipping a stale rich result.
+    expect(page).toContain('"price": "' + PRICING.weekly.replace("$", "") + '"');
     expect(page).toContain('"price": "' + PRICING.monthly.replace("$", "") + '"');
     expect(page).toContain('"price": "' + PRICING.yearly.replace("$", "") + '"');
   });
@@ -107,18 +114,19 @@ describe("no stale price survives anywhere on the public site", () => {
     // Guard the guard. If PRICING is reshaped, these go undefined, the allowed
     // set fills with junk, and every page would fail — but only if this runs.
     for (const [name, v] of [
+      ["weekly", PRICING.weekly],
       ["monthly", PRICING.monthly],
       ["yearly", PRICING.yearly],
       ["yearlyPerMonth", perMonth],
     ]) {
       expect(v, `PRICING.${name} is not a dollar amount`).toMatch(/^\$\d+(\.\d\d)?$/);
     }
-    const real = new Set([PRICING.monthly, PRICING.yearly, perMonth]);
+    const real = new Set([PRICING.weekly, PRICING.monthly, PRICING.yearly, perMonth]);
 
     // (?![\d.]) so "$4.99" does not also yield "$4".
     // The cadence list is what the site actually writes, plus the spellings a
     // hurried edit reaches for: "a month", "per year", "/ month", "monthly".
-    const PRICE = /\$\d+(?:\.\d\d)?(?![\d.])\s*(?:a|an|per|each|\/)?\s*(?:month|year|mo|yr|monthly|yearly|annually)\b/gi;
+    const PRICE = /\$\d+(?:\.\d\d)?(?![\d.])\s*(?:a|an|per|each|\/)?\s*(?:week|month|year|wk|mo|yr|weekly|monthly|yearly|annually)\b/gi;
 
     const found = [];
     for (const f of files) {
@@ -141,16 +149,22 @@ describe("no stale price survives anywhere on the public site", () => {
     ).toEqual([]);
   });
 
-  it("names both plan prices with a cadence, not just the monthly one", () => {
+  it("names all three plan prices with a cadence, not just the monthly one", () => {
     // A site could satisfy the rule above by never stating the yearly price.
-    // Somebody comparing plans needs both, and the yearly one is the upsell.
+    // Somebody comparing plans needs all three, and the yearly one is the
+    // upsell. The weekly one carries the trial — leaving it off the page
+    // would sell a trial the reader cannot find.
     const all = files
       .map((f) => readFileSync(f, "utf8").replace(/<[^>]*>/g, " "))
       .join(" ")
       .replace(/\s+/g, " ");
-    for (const [name, v] of [["monthly", PRICING.monthly], ["yearly", PRICING.yearly]]) {
+    for (const [name, v, cadence] of [
+      ["weekly", PRICING.weekly, "(?:week)"],
+      ["monthly", PRICING.monthly, "(?:month)"],
+      ["yearly", PRICING.yearly, "(?:year)"],
+    ]) {
       expect(
-        new RegExp(v.replace(/[$.]/g, "\\$&") + "\\s*(?:a|an|per|/)?\\s*(?:month|year)", "i").test(all),
+        new RegExp(v.replace(/[$.]/g, "\\$&") + "\\s*(?:a|an|per|/)?\\s*" + cadence, "i").test(all),
         `no public file states the ${name} price with a billing period`
       ).toBe(true);
     }
@@ -467,11 +481,16 @@ describe("the refund promise says the same thing on every page that makes it", (
     expect(page).toContain('href="mailto:' + EMAIL + '"');
   });
 
-  it("does not promise a free trial, because there is not one", () => {
-    // The refund IS the trial. Naming a trial as well would imply a second,
-    // separate guarantee and a clock that nothing in the product runs.
-    expect(page.toLowerCase()).not.toContain("free trial");
-    expect(page.toLowerCase()).not.toContain("day trial");
+  it("states the trial terms next to the weekly price, in full", () => {
+    // The weekly plan carries a 3-day free trial (decided 2026-07-27). FTC
+    // negative-option: the reader must see the free days, the after-trial
+    // price and cadence, and the cancel path BEFORE they start. The weekly
+    // trial note is the one sentence that carries all three, and the Profile
+    // sheet prints the same sentence under its weekly button.
+    expect(page).toContain(PRICING.weeklyTrialNote);
+    // The trial is weekly-only. Monthly and yearly must not read as trials —
+    // the free plan is the try-before-you-pay for those.
+    expect(page.toLowerCase()).toContain("trial");
   });
 });
 

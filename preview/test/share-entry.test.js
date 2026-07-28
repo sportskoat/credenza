@@ -23,7 +23,7 @@ describe("the page names the parameter the app reads", () => {
     expect(page).toContain("credenzafashion.com/?stash=");
   });
 
-  it("the app still reads every parameter the share routes send", () => {
+  it("the app still reads every parameter the marked share routes send", () => {
     // The entry handler combines these three rather than picking one, because
     // a share sheet splits a post's link and text across separate params.
     // Renaming or dropping one silently breaks every Shortcut already built.
@@ -33,10 +33,19 @@ describe("the page names the parameter the app reads", () => {
     expect(keys.sort()).toEqual(["stash", "text", "url"]);
   });
 
-  it("the app scrubs the parameter after reading it", () => {
-    // Without this a refresh re-stashes the same item. The page promises no
-    // duplicate, so the scrub is part of what it promises.
-    expect(app).toContain("window.history.replaceState(null, \"\", window.location.pathname)");
+  it("requires stash or the PWA marker before capture", () => {
+    expect(app).toContain(
+      'const captureIntent = params.has("stash") || params.get("share_target") === "1"'
+    );
+  });
+
+  it("removes only capture parameters after accepted capture", () => {
+    // Without this a refresh re-stashes the same item. Unrelated query state and
+    // the hash must remain because they belong to navigation, not capture.
+    expect(app).toContain(
+      'for (const keyName of ["stash", "text", "url", "title", "share_target"])'
+    );
+    expect(app).toContain('window.location.pathname + (query ? "?" + query : "") + window.location.hash');
   });
 });
 
@@ -60,7 +69,7 @@ describe("the manifest share target matches the Android instructions", () => {
     // A POST share target needs a service worker to catch it. The entry
     // handler reads window.location.search, so the method must stay GET.
     expect((manifest.share_target.method || "GET").toUpperCase()).toBe("GET");
-    expect(manifest.share_target.action).toBe("/");
+    expect(manifest.share_target.action).toBe("/?share_target=1");
   });
 });
 

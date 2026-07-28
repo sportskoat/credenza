@@ -86,6 +86,27 @@ describe("the full entitlement life (gate)", () => {
     expect(limitsFor(r, T0 + 60 * DAY + GRACE_MS + 1)).toEqual(PLAN_LIMITS.free);
   });
 
+  it("a trialing subscription reads as Pro for the trial window (weekly 3-day trial)", () => {
+    // The weekly plan starts with a 3-day trial: Stripe reports status
+    // "trialing" and current_period_end = trial end. Pro must hold for the
+    // whole trial — a trialing user who reads "free" would hit free caps on
+    // day 1 of a paid plan.
+    let r = newEntitlement("u1", T0);
+    const trialEnd = (T0 + 3 * DAY) / 1000;
+    r = applyStripeEvent(r, subscription("trialing", trialEnd), T0);
+    expect(r.billingStatus).toBe("trialing");
+    expect(r.graceUntil).toBe(null);
+    expect(effectiveStatus(r, T0)).toBe("pro");
+    expect(effectiveStatus(r, T0 + 2 * DAY)).toBe("pro");
+    expect(limitsFor(r, T0)).toEqual(PLAN_LIMITS.pro);
+    expect(mayWriteCloud(r, T0)).toBe(true);
+
+    // The trial converts: Stripe moves the period to the first paid week.
+    const paidEnd = (T0 + 10 * DAY) / 1000;
+    r = applyStripeEvent(r, subscription("active", paidEnd), T0 + 3 * DAY);
+    expect(effectiveStatus(r, T0 + 4 * DAY)).toBe("pro");
+  });
+
   it("cancellation keeps Pro to the period end, then grace, then free — data untouched", () => {
     let r = newEntitlement("u1", T0);
     const periodEnd = (T0 + 20 * DAY) / 1000;
