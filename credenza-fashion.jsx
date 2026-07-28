@@ -1336,6 +1336,32 @@ function extractValidUrls(raw) {
   });
 }
 
+// Chinese share-text chrome must not become a card title (parser audit
+// 2026-07-27, fix 3). Bare platform tags like 【淘宝】 drop entirely; real
+// text inside 【…】 survives. 复制…打开…APP tails, 「」 quotes, and markdown
+// link syntax are stripped to their label.
+const SHARE_PLATFORM_TAG = /^【\s*(?:淘宝|天猫|微店|闲鱼|京东|1688)\s*】/;
+export function shareTextLabel(line) {
+  return line
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/[^)\s]+)\)/g, "$1")
+    .replace(/https?:\/\/[^\s<>"')\]]+/g, " ")
+    .replace(SHARE_PLATFORM_TAG, " ")
+    .replace(/[【】「」]/g, " ")
+    .replace(/复制\S{0,40}(?:打开|APP|app)\S*/g, " ")
+    .replace(/[|–—:,]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Taokouling (淘口令) share tokens carry no URL. Without a title the paste
+// becomes a junk fragment card (parser audit 2026-07-27, fix 4).
+const TAOKOULING_RE = /[￥₤]\s*[A-Za-z0-9][A-Za-z0-9\s]{3,}?[A-Za-z0-9]\s*[￥₤]|淘口令/;
+export function taokoulingTitle(text) {
+  return text && TAOKOULING_RE.test(text)
+    ? "Taobao share code — open in the Taobao app"
+    : "";
+}
+
 // Role of a supplementary link, inferred from its host. Generic on purpose —
 // rendering only knows "photos" / "buy" / "alt", never specific sites.
 function inferLinkRole(url) {
@@ -1454,12 +1480,31 @@ function ensureYupooAlbumUid(raw) {
   }
 }
 
+// Id-less Taobao-family short links (m.tb.cn, tb.cn, s.click.taobao.com)
+// carry no numeric id. The server follows them to the item page (resolve.js
+// 2026-07-27), so the client gate must let them through (parser audit
+// 2026-07-27, fix 5). Host family mirrors resolve.js REDIRECT_FOLLOW_HOST.
+export function taobaoShortHost(raw) {
+  try {
+    const host = new URL(raw).hostname.toLowerCase();
+    if (!/(^|\.)((taobao|tmall)\.com|tb\.cn)$/i.test(host)) return false;
+    return !taobaoFamilyItemId(raw);
+  } catch {
+    return false;
+  }
+}
+
 // First resolvable buy URL on an item: the primary URL or any paired link.
 // Agent fronts (Fansbuy item-micro, Superbuy ?url=, …) resolve to marketplace.
-function resolvableBuyUrl(item) {
+export function resolvableBuyUrl(item) {
   const isResolvable = (raw) => {
     const buy = marketplaceBuyUrl(raw);
-    return !!(weidianItemId(buy) || taobaoFamilyItemId(buy) || ali1688ItemId(buy));
+    return !!(
+      weidianItemId(buy) ||
+      taobaoFamilyItemId(buy) ||
+      ali1688ItemId(buy) ||
+      taobaoShortHost(buy)
+    );
   };
   if (item.url && isResolvable(item.url)) return marketplaceBuyUrl(item.url);
   for (const l of item.links || []) {
@@ -2602,28 +2647,27 @@ export function parseImport(text, opts = {}) {
     /^\s*(?:[-*•❯›]|\d+[.)])\s+\S/.test(l)
   ).length;
   if (!hasAnyUrl && bulletLines < 2) {
-    if (trimmed.length >= 3) push(classify(trimmed), trimmed, "");
+    if (trimmed.length >= 3) push(classify(trimmed), trimmed, taokoulingTitle(trimmed));
     return { candidates, provider: "paste" };
   }
   for (const lineRaw of importLines) {
     const isBullet = /^\s*(?:[-*•❯›]|\d+[.)])\s+\S/.test(lineRaw);
     const line = lineRaw.replace(/^[\s\-*•>”"]*(?:\d+[.)])?\s*/, "").trim();
     if (!line || line.length < 3) continue;
-    const urls = line.match(/https?:\/\/[^\s<>"')\]]+/g) || [];
+    // extractUrls, not a local regex: trims trailing punctuation, repairs
+    // space-broken hosts, deobfuscates Reddit markup, dedupes (audit fix 1+2).
+    const urls = extractUrls(line);
     if (urls.length === 0) {
       // A bare line becomes a card ONLY when it carries a list marker — that
       // is a real list the user wrote. Unmarked bare lines in a shredded
       // paste are page chrome ("Open chat", "Upvote", "Expand user menu")
       // and must never become cards (Kyle 2026-07-24: one copied Reddit
       // page turned into 174 junk cards).
-      if (isBullet && line.length >= 8 && /[a-z]/i.test(line)) push(classify(line), line, "");
+      if (isBullet && line.length >= 8 && /[a-z]/i.test(line))
+        push(classify(line), line, taokoulingTitle(line));
       continue;
     }
-    const label = line
-      .replace(/https?:\/\/[^\s<>"')\]]+/g, " ")
-      .replace(/[|–—:,]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const label = shareTextLabel(line);
     // One line = one item. The first URL is primary; the rest become paired links
     // via createItem's rawText inference (yupoo photos + weidian buy stay together).
     const parsed = classify(urls[0]);
@@ -5716,10 +5760,14 @@ function CredenzaApp() {
         price: x.priceManual ? x.price : data.priceCny != null ? data.priceCny : x.price,
         currency: "CNY",
         priceUsd: x.priceManual ? x.priceUsd : data.priceUsd != null ? data.priceUsd : x.priceUsd,
-        category: CATEGORIES[data.category]
-          ? data.category
-          : x.category ||
-            guessFashionCategory([data.title, data.summary, data.sizeNotes, x.title, x.summary].filter(Boolean).join(" ")),
+        // CH-07: a hand-picked category is pinned (categoryManual), like a
+        // hand-set price — the resolve never reclassifies it.
+        category: x.categoryManual && CATEGORIES[x.category]
+          ? x.category
+          : CATEGORIES[data.category]
+            ? data.category
+            : x.category ||
+              guessFashionCategory([data.title, data.summary, data.sizeNotes, x.title, x.summary].filter(Boolean).join(" ")),
         variants,
         // First color axis value only when the card has no colorway yet.
         colorway: x.colorway || pickColorwayFromVariants(variants) || "",

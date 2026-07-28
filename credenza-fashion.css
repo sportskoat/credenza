@@ -7415,6 +7415,73 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   margin-top: 1px;
 }
 
+/* Design 4c (CH-07): category select row. The closed row holds the same
+   44px floor as the other edit fields; the open list is a wrapping chip
+   row, selected solid. */
+.cz-catselect-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 11px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-catselect-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cz-catselect-auto {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
+  color: var(--cz-faint);
+  font-size: 11px;
+  font-weight: 500;
+}
+.cz-catselect-btn > .t-acc-chevron {
+  margin-left: auto;
+}
+.cz-catselect-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-top: 10px;
+}
+.cz-catselect-chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cz-catselect-chip.is-active {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-weight: 700;
+}
+.cz-catselect-chip:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 1px;
+}
+
 /* A5 Warehouse QC: thumbs + one-tap GL/RL on the card back. Same quiet
    hairline language as the status picker above it. */
 .cz-qc {

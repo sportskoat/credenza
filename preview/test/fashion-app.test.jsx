@@ -1383,6 +1383,35 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(screen.queryByRole("tab", { name: "Batch" })).toBeNull();
   });
 
+  it("the category select row shows the auto value and a pick persists with a pin", async () => {
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ category: "shirt" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const sheet = await openSheet(user);
+
+    // CH-07 accept: the auto-detected value is visible without opening the list.
+    const row = within(sheet).getByRole("button", { name: "Category: Shirts. Change." });
+    expect(row.className).toContain("cz-catselect-btn");
+    expect(within(row).getByText("auto")).toBeInTheDocument();
+
+    await user.click(row);
+    const list = within(sheet).getByRole("listbox", { name: "Category" });
+    const shirts = within(list).getByRole("option", { name: "Shirts" });
+    expect(shirts).toHaveAttribute("aria-selected", "true");
+    await user.click(within(list).getByRole("option", { name: "Pants" }));
+
+    await waitFor(() => {
+      const saved = JSON.parse(data[STORE_KEY] || "[]");
+      expect(saved[0].category).toBe("pants");
+      expect(saved[0].categoryManual).toBe(true);
+    });
+    // The row now shows the pick and drops the auto tag.
+    const picked = within(sheet).getByRole("button", { name: "Category: Pants. Change." });
+    expect(within(picked).queryByText("auto")).toBeNull();
+  });
+
   it("the Colorway tab exposes one editor and the edit persists", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();

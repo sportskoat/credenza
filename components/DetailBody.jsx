@@ -34,6 +34,7 @@ import {
   usePrefersReducedMotion,
   SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
+import { CategorySelect } from "./atoms.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
 import SizeChartTable from "./SizeChartTable.jsx";
 import { AlbumLinksRow } from "./CardMetaLinks.jsx";
@@ -1828,6 +1829,27 @@ export default function DetailBody({
         </div>
 
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
+
+        {/* Category (design 4c, CH-07). One select row; the parse classifies,
+            this row is the correction affordance. categoryManual pins a hand
+            pick so a later resolve cannot reclassify it. */}
+        <div className="cz-detail-rule-head">
+          <span className="cz-detail-label">Category</span>
+          <span className="cz-detail-rule" aria-hidden="true" />
+        </div>
+        <CategorySelect
+          value={view.category}
+          isAuto={!item.categoryManual}
+          onChange={(key) => {
+            onSaveEdit(item.id, { category: key, categoryManual: true });
+            setDraft((d) =>
+              draftOwnerRef.current === item.id && d ? { ...d, category: key } : d
+            );
+            setSavedFlash(true);
+            if (savedTimer.current) clearTimeout(savedTimer.current);
+            savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
+          }}
+        />
 
         {/* Status (§5). The header carries the rule and the sub-label; the
             track carries the progress and the next action. */}

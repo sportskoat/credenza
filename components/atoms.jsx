@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { FIND_STATUSES } from "../credenza-find-status.js";
 import {
   BG,
   CARD,
+  CATEGORIES,
   SEG,
   SUB,
   FAINT,
@@ -756,6 +757,66 @@ export function SegmentedControl({ value, onChange, options, label, allowUnset =
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// Design 4c (CH-07): category is one select row — value + a muted "auto" tag
+// (auto-classified, not hand-picked) + chevron. Tap opens a wrapping chip
+// list, selected solid. All ten categories fit, so there is no "More…" tail.
+export function CategorySelect({ value, isAuto, onChange, label = "Category" }) {
+  const [open, setOpen] = useState(false);
+  const currentLabel = (CATEGORIES[value] && CATEGORIES[value].label) || "Not set";
+  return (
+    <div className={"cz-catselect t-acc" + (open ? " is-open" : "")} data-open={open}>
+      <button
+        type="button"
+        className="cz-catselect-btn"
+        aria-label={label + ": " + currentLabel + ". Change."}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="cz-catselect-value">{currentLabel}</span>
+        {isAuto && CATEGORIES[value] ? (
+          <span className="cz-catselect-auto">auto</span>
+        ) : null}
+        <ChevronDown
+          className="t-acc-chevron"
+          size={14}
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+      </button>
+      <div className="t-acc-panel" aria-hidden={!open} inert={!open ? "" : undefined}>
+        <div className="t-acc-panel-inner">
+          <div
+            className="cz-catselect-list t-panel-slide"
+            data-open={open}
+            role="listbox"
+            aria-label={label}
+          >
+            {Object.entries(CATEGORIES).map(([key, cat]) => {
+              const active = value === key;
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  role="option"
+                  aria-selected={active}
+                  className={"cz-catselect-chip" + (active ? " is-active" : "")}
+                  onClick={() => {
+                    onChange && onChange(key);
+                    setOpen(false);
+                  }}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
