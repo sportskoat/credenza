@@ -159,6 +159,31 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     await req("/shares?user_id=eq." + encodeURIComponent(userId), { method: "DELETE" });
   }
 
+  // ── Shared daily spend ────────────────────────────────────────────────────
+  // docs/sql/2026-07-28-daily-spend.sql. The Anthropic cost ceiling used to
+  // live in a module variable, which gave every warm Netlify instance its own
+  // private ceiling. These two calls make it one number for the whole site.
+
+  // The running total for a UTC day, or 0 when nothing is spent yet.
+  async function loadDailySpend(day) {
+    const res = await req("/daily_spend?day=eq." + encodeURIComponent(day) + "&select=cost_usd&limit=1");
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length || !rows[0]) return 0;
+    return Number(rows[0].cost_usd) || 0;
+  }
+
+  // Add one call's cost and read the new shared total back. The addition
+  // happens inside Postgres, so two instances finishing at the same moment
+  // both land — a read-modify-write here would lose one of them.
+  async function addDailySpend(day, costUsd) {
+    const res = await req("/rpc/add_daily_spend", {
+      method: "POST",
+      body: JSON.stringify({ p_day: day, p_cost: costUsd }),
+    });
+    const total = await res.json();
+    return Number(total) || 0;
+  }
+
   async function isEventProcessed(eventId) {
     const res = await req("/processed_events?event_id=eq." + encodeURIComponent(eventId) + "&select=event_id");
     const rows = await res.json();
@@ -189,6 +214,8 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     listShares,
     deleteShare,
     deleteSharesForUser,
+    loadDailySpend,
+    addDailySpend,
     isEventProcessed,
     markEventProcessed,
   };

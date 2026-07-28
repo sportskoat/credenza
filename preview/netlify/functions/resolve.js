@@ -769,6 +769,12 @@ async function handle(event) {
   const needsRedirect = !classified && taobaoShortHost(url);
   if (!classified && !needsRedirect) return response(422, { error: "Not a resolvable buy link" });
 
+  // The site-wide spend ceiling, shared across every Netlify instance. It runs
+  // before enter() so a blocked call never takes a concurrency slot.
+  const capped = await limit.checkDailyCap(ROUTE, process.env);
+  if (capped) {
+    return response(capped.status, { error: capped.msg }, { "retry-after": String(capped.retryAfter) });
+  }
   const blocked = limit.enter(ROUTE, limit.clientKey(event));
   if (blocked) {
     return response(blocked.status, { error: blocked.msg }, { "retry-after": String(blocked.retryAfter) });
@@ -826,7 +832,7 @@ async function handle(event) {
       const out = await enrichWithClaude(apiKey, facts, controller.signal).catch(() => null);
       if (out) {
         enriched = out.result;
-        limit.recordUsage(ROUTE, MODEL, out.usage);
+        await limit.recordUsageShared(ROUTE, MODEL, out.usage, process.env);
       }
     }
 

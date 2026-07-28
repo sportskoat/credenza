@@ -95,6 +95,97 @@ describe("daily cost ceiling", () => {
   });
 });
 
+// The ceiling used to live only in this module, so each warm Netlify instance
+// had its own private $5. These tests pin the shared behaviour: one number in
+// Postgres, read by every instance, and a Supabase outage fails open.
+describe("shared daily ceiling", () => {
+  const ENV = {
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+  };
+
+  beforeEach(() => limit._resetForTest());
+  afterEach(() => {
+    limit._resetForTest();
+    delete process.env.CREDENZA_DAILY_COST_CAP_USD;
+    if (globalThis.fetch && globalThis.fetch._stub) delete globalThis.fetch;
+  });
+
+  // Stands in for PostgREST. `total` is what the table holds right now.
+  function stubSupabase(total, { failing = false } = {}) {
+    const calls = [];
+    const stub = async (url, init) => {
+      calls.push({ url: String(url), method: (init && init.method) || "GET" });
+      if (failing) return { ok: false, status: 500, json: async () => null };
+      if (String(url).includes("/rpc/add_daily_spend")) {
+        const body = JSON.parse(init.body);
+        total += Number(body.p_cost) || 0;
+        return { ok: true, status: 200, json: async () => total };
+      }
+      return { ok: true, status: 200, json: async () => [{ cost_usd: total }] };
+    };
+    stub._stub = true;
+    globalThis.fetch = stub;
+    return calls;
+  }
+
+  it("blocks a paid route on spend this instance never saw", async () => {
+    process.env.CREDENZA_DAILY_COST_CAP_USD = "5";
+    stubSupabase(7.5); // another instance already spent it
+    expect(limit._dailyForTest().costUsd).toBe(0); // nothing local
+    const capped = await limit.checkDailyCap("ask", ENV);
+    expect(capped.status).toBe(429);
+    expect(capped.msg).toMatch(/cost ceiling/);
+  });
+
+  it("lets a paid route through below the shared total", async () => {
+    process.env.CREDENZA_DAILY_COST_CAP_USD = "5";
+    stubSupabase(1.25);
+    expect(await limit.checkDailyCap("ask", ENV)).toBeNull();
+  });
+
+  it("never gates an unpaid route", async () => {
+    process.env.CREDENZA_DAILY_COST_CAP_USD = "5";
+    stubSupabase(99);
+    expect(await limit.checkDailyCap("yupoo", ENV)).toBeNull();
+  });
+
+  it("writes each call to the shared row and returns the cost", async () => {
+    const calls = stubSupabase(0);
+    const cost = await limit.recordUsageShared("ask", "claude-sonnet-5", { input_tokens: 1000, output_tokens: 500 }, ENV);
+    expect(cost).toBeCloseTo(0.0105, 6);
+    expect(calls.some((c) => c.url.includes("/rpc/add_daily_spend") && c.method === "POST")).toBe(true);
+    // The local counter still moves — it is the backstop when Supabase is out.
+    expect(limit._dailyForTest().costUsd).toBeCloseTo(0.0105, 6);
+  });
+
+  it("counts spend recorded since the last read, inside the cache window", async () => {
+    process.env.CREDENZA_DAILY_COST_CAP_USD = "0.02";
+    stubSupabase(0);
+    expect(await limit.checkDailyCap("ask", ENV)).toBeNull();
+    await limit.recordUsageShared("ask", "claude-sonnet-5", { input_tokens: 100000, output_tokens: 100000 }, ENV);
+    const capped = await limit.checkDailyCap("ask", ENV);
+    expect(capped.status).toBe(429);
+  });
+
+  it("fails open when Supabase is unreachable", async () => {
+    process.env.CREDENZA_DAILY_COST_CAP_USD = "5";
+    stubSupabase(0, { failing: true });
+    // No shared figure, so no shared block. enter() still applies the memory
+    // ceiling, which is the whole point of keeping it.
+    expect(await limit.checkDailyCap("ask", ENV)).toBeNull();
+  });
+
+  it("fails open when Supabase is not configured at all", async () => {
+    process.env.CREDENZA_DAILY_COST_CAP_USD = "5";
+    expect(await limit.checkDailyCap("ask", {})).toBeNull();
+    // recordUsageShared still counts locally with no store.
+    await limit.recordUsageShared("ask", "claude-sonnet-5", { input_tokens: 1e6, output_tokens: 1e6 }, {});
+    expect(limit._dailyForTest().costUsd).toBeGreaterThan(5);
+    expect(limit.enter("ask", "1.2.3.4").status).toBe(429);
+  });
+});
+
 describe("clientKey", () => {
   it("prefers the Netlify IP header, then the first forwarded hop", () => {
     expect(limit.clientKey({ headers: { "x-nf-client-connection-ip": "9.9.9.9" } })).toBe("9.9.9.9");

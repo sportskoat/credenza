@@ -2,11 +2,25 @@
 //
 // The function key ships in the browser bundle (any visitor can copy it —
 // real accounts arrive in Part 7), so these counters are the only thing
-// between a stranger and Kyle's Anthropic bill. They live in the warm
-// function instance: they stop single-source abuse. A distributed attack
-// needs per-instance counters times instance count — the Anthropic-side
-// spend alert + the daily ceiling below bound the damage. Recorded as a
-// known limitation in docs/session-state.md.
+// between a stranger and Kyle's Anthropic bill.
+//
+// TWO LAYERS, on purpose:
+//
+//   1. The per-minute windows and the concurrency cap live in the warm
+//      function instance. They stop single-source abuse. They are per
+//      instance and that is fine — they are about one caller's pace, not
+//      about a total.
+//
+//   2. The DAILY COST CEILING is shared, in Postgres. It used to be a module
+//      variable here, which meant every warm Netlify instance got its own
+//      private $5 ceiling and the real total was unbounded. `checkDailyCap`
+//      and `recordUsageShared` now read and write one row per UTC day in
+//      public.daily_spend (docs/sql/2026-07-28-daily-spend.sql).
+//
+// The in-memory daily figure is KEPT as a local backstop. When Supabase is
+// absent (local dev, tests) or unreachable, the shared path degrades to it
+// rather than failing the customer's request. A Supabase outage must not take
+// the whole app down, so the shared check fails OPEN to the memory counter.
 
 const ROUTES = {
   // chart-vision carries INLINE photos since handoff turn 9 §3 (a camera frame
@@ -146,6 +160,99 @@ function recordUsage(route, model, usage) {
   return cost;
 }
 
+// ── The shared daily ceiling ────────────────────────────────────────────────
+//
+// One row per UTC day in public.daily_spend, read and written by every
+// instance. See the header for why the memory counter alone was not enough.
+
+// The shared total is cached for a few seconds. Without the cache every paid
+// call pays a Supabase round trip before it starts. The window is short, and
+// spend recorded locally since the last fetch is added on top, so a burst
+// inside one window still counts against the ceiling.
+const SHARED_TTL_MS = 5000;
+
+let shared = { date: null, baseUsd: 0, fetchedAt: 0, sinceFetch: 0 };
+
+function rollShared() {
+  const today = utcToday();
+  if (shared.date !== today) shared = { date: today, baseUsd: 0, fetchedAt: 0, sinceFetch: 0 };
+  return shared;
+}
+
+// Returns the store, or null when Supabase is not configured. Local dev and
+// the test suite hit the null path and fall back to the memory counter.
+function spendStore(env) {
+  if (!env || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    // Required lazily: functions that never touch a paid route should not
+    // load the store at all.
+    const { storeFromEnv } = require("./entitlement-store.js");
+    return storeFromEnv(env);
+  } catch {
+    return null;
+  }
+}
+
+// The site-wide spend for today, or null when the shared figure is not
+// available. Never throws.
+async function sharedSpendUsd(env) {
+  const s = rollShared();
+  const store = spendStore(env);
+  if (!store) return null;
+  if (s.fetchedAt && Date.now() - s.fetchedAt < SHARED_TTL_MS) {
+    return s.baseUsd + s.sinceFetch;
+  }
+  try {
+    const total = await store.loadDailySpend(s.date);
+    s.baseUsd = total;
+    s.sinceFetch = 0;
+    s.fetchedAt = Date.now();
+    return total;
+  } catch {
+    // A Supabase outage must not take the app down. Fail open to the memory
+    // counter, which the caller checks anyway.
+    return null;
+  }
+}
+
+// The paid-route gate. Call this BEFORE enter(). Returns null to proceed, or
+// the same { status, retryAfter, msg } shape enter() uses.
+//
+// enter() still applies the memory ceiling on its own. That stays as the
+// backstop for the case where Supabase is unreachable.
+async function checkDailyCap(route, env) {
+  const cfg = ROUTES[route];
+  if (!cfg || !cfg.paid) return null;
+  const total = await sharedSpendUsd(env);
+  if (total === null) return null;
+  if (total >= dailyCapUsd()) {
+    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached — try again tomorrow" };
+  }
+  return null;
+}
+
+// Record one paid call against BOTH counters. Returns the USD cost.
+//
+// The Supabase write is best-effort and awaited: awaiting keeps the shared
+// figure current for the next request on this instance, and a failure only
+// costs accuracy, never the customer's completed response.
+async function recordUsageShared(route, model, usage, env) {
+  const cost = recordUsage(route, model, usage);
+  const s = rollShared();
+  s.sinceFetch += cost;
+  const store = spendStore(env);
+  if (!store) return cost;
+  try {
+    const total = await store.addDailySpend(s.date, cost);
+    // The RPC hands back the new site-wide total, so take it as the fresh
+    // base instead of waiting for the cache to expire.
+    s.baseUsd = total;
+    s.sinceFetch = 0;
+    s.fetchedAt = Date.now();
+  } catch {}
+  return cost;
+}
+
 // One JSON line per request: route, hashed client key, status, latency, and
 // optional cost. NEVER log URLs, queries, titles, or post text — outcomes
 // only, no private content (Execution-Plan Part 3, task 5).
@@ -169,6 +276,7 @@ function _resetForTest() {
   routeWindows.clear();
   inflight.clear();
   daily = { date: null, costUsd: 0, calls: 0 };
+  shared = { date: null, baseUsd: 0, fetchedAt: 0, sinceFetch: 0 };
 }
 
 module.exports = {
@@ -178,7 +286,10 @@ module.exports = {
   enter,
   leave,
   recordUsage,
+  checkDailyCap,
+  recordUsageShared,
   logOutcome,
   _resetForTest,
   _dailyForTest: () => rollDaily(),
+  _sharedForTest: () => rollShared(),
 };

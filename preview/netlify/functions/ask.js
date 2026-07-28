@@ -91,6 +91,12 @@ async function handle(event) {
     return response(400, { error: "every shelf item must have a string id" });
   }
 
+  // The site-wide spend ceiling, shared across every Netlify instance. It runs
+  // before enter() so a blocked call never takes a concurrency slot.
+  const capped = await limit.checkDailyCap(ROUTE, process.env);
+  if (capped) {
+    return response(capped.status, { error: capped.msg }, { "retry-after": String(capped.retryAfter) });
+  }
   const blocked = limit.enter(ROUTE, limit.clientKey(event));
   if (blocked) {
     return response(blocked.status, { error: blocked.msg }, { "retry-after": String(blocked.retryAfter) });
@@ -211,7 +217,7 @@ async function handle(event) {
     } catch {
       return response(502, { error: "Anthropic returned malformed JSON" });
     }
-    limit.recordUsage(ROUTE, "claude-sonnet-5", modelResponse && modelResponse.usage);
+    await limit.recordUsageShared(ROUTE, "claude-sonnet-5", modelResponse && modelResponse.usage, process.env);
 
     const toolUse =
       Array.isArray(modelResponse.content) &&

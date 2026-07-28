@@ -260,6 +260,12 @@ async function handle(event) {
   }
   const referer = safeReferer(input && input.referer) || fallbackReferer(imageUrls);
 
+  // The site-wide spend ceiling, shared across every Netlify instance. It runs
+  // before enter() so a blocked call never takes a concurrency slot.
+  const capped = await limit.checkDailyCap(ROUTE, process.env);
+  if (capped) {
+    return response(capped.status, { error: capped.msg }, { "retry-after": String(capped.retryAfter) });
+  }
   const blocked = limit.enter(ROUTE, limit.clientKey(event));
   if (blocked) {
     return response(blocked.status, { error: blocked.msg }, { "retry-after": String(blocked.retryAfter) });
@@ -277,7 +283,7 @@ async function handle(event) {
 
     const chart = await readChartWithClaude(apiKey, images, controller.signal).catch(() => null);
     if (!chart) return response(502, { error: "Chart read failed" });
-    limit.recordUsage(ROUTE, MODEL, chart.usage);
+    await limit.recordUsageShared(ROUTE, MODEL, chart.usage, process.env);
     await paidGate.recordPaidUsage(gate, "chartVision");
     const result = chart.result;
     if (!result.found || !result.chartText || !result.chartText.trim()) {
