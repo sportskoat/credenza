@@ -52,6 +52,8 @@ const ALLOWED_LITERAL_DURATIONS = new Set([
   // Ambient loops (not discrete UI).
   "0.85s",
   "1.1s",
+  // Split-rail pick sheen loop (spec Motion: "the pick sheen (6s)").
+  "6s",
   "1.5s",
   "2.4s",
   "2.6s",

@@ -216,6 +216,22 @@ describe("FitReadTable in the detail body", () => {
     expect(container.querySelector(".cz-fitread")).toBe(null);
   });
 
+  it("sheens a chart-read pick, and only that", () => {
+    // The sheen means "this pick came off a real chart". A manual pick and a
+    // chartless fallback both render still.
+    const { container, unmount } = renderBody(fitItem());
+    expect(container.querySelector(".cz-sizing-sheen")).not.toBe(null);
+    unmount();
+
+    const manual = renderBody(fitItem({ size: "XL" }));
+    expect(manual.container.querySelector(".cz-sizing-sheen")).toBe(null);
+    manual.unmount();
+
+    huntMock.mockResolvedValue(null);
+    const ghost = renderBody(fitItem({ sizeNotes: undefined, sizeChartSource: undefined }));
+    expect(ghost.container.querySelector(".cz-sizing-sheen")).toBe(null);
+  });
+
   it("shows the reading footnote and sweep while a photo read is open", async () => {
     // The state machine rides the real request, not a timer: the footnote
     // counts the photos handed to THIS read, and holding the promise open

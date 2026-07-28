@@ -317,6 +317,10 @@ function SizingBlock({
   const heroSize = chosenSize || recSize || usualSize || "";
   const heroLabel = formatSizeToken(heroSize) || heroSize;
 
+  // Split-rail: the sheen marks a pick that came off a real chart. A manual
+  // pick, a best guess, and a read in flight all render still.
+  const sheen = precise && !isManual && !hunting;
+
   // Provenance, right-aligned in the header. Mono, uppercase, and short —
   // the phone gets the trimmed form via CSS, not a second string.
   const provenance = hunting
@@ -358,7 +362,8 @@ function SizingBlock({
         <span className="cz-sizing-prov">{provenance}</span>
       </div>
 
-      <div className="cz-sizing-value-row">
+      <div className={"cz-sizing-value-row" + (sheen ? " has-sheen" : "")}>
+        {sheen ? <span className="cz-sizing-sheen" aria-hidden="true" /> : null}
         {heroLabel ? (
           <span
             className={

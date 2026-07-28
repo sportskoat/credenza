@@ -10230,6 +10230,36 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   min-width: 0;
 }
 
+/* Split-rail pick sheen: a slow 96px band drifting across a chart-read pick.
+   The row clips it (radius 12) so the band never paints outside the pick. */
+.cz-sizing-value-row.has-sheen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.cz-sizing-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -96px;
+  width: 96px;
+  background: linear-gradient(90deg, transparent, var(--cz-sheen), transparent);
+  opacity: 0.85;
+  pointer-events: none;
+  animation: cz-pick-sheen 6s var(--ease-out) infinite;
+}
+@keyframes cz-pick-sheen {
+  to {
+    left: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-sizing-sheen {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}
+
 .cz-sizing-value {
   font-family: var(--cz-display);
   font-size: 21px;
