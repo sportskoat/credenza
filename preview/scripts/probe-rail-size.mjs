@@ -102,7 +102,7 @@ await ppage.getByRole("button", { name: /^Open Arc Shorts$/ }).first().click({ f
 await ppage.waitForTimeout(1400);
 await ppage.evaluate(() => {
   const s = document.querySelector(".cz-detail-modal .cz-detail-scroll");
-  if (s) s.scrollTop = 1150;
+  if (s) s.scrollTop = 2100;
 });
 await ppage.waitForTimeout(500);
 await ppage.screenshot({ path: join(outDir, "rail-1-phone-size.png") });

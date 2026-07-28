@@ -13104,6 +13104,56 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     font-weight: 500;
   }
 
+  /* Sub line (spec :84): SELLER · SAVED <date> in 10px mono, uppercase. */
+  .cz-dpanel-body .cz-detail-sub {
+    margin-top: 5px;
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+  }
+
+  /* Chart actions (spec :102): two 32px pills in a row — the upload is the
+     black primary, the measurements edit stays an outlined secondary. The
+     coarse-pointer floor becomes an ::after ring, as on the size chips.
+     The phone keeps them stacked at 44px (spec :171). */
+  .cz-dpanel-body .cz-detail-chart-actions {
+    flex-wrap: nowrap;
+  }
+
+  .cz-dpanel-body .cz-detail-chart-upload,
+  .cz-dpanel-body .cz-detail-profile-sizes {
+    position: relative;
+    min-height: 32px;
+    height: 32px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+
+  .cz-dpanel-body .cz-detail-chart-upload::after,
+  .cz-dpanel-body .cz-detail-profile-sizes::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+
+  .cz-dpanel-body .cz-detail-chart-upload {
+    border-color: var(--cz-action-fill);
+    background: var(--cz-action-fill);
+    color: var(--cz-action-text);
+    font-weight: 600;
+  }
+
+  .cz-dpanel-body .cz-detail-profile-sizes {
+    font-weight: 500;
+  }
+
   /* Column B field pattern (spec :127). Label 10px mono over a 32px control. */
   .cz-dpanel-body .cz-detail-facts .cz-detail-panel-field,
   .cz-dpanel-body .cz-detail-facts .cz-haul-acc .cz-field-label {
