@@ -4281,6 +4281,49 @@ function CredenzaApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Settings deep links (CH-12). Settings is a modal stack, not a page, so a
+  // /settings URL is an entrance, not state: on boot it opens the right sheet
+  // over the shelf and the address goes back to "/". One-way on purpose —
+  // pushing history for every sheet would fight the phone back button, and
+  // the sheets already have their own Back. Sizes and fit follow the same
+  // breakpoint split as openSizesDestination; everything else Profile owns.
+  useEffect(() => {
+    const m = /^\/settings(?:\/([a-z]+))?\/?$/.exec(window.location.pathname);
+    if (!m) return;
+    try {
+      window.history.replaceState(null, "", "/");
+    } catch {}
+    const section = m[1] || "";
+    const sub = {
+      sizes: "sizes",
+      fit: "fit",
+      agent: "agent",
+      shelf: "import",
+      data: "import",
+      import: "import",
+      links: "links",
+    }[section];
+    if (sub === "sizes" || sub === "fit") {
+      if (isPhone) {
+        setSettingsSubPage(sub);
+        setSettingsSheetOpen(true);
+      } else {
+        setProfileSubPage(sub);
+        setProfileOpen(true);
+      }
+    } else if (sub) {
+      setProfileSubPage(sub);
+      setProfileOpen(true);
+    } else if (!section || section === "account" || section === "about") {
+      // The list itself. The phone's list is the Settings sheet; the desktop
+      // list is the full Profile sheet. Account and about are Profile rows
+      // on both.
+      if (isPhone && !section) setSettingsSheetOpen(true);
+      else setProfileOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const accountSendMagicLink = async (email) => {
     await sendMagicLink(email);
   };

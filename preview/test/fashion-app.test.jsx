@@ -2008,3 +2008,45 @@ describe("Phone sheet split (Kyle 2026-07-25)", () => {
     expect(screen.queryByRole("button", { name: /Fit summary/ })).toBeNull();
   });
 });
+
+// CH-12: /settings/<section> is deep-linkable. Settings stays a modal stack,
+// so the URL is an entrance: boot opens the right sheet over the shelf and
+// the address returns to "/". The netlify.toml fallback (also CH-12) is what
+// lets these paths reach the app in production at all.
+describe("Settings deep links (CH-12)", () => {
+  it("/settings/sizes opens the measurements page directly on desktop", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    window.history.replaceState(null, "", "/settings/sizes");
+    render(<Credenza />);
+    expect(await screen.findByRole("dialog", { name: "Sizes and measurements" })).toBeInTheDocument();
+    // The URL is an entrance, not state — it must not stick.
+    expect(window.location.pathname).toBe("/");
+  });
+
+  it("/settings/sizes opens the same page on the phone, inside Settings", async () => {
+    window.__setMediaMatches("(max-width: 767px)", true);
+    try {
+      installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+      window.history.replaceState(null, "", "/settings/sizes");
+      render(<Credenza />);
+      expect(await screen.findByRole("dialog", { name: "Sizes and measurements" })).toBeInTheDocument();
+    } finally {
+      window.__setMediaMatches("(max-width: 767px)", false);
+    }
+  });
+
+  it("/settings alone opens the Profile sheet on desktop", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    window.history.replaceState(null, "", "/settings");
+    render(<Credenza />);
+    expect(await screen.findByRole("dialog", { name: "Profile" })).toBeInTheDocument();
+  });
+
+  it("a path outside /settings opens nothing", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    window.history.replaceState(null, "", "/setting");
+    render(<Credenza />);
+    await screen.findByRole("listbox", { name: "Card carousel" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});

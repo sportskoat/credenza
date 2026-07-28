@@ -27,6 +27,20 @@
   to = "/.netlify/functions/share-page"
   status = 200
 
+# Settings deep links (CH-12). /settings and /settings/<section> are app
+# entrances, not files on disk — serve the app and let the boot effect open
+# the right sheet. Only this prefix falls back: a genuinely wrong URL
+# anywhere else must still 404.
+[[redirects]]
+  from = "/settings/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/settings"
+  to = "/index.html"
+  status = 200
+
 # Discovery files
 [[headers]]
   for = "/sitemap.xml"
