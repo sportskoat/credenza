@@ -2,6 +2,30 @@
 
 Date: 2026-07-28. Author: Fable 5 session. Tree is clean at `9c958db`, all pushed.
 
+## STATUS: COMPLETE (Opus 5 session, 2026-07-28)
+
+Increments (b) through (e) are done, gated and pushed. Every commit is CSS-only.
+
+- `3248615` desktop split body
+- `d511698` desktop modal frame
+- `0514fa3` desktop footer
+- `eed6c3c` phone size chips
+- `9de9f2f` phone facts rows
+- `00971d8` phone buy bar
+- `9ea489c` phone status segment
+- `315e0ac` phone hero, title, actions and note
+- `22a75a2` phone body gutter
+
+Gates hold at baseline after every commit: 2347 tests / 78 files pass, lint 0
+errors 4 warnings, typecheck 0, build 0.
+
+Spec interactions (:185-200) were checked against the code, not assumed. All
+five already hold: a size chip never rewrites the AI pick; the accordions close
+each other; a status pill jumps directly; `FIND_STATUS_NEXT` clamps at Received;
+`buildTimeline` picks its size copy from the chart state.
+
+Open deviations are listed under "Flags" at the end of this file.
+
 ## The task
 
 Implement the spec at `/Users/kylewensel/Desktop/design_handoff_item_detail_split_rail/README.md` (303 lines).
@@ -187,3 +211,17 @@ against the current code before you assume it is missing.
 - FIT_DETAIL fixed by CH-14.
 - The Credenza auth secret was exposed in a chat. Rotation is Kyle's action — remind him.
 - No Netlify deploys were run (Rule B).
+
+New in the Opus 5 session:
+
+- The photo column is now 372px, per the new spec. The 470px value came from an
+  older handoff. This is a real visual change Kyle can veto.
+- The CSS contains dead `[data-theme="dark"]` selectors. The live palette keys
+  are `light` and `rainbow`. The new modal shadow is scoped to `light`.
+- Phone Colorway stays a free-text input. The spec wants a chip row, but the app
+  has no fixed colorway option set, so chips would drop seller-named colorways.
+  Haul already expands chips in place.
+- The spec's 26px g/kg segment keeps a 44px hit area through an `::after`
+  pseudo-element. The 34px status pills use the same trick.
+- The phone fit scale drops `TRUE` by CSS, not by markup. The test that asserts
+  `TIGHT` still passes.
