@@ -225,3 +225,36 @@ describe("Measurements are big and grouped (LB-70)", () => {
     expect(Number(height[1])).toBeGreaterThanOrEqual(48);
   });
 });
+
+describe("The referral disclosure sits on the plan card (CH-15)", () => {
+  it("is visible on the free plan card without expanding anything", () => {
+    const { container } = renderProfile({
+      accountEnabled: true,
+      accountSession: { user: { email: "kyle@example.com" } },
+      accountPlan: { state: "free" },
+      onUpgrade: noop,
+      onPortal: noop,
+      onSignOut: noop,
+      onDeleteAccount: noop,
+    });
+    expect(
+      within(container).getByText(
+        /Pro is a cap lift, not a key\. Some agent links carry a referral code that funds the app\. It never changes your price\./
+      )
+    ).toBeTruthy();
+  });
+
+  it("does not show upgrade copy to a Pro member", () => {
+    const { container } = renderProfile({
+      accountEnabled: true,
+      accountSession: { user: { email: "kyle@example.com" } },
+      accountPlan: { state: "pro" },
+      onUpgrade: noop,
+      onPortal: noop,
+      onSignOut: noop,
+      onDeleteAccount: noop,
+    });
+    expect(within(container).queryByText(/cap lift, not a key/)).toBeNull();
+    expect(within(container).getByText("Manage billing")).toBeTruthy();
+  });
+});

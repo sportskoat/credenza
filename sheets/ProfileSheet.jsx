@@ -225,6 +225,14 @@ export default function ProfileSheet({
                 {PRICING.yearlySaving} on yearly · {PRICING.yearlyPerMonth}
               </div>
               <div className="cz-profile-upgrade-note">{PRICING.weeklyTrialNote}</div>
+              {/* The referral disclosure must be readable here, in the open,
+                  before the first tap — not behind an expander. The buy-link
+                  copy in DetailBody/AgentSheet stays the canonical wording for
+                  its own surface; this line is about the purchase decision. */}
+              <div className="cz-profile-upgrade-note">
+                Pro is a cap lift, not a key. Some agent links carry a referral code that
+                funds the app. It never changes your price.
+              </div>
             </>
           )}
           {isPro && (
