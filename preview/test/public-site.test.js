@@ -1275,6 +1275,7 @@ describe("every page tells a machine what kind of page it is", () => {
     // deleted... Only new additions go back to the free caps" and no other page
     // said what that means for a haul, a share link, or a second device.
     "guides/what-happens-when-pro-ends/index.html": "Article",
+    "guides/two-kg-haul-shipping-cost/index.html": "HowTo",
     "how/stash-from-your-phone/index.html": "HowTo",
   };
 

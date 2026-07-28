@@ -95,6 +95,7 @@ built twice.
 | **What an unlisted link hides** | **share a link with no preview (~400)** | `/guides/what-an-unlisted-link-hides/` |
 | **Delete a shared haul link** | **delete a shared link (~350)** | `/guides/delete-a-shared-link/` |
 | **What happens when Pro ends** | **what happens when subscription ends (~400)** | `/guides/what-happens-when-pro-ends/` |
+| **What a 2 kg haul costs to ship** | **2kg haul shipping cost (~500)** | `/guides/two-kg-haul-shipping-cost/` |
 | Hub | — | `/guides/` |
 
 Yupoo was the largest uncovered head term on the site until 2026-07-27: ~12k a
