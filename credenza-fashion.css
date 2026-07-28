@@ -11846,6 +11846,51 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
+/* ── Phone buy bar (split-rail spec :179) ──
+   Buy is 48px, the caret segment is 46px, and the bar keeps the home-indicator
+   inset. The agent picker stops being a floating card: on a phone it is a
+   wrapping chip row that opens directly above the bar, so the choice sits next
+   to the button it changes instead of over the sheet. */
+@media (max-width: 767px) {
+  .cz-detail-foot {
+    padding: 11px 16px 22px;
+    padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  }
+  .cz-detail-foot-row .cz-detail-buy { height: 48px; }
+  .cz-detail-foot-price { height: 48px; }
+  .cz-buy-notch-toggle { flex: 0 0 46px; }
+  /* right:0 anchors the row to the bar. width:max-content lets it reach back
+     across the price box, so a long agent name never wraps to one chip a line. */
+  .cz-agent-pop {
+    left: auto;
+    right: 0;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    padding: 8px;
+    border-radius: 14px;
+  }
+  .cz-agent-pop-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: min(38vh, 220px);
+  }
+  .cz-agent-pop-row {
+    flex: 0 0 auto;
+    gap: 7px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 999px;
+    background: var(--cz-card-solid);
+    font-size: 13px;
+  }
+  .cz-agent-pop-row.is-active {
+    border-color: var(--cz-money);
+    background: var(--cz-seg);
+  }
+}
+
 /* ═══ Fix B — two-column desktop detail panel (handoff turn 4) ═══
    Above the phone breakpoint the expanded card never flips: contain-fit photo
    stage on the left, the shared DetailBody on the right. The JS gate is
