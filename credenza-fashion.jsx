@@ -1156,7 +1156,9 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       key,
       name: FIT_READ_LABELS[key] || key,
       theirs,
-      yours,
+      // Option B (Kyle 2026-07-29): a short sleeve shows only the garment
+      // number. The arm length measures a different thing, so YOURS hides.
+      yours: infoOnly ? null : yours,
       ease,
       mark,
       warn,

@@ -118,7 +118,9 @@ describe("fitReadRows", () => {
     const rows = fitReadRows(chart, rec, profile, "shirt", "Vintage band tee");
     const sleeve = rows.find((r) => r.key === "sleeve");
     expect(sleeve.theirs).toBe(22);
-    expect(sleeve.yours).toBe(62);
+    // Option B (Kyle 2026-07-29): the arm length measures a different thing,
+    // so YOURS hides on a short sleeve. Only the garment number shows.
+    expect(sleeve.yours).toBe(null);
     expect(sleeve.ease).toBe(null);
     expect(sleeve.mark).toBe(null);
     expect(sleeve.warn).toBe(false);
@@ -130,6 +132,7 @@ describe("fitReadRows", () => {
     const rec = recommendSize(chart, profile, "shirt", null, null, "短袖T恤");
     const rows = fitReadRows(chart, rec, profile, "shirt", "短袖T恤");
     const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve.yours).toBe(null);
     expect(sleeve.ease).toBe(null);
     expect(sleeve.warn).toBe(false);
   });
