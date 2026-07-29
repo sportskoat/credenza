@@ -1143,6 +1143,10 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     const yours = rawYours != null && isFinite(rawYours) ? rawYours : null;
     if (theirs == null && yours == null) continue;
     const infoOnly = shortSleeve && key === "sleeve";
+    // Oom 2026-07-29: a ragged chart can give the picked size no sleeve
+    // number. The row would survive the test above on a body arm length,
+    // then lose YOURS to the info-only rule and print "Sleeve — — —".
+    if (infoOnly && theirs == null) continue;
     const target = infoOnly ? null : FIT_READ_EASE[key] || null;
     const ease = infoOnly ? null : theirs != null && yours != null ? theirs - yours : null;
     let mark = null;

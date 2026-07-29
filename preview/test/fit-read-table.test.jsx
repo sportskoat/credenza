@@ -160,6 +160,17 @@ describe("fitReadRows", () => {
     expect(sleeve.warn).toBe(true);
   });
 
+  it("drops the sleeve row when a ragged chart has no sleeve number", () => {
+    // Oom 2026-07-29: short-sleeve title + a chart with no sleeve column.
+    // The row would keep only the body arm length, then lose YOURS to the
+    // info-only rule and print "Sleeve — — —". It must not render at all.
+    const chart = parseSizeChart("M: chest 116, length 70\nL: chest 120, length 72");
+    const profile = { chest: 105, sleeve: 62 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "Vintage band tee");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "Vintage band tee");
+    expect(rows.find((r) => r.key === "sleeve")).toBe(undefined);
+  });
+
   it("applies the number rule with no title word: polo with 24 cm sleeves", () => {
     const chart = parseSizeChart(
       "M: chest 116, shoulder 46, length 70, sleeve 24\nL: chest 120, shoulder 48, length 72, sleeve 25"
