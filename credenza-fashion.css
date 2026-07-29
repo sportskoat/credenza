@@ -1584,7 +1584,11 @@
   padding: 14px 16px;
   border: 1px solid var(--cz-hair);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--cz-card-solid) 86%, white 4%);
+  /* The two percentages used to read 86% + 4%. CSS multiplies the result's
+     alpha by their sum, so every row came out 90% opaque and let the layer
+     behind it bleed through (Kyle 2026-07-29). The lift toward white was the
+     intent; the see-through was not. */
+  background: color-mix(in srgb, white 4%, var(--cz-card-solid));
   color: var(--cz-ink);
   font: inherit;
   font-size: 14px;
@@ -13940,7 +13944,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
     position: absolute;
     top: 42px;
     right: 0;
-    z-index: 2;
+    /* Kyle 2026-07-29: the menu read "too transparent". It was not — it drew
+       UNDER the command bar (.cz-dpanel-bar, z-index 6) and the footer agent
+       picker (.cz-agent-pop, z-index 6), so their chips and the seller link
+       painted on top of the rows. Both share this stacking context, so the
+       menu has to out-rank them. Raise this if either of those rises. */
+    z-index: 12;
     width: 240px;
     padding: 8px;
     border: 1px solid var(--cz-hair);
@@ -13949,6 +13958,15 @@ input.cz-sizing-cell.is-custom:focus-visible {
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
     display: grid;
     gap: 2px;
+  }
+  /* The rows sit on the opaque menu, so nothing behind them shows through.
+     The danger row's tint is 16% red on its own; over the menu that reads as
+     a hint of red rather than a warning, so it is blended solid here. */
+  .cz-dpanel-menu .cz-card-action-row.danger {
+    background: color-mix(in srgb, var(--cz-error-bg) 55%, var(--cz-card-solid));
+  }
+  .cz-dpanel-menu .cz-card-action-row.danger:hover {
+    background: color-mix(in srgb, var(--cz-error-bg) 80%, var(--cz-card-solid));
   }
   .cz-dpanel-menu-haul {
     display: grid;
@@ -14052,7 +14070,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
        rendered card inside 86% of the window, same as a 125% browser zoom. */
     width: min(68.8vw, 1080px);
     height: auto;
-    min-height: 540px;
+    /* 540 → 508: the header and the bar gave back ~32px, and a sparse card
+       used to hold the old floor and show the slack (Kyle 2026-07-29). */
+    min-height: 508px;
     max-height: min(68.8vh, 820px);
     /* Kyle 2026-07-28: at 100% browser zoom the card's type read small; the
        125% browser-zoom frame was the better read. Render the card at that
@@ -14073,6 +14093,8 @@ input.cz-sizing-cell.is-custom:focus-visible {
   .cz-dpanel-left {
     border-right: 1px solid var(--cz-hair);
     border-bottom: none;
+    /* The photo rises with the rail beside it (Kyle 2026-07-29). */
+    padding-top: 12px;
   }
   .cz-dpanel-lognotes {
     display: flex;
@@ -14127,7 +14149,10 @@ input.cz-sizing-cell.is-custom:focus-visible {
     align-items: flex-start;
     gap: 16px;
     grid-column: 1 / -1;
-    padding: 14px 16px 10px;
+    /* Kyle 2026-07-29: "too much white space at the top". The title used to
+       start 30px down (14px here + the title row's own 16px margin). The row
+       drops that margin below, so this padding is the only top gap. */
+    padding: 10px 16px 6px;
   }
   .cz-dpanel-title-slot {
     flex: 1 1 auto;
@@ -14138,9 +14163,23 @@ input.cz-sizing-cell.is-custom:focus-visible {
     padding: 0;
   }
   /* The head is a plain flex row here, not a floated corner, so the title
-     needs no reserve beside it. */
+     needs no reserve beside it. The 16px top margin is the phone stack's, and
+     in the header row it only doubled the padding above (Kyle 2026-07-29). */
   .cz-dpanel-header .cz-detail-title-row {
     padding-right: 0;
+    margin-top: 0;
+  }
+  /* A 29px title measures ~35px, so a 44px tap box left ~9px of dead room
+     UNDER the words and pushed the seller · saved line away from the title.
+     The panel renders at zoom 1.25, so 36px here is 45px on screen — still
+     above the 44px touch floor — and centring splits what remains. */
+  .cz-dpanel-header .cz-detail-title-btn {
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+  }
+  .cz-dpanel-header .cz-detail-sub {
+    margin-top: 2px;
   }
   /* ── The command bar's own row (handoff §3) ── The bar spans the whole
      panel, above the photo column and the decision column. Inside the
@@ -14160,7 +14199,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
        its own bottom border and its inline top margin. */
     flex-wrap: nowrap;
     margin-top: 0;
-    padding: 11px 0;
+    /* 11px → 8px: the chips are 34px tall, so the row still clears the hairline
+       above and below, and the photo starts 6px higher (Kyle 2026-07-29). */
+    padding: 8px 0;
     border-bottom: none;
   }
   /* Spec :56 shadow, Gallery only. Blackout keeps the deeper shadow from the
@@ -14168,9 +14209,10 @@ input.cz-sizing-cell.is-custom:focus-visible {
   .cz-app[data-theme="light"] .cz-dpanel {
     box-shadow: 0 24px 60px rgba(23, 24, 26, 0.16);
   }
-  /* Spec :77 — the rail's own padding and rhythm. */
+  /* Spec :77 — the rail's own padding and rhythm. The top drops 18px → 12px so
+     the right-hand rail starts level with the photo (Kyle 2026-07-29). */
   .cz-dpanel-body .cz-detail-scroll {
-    padding: 18px 20px 0;
+    padding: 12px 20px 0;
   }
 
   /* ── Footer (spec :140–150) ── The disclosure moves inline to the right of
@@ -14234,6 +14276,21 @@ input.cz-sizing-cell.is-custom:focus-visible {
   }
   .cz-dpanel-body .cz-detail-foot .cz-buy-notch .cz-detail-buy {
     border-radius: 0;
+  }
+  /* Kyle 2026-07-29: "you can't see the buy button for changing an agent".
+     The chevron segment was invisible on this panel. The rule above gives Buy
+     `flex: 0 0 auto` so it takes the width of its own words — inside the notch
+     that made Buy fill the whole control, and the 42px chevron fell outside
+     the notch, where `overflow: hidden` clipped it away. Buy goes back to
+     sharing the notch here, and the wrapper carries a floor wide enough for
+     the longest agent word ("Buy via AllChinaBuy") PLUS the chevron, so the
+     label never wraps to a second line. */
+  .cz-dpanel-body .cz-detail-foot .cz-buy-notch-wrap {
+    min-width: 240px;
+  }
+  .cz-dpanel-body .cz-detail-foot .cz-buy-notch .cz-detail-buy {
+    flex: 1 1 auto;
+    white-space: nowrap;
   }
   .cz-dpanel-body .cz-detail-foot .cz-buy-notch-toggle {
     flex: 0 0 42px;

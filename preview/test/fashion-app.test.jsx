@@ -579,15 +579,16 @@ describe("Desktop sizing destination", () => {
   });
 });
 
-// Round 4 point 2 (2026-07-29): category left the facts rail. The app keeps
-// its own guess; the ⋯ menu row is the rare fix. This is the CH-07 accept
-// flow (auto value visible, a pick persists with a pin) against its new home.
-describe("Desktop detail category fix (round 4 point 2)", () => {
+// Kyle 2026-07-29: the "Change category" row left the ⋯ menu. The command
+// bar's Category chip is now the only way in. This is the CH-07 accept flow
+// (the chip states the auto value, a pick persists with a pin) against its
+// new home.
+describe("Desktop detail category chip", () => {
   beforeEach(() => window.__setMediaMatches("(min-width: 768px)", true));
   afterEach(() => window.__setMediaMatches("(min-width: 768px)", false));
 
-  it("the ⋯ menu category row shows the auto value and a pick persists with a pin", async () => {
-    const data = installShim({
+  it("the ⋯ menu no longer offers a category row", async () => {
+    installShim({
       [STORE_KEY]: JSON.stringify([fashionItem({ category: "shirt" })]),
     });
     const user = userEvent.setup();
@@ -598,31 +599,40 @@ describe("Desktop detail category fix (round 4 point 2)", () => {
     await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
 
     await user.click(screen.getByRole("button", { name: "Card actions" }));
-    await user.click(screen.getByRole("menuitem", { name: "Change category" }));
+    expect(screen.queryByRole("menuitem", { name: "Change category" })).toBeNull();
+  });
 
-    // CH-07 accept: the auto-detected value is visible without opening the list.
-    const popover = await screen.findByRole("dialog", { name: "Change category" });
-    const row = within(popover).getByRole("button", { name: "Category: Shirts. Change." });
-    expect(row.className).toContain("cz-catselect-btn");
-    expect(within(row).getByText("auto")).toBeInTheDocument();
+  it("the bar chip shows the auto value and a pick persists with a pin", async () => {
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ category: "shirt" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
 
-    await user.click(row);
-    const list = within(popover).getByRole("listbox", { name: "Category" });
-    const shirts = within(list).getByRole("option", { name: "Shirts" });
-    expect(shirts).toHaveAttribute("aria-selected", "true");
-    await user.click(within(list).getByRole("option", { name: "Pants" }));
+    await user.click(await screen.findByRole("button", { name: "Grid view" }));
+    await user.click(await screen.findByRole("button", { name: "Open Palace x Nike jersey" }));
+    await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
+
+    // CH-07 accept: the detected value is visible without opening the list.
+    const chip = document.querySelector('[data-chip="category"]');
+    expect(chip.textContent).toContain("Shirts");
+
+    await user.click(chip);
+    const list = await screen.findByRole("menu", { name: "Category" });
+    expect(
+      within(list).getByRole("menuitemradio", { name: "Shirts" })
+    ).toHaveAttribute("aria-checked", "true");
+    await user.click(within(list).getByRole("menuitemradio", { name: "Pants" }));
 
     await waitFor(() => {
       const saved = JSON.parse(data[STORE_KEY] || "[]");
       expect(saved[0].category).toBe("pants");
       expect(saved[0].categoryManual).toBe(true);
     });
-    // The pick closes the popover; reopening shows the pick, auto tag dropped.
-    await user.click(screen.getByRole("button", { name: "Card actions" }));
-    await user.click(screen.getByRole("menuitem", { name: "Change category" }));
-    const reopened = await screen.findByRole("dialog", { name: "Change category" });
-    const picked = within(reopened).getByRole("button", { name: "Category: Pants. Change." });
-    expect(within(picked).queryByText("auto")).toBeNull();
+    // The pick closes the list; the chip states the pick.
+    await waitFor(() => {
+      expect(document.querySelector('[data-chip="category"]').textContent).toContain("Pants");
+    });
   });
 });
 

@@ -4,7 +4,7 @@
 // the right. The rack keeps its frozen physics; this is only the expanded
 // layer. Below 1024px the app keeps the flip card / phone sheet.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Share2, Tag, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Share2, Trash2, X } from "lucide-react";
 import {
   RELAY_MAX,
   DETAIL_PHOTO_CAP,
@@ -15,7 +15,6 @@ import {
 } from "../credenza-fashion.jsx";
 import DetailBody from "./DetailBody.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
-import { CategorySelect } from "./atoms.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import { useBodyScrollLock } from "./useBodyScrollLock.js";
@@ -68,9 +67,6 @@ export default function DesktopDetailPanel({
   // hero pager used to provide). photoView = { startIndex } | null.
   const [photoView, setPhotoView] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Round 4 point 2: category left the facts rail. The "..." menu holds the
-  // rare fix — a small popover with the shared CategorySelect.
-  const [catOpen, setCatOpen] = useState(false);
   // Round 4 point 7: photo URLs that failed to load. Tracked per URL, not
   // per item, so one bad photo never hides the good ones.
   const [badPhotos, setBadPhotos] = useState(() => new Set());
@@ -264,18 +260,17 @@ export default function DesktopDetailPanel({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [photoIdx, goTo, onStepItem, onDelete, item.id]);
 
-  // Click-away closes the ⋯ menu and the category popover.
+  // Click-away closes the ⋯ menu.
   useEffect(() => {
-    if (!menuOpen && !catOpen) return undefined;
+    if (!menuOpen) return undefined;
     const onDown = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setMenuOpen(false);
-        setCatOpen(false);
       }
     };
     window.addEventListener("pointerdown", onDown);
     return () => window.removeEventListener("pointerdown", onDown);
-  }, [menuOpen, catOpen]);
+  }, [menuOpen]);
 
   const price = priceLabel(item);
   const multiPhoto = photos.length > 1;
@@ -336,22 +331,9 @@ export default function DesktopDetailPanel({
               <Share2 size={15} strokeWidth={2.2} aria-hidden="true" />
               <span>Share card</span>
             </button>
-            {/* Round 4 point 2: category left the facts rail. The app
-                keeps its own guess; this row is the rare fix. */}
-            {onSaveEdit ? (
-              <button
-                type="button"
-                role="menuitem"
-                className="cz-card-action-row"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setCatOpen(true);
-                }}
-              >
-                <Tag size={15} strokeWidth={2.2} aria-hidden="true" />
-                <span>Change category</span>
-              </button>
-            ) : null}
+            {/* No "Change category" row here. Kyle 2026-07-29: the command
+                bar owns the Category chip, so a second way in was a
+                duplicate that also overlapped the bar it edits. */}
             {/* Round 4 point 5: photo delete also lives here, so it does
                 not have to sit on every thumbnail. No trash on the
                 cover — same rule as the thumbnail badge. */}
@@ -383,18 +365,6 @@ export default function DesktopDetailPanel({
               <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
               <span>Remove card</span>
             </button>
-          </div>
-        ) : null}
-        {catOpen ? (
-          <div className="cz-dpanel-menu cz-dpanel-catmenu" role="dialog" aria-label="Change category">
-            <CategorySelect
-              value={item.category}
-              isAuto={!item.categoryManual}
-              onChange={(key) => {
-                setCatOpen(false);
-                if (onSaveEdit) onSaveEdit(item.id, { category: key, categoryManual: true });
-              }}
-            />
           </div>
         ) : null}
       </div>
