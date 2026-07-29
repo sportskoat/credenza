@@ -42,6 +42,11 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return; // favicons, thumbnails: straight through
+  // Server functions never enter the cache (site audit 2026-07-29, finding 4).
+  // Their replies are per-account — the cache key is the URL, so it cannot
+  // tell one signed-in visitor from the next, and a later offline session on
+  // the same browser could read an earlier account's reply.
+  if (url.pathname.startsWith("/.netlify/functions/")) return;
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       try {
