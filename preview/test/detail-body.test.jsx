@@ -62,6 +62,9 @@ describe("DetailBody detail facts", () => {
     }
     expect(screen.queryByRole("region", { name: "Size" })).toBeNull();
     const fit = screen.getByRole("region", { name: "Size and fit" });
+    // Round 5 point 5.7: the odd-size box hides behind a quiet link; one tap
+    // opens it. It is never gone — an odd size still has a field.
+    fireEvent.click(within(fit).getByRole("button", { name: "Type a different size" }));
     expect(within(fit).getByLabelText("Custom item size")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Colorway" })).toBeInTheDocument();
     expect(screen.getByLabelText("Weight · g")).toBeInTheDocument();
@@ -134,6 +137,9 @@ describe("DetailBody detail facts", () => {
     const onSaveEdit = vi.fn();
     render(body(item("custom-enter", { batch: "Stored Batch" }), { onSaveEdit }));
 
+    // Round 5 point 5.7: open the odd-size box first — it hides behind a
+    // quiet link until asked for.
+    fireEvent.click(screen.getByRole("button", { name: "Type a different size" }));
     const input = screen.getByLabelText("Custom item size");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "  3XL  " } });
@@ -153,6 +159,8 @@ describe("DetailBody detail facts", () => {
     const onSaveEdit = vi.fn();
     render(body(item("custom-blur"), { onSaveEdit }));
 
+    // Round 5 point 5.7: the box opens from the quiet link.
+    fireEvent.click(screen.getByRole("button", { name: "Type a different size" }));
     const input = screen.getByLabelText("Custom item size");
     fireEvent.change(input, { target: { value: "One size" } });
     fireEvent.blur(input);

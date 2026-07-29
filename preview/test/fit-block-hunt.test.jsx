@@ -9,7 +9,7 @@
 // The hunt starts when the detail opens. The Size tab keeps the item size,
 // recommendation, and seller chart together. No extra route opens the chart.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
 
@@ -128,7 +128,9 @@ describe("FitBlock chart hunt", () => {
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     const section = screen.getByRole("region", { name: "Size and fit" });
     // Round 4 point 1: the size override lives inside this section, beside
-    // the big size word — the rail "Size" section is gone.
+    // the big size word — the rail "Size" section is gone. Round 5 point 5.7:
+    // the odd-size box hides behind a quiet link; one tap opens it.
+    fireEvent.click(within(section).getByRole("button", { name: "Type a different size" }));
     expect(within(section).getByLabelText("Custom item size")).toBeInTheDocument();
     expect(
       screen.getByText("The listing had no measurements. Upload the seller chart to read its measurements.")
@@ -178,6 +180,8 @@ describe("FitBlock chart hunt", () => {
     expect(screen.getByText("your usual · not verified")).toBeInTheDocument();
     expect(screen.getAllByText("Large").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: "Large" })).toBeInTheDocument();
+    // Round 5 point 5.7: the odd-size box hides behind a quiet link.
+    fireEvent.click(screen.getByRole("button", { name: "Type a different size" }));
     expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
   });
 });

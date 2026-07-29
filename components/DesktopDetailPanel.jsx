@@ -14,7 +14,6 @@ import {
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 import DetailBody from "./DetailBody.jsx";
-import { SellerLink } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import { CategorySelect } from "./atoms.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
@@ -281,7 +280,6 @@ export default function DesktopDetailPanel({
     photos.length
   );
   const moreCount = Math.max(0, albumKnown - photos.length);
-  const categoryLabel = (item.category ? String(item.category) : "garment").toUpperCase();
 
   const pickPhotoFile = async (file) => {
     if (!file || !onAttachPhoto) return;
@@ -487,15 +485,20 @@ export default function DesktopDetailPanel({
             </div>
             <div className="cz-dpanel-thumb-side">
               <div className="cz-dpanel-thumb-side-text">
-                <span className="cz-dpanel-cat">{categoryLabel}</span>
+                {/* Round 5 point 5.6 (2026-07-29): the item-type word ("SHIRT",
+                    "OTHER") read as a broken button and carried no label. It
+                    is gone — "Change category" in the "..." menu is the one
+                    place the type lives. The "n MORE" count stays. */}
                 {moreCount > 0 ? (
                   <span className="cz-dpanel-more">{moreCount} MORE</span>
                 ) : null}
               </div>
             </div>
           </div>
-          {/* Album opens the full-screen pager; seller is the store link.
-              Replaces the old 2-up AlbumLinksRow tiles on this panel only. */}
+          {/* Album opens the full-screen pager. Round 5 point 5.5: the seller
+              name showed three times — header, here, timeline. The header
+              keeps it; this column copy is gone. The one store link left is
+              the rail's Seller row. */}
           <div className="cz-dpanel-meta">
             <button
               type="button"
@@ -507,11 +510,6 @@ export default function DesktopDetailPanel({
               </span>
               <span className="cz-dpanel-meta-kicker">ALBUM</span>
             </button>
-            <span className="cz-dpanel-meta-div" aria-hidden="true" />
-            <div className="cz-dpanel-meta-seller">
-              <SellerLink item={item} className="cz-dpanel-meta-name" />
-              <span className="cz-dpanel-meta-kicker">SELLER</span>
-            </div>
           </div>
           {/* Wide screens use the spare photo-column depth for the shared
               Timeline + Notes tree; DetailBody still owns its draft writer. */}

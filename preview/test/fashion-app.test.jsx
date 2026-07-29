@@ -1508,8 +1508,10 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(within(sheet).queryByRole("region", { name: "Size" })).toBeNull();
     expect(within(sheet).queryByRole("region", { name: "Category" })).toBeNull();
     expect(within(sheet).queryByRole("region", { name: "Batch" })).toBeNull();
-    // The size override is visible with no tap, inside the fit section.
+    // The size override sits inside the fit section. Round 5 point 5.7: the
+    // odd-size box hides behind a quiet link; one tap opens it.
     const fit = within(sheet).getByRole("region", { name: "Size and fit" });
+    await user.click(within(fit).getByRole("button", { name: "Type a different size" }));
     expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toBeInTheDocument();
   });
 
@@ -1561,6 +1563,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
       "aria-pressed",
       "true"
     );
+    // Round 5 point 5.7: the box hides behind the link and keeps the copied
+    // chip value when opened.
+    await user.click(within(fit).getByRole("button", { name: "Type a different size" }));
     expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
     expect(within(sheet).queryByRole("region", { name: "Size" })).toBeNull();
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
@@ -1690,6 +1695,8 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await user.click(screen.getByRole("button", { name: /^Large/ }));
 
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].size).toBe("L"));
+    // Round 5 point 5.7: open the odd-size box; it mirrors the chip pick.
+    await user.click(screen.getByRole("button", { name: "Type a different size" }));
     expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("L");
   });
 
@@ -1756,10 +1763,12 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
   });
 
   // ── Handoff turn 9 §4 ──
-  it("both album links return, to two different destinations", async () => {
+  it("the album link returns, and the seller store keeps its own destination", async () => {
     // §4: "These are two different destinations and must not be merged."
-    // Left opens every photo of THIS item; right opens the seller's store.
-    // Merging them is what lost the seller's profile.
+    // Round 5 point 5.5 (2026-07-29): the seller name showed three times —
+    // header, this row, timeline — so the seller tile left the row. The two
+    // destinations stay unmerged: the album opens here, the store opens from
+    // the rail's Seller row.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -1767,14 +1776,14 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     const row = document.querySelector(".cz-album-links");
     const tiles = row.querySelectorAll("a.cz-album-link-tile");
-    expect(tiles).toHaveLength(2);
+    expect(tiles).toHaveLength(1);
     expect(tiles[0].getAttribute("href")).toBe(
       "https://mook-official.x.yupoo.com/albums/244505824?uid=1"
     );
-    expect(tiles[1].getAttribute("href")).toBe("https://mook-official.x.yupoo.com/");
-    // The kickers name the KIND of destination, so the two never read alike.
     expect(tiles[0].textContent).toContain("All photos");
-    expect(tiles[1].textContent).toContain("Seller");
+    // The store destination survives in the rail, as its own link.
+    const store = screen.getByRole("link", { name: "Open Mook-official listings" });
+    expect(store.getAttribute("href")).toBe("https://mook-official.x.yupoo.com/");
   });
 
   it("the album row sits under the photo strip, not at the bottom of the rail", async () => {

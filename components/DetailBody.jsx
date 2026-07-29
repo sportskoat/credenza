@@ -880,6 +880,15 @@ function listPhrase(words) {
 
 function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidden = false, customSize, onCustomChange, onCommit, onPick }) {
   const choices = chipSizes(runValues, chosenSize || recommendedSize);
+  // Round 5 point 5.7: the odd-size box stays hidden until asked for — but
+  // never when the stored size matches no chip. An odd size must never hide.
+  const oddStored =
+    !!chosenSize &&
+    !choices.some((s) => String(s).toUpperCase() === String(chosenSize).toUpperCase());
+  const [customOpen, setCustomOpen] = useState(oddStored);
+  useEffect(() => {
+    if (oddStored) setCustomOpen(true);
+  }, [oddStored]);
 
   return (
     <div className="cz-detail-size-editor">
@@ -919,28 +928,41 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
           ) : null}
         </div>
       ) : null}
-      {/* The odd sizes sellers really use — 170/92A, EU 44, One size — cannot
-          be chips. This stays, but as a quiet inline field beside the run, not
-          a second bar under it. */}
-      <label className="cz-detail-custom-size">
-        <span>Other</span>
-        <input
-          className="cz-detail-editor-input"
-          aria-label="Custom item size"
-          placeholder="170/92A"
-          value={customSize}
-          onChange={(event) => onCustomChange(event.target.value)}
-          onBlur={onCommit}
-          onKeyDown={(event) => {
-            event.stopPropagation();
-            if (event.key === "Enter") {
-              event.preventDefault();
-              onCommit();
-              event.currentTarget.blur();
-            }
-          }}
-        />
-      </label>
+      {/* Round 5 point 5.7 (2026-07-29): the odd-size box hides behind a
+          quiet link. The box is the only field that accepts sizes like
+          "170/92A", "EU 44" and "One size", so it is never deleted — but it
+          opens only on tap, or on its own when the stored size matches no
+          chip. An odd size must never hide. The box keeps its value, its
+          commit path, and its Enter and blur behaviour. */}
+      {customOpen ? (
+        <label className="cz-detail-custom-size">
+          <span>Other</span>
+          <input
+            className="cz-detail-editor-input"
+            aria-label="Custom item size"
+            placeholder="170/92A"
+            value={customSize}
+            onChange={(event) => onCustomChange(event.target.value)}
+            onBlur={onCommit}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === "Enter") {
+                event.preventDefault();
+                onCommit();
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+      ) : (
+        <button
+          type="button"
+          className="cz-detail-custom-size-link"
+          onClick={() => setCustomOpen(true)}
+        >
+          Type a different size
+        </button>
+      )}
     </div>
   );
 }
