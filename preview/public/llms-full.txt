@@ -91,9 +91,10 @@ share, and your email address for sign-in. Cloud sync is off until you turn it
 on, and row-level security binds the copy to your account id. Body measurements
 never leave the device. Stripe takes the payment, so Credenza never sees a card
 number. Export the whole shelf as structured JSON at any time, and erase every
-device record from Profile. Four processors handle data: Netlify (hosting),
+device record from Profile. Five processors handle data: Netlify (hosting),
 Supabase (accounts, sync, shares), Stripe (payment), Anthropic (Ask, chart
-reads, translation). Credenza sells no data and runs no tracking pixel. See
+reads, translation), Google Analytics (counting visits, only after you accept
+it). Credenza sells no data and runs no advertising pixel. See
 https://credenzafashion.com/privacy/
 
 ### How do I cancel Pro?

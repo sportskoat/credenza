@@ -185,6 +185,9 @@
   }
 }
     </script>
+    <!-- Visitor counting. The file holds the measurement id and the consent
+         rule; nothing is stored on the device until the visitor accepts. -->
+    <script src="/analytics.js" defer></script>
   </head>
   <body>
     <header>
@@ -200,7 +203,7 @@
         </span>
       </p>
       <h1>Privacy notice</h1>
-      <p class="lede">Last updated July 26, 2026.</p>
+      <p class="lede">Last updated July 29, 2026.</p>
       <nav class="nav" aria-label="Site">
         <a href="/">Open app</a>
         <a href="/landing/">About</a>
@@ -222,6 +225,10 @@
         an account, four optional features can store data on our servers: your plan, your
         synced shelf, your shared links, and your daily usage counters. Each one is listed
         below. Everything else stays on the device, and the server functions keep no content.
+      </p>
+      <p>
+        Credenza also counts visits with Google Analytics, and only after you accept it. The
+        first page you open asks. Your shelf is never part of that count.
       </p>
 
       <h2>If you make an account</h2>
@@ -297,6 +304,7 @@
         <li>Your preferences: theme, currency, fit settings, and your default agent.</li>
         <li>Your body measurements, if you enter them: height, weight, chest, waist, hip, and related measures. These never leave your device.</li>
         <li>An outbound click log: which agent and which marketplace you opened, with a time stamp. It holds at most 500 entries. It has no item names and no links.</li>
+        <li>Your answer to the visitor-counting question: the single word granted or denied.</li>
       </ul>
       <p>
         The browser extension stores its own saves in the extension's local storage on your
@@ -334,17 +342,73 @@
         click log to Anthropic.
       </p>
 
+      <h2>What visitor counting stores</h2>
+      <p>
+        Credenza counts visits with Google Analytics. Counting is off until you accept it.
+        The first page you open shows a bar with two buttons. Nothing is stored on your
+        device, no cookie exists, and no request reaches Google, until you choose Accept.
+      </p>
+      <p>
+        Accepting records the page addresses you open on this site, the page that sent you
+        here, your country and city, your browser and device type, and each Buy tap with the
+        shopping agent and the marketplace you opened. Google Analytics removes part of your
+        IP address before it stores anything. Google processes this data under its own
+        privacy policy.
+      </p>
+      <p>
+        Credenza never sends your shelf, your item titles, your marketplace links, your
+        notes, or your body measurements to Google. Choosing No thanks keeps the whole
+        site working.
+      </p>
+      <p>
+        <button type="button" id="cz-consent-forget">Change your visitor-counting answer</button>
+        <span id="cz-consent-state" role="status"></span>
+      </p>
+      <script>
+        // The button forgets the stored answer, so the bar asks again on the
+        // next page load. analytics.js defines these two functions; if counting
+        // is switched off site-wide it never loads, and the button hides.
+        (function () {
+          var button = document.getElementById("cz-consent-forget");
+          var state = document.getElementById("cz-consent-state");
+          if (!button) return;
+          function paint() {
+            if (typeof window.czAnalyticsChoice !== "function") {
+              button.hidden = true;
+              return;
+            }
+            var choice = window.czAnalyticsChoice();
+            state.textContent =
+              choice === "granted"
+                ? " Your answer now: counting is on."
+                : choice === "denied"
+                  ? " Your answer now: counting is off."
+                  : " You have not answered yet.";
+          }
+          button.addEventListener("click", function () {
+            if (typeof window.czAnalyticsForget === "function") window.czAnalyticsForget();
+            state.textContent = " Cleared. The bar asks again when you open the next page.";
+          });
+          // analytics.js carries defer, so it runs before this point on load,
+          // but a slow parse must not leave a dead button on the page.
+          if (document.readyState === "complete") paint();
+          else window.addEventListener("load", paint);
+        })();
+      </script>
+
       <h2>Who else processes your data</h2>
-      <p>Credenza uses four processors. Each one has its own privacy policy.</p>
+      <p>Credenza uses five processors. Each one has its own privacy policy.</p>
       <ul>
         <li><strong>Netlify</strong> — hosting and the server functions.</li>
         <li><strong>Supabase</strong> — accounts, the synced shelf, shared links, and plan rows.</li>
         <li><strong>Stripe</strong> — payment, receipts, and the customer portal.</li>
         <li><strong>Anthropic</strong> — Ask, the size-chart scan, and listing translation.</li>
+        <li><strong>Google Analytics</strong> — counting visits, after you accept it.</li>
       </ul>
       <p>
-        Credenza sells no data, and runs no advertising network, no analytics product, and
-        no third-party tracking pixel.
+        Credenza sells no data, and runs no advertising network and no advertising pixel.
+        Google Analytics receives no advertising signal from this site: advertising storage
+        and personalisation stay switched off whatever you choose.
       </p>
 
       <h2>Referral links</h2>

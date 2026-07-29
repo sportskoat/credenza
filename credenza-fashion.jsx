@@ -6293,6 +6293,19 @@ function CredenzaApp() {
       item: hashItemId(item.id),
     });
     markActivation(storageBackend, "buyClick");
+    // The line above counts the click on THIS device only, so nobody but the
+    // owner of the device can read it. Buy clicks are the number the business
+    // runs on, so the same click also goes to the site counter — the agent and
+    // the marketplace, never the item, the title, or the link.
+    // window.czTrack exists only after preview/public/analytics.js loads with a
+    // real measurement id, so the guard is the whole feature switch.
+    if (typeof window !== "undefined" && typeof window.czTrack === "function") {
+      window.czTrack("buy_click", {
+        agent: result.agentId || preferredAgent,
+        marketplace,
+        wrapped: result.wrapped ? "yes" : "no",
+      });
+    }
     if (result.wrapped && agentToastSeenFor !== result.agentId) {
       setAgentToastSeenFor(result.agentId);
       const name = (getAgent(result.agentId) || {}).name || "your agent";
