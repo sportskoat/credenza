@@ -6,10 +6,15 @@ import {
 } from "../credenza-fashion.jsx";
 
 // Haul directory cover: multi-item corner fan (transitions.dev CardCornerFan).
-// Name + price sit in a separate label box below — not attached to the stack.
 // One item = one flat card (no ghost stack). Two+ items fan on hover; on touch
 // they rest half-fanned so multi-item hauls still read as stacks.
-export default function HaulCoverFan({ covers = [], name = "", count = 0 }) {
+//
+// Kyle 2026-07-29 ("match shelf"): the name used to sit in a box UNDER the
+// stack. It now rides INSIDE the front card (`label`), so the card's own
+// overflow clips the scrim — an absolutely-placed label outside the stack
+// bled past the rotated front card's slanted edge. The fan stays aria-hidden,
+// so the caller must name the button itself.
+export default function HaulCoverFan({ covers = [], name = "", count = 0, label = null }) {
   const [hovered, setHovered] = useState(false);
   const reduced = usePrefersReducedMotion();
   const coarse = useCoarsePointer();
@@ -18,7 +23,11 @@ export default function HaulCoverFan({ covers = [], name = "", count = 0 }) {
   const slots = images;
   const total = slots.length;
   const single = total <= 1 || count <= 1;
-  const angle = coarse && !hovered ? 22 : 36; // resting fan is tighter than hover fan
+  // The spread used to straddle upright (-10deg to +12deg). The front card is
+  // flat now, so the whole fan leans one way and the same numbers pushed the
+  // stack 18px off a 402px screen (probe-haul-title.mjs). These keep the old
+  // right-hand envelope. Resting fan stays tighter than the hover fan.
+  const angle = coarse && !hovered ? 12 : 26;
   // Single-item hauls stay flat. Multi-item: hover (desktop) or rest-open (touch).
   const open = !single && (hovered || coarse) && !reduced;
 
@@ -31,9 +40,12 @@ export default function HaulCoverFan({ covers = [], name = "", count = 0 }) {
     >
       {slots.map((src, i) => {
         const offsetRatio = total <= 1 ? 0 : i / (total - 1);
-        const startAngle = -10;
-        const targetRotate = open ? startAngle + offsetRatio * angle : 0;
-        const x = open ? (offsetRatio - 0.5) * 10 : 0;
+        // The FRONT card (i === 0) stays flat and the rest fan out behind it.
+        // It used to start at -10deg, which tilted the haul name once the
+        // label moved onto the picture — and Kyle asked for the Shelf
+        // treatment, where the name is level (2026-07-29).
+        const targetRotate = open ? offsetRatio * angle : 0;
+        const x = open ? offsetRatio * 10 : 0;
         return (
           <motion.div
             key={(src || "empty") + "-" + i}
@@ -60,6 +72,8 @@ export default function HaulCoverFan({ covers = [], name = "", count = 0 }) {
                 {(name || "?").slice(0, 1).toUpperCase()}
               </div>
             )}
+            {/* i === 0 is the front card: zIndex is total - i. */}
+            {i === 0 ? label : null}
           </motion.div>
         );
       })}

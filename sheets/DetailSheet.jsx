@@ -146,6 +146,10 @@ export default function DetailSheet({
       className="cz-modal cz-detail-modal"
       aria-label={item.title || "Saved item"}
       onCancel={(e) => {
+        // A dismissed OS file picker fires a bubbling "cancel" on the hidden
+        // <input type="file"> inside this sheet. Only the dialog's own Escape
+        // closes the card. See the same guard in DesktopDetailPanel.
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         closeSheet();
       }}

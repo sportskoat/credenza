@@ -143,6 +143,26 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  // Kyle 2026-07-29: "after hitting upload photo and cancelling out of this,
+  // detail view gets exited out". A dismissed OS file picker fires a BUBBLING
+  // "cancel" on <input type="file">, which reached the dialog's onCancel.
+  it("stays open when a nested file picker is cancelled", () => {
+    const onClose = vi.fn();
+    const { container } = renderPanel(panelItem(), { onClose });
+    const fileInput = container.querySelector('input[type="file"]');
+    expect(fileInput).toBeTruthy();
+
+    fireEvent(fileInput, new Event("cancel", { bubbles: true, cancelable: true }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Escape on the dialog itself still closes it.
+    fireEvent(
+      container.querySelector("dialog.cz-dpanel-scrim"),
+      new Event("cancel", { bubbles: false, cancelable: true })
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("does not render the removed Open size chart action in the photo area", () => {
     const gallery = Array.from(
       { length: 20 },

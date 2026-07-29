@@ -3635,8 +3635,28 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* KM-07: "Start a haul" ghost tile — quieter than a real haul card. */
-.cz-haul-card--ghost .cz-haul-card-name {
+/* The ghost tile is an invitation, not a haul. It has no photo, so a scrim
+   over its empty placeholder read as a grey smear and the white words lost
+   contrast in the light theme. It keeps the plain label under the tile; only
+   real haul cards print their name on the picture. */
+.cz-haul-card--ghost .cz-haul-card-label {
+  position: static;
+  padding: 0 2px;
   color: var(--cz-sub);
+}
+
+.cz-haul-card--ghost .cz-haul-card-label::before {
+  display: none;
+}
+
+.cz-haul-card--ghost .cz-haul-card-name,
+.cz-haul-card--ghost .cz-haul-card-meta {
+  color: var(--cz-sub);
+  text-shadow: none;
+}
+
+.cz-haul-card--ghost .cz-haul-card-name {
+  white-space: normal;
 }
 .cz-haul-card--ghost .cz-haul-fan-placeholder {
   color: var(--cz-faint);
@@ -3721,15 +3741,39 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Name + price live in their own pill — not glued to the clothing stack. */
+/* Kyle 2026-07-29, "match shelf": the haul name reads ON the picture, the way
+   a Shelf card reads. It used to sit in its own pill under the stack, which is
+   the inconsistency he flagged.
+   The label lives INSIDE the front fan card, so the card's overflow:hidden
+   clips the scrim. A label placed outside the stack bled past the front
+   card's slanted edge once the fan opened (measured, probe-haul-title.mjs). */
 .cz-haul-card-label {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: grid;
   gap: 3px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: var(--cz-card-solid);
-  border: 1px solid var(--cz-hair);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  padding: 0 11px 11px;
+  /* Same rule as the shelf card: white in BOTH themes. The scrim under the
+     words, not the theme, is what makes them readable. */
+  color: #fff;
+  pointer-events: none;
+}
+
+/* The scrim is a child, not a background on the label: it has to ramp well
+   above the words. ~70% of the card, the shelf card's ramp share. */
+.cz-haul-card-label::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: -1;
+  height: 260%;
+  background: var(--cz-photo-scrim);
+  pointer-events: none;
 }
 
 .cz-haul-card-name {
@@ -3739,12 +3783,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
 }
 
 .cz-haul-card-meta {
   font-size: 12px;
   font-weight: 600;
-  color: var(--cz-sub);
+  color: rgb(255 255 255 / 0.78);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
 }
 
 /* One clean horizontal row: back pill + haul title. The A3 pipeline board
@@ -6267,6 +6313,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   height: 44px;
   display: grid;
   place-items: center;
+  /* Kyle 2026-07-29: the initials sat hard against the RIGHT edge of the
+     ring. The button kept the app's button padding (2px 6px 3px), so inside
+     the 36px phone ring the box left for content was only 22px wide — the
+     30px initials pill did not fit, and an overflowing grid item is pinned
+     to its start edge instead of centred. No padding, no overflow, and the
+     up-down half-pixel from the 2px/3px pair goes with it. */
+  padding: 0;
   border: 1px solid var(--cz-hair);
   border-radius: 50%;
   background: var(--cz-card-solid);

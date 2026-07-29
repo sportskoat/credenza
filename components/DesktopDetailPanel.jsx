@@ -388,6 +388,12 @@ export default function DesktopDetailPanel({
       style={{ width: "auto", maxWidth: "none", height: "auto", maxHeight: "none", margin: 0, padding: 0, border: 0, color: "inherit" }}
       aria-label={item.title || "Saved item"}
       onCancel={(e) => {
+        // Kyle 2026-07-29: "after hitting upload photo and cancelling out of
+        // this, detail view gets exited out". Dismissing the OS file picker
+        // fires a BUBBLING "cancel" event on <input type="file">, which React
+        // delivers to this dialog's onCancel. Only Escape on the dialog itself
+        // may close the card, so ignore a cancel that started lower down.
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         requestClose();
       }}

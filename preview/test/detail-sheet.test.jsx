@@ -225,6 +225,26 @@ describe("DetailSheet overflow menu", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // Kyle 2026-07-29: cancelling the OS file picker closed the card. The
+  // picker fires a BUBBLING "cancel" on <input type="file">, which React
+  // delivered to the sheet dialog's onCancel. Only the dialog's own Escape
+  // may close the sheet.
+  it("stays open when a nested file picker is cancelled", () => {
+    const onClose = vi.fn();
+    const { container } = renderSheet(twoBuyLinkItem(), { onClose });
+    const fileInput = container.querySelector('input[type="file"]');
+    expect(fileInput).toBeTruthy();
+
+    fireEvent(fileInput, new Event("cancel", { bubbles: true, cancelable: true }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent(
+      container.querySelector("dialog.cz-detail-modal"),
+      new Event("cancel", { bubbles: false, cancelable: true })
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("swiping to a second photo offers Make this photo the cover", () => {
     const onSetCover = vi.fn();
     const { container } = render(

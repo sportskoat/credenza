@@ -7435,20 +7435,35 @@ function CredenzaApp() {
               type="button"
               className="cz-haul-card"
               data-haul-name={haul.name}
+              // The label now lives inside the aria-hidden fan, so the button
+              // states its own name.
+              aria-label={
+                haul.name +
+                ", " +
+                haul.count +
+                (haul.count === 1 ? " item" : " items") +
+                (haul.value > 0 ? ", $" + Math.round(haul.value) : "")
+              }
               onClick={() => openHaul(haul.name)}
             >
+              {/* Kyle 2026-07-29 ("match shelf"): the haul name reads ON the
+                  picture, like a Shelf card — not in a box under it. It rides
+                  inside the front fan card so the card clips the scrim. The
+                  fan is aria-hidden, so the button carries its own name. */}
               <HaulCoverFan
                 covers={haul.covers}
                 name={haul.name}
                 count={haul.count}
+                label={
+                  <div className="cz-haul-card-label">
+                    <div className="cz-haul-card-name">{haul.name}</div>
+                    <div className="cz-haul-card-meta">
+                      {haul.count} {haul.count === 1 ? "item" : "items"}
+                      {haul.value > 0 ? " · $" + Math.round(haul.value) : ""}
+                    </div>
+                  </div>
+                }
               />
-              <div className="cz-haul-card-label">
-                <div className="cz-haul-card-name">{haul.name}</div>
-                <div className="cz-haul-card-meta">
-                  {haul.count} {haul.count === 1 ? "item" : "items"}
-                  {haul.value > 0 ? " · $" + Math.round(haul.value) : ""}
-                </div>
-              </div>
             </button>
           ))}
           {/* KM-07: two haul cards sat in a large empty canvas. A dashed
@@ -7465,6 +7480,8 @@ function CredenzaApp() {
                 </div>
               </div>
             </div>
+            {/* The ghost tile is an invitation, not a haul. It has no photo, so
+                its words stay under the tile, in the app's own ink. */}
             <div className="cz-haul-card-label">
               <div className="cz-haul-card-name">Start a haul</div>
               <div className="cz-haul-card-meta">Add from any card's ⋯ menu</div>
