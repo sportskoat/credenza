@@ -38,6 +38,7 @@ import {
   CATEGORY_TO_WEIGHT_KEY,
   estimateItemWeightGrams,
   estimateHaulWeightGrams,
+  isBulkyItem,
 } from "./weight-estimate.js";
 import {
   AUTH_ENABLED,
@@ -6805,13 +6806,25 @@ function CredenzaApp() {
       counts[s] = (counts[s] || 0) + 1;
     }
     const weightSum = haulWeightGrams(totalsItems);
+    // Bulky hint (PLANS/BULKY_ITEM_WARNING_PLAN.md): one short line next to
+    // the weight chip when any card in the haul bills by box size. Every card
+    // counts — the shelf no longer holds returned items (same rule as
+    // haulWeightGrams). A saved parcel box size hides the hint: the real
+    // chargeable-weight math answers the question then.
+    const haulRec = hauls.find((h) => h.name === openHaulName) || null;
+    const dims = haulRec && haulRec.parcel && haulRec.parcel.dims;
+    const hasBoxSize = Boolean(
+      dims && [dims.l, dims.w, dims.h].every((n) => Number(n) > 0)
+    );
+    const bulkyHint = !hasBoxSize && totalsItems.some((it) => isBulkyItem(it));
     return {
       counts,
       readyToShip: counts.bought || 0,
       weightLabel: weightSum != null ? formatWeightGrams(weightSum) : "",
       weightGrams: weightSum,
+      bulkyHint,
     };
-  }, [openHaulName, totalsItems]);
+  }, [openHaulName, totalsItems, hauls]);
   // Rough ship weight for whatever is on the surface. haulPipeline computes the
   // same number but only inside an open haul; the docked phone bar (shelf
   // handoff 2026-07-28) prints "9 saved · ~2.4 kg est." on the plain shelf too.
@@ -8869,6 +8882,11 @@ function CredenzaApp() {
                 {haulPipeline.weightLabel ? (
                   <span className="cz-haul-stat cz-haul-stat-weight">
                     {haulPipeline.weightLabel}
+                  </span>
+                ) : null}
+                {haulPipeline.bulkyHint ? (
+                  <span className="cz-haul-stat cz-haul-stat-bulky">
+                    Big and light — may bill above its weight.
                   </span>
                 ) : null}
               </div>

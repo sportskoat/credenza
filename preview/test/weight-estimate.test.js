@@ -12,6 +12,7 @@ import {
   estimateHaulWeightGrams,
   estimateItemWeight,
   formatWeightEstimate,
+  isBulkyItem,
   parseWeightFromText,
   refineWeightKeyFromText,
 } from "../../weight-estimate.js";
@@ -231,5 +232,34 @@ describe("expanded weight bands", () => {
     const got = estimateItemWeight({ title: "leather dress shoes", packNoShoebox: true });
     expect(got.key).toBe("dress_shoe");
     expect(got.grams).toBe(WEIGHT_BANDS.dress_shoe.mid - SHOEBOX_GRAMS);
+  });
+});
+
+// Bulky flag (PLANS/BULKY_ITEM_WARNING_PLAN.md, Kyle approved 2026-07-29):
+// items that bill by box size, not scale weight. The flag is a hint only —
+// chargeableWeightGrams does the real math once a box size exists.
+describe("isBulkyItem", () => {
+  it.each([
+    // Plan cases.
+    [{ title: "Down puffer jacket" }, true],
+    [{ title: "羽绒服" }, true], // down jacket, Chinese
+    [{ title: "Vintage band tee" }, false],
+    // Heavy is not bulky.
+    [{ title: "Leather boots" }, false],
+    // A flagged band with no bulk word in the title (category default).
+    [{ title: "", category: "bag" }, true],
+    // Flagged bands reached by ordinary title words.
+    [{ title: "Patagonia parka" }, true],
+    [{ title: "fleece blanket" }, true],
+    [{ title: "plush doll" }, true],
+    [{ title: "毛绒公仔" }, true], // plush toy, Chinese
+    // Bare "down" must not fire: a button-down shirt is not a down item.
+    [{ title: "button-down oxford shirt" }, false],
+    // Unflagged bands stay false.
+    [{ title: "slim jeans" }, false],
+    [{ title: "leather jacket" }, false],
+    [{}, false],
+  ])("item %j → %s", (item, expected) => {
+    expect(isBulkyItem(item)).toBe(expected);
   });
 });

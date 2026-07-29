@@ -57,8 +57,11 @@ export const WEIGHT_BANDS = {
   trench_coat: { mid: 800, low: 550, high: 1200 },
   denim_jacket: { mid: 900, low: 700, high: 1200 },
   varsity_jacket: { mid: 900, low: 650, high: 1300 },
-  puffer: { mid: 900, low: 600, high: 1400 },
-  parka: { mid: 1200, low: 800, high: 1800 },
+  // Bulky (RESEARCH/SHIPPING_AGENT_COSTS_2026_07_29.md): down lofts to many
+  // times its scale weight in box volume — the classic volumetric bill.
+  puffer: { mid: 900, low: 600, high: 1400, bulky: true },
+  // Bulky (same source): an oversized parka ships in the biggest box class.
+  parka: { mid: 1200, low: 800, high: 1800, bulky: true },
   leather_jacket: { mid: 1500, low: 1000, high: 2200 },
   // Bottoms
   leggings: { mid: 200, low: 130, high: 300 },
@@ -95,12 +98,18 @@ export const WEIGHT_BANDS = {
   watch: { mid: 150, low: 80, high: 300 },
   scarf: { mid: 200, low: 100, high: 350 },
   belt: { mid: 200, low: 120, high: 300 },
-  plush_figure: { mid: 350, low: 150, high: 800 },
+  // Bulky (RESEARCH/SHIPPING_AGENT_COSTS_2026_07_29.md): plush fills box
+  // volume far above its modest scale weight.
+  plush_figure: { mid: 350, low: 150, high: 800, bulky: true },
   crossbody: { mid: 400, low: 250, high: 600 },
   tote: { mid: 400, low: 250, high: 700 },
-  backpack: { mid: 900, low: 600, high: 1400 },
+  // Bulky (RESEARCH/SHIPPING_AGENT_COSTS_2026_07_29.md): a packed backpack
+  // holds its shape and bills on box size, not on scale weight.
+  backpack: { mid: 900, low: 600, high: 1400, bulky: true },
   duffle: { mid: 1100, low: 700, high: 1700 },
-  blanket: { mid: 1200, low: 700, high: 2000 },
+  // Bulky (same source): blankets and comforters are the textbook
+  // big-and-light parcel.
+  blanket: { mid: 1200, low: 700, high: 2000, bulky: true },
   other: { mid: 300, low: 150, high: 600 },
 };
 
@@ -466,6 +475,29 @@ export function estimateHaulWeightGrams(items, opts) {
     }
   }
   return known ? sum : null;
+}
+
+/**
+ * Bulky = bills by box size, not scale weight (volumetric weight). True when
+ * the title/notes carry a strong bulk word, or the matched band is flagged
+ * `bulky: true`. Only a hint for the time BEFORE a parcel box size exists —
+ * chargeableWeightGrams does the real math once dims are saved.
+ * Pure: no DOM, no network, no storage.
+ * Source: RESEARCH/SHIPPING_AGENT_COSTS_2026_07_29.md — a puffy coat can
+ * weigh 0.5 kg on the scale and bill as 2–3 kg.
+ * Bare "down" stays out on purpose: "button-down shirt" is not a down item.
+ * @param {object} item
+ * @returns {boolean}
+ */
+export function isBulkyItem(item) {
+  const text = joinItemText(item);
+  // \b does not work next to CJK characters: English part with \b, Chinese
+  // part without it. 羽绒 = down, 毛绒 = plush.
+  if (/\b(down\s*jacket|puffer|puffy|plush)\b/i.test(text) || /羽绒|毛绒/.test(text)) {
+    return true;
+  }
+  const key = refineWeightKeyFromText(text, item?.category);
+  return Boolean(key && WEIGHT_BANDS[key] && WEIGHT_BANDS[key].bulky === true);
 }
 
 /**
