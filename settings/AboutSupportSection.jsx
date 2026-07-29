@@ -22,7 +22,9 @@ import SettingsSection from "./SettingsSection.jsx";
 export const SITE_LINKS = [
   ["/how/", "How it works", "The shelf"],
   ["/guides/", "Guides", "Walkthroughs"],
-  ["/pricing/", "Plans", "Free & Pro"],
+  // One name for /pricing/ everywhere (Kyle 2026-07-29). This row said
+  // "Plans", the masthead said "Pro", and the static site said "Pricing".
+  ["/pricing/", "Pricing", "Free & Pro"],
   ["/support/", "Support", "Cancel, refund, bug"],
 ];
 

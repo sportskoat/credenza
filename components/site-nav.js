@@ -22,7 +22,11 @@
 export const SITE_NAV = [
   { href: "/how/", label: "How it works" },
   { href: "/guides/", label: "Guides" },
-  { href: "/pricing/", label: "Pro" },
+  // "Pricing", not "Pro" (Kyle 2026-07-29, Fable's ruling). The app header
+  // said Pro and every static page said Pricing, so the same destination had
+  // two names depending on which page you were standing on. The label names
+  // what the page shows; "Pro" names the plan the page sells.
+  { href: "/pricing/", label: "Pricing" },
   { href: "/faq/", label: "FAQ" },
   { href: "/support/", label: "Support" },
   { href: "/contact/", label: "Contact" },

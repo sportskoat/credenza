@@ -763,6 +763,12 @@ describe("the files that ship but are not pages", () => {
   // meta tag whenever mode is "rainbow", and mode defaults to "rainbow".
   const APP_DARK = "#000000";
   const APP_LIGHT = "#f4f4f0";
+  // The light value then the dark value, in the order /site.css declares them.
+  const SHARED_BG = [
+    ...readFileSync(join(PUBLIC, "site.css"), "utf8").matchAll(
+      /--bg:\s*(#[0-9a-fA-F]{3,8})/g
+    ),
+  ].map((m) => m[1].toLowerCase());
 
   describe("the manifest", () => {
     it("paints its splash in the colorway the app opens in", () => {
@@ -856,10 +862,16 @@ describe("the files that ship but are not pages", () => {
         // The status bar sits directly above the page. This asserts the two
         // against each other rather than against a constant, so a page that
         // restyles its palette cannot leave the meta tag behind.
-        const decls = [...html.matchAll(/--bg:\s*(#[0-9a-fA-F]{3,8})/g)].map((m) =>
+        //
+        // The background used to be declared in each page. Kyle's option B
+        // (2026-07-29) moved it to /site.css, so the page's own --bg is read
+        // first and the shared sheet answers for the 36 pages that no longer
+        // carry one. A page that overrides --bg still has to match.
+        const own = [...html.matchAll(/--bg:\s*(#[0-9a-fA-F]{3,8})/g)].map((m) =>
           m[1].toLowerCase()
         );
-        expect(decls.length, `${rel} defines no --bg`).toBe(2);
+        const decls = own.length === 2 ? own : SHARED_BG;
+        expect(decls.length, `${rel} resolves no --bg, and /site.css declares none`).toBe(2);
         expect(decls[0], `${rel} light --bg`).toBe(APP_LIGHT);
         expect(decls[1], `${rel} dark --bg`).toBe(APP_DARK);
       });
@@ -2065,5 +2077,158 @@ describe("dev server routing", () => {
       }
     }
     expect(missing, "nav links with no page file behind them").toEqual([]);
+  });
+});
+
+// Kyle 2026-07-29, twice in one evening: "still not updated (the titles and
+// consistency of the headers, text)" and then "look at the difference in
+// header links on the website, they dont even match".
+//
+// Both reports had one cause. Every page under preview/public carried its own
+// copy of the base styles — 11 distinct copies of the same 5 KB — and its own
+// copy of the header markup. Copies drift. /landing/ set its body text in the
+// sans face at 16px while the other 34 pages used the serif face at 17px, its
+// header carried three in-page jump links nobody else had, and the same paid
+// page was called "Pro" in the app masthead, "Pricing" on the site and "Plans"
+// in the settings sheet.
+//
+// He chose option B: one stylesheet, one header, one name. These rules hold
+// that. They are deliberately about SAMENESS, not about specific values — the
+// values live in /site.css and may change there any time.
+describe("the public site shares one look and one header", () => {
+  const SITE_CSS = readFileSync(join(PUBLIC, "site.css"), "utf8");
+
+  // Top-level rules, braces counted so @media and @font-face stay whole.
+  function cssRules(css) {
+    const out = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < css.length; i++) {
+      if (css[i] === "{") depth++;
+      else if (css[i] === "}" && --depth === 0) {
+        out.push(css.slice(start, i + 1));
+        start = i + 1;
+      }
+    }
+    return out;
+  }
+  const tidy = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").trim();
+  const selectorOf = (r) => tidy(r.slice(0, r.indexOf("{"))).replace(/\s*,\s*/g, ", ");
+  const OWNED = new Set(
+    cssRules(SITE_CSS).filter((r) => r.includes("{")).map(selectorOf).filter(Boolean)
+  );
+
+  it("finds the shared stylesheet and the selectors it owns", () => {
+    // Guard the guard. An empty OWNED set makes the override rule vacuous.
+    expect(SITE_CSS.length, "site.css is empty").toBeGreaterThan(1000);
+    expect(OWNED.size, "site.css defines no selectors").toBeGreaterThan(15);
+    for (const must of ["body", "h1", "h2", ".site-head", ".nav"]) {
+      expect([...OWNED], `site.css does not style ${must}`).toContain(must);
+    }
+  });
+
+  for (const { rel, html } of DOCS) {
+    it(`${rel} reads the shared stylesheet`, () => {
+      expect(html, `${rel} does not link /site.css`).toContain('href="/site.css"');
+    });
+
+    it(`${rel} does not restyle what the shared stylesheet owns`, () => {
+      // A page's own <style> comes after the <link>, so a second opinion on
+      // h2 or .nav silently wins and the drift is back. Page-specific classes
+      // are fine — this only forbids overriding a shared selector.
+      const own = html.match(/<style>([\s\S]*?)<\/style>/);
+      if (!own) return;
+      const clashes = cssRules(own[1])
+        .filter((r) => r.includes("{"))
+        .map(selectorOf)
+        // :root and the dark-mode block are the documented exception: a page
+        // may add tokens of its own, and /landing/ adds 23. It may not
+        // redeclare the shared ones — the loop below checks that separately.
+        .filter((sel) => sel !== ":root" && !/^@media \(prefers-color-scheme: dark\)$/.test(sel))
+        .filter((sel) => OWNED.has(sel));
+      expect(clashes, `${rel} overrides shared selectors`).toEqual([]);
+    });
+
+    it(`${rel} carries the same header as every other page`, () => {
+      const head = html.match(/<div class="site-head">[\s\S]*?\n {6}<\/div>/);
+      expect(head, `${rel} has no shared header`).not.toBeNull();
+      // aria-current marks the page you are on, so it is the one allowed
+      // difference between two copies of the header.
+      const shape = head[0].replace(/ aria-current="page"/g, "");
+      expect(shape, `${rel} header differs from ${DOCS[0].rel}`).toBe(
+        DOCS[0].html
+          .match(/<div class="site-head">[\s\S]*?\n {6}<\/div>/)[0]
+          .replace(/ aria-current="page"/g, "")
+      );
+    });
+  }
+
+  it("redeclares a shared token only where that is the point", () => {
+    // A page may override a shared token, but only on purpose and only where
+    // it is written down here. /landing/ is the front door: it lays out at
+    // 1120px where the article pages read at 40rem, and it darkens two greys
+    // against its own panels. Everything else takes the shared value.
+    //
+    // The allow-list is the whole rule. Without it this test either bans a
+    // legitimate override or waves every override through, and "waves every
+    // override through" is how 11 copies of the base styles happened.
+    const ALLOWED = { "landing/index.html": new Set(["--max", "--muted", "--line"]) };
+    const shared = new Set([...SITE_CSS.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+    const bad = [];
+    for (const { rel, html } of DOCS) {
+      const own = html.match(/<style>([\s\S]*?)<\/style>/);
+      if (!own) continue;
+      const allowed = ALLOWED[rel] || new Set();
+      for (const m of own[1].matchAll(/(--[a-z0-9-]+)\s*:/g)) {
+        if (shared.has(m[1]) && !allowed.has(m[1])) bad.push(`${rel} redeclares ${m[1]}`);
+      }
+    }
+    expect(bad, "pages redeclaring a shared token without saying why").toEqual([]);
+  });
+
+  it("keeps the front door wide", () => {
+    // The regression this caught: --max is a shared token, so the migration
+    // dropped /landing/'s own 1120px and the marketing page silently narrowed
+    // to the 640px reading column. Every test still passed — the token
+    // resolved, it just resolved to the wrong number. Assert the number.
+    const landing = DOCS.find((d) => d.rel === "landing/index.html");
+    expect(landing, "the landing page is gone").toBeTruthy();
+    expect(landing.html, "/landing/ lost its own --max and reads at 40rem").toMatch(
+      /--max:\s*1120px/
+    );
+  });
+
+  it("resolves every token it uses", () => {
+    // The other half. Moving :root into site.css once left /landing/ with 23
+    // custom properties that resolved to nothing, and the page rendered
+    // unstyled in places while every test still passed.
+    const shared = new Set([...SITE_CSS.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+    const undefinedTokens = [];
+    for (const { rel, html } of DOCS) {
+      const own = html.match(/<style>([\s\S]*?)<\/style>/);
+      const local = new Set(
+        own ? [...own[1].matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]) : []
+      );
+      for (const m of html.matchAll(/var\((--[a-z0-9-]+)/g)) {
+        if (!shared.has(m[1]) && !local.has(m[1])) undefinedTokens.push(`${rel} → ${m[1]}`);
+      }
+    }
+    expect(undefinedTokens, "tokens used but never defined").toEqual([]);
+  });
+
+  it("calls the paid page one name in the app and on the site", () => {
+    // Three names for one destination: the masthead said "Pro", the settings
+    // sheet said "Plans", the site said "Pricing".
+    const navSrc = readFileSync(join(ROOT, "components/site-nav.js"), "utf8");
+    const sheet = readFileSync(join(ROOT, "settings/AboutSupportSection.jsx"), "utf8");
+    const masthead = navSrc.match(/href:\s*"\/pricing\/",\s*label:\s*"([^"]+)"/);
+    const settings = sheet.match(/\["\/pricing\/",\s*"([^"]+)"/);
+    expect(masthead, "the masthead no longer links /pricing/").not.toBeNull();
+    expect(settings, "the settings sheet no longer links /pricing/").not.toBeNull();
+    expect(masthead[1], "the masthead and the settings sheet disagree").toBe(settings[1]);
+
+    const header = DOCS[0].html.match(/<a href="\/pricing\/"[^>]*>([^<]+)<\/a>/);
+    expect(header, "the site header no longer links /pricing/").not.toBeNull();
+    expect(header[1], "the site header and the app disagree").toBe(masthead[1]);
   });
 });

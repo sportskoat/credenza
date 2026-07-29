@@ -1,0 +1,286 @@
+/* One stylesheet for every public page (Kyle 2026-07-29, option B).
+ *
+ * Before this file, all 35 pages under preview/public carried their own copy
+ * of the base styles — 11 distinct copies of the same 5 KB. They drifted:
+ * /landing/ set its body text in the sans face at 16px while the other 34 set
+ * it in the serif face at 17px, section headings split between serif 1.35rem
+ * and sans 1.05rem, and the site header was a wrapped run of underlined links
+ * sitting below the intro copy while the app header was a clean row.
+ *
+ * The rule now: shared look lives here, page-specific rules stay in the page.
+ * A page that needs a new shared value changes THIS file, not its own copy.
+ * preview/test/public-site.test.js locks the parts that must not drift again.
+ */
+
+@font-face {
+  font-family: "Clash Grotesk";
+  src: url("/fonts/ClashGrotesk-Variable.woff2") format("woff2-variations");
+  font-weight: 200 700;
+  font-display: swap;
+}
+
+:root {
+  /* Type tokens. The same three families the app uses. The logo is made of
+     the serif C and the tracked sans word, so nothing on this site may name a
+     family of its own (Kyle 2026-07-27). */
+  --cz-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --cz-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cz-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light dark;
+  --bg: #f4f4f0;
+  --ink: #17181a;
+  --muted: #5c5f66;
+  --card: #ffffff;
+  --line: rgba(23, 24, 26, 0.12);
+  --accent: #17181a;
+  --money: #15803d;
+  --max: 40rem;
+  --pad: 1.25rem;
+  font-family: var(--cz-display);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --ink: #f4f4f0;
+    --muted: #a1a1aa;
+    --card: #1a1a1d;
+    --line: rgba(244, 244, 240, 0.12);
+    --accent: #f4f4f0;
+    --money: #4ade80;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.55;
+  font-size: 1.0625rem;
+}
+
+header, main, footer {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: var(--pad);
+}
+
+header {
+  padding-top: 2rem;
+  padding-bottom: 0.25rem;
+}
+
+/* The intro copy sits in <header> and the body in <main>, each with its own
+   1.25rem of padding. Stacked, that left 40px of empty page mid-article that
+   read as a missing element. */
+main { padding-top: 0.25rem; }
+
+/* ── The site header ──────────────────────────────────────────────────────
+ * One row, the same shape as the app's masthead: the mark on the left, the
+ * page links in the middle, the way into the product on the right, a hairline
+ * under all of it. Before this, the links were a wrapped list of underlined
+ * text below the intro paragraphs, and /landing/ had no links at all.
+ * The long tail — About, Privacy, Terms, llms.txt — lives in the footer,
+ * which every page already carries. Eleven links do not fit in a header row.
+ */
+/* Two rows, on purpose. The reading column is 40rem, and a wordmark plus six
+   links plus a button do not fit in 40rem — laid out as one flex row the
+   button wrapped on its own and left a hole. So: the mark and the way into
+   the product hold the first line, the page links hold the second. */
+.site-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  row-gap: 0.8rem;
+  column-gap: 1rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  grid-row: 1;
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0;
+  color: inherit;
+  text-decoration: none;
+  flex: 0 0 auto;
+  font-family: var(--cz-sans);
+}
+.brand:hover { color: inherit; opacity: 0.9; }
+
+.mark { display: block; flex: 0 0 auto; }
+
+.brand-name {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  line-height: 1;
+}
+
+.wordmark {
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1;
+}
+
+.kicker {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.30em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.nav {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.15rem;
+  margin: 0;
+  font-family: var(--cz-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* No underline in the header. The app's masthead has none, and a row of ten
+   underlined words reads as a paragraph, not as navigation. */
+.nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav a:hover { color: var(--ink); }
+.nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+
+.nav-open {
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+  padding: 0.45rem 0.95rem;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 999px;
+  font-family: var(--cz-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav-open:hover { opacity: 0.9; color: var(--bg); }
+
+/* On a phone the six links wrap to two lines of three. That is fine; what is
+   not fine is them touching, so the row gap grows a little. */
+@media (max-width: 640px) {
+  .nav { font-size: 0.875rem; gap: 0.55rem 0.95rem; }
+}
+
+/* ── One title scale ──────────────────────────────────────────────────────
+ * h1 names the page, h2 names a section, h3 names a card. All three used to
+ * differ per page. They do not now.
+ */
+h1 {
+  font-family: var(--cz-display);
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 400;
+  line-height: 1.2;
+  margin: 0 0 0.75rem;
+}
+
+h2 {
+  font-family: var(--cz-display);
+  font-size: 1.35rem;
+  font-weight: 400;
+  line-height: 1.25;
+  margin: 0 0 0.4rem;
+}
+
+h3 {
+  font-family: var(--cz-sans);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 0.4rem;
+}
+
+.lede {
+  color: var(--muted);
+  margin: 0 0 1.5rem;
+  font-size: 1.05rem;
+}
+
+a { color: var(--ink); }
+a:hover { color: var(--money); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 1.15rem 1.2rem;
+  margin: 0 0 0.85rem;
+}
+.card p { margin: 0 0 0.65rem; color: var(--muted); }
+.card p:last-child { margin-bottom: 0; }
+.card ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--muted);
+}
+.card li { margin: 0.25rem 0; }
+
+.n {
+  font-family: var(--cz-sans);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--money);
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.note {
+  margin: 1.5rem 0;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.98rem;
+}
+
+footer {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-family: var(--cz-sans);
+  padding-bottom: 3rem;
+}
+
+.cta {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.7rem 1.15rem;
+  background: var(--accent);
+  color: var(--bg);
+  text-decoration: none;
+  border-radius: 999px;
+  font-family: var(--cz-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.cta:hover { opacity: 0.9; color: var(--bg); }
+
+.related {
+  margin-top: 1.25rem;
+  font-family: var(--cz-sans);
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.related a { margin-right: 0.75rem; }
