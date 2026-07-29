@@ -8083,14 +8083,10 @@ function CredenzaApp() {
               would drop it. */}
           {!firstRunIntro && (
             <nav className="cz-mast-nav" aria-label="Credenza site">
+              {/* Kyle 2026-07-29: our own pages stay in this tab. Only links
+                  that leave Credenza still open a new one. */}
               {SITE_NAV.map(({ href, label }) => (
-                <a
-                  key={href}
-                  className="cz-mast-nav-link"
-                  href={href}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a key={href} className="cz-mast-nav-link" href={href}>
                   {label}
                 </a>
               ))}
@@ -8271,12 +8267,7 @@ function CredenzaApp() {
                 >
                   Import a haul
                 </button>
-                <a
-                  className="cz-empty-hero-link is-quiet"
-                  href="/how/stash-from-your-phone/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a className="cz-empty-hero-link is-quiet" href="/how/stash-from-your-phone/">
                   Stash from your phone
                 </a>
               </div>

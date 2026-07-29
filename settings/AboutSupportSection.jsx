@@ -13,9 +13,12 @@ import SettingsSection from "./SettingsSection.jsx";
 // a number here goes stale the next time a guide ships — in a file nobody
 // edits when they add a page.
 //
-// These are real navigations out of a single-page app, so they open in a new
-// tab. A same-tab jump would drop an unsaved sheet and make Back the only
-// way home.
+// Kyle 2026-07-29: "make sure that these pages do not go to a separate window
+// and we stay in this tab". They are our own pages, so they open in place now.
+// The cost he accepted: these are real navigations out of a single-page app,
+// so an open sheet closes and Back is the way home. Links that LEAVE Credenza
+// — a seller listing, a photo album — still open a new tab, because losing the
+// shelf behind a seller page is a worse trade.
 export const SITE_LINKS = [
   ["/how/", "How it works", "The shelf"],
   ["/guides/", "Guides", "Walkthroughs"],
@@ -37,19 +40,19 @@ export default function AboutSupportSection() {
             key={href}
             className="cz-profile-row cz-profile-row-link"
             href={href}
-            target="_blank"
-            rel="noreferrer"
           >
             <span>{label}</span>
-            <span className="cz-profile-row-val">{val} ↗</span>
+            {/* The ↗ arrow promised a new tab. The link stays in this tab now,
+                so the arrow would be a lie. */}
+            <span className="cz-profile-row-val">{val}</span>
           </a>
         ))}
       </div>
       <div className="cz-profile-legal">
-        <a className="cz-profile-legal-link" href="/privacy/" target="_blank" rel="noreferrer">
+        <a className="cz-profile-legal-link" href="/privacy/">
           Privacy
         </a>
-        <a className="cz-profile-legal-link" href="/terms/" target="_blank" rel="noreferrer">
+        <a className="cz-profile-legal-link" href="/terms/">
           Terms
         </a>
         <a className="cz-profile-legal-link" href="mailto:wenselllc@gmail.com">

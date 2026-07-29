@@ -85,13 +85,21 @@ describe("the app links out to the site it belongs to", () => {
     }
   });
 
-  it("opens site links in a new tab", () => {
-    // The app is a single page holding unsaved sheet state. A same-tab jump
-    // drops it and makes Back the only way home.
+  it("opens site links in this tab", () => {
+    // Kyle 2026-07-29: "make sure that these pages do not go to a separate
+    // window and we stay in this tab". They are our own pages, so they open
+    // in place. He accepted the cost: an open sheet closes on the jump.
     const row = SHEET.match(/className="cz-profile-row cz-profile-row-link"[\s\S]{0,220}/);
     expect(row, "the Learn rows no longer use cz-profile-row-link").not.toBeNull();
-    expect(row[0], "site links do not open in a new tab").toContain('target="_blank"');
-    expect(row[0], 'target="_blank" without rel="noreferrer"').toContain('rel="noreferrer"');
+    expect(row[0], "site links still open in a new tab").not.toContain('target="_blank"');
+  });
+
+  it("keeps the new-tab arrow off the site rows", () => {
+    // The ↗ glyph promised a new tab. The rows stay in this tab now, so the
+    // arrow would say something the link does not do.
+    const row = SHEET.match(/className="cz-profile-row-val"[\s\S]{0,60}/);
+    expect(row, "the Learn rows lost their value column").not.toBeNull();
+    expect(row[0], "the value column still shows the new-tab arrow").not.toContain("↗");
   });
 
   it("sends Support to the page, not to a mail client", () => {
@@ -193,13 +201,25 @@ describe("the masthead reaches the site", () => {
     expect(APP, "the masthead nav has no accessible name").toContain('className="cz-mast-nav"');
   });
 
-  it("opens masthead links in a new tab", () => {
-    // Same reason as the Profile rows: the app holds unsaved capture state and
-    // a same-tab jump drops it.
+  it("opens masthead links in this tab", () => {
+    // Same rule as the Profile rows (Kyle 2026-07-29): our own pages open in
+    // place.
     const row = APP.match(/className="cz-mast-nav-link"[\s\S]{0,200}/);
     expect(row, "the masthead links no longer use cz-mast-nav-link").not.toBeNull();
-    expect(row[0], "masthead links do not open in a new tab").toContain('target="_blank"');
-    expect(row[0], 'target="_blank" without rel="noreferrer"').toContain('rel="noreferrer"');
+    expect(row[0], "masthead links still open in a new tab").not.toContain('target="_blank"');
+  });
+
+  // The other half of the same rule, and the half that is easy to break by
+  // accident: a link that LEAVES Credenza must still open a new tab. Losing
+  // the shelf behind a seller page is a worse trade than losing a sheet.
+  it("still opens a seller link and an album link in a new tab", () => {
+    const bar = readFileSync(join(ROOT, "components/CommandBar.jsx"), "utf8");
+    const seller = bar.match(/href=\{sellerHref\}[\s\S]{0,160}/);
+    expect(seller, "the command bar lost its seller link").not.toBeNull();
+    expect(seller[0], "the seller link no longer opens a new tab").toContain('target="_blank"');
+
+    const meta = readFileSync(join(ROOT, "components/CardMetaLinks.jsx"), "utf8");
+    expect(meta, "album links no longer open a new tab").toContain('target="_blank"');
   });
 
   it("keeps a way out on phones, where the masthead nav is hidden", () => {
