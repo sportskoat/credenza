@@ -1,6 +1,6 @@
 // PhotoCoverFlow hardening: album rejection, image-prop clamp, optional cover.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PhotoCoverFlow from "../../components/PhotoCoverFlow.jsx";
 
@@ -221,5 +221,79 @@ describe("PhotoCoverFlow hardening", () => {
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
+  });
+});
+
+// Round 7 (2026-07-29): the magnifying glass on the full-screen photo.
+describe("PhotoCoverFlow enlarged layer", () => {
+  it("opens the enlarged layer from the active photo only", async () => {
+    const user = userEvent.setup();
+    renderFlow({ startIndex: 1 });
+
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    // One magnifier, and it belongs to the active photo (PHOTO_2).
+    const buttons = screen.getAllByRole("button", { name: "Enlarge photo" });
+    expect(buttons).toHaveLength(1);
+    await user.click(buttons[0]);
+
+    const layer = await screen.findByRole("dialog", { name: "Enlarged photo" });
+    expect(layer.querySelector("img").getAttribute("src")).toBe(PHOTO_2);
+  });
+
+  it("the exit button closes the layer but not the viewer", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderFlow({ onClose });
+
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    await user.click(screen.getByRole("button", { name: "Enlarge photo" }));
+    await screen.findByRole("dialog", { name: "Enlarged photo" });
+
+    await user.click(screen.getByRole("button", { name: "Close enlarged photo" }));
+    expect(screen.queryByRole("dialog", { name: "Enlarged photo" })).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Album photo preview" })).toBeInTheDocument();
+  });
+
+  it("Escape closes the layer first, then the viewer", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderFlow({ onClose });
+
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    await user.click(screen.getByRole("button", { name: "Enlarge photo" }));
+    await screen.findByRole("dialog", { name: "Enlarged photo" });
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Enlarged photo" })).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("ignores the arrow keys while the layer is open", async () => {
+    const user = userEvent.setup();
+    renderFlow();
+
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Enlarge photo" }));
+    await screen.findByRole("dialog", { name: "Enlarged photo" });
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+  });
+
+  it("never offers the magnifier for a photo that failed to load", async () => {
+    renderFlow();
+
+    const img = await screen.findByAltText("Album photo 1");
+    expect(screen.getByRole("button", { name: "Enlarge photo" })).toBeInTheDocument();
+    fireEvent.error(img);
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Enlarge photo" })).not.toBeInTheDocument();
+    });
+    // The neighbour photos still offer it when they become active.
   });
 });

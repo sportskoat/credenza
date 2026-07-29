@@ -10690,6 +10690,93 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   right: max(8px, env(safe-area-inset-right, 8px));
 }
 
+/* Round 7 (2026-07-29): the magnifying glass. A small round frosted button on
+   the active photo, same treatment as the ‹ › arrows. */
+.cz-photo-coverflow-zoom-btn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-card-solid) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--cz-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-photo-coverflow-zoom-btn:hover {
+  background: color-mix(in srgb, var(--cz-card-solid) 88%, transparent);
+}
+
+/* The enlarged layer. It covers the whole viewer box and takes every pointer
+   event, so the coverflow swipe underneath never sees the drag. touch-action:
+   none keeps the browser from eating the pinch and the pan. */
+.cz-photo-coverflow-zoom {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  border-radius: 24px;
+  /* Fully opaque — a translucent layer lets the arrows and the Delete /
+     Make cover buttons ghost through under the photo. */
+  background: rgb(5, 2, 12);
+  touch-action: none;
+  cursor: grab;
+}
+
+.cz-photo-coverflow-zoom:active {
+  cursor: grabbing;
+}
+
+.cz-photo-coverflow-zoom img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  max-height: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.cz-photo-coverflow-zoom-exit {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-card-solid) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--cz-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cz-photo-coverflow-zoom-exit:hover {
+  background: color-mix(in srgb, var(--cz-card-solid) 88%, transparent);
+}
+
 /* Don't let the img steal the pan (iOS image drag / smart-zoom). */
 .cz-photo-coverflow-card img {
   pointer-events: none;
@@ -10730,6 +10817,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 
   .cz-photo-coverflow-close {
+    top: max(12px, env(safe-area-inset-top, 12px));
+    right: max(12px, env(safe-area-inset-right, 12px));
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Round 7: the enlarged layer's exit button follows the same safe area. */
+  .cz-photo-coverflow-zoom-exit {
     top: max(12px, env(safe-area-inset-top, 12px));
     right: max(12px, env(safe-area-inset-right, 12px));
     width: 44px;
