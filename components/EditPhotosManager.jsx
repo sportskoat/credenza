@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
 import { m as motion } from "framer-motion";
 import { Plus, Trash2 } from "lucide-react";
-import { itemPhotoList, usePrefersReducedMotion } from "../credenza-fashion.jsx";
+import { itemPhotoList, usePrefersReducedMotion, DETAIL_PHOTO_CAP } from "../credenza-fashion.jsx";
 
 // Edit-mode photo strip: every indexed photo with a shake-trash delete, plus
 // a + tile to add ones the resolver missed.
-export function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = 12 }) {
+export function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = DETAIL_PHOTO_CAP }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const photos = itemPhotoList(item, max);

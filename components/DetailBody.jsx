@@ -24,6 +24,7 @@ import {
   formatMeasure,
   formatSizeToken,
   itemPhotoList,
+  DETAIL_PHOTO_CAP,
   linkButtons,
   measureFromStorage,
   measureToStorage,
@@ -563,7 +564,7 @@ function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCou
             ))}
           </span>
           <span className="cz-sizing-albumtext">
-            Read this item&rsquo;s {albumCount} album photo{albumCount === 1 ? "" : "s"}
+            Read the {albumCount} seller photo{albumCount === 1 ? "" : "s"} for a size chart
           </span>
           <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
         </button>
@@ -1465,7 +1466,7 @@ export default function DetailBody({
   // must not hide the good ones.
   const [badPhotos, setBadPhotos] = useState(() => new Set());
   const trackRef = useRef(null);
-  const photos = heroPager ? itemPhotoList(item, 12) : [];
+  const photos = heroPager ? itemPhotoList(item, DETAIL_PHOTO_CAP) : [];
 
   // §9 sticky bar. The photo block used to leave a stranded sliver of image
   // above the title as you scrolled. The bar replaces that sliver: thumb,
@@ -1715,7 +1716,9 @@ export default function DetailBody({
     chartPhotoUrlRef.current = "";
   }, []);
   const sizingAlbumPhotos = useMemo(
-    () => itemPhotoList(item, 12).filter((src) => /^https?:\/\//i.test(src)),
+    // Round 5 point 5.2: one shared cap for every detail photo list. The
+    // filter stays — this list is only the photos the server can fetch.
+    () => itemPhotoList(item, DETAIL_PHOTO_CAP).filter((src) => /^https?:\/\//i.test(src)),
     [item]
   );
 

@@ -116,7 +116,9 @@ describe("DetailBody detail facts", () => {
     const onSaveEdit = vi.fn();
     render(body(item("pick", { batch: "Batch A" }), { onSaveEdit }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Large" }));
+    // Round 5 point 5.1: the chart measurement cells are the picker now —
+    // the plain chip row would say the same sizes twice, so it hides.
+    fireEvent.click(screen.getByRole("button", { name: /^Large/ }));
     expect(onSaveEdit).toHaveBeenCalledTimes(1);
     expect(onSaveEdit).toHaveBeenCalledWith(
       "pick",

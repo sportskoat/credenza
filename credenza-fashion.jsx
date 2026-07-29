@@ -3697,6 +3697,12 @@ export function cx(...parts) {
 
 // Deduped cover + gallery list, optionally capped. Single seed expression for
 // every photo surface (edit manager, card-back fan, both openPhotos paths).
+//
+// DETAIL_PHOTO_CAP is the one cap for every detail-panel photo list (round 5
+// point 5.2, 2026-07-29). Two caps used to live in two files — 24 for the
+// desktop strip, 12 for the sizing album — and the mismatch made the two
+// photo counts disagree without saying why.
+export const DETAIL_PHOTO_CAP = 24;
 export function itemPhotoList(item, max) {
   const photos = mergeFashionImages(item.image ? [item.image] : [], item.gallery || []);
   return max == null ? photos : photos.slice(0, max);

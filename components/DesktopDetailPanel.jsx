@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Share2, Tag, Trash2, X } from "lucide-react";
 import {
   RELAY_MAX,
+  DETAIL_PHOTO_CAP,
   itemPhotoList,
   mergeFashionImages,
   priceLabel,
@@ -62,7 +63,7 @@ export default function DesktopDetailPanel({
   // photo's inner edge. False on every other open — the panel just appears.
   morphing = false,
 }) {
-  const [photos, setPhotos] = useState(() => itemPhotoList(item, 24));
+  const [photos, setPhotos] = useState(() => itemPhotoList(item, DETAIL_PHOTO_CAP));
   const [photoIdx, setPhotoIdx] = useState(0);
   // Full-screen swipe gallery at the tapped photo (the entry the flip-card
   // hero pager used to provide). photoView = { startIndex } | null.
@@ -145,7 +146,7 @@ export default function DesktopDetailPanel({
   // Keep the stage in sync when attach/remove rewrites the item (or a new
   // card opens). Lazy Yupoo load still extends the list below.
   useEffect(() => {
-    const next = itemPhotoList(item, 24);
+    const next = itemPhotoList(item, DETAIL_PHOTO_CAP);
     setPhotos(next);
     setPhotoIdx((i) => Math.min(i, Math.max(0, next.length - 1)));
   }, [item]);
@@ -155,7 +156,7 @@ export default function DesktopDetailPanel({
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const base = itemPhotoList(item, 24);
+      const base = itemPhotoList(item, DETAIL_PHOTO_CAP);
       // RELAY_MAX, not GALLERY_MAX — see the note in PhotoCoverFlow.
       if (!!yupooAlbumUrl(item) && base.length < RELAY_MAX && onLoadPhotos) {
         const imgs = await onLoadPhotos(item, { signal: new AbortController().signal });

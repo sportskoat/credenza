@@ -1553,10 +1553,11 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    // Round 4 point 1: the chips and the odd-size field moved into the fit
+    // Round 4 point 1: the picker and the odd-size field sit in the fit
     // section, beside the big size word — one place for size, no rail "Size".
+    // Round 5 point 5.1: the chart measurement cells are the picker.
     const fit = within(sheet).getByRole("region", { name: "Size and fit" });
-    expect(within(fit).getByRole("button", { name: "X-Large" })).toHaveAttribute(
+    expect(within(fit).getByRole("button", { name: /^X-Large/ })).toHaveAttribute(
       "aria-pressed",
       "true"
     );
@@ -1625,7 +1626,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use AI size" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Clear size" }));
+    // Round 5 point 5.1: the chart cells are the picker — a second tap on the
+    // picked cell clears the hand size. The old "Clear size" chip is gone.
+    await user.click(screen.getByRole("button", { name: /^X-Large/ }));
 
     await waitFor(() => {
       const saved = JSON.parse(data[STORE_KEY] || "[]");
@@ -1682,8 +1685,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     await openSheet(user);
 
-    expect(screen.getByRole("button", { name: "Small" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Large" }));
+    // Round 5 point 5.1: the chart measurement cells are the picker.
+    expect(screen.getByRole("button", { name: /^Small/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Large/ }));
 
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].size).toBe("L"));
     expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("L");
