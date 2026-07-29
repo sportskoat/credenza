@@ -10308,10 +10308,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Phone body gutter (split-rail spec :161). The buy bar now sits at 16px, so
-   the scroller matches it: content and the pinned bar share one edge. */
+   the scroller matches it: content and the pinned bar share one edge.
+   Round 5 defect fix (Oom, Round 4 review): 16px let the last control rest
+   against the bar; 24px keeps a clear gap. */
 @media (max-width: 767px) {
   .cz-detail-scroll {
-    padding: 8px 16px 16px;
+    padding: 8px 16px 24px;
   }
 }
 
@@ -11500,6 +11502,12 @@ a.cz-detail-seller-row:focus-visible {
   opacity: 0.85;
   pointer-events: none;
   animation: cz-pick-sheen 6s var(--ease-out) infinite;
+  /* Round 5 defect fix (Oom, Round 4 review): the band's hard top and bottom
+     edges read as a clipped thumbnail at the right of the column. A diagonal
+     tilt plus soft vertical edges make it a light sweep, not a rectangle. */
+  transform: skewX(-14deg);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 35%, #000 65%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 35%, #000 65%, transparent);
 }
 @keyframes cz-pick-sheen {
   to {
