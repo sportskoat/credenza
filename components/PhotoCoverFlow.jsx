@@ -148,7 +148,7 @@ function PhotoZoomLayer({ src, onExit }) {
     >
       <img
         src={src}
-        alt="Enlarged album photo"
+        alt=""
         draggable={false}
         onLoad={onLoad}
         onError={() => setFailed(true)}
