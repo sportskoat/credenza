@@ -192,10 +192,12 @@ describe("FitReadTable in the detail body", () => {
     expect(screen.queryByRole("button", { name: "Forget this chart" })).toBe(null);
   });
 
-  it("hides the table without a chart; the foot keeps the route and the waiting line", async () => {
-    // Round 5 point 5.4 (Oom ruling 2026-07-29): no chart means NO table of
-    // dashes — the ghost rows were the exact "too busy" fault. The foot row
-    // stays: it carries the waiting line and the profile-size route.
+  it("ghosts the table without a chart; YOURS stays, THEIRS shows a dash", async () => {
+    // Fable RULED 2026-07-29, Kimi confirmed: the handoff's no-chart state
+    // wins over round 5 point 5.4. The table stays and says what it does not
+    // know. The app owes the customer their own numbers while it waits for
+    // the seller's. The band and the marks stay off — there is nothing to
+    // score against yet.
     huntMock.mockResolvedValue(null);
     const { container } = renderBody(
       fitItem({ sizeNotes: undefined, sizeChartSource: undefined })
@@ -205,9 +207,11 @@ describe("FitReadTable in the detail body", () => {
     const table = container.querySelector(".cz-fitread");
     expect(table.classList.contains("is-ghost")).toBe(true);
     const scoped = within(table);
-    expect(table.querySelectorAll(".cz-fitread-heads").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-track").length).toBe(0);
-    expect(scoped.queryByText("105cm")).toBe(null);
+    expect(table.querySelectorAll(".cz-fitread-heads").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-track").length).toBeGreaterThan(0);
+    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-mark").length).toBe(0);
+    expect(scoped.getAllByText("—").length).toBeGreaterThan(0);
     expect(scoped.getByText("Your measurements, waiting on theirs.")).toBeInTheDocument();
     expect(
       scoped.getByRole("button", { name: "Edit my measurements" })

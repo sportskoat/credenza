@@ -46,83 +46,75 @@ afterEach(() => {
 });
 
 describe("DetailBody detail facts", () => {
-  it("shows all five facts sections at once, with no tabs", () => {
-    // sellerAccount gives the item a store page, so the Seller row renders.
-    render(body(item("facts", { sellerAccount: "replux" })));
+  it("shows the sizing block and the command bar at once, with no tabs", () => {
+    render(body(item("facts")));
 
     // Split rail: the old tab bar is gone; every fact is always visible.
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
     expect(screen.queryAllByRole("tabpanel", { hidden: true })).toHaveLength(0);
 
-    // Round 4: Size and fit leads, then the Details blocks (Bought, Haul,
-    // Colorway, Weight, Seller). The rail "Size" section is gone — its editor
-    // moved inside Size and fit, beside the big size word, visible with no tap.
-    // Point 4: the Ordered row is now Bought, one small switch.
-    for (const name of ["Size and fit", "Bought", "Haul", "Colorway", "Weight", "Seller"]) {
-      expect(screen.getByRole("region", { name })).toBeInTheDocument();
+    // Item-detail handoff 2026-07-29, rule 1: "the rail is dead". Bought,
+    // Haul, Colorway, Weight and Category were five labelled sections stacked
+    // under the sizing block; they are five chips in one bar now. Size and fit
+    // is the only section left, because it is the only thing the product
+    // advises rather than the thing the customer sets.
+    expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
+    for (const name of ["Bought", "Haul", "Colorway", "Weight", "Seller", "Size"]) {
+      expect(screen.queryByRole("region", { name })).toBeNull();
     }
-    expect(screen.queryByRole("region", { name: "Size" })).toBeNull();
     const fit = screen.getByRole("region", { name: "Size and fit" });
-    // Round 5 point 5.7: the odd-size box hides behind a quiet link; one tap
-    // opens it. It is never gone — an odd size still has a field.
-    fireEvent.click(within(fit).getByRole("button", { name: "Type a different size" }));
-    expect(within(fit).getByLabelText("Custom item size")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Colorway" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Weight · g")).toBeInTheDocument();
+    // Kyle 2026-07-29, BUILD_PLAN step 5.2: the fifth box is visible with no
+    // tap, it stands in the same row as the sizes it overrides, and it wears
+    // the same shape. It replaces round 5.7, which hid it behind a link.
+    // This item carries a chart, so the row is the measurement cell run.
+    const custom = within(fit).getByLabelText("Custom item size");
+    expect(custom).toBeInTheDocument();
+    expect(custom).toHaveClass("cz-sizing-cell");
+    expect(custom.closest(".cz-sizing-chart")).not.toBeNull();
+    // One box, never two: the plain chip row does not draw a second one.
+    expect(within(fit).getAllByLabelText("Custom item size")).toHaveLength(1);
+
+    // A chip's editor is closed until it is asked for. Rule 4, no empty
+    // chrome: an unset value is a prompt inside the chip, never a blank field.
+    expect(screen.queryByRole("textbox", { name: "Colorway" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Add a colorway/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add a weight/ })).toBeInTheDocument();
   });
 
-  // Shelf handoff 2026-07-28 (README :105), cut by round 4 (2026-07-29).
-  // Every fact lives in one rail, in one order. Round 4 folded the rail Size
-  // section into Size and fit and moved Category out to the ⋯ menu (the
-  // desktop-detail-panel tests cover that row).
-  it("draws the Details rail in the handoff order, Seller last", () => {
-    render(body(item("order", { sellerAccount: "replux" })));
+  // Item-detail handoff 2026-07-29 §5: the chip order is fixed. Status leads
+  // because it is the only chip that changes what the footer means. Category
+  // came back out of the ⋯ menu and sits last (Kyle, 04:58).
+  it("draws the command bar in the handoff chip order, seller pushed right", () => {
+    render(body(item("order")));
 
-    const rail = document.querySelector(".cz-detail-facts");
-    expect(rail).not.toBeNull();
-    const order = Array.from(rail.querySelectorAll(".cz-detail-facts-section")).map((s) =>
-      s.getAttribute("aria-label")
+    const bar = document.querySelector(".cz-cmdbar");
+    expect(bar).not.toBeNull();
+    const chips = Array.from(bar.querySelectorAll(".cz-cmdbar-chip")).map((chip) =>
+      chip.getAttribute("data-chip")
     );
-    expect(order).toEqual([
-      "Size and fit",
-      "Bought",
-      "Haul",
-      "Colorway",
-      "Weight",
-      "Seller",
-    ]);
+    expect(chips).toEqual(["status", "haul", "color", "weight", "category"]);
 
-    // The kicker splits "does it fit?" from "what is it?".
-    expect(rail.querySelector(".cz-detail-facts-kicker").textContent).toBe("Details");
+    // The Details kicker went with the rows it separated.
+    expect(document.querySelector(".cz-detail-facts-kicker")).toBeNull();
+
+    // Weidian has no store page Credenza can build, so the seller stays flat.
+    expect(screen.queryByRole("link", { name: /replux/ })).toBe(null);
+    expect(bar.textContent).toContain("replux");
   });
 
-  it("hides the Seller row when no store page exists, even with a seller name", () => {
-    // Round 5 point 5.5, second cut (Oom 2026-07-29): the row names the
-    // action, not the seller, and a row with nowhere to point is a dead row.
-    // Weidian has no store page Credenza can build, so the row hides.
-    render(body(item("order-weidian")));
-
-    expect(screen.queryByRole("region", { name: "Seller" })).toBe(null);
-    expect(screen.queryByRole("link", { name: /listings$/ })).toBe(null);
-  });
-
-  it("the Seller row opens the seller's other listings when a store page exists", () => {
+  it("the seller link opens the seller's other listings when a store page exists", () => {
     render(body(item("shop", { sellerAccount: "replux" })));
 
-    // Round 5 point 5.5, second cut: the row names the action, not the
-    // seller — the name lives in the title line and the timeline. The
-    // accessible name keeps the seller for screen readers.
-    const seller = screen.getByRole("link", { name: "Open replux listings" });
+    // Seller opens the seller's other listings; it never edits.
+    const seller = within(document.querySelector(".cz-cmdbar")).getByRole("link");
     expect(seller.getAttribute("target")).toBe("_blank");
     expect(seller.getAttribute("href")).toBe("https://replux.x.yupoo.com/");
-    expect(seller.textContent).toContain("See other listings");
-    expect(seller.textContent).not.toContain("replux");
   });
 
-  it("drops the Seller row when the item has no seller", () => {
+  it("drops the seller link when the item has no seller", () => {
     render(body(item("noseller", { seller: "" })));
 
-    expect(screen.queryByRole("region", { name: "Seller" })).toBe(null);
+    expect(document.querySelector(".cz-cmdbar-seller")).toBeNull();
   });
 
   it("saves a direct size once and preserves Batch", () => {
@@ -148,9 +140,6 @@ describe("DetailBody detail facts", () => {
     const onSaveEdit = vi.fn();
     render(body(item("custom-enter", { batch: "Stored Batch" }), { onSaveEdit }));
 
-    // Round 5 point 5.7: open the odd-size box first — it hides behind a
-    // quiet link until asked for.
-    fireEvent.click(screen.getByRole("button", { name: "Type a different size" }));
     const input = screen.getByLabelText("Custom item size");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "  3XL  " } });
@@ -170,8 +159,6 @@ describe("DetailBody detail facts", () => {
     const onSaveEdit = vi.fn();
     render(body(item("custom-blur"), { onSaveEdit }));
 
-    // Round 5 point 5.7: the box opens from the quiet link.
-    fireEvent.click(screen.getByRole("button", { name: "Type a different size" }));
     const input = screen.getByLabelText("Custom item size");
     fireEvent.change(input, { target: { value: "One size" } });
     fireEvent.blur(input);
@@ -182,16 +169,17 @@ describe("DetailBody detail facts", () => {
     );
   });
 
-  it("opens the odd-size box with no tap when the stored size matches no chip", () => {
-    // Round 5 point 5.7, rule 4: an odd size must never hide. "170/92A" is
-    // not on the chart, so the box renders open on its own.
+  // Kept from the round-5 lane and still true under the command bar: a size
+  // the chart never lists must reach the customer with no tap. The box is
+  // always visible now, so the old "Type a different size" link is gone.
+  it("shows an odd stored size in the box with no tap", () => {
     render(body(item("odd-size", { size: "170/92A" })));
 
     expect(screen.queryByRole("button", { name: "Type a different size" })).toBeNull();
     expect(screen.getByLabelText("Custom item size")).toHaveValue("170/92A");
   });
 
-  it("keeps Colorway, Weight, and Haul editing inline in their sections", async () => {
+  it("edits colorway, weight and haul from their command-bar chips", async () => {
     const user = userEvent.setup();
     const onSaveEdit = vi.fn();
     const flushRef = { current: null };
@@ -204,6 +192,8 @@ describe("DetailBody detail facts", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Done" })).toBe(null);
+
+    await user.click(screen.getByRole("button", { name: /Add a colorway/ }));
     await user.type(screen.getByRole("textbox", { name: "Colorway" }), "Navy");
     fireEvent.blur(screen.getByRole("textbox", { name: "Colorway" }));
     expect(onSaveEdit).toHaveBeenLastCalledWith(
@@ -211,6 +201,7 @@ describe("DetailBody detail facts", () => {
       expect.objectContaining({ colorway: "Navy", batch: "Batch P" })
     );
 
+    await user.click(screen.getByRole("button", { name: /Add a weight/ }));
     fireEvent.change(screen.getByLabelText("Weight · g"), { target: { value: "450" } });
     fireEvent.blur(screen.getByLabelText("Weight · g"));
     expect(onSaveEdit).toHaveBeenLastCalledWith(
@@ -218,12 +209,51 @@ describe("DetailBody detail facts", () => {
       expect.objectContaining({ weightGrams: 450, batch: "Batch P" })
     );
 
-    await user.click(screen.getByRole("button", { name: "Add to a haul…" }));
-    await user.click(screen.getByRole("option", { name: "Summer" }));
+    await user.click(screen.getByRole("button", { name: /Add to a haul/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: /Summer/ }));
     act(() => flushRef.current());
     expect(onSaveEdit).toHaveBeenLastCalledWith(
       "panels",
       expect.objectContaining({ project: "Summer", batch: "Batch P" })
+    );
+  });
+
+  // §5.3: one `menu` key, not a boolean per menu. Opening any chip must close
+  // whatever was open, or two popovers end up on screen together.
+  it("keeps one command-bar popover open at a time", async () => {
+    const user = userEvent.setup();
+    render(body(item("onemenu"), { haulNames: ["Summer"] }));
+
+    await user.click(screen.getByRole("button", { name: /Add a colorway/ }));
+    expect(screen.getByRole("menu", { name: "Colorway" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Add to a haul/ }));
+    expect(screen.getByRole("menu", { name: "Haul" })).toBeInTheDocument();
+    expect(screen.queryByRole("menu", { name: "Colorway" })).toBeNull();
+
+    // Escape closes the popover and leaves the panel alone.
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu", { name: "Haul" })).toBeNull();
+  });
+
+  // Round 4 point 4 (Kyle): two stops, not seven. The shelf stores "want" and
+  // "bought" and nothing else, so the menu offers exactly those two.
+  it("offers two status steps and writes the one that is picked", async () => {
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    render(body(item("status"), { onSaveEdit }));
+
+    await user.click(screen.getByRole("button", { name: /Want/ }));
+    const steps = screen.getAllByRole("menuitemradio");
+    expect(steps.map((step) => step.textContent)).toEqual([
+      "Wantsaved, nothing sent",
+      "Boughthanded to your agent",
+    ]);
+
+    await user.click(screen.getByRole("menuitemradio", { name: /Bought/ }));
+    expect(onSaveEdit).toHaveBeenLastCalledWith(
+      "status",
+      expect.objectContaining({ findStatus: "bought" })
     );
   });
 

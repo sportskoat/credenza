@@ -1,13 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload, X } from "lucide-react";
 import { listAgents } from "../agents.js";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
-import QuietLegal from "./QuietLegal.jsx";
+import CommandBar from "./CommandBar.jsx";
 import {
   EditPhotosManager,
-  HaulAccordionField,
-  StatusChips,
   buildEditDraft,
   buildEditPatch,
   CATEGORIES,
@@ -312,6 +310,9 @@ function SizingBlock({
   cells: cellsProp,
   measureKey: measureKeyProp,
   onPick,
+  // Kyle 2026-07-29: the fifth box rides at the right of the cell run, on the
+  // same line as the sizes it overrides. Null when the caller has no box.
+  customBox = null,
   // §3: names the seller whose cached chart sized this item. Null on every
   // other path, and the provenance falls back to SELLER'S CHART.
   cachedFrom = "",
@@ -411,6 +412,7 @@ function SizingBlock({
               </button>
             );
           })}
+          {customBox}
         </div>
       ) : null}
     </section>
@@ -584,10 +586,12 @@ function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCou
 //
 // Per-measurement fit bars under the pick: how far each garment measure sits
 // from the body on a tight↔loose track, with a fixed 36–66% tolerance band.
-// Round 5 point 5.4 (Oom ruling 2026-07-29): no chart means NO table — the
-// ghost rows of dashes were the exact "too busy" fault Kyle rejected. The
-// foot row stays: it carries the reading progress and the profile-size
-// route ("Edit my measurements"), which have no other home.
+// With no chart the table ghosts — names in placeholder, YOURS kept, no
+// tracks' band or marks — so the customer sees what a chart would unlock.
+// Round 5 point 5.4 tried to hide the whole table here. Fable RULED against
+// it on 2026-07-29 and Kimi confirmed: the handoff's no-chart state wins.
+// The app owes the customer their own numbers while it waits for the
+// seller's. Do not hide this table again without Kyle's word.
 // Row math lives in fitReadRows (pure, tested on its own).
 function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart }) {
   if (!rows.length) return null;
@@ -620,55 +624,52 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
         "cz-fitread" + (hasChart ? "" : " is-ghost") + (reading ? " is-reading" : "")
       }
     >
-      {/* Round 5 point 5.4: the heads and rows render only with a chart.
-          No chart means no table of dashes — the foot row below carries the
-          reading progress and the profile-size route on its own. */}
-      {hasChart ? (
-        <>
-          <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
-            <span className="cz-fitread-kicker">FIT READ</span>
-            <span className="cz-fitread-scale">
-              <span>TIGHT</span>
-              <span>TRUE</span>
-              <span>LOOSE</span>
-            </span>
-            {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
-                grid never has to fit six letters over a 30px column. */}
-            <span className="cz-fitread-head">
-              <span className="cz-fitread-head-long">THEIRS</span>
-              <span className="cz-fitread-head-short">THRS</span>
-            </span>
-            <span className="cz-fitread-head">
-              <span className="cz-fitread-head-long">YOURS</span>
-              <span className="cz-fitread-head-short">YOU</span>
-            </span>
-            <span className="cz-fitread-head">EASE</span>
-          </div>
-          {rows.map((r) => (
-            <div key={r.key} className="cz-fitread-row">
-              <span className="cz-fitread-name">{r.name}</span>
-              <span className="cz-fitread-track">
-                <span className="cz-fitread-band" />
-                {r.mark != null ? (
-                  <span
-                    className={"cz-fitread-mark" + (r.warn ? " is-warn" : "")}
-                    style={{ left: r.mark + "%" }}
-                  />
-                ) : null}
-              </span>
-              <span className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}>
-                {r.theirs != null ? formatMeasure(r.theirs, units) : "—"}
-              </span>
-              <span className="cz-fitread-yours">
-                {r.yours != null ? formatMeasure(r.yours, units) : "—"}
-              </span>
-              <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
-                {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : ""}
-              </span>
-            </div>
-          ))}
-        </>
-      ) : null}
+      <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
+        <span className="cz-fitread-kicker">FIT READ</span>
+        {hasChart ? (
+          <span className="cz-fitread-scale">
+            <span>TIGHT</span>
+            <span>TRUE</span>
+            <span>LOOSE</span>
+          </span>
+        ) : (
+          <span />
+        )}
+        {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
+            grid never has to fit six letters over a 30px column. */}
+        <span className="cz-fitread-head">
+          <span className="cz-fitread-head-long">THEIRS</span>
+          <span className="cz-fitread-head-short">THRS</span>
+        </span>
+        <span className="cz-fitread-head">
+          <span className="cz-fitread-head-long">YOURS</span>
+          <span className="cz-fitread-head-short">YOU</span>
+        </span>
+        <span className="cz-fitread-head">EASE</span>
+      </div>
+      {rows.map((r) => (
+        <div key={r.key} className="cz-fitread-row">
+          <span className="cz-fitread-name">{r.name}</span>
+          <span className="cz-fitread-track">
+            {hasChart ? <span className="cz-fitread-band" /> : null}
+            {r.mark != null ? (
+              <span
+                className={"cz-fitread-mark" + (r.warn ? " is-warn" : "")}
+                style={{ left: r.mark + "%" }}
+              />
+            ) : null}
+          </span>
+          <span className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}>
+            {r.theirs != null ? formatMeasure(r.theirs, units) : "—"}
+          </span>
+          <span className="cz-fitread-yours">
+            {r.yours != null ? formatMeasure(r.yours, units) : "—"}
+          </span>
+          <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
+            {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : ""}
+          </span>
+        </div>
+      ))}
       <div className="cz-fitread-foot">
         <span className="cz-fitread-footnote">{footnote}</span>
         <span className="cz-fitread-footlinks">
@@ -887,17 +888,47 @@ function listPhrase(words) {
   return words.slice(0, -1).join(", ") + " and " + words[words.length - 1];
 }
 
+// Kyle 2026-07-29, BUILD_PLAN step 5.2: "that fifth box to the right as a
+// custom size". The box is the only field that takes sizes like "170/92A",
+// "EU 44" and "One size", so it is always visible and it wears the shape of
+// the boxes beside it. This replaces round 5.7, which hid it behind a "Type a
+// different size" link — Fable blocked that on 2026-07-29.
+// Two hosts, one box: the chart cells when the seller has a chart, the plain
+// chip run when it does not. `className` names the host.
+function CustomSizeBox({ className, value, onChange, onCommit }) {
+  return (
+    <input
+      className={className}
+      aria-label="Custom item size"
+      placeholder="Other"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onCommit}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          onCommit();
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidden = false, customSize, onCustomChange, onCommit, onPick }) {
   const choices = chipSizes(runValues, chosenSize || recommendedSize);
-  // Round 5 point 5.7: the odd-size box stays hidden until asked for — but
-  // never when the stored size matches no chip. An odd size must never hide.
-  const oddStored =
-    !!chosenSize &&
-    !choices.some((s) => String(s).toUpperCase() === String(chosenSize).toUpperCase());
-  const [customOpen, setCustomOpen] = useState(oddStored);
-  useEffect(() => {
-    if (oddStored) setCustomOpen(true);
-  }, [oddStored]);
+  // The chart cells host the box themselves when they are on screen, so this
+  // editor draws nothing at all rather than a second, lonely box below them.
+  if (choicesHidden) return null;
+  const customBox = (
+    <CustomSizeBox
+      className="cz-detail-size-choice is-custom"
+      value={customSize}
+      onChange={onCustomChange}
+      onCommit={onCommit}
+    />
+  );
 
   return (
     <div className="cz-detail-size-editor">
@@ -905,10 +936,8 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
           repeated the recommendation in words; the ringed chip already says
           it. The custom field was a second full-width bar holding the same
           value as the filled chip. Both are gone: the row below is the only
-          place the size is set. Round 5 point 5.1: when the chart cells
-          above already offer the same sizes as buttons, this chip row is a
-          repeat and hides (choicesHidden). */}
-      {choices.length && !choicesHidden ? (
+          place the size is set. */}
+      {choices.length ? (
         <div className="cz-detail-size-choices" aria-label="Item size choices">
           {choices.map((size) => {
             const active = String(chosenSize).toUpperCase() === String(size).toUpperCase();
@@ -930,47 +959,21 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
               </button>
             );
           })}
+          {/* The fifth box sits at the right of the size run, not on a row of
+              its own — Kyle asked for one row of boxes. */}
+          {customBox}
           {chosenSize ? (
             <button type="button" className="cz-detail-size-choice is-clear" onClick={() => onPick("")}>
               Clear size
             </button>
           ) : null}
         </div>
-      ) : null}
-      {/* Round 5 point 5.7 (2026-07-29): the odd-size box hides behind a
-          quiet link. The box is the only field that accepts sizes like
-          "170/92A", "EU 44" and "One size", so it is never deleted — but it
-          opens only on tap, or on its own when the stored size matches no
-          chip. An odd size must never hide. The box keeps its value, its
-          commit path, and its Enter and blur behaviour. */}
-      {customOpen ? (
-        <label className="cz-detail-custom-size">
-          <span>Other</span>
-          <input
-            className="cz-detail-editor-input"
-            aria-label="Custom item size"
-            placeholder="170/92A"
-            value={customSize}
-            onChange={(event) => onCustomChange(event.target.value)}
-            onBlur={onCommit}
-            onKeyDown={(event) => {
-              event.stopPropagation();
-              if (event.key === "Enter") {
-                event.preventDefault();
-                onCommit();
-                event.currentTarget.blur();
-              }
-            }}
-          />
-        </label>
       ) : (
-        <button
-          type="button"
-          className="cz-detail-custom-size-link"
-          onClick={() => setCustomOpen(true)}
-        >
-          Type a different size
-        </button>
+        // No size run to show. The box still stands, because it is the only
+        // way to record a size the seller never listed.
+        <div className="cz-detail-size-choices" aria-label="Item size choices">
+          {customBox}
+        </div>
       )}
     </div>
   );
@@ -1465,6 +1468,13 @@ export default function DetailBody({
   // taking ownership of the notes draft. Undefined keeps them inline for
   // every existing caller; null suppresses the pre-mount desktop frame.
   logNotesTarget = undefined,
+  // Handoff §3: the desktop panel hands the command bar a full-width slot
+  // above both columns. Same contract as logNotesTarget — undefined keeps the
+  // bar inline (phone sheet, tablet band), null suppresses it before mount.
+  commandBarTarget = undefined,
+  // Handoff section 3 region order: title, then bar, then body. Same contract
+  // as commandBarTarget — undefined keeps the title inline.
+  titleTarget = undefined,
   // CH-08 (4d–4g): the fit-prompt trio. All three optional — a caller that
   // does not pass onSaveBodyProfile gets no prompt and no ask, only the
   // existing sizing presentation.
@@ -1487,7 +1497,6 @@ export default function DetailBody({
   const titleInputRef = useRef(null);
   const chartInputRef = useRef(null);
   const chartPhotoUrlRef = useRef("");
-  const fieldBaseId = "cz-detail-" + useId().replace(/:/g, "");
   const reduced = usePrefersReducedMotion();
 
   // The photo pager is part of the shared body — the phone sheet and the
@@ -1824,6 +1833,18 @@ export default function DetailBody({
   const knownHauls = Array.from(
     new Set([...(haulNames || []), item.project || ""].map((n) => String(n || "").trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
+  // Item counts for the haul popover (item-detail handoff 2026-07-29, §5.3).
+  // Only the callers that hand us the shelf can have them; without the shelf
+  // the chip shows the haul names with no count rather than a wrong one.
+  const haulCounts = useMemo(() => {
+    if (!Array.isArray(shelfItems)) return null;
+    const counts = {};
+    for (const entry of shelfItems) {
+      const name = String((entry && entry.project) || "").trim();
+      if (name) counts[name] = (counts[name] || 0) + 1;
+    }
+    return counts;
+  }, [shelfItems]);
 
   const priceUnit =
     String(view.currency || "CNY").toUpperCase() === "USD" ? "USD" : "CNY";
@@ -1863,6 +1884,25 @@ export default function DetailBody({
       setWeightText(Number.isNaN(grams) ? "" : String(+(grams / 1000).toFixed(3)));
     }
     setWeightUnit(next);
+  };
+
+  // The weight write, lifted out of the old rail row so the command-bar chip
+  // and any later caller share one path (item-detail handoff 2026-07-29).
+  // Storage is always grams; the g/kg switch only changes what is displayed.
+  // The field takes digits and at most one decimal point — a stray letter in a
+  // weight silently becomes NaN and clears the parcel estimate.
+  const writeWeight = (raw) => {
+    const clean = String(raw).replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+    if (weightUnit !== "kg") {
+      edit("weightGrams", clean);
+      return;
+    }
+    setWeightText(clean);
+    const kg = parseFloat(clean);
+    edit(
+      "weightGrams",
+      clean.trim() === "" || Number.isNaN(kg) ? "" : String(Math.round(kg * 1000))
+    );
   };
 
   // USD ↔ CNY on the open price draft. Converts the typed number so the field
@@ -2008,6 +2048,70 @@ export default function DetailBody({
     </>
   );
 
+  /* THE COMMAND BAR (item-detail handoff 2026-07-29, rule 1: "the rail is
+     dead"). Status, haul, colorway, weight and category were five labelled
+     fields stacked under the sizing block. Five short fields can never fill
+     the height of a photo, so the panel read as bloated and empty at once.
+     They are one chip row now. Everything the USER SETS lives here;
+     everything the PRODUCT ADVISES stays in the sizing block below.
+     See commandBarBlock below. */
+  /* Title. The text itself is the tap target — there is no Title field and
+     no Save button. Blur commits through the debounce. On the desktop panel
+     the title portals into the full-width header above the command bar
+     (handoff section 3); everywhere else it stays inline. */
+  const titleBlock = (
+    <div className="cz-detail-title-row">
+      <div className="cz-detail-title-col">
+        {editingTitle ? (
+          <input
+            ref={titleInputRef}
+            className="cz-detail-title-input"
+            aria-label="Item title"
+            value={view.title}
+            onChange={(e) => edit("title", e.target.value)}
+            onBlur={() => {
+              setEditingTitle(false);
+              commitRef.current();
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+          />
+        ) : (
+          <button type="button" className="cz-detail-title-btn" onClick={() => setEditingTitle(true)}>
+            <span className="cz-detail-title">{view.title || "Untitled"}</span>
+          </button>
+        )}
+        {subLine ? <div className="cz-detail-sub">{subLine}</div> : null}
+      </div>
+      {savedFlash ? (
+        <span className="cz-detail-saved">
+          <Check size={11} strokeWidth={3} aria-hidden="true" />
+          Saved
+        </span>
+      ) : null}
+    </div>
+  );
+
+  const commandBarBlock = (
+    <CommandBar
+      item={item}
+      view={view}
+      edit={edit}
+      commit={() => commitRef.current()}
+      onSaveEdit={onSaveEdit}
+      pickStatus={pickStatus}
+      knownHauls={knownHauls}
+      haulCounts={haulCounts}
+      sellerHref={sellerHref}
+      weightUnit={weightUnit}
+      weightText={weightText}
+      onWeightChange={writeWeight}
+      onSwitchWeightUnit={switchWeightUnit}
+    />
+  );
+
   return (
     <>
       {/* Sticky bar (§9). It pins under the drag handle once the photo block
@@ -2140,38 +2244,21 @@ export default function DetailBody({
 
         {/* Title. The text itself is the tap target — there is no Title
             field and no Save button. Blur commits through the debounce. */}
-        <div className="cz-detail-title-row">
-          <div className="cz-detail-title-col">
-            {editingTitle ? (
-              <input
-                ref={titleInputRef}
-                className="cz-detail-title-input"
-                aria-label="Item title"
-                value={view.title}
-                onChange={(e) => edit("title", e.target.value)}
-                onBlur={() => {
-                  setEditingTitle(false);
-                  commitRef.current();
-                }}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") e.currentTarget.blur();
-                }}
-              />
-            ) : (
-              <button type="button" className="cz-detail-title-btn" onClick={() => setEditingTitle(true)}>
-                <span className="cz-detail-title">{view.title || "Untitled"}</span>
-              </button>
-            )}
-            {subLine ? <div className="cz-detail-sub">{subLine}</div> : null}
-          </div>
-          {savedFlash ? (
-            <span className="cz-detail-saved">
-              <Check size={11} strokeWidth={3} aria-hidden="true" />
-              Saved
-            </span>
-          ) : null}
-        </div>
+        {titleTarget === undefined
+          ? titleBlock
+          : titleTarget === null
+            ? null
+            : createPortal(titleBlock, titleTarget)}
+
+        {/* The bar is inline on the phone sheet and the tablet band. On the
+            desktop panel it portals to a full-width slot above both columns
+            (handoff §3) — five chips do not fit one row inside the decision
+            column. See commandBarBlock above. */}
+        {commandBarTarget === undefined
+          ? commandBarBlock
+          : commandBarTarget === null
+            ? null
+            : createPortal(commandBarBlock, commandBarTarget)}
 
         {/* Split rail: the four detail tabs are gone. Size, colorway, weight
             and haul are always-visible facts — three of them hidden behind a
@@ -2228,6 +2315,14 @@ export default function DetailBody({
                 cells={sizeCells}
                 measureKey={sizeMeasureKey}
                 onPick={pickItemSize}
+                customBox={
+                  <CustomSizeBox
+                    className="cz-sizing-cell is-custom"
+                    value={customSize}
+                    onChange={setCustomSize}
+                    onCommit={commitCustomSize}
+                  />
+                }
                 cachedFrom={
                   item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
                     ? item.sizeChartSource.seller || item.seller || ""
@@ -2377,125 +2472,12 @@ export default function DetailBody({
             ) : null}
           </section>
 
-          {/* Details kicker (shelf handoff 2026-07-28, README :105). Everything
-              above it answers "does it fit?". Everything below it answers "what
-              is it, and did you buy it?". The kicker is the seam between the two
-              questions, so the hairline rides it instead of the next section. */}
-          <div className="cz-detail-facts-kicker" aria-hidden="true">
-            Details
-          </div>
+          {/* The Details kicker and the five rows under it are gone (item-detail
+              handoff 2026-07-29). Status, haul, colorway, weight, category and
+              seller all moved into the command bar under the title. Nothing
+              answers "what is it" down here any more, so the seam the kicker
+              marked no longer exists. */}
 
-          {/* ORDERED leads the Details list on both the desktop and the phone
-              (shelf handoff 2026-07-28, README :105). One row, one question: did
-              you buy it? Round 4 point 4 (2026-07-29) quieted the control to
-              one small switch at the right end of the row — off is "want",
-              on is "bought"; see StatusToggle in components/atoms.jsx. */}
-          <section className="cz-detail-facts-section cz-detail-facts-status" aria-label="Bought">
-            <div className="cz-detail-panel-field">
-              <span>Bought</span>
-              <StatusChips value={view.findStatus} onChange={pickStatus} label="Bought" />
-            </div>
-          </section>
-
-          <section className="cz-detail-facts-section" aria-label="Haul">
-            <HaulAccordionField
-              label="Haul"
-              value={view.project}
-              knownHauls={knownHauls}
-              onChange={(next) => edit("project", next)}
-              onCommit={(next) => edit("project", next)}
-            />
-          </section>
-
-          <section className="cz-detail-facts-section" aria-label="Colorway">
-            <label className="cz-detail-panel-field">
-              <span>Colorway</span>
-              <input
-                className="cz-detail-editor-input"
-                aria-label="Colorway"
-                value={view.colorway}
-                placeholder="Add a colorway"
-                onChange={(event) => edit("colorway", event.target.value)}
-                onBlur={() => commitRef.current()}
-                onKeyDown={(event) => {
-                  event.stopPropagation();
-                  if (event.key === "Enter") event.currentTarget.blur();
-                }}
-              />
-            </label>
-          </section>
-
-          <section className="cz-detail-facts-section" aria-label="Weight">
-            <div className="cz-detail-panel-field">
-              <label htmlFor={fieldBaseId + "-weight"}>Weight</label>
-              <div className="cz-detail-weight-row">
-                <input
-                  id={fieldBaseId + "-weight"}
-                  className="cz-detail-editor-input"
-                  aria-label={"Weight · " + weightUnit}
-                  inputMode="decimal"
-                  value={weightUnit === "kg" ? weightText : view.weightGrams}
-                  onChange={(event) => {
-                    const raw = event.target.value;
-                    if (weightUnit !== "kg") {
-                      edit("weightGrams", raw);
-                      return;
-                    }
-                    setWeightText(raw);
-                    const kg = parseFloat(raw);
-                    edit(
-                      "weightGrams",
-                      raw.trim() === "" || Number.isNaN(kg) ? "" : String(Math.round(kg * 1000))
-                    );
-                  }}
-                  onBlur={() => commitRef.current()}
-                  onKeyDown={(event) => {
-                    event.stopPropagation();
-                    if (event.key === "Enter") event.currentTarget.blur();
-                  }}
-                />
-                <div className="cz-detail-unit" role="group" aria-label="Weight unit">
-                  {["g", "kg"].map((unit) => (
-                    <button
-                      key={unit}
-                      type="button"
-                      className={"cz-detail-unit-btn" + (weightUnit === unit ? " is-active" : "")}
-                      aria-pressed={weightUnit === unit}
-                      onClick={() => switchWeightUnit(unit)}
-                    >
-                      {unit}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* SELLER closes the Details list (shelf handoff 2026-07-28,
-              README :105). Round 5 point 5.5, second cut (Oom 2026-07-29):
-              the seller name shows in the title line and the timeline, so
-              this row names the ACTION, not the seller — "See other
-              listings". The accessible name keeps the seller for screen
-              readers. The row hides when no store page can be built — a
-              dead row is worse than no row. */}
-          {item.seller && sellerHref ? (
-            <section className="cz-detail-facts-section" aria-label="Seller">
-              <div className="cz-detail-panel-field">
-                <span>Seller</span>
-                <a
-                  className="cz-detail-seller-row"
-                  href={sellerHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={"Open " + item.seller + " listings"}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <span className="cz-detail-seller-name">See other listings</span>
-                  <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
-                </a>
-              </div>
-            </section>
-          ) : null}
         </div>
 
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
@@ -2578,14 +2560,13 @@ export default function DetailBody({
             />
           ) : null}
           {buyButton ? (
-            // Round 5 point 5.3: one quiet line; the full wording sits behind
-            // the "i" control. The cz-detail-disclosure class stays so the
-            // footer layout rules keep holding.
-            <QuietLegal
-              className="cz-detail-disclosure"
-              line="Buy links may include a referral code."
-              more="Credenza may earn a commission on agent shipping fees. It never changes your item price."
-            />
+            // Kimi RULED 2026-07-29: the panel footer carries the spec copy,
+            // inline, with no "i" control. The line is short enough to read
+            // whole, and it answers the question the "i" was hiding. Round
+            // 5.3's quiet-legal treatment still holds everywhere else.
+            <p className="cz-detail-disclosure">
+              Referral code funds the app. Never changes your price.
+            </p>
           ) : null}
         </div>
       ) : null}

@@ -113,6 +113,9 @@ describe("DetailSheet weight editor units", () => {
         onClose={vi.fn()}
       />
     );
+    // The command bar (item-detail handoff 2026-07-29) folded the weight field
+    // into a chip; the field opens with the chip.
+    fireEvent.click(document.querySelector('[data-chip="weight"]'));
     const input = screen.getByRole("textbox", { name: "Weight · g" });
     expect(input).toHaveValue("1200");
 
@@ -166,9 +169,13 @@ describe("DetailSheet overflow menu", () => {
       const user = userEvent.setup();
       renderSheet(twoBuyLinkItem(), { onSaveEdit, onShareCard, onClose });
 
+      fireEvent.click(document.querySelector('[data-chip="color"]'));
       fireEvent.change(screen.getByRole("textbox", { name: "Colorway" }), {
         target: { value: "Bone white" },
       });
+      // Close the chip again: an open popover is also a menu, and this test is
+      // about the overflow menu.
+      fireEvent.click(document.querySelector('[data-chip="color"]'));
       await user.click(screen.getByRole("button", { name: "More actions" }));
 
       const menu = screen.getByRole("menu");

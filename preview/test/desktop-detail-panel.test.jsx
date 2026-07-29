@@ -9,6 +9,13 @@ import userEvent from "@testing-library/user-event";
 
 import DesktopDetailPanel from "../../components/DesktopDetailPanel.jsx";
 
+// The command bar (item-detail handoff 2026-07-29) folded the always-open
+// Colorway and Weight fields into chips. A test that wants the field has to
+// open its chip first — which is the point of the redesign.
+function openBarChip(key) {
+  fireEvent.click(document.querySelector('[data-chip="' + key + '"]'));
+}
+
 function panelItem(extra = {}) {
   return {
     id: "dp-1",
@@ -85,6 +92,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
       const onClose = vi.fn();
       const { container } = renderPanel(panelItem(), { onSaveEdit, onDelete, onClose });
 
+      openBarChip("weight");
       fireEvent.change(screen.getByRole("textbox", { name: "Weight · g" }), {
         target: { value: "1200" },
       });
@@ -180,6 +188,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     fireEvent.keyDown(window, { key: "Backspace" });
     expect(onDelete).toHaveBeenCalledTimes(2);
 
+    openBarChip("color");
     const colorway = screen.getByRole("textbox", { name: "Colorway" });
     colorway.focus();
     fireEvent.keyDown(colorway, { key: "Backspace" });
@@ -189,6 +198,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
   it("leaves arrow keys with a focused detail field", () => {
     // Arrow keys inside an editing field must not page the photos.
     renderPanel(panelItem());
+    openBarChip("color");
     const colorway = screen.getByRole("textbox", { name: "Colorway" });
     colorway.focus();
 
@@ -262,6 +272,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
       const user = userEvent.setup();
       renderPanel(panelItem(), { onSaveEdit, onShareCard, onClose });
 
+      openBarChip("color");
       fireEvent.change(screen.getByRole("textbox", { name: "Colorway" }), {
         target: { value: "Bone white" },
       });

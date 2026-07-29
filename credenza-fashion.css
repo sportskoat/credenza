@@ -10980,6 +10980,375 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ══ THE COMMAND BAR (item-detail handoff 2026-07-29, §5) ══════════════════
+   Status, haul, colorway, weight and category were five labelled 32px fields
+   stacked in a 208px column. Five short fields can never fill the height of a
+   photo, so the panel read as bloated and empty at the same time. One chip row
+   under the title replaces all five. Every number below is the handoff's; the
+   spacing scale here is 4 5 6 7 9 10 11 12 — Credenza is not on a 4/8 grid and
+   rounding these is a defect, not a simplification. */
+.cz-cmdbar {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+/* Each chip owns the box its popover anchors to, so one chip can never push
+   another chip's menu sideways. */
+.cz-cmdbar-slot {
+  position: relative;
+  display: flex;
+}
+
+.cz-cmdbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  /* One curve, one micro duration (handoff §13). Hover is a hairline step,
+     never a colour change. */
+  transition:
+    border-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+
+.cz-cmdbar-chip:hover {
+  border-color: var(--cz-hair-strong);
+}
+
+.cz-cmdbar-chip:active {
+  transform: scale(0.97);
+}
+
+.cz-cmdbar-chip:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+.cz-cmdbar-label {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+/* Weight 500, never 600. At 600 the whole bar reads as a row of headings and
+   nothing in it looks settable. */
+.cz-cmdbar-value {
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+  white-space: nowrap;
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rule 4, no empty chrome: an unset value is a prompt, never a blank box. */
+.cz-cmdbar-value.is-unset {
+  color: var(--cz-placeholder);
+}
+
+.cz-cmdbar-caret {
+  color: var(--cz-placeholder);
+  flex: none;
+}
+
+/* Status is the only chip that changes what the footer means, so it leads and
+   it is the only chip allowed a colour. Tints are the money pair already in
+   the theme table — no per-status colour is invented here. */
+.cz-cmdbar-chip.is-money {
+  border-color: rgba(74, 222, 128, 0.42);
+  background: var(--cz-money-bg);
+}
+
+.cz-cmdbar-status-word {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--cz-sub);
+}
+
+.cz-cmdbar-chip.is-money .cz-cmdbar-status-word {
+  color: var(--cz-money);
+}
+
+.cz-cmdbar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px var(--cz-hair-strong);
+  flex: none;
+}
+
+.cz-cmdbar-dot.is-on {
+  background: var(--cz-ink);
+  box-shadow: none;
+}
+
+.cz-cmdbar-chip.is-money .cz-cmdbar-dot.is-on {
+  background: var(--cz-money);
+}
+
+.cz-cmdbar-seller {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-link);
+  text-decoration: none;
+}
+
+.cz-cmdbar-seller.is-flat {
+  color: var(--cz-faint);
+}
+
+/* ── Popovers (§5.3) ──
+   One shell for all five. Only one is ever mounted, because the component
+   holds a single `menu` key rather than a boolean per menu — two booleans is
+   how two popovers end up open at once. */
+.cz-cmdbar-pop {
+  position: absolute;
+  top: 38px;
+  left: 0;
+  z-index: 8;
+  min-width: 196px;
+  padding: 4px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+}
+
+.cz-app[data-fashion="true"][data-theme="light"] .cz-cmdbar-pop {
+  box-shadow: 0 10px 26px rgba(23, 24, 26, 0.14);
+}
+
+.cz-cmdbar-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-cmdbar-item:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-cmdbar-item.is-on {
+  font-weight: 600;
+}
+
+.cz-cmdbar-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Right-aligned meta: a haul count, or the plain-language line that tells the
+   customer what a status word actually means. */
+.cz-cmdbar-item-meta {
+  flex: none;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--cz-placeholder);
+}
+
+.cz-cmdbar-div {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--cz-hair);
+}
+
+/* Colorway is a free-text string in the data model and rep colourways are not
+   enumerable, so the swatch list is a convenience layer over the input below
+   it. The hex is presentation only and is never persisted. */
+.cz-cmdbar-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  flex: none;
+}
+
+.cz-cmdbar-text,
+.cz-cmdbar-newhaul-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-cmdbar-text::placeholder,
+.cz-cmdbar-newhaul-input::placeholder {
+  color: var(--cz-placeholder);
+}
+
+.cz-cmdbar-newhaul {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-left: 9px;
+  color: var(--cz-faint);
+}
+
+.cz-cmdbar-newhaul-input {
+  padding-left: 0;
+}
+
+/* Weight popover is the one fixed width (§5.3): the numeric field plus the
+   g/kg segment do not reflow well at an intrinsic width. */
+.cz-cmdbar-weight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 4px 0 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-card-solid);
+}
+
+.cz-cmdbar-weight-input {
+  width: 54px;
+  border: 0;
+  background: transparent;
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-ink);
+}
+
+.cz-cmdbar-weight-input:focus-visible,
+.cz-cmdbar-text:focus-visible,
+.cz-cmdbar-newhaul-input:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+.cz-cmdbar-seg {
+  margin-left: auto;
+  display: flex;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+
+.cz-cmdbar-seg-btn {
+  height: 20px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--cz-faint);
+  cursor: pointer;
+}
+
+.cz-cmdbar-seg-btn.is-on {
+  background: var(--cz-card-solid);
+  font-weight: 600;
+  color: var(--cz-ink);
+  box-shadow: 0 0 0 1px var(--cz-hair);
+}
+
+.cz-cmdbar-help {
+  margin: 8px 0 0;
+  font-family: var(--cz-sans);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--cz-placeholder);
+}
+
+/* Coarse pointers (§15): the 30px chip grows to a 44px target. Non-negotiable,
+   and it is the hit area that grows — the visual chip keeps its height. */
+@media (pointer: coarse) {
+  .cz-cmdbar-chip {
+    min-height: 44px;
+  }
+  .cz-cmdbar-item {
+    height: 44px;
+  }
+  .cz-cmdbar-seg-btn {
+    height: 32px;
+  }
+}
+
+/* Below the desktop width (§16): the bar wraps into rows and the options open
+   IN PLACE under it. A floating popover anchored to a 6px gap has nowhere to
+   land on a phone, and `display: contents` lets the panel become a full-width
+   row of the bar without stretching the chip that opened it. */
+@media (max-width: 1079px) {
+  .cz-cmdbar-slot {
+    display: contents;
+  }
+  .cz-cmdbar-pop {
+    position: static;
+    order: 1;
+    flex: 1 0 100%;
+    margin-top: 2px;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .cz-cmdbar {
+    margin-top: 8px;
+  }
+  /* iOS zooms any input under 16px on focus, which throws the sheet out of
+     alignment on the way back. */
+  .cz-cmdbar-text,
+  .cz-cmdbar-newhaul-input,
+  .cz-cmdbar-weight-input {
+    font-size: 16px;
+  }
+}
+
 /* ── Detail facts (split rail) ── */
 /* The four tabs are gone. Each fact is an always-visible section; hairlines
    separate them where the tab bar used to divide. */
@@ -11083,7 +11452,6 @@ a.cz-detail-seller-row:focus-visible {
 }
 
 .cz-detail-size-choice:focus-visible,
-.cz-detail-custom-size .cz-detail-editor-input:focus-visible,
 .cz-detail-panel-field .cz-detail-editor-input:focus-visible,
 .cz-detail-chart-upload:focus-visible,
 .cz-detail-profile-sizes:focus-visible,
@@ -11132,54 +11500,6 @@ a.cz-detail-seller-row:focus-visible {
   gap: 7px;
 }
 
-.cz-detail-size-editor .cz-detail-custom-size {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 7px;
-}
-
-.cz-detail-size-editor .cz-detail-custom-size > span {
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.cz-detail-size-editor .cz-detail-custom-size .cz-detail-editor-input {
-  width: 88px;
-  min-height: 44px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-/* Round 5 point 5.7: the odd-size box hides behind this quiet text link. */
-.cz-detail-custom-size-link {
-  justify-self: start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--cz-faint);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.cz-detail-custom-size-link:focus-visible {
-  outline: 2px solid var(--cz-focus);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) {
-  .cz-detail-custom-size-link:hover {
-    color: var(--cz-sub);
-  }
-}
-
 .cz-detail-size-choice {
   min-width: 44px;
   min-height: 44px;
@@ -11207,6 +11527,29 @@ a.cz-detail-seller-row:focus-visible {
 .cz-detail-size-choice.is-clear {
   color: var(--cz-sub);
   font-weight: 600;
+}
+
+/* The fifth box (Kyle 2026-07-29): a text field that wears the chip's shape,
+   so the size run reads as one row of boxes. It is wider than a chip because
+   it holds "170/92A" and "One size", not "XL". A dashed edge says "type here"
+   without a label — the chips beside it carry the meaning. */
+input.cz-detail-size-choice.is-custom {
+  width: 92px;
+  border-style: dashed;
+  color: var(--cz-ink);
+  font-weight: 600;
+  text-align: center;
+}
+
+input.cz-detail-size-choice.is-custom::placeholder {
+  color: var(--cz-faint);
+  font-weight: 500;
+}
+
+input.cz-detail-size-choice.is-custom:focus-visible {
+  border-style: solid;
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
 }
 
 /* ── Phone size row (split-rail spec :175) ── The chips share the row width
@@ -11241,20 +11584,18 @@ a.cz-detail-seller-row:focus-visible {
     letter-spacing: normal;
   }
 
-  /* The phone has no room for a chip run and a field on one line. The odd-size
-     field takes its own row under the chips, still inline-labelled. */
-  .cz-detail-size-editor .cz-detail-custom-size {
+  /* The phone has no room for a chip run and the fifth box on one line, so
+     the box takes its own row under the chips. 16px is the iOS floor: any
+     smaller and the browser zooms the page when the field takes focus. */
+  input.cz-detail-size-choice.is-custom {
     flex: 1 0 100%;
-  }
-
-  .cz-detail-size-editor .cz-detail-custom-size .cz-detail-editor-input {
-    flex: 1 1 auto;
     width: auto;
+    font-family: inherit;
     font-size: 16px;
+    letter-spacing: normal;
   }
 }
 
-.cz-detail-custom-size,
 .cz-detail-panel-field {
   display: grid;
   gap: 6px;
@@ -11263,7 +11604,6 @@ a.cz-detail-seller-row:focus-visible {
   font-weight: 650;
 }
 
-.cz-detail-custom-size .cz-detail-editor-input,
 .cz-detail-panel-field .cz-detail-editor-input {
   width: 100%;
   padding: 0 11px;
@@ -11643,6 +11983,41 @@ a.cz-detail-seller-row:focus-visible {
   font: inherit;
   cursor: pointer;
   transition: background var(--dur-press) var(--ease-out);
+}
+
+/* The fifth box (Kyle 2026-07-29): the last cell in the run is a field, not a
+   button. It takes the sizes the seller never listed — "170/92A", "EU 44",
+   "One size". A dashed edge says "type here"; the cells beside it carry the
+   meaning, so it needs no label of its own. */
+input.cz-sizing-cell.is-custom {
+  flex: 0 0 84px;
+  padding: 6px 8px;
+  border: 1px dashed var(--cz-hair-strong);
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+input.cz-sizing-cell.is-custom::placeholder {
+  color: var(--cz-faint);
+  font-weight: 500;
+}
+
+input.cz-sizing-cell.is-custom:focus-visible {
+  border-style: solid;
+}
+
+/* 16px is the iOS floor: any smaller and the browser zooms the page when the
+   field takes focus. The cell run gives the box a share of the row instead of
+   a fixed width, so the four sizes still fit beside it. */
+@media (max-width: 767px) {
+  input.cz-sizing-cell.is-custom {
+    flex: 1 1 0;
+    min-width: 56px;
+    font-size: 16px;
+  }
 }
 
 /* Round 5 point 5.1: the cells are buttons now — they pick the size. */
@@ -13163,15 +13538,20 @@ a.cz-detail-seller-row:focus-visible {
     font-size: 11.5px;
     font-weight: 600;
   }
+  /* Handoff §4: the heart left the photo and joined the actions menu and the
+     close button in the panel head. On a touch screen the first tap on a
+     heart that sits over a photo fires hover and opens the card instead of
+     liking it. In the head it wears the same puck as its two neighbours. */
   .cz-dpanel-fav {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: rgba(12, 12, 14, 0.5);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+    position: static;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
     border: 0;
-    color: #fff;
+    background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: var(--cz-sub);
   }
   /* Pager arrows: always visible (touch has no hover), disabled at the
      ends rather than wrapping. §4 makes them LIGHT frosted, not dark: the
@@ -13559,8 +13939,10 @@ a.cz-detail-seller-row:focus-visible {
        with B — the mock's own recommendation). The row must be minmax(0,1fr),
        not `none`: under max-height alone the columns lose their definite
        height, flex:1 children stop resolving, and the Buy footer clips off
-       the panel bottom (Kyle 2026-07-27). */
-    grid-template-rows: minmax(0, 1fr);
+       the panel bottom (Kyle 2026-07-27). Rows 1 and 2 are the header and the
+       command bar. Both span the full panel width above the two columns —
+       handoff §3 region order: title, then bar, then body. */
+    grid-template-rows: auto auto minmax(0, 1fr);
     /* The vw/vh caps divide by the 1.25 zoom below (86 / 1.25 = 68.8): zoom
        scales px but not viewport units, so an 86vw cap would render at
        107.5% of the window and clip the card's top icons. 68.8 keeps the
@@ -13627,20 +14009,56 @@ a.cz-detail-seller-row:focus-visible {
     font-size: 12px;
     color: var(--cz-sub);
   }
-  /* The head row held only ⋯ and ✕ but claimed a full 56px band, so the
-     title sat low under dead space (Kyle 2026-07-27). Float the two icons
-     over the rail's top-right corner — the same treatment the tablet band
-     already uses — and let the title own the top of the column. The title
-     row keeps clear of the floated icons via padding, not by moving them. */
+  /* The head no longer floats over the decision column: it stands in the
+     header row beside the title (handoff §3). The column keeps its
+     positioning context for the popovers inside it. */
   .cz-dpanel-right {
     position: relative;
   }
-  .cz-dpanel-head {
-    position: absolute;
-    top: 14px;
-    right: 16px;
-    z-index: 3;
+  /* ── The header row (handoff §3) ── The title leads the panel, and the
+     heart, the actions menu and the close button sit at its right (§4). The
+     title used to start the decision column and the three icons floated over
+     its corner; the region order now reads title, bar, body. */
+  .cz-dpanel-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    grid-column: 1 / -1;
+    padding: 14px 16px 10px;
+  }
+  .cz-dpanel-title-slot {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .cz-dpanel-header .cz-dpanel-head {
+    flex: 0 0 auto;
     padding: 0;
+  }
+  /* The head is a plain flex row here, not a floated corner, so the title
+     needs no reserve beside it. */
+  .cz-dpanel-header .cz-detail-title-row {
+    padding-right: 0;
+  }
+  /* ── The command bar's own row (handoff §3) ── The bar spans the whole
+     panel, above the photo column and the decision column. Inside the
+     decision column its five chips plus the seller link needed about 720px
+     and wrapped to two rows; across the panel they have 1040px and sit on
+     one. The 16px left padding lines the first chip up with the photo
+     column's own padding. */
+  .cz-dpanel-bar {
+    position: relative;
+    z-index: 6;
+    grid-column: 1 / -1;
+    padding: 0 20px 0 16px;
+    border-bottom: 1px solid var(--cz-hair);
+  }
+  .cz-dpanel-bar .cz-cmdbar {
+    /* The slot draws the rule and the bar sits inside it, so the bar drops
+       its own bottom border and its inline top margin. */
+    flex-wrap: nowrap;
+    margin-top: 0;
+    padding: 11px 0;
+    border-bottom: none;
   }
   /* Spec :56 shadow, Gallery only. Blackout keeps the deeper shadow from the
      768px block: a 16%-ink shadow is invisible against a near-black scrim. */
@@ -13662,10 +14080,27 @@ a.cz-detail-seller-row:focus-visible {
     border-top: 1px solid var(--cz-hair);
     background: var(--cz-footer-bg);
   }
+  /* Checklist line 9 — price left, disclosure in the middle, Buy at the right
+     at its natural width. The price and Buy share one wrapper because the
+     phone sheet needs them paired on one line. On the wide panel the wrapper
+     steps out of the layout, so all three parts order themselves across the
+     full footer. Buy is the last one and it keeps its own width. */
   .cz-dpanel-body .cz-detail-foot-row {
-    flex: 1;
+    display: contents;
+  }
+  .cz-dpanel-body .cz-detail-foot-price {
+    order: 1;
+  }
+  .cz-dpanel-body .cz-detail-foot .cz-detail-disclosure {
+    order: 2;
+    flex: 1 1 auto;
     min-width: 0;
-    gap: 14px;
+  }
+  .cz-dpanel-body .cz-detail-foot-row .cz-buy-notch-wrap {
+    order: 3;
+    flex: 0 0 auto;
+    min-width: 0;
+    margin-left: auto;
   }
   /* Spec :146 — the price goes in the display face, not mono. System mono at
      600/20px read heavier than everything around it. The element stays a
@@ -13678,8 +14113,13 @@ a.cz-detail-seller-row:focus-visible {
     font-weight: 600;
     letter-spacing: -0.03em;
   }
+  /* The 230px floor belongs to the tablet band, where Buy fills the row. Here
+     Buy takes the width of its own words, plus room to breathe. */
   .cz-dpanel-body .cz-detail-foot-row .cz-detail-buy,
   .cz-dpanel-body .cz-detail-foot .cz-detail-buy {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 0 22px;
     height: 44px;
     font-size: 13.5px;
     font-weight: 600;
@@ -13723,24 +14163,19 @@ a.cz-detail-seller-row:focus-visible {
     padding-right: 92px;
   }
 
-  /* ── Split body (spec :87) ── Desktop only.
-     Column A is the pick and the fit read. Column B is a 208px facts rail.
-     The shelf handoff (2026-07-28, README :105) sets the rail order: Size,
-     then the Details list — Ordered / Haul / Category / Colorway / Weight /
-     Seller. Category moved into .cz-detail-facts in the same handoff. */
+  /* ── Body (item-detail handoff 2026-07-29, §17: "no third column exists
+     anywhere") ── The 208px facts rail is gone. Status, haul, category,
+     colorway, weight and the seller link all moved into the command bar, so
+     the rail held nothing but its own hairline and an empty 208px band. The
+     body is one column now: the fit read owns the full width. */
   .cz-dpanel-body .cz-detail-facts {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 208px;
-    grid-template-rows: repeat(7, auto) 1fr;
-    column-gap: 20px;
-    /* The rail hairline must run unbroken down Column B, so the rows carry
-       their own 12px spacing as padding instead of a grid row-gap. */
+    grid-template-columns: minmax(0, 1fr);
     row-gap: 0;
   }
 
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Size and fit"] {
     grid-column: 1;
-    grid-row: 1 / span 8;
   }
 
   /* The Details kicker is a phone seam. In the split the vertical rail rule
@@ -13755,124 +14190,6 @@ a.cz-detail-seller-row:focus-visible {
   .cz-dpanel-body .cz-detail-facts-section + .cz-detail-facts-section {
     margin-top: 0;
     border-top: none;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Ordered"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Category"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Seller"] {
-    grid-column: 2;
-    padding-top: 12px;
-    padding-left: 20px;
-    border-left: 1px solid var(--cz-hair);
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] {
-    grid-row: 1;
-    padding-top: 16px;
-  }
-
-  /* Ordered heads the Details list (shelf handoff 2026-07-28). */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Ordered"] {
-    grid-row: 2;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"] {
-    grid-row: 3;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Category"] {
-    grid-row: 4;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"] {
-    grid-row: 5;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"] {
-    grid-row: 6;
-  }
-
-  /* Seller is the foot of the rail. The 1fr row below it takes the slack, so
-     the rail hairline runs the full height of the split. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Seller"] {
-    grid-row: 7;
-    padding-bottom: 16px;
-  }
-
-  /* The rail hairline must reach the bottom even when the fit read is taller
-     than the seven rows above. This empty tail row carries it. */
-  .cz-dpanel-body .cz-detail-facts::after {
-    content: "";
-    grid-column: 2;
-    grid-row: 8;
-    border-left: 1px solid var(--cz-hair);
-  }
-
-  /* The Bought row in the desktop facts rail: one small switch, right-aligned
-     (round 4 point 4). No rail-specific override is needed — the shared
-     .cz-status-toggle rule already draws it compact. */
-
-  /* The rail label pattern (spec :127): 10px mono over the control. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-rail-label {
-    display: block;
-    margin-bottom: 6px;
-    color: var(--cz-faint);
-    font-family: var(--cz-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  /* Rail size chips (spec :133): 28px tall, 40px min-width, radius 999px,
-     11px mono. Selected is ink fill at weight 600; unselected is a hairline
-     ring at 500. The coarse-pointer floor in credenza.css pins every
-     .cz-detail-size-choice to 44px, so the visual shrinks here and a
-     pseudo-element carries the hit area — the same trick
-     .cz-detail-hero-btn uses on the photo. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice {
-    position: relative;
-    min-width: 40px;
-    min-height: 28px;
-    padding: 0 10px;
-    border-color: var(--cz-hair);
-    border-radius: 999px;
-    color: var(--cz-sub);
-    font-family: var(--cz-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    min-width: 44px;
-    height: 44px;
-    transform: translate(-50%, -50%);
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice.is-active {
-    font-weight: 600;
-  }
-
-  /* The odd-size field shrinks to the chip band with it. The 16px iOS floor
-     is phone-only, so a desktop 11px value is safe. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-custom-size .cz-detail-editor-input {
-    width: 72px;
-    min-height: 28px;
-    height: 28px;
-    font-size: 11px;
-    font-weight: 500;
   }
 
   /* Sub line (spec :84): SELLER · SAVED <date> in 10px mono, uppercase. */
@@ -14006,15 +14323,17 @@ a.cz-detail-seller-row:focus-visible {
     min-height: 0;
   }
   /* Stacked, the head row sits halfway down the panel. Float it over the
-     panel's own top-right corner instead, beside the stage favourite. */
+     panel's own top-right corner instead. It now carries the heart as well,
+     so it reaches the corner itself. */
   .cz-dpanel-head {
     position: absolute;
     top: 12px;
-    right: 60px;
+    right: 12px;
     z-index: 3;
     padding: 0;
   }
-  .cz-dpanel-head .cz-dpanel-icon {
+  .cz-dpanel-head .cz-dpanel-icon,
+  .cz-dpanel-head .cz-dpanel-fav {
     background: rgba(12, 12, 14, 0.5);
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);

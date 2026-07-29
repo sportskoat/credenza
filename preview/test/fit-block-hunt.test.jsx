@@ -90,7 +90,9 @@ describe("FitBlock chart hunt", () => {
     // per-size cell row inside the pick block — one cell per charted size —
     // with the provenance in the header, not a separate table.
     expect(screen.getByText("SELLER'S CHART")).toBeInTheDocument();
-    expect(document.querySelectorAll(".cz-sizing-cell")).toHaveLength(3);
+    // Buttons only: the run ends with the custom-size field (Kyle 2026-07-29),
+    // which is a cell in shape but not a size the chart offers.
+    expect(document.querySelectorAll("button.cz-sizing-cell")).toHaveLength(3);
     // A chart-bearing item never hunts.
     expect(huntMock).not.toHaveBeenCalled();
   });
@@ -128,9 +130,8 @@ describe("FitBlock chart hunt", () => {
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     const section = screen.getByRole("region", { name: "Size and fit" });
     // Round 4 point 1: the size override lives inside this section, beside
-    // the big size word — the rail "Size" section is gone. Round 5 point 5.7:
-    // the odd-size box hides behind a quiet link; one tap opens it.
-    fireEvent.click(within(section).getByRole("button", { name: "Type a different size" }));
+    // the big size word — the rail "Size" section is gone. The fifth box is
+    // visible with no tap (Kyle 2026-07-29).
     expect(within(section).getByLabelText("Custom item size")).toBeInTheDocument();
     expect(
       screen.getByText("The listing had no measurements. Upload the seller chart to read its measurements.")
@@ -180,8 +181,7 @@ describe("FitBlock chart hunt", () => {
     expect(screen.getByText("your usual · not verified")).toBeInTheDocument();
     expect(screen.getAllByText("Large").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: "Large" })).toBeInTheDocument();
-    // Round 5 point 5.7: the odd-size box hides behind a quiet link.
-    fireEvent.click(screen.getByRole("button", { name: "Type a different size" }));
+    // The fifth box is visible with no tap.
     expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
   });
 });
