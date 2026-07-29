@@ -20,6 +20,13 @@ const CRAWLER_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.c
 // the SKU feed's gallery never carries them, so the chart hunt was blind).
 const WEIDIAN_DESC_API = "https://thor.weidian.com/detail/getDetailDesc/1.0";
 const MAX_DESC_IMAGES = 20;
+// The SKU feed carries the main photo and the variant photos only, so a listing
+// that shows five photos arrived as two (Kyle 2026-07-29, item 7744643744). The
+// Product Details feed carries the rest, and the gallery holds at most ten.
+const MAX_GALLERY_IMAGES = 10;
+// A size table is wider than it is tall; a product shot is square or portrait.
+// Chart photos stay out of the gallery — Kyle's rule from 2026-07-26.
+const CHART_SHAPE_RATIO = 1.25;
 const FX_API = "https://open.er-api.com/v6/latest/CNY";
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 const TIMEOUT_MS = 20000;
@@ -570,6 +577,37 @@ function descImageUrls(descContent) {
   return urls.slice(0, MAX_DESC_IMAGES);
 }
 
+// A Weidian CDN path ends in _WIDTH_HEIGHT before the extension, e.g.
+// ...-unadjust_861_629.png (a size table) next to ..._4284_4284.jpg (a product
+// shot). Returns width / height, or null when the path carries no size.
+function urlAspect(raw) {
+  const m = /_(\d{2,5})_(\d{2,5})(?:\.[a-z0-9]+)?$/i.exec(String(raw || "").split("?")[0]);
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!w || !h) return null;
+  return w / h;
+}
+
+/** True for a landscape image — the shape a size table has and a product shot does not. */
+function isChartShaped(url) {
+  const aspect = urlAspect(url);
+  return aspect != null && aspect > CHART_SHAPE_RATIO;
+}
+
+// Product Details photos the gallery never showed. An unknown shape counts as a
+// photo: hiding a real product shot costs the customer more than one stray
+// table, and the chart hunt still reads every desc photo either way.
+function galleryWithDescPhotos(images, descImages) {
+  const out = Array.isArray(images) ? [...images] : [];
+  for (const url of Array.isArray(descImages) ? descImages : []) {
+    if (out.length >= MAX_GALLERY_IMAGES) break;
+    if (isChartShaped(url)) continue;
+    if (!out.includes(url)) out.push(url);
+  }
+  return out;
+}
+
 
 // Pull bare and full Yupoo shop links from seller free text (desc type 1).
 // Chart-empty multi-model shops often only post "Yupoo1 :shop.x.yupoo.com".
@@ -807,6 +845,10 @@ async function handle(event) {
       facts = extractFacts(result);
       // Description photos the gallery never showed (size charts live here).
       facts.descImages = (descBundle.descImages || []).filter((u) => !(facts.images || []).includes(u));
+      // The seller's product shots live in the same feed as the chart. Put them
+      // in the gallery; leave the table shapes out of it. descImages keeps the
+      // whole feed, so the chart hunt still sees the table.
+      facts.images = galleryWithDescPhotos(facts.images, facts.descImages);
       // Bare Yupoo shops from desc notes (chart-empty multi-model listings).
       facts.sellerYupooLinks = descBundle.sellerYupooLinks || [];
       // stash rate on facts for response builder below
@@ -909,6 +951,9 @@ exports._test = {
   parse1688Html,
   descImageUrls,
   extractYupooLinksFromText,
+  urlAspect,
+  isChartShaped,
+  galleryWithDescPhotos,
 };
 
 // Outcome log for every request — status + latency only, never content.

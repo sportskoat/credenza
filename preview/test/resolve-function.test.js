@@ -20,6 +20,9 @@ const {
   parse1688Html,
   descImageUrls,
   extractYupooLinksFromText,
+  urlAspect,
+  isChartShaped,
+  galleryWithDescPhotos,
 } = _test;
 const WORLD_TAOBAO_FIXTURE = require("fs").readFileSync(
   require("path").join(__dirname, "fixtures/resolve/world-taobao-item-752339164885.html"),
@@ -172,6 +175,48 @@ describe("parse1688Html", () => {
     const facts = parse1688Html("");
     expect(facts.title).toBe("");
     expect(facts.mainImage).toBeNull();
+  });
+});
+
+describe("galleryWithDescPhotos (Kyle 2026-07-29, Weidian item 7744643744)", () => {
+  // The live feed for that item: photo 1 is the size table, photos 2-7 are the
+  // product shots the card never showed. The SKU feed carried the main photo
+  // only, so the card read "ALL 2 PHOTOS" while the page showed five.
+  const CHART = "https://si.geilicdn.com/pcitem1895556439-0bf00000019db0e56bba0a2304aa-unadjust_861_629.png";
+  const SHOTS = [
+    "https://si.geilicdn.com/pcitem1895556439-7a280000019db0e3ef400a22d1a4_4284_4284.jpg",
+    "https://si.geilicdn.com/pcitem1895556439-661f0000019db0e3fcab0a2394a4_4284_4284.jpg",
+  ];
+
+  it("reads the width and height out of the CDN path", () => {
+    expect(urlAspect(CHART)).toBeCloseTo(861 / 629, 5);
+    expect(urlAspect(SHOTS[0])).toBe(1);
+    expect(urlAspect("https://si.geilicdn.com/no-size.jpg")).toBeNull();
+    expect(urlAspect("https://si.geilicdn.com/a_0_0.jpg")).toBeNull();
+    expect(urlAspect(null)).toBeNull();
+  });
+
+  it("calls a landscape image a chart and a square or portrait image a photo", () => {
+    expect(isChartShaped(CHART)).toBe(true);
+    expect(isChartShaped(SHOTS[0])).toBe(false);
+    // Portrait product shots are common and must stay in the gallery.
+    expect(isChartShaped("https://si.geilicdn.com/a_800_1200.jpg")).toBe(false);
+    // No size in the path — treat it as a photo, never hide it.
+    expect(isChartShaped("https://si.geilicdn.com/plain.jpg")).toBe(false);
+  });
+
+  it("appends the product shots and leaves the table out", () => {
+    const out = galleryWithDescPhotos(["https://si.geilicdn.com/main_4284_4284.jpg"], [CHART, ...SHOTS]);
+    expect(out).toEqual(["https://si.geilicdn.com/main_4284_4284.jpg", ...SHOTS]);
+  });
+
+  it("never repeats a photo and never passes ten", () => {
+    const many = Array.from({ length: 14 }, (_, i) => `https://si.geilicdn.com/d${i}_900_900.jpg`);
+    expect(galleryWithDescPhotos([many[0]], many)).toHaveLength(10);
+    expect(galleryWithDescPhotos(null, null)).toEqual([]);
+    expect(galleryWithDescPhotos(["https://si.geilicdn.com/a_900_900.jpg"], "nope")).toEqual([
+      "https://si.geilicdn.com/a_900_900.jpg",
+    ]);
   });
 });
 
