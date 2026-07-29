@@ -40,6 +40,13 @@ function installClipboard(readText, permissionState = "granted") {
   };
 }
 
+// The command bar (item-detail handoff 2026-07-29) folded Bought, Haul,
+// Colorway, Weight and Category into chips under the title. A test that wants
+// one of those fields opens its chip first.
+function openBarChip(key) {
+  fireEvent.click(document.querySelector('[data-chip="' + key + '"]'));
+}
+
 function fashionItem(overrides = {}) {
   const now = Date.now();
   return {
@@ -282,7 +289,8 @@ describe("Fashion card-back navigation and editing", () => {
     const back = container.querySelector(".cz-carousel-back");
     expect(back?.textContent || "").toMatch(/X-Large/i);
 
-    // Edit Colorway through its always-visible facts field.
+    // Edit Colorway through its command-bar chip.
+    openBarChip("color");
     const colorwayField = screen.getByRole("textbox", { name: "Colorway" });
     await user.clear(colorwayField);
     await user.type(colorwayField, "Bone white");
@@ -306,9 +314,12 @@ describe("Fashion card-back navigation and editing", () => {
     expect(screen.getByRole("button", { name: "Card actions" })).toBeInTheDocument();
     expect(container.querySelector(".cz-carousel-card-inner")).toHaveClass("is-flipped");
 
-    const colorwayField = screen.getByRole("textbox", { name: "Colorway" });
-    colorwayField.focus();
-    expect(colorwayField).toHaveFocus();
+    // The size field, not a command-bar chip: an open popover owns Escape and
+    // closes itself first (item-detail handoff 2026-07-29 §5.3), which is a
+    // different contract from the one this test guards.
+    const sizeField = screen.getByLabelText("Custom item size");
+    sizeField.focus();
+    expect(sizeField).toHaveFocus();
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(container.querySelector(".cz-carousel-card-inner")).not.toHaveClass("is-flipped"));
   });
@@ -320,9 +331,10 @@ describe("Fashion card-back navigation and editing", () => {
     const user = userEvent.setup();
     await renderInCarousel(user);
     await user.click((await screen.findAllByRole("button", { name: /Flip/ }))[0]);
-    // Batch stays hidden from the facts sections entirely.
+    // Batch stays hidden from the panel entirely.
     expect(screen.queryByRole("region", { name: "Batch" })).toBeNull();
 
+    openBarChip("color");
     let colorwayField = screen.getByRole("textbox", { name: "Colorway" });
     expect(colorwayField).toHaveValue("Original");
     await user.clear(colorwayField);
@@ -333,11 +345,13 @@ describe("Fashion card-back navigation and editing", () => {
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Bone white"), { timeout: 2000 });
     expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Stored batch");
 
+    openBarChip("color");
     colorwayField = screen.getByRole("textbox", { name: "Colorway" });
     expect(colorwayField).toHaveValue("Bone white");
     await user.clear(colorwayField);
     await user.type(colorwayField, "Cream");
-    // A click into another facts field also blurs and keeps the edit.
+    // Opening another chip also closes this one and keeps the edit.
+    openBarChip("weight");
     await user.click(screen.getByLabelText("Weight · g"));
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].colorway).toBe("Cream"), { timeout: 2000 });
     expect(JSON.parse(data[STORE_KEY])[0].batch).toBe("Stored batch");
@@ -1444,18 +1458,19 @@ describe("Fashion accessibility (Part 5)", () => {
     const { container } = await renderInCarousel(user);
     const flipButtons = await screen.findAllByRole("button", { name: /Flip/ });
     await user.click(flipButtons[0]);
-    // The Haul facts field opens the same keyboard-operated accordion listbox.
+    // The haul chip opens the same keyboard-operated list, as a popover now
+    // (item-detail handoff 2026-07-29 §5.3 and §15).
     await user.click(screen.getByRole("button", { name: /Add to a haul/i }));
-    const listbox = await screen.findByRole("listbox", { name: "Hauls" });
-    const options = [...listbox.querySelectorAll('[role="option"]')];
+    const pop = await screen.findByRole("menu", { name: "Haul" });
+    const options = [...pop.querySelectorAll('[role="menuitemradio"]')];
     expect(options.length).toBeGreaterThanOrEqual(2);
     // Arrow keys walk the rows and wrap.
     options[0].focus();
     await user.keyboard("{ArrowDown}");
     expect(document.activeElement).toBe(options[1]);
     await user.keyboard("{ArrowUp}{ArrowUp}");
-    // Wrapped from row one to the last row (options + add-new + maybe clear).
-    const allRows = [...listbox.querySelectorAll("button, input")].filter((el) => !el.disabled);
+    // Wrapped from row one to the last row (the hauls plus the New haul box).
+    const allRows = [...pop.querySelectorAll("button, input")].filter((el) => !el.disabled);
     expect(document.activeElement).toBe(allRows[allRows.length - 1]);
     // Back to the second option; Enter picks it. The unified back saves
     // through the shared 600ms write-through debounce, so allow for it.
@@ -1493,7 +1508,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-carousel-overlay")).toBeNull();
   });
 
-  it("has no edit mode or Save button and shows the facts sections", async () => {
+  it("has no edit mode or Save button and shows the command bar", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -1501,17 +1516,19 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     expect(within(sheet).queryByRole("button", { name: /^Save$/ })).toBeNull();
     expect(within(sheet).queryByRole("button", { name: /^Edit$/ })).toBeNull();
-    // Split rail: no tab bar — the facts are always-visible sections. Round 4
-    // (2026-07-29): Size and fit leads, then the Details blocks. The rail
-    // "Size" section folded into Size and fit; Category left the sheet for the
-    // desktop ⋯ menu; the Ordered row is now Bought, one small switch.
+    // Item-detail handoff 2026-07-29, rule 1: the rail is dead. The five
+    // labelled sections became five chips in one bar under the title. Size and
+    // fit is the only section left, because it is the only block the product
+    // advises rather than the customer sets.
     expect(within(sheet).queryAllByRole("tab")).toHaveLength(0);
-    for (const name of ["Size and fit", "Bought", "Haul", "Colorway", "Weight", "Seller"]) {
-      expect(within(sheet).getByRole("region", { name })).toBeInTheDocument();
+    expect(within(sheet).getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
+    for (const name of ["Bought", "Haul", "Colorway", "Weight", "Seller", "Size", "Category", "Batch"]) {
+      expect(within(sheet).queryByRole("region", { name })).toBeNull();
     }
-    expect(within(sheet).queryByRole("region", { name: "Size" })).toBeNull();
-    expect(within(sheet).queryByRole("region", { name: "Category" })).toBeNull();
-    expect(within(sheet).queryByRole("region", { name: "Batch" })).toBeNull();
+    const chips = Array.from(sheet.querySelectorAll(".cz-cmdbar-chip")).map((chip) =>
+      chip.getAttribute("data-chip")
+    );
+    expect(chips).toEqual(["status", "haul", "color", "weight", "category"]);
     // The size override sits inside the fit section. Round 5 point 5.7: the
     // odd-size box hides behind a quiet link; one tap opens it.
     const fit = within(sheet).getByRole("region", { name: "Size and fit" });
@@ -1519,17 +1536,16 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toBeInTheDocument();
   });
 
-  it("the Colorway section exposes one editor and the edit persists", async () => {
+  it("the colorway chip exposes one editor and the edit persists", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    const section = within(sheet).getByRole("region", { name: "Colorway" });
-    const input = within(section).getByRole("textbox", { name: "Colorway" });
-    // 16px is the iOS zoom floor. The editor class carries this rule.
-    expect(input.className).toContain("cz-detail-editor-input");
-    expect(section.querySelectorAll(".cz-detail-editor-input")).toHaveLength(1);
+    openBarChip("color");
+    const pop = within(sheet).getByRole("menu", { name: "Colorway" });
+    const input = within(pop).getByRole("textbox", { name: "Colorway" });
+    expect(pop.querySelectorAll('input[type="text"], input:not([type])')).toHaveLength(1);
 
     fireEvent.change(input, { target: { value: "Bone white" } });
     await waitFor(() => {
@@ -1707,18 +1723,24 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
   // Shelf handoff 2026-07-28: the seven-stop order track is gone. The card
   // answers one question — did you buy it, or not? Round 4 point 4: the two
   // large buttons became one small switch.
-  it("turns Bought on with one tap", async () => {
+  it("turns Bought on from the status chip", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
-    const toggle = screen.getByRole("switch", { name: "Bought" });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    // Item-detail handoff 2026-07-29 §5.2: status leads the command bar,
+    // because it is the only chip that changes what the footer means. Two
+    // stops only — the shelf stores "want" and "bought" and nothing else.
+    const chip = document.querySelector('[data-chip="status"]');
+    expect(chip.textContent).toBe("Want");
 
-    await user.click(toggle);
+    await user.click(chip);
+    await user.click(screen.getByRole("menuitemradio", { name: /Bought/ }));
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("bought"));
-    await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("true"));
+    await waitFor(() =>
+      expect(document.querySelector('[data-chip="status"]').textContent).toBe("Bought")
+    );
   });
 
   it("generates a timeline from stored events", async () => {
@@ -1741,11 +1763,12 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     await openSheet(user);
 
-    const toggle = screen.getByRole("switch", { name: "Bought" });
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    const chip = document.querySelector('[data-chip="status"]');
+    expect(chip.textContent).toBe("Bought");
 
-    // The answer is reversible: a mistaken purchase is one tap back.
-    await user.click(toggle);
+    // The answer is reversible: a mistaken purchase is two taps back.
+    await user.click(chip);
+    await user.click(screen.getByRole("menuitemradio", { name: /Want/ }));
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("want"));
   });
 

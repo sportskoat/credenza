@@ -1,13 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload, X } from "lucide-react";
 import { listAgents } from "../agents.js";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import QuietLegal from "./QuietLegal.jsx";
+import CommandBar from "./CommandBar.jsx";
 import {
   EditPhotosManager,
-  HaulAccordionField,
-  StatusChips,
   buildEditDraft,
   buildEditPatch,
   CATEGORIES,
@@ -1479,7 +1478,6 @@ export default function DetailBody({
   const titleInputRef = useRef(null);
   const chartInputRef = useRef(null);
   const chartPhotoUrlRef = useRef("");
-  const fieldBaseId = "cz-detail-" + useId().replace(/:/g, "");
   const reduced = usePrefersReducedMotion();
 
   // The photo pager is part of the shared body — the phone sheet and the
@@ -1816,6 +1814,18 @@ export default function DetailBody({
   const knownHauls = Array.from(
     new Set([...(haulNames || []), item.project || ""].map((n) => String(n || "").trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
+  // Item counts for the haul popover (item-detail handoff 2026-07-29, §5.3).
+  // Only the callers that hand us the shelf can have them; without the shelf
+  // the chip shows the haul names with no count rather than a wrong one.
+  const haulCounts = useMemo(() => {
+    if (!Array.isArray(shelfItems)) return null;
+    const counts = {};
+    for (const entry of shelfItems) {
+      const name = String((entry && entry.project) || "").trim();
+      if (name) counts[name] = (counts[name] || 0) + 1;
+    }
+    return counts;
+  }, [shelfItems]);
 
   const priceUnit =
     String(view.currency || "CNY").toUpperCase() === "USD" ? "USD" : "CNY";
@@ -1855,6 +1865,25 @@ export default function DetailBody({
       setWeightText(Number.isNaN(grams) ? "" : String(+(grams / 1000).toFixed(3)));
     }
     setWeightUnit(next);
+  };
+
+  // The weight write, lifted out of the old rail row so the command-bar chip
+  // and any later caller share one path (item-detail handoff 2026-07-29).
+  // Storage is always grams; the g/kg switch only changes what is displayed.
+  // The field takes digits and at most one decimal point — a stray letter in a
+  // weight silently becomes NaN and clears the parcel estimate.
+  const writeWeight = (raw) => {
+    const clean = String(raw).replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+    if (weightUnit !== "kg") {
+      edit("weightGrams", clean);
+      return;
+    }
+    setWeightText(clean);
+    const kg = parseFloat(clean);
+    edit(
+      "weightGrams",
+      clean.trim() === "" || Number.isNaN(kg) ? "" : String(Math.round(kg * 1000))
+    );
   };
 
   // USD ↔ CNY on the open price draft. Converts the typed number so the field
@@ -2165,6 +2194,29 @@ export default function DetailBody({
           ) : null}
         </div>
 
+        {/* THE COMMAND BAR (item-detail handoff 2026-07-29, rule 1: "the rail
+            is dead"). Status, haul, colorway, weight and category were five
+            labelled fields stacked under the sizing block. Five short fields
+            can never fill the height of a photo, so the panel read as bloated
+            and empty at once. They are one chip row under the title now.
+            Everything the USER SETS lives here; everything the PRODUCT
+            ADVISES stays in the sizing block below. */}
+        <CommandBar
+          item={item}
+          view={view}
+          edit={edit}
+          commit={() => commitRef.current()}
+          onSaveEdit={onSaveEdit}
+          pickStatus={pickStatus}
+          knownHauls={knownHauls}
+          haulCounts={haulCounts}
+          sellerHref={sellerHref}
+          weightUnit={weightUnit}
+          weightText={weightText}
+          onWeightChange={writeWeight}
+          onSwitchWeightUnit={switchWeightUnit}
+        />
+
         {/* Split rail: the four detail tabs are gone. Size, colorway, weight
             and haul are always-visible facts — three of them hidden behind a
             tab bar made the card a guessing game. */}
@@ -2369,129 +2421,12 @@ export default function DetailBody({
             ) : null}
           </section>
 
-          {/* Details kicker (shelf handoff 2026-07-28, README :105). Everything
-              above it answers "does it fit?". Everything below it answers "what
-              is it, and did you buy it?". The kicker is the seam between the two
-              questions, so the hairline rides it instead of the next section. */}
-          <div className="cz-detail-facts-kicker" aria-hidden="true">
-            Details
-          </div>
+          {/* The Details kicker and the five rows under it are gone (item-detail
+              handoff 2026-07-29). Status, haul, colorway, weight, category and
+              seller all moved into the command bar under the title. Nothing
+              answers "what is it" down here any more, so the seam the kicker
+              marked no longer exists. */}
 
-          {/* ORDERED leads the Details list on both the desktop and the phone
-              (shelf handoff 2026-07-28, README :105). One row, one question: did
-              you buy it? Round 4 point 4 (2026-07-29) quieted the control to
-              one small switch at the right end of the row — off is "want",
-              on is "bought"; see StatusToggle in components/atoms.jsx. */}
-          <section className="cz-detail-facts-section cz-detail-facts-status" aria-label="Bought">
-            <div className="cz-detail-panel-field">
-              <span>Bought</span>
-              <StatusChips value={view.findStatus} onChange={pickStatus} label="Bought" />
-            </div>
-          </section>
-
-          <section className="cz-detail-facts-section" aria-label="Haul">
-            <HaulAccordionField
-              label="Haul"
-              value={view.project}
-              knownHauls={knownHauls}
-              onChange={(next) => edit("project", next)}
-              onCommit={(next) => edit("project", next)}
-            />
-          </section>
-
-          <section className="cz-detail-facts-section" aria-label="Colorway">
-            <label className="cz-detail-panel-field">
-              <span>Colorway</span>
-              <input
-                className="cz-detail-editor-input"
-                aria-label="Colorway"
-                value={view.colorway}
-                placeholder="Add a colorway"
-                onChange={(event) => edit("colorway", event.target.value)}
-                onBlur={() => commitRef.current()}
-                onKeyDown={(event) => {
-                  event.stopPropagation();
-                  if (event.key === "Enter") event.currentTarget.blur();
-                }}
-              />
-            </label>
-          </section>
-
-          <section className="cz-detail-facts-section" aria-label="Weight">
-            <div className="cz-detail-panel-field">
-              <label htmlFor={fieldBaseId + "-weight"}>Weight</label>
-              <div className="cz-detail-weight-row">
-                <input
-                  id={fieldBaseId + "-weight"}
-                  className="cz-detail-editor-input"
-                  aria-label={"Weight · " + weightUnit}
-                  inputMode="decimal"
-                  value={weightUnit === "kg" ? weightText : view.weightGrams}
-                  onChange={(event) => {
-                    const raw = event.target.value;
-                    if (weightUnit !== "kg") {
-                      edit("weightGrams", raw);
-                      return;
-                    }
-                    setWeightText(raw);
-                    const kg = parseFloat(raw);
-                    edit(
-                      "weightGrams",
-                      raw.trim() === "" || Number.isNaN(kg) ? "" : String(Math.round(kg * 1000))
-                    );
-                  }}
-                  onBlur={() => commitRef.current()}
-                  onKeyDown={(event) => {
-                    event.stopPropagation();
-                    if (event.key === "Enter") event.currentTarget.blur();
-                  }}
-                />
-                <div className="cz-detail-unit" role="group" aria-label="Weight unit">
-                  {["g", "kg"].map((unit) => (
-                    <button
-                      key={unit}
-                      type="button"
-                      className={"cz-detail-unit-btn" + (weightUnit === unit ? " is-active" : "")}
-                      aria-pressed={weightUnit === unit}
-                      onClick={() => switchWeightUnit(unit)}
-                    >
-                      {unit}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* SELLER closes the Details list (shelf handoff 2026-07-28,
-              README :105). It is a read-only row: tapping it opens the seller's
-              other listings in a new tab. The row hides when the item has no
-              seller, or when no store page can be built for that seller — a
-              dead row is worse than no row. */}
-          {item.seller ? (
-            <section className="cz-detail-facts-section" aria-label="Seller">
-              <div className="cz-detail-panel-field">
-                <span>Seller</span>
-                {sellerHref ? (
-                  <a
-                    className="cz-detail-seller-row"
-                    href={sellerHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={"Open " + item.seller + " listings"}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <span className="cz-detail-seller-name">{item.seller}</span>
-                    <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
-                  </a>
-                ) : (
-                  <span className="cz-detail-seller-row is-flat">
-                    <span className="cz-detail-seller-name">{item.seller}</span>
-                  </span>
-                )}
-              </div>
-            </section>
-          ) : null}
         </div>
 
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}

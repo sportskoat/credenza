@@ -10955,6 +10955,375 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ══ THE COMMAND BAR (item-detail handoff 2026-07-29, §5) ══════════════════
+   Status, haul, colorway, weight and category were five labelled 32px fields
+   stacked in a 208px column. Five short fields can never fill the height of a
+   photo, so the panel read as bloated and empty at the same time. One chip row
+   under the title replaces all five. Every number below is the handoff's; the
+   spacing scale here is 4 5 6 7 9 10 11 12 — Credenza is not on a 4/8 grid and
+   rounding these is a defect, not a simplification. */
+.cz-cmdbar {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+/* Each chip owns the box its popover anchors to, so one chip can never push
+   another chip's menu sideways. */
+.cz-cmdbar-slot {
+  position: relative;
+  display: flex;
+}
+
+.cz-cmdbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  /* One curve, one micro duration (handoff §13). Hover is a hairline step,
+     never a colour change. */
+  transition:
+    border-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+
+.cz-cmdbar-chip:hover {
+  border-color: var(--cz-hair-strong);
+}
+
+.cz-cmdbar-chip:active {
+  transform: scale(0.97);
+}
+
+.cz-cmdbar-chip:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+.cz-cmdbar-label {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+/* Weight 500, never 600. At 600 the whole bar reads as a row of headings and
+   nothing in it looks settable. */
+.cz-cmdbar-value {
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+  white-space: nowrap;
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rule 4, no empty chrome: an unset value is a prompt, never a blank box. */
+.cz-cmdbar-value.is-unset {
+  color: var(--cz-placeholder);
+}
+
+.cz-cmdbar-caret {
+  color: var(--cz-placeholder);
+  flex: none;
+}
+
+/* Status is the only chip that changes what the footer means, so it leads and
+   it is the only chip allowed a colour. Tints are the money pair already in
+   the theme table — no per-status colour is invented here. */
+.cz-cmdbar-chip.is-money {
+  border-color: rgba(74, 222, 128, 0.42);
+  background: var(--cz-money-bg);
+}
+
+.cz-cmdbar-status-word {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--cz-sub);
+}
+
+.cz-cmdbar-chip.is-money .cz-cmdbar-status-word {
+  color: var(--cz-money);
+}
+
+.cz-cmdbar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px var(--cz-hair-strong);
+  flex: none;
+}
+
+.cz-cmdbar-dot.is-on {
+  background: var(--cz-ink);
+  box-shadow: none;
+}
+
+.cz-cmdbar-chip.is-money .cz-cmdbar-dot.is-on {
+  background: var(--cz-money);
+}
+
+.cz-cmdbar-seller {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-link);
+  text-decoration: none;
+}
+
+.cz-cmdbar-seller.is-flat {
+  color: var(--cz-faint);
+}
+
+/* ── Popovers (§5.3) ──
+   One shell for all five. Only one is ever mounted, because the component
+   holds a single `menu` key rather than a boolean per menu — two booleans is
+   how two popovers end up open at once. */
+.cz-cmdbar-pop {
+  position: absolute;
+  top: 38px;
+  left: 0;
+  z-index: 8;
+  min-width: 196px;
+  padding: 4px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+}
+
+.cz-app[data-fashion="true"][data-theme="light"] .cz-cmdbar-pop {
+  box-shadow: 0 10px 26px rgba(23, 24, 26, 0.14);
+}
+
+.cz-cmdbar-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-cmdbar-item:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-cmdbar-item.is-on {
+  font-weight: 600;
+}
+
+.cz-cmdbar-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Right-aligned meta: a haul count, or the plain-language line that tells the
+   customer what a status word actually means. */
+.cz-cmdbar-item-meta {
+  flex: none;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--cz-placeholder);
+}
+
+.cz-cmdbar-div {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--cz-hair);
+}
+
+/* Colorway is a free-text string in the data model and rep colourways are not
+   enumerable, so the swatch list is a convenience layer over the input below
+   it. The hex is presentation only and is never persisted. */
+.cz-cmdbar-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  flex: none;
+}
+
+.cz-cmdbar-text,
+.cz-cmdbar-newhaul-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-cmdbar-text::placeholder,
+.cz-cmdbar-newhaul-input::placeholder {
+  color: var(--cz-placeholder);
+}
+
+.cz-cmdbar-newhaul {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-left: 9px;
+  color: var(--cz-faint);
+}
+
+.cz-cmdbar-newhaul-input {
+  padding-left: 0;
+}
+
+/* Weight popover is the one fixed width (§5.3): the numeric field plus the
+   g/kg segment do not reflow well at an intrinsic width. */
+.cz-cmdbar-weight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 4px 0 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-card-solid);
+}
+
+.cz-cmdbar-weight-input {
+  width: 54px;
+  border: 0;
+  background: transparent;
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-ink);
+}
+
+.cz-cmdbar-weight-input:focus-visible,
+.cz-cmdbar-text:focus-visible,
+.cz-cmdbar-newhaul-input:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+.cz-cmdbar-seg {
+  margin-left: auto;
+  display: flex;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+
+.cz-cmdbar-seg-btn {
+  height: 20px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--cz-faint);
+  cursor: pointer;
+}
+
+.cz-cmdbar-seg-btn.is-on {
+  background: var(--cz-card-solid);
+  font-weight: 600;
+  color: var(--cz-ink);
+  box-shadow: 0 0 0 1px var(--cz-hair);
+}
+
+.cz-cmdbar-help {
+  margin: 8px 0 0;
+  font-family: var(--cz-sans);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--cz-placeholder);
+}
+
+/* Coarse pointers (§15): the 30px chip grows to a 44px target. Non-negotiable,
+   and it is the hit area that grows — the visual chip keeps its height. */
+@media (pointer: coarse) {
+  .cz-cmdbar-chip {
+    min-height: 44px;
+  }
+  .cz-cmdbar-item {
+    height: 44px;
+  }
+  .cz-cmdbar-seg-btn {
+    height: 32px;
+  }
+}
+
+/* Below the desktop width (§16): the bar wraps into rows and the options open
+   IN PLACE under it. A floating popover anchored to a 6px gap has nowhere to
+   land on a phone, and `display: contents` lets the panel become a full-width
+   row of the bar without stretching the chip that opened it. */
+@media (max-width: 1079px) {
+  .cz-cmdbar-slot {
+    display: contents;
+  }
+  .cz-cmdbar-pop {
+    position: static;
+    order: 1;
+    flex: 1 0 100%;
+    margin-top: 2px;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .cz-cmdbar {
+    margin-top: 8px;
+  }
+  /* iOS zooms any input under 16px on focus, which throws the sheet out of
+     alignment on the way back. */
+  .cz-cmdbar-text,
+  .cz-cmdbar-newhaul-input,
+  .cz-cmdbar-weight-input {
+    font-size: 16px;
+  }
+}
+
 /* ── Detail facts (split rail) ── */
 /* The four tabs are gone. Each fact is an always-visible section; hairlines
    separate them where the tab bar used to divide. */
