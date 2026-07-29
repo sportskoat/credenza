@@ -72,6 +72,11 @@ function PhotoZoomLayer({ src, onExit }) {
 
   const onPointerDown = (e) => {
     if (!natural) return;
+    // A press on a button inside the layer (the exit) is not a pan. Capturing
+    // the pointer here retargets the pointerup to the layer, so the click
+    // lands on the layer instead of the button and the button looks dead
+    // (Kyle 2026-07-29: the minus did nothing on desktop).
+    if (e.target.closest("button")) return;
     e.preventDefault();
     try {
       layerRef.current?.setPointerCapture?.(e.pointerId);

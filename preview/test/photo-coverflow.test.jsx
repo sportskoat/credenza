@@ -255,6 +255,43 @@ describe("PhotoCoverFlow enlarged layer", () => {
     expect(screen.getByRole("dialog", { name: "Album photo preview" })).toBeInTheDocument();
   });
 
+  it("a press on the exit button never takes pointer capture (Kyle 2026-07-29)", async () => {
+    // The bug: the layer captured every pointer on press, so the release was
+    // retargeted to the layer and the click never reached the exit button —
+    // on desktop the minus looked dead. jsdom has no capture of its own, so
+    // the spy stands in for it.
+    const captureSpy = vi.fn();
+    const hadCapture = "setPointerCapture" in HTMLElement.prototype;
+    const oldCapture = HTMLElement.prototype.setPointerCapture;
+    HTMLElement.prototype.setPointerCapture = captureSpy;
+    try {
+      const user = userEvent.setup();
+      renderFlow();
+      await screen.findByRole("dialog", { name: "Album photo preview" });
+      await user.click(screen.getByRole("button", { name: "Enlarge photo" }));
+      const layer = await screen.findByRole("dialog", { name: "Enlarged photo" });
+      const img = layer.querySelector("img");
+      // Pretend the photo loaded, so the layer accepts pointer input.
+      Object.defineProperty(img, "naturalWidth", { value: 1500 });
+      Object.defineProperty(img, "naturalHeight", { value: 2000 });
+      fireEvent.load(img);
+
+      fireEvent.pointerDown(screen.getByRole("button", { name: "Close enlarged photo" }), {
+        pointerId: 1,
+        clientX: 700,
+        clientY: 60,
+      });
+      expect(captureSpy).not.toHaveBeenCalled();
+
+      // A press on the bare layer still captures, so pan and pinch work.
+      fireEvent.pointerDown(layer, { pointerId: 2, clientX: 700, clientY: 450 });
+      expect(captureSpy).toHaveBeenCalledWith(2);
+    } finally {
+      if (hadCapture) HTMLElement.prototype.setPointerCapture = oldCapture;
+      else delete HTMLElement.prototype.setPointerCapture;
+    }
+  });
+
   it("Escape closes the layer first, then the viewer", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
