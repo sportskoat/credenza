@@ -97,9 +97,11 @@ describe("DetailBody detail facts", () => {
     // The Details kicker went with the rows it separated.
     expect(document.querySelector(".cz-detail-facts-kicker")).toBeNull();
 
-    // Weidian has no store page Credenza can build, so the seller stays flat.
+    // Weidian has no store page Credenza can build, so the seller chip hides
+    // (Oom 5.5 ruling: no name in the bar, no chip without a store page).
     expect(screen.queryByRole("link", { name: /replux/ })).toBe(null);
-    expect(bar.textContent).toContain("replux");
+    expect(document.querySelector(".cz-cmdbar-seller")).toBeNull();
+    expect(bar.textContent).not.toContain("replux");
   });
 
   it("the seller link opens the seller's other listings when a store page exists", () => {

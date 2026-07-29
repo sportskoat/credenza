@@ -1806,9 +1806,12 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     // The count lives in the kicker, not the name — the name truncated in
     // the narrow tile (Oom review 2026-07-29).
     expect(tiles[0].textContent).toContain("All 2 photos");
-    // The store destination survives in the rail, as its own link.
+    // The store destination survives as its own link. It reads "See other
+    // listings" — the name stays in the accessible name only (Oom 5.5 ruling).
     const store = screen.getByRole("link", { name: "Open Mook-official listings" });
     expect(store.getAttribute("href")).toBe("https://mook-official.x.yupoo.com/");
+    expect(store.textContent).toContain("See other listings");
+    expect(store.textContent).not.toContain("Mook-official");
   });
 
   it("the album row sits under the photo strip, not at the bottom of the rail", async () => {

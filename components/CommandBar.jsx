@@ -428,11 +428,9 @@ export default function CommandBar({
           rel="noopener noreferrer"
           onClick={(event) => event.stopPropagation()}
         >
-          {item.seller}
+          See other listings
           <ChevronRight size={11} strokeWidth={2.4} aria-hidden="true" />
         </a>
-      ) : item.seller ? (
-        <span className="cz-cmdbar-seller is-flat">{item.seller}</span>
       ) : null}
     </div>
   );
