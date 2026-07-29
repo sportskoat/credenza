@@ -10114,6 +10114,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-app[data-fashion="true"] > .cz-shell {
     flex: 1 1 auto;
     min-height: 0;
+    /* Load-bearing. The column above is a flex container, and the shell keeps
+       margin-inline: auto from the wide-screen rule. An auto cross-axis margin
+       cancels the stretch, so the shell sized itself to its own content: 246px
+       of a 402px screen on the Hauls tab. Everything drew in a narrow centred
+       strip, the account menu hung off the left edge, and a drag outside the
+       strip scrolled nothing. Width 100% restores the stretch and makes the
+       auto margins compute to zero. */
+    width: 100%;
     overflow-y: auto;
     /* clip and auto cannot pair on one box; hidden is the honest value. */
     overflow-x: hidden;
