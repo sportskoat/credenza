@@ -2092,6 +2092,45 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(bar.parentElement.querySelector(".cz-detail-scroll")).not.toBeNull();
     expect(bar.closest(".cz-detail-scroll")).toBeNull();
   });
+
+  it("watches the title row, so the name is never on screen twice", async () => {
+    // Kyle 2026-07-29: the sheet printed the item name twice — once in the
+    // sticky bar and once in the big title right under it. The bar watched
+    // the PHOTO, so it came up while the big title was still on screen.
+    // jsdom has no IntersectionObserver, so the test supplies one and asks
+    // the only question that matters: WHICH element does the bar watch?
+    const observed = [];
+    const roots = [];
+    class FakeObserver {
+      constructor(_cb, options) {
+        roots.push(options ? options.root : null);
+      }
+      observe(node) {
+        observed.push(node);
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+    const previous = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = FakeObserver;
+    try {
+      installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+      const user = userEvent.setup();
+      render(<Credenza />);
+      await openSheet(user);
+
+      expect(observed.length).toBe(1);
+      expect(observed[0].classList.contains("cz-detail-title-row")).toBe(true);
+      // The photo is the wrong watch: it leaves the screen while the big
+      // title is still there, which is the doubled line Kyle photographed.
+      expect(observed[0].classList.contains("cz-detail-hero")).toBe(false);
+      // The scroller stays the root — the sheet scrolls in its own box.
+      expect(roots[0]).not.toBeNull();
+      expect(roots[0].classList.contains("cz-detail-scroll")).toBe(true);
+    } finally {
+      globalThis.IntersectionObserver = previous;
+    }
+  });
 });
 
 describe("Phone haul board (Kyle 2026-07-25)", () => {
