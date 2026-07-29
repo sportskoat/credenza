@@ -1276,7 +1276,7 @@
                 <span class="fitread-name">Chest</span>
                 <span class="fitread-track">
                   <span class="fitread-band"></span>
-                  <span class="fitread-mark" style="left: 50%"></span>
+                  <span class="fitread-mark" style="left: 36%"></span>
                 </span>
                 <span class="fitread-theirs">104</span>
                 <span class="fitread-yours">98</span>
@@ -1286,7 +1286,6 @@
                 <span class="fitread-name">Body length</span>
                 <span class="fitread-track">
                   <span class="fitread-band"></span>
-                  <span class="fitread-mark" style="left: 46%"></span>
                 </span>
                 <span class="fitread-theirs">72</span>
                 <span class="fitread-yours">69</span>
@@ -1296,7 +1295,7 @@
                 <span class="fitread-name">Shoulder</span>
                 <span class="fitread-track">
                   <span class="fitread-band"></span>
-                  <span class="fitread-mark" style="left: 44%"></span>
+                  <span class="fitread-mark" style="left: 51%"></span>
                 </span>
                 <span class="fitread-theirs">48</span>
                 <span class="fitread-yours">46</span>
@@ -1306,14 +1305,14 @@
                 <span class="fitread-name">Sleeve</span>
                 <span class="fitread-track">
                   <span class="fitread-band"></span>
-                  <span class="fitread-mark" style="left: 48%"></span>
+                  <span class="fitread-mark" style="left: 58.5%"></span>
                 </span>
                 <span class="fitread-theirs">65</span>
                 <span class="fitread-yours">62</span>
                 <span class="fitread-ease">+3</span>
               </div>
               <div class="fitread-foot">
-                <span class="fitread-footnote" id="fit-footnote">All four inside tolerance.</span>
+                <span class="fitread-footnote" id="fit-footnote">All three inside tolerance.</span>
                 <span class="fitread-footlinks">
                   <button type="button" class="fitread-footlink">Edit my measurements</button>
                   <button type="button" class="fitread-footlink">Forget this chart</button>
@@ -1681,19 +1680,24 @@
           var chipL = document.getElementById("chip-l");
           var sentenceEl = document.getElementById("fit-sentence");
           var footEl = document.getElementById("fit-footnote");
+          /* Marks follow the app formula (fitReadRows): mark = clamp(51 +
+             ((ease - ideal)/span) * 15, 2, 98); warn when mark < 36 or > 66.
+             Ideal/span: chest 12/6, shoulder 2/3, sleeve 1/4. Body length has
+             no FIT_READ_EASE entry, so it never gets a mark and never counts
+             in the footnote. */
           var rows = {
-            chest: { yours: 98, L: { theirs: 104, ease: 6, mark: 50, warn: false }, M: { theirs: 100, ease: 2, mark: 28, warn: true } },
-            length: { yours: 69, L: { theirs: 72, ease: 3, mark: 46, warn: false }, M: { theirs: 70, ease: 1, mark: 40, warn: false } },
-            shoulder: { yours: 46, L: { theirs: 48, ease: 2, mark: 44, warn: false }, M: { theirs: 47, ease: 1, mark: 39, warn: false } },
-            sleeve: { yours: 62, L: { theirs: 65, ease: 3, mark: 48, warn: false }, M: { theirs: 63, ease: 1, mark: 38, warn: false } }
+            chest: { yours: 98, L: { theirs: 104, ease: 6, mark: 36, warn: false }, M: { theirs: 100, ease: 2, mark: 26, warn: true } },
+            length: { yours: 69, L: { theirs: 72, ease: 3, mark: null, warn: false }, M: { theirs: 70, ease: 1, mark: null, warn: false } },
+            shoulder: { yours: 46, L: { theirs: 48, ease: 2, mark: 51, warn: false }, M: { theirs: 47, ease: 1, mark: 46, warn: false } },
+            sleeve: { yours: 62, L: { theirs: 65, ease: 3, mark: 58.5, warn: false }, M: { theirs: 63, ease: 1, mark: 51, warn: false } }
           };
           var SENTENCES = {
             L: "Take the L — its 104cm chest gives you 6cm of room over your 98cm, which is where this jersey is meant to sit.",
             M: "The M is a 100cm chest against your 98cm — only 2cm of room, so it pulls when you move. The L is the safer pick."
           };
           var FOOTNOTES = {
-            L: "All four inside tolerance.",
-            M: "Three of four inside tolerance."
+            L: "All three inside tolerance.",
+            M: "Two of three inside tolerance."
           };
           var current = "L";
           var timer = null;
@@ -1733,8 +1737,12 @@
               var mark = rowEl.querySelector(".fitread-mark");
               var theirsEl = rowEl.querySelector(".fitread-theirs");
               var easeEl = rowEl.querySelector(".fitread-ease");
-              mark.style.left = next.mark + "%";
-              mark.classList.toggle("is-warn", next.warn);
+              /* A row without a FIT_READ_EASE entry has no mark element;
+                 its numbers still display and still count. */
+              if (mark && next.mark != null) {
+                mark.style.left = next.mark + "%";
+                mark.classList.toggle("is-warn", next.warn);
+              }
               easeEl.classList.toggle("is-warn", next.warn);
               countTo(theirsEl, last.theirs, next.theirs, false);
               countTo(easeEl, last.ease, next.ease, true);
