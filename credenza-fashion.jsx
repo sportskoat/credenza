@@ -6602,7 +6602,7 @@ function CredenzaApp() {
         query,
         answer: "",
         results: [],
-        error: "That is today's free Ask limit. Upgrade to Pro in Profile for 200 asks a day.",
+        error: "That is today's free Ask limit. Upgrade to Pro in Profile for 40 asks a day.",
       });
       return;
     }

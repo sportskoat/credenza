@@ -7,13 +7,13 @@ Short brief: https://credenzafashion.com/llms.txt
 
 Credenza Fashion is an agent haul planner: stash Weidian / Yupoo / Taobao /
 1688 finds, pair photos with buy links, pick a size from the seller chart and
-your body profile, track QC → GL/RL, then open Buy in your preferred shopping
+your body profile, keep QC photos on each card, then open Buy in your preferred shopping
 agent.
 
 ## Product thesis
 
 You found it on Reddit, Yupoo, or Weidian. Credenza turns scattered links into
-cards you can act on — price, seller, size recommendation, QC status — then
+cards you can act on — price, seller, size recommendation, QC photos — then
 hands you off to Superbuy, Sugargoo, Kakobuy, or your agent of choice.
 
 Not a marketplace. Not a W2C search engine. A haul OS for people who already
@@ -24,8 +24,7 @@ know how agents work.
 1. Stash — paste a link, a multi-URL line, or a Reddit haul comment.
 2. See the card — cover photo, title, price, seller.
 3. Size — paste or pull a size chart; match it to your body profile (in or cm).
-4. Pipeline — Want → Bought → Shipped → Received. QC, GL and RL are not a
-   fifth stop; they sit inside Bought, while the agent holds the parcel.
+4. Status — Want before payment, Bought after payment. Keep QC photos on the card.
 5. Buy — one tap opens the item in your preferred agent (affiliate only on that open).
 
 Optional, and only with an account: publish any subset of the shelf as a

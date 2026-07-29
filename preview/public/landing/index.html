@@ -1294,7 +1294,7 @@
                   loading="lazy"
                   decoding="async"
                 />
-                <span class="status-pill status-shipped">Shipped</span>
+                <span class="status-pill status-bought">Bought</span>
                 <span class="heart is-on" aria-hidden="true">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
                 </span>
@@ -1377,7 +1377,7 @@
                   loading="lazy"
                   decoding="async"
                 />
-                <span class="status-pill status-qc">QC</span>
+                <span class="status-pill status-bought">Bought</span>
                 <span class="heart" aria-hidden="true">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
                 </span>
@@ -1487,19 +1487,18 @@
       <section class="band band-soft">
         <div class="wrap section two-col top">
           <div>
-            <div class="kicker">QC &amp; status</div>
-            <h2 class="serif-h" style="font-size:clamp(24px,3vw,32px)">Know where every parcel is.</h2>
+            <div class="kicker">QC photos &amp; status</div>
+            <h2 class="serif-h" style="font-size:clamp(24px,3vw,32px)">Keep each purchase together.</h2>
             <p class="lede" style="font-size:15.5px">
-              Attach the warehouse photos, mark GL or RL, and move the item along
-              the track. The shelf shows what's still a maybe and what's already
-              in the air.
+              Mark the item Bought after you pay. Attach later warehouse photos
+              to the same card, beside the listing, size, price, and seller.
             </p>
             <div class="box">
               <div class="track-head">
                 <span class="kicker" style="font-size:9.5px">Status</span>
-                <span style="font-family:var(--cz-mono);font-size:10.5px;color:var(--muted)">In transit · agent → you</span>
+                <span style="font-family:var(--cz-mono);font-size:10.5px;color:var(--muted)">Paid · kept with its photos</span>
               </div>
-              <div class="track" aria-label="Order status track">
+              <div class="track" aria-label="Buying status">
                 <span class="track-step">
                   <span class="track-rail">
                     <span class="rail-l rail-none"></span>
@@ -1513,33 +1512,17 @@
                 <span class="track-step">
                   <span class="track-rail">
                     <span class="rail-l rail-on"></span>
-                    <span class="rail-r rail-on"></span>
+                    <span class="rail-r rail-none"></span>
                     <span class="dot is-done" aria-hidden="true">
                       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#F4F4F0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"></path></svg>
                     </span>
                   </span>
                   <span class="track-label is-done">Bought</span>
                 </span>
-                <span class="track-step">
-                  <span class="track-rail">
-                    <span class="rail-l rail-on"></span>
-                    <span class="rail-r rail-off"></span>
-                    <span class="dot is-current" aria-hidden="true"></span>
-                  </span>
-                  <span class="track-label is-current">Shipped</span>
-                </span>
-                <span class="track-step">
-                  <span class="track-rail">
-                    <span class="rail-l rail-off"></span>
-                    <span class="rail-r rail-none"></span>
-                    <span class="dot" aria-hidden="true"></span>
-                  </span>
-                  <span class="track-label">Received</span>
-                </span>
               </div>
               <div class="gl-row">
-                <span class="gl-chip is-on">GL · green light</span>
-                <span class="gl-chip is-off">RL</span>
+                <span class="gl-chip is-on">4 QC photos on Free</span>
+                <span class="gl-chip is-off">12 on Pro</span>
               </div>
             </div>
           </div>
