@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload, X } from "lucide-react";
 import { listAgents } from "../agents.js";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
+import QuietLegal from "./QuietLegal.jsx";
 import {
   EditPhotosManager,
   HaulAccordionField,
@@ -2573,10 +2574,14 @@ export default function DetailBody({
             />
           ) : null}
           {buyButton ? (
-            <p className="cz-detail-disclosure">
-              Buy links may include a referral code. Credenza may earn a commission on agent
-              shipping fees. It never changes your item price.
-            </p>
+            // Round 5 point 5.3: one quiet line; the full wording sits behind
+            // the "i" control. The cz-detail-disclosure class stays so the
+            // footer layout rules keep holding.
+            <QuietLegal
+              className="cz-detail-disclosure"
+              line="Buy links may include a referral code."
+              more="Credenza may earn a commission on agent shipping fees. It never changes your item price."
+            />
           ) : null}
         </div>
       ) : null}

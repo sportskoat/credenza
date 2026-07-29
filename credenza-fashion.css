@@ -12935,6 +12935,41 @@ a.cz-detail-seller-row:focus-visible {
   color: var(--cz-faint);
 }
 
+/* Round 5 point 5.3 (2026-07-29): legal and affiliate copy is small, faint,
+   never bold — one line in normal view, the full wording behind this small
+   "i" control. The disclosure stays reachable, never deleted. */
+.cz-quiet-legal {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--cz-faint);
+}
+
+.cz-quiet-legal-i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--cz-faint);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cz-faint);
+  font: inherit;
+  font-size: 9px;
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: 1px;
+}
+
+.cz-quiet-legal-i:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 1px;
+}
+
 /* ── Phone buy bar (split-rail spec :179) ──
    Buy is 48px, the caret segment is 46px, and the bar keeps the home-indicator
    inset. The agent picker stops being a floating card: on a phone it is a

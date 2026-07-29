@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
+import QuietLegal from "../components/QuietLegal.jsx";
 import {
   listAgents,
   loadOutboundClicks,
@@ -79,9 +80,15 @@ export default function AgentSheet({ preferredAgent, onSelectAgent, storageBacke
         </div>
         <p style={{ fontSize: 12, lineHeight: 1.5, color: SUB, margin: "12px 0 0" }}>
           Change anytime — your saved links are never rewritten. The agent is applied only when you
-          tap Buy. Disclosure: Buy links may include a referral code; Credenza may earn a commission
-          on agent shipping fees. It never changes your item price.
+          tap Buy.
         </p>
+        {/* Round 5 point 5.3: one quiet disclosure line; the full wording
+            sits behind the "i" control. */}
+        <QuietLegal
+          style={{ textAlign: "left" }}
+          line="Disclosure: Buy links may include a referral code."
+          more="Credenza may earn a commission on agent shipping fees. It never changes your item price."
+        />
 
         {summary && summary.total > 0 ? (
           <p style={{ fontSize: 11.5, color: SUB, margin: "16px 0 0" }}>

@@ -233,7 +233,11 @@ describe("Fashion data and photos", () => {
     expect(foot).toBeTruthy();
     expect(foot.querySelectorAll(".cz-buy-notch").length).toBe(1);
     const buys = [...foot.querySelectorAll("button")].filter(
-      (b) => !b.classList.contains("cz-buy-notch-toggle")
+      (b) =>
+        !b.classList.contains("cz-buy-notch-toggle") &&
+        // Round 5 point 5.3: the quiet "i" control on the disclosure line is
+        // not a buy action.
+        !b.classList.contains("cz-quiet-legal-i")
     );
     expect(buys.length).toBe(1);
     expect(buys[0]).toHaveTextContent(/Buy/);
