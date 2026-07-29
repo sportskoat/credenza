@@ -136,6 +136,31 @@ describe("unwrapAgentUrl", () => {
     });
   });
 
+  it("unwraps acbuy query links and usfans path links with the PER-AGENT codes", () => {
+    expect(unwrapAgentUrl("https://www.acbuy.com/product/?id=7234567890&shop_type=weidian")).toMatchObject({
+      marketplace: "weidian",
+      itemId: "7234567890",
+      agentId: "acbuy",
+    });
+    // usfans codes differ from hoobuy: 3 weidian, 4 1688, 5 taobao (2026-07-28).
+    // On hoobuy, 3 means 1688 — the map must key off the agent, not the number.
+    expect(unwrapAgentUrl("https://usfans.com/product/3/7800400500")).toMatchObject({
+      url: "https://weidian.com/item.html?itemID=7800400500",
+      marketplace: "weidian",
+      agentId: "usfans",
+    });
+    expect(unwrapAgentUrl("https://usfans.com/product/4/712345678901")).toMatchObject({
+      marketplace: "1688",
+    });
+    expect(unwrapAgentUrl("https://usfans.com/product/5/856801351597")).toMatchObject({
+      marketplace: "taobao",
+    });
+    // Hoobuy's own codes keep their meaning.
+    expect(unwrapAgentUrl("https://hoobuy.com/product/3/712345678901")).toMatchObject({
+      marketplace: "1688",
+    });
+  });
+
   it("returns null for non-agent and unparseable agent pages", () => {
     expect(unwrapAgentUrl(WEIDIAN)).toBeNull();
     expect(unwrapAgentUrl("https://fansbuy.com/register?invite=x")).toBeNull();
@@ -222,17 +247,37 @@ describe("buildAgentUrl", () => {
     expect(buildAgentUrl("joyagoo", WEIDIAN).url).not.toContain("/en/page/buy");
   });
 
+  it("joyagoo item links carry ?ref= when the affiliate code is set", () => {
+    // The JoyaGoo dashboard's link generator redirects to product pages with
+    // the affiliate ID (Kyle's dashboard, 2026-07-28) — presumed param: ref.
+    vi.stubEnv("VITE_CREDENZA_REF_JOYAGOO", "301044677");
+    expect(buildAgentUrl("joyagoo", WEIDIAN).url).toBe(
+      "https://joyagoo.com/product/?id=7234567890&shop_type=weidian&ref=301044677"
+    );
+  });
+
+  it("acbuy wraps with id + shop_type (account-gated route, probed 2026-07-28)", () => {
+    expect(buildAgentUrl("acbuy", WEIDIAN).url).toBe("https://www.acbuy.com/product/?id=7234567890&shop_type=weidian");
+  });
+
+  it("usfans wraps with its own numeric codes (3 weidian, 4 1688, 5 taobao/tmall)", () => {
+    expect(buildAgentUrl("usfans", WEIDIAN).url).toBe("https://usfans.com/product/3/7234567890");
+    expect(buildAgentUrl("usfans", TAOBAO).url).toBe("https://usfans.com/product/5/856801351597");
+    expect(buildAgentUrl("usfans", ALI1688).url).toBe("https://usfans.com/product/4/712345678901");
+  });
+
   it("allchinabuy wraps with the superbuy-family url route", () => {
     expect(buildAgentUrl("allchinabuy", WEIDIAN).url).toBe("https://www.allchinabuy.com/en/page/buy/?url=" + encodeURIComponent(WEIDIAN));
   });
 
-  it("cnfans wraps with an uppercase platform token and pays no commission", () => {
+  it("cnfans wraps with an uppercase platform token and keeps codes off item links", () => {
     expect(buildAgentUrl("cnfans", WEIDIAN).url).toBe("https://cnfans.com/product/?platform=WEIDIAN&id=7234567890");
     expect(buildAgentUrl("cnfans", TAOBAO).url).toBe("https://cnfans.com/product/?platform=TAOBAO&id=856801351597");
     expect(buildAgentUrl("cnfans", ALI1688).url).toBe("https://cnfans.com/product/?platform=1688&id=712345678901");
-    // No envKey: even a stubbed env must not attach a code.
-    expect(getAgent("cnfans").envKey).toBeNull();
-    expect(buildAgentUrl("cnfans", WEIDIAN).url).not.toContain("invite");
+    // Referral is signup-only (Kyle 2026-07-28: register?ref=17545386) — even a
+    // stubbed env must not attach a code to item links.
+    vi.stubEnv("VITE_CREDENZA_REF_CNFANS", "17545386");
+    expect(buildAgentUrl("cnfans", WEIDIAN).url).toBe("https://cnfans.com/product/?platform=WEIDIAN&id=7234567890");
   });
 
   it("hoobuy and oopbuy wrap with numeric platform codes (1 taobao/tmall, 2 weidian, 3 1688)", () => {
@@ -252,7 +297,7 @@ describe("buildAgentUrl", () => {
   });
 
   it("every new agent appears in the picker and needs no referral code to open", () => {
-    for (const id of ["mulebuy", "joyagoo", "cnfans", "hoobuy", "oopbuy", "allchinabuy"]) {
+    for (const id of ["mulebuy", "joyagoo", "cnfans", "hoobuy", "oopbuy", "allchinabuy", "acbuy", "usfans"]) {
       expect(listAgents().some((a) => a.id === id)).toBe(true);
       const r = buildAgentUrl(id, WEIDIAN);
       expect(r.wrapped).toBe(true);
@@ -317,10 +362,46 @@ describe("buildSignupUrl", () => {
     );
   });
 
+  it("builds the cnfans register link with the ref param (signup-only, like fansbuy)", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_CNFANS", "17545386");
+    expect(buildSignupUrl("cnfans")).toBe("https://cnfans.com/register?ref=17545386");
+  });
+
+  it("builds the kakobuy register link with affcode (the ikako.vip/r/<code> redirect target)", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_KAKOBUY", "7pc32");
+    expect(buildSignupUrl("kakobuy")).toBe("https://www.kakobuy.com/register/?affcode=7pc32");
+  });
+
+  it("builds the mulebuy register link with the ref param", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_MULEBUY", "201444039");
+    expect(buildSignupUrl("mulebuy")).toBe("https://mulebuy.com/register?ref=201444039");
+  });
+
+  it("builds the oopbuy register link with the inviteCode param", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_OOPBUY", "NCTD1YA8A");
+    expect(buildSignupUrl("oopbuy")).toBe("https://oopbuy.com/register?inviteCode=NCTD1YA8A");
+  });
+
+  it("builds the joyagoo register link with the ref param", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_JOYAGOO", "301044677");
+    expect(buildSignupUrl("joyagoo")).toBe("https://joyagoo.com/register?ref=301044677");
+  });
+
+  it("builds the acbuy register link with loginStatus=register&code=", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_ACBUY", "ZCHZ2F");
+    expect(buildSignupUrl("acbuy")).toBe("https://www.acbuy.com/login?loginStatus=register&code=ZCHZ2F");
+  });
+
+  it("builds the usfans register link with the ref param", () => {
+    vi.stubEnv("VITE_CREDENZA_REF_USFANS", "EQB4RK");
+    expect(buildSignupUrl("usfans")).toBe("https://usfans.com/register?ref=EQB4RK");
+  });
+
   it("returns null without a code, for agents without a signup template, and for retired agents", () => {
     expect(buildSignupUrl("superbuy")).toBeNull();
-    vi.stubEnv("VITE_CREDENZA_REF_KAKOBUY", "X");
     expect(buildSignupUrl("kakobuy")).toBeNull();
+    vi.stubEnv("VITE_CREDENZA_REF_HOOBUY", "X");
+    expect(buildSignupUrl("hoobuy")).toBeNull();
     vi.stubEnv("VITE_CREDENZA_REF_CSSBUY", "X");
     expect(buildSignupUrl("cssbuy")).toBeNull();
   });
@@ -489,7 +570,7 @@ describe("resolveReferralCode env-only", () => {
 });
 
 describe("platformMap completeness for idPlatform agents", () => {
-  const PLATFORM_AGENTS = ["mulebuy", "joyagoo", "cnfans", "hoobuy", "oopbuy"];
+  const PLATFORM_AGENTS = ["mulebuy", "joyagoo", "cnfans", "hoobuy", "oopbuy", "acbuy", "usfans"];
   const MARKETS = ["weidian", "taobao", "tmall", "1688"];
 
   it("every platform agent has a token for every marketplace", () => {

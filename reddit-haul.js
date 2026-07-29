@@ -33,7 +33,7 @@ const shoppableOf = (u) => marketplaceOf(u) || agentOf(u);
 const KNOWN_AGENTS = [
   "superbuy", "sugargoo", "cssbuy", "kakobuy", "hoobuy", "cnfans",
   "mulebuy", "acbuy", "oopbuy", "basetao", "wegobuy", "pandabuy", "allchinabuy", "joyabuy",
-  "joyagoo", "mycnbox", "gtbuy", "hipobuy",
+  "joyagoo", "mycnbox", "gtbuy", "hipobuy", "usfans",
 ];
 
 // Category guesses emit the app's CATEGORIES keys (credenza-fashion.jsx) so

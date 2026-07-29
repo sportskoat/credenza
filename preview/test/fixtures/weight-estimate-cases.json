@@ -147,12 +147,12 @@
       "expect": 1000
     },
     {
-      "id": "skip-returned",
+      "id": "counts-every-status",
       "items": [
         { "category": "shirt", "title": "tee", "weightGrams": 300 },
-        { "category": "shoes", "weightGrams": 800, "findStatus": "returned" }
+        { "category": "shoes", "weightGrams": 800, "findStatus": "bought" }
       ],
-      "expect": 300
+      "expect": 1100
     },
     {
       "id": "all-unknown-null",

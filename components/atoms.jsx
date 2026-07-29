@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight } from "lucide-react";
-import { FIND_STATUSES } from "../credenza-find-status.js";
+import { ChevronDown } from "lucide-react";
+import { normalizeFindStatus } from "../credenza-find-status.js";
 import {
   BG,
   CARD,
@@ -9,19 +9,12 @@ import {
   SUB,
   FAINT,
   FIND_STATUS_COLORS,
-  FIND_STATUS_DETOUR,
-  FIND_STATUS_HINTS,
   FIND_STATUS_LABELS,
-  FIND_STATUS_LONG,
-  FIND_STATUS_NEXT,
   FONT,
   INK,
-  STATUS_PICKER_GROUPS,
-  STATUS_TRACK,
   cx,
   priceLabel,
   priceLabelShort,
-  statusTrackIndex,
   useCoarsePointer,
   usePrefersReducedMotion,
 } from "../credenza-fashion.jsx";
@@ -387,223 +380,33 @@ export function Favicon({ host, size, fallbackDot }) {
   );
 }
 
-// Design handoff 4a: the 4-stop human track IS the status control — tap it
-// for the grouped picker. No big serif stage line above the track (Kyle
-// 2026-07-23: "take out the larger 'want', just use the line"). The current
-// stop stays legible through the filled dot + green bold track label.
-export function StatusStage({ value, onChange, label = "Status" }) {
-  const [open, setOpen] = useState(false);
-  const current = value || "want";
-  const trackIdx = statusTrackIndex(current);
-  const stageLabel = FIND_STATUS_LONG[current] || FIND_STATUS_LABELS[current] || current;
+// ═══ ORDER STATUS (shelf handoff 2026-07-28) ═════════════════════════════
+// One question, two answers: did you buy it, or not?
+//
+// This replaced a seven-stop pipeline — want / bought / shipped / QC / green
+// light / red light / returned. That track asked the customer to hand-maintain
+// a shipping database, and a stale track is worse than no track: it reports a
+// state that is not true. Kyle cut it to the one fact the shelf actually uses.
+//
+// Round 4 point 4 (2026-07-29): the two large Want/Bought buttons were the
+// loudest block in the rail. Kyle: keep both answers, "implement so it's not
+// in an obnoxious way". So the control is now one small switch at the right
+// end of the row — off writes "want", on writes "bought". The stored values
+// and the value/onChange contract do not change.
+export function StatusToggle({ value, onChange, label = "Status" }) {
+  const bought = normalizeFindStatus(value) === "bought";
   return (
-    <div
-      className={"cz-status-stage t-acc" + (open ? " is-open" : "")}
-      data-open={open}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={bought}
+      aria-label={label}
+      data-status={bought ? "bought" : "want"}
+      className={"cz-status-toggle" + (bought ? " is-on" : "")}
+      onClick={() => onChange && onChange(bought ? "want" : "bought")}
     >
-      <button
-        type="button"
-        className="cz-status-track-btn"
-        aria-label={label + ": " + stageLabel + ". Change."}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <div className="cz-status-track" aria-hidden="true">
-          {STATUS_TRACK.map((name, i) => {
-            const state = i < trackIdx ? "past" : i === trackIdx ? "current" : "future";
-            return (
-              <div key={name} className={"cz-status-track-step is-" + state}>
-                {i > 0 ? (
-                  <span className={"cz-status-track-connector is-" + state} />
-                ) : null}
-                <span className={"cz-status-track-dot is-" + state} />
-                <span
-                  className={
-                    "cz-status-track-label" + (i === trackIdx ? " is-current" : "")
-                  }
-                >
-                  {name}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </button>
-      {/* t-acc animates the height; t-panel-slide adds the slide + blur. The
-          panel stays mounted so the close animation can play; inert keeps the
-          hidden options out of tab order and the a11y tree. */}
-      <div
-        className="t-acc-panel"
-        aria-hidden={!open}
-        inert={!open ? "" : undefined}
-      >
-        <div className="t-acc-panel-inner">
-          <div
-            className="cz-status-picker t-panel-slide"
-            data-open={open}
-            role="listbox"
-            aria-label="Order status"
-          >
-            {/* 4b (CH-06): grouped and spelled out — Ordering · At the agent
-                · Shipping. The group name is a small quiet header, not an
-                option; role="group" keeps the listbox semantics intact. */}
-            {STATUS_PICKER_GROUPS.map((group) => (
-              <div
-                key={group.name}
-                className="cz-status-picker-group"
-                role="group"
-                aria-label={group.name}
-              >
-                <div className="cz-status-picker-group-name" aria-hidden="true">
-                  {group.name}
-                </div>
-                {group.statuses.map((s) => {
-                  const active = current === s;
-                  const hint = FIND_STATUS_HINTS[s];
-                  return (
-                    <button
-                      type="button"
-                      key={s}
-                      role="option"
-                      aria-selected={active}
-                      className={
-                        "cz-status-picker-option" +
-                        (active ? " is-active" : "") +
-                        (hint ? " has-hint" : "")
-                      }
-                      onClick={() => {
-                        onChange && onChange(s);
-                        setOpen(false);
-                      }}
-                    >
-                      <span className="cz-status-picker-option-dot" aria-hidden="true" />
-                      <span className="cz-status-picker-option-text">
-                        <span className="cz-status-picker-option-label">
-                          {FIND_STATUS_LONG[s] || FIND_STATUS_LABELS[s]}
-                        </span>
-                        {hint ? (
-                          <span className="cz-status-picker-option-hint">{hint}</span>
-                        ) : null}
-                      </span>
-                      {active ? (
-                        <Check size={12} strokeWidth={2.4} aria-hidden="true" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Design handoff: status edit = underline segment row (no pill fills). Kept for
-// dense forms that still want a full-width strip.
-export function StatusUnderline({ value, onChange, label = "Status" }) {
-  const current = value || "want";
-  return (
-    <div className="cz-status-underline" role="radiogroup" aria-label={label}>
-      {FIND_STATUSES.map((s) => {
-        const active = current === s;
-        return (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={active}
-            key={s}
-            className={"cz-status-underline-btn" + (active ? " is-active" : "")}
-            onClick={() => onChange(s)}
-          >
-            {FIND_STATUS_LABELS[s]}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// Mobile detail sheet status row (handoff step 5, audit C3). Four stops, one
-// per human stop on STATUS_TRACK. The agent sub-states (qc/gl/rl) fold into
-// Bought and returned folds into Received, exactly as statusTrackIndex maps
-// them. A tap commits the stop's own enum value — the sheet has no Save.
-//
-// Handoff turn 9 §5 changes the SHAPE, not the model. Four equal chips gave
-// every stop the same weight, so the row reported state but never offered the
-// one action that moves the order forward. It becomes a progress TRACK — four
-// dots on 2px rails, filled behind the current stop — plus a single primary
-// pill for the next transition. The dots stay tappable, so a customer can
-// still correct a wrong stop; the pill is the fast path.
-//
-// The sub-label ("WANT · NOT ORDERED") and the detour node carry the detail
-// the four dots cannot: an off-track state renders UNDER its dot rather than
-// as a fifth column, because refund and QC-failed are not progress.
-export function StatusTrackChips({ value, onChange, label = "Status" }) {
-  const current = value || "want";
-  const activeIdx = statusTrackIndex(current);
-  // Track slot -> the enum value a tap writes. Slot 1 keeps a live qc/gl/rl
-  // instead of flattening it back to "bought" when the user re-taps Bought.
-  const enumFor = (i) => {
-    if (i === 0) return "want";
-    if (i === 1) return activeIdx === 1 ? current : "bought";
-    if (i === 2) return "shipped";
-    return "returned";
-  };
-  const next = FIND_STATUS_NEXT[current] || null;
-  const detour = FIND_STATUS_DETOUR[current] || "";
-  return (
-    <div className="cz-status-row">
-      <div className="cz-detail-status" role="radiogroup" aria-label={label}>
-        {STATUS_TRACK.map((name, i) => {
-          const active = i === activeIdx;
-          return (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={active}
-              key={name}
-              className={
-                "cz-detail-status-chip" +
-                (active ? " is-active" : "") +
-                (i < activeIdx ? " is-done" : "")
-              }
-              onClick={() => onChange && onChange(enumFor(i))}
-            >
-              {/* The rail is drawn per step so it can be filled up to the
-                  current stop. Step 0 has no rail to its left. */}
-              {i > 0 ? <span className="cz-status-rail" aria-hidden="true" /> : null}
-              {/* The node wraps the dot so the detour label can be centred
-                  under it. Anchoring the label to the BUTTON would put it at
-                  the start of the rail, not at the dot. */}
-              <span className="cz-status-node">
-                <span className="cz-status-dot" aria-hidden="true" />
-                {/* Detour node: off-track states hang under their own dot. */}
-                {active && detour ? (
-                  <span className="cz-status-detour">{detour}</span>
-                ) : null}
-              </span>
-              {/* The stop name is the accessible name of the radio. It stays
-                  in the DOM so the control is still readable and testable;
-                  CSS hides it on the dots-only track. */}
-              <span className="cz-status-stop-name">{name}</span>
-            </button>
-          );
-        })}
-      </div>
-      {next ? (
-        <button
-          type="button"
-          className="cz-status-next"
-          onClick={() => onChange && onChange(next.to)}
-        >
-          {next.label}
-          <ChevronRight size={13} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      ) : null}
-    </div>
+      <span className="cz-status-toggle-thumb" aria-hidden="true" />
+    </button>
   );
 }
 
@@ -629,6 +432,22 @@ export function StatusPill({ status, variant = "pill", className, style }) {
       style={{ background: colors.bg || "transparent", color: colors.text || INK, ...style }}
     >
       {label}
+    </span>
+  );
+}
+
+// Round 4 point 6 (2026-07-29): one "Bought" mark on both cards. Kyle's
+// picture showed the grid card — a small green dot and the plain word at the
+// top-left of the photo, no pill, no background — and asked for the same mark
+// on the carousel. `variant` is position/type-scale only ("grid" | "carousel");
+// the mark itself never changes. Renders nothing unless the item is bought —
+// "want" is the default, not a fact worth space.
+export function StatusTag({ status, variant = "grid", className }) {
+  if (status !== "bought") return null;
+  return (
+    <span className={cx("cz-card-status-tag", "is-" + variant, className)}>
+      <span className="cz-card-status-tag-dot" aria-hidden="true" />
+      Bought
     </span>
   );
 }
@@ -824,16 +643,10 @@ export function CategorySelect({ value, isAuto, onChange, label = "Category" }) 
   );
 }
 
-// Shared status control.
-// mode "display" | default = design 4a stage + track + grouped picker.
-// mode "edit" = underline segments for dense forms.
-// mode "track" = four 44px chips (mobile detail sheet).
-export function StatusChips({ value, onChange, label = "Status", mode = "display" }) {
-  if (mode === "edit") {
-    return <StatusUnderline value={value} onChange={onChange} label={label} />;
-  }
-  if (mode === "track") {
-    return <StatusTrackChips value={value} onChange={onChange} label={label} />;
-  }
-  return <StatusStage value={value} onChange={onChange} label={label} />;
+// Shared status control. Every surface draws the same two-option switch since
+// the shelf handoff (2026-07-28) cut order status to bought-or-not. `mode` is
+// kept so existing callers still compile, but it no longer changes the shape:
+// one question deserves exactly one control.
+export function StatusChips({ value, onChange, label = "Status", mode: _mode = "display" }) {
+  return <StatusToggle value={value} onChange={onChange} label={label} />;
 }

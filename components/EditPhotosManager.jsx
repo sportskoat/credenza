@@ -70,6 +70,10 @@ export function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = 12
 
 export function EditPhotoTile({ src, index, isCover, onRemove }) {
   const [hovered, setHovered] = useState(false);
+  // Round 4 point 7 (2026-07-29): a failed photo draws a plain dark tile,
+  // never the browser's broken-image mark. Per tile, so one bad photo does
+  // not hide the good ones.
+  const [bad, setBad] = useState(false);
   const reduced = usePrefersReducedMotion();
   return (
     <div
@@ -77,7 +81,18 @@ export function EditPhotoTile({ src, index, isCover, onRemove }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <img src={src} alt={"Photo " + (index + 1)} draggable={false} loading="lazy" decoding="async" />
+      {bad ? (
+        <span className="cz-photo-tile-missing" aria-hidden="true" />
+      ) : (
+        <img
+          src={src}
+          alt={"Photo " + (index + 1)}
+          draggable={false}
+          loading="lazy"
+          decoding="async"
+          onError={() => setBad(true)}
+        />
+      )}
       {isCover ? <span className="cz-edit-photo-cover-badge">Cover</span> : null}
       {/* No trash ON the cover photo (Kyle 2026-07-22: "what is this over the
           cover photo"). Delete the cover by deleting it after another photo

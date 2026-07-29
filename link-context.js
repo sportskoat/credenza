@@ -289,7 +289,7 @@ export function isAgentInviteUrl(url) {
   try {
     const host = new URL(String(url || "")).hostname.toLowerCase();
     return /(register|signup|invite|partnercode)/i.test(String(url)) &&
-      /(superbuy|sugargoo|cssbuy|kakobuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy)/i.test(host);
+      /(superbuy|sugargoo|cssbuy|kakobuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|usfans)/i.test(host);
   } catch {
     return false;
   }

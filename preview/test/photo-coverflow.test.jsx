@@ -26,6 +26,7 @@ function renderFlow(props = {}) {
       startIndex={props.startIndex ?? 0}
       onClose={onClose}
       onSetPrimaryImage={props.onSetPrimaryImage}
+      onRemovePhoto={props.onRemovePhoto}
       onLoadPhotos={props.onLoadPhotos}
     />
   );
@@ -145,21 +146,80 @@ describe("PhotoCoverFlow hardening", () => {
     expect(screen.getByText("Cover Flow Shirt")).toBeInTheDocument();
   });
 
-  it("hides Use as cover when onSetPrimaryImage is omitted", async () => {
+  it("hides Make cover photo when onSetPrimaryImage is omitted", async () => {
     renderFlow({ onSetPrimaryImage: undefined });
     await screen.findByRole("dialog", { name: "Album photo preview" });
-    expect(screen.queryByRole("button", { name: "Use as cover" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make cover photo" })).not.toBeInTheDocument();
   });
 
-  it("Use as cover calls the optional callback when provided", async () => {
+  it("Make cover photo calls the optional callback when provided", async () => {
     const user = userEvent.setup();
     const onSetPrimaryImage = vi.fn();
     const onClose = vi.fn();
     renderFlow({ onSetPrimaryImage, onClose, startIndex: 1 });
 
     await screen.findByRole("dialog", { name: "Album photo preview" });
-    await user.click(screen.getByRole("button", { name: "Use as cover" }));
+    await user.click(screen.getByRole("button", { name: "Make cover photo" }));
     expect(onSetPrimaryImage).toHaveBeenCalledWith("pcf-1", PHOTO_2);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("hides Delete when onRemovePhoto is omitted", async () => {
+    renderFlow({ onRemovePhoto: undefined });
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it("Delete asks first and removes the photo on screen", async () => {
+    const user = userEvent.setup();
+    const onRemovePhoto = vi.fn();
+    const onClose = vi.fn();
+    renderFlow({ onRemovePhoto, onClose, startIndex: 0 });
+
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    // The question replaces the two actions, so nothing is gone yet.
+    expect(screen.getByText("Delete this photo?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Keep" })).toBeInTheDocument();
+    expect(onRemovePhoto).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onRemovePhoto).toHaveBeenCalledWith("pcf-1", PHOTO_1);
+    // Two photos are left, so the view stays open on the neighbour.
+    expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    });
+  });
+
+  it("Keep cancels the delete question", async () => {
+    const user = userEvent.setup();
+    const onRemovePhoto = vi.fn();
+    renderFlow({ onRemovePhoto, onSetPrimaryImage: vi.fn() });
+
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Keep" }));
+
+    expect(screen.queryByText("Delete this photo?")).not.toBeInTheDocument();
+    expect(onRemovePhoto).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Make cover photo" })).toBeInTheDocument();
+  });
+
+  it("closes after the last photo is deleted", async () => {
+    const user = userEvent.setup();
+    const onRemovePhoto = vi.fn();
+    const onClose = vi.fn();
+    renderFlow({ images: [PHOTO_1], onRemovePhoto, onClose });
+
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(onRemovePhoto).toHaveBeenCalledWith("pcf-1", PHOTO_1);
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 });

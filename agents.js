@@ -72,6 +72,10 @@ export const AGENTS = [
     urlTemplate: "https://www.kakobuy.com/item/details?url={url}",
     supports: ["weidian", "taobao", "tmall", "1688"],
     referralParam: "ref",
+    // Signup link confirmed 2026-07-28 by following Kyle's affiliate short link:
+    // ikako.vip/r/<code> → sl.kakobuy.com/r/<code> → kakobuy.com/register/?affcode=<code>.
+    // Item links keep the verified ref param; the register link wants affcode.
+    signupTemplate: "https://www.kakobuy.com/register/?affcode={code}",
     envKey: "VITE_CREDENZA_REF_KAKOBUY",
     verified: true, // confirmed against a live Weidian item by Kyle (2026-07-20)
     retired: false,
@@ -107,7 +111,10 @@ export const AGENTS = [
     idPlatformTemplate: "https://mulebuy.com/product/?id={id}&shop_type={platform}",
     platformMap: { weidian: "weidian", taobao: "taobao", tmall: "tmall", "1688": "1688" },
     supports: ["weidian", "taobao", "tmall", "1688"],
-    referralParam: null, // set when the affiliate center confirms the param name
+    referralParam: null,
+    // Signup-only referral, confirmed from Kyle's affiliate page 2026-07-28:
+    //   mulebuy.com/register?ref=<code>   (Kyle's code: 201444039)
+    signupTemplate: "https://mulebuy.com/register?ref={code}",
     envKey: "VITE_CREDENZA_REF_MULEBUY",
     verified: false,
     retired: false,
@@ -128,7 +135,13 @@ export const AGENTS = [
     idPlatformTemplate: "https://joyagoo.com/product/?id={id}&shop_type={platform}",
     platformMap: { weidian: "weidian", taobao: "taobao", tmall: "tmall", "1688": "1688" },
     supports: ["weidian", "taobao", "tmall", "1688"],
-    referralParam: null,
+    // Affiliate confirmed from Kyle's JoyaGoo dashboard 2026-07-28: register
+    // link joyagoo.com/register?ref=301044677, and the dashboard's link
+    // generator redirects to specific pages (product pages) with the affiliate
+    // ID — so ?ref= on product links is presumed to attribute. Unconfirmed
+    // against a live order; if JoyaGoo ignores it the link still works.
+    referralParam: "ref",
+    signupTemplate: "https://joyagoo.com/register?ref={code}",
     envKey: "VITE_CREDENZA_REF_JOYAGOO",
     verified: true, // product page rendered live for weidian + taobao (2026-07-24)
     retired: false,
@@ -136,14 +149,18 @@ export const AGENTS = [
   {
     id: "cnfans",
     name: "CNFans",
-    // Largest user base; added for coverage, NOT income — CNFans stopped its
-    // referral commission 2026-01-22 (Pro-plan §9). No envKey on purpose.
+    // Largest user base; added for coverage. CNFans stopped paying commission
+    // on new referral orders 2026-01-22 (the affiliate-page notice), but Kyle
+    // still wants his link in the system (2026-07-28): "change CNFans so my
+    // referral link is in our system." Referral is signup-only, like Fansbuy:
+    //   cnfans.com/register?ref=<code>   (Kyle's code: 17545386)
     //   cnfans.com/product/?platform=<PLATFORM>&id=<itemId>  (platform is uppercase)
     idPlatformTemplate: "https://cnfans.com/product/?platform={platform}&id={id}",
     platformMap: { weidian: "WEIDIAN", taobao: "TAOBAO", tmall: "TMALL", "1688": "1688" },
     supports: ["weidian", "taobao", "tmall", "1688"],
     referralParam: null,
-    envKey: null,
+    signupTemplate: "https://cnfans.com/register?ref={code}",
+    envKey: "VITE_CREDENZA_REF_CNFANS",
     verified: false,
     retired: false,
   },
@@ -174,6 +191,9 @@ export const AGENTS = [
     platformMap: { weidian: "2", taobao: "1", tmall: "1", "1688": "3" },
     supports: ["weidian", "taobao", "tmall", "1688"],
     referralParam: null,
+    // Signup-only referral, confirmed from Kyle's affiliate page 2026-07-28:
+    //   oopbuy.com/register?inviteCode=<code>   (Kyle's code: NCTD1YA8A)
+    signupTemplate: "https://oopbuy.com/register?inviteCode={code}",
     envKey: "VITE_CREDENZA_REF_OOPBUY",
     verified: false,
     retired: false,
@@ -188,6 +208,46 @@ export const AGENTS = [
     referralParam: null,
     envKey: "VITE_CREDENZA_REF_ALLCHINABUY",
     verified: false,
+    retired: false,
+  },
+  {
+    id: "acbuy",
+    name: "ACBuy",
+    // Product route probed live 2026-07-28 (headed browser, real Weidian item):
+    //   acbuy.com/product/?id=<itemId>&shop_type=<platform>  redirects to
+    //   /login?redirectUrl=/product/?id=... — the route EXISTS, it is just
+    //   account-gated (same as Hoobuy's taobao). Logged-out visitors sign up,
+    //   which is the affiliate conversion point. /product/<n>/<id> and the
+    //   Superbuy wrap both DUMP to /home — wrong shapes.
+    idPlatformTemplate: "https://www.acbuy.com/product/?id={id}&shop_type={platform}",
+    platformMap: { weidian: "weidian", taobao: "taobao", tmall: "tmall", "1688": "1688" },
+    supports: ["weidian", "taobao", "tmall", "1688"],
+    referralParam: null,
+    // Register link from Kyle's affiliate dashboard 2026-07-28:
+    //   acbuy.com/login?loginStatus=register&code=<code>   (Kyle: ZCHZ2F; 3.5% → 7.5%)
+    signupTemplate: "https://www.acbuy.com/login?loginStatus=register&code={code}",
+    envKey: "VITE_CREDENZA_REF_ACBUY",
+    verified: false, // account-gated; flip after a logged-in click-through
+    retired: false,
+  },
+  {
+    id: "usfans",
+    name: "USFans",
+    // Product route probed live 2026-07-28 (headed browser, real items):
+    //   usfans.com/product/<code>/<itemId> — numeric platform codes, NOT the
+    //   Hoobuy set: 3 weidian, 4 1688, 5 taobao (each rendered the real
+    //   product page: store, title, weight). Codes 1/2 bounce home; 6 also
+    //   renders a taobao item but the page never labels the platform, so
+    //   tmall rides 5 until a live tmall item proves otherwise.
+    idPlatformTemplate: "https://usfans.com/product/{platform}/{id}",
+    platformMap: { weidian: "3", taobao: "5", tmall: "5", "1688": "4" },
+    supports: ["weidian", "taobao", "tmall", "1688"],
+    referralParam: null,
+    // Register link from Kyle's promoter page 2026-07-28:
+    //   usfans.com/register?ref=<code>   (Kyle: EQB4RK; 4% → 8%)
+    signupTemplate: "https://usfans.com/register?ref={code}",
+    envKey: "VITE_CREDENZA_REF_USFANS",
+    verified: true, // product pages rendered live for weidian, taobao, 1688 (2026-07-28)
     retired: false,
   },
   {
@@ -249,7 +309,7 @@ export function marketplaceOf(url) {
 // URL templates for. Returns the agent token (lowercase) or null.
 // fansbuy is outbound-verified + inbound-unwrapped (item-micro-{id} → Weidian).
 const AGENT_HOST_RE =
-  /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|fansbuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy)\.[a-z.]{2,}$/i;
+  /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|fansbuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy|usfans)\.[a-z.]{2,}$/i;
 
 export function agentOf(url) {
   let host;
@@ -295,7 +355,7 @@ function marketplaceFromAgentPlatform(token) {
  *   - fansbuy.com/item-micro-{id}.html  → weidian (promotionCode optional)
  *   - mulebuy/joyagoo product/?id=&shop_type=
  *   - cnfans product/?platform=&id=
- *   - hoobuy/oopbuy product/{code}/{id}
+ *   - hoobuy/oopbuy/usfans product/{code}/{id}  (codes are per-agent)
  */
 export function unwrapAgentUrl(raw) {
   if (!raw || typeof raw !== "string") return null;
@@ -366,10 +426,16 @@ export function unwrapAgentUrl(raw) {
     }
   }
 
-  // 4) Path agents: /product/{platformCode}/{itemId} (hoobuy / oopbuy).
+  // 4) Path agents: /product/{platformCode}/{itemId} (hoobuy / oopbuy / usfans).
+  //    The numeric codes are PER-AGENT: hoobuy/oopbuy use 2 weidian / 3 1688,
+  //    usfans uses 3 weidian / 4 1688 / 5 taobao (probed live 2026-07-28).
   const pathCode = u.pathname.match(/\/product\/([a-z0-9]+)\/(\d{5,})\/?$/i);
   if (pathCode) {
-    const marketplace = marketplaceFromAgentPlatform(pathCode[1]);
+    const USFANS_PATH_PLATFORMS = { 3: "weidian", 4: "1688", 5: "taobao", 6: "tmall" };
+    const marketplace =
+      agentId === "usfans"
+        ? USFANS_PATH_PLATFORMS[pathCode[1]] || null
+        : marketplaceFromAgentPlatform(pathCode[1]);
     const itemId = pathCode[2];
     const canonical = marketplace && canonicalMarketplaceUrl(marketplace, itemId);
     if (canonical) {

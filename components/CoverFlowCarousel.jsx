@@ -20,12 +20,12 @@ import {
   linkButtons,
   usePrefersReducedMotion,
 } from "../credenza-fashion.jsx";
-import CardFrontInfo from "./CardFrontInfo.jsx";
+import CardFrontText from "./CardFrontText.jsx";
 import { CoverImage } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import InfoBubble from "./InfoBubble.jsx";
 import DetailBody from "./DetailBody.jsx";
-import { StatusPill } from "./atoms.jsx";
+import { StatusTag } from "./atoms.jsx";
 
 const CoverFlowCard = forwardRef(function CoverFlowCard(
   {
@@ -321,13 +321,16 @@ const CoverFlowCard = forwardRef(function CoverFlowCard(
               className="cz-carousel-image"
               imgStyle={{ borderRadius: 0 }}
             />
-            <StatusPill status={item.findStatus} className="cz-carousel-status" />
+            {/* Round 4 point 6: the same "Bought" mark as the grid card —
+                dot + plain word, top-left of the photo, no pill. */}
+            <StatusTag status={item.findStatus} variant="carousel" />
           </div>
           <div className="cz-carousel-front-meta">
-            {/* Unified with the grid card (Kyle 2026-07-23): title → size →
-                seller → green USD price text. No overlay price chip, no ¥. */}
-            <h2 className="cz-carousel-title">{item.title}</h2>
-            <CardFrontInfo
+            {/* Same shared text block as the grid card (Kyle 2026-07-29):
+                ref + count, title, then seller · size · price on one line.
+                Missing fields render nothing — no reserved blank lines. */}
+            <CardFrontText
+              variant="carousel"
               item={item}
               bodyProfile={bodyProfile}
               fitPrefs={fitPref && item.category ? { [item.category]: fitPref } : null}

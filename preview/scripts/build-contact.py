@@ -12,13 +12,13 @@ FOOTER = re.search(r"<footer>.*?</footer>", SRC, re.S).group(0)
 # marker the source page carried for itself.
 NAV = NAV.replace(' aria-current="page"', "")
 NAV = NAV.replace(
-    '<a href="/support/">Support</a>',
-    '<a href="/support/">Support</a>\n        <a href="/contact/" aria-current="page">Contact</a>',
+    '<a href="/contact/">Contact</a>',
+    '<a href="/contact/" aria-current="page">Contact</a>',
 )
 FOOTER = FOOTER.replace(' aria-current="page"', "")
 FOOTER = FOOTER.replace(
-    '<a href="/support/">Support</a> ·',
-    '<a href="/support/">Support</a> ·\n      <a href="/contact/" aria-current="page">Contact</a> ·',
+    '<a href="/contact/">Contact</a>',
+    '<a href="/contact/" aria-current="page">Contact</a>',
 )
 
 TITLE = "Contact Credenza — who reads it and how fast"

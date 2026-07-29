@@ -10,6 +10,8 @@
  *  - Fields are additive; unknown item keys are ignored, never required.
  */
 
+import { normalizeFindStatus } from "./credenza-find-status.js";
+
 /** @typedef {'photos'|'buy'|'alt'|'source'|string} LinkRole */
 
 /**
@@ -135,7 +137,7 @@ export function exportItemRecord(item) {
     size: item.size || null,
     recommendedSize: item.recommendedSize || null,
     sizeNotes: item.sizeNotes ? String(item.sizeNotes).slice(0, 4000) : null,
-    status: item.findStatus || "want",
+    status: normalizeFindStatus(item.findStatus),
     favorite: Boolean(item.favorite),
     offers,
     createdAt: toIso(item.createdAt),
@@ -147,11 +149,10 @@ export function exportItemRecord(item) {
  * @param {string|undefined} status
  * @returns {string}
  */
-function statusToAvailability(status) {
-  if (status === "returned" || status === "rl") return "https://schema.org/Discontinued";
-  if (status === "shipped" || status === "bought" || status === "gl" || status === "qc") {
-    return "https://schema.org/InStock";
-  }
+// Order status is bought-or-not since the shelf handoff (2026-07-28). Neither
+// answer means the listing went away, so both report InStock. The parameter
+// stays for the call site and for the day a real availability signal arrives.
+function statusToAvailability(_status) {
   return "https://schema.org/InStock";
 }
 
@@ -276,7 +277,7 @@ export function csvCell(value) {
 export function csvRowForItem(item, options = {}) {
   const rec = exportItemRecord(item);
   const labels = options.statusLabels || null;
-  const status = item.findStatus || "want";
+  const status = normalizeFindStatus(item.findStatus);
   // weightFor lets the app hand in its own estimator (weight-estimate.js).
   // Without one, only a manual override is reported — never a guess this
   // module invented.

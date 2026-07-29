@@ -77,7 +77,12 @@ export default function DetailSheet({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
-    const id = requestAnimationFrame(() => closeRef.current && closeRef.current.focus());
+    // Focus the SURFACE, not the ✕. iOS treats a programmatic focus as keyboard
+    // focus, so focusing the ✕ left a dark ring on it for the life of the sheet
+    // (Kyle 2026-07-28: "button on mobile for x stays highlighted a long time").
+    // The surface is tabIndex=-1 and paints no ring, and a Tab from it still
+    // lands on the ✕ first, so the keyboard path is unchanged.
+    const id = requestAnimationFrame(() => surfaceRef.current && surfaceRef.current.focus());
     return () => {
       cancelAnimationFrame(id);
       if (dialog && dialog.open) dialog.close();
@@ -150,6 +155,7 @@ export default function DetailSheet({
     >
       <div
         ref={surfaceRef}
+        tabIndex={-1}
         className={
           "cz-detail-surface" +
           (reduced ? " is-still" : "") +

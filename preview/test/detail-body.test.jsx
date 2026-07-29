@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
@@ -46,19 +46,69 @@ afterEach(() => {
 });
 
 describe("DetailBody detail facts", () => {
-  it("shows all four facts sections at once, with no tabs", () => {
+  it("shows all five facts sections at once, with no tabs", () => {
     render(body(item("facts")));
 
     // Split rail: the old tab bar is gone; every fact is always visible.
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
     expect(screen.queryAllByRole("tabpanel", { hidden: true })).toHaveLength(0);
 
-    for (const name of ["Size and fit", "Size", "Colorway", "Weight", "Haul"]) {
+    // Round 4: Size and fit leads, then the Details blocks (Bought, Haul,
+    // Colorway, Weight, Seller). The rail "Size" section is gone — its editor
+    // moved inside Size and fit, beside the big size word, visible with no tap.
+    // Point 4: the Ordered row is now Bought, one small switch.
+    for (const name of ["Size and fit", "Bought", "Haul", "Colorway", "Weight", "Seller"]) {
       expect(screen.getByRole("region", { name })).toBeInTheDocument();
     }
-    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Size" })).toBeNull();
+    const fit = screen.getByRole("region", { name: "Size and fit" });
+    expect(within(fit).getByLabelText("Custom item size")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Colorway" })).toBeInTheDocument();
     expect(screen.getByLabelText("Weight · g")).toBeInTheDocument();
+  });
+
+  // Shelf handoff 2026-07-28 (README :105), cut by round 4 (2026-07-29).
+  // Every fact lives in one rail, in one order. Round 4 folded the rail Size
+  // section into Size and fit and moved Category out to the ⋯ menu (the
+  // desktop-detail-panel tests cover that row).
+  it("draws the Details rail in the handoff order, Seller last", () => {
+    render(body(item("order")));
+
+    const rail = document.querySelector(".cz-detail-facts");
+    expect(rail).not.toBeNull();
+    const order = Array.from(rail.querySelectorAll(".cz-detail-facts-section")).map((s) =>
+      s.getAttribute("aria-label")
+    );
+    expect(order).toEqual([
+      "Size and fit",
+      "Bought",
+      "Haul",
+      "Colorway",
+      "Weight",
+      "Seller",
+    ]);
+
+    // The kicker splits "does it fit?" from "what is it?".
+    expect(rail.querySelector(".cz-detail-facts-kicker").textContent).toBe("Details");
+
+    // Weidian has no store page Credenza can build, so the row stays flat.
+    expect(screen.queryByRole("link", { name: /listings$/ })).toBe(null);
+    expect(screen.getByRole("region", { name: "Seller" }).textContent).toContain("replux");
+  });
+
+  it("the Seller row opens the seller's other listings when a store page exists", () => {
+    render(body(item("shop", { sellerAccount: "replux" })));
+
+    // Seller opens the seller's other listings; it never edits.
+    const seller = screen.getByRole("link", { name: "Open replux listings" });
+    expect(seller.getAttribute("target")).toBe("_blank");
+    expect(seller.getAttribute("href")).toBe("https://replux.x.yupoo.com/");
+  });
+
+  it("drops the Seller row when the item has no seller", () => {
+    render(body(item("noseller", { seller: "" })));
+
+    expect(screen.queryByRole("region", { name: "Seller" })).toBe(null);
   });
 
   it("saves a direct size once and preserves Batch", () => {
@@ -147,12 +197,14 @@ describe("DetailBody detail facts", () => {
     );
   });
 
-  it("opens profile sizing from the Size panel", async () => {
+  it("opens profile sizing from the fit read footnote", async () => {
     const user = userEvent.setup();
     const onOpenSizes = vi.fn();
     render(body(item("profile"), { onOpenSizes }));
 
-    await user.click(screen.getByRole("button", { name: "Edit sizes and measurements" }));
+    // Round 4 point 3 removed the "Edit sizes and measurements" button from
+    // the chart actions; the route lives on the fit read footnote now.
+    await user.click(screen.getByRole("button", { name: "Edit my measurements" }));
     expect(onOpenSizes).toHaveBeenCalledTimes(1);
   });
 });
@@ -185,6 +237,9 @@ describe("DetailBody draft ownership", () => {
     const flushRef = { current: null };
     render(body(item("flush", { batch: "Stored Batch" }), { onSaveEdit, flushRef }));
 
+    // Round 4 point 5: an empty note is a small "Add a note" button; the box
+    // opens on tap.
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
     fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Flush this note" } });
     expect(onSaveEdit).not.toHaveBeenCalled();
 
@@ -207,6 +262,8 @@ describe("DetailBody draft ownership", () => {
       expect.objectContaining({ id: "snapshot", batch: "Batch S", title: "Item snapshot" })
     );
 
+    // Round 4 point 5: open the note writer before typing.
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
     fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Visible draft" } });
     expect(snapshotRef.current).toEqual(
       expect.objectContaining({ id: "snapshot", note: "Visible draft", batch: "Batch S" })

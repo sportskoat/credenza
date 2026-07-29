@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import BrandMark from "../components/BrandMark.jsx";
 import SettingsContext from "./SettingsContext.jsx";
 import SettingsNav, { SETTINGS_SECTIONS } from "./SettingsNav.jsx";
@@ -33,6 +33,26 @@ const SECTION_BODY = {
 };
 
 export default function SettingsPage({ section, onNavigate, onClose, value, isPhone }) {
+  // The open card is a native <dialog>, and a native dialog paints above every
+  // ordinary element whatever the z-index says. As a plain panel this page
+  // drew UNDERNEATH it, so a tap on a setting landed on the right section but
+  // behind the blurred card (Kyle 2026-07-28: "it'll take you there in the
+  // background with it blurred out"). A dialog of its own joins the same layer
+  // and, opening last, sits on top. The card stays mounted, so Back returns to
+  // it. `cancel` is blocked because Escape is handled below — the browser's own
+  // close would remove the page without telling the app.
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    const onCancel = (e) => e.preventDefault();
+    if (dialog) dialog.addEventListener("cancel", onCancel);
+    return () => {
+      if (dialog) dialog.removeEventListener("cancel", onCancel);
+      if (dialog && dialog.open) dialog.close();
+    };
+  }, []);
+
   // Escape closes the page, same contract as the sheets it replaces.
   useEffect(() => {
     const onKey = (e) => {
@@ -62,7 +82,7 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
 
   return (
     <SettingsContext.Provider value={value}>
-      <div className="cz-settings-page" role="dialog" aria-label="Settings">
+      <dialog ref={dialogRef} className="cz-settings-page" aria-label="Settings">
         <header className="cz-settings-page-masthead">
           <button type="button" className="cz-settings-back" onClick={onClose}>
             <span aria-hidden="true">←</span> Back to the shelf
@@ -95,7 +115,7 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
             ) : null}
           </main>
         </div>
-      </div>
+      </dialog>
     </SettingsContext.Provider>
   );
 }

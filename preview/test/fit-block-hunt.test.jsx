@@ -9,7 +9,7 @@
 // The hunt starts when the detail opens. The Size tab keeps the item size,
 // recommendation, and seller chart together. No extra route opens the chart.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 
 const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
 
@@ -86,8 +86,11 @@ describe("FitBlock chart hunt", () => {
     renderBody(item);
 
     expect(screen.getByText("AI size")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Seller chart" })).toBeInTheDocument();
-    expect(screen.getByRole("table")).toBeInTheDocument();
+    // Round 4 point 3 cut the SellerChartSection. The chart now reads as the
+    // per-size cell row inside the pick block — one cell per charted size —
+    // with the provenance in the header, not a separate table.
+    expect(screen.getByText("SELLER'S CHART")).toBeInTheDocument();
+    expect(document.querySelectorAll(".cz-sizing-cell")).toHaveLength(3);
     // A chart-bearing item never hunts.
     expect(huntMock).not.toHaveBeenCalled();
   });
@@ -101,7 +104,8 @@ describe("FitBlock chart hunt", () => {
 
     expect(screen.getByText("SELLER'S CHART")).toBeInTheDocument();
     expect(screen.queryByText("BEST GUESS")).not.toBeInTheDocument();
-    expect(screen.getByText("Read from the seller's listing")).toBeInTheDocument();
+    // The sheen marks a pick that came off a real chart — the precise badge.
+    expect(document.querySelector(".cz-sizing-value-row.has-sheen")).not.toBe(null);
   });
 
   it("hedges the badge when the deciding measurement is estimated", async () => {
@@ -112,17 +116,23 @@ describe("FitBlock chart hunt", () => {
 
     expect(screen.getByText("BEST GUESS")).toBeInTheDocument();
     expect(screen.queryByText("SELLER'S CHART")).not.toBeInTheDocument();
-    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(document.querySelector(".cz-sizing-value-row.has-sheen")).toBe(null);
+    // The fit read still scores the estimated tape against the chart.
+    expect(document.querySelector(".cz-fitread")).not.toBe(null);
   });
 
-  it("a failed hunt keeps the empty chart state in the Size section", async () => {
+  it("a failed hunt keeps the empty chart state in the Size and fit section", async () => {
     huntMock.mockResolvedValue(null);
     renderBody(noChartItem("hunt-c"));
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
-    expect(screen.getByText("A seller chart is not available for this item.")).toBeInTheDocument();
+    const section = screen.getByRole("region", { name: "Size and fit" });
+    // Round 4 point 1: the size override lives inside this section, beside
+    // the big size word — the rail "Size" section is gone.
+    expect(within(section).getByLabelText("Custom item size")).toBeInTheDocument();
+    expect(
+      screen.getByText("The listing had no measurements. Upload the seller chart to read its measurements.")
+    ).toBeInTheDocument();
     expect(huntMock).toHaveBeenCalledTimes(1);
   });
 

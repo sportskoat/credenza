@@ -11,7 +11,7 @@
 //   3. the seller cache answers for free, so the second item from a seller
 //      never pays for a second vision read.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { huntMock, urlReadMock, fileReadMock, createObjectUrlMock, revokeObjectUrlMock } = vi.hoisted(() => ({
@@ -129,16 +129,20 @@ describe("§3 no-chart state", () => {
     expect(document.querySelector(".cz-sizing-value.is-empty")).not.toBe(null);
   });
 
-  it("keeps item and profile sizing in the Size section", async () => {
+  it("keeps item and profile sizing in the Size and fit section", async () => {
     const user = userEvent.setup();
     const onOpenSizes = vi.fn();
     renderBody(chartless(), { onOpenSizes });
 
     await screen.findByText("No chart");
-    expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
+    const section = screen.getByRole("region", { name: "Size and fit" });
+    // Round 4 point 1: the size editor sits inside the fit section, beside
+    // the big size word — visible with no tap, no rail Size section.
+    expect(within(section).getByLabelText("Custom item size")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Edit sizes and measurements" }));
+    // Round 4 point 3: "Edit sizes and measurements" left the chart actions;
+    // the profile-size route is the fit read footnote now.
+    await user.click(screen.getByRole("button", { name: "Edit my measurements" }));
     expect(onOpenSizes).toHaveBeenCalledTimes(1);
   });
 

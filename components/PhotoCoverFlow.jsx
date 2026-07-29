@@ -14,7 +14,7 @@ function clampIndex(index, length) {
   return Math.min(Math.max(0, index || 0), length - 1);
 }
 
-export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSetPrimaryImage, onLoadPhotos }) {
+export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSetPrimaryImage, onRemovePhoto, onLoadPhotos }) {
   const [activeIndex, setActiveIndex] = useState(() => clampIndex(startIndex, (images || []).length));
   const closingRef = useRef(false);
   const [loadedImages, setLoadedImages] = useState(() => (Array.isArray(images) ? images : []));
@@ -25,6 +25,12 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
   const dialogRef = useRef(null);
   const [cardSize, setCardSize] = useState({ width: 300, height: 400 });
   const canSetCover = typeof onSetPrimaryImage === "function";
+  const canDelete = typeof onRemovePhoto === "function";
+  // A tap on a photo opens it here, and the open photo offers both actions
+  // (Kyle 2026-07-28: "a modal that says 'Delete' or 'Make as cover photo'").
+  // Delete asks first, in place. It is the one action nothing undoes, and the
+  // photo is already full screen, so a second window would only hide it.
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     // Native <dialog>.showModal() puts the gallery in the browser top layer
@@ -187,6 +193,24 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
     requestClose();
   };
 
+  // Delete the photo on screen. The view stays open on the neighbour so a
+  // customer can clear several photos in one visit; the last one closes it.
+  const deletePhoto = () => {
+    if (!canDelete) return;
+    const src = loadedImages[activeIndex];
+    if (!src) return;
+    setConfirmDelete(false);
+    onRemovePhoto(item.id, src);
+    const rest = loadedImages.filter((s) => s !== src);
+    setLoadedImages(rest);
+    setActiveIndex((i) => clampIndex(i, rest.length));
+    if (!rest.length) requestClose();
+  };
+
+  // Any move off this photo drops a pending confirmation. The question named
+  // the photo you were looking at, so it must not follow you to the next one.
+  useEffect(() => setConfirmDelete(false), [activeIndex, item.id]);
+
   if (loadedImages.length === 0 && !loading) {
     return (
       // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click + Escape close
@@ -322,11 +346,30 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
               {safeIndex + 1} / {loadedImages.length}
             </span>
           )}
-          {canSetCover ? (
-            <button className="primary" onClick={setCover}>
-              Use as cover
-            </button>
-          ) : null}
+          {confirmDelete ? (
+            <>
+              <span className="cz-photo-coverflow-ask">Delete this photo?</span>
+              <button className="cz-photo-coverflow-wide" onClick={() => setConfirmDelete(false)}>
+                Keep
+              </button>
+              <button className="cz-photo-coverflow-wide is-danger" onClick={deletePhoto}>
+                Delete
+              </button>
+            </>
+          ) : (
+            <>
+              {canDelete ? (
+                <button className="cz-photo-coverflow-wide" onClick={() => setConfirmDelete(true)}>
+                  Delete
+                </button>
+              ) : null}
+              {canSetCover ? (
+                <button className="primary" onClick={setCover}>
+                  Make cover photo
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
         {loading && <div style={{ color: "var(--cz-sub)", fontSize: 12 }}>Loading album…</div>}
       </div>

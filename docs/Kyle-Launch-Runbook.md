@@ -283,6 +283,14 @@ account with one device's shelf, which is the accident this order prevents.
 Check each box only when the step above it passed.
 
 - [ ] Step 1 — both migrations ran; `shares` and `shelves` exist.
+- [ ] Step 1b — `docs/sql/2026-07-29-entitlements.sql` ran; `entitlements`
+      and `processed_events` exist. **Added 2026-07-29: both were missing.
+      Without them a real payment leaves the payer on the free plan.**
+- [ ] Step 1c — `docs/sql/2026-07-28-daily-spend.sql` ran; `daily_spend`
+      exists. It caps the daily AI spend. Also missing on 2026-07-29.
+- [ ] Step 1d — `STRIPE_SECRET_KEY` on Netlify is a key Stripe accepts. The
+      key stored on 2026-07-29 returned 401 Invalid API Key, so no customer
+      could reach the checkout page at all.
 - [ ] Step 2 — `VITE_ENABLE_SYNC=true` in `preview/.env`.
 - [ ] Step 3 — the batch deployed; IndexNow pinged.
 - [ ] Step 4 — one full paid loop, with evidence in `Part-7-setup.md`.

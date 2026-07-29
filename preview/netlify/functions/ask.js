@@ -146,14 +146,13 @@ async function handle(event) {
         body: JSON.stringify({
           model: "claude-sonnet-5",
           max_tokens: 1200,
-          // LB-56. The shelf now carries status, price and age, and a code like
-          // "gl" means nothing without a key. The two questions /how/ advertises
-          // — "what is still in Want under $40" and "which items are waiting on
-          // QC" — are both filters over these fields, so the field vocabulary
-          // has to be part of the prompt, not left for the model to guess.
+          // LB-56. The shelf carries status, price and age, so the field
+          // vocabulary has to be part of the prompt, not left for the model to
+          // guess. findStatus is two values since the shelf handoff
+          // (2026-07-28) — see credenza-find-status.js.
           system:
             "You search a personal save-it-later shelf for clothing finds. Select only items that answer or meaningfully relate to the user's query. Rank the strongest matches first, use only IDs present in the supplied shelf, and keep every reason and the overall answer concise.\n\n" +
-            "Field key. findStatus is the buying stage: want (not bought yet), bought (paid, at the agent's warehouse), shipped (parcel sent), qc (waiting on quality-check photos), gl (QC approved, green light), rl (QC rejected, red light), returned. priceUsd is US dollars, converted where the listing was in another currency, and is absent when no price is known. ageDays is days since the card was saved. importance is low, medium or high. seller, batch, size and colorway are the user's own notes.\n\n" +
+            "Field key. findStatus is whether the user bought the item: want (not bought yet) or bought (paid for). priceUsd is US dollars, converted where the listing was in another currency, and is absent when no price is known. ageDays is days since the card was saved. importance is low, medium or high. seller, batch, size and colorway are the user's own notes.\n\n" +
             "Treat a question about price, status or age as a filter over those fields. Answer it exactly: if the user asks what is still in Want under $40, return only items with findStatus want and priceUsd below 40. If a needed field is absent on an item, say so rather than guessing.",
           messages: [
             {

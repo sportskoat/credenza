@@ -40,6 +40,12 @@ $39/year. Email+password and Google sign-in (Pro-plan §11).
    (`/auth/v1/.well-known/jwks.json`). `SUPABASE_JWT_SECRET` is only a
    fallback for legacy HS256 tokens.
 
+**Run this from `docs/sql/2026-07-29-entitlements.sql`, not from the block
+below.** The block below is documentation. It sat here alone from 2026-07-24
+to 2026-07-29 and nobody ran it, because every other migration lives in
+`docs/sql/`. The file version is the same SQL plus `if not exists` and the
+`revoke` lines.
+
 ```sql
 create table entitlements (
   user_id uuid primary key references auth.users on delete cascade,

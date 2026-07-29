@@ -64,7 +64,7 @@ const item = {
   currency: "CNY",
   size: "L",
   recommendedSize: "L",
-  findStatus: "qc",
+  findStatus: "bought",
   weightGrams: 780,
   summary: "Good weight",
   createdAt: 1721600000000,
@@ -139,10 +139,8 @@ describe("csvRowForItem", () => {
   });
 
   it("uses the label map the app passes, and the raw enum without one", () => {
-    expect(csvRowForItem(item).status).toBe("qc");
-    expect(csvRowForItem(item, { statusLabels: { qc: "Quality check" } }).status).toBe(
-      "Quality check"
-    );
+    expect(csvRowForItem(item).status).toBe("bought");
+    expect(csvRowForItem(item, { statusLabels: { bought: "Bought" } }).status).toBe("Bought");
   });
 
   it("reports a weight only when there is one", () => {
@@ -215,11 +213,11 @@ describe("haulToCsv", () => {
   });
 
   it("golden row: every column in order for one full item", () => {
-    const rows = parseCsv(haulToCsv([item], { statusLabels: { qc: "Quality check" } }));
+    const rows = parseCsv(haulToCsv([item], { statusLabels: { bought: "Bought" } }));
     expect(rows[1]).toEqual([
       "Heavyweight Hoodie",
       "Winter haul",
-      "Quality check",
+      "Bought",
       "Example Studio",
       "L",
       "L",

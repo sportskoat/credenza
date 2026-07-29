@@ -40,8 +40,11 @@ describe("sumItemsUsd", () => {
     expect(sumItemsUsd(items)).toBe(29);
   });
 
-  it("excludes returned items when excludeReturned is true", () => {
-    expect(sumItemsUsd(items, { excludeReturned: true })).toBe(24);
+  // The shelf handoff (2026-07-28) cut order status to bought-or-not, so no
+  // item is "returned" any more. excludeReturned survives as a no-op so old
+  // callers still work: every card on the shelf counts toward the total.
+  it("counts every item even when excludeReturned is true", () => {
+    expect(sumItemsUsd(items, { excludeReturned: true })).toBe(29);
   });
 
   it("never double-counts priceUsd and CNY on the same item", () => {
@@ -97,8 +100,8 @@ describe("sumItemsCny", () => {
     expect(sumItemsCny(items)).toBe(250);
   });
 
-  it("excludes returned items when excludeReturned is true", () => {
-    expect(sumItemsCny(items, { excludeReturned: true })).toBe(200);
+  it("counts every item even when excludeReturned is true", () => {
+    expect(sumItemsCny(items, { excludeReturned: true })).toBe(250);
   });
 
   it("returns 0 for empty input", () => {

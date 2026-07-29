@@ -16,7 +16,6 @@ import {
   fetchChartFromPhotos,
   readChartFromPhotoFiles,
   serializeSizeChart,
-  FIND_STATUS_SUBLABEL,
   FIT_PREF_AXES,
   fitDisplayPrefs,
   fitPrefHasChoice,
@@ -36,16 +35,16 @@ import {
   pricePrimaryPref,
   recommendSize,
   resolveDisplaySize,
+  sellerStoreUrl,
   sizeChartTextFor,
   usualSizeForItem,
   useWriteThroughDraft,
   usePrefersReducedMotion,
   SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
-import { CategorySelect } from "./atoms.jsx";
+import { normalizeFindStatus } from "../credenza-find-status.js";
 import { fitMeasureFieldsFor, FitPrefAxis } from "./SizeRecommendation.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
-import SizeChartTable from "./SizeChartTable.jsx";
 import { AlbumLinksRow } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
@@ -304,6 +303,13 @@ function SizingBlock({
   hunting,
   units,
   reduced,
+  // Round 5 point 5.1 (2026-07-29): the measurement cells ARE the size
+  // picker now — one row, not a chart row plus a second plain chip row
+  // below it. A caller that already computed the rows may hand them in;
+  // otherwise the block derives them from the chart itself (see below).
+  cells: cellsProp,
+  measureKey: measureKeyProp,
+  onPick,
   // §3: names the seller whose cached chart sized this item. Null on every
   // other path, and the provenance falls back to SELLER'S CHART.
   cachedFrom = "",
@@ -317,22 +323,25 @@ function SizingBlock({
   const sheen = precise && !isManual && !hunting;
 
   // Provenance, right-aligned in the header. Mono, uppercase, and short —
-  // the phone gets the trimmed form via CSS, not a second string.
+  // the phone gets the trimmed form via CSS, not a second string. Round 5
+  // point 5.1: "SET BY YOU" is gone — the aside beside the size word is the
+  // one place a hand pick names itself.
   const provenance = hunting
     ? "READING CHART"
-    : isManual
-      ? "SET BY YOU"
-      : precise
-        ? cachedFrom
-          ? "FROM " + String(cachedFrom).toUpperCase() + "'S CHART (CACHED)"
-          : "SELLER'S CHART"
-        : recSize
-          ? "BEST GUESS"
+    : precise
+      ? cachedFrom
+        ? "FROM " + String(cachedFrom).toUpperCase() + "'S CHART (CACHED)"
+        : "SELLER'S CHART"
+      : recSize
+        ? "BEST GUESS"
+        : isManual
+          ? ""
           : "YOUR USUAL";
 
   // "your usual is L too" — only worth saying when the AI pick and the
   // customer's usual size agree. Silent otherwise; a disagreement is the
-  // prescription's job to explain, not a subtitle's.
+  // prescription's job to explain, not a subtitle's. Round 5 point 5.1: a
+  // hand pick names itself here and nowhere else.
   const aside =
     !isManual && recSize && usualSize && String(recSize).toUpperCase() === String(usualSize).toUpperCase()
       ? "your usual too"
@@ -340,21 +349,23 @@ function SizingBlock({
         ? "you picked this"
         : "";
 
-  // The chart row: one cell per size showing the deciding measurement, so the
-  // pick is legible without opening the full table. rec.primaryKey names the
+  // 2026-07-29: the size row derives from the chart when the caller hands in
+  // nothing. Without this fallback the row renders empty on every current
+  // caller, because none of them pass `cells` yet. `rec.primaryKey` names the
   // measure the recommendation was actually read from.
-  const key = rec && rec.primaryKey ? rec.primaryKey : "chest";
+  const measureKey = measureKeyProp || (rec && rec.primaryKey ? rec.primaryKey : "chest");
   const cells =
-    chart && Array.isArray(chart.rows)
-      ? chart.rows.filter((r) => r.size && r[key] != null).slice(0, 6)
-      : [];
+    cellsProp ||
+    (chart && Array.isArray(chart.rows)
+      ? chart.rows.filter((r) => r.size && r[measureKey] != null).slice(0, 6)
+      : []);
 
   return (
     <section className={"cz-sizing" + (isManual ? " is-manual" : "")} aria-label="Sizing">
       <div className="cz-sizing-head">
         <span className="cz-sizing-dot" aria-hidden="true" />
         <span className="cz-sizing-kicker">{isManual ? "Your pick" : "AI size"}</span>
-        <span className="cz-sizing-prov">{provenance}</span>
+        {provenance ? <span className="cz-sizing-prov">{provenance}</span> : null}
       </div>
 
       <div className={"cz-sizing-value-row" + (sheen ? " has-sheen" : "")}>
@@ -374,20 +385,30 @@ function SizingBlock({
         {aside ? <span className="cz-sizing-aside">{aside}</span> : null}
       </div>
 
+      {/* Round 5 point 5.1: the measurement cells double as the size picker.
+          One row does both jobs — before, a second plain chip row under it
+          offered the same sizes again. Tap the picked cell to clear the
+          pick. */}
       {cells.length ? (
-        <div className="cz-sizing-chart" aria-hidden="true">
-          {cells.map((row) => (
-            <span
-              key={row.size}
-              className={
-                "cz-sizing-cell" +
-                (String(row.size).toUpperCase() === String(heroSize).toUpperCase() ? " is-pick" : "")
-              }
-            >
-              <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
-              <span className="cz-sizing-cell-v">{formatMeasure(row[key], units)}</span>
-            </span>
-          ))}
+        <div className="cz-sizing-chart" role="group" aria-label="Item size choices">
+          {cells.map((row) => {
+            const picked =
+              String(row.size).toUpperCase() === String(heroSize).toUpperCase();
+            return (
+              <button
+                key={row.size}
+                type="button"
+                className={"cz-sizing-cell" + (picked ? " is-pick" : "")}
+                aria-pressed={isManual && picked}
+                onClick={() =>
+                  onPick && onPick(isManual && picked ? "" : String(row.size))
+                }
+              >
+                <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
+                <span className="cz-sizing-cell-v">{formatMeasure(row[measureKey], units)}</span>
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </section>
@@ -481,6 +502,24 @@ function useCustomerChartRead(item, onSaveEdit) {
 
 // The no-chart state keeps the usual size visible but unverified.
 // The Size panel owns the single chart upload action.
+// Round 4 point 7: a failed album thumb draws a plain dark tile, never the
+// browser's broken-image mark. Per photo URL, so one bad photo does not hide
+// the good ones.
+function AlbumThumb({ src }) {
+  const [bad, setBad] = useState(false);
+  return bad ? (
+    <span className="cz-sizing-albumthumb cz-photo-tile-missing" aria-hidden="true" />
+  ) : (
+    <img
+      className="cz-sizing-albumthumb"
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={() => setBad(true)}
+    />
+  );
+}
+
 function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCount, onOpenAlbum }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const thumbs = (albumPhotos || []).slice(0, 2);
@@ -490,7 +529,10 @@ function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCou
       <div className="cz-sizing-head">
         <span className="cz-sizing-dot" aria-hidden="true" />
         <span className="cz-sizing-kicker">No chart</span>
-        <span className="cz-sizing-prov">{isManual ? "SET BY YOU" : "FELL BACK TO YOUR USUAL"}</span>
+        {/* Round 5 point 5.1: one notice for a hand pick — "you picked this"
+            beside the size word. The "SET BY YOU" label here was a second
+            copy, so a hand pick now leaves the provenance slot empty. */}
+        {isManual ? null : <span className="cz-sizing-prov">FELL BACK TO YOUR USUAL</span>}
       </div>
 
       <div className="cz-sizing-value-row">
@@ -517,7 +559,7 @@ function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCou
         <button type="button" className="cz-sizing-albumrow" onClick={onOpenAlbum}>
           <span className="cz-sizing-albumthumbs" aria-hidden="true">
             {thumbs.map((src, i) => (
-              <img key={src + i} className="cz-sizing-albumthumb" src={src} alt="" loading="lazy" />
+              <AlbumThumb key={src + i} src={src} />
             ))}
           </span>
           <span className="cz-sizing-albumtext">
@@ -832,7 +874,7 @@ function listPhrase(words) {
   return words.slice(0, -1).join(", ") + " and " + words[words.length - 1];
 }
 
-function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, customSize, onCustomChange, onCommit, onPick }) {
+function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidden = false, customSize, onCustomChange, onCommit, onPick }) {
   const choices = chipSizes(runValues, chosenSize || recommendedSize);
 
   return (
@@ -841,8 +883,10 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, customSize, 
           repeated the recommendation in words; the ringed chip already says
           it. The custom field was a second full-width bar holding the same
           value as the filled chip. Both are gone: the row below is the only
-          place the size is set. */}
-      {choices.length ? (
+          place the size is set. Round 5 point 5.1: when the chart cells
+          above already offer the same sizes as buttons, this chip row is a
+          repeat and hides (choicesHidden). */}
+      {choices.length && !choicesHidden ? (
         <div className="cz-detail-size-choices" aria-label="Item size choices">
           {choices.map((size) => {
             const active = String(chosenSize).toUpperCase() === String(size).toUpperCase();
@@ -894,33 +938,6 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, customSize, 
         />
       </label>
     </div>
-  );
-}
-
-function SellerChartSection({ item, chart, units, highlight, hunting }) {
-  return (
-    <section className="cz-detail-chart-section" aria-labelledby={"seller-chart-" + item.id}>
-      <div className="cz-detail-panel-heading">
-        <h3 id={"seller-chart-" + item.id}>Seller chart</h3>
-        {hunting ? <span className="cz-detail-panel-note">Reading chart</span> : null}
-      </div>
-      {chart ? (
-        <>
-          <div className="cz-detail-chart-scroll">
-            <SizeChartTable chart={chart} units={units} highlight={highlight || undefined} />
-          </div>
-          <p className="cz-detail-chart-source">
-            {item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
-              ? "Cached from " + (item.sizeChartSource.seller || item.seller || "this seller")
-              : "Read from the seller's listing"}
-          </p>
-        </>
-      ) : hunting ? (
-        <p className="cz-detail-panel-empty">Credenza is looking for the seller chart.</p>
-      ) : (
-        <p className="cz-detail-panel-empty">A seller chart is not available for this item.</p>
-      )}
-    </section>
   );
 }
 
@@ -1443,6 +1460,10 @@ export default function DetailBody({
   // (close, ⋯ menu) comes in through renderHeroActions; the desktop back
   // passes none because its card header already carries those.
   const [photoIdx, setPhotoIdx] = useState(0);
+  // Round 4 point 7 (2026-07-29): a failed photo draws the brand tile, never
+  // the browser's broken-image mark. Tracked per photo URL — one bad photo
+  // must not hide the good ones.
+  const [badPhotos, setBadPhotos] = useState(() => new Set());
   const trackRef = useRef(null);
   const photos = heroPager ? itemPhotoList(item, 12) : [];
 
@@ -1498,6 +1519,9 @@ export default function DetailBody({
   const [customSize, setCustomSize] = useState(String(item.size || ""));
   const customSizeCommittedRef = useRef(String(item.size || ""));
   const [notesOpen, setNotesOpen] = useState(false);
+  // Round 4 point 5: an empty note box became a small "Add a note" button.
+  // The writer opens on demand; a note with text always shows.
+  const [noteWriterOpen, setNoteWriterOpen] = useState(false);
   // The weight editor converts on the fly; weightText is the raw kg string
   // while the kg unit is active so the caret never jumps mid-type.
   const [weightUnit, setWeightUnit] = useState("g");
@@ -1619,6 +1643,14 @@ export default function DetailBody({
   // The parent owns the sizing verdict and the chart hunt.
   const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
   const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits, fitDetail, fitSummary);
+  // Round 5 point 5.1 (2026-07-29): the chart cells ARE the size picker.
+  // Computed here so SizingBlock draws them and SizeChoiceEditor knows its
+  // own plain chip row would say the same sizes a second time.
+  const sizeMeasureKey = verdict.rec && verdict.rec.primaryKey ? verdict.rec.primaryKey : "chest";
+  const sizeCells =
+    verdict.chart && Array.isArray(verdict.chart.rows)
+      ? verdict.chart.rows.filter((r) => r.size && r[sizeMeasureKey] != null).slice(0, 6)
+      : [];
   // Split rail: the per-measurement fit bars. YOURS uses the same effective
   // profile the pick math used, so the table's ease always agrees with
   // rec.diff — a raw-profile table would show a different chest than the one
@@ -1710,12 +1742,14 @@ export default function DetailBody({
   const lowerEditing = editingCell === "price";
   // Timeline (§6). sizeFrom names WHO decided the size, in the same vocabulary
   // the sizing block's provenance uses — "from the seller's chart" only when a
-  // real chart was read, never for the profile fallback.
+  // real chart was read, never for the profile fallback. Round 5 point 5.1: a
+  // hand pick carries no tail — "Sized Large yourself" was a second copy of
+  // the "you picked this" notice beside the size word.
   const timeline = buildTimeline(
     item,
     sizeText,
     chosenSize
-      ? "yourself"
+      ? ""
       : verdict.precise
         ? "from the seller's chart"
         : recSize
@@ -1732,12 +1766,11 @@ export default function DetailBody({
   ]
     .filter(Boolean)
     .join(" · ");
-  // The QC prompt is a question about the order's next step, so it only asks
-  // while the order can answer: with the agent, and nothing arrived yet.
-  const QC_PROMPT_STATUSES = ["bought", "shipped", "qc"];
+  // The QC prompt is a question about the order, so it only asks after the
+  // customer buys the item and before any photo arrives.
   const showQcPrompt =
     typeof onAttachQcPhoto === "function" &&
-    QC_PROMPT_STATUSES.includes(view.findStatus) &&
+    normalizeFindStatus(view.findStatus) === "bought" &&
     !(Array.isArray(item.qcPhotos) && item.qcPhotos.filter(Boolean).length);
   const buyButtons = linkButtons(item, { buyLabel }).filter((b) => b.role === "buy");
   // ONE primary action: the first buy link only. Two filled twins read as a
@@ -1747,6 +1780,10 @@ export default function DetailBody({
     ? new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
   const subLine = [item.seller, savedDate ? "saved " + savedDate : ""].filter(Boolean).join(" · ");
+  // The SELLER row in the Details list opens the seller's other listings. Not
+  // every seller has a store page Credenza can build, so this can be null and
+  // the row falls back to plain text (shelf handoff 2026-07-28).
+  const sellerHref = sellerStoreUrl(item);
   const knownHauls = Array.from(
     new Set([...(haulNames || []), item.project || ""].map((n) => String(n || "").trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
@@ -1882,50 +1919,55 @@ export default function DetailBody({
   const logNotesBlock = (
     <>
       {/* Timeline (§6). Generated from fields the item already carries, so
-          it renders only when there is something true to say. */}
-      {timeline.length ? (
-        <>
-          <div className="cz-detail-rule-head">
-            <span className="cz-detail-label">Timeline</span>
-            <span className="cz-detail-rule" aria-hidden="true" />
-          </div>
-          <Timeline rows={timeline} />
-        </>
-      ) : null}
+          it renders only when there is something true to say. Round 4 point
+          5 removed the TIMELINE heading — the rows speak for themselves. */}
+      {timeline.length ? <Timeline rows={timeline} /> : null}
 
       {/* Notes (§7). The header moves INSIDE the box, so the box reads as
           one object instead of a label with a field under it.
           §7: "Never a fixed 2-line box, never a truncation with no way
           out." Collapsed clamps to 3 lines; EXPAND grows it. The box stays
           the same box you type in — there is still no mode to enter and no
-          "+" to hunt for, which is what turn 5 fixed and §7 keeps. */}
-      <div className={"cz-detail-notes-box" + (notesOpen ? " is-open" : "")}>
-        <div className="cz-detail-notes-head">
-          <span className="cz-detail-notes-kicker">Notes</span>
-          <span className="cz-detail-notes-gap" />
-          <button
-            type="button"
-            className="cz-detail-notes-toggle"
-            onClick={() => setNotesOpen((v) => !v)}
-          >
-            {notesOpen ? (
-              <Minimize2 size={11} strokeWidth={2.2} aria-hidden="true" />
-            ) : (
-              <Maximize2 size={11} strokeWidth={2.2} aria-hidden="true" />
-            )}
-            {notesOpen ? "Collapse" : "Expand"}
-          </button>
+          "+" to hunt for, which is what turn 5 fixed and §7 keeps.
+          Round 4 point 5: an empty note is a small "Add a note" button, not
+          a large empty box. */}
+      {view.note || noteWriterOpen ? (
+        <div className={"cz-detail-notes-box" + (notesOpen ? " is-open" : "")}>
+          <div className="cz-detail-notes-head">
+            <span className="cz-detail-notes-kicker">Notes</span>
+            <span className="cz-detail-notes-gap" />
+            <button
+              type="button"
+              className="cz-detail-notes-toggle"
+              onClick={() => setNotesOpen((v) => !v)}
+            >
+              {notesOpen ? (
+                <Minimize2 size={11} strokeWidth={2.2} aria-hidden="true" />
+              ) : (
+                <Maximize2 size={11} strokeWidth={2.2} aria-hidden="true" />
+              )}
+              {notesOpen ? "Collapse" : "Expand"}
+            </button>
+          </div>
+          <textarea
+            className="cz-detail-notes"
+            aria-label="Notes"
+            value={view.note}
+            placeholder="Batch, QC notes, what you're pairing it with…"
+            onChange={(e) => edit("note", e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            onFocus={() => setNotesOpen(true)}
+          />
         </div>
-        <textarea
-          className="cz-detail-notes"
-          aria-label="Notes"
-          value={view.note}
-          placeholder="Batch, QC notes, what you're pairing it with…"
-          onChange={(e) => edit("note", e.target.value)}
-          onKeyDown={(e) => e.stopPropagation()}
-          onFocus={() => setNotesOpen(true)}
-        />
-      </div>
+      ) : (
+        <button
+          type="button"
+          className="cz-detail-notes-add"
+          onClick={() => setNoteWriterOpen(true)}
+        >
+          Add a note
+        </button>
+      )}
     </>
   );
 
@@ -1987,7 +2029,24 @@ export default function DetailBody({
                     aria-label={"Open photo " + (i + 1) + " full screen"}
                     onClick={() => setPhotoView({ startIndex: i })}
                   >
-                    <img src={src} alt="" draggable={false} loading="lazy" decoding="async" />
+                    {badPhotos.has(src) ? (
+                      <CoverPlaceholder
+                        item={item}
+                        aspectRatio="auto"
+                        style={{ width: "100%", height: "100%" }}
+                      />
+                    ) : (
+                      <img
+                        src={src}
+                        alt=""
+                        draggable={false}
+                        loading="lazy"
+                        decoding="async"
+                        onError={() =>
+                          setBadPhotos((prev) => (prev.has(src) ? prev : new Set(prev).add(src)))
+                        }
+                      />
+                    )}
                   </button>
                 ))
               ) : (
@@ -2129,6 +2188,9 @@ export default function DetailBody({
                 hunting={hunting}
                 units={measureUnits}
                 reduced={reduced}
+                cells={sizeCells}
+                measureKey={sizeMeasureKey}
+                onPick={pickItemSize}
                 cachedFrom={
                   item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
                     ? item.sizeChartSource.seller || item.seller || ""
@@ -2136,6 +2198,26 @@ export default function DetailBody({
                 }
               />
             )}
+
+            {/* Round 4 point 1 (2026-07-29): one place for size. The override
+                chips moved out of the right rail to sit with the big size
+                word — visible with no tap, in the chart and no-chart states
+                alike. Hidden only while the measure ask owns the section.
+                Round 5 point 5.1: when the chart cells above already pick,
+                the plain chip row here would repeat them — so it hides and
+                only the odd-size field stays. */}
+            {!askingMeasures ? (
+              <SizeChoiceEditor
+                chosenSize={chosenSize}
+                recommendedSize={verdict.recSize || verdict.usualSize}
+                runValues={verdict.runValues}
+                choicesHidden={sizeCells.length > 0}
+                customSize={customSize}
+                onCustomChange={setCustomSize}
+                onCommit={commitCustomSize}
+                onPick={pickItemSize}
+              />
+            ) : null}
 
             {!askingMeasures && (askingPref || needsPrefAsk) && onSaveFitPref ? (
               // 5b — the taste ask sits in the confidence-strip slot. The
@@ -2225,14 +2307,6 @@ export default function DetailBody({
               />
             ) : null}
 
-            <SellerChartSection
-              item={item}
-              chart={verdict.chart}
-              units={measureUnits}
-              highlight={chosenSize || verdict.recSize}
-              hunting={hunting}
-            />
-
             <div className="cz-detail-chart-actions">
               <button
                 type="button"
@@ -2250,9 +2324,6 @@ export default function DetailBody({
                 hidden
                 onChange={readUploadedChart}
               />
-              <button type="button" className="cz-detail-profile-sizes" onClick={openProfileSizes}>
-                Edit sizes and measurements
-              </button>
             </div>
 
             {chartRead.reading || chartRead.chart || chartRead.error ? (
@@ -2269,24 +2340,33 @@ export default function DetailBody({
             ) : null}
           </section>
 
-          {/* Split rail gap 1: SIZE is the top row of the desktop facts rail
-              (spec :133), so the editor lives in its own section between the
-              pick column and the small facts. DOM order doubles as the phone
-              order — pick → fit read → size → facts (ruling 2, 2026-07-28).
-              The visible label is desktop-only: the phone spec (:175) draws
-              the size as a bare full-width chip row. */}
-          <section className="cz-detail-facts-section" aria-label="Size">
-            <span className="cz-detail-rail-label" aria-hidden="true">
-              Size
-            </span>
-            <SizeChoiceEditor
-              chosenSize={chosenSize}
-              recommendedSize={verdict.recSize || verdict.usualSize}
-              runValues={verdict.runValues}
-              customSize={customSize}
-              onCustomChange={setCustomSize}
-              onCommit={commitCustomSize}
-              onPick={pickItemSize}
+          {/* Details kicker (shelf handoff 2026-07-28, README :105). Everything
+              above it answers "does it fit?". Everything below it answers "what
+              is it, and did you buy it?". The kicker is the seam between the two
+              questions, so the hairline rides it instead of the next section. */}
+          <div className="cz-detail-facts-kicker" aria-hidden="true">
+            Details
+          </div>
+
+          {/* ORDERED leads the Details list on both the desktop and the phone
+              (shelf handoff 2026-07-28, README :105). One row, one question: did
+              you buy it? Round 4 point 4 (2026-07-29) quieted the control to
+              one small switch at the right end of the row — off is "want",
+              on is "bought"; see StatusToggle in components/atoms.jsx. */}
+          <section className="cz-detail-facts-section cz-detail-facts-status" aria-label="Bought">
+            <div className="cz-detail-panel-field">
+              <span>Bought</span>
+              <StatusChips value={view.findStatus} onChange={pickStatus} label="Bought" />
+            </div>
+          </section>
+
+          <section className="cz-detail-facts-section" aria-label="Haul">
+            <HaulAccordionField
+              label="Haul"
+              value={view.project}
+              knownHauls={knownHauls}
+              onChange={(next) => edit("project", next)}
+              onCommit={(next) => edit("project", next)}
             />
           </section>
 
@@ -2354,61 +2434,38 @@ export default function DetailBody({
             </div>
           </section>
 
-          <section className="cz-detail-facts-section" aria-label="Haul">
-            <HaulAccordionField
-              label="Haul"
-              value={view.project}
-              knownHauls={knownHauls}
-              onChange={(next) => edit("project", next)}
-              onCommit={(next) => edit("project", next)}
-            />
-          </section>
-
-          {/* Split rail gap 2: STATUS is the foot of the desktop facts rail
-              (spec :137-138) — four rows plus the advance pill. The phone
-              gets the same move as the approved stack: facts, then status
-              (ruling 2, 2026-07-28). StatusTrackChips keeps its markup; the
-              rail look is CSS only. */}
-          <section className="cz-detail-facts-section cz-detail-facts-status" aria-label="Status">
-            {/* Status (§5). The header carries the rule and the sub-label;
-                the track carries the progress and the next action. */}
-            <div className="cz-detail-rule-head">
-              <span className="cz-detail-label">Status</span>
-              <span className="cz-detail-rule-note">
-                {FIND_STATUS_SUBLABEL[view.findStatus || "want"] || ""}
-              </span>
-              <span className="cz-detail-rule" aria-hidden="true" />
-            </div>
-            {/* StatusChips owns the named next-step pill (§5). It is drawn
-                there, not here, because only the track knows which stops are
-                terminal and which need a real decision rather than a one-tap
-                primary. */}
-            <StatusChips mode="track" value={view.findStatus} onChange={pickStatus} label="Order status" />
-          </section>
+          {/* SELLER closes the Details list (shelf handoff 2026-07-28,
+              README :105). It is a read-only row: tapping it opens the seller's
+              other listings in a new tab. The row hides when the item has no
+              seller, or when no store page can be built for that seller — a
+              dead row is worse than no row. */}
+          {item.seller ? (
+            <section className="cz-detail-facts-section" aria-label="Seller">
+              <div className="cz-detail-panel-field">
+                <span>Seller</span>
+                {sellerHref ? (
+                  <a
+                    className="cz-detail-seller-row"
+                    href={sellerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={"Open " + item.seller + " listings"}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <span className="cz-detail-seller-name">{item.seller}</span>
+                    <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+                  </a>
+                ) : (
+                  <span className="cz-detail-seller-row is-flat">
+                    <span className="cz-detail-seller-name">{item.seller}</span>
+                  </span>
+                )}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
-
-        {/* Category (design 4c, CH-07). One select row; the parse classifies,
-            this row is the correction affordance. categoryManual pins a hand
-            pick so a later resolve cannot reclassify it. */}
-        <div className="cz-detail-rule-head">
-          <span className="cz-detail-label">Category</span>
-          <span className="cz-detail-rule" aria-hidden="true" />
-        </div>
-        <CategorySelect
-          value={view.category}
-          isAuto={!item.categoryManual}
-          onChange={(key) => {
-            onSaveEdit(item.id, { category: key, categoryManual: true });
-            setDraft((d) =>
-              draftOwnerRef.current === item.id && d ? { ...d, category: key } : d
-            );
-            setSavedFlash(true);
-            if (savedTimer.current) clearTimeout(savedTimer.current);
-            savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
-          }}
-        />
 
         {logNotesTarget === undefined
           ? logNotesBlock
@@ -2505,6 +2562,14 @@ export default function DetailBody({
             if (onSetPrimaryImage) onSetPrimaryImage(id, src);
             resetPager();
           }}
+          onRemovePhoto={
+            onRemovePhoto
+              ? (id, src) => {
+                  onRemovePhoto(id, src);
+                  resetPager();
+                }
+              : null
+          }
           onLoadPhotos={onLoadPhotos}
         />
       ) : null}

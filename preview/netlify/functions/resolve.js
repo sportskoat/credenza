@@ -113,7 +113,7 @@ function unwrapAgentBuyLink(raw) {
   }
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
   // Agent hosts we recognize for inbound unwrap (wider than outbound registry).
-  const isAgent = /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|fansbuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy)\.[a-z.]{2,}$/i.test(
+  const isAgent = /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|fansbuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy|usfans)\.[a-z.]{2,}$/i.test(
     host
   );
   if (!isAgent) return null;
@@ -159,11 +159,20 @@ function unwrapAgentBuyLink(raw) {
     if (p === "1688" || p === "3") return { marketplace: "1688", itemId: idQ };
   }
 
-  // hoobuy / oopbuy: /product/{code}/{id}
+  // hoobuy / oopbuy / usfans: /product/{code}/{id}
+  // Numeric codes are PER-AGENT (mirrors agents.js, probed live 2026-07-28):
+  // hoobuy/oopbuy 2 weidian / 3 1688 — usfans 3 weidian / 4 1688 / 5 taobao.
   const pathCode = u.pathname.match(/\/product\/([a-z0-9]+)\/(\d{5,})\/?$/i);
   if (pathCode) {
     const p = pathCode[1].toLowerCase();
     const id = pathCode[2];
+    if (/(^|\.)usfans\.com$/i.test(host)) {
+      if (p === "3") return { marketplace: "weidian", itemId: id };
+      if (p === "4") return { marketplace: "1688", itemId: id };
+      if (p === "5") return { marketplace: "taobao", itemId: id };
+      if (p === "6") return { marketplace: "tmall", itemId: id };
+      return null;
+    }
     if (p === "2" || p === "weidian") return { marketplace: "weidian", itemId: id };
     if (p === "1" || p === "taobao") return { marketplace: "taobao", itemId: id };
     if (p === "tmall") return { marketplace: "tmall", itemId: id };

@@ -81,12 +81,14 @@ describe("haulWeightGrams (Part 5 task 8)", () => {
     expect(sum).toBe(CATEGORY_WEIGHT_GRAMS.shirt + 800);
   });
 
-  it("never counts returned items toward the ship weight", () => {
+  // Order status is bought-or-not since the shelf handoff (2026-07-28), so
+  // there is no "returned" value to skip. Every card on the haul counts.
+  it("counts every item on the haul, whatever its order status", () => {
     const sum = haulWeightGrams([
       { category: "shirt", weightGrams: 300 },
-      { category: "shoes", weightGrams: 800, findStatus: "returned" },
+      { category: "shoes", weightGrams: 800, findStatus: "bought" },
     ]);
-    expect(sum).toBe(300);
+    expect(sum).toBe(1100);
   });
 
   it("returns null when no item has a known weight", () => {
@@ -94,9 +96,6 @@ describe("haulWeightGrams (Part 5 task 8)", () => {
     expect(haulWeightGrams([])).toBe(null);
   });
 
-  it("returns null when every item is returned", () => {
-    expect(haulWeightGrams([{ category: "shirt", findStatus: "returned" }])).toBe(null);
-  });
 });
 
 describe("volumetricWeightGrams (Part 5 task 9)", () => {

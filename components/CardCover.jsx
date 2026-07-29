@@ -170,10 +170,11 @@ export function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "flex-start",
+          paddingTop: "22%",
           gap: 12,
           background:
-            "linear-gradient(180deg, rgba(" + tile.rgb + ", 0.15) 0%, rgba(" + tile.rgb + ", 0.05) 100%)",
+            "linear-gradient(180deg, rgba(" + tile.rgb + ", 0.22) 0%, rgba(" + tile.rgb + ", 0.06) 46%, rgba(10, 10, 12, 0.96) 100%), #0e0e11",
           position: "relative",
           overflow: "hidden",
           ...style,
@@ -203,7 +204,7 @@ export function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }
             fontWeight: 650,
             letterSpacing: "0.14em",
             textTransform: "uppercase",
-            color: "var(--cz-sub)",
+            color: "rgb(255 255 255 / 0.72)",
           }}
         >
           {tile.name}
@@ -229,7 +230,7 @@ export function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }
         alignItems: "center",
         justifyContent: "center",
         gap: 10,
-        background: "var(--cz-bg-elevated)",
+        background: "#0e0e11",
         color: "var(--cz-faint)",
         position: "relative",
         overflow: "hidden",

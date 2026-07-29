@@ -269,8 +269,12 @@ describe("DesktopDetailPanel (Fix B)", () => {
 
       const menu = screen.getByRole("menu", { name: "Card actions" });
       const actions = [...menu.querySelectorAll('[role="menuitem"]')];
+      // Round 4: the menu grew. Category left the facts rail for a row here
+      // (point 2); "Delete this photo" joins only when the pager sits on a
+      // non-cover photo (point 5) — here it is on the cover, so it hides.
       expect(actions.map((action) => action.textContent.trim())).toEqual([
         "Share card",
+        "Change category",
         "Remove card",
       ]);
 

@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronDown, ChevronLeft, Heart, Search, User, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Search, User, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -24,7 +24,7 @@ import {
 } from "./agents.js";
 import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
-import { FIND_STATUSES } from "./credenza-find-status.js";
+import { FIND_STATUSES, normalizeFindStatus } from "./credenza-find-status.js";
 import { downloadHaulCsv } from "./credenza-haul-export.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
@@ -529,11 +529,15 @@ export function itemCnyAmount(item) {
 }
 
 // One pure sum for shelf + haul totals so chips, phone tabs, and the reel
-// never disagree. Returned cards drop out of open-haul totals only.
-export function sumItemsUsd(items, { excludeReturned = false } = {}) {
+// never disagree.
+//
+// `excludeReturned` is a no-op since the shelf handoff (2026-07-28) cut the
+// order pipeline to bought-or-not: there is no "returned" value left to drop.
+// The option stays so callers and their tests keep working; a card is either
+// on the shelf and counted, or deleted.
+export function sumItemsUsd(items, { excludeReturned: _excludeReturned = false } = {}) {
   let sum = 0;
   for (const it of items || []) {
-    if (excludeReturned && it && it.findStatus === "returned") continue;
     const usd = itemUsdAmount(it);
     if (usd != null && isFinite(usd)) sum += usd;
   }
@@ -543,10 +547,9 @@ export function sumItemsUsd(items, { excludeReturned = false } = {}) {
 // CNY twin of sumItemsUsd (Kyle 2026-07-28): the shelf total follows the
 // primary currency now, and summing the per-item rounded yuan keeps the
 // total equal to the card labels the customer can see.
-export function sumItemsCny(items, { excludeReturned = false } = {}) {
+export function sumItemsCny(items, { excludeReturned: _excludeReturned = false } = {}) {
   let sum = 0;
   for (const it of items || []) {
-    if (excludeReturned && it && it.findStatus === "returned") continue;
     const cny = itemCnyAmount(it);
     if (cny != null && isFinite(cny)) sum += cny;
   }
@@ -2447,7 +2450,9 @@ export function migrateItem(old) {
     people: Array.isArray(old.people) ? old.people : [],
     useCase: old.useCase || "",
     importance: old.importance === "high" || old.importance === "low" ? old.importance : "medium",
-    findStatus: ["want", "bought", "shipped", "qc", "gl", "rl", "returned"].includes(old.findStatus) ? old.findStatus : "want",
+    // A card saved under the old seven-stage pipeline keeps its answer:
+    // anything past "want" means the customer bought it.
+    findStatus: normalizeFindStatus(old.findStatus),
     price: typeof old.price === "number" && !isNaN(old.price) ? old.price : null,
     currency: old.currency || "CNY",
     priceUsd: typeof old.priceUsd === "number" && !isNaN(old.priceUsd) ? old.priceUsd : null,
@@ -3652,112 +3657,33 @@ function useIsWideDetail() {
 
 // "Read" is v3-generic vocabulary — a Yupoo album isn't an article. Prefer the
 // platform users actually recognize; fall back to the generic type label.
-// One-tap findStatus pipeline chips — shared by the edit forms and the mobile
-// detail sheet (audit C3). Status meanings per docs/Monetization.md §A3.
-// FIND_STATUSES itself lives in credenza-find-status.js (shared with the Ask
-// serializer); labels/colors are display-only and stay here.
-// Compact labels for pills / dense chips. CH-06: even the compact forms are
-// spelled out — no surface renders bare QC/GL/RL initials as a label. ("QC
-// photos" as a modifier stays; the initials never stand alone.) Long labels
-// power the 4a stage + the 4b grouped picker.
+// Order status display maps. FIND_STATUSES itself lives in
+// credenza-find-status.js (shared with the Ask serializer); the labels and the
+// colours are display-only and stay here.
+//
+// Two values only (shelf handoff 2026-07-28, Kyle's call). One question, one
+// answer: did you buy it, or not? The seven-stage pipeline is gone. See the
+// note in credenza-find-status.js for why.
 export const FIND_STATUS_LABELS = {
-  want: "Want",
+  want: "Not bought",
   bought: "Bought",
-  shipped: "Shipped",
-  qc: "Quality check",
-  gl: "Green light",
-  rl: "Red light",
-  returned: "Returned",
 };
-export const FIND_STATUS_LONG = {
-  want: "Want",
-  bought: "Bought",
-  shipped: "Shipped",
-  qc: "Quality check",
-  gl: "Approved · green light",
-  rl: "Rejected · red light",
-  returned: "Returned",
-};
-export const FIND_STATUS_HINTS = {
-  qc: "QC photos requested",
-  gl: "Cleared to ship",
-  rl: "Send back or keep",
-};
-// 4b grouped picker (CH-06): the full pipeline, grouped by who holds the
-// order. Display-only — the enum and its order are untouched. "returned"
-// covers both arrival and an RL refund (see statusTrackIndex), so the
-// Shipping group lists it once, after Shipped.
-export const STATUS_PICKER_GROUPS = [
-  { name: "Ordering", statuses: ["want", "bought"] },
-  { name: "At the agent", statuses: ["qc", "gl", "rl"] },
-  { name: "Shipping", statuses: ["shipped", "returned"] },
-];
-// Human 4-stop track (design 4a). Agent sub-states map into Bought; returned
-// sits in the Received slot. Enum stays want|bought|shipped|qc|gl|rl|returned.
-export const STATUS_TRACK = ["Want", "Bought", "Shipped", "Received"];
-export function statusTrackIndex(status) {
-  switch (status) {
-    case "want":
-      return 0;
-    case "bought":
-    case "qc":
-    case "gl":
-    case "rl":
-      return 1;
-    case "shipped":
-      return 2;
-    case "returned":
-      return 3;
-    default:
-      return 0;
-  }
-}
-
-// Handoff turn 9 §5. The track shows HOW FAR along an order is; the sub-label
-// says WHERE it is right now, in the customer's own words. Both are needed —
-// four dots alone cannot tell "bought" from "QC photos are waiting for you".
-// Mono, right-aligned in the section header. Read as "STAGE · DETAIL".
-export const FIND_STATUS_SUBLABEL = {
-  want: "WANT · NOT ORDERED",
-  bought: "BOUGHT · WITH THE AGENT",
-  shipped: "IN TRANSIT · AGENT → YOU",
-  qc: "QC · PHOTOS WAITING",
-  gl: "QC PASSED · READY TO SHIP",
-  rl: "QC FAILED · YOUR CALL",
-  returned: "RECEIVED · DONE",
-};
-
-// The one action that moves an order forward, per current stop. A track that
-// only reports state makes the customer hunt for the control that changes it.
-// `null` means the stop is terminal, or the choice is not ours to make: rl
-// (keep or send back) and gl (the agent ships, not the customer) both need a
-// real decision, so neither gets a one-tap primary.
-export const FIND_STATUS_NEXT = {
-  want: { label: "Mark bought", to: "bought" },
-  bought: { label: "Mark shipped", to: "shipped" },
-  qc: { label: "Approve QC", to: "gl" },
-  gl: { label: "Mark shipped", to: "shipped" },
-  rl: null,
-  shipped: { label: "Mark received", to: "returned" },
-  returned: null,
-};
-
-// Off-track states (§5: "render as a labelled detour node, not a fifth step").
-// These sit UNDER the current dot; they are not stops on the four-stop track.
-export const FIND_STATUS_DETOUR = {
-  qc: "QC photos",
-  rl: "QC failed",
-};
+export const FIND_STATUS_LONG = FIND_STATUS_LABELS;
 
 export const FIND_STATUS_COLORS = {
   want: { bg: "oklch(0.35 0.02 280)", text: "oklch(0.85 0 0)", dot: "oklch(0.7 0.02 280)" },
-  bought: { bg: "oklch(0.35 0.08 250)", text: "oklch(0.9 0.1 250)", dot: "oklch(0.65 0.14 250)" },
-  shipped: { bg: "oklch(0.32 0.08 290)", text: "oklch(0.85 0.1 290)", dot: "oklch(0.6 0.14 290)" },
-  qc: { bg: "oklch(0.35 0.08 85)", text: "oklch(0.9 0.1 85)", dot: "oklch(0.7 0.14 85)" },
-  gl: { bg: "oklch(0.3 0.08 145)", text: "oklch(0.85 0.1 145)", dot: "oklch(0.6 0.14 145)" },
-  rl: { bg: "oklch(0.3 0.1 25)", text: "oklch(0.9 0.12 25)", dot: "oklch(0.65 0.18 25)" },
-  returned: { bg: "oklch(0.32 0.06 55)", text: "oklch(0.9 0.08 55)", dot: "oklch(0.7 0.12 55)" },
+  bought: { bg: "oklch(0.3 0.08 145)", text: "oklch(0.85 0.1 145)", dot: "oklch(0.6 0.14 145)" },
 };
+
+// Shelf filter strip (shelf handoff 2026-07-28). One chip is active at a time
+// and every chip carries a live count. Order is fixed: the whole shelf first,
+// then the three answers a customer actually asks the shelf for.
+export const SHELF_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "starred", label: "Starred" },
+  { key: "tobuy", label: "To buy" },
+  { key: "bought", label: "Bought" },
+];
 
 // Design 4c: one auto-detected category row. Tap expands a tidy chip list.
 // ═══ SHARED CARD PRIMITIVES (standardization 2026-07-22, audit workstream A) ═══
@@ -4269,8 +4195,12 @@ function CredenzaApp() {
   // are intentionally not restored — every session lands on the list.
   const [viewMode, setViewMode] = useState("cards");
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
-  // "recent" = newest first (default). "starred" = only starred items.
-  const [sortMode, setSortMode] = useState("recent");
+  // Shelf filter strip (shelf handoff 2026-07-28). One chip is active at a
+  // time: all | starred | tobuy | bought. This replaced the lone starred
+  // heart, so `sortMode` below is now a derived read of the same state — one
+  // source of truth, two names, because an older browser still stores sortMode.
+  const [shelfFilter, setShelfFilter] = useState("all");
+  const sortMode = shelfFilter === "starred" ? "starred" : "recent";
   // One detail surface everywhere (Kyle 2026-07-22): tapping any grid card
   // opens the carousel on that item; the carousel back holds details + edit.
   const isPhone = useIsPhone();
@@ -4880,6 +4810,7 @@ function CredenzaApp() {
           JSON.stringify({
             viewMode,
             sortMode,
+            shelfFilter,
             theme: theme || "rainbow",
             colorwayVersion: 4,
             preferredAgent,
@@ -4894,7 +4825,7 @@ function CredenzaApp() {
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, theme, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, shelfFilter, theme, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
 
   // Onboarding 3B: focus the hero paste field on a desktop cold open, so ⌘V
   // works with no click first. Guarded three ways — desktop width only, the
@@ -5046,10 +4977,14 @@ function CredenzaApp() {
       .then((raw) => {
         try {
           const p = JSON.parse(raw || "{}");
-          // Older prefs used multi-sort pills; map anything unknown back to recent,
-          // and keep only the Starred filter as a first-class mode.
-          if (p.sortMode === "starred") setSortMode("starred");
-          else setSortMode("recent");
+          // The filter strip replaced the lone starred heart (2026-07-28). An
+          // older browser only ever stored sortMode, so read it as a fallback.
+          const storedFilter = SHELF_FILTERS.some((f) => f.key === p.shelfFilter)
+            ? p.shelfFilter
+            : p.sortMode === "starred"
+              ? "starred"
+              : "all";
+          setShelfFilter(storedFilter);
           // One-shot colorway migrate: land on Blackout dark once (Gallery light is
           // the other toggle). After that, Theme preference is sticky again.
           if (p.colorwayVersion !== 4) {
@@ -5060,7 +4995,8 @@ function CredenzaApp() {
                 JSON.stringify({
                   // viewMode is not carried: every session lands on the list
                   // (Kyle 2026-07-28 — the carousel is the secondary option).
-                  sortMode: p.sortMode === "starred" ? "starred" : "recent",
+                  sortMode: storedFilter === "starred" ? "starred" : "recent",
+                  shelfFilter: storedFilter,
                   theme: "rainbow",
                   colorwayVersion: 4,
                   // Agent prefs survive the one-shot colorway rewrite.
@@ -5697,10 +5633,9 @@ function CredenzaApp() {
         if (!before.project && typeof patch.project === "string" && patch.project.trim()) {
           markActivation(storageBackend, "haulNamed");
         }
-        if (
-          (patch.findStatus === "gl" || patch.findStatus === "rl") &&
-          before.findStatus !== patch.findStatus
-        ) {
+        // Order status is bought-or-not now (shelf handoff 2026-07-28). The
+        // moment worth recording is the first purchase, not a QC verdict.
+        if (patch.findStatus === "bought" && before.findStatus !== "bought") {
           markActivation(storageBackend, "qcDecision");
         }
         if (!before.size && typeof patch.size === "string" && patch.size.trim()) {
@@ -6633,13 +6568,29 @@ function CredenzaApp() {
   const typed = visible;
   const shelfItems = useMemo(() => {
     let a = [...typed];
-    // Starred mode = only favorited cards. Default = whole shelf.
-    if (sortMode === "starred") a = a.filter((x) => x.favorite === true);
+    // Filter strip: one chip at a time. "all" is the whole shelf.
+    if (shelfFilter === "starred") a = a.filter((x) => x.favorite === true);
+    else if (shelfFilter === "bought")
+      a = a.filter((x) => normalizeFindStatus(x.findStatus) === "bought");
+    else if (shelfFilter === "tobuy")
+      a = a.filter((x) => normalizeFindStatus(x.findStatus) !== "bought");
     if (q) return a;
     // Newest first — favoriting only marks the card, it never moves it.
     a.sort((x, y) => y.createdAt - x.createdAt);
     return a;
-  }, [typed, q, sortMode]);
+  }, [typed, q, shelfFilter]);
+
+  // Live counts for the filter strip. They count the searched set, so the
+  // chips agree with what a search leaves on the shelf.
+  const shelfFilterCounts = useMemo(() => {
+    let starred = 0;
+    let bought = 0;
+    for (const x of visible) {
+      if (x.favorite === true) starred += 1;
+      if (normalizeFindStatus(x.findStatus) === "bought") bought += 1;
+    }
+    return { all: visible.length, starred, bought, tobuy: visible.length - bought };
+  }, [visible]);
 
   // Existing haul names from project strings — used by the in-card haul picker.
   const haulNames = useMemo(() => {
@@ -6763,26 +6714,31 @@ function CredenzaApp() {
     () => sumItemsCny(totalsItems, { excludeReturned: !!openHaulName }),
     [totalsItems, openHaulName]
   );
-  // A3 + A6 haul pipeline board: per-status counts, the ready-to-ship count
-  // (bought + GL per docs/Monetization.md §A3), and the rough ship weight.
-  // Computed over the whole haul (totalsItems), so search inside the haul
-  // narrows the cards but never the board.
+  // Haul board: how many cards are bought, how many are not, and the rough
+  // ship weight. Computed over the whole haul (totalsItems), so search inside
+  // the haul narrows the cards but never the board.
   const haulPipeline = useMemo(() => {
     if (!openHaulName) return null;
     const counts = {};
     for (const it of totalsItems) {
-      const s = it.findStatus || "want";
+      const s = normalizeFindStatus(it.findStatus);
       counts[s] = (counts[s] || 0) + 1;
     }
-    // Task 8 (Part 5): returned items never count toward the ship weight.
     const weightSum = haulWeightGrams(totalsItems);
     return {
       counts,
-      readyToShip: (counts.bought || 0) + (counts.gl || 0),
+      readyToShip: counts.bought || 0,
       weightLabel: weightSum != null ? formatWeightGrams(weightSum) : "",
       weightGrams: weightSum,
     };
   }, [openHaulName, totalsItems]);
+  // Rough ship weight for whatever is on the surface. haulPipeline computes the
+  // same number but only inside an open haul; the docked phone bar (shelf
+  // handoff 2026-07-28) prints "9 saved · ~2.4 kg est." on the plain shelf too.
+  const shelfWeightLabel = useMemo(() => {
+    const grams = haulWeightGrams(totalsItems);
+    return grams != null ? formatWeightGrams(grams) : "";
+  }, [totalsItems]);
   // Same context for the count chip — one consistent spot next to the total.
   // Starred filter MUST show through here. Keep the label short on mobile so
   // "N starred of M saved" + TOTAL SHELF COST + heart don't pile up.
@@ -6790,12 +6746,14 @@ function CredenzaApp() {
   // tabs row (C2), the desktop keeps its own .cz-total-row below.
   const shelfTotalsVisible =
     view !== "inbox" && shelfAll.length > 0 && (view !== "hauls" || openHaulName);
+  // The chip already names the filter, so the count only has to say how many
+  // cards it left behind. "N shown" beats repeating the chip word back.
   const totalCountLabel = openHaulName
     ? totalsItems.length + (totalsItems.length === 1 ? " item" : " items")
     : q
       ? visible.length + " found"
-      : sortMode === "starred"
-        ? totalsItems.length + (totalsItems.length === 1 ? " starred" : " starred")
+      : shelfFilter !== "all"
+        ? totalsItems.length + " shown"
         : shelfAll.length + " saved";
 
   const closeHaul = useCallback(() => {
@@ -7668,10 +7626,12 @@ function CredenzaApp() {
             }}
           >
             <div style={{ fontFamily: DISPLAY, fontSize: 21, color: INK, marginBottom: 7 }}>
+              {/* A filter that hides everything must never read as loss. The
+                  handoff copy says so plainly: the cards are still there. */}
               {q
                 ? "No matches for “" + search.trim() + "”."
-                : sortMode === "starred"
-                  ? "No starred items yet."
+                : shelfFilter !== "all"
+                  ? "Nothing on this filter."
                   : openHaulName
                     ? "This haul is empty."
                     : "Nothing on the shelf yet."}
@@ -7680,8 +7640,8 @@ function CredenzaApp() {
               {q
                 // CO-06: audit copy fix — "projects" removed from search help.
                 ? "Search includes titles, notes, raw links, and paired Photos or Buy URLs."
-                : sortMode === "starred"
-                  ? "Star a card from the front face, then open Starred here."
+                : shelfFilter !== "all"
+                  ? "Everything you saved is still on the shelf."
                   : openHaulName
                     ? "Add cards from the shelf with ⋯ → Add to haul."
                     : inboxItems.length > 0
@@ -7692,19 +7652,19 @@ function CredenzaApp() {
                         " indexing in the Inbox — cards land here when they are ready."
                       : "Paste anything above — a link, a Reddit post, a list."}
             </div>
-            {(q || sortMode === "starred" || openHaulName || inboxItems.length > 0) && (
+            {(q || shelfFilter !== "all" || openHaulName || inboxItems.length > 0) && (
               <Pill
                 primary
                 onClick={() => {
                   if (q) setSearch("");
-                  else if (sortMode === "starred") setSortMode("recent");
+                  else if (shelfFilter !== "all") setShelfFilter("all");
                   else if (openHaulName) closeHaul();
                   else setView("inbox");
                 }}
               >
                 {q
                   ? "Clear search"
-                  : sortMode === "starred"
+                  : shelfFilter !== "all"
                     ? "Show all cards"
                     : openHaulName
                       ? "All hauls"
@@ -7724,6 +7684,8 @@ function CredenzaApp() {
             openWithMorph(item.id, nodes);
           }}
           onToggleFavorite={toggleFavorite}
+          bodyProfile={bodyProfile}
+          fitPrefs={fitPrefs}
         />
       )}
 
@@ -7756,10 +7718,11 @@ function CredenzaApp() {
         background: BG,
         color: INK,
         fontFamily: FONT,
-        // Bottom padding clears the fixed action bar; env() keeps both edges out of
-        // the iPhone notch / home-indicator zones in standalone PWA mode.
-        padding:
-          "env(safe-area-inset-top, 0px) 0 calc(104px + env(safe-area-inset-bottom, 0px))",
+        // Padding used to live here as an inline shorthand, which no media query
+        // could reach. The phone bottom bar is docked now (shelf handoff
+        // 2026-07-28) instead of floating, so the app no longer reserves 104px
+        // of dead space for it. Padding moved to credenza-fashion.css so the
+        // phone and the desktop can differ.
         transition: "background 250ms var(--ease-out)",
       }}
     >
@@ -8614,59 +8577,10 @@ function CredenzaApp() {
               </button>
             ))}
           </div>
-          {/* Phone (C2): the shelf totals ride the tabs row instead of taking
-              a second full-width line. Count + total + starred filter only —
-              the long "TOTAL SHELF COST" wording and the view toggles are
-              dropped here; the toggles live in the ⋯ Settings sheet. */}
-          {isPhone && shelfTotalsVisible && (
-            <div className="cz-tabs-totals">
-              <span className="cz-tabs-count cz-fade-text-in" key={totalCountLabel}>
-                {totalCountLabel}
-              </span>
-              {/* CO-10: a zero-result search must not show a green $0.00 —
-                  it read as a real balance. */}
-              {!(q && visible.length === 0) && (
-                <>
-                  <span className="cz-tabs-total" aria-live="polite">
-                    <ReelCounter
-                      value={pricePrimary === "CNY" ? listTotalCny : listTotalUsd}
-                      currency={pricePrimary}
-                    />
-                  </span>
-                  {/* CH-14: the currency pref is changeable at the total, not
-                      only in Profile. The reel follows the chip (Kyle
-                      2026-07-28) — cards, footer, and total agree. */}
-                  <button
-                    type="button"
-                    className="cz-total-currency"
-                    aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                    title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                    onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
-                  >
-                    {pricePrimary}
-                    <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
-                  </button>
-                </>
-              )}
-              {toolbarActive && !openHaulName && (
-                <button
-                  type="button"
-                  className={"cz-starred-filter" + (sortMode === "starred" ? " is-active" : "")}
-                  aria-pressed={sortMode === "starred"}
-                  aria-label={sortMode === "starred" ? "Show all items" : "Show starred only"}
-                  title={sortMode === "starred" ? "Show all" : "Starred only"}
-                  onClick={() => setSortMode(sortMode === "starred" ? "recent" : "starred")}
-                >
-                  <Heart
-                    aria-hidden="true"
-                    size={16}
-                    strokeWidth={2}
-                    fill={sortMode === "starred" ? "currentColor" : "none"}
-                  />
-                </button>
-              )}
-            </div>
-          )}
+          {/* Phone: the shelf totals used to ride this row (C2). The shelf
+              handoff (2026-07-28) moves them into the docked bottom bar, where
+              the money sits beside the button that adds to it. That leaves ONE
+              count, ONE total, and ONE currency chip on a phone. */}
           {indexingJobs.length > 0 && (
             <div className="cz-index-chip-row" aria-live="polite">
               {indexingJobs.map((job) => (
@@ -8701,6 +8615,47 @@ function CredenzaApp() {
         </div>
         )}
 
+        {/* Filter strip (shelf handoff 2026-07-28, §"Filter strip"). One chip
+            is active at a time and every count is live — the counts follow the
+            search, so the strip always agrees with the cards below it.
+            It is hidden inside an open haul: a haul shows every card in it,
+            and narrowing one would read as cards going missing. */}
+        {toolbarActive && !openHaulName && view === "shelf" && (
+          <div
+            className="cz-filter-strip"
+            role="radiogroup"
+            aria-label="Filter the shelf"
+          >
+            {SHELF_FILTERS.map((f) => {
+              const active = shelfFilter === f.key;
+              return (
+                <button
+                  type="button"
+                  role="radio"
+                  key={f.key}
+                  aria-checked={active}
+                  aria-label={
+                    f.label +
+                    ", " +
+                    shelfFilterCounts[f.key] +
+                    (shelfFilterCounts[f.key] === 1 ? " card" : " cards")
+                  }
+                  className={"cz-filter-chip" + (active ? " is-active" : "")}
+                  onClick={() => {
+                    setShelfFilter(f.key);
+                    setExpandedId(null);
+                  }}
+                >
+                  {f.label}
+                  <span className="cz-filter-chip-count">
+                    · {shelfFilterCounts[f.key]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Shelf meta row: count + cost on the left, filter/view on the right.
             One quiet row — no sticky bar, no full-width black strip. The old
             wrap + marginLeft:auto put the icons on their own tall empty line
@@ -8723,9 +8678,15 @@ function CredenzaApp() {
                   <span className="cz-total-chip" aria-live="polite">
                     <span
                       className="cz-total-chip-label cz-fade-text-in"
-                      key={openHaulName ? "haul" : sortMode === "starred" ? "star" : "shelf"}
+                      key={openHaulName ? "haul" : shelfFilter}
                     >
-                      {openHaulName ? "Haul" : sortMode === "starred" ? "Starred" : "Total"}
+                      {/* The label names the money on screen, so it follows the
+                          filter chip: a Bought total is not a shelf total. */}
+                      {openHaulName
+                        ? "Haul"
+                        : shelfFilter === "all"
+                          ? "Total"
+                          : SHELF_FILTERS.find((f) => f.key === shelfFilter).label}
                     </span>
                     <ReelCounter
                       value={pricePrimary === "CNY" ? listTotalCny : listTotalUsd}
@@ -8747,62 +8708,32 @@ function CredenzaApp() {
                 </>
               )}
             </div>
-            {/* Starred filter + view toggles. Hidden inside an open haul. */}
+            {/* View toggles. Hidden inside an open haul. The starred heart
+                left this row on 2026-07-28 — starred is a chip on the filter
+                strip now, beside To buy and Bought. */}
             {toolbarActive && !openHaulName && (
-              <div className="cz-toolbar-end">
+              /* One track, two words (shelf handoff 2026-07-28, README :144).
+                 The switch was two bare glyphs, ◈ and ▦. Nobody reads a glyph
+                 as a choice between two states — the track does that, and the
+                 words say which two. */
+              <div className="cz-toolbar-end cz-view-switch">
                 <button
                   type="button"
-                  className={"cz-starred-filter" + (sortMode === "starred" ? " is-active" : "")}
-                  aria-pressed={sortMode === "starred"}
-                  aria-label={sortMode === "starred" ? "Show all items" : "Show starred only"}
-                  title={sortMode === "starred" ? "Show all" : "Starred only"}
-                  onClick={() => setSortMode(sortMode === "starred" ? "recent" : "starred")}
-                >
-                  <Heart
-                    aria-hidden="true"
-                    size={16}
-                    strokeWidth={2}
-                    fill={sortMode === "starred" ? "currentColor" : "none"}
-                  />
-                </button>
-                <span className="cz-toolbar-sep" aria-hidden="true" />
-                <button
-                  type="button"
-                  className="cz-view-button"
+                  className={"cz-view-button" + (viewMode === "carousel" ? " is-active" : "")}
                   onClick={() => setViewMode("carousel")}
                   aria-label="Carousel view"
                   aria-pressed={viewMode === "carousel"}
-                  title="Carousel"
-                  style={{
-                    fontFamily: FONT,
-                    fontSize: 12,
-                    color: viewMode === "carousel" ? INK : FAINT,
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: "4px 2px",
-                  }}
                 >
-                  ◈
+                  Carousel
                 </button>
                 <button
                   type="button"
-                  className="cz-view-button"
+                  className={"cz-view-button" + (viewMode === "cards" ? " is-active" : "")}
                   onClick={() => setViewMode("cards")}
-                  aria-label="List view"
+                  aria-label="Grid view"
                   aria-pressed={viewMode === "cards"}
-                  title="List"
-                  style={{
-                    fontFamily: FONT,
-                    fontSize: 12,
-                    color: viewMode === "cards" ? INK : FAINT,
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: "4px 2px",
-                  }}
                 >
-                  ▦
+                  Grid
                 </button>
               </div>
             )}
@@ -8834,10 +8765,10 @@ function CredenzaApp() {
                 </button>
               )}
             </div>
-            {/* A3 + A6 pipeline board: where every card sits in the buy →
-                warehouse → ship flow, the ready-to-ship count, and the rough
-                parcel weight. Covers the whole haul, not the search-narrowed
-                cards. */}
+            {/* Haul board: how many cards are bought, how many are not, and
+                the rough parcel weight. Covers the whole haul, not the
+                search-narrowed cards. The old "Ready to ship" chip is gone —
+                it now repeats the Bought count word for word. */}
             {haulPipeline && totalsItems.length > 0 ? (
               <div className="cz-haul-open-stats" aria-label="Haul pipeline">
                 {FIND_STATUSES.map((s) =>
@@ -8847,11 +8778,6 @@ function CredenzaApp() {
                     </span>
                   ) : null
                 )}
-                {haulPipeline.readyToShip > 0 ? (
-                  <span className="cz-haul-stat cz-haul-stat-ready">
-                    Ready to ship {haulPipeline.readyToShip}
-                  </span>
-                ) : null}
                 {haulPipeline.weightLabel ? (
                   <span className="cz-haul-stat cz-haul-stat-weight">
                     {haulPipeline.weightLabel}
@@ -8981,66 +8907,114 @@ function CredenzaApp() {
         </div>
       )}
 
-      {/* Mobile capture bar — MOBILE ONLY (≤767px), CH-03. With a link on the
-          clipboard the bar is ONE split pill on --cz-action-fill: the left
-          region reviews the link in the capture sheet, the right region
-          stashes it in one tap. Empty clipboard → a single full-width ＋ Stash
-          pill. The Agent secondary button stays. Hidden on the first-run intro
-          (CO-04) and on the brand-new empty shelf: the hero already carries
-          capture there (Kyle: "too many buttons").
-          The container spans the viewport but passes taps through; only the
-          pill and the Agent button take pointer events. */}
+      {/* Docked bottom bar — MOBILE ONLY (≤767px), CH-03 + shelf handoff
+          2026-07-28. It is a flex SIBLING of the scrolling shelf, not an
+          overlay: nothing is ever covered by it, and it carries its own
+          bottom padding for the home indicator.
+          Row 1 is the shelf money — count, rough ship weight, total, currency.
+          Row 2 is the capture row. With a link on the clipboard it is ONE
+          split pill on --cz-action-fill: the left region reviews the link in
+          the capture sheet, the right region stashes it in one tap. Empty
+          clipboard → a single full-width ＋ pill. The Agent button stays
+          beside it.
+          Row 3 is the home-indicator grip.
+          Hidden on the first-run intro (CO-04) and on the brand-new empty
+          shelf: the hero already carries capture there (Kyle: "too many
+          buttons"). */}
       {!firstRunIntro && items.length > 0 && (
       <div className="cz-stash-dock">
-        {clipPreview ? (
-          <div className="cz-stash-pill is-split">
+        {isPhone && shelfTotalsVisible && (
+          <div className="cz-dock-totals">
+            <span className="cz-dock-meta">
+              <span className="cz-dock-kicker">On the shelf</span>
+              <span className="cz-dock-count cz-fade-text-in" key={totalCountLabel}>
+                {totalCountLabel}
+                {shelfWeightLabel ? " · " + shelfWeightLabel + " est." : ""}
+              </span>
+            </span>
+            {/* CO-10: a zero-result search must not show a green $0.00 —
+                it read as a real balance. */}
+            {!(q && visible.length === 0) && (
+              <span className="cz-dock-money">
+                <span className="cz-dock-total" aria-live="polite">
+                  <ReelCounter
+                    value={pricePrimary === "CNY" ? listTotalCny : listTotalUsd}
+                    currency={pricePrimary}
+                  />
+                </span>
+                {/* CH-14: the currency pref is changeable at the total, not
+                    only in Profile. The reel follows the chip (Kyle
+                    2026-07-28) — cards, footer, and total agree. This is the
+                    ONLY currency chip on a phone; the tabs row gave its copy
+                    up so the two can never disagree. */}
+                <button
+                  type="button"
+                  className="cz-total-currency"
+                  aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
+                  title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
+                  onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+                >
+                  {pricePrimary}
+                  <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+        <div className="cz-dock-actions">
+          {clipPreview ? (
+            <div className="cz-stash-pill is-split">
+              <button
+                type="button"
+                className="cz-stash-pill-clip"
+                disabled={interactionLocked}
+                onClick={() => setCaptureSheetOpen(true)}
+                title="Review the clipboard link"
+                aria-label={"Review the clipboard link: " + clipPreview.host}
+              >
+                <span className="cz-stash-pill-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
+                <span className="cz-stash-pill-meta">
+                  <span className="cz-stash-pill-kicker">{"CLIPBOARD · " + clipPreview.platform}</span>
+                  <span className="cz-stash-pill-host">{clipPreview.host}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="cz-stash-pill-go"
+                disabled={interactionLocked}
+                onClick={stashClipboard}
+                title="Stash the clipboard in one tap"
+                aria-label={"Stash the clipboard: " + clipPreview.host}
+              >
+                Stash ↑
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              className="cz-stash-pill-clip"
+              className="cz-stash-pill is-solo"
               disabled={interactionLocked}
               onClick={() => setCaptureSheetOpen(true)}
-              title="Review the clipboard link"
-              aria-label={"Review the clipboard link: " + clipPreview.host}
+              title="Stash a link or note"
+              aria-label="Stash to shelf"
             >
-              <span className="cz-stash-pill-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
-              <span className="cz-stash-pill-meta">
-                <span className="cz-stash-pill-kicker">{"CLIPBOARD · " + clipPreview.platform}</span>
-                <span className="cz-stash-pill-host">{clipPreview.host}</span>
-              </span>
+              <span className="cz-stash-pill-plus" aria-hidden="true">＋</span> Stash a link
             </button>
-            <button
-              type="button"
-              className="cz-stash-pill-go"
-              disabled={interactionLocked}
-              onClick={stashClipboard}
-              title="Stash the clipboard in one tap"
-              aria-label={"Stash the clipboard: " + clipPreview.host}
-            >
-              Stash ↑
-            </button>
-          </div>
-        ) : (
+          )}
           <button
             type="button"
-            className="cz-stash-pill is-solo"
+            className="cz-stash-agent"
             disabled={interactionLocked}
-            onClick={() => setCaptureSheetOpen(true)}
-            title="Stash a link or note"
-            aria-label="Stash to shelf"
+            onClick={() => setAgentSheetOpen(true)}
+            title="Choose agent"
+            aria-label={"Agent: " + agentBarLabel}
           >
-            <span aria-hidden="true">＋</span> Stash
+            Agent
           </button>
-        )}
-        <button
-          type="button"
-          className="cz-stash-agent"
-          disabled={interactionLocked}
-          onClick={() => setAgentSheetOpen(true)}
-          title="Choose agent"
-          aria-label={"Agent: " + agentBarLabel}
-        >
-          Agent
-        </button>
+        </div>
+        {/* Home-indicator grip. Decorative: it names the swipe zone the phone
+            already owns, so the last row of cards never ends flush with it. */}
+        <span className="cz-dock-grip" aria-hidden="true" />
       </div>
       )}
     </div>

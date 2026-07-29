@@ -16,6 +16,20 @@
   /* Danger on photo overlays (delete chips) — hardcoded dark-glass chips sit
      on arbitrary photos in both themes, so this doesn't come from a palette. */
   --cz-overlay-danger: #f87171;
+  /* Card photo fade. One curve, used by the grid card and the carousel front.
+     Long ramp on purpose: a short ramp reads as a panel edge, which is the bug
+     we are fixing. It must NEVER reach full opacity — the photo has to stay
+     visible behind the words. Measured target: row texture above 12 on every
+     row above the first text line. See PLANS/CREDENZA_SCRIM_FINAL.md §5. */
+  --cz-photo-scrim: linear-gradient(
+    to top,
+    rgb(6 6 8 / 0.84) 0%,
+    rgb(6 6 8 / 0.72) 16%,
+    rgb(6 6 8 / 0.56) 32%,
+    rgb(6 6 8 / 0.36) 52%,
+    rgb(6 6 8 / 0.15) 76%,
+    rgb(6 6 8 / 0) 100%
+  );
 }
 
 /* --cz-placeholder is --cz-faint in both fashion themes (v3 keeps them
@@ -174,9 +188,11 @@
 .cz-photo-list-card {
   position: relative;
   min-width: 0;
-  aspect-ratio: 3 / 4;
+  /* 3/4.5 is deliberate (shelf handoff): taller than 3/4, so the scrim can
+     carry three text lines without eating the garment. Do not round it. */
+  aspect-ratio: 3 / 4.5;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 9%, transparent);
+  border: 1px solid var(--cz-hair);
   border-radius: 16px;
   background: var(--cz-bg-elevated);
   box-shadow: 0 8px 22px oklch(0 0 0 / 0.1);
@@ -214,99 +230,252 @@
   transition: transform var(--dur-open) var(--ease-out);
 }
 
+/* TOP scrim. Not decoration: without it the status word and the heart go
+   white-on-white over a light photo. Fixed dark in both colourways — a scrim
+   describes the photo under it, not the theme around it. */
 .cz-photo-list-topshade {
   position: absolute;
   inset: 0 0 auto;
-  height: 30%;
+  z-index: 1;
+  height: 24%;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgb(4 4 4 / 0.46), transparent);
+  background: linear-gradient(
+    to bottom,
+    rgb(6 6 8 / 0.62) 0%,
+    rgb(6 6 8 / 0.34) 46%,
+    rgb(6 6 8 / 0) 100%
+  );
 }
 
-.cz-photo-list-source {
-  position: absolute;
-  top: 12px;
-  left: 13px;
-  max-width: calc(100% - 58px);
-  overflow: hidden;
-  color: rgb(255 255 255 / 0.76);
-  font-family: var(--cz-mono);
-  font-size: 9.5px;
-  line-height: 1.2;
-  letter-spacing: 0.12em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
+/* BOTTOM scrim. The text block sits above it, not inside it, because the
+   block holds links and the scrim lives inside the open button. */
 .cz-photo-list-scrim {
   position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
-  display: grid;
-  gap: 5px;
-  padding: 44px 14px 13px;
+  z-index: 1;
+  height: 70%;
   pointer-events: none;
-  background: linear-gradient(
-    to top,
-    rgb(4 4 4 / 0.95) 0%,
-    rgb(4 4 4 / 0.75) 46%,
-    rgb(4 4 4 / 0.28) 76%,
-    transparent 100%
-  );
+  background: var(--cz-photo-scrim);
+}
+
+/* Status notation (round 4 point 6, shared StatusTag): a dot and a plain
+   word. Two states only — nothing at all when the item is not ordered,
+   "Bought" when it is. A pill here read as a badge on every card and made the
+   shelf look like a dashboard. The base rule carries the look; .is-grid and
+   .is-carousel carry position and type scale only. The root is a <span>, so
+   the `article > div` card-surface rule never paints a panel under it. */
+.cz-card-status-tag {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  max-width: calc(100% - 56px);
+  overflow: hidden;
+  color: rgb(255 255 255 / 0.92);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cz-card-status-tag-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cz-money-on-photo);
+}
+
+.cz-card-status-tag.is-grid {
+  position: absolute;
+  z-index: 3;
+  top: 11px;
+  left: 12px;
+}
+
+/* The carousel card is ~1.25x the grid card; the mark steps its type up one
+   notch, the same way .cz-card-front-text.is-carousel does. */
+.cz-card-status-tag.is-carousel {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 14px;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.cz-card-status-tag.is-carousel .cz-card-status-tag-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* Text overlay. The block ignores taps so the photo under it still opens the
+   card; each link switches taps back on for itself. Shared root: the grid
+   card and the carousel front both render CardFrontText (Kyle 2026-07-29). */
+.cz-card-front-text.is-grid {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 11px 11px;
+  pointer-events: none;
+}
+
+.cz-card-front-text.is-grid a {
+  pointer-events: auto;
+}
+
+.cz-photo-list-refline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The ONE blue on the card. The ref names the listing; tapping it opens every
+   photo of it. */
+.cz-photo-list-ref,
+.cz-photo-list-count {
+  overflow: hidden;
+  color: var(--cz-link-on-photo);
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+  white-space: nowrap;
+}
+
+.cz-photo-list-ref:hover,
+.cz-photo-list-count:hover {
+  text-decoration: underline;
+}
+
+.cz-photo-list-count {
+  flex: none;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
 }
 
 .cz-photo-list-title {
   overflow: hidden;
-  color: #fbfaf8;
+  color: #ffffff;
   font-family: var(--cz-display);
-  font-size: clamp(15px, 1.35vw, 18px);
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.005em;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
   white-space: nowrap;
 }
 
 .cz-photo-list-bottomline {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 7px;
   min-width: 0;
 }
 
-.cz-photo-list-price {
+.cz-photo-list-seller {
   overflow: hidden;
-  color: var(--cz-money);
-  font-family: var(--cz-mono);
-  font-size: 12px;
+  flex: 1 1 auto;
+  color: rgb(255 255 255 / 0.66);
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1.2;
+  text-decoration: none;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+  text-transform: lowercase;
   white-space: nowrap;
 }
 
-.cz-photo-list-cta {
+.cz-photo-list-seller:hover {
+  color: rgb(255 255 255 / 0.92);
+}
+
+.cz-photo-list-size {
   flex: none;
-  color: rgb(255 255 255 / 0.72);
-  font-size: 12px;
+  color: rgb(255 255 255 / 0.62);
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
   line-height: 1.2;
-  letter-spacing: 0.03em;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+  white-space: nowrap;
+}
+
+.cz-photo-list-price {
+  flex: none;
+  color: var(--cz-money-on-photo);
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+  white-space: nowrap;
+}
+
+/* Shared block, carousel variant (Kyle 2026-07-29: "standardize the text
+   layout"). The carousel card is ~1.25x the grid card, so its type steps up
+   by the same amount. Layout (order, one baseline row, no reserved blanks)
+   comes from the shared CardFrontText component — only sizes differ here.
+   No padding on the root: .cz-carousel-front-meta already pads 0 16px 14px. */
+.cz-card-front-text.is-carousel {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cz-card-front-text.is-carousel .cz-photo-list-ref,
+.cz-card-front-text.is-carousel .cz-photo-list-count {
+  font-size: 12.5px;
+}
+
+.cz-card-front-text.is-carousel .cz-photo-list-title {
+  font-size: 19px;
+}
+
+.cz-card-front-text.is-carousel .cz-photo-list-seller {
+  font-size: 12.5px;
+}
+
+.cz-card-front-text.is-carousel .cz-photo-list-size {
+  font-size: 12px;
+}
+
+.cz-card-front-text.is-carousel .cz-photo-list-price {
+  font-size: 15.5px;
 }
 
 .cz-photo-list-favorite.cz-favorite-button {
   position: absolute;
-  z-index: 2;
-  top: 9px;
-  right: 9px;
+  z-index: 3;
+  top: 8px;
+  right: 8px;
   left: auto;
   width: 32px;
   height: 32px;
   border: 1px solid rgb(255 255 255 / 0.18) !important;
   border-radius: 50% !important;
-  color: rgb(255 255 255 / 0.92) !important;
-  background: rgb(8 8 8 / 0.48) !important;
-  backdrop-filter: blur(10px);
+  color: rgb(255 255 255 / 0.86) !important;
+  background: rgb(10 10 12 / 0.42) !important;
+  backdrop-filter: blur(8px);
 }
 
 .cz-photo-list-favorite.cz-favorite-button::after {
@@ -336,31 +505,20 @@
     border-radius: 13px;
   }
 
-  .cz-photo-list-source {
-    top: 9px;
+  /* The phone card is narrower, so the text block tightens. The type sizes
+     hold — they are the handoff numbers and they are already the floor. */
+  .cz-card-front-text.is-grid {
+    padding: 0 10px 10px;
+  }
+
+  .cz-card-status-tag.is-grid {
+    top: 10px;
     left: 10px;
-    font-size: 8px;
-  }
-
-  .cz-photo-list-scrim {
-    gap: 3px;
-    padding: 36px 10px 10px;
-  }
-
-  .cz-photo-list-title {
-    font-size: 13px;
-  }
-
-  .cz-photo-list-price,
-  .cz-photo-list-cta {
-    font-size: 10.5px;
   }
 
   .cz-photo-list-favorite.cz-favorite-button {
-    top: 8px;
-    right: 8px;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
   }
 }
 
@@ -374,10 +532,6 @@
   .cz-photo-list-card:hover .cz-photo-list-image,
   .cz-photo-list-card:hover .cz-cover-placeholder {
     transform: scale(1.045);
-  }
-
-  .cz-photo-list-card:hover .cz-photo-list-cta {
-    color: #fbfaf8;
   }
 }
 
@@ -473,18 +627,6 @@
 .cz-app[data-fashion="true"] .cz-chip:active:not(:disabled) {
   transform: scale(0.94);
   transition: transform var(--dur-press) var(--ease-out);
-}
-
-.cz-detail-status-chip {
-  transition:
-    transform var(--dur-press) var(--ease-out),
-    background var(--dur-press) var(--ease-out),
-    color var(--dur-press) var(--ease-out),
-    border-color var(--dur-press) var(--ease-out);
-}
-
-.cz-detail-status-chip:active {
-  transform: scale(0.96);
 }
 
 .cz-app[data-fashion="true"] .cz-pill[data-variant="primary"] {
@@ -640,6 +782,16 @@
   border-radius: 16px;
 }
 
+/* The photo-card text overlay is a direct child div of the article, so the
+   card-surface rules above would paint an 86% panel under the words — the
+   flat band Kyle flagged. The words sit on the scrim; the panel must not. */
+.cz-app[data-fashion="true"] article > div.cz-card-front-text {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* Focus: keyboard only. No sticky glow rings after a finger tap (iOS leaves
    :focus on buttons until something else is tapped — Kyle 2026-07-22). */
 .cz-app[data-fashion="true"] .cz-interactive:focus:not(:focus-visible),
@@ -649,7 +801,6 @@
 .cz-app[data-fashion="true"] .cz-card-toggle:focus:not(:focus-visible),
 .cz-app[data-fashion="true"] .cz-tab:focus:not(:focus-visible),
 .cz-app[data-fashion="true"] .cz-view-button:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-starred-filter:focus:not(:focus-visible),
 .cz-app[data-fashion="true"] .cz-favorite-button:focus:not(:focus-visible),
 .cz-app[data-fashion="true"] .cz-morph-button:focus:not(:focus-visible),
 .cz-app[data-fashion="true"] button:focus:not(:focus-visible) {
@@ -689,15 +840,29 @@
     outline: 2px solid var(--cz-focus);
     outline-offset: 2px;
   }
-  .cz-app[data-fashion="true"] .cz-starred-filter:focus-visible,
   .cz-app[data-fashion="true"] .cz-favorite-button:focus-visible {
     outline: none;
   }
 }
 
-/* The fixed bottom bar and its glass are gone (mobile handoff step 3). The
-   phone capture surface is now the round .cz-stash-dock button at the end of
-   this file. */
+/* The sheet takes focus on open so the keyboard has somewhere to land. It is a
+   container, not a control, so it never draws a ring. The ✕ is exempt for the
+   same reason it used to be the focus target — a ring parked on it for the life
+   of the sheet reads as an error (Kyle 2026-07-28). */
+.cz-detail-surface:focus,
+.cz-detail-surface:focus-visible {
+  outline: none;
+}
+@media (hover: none) and (pointer: coarse) {
+  .cz-app[data-fashion="true"] .cz-detail-hero-btn:focus-visible,
+  .cz-app[data-fashion="true"] .cz-detail-stickybar-close:focus-visible {
+    outline: none;
+  }
+}
+
+/* The phone capture surface is the docked bottom bar (.cz-stash-dock, end of
+   this file). It sits under the shelf as a real sibling, so it covers no
+   card. */
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    ═══ CAROUSEL VIEW ═══
@@ -859,8 +1024,7 @@
 }
 
 .cz-carousel-front {
-  display: flex;
-  flex-direction: column;
+  display: block;              /* was flex column — the children now overlap */
 }
 
 /* Quiet edge highlight only — the old pink corner glow read as a dirty rim
@@ -908,11 +1072,11 @@
 }
 
 .cz-carousel-image-wrap {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  /* Meta block owns title + size + seller + price + Buy + flip cue (208px). */
-  height: calc(100% - 208px);
+  position: absolute;
+  inset: 0;                    /* the photo IS the card */
+  z-index: 0;
+  flex: none;
+  height: auto;                /* kills calc(100% - 208px) */
   overflow: hidden;
   -webkit-user-drag: none;
 }
@@ -947,7 +1111,8 @@
 
 /* Status pill (shared StatusPill primitive): typography + shadow live here;
    per-status bg/text colors come inline from FIND_STATUS_COLORS. Positioning
-   is per-surface: .cz-card-status (grid photo), .cz-carousel-status (carousel). */
+   is per-surface: .cz-card-status (grid photo). The carousel no longer uses
+   the pill — both cards share the StatusTag mark (round 4 point 6). */
 .cz-status-pill {
   font-family: var(--cz-mono);
   font-size: 10px;
@@ -964,13 +1129,6 @@
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 2;
-}
-
-.cz-carousel-status {
-  position: absolute;
-  top: 14px;
-  left: 14px;
   z-index: 2;
 }
 
@@ -1007,18 +1165,59 @@
 
 .cz-carousel-front-meta {
   /* Title + size + seller + price + Buy + flip cue — actionable first face.
-     Taller than the old 188px: the unified info block adds two lines. */
-  flex: 0 0 208px;
-  height: 208px;
+     Now sits ON the photo: bottom-anchored over the shared scrim fade. */
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;                  /* above the photo, below the side-dim ::after (5) */
+  flex: none;
+  height: 58%;
+  min-height: 208px;           /* the block still needs its old content height */
   box-sizing: border-box;
-  padding: 12px 16px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: flex-end;   /* words hug the bottom; the top is pure fade */
   gap: 0;
-  position: relative;
+  padding: 0 16px 14px;
   overflow: hidden;
-  background: linear-gradient(to top, var(--cz-card-solid) 0%, color-mix(in srgb, var(--cz-card-solid) 92%, transparent) 100%);
+  background: var(--cz-photo-scrim);
+}
+
+/* Trap 4 (PLANS/CREDENZA_SCRIM_FINAL.md): this spacer fights
+   justify-content: flex-end. */
+.cz-carousel-front-meta .cz-flip-cue {
+  margin-top: 8px;
+}
+
+/* Step C — on a photo the type is white in BOTH themes. A scrim describes
+   the photo under it, not the theme around it. Same rule the grid card
+   already follows at .cz-photo-list-title. */
+.cz-carousel-front-meta .cz-carousel-title {
+  color: #ffffff;
+}
+
+/* The app-wide rule at :3268 kills text-shadow with !important; on a photo
+   the title needs its shadow back in both themes. Front-meta scope only. */
+.cz-app[data-fashion="true"] .cz-carousel-front-meta .cz-carousel-title {
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.5) !important;
+}
+
+.cz-carousel-front-meta .cz-front-size,
+.cz-carousel-front-meta .cz-front-seller,
+.cz-carousel-front-meta .cz-front-size-label,
+.cz-carousel-front-meta .cz-front-size-value,
+.cz-carousel-front-meta .cz-front-seller a.cz-seller-link,
+.cz-carousel-front-meta a.cz-seller-link,
+.cz-carousel-front-meta .cz-flip-cue,
+.cz-carousel-front-meta .cz-flip-cue-label {
+  color: rgb(255 255 255 / 0.72);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+}
+
+.cz-carousel-front-meta .cz-front-price {
+  color: var(--cz-money-on-photo);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
 }
 
 .cz-carousel-title {
@@ -1125,7 +1324,7 @@
 }
 /* Carousel: air between the price line and Buy (was the old sub's margin). */
 .cz-carousel-front-meta .cz-buy-btn {
-  margin-top: 12px;
+  margin-top: 14px;
   flex-shrink: 0;
 }
 
@@ -2977,6 +3176,10 @@ a.cz-empty-hero-link {
 .cz-app[data-fashion="true"] {
   overflow-x: clip;
   overscroll-behavior-x: none;
+  /* env() keeps the top edge out of the iPhone notch in standalone PWA mode.
+     Desktop has no docked bar, so the bottom is just breathing room. The phone
+     override below replaces this with a docked-column layout. */
+  padding: env(safe-area-inset-top, 0px) 0 28px;
 }
 
 .cz-app[data-fashion="true"],
@@ -3146,35 +3349,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Toolbar starred filter — icon only, quiet. No heavy focus halo on tap. */
-.cz-starred-filter {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--cz-sub);
-  cursor: pointer;
-  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out), transform var(--dur-press) var(--ease-out);
-}
-
-.cz-starred-filter:hover {
-  color: var(--cz-favorite);
-  background: color-mix(in srgb, var(--cz-favorite) 12%, transparent);
-}
-
-.cz-starred-filter.is-active {
-  color: var(--cz-favorite);
-  background: color-mix(in srgb, var(--cz-favorite) 14%, transparent);
-  /* Color only — the inset ring read as a second circle next to the heart. */
-  box-shadow: none;
-}
-
-.cz-starred-filter:active {
-  transform: scale(0.94);
-}
+/* The starred heart left the toolbar on 2026-07-28. Starred is a chip on the
+   filter strip now — see .cz-filter-strip below. */
 
 /* Grid heart lives in the meta row (date | heart) — NEVER over the photo.
    Carousel front still pins the heart on the photo corner via absolute. */
@@ -3909,6 +4085,40 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: transparent;
 }
 
+/* ── View switch (shelf handoff 2026-07-28, README :144) ──
+   Two words inside one rounded track. The active one carries the fill, so the
+   pair reads as a choice with a state, not as two separate buttons. */
+.cz-view-switch {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+
+.cz-view-switch .cz-view-button {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
+}
+
+.cz-view-switch .cz-view-button:hover {
+  color: var(--cz-ink);
+}
+
+.cz-view-switch .cz-view-button.is-active {
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
 .cz-toolbar-sep {
   width: 1px;
   height: 14px;
@@ -3916,12 +4126,16 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   flex-shrink: 0;
 }
 
+/* The count and the label are the caption; the money is the reading (shelf
+   handoff 2026-07-28, README :144). Both drop to mono and to --cz-faint so the
+   green total is the only loud thing on the row. */
 .cz-total-count {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--cz-ink);
+  color: var(--cz-faint);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -3946,23 +4160,25 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-total-chip-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--cz-ink);
+  color: var(--cz-faint);
   white-space: nowrap;
 }
 
 .cz-total-chip .t-reel {
   color: var(--cz-money, #4ade80);
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--cz-mono);
+  font-size: 16px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 /* CH-14: the currency pref, changeable at the total. Rides both total rows
-   (desktop .cz-total-row, phone .cz-tabs-totals) right after the money reel.
+   (desktop .cz-total-row, phone .cz-dock-totals) right after the money reel.
    Quiet chip — the reel is the reading, this is the setting. */
 .cz-total-currency {
   display: inline-flex;
@@ -5382,6 +5598,92 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   min-width: 0;
 }
 
+/* ── Filter strip (shelf handoff 2026-07-28) ──
+   One chip is active at a time: All / Starred / To buy / Bought. It scrolls
+   sideways rather than wrapping, so the strip is always exactly one band tall
+   and the card grid never moves down a line when a count grows a digit. */
+.cz-filter-strip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  /* 2px of bottom room, not 0 — the active chip's ring needs somewhere to sit
+     without the scroller clipping it. */
+  padding: 0 0 2px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cz-filter-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-filter-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--cz-sub);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+
+.cz-filter-chip:active {
+  transform: scale(0.96);
+}
+
+.cz-filter-chip:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .cz-filter-chip:hover {
+    color: var(--cz-ink);
+    border-color: var(--cz-hair-strong);
+  }
+}
+
+.cz-filter-chip.is-active {
+  background: var(--cz-card);
+  border-color: var(--cz-hair-strong);
+  color: var(--cz-ink);
+}
+
+/* The count is a number, so it reads in the mono face and sits one step
+   quieter than the word it follows. */
+.cz-filter-chip-count {
+  font-family: var(--cz-mono);
+  font-weight: 650;
+  color: var(--cz-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cz-filter-chip.is-active .cz-filter-chip-count {
+  color: var(--cz-sub);
+}
+
+@media (pointer: coarse) {
+  .cz-filter-chip {
+    min-height: var(--tap-min);
+  }
+}
+
 .cz-index-chip-row {
   display: flex;
   align-items: center;
@@ -5478,12 +5780,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-morph-button,
   .cz-morph-button.is-icon-only,
   .cz-favorite-button,
-  .cz-starred-filter,
 
 
   .cz-morph-button.is-icon-only,
   .cz-favorite-button,
-  .cz-starred-filter,
 
 
   /* The icon-only morph pins explicit 40px dims; override them outright
@@ -5525,16 +5825,16 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-card-solid);
 }
 
-/* QW10: keep the carousel (and its controls) clear of the fixed bottom bar on
-   phones — cards were rendering underneath Theme/Agent/Import taps.
-   Top padding also clears the sticky shelf toolbar (star + view toggles)
-   so the front card never collides with that row. */
+/* Top padding clears the sticky shelf toolbar (star + view toggles) so the
+   front card never collides with that row. The bottom used to clear a
+   floating bar as well; the bar is docked under the scroll area now (shelf
+   handoff 2026-07-28), so it covers nothing and needs no clearance. */
 @media (max-width: 767px) {
   .cz-carousel-stage {
     /* Clear sticky toolbar (star + 3 view toggles ~40px) so the front card
        never starts under that row. */
     padding-top: 8px;
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 18px;
   }
 
   /* Keep generous top pad so the front card's crown clears the sticky
@@ -5557,21 +5857,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    Bottom-centre on EVERY viewport (toast spec, Kyle 2026-07-26). It used to
    hang under the stats row at top:236px on desktop and jump to the bottom on
    phone — two positions for one component, so the toast appeared somewhere
-   different depending on the window. The phone's 104px dock clearance now
-   applies unconditionally, so the rule stays one rule. */
+   different depending on the window. One position, one rule; only the gap to
+   the bottom edge changes, and the phone sets that later in this file. */
 .cz-app[data-fashion="true"] .cz-toast-region {
   top: auto;
-  bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  bottom: 28px;
   inset-inline: 24px;
   display: flex;
   justify-content: center;
   pointer-events: none;
-}
-/* Desktop has no dock to clear, so it sits closer to the edge. */
-@media (min-width: 768px) {
-  .cz-app[data-fashion="true"] .cz-toast-region {
-    bottom: 28px;
-  }
 }
 /* Toast open (transitions.dev): rise + fade + soft blur. Close unmounts. */
 :root {
@@ -5712,8 +6006,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    delete. It is NOT the action tone. Action confirms something you meant to
    do and can fade; this one is the only route back from a card that is gone,
    so it never expires and Undo is a filled button, not an underline.
-   The card face stays neutral — only the left rule carries the error colour.
-   A fully error-tinted surface reads as "something broke", and nothing did. */
+   The card face stays neutral — a fully error-tinted surface reads as
+   "something broke", and nothing did. The coloured left rule is gone too
+   (Kyle 2026-07-28): the words already say what happened, so the stripe only
+   added a second, louder voice saying the same thing. */
 .cz-app[data-fashion="true"] .cz-toast[data-tone="destructive"] {
   width: min(480px, calc(100% - 48px));
   max-width: none;
@@ -5724,7 +6020,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-ink);
   background: var(--cz-card-solid);
   border: 1px solid var(--cz-hair-strong);
-  border-left: 2px solid var(--cz-error-text);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.62);
 }
 /* Two lines: what happened, then which card it happened to. */
@@ -5772,6 +6067,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 @media (max-width: 767px) {
   .cz-app[data-fashion="true"] .cz-toast-region {
     inset-inline: 16px;
+    /* Sit above the docked bottom bar (shelf handoff 2026-07-28, which pins
+       132px). The bar is shorter when the totals row is hidden, so this
+       over-clears a little rather than ever overlapping. */
+    bottom: calc(132px + env(safe-area-inset-bottom, 0px));
   }
   .cz-app[data-fashion="true"] .cz-toast[data-tone="destructive"] {
     width: 100%;
@@ -5798,8 +6097,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ─── Capture surfaces (design handoff PR3, mobile handoff step 3) ─────────
-   Mobile: one round Stash button (.cz-stash-dock, end of this file).
+/* ─── Capture surfaces (design handoff PR3, shelf handoff 2026-07-28) ──────
+   Mobile: the docked bottom bar (.cz-stash-dock, end of this file).
    Desktop: the inline search + Stash row below. */
 
 /* Desktop top capture / search row (≥768px). Under logo, above tabs. */
@@ -6291,15 +6590,33 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    Titles track at -0.03em and kickers at 0.12em, matching the rest of the
    app — the design doc's --track-* vars do not exist here. */
 
+/* The page is a native <dialog> so it can paint above an open card, which is
+   also a native dialog (Kyle 2026-07-28). The browser gives a dialog its own
+   frame, padding, and size caps, so all of them are cleared here. */
 .cz-settings-page {
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
   background: var(--cz-bg);
   color: var(--cz-ink);
   font-family: var(--cz-sans);
+}
+.cz-settings-page::backdrop {
+  background: var(--cz-bg);
+}
+.cz-settings-page:focus,
+.cz-settings-page:focus-visible {
+  outline: none;
 }
 
 .cz-settings-page-masthead {
@@ -7138,35 +7455,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 
-/* Status edit: underline segment row (no pill fills). */
-.cz-status-underline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  width: 100%;
-  padding: 2px 0 4px;
-}
-.cz-status-underline-btn {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 6px 2px 5px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cz-sub);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-}
-.cz-status-underline-btn.is-active {
-  color: var(--cz-ink);
-  border-bottom-color: var(--cz-ink);
-}
-.cz-status-underline-btn:focus-visible {
-  outline: 2px solid var(--cz-focus);
-  outline-offset: 2px;
-  border-radius: 3px;
-}
+/* The underline segment row left with the order pipeline (shelf handoff
+   2026-07-28). Two answers do not need a segmented control — see
+   .cz-status-toggle further down this file. */
 
 /* The .cz-capture-clip chip, the .cz-capture-sheet-input box and the
    .cz-capture-sheet-links text buttons left with the Stash sheet rewrite
@@ -7675,190 +7966,79 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Status 4a stage + track */
-.cz-status-stage {
-  width: 100%;
-  min-width: 0;
-}
-/* The track is the button (Kyle 2026-07-23 — no serif stage line above it). */
-.cz-status-track-btn {
-  display: block;
-  width: 100%;
-  margin: 0;
+/* ── Bought switch (round 4 point 4, 2026-07-29) ──
+   The seven-stop order track is gone, and the two large Want/Bought buttons
+   followed it: they were the loudest block in the rail. The row now carries
+   one small switch at its right end — off is "want", on is "bought". The
+   24px visual sits inside a 44px hit area, the same trick the unit buttons
+   use, so the row stays the height of its neighbours. */
+.cz-status-toggle {
+  position: relative;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  width: 40px;
+  height: 24px;
   padding: 0;
   border: 0;
-  background: transparent;
-  color: var(--cz-ink);
-  font: inherit;
+  border-radius: 999px;
+  background: var(--cz-hair-strong);
   cursor: pointer;
-  box-sizing: border-box;
-}
-.cz-status-track-btn:focus-visible {
-  outline: 2px solid var(--cz-focus);
-  outline-offset: 2px;
-  border-radius: 6px;
-}
-/* Equal columns: each label sits under its own centered dot. */
-.cz-status-track {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  padding: 2px 0 0;
-  box-sizing: border-box;
-}
-.cz-status-track-step {
-  position: relative;
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-/* Line between dot edges — not center → center. The center-to-center run
-   showed through the hollow dots and under the current dot's halo (Kyle
-   2026-07-24: "no overlap, one clean visual"). The 9px inset at each end =
-   5px half-dot + 3px halo + 1px gap. Top 4.25px centers the 1.5px line on
-   the 10px dot. */
-.cz-status-track-connector {
-  position: absolute;
-  top: 4.25px;
-  right: calc(50% + 9px);
-  width: calc(100% - 18px);
-  height: 1.5px;
-  background: color-mix(in srgb, var(--cz-ink) 14%, transparent);
-  z-index: 0;
-  pointer-events: none;
-}
-.cz-status-track-connector.is-past,
-.cz-status-track-connector.is-current {
-  background: var(--cz-money);
-}
-.cz-status-track-dot {
-  position: relative;
-  z-index: 1;
-  flex: 0 0 auto;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  box-sizing: border-box;
-  border: 1.5px solid color-mix(in srgb, var(--cz-ink) 22%, transparent);
-  background: transparent;
-}
-.cz-status-track-dot.is-past {
-  border-color: var(--cz-money);
-  background: var(--cz-money);
-}
-.cz-status-track-dot.is-current {
-  width: 10px;
-  height: 10px;
-  border: 0;
-  background: var(--cz-money);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cz-money) 22%, transparent);
-}
-.cz-status-track-label {
-  width: 100%;
-  min-width: 0;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-  color: var(--cz-faint);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cz-status-track-label.is-current {
-  color: var(--cz-money);
-  font-weight: 700;
+  transition: background var(--dur-press) var(--ease-out);
 }
 
-/* Status 4b grouped picker */
-.cz-status-picker {
-  margin: 6px 0 0;
-  padding: 6px 0 0;
-  border-top: 1px solid var(--cz-hair);
+.cz-status-toggle::before {
+  content: "";
+  position: absolute;
+  inset: -10px -4px;
 }
-/* CH-06: three quiet group headers — Ordering · At the agent · Shipping.
-   Sans and sentence case (no tracked-mono micro-label), faint so the
-   options stay the loudest text in the sheet. */
-.cz-status-picker-group + .cz-status-picker-group {
-  margin-top: 7px;
-}
-.cz-status-picker-group-name {
-  padding: 0 6px 2px;
-  font-size: 9.5px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--cz-faint);
-}
-.cz-status-picker-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  width: 100%;
-  margin: 0;
-  padding: 4px 6px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--cz-ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  box-sizing: border-box;
-  min-height: 28px;
-}
-.cz-status-picker-option.is-active {
-  background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
-}
-.cz-status-picker-option:focus-visible {
+
+.cz-status-toggle:focus-visible {
   outline: 2px solid var(--cz-focus);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
-.cz-status-picker-option-dot {
-  width: 6px;
-  height: 6px;
-  margin-top: 4px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-  border: 1.5px solid color-mix(in srgb, var(--cz-ink) 22%, transparent);
-  background: transparent;
-  box-sizing: border-box;
-}
-.cz-status-picker-option.is-active .cz-status-picker-option-dot {
-  border: 0;
+
+/* Bought is the one answer that costs money, so the on state carries the
+   money colour. */
+.cz-status-toggle.is-on {
   background: var(--cz-money);
 }
-.cz-status-picker-option-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+
+.cz-status-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--cz-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform var(--dur-press) var(--ease-out);
 }
-.cz-status-picker-option-label {
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-  color: var(--cz-ink);
+
+.cz-status-toggle.is-on .cz-status-toggle-thumb {
+  transform: translateX(16px);
 }
-.cz-status-picker-option.is-active .cz-status-picker-option-label {
-  font-weight: 700;
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-status-toggle,
+  .cz-status-toggle-thumb {
+    transition: none;
+  }
 }
-.cz-status-picker-option-hint {
-  font-size: 9.5px;
-  font-weight: 500;
-  line-height: 1.2;
-  color: var(--cz-faint);
-}
-.cz-status-picker-option > svg {
-  flex: 0 0 auto;
-  width: 12px;
-  height: 12px;
-  color: var(--cz-money);
-  margin-top: 1px;
+
+/* Round 4 point 7 (2026-07-29): the failed-photo tile. One plain dark tile
+   fills the frame a broken photo leaves — never the browser's broken-image
+   mark. Used by the panel thumbnails, the phone photo strip, and the sizing
+   album thumbs. */
+.cz-photo-tile-missing {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  border-radius: inherit;
+  background: var(--cz-card-solid);
+  box-shadow: inset 0 0 0 1px var(--cz-hair);
 }
 
 /* Design 4c (CH-07): category select row. The closed row holds the same
@@ -7880,6 +8060,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 600;
   text-align: left;
   cursor: pointer;
+}
+/* Inside the facts rail the row already has a label beside it, so the 10px
+   that separated the button from a rule head above is dead space (shelf
+   handoff 2026-07-28). */
+.cz-detail-facts .cz-catselect-btn {
+  margin-top: 0;
 }
 .cz-catselect-value {
   flex: 0 1 auto;
@@ -8611,6 +8797,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-family: var(--cz-sans);
 }
 
+/* ── Stash kicker (shelf handoff 2026-07-28, README :122) ──
+   The shell title says which sheet this is. The kicker says what to do in it,
+   and it sits where the eye lands on a phone: at the top of the body. */
+.cz-stash-kicker {
+  margin-bottom: 12px;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
 /* State A — what the clipboard holds, verbatim. An obfuscated or truncated
    link has to be visible here, so the raw text wraps instead of clipping. */
 .cz-stash-clipcard {
@@ -8655,17 +8854,34 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   word-break: break-all;
 }
 
-/* State B — the paste box. 16px is a hard floor: anything smaller makes iOS
-   zoom the page when the box takes focus. */
+/* State B — the paste box. The handoff draws a link glyph at the head of the
+   field (shelf handoff 2026-07-28, README :123). The field itself stays a
+   textarea, not the handoff's 52px single line: a haul block is many lines,
+   and this sheet exists to show every one of them before it becomes cards. */
+.cz-stash-pastewrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.cz-stash-paste-glyph {
+  position: absolute;
+  top: 15px;
+  left: 14px;
+  color: var(--cz-faint);
+  pointer-events: none;
+}
+
+/* 16px is a hard floor: anything smaller makes iOS zoom the page when the box
+   takes focus. */
 .cz-stash-paste {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  margin: 0 0 12px;
-  padding: 14px;
+  margin: 0;
+  padding: 14px 14px 14px 37px;
   border: 1px solid var(--cz-hair);
-  border-radius: 16px;
-  background: var(--cz-bg);
+  border-radius: 14px;
+  background: var(--cz-card-solid);
   color: var(--cz-ink);
   font-family: var(--cz-mono);
   font-size: 16px;
@@ -8804,6 +9020,47 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-ink);
 }
 
+/* What a haul paste becomes (shelf handoff 2026-07-28, README :125). */
+.cz-stash-note {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+/* A way out that the thumb can reach (shelf handoff 2026-07-28, README :126). */
+.cz-stash-cancel-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.cz-stash-cancel {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font: 600 13px/1 var(--cz-sans);
+  cursor: pointer;
+}
+
+.cz-stash-cancel:hover {
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+}
+
+.cz-stash-cancel:active {
+  transform: scale(0.98);
+}
+
+.cz-stash-cancel:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
 /* The only Import entry point on the phone. */
 .cz-stash-foot {
   margin: 10px 0 0;
@@ -8882,7 +9139,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-photo-preview-controls button,
 .cz-morph-button.is-icon-only,
 .cz-favorite-button,
-.cz-starred-filter,
 .cz-mast-btn,
 .cz-haul-chip-clear,
 .cz-note-toggle,
@@ -8917,7 +9173,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   inset: -3px;
 }
 /* 28px controls: 8px ring. */
-.cz-starred-filter::after,
 .cz-haul-chip-clear::after,
 .cz-combobox-chevron::after {
   content: "";
@@ -9286,52 +9541,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ─── C2: tabs row absorbs the shelf totals ────────────────────────────── */
-.cz-tabs-totals {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex: 1 1 auto;
-  min-width: 0;
-  /* 9px lifts the numbers onto the tab-label baseline. The tabs pad
-     9px/11px, so a flex-end row without this sits ~4px low. */
-  padding-bottom: 9px;
-}
-
-/* The mock drops the "TOTAL SHELF COST" caps entirely. Lowercase keeps
-   "18 saved" narrow enough to sit beside a five-figure total at 393px. */
-.cz-tabs-count {
-  font-family: var(--cz-mono);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  color: var(--cz-sub);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cz-tabs-total,
-.cz-tabs-total .t-reel {
-  font-family: var(--cz-mono);
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--cz-money);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* 30×30 box. QW1's coarse-pointer ::after ring carries the 44px hit area, so
-   the icon stays small without shrinking the tap target. */
-.cz-tabs-totals .cz-starred-filter {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  min-height: 30px;
-  flex-shrink: 0;
-}
+/* ─── C2: tabs row ──────────────────────────────────────────────────────────
+   The tabs row used to carry the shelf totals as well (.cz-tabs-totals, a
+   count, a money reel, and a currency chip). The shelf handoff (2026-07-28)
+   moved all three into the docked bottom bar, where the money sits beside
+   the button that adds to it. Those rules are deleted; the tabs row is tabs
+   again. */
 
 @media (max-width: 767px) {
   /* "Hauls · 0" wrapped at 393px once the totals took the right half. */
@@ -9343,8 +9558,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     align-items: flex-end;
     gap: 8px;
     margin-bottom: 14px;
-    /* While a card indexes, tabs + totals + the 132px chip overflow 390px
-       and crush into each other — let the chip wrap to its own line. */
+    /* While a card indexes, tabs + the 132px chip overflow 390px and crush
+       into each other — let the chip wrap to its own line. */
     flex-wrap: wrap;
     row-gap: 8px;
   }
@@ -9595,29 +9810,111 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ═══ MOBILE BOTTOM BAR (CH-03) — split Stash pill + Agent ══════════════════
-   With a link on the clipboard the bar is ONE split pill on --cz-action-fill:
-   left region reviews the link in the capture sheet, right region stashes in
-   one tap. Empty clipboard → a single full-width ＋ Stash pill. The Agent
-   secondary button stays beside it. Every value reads a --cz-* token so
-   Blackout dark inherits it.
+/* ═══ MOBILE BOTTOM BAR (CH-03) — docked totals + Stash pill + Agent ════════
+   Shelf handoff 2026-07-28: the bar is a flex SIBLING of the scrolling shelf,
+   not an overlay. Nothing is ever covered by it, and it carries its own
+   bottom padding for the home indicator. It used to float, so the shelf had
+   to reserve 88px of dead space under the last card; that space is gone.
+   Row 1 is the shelf money: the count, the rough ship weight, the total, and
+   the currency chip. Row 2 is capture. With a link on the clipboard it is ONE
+   split pill on --cz-action-fill: left region reviews the link in the capture
+   sheet, right region stashes in one tap. Empty clipboard → a single
+   full-width ＋ pill. The Agent secondary button stays beside it. Row 3 is
+   the home-indicator grip. Every value reads a --cz-* token so Blackout dark
+   inherits it.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* The dock spans the viewport, but it must not eat taps on the cards behind
-   it. Only the children do. */
 .cz-stash-dock {
-  position: fixed;
-  inset: auto 0 0 0;
-  z-index: 30;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 11px 16px 0;
+  border-top: 1px solid var(--cz-hair);
+  /* Translucent over the shelf so a card scrolling under the top hairline
+     reads as motion, not as a hard cut. */
+  background: color-mix(in srgb, var(--cz-bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Row 1: "On the shelf" + count · weight on the left, money + currency on
+   the right. */
+.cz-dock-totals {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cz-dock-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cz-dock-kicker {
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+.cz-dock-count {
+  font-size: 13px;
+  color: var(--cz-sub);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cz-dock-money {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.cz-dock-total,
+.cz-dock-total .t-reel {
+  font-family: var(--cz-mono);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--cz-money);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The reel sets its own 16px height for the 13px desktop total; the docked
+   19px number needs the taller box or the digits clip. */
+.cz-dock-total .t-reel {
+  height: 22px;
+}
+
+/* Row 2: the capture pill and the Agent button. */
+.cz-dock-actions {
   display: flex;
   align-items: stretch;
   gap: 10px;
-  padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
-  pointer-events: none;
 }
 
-.cz-stash-dock > * {
-  pointer-events: auto;
+/* Row 3: the home-indicator grip. It names the swipe zone the phone already
+   owns, so the last row of cards never ends flush with it. */
+.cz-dock-grip {
+  display: block;
+  width: 134px;
+  height: 5px;
+  margin: 3px auto 0;
+  border-radius: 999px;
+  background: var(--cz-hair-strong);
+  /* The dock pads 0 at the bottom; the grip owns the safe area itself. */
+  margin-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Desktop keeps the search + Stash row under the masthead. */
@@ -9627,21 +9924,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* The pill. Height 58, radius 17, on the action fill. As a lone button
-   (empty clipboard) it holds ＋ Stash itself; as a split container it holds
-   the clip region and the Stash ↑ region. */
+/* The pill. Height 46, radius 14, on the action fill. As a lone button
+   (empty clipboard) it holds ＋ Stash a link itself; as a split container it
+   holds the clip region and the Stash ↑ region. It carried a floating-button
+   shadow while the bar floated; the bar is docked now, so a shadow would
+   only fake a lift that is not there. */
 .cz-stash-pill {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: stretch;
-  height: 58px;
+  min-height: 46px;
   padding: 0;
   border: 0;
-  border-radius: 17px;
+  border-radius: 14px;
   background: var(--cz-action-fill);
   color: var(--cz-action-text);
-  box-shadow: var(--cz-fab-shadow);
   overflow: hidden;
 }
 
@@ -9650,10 +9948,17 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   justify-content: center;
   gap: 7px;
   font-family: inherit;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14.5px;
+  font-weight: 700;
   cursor: pointer;
   transition: transform var(--dur-press) var(--ease-out);
+}
+
+/* The plus reads small next to a 700-weight label unless it is set larger. */
+.cz-stash-pill-plus {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .cz-stash-pill.is-solo:active {
@@ -9667,7 +9972,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-stash-pill.is-solo:focus-visible {
   outline: none;
-  box-shadow: var(--cz-fab-shadow), 0 0 0 3px var(--cz-focus);
+  box-shadow: 0 0 0 3px var(--cz-focus);
 }
 
 /* Left region: platform dot + CLIPBOARD · {platform} + host. Opens the
@@ -9748,21 +10053,20 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Agent stays as the secondary button (CH-03 point 3). Quiet card surface
-   next to the loud pill; 58px tall so the row reads as one bar. */
+   next to the loud pill; 46px tall so the row reads as one bar. */
 .cz-stash-agent {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  height: 58px;
+  min-height: 46px;
   padding: 0 16px;
   border: 1px solid var(--cz-hair);
-  border-radius: 17px;
+  border-radius: 14px;
   background: var(--cz-card-solid);
   color: var(--cz-ink);
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-  box-shadow: var(--cz-fab-shadow);
   cursor: pointer;
   transition: transform var(--dur-press) var(--ease-out);
 }
@@ -9778,18 +10082,42 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-stash-agent:focus-visible {
   outline: none;
-  box-shadow: var(--cz-fab-shadow), 0 0 0 3px var(--cz-focus);
+  box-shadow: 0 0 0 3px var(--cz-focus);
 }
 
-/* QW10: the shelf and the carousel clear the 58px pill + its 16px pad, so
-   no card ever sits under it. 58 + 16 + 14 breathing room = 88px. */
+/* ─── The docked column (shelf handoff 2026-07-28) ──────────────────────────
+   The app is one fixed-height column on a phone: chrome and cards scroll in
+   .cz-shell, the bar sits under them and never moves. The bar used to float
+   over the cards, so the shelf reserved 88px of dead space to keep the last
+   card clear. That reservation is deleted here — the bar is a real sibling
+   now, so the space it takes is the space it needs. */
 @media (max-width: 767px) {
-  .cz-app[data-fashion="true"] .cz-shell {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  .cz-app[data-fashion="true"] {
+    /* border-box is load-bearing: the notch padding above must come OUT of
+       the 100dvh, not add to it. There is no global box-sizing rule in this
+       app, so content-box would push the bar below the screen edge. */
+    box-sizing: border-box;
+    height: 100dvh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    /* The dock owns the bottom edge and the safe area. The column must not
+       add its own or the bar floats above the home indicator. */
+    padding-bottom: 0;
+    overflow: hidden;
   }
 
-  .cz-carousel-stage {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  .cz-app[data-fashion="true"] > .cz-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    /* clip and auto cannot pair on one box; hidden is the honest value. */
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    /* Contain the flick so a fast scroll to the end never rubber-bands the
+       whole column and exposes the page behind it. */
+    overscroll-behavior-y: contain;
+    padding-bottom: 18px;
   }
 }
 
@@ -10037,14 +10365,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* The slide is a button: the tap opens the full-screen album (Kyle
-   2026-07-25). Reset the button chrome; the img fills it. */
+   2026-07-25). Reset the button chrome; the img fills it.
+   The selector carries the app root on purpose. Every button in the app takes
+   `touch-action: manipulation` near the top of this file, and that rule is
+   stronger than a bare class, so it kept winning here. A finger on the photo
+   could then drag the sheet up and down as well as sideways (Kyle 2026-07-28:
+   "you can move them up and down, whereas you should just be able to move them
+   left to right"). Matching the root's strength gives the photo one axis. */
+.cz-app[data-fashion="true"] .cz-detail-hero-slide,
 .cz-detail-hero-slide {
   display: block;
   padding: 0;
   border: 0;
   cursor: zoom-in;
-  /* Override global button touch-action: manipulation so only the track's
-     horizontal pan wins. A still tap still fires click → album. */
   touch-action: pan-x;
 }
 
@@ -10119,17 +10452,23 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 24px;
 }
 
+/* The depth belongs to the TRACK, not the stage. It used to sit on the stage,
+   which also holds the ‹ › arrows. Inside a 3D box the browser re-sorts every
+   layer by its real depth each frame, so an animating photo kept crossing the
+   arrow's plane and the arrow flashed on and off (Kyle 2026-07-28: "the left
+   and right arrow still kind of glitch back and forth"). With the depth one
+   level down, the photos keep their 3D and the arrows are flat again — they
+   simply stay on top. */
 .cz-photo-coverflow-stage {
   position: relative;
   width: 100%;
   flex: 1;
-  perspective: 1200px;
-  transform-style: preserve-3d;
 }
 
 .cz-photo-coverflow-track {
   position: absolute;
   inset: 0;
+  perspective: 1200px;
   transform-style: preserve-3d;
 }
 
@@ -10230,6 +10569,34 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 500;
 }
 
+/* The open photo carries its own two actions (Kyle 2026-07-28). They are text
+   pills, not icons: "Delete" and "Make cover photo" have no shared symbol a
+   customer already reads, and this row has the width. */
+.cz-photo-coverflow-controls button.cz-photo-coverflow-wide {
+  width: auto;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+/* Delete asks first, so the confirm answer is the only red thing here. A red
+   resting button would shout at every customer who opens a photo to look. */
+.cz-photo-coverflow-controls button.cz-photo-coverflow-wide.is-danger {
+  border-color: var(--cz-error-text);
+  color: var(--cz-error-text);
+}
+
+.cz-photo-coverflow-controls button.cz-photo-coverflow-wide.is-danger:hover {
+  background: color-mix(in srgb, var(--cz-error-text) 16%, transparent);
+}
+
+.cz-photo-coverflow-ask {
+  color: var(--cz-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .cz-photo-coverflow-close {
   position: absolute;
   top: 18px;
@@ -10270,6 +10637,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
+  /* Its own stacking context, above the photo track. Both are needed: the
+     z-index alone did nothing while the parent stage was a 3D box. */
+  isolation: isolate;
   z-index: 30;
   display: grid;
   place-items: center;
@@ -10531,6 +10901,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     line-height: 1.06;
     letter-spacing: -0.035em;
   }
+
+  /* A one-line title is 28px tall inside a 44px tap target, so 16px of dead
+     room fell BELOW the text and pushed the whole sheet down (Kyle 2026-07-28:
+     "too much white space between the title and the size"). Centring splits
+     that room evenly, and the target still measures 44px. */
+  .cz-detail-title-btn {
+    display: flex;
+    align-items: center;
+  }
 }
 
 .cz-detail-title-input {
@@ -10587,9 +10966,86 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding-top: 16px;
 }
 
+/* Phone: the title, the facts block, the first section and the sizing block
+   each carried their own 16-18px, so four separate gaps stacked into one dead
+   band under the title (Kyle 2026-07-28). The phone keeps one gap. */
+@media (max-width: 767px) {
+  .cz-detail-facts {
+    margin-top: 8px;
+  }
+  .cz-detail-facts-section {
+    padding-top: 0;
+  }
+  .cz-detail-facts-section .cz-sizing:first-child {
+    margin-top: 0;
+    padding-top: 12px;
+  }
+}
+
 .cz-detail-facts-section + .cz-detail-facts-section {
   margin-top: 16px;
   border-top: 1px solid var(--cz-hair);
+}
+
+/* ── Details kicker (shelf handoff 2026-07-28, README :105) ──
+   The seam between "does it fit?" above and "what is it?" below. It carries
+   the hairline itself, so the section after it must not draw a second one. */
+.cz-detail-facts-kicker {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cz-hair);
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-detail-facts-kicker + .cz-detail-facts-section {
+  margin-top: 0;
+  border-top: none;
+}
+
+/* ── Seller row ── Read-only value plus a chevron: the only Details row that
+   leaves the app. The chevron says so before the tap does. */
+.cz-detail-seller-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 10px 0 0;
+  border-radius: 10px;
+  color: var(--cz-sub);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cz-detail-seller-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: lowercase;
+}
+
+.cz-detail-seller-row.is-flat {
+  padding-right: 0;
+}
+
+a.cz-detail-seller-row:hover {
+  background: var(--cz-accent-bg);
+}
+
+a.cz-detail-seller-row:active {
+  transform: scale(0.99);
+}
+
+a.cz-detail-seller-row:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
 }
 
 /* Split rail gap 1: the SIZE row's visible label exists for the desktop
@@ -10779,20 +11235,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    already expands its chips in place through HaulAccordionField, which is the
    pattern the spec asks for. (2026-07-28) */
 @media (max-width: 767px) {
+  /* The shelf handoff (2026-07-28, README :105) pins the Details row: an 80px
+     label gutter and a 46px row. It replaces the split-rail 82px/48px. */
   .cz-detail-facts .cz-detail-panel-field {
-    grid-template-columns: 82px minmax(0, 1fr);
+    grid-template-columns: 80px minmax(0, 1fr);
     align-items: center;
     gap: 8px;
-    min-height: 48px;
+    min-height: 46px;
   }
 
   .cz-detail-facts .cz-detail-panel-field > span,
   .cz-detail-facts .cz-detail-panel-field > label {
     color: var(--cz-faint);
     font-family: var(--cz-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
@@ -10842,18 +11300,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   /* Haul takes the same gutter. Its head is already a full-width row that
      expands its chip list in place, so only the label moves. */
   .cz-detail-facts .cz-haul-acc .cz-field-label {
-    grid-template-columns: 82px minmax(0, 1fr);
+    grid-template-columns: 80px minmax(0, 1fr);
     align-items: center;
     gap: 8px;
-    min-height: 48px;
+    min-height: 46px;
   }
 
   .cz-detail-facts .cz-haul-acc .cz-field-label > span {
     color: var(--cz-faint);
     font-family: var(--cz-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
@@ -11122,8 +11580,24 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 2px;
   justify-items: center;
   padding: 6px 2px;
+  border: 0;
   border-radius: 8px;
   background: var(--cz-seg);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--dur-press) var(--ease-out);
+}
+
+/* Round 5 point 5.1: the cells are buttons now — they pick the size. */
+.cz-sizing-cell:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .cz-sizing-cell:not(.is-pick):hover {
+    background: var(--cz-hair);
+  }
 }
 
 .cz-sizing-cell-k {
@@ -11804,256 +12278,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   white-space: nowrap;
 }
 
-/* ── Status track (handoff turn 9 §5) ──
-   Four chips became a progress track. The dots stay real radio buttons so a
-   wrong stop is still one tap to correct; the pill is the fast path forward. */
-.cz-status-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: 10px;
-  /* Unboxed on the canvas: dots + advance pill sit as plain content. The
-     44px coarse-pointer floor on the dot buttons still sets the row height. */
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.cz-detail-status {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-
-/* Each step owns the rail to its LEFT, so filling the rail is a per-step
-   decision and needs no separate rail elements between the buttons. */
-.cz-detail-status-chip {
-  display: flex;
-  align-items: center;
-  position: relative;
-  flex: 1;
-  /* Only the first step is content-width; the rest stretch through their
-     rail. Without this the four dots bunch at the left edge. */
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  /* A bare 13px dot is not a tap target. The button is full-height so the
-     whole column is tappable; credenza.css raises this to 44px on coarse
-     pointers. */
-  min-height: 40px;
-}
-
-.cz-detail-status-chip:first-child {
-  flex: 0 0 auto;
-}
-
-.cz-status-rail {
-  flex: 1;
-  height: 2px;
-  min-width: 12px;
-  background: var(--cz-hair);
-  transition: background var(--dur-micro) var(--ease-out);
-}
-
-/* A rail is filled when the step it leads INTO is done or current. */
-.cz-detail-status-chip.is-done .cz-status-rail,
-.cz-detail-status-chip.is-active .cz-status-rail {
-  background: var(--cz-ink);
-}
-
-.cz-status-dot {
-  flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
-  border: 2px solid var(--cz-hair);
-  border-radius: 999px;
-  background: var(--cz-bg-elevated);
-  transition:
-    width var(--dur-micro) var(--ease-out),
-    height var(--dur-micro) var(--ease-out),
-    background var(--dur-micro) var(--ease-out),
-    border-color var(--dur-micro) var(--ease-out);
-}
-
-/* Reached stops behind the current one stay base size, filled with ink. */
-.cz-detail-status-chip.is-done .cz-status-dot {
-  border-color: var(--cz-ink);
-  background: var(--cz-ink);
-}
-
-/* The current stop is bigger AND filled — size alone is too quiet at 9px,
-   fill alone does not separate it from the stops already behind it. */
-.cz-detail-status-chip.is-active .cz-status-dot {
-  width: 13px;
-  height: 13px;
-  border-color: var(--cz-ink);
-  background: var(--cz-ink);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cz-status-rail,
-  .cz-status-dot {
-    transition: none !important;
-  }
-}
-
-/* The stop name is the radio's accessible name. It stays in the DOM for
-   screen readers and tests; the visible track is dots only. */
-.cz-status-stop-name {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-/* The dot's own box. It exists so the detour label can hang centred UNDER
-   the dot; anchored to the button, the label would start at the rail. */
-.cz-status-node {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-}
-
-/* Detour node (§5): an off-track state hangs under its own dot rather than
-   becoming a fifth step, because QC-failed is not progress. It is taken out
-   of flow so it cannot stretch the track row or push the rails apart. */
-.cz-status-detour {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-top: 2px;
-  transform: translateX(-50%);
-  font-family: var(--cz-mono);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  color: var(--cz-warn-ink);
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-/* The label needs room below the dots, so the track row grows only when a
-   detour is showing. Padding-bottom (not a taller box) keeps the dots and
-   rails centred on the same line. :has keeps the cost off the common case. */
-.cz-status-row:has(.cz-status-detour) .cz-detail-status-chip {
-  padding-bottom: 14px;
-}
-
-.cz-status-next {
-  display: inline-flex;
-  align-items: center;
-  /* Clash Grotesk sits heavier and taller than the system stack this pill
-     was tuned for: 650 read as a blob, the 2px gap glued the chevron to the
-     label, and `normal` line-height dropped the text off optical centre. */
-  gap: 5px;
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 13px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  font-size: 12.5px;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.cz-status-next:active {
-  transform: scale(0.97);
-}
-
-/* ── Phone status segment (split-rail spec :177) ──
-   On a phone the dots track becomes a segmented control: four named pills on a
-   --cz-seg ground, with the advance button full width below it. The dots read
-   as progress but never said which stop a tap writes; the names do. The model
-   does not change — the same four radios, the same enum per slot. */
-@media (max-width: 767px) {
-  .cz-status-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .cz-detail-status {
-    flex: 0 0 auto;
-    gap: 2px;
-    padding: 3px;
-    border-radius: 999px;
-    background: var(--cz-seg);
-  }
-  /* The rail and the dot are the old shape. The pill carries the state now. */
-  .cz-detail-status .cz-status-rail,
-  .cz-detail-status .cz-status-dot {
-    display: none;
-  }
-  /* display: contents drops the node's box, so the detour label hangs from the
-     pill itself instead of from a zero-width node at the pill's left edge. */
-  .cz-detail-status .cz-status-node { display: contents; }
-  .cz-detail-status .cz-detail-status-chip,
-  .cz-detail-status .cz-detail-status-chip:first-child {
-    flex: 1 1 0;
-    justify-content: center;
-    min-width: 0;
-    /* Overrides the coarse-pointer 44px floor in credenza.css. The ::after
-       below returns the 44px hit area the floor was there to guarantee. */
-    min-height: 34px;
-    height: 34px;
-    padding: 0 4px;
-    border-radius: 999px;
-    color: var(--cz-faint);
-  }
-  .cz-detail-status .cz-detail-status-chip::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 0;
-    width: 100%;
-    height: 44px;
-    transform: translateY(-50%);
-  }
-  .cz-detail-status .cz-detail-status-chip.is-active {
-    background: var(--cz-ink);
-    color: var(--cz-bg);
-  }
-  /* The stop name stops being screen-reader-only: it is the pill's label. */
-  .cz-detail-status .cz-status-stop-name {
-    position: static;
-    width: auto;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    clip-path: none;
-    font-family: var(--cz-mono);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-  }
-  .cz-detail-status .cz-detail-status-chip.is-active .cz-status-stop-name {
-    font-weight: 600;
-  }
-  .cz-status-row:has(.cz-status-detour) .cz-detail-status-chip {
-    padding-bottom: 0;
-  }
-  .cz-status-row:has(.cz-status-detour) .cz-detail-status {
-    margin-bottom: 12px;
-  }
-  .cz-status-next {
-    flex: 0 0 auto;
-    justify-content: center;
-    min-height: 44px;
-    border-radius: 12px;
-    font-size: 13px;
-  }
-}
+/* The order track (dots, rails, detour label, advance pill) left with the
+   shelf handoff 2026-07-28. The Ordered row draws .cz-status-toggle. */
 
 /* ── Timeline (handoff turn 9 §6) ──
    Left-rule list. The date column is fixed so the sentences align, which is
@@ -12689,9 +12915,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    wrapping chip row that opens directly above the bar, so the choice sits next
    to the button it changes instead of over the sheet. */
 @media (max-width: 767px) {
+  /* 22px BELOW the referral line, on top of the home-bar inset, left a dead
+     band under the Buy bar (Kyle 2026-07-28: "reduce white space on the bottom
+     by buy button"). 8px is enough separation; the inset does the rest. */
   .cz-detail-foot {
-    padding: 11px 16px 22px;
-    padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    padding: 11px 16px 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .cz-detail-disclosure {
+    margin-top: 6px;
   }
   .cz-detail-foot-row .cz-detail-buy { height: 48px; }
   .cz-detail-foot-price { height: 48px; }
@@ -13056,6 +13288,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     text-transform: uppercase;
     pointer-events: none;
   }
+  /* Round 4 point 5 (2026-07-29, Fable's amendment): photo delete hides until
+     it is needed. The badge appears when the pointer rests on the small photo
+     or when focus lands inside it; the "..." menu carries "Delete this photo"
+     for touch, and the Backspace path stays for the keyboard. */
   .cz-dpanel-thumb-delete {
     position: absolute;
     top: 6px;
@@ -13070,10 +13306,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     background: rgba(0, 0, 0, 0.62);
     color: #fff;
     cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--dur-micro) var(--ease-out);
+  }
+  .cz-dpanel-thumb-wrap:hover .cz-dpanel-thumb-delete,
+  .cz-dpanel-thumb-wrap:focus-within .cz-dpanel-thumb-delete {
+    opacity: 1;
   }
   .cz-dpanel-thumb-delete:hover,
   .cz-dpanel-thumb-delete:focus-visible {
     background: color-mix(in srgb, var(--cz-danger, #e11d48) 85%, #000);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cz-dpanel-thumb-delete {
+      transition: none;
+    }
   }
   .cz-dpanel-thumb-add {
     display: inline-flex;
@@ -13407,13 +13654,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 
   /* ── Split body (spec :87) ── Desktop only.
-     Column A is the pick and the fit read. Column B is a 208px facts rail:
-     Size / Colorway / Weight / Haul / Status. Category still sits outside
-     .cz-detail-facts in the DOM (2026-07-28). */
+     Column A is the pick and the fit read. Column B is a 208px facts rail.
+     The shelf handoff (2026-07-28, README :105) sets the rail order: Size,
+     then the Details list — Ordered / Haul / Category / Colorway / Weight /
+     Seller. Category moved into .cz-detail-facts in the same handoff. */
   .cz-dpanel-body .cz-detail-facts {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 208px;
-    grid-template-rows: auto auto auto auto 1fr;
+    grid-template-rows: repeat(7, auto) 1fr;
     column-gap: 20px;
     /* The rail hairline must run unbroken down Column B, so the rows carry
        their own 12px spacing as padding instead of a grid row-gap. */
@@ -13422,7 +13670,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Size and fit"] {
     grid-column: 1;
-    grid-row: 1 / span 5;
+    grid-row: 1 / span 8;
+  }
+
+  /* The Details kicker is a phone seam. In the split the vertical rail rule
+     already separates the two questions, so the kicker steps out of the grid
+     flow entirely. */
+  .cz-dpanel-body .cz-detail-facts-kicker {
+    display: none;
   }
 
   /* The mobile stack separates sections with a top hairline. In the split the
@@ -13433,10 +13688,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"],
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Ordered"],
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"],
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Category"],
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"],
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Status"] {
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Seller"] {
     grid-column: 2;
     padding-top: 12px;
     padding-left: 20px;
@@ -13448,180 +13705,48 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     padding-top: 16px;
   }
 
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"] {
+  /* Ordered heads the Details list (shelf handoff 2026-07-28). */
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Ordered"] {
     grid-row: 2;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"] {
-    grid-row: 3;
+    display: flex;
+    flex-direction: column;
   }
 
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"] {
+    grid-row: 3;
+  }
+
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Category"] {
     grid-row: 4;
   }
 
-  /* Status foot of the rail (spec :137-138). The section is a flex column
-     filling the 1fr row so the advance pill can pin to the bottom. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Status"] {
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"] {
     grid-row: 5;
-    display: flex;
-    flex-direction: column;
+  }
+
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"] {
+    grid-row: 6;
+  }
+
+  /* Seller is the foot of the rail. The 1fr row below it takes the slack, so
+     the rail hairline runs the full height of the split. */
+  .cz-dpanel-body .cz-detail-facts-section[aria-label="Seller"] {
+    grid-row: 7;
     padding-bottom: 16px;
   }
 
-  /* The rule head becomes the rail label: 10px mono, no rule line. */
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-rule-head {
-    margin: 0 0 6px;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-label {
-    color: var(--cz-faint);
-    font-family: var(--cz-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-rule {
-    display: none;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-rule-note {
-    margin-left: auto;
-    font-size: 9px;
-  }
-
-  /* The dots track turns into the spec's vertical radio list: four 25px
-     rows with a 7px dot and an 11px mono label. The hover tint bleeds to
-     the column edge through the negative inline margin. The coarse-pointer
-     44px floor in credenza.css is beaten by specificity here, so an
-     ::after ring carries the hit area the floor was there to guarantee. */
-  .cz-dpanel-body .cz-detail-facts-status .cz-status-row {
-    flex: 1;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    margin-top: 0;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status {
-    /* The base track stretches (flex: 1) so its dots span the row width.
-       In the rail that growth would push the advance pill to the bottom
-       of the 1fr grid row — below the fold. Content height instead. */
-    flex: 0 0 auto;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1px;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip,
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip:first-child {
-    flex: 0 0 auto;
-    gap: 8px;
-    min-height: 25px;
-    height: 25px;
-    margin: 0 -6px;
-    padding: 0 6px;
-    border-radius: 7px;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip::after {
+  /* The rail hairline must reach the bottom even when the fit read is taller
+     than the seven rows above. This empty tail row carries it. */
+  .cz-dpanel-body .cz-detail-facts::after {
     content: "";
-    position: absolute;
-    top: 50%;
-    left: 0;
-    width: 100%;
-    height: 44px;
-    transform: translateY(-50%);
+    grid-column: 2;
+    grid-row: 8;
+    border-left: 1px solid var(--cz-hair);
   }
 
-  @media (hover: hover) {
-    .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip:hover {
-      background: var(--cz-accent-bg);
-    }
-  }
-
-  /* No connector rails in the vertical list — the spec draws dots only. */
-  .cz-dpanel-body .cz-detail-facts-status .cz-status-rail {
-    display: none;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-status-node {
-    display: contents;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-status-dot,
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip.is-active .cz-status-dot,
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip.is-done .cz-status-dot {
-    width: 7px;
-    height: 7px;
-    border: 0;
-    background: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--cz-hair);
-  }
-
-  /* Dots at or before the current step fill with ink. */
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip.is-active .cz-status-dot,
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip.is-done .cz-status-dot {
-    background: var(--cz-ink);
-    box-shadow: none;
-  }
-
-  /* The stop name leaves its screen-reader-only clip and becomes the row
-     label: current 600 ink, past 500 faint, future 500 placeholder. */
-  .cz-dpanel-body .cz-detail-facts-status .cz-status-stop-name {
-    position: static;
-    width: auto;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    clip-path: none;
-    font-family: var(--cz-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    color: var(--cz-placeholder);
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip.is-done .cz-status-stop-name {
-    color: var(--cz-faint);
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-detail-status-chip.is-active .cz-status-stop-name {
-    color: var(--cz-ink);
-    font-weight: 600;
-  }
-
-  /* A detour label hangs inline at the row's right edge, not under the
-     dot — 25px rows have no room below. */
-  .cz-dpanel-body .cz-detail-facts-status .cz-status-detour {
-    position: static;
-    transform: none;
-    margin: 0 0 0 auto;
-    order: 3;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-status .cz-status-row:has(.cz-status-detour) .cz-detail-status-chip {
-    padding-bottom: 0;
-  }
-
-  /* The advance pill follows spec :138: a 30px outlined pill. It sits right
-     under the rows, not at margin-top:auto — the spec's auto pins to the
-     foot of a rail as tall as Column A, and our Column A (chart, fit read,
-     prescription) runs well past the fold. The pill would land below it. */
-  .cz-dpanel-body .cz-detail-facts-status .cz-status-next {
-    margin-top: 8px;
-    justify-content: center;
-    min-height: 30px;
-    height: 30px;
-    border: 1px solid var(--cz-hair);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--cz-ink);
-    font-size: 11px;
-    font-weight: 500;
-  }
+  /* The Bought row in the desktop facts rail: one small switch, right-aligned
+     (round 4 point 4). No rail-specific override is needed — the shared
+     .cz-status-toggle rule already draws it compact. */
 
   /* The rail label pattern (spec :127): 10px mono over the control. */
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-rail-label {
@@ -13696,16 +13821,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
      coarse-pointer floor becomes an ::after ring, as on the size chips.
      The phone keeps them stacked at 44px (spec :171). */
   .cz-dpanel-body .cz-detail-chart-actions {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .cz-dpanel-body .cz-detail-chart-upload,
   .cz-dpanel-body .cz-detail-profile-sizes {
     position: relative;
+    flex: 0 0 auto;
     min-height: 32px;
     height: 32px;
     border-radius: 999px;
     font-size: 12px;
+    white-space: nowrap;
   }
 
   .cz-dpanel-body .cz-detail-chart-upload::after,

@@ -300,8 +300,9 @@ export function estimateItemWeightGrams(item, opts) {
 export function estimateHaulWeightGrams(items, opts) {
   let sum = 0;
   let known = false;
+  // Every card on the haul counts. The "returned" skip left with the order
+  // pipeline (shelf handoff 2026-07-28): a card is on the shelf, or deleted.
   for (const it of items || []) {
-    if ((it?.findStatus || "want") === "returned") continue;
     const w = estimateItemWeightGrams(it, opts);
     if (w != null) {
       sum += w;

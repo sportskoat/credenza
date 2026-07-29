@@ -3,7 +3,7 @@
 // each photo… it was so good. Click on the photo to have that old scroll
 // through carousel that had where you could set others as the cover photo."
 // The trigger is the hero photo itself in the shared DetailBody; the album's
-// "Use as cover" is the same explicit cover path as the hero action.
+// "Make cover photo" is the same explicit cover path as the hero action.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -62,14 +62,14 @@ describe("Full-screen photo album", () => {
     expect(screen.getByText("2 / 3")).toBeInTheDocument();
   });
 
-  it("Use as cover sets the active photo as the primary image and closes", async () => {
+  it("Make cover photo sets the active photo as the primary image and closes", async () => {
     const user = userEvent.setup();
     const onSetPrimaryImage = vi.fn();
     renderBody(albumItem(), { onSetPrimaryImage });
     await user.click(screen.getByRole("button", { name: "Open photo 1 full screen" }));
     await screen.findByRole("dialog", { name: "Album photo preview" });
     await user.click(screen.getByRole("button", { name: "Next photo" }));
-    await user.click(screen.getByRole("button", { name: "Use as cover" }));
+    await user.click(screen.getByRole("button", { name: "Make cover photo" }));
     expect(onSetPrimaryImage).toHaveBeenCalledWith("album-1", PHOTO_2);
     expect(screen.queryByRole("dialog", { name: "Album photo preview" })).not.toBeInTheDocument();
   });

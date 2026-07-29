@@ -127,8 +127,24 @@ describe("Fashion carousel startup", () => {
     });
     render(<Credenza />);
     await screen.findByRole("button", { name: "Open Palace x Nike jersey" });
-    expect(screen.getByRole("button", { name: "List view" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Grid view" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
+  });
+
+  // Shelf handoff 2026-07-28 (README :144). The switch was two bare glyphs,
+  // ◈ and ▦. Words in one track say what the two choices are.
+  it("labels the view switch with words in one track", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    render(<Credenza />);
+
+    const grid = await screen.findByRole("button", { name: "Grid view" });
+    const carousel = screen.getByRole("button", { name: "Carousel view" });
+    expect(grid.textContent).toBe("Grid");
+    expect(carousel.textContent).toBe("Carousel");
+    // Both sit in the same track, and only the active one carries the fill.
+    expect(grid.closest(".cz-view-switch")).toBe(carousel.closest(".cz-view-switch"));
+    expect(grid.className).toContain("is-active");
+    expect(carousel.className).not.toContain("is-active");
   });
 
   it("centers a side card first and flips it only on the next click", async () => {
@@ -222,6 +238,21 @@ describe("Fashion data and photos", () => {
     expect(buys.length).toBe(1);
     expect(buys[0]).toHaveTextContent(/Buy/);
     expect(screen.queryByRole("button", { name: /More Photos/i })).not.toBeInTheDocument();
+  });
+
+  it("draws the shared Bought tag on the carousel card, not a pill", async () => {
+    // Round 4 point 6 (Kyle 2026-07-29): the carousel wears the grid card's
+    // mark — dot + plain word, top-left of the photo — not the old status pill.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "bought" })]) });
+    const user = userEvent.setup();
+    const { container } = await renderInCarousel(user);
+    await screen.findByRole("listbox", { name: "Card carousel" });
+
+    const tag = container.querySelector(".cz-carousel-image-wrap .cz-card-status-tag.is-carousel");
+    expect(tag).not.toBeNull();
+    expect(tag.textContent).toContain("Bought");
+    expect(tag.querySelector(".cz-card-status-tag-dot")).not.toBeNull();
+    expect(container.querySelector(".cz-status-pill")).toBeNull();
   });
 });
 
@@ -481,7 +512,7 @@ describe("Fashion morph controls and favorites", () => {
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].favorite).toBe(false));
     await user.click(screen.getByRole("button", { name: "Star String favorite" }));
 
-    await user.click(screen.getByRole("button", { name: "List view" }));
+    await user.click(screen.getByRole("button", { name: "Grid view" }));
     expect(await screen.findByRole("button", { name: "Unstar String favorite" })).toHaveAttribute("aria-pressed", "true");
   });
 });
@@ -498,14 +529,21 @@ describe("Desktop sizing destination", () => {
           sizeNotes: "S: chest 108, length 66\nM: chest 112, length 68",
         }),
       ]),
+      // A saved profile earns the fit read; its footnote carries the route
+      // (round 4 point 3 removed the "Edit sizes and measurements" button).
+      [PREFS_KEY]: JSON.stringify({
+        colorwayVersion: 4,
+        bodyProfile: { chest: 100 },
+        measureUnits: "cm",
+      }),
     });
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "List view" }));
+    await user.click(await screen.findByRole("button", { name: "Grid view" }));
     await user.click(await screen.findByRole("button", { name: "Open Palace x Nike jersey" }));
     const detail = await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
-    const editSizes = screen.getByRole("button", { name: "Edit sizes and measurements" });
+    const editSizes = await screen.findByRole("button", { name: "Edit my measurements" });
 
     // Phase 4: the sizes editor is the routed settings page now, not a modal
     // over the detail. The detail stays mounted underneath.
@@ -520,6 +558,53 @@ describe("Desktop sizing destination", () => {
     await user.click(screen.getByRole("button", { name: "Back to the shelf" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull());
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
+  });
+});
+
+// Round 4 point 2 (2026-07-29): category left the facts rail. The app keeps
+// its own guess; the ⋯ menu row is the rare fix. This is the CH-07 accept
+// flow (auto value visible, a pick persists with a pin) against its new home.
+describe("Desktop detail category fix (round 4 point 2)", () => {
+  beforeEach(() => window.__setMediaMatches("(min-width: 768px)", true));
+  afterEach(() => window.__setMediaMatches("(min-width: 768px)", false));
+
+  it("the ⋯ menu category row shows the auto value and a pick persists with a pin", async () => {
+    const data = installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ category: "shirt" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    await user.click(await screen.findByRole("button", { name: "Grid view" }));
+    await user.click(await screen.findByRole("button", { name: "Open Palace x Nike jersey" }));
+    await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
+
+    await user.click(screen.getByRole("button", { name: "Card actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Change category" }));
+
+    // CH-07 accept: the auto-detected value is visible without opening the list.
+    const popover = await screen.findByRole("dialog", { name: "Change category" });
+    const row = within(popover).getByRole("button", { name: "Category: Shirts. Change." });
+    expect(row.className).toContain("cz-catselect-btn");
+    expect(within(row).getByText("auto")).toBeInTheDocument();
+
+    await user.click(row);
+    const list = within(popover).getByRole("listbox", { name: "Category" });
+    const shirts = within(list).getByRole("option", { name: "Shirts" });
+    expect(shirts).toHaveAttribute("aria-selected", "true");
+    await user.click(within(list).getByRole("option", { name: "Pants" }));
+
+    await waitFor(() => {
+      const saved = JSON.parse(data[STORE_KEY] || "[]");
+      expect(saved[0].category).toBe("pants");
+      expect(saved[0].categoryManual).toBe(true);
+    });
+    // The pick closes the popover; reopening shows the pick, auto tag dropped.
+    await user.click(screen.getByRole("button", { name: "Card actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Change category" }));
+    const reopened = await screen.findByRole("dialog", { name: "Change category" });
+    const picked = within(reopened).getByRole("button", { name: "Category: Pants. Change." });
+    expect(within(picked).queryByText("auto")).toBeNull();
   });
 });
 
@@ -797,7 +882,7 @@ describe("Stash sheet on desktop (LB-68, Kyle 2026-07-27)", () => {
       // The sheet is on screen: its own title and its own paste box.
       expect(await screen.findByText("Stash to shelf")).toBeInTheDocument();
       expect(
-        await screen.findByPlaceholderText(/Paste a link, a whole/)
+        await screen.findByPlaceholderText(/Paste a link, or a whole/)
       ).toBeInTheDocument();
       // And nothing was taken from the clipboard behind the user's back.
       expect(readText).not.toHaveBeenCalled();
@@ -1076,7 +1161,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
 
     expect(screen.queryByRole("group", { name: "Stash mode" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Reddit haul" })).toBeNull();
-    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
+    const box = await screen.findByPlaceholderText(/Paste a link, or a whole/);
     expect(box).toBeInTheDocument();
     expect(box.getAttribute("aria-label")).toBe("Stash a link or note");
     // Step 4 removed the source dot row and the text-button pair.
@@ -1086,13 +1171,29 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     expect(screen.getByText(/Profile → Import/)).toBeInTheDocument();
   });
 
+  // Shelf handoff 2026-07-28 (README :122-126). The sheet says what to do, what
+  // a haul paste becomes, and offers a way out the thumb can reach.
+  it("names the job, explains a haul paste, and offers Cancel", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await startFromEmptyShelf(user);
+
+    expect(document.querySelector(".cz-stash-kicker").textContent).toBe("Stash a link");
+    expect(screen.getByText(/splits it into one card per line/)).toBeInTheDocument();
+
+    // Cancel closes the sheet, same as the ✕, but within thumb reach.
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(document.querySelector(".cz-stash-body")).toBeNull();
+  });
+
   it("previews what a paste becomes before it stashes anything", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
+    const box = await screen.findByPlaceholderText(/Paste a link, or a whole/);
     fireEvent.change(box, { target: { value: KYLE_POST } });
 
     // Two items in the paste, so the button counts them and the list shows
@@ -1109,7 +1210,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
+    const box = await screen.findByPlaceholderText(/Paste a link, or a whole/);
     fireEvent.change(box, { target: { value: "https://weidian.com/item.html?itemID=7649592219" } });
     await user.click(await screen.findByRole("button", { name: /^Stash · 1 link$/ }));
 
@@ -1125,7 +1226,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
+    const box = await screen.findByPlaceholderText(/Paste a link, or a whole/);
     fireEvent.change(box, { target: { value: "remember the Gats in size 42" } });
     fireEvent.keyDown(box, { key: "Enter" });
 
@@ -1201,7 +1302,7 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
+    const box = await screen.findByPlaceholderText(/Paste a link, or a whole/);
     fireEvent.change(box, { target: { value: KYLE_POST } });
     fireEvent.keyDown(box, { key: "Enter" });
 
@@ -1260,7 +1361,7 @@ describe("Storage hydration race (audit 2026-07-24)", () => {
 
     // Stash a note while the items load is pending.
     await user.click(await screen.findByRole("button", { name: "Stash a link or note" }));
-    const box = await screen.findByPlaceholderText(/Paste a link, a whole/);
+    const box = await screen.findByPlaceholderText(/Paste a link, or a whole/);
     fireEvent.change(box, { target: { value: "stashed during load" } });
     fireEvent.keyDown(box, { key: "Enter" });
     // The stash is in memory only — the load has not resolved, so nothing
@@ -1388,7 +1489,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-carousel-overlay")).toBeNull();
   });
 
-  it("has no edit mode or Save button and shows the four facts sections", async () => {
+  it("has no edit mode or Save button and shows the facts sections", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -1396,41 +1497,20 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     expect(within(sheet).queryByRole("button", { name: /^Save$/ })).toBeNull();
     expect(within(sheet).queryByRole("button", { name: /^Edit$/ })).toBeNull();
-    // Split rail: no tab bar — the four facts are always-visible sections.
+    // Split rail: no tab bar — the facts are always-visible sections. Round 4
+    // (2026-07-29): Size and fit leads, then the Details blocks. The rail
+    // "Size" section folded into Size and fit; Category left the sheet for the
+    // desktop ⋯ menu; the Ordered row is now Bought, one small switch.
     expect(within(sheet).queryAllByRole("tab")).toHaveLength(0);
-    for (const name of ["Size and fit", "Size", "Colorway", "Weight", "Haul"]) {
+    for (const name of ["Size and fit", "Bought", "Haul", "Colorway", "Weight", "Seller"]) {
       expect(within(sheet).getByRole("region", { name })).toBeInTheDocument();
     }
+    expect(within(sheet).queryByRole("region", { name: "Size" })).toBeNull();
+    expect(within(sheet).queryByRole("region", { name: "Category" })).toBeNull();
     expect(within(sheet).queryByRole("region", { name: "Batch" })).toBeNull();
-  });
-
-  it("the category select row shows the auto value and a pick persists with a pin", async () => {
-    const data = installShim({
-      [STORE_KEY]: JSON.stringify([fashionItem({ category: "shirt" })]),
-    });
-    const user = userEvent.setup();
-    render(<Credenza />);
-    const sheet = await openSheet(user);
-
-    // CH-07 accept: the auto-detected value is visible without opening the list.
-    const row = within(sheet).getByRole("button", { name: "Category: Shirts. Change." });
-    expect(row.className).toContain("cz-catselect-btn");
-    expect(within(row).getByText("auto")).toBeInTheDocument();
-
-    await user.click(row);
-    const list = within(sheet).getByRole("listbox", { name: "Category" });
-    const shirts = within(list).getByRole("option", { name: "Shirts" });
-    expect(shirts).toHaveAttribute("aria-selected", "true");
-    await user.click(within(list).getByRole("option", { name: "Pants" }));
-
-    await waitFor(() => {
-      const saved = JSON.parse(data[STORE_KEY] || "[]");
-      expect(saved[0].category).toBe("pants");
-      expect(saved[0].categoryManual).toBe(true);
-    });
-    // The row now shows the pick and drops the auto tag.
-    const picked = within(sheet).getByRole("button", { name: "Category: Pants. Change." });
-    expect(within(picked).queryByText("auto")).toBeNull();
+    // The size override is visible with no tap, inside the fit section.
+    const fit = within(sheet).getByRole("region", { name: "Size and fit" });
+    expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toBeInTheDocument();
   });
 
   it("the Colorway section exposes one editor and the edit persists", async () => {
@@ -1453,30 +1533,60 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("the Size section exposes direct choices and the profile-size route", async () => {
-    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+  it("the Size and fit section exposes direct choices and the profile-size route", async () => {
+    installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({
+          size: "XL",
+          category: "tops",
+          sizeNotes:
+            "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\nXL: 胸围120 衣长72",
+        }),
+      ]),
+      [PREFS_KEY]: JSON.stringify({
+        colorwayVersion: 4,
+        bodyProfile: { chest: 100 },
+        measureUnits: "cm",
+      }),
+    });
     const user = userEvent.setup();
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    // Split rail gap 1: the chips and the odd-size field are their own "Size"
-    // region now (the desktop rail row); the fit read keeps "Size and fit".
-    const sizeRail = within(sheet).getByRole("region", { name: "Size" });
-    expect(within(sizeRail).getByRole("button", { name: "X-Large" })).toHaveAttribute(
+    // Round 4 point 1: the chips and the odd-size field moved into the fit
+    // section, beside the big size word — one place for size, no rail "Size".
+    const fit = within(sheet).getByRole("region", { name: "Size and fit" });
+    expect(within(fit).getByRole("button", { name: "X-Large" })).toHaveAttribute(
       "aria-pressed",
       "true"
     );
-    expect(within(sizeRail).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
+    expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
+    expect(within(sheet).queryByRole("region", { name: "Size" })).toBeNull();
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
-    expect(screen.getByRole("button", { name: "Edit sizes and measurements" })).toBeInTheDocument();
+    // Round 4 point 3: the profile-size route is the fit read footnote.
+    expect(within(fit).getByRole("button", { name: "Edit my measurements" })).toBeInTheDocument();
   });
 
   it("routes customer sizing to the settings page", async () => {
-    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({
+          category: "tops",
+          sizeNotes:
+            "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\nXL: 胸围120 衣长72",
+        }),
+      ]),
+      // A saved profile earns the fit read; its footnote carries the route.
+      [PREFS_KEY]: JSON.stringify({
+        colorwayVersion: 4,
+        bodyProfile: { chest: 100 },
+        measureUnits: "cm",
+      }),
+    });
     const user = userEvent.setup();
     render(<Credenza />);
     const detail = await openSheet(user);
-    const editSizes = screen.getByRole("button", { name: "Edit sizes and measurements" });
+    const editSizes = await screen.findByRole("button", { name: "Edit my measurements" });
 
     // Phase 4: same destination as desktop — the routed sizes section.
     await user.click(editSizes);
@@ -1579,15 +1689,21 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("L");
   });
 
-  it("names the next status step and relabels it after the tap", async () => {
+  // Shelf handoff 2026-07-28: the seven-stop order track is gone. The card
+  // answers one question — did you buy it, or not? Round 4 point 4: the two
+  // large buttons became one small switch.
+  it("turns Bought on with one tap", async () => {
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
-    await user.click(screen.getByRole("button", { name: /^Mark bought/ }));
+    const toggle = screen.getByRole("switch", { name: "Bought" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+
+    await user.click(toggle);
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("bought"));
-    expect(await screen.findByRole("button", { name: /^Mark shipped/ })).toBeInTheDocument();
+    await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("true"));
   });
 
   it("generates a timeline from stored events", async () => {
@@ -1601,7 +1717,8 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(timeline.textContent).toMatch(/Clipped/);
   });
 
-  it("the status track commits on one tap and keeps a sub-state", async () => {
+  it("reads a card saved under the old order pipeline as Bought", async () => {
+    // A card stored as "gl" (QC approved) was paid for, so it stays bought.
     const data = installShim({
       [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "gl" })]),
     });
@@ -1609,56 +1726,15 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     render(<Credenza />);
     await openSheet(user);
 
-    const track = screen.getByRole("radiogroup", { name: "Order status" });
-    const chips = Array.from(track.querySelectorAll("button"));
-    expect(chips.map((c) => c.textContent)).toEqual(["Want", "Bought", "Shipped", "Received"]);
-    // "gl" is a Bought sub-state, so Bought reads as the active stop.
-    expect(chips[1].getAttribute("aria-checked")).toBe("true");
+    const toggle = screen.getByRole("switch", { name: "Bought" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
 
-    // Re-tapping Bought must not downgrade a live gl back to plain bought.
-    await user.click(chips[1]);
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("gl"));
-
-    await user.click(chips[2]);
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("shipped"));
+    // The answer is reversible: a mistaken purchase is one tap back.
+    await user.click(toggle);
+    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("want"));
   });
 
-  // ── Handoff turn 9 §5 / §6 ──
-  it("the next-action pill advances the status in one tap", async () => {
-    // §5: the four equal chips reported state but offered no way forward. A
-    // single right-aligned primary owns the next transition.
-    const data = installShim({
-      [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "want" })]),
-    });
-    const user = userEvent.setup();
-    render(<Credenza />);
-    await openSheet(user);
-
-    // The sub-label says where the order is, in the customer's words.
-    expect(screen.getByText("WANT · NOT ORDERED")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /Mark bought/ }));
-    await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].findStatus).toBe("bought"));
-    // The pill re-aims at the new next step; it is not a one-shot control.
-    expect(await screen.findByRole("button", { name: /Mark shipped/ })).toBeInTheDocument();
-  });
-
-  it("an off-track status shows a detour node, never a fifth step", async () => {
-    // §5: "Off-track states render as a labelled detour node, not a fifth
-    // step." A failed QC is a decision, so it gets no one-tap primary either.
-    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ findStatus: "rl" })]) });
-    const user = userEvent.setup();
-    render(<Credenza />);
-    await openSheet(user);
-
-    const track = screen.getByRole("radiogroup", { name: "Order status" });
-    // Still four stops — the detour did not become a column.
-    expect(track.querySelectorAll("button")).toHaveLength(4);
-    expect(screen.getByText("QC failed")).toBeInTheDocument();
-    expect(screen.getByText("QC FAILED · YOUR CALL")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Mark / })).toBeNull();
-  });
-
+  // ── Handoff turn 9 §6 ──
   it("the timeline is generated from what the item already carries", async () => {
     // §6: "generated from existing events — no new user input". The fixture
     // has a seller, a price, a hand size, and no haul, so it earns two rows.
@@ -1734,12 +1810,15 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     // The label lives inside the box, so the box reads as one object. The
     // toggle changes the box height only — it never swaps in a second field,
     // so focus and the autosave path stay on the one textarea.
-    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    // Round 4 point 5: an EMPTY note is an "Add a note" button; the box itself
+    // is unchanged once a note exists.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ note: "Batch M32126, QC passed" })]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
     const box = document.querySelector(".cz-detail-notes-box");
+    expect(box).not.toBeNull();
     const field = screen.getByRole("textbox", { name: "Notes" });
     expect(box.contains(field)).toBe(true);
     expect(box.classList.contains("is-open")).toBe(false);
@@ -1755,13 +1834,17 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
   it("typing in the notes opens the box, so text is never hidden as you write", async () => {
     // A clamped box that stays clamped while you type is the truncation §7
-    // rejects. Focus opens it.
+    // rejects. Focus opens it. Round 4 point 5: with no note yet, the small
+    // "Add a note" button opens the same box first.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ note: "" })]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
+    expect(document.querySelector(".cz-detail-notes-box")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Add a note" }));
     const box = document.querySelector(".cz-detail-notes-box");
+    expect(box).not.toBeNull();
     expect(box.classList.contains("is-open")).toBe(false);
     await user.click(screen.getByRole("textbox", { name: "Notes" }));
     expect(box.classList.contains("is-open")).toBe(true);
@@ -2140,15 +2223,18 @@ describe("Inline preference controls (CH-14)", () => {
     expect(screen.getAllByText("¥229").length).toBeGreaterThan(1);
   });
 
-  it("the phone tabs row carries the same chip", async () => {
+  // The chip used to ride the tabs row on a phone. The shelf handoff
+  // (2026-07-28) moved it into the docked bottom bar, beside the total it
+  // changes. There must be exactly ONE on a phone: two chips can disagree.
+  it("the phone docked bar carries the same chip, and only one", async () => {
     window.__setMediaMatches("(max-width: 767px)", true);
     try {
       installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
       render(<Credenza />);
       await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ });
-      expect(
-        await screen.findByRole("button", { name: "Show prices in CNY" })
-      ).toBeInTheDocument();
+      const chip = await screen.findByRole("button", { name: "Show prices in CNY" });
+      expect(chip.closest(".cz-stash-dock")).not.toBeNull();
+      expect(screen.getAllByRole("button", { name: "Show prices in CNY" })).toHaveLength(1);
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);
     }

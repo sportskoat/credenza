@@ -160,7 +160,9 @@ describe("migrateItem maximal round-trip (plan §11)", () => {
     expect(once.weightGrams).toBe(950);
     expect(once.variants[0].title).toBe("鞋码");
     expect(once.favorite).toBe(true);
-    expect(once.findStatus).toBe("qc");
+    // "qc" migrates forward to "bought": everything past want was bought
+    // (shelf handoff 2026-07-28).
+    expect(once.findStatus).toBe("bought");
   });
 
   it("drops unknown fields (whitelist trap)", () => {

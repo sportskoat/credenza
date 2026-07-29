@@ -35,7 +35,56 @@ describe("PhotoShelfList", () => {
     expect(cards[1]).toHaveAttribute("aria-current", "true");
     expect(within(cards[0]).getByText("Mook-official")).toBeInTheDocument();
     expect(within(cards[0]).getByText("Palace x Nike jersey")).toBeInTheDocument();
-    expect(within(cards[0]).getByText("View ›")).toBeInTheDocument();
+  });
+
+  // The card face carries the listing code and the photo count, and both open
+  // the album. A card with no album shows neither, rather than a dead link.
+  it("shows the listing code and the photo count as album links", () => {
+    render(
+      <PhotoShelfList
+        items={[
+          item({
+            url: "https://x.yupoo.com/albums/98765432",
+            albumId: "M29855-51E",
+            albumPhotoCount: 3,
+          }),
+        ]}
+        selectedId={null}
+        onOpenDetail={vi.fn()}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "M29855-51E" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View all 3 photos" })).toBeInTheDocument();
+  });
+
+  it("marks a card Bought only after the item is ordered", () => {
+    const { rerender } = render(
+      <PhotoShelfList
+        items={[item()]}
+        selectedId={null}
+        onOpenDetail={vi.fn()}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Bought")).not.toBeInTheDocument();
+    expect(document.querySelector(".cz-card-status-tag")).toBeNull();
+
+    rerender(
+      <PhotoShelfList
+        items={[item({ findStatus: "bought" })]}
+        selectedId={null}
+        onOpenDetail={vi.fn()}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+    // Round 4 point 6: the shared StatusTag — the same mark the carousel card
+    // draws, positioned by the is-grid modifier.
+    const tag = document.querySelector(".cz-card-status-tag");
+    expect(tag).not.toBeNull();
+    expect(tag.className).toContain("is-grid");
+    expect(screen.getByText("Bought")).toBeInTheDocument();
   });
 
   it("keeps detail and Favorite actions separate", () => {

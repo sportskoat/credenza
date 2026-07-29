@@ -273,7 +273,7 @@ button {
 .cz-toast-region {
   position: fixed;
   inset-inline: 16px;
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   z-index: 70;
   display: flex;
   justify-content: center;

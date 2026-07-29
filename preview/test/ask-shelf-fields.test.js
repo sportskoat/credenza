@@ -99,7 +99,9 @@ describe("LB-56 · the Ask boundary mirrors the client serializer", () => {
     for (const field of ["findStatus", "priceUsd", "ageDays", "importance", "seller", "batch", "size", "colorway"]) {
       expect(prompt).toContain(field);
     }
-    for (const status of ["want", "bought", "shipped", "qc", "gl", "rl", "returned"]) {
+    // Two order values since the shelf handoff (2026-07-28). See
+    // credenza-find-status.js.
+    for (const status of ["want", "bought"]) {
       expect(prompt).toMatch(new RegExp(`\\b${status}\\b`));
     }
   });

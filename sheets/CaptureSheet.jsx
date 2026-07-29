@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Link2 } from "lucide-react";
 import { ModalShell, stashPreview } from "../credenza-fashion.jsx";
 
 // Stash sheet. Built for the phone (shelf handoff step 4, 2026-07-25), opened
@@ -104,6 +104,13 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
   return (
     <ModalShell title="Stash to shelf" onClose={onClose} maxWidth={520} surfaceClassName="cz-stash-surface">
       <div className="cz-stash-body">
+        {/* Kicker (shelf handoff 2026-07-28, README :122). The sheet title sits
+            in the shell chrome; this names the job inside the body, where the
+            eye lands first on a phone. */}
+        <div className="cz-stash-kicker" aria-hidden="true">
+          Stash a link
+        </div>
+
         {/* State A: the clipboard preview. The raw text shows verbatim, so an
             obfuscated or truncated link is visible before it is stashed. */}
         {!showBox && clip && (
@@ -120,6 +127,8 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
         {/* State B: the paste box. 16px type is required — anything smaller
             makes iOS zoom the page on focus. */}
         {showBox && (
+          <div className="cz-stash-pastewrap">
+          <Link2 className="cz-stash-paste-glyph" size={15} strokeWidth={2.2} aria-hidden="true" />
           <textarea
             ref={textareaRef}
             className="cz-stash-paste"
@@ -138,9 +147,10 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
                 if (typed) onStash(typed, reviewAsNote ? { asNote: true } : {});
               }
             }}
-            placeholder="Paste a link, a whole Reddit haul, or a note"
+            placeholder="Paste a link, or a whole haul block"
             rows={4}
           />
+          </div>
         )}
 
         {pasteError && <p className="cz-stash-error">{pasteError}</p>}
@@ -196,6 +206,22 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
             Stash something else instead
           </button>
         )}
+
+        {/* What a haul paste becomes (shelf handoff 2026-07-28, README :125).
+            A person pastes a whole Reddit comment and expects one card. This
+            line sets the expectation before the button, not after it. */}
+        <p className="cz-stash-note">
+          Paste a Reddit haul comment and Credenza splits it into one card per line. Lines it
+          can&apos;t read stay as text — nothing is dropped.
+        </p>
+
+        {/* A way out that is not the ✕ (shelf handoff 2026-07-28, README :126).
+            On a phone the ✕ sits at the far top corner, away from the thumb. */}
+        <div className="cz-stash-cancel-row">
+          <button type="button" className="cz-stash-cancel" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
 
         {/* This sheet takes text only. A file needs Profile → Import, on
             every screen, so the pointer belongs here. */}

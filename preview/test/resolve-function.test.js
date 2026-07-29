@@ -91,6 +91,23 @@ describe("classifyBuyLink", () => {
       encodeURIComponent("https://weidian.com/item.html?itemID=7777810977");
     expect(classifyBuyLink(wrapped)).toEqual({ marketplace: "weidian", itemId: "7777810977" });
   });
+
+  it("unwraps usfans path links with the usfans codes, not the hoobuy ones", () => {
+    // usfans: 3 weidian / 4 1688 / 5 taobao (probed live 2026-07-28).
+    // hoobuy would read 3 as 1688 — the map keys off the host.
+    expect(unwrapAgentBuyLink("https://usfans.com/product/3/7800400500")).toEqual({
+      marketplace: "weidian",
+      itemId: "7800400500",
+    });
+    expect(unwrapAgentBuyLink("https://usfans.com/product/5/856801351597")).toEqual({
+      marketplace: "taobao",
+      itemId: "856801351597",
+    });
+    expect(unwrapAgentBuyLink("https://hoobuy.com/product/3/712345678901")).toEqual({
+      marketplace: "1688",
+      itemId: "712345678901",
+    });
+  });
 });
 
 describe("parseWorldTaobaoHtml", () => {
