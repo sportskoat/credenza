@@ -171,6 +171,15 @@ describe("DetailBody detail facts", () => {
     );
   });
 
+  it("opens the odd-size box with no tap when the stored size matches no chip", () => {
+    // Round 5 point 5.7, rule 4: an odd size must never hide. "170/92A" is
+    // not on the chart, so the box renders open on its own.
+    render(body(item("odd-size", { size: "170/92A" })));
+
+    expect(screen.queryByRole("button", { name: "Type a different size" })).toBeNull();
+    expect(screen.getByLabelText("Custom item size")).toHaveValue("170/92A");
+  });
+
   it("keeps Colorway, Weight, and Haul editing inline in their sections", async () => {
     const user = userEvent.setup();
     const onSaveEdit = vi.fn();
