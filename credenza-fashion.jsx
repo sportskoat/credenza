@@ -3815,6 +3815,24 @@ export function formatSizeToken(raw) {
   return s.toUpperCase();
 }
 
+// The chip run in the detail panel (SIZE_CHIP_COMPACT_PLAN, 2026-07-29):
+// four full words ("Medium", "X-Large", …) plus the Other box overflowed one
+// row, so the chips print the short mark the seller wrote — "XL", not
+// "X-Large". The card face and hero line keep the full words via
+// formatSizeToken; Kyle's full-word ruling never named the chip row. Free-
+// and one-size tokens have no short mark, so they print "Free" / "OS".
+// Everything else falls back to formatSizeToken (waist numbers, odd tokens).
+export function compactSizeToken(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const key = s.toLowerCase().replace(/\s+/g, "");
+  if (key === "free" || key === "f" || key === "均码") return "Free";
+  if (key === "one" || key === "os") return "OS";
+  // A letter size the word map knows prints as the short mark it came in as.
+  if (SIZE_WORD_LABELS[key]) return s.toUpperCase();
+  return formatSizeToken(s);
+}
+
 // Height + weight stand in for the tape-measure fields most customers do not
 // know (Kyle 2026-07-25: he set his numbers and got no recommendation
 // anywhere — recommendSize only reads chest/waist/hip). The estimate scales

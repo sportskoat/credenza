@@ -600,3 +600,48 @@ describe("DetailBody size tap drives the numbers", () => {
     expect(screen.queryByText(/we'd take the/)).toBe(null);
   });
 });
+
+// SIZE_CHIP_COMPACT_PLAN (2026-07-29): the no-chart chip run prints the
+// short size mark ("XL") so four chips plus the Other box fit one row. The
+// full word moves to the aria-label; the card face and hero line keep it.
+describe("DetailBody compact size chips (no chart)", () => {
+  const chipItem = (id, values) =>
+    item(id, {
+      sizeNotes: "",
+      sizeChartSource: null,
+      variants: [{ title: "Size", values }],
+    });
+  const chipRow = (container) => container.querySelector(".cz-detail-size-choices");
+
+  it("prints the short mark on the chip, the full word in the aria-label", () => {
+    const { container } = render(body(chipItem("chip-compact", ["M", "L", "XL", "XXL"])));
+
+    const row = chipRow(container);
+    expect(row).not.toBeNull();
+    const labels = [...row.querySelectorAll("button")].map((b) => b.textContent);
+    expect(labels).toEqual(["M", "L", "XL", "XXL"]);
+    expect(row.textContent).not.toContain("X-Large");
+    expect(within(row).getByRole("button", { name: "X-Large" }).textContent).toBe("XL");
+    expect(within(row).getByRole("button", { name: "Medium" }).textContent).toBe("M");
+  });
+
+  it("prints Free for a 均码 token", () => {
+    const { container } = render(body(chipItem("chip-free", ["均码"])));
+
+    const chip = within(chipRow(container)).getByRole("button", { name: "Free size" });
+    expect(chip.textContent).toBe("Free");
+  });
+
+  it("shows Clear size once a chip is picked, and the tap still picks", () => {
+    const { container } = render(body(chipItem("chip-clear", ["M", "L", "XL", "XXL"])));
+
+    expect(screen.queryByRole("button", { name: "Clear size" })).toBeNull();
+    fireEvent.click(within(chipRow(container)).getByRole("button", { name: "X-Large" }));
+    // Oom 2026-07-29: the proof row is the full row — a sixth box appears
+    // once a size is chosen.
+    expect(screen.getByRole("button", { name: "Clear size" })).toBeInTheDocument();
+    expect(
+      within(chipRow(container)).getByRole("button", { name: "X-Large" })
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+});

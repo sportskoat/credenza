@@ -21,6 +21,7 @@ import {
   fitPrefLabel,
   fitReadRows,
   formatMeasure,
+  compactSizeToken,
   formatSizeToken,
   itemPhotoList,
   DETAIL_PHOTO_CAP,
@@ -1002,9 +1003,12 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
                   (recommended ? " is-recommended" : "")
                 }
                 aria-pressed={active}
+                aria-label={formatSizeToken(size) || size}
                 onClick={() => onPick(String(size))}
               >
-                {formatSizeToken(size) || size}
+                {/* Compact mark on the face ("XL"), full word for the screen
+                    reader ("X-Large") — SIZE_CHIP_COMPACT_PLAN 2026-07-29. */}
+                {compactSizeToken(size) || size}
               </button>
             );
           })}
