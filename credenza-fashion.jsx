@@ -882,6 +882,46 @@ export function serializeSizeChart(chart) {
   return lines.join("\n");
 }
 
+// Sleeve style of the garment: "short" | "long" | "unknown" (sleeve fix
+// 2026-07-29, PLANS/SLEEVE_FIT_FIX_PLAN.md). A short-sleeve chart lists
+// sleeves of 20–25 cm, so comparing them against the ~62 cm arm always
+// failed the fit read with a false "does not fit". Decision order, amended
+// per Oom's review: LONG title words win first — "long sleeve tee" and
+// 长袖T恤 hold a short word but are long garments — then SHORT words, then
+// the number rule (every chart sleeve under 40 cm means short). "polo" is
+// deliberately not a short word: long-sleeve polos exist, and short-sleeve
+// polo charts fall to the number rule. Chinese words do not sit on word
+// boundaries, so they match as plain substrings (the weight-index PR hit
+// this exact bug). Pure — no DOM, no network, no storage.
+const SLEEVE_LONG_RES = [
+  /long[-\s]?sleeves?\b/i,
+  /(?:^|[^a-z0-9])l\/s(?:[^a-z0-9]|$)/i,
+];
+const SLEEVE_SHORT_RES = [
+  /\btees?\b/i,
+  /\bt[-\s]?shirts?\b/i,
+  /short[-\s]?sleeves?\b/i,
+  /(?:^|[^a-z0-9])s\/s(?:[^a-z0-9]|$)/i,
+];
+const SLEEVE_LONG_ZH = ["长袖"];
+const SLEEVE_SHORT_ZH = ["短袖", "t恤"];
+export function sleeveStyle(title, chart) {
+  const t = String(title || "").toLowerCase();
+  if (t) {
+    if (SLEEVE_LONG_RES.some((re) => re.test(t)) || SLEEVE_LONG_ZH.some((w) => t.includes(w))) {
+      return "long";
+    }
+    if (SLEEVE_SHORT_RES.some((re) => re.test(t)) || SLEEVE_SHORT_ZH.some((w) => t.includes(w))) {
+      return "short";
+    }
+  }
+  const sleeves = (chart && Array.isArray(chart.rows) ? chart.rows : [])
+    .map((r) => (r && r.sleeve != null ? Number(r.sleeve) : null))
+    .filter((v) => v != null && isFinite(v));
+  if (sleeves.length > 0 && sleeves.every((v) => v < 40)) return "short";
+  return "unknown";
+}
+
 // Pick a size from a parsed chart against a body profile (all cm; weight kg).
 // Tops → chest (+ease). Bottoms → waist, falling back to hip when the chart
 // only lists 臀围 (common Yupoo pants/shorts sheets). Outerwear gets more ease.
@@ -898,7 +938,9 @@ export function serializeSizeChart(chart) {
 // recommendation's centimetres under whichever size he tapped). A forced read
 // skips applyFitPreference: taste already moved the recommendation, and
 // nudging a hand pick would answer a tap with a different size.
-export function recommendSize(chart, profile, category, fitPref = null, forceSize = null) {
+// Optional title (6th arg): on a confirmed short-sleeve garment the sleeve
+// penalty is skipped — a tee's 22 cm sleeve is not a fit failure.
+export function recommendSize(chart, profile, category, fitPref = null, forceSize = null, title = null) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
   const p = profile || {};
   const rows = chart.rows;
@@ -963,11 +1005,14 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const candidates = rows.filter((r) => r[primaryKey] != null);
   if (candidates.length < 2) return null;
   const isTop = primaryKey === "chest";
+  // Confirmed short sleeve: the chart's 20–25 cm sleeves are by design, not a
+  // fit failure, so they carry no penalty. Long/unknown keeps the penalty.
+  const skipSleevePenalty = sleeveStyle(title, chart) === "short";
   const score = (r) => {
     let s = Math.abs(r[primaryKey] - target);
     if (isTop && p.shoulder != null && r.shoulder != null) s += Math.abs(r.shoulder - (p.shoulder + 2)) * 0.4;
     // Sleeves shorter than the arm are worse than sleeves that run long.
-    if (isTop && p.sleeve != null && r.sleeve != null) s += Math.max(0, p.sleeve - r.sleeve) * 0.6;
+    if (isTop && !skipSleevePenalty && p.sleeve != null && r.sleeve != null) s += Math.max(0, p.sleeve - r.sleeve) * 0.6;
     // Secondary hip nudge on bottoms when both sides have it.
     if (!isTop && primaryKey === "waist" && p.hip != null && r.hip != null) {
       s += Math.abs(r.hip - (p.hip + 2)) * 0.35;
@@ -1073,7 +1118,7 @@ const FIT_READ_EASE = {
   hip: { ideal: 2, span: 4 },
 };
 
-export function fitReadRows(chart, rec, profile, category) {
+export function fitReadRows(chart, rec, profile, category, title = null) {
   const picked = rec && rec.row ? rec.row : null;
   const p = profile || {};
   const isBottoms =
@@ -1081,6 +1126,10 @@ export function fitReadRows(chart, rec, profile, category) {
     category === "pants" ||
     category === "shorts";
   const order = isBottoms ? FIT_READ_BOTTOM_ORDER : FIT_READ_TOP_ORDER;
+  // Confirmed short sleeve: the sleeve row stays (the numbers are real) but
+  // becomes information only, like Body length — no ease, no mark, no warn.
+  // Long/unknown keeps the verdict: when unsure, we keep the warning.
+  const shortSleeve = sleeveStyle(title, chart) === "short";
   // Body length on a bottoms chart is the same "Length" idea as 裤长; only
   // one of the two keys renders, pantsLength first.
   const rows = [];
@@ -1093,8 +1142,9 @@ export function fitReadRows(chart, rec, profile, category) {
     const rawYours = bodyKey != null && p[bodyKey] != null ? Number(p[bodyKey]) : null;
     const yours = rawYours != null && isFinite(rawYours) ? rawYours : null;
     if (theirs == null && yours == null) continue;
-    const target = FIT_READ_EASE[key] || null;
-    const ease = theirs != null && yours != null ? theirs - yours : null;
+    const infoOnly = shortSleeve && key === "sleeve";
+    const target = infoOnly ? null : FIT_READ_EASE[key] || null;
+    const ease = infoOnly ? null : theirs != null && yours != null ? theirs - yours : null;
     let mark = null;
     let warn = false;
     if (ease != null && target) {
@@ -1107,7 +1157,9 @@ export function fitReadRows(chart, rec, profile, category) {
       key,
       name: FIT_READ_LABELS[key] || key,
       theirs,
-      yours,
+      // Option B (Kyle 2026-07-29): a short sleeve shows only the garment
+      // number. The arm length measures a different thing, so YOURS hides.
+      yours: infoOnly ? null : yours,
       ease,
       mark,
       warn,
@@ -3861,7 +3913,7 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
       ? fitPrefs[item.category]
       : null;
   const rec = chart
-    ? recommendSize(chart, effectiveBodyProfile(bodyProfile), item.category, catPref)
+    ? recommendSize(chart, effectiveBodyProfile(bodyProfile), item.category, catPref, null, item.title)
     : null;
   return rec && rec.size ? String(rec.size).trim() : null;
 }

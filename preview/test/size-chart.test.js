@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, usualSizeForItem } from "../../credenza-fashion.jsx";
+import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, sleeveStyle, usualSizeForItem } from "../../credenza-fashion.jsx";
 
 describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
   it("maps tops / bottoms / shoes slots", () => {
@@ -340,6 +340,86 @@ describe("recommendSize", () => {
     expect(rec.garment).toBe(108);
     expect(rec.body).toBe(96);
     expect(rec.diff).toBe(12);
+  });
+});
+
+// Sleeve fix 2026-07-29 (PLANS/SLEEVE_FIT_FIX_PLAN.md): a short-sleeve chart
+// lists 20–25 cm sleeves, so the old compare against the ~62 cm arm always
+// failed with a false "does not fit". sleeveStyle decides short/long/unknown
+// — long title words first, short title words next, then the number rule
+// (every chart sleeve under 40 cm). Unknown keeps the warning.
+describe("sleeveStyle", () => {
+  const teeChart = parseSizeChart(
+    "M: 胸围112 衣长68 袖长22\nL: 胸围120 衣长72 袖长23"
+  );
+  const longChart = parseSizeChart(
+    "M: 胸围112 衣长68 袖长58\nL: 胸围120 衣长72 袖长60"
+  );
+
+  it("calls short-sleeve title words short", () => {
+    expect(sleeveStyle("Vintage band tee", longChart)).toBe("short");
+    expect(sleeveStyle("Heavyweight T-shirt", longChart)).toBe("short");
+    expect(sleeveStyle("短袖T恤", longChart)).toBe("short");
+  });
+
+  it("lets long-sleeve title words win over a short word in the same title", () => {
+    expect(sleeveStyle("Heavyweight long sleeve thermal", teeChart)).toBe("long");
+    expect(sleeveStyle("Long sleeve tee", teeChart)).toBe("long");
+    expect(sleeveStyle("长袖T恤", teeChart)).toBe("long");
+    expect(sleeveStyle("长袖衬衫", teeChart)).toBe("long");
+  });
+
+  it("does not treat polo or a bare shirt as a style word", () => {
+    expect(sleeveStyle("Polo", longChart)).toBe("unknown");
+    expect(sleeveStyle("Oxford shirt", longChart)).toBe("unknown");
+  });
+
+  it("calls every chart sleeve under 40 cm short, even without a title word", () => {
+    expect(sleeveStyle("Polo", teeChart)).toBe("short");
+    expect(sleeveStyle("Oxford shirt", teeChart)).toBe("short");
+    expect(sleeveStyle("", teeChart)).toBe("short");
+  });
+
+  it("blocks the number rule when one chart sleeve is 40 cm or more", () => {
+    const mixed = parseSizeChart(
+      "M: 胸围112 衣长68 袖长24\nL: 胸围120 衣长72 袖长60"
+    );
+    expect(sleeveStyle("Polo", mixed)).toBe("unknown");
+    expect(sleeveStyle("Polo", longChart)).toBe("unknown");
+  });
+
+  it("does not match tee inside another word", () => {
+    expect(sleeveStyle("Guaranteed softest flannel", longChart)).toBe("unknown");
+  });
+});
+
+describe("recommendSize sleeve penalty (short-sleeve fix)", () => {
+  // Chest is a wash (target 112): M exact, L 1 cm off. Sleeves decide it.
+  const washChart = parseSizeChart(
+    "M: 胸围112 衣长68 袖长58\nL: 胸围113 衣长70 袖长63"
+  );
+  const shortChart = parseSizeChart(
+    "M: 胸围112 衣长68 袖长22\nL: 胸围113 衣长70 袖长23"
+  );
+  const profile = { chest: 100, sleeve: 62 };
+
+  it("does not move the pick up a size for a short-sleeve tee", () => {
+    // Unknown style: the penalty drags the pick to L (its sleeve covers).
+    expect(recommendSize(washChart, profile, "shirt", null, null, "Oxford shirt").size).toBe("L");
+    // Confirmed short sleeve: no penalty, the chest pick M stands.
+    expect(recommendSize(washChart, profile, "shirt", null, null, "Vintage band tee").size).toBe("M");
+  });
+
+  it("skips the penalty through the number rule with no title word", () => {
+    expect(recommendSize(shortChart, profile, "shirt", null, null, "Polo").size).toBe("M");
+  });
+
+  it("keeps the penalty on a long-sleeve title", () => {
+    expect(recommendSize(washChart, profile, "shirt", null, null, "Long sleeve tee").size).toBe("L");
+  });
+
+  it("keeps old calls working with no title argument", () => {
+    expect(recommendSize(washChart, profile, "shirt").size).toBe("L");
   });
 });
 

@@ -159,7 +159,7 @@ function useSizeVerdict(
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
   // so the badge never claims a precise fit it does not have.
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
-  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
+  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref, null, item.title) : null;
   const recSize = rec && rec.size ? rec.size : null;
   // `rec` is the advice; `shown` is what every printed number describes. They
   // are the same until the customer taps a different size, and then the panel
@@ -167,7 +167,7 @@ function useSizeVerdict(
   // the tap, the advice line keeps the recommendation).
   const pickRead =
     chosenSize && chart && profile
-      ? recommendSize(chart, profile, item.category, fitPref, chosenSize)
+      ? recommendSize(chart, profile, item.category, fitPref, chosenSize, item.title)
       : null;
   const overridden = !!(
     pickRead &&
@@ -715,7 +715,7 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
             {r.yours != null ? formatMeasure(r.yours, units) : "—"}
           </span>
           <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
-            {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : ""}
+            {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "—"}
           </span>
         </div>
       ))}
@@ -1776,9 +1776,10 @@ export default function DetailBody({
             verdict.chart,
             verdict.shown,
             effectiveBodyProfile(bodyProfile),
-            item.category
+            item.category,
+            item.title
           ),
-    [verdict.chart, verdict.shown, bodyProfile, item.category]
+    [verdict.chart, verdict.shown, bodyProfile, item.category, item.title]
   );
   // "Forget this chart" (split rail): the parse was wrong, so the stored
   // measurements go. Only offered when dropping sizeNotes actually kills the

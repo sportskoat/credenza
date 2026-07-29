@@ -104,6 +104,84 @@ describe("fitReadRows", () => {
     }
     expect(rows[0].yours).toBe(105);
   });
+
+  // Sleeve fix 2026-07-29: a confirmed short-sleeve garment keeps its sleeve
+  // row as information only — numbers, no ease, no mark, no warn. Long or
+  // unknown keeps the verdict. Profile arm is 62 cm.
+  const SLEEVE_TEXT =
+    "M: chest 116, shoulder 46, length 70, sleeve 22\nL: chest 120, shoulder 48, length 72, sleeve 23";
+
+  it("shows the sleeve row as information only on a short-sleeve tee", () => {
+    const chart = parseSizeChart(SLEEVE_TEXT);
+    const profile = { chest: 105, sleeve: 62 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "Vintage band tee");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "Vintage band tee");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve.theirs).toBe(22);
+    // Option B (Kyle 2026-07-29): the arm length measures a different thing,
+    // so YOURS hides on a short sleeve. Only the garment number shows.
+    expect(sleeve.yours).toBe(null);
+    expect(sleeve.ease).toBe(null);
+    expect(sleeve.mark).toBe(null);
+    expect(sleeve.warn).toBe(false);
+  });
+
+  it("shows the sleeve row as information only for a Chinese short-sleeve title", () => {
+    const chart = parseSizeChart(SLEEVE_TEXT);
+    const profile = { chest: 105, sleeve: 62 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "短袖T恤");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "短袖T恤");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve.yours).toBe(null);
+    expect(sleeve.ease).toBe(null);
+    expect(sleeve.warn).toBe(false);
+  });
+
+  it("keeps the sleeve warning on a long-sleeve title with a short chart", () => {
+    const chart = parseSizeChart(SLEEVE_TEXT);
+    const profile = { chest: 105, sleeve: 62 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "长袖T恤");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "长袖T恤");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    // 22 vs 62 is far outside the band: the warning must stay.
+    expect(sleeve.ease).toBe(-40);
+    expect(sleeve.warn).toBe(true);
+  });
+
+  it("keeps the sleeve warning when the style is unknown", () => {
+    const chart = parseSizeChart(
+      "M: chest 116, shoulder 46, length 70, sleeve 58\nL: chest 120, shoulder 48, length 72, sleeve 60"
+    );
+    const profile = { chest: 105, sleeve: 68 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "Oxford shirt");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "Oxford shirt");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve.ease).not.toBe(null);
+    expect(sleeve.warn).toBe(true);
+  });
+
+  it("applies the number rule with no title word: polo with 24 cm sleeves", () => {
+    const chart = parseSizeChart(
+      "M: chest 116, shoulder 46, length 70, sleeve 24\nL: chest 120, shoulder 48, length 72, sleeve 25"
+    );
+    const profile = { chest: 105, sleeve: 62 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "Polo");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "Polo");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve.ease).toBe(null);
+    expect(sleeve.warn).toBe(false);
+  });
+
+  it("blocks the number rule when one sleeve is 40 cm or more: polo with 60 cm", () => {
+    const chart = parseSizeChart(
+      "M: chest 116, shoulder 46, length 70, sleeve 24\nL: chest 120, shoulder 48, length 72, sleeve 60"
+    );
+    const profile = { chest: 105, sleeve: 62 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "Polo");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "Polo");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve.ease).not.toBe(null);
+  });
 });
 
 function fitItem(extra = {}) {
