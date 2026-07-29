@@ -120,7 +120,7 @@ export default function SizeRecommendation({
   const catAxes = FIT_PREF_AXES[item.category] || null;
   const rec =
     chart && bodyProfile
-      ? recommendSize(chart, effectiveBodyProfile(bodyProfile), item.category, fitPref)
+      ? recommendSize(chart, effectiveBodyProfile(bodyProfile), item.category, fitPref, null, item.title)
       : null;
   const recSize = rec && rec.size ? rec.size : null;
   // An estimated profile (height+weight stand-ins) shows a pick but never
