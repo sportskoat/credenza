@@ -715,7 +715,7 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
             {r.yours != null ? formatMeasure(r.yours, units) : "—"}
           </span>
           <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
-            {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : ""}
+            {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "—"}
           </span>
         </div>
       ))}
