@@ -97,29 +97,54 @@ describe("Type tokens are the only font stacks (LB-69)", () => {
     expect(jsx).toMatch(/export const MONO = "var\(--cz-mono\)";/);
   });
 
-  it("every public page uses the tokens and defines them locally", () => {
+  it("the shared public stylesheet names only tokens", () => {
+    // /site.css is where the public site's type lives since Kyle's option B
+    // (2026-07-29). It is the one file 36 pages read, so a raw family here
+    // would reach every page at once.
+    const css = fs.readFileSync(path.join(PUBLIC, "site.css"), "utf8");
+    for (const value of declarations(css)) {
+      expect(isToken(value), `site.css declares font-family: ${value}`).toBe(true);
+    }
+    for (const token of TOKENS) {
+      expect(css, `site.css does not define ${token}`).toMatch(
+        new RegExp(`${token}\\s*:\\s*\\S`)
+      );
+    }
+  });
+
+  it("every public page uses the tokens and can resolve them", () => {
     const pages = htmlPages(PUBLIC);
     expect(pages.length).toBeGreaterThan(20);
-    let withType = 0;
+    // Before option B this counted pages that declared type inline, because
+    // that was the only way a page got any. Now most pages declare none and
+    // read /site.css instead, so the guard counts pages this rule actually
+    // examined — a refactor that quietly unhooks the sheet drops the count.
+    let checked = 0;
     for (const file of pages) {
       const text = fs.readFileSync(file, "utf8");
       const values = declarations(text);
-      if (!values.length) continue;
-      withType++;
+      if (!values.length && !text.includes('href="/site.css"')) continue;
+      checked++;
       const where = path.relative(PUBLIC, file);
       for (const value of values) {
         expect(isToken(value), `${where} declares font-family: ${value}`).toBe(true);
       }
-      // A page that USES a token must also DEFINE it: these pages carry their
-      // own chrome and share no stylesheet, so an undefined token renders in
-      // the browser default face — the exact drift this test exists to stop.
+      // A page that USES a token must be able to RESOLVE it, or it renders in
+      // the browser default face — the drift this test exists to stop. Until
+      // 2026-07-29 every page defined its own copy, so "defines it locally"
+      // was the whole rule. Kyle's option B moved the shared tokens into
+      // /site.css, so a page now satisfies this by linking that sheet. A page
+      // that does neither still fails.
+      const sharesSheet = text.includes('href="/site.css"');
       for (const token of TOKENS) {
         if (!text.includes(`var(${token})`)) continue;
-        expect(text, `${where} uses ${token} without defining it`).toMatch(
-          new RegExp(`${token}\\s*:\\s*\\S`)
-        );
+        const definesLocally = new RegExp(`${token}\\s*:\\s*\\S`).test(text);
+        expect(
+          sharesSheet || definesLocally,
+          `${where} uses ${token} but neither links /site.css nor defines it`
+        ).toBe(true);
       }
     }
-    expect(withType).toBeGreaterThan(20);
+    expect(checked, "this rule examined almost no pages").toBeGreaterThan(20);
   });
 });
