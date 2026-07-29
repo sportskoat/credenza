@@ -25,7 +25,11 @@ export function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = DE
     <div className="cz-edit-photos">
       <div className="cz-edit-photos-label">
         <span>Photos</span>
-        <span className="cz-edit-photos-count">{photos.length}/{max}</span>
+        {/* Oom review, OPEN 2 (2026-07-29): "{n}/{cap}" read as "1 of 24
+            photos" on a one-photo item. The count names how many photos the
+            item HAS; the cap is our storage budget, not the customer's
+            number. A full strip already says so by hiding the Add tile. */}
+        <span className="cz-edit-photos-count">{photos.length}</span>
       </div>
       <div className="cz-edit-photos-grid">
         {photos.map((src, idx) => (

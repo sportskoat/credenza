@@ -11800,6 +11800,14 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   border-top: 1px solid var(--cz-hair);
 }
 
+/* Oom review, OPEN 1 (2026-07-29): in the desktop panel the block sat flush
+   with the right content edge — at the panel's 1.25 zoom the provenance word
+   ("SELLER'S CHART") and the last size cell read as touching the border. The
+   block carries its own right padding there; the phone sheet is untouched. */
+.cz-dpanel .cz-sizing {
+  padding-right: 16px;
+}
+
 .cz-sizing-head {
   display: flex;
   align-items: center;
