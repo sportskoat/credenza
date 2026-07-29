@@ -153,7 +153,7 @@ describe("§3 no-chart state", () => {
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     // Three photos: the cover plus the two gallery frames.
-    expect(screen.getByText("Read this item’s 3 album photos")).toBeInTheDocument();
+    expect(screen.getByText("Read the 3 album photos")).toBeInTheDocument();
     expect(document.querySelectorAll(".cz-sizing-albumthumb").length).toBe(2);
   });
 
@@ -365,7 +365,7 @@ describe("§3 read and confirm", () => {
     renderBody(chartless({ gallery: ["https://si.geilicdn.com/a.jpg"] }));
 
     await screen.findByText("No chart");
-    await user.click(screen.getByRole("button", { name: /Read this item.s 2 album photos/ }));
+    await user.click(screen.getByRole("button", { name: /Read the 2 album photos/ }));
 
     await screen.findByText("Use this chart");
     expect(urlReadMock).toHaveBeenCalledTimes(1);

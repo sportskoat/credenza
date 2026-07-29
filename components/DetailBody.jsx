@@ -564,7 +564,10 @@ function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCou
             ))}
           </span>
           <span className="cz-sizing-albumtext">
-            Read the {albumCount} seller photo{albumCount === 1 ? "" : "s"} for a size chart
+            {/* Command-bar handoff §7.5 / §14 (2026-07-29): the final copy is
+                "Read the N album photos". Round 5.2 had briefly renamed this to
+                "seller photos", which no longer matches the spec's copy deck. */}
+            Read the {albumCount} album photo{albumCount === 1 ? "" : "s"}
           </span>
           <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
         </button>
