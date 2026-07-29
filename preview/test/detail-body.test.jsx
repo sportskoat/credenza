@@ -516,3 +516,87 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
     expect(container.querySelector(".cz-fit4-pref-bar")).toBe(null);
   });
 });
+
+// Kyle 2026-07-29: he tapped Large and the panel kept printing the Small's
+// centimetres. Fable's ruling: the numbers follow the tap, and the advice line
+// still names the size we would take. These tests read the NUMBER out of the
+// panel after the tap — the first check of this fault compared the panel's
+// whole text, which changes on any tap, so a frozen number slipped through.
+describe("DetailBody size tap drives the numbers", () => {
+  // CHART_TEXT is M 116 / L 120 / XL 124; a 96cm chest wants 108cm, so the
+  // recommendation is the M. The profile holds numbers, the shape
+  // measureToStorage saves.
+  // onSaveBodyProfile is what lets the confidence strip render at all.
+  const chestOnly = () => ({ bodyProfile: { chest: 96 }, onSaveBodyProfile: vi.fn() });
+  const garmentText = (container) => {
+    const cells = [...container.querySelectorAll(".cz-fit4-math-cell")];
+    const cell = cells.find((n) => n.textContent.startsWith("Garment"));
+    return cell ? cell.querySelector(".cz-fit4-math-v").textContent : "";
+  };
+  const tapSize = (container, label) => {
+    const cells = [...container.querySelectorAll(".cz-sizing-chart .cz-sizing-cell")];
+    const cell = cells.find((n) => {
+      const k = n.querySelector(".cz-sizing-cell-k");
+      return k && k.textContent === label;
+    });
+    expect(cell).toBeTruthy();
+    fireEvent.click(cell);
+  };
+
+  it("prints the tapped size's garment measurement, not the recommendation's", () => {
+    const { container } = render(body(item("tap-num"), chestOnly()));
+
+    expect(garmentText(container)).toBe("116cm");
+
+    tapSize(container, "Large");
+    expect(garmentText(container)).toBe("120cm");
+
+    tapSize(container, "X-Large");
+    expect(garmentText(container)).toBe("124cm");
+  });
+
+  it("moves the fit read table onto the tapped size too", () => {
+    const { container } = render(body(item("tap-table"), chestOnly()));
+
+    const theirs = () =>
+      [...container.querySelectorAll(".cz-fitread-theirs")].map((n) => n.textContent);
+    expect(theirs()).toContain("116cm");
+
+    tapSize(container, "X-Large");
+    expect(theirs()).toContain("124cm");
+    expect(theirs()).not.toContain("116cm");
+  });
+
+  it("keeps the recommendation in the qualifier when the tap disagrees", () => {
+    const { container } = render(body(item("tap-say"), chestOnly()));
+
+    tapSize(container, "Large");
+    expect(container.querySelector(".cz-sizing-aside").textContent).toBe(
+      "your pick · we'd take the Medium"
+    );
+    // Concise is the default, so the sentence stops at the pick. The
+    // qualifier above carries our advice on every setting.
+    expect(screen.getByText(/You have picked the Large\./)).toBeInTheDocument();
+  });
+
+  it("names the size we'd take in the detailed sentence", () => {
+    render(body(item("tap-detail"), { ...chestOnly(), fitDetail: "detailed" }));
+
+    const cells = [...document.querySelectorAll(".cz-sizing-chart .cz-sizing-cell")];
+    fireEvent.click(cells.find((n) => n.querySelector(".cz-sizing-cell-k").textContent === "Large"));
+
+    expect(
+      screen.getByText(/You have picked the Large\..*The Medium is the one we'd take\./)
+    ).toBeInTheDocument();
+  });
+
+  it("agrees out loud when the tap lands on the recommendation", () => {
+    const { container } = render(body(item("tap-agree"), chestOnly()));
+
+    tapSize(container, "Medium");
+    expect(container.querySelector(".cz-sizing-aside").textContent).toBe(
+      "we recommend this · 20cm of room"
+    );
+    expect(screen.queryByText(/we'd take the/)).toBe(null);
+  });
+});

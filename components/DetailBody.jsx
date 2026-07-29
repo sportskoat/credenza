@@ -146,13 +146,36 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
 }
 
 // One source of truth keeps the sizing verdict consistent across each view.
-function useSizeVerdict(item, bodyProfile, fitPref, units, detailOverride = null, summaryOverride = null) {
+function useSizeVerdict(
+  item,
+  bodyProfile,
+  fitPref,
+  units,
+  detailOverride = null,
+  summaryOverride = null,
+  chosenSize = ""
+) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
   // so the badge never claims a precise fit it does not have.
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
   const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref) : null;
   const recSize = rec && rec.size ? rec.size : null;
+  // `rec` is the advice; `shown` is what every printed number describes. They
+  // are the same until the customer taps a different size, and then the panel
+  // must print the tapped row (Fable's ruling 2026-07-29: the numbers follow
+  // the tap, the advice line keeps the recommendation).
+  const pickRead =
+    chosenSize && chart && profile
+      ? recommendSize(chart, profile, item.category, fitPref, chosenSize)
+      : null;
+  const overridden = !!(
+    pickRead &&
+    pickRead.size &&
+    recSize &&
+    String(pickRead.size).toUpperCase() !== String(recSize).toUpperCase()
+  );
+  const shown = pickRead && pickRead.size ? pickRead : rec;
   // Body prefs alone never invent a chart pick. When the listing has no
   // parseable chart, surface the customer's usual size for this slot
   // (Kyle 2026-07-25: saving measurements still showed "No recommendation"
@@ -184,11 +207,18 @@ function useSizeVerdict(item, bodyProfile, fitPref, units, detailOverride = null
   const fitDetail = detailOverride || mirrorDetail;
   const prescription =
     recSize && fitSummaryOn
-      ? prescriptionSentence(chart, rec, { units, category: item.category, detail: fitDetail })
+      ? prescriptionSentence(chart, shown, {
+          units,
+          category: item.category,
+          detail: fitDetail,
+          recommended: overridden ? rec : null,
+        })
       : "";
   return {
     chart,
     rec,
+    shown,
+    overridden,
     recSize,
     usualSize,
     decidingEstimated,
@@ -345,12 +375,31 @@ function SizingBlock({
   // customer's usual size agree. Silent otherwise; a disagreement is the
   // prescription's job to explain, not a subtitle's. Round 5 point 5.1: a
   // hand pick names itself here and nowhere else.
+  // A hand pick that disagrees with the recommendation says so, and names the
+  // size we would take — handoff copy deck row "Qualifier, user overrode".
+  // Without it the panel prints the tapped size's centimetres under a bare
+  // "you picked this" and the customer never learns our advice.
+  const overrodeName =
+    isManual && recSize && String(chosenSize).toUpperCase() !== String(recSize).toUpperCase()
+      ? formatSizeToken(recSize) || recSize
+      : "";
+  // A tap that lands on the recommendation earns the agreement line and the
+  // room it buys — copy deck row "Qualifier, recommended". Negative ease is
+  // not room, so that case keeps the plain notice.
+  const agreedRoom =
+    isManual && recSize && !overrodeName && rec && rec.diff != null && rec.diff >= 0
+      ? formatMeasure(rec.diff, units)
+      : "";
   const aside =
     !isManual && recSize && usualSize && String(recSize).toUpperCase() === String(usualSize).toUpperCase()
       ? "your usual too"
-      : isManual
-        ? "you picked this"
-        : "";
+      : overrodeName
+        ? "your pick · we'd take the " + overrodeName
+        : agreedRoom
+          ? "we recommend this · " + agreedRoom + " of room"
+          : isManual
+            ? "you picked this"
+            : "";
 
   // 2026-07-29: the size row derives from the chart when the caller hands in
   // nothing. Without this fallback the row renders empty on every current
@@ -1314,7 +1363,9 @@ function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone }) {
 }
 
 function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onSharpen, onEditPref }) {
-  const rec = verdict.rec;
+  // The numbers describe the size on screen, which is the tapped one whenever
+  // the customer tapped. `verdict.shown` falls back to the recommendation.
+  const rec = verdict.shown || verdict.rec;
   if (verdict.precise && rec && rec.body != null && rec.garment != null) {
     const diff = rec.diff != null ? rec.diff : rec.garment - rec.body;
     const easeStr = (diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(diff), units);
@@ -1686,7 +1737,18 @@ export default function DetailBody({
 
   // The parent owns the sizing verdict and the chart hunt.
   const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
-  const verdict = useSizeVerdict(item, bodyProfile, fitPref, measureUnits, fitDetail, fitSummary);
+  // Read the tapped size before the verdict: the verdict prints that row's
+  // measurements, so it has to know the tap. `view` is settled well above.
+  const chosenSize = String(view.size || "").trim();
+  const verdict = useSizeVerdict(
+    item,
+    bodyProfile,
+    fitPref,
+    measureUnits,
+    fitDetail,
+    fitSummary,
+    chosenSize
+  );
   // Round 5 point 5.1 (2026-07-29): the chart cells ARE the size picker.
   // Computed here so SizingBlock draws them and SizeChoiceEditor knows its
   // own plain chip row would say the same sizes a second time.
@@ -1697,19 +1759,20 @@ export default function DetailBody({
       : [];
   // Split rail: the per-measurement fit bars. YOURS uses the same effective
   // profile the pick math used, so the table's ease always agrees with
-  // rec.diff — a raw-profile table would show a different chest than the one
-  // the recommendation was scored against.
+  // shown.diff — a raw-profile table would show a different chest than the one
+  // the read was scored against. `shown`, not `rec`: the rows describe the
+  // size the customer tapped.
   const fitRows = useMemo(
     () =>
       SIZE_PICK_SKIP_CATEGORIES.has(item.category)
         ? []
         : fitReadRows(
             verdict.chart,
-            verdict.rec,
+            verdict.shown,
             effectiveBodyProfile(bodyProfile),
             item.category
           ),
-    [verdict.chart, verdict.rec, bodyProfile, item.category]
+    [verdict.chart, verdict.shown, bodyProfile, item.category]
   );
   // "Forget this chart" (split rail): the parse was wrong, so the stored
   // measurements go. Only offered when dropping sizeNotes actually kills the
@@ -1766,7 +1829,6 @@ export default function DetailBody({
   );
 
   const recSize = computeRecommendedSize(item, bodyProfile, fitPrefs);
-  const chosenSize = String(view.size || "").trim();
   useEffect(() => {
     setCustomSize(chosenSize);
     customSizeCommittedRef.current = chosenSize;

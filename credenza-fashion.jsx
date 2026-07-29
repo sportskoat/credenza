@@ -890,7 +890,14 @@ export function serializeSizeChart(chart) {
 //   lengthCheck, alt, baseSize?, prefShift?, prefReason?, fitPref? }
 //   | { missing: "chest"|"waist"|"hip" } | null.
 // `alt` is the runner-up size (fit-preference alternative) or null.
-export function recommendSize(chart, profile, category, fitPref = null) {
+// Optional forceSize reads the SAME chart against the SAME body, but on the
+// row the customer tapped instead of the row the score picked. The detail
+// panel needs both: the recommendation for the advice line, and the tapped
+// row for every number it prints (Kyle 2026-07-29 — the panel showed the
+// recommendation's centimetres under whichever size he tapped). A forced read
+// skips applyFitPreference: taste already moved the recommendation, and
+// nudging a hand pick would answer a tap with a different size.
+export function recommendSize(chart, profile, category, fitPref = null, forceSize = null) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
   const p = profile || {};
   const rows = chart.rows;
@@ -969,8 +976,13 @@ export function recommendSize(chart, profile, category, fitPref = null) {
   // Score every row, not just the winner — the runner-up becomes the "also
   // works" second option (snugger vs roomier) Kyle asked for.
   const scored = candidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
-  const best = scored[0].row;
-  const runnerUp = scored.length > 1 ? scored[1].row : null;
+  // A tapped size the chart does not carry falls back to the scored winner —
+  // a pick with no row has no measurements to print.
+  const forcedRow = forceSize
+    ? candidates.find((r) => String(r.size).toUpperCase() === String(forceSize).toUpperCase()) || null
+    : null;
+  const best = forcedRow || scored[0].row;
+  const runnerUp = scored.map((s) => s.row).find((r) => r.size !== best.size) || null;
 
   const fitNote =
     chart.runHint === "big"
@@ -1022,6 +1034,7 @@ export function recommendSize(chart, profile, category, fitPref = null) {
   };
   // Optional 4th arg: per-category taste (length + looseness). Looseness can
   // nudge one size up/down; length is metadata only (design turn 5).
+  if (forcedRow) return baseRec;
   return applyFitPreference(baseRec, chart, fitPref, category);
 }
 
@@ -1322,7 +1335,16 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
 // data, no server round-trip. Example: "Take the Large — its 104cm chest
 // gives you 6cm of room over your 98cm, which is where this shirt is meant to
 // sit. The Medium's 100cm would pull across the chest."
-export function prescriptionSentence(chart, rec, { units = "cm", category = "", detail } = {}) {
+// `recommended` is the recommendation when `rec` describes a size the customer
+// tapped instead. The two forms are fixed by the handoff copy deck (README
+// section 14, "Prescription, chart, overridden"): the numbers describe the tap,
+// and the closing clause still names the size we would take. Callers that pass
+// no `recommended` keep the original single form.
+export function prescriptionSentence(
+  chart,
+  rec,
+  { units = "cm", category = "", detail, recommended = null } = {}
+) {
   if (!chart || !rec || !rec.size || rec.garment == null || rec.body == null || rec.diff == null) return "";
   if (!isFinite(rec.garment) || !isFinite(rec.body) || !isFinite(rec.diff)) return "";
   const measure = rec.primaryKey === "waist" ? "waist" : rec.primaryKey === "hip" ? "hip" : "chest";
@@ -1344,6 +1366,35 @@ export function prescriptionSentence(chart, rec, { units = "cm", category = "", 
   // pick lands on target.
   const target = measure === "chest" ? (category === "outerwear" ? 16 : 12) : 2;
   const sitsRight = Math.abs(rec.diff - target) <= 4;
+  // Overridden: the customer tapped a size that is not the one we scored. The
+  // numbers below are the tapped row's, so the sentence must own that — "Take
+  // the Small" over the Large's measurements is the contradiction Kyle saw.
+  const overrideName =
+    recommended && recommended.size && String(recommended.size).toUpperCase() !== String(rec.size).toUpperCase()
+      ? formatSizeToken(recommended.size) || recommended.size
+      : "";
+  if (overrideName) {
+    const fitClause = sitsRight
+      ? ", which is where this " + noun + " is meant to sit"
+      : rec.diff < target
+        ? ", closer than this " + noun + " is drafted for"
+        : ", roomier than this " + noun + " is drafted for";
+    const picked =
+      "You have picked the " +
+      sizeName +
+      ". Its " +
+      garment +
+      " " +
+      measure +
+      " leaves " +
+      room +
+      " over your " +
+      body +
+      fitClause +
+      ".";
+    if (detail === "concise") return picked;
+    return picked + " The " + overrideName + " is the one we'd take.";
+  }
   const first =
     "Take the " +
     sizeName +
