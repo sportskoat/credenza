@@ -81,9 +81,17 @@ export default function PhotoCoverFlow({ item, images, startIndex, onClose, onSe
 
   useEffect(() => {
     const w = typeof window !== "undefined" ? window.innerWidth : 300;
-    const width = w <= 480 ? w * 0.74 : Math.min(w * 0.7, 300);
-    const height = width * (4 / 3);
-    setCardSize({ width, height });
+    const h = typeof window !== "undefined" ? window.innerHeight : 400;
+    // Round 5 point 5.8 (2026-07-29, Kyle: "make the photos here bigger").
+    // Size from the window HEIGHT first — the photo is 3 wide by 4 tall, so
+    // the height decides the width. The old 300px cap made the full-screen
+    // viewer no bigger than the detail panel. Keep the CSS card width in
+    // step with this math (credenza-fashion.css, .cz-photo-coverflow-card).
+    const maxHeight = Math.min(h * 0.72, 900);
+    const byHeight = maxHeight * 0.75;
+    const byWidth = w <= 480 ? w * 0.82 : w * 0.42;
+    const width = Math.max(300, Math.min(byHeight, byWidth));
+    setCardSize({ width, height: width * (4 / 3) });
   }, []);
 
   useEffect(() => {

@@ -10442,8 +10442,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-photo-coverflow {
   position: relative;
-  width: min(92vw, 980px);
-  height: min(84vh, 640px);
+  /* Round 5 point 5.8: the outer box grows so the bigger photo has room. */
+  width: min(96vw, 1400px);
+  height: min(92vh, 1000px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -10476,7 +10477,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(70vw, 300px);
+  /* Round 5 point 5.8: sized from the window height first, same math as
+     PhotoCoverFlow.jsx — height * 0.72 * 0.75 = 54vh, capped at 675px. */
+  width: max(300px, min(54vh, 675px, 42vw));
   aspect-ratio: 3 / 4;
   transform: translate(-50%, -50%);
   transform-style: preserve-3d;
@@ -10696,7 +10699,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 @media (max-width: 480px) {
   .cz-photo-coverflow-card {
-    width: 74vw;
+    /* Round 5 point 5.8: phones size from width at 82vw (same math as the
+       component). */
+    width: max(300px, min(54vh, 675px, 82vw));
   }
 
   .cz-photo-coverflow-controls .cz-photo-coverflow-counter {
