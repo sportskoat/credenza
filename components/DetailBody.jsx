@@ -533,8 +533,11 @@ function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCou
         <span className="cz-sizing-kicker">No chart</span>
         {/* Round 5 point 5.1: one notice for a hand pick — "you picked this"
             beside the size word. The "SET BY YOU" label here was a second
-            copy, so a hand pick now leaves the provenance slot empty. */}
-        {isManual ? null : <span className="cz-sizing-prov">FELL BACK TO YOUR USUAL</span>}
+            copy, so a hand pick now leaves the provenance slot empty.
+            2026-07-29 (Oom review): the fallback line shows only when a
+            usual size EXISTS to fall back to — "FELL BACK TO YOUR USUAL"
+            beside "no usual size saved" contradicts itself. */}
+        {isManual || !heroLabel ? null : <span className="cz-sizing-prov">FELL BACK TO YOUR USUAL</span>}
       </div>
 
       <div className="cz-sizing-value-row">
@@ -581,8 +584,10 @@ function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCou
 //
 // Per-measurement fit bars under the pick: how far each garment measure sits
 // from the body on a tight↔loose track, with a fixed 36–66% tolerance band.
-// With no chart the table ghosts — names in placeholder, YOURS kept, no
-// tracks' band or marks — so the customer sees what a chart would unlock.
+// Round 5 point 5.4 (Oom ruling 2026-07-29): no chart means NO table — the
+// ghost rows of dashes were the exact "too busy" fault Kyle rejected. The
+// foot row stays: it carries the reading progress and the profile-size
+// route ("Edit my measurements"), which have no other home.
 // Row math lives in fitReadRows (pure, tested on its own).
 function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart }) {
   if (!rows.length) return null;
@@ -615,52 +620,55 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
         "cz-fitread" + (hasChart ? "" : " is-ghost") + (reading ? " is-reading" : "")
       }
     >
-      <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
-        <span className="cz-fitread-kicker">FIT READ</span>
-        {hasChart ? (
-          <span className="cz-fitread-scale">
-            <span>TIGHT</span>
-            <span>TRUE</span>
-            <span>LOOSE</span>
-          </span>
-        ) : (
-          <span />
-        )}
-        {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
-            grid never has to fit six letters over a 30px column. */}
-        <span className="cz-fitread-head">
-          <span className="cz-fitread-head-long">THEIRS</span>
-          <span className="cz-fitread-head-short">THRS</span>
-        </span>
-        <span className="cz-fitread-head">
-          <span className="cz-fitread-head-long">YOURS</span>
-          <span className="cz-fitread-head-short">YOU</span>
-        </span>
-        <span className="cz-fitread-head">EASE</span>
-      </div>
-      {rows.map((r) => (
-        <div key={r.key} className="cz-fitread-row">
-          <span className="cz-fitread-name">{r.name}</span>
-          <span className="cz-fitread-track">
-            {hasChart ? <span className="cz-fitread-band" /> : null}
-            {r.mark != null ? (
-              <span
-                className={"cz-fitread-mark" + (r.warn ? " is-warn" : "")}
-                style={{ left: r.mark + "%" }}
-              />
-            ) : null}
-          </span>
-          <span className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}>
-            {r.theirs != null ? formatMeasure(r.theirs, units) : "—"}
-          </span>
-          <span className="cz-fitread-yours">
-            {r.yours != null ? formatMeasure(r.yours, units) : "—"}
-          </span>
-          <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
-            {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : ""}
-          </span>
-        </div>
-      ))}
+      {/* Round 5 point 5.4: the heads and rows render only with a chart.
+          No chart means no table of dashes — the foot row below carries the
+          reading progress and the profile-size route on its own. */}
+      {hasChart ? (
+        <>
+          <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
+            <span className="cz-fitread-kicker">FIT READ</span>
+            <span className="cz-fitread-scale">
+              <span>TIGHT</span>
+              <span>TRUE</span>
+              <span>LOOSE</span>
+            </span>
+            {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
+                grid never has to fit six letters over a 30px column. */}
+            <span className="cz-fitread-head">
+              <span className="cz-fitread-head-long">THEIRS</span>
+              <span className="cz-fitread-head-short">THRS</span>
+            </span>
+            <span className="cz-fitread-head">
+              <span className="cz-fitread-head-long">YOURS</span>
+              <span className="cz-fitread-head-short">YOU</span>
+            </span>
+            <span className="cz-fitread-head">EASE</span>
+          </div>
+          {rows.map((r) => (
+            <div key={r.key} className="cz-fitread-row">
+              <span className="cz-fitread-name">{r.name}</span>
+              <span className="cz-fitread-track">
+                <span className="cz-fitread-band" />
+                {r.mark != null ? (
+                  <span
+                    className={"cz-fitread-mark" + (r.warn ? " is-warn" : "")}
+                    style={{ left: r.mark + "%" }}
+                  />
+                ) : null}
+              </span>
+              <span className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}>
+                {r.theirs != null ? formatMeasure(r.theirs, units) : "—"}
+              </span>
+              <span className="cz-fitread-yours">
+                {r.yours != null ? formatMeasure(r.yours, units) : "—"}
+              </span>
+              <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
+                {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : ""}
+              </span>
+            </div>
+          ))}
+        </>
+      ) : null}
       <div className="cz-fitread-foot">
         <span className="cz-fitread-footnote">{footnote}</span>
         <span className="cz-fitread-footlinks">
@@ -2464,31 +2472,27 @@ export default function DetailBody({
           </section>
 
           {/* SELLER closes the Details list (shelf handoff 2026-07-28,
-              README :105). It is a read-only row: tapping it opens the seller's
-              other listings in a new tab. The row hides when the item has no
-              seller, or when no store page can be built for that seller — a
+              README :105). Round 5 point 5.5, second cut (Oom 2026-07-29):
+              the seller name shows in the title line and the timeline, so
+              this row names the ACTION, not the seller — "See other
+              listings". The accessible name keeps the seller for screen
+              readers. The row hides when no store page can be built — a
               dead row is worse than no row. */}
-          {item.seller ? (
+          {item.seller && sellerHref ? (
             <section className="cz-detail-facts-section" aria-label="Seller">
               <div className="cz-detail-panel-field">
                 <span>Seller</span>
-                {sellerHref ? (
-                  <a
-                    className="cz-detail-seller-row"
-                    href={sellerHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={"Open " + item.seller + " listings"}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <span className="cz-detail-seller-name">{item.seller}</span>
-                    <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
-                  </a>
-                ) : (
-                  <span className="cz-detail-seller-row is-flat">
-                    <span className="cz-detail-seller-name">{item.seller}</span>
-                  </span>
-                )}
+                <a
+                  className="cz-detail-seller-row"
+                  href={sellerHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={"Open " + item.seller + " listings"}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <span className="cz-detail-seller-name">See other listings</span>
+                  <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+                </a>
               </div>
             </section>
           ) : null}

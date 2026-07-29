@@ -47,7 +47,8 @@ afterEach(() => {
 
 describe("DetailBody detail facts", () => {
   it("shows all five facts sections at once, with no tabs", () => {
-    render(body(item("facts")));
+    // sellerAccount gives the item a store page, so the Seller row renders.
+    render(body(item("facts", { sellerAccount: "replux" })));
 
     // Split rail: the old tab bar is gone; every fact is always visible.
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
@@ -75,7 +76,7 @@ describe("DetailBody detail facts", () => {
   // section into Size and fit and moved Category out to the ⋯ menu (the
   // desktop-detail-panel tests cover that row).
   it("draws the Details rail in the handoff order, Seller last", () => {
-    render(body(item("order")));
+    render(body(item("order", { sellerAccount: "replux" })));
 
     const rail = document.querySelector(".cz-detail-facts");
     expect(rail).not.toBeNull();
@@ -93,19 +94,29 @@ describe("DetailBody detail facts", () => {
 
     // The kicker splits "does it fit?" from "what is it?".
     expect(rail.querySelector(".cz-detail-facts-kicker").textContent).toBe("Details");
+  });
 
-    // Weidian has no store page Credenza can build, so the row stays flat.
+  it("hides the Seller row when no store page exists, even with a seller name", () => {
+    // Round 5 point 5.5, second cut (Oom 2026-07-29): the row names the
+    // action, not the seller, and a row with nowhere to point is a dead row.
+    // Weidian has no store page Credenza can build, so the row hides.
+    render(body(item("order-weidian")));
+
+    expect(screen.queryByRole("region", { name: "Seller" })).toBe(null);
     expect(screen.queryByRole("link", { name: /listings$/ })).toBe(null);
-    expect(screen.getByRole("region", { name: "Seller" }).textContent).toContain("replux");
   });
 
   it("the Seller row opens the seller's other listings when a store page exists", () => {
     render(body(item("shop", { sellerAccount: "replux" })));
 
-    // Seller opens the seller's other listings; it never edits.
+    // Round 5 point 5.5, second cut: the row names the action, not the
+    // seller — the name lives in the title line and the timeline. The
+    // accessible name keeps the seller for screen readers.
     const seller = screen.getByRole("link", { name: "Open replux listings" });
     expect(seller.getAttribute("target")).toBe("_blank");
     expect(seller.getAttribute("href")).toBe("https://replux.x.yupoo.com/");
+    expect(seller.textContent).toContain("See other listings");
+    expect(seller.textContent).not.toContain("replux");
   });
 
   it("drops the Seller row when the item has no seller", () => {

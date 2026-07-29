@@ -1784,7 +1784,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(tiles[0].getAttribute("href")).toBe(
       "https://mook-official.x.yupoo.com/albums/244505824?uid=1"
     );
-    expect(tiles[0].textContent).toContain("All photos");
+    // The count lives in the kicker, not the name — the name truncated in
+    // the narrow tile (Oom review 2026-07-29).
+    expect(tiles[0].textContent).toContain("All 2 photos");
     // The store destination survives in the rail, as its own link.
     const store = screen.getByRole("link", { name: "Open Mook-official listings" });
     expect(store.getAttribute("href")).toBe("https://mook-official.x.yupoo.com/");
@@ -1818,7 +1820,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     const tiles = document.querySelectorAll(".cz-album-links a.cz-album-link-tile");
     expect(tiles).toHaveLength(1);
-    expect(tiles[0].textContent).toContain("All photos");
+    expect(tiles[0].textContent).toContain("All 2 photos");
   });
 
   // ── Handoff turn 9 §7 ──

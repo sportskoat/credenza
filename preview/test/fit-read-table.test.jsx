@@ -192,7 +192,10 @@ describe("FitReadTable in the detail body", () => {
     expect(screen.queryByRole("button", { name: "Forget this chart" })).toBe(null);
   });
 
-  it("ghosts without a chart: yours kept, no band, waiting footnote", async () => {
+  it("hides the table without a chart; the foot keeps the route and the waiting line", async () => {
+    // Round 5 point 5.4 (Oom ruling 2026-07-29): no chart means NO table of
+    // dashes — the ghost rows were the exact "too busy" fault. The foot row
+    // stays: it carries the waiting line and the profile-size route.
     huntMock.mockResolvedValue(null);
     const { container } = renderBody(
       fitItem({ sizeNotes: undefined, sizeChartSource: undefined })
@@ -202,13 +205,13 @@ describe("FitReadTable in the detail body", () => {
     const table = container.querySelector(".cz-fitread");
     expect(table.classList.contains("is-ghost")).toBe(true);
     const scoped = within(table);
-    expect(scoped.getByText("105cm")).toBeInTheDocument();
-    expect(scoped.getAllByText("—").length).toBeGreaterThan(0);
-    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-mark").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-heads").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-track").length).toBe(0);
+    expect(scoped.queryByText("105cm")).toBe(null);
     expect(scoped.getByText("Your measurements, waiting on theirs.")).toBeInTheDocument();
-    // The scale only means something once a chart puts marks on the track.
-    expect(scoped.queryByText("TIGHT")).toBe(null);
+    expect(
+      scoped.getByRole("button", { name: "Edit my measurements" })
+    ).toBeInTheDocument();
   });
 
   it("stays out of skip categories", () => {

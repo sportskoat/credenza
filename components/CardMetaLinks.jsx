@@ -64,13 +64,17 @@ export function albumLinkTarget(item, { tight = false } = {}) {
     stored
   );
   const count = known > 1 ? " · " + known + " photos" : "";
+  // `name` is the count-free destination and `photos` the raw count, for
+  // slots too narrow for the full label (the thumb-strip tile truncated to
+  // "4 ph..." — Oom review 2026-07-29). `label` is unchanged.
+  const photos = known > 1 ? known : 0;
   const yupoo = yupooAlbumUrl(item);
   if (yupoo) {
-    return { href: yupoo, label: (tight ? "Album" : "View album") + count };
+    return { href: yupoo, label: (tight ? "Album" : "View album") + count, name: tight ? "Album" : "View album", photos };
   }
   const name = item.url ? albumHostName(item.url) : null;
   if (!name) return null;
-  return { href: item.url, label: name + " gallery" + count };
+  return { href: item.url, label: name + " gallery" + count, name: name + " gallery", photos };
 }
 
 // Album link on the card front (handoff turn 3 §3): --cz-link blue, ~50%
@@ -128,8 +132,12 @@ export function AlbumLinksRow({ item, className = "cz-album-links" }) {
           <path d="M21 7v11a2 2 0 0 1-2 2H8" />
         </svg>
         <span className="cz-album-tile-text">
-          <span className="cz-album-tile-name">{album.label}</span>
-          <span className="cz-album-tile-kicker">All photos</span>
+          {/* The count lives in the kicker, not the name — the name
+              truncated to "4 ph..." in the narrow tile (Oom 2026-07-29). */}
+          <span className="cz-album-tile-name">{album.name}</span>
+          <span className="cz-album-tile-kicker">
+            {album.photos ? "All " + album.photos + " photos" : "All photos"}
+          </span>
         </span>
       </a>
     </div>

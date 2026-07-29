@@ -10309,11 +10309,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 /* Phone body gutter (split-rail spec :161). The buy bar now sits at 16px, so
    the scroller matches it: content and the pinned bar share one edge.
-   Round 5 defect fix (Oom, Round 4 review): 16px let the last control rest
-   against the bar; 24px keeps a clear gap. */
+   Round 5 defect fix (Oom, Round 4 review, deepened 2026-07-29): 24px still
+   let the last row touch the bar; 40px keeps a clear gap. */
 @media (max-width: 767px) {
   .cz-detail-scroll {
-    padding: 8px 16px 24px;
+    padding: 8px 16px 40px;
   }
 }
 
@@ -10583,6 +10583,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-size: 13px;
   font-weight: 600;
   border-radius: 999px;
+  /* Round 5.8 repair (Oom review 2026-07-29): --cz-seg went dark-on-dark
+     against the viewer backdrop and "Delete" vanished. The frosted card
+     fill — the same treatment as the ‹ › arrows — stays readable on any
+     theme. */
+  background: color-mix(in srgb, var(--cz-card-solid) 78%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 
 /* Delete asks first, so the confirm answer is the only red thing here. A red
@@ -10704,6 +10711,17 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     /* Round 5 point 5.8: phones size from width at 82vw (same math as the
        component). */
     width: max(300px, min(54vh, 675px, 82vw));
+  }
+
+  /* Round 5.8 repair (Oom review 2026-07-29): at 82vw the photo covered the
+     edge-anchored arrows. Pin each arrow 6px INSIDE the photo's edge — same
+     width math as the card — so both stay fully visible and tappable. */
+  .cz-photo-coverflow-nav-prev {
+    left: calc(50% - max(300px, min(54vh, 675px, 82vw)) / 2 + 6px);
+  }
+
+  .cz-photo-coverflow-nav-next {
+    right: calc(50% - max(300px, min(54vh, 675px, 82vw)) / 2 + 6px);
   }
 
   .cz-photo-coverflow-controls .cz-photo-coverflow-counter {

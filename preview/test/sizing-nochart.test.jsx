@@ -97,9 +97,12 @@ describe("§3 no-chart state", () => {
   it("asks for the chart photo once the hunt comes back empty", async () => {
     renderBody(chartless());
 
-    // Provenance names the fallback rather than claiming a source.
+    // Provenance names the fallback only when a usual size exists to fall
+    // back on (Oom review 2026-07-29: beside "no usual size saved" the line
+    // contradicted itself). This fixture saves no usual size, so the slot
+    // stays empty.
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    expect(screen.getByText("FELL BACK TO YOUR USUAL")).toBeInTheDocument();
+    expect(screen.queryByText("FELL BACK TO YOUR USUAL")).toBeNull();
     expect(
       screen.getByText("The listing had no measurements. Upload the seller chart to read its measurements.")
     ).toBeInTheDocument();
@@ -343,7 +346,11 @@ describe("§3 read and confirm", () => {
     await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
     await user.click(await screen.findByRole("button", { name: "Not this one" }));
 
-    expect(await screen.findByText("FELL BACK TO YOUR USUAL")).toBeInTheDocument();
+    // Back at the ask: the upload button returns, nothing was saved. This
+    // fixture saves no usual size, so the fallback line stays empty (Oom
+    // review 2026-07-29).
+    expect(await screen.findByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
+    expect(screen.queryByText("FELL BACK TO YOUR USUAL")).toBeNull();
     expect(onSaveEdit).not.toHaveBeenCalled();
     await waitFor(() => expect(revokeObjectUrlMock).toHaveBeenCalledWith("blob:thumb"));
   });
