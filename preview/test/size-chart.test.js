@@ -177,6 +177,55 @@ describe("parseSizeChart", () => {
   });
 });
 
+// Kyle 2026-07-29, from a real Weidian tee (itemID 7812124117). The seller
+// chart gives the Large a 24.5cm sleeve. The app showed 9.4 inches, because
+// every number was read as a whole cm — 24, not 24.5. Half-centimetres are
+// normal on these charts, so the parser reads one or two decimals now.
+describe("parseSizeChart reads half-centimetres", () => {
+  it("keeps the decimal in a positional table", () => {
+    const chart = parseSizeChart(
+      "Size  Shoulder  Chest  Length  Sleeve\nM  43  106  65  23.5\nL  45  110  67  24.5\nXL  47  114  69  25.5"
+    );
+    expect(chart.rows.map((r) => r.sleeve)).toEqual([23.5, 24.5, 25.5]);
+    // The number Kyle expected to see beside the Large sleeve.
+    expect((24.5 / 2.54).toFixed(1)).toBe("9.6");
+  });
+
+  it("keeps the decimal in a labelled chart", () => {
+    const chart = parseSizeChart(
+      "L: shoulder 45, chest 110, length 67, sleeve 24.5\nM: shoulder 43, chest 106, length 65, sleeve 23.5"
+    );
+    expect(chart.rows.find((r) => r.size === "L").sleeve).toBe(24.5);
+  });
+
+  // The worse half of the same fault: "104.25" split into 104 and 25, and the
+  // stray 25 landed in the NEXT column. One decimal corrupted every
+  // measurement after it — here the M length read 25cm instead of 65cm.
+  it("does not let a two-decimal value shift the columns after it", () => {
+    const chart = parseSizeChart("Size  Chest  Length\nM  104.25  65\nL  108.5  67");
+    expect(chart.rows).toEqual([
+      { size: "M", chest: 104.25, length: 65 },
+      { size: "L", chest: 108.5, length: 67 },
+    ]);
+  });
+
+  // A comma still separates a list, never decimals — strategy 1 reads segments
+  // like "chest 110, length 67" all day.
+  it("reads a comma as a separator, not a decimal point", () => {
+    const chart = parseSizeChart("L: chest 110, length 67\nM: chest 106, length 65");
+    expect(chart.rows).toEqual([
+      { size: "L", chest: 110, length: 67 },
+      { size: "M", chest: 106, length: 65 },
+    ]);
+  });
+
+  it("survives the round trip through serializeSizeChart", () => {
+    const first = parseSizeChart("L: chest 110, sleeve 24.5\nM: chest 106, sleeve 23.5");
+    const again = parseSizeChart(serializeSizeChart(first));
+    expect(again.rows).toEqual(first.rows);
+  });
+});
+
 describe("recommendSize", () => {
   const shirtChart = parseSizeChart(
     "S: 胸围108 衣长66 肩宽46 袖长58\nM: 胸围112 衣长68 肩宽48 袖长60\nL: 胸围116 衣长70 肩宽50 袖长62\nXL: 胸围120 衣长72 肩宽52 袖长64"
@@ -577,8 +626,12 @@ describe("serializeSizeChart", () => {
     expect(serializeSizeChart({ rows: [{ size: "M", chest: 5 }, { size: "L", chest: 900 }] })).toBe("");
   });
 
-  it("rounds a fractional value to whole cm", () => {
-    expect(serializeSizeChart({ rows: [{ size: "M", chest: 115.6 }] })).toBe("M: chest 116");
+  // 2026-07-29: half-centimetres now survive. Writing whole cm here rounded a
+  // corrected 24.5 back to 24 as soon as the customer edited any other number.
+  it("keeps one decimal and rounds the rest away", () => {
+    expect(serializeSizeChart({ rows: [{ size: "M", sleeve: 24.5 }] })).toBe("M: sleeve 24.5");
+    expect(serializeSizeChart({ rows: [{ size: "M", chest: 115.64 }] })).toBe("M: chest 115.6");
+    expect(serializeSizeChart({ rows: [{ size: "M", chest: 116 }] })).toBe("M: chest 116");
   });
 
   it("skips a row with no measurement left in it", () => {
