@@ -442,7 +442,12 @@ describe("Fashion card-back navigation and editing", () => {
       expect([...backFace.querySelectorAll("button")].some((b) => /Buy via Superbuy/.test(b.textContent || ""))).toBe(true)
     );
     promptSpy.mockRestore();
-  });
+    // The named flake (2026-07-29): this test alone takes ~2.4s on an idle
+    // machine — flip, open the panel, type 12 characters, then two more
+    // round trips. Against the 5s default it timed out under a loaded
+    // parallel run and failed three reviews. Nothing here is racy; the
+    // budget was simply too tight, so state it.
+  }, 20000);
 });
 
 describe("Fashion morph controls and favorites", () => {

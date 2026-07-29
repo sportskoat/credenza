@@ -157,6 +157,10 @@ export function ModalShell({
       className={"cz-modal t-modal" + phaseClass}
       aria-labelledby={titleId}
       onCancel={(event) => {
+        // A dismissed OS file picker fires a bubbling "cancel" on a nested
+        // <input type="file"> (the import sheet has one). Only the dialog's
+        // own Escape peels a layer. See DesktopDetailPanel for the full note.
+        if (event.target !== event.currentTarget) return;
         event.preventDefault();
         // Escape peels one layer: a sub-page goes back to the parent page
         // first, matching the carousel's layer rule. A second Escape closes.
