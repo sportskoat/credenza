@@ -11657,18 +11657,22 @@ a.cz-detail-seller-row:focus-visible {
   display: flex;
   flex: 1 1 auto;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 9px;
 }
 
+/* Compact chip run (SIZE_CHIP_COMPACT_PLAN, 2026-07-29): 34px chips with a
+   clear gap, so four sizes plus the Other box fit one row. The phone block
+   below keeps 44px — that is the finger-target floor and does not shrink.
+   The Other box and Clear size share this class, so the row stays even. */
 .cz-detail-size-choice {
   min-width: 44px;
-  min-height: 44px;
-  padding: 0 13px;
+  min-height: 34px;
+  padding: 0 10px;
   border: 1px solid var(--cz-hair-strong);
   border-radius: 10px;
   background: transparent;
   color: var(--cz-ink);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
