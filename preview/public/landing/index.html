@@ -111,6 +111,24 @@
         --tile-weidian: rgb(255, 90, 60);
         --tile-yupoo: rgb(55, 178, 77);
         --tile-taobao: rgb(255, 80, 0);
+        /* App tokens the FIT READ table rides on (credenza-fashion tokens). */
+        --chip-fill: #e6e6de;
+        --fit-band: rgba(20, 122, 58, 0.2);
+        --warn: #c0932a;
+        --warn-ink: #8a6714;
+        /* Card photo scrim — the app's exact curve (credenza-fashion.css §scrim).
+           Long ramp on purpose: a short ramp reads as a panel edge. */
+        --photo-scrim: linear-gradient(
+          to top,
+          rgb(6 6 8 / 0.84) 0%,
+          rgb(6 6 8 / 0.72) 16%,
+          rgb(6 6 8 / 0.56) 32%,
+          rgb(6 6 8 / 0.36) 52%,
+          rgb(6 6 8 / 0.15) 76%,
+          rgb(6 6 8 / 0) 100%
+        );
+        --card-shadow: 0 1px 2px oklch(0 0 0 / 0.1), 0 10px 24px oklch(0 0 0 / 0.07);
+        --card-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.14), 0 22px 44px oklch(0 0 0 / 0.13);
         --max: 1120px;
         --pad-x: clamp(24px, 6.5vw, 48px);
       }
@@ -139,18 +157,16 @@
           --status-bought-text: oklch(0.86 0.05 250);
           --status-qc-bg: oklch(0.3 0.05 85);
           --status-qc-text: oklch(0.88 0.06 85);
+          --chip-fill: rgba(255, 255, 255, 0.1);
+          --fit-band: rgba(74, 222, 128, 0.18);
+          --warn: #d9a83c;
+          --warn-ink: #e8bf63;
+          --card-shadow: 0 1px 2px oklch(0 0 0 / 0.55), 0 12px 28px oklch(0 0 0 / 0.45);
+          --card-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.6), 0 22px 44px oklch(0 0 0 / 0.5);
         }
       }
       * { box-sizing: border-box; }
       html { scroll-behavior: smooth; }
-      @media (prefers-reduced-motion: reduce) {
-        html { scroll-behavior: auto; }
-        *, *::before, *::after {
-          animation-duration: 0.01ms !important;
-          animation-iteration-count: 1 !important;
-          transition-duration: 0.01ms !important;
-        }
-      }
       body {
         margin: 0;
         background: var(--bg);
@@ -243,10 +259,10 @@
         letter-spacing: 0.16em;
         line-height: 1;
       }
-      .kicker {
+      .brand .kicker {
         font-size: 8.5px;
         font-weight: 700;
-        letter-spacing: 0.30em;
+        letter-spacing: 0.3em;
         text-transform: uppercase;
         line-height: 1;
         color: var(--muted);
@@ -279,6 +295,110 @@
       .pill-cta:hover { color: var(--action-text); opacity: 0.92; }
       @media (min-width: 720px) {
         .topnav-links { display: flex; }
+      }
+
+      /* ── The product card. Pixel-matched to the app's editorial card:
+         photo fills the card, radius 16, scrim over the lower part, text
+         sits ON the photo. Price is the only green. ── */
+      .p-card {
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        background: var(--bg-panel);
+        box-shadow: var(--card-shadow);
+        aspect-ratio: 2 / 3;
+      }
+      .p-card > img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .p-scrim {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 72%;
+        background: var(--photo-scrim);
+        pointer-events: none;
+      }
+      .p-text {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 13px;
+        display: grid;
+        gap: 3px;
+        color: #fff;
+      }
+      .p-ref {
+        font-family: var(--cz-mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.66);
+      }
+      .p-title {
+        font-size: 14.5px;
+        font-weight: 600;
+        line-height: 1.3;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .p-meta {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.92);
+        white-space: nowrap;
+      }
+      .p-meta .sep { opacity: 0.45; }
+      .p-meta .seller {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .p-price {
+        font-family: var(--cz-mono);
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--money-on-dark);
+      }
+      .p-flag {
+        position: absolute;
+        top: 12px;
+        left: 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        text-shadow: 0 1px 2px rgb(6 6 8 / 0.4);
+      }
+      .p-flag::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: #fff;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .p-card {
+          transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+        }
+        .p-card:hover {
+          transform: translateY(-6px);
+          box-shadow: var(--card-shadow-hover);
+        }
       }
 
       /* Hero */
@@ -342,20 +462,6 @@
         text-decoration: none;
       }
       .btn-primary:hover { color: var(--action-text); opacity: 0.92; }
-      .btn-secondary {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 54px;
-        padding: 0 20px;
-        border-radius: 16px;
-        border: 1px solid var(--line);
-        background: var(--card);
-        color: var(--ink);
-        font-size: 15px;
-        font-weight: 650;
-        text-decoration: none;
-      }
       .trust-line {
         display: flex;
         align-items: center;
@@ -373,7 +479,7 @@
         background: var(--money);
       }
 
-      /* Demo */
+      /* Demo — paste, read, card assembles */
       .demo {
         position: relative;
         padding: clamp(18px, 2.4vw, 24px);
@@ -463,17 +569,49 @@
       }
       .demo-arrow { display: none; color: var(--muted); }
       .demo-arrow.is-on { display: block; }
-      .demo-result {
-        min-height: 318px;
-      }
-      .demo-result-grid {
-        display: none;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-      }
-      .demo-result-grid.is-on {
+      .demo-stage {
         display: grid;
-        animation: czFade 0.4s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+        justify-content: center;
+        min-height: 460px;
+      }
+      .demo-card-wrap {
+        width: min(300px, 78vw);
+      }
+      /* Assembly: photo fades and settles from 96% scale, the scrim rises,
+         then the three text lines slide up 10px each, 70ms apart. */
+      .demo-card { opacity: 1; transform: none; }
+      .demo .p-scrim { opacity: 1; transform: none; }
+      .demo .p-line { opacity: 1; transform: none; }
+      .demo.is-armed .demo-card {
+        opacity: 0;
+        transform: scale(0.96);
+      }
+      .demo.is-armed .p-scrim {
+        opacity: 0;
+        transform: translateY(14%);
+      }
+      .demo.is-armed .p-line {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      .demo.is-anim .demo-card {
+        transition: opacity 400ms ease-out, transform 400ms ease-out;
+      }
+      .demo.is-anim .p-scrim {
+        transition: opacity 420ms ease-out, transform 420ms ease-out;
+        transition-delay: 180ms;
+      }
+      .demo.is-anim .p-line {
+        transition: opacity 320ms ease-out, transform 320ms ease-out;
+      }
+      .demo.is-anim .p-line:nth-child(1) { transition-delay: 420ms; }
+      .demo.is-anim .p-line:nth-child(2) { transition-delay: 490ms; }
+      .demo.is-anim .p-line:nth-child(3) { transition-delay: 560ms; }
+      .demo.is-in .demo-card,
+      .demo.is-in .p-scrim,
+      .demo.is-in .p-line {
+        opacity: 1;
+        transform: none;
       }
       .demo-note {
         margin: 12px 2px 0;
@@ -481,185 +619,6 @@
         line-height: 1.5;
         color: var(--muted);
         text-wrap: pretty;
-      }
-      .fact-list { display: grid; gap: 8px; align-content: start; }
-      .fact {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        min-height: 46px;
-        padding: 0 12px;
-        border: 1px solid var(--line);
-        border-radius: 11px;
-        background: var(--card);
-      }
-      .fact-label {
-        font-family: var(--cz-mono);
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-        flex: 0 0 auto;
-      }
-      .fact-val {
-        flex: 1;
-        min-width: 0;
-        font-size: 12.5px;
-        font-weight: 650;
-        text-align: right;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      /* Product card */
-      .p-card {
-        position: relative;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        background: var(--card);
-        overflow: hidden;
-        box-shadow: 0 4px 14px rgba(23, 24, 26, 0.05);
-      }
-      .p-photo {
-        position: relative;
-        aspect-ratio: 1 / 1;
-        background: var(--bg-panel);
-        overflow: hidden;
-      }
-      .p-photo img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-      .tile {
-        display: grid;
-        place-items: center;
-        width: 100%;
-        height: 100%;
-        color: #fff;
-        font-family: var(--cz-display);
-        font-size: 22px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-      }
-      .tile-weidian { background: var(--tile-weidian); }
-      .tile-yupoo { background: var(--tile-yupoo); }
-      .tile-taobao { background: var(--tile-taobao); }
-      .status-pill {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        padding: 4px 8px;
-        border-radius: 999px;
-        font-family: var(--cz-mono);
-        font-size: 9px;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-      .status-want {
-        background: var(--status-bought-bg);
-        color: var(--status-bought-text);
-      }
-      .status-shipped {
-        background: var(--status-shipped-bg);
-        color: var(--status-shipped-text);
-      }
-      .status-bought {
-        background: var(--status-bought-bg);
-        color: var(--status-bought-text);
-      }
-      .status-qc {
-        background: var(--status-qc-bg);
-        color: var(--status-qc-text);
-      }
-      .heart {
-        position: absolute;
-        top: 9px;
-        right: 9px;
-        display: grid;
-        place-items: center;
-        width: 30px;
-        height: 30px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.88);
-        color: rgba(23, 24, 26, 0.5);
-      }
-      .heart.is-on { color: var(--like); }
-      .album-pill {
-        position: absolute;
-        bottom: 8px;
-        right: 8px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 4px 9px;
-        border-radius: 999px;
-        background: rgba(12, 12, 14, 0.62);
-        backdrop-filter: blur(6px);
-        font-family: var(--cz-mono);
-        font-size: 9.5px;
-        color: var(--link-on-photo);
-      }
-      .p-body {
-        display: grid;
-        gap: 4px;
-        padding: 10px 11px 12px;
-        border-top: 1px solid var(--line-soft);
-      }
-      .p-title {
-        font-family: var(--cz-display);
-        font-size: 14.5px;
-        font-weight: 600;
-        line-height: 1.25;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .p-meta {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-      }
-      .size-kind {
-        font-family: var(--cz-mono);
-        font-size: 8.5px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        color: var(--money-deep);
-      }
-      .size-kind.is-static { color: var(--muted); }
-      .size-live {
-        font-family: var(--cz-mono);
-        font-size: 11.5px;
-        font-weight: 700;
-        background-image: linear-gradient(
-          100deg,
-          var(--money-deep) 20%,
-          var(--money-bright) 46%,
-          var(--money-deep) 72%
-        );
-        background-size: 220% 100%;
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-        animation: czShimmer 3.2s linear infinite;
-      }
-      .size-static {
-        font-family: var(--cz-mono);
-        font-size: 11.5px;
-        font-weight: 650;
-        color: var(--ink);
-      }
-      .price {
-        margin-left: auto;
-        font-family: var(--cz-mono);
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--money);
       }
 
       /* Sections */
@@ -678,7 +637,6 @@
         gap: clamp(28px, 4vw, 56px);
         align-items: center;
       }
-      .two-col.top { align-items: start; }
       .check-list { display: grid; gap: 9px; margin-top: 20px; }
       .check-row {
         display: flex;
@@ -692,18 +650,252 @@
         color: var(--ink-soft);
       }
 
+      /* ── FIT READ — the app's table, verbatim geometry ── */
+      .fit-card {
+        padding: clamp(16px, 2vw, 22px);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        box-shadow: var(--card-shadow);
+      }
+      .sz-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .sz-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 34px;
+        padding: 0 13px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--sub);
+        font-size: 13px;
+        font-weight: 550;
+        transition: border-color 200ms ease-out, background-color 200ms ease-out, color 200ms ease-out;
+      }
+      .sz-chip.is-on {
+        border-color: var(--ink);
+        background: var(--chip-fill);
+        color: var(--ink);
+        font-weight: 650;
+      }
+      .sz-chip .rec {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-family: var(--cz-mono);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--money);
+      }
+      .sz-chip .rec::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--money);
+      }
+      .fitread { margin-top: 13px; }
+      .fitread-row {
+        display: grid;
+        grid-template-columns: 70px 1fr 40px 40px 54px;
+        gap: 10px;
+        align-items: center;
+        padding: 7px 0;
+        border-top: 1px solid var(--line-soft);
+      }
+      .fitread-heads {
+        border-top: 0;
+        padding: 0 0 5px;
+      }
+      .fitread-kicker {
+        font-family: var(--cz-mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        color: var(--faint);
+      }
+      .fitread-scale {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--cz-mono);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        color: var(--faint);
+      }
+      .fitread-head {
+        font-family: var(--cz-mono);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        color: var(--faint);
+        text-align: right;
+      }
+      .fitread-head-short { display: none; }
+      .fitread-name {
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+      }
+      /* The marker overflows the 5px track by design (2×13px at top -4px),
+         so the track must NOT clip. */
+      .fitread-track {
+        position: relative;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--chip-fill);
+      }
+      .fitread-band {
+        position: absolute;
+        left: 36%;
+        width: 30%;
+        top: 0;
+        bottom: 0;
+        border-radius: 999px;
+        background: var(--fit-band);
+      }
+      .fitread-mark {
+        position: absolute;
+        top: -4px;
+        width: 2px;
+        height: 13px;
+        border-radius: 1px;
+        background: var(--money);
+        transition: left 300ms ease-out, background-color 300ms ease-out;
+      }
+      .fitread-mark.is-warn { background: var(--warn); }
+      .fitread-theirs {
+        font-family: var(--cz-mono);
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--ink);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .fitread-yours {
+        font-family: var(--cz-mono);
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--faint);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .fitread-ease {
+        font-family: var(--cz-mono);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--money);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        transition: color 300ms ease-out;
+      }
+      .fitread-ease.is-warn { color: var(--warn-ink); }
+      .fitread-foot {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 2px;
+        padding-top: 7px;
+        border-top: 1px solid var(--line-soft);
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--faint);
+      }
+      .fitread-footlinks { display: flex; gap: 12px; }
+      .fitread-footlink {
+        border: 0;
+        padding: 0;
+        background: none;
+        font: inherit;
+        color: var(--sub);
+        text-decoration: underline;
+        text-decoration-color: color-mix(in srgb, var(--sub) 40%, transparent);
+        text-underline-offset: 3px;
+        cursor: pointer;
+      }
+      @media (max-width: 480px) {
+        .fitread-row {
+          grid-template-columns: 54px 1fr 30px 30px 40px;
+          gap: 8px;
+          padding: 8px 0;
+        }
+        .fitread-heads { padding: 0 0 5px; }
+        .fitread-theirs,
+        .fitread-yours,
+        .fitread-ease { font-size: 11px; }
+        .fitread-head-long { display: none; }
+        .fitread-head-short { display: inline; }
+        .fitread-scale > span:nth-child(2) { display: none; }
+      }
+      .fit-sentence {
+        position: relative;
+        margin-top: 14px;
+        min-height: 3.2em;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--ink-soft);
+        text-wrap: pretty;
+        transition: opacity 150ms ease-out;
+      }
+      .fit-sentence.is-fading { opacity: 0; }
+
+      /* Shelf */
       .shelf-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
-        gap: 14px;
+        gap: 16px;
         margin-top: 30px;
+      }
+      .shelf-grid .p-card.is-pre {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      .shelf-grid .p-card.is-entering {
+        transition: opacity 400ms ease-out, transform 400ms ease-out,
+          box-shadow 200ms ease-out;
+      }
+      /* QC magnifier lens: a slow loop over one photo. */
+      .lens {
+        position: absolute;
+        top: 18%;
+        left: 14%;
+        width: 84px;
+        height: 84px;
+        border-radius: 999px;
+        border: 2px solid rgba(255, 255, 255, 0.85);
+        box-shadow: 0 4px 14px rgb(6 6 8 / 0.35), inset 0 0 0 1px rgb(6 6 8 / 0.2);
+        background-image: var(--lens-img);
+        background-size: 300% auto;
+        background-position: 18% 20%;
+        pointer-events: none;
+        animation: czLens 9s ease-in-out infinite;
+        animation-play-state: paused;
+      }
+      .is-live .lens { animation-play-state: running; }
+      @keyframes czLens {
+        0% { top: 18%; left: 14%; background-position: 18% 20%; }
+        30% { top: 22%; left: 52%; background-position: 66% 26%; }
+        55% { top: 48%; left: 44%; background-position: 56% 58%; }
+        80% { top: 40%; left: 12%; background-position: 16% 50%; }
+        100% { top: 18%; left: 14%; background-position: 18% 20%; }
       }
       .haul-bar {
         display: flex;
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin-top: 16px;
+        margin-top: 18px;
         padding: 14px 16px;
         border: 1px solid var(--line);
         border-radius: 14px;
@@ -722,301 +914,95 @@
         background: var(--line);
       }
 
-      /* Size panel */
-      .panel {
-        padding: clamp(16px, 2vw, 22px);
-        border-radius: 22px;
-        background: var(--bg-panel);
-        border: 1px solid var(--line);
+      /* Money strip */
+      .money-flow {
+        display: flex;
+        align-items: stretch;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 28px;
       }
-      .panel-inner {
-        padding: 16px;
-        border: 1px solid var(--ink);
-        border-radius: 15px;
+      .money-step {
+        flex: 1 1 180px;
+        display: grid;
+        gap: 4px;
+        align-content: start;
+        padding: 16px 17px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
         background: var(--card);
       }
-      .rec-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 10px;
-      }
-      .rec-size {
-        margin-top: 2px;
-        font-family: var(--cz-display);
-        font-size: 28px;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-        line-height: 1.1;
-      }
-      .confidence {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding-top: 5px;
-        font-size: 11.5px;
-        font-weight: 650;
-        color: var(--money);
-        text-align: right;
-      }
-      .confidence i {
-        width: 7px;
-        height: 7px;
-        border-radius: 999px;
-        background: var(--money);
-        flex: 0 0 auto;
-      }
-      .prescription {
-        margin-top: 9px;
-        font-size: 14px;
-        line-height: 1.5;
-        color: var(--ink-soft);
-        text-wrap: pretty;
-      }
-      .facts-3 {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 7px;
-        margin-top: 13px;
-      }
-      .fact-tile {
-        display: grid;
-        gap: 2px;
-        padding: 9px 10px;
-        border-radius: 10px;
-        background: var(--bg);
-      }
-      .fact-tile .lbl {
-        font-family: var(--cz-mono);
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-      .fact-tile .val {
-        font-family: var(--cz-mono);
-        font-size: 13.5px;
-        font-weight: 700;
-      }
-      .fact-tile .val.is-money { color: var(--money); }
-      .chart {
-        margin-top: 14px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        overflow: hidden;
-      }
-      .chart-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1fr;
-        padding: 8px 11px;
-      }
-      .chart-row.head {
-        padding: 7px 11px;
-        background: var(--bg);
-        border-bottom: 1px solid var(--line);
-      }
-      .chart-row.head span {
-        font-family: var(--cz-mono);
-        font-size: 8.5px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-      .chart-row.head span:not(:first-child),
-      .chart-row span:not(:first-child) { text-align: right; }
-      .chart-row span {
-        font-family: var(--cz-mono);
-        font-size: 12px;
-      }
-      .chart-row.is-rec {
-        background: var(--action);
-        color: var(--action-text);
-      }
-      .chart-row.is-rec .size-cell { color: var(--money-on-dark); font-weight: 700; }
-      .chart-foot {
-        padding: 7px 11px;
-        border-top: 1px solid var(--line);
-        background: var(--bg);
+      .money-step .lbl {
         font-family: var(--cz-mono);
         font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
         color: var(--muted);
       }
-
-      /* Status track */
-      .box {
-        margin-top: 20px;
-        padding: 16px;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        background: var(--card);
+      .money-step .val {
+        font-family: var(--cz-mono);
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
       }
-      .track-head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        margin-bottom: 12px;
-      }
-      .track {
-        display: flex;
-        align-items: flex-start;
-      }
-      .track-step {
-        flex: 1;
-        display: grid;
-        gap: 8px;
-        justify-items: center;
-      }
-      .track-rail {
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        height: 16px;
-      }
-      .rail-l,
-      .rail-r {
-        position: absolute;
-        top: 7px;
-        height: 2px;
-      }
-      .rail-l { left: 0; right: 50%; }
-      .rail-r { left: 50%; right: 0; }
-      .rail-on { background: var(--action); }
-      .rail-off { background: var(--line); }
-      .rail-none { background: transparent; }
-      .dot {
-        position: relative;
-        display: grid;
-        place-items: center;
-        width: 16px;
-        height: 16px;
-        border-radius: 999px;
-        border: 2px solid var(--line);
-        background: var(--card);
-      }
-      .dot.is-done,
-      .dot.is-current {
-        border-color: var(--action);
-        background: var(--action);
-      }
-      .track-label {
-        font-size: 11.5px;
-        font-weight: 550;
-        color: var(--faint);
-      }
-      .track-label.is-done { color: var(--sub); }
-      .track-label.is-current { color: var(--ink); font-weight: 700; }
-      .gl-row {
-        display: flex;
-        gap: 7px;
-        margin-top: 14px;
-      }
-      .gl-chip {
-        flex: 1;
-        display: grid;
-        place-items: center;
-        min-height: 40px;
-        border-radius: 11px;
+      .money-step .val.is-money { color: var(--money); }
+      .money-step .note {
         font-size: 12.5px;
-        font-weight: 700;
-      }
-      .gl-chip.is-on {
-        border: 1px solid color-mix(in srgb, var(--money) 40%, transparent);
-        background: color-mix(in srgb, var(--money) 8%, transparent);
-        color: var(--money);
-      }
-      .gl-chip.is-off {
-        border: 1px solid var(--line);
-        background: var(--card);
-        color: var(--muted);
-        font-weight: 550;
-      }
-
-      /* Agents */
-      .agent-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 7px;
-      }
-      .agent-chip {
-        display: inline-flex;
-        align-items: center;
-        min-height: 36px;
-        padding: 0 13px;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        background: var(--card);
+        line-height: 1.5;
         color: var(--sub);
-        font-size: 13px;
-        font-weight: 550;
       }
-      .agent-chip.is-on {
-        border-color: var(--action);
-        background: var(--action);
-        color: var(--action-text);
-        font-weight: 700;
-      }
-      .buy-row {
+      .money-arrow {
         display: flex;
         align-items: center;
-        gap: 12px;
+        color: var(--faint);
+        flex: 0 0 auto;
+      }
+      @media (max-width: 700px) {
+        .money-arrow { display: none; }
+      }
+      .plan-line {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
         margin-top: 16px;
-        padding-top: 15px;
+        font-family: var(--cz-mono);
+        font-size: 12px;
+        color: var(--sub);
+      }
+      .plan-line .dot { opacity: 0.45; }
+      .plan-line strong { color: var(--ink); font-weight: 700; }
+
+      /* Honesty */
+      .not-list {
+        display: grid;
+        gap: 0;
+        margin-top: 26px;
+        max-width: 44rem;
+      }
+      .not-row {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 14px;
+        padding: 14px 0;
         border-top: 1px solid var(--line);
       }
-      .buy-price {
-        font-family: var(--cz-mono);
-        font-size: 20px;
-        font-weight: 700;
-        color: var(--money);
-      }
-      .buy-btn {
-        display: grid;
-        place-items: center;
-        min-width: 170px;
-        min-height: 48px;
-        padding: 0 20px;
-        border-radius: 14px;
-        background: var(--action);
-        color: var(--action-text);
-        font-size: 14.5px;
-        font-weight: 700;
-        margin-left: auto;
-      }
-      .ftc {
-        margin-top: 10px;
-        font-size: 11.5px;
-        line-height: 1.5;
-        color: var(--muted);
-      }
-
-      /* Trust */
-      .not-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 12px;
-        margin-top: 26px;
-      }
-      .not-card {
-        padding: 17px 18px;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        background: var(--card);
-      }
-      .not-card h3 {
+      .not-row:last-child { border-bottom: 1px solid var(--line); }
+      .not-row h3 {
         margin: 0;
-        font-size: 14.5px;
+        font-size: 14px;
         font-weight: 700;
       }
-      .not-card p {
-        margin: 6px 0 0;
-        font-size: 13.5px;
+      .not-row p {
+        margin: 0;
+        font-size: 14px;
         line-height: 1.55;
         color: var(--sub);
         text-wrap: pretty;
+      }
+      @media (max-width: 520px) {
+        .not-row { grid-template-columns: 1fr; gap: 4px; }
       }
 
       /* CTA band */
@@ -1048,11 +1034,7 @@
         color: #a8adb5;
         text-wrap: pretty;
       }
-      .cta-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
+      .cta-band a:not(.btn-light) { color: #cfd3d9; }
       .btn-light {
         display: inline-flex;
         align-items: center;
@@ -1067,16 +1049,6 @@
         text-decoration: none;
       }
       .btn-light:hover { color: #17181a; opacity: 0.92; }
-      .link-muted {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 44px;
-        font-size: 13.5px;
-        color: #a8adb5;
-        text-decoration-color: rgba(168, 173, 181, 0.4);
-      }
-      .link-muted:hover { color: #f4f4f0; }
 
       /* Footer */
       .site-foot {
@@ -1103,19 +1075,22 @@
       }
       .site-foot a:hover { color: #f4f4f0; }
 
-      @keyframes czShimmer {
-        from { background-position: 180% 0; }
-        to { background-position: -80% 0; }
-      }
-      @keyframes czFade {
-        from { opacity: 0; transform: translateY(6px); }
-        to { opacity: 1; transform: none; }
-      }
       @keyframes czCaret {
         0%, 49% { opacity: 1; }
         50%, 100% { opacity: 0; }
       }
       @keyframes czSpin { to { transform: rotate(360deg); } }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          transition-delay: 0ms !important;
+        }
+        .lens { display: none; }
+      }
     </style>
     <script type="application/ld+json">
 {
@@ -1182,8 +1157,7 @@
               pick. Track QC, group it into a haul, then open Buy in your own agent.
             </p>
             <div class="hero-ctas">
-              <a class="btn-primary" href="/">Open Credenza, it's free</a>
-              <a class="btn-secondary" href="#how">See it work</a>
+              <a class="btn-primary" href="/">Open the app</a>
             </div>
             <div class="trust-line">
               <span class="live" aria-hidden="true"></span>
@@ -1215,193 +1189,33 @@
                 </span>
                 <svg class="demo-arrow is-on" id="demo-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v13"></path><path d="M7 13l5 5 5-5"></path></svg>
               </div>
-              <div class="demo-result">
-                <div class="demo-result-grid is-on" id="demo-result">
-                  <article class="p-card">
-                    <div class="p-photo">
-                      <img
-                        src="/landing/img/kit-jersey-black.jpg"
-                        alt="Kit jersey in black"
-                        width="900"
-                        height="900"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                      <span class="status-pill status-want">Want</span>
-                      <span class="album-pill">
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
-                        8
+              <div class="demo-stage">
+                <div class="demo-card-wrap">
+                  <article class="p-card demo-card" id="demo-card">
+                    <img
+                      src="/landing/img/kit-jersey-black.jpg"
+                      alt="Kit jersey in black"
+                      width="900"
+                      height="1350"
+                      decoding="async"
+                    />
+                    <span class="p-scrim" aria-hidden="true"></span>
+                    <span class="p-text">
+                      <span class="p-line p-ref">CZ-0412 · 6 photos</span>
+                      <span class="p-line p-title">Kit jersey · black</span>
+                      <span class="p-line p-meta">
+                        <span class="seller">Mook-official</span>
+                        <span class="sep">·</span>
+                        <span>L</span>
+                        <span class="sep">·</span>
+                        <span class="p-price">$23.52</span>
                       </span>
-                    </div>
-                    <div class="p-body">
-                      <span class="p-title">Kit jersey · black</span>
-                      <span class="p-meta">
-                        <span class="size-kind">AI SIZE</span>
-                        <span class="size-live">L</span>
-                        <span class="price">$23.52</span>
-                      </span>
-                    </div>
+                    </span>
                   </article>
-                  <div class="fact-list">
-                    <div class="fact">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
-                      <span class="fact-label">Seller</span>
-                      <span class="fact-val">Mook-official</span>
-                    </div>
-                    <div class="fact">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
-                      <span class="fact-label">Photos</span>
-                      <span class="fact-val">8 from the listing</span>
-                    </div>
-                    <div class="fact">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
-                      <span class="fact-label">Size</span>
-                      <span class="fact-val">L · from the chart</span>
-                    </div>
-                    <div class="fact">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--money)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
-                      <span class="fact-label">Weight</span>
-                      <span class="fact-val">~380 g</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
             <p class="demo-note">One paste. Photos, price, seller and a size pick. No typing, no spreadsheet row.</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="how" class="band band-soft">
-        <div class="wrap section">
-          <div class="section-intro">
-            <div class="kicker">The shelf</div>
-            <h2 class="serif-h">Everything you're watching, on one page.</h2>
-            <p class="lede">
-              Cards carry the photo, the size pick, the price and where it is in the
-              order. Group them into a haul and you get the running total and a
-              parcel weight estimate before you commit.
-            </p>
-          </div>
-          <div class="shelf-grid">
-            <article class="p-card">
-              <div class="p-photo">
-                <img
-                  src="/landing/img/kit-jersey-black.jpg"
-                  alt="Kit jersey in black"
-                  width="900"
-                  height="900"
-                  loading="lazy"
-                  decoding="async"
-                />
-                <span class="status-pill status-bought">Bought</span>
-                <span class="heart is-on" aria-hidden="true">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
-                </span>
-                <span class="album-pill">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
-                  8
-                </span>
-              </div>
-              <div class="p-body">
-                <span class="p-title">Kit jersey · black</span>
-                <span class="p-meta">
-                  <span class="size-kind">AI SIZE</span>
-                  <span class="size-live">L</span>
-                  <span class="price">$23.52</span>
-                </span>
-              </div>
-            </article>
-            <article class="p-card">
-              <div class="p-photo">
-                <img
-                  src="/landing/img/kit-shorts-black.jpg"
-                  alt="Kit shorts in black"
-                  width="900"
-                  height="900"
-                  loading="lazy"
-                  decoding="async"
-                />
-                <span class="status-pill status-bought">Bought</span>
-                <span class="heart" aria-hidden="true">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
-                </span>
-                <span class="album-pill">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
-                  6
-                </span>
-              </div>
-              <div class="p-body">
-                <span class="p-title">Kit shorts · black</span>
-                <span class="p-meta">
-                  <span class="size-kind">AI SIZE</span>
-                  <span class="size-live">L</span>
-                  <span class="price">$27.72</span>
-                </span>
-              </div>
-            </article>
-            <article class="p-card">
-              <div class="p-photo">
-                <img
-                  src="/landing/img/floral-soccer-jersey.jpg"
-                  alt="Floral soccer jersey"
-                  width="900"
-                  height="900"
-                  loading="lazy"
-                  decoding="async"
-                />
-                <span class="heart is-on" aria-hidden="true">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
-                </span>
-                <span class="album-pill">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
-                  12
-                </span>
-              </div>
-              <div class="p-body">
-                <span class="p-title">Floral soccer jersey</span>
-                <span class="p-meta">
-                  <span class="size-kind is-static">YOUR USUAL</span>
-                  <span class="size-static">L</span>
-                  <span class="price">$38.92</span>
-                </span>
-              </div>
-            </article>
-            <article class="p-card">
-              <div class="p-photo">
-                <img
-                  src="/landing/img/dry-fit-training-top.jpg"
-                  alt="Dry-fit training top"
-                  width="900"
-                  height="900"
-                  loading="lazy"
-                  decoding="async"
-                />
-                <span class="status-pill status-bought">Bought</span>
-                <span class="heart" aria-hidden="true">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 7a3.9 3.9 0 0 1 7 3.6C19 15.4 12 20 12 20z"></path></svg>
-                </span>
-                <span class="album-pill">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="14" rx="2"></rect><path d="M21 7v11a2 2 0 0 1-2 2H8"></path></svg>
-                  9
-                </span>
-              </div>
-              <div class="p-body">
-                <span class="p-title">Dry-fit training top</span>
-                <span class="p-meta">
-                  <span class="size-kind is-static">SIZE</span>
-                  <span class="size-static">XL</span>
-                  <span class="price">$32.06</span>
-                </span>
-              </div>
-            </article>
-          </div>
-          <div class="haul-bar">
-            <span class="kicker" style="letter-spacing:.12em">July haul</span>
-            <span style="font-size:13.5px;color:var(--sub)">8 items</span>
-            <span class="vdiv" aria-hidden="true"></span>
-            <span style="font-size:13.5px;color:var(--sub)">est. parcel 3.4 kg</span>
-            <span class="total">$548.08</span>
           </div>
         </div>
       </section>
@@ -1413,8 +1227,8 @@
             <h2 class="serif-h">A size pick that shows its work.</h2>
             <p class="lede">
               Save your measurements once. Credenza reads the seller's chart, from
-              the listing text or the photos of it, then compares it to you and
-              tells you which size and why in one sentence. No chart on the
+              the listing text or the photos of it, then lays their numbers against
+              yours — one row per measurement, ease in centimetres. No chart on the
               listing? It says so and falls back to your usual size rather than
               inventing a confident answer.
             </p>
@@ -1433,198 +1247,263 @@
               </div>
             </div>
           </div>
-          <div class="panel">
-            <div class="panel-inner">
-              <div class="rec-head">
-                <div>
-                  <div class="kicker" style="font-size:9.5px;letter-spacing:.12em">We recommend</div>
-                  <div class="rec-size">Large</div>
-                </div>
-                <span class="confidence"><i aria-hidden="true"></i>Read from the seller's chart</span>
+          <div class="fit-card" id="fitcard">
+            <div class="sz-row" role="tablist" aria-label="Sizes">
+              <button type="button" class="sz-chip" data-size="S" disabled>S</button>
+              <button type="button" class="sz-chip" data-size="M" id="chip-m">M</button>
+              <button type="button" class="sz-chip is-on" data-size="L" id="chip-l">L <span class="rec">Recommended</span></button>
+              <button type="button" class="sz-chip" data-size="XL" disabled>XL</button>
+            </div>
+            <div class="fitread" id="fitread">
+              <div class="fitread-row fitread-heads" aria-hidden="true">
+                <span class="fitread-kicker">FIT READ</span>
+                <span class="fitread-scale">
+                  <span>TIGHT</span>
+                  <span>TRUE</span>
+                  <span>LOOSE</span>
+                </span>
+                <span class="fitread-head">
+                  <span class="fitread-head-long">THEIRS</span>
+                  <span class="fitread-head-short">THRS</span>
+                </span>
+                <span class="fitread-head">
+                  <span class="fitread-head-long">YOURS</span>
+                  <span class="fitread-head-short">YOU</span>
+                </span>
+                <span class="fitread-head">EASE</span>
               </div>
-              <div class="prescription">
-                Take the Large. Its 104cm chest gives you 6cm of room over your
-                98cm, which is where this jersey is meant to sit. The Medium's
-                100cm would pull across the chest.
+              <div class="fitread-row" data-row="chest">
+                <span class="fitread-name">Chest</span>
+                <span class="fitread-track">
+                  <span class="fitread-band"></span>
+                  <span class="fitread-mark" style="left: 36%"></span>
+                </span>
+                <span class="fitread-theirs">104</span>
+                <span class="fitread-yours">98</span>
+                <span class="fitread-ease">+6</span>
               </div>
-              <div class="facts-3">
-                <div class="fact-tile">
-                  <span class="lbl">You</span>
-                  <span class="val">98cm</span>
-                </div>
-                <div class="fact-tile">
-                  <span class="lbl">Garment</span>
-                  <span class="val">104cm</span>
-                </div>
-                <div class="fact-tile">
-                  <span class="lbl">Ease</span>
-                  <span class="val is-money">+6cm</span>
-                </div>
+              <div class="fitread-row" data-row="length">
+                <span class="fitread-name">Body length</span>
+                <span class="fitread-track">
+                  <span class="fitread-band"></span>
+                </span>
+                <span class="fitread-theirs">72</span>
+                <span class="fitread-yours">69</span>
+                <span class="fitread-ease">+3</span>
               </div>
-              <div class="chart" role="table" aria-label="Size chart">
-                <div class="chart-row head" role="row">
-                  <span>Size</span><span>Chest</span><span>Length</span><span>Shldr</span>
-                </div>
-                <div class="chart-row" role="row">
-                  <span>S</span><span>96</span><span>68</span><span>44</span>
-                </div>
-                <div class="chart-row" role="row">
-                  <span>M</span><span>100</span><span>70</span><span>46</span>
-                </div>
-                <div class="chart-row is-rec" role="row">
-                  <span class="size-cell">L</span><span>104</span><span>72</span><span>48</span>
-                </div>
-                <div class="chart-row" role="row">
-                  <span>XL</span><span>108</span><span>74</span><span>50</span>
-                </div>
-                <div class="chart-foot">Chart read from 4 album photos · Jul 24</div>
+              <div class="fitread-row" data-row="shoulder">
+                <span class="fitread-name">Shoulder</span>
+                <span class="fitread-track">
+                  <span class="fitread-band"></span>
+                  <span class="fitread-mark" style="left: 51%"></span>
+                </span>
+                <span class="fitread-theirs">48</span>
+                <span class="fitread-yours">46</span>
+                <span class="fitread-ease">+2</span>
+              </div>
+              <div class="fitread-row" data-row="sleeve">
+                <span class="fitread-name">Sleeve</span>
+                <span class="fitread-track">
+                  <span class="fitread-band"></span>
+                  <span class="fitread-mark" style="left: 58.5%"></span>
+                </span>
+                <span class="fitread-theirs">65</span>
+                <span class="fitread-yours">62</span>
+                <span class="fitread-ease">+3</span>
+              </div>
+              <div class="fitread-foot">
+                <span class="fitread-footnote" id="fit-footnote">All three inside tolerance.</span>
+                <span class="fitread-footlinks">
+                  <button type="button" class="fitread-footlink">Edit my measurements</button>
+                  <button type="button" class="fitread-footlink">Forget this chart</button>
+                </span>
               </div>
             </div>
+            <p class="fit-sentence" id="fit-sentence">
+              Take the L — its 104cm chest gives you 6cm of room over your 98cm,
+              which is where this jersey is meant to sit.
+            </p>
           </div>
         </div>
       </section>
 
-      <section class="band band-soft">
-        <div class="wrap section two-col top">
-          <div>
-            <div class="kicker">QC photos &amp; status</div>
-            <h2 class="serif-h" style="font-size:clamp(24px,3vw,32px)">Keep each purchase together.</h2>
-            <p class="lede" style="font-size:15.5px">
-              Mark the item Bought after you pay. Attach later warehouse photos
-              to the same card, beside the listing, size, price, and seller.
+      <section id="how" class="band band-soft">
+        <div class="wrap section">
+          <div class="section-intro">
+            <div class="kicker">The shelf</div>
+            <h2 class="serif-h">Everything you're watching, on one page.</h2>
+            <p class="lede">
+              Cards carry the photo, the size pick, the price and where it is in the
+              order. Group them into a haul and you get the running total and a
+              parcel weight estimate before you commit.
             </p>
-            <div class="box">
-              <div class="track-head">
-                <span class="kicker" style="font-size:9.5px">Status</span>
-                <span style="font-family:var(--cz-mono);font-size:10.5px;color:var(--muted)">Paid · kept with its photos</span>
-              </div>
-              <div class="track" aria-label="Buying status">
-                <span class="track-step">
-                  <span class="track-rail">
-                    <span class="rail-l rail-none"></span>
-                    <span class="rail-r rail-on"></span>
-                    <span class="dot is-done" aria-hidden="true">
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#F4F4F0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"></path></svg>
-                    </span>
-                  </span>
-                  <span class="track-label is-done">Want</span>
-                </span>
-                <span class="track-step">
-                  <span class="track-rail">
-                    <span class="rail-l rail-on"></span>
-                    <span class="rail-r rail-none"></span>
-                    <span class="dot is-done" aria-hidden="true">
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#F4F4F0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"></path></svg>
-                    </span>
-                  </span>
-                  <span class="track-label is-done">Bought</span>
-                </span>
-              </div>
-              <div class="gl-row">
-                <span class="gl-chip is-on">4 QC photos on Free</span>
-                <span class="gl-chip is-off">12 on Pro</span>
-              </div>
-            </div>
           </div>
-
-          <div>
-            <div class="kicker">Buy</div>
-            <h2 class="serif-h" style="font-size:clamp(24px,3vw,32px)">Your agent, one tap.</h2>
-            <p class="lede" style="font-size:15.5px">
-              Pick your agent once and every Buy button opens the right item
-              there. Credenza never takes your money and never checks out for you.
-            </p>
-            <div class="box">
-              <div class="agent-row">
-                <span class="agent-chip is-on">Superbuy</span>
-                <span class="agent-chip">CNFans</span>
-                <span class="agent-chip">Mulebuy</span>
-                <span class="agent-chip">Kakobuy</span>
-                <span class="agent-chip">Hoobuy</span>
-                <span class="agent-chip">Oopbuy</span>
-              </div>
-              <div class="buy-row">
-                <span class="buy-price">$23.52</span>
-                <span class="buy-btn">Buy via Superbuy</span>
-              </div>
-              <div class="ftc">
-                Some agent links carry a referral code that funds the app. It never
-                changes your price.
-              </div>
-            </div>
+          <div class="shelf-grid" id="shelf">
+            <article class="p-card">
+              <img
+                src="/landing/img/kit-jersey-black.jpg"
+                alt="Kit jersey in black"
+                width="900"
+                height="1350"
+                loading="lazy"
+                decoding="async"
+              />
+              <span class="p-scrim" aria-hidden="true"></span>
+              <span class="p-text">
+                <span class="p-ref">CZ-0412 · 6 photos</span>
+                <span class="p-title">Kit jersey · black</span>
+                <span class="p-meta">
+                  <span class="seller">Mook-official</span>
+                  <span class="sep">·</span>
+                  <span>L</span>
+                  <span class="sep">·</span>
+                  <span class="p-price">$23.52</span>
+                </span>
+              </span>
+            </article>
+            <article class="p-card">
+              <img
+                src="/landing/img/kit-shorts-black.jpg"
+                alt="Kit shorts in black"
+                width="900"
+                height="1350"
+                loading="lazy"
+                decoding="async"
+              />
+              <span class="p-scrim" aria-hidden="true"></span>
+              <span class="p-flag">Bought</span>
+              <span class="p-text">
+                <span class="p-ref">CZ-0413 · 5 photos</span>
+                <span class="p-title">Kit shorts · black</span>
+                <span class="p-meta">
+                  <span class="seller">Mook-official</span>
+                  <span class="sep">·</span>
+                  <span>L</span>
+                  <span class="sep">·</span>
+                  <span class="p-price">$27.72</span>
+                </span>
+              </span>
+            </article>
+            <article class="p-card" id="lens-card">
+              <img
+                src="/landing/img/floral-soccer-jersey.jpg"
+                alt="Floral soccer jersey"
+                width="900"
+                height="1350"
+                loading="lazy"
+                decoding="async"
+              />
+              <span class="lens" style="--lens-img: url('/landing/img/floral-soccer-jersey.jpg')" aria-hidden="true"></span>
+              <span class="p-scrim" aria-hidden="true"></span>
+              <span class="p-text">
+                <span class="p-ref">CZ-0398 · 12 photos</span>
+                <span class="p-title">Floral soccer jersey</span>
+                <span class="p-meta">
+                  <span class="seller">Grailz Studio</span>
+                  <span class="sep">·</span>
+                  <span>L</span>
+                  <span class="sep">·</span>
+                  <span class="p-price">$38.92</span>
+                </span>
+              </span>
+            </article>
+            <article class="p-card">
+              <img
+                src="/landing/img/dry-fit-training-top.jpg"
+                alt="Dry-fit training top"
+                width="900"
+                height="1350"
+                loading="lazy"
+                decoding="async"
+              />
+              <span class="p-scrim" aria-hidden="true"></span>
+              <span class="p-text">
+                <span class="p-ref">CZ-0371 · 9 photos</span>
+                <span class="p-title">Dry-fit training top</span>
+                <span class="p-meta">
+                  <span>XL</span>
+                  <span class="sep">·</span>
+                  <span class="p-price">$32.06</span>
+                </span>
+              </span>
+            </article>
+          </div>
+          <div class="haul-bar">
+            <span class="kicker" style="letter-spacing:.12em">July haul</span>
+            <span style="font-size:13.5px;color:var(--sub)">8 items</span>
+            <span class="vdiv" aria-hidden="true"></span>
+            <span style="font-size:13.5px;color:var(--sub)">est. parcel 3.4 kg</span>
+            <span class="total">$548.08</span>
           </div>
         </div>
       </section>
 
-      <section id="cost" class="band band-soft">
+      <section id="cost" class="band">
         <div class="wrap section">
           <div class="section-intro">
             <div class="kicker">What it costs</div>
-            <h2 class="serif-h">Free is the whole app. Pro is more of it.</h2>
+            <h2 class="serif-h">Know the damage before you commit.</h2>
             <p class="lede" style="font-size:15.5px">
-              Every feature on this page works on the free plan. Nothing is held
-              back behind a wall. What Pro raises is how much of it you can do in
-              a day, and how many hauls you can keep open at once.
+              The haul bar keeps a running total while you stash. Before you buy,
+              Credenza adds the parcel weight and a shipping estimate, so the
+              number you plan around is the number that lands.
             </p>
           </div>
-          <div class="not-grid">
-            <div class="not-card">
-              <h3>Free · $0</h3>
-              <p>
-                Unlimited cards. 2 hauls at once, 4 QC photos an item.
-                <span>3 shared links.</span>
-                Link resolves run 20 a day, size-chart reads 2 a day.
-                No card, no trial clock, no expiry.
-              </p>
+          <div class="money-flow">
+            <div class="money-step">
+              <span class="lbl">On the shelf</span>
+              <span class="val">8 cards</span>
+              <span class="note">Every card carries its own price and weight.</span>
             </div>
-            <div class="not-card">
-              <h3>Pro · $2.49 a week</h3>
-              <p>
-                100 hauls, 12 QC photos an item.
-                <span>100 shared links.</span>
-                Link resolves run 250 a day, size-chart reads 15 a day.
-                Your shelf stays in step across every device.
-                3 days free on the weekly plan. $44.99 a year is $3.75 a month.
-              </p>
+            <span class="money-arrow" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="M13 7l5 5-5 5"></path></svg>
+            </span>
+            <div class="money-step">
+              <span class="lbl">Parcel estimate</span>
+              <span class="val">≈ 3.4 kg</span>
+              <span class="note">Weights add up as the haul grows.</span>
             </div>
-            <div class="not-card">
-              <h3>If Pro ends</h3>
-              <p>
-                Nothing you saved is deleted. Every card, haul, QC photo and
-                shared link stays. Only new additions return to the free caps —
-                <a href="/guides/what-happens-when-pro-ends/">checked row by row</a>.
-              </p>
+            <span class="money-arrow" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="M13 7l5 5-5 5"></path></svg>
+            </span>
+            <div class="money-step">
+              <span class="lbl">Shipping estimate</span>
+              <span class="val is-money">$41</span>
+              <span class="note">Seen before you commit, not after the invoice.</span>
             </div>
           </div>
-          <p style="margin-top:1.4rem;font-size:15px;color:var(--muted)">
-            The full table is on the <a href="/pricing/">pricing page</a>. Start
-            free and stay free if the caps suit you — most people never reach them.
-          </p>
+          <div class="plan-line">
+            <strong>Free forever</strong><span class="dot">·</span>
+            <span>Unlimited cards</span><span class="dot">·</span>
+            <span>Pro from $2.49/wk</span><span class="dot">·</span>
+            <span>3 days free</span><span class="dot">·</span>
+            <a href="/pricing/">full pricing</a>
+          </div>
         </div>
       </section>
 
-      <section id="trust" class="band">
+      <section id="trust" class="band band-soft">
         <div class="wrap section">
           <div class="section-intro">
             <div class="kicker">What Credenza isn't</div>
             <h2 class="serif-h">A planner, not a store.</h2>
           </div>
-          <div class="not-grid">
-            <div class="not-card">
+          <div class="not-list">
+            <div class="not-row">
               <h3>Not a marketplace</h3>
               <p>
                 Nothing is for sale here. Credenza holds links to listings you
                 found yourself and hands them to your agent.
               </p>
             </div>
-            <div class="not-card">
+            <div class="not-row">
               <h3>Not a search engine</h3>
               <p>
                 It won't find items for you. You bring the links from the stores
                 and communities you already use.
               </p>
             </div>
-            <div class="not-card">
+            <div class="not-row">
               <h3>Not a checkout</h3>
               <p>
                 No card details, no payments. Buy opens your agent's page and the
@@ -1641,13 +1520,13 @@
             <h2>Paste your first link.</h2>
             <p>
               Free to start. No account, no card, nothing to install. Your shelf
-              lives on this device until you export it. Pro is $2.49 a week after
-              3 days free if you outgrow the free caps — see <a href="/pricing/">what changes</a>.
+              lives on this device until you export it. Pro is $2.49 a week, $5.99
+              a month, or $44.99 a year — 3 days free if you outgrow the daily AI
+              limits. See <a href="/pricing/">what changes</a>.
             </p>
           </div>
           <div class="cta-actions">
-            <a class="btn-light" href="/">Open Credenza</a>
-            <a class="link-muted" href="/how/">Read how it works first</a>
+            <a class="btn-light" href="/">Open the app</a>
           </div>
         </div>
       </section>
@@ -1673,71 +1552,319 @@
 
     <script>
       (function () {
-        var URL = "weidian.com/item.html?itemID=7809154670";
-        var LABELS = ["Paste anything", "Reading", "Reading the listing", "Stashed"];
-        var timers = [];
-        var stepEl = document.getElementById("demo-step");
-        var typedEl = document.getElementById("demo-typed");
-        var caretEl = document.getElementById("demo-caret");
-        var readingEl = document.getElementById("demo-reading");
-        var arrowEl = document.getElementById("demo-arrow");
-        var resultEl = document.getElementById("demo-result");
-        var replayBtn = document.getElementById("demo-replay");
+        "use strict";
+        var reducedMedia = window.matchMedia
+          ? window.matchMedia("(prefers-reduced-motion: reduce)")
+          : { matches: false };
+        function reduced() {
+          return reducedMedia.matches;
+        }
+        var tabHidden = false;
 
-        function clearTimers() {
-          timers.forEach(clearTimeout);
-          timers = [];
-        }
-        function later(fn, ms) {
-          timers.push(setTimeout(fn, ms));
-        }
-        function setStep(step, typed) {
-          if (stepEl) stepEl.textContent = LABELS[step] || LABELS[3];
-          if (typedEl) typedEl.textContent = typed;
-          if (caretEl) caretEl.classList.toggle("is-on", step === 1);
-          if (readingEl) readingEl.classList.toggle("is-on", step === 2);
-          if (arrowEl) arrowEl.classList.toggle("is-on", step === 3);
-          if (resultEl) resultEl.classList.toggle("is-on", step === 3);
-        }
-        function runDemo() {
-          clearTimers();
-          var reduced =
-            window.matchMedia &&
-            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-          if (reduced) {
-            setStep(3, URL);
-            return;
+        /* ── 1. Hero build loop (~8s cycle) ────────────────────────────── */
+        (function heroDemo() {
+          var URL = "weidian.com/item.html?itemID=7809154670";
+          var LABELS = ["Paste anything", "Pasting", "Reading the listing", "Stashed"];
+          var demoEl = document.getElementById("demo");
+          var stepEl = document.getElementById("demo-step");
+          var typedEl = document.getElementById("demo-typed");
+          var caretEl = document.getElementById("demo-caret");
+          var readingEl = document.getElementById("demo-reading");
+          var arrowEl = document.getElementById("demo-arrow");
+          var replayBtn = document.getElementById("demo-replay");
+          if (!demoEl) return;
+
+          var timers = [];
+          var loopTimer = null;
+          var onScreen = true;
+
+          function later(fn, ms) {
+            timers.push(setTimeout(fn, ms));
           }
-          setStep(0, "");
-          later(function () {
-            setStep(1, "");
-          }, 420);
-          for (var i = 1; i <= URL.length; i++) {
-            (function (n) {
-              later(function () {
-                setStep(1, URL.slice(0, n));
-              }, 420 + n * 17);
-            })(i);
+          function clearTimers() {
+            timers.forEach(clearTimeout);
+            timers = [];
+            if (loopTimer) {
+              clearTimeout(loopTimer);
+              loopTimer = null;
+            }
           }
-          var end = 420 + URL.length * 17;
-          later(function () {
-            setStep(2, URL);
-          }, end + 260);
-          later(function () {
+          function setStep(step, typed) {
+            stepEl.textContent = LABELS[step] || LABELS[3];
+            typedEl.textContent = typed;
+            caretEl.classList.toggle("is-on", step === 1);
+            readingEl.classList.toggle("is-on", step === 2);
+            arrowEl.classList.toggle("is-on", step === 3);
+          }
+          function showFinal() {
+            demoEl.classList.remove("is-armed", "is-anim");
+            demoEl.classList.add("is-in");
             setStep(3, URL);
-          }, end + 1240);
-        }
-        if (replayBtn) {
+          }
+          function runOnce(loop) {
+            clearTimers();
+            if (reduced() || tabHidden || !onScreen) {
+              showFinal();
+              return;
+            }
+            demoEl.classList.remove("is-in", "is-anim");
+            demoEl.classList.add("is-armed");
+            setStep(0, "");
+            later(function () {
+              setStep(1, "");
+            }, 420);
+            for (var i = 1; i <= URL.length; i++) {
+              (function (n) {
+                later(function () {
+                  setStep(1, URL.slice(0, n));
+                }, 420 + n * 17);
+              })(i);
+            }
+            var typed = 420 + URL.length * 17; /* ≈1100ms */
+            later(function () {
+              setStep(2, URL);
+            }, typed + 260);
+            later(function () {
+              /* Assemble: photo, then scrim, then the three text lines. */
+              setStep(3, URL);
+              demoEl.classList.add("is-anim");
+              /* Force a style flush so the armed state is the start frame. */
+              void demoEl.offsetWidth;
+              demoEl.classList.add("is-in");
+            }, typed + 1300);
+            if (loop) {
+              loopTimer = setTimeout(function () {
+                runOnce(true);
+              }, 8000);
+            }
+          }
           replayBtn.addEventListener("click", function () {
-            runDemo();
+            runOnce(false);
           });
-        }
-        // Autoplay once. Finished state is already in HTML for no-JS.
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", runDemo);
-        } else {
-          runDemo();
-        }
+          if ("IntersectionObserver" in window) {
+            new IntersectionObserver(
+              function (entries) {
+                var was = onScreen;
+                onScreen = entries[0].isIntersecting;
+                if (!onScreen) {
+                  clearTimers();
+                  showFinal();
+                } else if (!was) {
+                  runOnce(true);
+                }
+              },
+              { threshold: 0.25 }
+            ).observe(demoEl);
+          }
+          document.addEventListener("visibilitychange", function () {
+            tabHidden = document.hidden;
+            if (tabHidden) {
+              clearTimers();
+              showFinal();
+            } else if (onScreen) {
+              runOnce(true);
+            }
+          });
+          if (reduced()) {
+            showFinal();
+          } else {
+            runOnce(true);
+          }
+        })();
+
+        /* ── 2. FIT READ auto-switch M ↔ L every 4s ───────────────────── */
+        (function fitRead() {
+          var card = document.getElementById("fitcard");
+          if (!card) return;
+          var chipM = document.getElementById("chip-m");
+          var chipL = document.getElementById("chip-l");
+          var sentenceEl = document.getElementById("fit-sentence");
+          var footEl = document.getElementById("fit-footnote");
+          /* Marks follow the app formula (fitReadRows): mark = clamp(51 +
+             ((ease - ideal)/span) * 15, 2, 98); warn when mark < 36 or > 66.
+             Ideal/span: chest 12/6, shoulder 2/3, sleeve 1/4. Body length has
+             no FIT_READ_EASE entry, so it never gets a mark and never counts
+             in the footnote. */
+          var rows = {
+            chest: { yours: 98, L: { theirs: 104, ease: 6, mark: 36, warn: false }, M: { theirs: 100, ease: 2, mark: 26, warn: true } },
+            length: { yours: 69, L: { theirs: 72, ease: 3, mark: null, warn: false }, M: { theirs: 70, ease: 1, mark: null, warn: false } },
+            shoulder: { yours: 46, L: { theirs: 48, ease: 2, mark: 51, warn: false }, M: { theirs: 47, ease: 1, mark: 46, warn: false } },
+            sleeve: { yours: 62, L: { theirs: 65, ease: 3, mark: 58.5, warn: false }, M: { theirs: 63, ease: 1, mark: 51, warn: false } }
+          };
+          var SENTENCES = {
+            L: "Take the L — its 104cm chest gives you 6cm of room over your 98cm, which is where this jersey is meant to sit.",
+            M: "The M is a 100cm chest against your 98cm — only 2cm of room, so it pulls when you move. The L is the safer pick."
+          };
+          var FOOTNOTES = {
+            L: "All three inside tolerance.",
+            M: "Two of three inside tolerance."
+          };
+          var current = "L";
+          var timer = null;
+          var paused = false;
+          var onScreen = true;
+          var rafIds = [];
+
+          function countTo(el, from, to, signed) {
+            var format = function (v) {
+              return (signed ? (v >= 0 ? "+" : "") : "") + v;
+            };
+            if (reduced() || from === to) {
+              el.textContent = format(to);
+              return;
+            }
+            var t0 = performance.now();
+            var DUR = 300;
+            function tick(now) {
+              var t = Math.min(1, (now - t0) / DUR);
+              var eased = 1 - Math.pow(1 - t, 3); /* ease-out cubic */
+              var v = Math.round(from + (to - from) * eased);
+              el.textContent = format(v);
+              if (t < 1) rafIds.push(requestAnimationFrame(tick));
+            }
+            rafIds.push(requestAnimationFrame(tick));
+          }
+          function apply(size) {
+            var prev = current;
+            current = size;
+            chipL.classList.toggle("is-on", size === "L");
+            chipM.classList.toggle("is-on", size === "M");
+            Object.keys(rows).forEach(function (key) {
+              var rowEl = card.querySelector('[data-row="' + key + '"]');
+              var data = rows[key];
+              var next = data[size];
+              var last = data[prev];
+              var mark = rowEl.querySelector(".fitread-mark");
+              var theirsEl = rowEl.querySelector(".fitread-theirs");
+              var easeEl = rowEl.querySelector(".fitread-ease");
+              /* A row without a FIT_READ_EASE entry has no mark element;
+                 its numbers still display and still count. */
+              if (mark && next.mark != null) {
+                mark.style.left = next.mark + "%";
+                mark.classList.toggle("is-warn", next.warn);
+              }
+              easeEl.classList.toggle("is-warn", next.warn);
+              countTo(theirsEl, last.theirs, next.theirs, false);
+              countTo(easeEl, last.ease, next.ease, true);
+            });
+            footEl.textContent = FOOTNOTES[size];
+            if (reduced()) {
+              sentenceEl.textContent = SENTENCES[size];
+            } else {
+              sentenceEl.classList.add("is-fading");
+              setTimeout(function () {
+                sentenceEl.textContent = SENTENCES[size];
+                sentenceEl.classList.remove("is-fading");
+              }, 150);
+            }
+          }
+          function stopTimer() {
+            if (timer) {
+              clearInterval(timer);
+              timer = null;
+            }
+          }
+          function startTimer() {
+            stopTimer();
+            if (paused || tabHidden || !onScreen) return;
+            timer = setInterval(function () {
+              apply(current === "L" ? "M" : "L");
+            }, 4000);
+          }
+          chipM.addEventListener("click", function () {
+            apply("M");
+            startTimer();
+          });
+          chipL.addEventListener("click", function () {
+            apply("L");
+            startTimer();
+          });
+          card.addEventListener("mouseenter", function () {
+            paused = true;
+            stopTimer();
+          });
+          card.addEventListener("mouseleave", function () {
+            paused = false;
+            startTimer();
+          });
+          card.addEventListener(
+            "touchstart",
+            function () {
+              paused = true;
+              stopTimer();
+              /* Resume after the touch interest fades. */
+              setTimeout(function () {
+                paused = false;
+                startTimer();
+              }, 8000);
+            },
+            { passive: true }
+          );
+          if ("IntersectionObserver" in window) {
+            new IntersectionObserver(
+              function (entries) {
+                onScreen = entries[0].isIntersecting;
+                if (onScreen) startTimer();
+                else stopTimer();
+              },
+              { threshold: 0.2 }
+            ).observe(card);
+          }
+          document.addEventListener("visibilitychange", function () {
+            if (document.hidden) stopTimer();
+            else startTimer();
+          });
+          startTimer();
+        })();
+
+        /* ── 3. Shelf entrance: rise in once, 60ms apart ──────────────── */
+        (function shelfEntrance() {
+          var shelf = document.getElementById("shelf");
+          if (!shelf) return;
+          var cards = Array.prototype.slice.call(shelf.querySelectorAll(".p-card"));
+          if (reduced() || !("IntersectionObserver" in window)) return;
+          cards.forEach(function (c) {
+            c.classList.add("is-pre");
+          });
+          var done = false;
+          var io = new IntersectionObserver(
+            function (entries) {
+              if (done || !entries[0].isIntersecting) return;
+              done = true;
+              io.disconnect();
+              cards.forEach(function (c, i) {
+                setTimeout(function () {
+                  c.classList.add("is-entering");
+                  void c.offsetWidth;
+                  c.classList.remove("is-pre");
+                  setTimeout(function () {
+                    c.classList.remove("is-entering");
+                  }, 450);
+                }, i * 60);
+              });
+            },
+            { threshold: 0.15 }
+          );
+          io.observe(shelf);
+        })();
+
+        /* ── 5. Lens loop runs only while the shelf is on screen ──────── */
+        (function lensGate() {
+          var lensCard = document.getElementById("lens-card");
+          if (!lensCard || !("IntersectionObserver" in window)) return;
+          new IntersectionObserver(
+            function (entries) {
+              lensCard.classList.toggle(
+                "is-live",
+                entries[0].isIntersecting && !document.hidden
+              );
+            },
+            { threshold: 0.3 }
+          ).observe(lensCard);
+          document.addEventListener("visibilitychange", function () {
+            if (document.hidden) lensCard.classList.remove("is-live");
+          });
+        })();
       })();
     </script>
   </body>
