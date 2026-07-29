@@ -13897,8 +13897,9 @@ a.cz-detail-seller-row:focus-visible {
        with B — the mock's own recommendation). The row must be minmax(0,1fr),
        not `none`: under max-height alone the columns lose their definite
        height, flex:1 children stop resolving, and the Buy footer clips off
-       the panel bottom (Kyle 2026-07-27). */
-    grid-template-rows: minmax(0, 1fr);
+       the panel bottom (Kyle 2026-07-27). Row 1 is the command bar, which
+       spans the full panel width above both columns (handoff §3). */
+    grid-template-rows: auto minmax(0, 1fr);
     /* The vw/vh caps divide by the 1.25 zoom below (86 / 1.25 = 68.8): zoom
        scales px but not viewport units, so an 86vw cap would render at
        107.5% of the window and clip the card's top icons. 68.8 keeps the
@@ -13979,6 +13980,27 @@ a.cz-detail-seller-row:focus-visible {
     right: 16px;
     z-index: 3;
     padding: 0;
+  }
+  /* ── The command bar's own row (handoff §3) ── The bar spans the whole
+     panel, above the photo column and the decision column. Inside the
+     decision column its five chips plus the seller link needed about 720px
+     and wrapped to two rows; across the panel they have 1040px and sit on
+     one. The 16px left padding lines the first chip up with the photo
+     column's own padding. */
+  .cz-dpanel-bar {
+    position: relative;
+    z-index: 6;
+    grid-column: 1 / -1;
+    padding: 0 20px 0 16px;
+    border-bottom: 1px solid var(--cz-hair);
+  }
+  .cz-dpanel-bar .cz-cmdbar {
+    /* The slot draws the rule and the bar sits inside it, so the bar drops
+       its own bottom border and its inline top margin. */
+    flex-wrap: nowrap;
+    margin-top: 0;
+    padding: 11px 0;
+    border-bottom: none;
   }
   /* Spec :56 shadow, Gallery only. Blackout keeps the deeper shadow from the
      768px block: a 16%-ink shadow is invisible against a near-black scrim. */
@@ -14061,24 +14083,19 @@ a.cz-detail-seller-row:focus-visible {
     padding-right: 92px;
   }
 
-  /* ── Split body (spec :87) ── Desktop only.
-     Column A is the pick and the fit read. Column B is a 208px facts rail.
-     The shelf handoff (2026-07-28, README :105) sets the rail order: Size,
-     then the Details list — Ordered / Haul / Category / Colorway / Weight /
-     Seller. Category moved into .cz-detail-facts in the same handoff. */
+  /* ── Body (item-detail handoff 2026-07-29, §17: "no third column exists
+     anywhere") ── The 208px facts rail is gone. Status, haul, category,
+     colorway, weight and the seller link all moved into the command bar, so
+     the rail held nothing but its own hairline and an empty 208px band. The
+     body is one column now: the fit read owns the full width. */
   .cz-dpanel-body .cz-detail-facts {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 208px;
-    grid-template-rows: repeat(7, auto) 1fr;
-    column-gap: 20px;
-    /* The rail hairline must run unbroken down Column B, so the rows carry
-       their own 12px spacing as padding instead of a grid row-gap. */
+    grid-template-columns: minmax(0, 1fr);
     row-gap: 0;
   }
 
   .cz-dpanel-body .cz-detail-facts-section[aria-label="Size and fit"] {
     grid-column: 1;
-    grid-row: 1 / span 8;
   }
 
   /* The Details kicker is a phone seam. In the split the vertical rail rule
@@ -14093,124 +14110,6 @@ a.cz-detail-seller-row:focus-visible {
   .cz-dpanel-body .cz-detail-facts-section + .cz-detail-facts-section {
     margin-top: 0;
     border-top: none;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Ordered"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Category"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"],
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Seller"] {
-    grid-column: 2;
-    padding-top: 12px;
-    padding-left: 20px;
-    border-left: 1px solid var(--cz-hair);
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] {
-    grid-row: 1;
-    padding-top: 16px;
-  }
-
-  /* Ordered heads the Details list (shelf handoff 2026-07-28). */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Ordered"] {
-    grid-row: 2;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Haul"] {
-    grid-row: 3;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Category"] {
-    grid-row: 4;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Colorway"] {
-    grid-row: 5;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Weight"] {
-    grid-row: 6;
-  }
-
-  /* Seller is the foot of the rail. The 1fr row below it takes the slack, so
-     the rail hairline runs the full height of the split. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Seller"] {
-    grid-row: 7;
-    padding-bottom: 16px;
-  }
-
-  /* The rail hairline must reach the bottom even when the fit read is taller
-     than the seven rows above. This empty tail row carries it. */
-  .cz-dpanel-body .cz-detail-facts::after {
-    content: "";
-    grid-column: 2;
-    grid-row: 8;
-    border-left: 1px solid var(--cz-hair);
-  }
-
-  /* The Bought row in the desktop facts rail: one small switch, right-aligned
-     (round 4 point 4). No rail-specific override is needed — the shared
-     .cz-status-toggle rule already draws it compact. */
-
-  /* The rail label pattern (spec :127): 10px mono over the control. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-rail-label {
-    display: block;
-    margin-bottom: 6px;
-    color: var(--cz-faint);
-    font-family: var(--cz-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  /* Rail size chips (spec :133): 28px tall, 40px min-width, radius 999px,
-     11px mono. Selected is ink fill at weight 600; unselected is a hairline
-     ring at 500. The coarse-pointer floor in credenza.css pins every
-     .cz-detail-size-choice to 44px, so the visual shrinks here and a
-     pseudo-element carries the hit area — the same trick
-     .cz-detail-hero-btn uses on the photo. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice {
-    position: relative;
-    min-width: 40px;
-    min-height: 28px;
-    padding: 0 10px;
-    border-color: var(--cz-hair);
-    border-radius: 999px;
-    color: var(--cz-sub);
-    font-family: var(--cz-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    min-width: 44px;
-    height: 44px;
-    transform: translate(-50%, -50%);
-  }
-
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-size-choice.is-active {
-    font-weight: 600;
-  }
-
-  /* The odd-size field shrinks to the chip band with it. The 16px iOS floor
-     is phone-only, so a desktop 11px value is safe. */
-  .cz-dpanel-body .cz-detail-facts-section[aria-label="Size"] .cz-detail-custom-size .cz-detail-editor-input {
-    width: 72px;
-    min-height: 28px;
-    height: 28px;
-    font-size: 11px;
-    font-weight: 500;
   }
 
   /* Sub line (spec :84): SELLER · SAVED <date> in 10px mono, uppercase. */

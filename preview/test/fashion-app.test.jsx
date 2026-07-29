@@ -317,6 +317,9 @@ describe("Fashion card-back navigation and editing", () => {
     // The size field, not a command-bar chip: an open popover owns Escape and
     // closes itself first (item-detail handoff 2026-07-29 §5.3), which is a
     // different contract from the one this test guards.
+    // Round 5.7 keeps the odd-size box behind a quiet link when the stored
+    // size matches a chip, so open it first.
+    await user.click(screen.getByRole("button", { name: "Type a different size" }));
     const sizeField = screen.getByLabelText("Custom item size");
     sizeField.focus();
     expect(sizeField).toHaveFocus();

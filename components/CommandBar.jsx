@@ -423,6 +423,7 @@ export default function CommandBar({
         <a
           className="cz-cmdbar-seller"
           href={sellerHref}
+          aria-label={"Open " + item.seller + " listings"}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(event) => event.stopPropagation()}

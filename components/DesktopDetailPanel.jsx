@@ -76,6 +76,11 @@ export default function DesktopDetailPanel({
   const [badPhotos, setBadPhotos] = useState(() => new Set());
   const [addBusy, setAddBusy] = useState(false);
   const [logNotesEl, setLogNotesEl] = useState(null);
+  // Handoff §3: the command bar spans the FULL panel, above both columns.
+  // Inside the decision column the five chips wrapped to two rows. DetailBody
+  // owns the bar's state, so the panel lends it a slot and DetailBody portals
+  // into it — the same arrangement .cz-dpanel-lognotes already uses.
+  const [commandBarEl, setCommandBarEl] = useState(null);
   const [isWide, setIsWide] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -308,6 +313,7 @@ export default function DesktopDetailPanel({
       }}
     >
       <div className={"cz-dpanel" + (morphing ? " is-morphing" : "")}>
+        {isWide ? <div className="cz-dpanel-bar" ref={setCommandBarEl} /> : null}
         <div className="cz-dpanel-left">
           <div className="cz-dpanel-stage">
             {photos.length ? (
@@ -645,6 +651,7 @@ export default function DesktopDetailPanel({
               onLoadPhotos={onLoadPhotos}
               footerPrice={price}
               logNotesTarget={isWide ? logNotesEl : undefined}
+              commandBarTarget={isWide ? commandBarEl : undefined}
               flushRef={bodyFlushRef}
               snapshotRef={bodySnapshotRef}
             />

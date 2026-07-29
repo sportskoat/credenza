@@ -1456,6 +1456,10 @@ export default function DetailBody({
   // taking ownership of the notes draft. Undefined keeps them inline for
   // every existing caller; null suppresses the pre-mount desktop frame.
   logNotesTarget = undefined,
+  // Handoff §3: the desktop panel hands the command bar a full-width slot
+  // above both columns. Same contract as logNotesTarget — undefined keeps the
+  // bar inline (phone sheet, tablet band), null suppresses it before mount.
+  commandBarTarget = undefined,
   // CH-08 (4d–4g): the fit-prompt trio. All three optional — a caller that
   // does not pass onSaveBodyProfile gets no prompt and no ask, only the
   // existing sizing presentation.
@@ -2029,6 +2033,30 @@ export default function DetailBody({
     </>
   );
 
+  /* THE COMMAND BAR (item-detail handoff 2026-07-29, rule 1: "the rail is
+     dead"). Status, haul, colorway, weight and category were five labelled
+     fields stacked under the sizing block. Five short fields can never fill
+     the height of a photo, so the panel read as bloated and empty at once.
+     They are one chip row now. Everything the USER SETS lives here;
+     everything the PRODUCT ADVISES stays in the sizing block below. */
+  const commandBarBlock = (
+    <CommandBar
+      item={item}
+      view={view}
+      edit={edit}
+      commit={() => commitRef.current()}
+      onSaveEdit={onSaveEdit}
+      pickStatus={pickStatus}
+      knownHauls={knownHauls}
+      haulCounts={haulCounts}
+      sellerHref={sellerHref}
+      weightUnit={weightUnit}
+      weightText={weightText}
+      onWeightChange={writeWeight}
+      onSwitchWeightUnit={switchWeightUnit}
+    />
+  );
+
   return (
     <>
       {/* Sticky bar (§9). It pins under the drag handle once the photo block
@@ -2194,28 +2222,15 @@ export default function DetailBody({
           ) : null}
         </div>
 
-        {/* THE COMMAND BAR (item-detail handoff 2026-07-29, rule 1: "the rail
-            is dead"). Status, haul, colorway, weight and category were five
-            labelled fields stacked under the sizing block. Five short fields
-            can never fill the height of a photo, so the panel read as bloated
-            and empty at once. They are one chip row under the title now.
-            Everything the USER SETS lives here; everything the PRODUCT
-            ADVISES stays in the sizing block below. */}
-        <CommandBar
-          item={item}
-          view={view}
-          edit={edit}
-          commit={() => commitRef.current()}
-          onSaveEdit={onSaveEdit}
-          pickStatus={pickStatus}
-          knownHauls={knownHauls}
-          haulCounts={haulCounts}
-          sellerHref={sellerHref}
-          weightUnit={weightUnit}
-          weightText={weightText}
-          onWeightChange={writeWeight}
-          onSwitchWeightUnit={switchWeightUnit}
-        />
+        {/* The bar is inline on the phone sheet and the tablet band. On the
+            desktop panel it portals to a full-width slot above both columns
+            (handoff §3) — five chips do not fit one row inside the decision
+            column. See commandBarBlock above. */}
+        {commandBarTarget === undefined
+          ? commandBarBlock
+          : commandBarTarget === null
+            ? null
+            : createPortal(commandBarBlock, commandBarTarget)}
 
         {/* Split rail: the four detail tabs are gone. Size, colorway, weight
             and haul are always-visible facts — three of them hidden behind a
