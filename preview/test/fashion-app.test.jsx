@@ -317,9 +317,6 @@ describe("Fashion card-back navigation and editing", () => {
     // The size field, not a command-bar chip: an open popover owns Escape and
     // closes itself first (item-detail handoff 2026-07-29 §5.3), which is a
     // different contract from the one this test guards.
-    // Round 5.7 keeps the odd-size box behind a quiet link when the stored
-    // size matches a chip, so open it first.
-    await user.click(screen.getByRole("button", { name: "Type a different size" }));
     const sizeField = screen.getByLabelText("Custom item size");
     sizeField.focus();
     expect(sizeField).toHaveFocus();
@@ -1532,10 +1529,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
       chip.getAttribute("data-chip")
     );
     expect(chips).toEqual(["status", "haul", "color", "weight", "category"]);
-    // The size override sits inside the fit section. Round 5 point 5.7: the
-    // odd-size box hides behind a quiet link; one tap opens it.
+    // The size override sits inside the fit section, as the visible fifth box
+    // at the right of the size run (Kyle 2026-07-29).
     const fit = within(sheet).getByRole("region", { name: "Size and fit" });
-    await user.click(within(fit).getByRole("button", { name: "Type a different size" }));
     expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toBeInTheDocument();
   });
 
@@ -1586,9 +1582,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
       "aria-pressed",
       "true"
     );
-    // Round 5 point 5.7: the box hides behind the link and keeps the copied
-    // chip value when opened.
-    await user.click(within(fit).getByRole("button", { name: "Type a different size" }));
+    // The fifth box keeps the chip value that was copied into it.
     expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
     expect(within(sheet).queryByRole("region", { name: "Size" })).toBeNull();
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
@@ -1718,8 +1712,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await user.click(screen.getByRole("button", { name: /^Large/ }));
 
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].size).toBe("L"));
-    // Round 5 point 5.7: open the odd-size box; it mirrors the chip pick.
-    await user.click(screen.getByRole("button", { name: "Type a different size" }));
+    // The fifth box mirrors the chip pick.
     expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("L");
   });
 

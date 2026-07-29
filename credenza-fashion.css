@@ -11427,7 +11427,6 @@ a.cz-detail-seller-row:focus-visible {
 }
 
 .cz-detail-size-choice:focus-visible,
-.cz-detail-custom-size .cz-detail-editor-input:focus-visible,
 .cz-detail-panel-field .cz-detail-editor-input:focus-visible,
 .cz-detail-chart-upload:focus-visible,
 .cz-detail-profile-sizes:focus-visible,
@@ -11476,54 +11475,6 @@ a.cz-detail-seller-row:focus-visible {
   gap: 7px;
 }
 
-.cz-detail-size-editor .cz-detail-custom-size {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 7px;
-}
-
-.cz-detail-size-editor .cz-detail-custom-size > span {
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.cz-detail-size-editor .cz-detail-custom-size .cz-detail-editor-input {
-  width: 88px;
-  min-height: 44px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-/* Round 5 point 5.7: the odd-size box hides behind this quiet text link. */
-.cz-detail-custom-size-link {
-  justify-self: start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--cz-faint);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.cz-detail-custom-size-link:focus-visible {
-  outline: 2px solid var(--cz-focus);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) {
-  .cz-detail-custom-size-link:hover {
-    color: var(--cz-sub);
-  }
-}
-
 .cz-detail-size-choice {
   min-width: 44px;
   min-height: 44px;
@@ -11551,6 +11502,29 @@ a.cz-detail-seller-row:focus-visible {
 .cz-detail-size-choice.is-clear {
   color: var(--cz-sub);
   font-weight: 600;
+}
+
+/* The fifth box (Kyle 2026-07-29): a text field that wears the chip's shape,
+   so the size run reads as one row of boxes. It is wider than a chip because
+   it holds "170/92A" and "One size", not "XL". A dashed edge says "type here"
+   without a label — the chips beside it carry the meaning. */
+input.cz-detail-size-choice.is-custom {
+  width: 92px;
+  border-style: dashed;
+  color: var(--cz-ink);
+  font-weight: 600;
+  text-align: center;
+}
+
+input.cz-detail-size-choice.is-custom::placeholder {
+  color: var(--cz-faint);
+  font-weight: 500;
+}
+
+input.cz-detail-size-choice.is-custom:focus-visible {
+  border-style: solid;
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
 }
 
 /* ── Phone size row (split-rail spec :175) ── The chips share the row width
@@ -11585,20 +11559,18 @@ a.cz-detail-seller-row:focus-visible {
     letter-spacing: normal;
   }
 
-  /* The phone has no room for a chip run and a field on one line. The odd-size
-     field takes its own row under the chips, still inline-labelled. */
-  .cz-detail-size-editor .cz-detail-custom-size {
+  /* The phone has no room for a chip run and the fifth box on one line, so
+     the box takes its own row under the chips. 16px is the iOS floor: any
+     smaller and the browser zooms the page when the field takes focus. */
+  input.cz-detail-size-choice.is-custom {
     flex: 1 0 100%;
-  }
-
-  .cz-detail-size-editor .cz-detail-custom-size .cz-detail-editor-input {
-    flex: 1 1 auto;
     width: auto;
+    font-family: inherit;
     font-size: 16px;
+    letter-spacing: normal;
   }
 }
 
-.cz-detail-custom-size,
 .cz-detail-panel-field {
   display: grid;
   gap: 6px;
@@ -11607,7 +11579,6 @@ a.cz-detail-seller-row:focus-visible {
   font-weight: 650;
 }
 
-.cz-detail-custom-size .cz-detail-editor-input,
 .cz-detail-panel-field .cz-detail-editor-input {
   width: 100%;
   padding: 0 11px;
@@ -11981,6 +11952,41 @@ a.cz-detail-seller-row:focus-visible {
   font: inherit;
   cursor: pointer;
   transition: background var(--dur-press) var(--ease-out);
+}
+
+/* The fifth box (Kyle 2026-07-29): the last cell in the run is a field, not a
+   button. It takes the sizes the seller never listed — "170/92A", "EU 44",
+   "One size". A dashed edge says "type here"; the cells beside it carry the
+   meaning, so it needs no label of its own. */
+input.cz-sizing-cell.is-custom {
+  flex: 0 0 84px;
+  padding: 6px 8px;
+  border: 1px dashed var(--cz-hair-strong);
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+input.cz-sizing-cell.is-custom::placeholder {
+  color: var(--cz-faint);
+  font-weight: 500;
+}
+
+input.cz-sizing-cell.is-custom:focus-visible {
+  border-style: solid;
+}
+
+/* 16px is the iOS floor: any smaller and the browser zooms the page when the
+   field takes focus. The cell run gives the box a share of the row instead of
+   a fixed width, so the four sizes still fit beside it. */
+@media (max-width: 767px) {
+  input.cz-sizing-cell.is-custom {
+    flex: 1 1 0;
+    min-width: 56px;
+    font-size: 16px;
+  }
 }
 
 /* Round 5 point 5.1: the cells are buttons now — they pick the size. */
@@ -13501,15 +13507,20 @@ a.cz-detail-seller-row:focus-visible {
     font-size: 11.5px;
     font-weight: 600;
   }
+  /* Handoff §4: the heart left the photo and joined the actions menu and the
+     close button in the panel head. On a touch screen the first tap on a
+     heart that sits over a photo fires hover and opens the card instead of
+     liking it. In the head it wears the same puck as its two neighbours. */
   .cz-dpanel-fav {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: rgba(12, 12, 14, 0.5);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+    position: static;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
     border: 0;
-    color: #fff;
+    background: color-mix(in srgb, var(--cz-ink) 6%, transparent);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: var(--cz-sub);
   }
   /* Pager arrows: always visible (touch has no hover), disabled at the
      ends rather than wrapping. §4 makes them LIGHT frosted, not dark: the
@@ -13897,9 +13908,10 @@ a.cz-detail-seller-row:focus-visible {
        with B — the mock's own recommendation). The row must be minmax(0,1fr),
        not `none`: under max-height alone the columns lose their definite
        height, flex:1 children stop resolving, and the Buy footer clips off
-       the panel bottom (Kyle 2026-07-27). Row 1 is the command bar, which
-       spans the full panel width above both columns (handoff §3). */
-    grid-template-rows: auto minmax(0, 1fr);
+       the panel bottom (Kyle 2026-07-27). Rows 1 and 2 are the header and the
+       command bar. Both span the full panel width above the two columns —
+       handoff §3 region order: title, then bar, then body. */
+    grid-template-rows: auto auto minmax(0, 1fr);
     /* The vw/vh caps divide by the 1.25 zoom below (86 / 1.25 = 68.8): zoom
        scales px but not viewport units, so an 86vw cap would render at
        107.5% of the window and clip the card's top icons. 68.8 keeps the
@@ -13966,20 +13978,35 @@ a.cz-detail-seller-row:focus-visible {
     font-size: 12px;
     color: var(--cz-sub);
   }
-  /* The head row held only ⋯ and ✕ but claimed a full 56px band, so the
-     title sat low under dead space (Kyle 2026-07-27). Float the two icons
-     over the rail's top-right corner — the same treatment the tablet band
-     already uses — and let the title own the top of the column. The title
-     row keeps clear of the floated icons via padding, not by moving them. */
+  /* The head no longer floats over the decision column: it stands in the
+     header row beside the title (handoff §3). The column keeps its
+     positioning context for the popovers inside it. */
   .cz-dpanel-right {
     position: relative;
   }
-  .cz-dpanel-head {
-    position: absolute;
-    top: 14px;
-    right: 16px;
-    z-index: 3;
+  /* ── The header row (handoff §3) ── The title leads the panel, and the
+     heart, the actions menu and the close button sit at its right (§4). The
+     title used to start the decision column and the three icons floated over
+     its corner; the region order now reads title, bar, body. */
+  .cz-dpanel-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    grid-column: 1 / -1;
+    padding: 14px 16px 10px;
+  }
+  .cz-dpanel-title-slot {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .cz-dpanel-header .cz-dpanel-head {
+    flex: 0 0 auto;
     padding: 0;
+  }
+  /* The head is a plain flex row here, not a floated corner, so the title
+     needs no reserve beside it. */
+  .cz-dpanel-header .cz-detail-title-row {
+    padding-right: 0;
   }
   /* ── The command bar's own row (handoff §3) ── The bar spans the whole
      panel, above the photo column and the decision column. Inside the
@@ -14022,10 +14049,27 @@ a.cz-detail-seller-row:focus-visible {
     border-top: 1px solid var(--cz-hair);
     background: var(--cz-footer-bg);
   }
+  /* Checklist line 9 — price left, disclosure in the middle, Buy at the right
+     at its natural width. The price and Buy share one wrapper because the
+     phone sheet needs them paired on one line. On the wide panel the wrapper
+     steps out of the layout, so all three parts order themselves across the
+     full footer. Buy is the last one and it keeps its own width. */
   .cz-dpanel-body .cz-detail-foot-row {
-    flex: 1;
+    display: contents;
+  }
+  .cz-dpanel-body .cz-detail-foot-price {
+    order: 1;
+  }
+  .cz-dpanel-body .cz-detail-foot .cz-detail-disclosure {
+    order: 2;
+    flex: 1 1 auto;
     min-width: 0;
-    gap: 14px;
+  }
+  .cz-dpanel-body .cz-detail-foot-row .cz-buy-notch-wrap {
+    order: 3;
+    flex: 0 0 auto;
+    min-width: 0;
+    margin-left: auto;
   }
   /* Spec :146 — the price goes in the display face, not mono. System mono at
      600/20px read heavier than everything around it. The element stays a
@@ -14038,8 +14082,13 @@ a.cz-detail-seller-row:focus-visible {
     font-weight: 600;
     letter-spacing: -0.03em;
   }
+  /* The 230px floor belongs to the tablet band, where Buy fills the row. Here
+     Buy takes the width of its own words, plus room to breathe. */
   .cz-dpanel-body .cz-detail-foot-row .cz-detail-buy,
   .cz-dpanel-body .cz-detail-foot .cz-detail-buy {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 0 22px;
     height: 44px;
     font-size: 13.5px;
     font-weight: 600;
@@ -14243,15 +14292,17 @@ a.cz-detail-seller-row:focus-visible {
     min-height: 0;
   }
   /* Stacked, the head row sits halfway down the panel. Float it over the
-     panel's own top-right corner instead, beside the stage favourite. */
+     panel's own top-right corner instead. It now carries the heart as well,
+     so it reaches the corner itself. */
   .cz-dpanel-head {
     position: absolute;
     top: 12px;
-    right: 60px;
+    right: 12px;
     z-index: 3;
     padding: 0;
   }
-  .cz-dpanel-head .cz-dpanel-icon {
+  .cz-dpanel-head .cz-dpanel-icon,
+  .cz-dpanel-head .cz-dpanel-fav {
     background: rgba(12, 12, 14, 0.5);
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);

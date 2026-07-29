@@ -63,10 +63,16 @@ describe("DetailBody detail facts", () => {
       expect(screen.queryByRole("region", { name })).toBeNull();
     }
     const fit = screen.getByRole("region", { name: "Size and fit" });
-    // Round 5 point 5.7: the odd-size box hides behind a quiet link; one tap
-    // opens it. It is never gone — an odd size still has a field.
-    fireEvent.click(within(fit).getByRole("button", { name: "Type a different size" }));
-    expect(within(fit).getByLabelText("Custom item size")).toBeInTheDocument();
+    // Kyle 2026-07-29, BUILD_PLAN step 5.2: the fifth box is visible with no
+    // tap, it stands in the same row as the sizes it overrides, and it wears
+    // the same shape. It replaces round 5.7, which hid it behind a link.
+    // This item carries a chart, so the row is the measurement cell run.
+    const custom = within(fit).getByLabelText("Custom item size");
+    expect(custom).toBeInTheDocument();
+    expect(custom).toHaveClass("cz-sizing-cell");
+    expect(custom.closest(".cz-sizing-chart")).not.toBeNull();
+    // One box, never two: the plain chip row does not draw a second one.
+    expect(within(fit).getAllByLabelText("Custom item size")).toHaveLength(1);
 
     // A chip's editor is closed until it is asked for. Rule 4, no empty
     // chrome: an unset value is a prompt inside the chip, never a blank field.
@@ -134,9 +140,6 @@ describe("DetailBody detail facts", () => {
     const onSaveEdit = vi.fn();
     render(body(item("custom-enter", { batch: "Stored Batch" }), { onSaveEdit }));
 
-    // Round 5 point 5.7: open the odd-size box first — it hides behind a
-    // quiet link until asked for.
-    fireEvent.click(screen.getByRole("button", { name: "Type a different size" }));
     const input = screen.getByLabelText("Custom item size");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "  3XL  " } });
@@ -156,8 +159,6 @@ describe("DetailBody detail facts", () => {
     const onSaveEdit = vi.fn();
     render(body(item("custom-blur"), { onSaveEdit }));
 
-    // Round 5 point 5.7: the box opens from the quiet link.
-    fireEvent.click(screen.getByRole("button", { name: "Type a different size" }));
     const input = screen.getByLabelText("Custom item size");
     fireEvent.change(input, { target: { value: "One size" } });
     fireEvent.blur(input);

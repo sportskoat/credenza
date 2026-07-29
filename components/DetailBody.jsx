@@ -311,6 +311,9 @@ function SizingBlock({
   cells: cellsProp,
   measureKey: measureKeyProp,
   onPick,
+  // Kyle 2026-07-29: the fifth box rides at the right of the cell run, on the
+  // same line as the sizes it overrides. Null when the caller has no box.
+  customBox = null,
   // §3: names the seller whose cached chart sized this item. Null on every
   // other path, and the provenance falls back to SELLER'S CHART.
   cachedFrom = "",
@@ -410,6 +413,7 @@ function SizingBlock({
               </button>
             );
           })}
+          {customBox}
         </div>
       ) : null}
     </section>
@@ -878,17 +882,47 @@ function listPhrase(words) {
   return words.slice(0, -1).join(", ") + " and " + words[words.length - 1];
 }
 
+// Kyle 2026-07-29, BUILD_PLAN step 5.2: "that fifth box to the right as a
+// custom size". The box is the only field that takes sizes like "170/92A",
+// "EU 44" and "One size", so it is always visible and it wears the shape of
+// the boxes beside it. This replaces round 5.7, which hid it behind a "Type a
+// different size" link — Fable blocked that on 2026-07-29.
+// Two hosts, one box: the chart cells when the seller has a chart, the plain
+// chip run when it does not. `className` names the host.
+function CustomSizeBox({ className, value, onChange, onCommit }) {
+  return (
+    <input
+      className={className}
+      aria-label="Custom item size"
+      placeholder="Other"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onCommit}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          onCommit();
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidden = false, customSize, onCustomChange, onCommit, onPick }) {
   const choices = chipSizes(runValues, chosenSize || recommendedSize);
-  // Round 5 point 5.7: the odd-size box stays hidden until asked for — but
-  // never when the stored size matches no chip. An odd size must never hide.
-  const oddStored =
-    !!chosenSize &&
-    !choices.some((s) => String(s).toUpperCase() === String(chosenSize).toUpperCase());
-  const [customOpen, setCustomOpen] = useState(oddStored);
-  useEffect(() => {
-    if (oddStored) setCustomOpen(true);
-  }, [oddStored]);
+  // The chart cells host the box themselves when they are on screen, so this
+  // editor draws nothing at all rather than a second, lonely box below them.
+  if (choicesHidden) return null;
+  const customBox = (
+    <CustomSizeBox
+      className="cz-detail-size-choice is-custom"
+      value={customSize}
+      onChange={onCustomChange}
+      onCommit={onCommit}
+    />
+  );
 
   return (
     <div className="cz-detail-size-editor">
@@ -896,10 +930,8 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
           repeated the recommendation in words; the ringed chip already says
           it. The custom field was a second full-width bar holding the same
           value as the filled chip. Both are gone: the row below is the only
-          place the size is set. Round 5 point 5.1: when the chart cells
-          above already offer the same sizes as buttons, this chip row is a
-          repeat and hides (choicesHidden). */}
-      {choices.length && !choicesHidden ? (
+          place the size is set. */}
+      {choices.length ? (
         <div className="cz-detail-size-choices" aria-label="Item size choices">
           {choices.map((size) => {
             const active = String(chosenSize).toUpperCase() === String(size).toUpperCase();
@@ -921,47 +953,21 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
               </button>
             );
           })}
+          {/* The fifth box sits at the right of the size run, not on a row of
+              its own — Kyle asked for one row of boxes. */}
+          {customBox}
           {chosenSize ? (
             <button type="button" className="cz-detail-size-choice is-clear" onClick={() => onPick("")}>
               Clear size
             </button>
           ) : null}
         </div>
-      ) : null}
-      {/* Round 5 point 5.7 (2026-07-29): the odd-size box hides behind a
-          quiet link. The box is the only field that accepts sizes like
-          "170/92A", "EU 44" and "One size", so it is never deleted — but it
-          opens only on tap, or on its own when the stored size matches no
-          chip. An odd size must never hide. The box keeps its value, its
-          commit path, and its Enter and blur behaviour. */}
-      {customOpen ? (
-        <label className="cz-detail-custom-size">
-          <span>Other</span>
-          <input
-            className="cz-detail-editor-input"
-            aria-label="Custom item size"
-            placeholder="170/92A"
-            value={customSize}
-            onChange={(event) => onCustomChange(event.target.value)}
-            onBlur={onCommit}
-            onKeyDown={(event) => {
-              event.stopPropagation();
-              if (event.key === "Enter") {
-                event.preventDefault();
-                onCommit();
-                event.currentTarget.blur();
-              }
-            }}
-          />
-        </label>
       ) : (
-        <button
-          type="button"
-          className="cz-detail-custom-size-link"
-          onClick={() => setCustomOpen(true)}
-        >
-          Type a different size
-        </button>
+        // No size run to show. The box still stands, because it is the only
+        // way to record a size the seller never listed.
+        <div className="cz-detail-size-choices" aria-label="Item size choices">
+          {customBox}
+        </div>
       )}
     </div>
   );
@@ -1460,6 +1466,9 @@ export default function DetailBody({
   // above both columns. Same contract as logNotesTarget — undefined keeps the
   // bar inline (phone sheet, tablet band), null suppresses it before mount.
   commandBarTarget = undefined,
+  // Handoff section 3 region order: title, then bar, then body. Same contract
+  // as commandBarTarget — undefined keeps the title inline.
+  titleTarget = undefined,
   // CH-08 (4d–4g): the fit-prompt trio. All three optional — a caller that
   // does not pass onSaveBodyProfile gets no prompt and no ask, only the
   // existing sizing presentation.
@@ -2038,7 +2047,47 @@ export default function DetailBody({
      fields stacked under the sizing block. Five short fields can never fill
      the height of a photo, so the panel read as bloated and empty at once.
      They are one chip row now. Everything the USER SETS lives here;
-     everything the PRODUCT ADVISES stays in the sizing block below. */
+     everything the PRODUCT ADVISES stays in the sizing block below.
+     See commandBarBlock below. */
+  /* Title. The text itself is the tap target — there is no Title field and
+     no Save button. Blur commits through the debounce. On the desktop panel
+     the title portals into the full-width header above the command bar
+     (handoff section 3); everywhere else it stays inline. */
+  const titleBlock = (
+    <div className="cz-detail-title-row">
+      <div className="cz-detail-title-col">
+        {editingTitle ? (
+          <input
+            ref={titleInputRef}
+            className="cz-detail-title-input"
+            aria-label="Item title"
+            value={view.title}
+            onChange={(e) => edit("title", e.target.value)}
+            onBlur={() => {
+              setEditingTitle(false);
+              commitRef.current();
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+          />
+        ) : (
+          <button type="button" className="cz-detail-title-btn" onClick={() => setEditingTitle(true)}>
+            <span className="cz-detail-title">{view.title || "Untitled"}</span>
+          </button>
+        )}
+        {subLine ? <div className="cz-detail-sub">{subLine}</div> : null}
+      </div>
+      {savedFlash ? (
+        <span className="cz-detail-saved">
+          <Check size={11} strokeWidth={3} aria-hidden="true" />
+          Saved
+        </span>
+      ) : null}
+    </div>
+  );
+
   const commandBarBlock = (
     <CommandBar
       item={item}
@@ -2189,38 +2238,11 @@ export default function DetailBody({
 
         {/* Title. The text itself is the tap target — there is no Title
             field and no Save button. Blur commits through the debounce. */}
-        <div className="cz-detail-title-row">
-          <div className="cz-detail-title-col">
-            {editingTitle ? (
-              <input
-                ref={titleInputRef}
-                className="cz-detail-title-input"
-                aria-label="Item title"
-                value={view.title}
-                onChange={(e) => edit("title", e.target.value)}
-                onBlur={() => {
-                  setEditingTitle(false);
-                  commitRef.current();
-                }}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") e.currentTarget.blur();
-                }}
-              />
-            ) : (
-              <button type="button" className="cz-detail-title-btn" onClick={() => setEditingTitle(true)}>
-                <span className="cz-detail-title">{view.title || "Untitled"}</span>
-              </button>
-            )}
-            {subLine ? <div className="cz-detail-sub">{subLine}</div> : null}
-          </div>
-          {savedFlash ? (
-            <span className="cz-detail-saved">
-              <Check size={11} strokeWidth={3} aria-hidden="true" />
-              Saved
-            </span>
-          ) : null}
-        </div>
+        {titleTarget === undefined
+          ? titleBlock
+          : titleTarget === null
+            ? null
+            : createPortal(titleBlock, titleTarget)}
 
         {/* The bar is inline on the phone sheet and the tablet band. On the
             desktop panel it portals to a full-width slot above both columns
@@ -2287,6 +2309,14 @@ export default function DetailBody({
                 cells={sizeCells}
                 measureKey={sizeMeasureKey}
                 onPick={pickItemSize}
+                customBox={
+                  <CustomSizeBox
+                    className="cz-sizing-cell is-custom"
+                    value={customSize}
+                    onChange={setCustomSize}
+                    onCommit={commitCustomSize}
+                  />
+                }
                 cachedFrom={
                   item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
                     ? item.sizeChartSource.seller || item.seller || ""

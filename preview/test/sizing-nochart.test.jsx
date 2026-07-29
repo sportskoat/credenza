@@ -137,9 +137,8 @@ describe("§3 no-chart state", () => {
     await screen.findByText("No chart");
     const section = screen.getByRole("region", { name: "Size and fit" });
     // Round 4 point 1: the size editor sits inside the fit section, beside
-    // the big size word — no rail Size section. Round 5 point 5.7: the
-    // odd-size box hides behind a quiet link until asked for.
-    await user.click(within(section).getByRole("button", { name: "Type a different size" }));
+    // the big size word — no rail Size section. The fifth box is visible with
+    // no tap (Kyle 2026-07-29).
     expect(within(section).getByLabelText("Custom item size")).toBeInTheDocument();
 
     // Round 4 point 3: "Edit sizes and measurements" left the chart actions;

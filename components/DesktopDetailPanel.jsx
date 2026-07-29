@@ -81,6 +81,10 @@ export default function DesktopDetailPanel({
   // owns the bar's state, so the panel lends it a slot and DetailBody portals
   // into it — the same arrangement .cz-dpanel-lognotes already uses.
   const [commandBarEl, setCommandBarEl] = useState(null);
+  // Handoff section 3 region order: the title comes first, then the bar, then
+  // the body. The title lives inside DetailBody, so it portals into this slot
+  // the same way the bar does.
+  const [titleEl, setTitleEl] = useState(null);
   const [isWide, setIsWide] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -296,6 +300,116 @@ export default function DesktopDetailPanel({
     }
   };
 
+  // The panel head: the heart, the actions menu and the close button.
+  // Handoff section 4 puts all three together. The heart used to float on
+  // the photo, where the first touch on a phone opens the card instead of
+  // liking it. On a wide window the head sits in the full-width header row
+  // beside the title; below 1024px it keeps its floated corner in the
+  // decision column, because there is no header row there.
+  const headBlock = (
+    <div className="cz-dpanel-head">
+      <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-dpanel-fav" />
+      <div className="cz-dpanel-menu-wrap" ref={menuRef}>
+        <button
+          type="button"
+          className="cz-dpanel-icon"
+          aria-label="Card actions"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <MoreHorizontal aria-hidden="true" size={18} strokeWidth={2.2} />
+        </button>
+        {menuOpen ? (
+          <div className="cz-dpanel-menu" role="menu" aria-label="Card actions">
+            <button
+              type="button"
+              role="menuitem"
+              className="cz-card-action-row"
+              onClick={() => {
+                if (bodyFlushRef.current) bodyFlushRef.current();
+                setMenuOpen(false);
+                if (onShareCard) {
+                  onShareCard({ ...item, ...(bodySnapshotRef.current || {}) });
+                }
+              }}
+            >
+              <Share2 size={15} strokeWidth={2.2} aria-hidden="true" />
+              <span>Share card</span>
+            </button>
+            {/* Round 4 point 2: category left the facts rail. The app
+                keeps its own guess; this row is the rare fix. */}
+            {onSaveEdit ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="cz-card-action-row"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setCatOpen(true);
+                }}
+              >
+                <Tag size={15} strokeWidth={2.2} aria-hidden="true" />
+                <span>Change category</span>
+              </button>
+            ) : null}
+            {/* Round 4 point 5: photo delete also lives here, so it does
+                not have to sit on every thumbnail. No trash on the
+                cover — same rule as the thumbnail badge. */}
+            {onRemovePhoto &&
+            photos.length > 0 &&
+            !(photoIdx === 0 && item.image === photos[0]) ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="cz-card-action-row"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onRemovePhoto(item.id, photos[photoIdx]);
+                }}
+              >
+                <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
+                <span>Delete this photo</span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              className="cz-card-action-row danger"
+              onClick={() => {
+                setMenuOpen(false);
+                requestClose("remove");
+              }}
+            >
+              <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
+              <span>Remove card</span>
+            </button>
+          </div>
+        ) : null}
+        {catOpen ? (
+          <div className="cz-dpanel-menu cz-dpanel-catmenu" role="dialog" aria-label="Change category">
+            <CategorySelect
+              value={item.category}
+              isAuto={!item.categoryManual}
+              onChange={(key) => {
+                setCatOpen(false);
+                if (onSaveEdit) onSaveEdit(item.id, { category: key, categoryManual: true });
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
+      <button
+        ref={closeRef}
+        type="button"
+        className="cz-dpanel-icon"
+        aria-label="Close"
+        onClick={() => requestClose()}
+      >
+        <X aria-hidden="true" size={18} strokeWidth={2.2} />
+      </button>
+    </div>
+  );
+
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- native backdrop click; Escape closes through onCancel
     <dialog
@@ -313,6 +427,12 @@ export default function DesktopDetailPanel({
       }}
     >
       <div className={"cz-dpanel" + (morphing ? " is-morphing" : "")}>
+        {isWide ? (
+          <div className="cz-dpanel-header">
+            <div className="cz-dpanel-title-slot" ref={setTitleEl} />
+            {headBlock}
+          </div>
+        ) : null}
         {isWide ? <div className="cz-dpanel-bar" ref={setCommandBarEl} /> : null}
         <div className="cz-dpanel-left">
           <div className="cz-dpanel-stage">
@@ -382,7 +502,6 @@ export default function DesktopDetailPanel({
                 {photoIdx + 1} / {photos.length}
               </span>
             ) : null}
-            <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-dpanel-fav" />
             {multiPhoto ? (
               <>
                 <button
@@ -523,106 +642,7 @@ export default function DesktopDetailPanel({
         </div>
 
         <div className="cz-dpanel-right">
-          <div className="cz-dpanel-head">
-            <div className="cz-dpanel-menu-wrap" ref={menuRef}>
-              <button
-                type="button"
-                className="cz-dpanel-icon"
-                aria-label="Card actions"
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                <MoreHorizontal aria-hidden="true" size={18} strokeWidth={2.2} />
-              </button>
-              {menuOpen ? (
-                <div className="cz-dpanel-menu" role="menu" aria-label="Card actions">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="cz-card-action-row"
-                    onClick={() => {
-                      if (bodyFlushRef.current) bodyFlushRef.current();
-                      setMenuOpen(false);
-                      if (onShareCard) {
-                        onShareCard({ ...item, ...(bodySnapshotRef.current || {}) });
-                      }
-                    }}
-                  >
-                    <Share2 size={15} strokeWidth={2.2} aria-hidden="true" />
-                    <span>Share card</span>
-                  </button>
-                  {/* Round 4 point 2: category left the facts rail. The app
-                      keeps its own guess; this row is the rare fix. */}
-                  {onSaveEdit ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="cz-card-action-row"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setCatOpen(true);
-                      }}
-                    >
-                      <Tag size={15} strokeWidth={2.2} aria-hidden="true" />
-                      <span>Change category</span>
-                    </button>
-                  ) : null}
-                  {/* Round 4 point 5: photo delete also lives here, so it does
-                      not have to sit on every thumbnail. No trash on the
-                      cover — same rule as the thumbnail badge. */}
-                  {onRemovePhoto &&
-                  photos.length > 0 &&
-                  !(photoIdx === 0 && item.image === photos[0]) ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="cz-card-action-row"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onRemovePhoto(item.id, photos[photoIdx]);
-                      }}
-                    >
-                      <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
-                      <span>Delete this photo</span>
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="cz-card-action-row danger"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      requestClose("remove");
-                    }}
-                  >
-                    <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
-                    <span>Remove card</span>
-                  </button>
-                </div>
-              ) : null}
-              {catOpen ? (
-                <div className="cz-dpanel-menu cz-dpanel-catmenu" role="dialog" aria-label="Change category">
-                  <CategorySelect
-                    value={item.category}
-                    isAuto={!item.categoryManual}
-                    onChange={(key) => {
-                      setCatOpen(false);
-                      if (onSaveEdit) onSaveEdit(item.id, { category: key, categoryManual: true });
-                    }}
-                  />
-                </div>
-              ) : null}
-            </div>
-            <button
-              ref={closeRef}
-              type="button"
-              className="cz-dpanel-icon"
-              aria-label="Close"
-              onClick={() => requestClose()}
-            >
-              <X aria-hidden="true" size={18} strokeWidth={2.2} />
-            </button>
-          </div>
+          {isWide ? null : headBlock}
           <div className="cz-dpanel-body">
             <DetailBody
               item={item}
@@ -652,6 +672,7 @@ export default function DesktopDetailPanel({
               footerPrice={price}
               logNotesTarget={isWide ? logNotesEl : undefined}
               commandBarTarget={isWide ? commandBarEl : undefined}
+              titleTarget={isWide ? titleEl : undefined}
               flushRef={bodyFlushRef}
               snapshotRef={bodySnapshotRef}
             />
