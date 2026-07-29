@@ -638,12 +638,29 @@ const SIZE_MENTION_RE = new RegExp(
   "(?:^|[\\s,;·|/（(\\[>])(" + SIZE_TOKEN_SRC + ")(?=[\\s码:：,，;·|/）)\\]<]|$)",
   "gm"
 );
+// A cm value: 2–3 whole digits, optionally one or two decimals. Seller charts
+// print half-centimetres constantly ("袖长 24.5"), and reading that as 24 lost
+// half a centimetre on every such column (Kyle 2026-07-29 — his sleeve read
+// 9.4 inches where the chart said 9.6).
+//
+// Only the period separates the decimals. A comma cannot: strategy 1 reads
+// segments like "chest 110, length 67", so "110,67" is a list far more often
+// than it is one number.
+const CM_NUMBER_SRC = "\\d{2,3}(?:\\.\\d{1,2})?";
 // Label → number pairs. Longest labels first so 裤长/袖长 beat 长, and
 // "pants length" beats "length". cm values are realistically 20–250.
 // 半胸 / 1/2 chest first so pit-to-pit labels win over bare 胸围 in the same
 // segment; normalizeHalfChestRows still doubles when the column looks half.
-const MEASURE_PAIR_RE =
-  /(半胸|1\/2\s*胸|½\s*胸|1\/2\s*chest|half[\s-]*chest|pit[\s-]*to[\s-]*pit|胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\s*length|trouser\s*length|衣长|衣長|length)\s*[:：]?\s*(\d{2,3})/gi;
+const MEASURE_PAIR_RE = new RegExp(
+  "(半胸|1\\/2\\s*胸|½\\s*胸|1\\/2\\s*chest|half[\\s-]*chest|pit[\\s-]*to[\\s-]*pit|胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\\s*length|trouser\\s*length|衣长|衣長|length)\\s*[:：]?\\s*(" +
+    CM_NUMBER_SRC +
+    ")",
+  "gi"
+);
+// The bare-number scan for the positional table strategies. It must read the
+// decimals too: "104.25" split into "104" and "25" put a stray 25 into the NEXT
+// column, so one decimal value corrupted every measurement after it.
+const CM_NUMBER_RE = new RegExp(CM_NUMBER_SRC, "g");
 
 function measureKeyForLabel(label) {
   const l = label.toLowerCase();
@@ -666,7 +683,10 @@ function sizeRunHint(text) {
 function chartHeaderLabels(line) {
   const labels = [];
   // Header detection uses bare labels (no numbers required after them).
-  const labelOnly = new RegExp(MEASURE_PAIR_RE.source.replace("\\s*[:：]?\\s*(\\d{2,3})", ""), "gi");
+  const labelOnly = new RegExp(
+    MEASURE_PAIR_RE.source.replace("\\s*[:：]?\\s*(" + CM_NUMBER_SRC + ")", ""),
+    "gi"
+  );
   let lm;
   while ((lm = labelOnly.exec(line))) labels.push(measureKeyForLabel(lm[1]));
   // Dedup while keeping order — "臀围 /hip circumference" can match twice.
@@ -693,7 +713,7 @@ export function parseSizeChart(text) {
     let p;
     while ((p = MEASURE_PAIR_RE.exec(seg))) {
       const key = measureKeyForLabel(p[1]);
-      const value = parseInt(p[2], 10);
+      const value = parseFloat(p[2]);
       if (row[key] == null && value >= 20 && value <= 250) row[key] = value;
     }
     const measures = Object.keys(row).length - 1;
@@ -720,8 +740,8 @@ export function parseSizeChart(text) {
           if (tableRows.length && !/^[·.\-\s]*$/.test(lines[r])) break;
           continue;
         }
-        const nums = (lines[r].match(/\d{2,3}/g) || [])
-          .map((n) => parseInt(n, 10))
+        const nums = (lines[r].match(CM_NUMBER_RE) || [])
+          .map((n) => parseFloat(n))
           .filter((n) => n >= 20 && n <= 250);
         // Drop a leading number that is the size token itself (waist 28–40).
         const sizeAsNum = /^\d+$/.test(tm[1]) ? parseInt(tm[1], 10) : null;
@@ -769,8 +789,8 @@ export function parseSizeChart(text) {
           if (more.length) pendingKey = more[0];
           continue;
         }
-        const nums = (lines[r].match(/\d{2,3}/g) || [])
-          .map((n) => parseInt(n, 10))
+        const nums = (lines[r].match(CM_NUMBER_RE) || [])
+          .map((n) => parseFloat(n))
           .filter((n) => n >= 20 && n <= 250);
         const sizeAsNum = /^\d+$/.test(tm[1]) ? parseInt(tm[1], 10) : null;
         const measureNums =
@@ -847,9 +867,12 @@ export function serializeSizeChart(chart) {
       if (key === "size") continue;
       const label = CHART_SERIAL_LABELS[key];
       const value = row[key];
-      // Only whole cm in the parser's own band survive the round trip.
+      // Half-centimetres survive the round trip: the parser reads one decimal,
+      // so writing whole cm here would round a corrected 24.5 back to 24 the
+      // moment the customer edited any number on the chart. Values outside the
+      // parser's own band are dropped — it would not read them back.
       if (!label || value == null || !isFinite(value)) continue;
-      const n = Math.round(value);
+      const n = Math.round(value * 10) / 10;
       if (n < 20 || n > 250) continue;
       parts.push(label + " " + n);
     }
