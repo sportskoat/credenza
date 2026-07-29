@@ -6267,6 +6267,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   height: 44px;
   display: grid;
   place-items: center;
+  /* Kyle 2026-07-29: the initials sat hard against the RIGHT edge of the
+     ring. The button kept the app's button padding (2px 6px 3px), so inside
+     the 36px phone ring the box left for content was only 22px wide — the
+     30px initials pill did not fit, and an overflowing grid item is pinned
+     to its start edge instead of centred. No padding, no overflow, and the
+     up-down half-pixel from the 2px/3px pair goes with it. */
+  padding: 0;
   border: 1px solid var(--cz-hair);
   border-radius: 50%;
   background: var(--cz-card-solid);
