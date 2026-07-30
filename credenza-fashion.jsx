@@ -9441,7 +9441,7 @@ function CredenzaApp() {
               >
                 {label}
                 {count !== null && (
-                  <span className="cz-tab-count">· {count}</span>
+                  <span className="cz-tab-count">{" · "}{count}</span>
                 )}
               </button>
             ))}
