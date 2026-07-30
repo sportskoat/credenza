@@ -273,7 +273,12 @@ export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, classNa
   };
 
   const fit = letterbox && wide ? "contain" : "cover";
-  const letterboxField = letterbox && wide ? { background: "#f3f3f0" } : null;
+  // The light letterbox field is the .cz-cover-letterbox class (spec 5.5) —
+  // the hex lives in credenza-fashion.css, never in a component.
+  const coverClass =
+    [className, letterbox && wide ? "cz-cover-letterbox" : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   // Carousel/card faces pass fill so the cover always paints the full image
   // slot — aspect-ratio + maxHeight made price chips land at different Ys when
@@ -286,7 +291,6 @@ export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, classNa
         display: "block",
         userSelect: "none",
         WebkitUserDrag: "none",
-        ...letterboxField,
         ...imgStyle,
       }
     : {
@@ -297,7 +301,6 @@ export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, classNa
         display: "block",
         userSelect: "none",
         WebkitUserDrag: "none",
-        ...letterboxField,
         ...imgStyle,
       };
 
@@ -317,7 +320,7 @@ export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, classNa
 
   return (
     <img
-      className={className}
+      className={coverClass}
       src={imageSrc}
       alt=""
       draggable={false}
