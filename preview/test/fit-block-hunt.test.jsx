@@ -3,8 +3,8 @@
 // WORK WITH RECOMMENDED SIZES." Root cause: the silent chart hunt lived in
 // the orphaned desktop SizeRecommendation panel, so the live FitBlock only
 // ever READ charts — it never fetched them. The hunt runs once per item
-// (album text, then a vision read of the photos), writes the find into
-// sizeNotes, and the recommendation appears.
+// (album text, then a vision read of the photos), writes the item chart field,
+// and the recommendation appears.
 //
 // The hunt starts when the detail opens. The Size tab keeps the item size,
 // recommendation, and seller chart together. No extra route opens the chart.
@@ -71,10 +71,10 @@ describe("FitBlock chart hunt", () => {
     expect(await screen.findByText("READING CHART")).toBeInTheDocument();
     resolveHunt({ text: CHART_TEXT, source: { via: "desc-photos", photos: 10 } });
 
-    // The found chart writes into sizeNotes (+ its provenance tag) through
-    // the normal save path.
+    // The found chart writes into its own item field through the normal path.
     await waitFor(() => expect(onSaveEdit).toHaveBeenCalledWith("hunt-a", {
-      sizeNotes: CHART_TEXT,
+      sizeChartText: CHART_TEXT,
+      sizeChartNeedsClear: false,
       sizeChartSource: { via: "desc-photos", photos: 10, at: expect.any(String) },
     }));
     expect(huntMock).toHaveBeenCalledTimes(1);

@@ -38,6 +38,8 @@
     "descImages": ["https://si.geilicdn.com/chart.jpg"],
     "sellerYupooLinks": ["https://goat.x.yupoo.com/"],
     "sizeNotes": "EU 40–45 chart",
+    "sizeChartText": "40: foot length 25\n41: foot length 25.5",
+    "sizeChartNeedsClear": false,
     "sizeChartSource": {
       "via": "desc-photos",
       "photos": 8,
@@ -100,6 +102,8 @@
     "descImages",
     "sellerYupooLinks",
     "sizeNotes",
+    "sizeChartText",
+    "sizeChartNeedsClear",
     "sizeChartSource",
     "seller",
     "batch",

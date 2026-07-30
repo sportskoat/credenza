@@ -2474,6 +2474,9 @@ function createItem(parsed, rawText, extra) {
     category: "",
     variants: [],
     sizeNotes: "",
+    sizeChartText: "",
+    sizeChartSource: null,
+    sizeChartNeedsClear: false,
     seller: "",
     batch: "",
     size: "",
@@ -2611,13 +2614,17 @@ export function migrateItem(old) {
           .slice(0, 8)
       : [],
     sizeNotes: typeof old.sizeNotes === "string" ? old.sizeNotes : "",
+    // Machine-read chart text is item data. It never shares the customer's
+    // free-text sizeNotes field, and it never travels between seller items.
+    sizeChartText: typeof old.sizeChartText === "string" ? old.sizeChartText.slice(0, 12000) : "",
+    // A legacy borrowed chart with no exact sibling match stays hidden until
+    // the customer clears it. This marker survives reloads.
+    sizeChartNeedsClear: old.sizeChartNeedsClear === true,
     // Where the size chart came from (handoff turn 3 §5 provenance footer):
     // { via: "album-text"|"album-photos"|"desc-photos"|"gallery-photos"|
-    //        "customer-photo"|"seller-cache",
+    //        "customer-photo",
     //   photos: N scanned, at: ISO date, seller: who it belongs to }.
-    // Written by the silent chart hunt, and by the customer's own read (turn 9
-    // §3). `seller` exists so a chart read once can size the next item from the
-    // same seller — see chartCacheForSeller.
+    // Written by the silent chart hunt and by the customer's own read.
     sizeChartSource:
       old.sizeChartSource && typeof old.sizeChartSource === "object"
         ? {
@@ -3223,17 +3230,11 @@ export async function fetchChartFromPhotos(imageUrls, { signal, referer } = {}) 
   return postChartVision({ images, signal, referer });
 }
 
-// Handoff turn 9 §3: "on success the chart is cached against the seller, so the
-// next item from that seller sizes instantly".
-//
-// The cache IS the shelf. Every item already carries its chart in sizeNotes and
-// its provenance in sizeChartSource, so a separate store would be a second copy
-// that can go stale against the first. This walks the shelf for another item by
-// the same seller whose chart was READ (not guessed), and returns its text.
-//
-// Only reads that came from a real chart qualify. A fallback is not a chart, and
-// copying a guess between items would spread it silently.
-const CHART_CACHE_VIA = new Set([
+// Legacy cleanup for the removed seller-level chart fallback. Old versions
+// appended another item's complete chart text to sizeNotes. Remove that block
+// only when it exactly equals a sibling item's old chart text. Any unmatched
+// value stays untouched and hidden until the customer clears it.
+const LEGACY_READ_VIA = new Set([
   "album-text",
   "album-photos",
   "chart-photos",
@@ -3242,26 +3243,46 @@ const CHART_CACHE_VIA = new Set([
   "customer-photo",
 ]);
 
-export function chartCacheForSeller(items, item) {
-  const seller = String((item && item.seller) || "").trim().toLowerCase();
-  if (!seller) return null;
-  let best = null;
-  for (const other of items || []) {
-    if (!other || other.id === (item && item.id)) continue;
-    const src = other.sizeChartSource;
-    if (!src || !CHART_CACHE_VIA.has(src.via)) continue;
-    // The chart's own seller tag wins over the item's. A chart cached from a
-    // different seller must not travel just because the cards ended up adjacent.
-    const owner = String(src.seller || other.seller || "").trim().toLowerCase();
-    if (owner !== seller) continue;
-    const text = sizeChartTextFor(other);
-    if (!text || !parseSizeChart(text)) continue;
-    // Newest wins: a seller who reissues a chart means the later one.
-    if (!best || String(src.at || "") > String(best.at || "")) {
-      best = { text, at: src.at || "", seller: other.seller || item.seller || "" };
+function legacyChartTextFor(item) {
+  return [item && item.sizeNotes, item && item.summary, item && item.rawText, item && item.note]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function stripExactAppendedChart(sizeNotes, borrowedText) {
+  const notes = typeof sizeNotes === "string" ? sizeNotes : "";
+  if (!borrowedText) return null;
+  if (notes === borrowedText) return "";
+  const suffix = "\n" + borrowedText;
+  return notes.endsWith(suffix) ? notes.slice(0, -suffix.length).trimEnd() : null;
+}
+
+export function cleanLegacySellerCharts(items) {
+  const list = Array.isArray(items) ? items : [];
+  return list.map((item) => {
+    if (!item || !item.sizeChartSource || item.sizeChartSource.via !== "seller-cache") return item;
+    const seller = String(item.sizeChartSource.seller || item.seller || "").trim().toLowerCase();
+    let cleanedNotes = null;
+    if (seller) {
+      for (const sibling of list) {
+        if (!sibling || sibling.id === item.id) continue;
+        const source = sibling.sizeChartSource;
+        if (!source || !LEGACY_READ_VIA.has(source.via)) continue;
+        const owner = String(source.seller || sibling.seller || "").trim().toLowerCase();
+        if (owner !== seller) continue;
+        const siblingText = legacyChartTextFor(sibling);
+        cleanedNotes = stripExactAppendedChart(item.sizeNotes, siblingText);
+        if (cleanedNotes !== null) break;
+      }
     }
-  }
-  return best;
+    return {
+      ...item,
+      sizeNotes: cleanedNotes === null ? item.sizeNotes : cleanedNotes,
+      sizeChartText: "",
+      sizeChartSource: null,
+      sizeChartNeedsClear: cleanedNotes === null,
+    };
+  });
 }
 
 // Handoff turn 9 §3: the customer snapshots or uploads the chart themselves.
@@ -4241,14 +4262,12 @@ export function carouselLayerZ(cardCount, index, foreground) {
   return cardCount * 2 - indexDist * 2 - (index > foreground ? 1 : 0);
 }
 
-// Size pick, "nice and in their face" (Kyle 2026-07-22). Chart text comes from
-// sizeNotes/summary/rawText AND the user's own notes — Notes is the natural
-// place to paste a chart, and excluding it meant a pasted chart silently did
-// nothing (Kyle's "no values, no recommended size" report). If none parses,
-// offer a fetch that reads the Yupoo album description ("look somewhere else")
-// and caches whatever it finds back into sizeNotes so the next open is
-// All the free-text fields a size chart can hide in, in priority order.
+// A machine-read chart owns its field and wins over free text. A customer can
+// still paste a chart into sizeNotes or note when the machine field is empty.
+// A blocked legacy borrowed chart returns nothing until the customer clears it.
 export function sizeChartTextFor(item) {
+  if (!item || item.sizeChartNeedsClear) return "";
+  if (item.sizeChartText) return item.sizeChartText;
   return [item.sizeNotes, item.summary, item.rawText, item.note].filter(Boolean).join("\n");
 }
 
@@ -5064,7 +5083,7 @@ function CredenzaApp() {
         return;
       }
       lastSavedRef.current = JSON.stringify(result.items);
-      let it = result.items;
+      let it = cleanLegacySellerCharts(result.items);
       // Share-sheet / PWA share_target / bookmarklet capture. Bare `text` and
       // `url` parameters are ordinary navigation unless an explicit marker is
       // present. This prevents unrelated links from creating shelf cards.
@@ -5694,7 +5713,7 @@ function CredenzaApp() {
         try {
           const item = migrateItem(raw);
           if (next.some((x) => itemMatchesCanonicalKey(x, item.canonicalKey))) continue;
-          next = [item, ...next];
+          next = cleanLegacySellerCharts([item, ...next]);
           added++;
         } catch {}
       }

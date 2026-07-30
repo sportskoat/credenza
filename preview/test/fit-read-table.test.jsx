@@ -262,8 +262,7 @@ describe("FitReadTable in the detail body", () => {
 
   it("Forget this chart clears the stored measurements", async () => {
     // "In production this is 'the parse was wrong', so it should also clear
-    // the stored measurements for the item" — and a null sizeChartSource
-    // takes the item out of the seller-cache pool too.
+    // the stored measurements for the item."
     const user = userEvent.setup();
     const onSaveEdit = vi.fn();
     renderBody(fitItem(), { onSaveEdit });
@@ -271,6 +270,7 @@ describe("FitReadTable in the detail body", () => {
     expect(onSaveEdit).toHaveBeenCalledWith("fitread-1", {
       sizeNotes: "",
       sizeChartSource: null,
+      sizeChartNeedsClear: false,
     });
   });
 

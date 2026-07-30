@@ -1880,20 +1880,19 @@ describe("a feature the price table sells is explained somewhere else", () => {
     // LB-59. Added 2026-07-27. The next census after LB-58 ran the same
     // <main>-stripped count over the rows with no entry here. AI size-chart
     // reads was the thinnest: five sentences on five pages, and all five were
-    // limits lists or data-processing lists. It also carries the widest ratio
-    // on the whole table — 2 a day free against 100 on Pro, fifty times.
+    // limits lists or data-processing lists.
     // /guides/weidian-size-chart/ exists, but its headings show it teaches how
     // to READ a chart, not what one AI read is or what spends one.
     //
     // Both phrases are the mechanism. "Chart read" passes on any limits list.
     // The first says what the counter counts — a call, so three photos of one
     // chart are one read, which is the misunderstanding that makes 2 sound
-    // small. The second says what makes the number go further: the shelf is the
-    // cache, so a haul from one seller costs one read however many items it has.
+    // small. The second protects correctness: one seller can list garments
+    // with different charts, so a saved result must stay on its item.
     {
       row: "AI size-chart reads",
-      needs: ["the unit is the call, not the image", "spends one read, not ten"],
-      why: "the widest free-to-pro ratio on the table, and no page said what one read is",
+      needs: ["the unit is the call, not the image", "never uses it for another garment"],
+      why: "the page must explain both the cost unit and the item-only chart rule",
     },
     // LB-60. Added 2026-07-27. The census after LB-59 ran the same
     // <main>-stripped count over the rows still with no entry here. "Cards on

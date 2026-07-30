@@ -596,16 +596,11 @@ and asking anyone to convert a correction back is how a second error gets in.
 half-chest wording on purpose: `normalizeHalfChestRows` doubles once at parse,
 and emitting 半胸 would double the already-doubled numbers on the way back in.
 
-**The cache IS the shelf** (`chartCacheForSeller`). Every item already carries
-its chart in `sizeNotes` and provenance in `sizeChartSource`, so a separate
-store would be a copy that can go stale against the original. Only READ charts
-qualify (`CHART_CACHE_VIA`), so a guess never spreads between items; newest `at`
-wins; the CHART's own `seller` tag outranks the item's field. `useChartHunt`
-checks it AFTER the item's own hunt finds nothing (Lane D, Kyle 2026-07-30:
-a borrowed chart must never beat the item's own chart photo) and writes
-`via: "seller-cache"`, surfaced as
-`FROM REPLUX'S CHART (CACHED)`. `migrateItem` keeps `sizeChartSource.seller` —
-without that whitelist entry the whole lookup key vanishes on reload.
+**Each machine-read chart belongs to one item.** `useChartHunt` and the customer
+photo reader write `sizeChartText`, not `sizeNotes`. No seller fallback exists.
+`cleanLegacySellerCharts` removes an old borrowed block only when it exactly
+matches a sibling chart. An unmatched value stays hidden behind the
+`Clear this chart` control. This protects customer notes from a fuzzy edit.
 
 **Test trap that cost an hour.** A chartless item SWAPS `SizingBlock` for
 `SizingBlockNoChart` the moment the hunt returns null, and the swap mounts a NEW
