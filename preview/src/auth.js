@@ -94,7 +94,11 @@ async function authPost(path, body, { fetchImpl, token } = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = data.error_description || data.error || data.msg || "HTTP " + res.status;
-    throw new Error(msg);
+    const err = new Error(msg);
+    // getValidSession only signs the device out when Supabase REJECTS the
+    // refresh token. A 500 or a dropped connection must keep the session.
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
@@ -146,22 +150,44 @@ export async function refreshSession(session, { fetchImpl } = {}) {
   return sessionFromTokens(data);
 }
 
+// Supabase ROTATES the refresh token: the old one dies the moment a new pair
+// is issued. Two calls that renew at the same moment would therefore race, and
+// the loser would see "Already Used" and sign the device out. One shared
+// promise per renewal keeps the second caller on the first caller's result.
+let inFlightRefresh = null;
+
+// A rejected refresh token is permanent — only these statuses sign the device
+// out. Everything else (500, 502, offline, timeout) is temporary, so the
+// session STAYS and the next call tries again. Before this rule one failed
+// renewal signed the customer out for good and their card went blank.
+function refreshWasRejected(err) {
+  const status = err && err.status;
+  return status === 400 || status === 401 || status === 403 || status === 422;
+}
+
 // The session to attach to a paid request. Refreshes when the access token is
-// inside its last minute; a failed refresh signs the device out (the user can
-// request a new link — their data is untouched).
+// inside its last minute. Returns null when this device has no usable session
+// right now; that is not always a sign-out (see refreshWasRejected).
 export async function getValidSession({ fetchImpl, host } = {}) {
   const session = loadSession(host);
   if (!session) return null;
   if (session.expiresAt - 60 * 1000 > Date.now()) return session;
-  try {
-    const next = await refreshSession(session, { fetchImpl });
-    if (!next) throw new Error("empty refresh");
-    saveSession(next, host);
-    return next;
-  } catch {
-    clearSession(host);
-    return null;
+  if (!inFlightRefresh) {
+    inFlightRefresh = (async () => {
+      try {
+        const next = await refreshSession(session, { fetchImpl });
+        if (!next) throw new Error("empty refresh");
+        saveSession(next, host);
+        return next;
+      } catch (err) {
+        if (refreshWasRejected(err)) clearSession(host);
+        return null;
+      } finally {
+        inFlightRefresh = null;
+      }
+    })();
   }
+  return inFlightRefresh;
 }
 
 // Best-effort server logout; the local session goes away either way.

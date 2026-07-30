@@ -3049,6 +3049,10 @@ function createItem(parsed, rawText, extra) {
     chartImages: [],
     links: pairedLinksFromRawText(rawText, parsed.url),
     status: "ready",
+    // The server refused to read this link because nobody is signed in. The
+    // card says so where the size chart belongs, and fills itself in after
+    // sign-in (Kyle 2026-07-30 — a blank card reads as a broken site).
+    needsSignIn: false,
     note: "",
     extractedIntent: "",
     project: "",
@@ -3203,6 +3207,9 @@ export function migrateItem(old) {
           .slice(0, 8)
       : [],
     sizeNotes: typeof old.sizeNotes === "string" ? old.sizeNotes : "",
+    // "Sign in to finish this card" survives a reload, so a card saved while
+    // signed out still shows the reason it is empty.
+    needsSignIn: old.needsSignIn === true,
     // Machine-read chart text is item data. It never shares the customer's
     // free-text sizeNotes field, and it never travels between seller items.
     sizeChartText: typeof old.sizeChartText === "string" ? old.sizeChartText.slice(0, 12000) : "",
@@ -3759,6 +3766,33 @@ export async function fetchYupooImages(albumUrl, { signal } = {}) {
   }
 }
 
+// ── "Sign in to read this link" (2026-07-30) ────────────────────────────────
+//
+// A signed-out visitor gets three complete cards. After that every paid
+// function answers 401 with code "sign_in_required". Any OTHER 401 is a real
+// authorization fault — a bad token, a forged call — and must NOT show the
+// sign-in message, so the code is checked and the status alone is not enough.
+async function isSignInRefusal(res) {
+  if (!res || res.status !== 401) return false;
+  try {
+    const data = await res.clone().json();
+    return !!(data && data.code === "sign_in_required");
+  } catch {
+    return false;
+  }
+}
+
+// Module-level readers (the chart hunt, the description-photo refetch) run
+// outside React, so they report the refusal through this hook. The component
+// registers it on mount and uses it to stop making blank cards.
+let signInRequiredHook = null;
+export function setSignInRequiredHook(fn) {
+  signInRequiredHook = typeof fn === "function" ? fn : null;
+}
+function noteSignInRequired() {
+  if (signInRequiredHook) signInRequiredHook();
+}
+
 // Ask the vision function to read a size chart out of album PHOTOS — the
 // common Yupoo case where the chart exists only as a picture (Kyle's "the
 // chart is right there in the photos" report, 2026-07-22). Returns chart text
@@ -3803,7 +3837,10 @@ async function postChartVision({ images, photos, signal, referer }) {
     // the second one on an outage the user did not cause. Both 200 bodies still
     // count, found:true and found:false alike, because the model was called
     // either way — /guides/what-spends-a-chart-read/ says so in those words.
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (await isSignInRefusal(res)) noteSignInRequired();
+      return null;
+    }
     bumpUsage("chartVision");
     const data = await res.json();
     if (!data || !data.found || typeof data.chartText !== "string") return null;
@@ -3950,7 +3987,10 @@ export async function fetchDescImages(item, { signal } = {}) {
     // the 200 path only. A 422 "Not a resolvable buy link" is the common one
     // here, and charging a day's quota for pasting a link the server will not
     // even try is the worst version of the bug.
-    if (!res.ok) return [];
+    if (!res.ok) {
+      if (await isSignInRefusal(res)) noteSignInRequired();
+      return [];
+    }
     bumpUsage("resolve");
     const data = await res.json();
     if (!data || !Array.isArray(data.descImages)) return [];
@@ -5284,6 +5324,37 @@ function CredenzaApp() {
       window.history.replaceState(null, "", "/");
     } catch {}
   };
+  // ── "Sign in to read this link" (Kyle 2026-07-30) ─────────────────────────
+  //
+  // A signed-out visitor builds three complete cards. Then the server refuses,
+  // and the old app made a blank card and said nothing — Kyle read that as a
+  // broken site. Now the paste box stops making cards, holds the link, and
+  // shows ONE notice that stays until the visitor signs in. The notice is not
+  // a modal: on a phone the sign-in window opens on top of a modal, and two
+  // stacked windows confuse people.
+  const [signInRequired, setSignInRequired] = useState(false);
+  const heldLinkRef = useRef("");
+  // The id of the notice on screen. Sign-in clears THIS notice only, so a
+  // later toast the visitor is reading does not disappear under them.
+  const signInNoticeRef = useRef("");
+  const askForSignIn = useCallback((heldText = "") => {
+    if (heldText) heldLinkRef.current = heldText;
+    setSignInRequired(true);
+    signInNoticeRef.current = notify("Sign in to read this link.", {
+      sub: "Credenza reads the product, the photos, and the size chart for you.",
+      persistent: true,
+      actionLabel: "Sign in and continue",
+      onAction: () => navigateSettings("account"),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // The chart hunt and the description-photo refetch run outside React. They
+  // report the same refusal through this hook.
+  useEffect(() => {
+    setSignInRequiredHook(() => askForSignIn());
+    return () => setSignInRequiredHook(null);
+  }, [askForSignIn]);
+
   const SETTINGS_KEYS = ["account", "sizes", "fit", "shelf", "data", "about"];
   const normalizeSettingsSection = (s) => {
     const mapped = { agent: "shelf", import: "data", links: "data" }[s] || s;
@@ -5966,6 +6037,14 @@ function CredenzaApp() {
   const dispatchStash = (raw, options = {}) => {
     let text = (raw || "").trim();
     if (!text) return { status: "empty" };
+    // Signed out, and the three free reads are gone. Hold the link and make no
+    // card: a blank card is the fault this exists to remove. The notice on
+    // screen carries the Sign in button, and the link stays in the box.
+    if (signInRequired && !accountSession) {
+      heldLinkRef.current = text;
+      askForSignIn(text);
+      return { status: "signin" };
+    }
     if (options.linksOnly) {
       const links = extractValidUrls(text);
       if (!links.length) return { status: "no-link" };
@@ -6006,7 +6085,7 @@ function CredenzaApp() {
     const text = (raw || "").trim();
     if (!text) return { status: "empty" };
     const result = dispatchStash(text, options);
-    if (result.status === "gated" || result.status === "no-link") return result;
+    if (result.status === "gated" || result.status === "no-link" || result.status === "signin") return result;
     setInput("");
     setCaptureSheetOpen(false);
     if (result.status !== "stashed") return result;
@@ -6037,7 +6116,9 @@ function CredenzaApp() {
     if (text) {
       const result = dispatchStash(text);
       if (result.status === "stashed") beginIndexingJob(result);
-      if (result.status !== "empty" && result.status !== "gated") setSearch("");
+      // "signin" keeps the link in the field, like the fashion gate does —
+      // the visitor signs in and the same text is read for them.
+      if (result.status !== "empty" && result.status !== "gated" && result.status !== "signin") setSearch("");
       return;
     }
     setCaptureSheetOpen(true);
@@ -6691,6 +6772,7 @@ function CredenzaApp() {
     }
     const timer = setTimeout(() => controller.abort(), 30000);
     let data = null;
+    let refused = false;
     try {
       const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
         method: "POST",
@@ -6702,12 +6784,21 @@ function CredenzaApp() {
       if (res.ok) {
         bumpUsage("resolve");
         data = await res.json();
+      } else if (await isSignInRefusal(res)) {
+        refused = true;
       }
     } catch {
       data = null;
     } finally {
       clearTimeout(timer);
       if (signal) signal.removeEventListener("abort", abort);
+    }
+    if (refused) {
+      // No title, no price, no chart — and now the card SAYS why, instead of
+      // sitting there empty and looking like a broken site.
+      updateEnrichedItem(item.id, token, { status: "ready", needsSignIn: true });
+      askForSignIn();
+      return false;
     }
     if (!data || !data.title) {
       updateEnrichedItem(item.id, token, { status: "ready" });
@@ -6927,6 +7018,40 @@ function CredenzaApp() {
     },
     []
   );
+
+  // ── Finish the work the refusal stopped (Kyle 2026-07-30) ─────────────────
+  //
+  // The visitor signs in. Three things then happen, in this order: the notice
+  // goes away, every card that says "Sign in to finish this card" is read
+  // again, and the link the paste box held is stashed. Without this the
+  // visitor signs in and still sees the same empty card, which is the fault
+  // this whole change exists to remove.
+  const signInRetryRef = useRef(false);
+  useEffect(() => {
+    if (!accountSession) {
+      signInRetryRef.current = false;
+      return;
+    }
+    if (signInRetryRef.current) return;
+    signInRetryRef.current = true;
+    setSignInRequired(false);
+    if (signInNoticeRef.current && notification && notification.id === signInNoticeRef.current) {
+      dismissNotification();
+    }
+    signInNoticeRef.current = "";
+    const stranded = (shelfStateRef.current.items || []).filter((x) => x.needsSignIn === true);
+    if (stranded.length) {
+      setItems((list) => list.map((x) => (x.needsSignIn ? { ...x, needsSignIn: false } : x)));
+      enrichFashionItems(stranded.map((x) => ({ ...x, needsSignIn: false })));
+    }
+    const held = heldLinkRef.current;
+    heldLinkRef.current = "";
+    if (held) {
+      const result = dispatchStash(held);
+      if (result.status === "stashed") beginIndexingJob(result);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountSession]);
 
   const recordOpen = (item, targetUrl) => {
     updateItem(item.id, (x) => ({

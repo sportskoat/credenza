@@ -216,9 +216,23 @@ describe("the caps are enforced where the writes happen", () => {
   it("counts a metered call only after the server says it succeeded", () => {
     const clean = src.replace(/^\s*\/\/.*$/gm, "");
 
-    // postChartVision and fetchDescImages: guard clause, then bump.
-    expect(clean).toContain("    if (!res.ok) return null;\n    bumpUsage(\"chartVision\");");
-    expect(clean).toContain("    if (!res.ok) return [];\n    bumpUsage(\"resolve\");");
+    // postChartVision and fetchDescImages: guard clause, then bump. The guard
+    // also names a sign-in refusal, so the card can say why it is empty. The
+    // early return still stands between the failure and the count.
+    expect(clean).toContain(
+      "    if (!res.ok) {\n" +
+        "      if (await isSignInRefusal(res)) noteSignInRequired();\n" +
+        "      return null;\n" +
+        "    }\n" +
+        "    bumpUsage(\"chartVision\");"
+    );
+    expect(clean).toContain(
+      "    if (!res.ok) {\n" +
+        "      if (await isSignInRefusal(res)) noteSignInRequired();\n" +
+        "      return [];\n" +
+        "    }\n" +
+        "    bumpUsage(\"resolve\");"
+    );
 
     // The importer's resolve: the bump lives inside the res.ok branch.
     expect(clean).toContain("      if (res.ok) {\n        bumpUsage(\"resolve\");");
