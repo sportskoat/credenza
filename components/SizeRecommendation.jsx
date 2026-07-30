@@ -19,14 +19,14 @@ import {
 import SizeChartTable from "./SizeChartTable.jsx";
 
 // Measure fields the progressive fit ask needs for this category (design 4f).
-// Tops → chest. Bottoms → waist + inseam. Shoes → foot length. Fallback →
+// Tops → chest. Bottoms → waist + trouser length. Shoes → foot length. Fallback →
 // chest + waist. Exported for the live DetailBody ask (CH-08) — the hint is
 // the "Not sure how to measure?" line for each field.
 export function fitMeasureFieldsFor(category) {
   if (category === "pants" || category === "shorts") {
     return [
       { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
-      { key: "inseam", label: "Inseam", kind: "length", phCm: "81", phIn: "32", hint: "On pants that fit, measure the inner seam from crotch to hem." },
+      { key: "pantsLength", label: "Trouser length", kind: "length", phCm: "104", phIn: "41", hint: "Lay trousers you like flat. Measure from the top of the waistband to the hem — the way sellers do." },
     ];
   }
   if (category === "shoes") {
@@ -376,7 +376,7 @@ export default function SizeRecommendation({
         : "chest");
     const sharpenLabel =
       item.category === "pants" || item.category === "shorts"
-        ? "Add waist & inseam"
+        ? "Add waist & length"
         : item.category === "shirt" || item.category === "outerwear"
           ? "Add chest"
           : "Add chest & waist";

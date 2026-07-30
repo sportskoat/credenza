@@ -25,7 +25,9 @@ vi.mock("../../credenza-fashion.jsx", async () => {
 // credenza-fashion module is the one bound into its graph. Importing the app
 // root first hands DetailBody the REAL readChartFromPhotoFiles.
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
-const { fitReadRows, parseSizeChart, recommendSize } = await import("../../credenza-fashion.jsx");
+const { effectiveBodyProfile, fitReadRows, parseSizeChart, recommendSize } = await import(
+  "../../credenza-fashion.jsx"
+);
 
 const TOP_TEXT =
   "M: chest 116, shoulder 46, length 70\nL: chest 120, shoulder 48, length 72\nXL: chest 124, shoulder 50, length 74";
@@ -78,17 +80,27 @@ describe("fitReadRows", () => {
     expect(chest.mark).toBeGreaterThan(66);
   });
 
-  it("orders a bottoms chart waist-first and keeps 裤长 informational", () => {
+  it("orders a bottoms chart waist-first and grades 裤长 against the saved length", () => {
     const chart = parseSizeChart(BOTTOM_TEXT);
-    const profile = { waist: 78, hip: 100, inseam: 76 };
+    // Kyle 2026-07-30: the saved trouser length is waistband to hem, the same
+    // measurement the seller prints, so the Length row grades like for like.
+    const profile = { waist: 78, hip: 100, pantsLength: 102 };
     const rec = recommendSize(chart, profile, "pants");
     expect(rec.size).toBe("M");
 
     const rows = fitReadRows(chart, rec, profile, "pants");
     expect(rows.map((r) => r.name)).toEqual(["Waist", "Hip", "Length"]);
-    // Seller 裤长 is OUTSEAM; the inseam measures a different segment, so the
-    // Length row must not claim a "yours" or an ease.
     const length = rows[2];
+    expect(length.theirs).toBe(100);
+    expect(length.yours).toBe(102);
+    expect(length.ease).toBe(-2);
+  });
+
+  it("keeps the Length row informational when no trouser length is saved", () => {
+    const chart = parseSizeChart(BOTTOM_TEXT);
+    const profile = { waist: 78, hip: 100 };
+    const rec = recommendSize(chart, profile, "pants");
+    const length = fitReadRows(chart, rec, profile, "pants")[2];
     expect(length.theirs).toBe(100);
     expect(length.yours).toBe(null);
     expect(length.ease).toBe(null);
@@ -289,34 +301,24 @@ describe("FitReadTable in the detail body", () => {
     expect(screen.queryByRole("button", { name: "Forget this chart" })).toBe(null);
   });
 
-  it("ghosts the table without a chart; YOURS stays, THEIRS shows a dash", async () => {
-    // Fable RULED 2026-07-29, Kimi confirmed: the handoff's no-chart state
-    // wins over round 5 point 5.4. The table stays and says what it does not
-    // know. The app owes the customer their own numbers while it waits for
-    // the seller's. The band and the marks stay off — there is nothing to
-    // score against yet.
+  it("drops the table entirely when the hunt finds no chart", async () => {
+    // Fable RULED 2026-07-29 that the ghost table stays with no chart, and the
+    // rule was "not without Kyle's word". KYLE'S WORD, 2026-07-30: "if we
+    // can't find the chart, we don't want this to take up the entire right
+    // side of the page." The empty table is the biggest of those blocks, so it
+    // goes. The size, the size buttons and the two ways to get a chart stay.
     huntMock.mockResolvedValue(null);
     const { container } = renderBody(
       fitItem({ sizeNotes: undefined, sizeChartSource: undefined })
     );
     expect(await screen.findByText("No chart")).toBeInTheDocument();
 
-    const table = container.querySelector(".cz-fitread");
-    expect(table.classList.contains("is-ghost")).toBe(true);
-    const scoped = within(table);
-    expect(table.querySelectorAll(".cz-fitread-heads").length).toBe(1);
-    expect(table.querySelectorAll(".cz-fitread-track").length).toBeGreaterThan(0);
-    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-mark").length).toBe(0);
-    expect(scoped.getAllByText("—").length).toBeGreaterThan(0);
+    expect(container.querySelector(".cz-fitread")).toBe(null);
+    expect(screen.getByText("No size chart found.")).toBeInTheDocument();
     expect(
-      scoped.getByText(
-        "Your measurements, waiting on theirs. Body length is estimated from your height."
-      )
+      screen.getByRole("button", { name: "Upload chart photo" })
     ).toBeInTheDocument();
-    expect(
-      scoped.getByRole("button", { name: "Edit my measurements" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Type the numbers" })).toBeInTheDocument();
   });
 
   it("stays out of skip categories", () => {
@@ -366,5 +368,117 @@ describe("FitReadTable in the detail body", () => {
     // The read resolved: the reading state must drop without a timer.
     expect(await screen.findByRole("button", { name: "Use this chart" })).toBeInTheDocument();
     expect(container.querySelector(".cz-fitread.is-reading")).toBe(null);
+  });
+});
+
+// Kyle 2026-07-30: the Hip row warned against a hip the app had invented from
+// height and weight. The app promises never to grade a guess.
+describe("a guessed body number carries no verdict", () => {
+  it("shows the guessed hip and passes no judgement", () => {
+    const chart = parseSizeChart(BOTTOM_TEXT);
+    const profile = effectiveBodyProfile({ height: 178, weight: 70, waist: 80 });
+    const rec = recommendSize(chart, profile, "pants");
+    const hip = fitReadRows(chart, rec, profile, "pants").find((r) => r.key === "hip");
+    expect(hip.yours).not.toBe(null);
+    expect(hip.estimated).toBe(true);
+    expect(hip.ease).toBe(null);
+    expect(hip.warn).toBe(false);
+  });
+
+  it("still grades a measured hip", () => {
+    const chart = parseSizeChart(BOTTOM_TEXT);
+    const profile = { waist: 80, hip: 100 };
+    const rec = recommendSize(chart, profile, "pants");
+    const hip = fitReadRows(chart, rec, profile, "pants").find((r) => r.key === "hip");
+    expect(hip.estimated).toBe(false);
+    expect(hip.ease).not.toBe(null);
+  });
+});
+
+// Kyle 2026-07-30: "show a clear warning when it is not measured", and "let
+// you type the chart numbers by hand in twenty seconds".
+describe("a measurement the seller does not print", () => {
+  const NO_SHOULDER_TEXT = "M: chest 116, length 70\nL: chest 120, length 72";
+
+  it("marks the row as absent from the chart, not as an unread number", () => {
+    const chart = parseSizeChart(NO_SHOULDER_TEXT);
+    const profile = { chest: 105, shoulder: 45 };
+    const rec = recommendSize(chart, profile, "shirt");
+    const rows = fitReadRows(chart, rec, profile, "shirt");
+    const shoulder = rows.find((r) => r.key === "shoulder");
+    expect(shoulder.theirs).toBe(null);
+    expect(shoulder.notOnChart).toBe(true);
+    expect(rows.find((r) => r.key === "chest").notOnChart).toBe(false);
+  });
+
+  it("claims nothing about the chart when there is no chart at all", () => {
+    const rows = fitReadRows(null, null, { chest: 105, shoulder: 45 }, "shirt");
+    for (const row of rows) expect(row.notOnChart).toBe(false);
+  });
+
+  it("names the missing measurement in the footnote", () => {
+    const { container } = renderBody(fitItem({ sizeNotes: NO_SHOULDER_TEXT }));
+    const footnote = container.querySelector(".cz-fitread-footnote").textContent;
+    expect(footnote).toContain("The seller does not print the shoulder.");
+    expect(footnote).toContain("Type it in or read the chart photo.");
+    expect(within(container.querySelector(".cz-fitread")).getAllByText("n/a").length).toBe(1);
+  });
+});
+
+describe("typing a chart by hand", () => {
+  it("opens an empty grid, then saves what was typed", async () => {
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    const { container } = renderBody(fitItem(), { onSaveEdit });
+
+    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    const grid = container.querySelector(".cz-sizing-fix.is-typed");
+    expect(grid).not.toBe(null);
+    // Four size rows, four top columns, every measurement box empty.
+    expect(grid.querySelectorAll(".cz-sizing-fix-row").length).toBe(4);
+    expect(within(grid).getByLabelText("Small chest in cm")).toHaveValue("");
+
+    await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
+    await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
+    await user.click(screen.getByRole("button", { name: "Save this chart" }));
+
+    expect(onSaveEdit).toHaveBeenCalledTimes(1);
+    const [id, patch] = onSaveEdit.mock.calls[0];
+    expect(id).toBe("fitread-1");
+    expect(patch.sizeChartText).toBe("S: chest 100\nM: chest 104");
+    expect(patch.sizeChartSource.via).toBe("customer-typed");
+  });
+
+  it("refuses to save an empty grid and says what is missing", async () => {
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    renderBody(fitItem(), { onSaveEdit });
+
+    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    await user.click(screen.getByRole("button", { name: "Save this chart" }));
+    expect(onSaveEdit).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Type at least two sizes with one measurement each, then save.")
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the seller's own size names", async () => {
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    const { container } = renderBody(fitItem(), { onSaveEdit });
+
+    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    const grid = container.querySelector(".cz-sizing-fix.is-typed");
+    const firstName = within(grid).getByLabelText("Size name, row 1");
+    await user.clear(firstName);
+    await user.type(firstName, "36");
+    await user.type(within(grid).getByLabelText("36 chest in cm"), "100");
+    const secondName = within(grid).getByLabelText("Size name, row 2");
+    await user.clear(secondName);
+    await user.type(secondName, "38");
+    await user.type(within(grid).getByLabelText("38 chest in cm"), "104");
+    await user.click(screen.getByRole("button", { name: "Save this chart" }));
+
+    expect(onSaveEdit.mock.calls[0][1].sizeChartText).toBe("36: chest 100\n38: chest 104");
   });
 });

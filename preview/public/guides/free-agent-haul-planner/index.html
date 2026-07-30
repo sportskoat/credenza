@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>What a free agent haul planner gives you · Credenza</title>
     <meta name="description" content="What you get on the free plan of an agent haul planner, with the real daily numbers, and the honest point where free stops being enough." />
@@ -73,7 +76,7 @@
           <a href="/support/">Support</a>
           <a href="/contact/">Contact</a>
         </nav>
-        <a class="nav-open" href="/">Open app</a>
+        <a class="nav-open" href="/" aria-label="Open app" title="Open app"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
       </div>
       <h1>What a free agent haul planner gives you</h1>
       <p class="lede">

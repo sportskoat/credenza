@@ -2180,6 +2180,103 @@ describe("the public site shares one look and one header", () => {
     );
   });
 
+  // Kyle 2026-07-30, third report: "THEY MOVE DOWN AND TO THE LEFT". The left
+  // half was the band above. The down half was this: the <header> that wraps
+  // the masthead padded its top by 2rem = 32px, where the app's shell pads
+  // 28px. Measured in WebKit at 1100/1280/1440, the public header started at
+  // y=32 against the app's y=28 at every width.
+  it("starts the header 28px down, the same as the app shell", () => {
+    const rule = cssRules(SITE_CSS).find((r) => selectorOf(r) === "header");
+    expect(rule, "site.css no longer sets the page header's own padding").toBeTruthy();
+    expect(tidy(rule), "the header top padding is not the app's 28px").toMatch(
+      /padding-top: 28px/
+    );
+  });
+
+  // Kyle 2026-07-30, fourth report: "now make sure the color is perfectly
+  // matching". Two colours were off, both measured in WebKit against the live
+  // app at 1440px in dark mode:
+  //   1. The wordmark. The app's ink is #f5f5f7; the page's --ink is #f4f4f0,
+  //      a warmer white. So the header carries its own --mast-ink now.
+  //   2. /landing/ dimmed its own "FASHION" line to rgb(138,144,153) and shrank
+  //      it to 8.5px, because it kept a `.brand .kicker` rule of its own. A
+  //      page may not style the header at all — see the test below.
+  it("takes every header colour from the app's palette", () => {
+    // The four values the app's dark and light palettes hold. Read out of the
+    // app source, so a change there fails here instead of drifting quietly.
+    const app = readFileSync(join(ROOT, "credenza-fashion.jsx"), "utf8");
+    const palette = (name) => {
+      const start = app.indexOf(`  ${name}: {`);
+      const body = app.slice(start, app.indexOf("\n  },", start));
+      const read = (token) => body.match(new RegExp(`"${token}":\\s*"([^"]+)"`))[1];
+      return { ink: read("--cz-ink"), sub: read("--cz-sub"), faint: read("--cz-faint"), hair: read("--cz-hair") };
+    };
+    const light = palette("light");
+    const dark = palette("rainbow");
+    // The dark block is keyed to the attribute /theme.js sets, not to the
+    // machine's light/dark setting (Kyle 2026-07-30, option B).
+    const DARK_SELECTOR = ':root[data-theme="dark"]';
+    const darkBlock = SITE_CSS.match(/:root\[data-theme="dark"\]\s*\{([\s\S]*?)\n\}/)[1];
+    const lightBlock = SITE_CSS.slice(0, SITE_CSS.indexOf(DARK_SELECTOR));
+    const token = (block, name) => {
+      const m = block.match(new RegExp(`${name}:\\s*([^;]+);`));
+      return m && m[1].trim().toLowerCase();
+    };
+    for (const [block, want, mode] of [
+      [lightBlock, light, "light"],
+      [darkBlock, dark, "dark"],
+    ]) {
+      expect(token(block, "--mast-ink"), `${mode} header ink is not the app's`).toBe(want.ink.toLowerCase());
+      expect(token(block, "--mast-sub"), `${mode} header link colour is not the app's`).toBe(want.sub.toLowerCase());
+      expect(token(block, "--mast-faint"), `${mode} header kicker colour is not the app's`).toBe(want.faint.toLowerCase());
+      expect(token(block, "--mast-hair"), `${mode} header hairline is not the app's`).toBe(want.hair.toLowerCase());
+    }
+    // And the header rules must spend those tokens, not the page's own. A page
+    // may override --ink, --muted or --line for its sections; /landing/ does.
+    for (const sel of [".site-head", ".kicker", ".nav a", ".nav-open"]) {
+      const rule = cssRules(SITE_CSS).find((r) => selectorOf(r) === sel);
+      expect(rule, `site.css has no ${sel} rule`).toBeTruthy();
+      expect(tidy(rule), `${sel} takes a page colour instead of the app's`).not.toMatch(
+        /var\(--(ink|muted|line)\)/
+      );
+    }
+  });
+
+  it("lets no page restyle the shared header", () => {
+    // /landing/ kept `.brand .kicker`, which beats site.css on specificity and
+    // is invisible to the "one copy of each shared rule" test above, because
+    // that test compares whole selectors.
+    const bad = [];
+    for (const { rel, html } of DOCS) {
+      const own = html.match(/<style>([\s\S]*?)<\/style>/);
+      if (!own) continue;
+      for (const rule of cssRules(own[1])) {
+        const sel = selectorOf(rule);
+        if (/(^|[\s,>])\.(site-head|brand|nav-open|wordmark)\b/.test(sel)) bad.push(`${rel}: ${sel}`);
+      }
+    }
+    expect(bad, "pages styling the shared header").toEqual([]);
+  });
+
+  // The app's top-right control is a 44px avatar ring. The public pages showed
+  // a wide "Open app" pill, which was the one part of the header a visitor
+  // could still tell apart. Same ring, same glyph, same size now.
+  it("opens the app from the same round ring the app draws", () => {
+    const rule = cssRules(SITE_CSS).find((r) => selectorOf(r) === ".nav-open");
+    expect(rule, "site.css has no .nav-open rule").toBeTruthy();
+    const block = tidy(rule);
+    expect(block, "the app link is not the app's 44px ring").toMatch(/width: 44px/);
+    expect(block, "the app link is not round").toMatch(/border-radius: 50%/);
+    expect(block, "the app link kept the pill fill").not.toMatch(/background: var\(--accent\)/);
+    for (const { rel, html } of DOCS) {
+      const head = html.match(/<div class="site-head">[\s\S]*?\n {6}<\/div>/)[0];
+      expect(head, `${rel} still shows the wide pill`).not.toMatch(/>Open app</);
+      expect(head, `${rel} lost the name a screen reader reads`).toMatch(
+        /class="nav-open"[^>]*aria-label="Open app"/
+      );
+    }
+  });
+
   for (const { rel, html } of DOCS) {
     it(`${rel} reads the shared stylesheet`, () => {
       expect(html, `${rel} does not link /site.css`).toContain('href="/site.css"');
@@ -2197,7 +2294,7 @@ describe("the public site shares one look and one header", () => {
         // :root and the dark-mode block are the documented exception: a page
         // may add tokens of its own, and /landing/ adds 23. It may not
         // redeclare the shared ones — the loop below checks that separately.
-        .filter((sel) => sel !== ":root" && !/^@media \(prefers-color-scheme: dark\)$/.test(sel))
+        .filter((sel) => sel !== ":root" && sel !== ':root[data-theme="dark"]')
         .filter((sel) => OWNED.has(sel));
       expect(clashes, `${rel} overrides shared selectors`).toEqual([]);
     });
@@ -2257,7 +2354,7 @@ describe("the public site shares one look and one header", () => {
     const landing = DOCS.find((d) => d.rel === "landing/index.html");
     const own = landing.html.match(/<style>([\s\S]*?)<\/style>/)[1];
     const light = own.indexOf("--bg-soft: #eeeee8");
-    const dark = own.indexOf("@media (prefers-color-scheme: dark)");
+    const dark = own.indexOf(':root[data-theme="dark"]');
     expect(light, "the landing page lost its light colors").toBeGreaterThan(-1);
     expect(dark, "the landing page lost its dark colors").toBeGreaterThan(-1);
     expect(dark, "light colors overwrite dark colors in dark mode").toBeGreaterThan(light);
@@ -2301,5 +2398,68 @@ describe("the public site shares one look and one header", () => {
     const header = DOCS[0].html.match(/<a href="\/pricing\/"[^>]*>([^<]+)<\/a>/);
     expect(header, "the site header no longer links /pricing/").not.toBeNull();
     expect(header[1], "the site header and the app disagree").toBe(masthead[1]);
+  });
+});
+
+// Kyle 2026-07-30, option B: the public pages follow the colour the visitor
+// picked inside the app, not the operating system's light/dark setting. The
+// app never reads that setting — it keeps its own choice under
+// "credenza-prefs-v1" — so a Mac set to Light used to show light pages beside
+// a dark product. These tests lock the three parts that make it work: the dark
+// default in the markup, the blocking reader in the head, and the absence of
+// any colour rule keyed to the operating system.
+describe("the pages follow the app's colour", () => {
+  const themeJs = readFileSync(join(PUBLIC, "theme.js"), "utf8");
+  const siteCss = readFileSync(join(PUBLIC, "site.css"), "utf8");
+
+  for (const { rel, html } of DOCS) {
+    it(`${rel} opens dark before any script runs`, () => {
+      // The attribute lives in the file, so the page is dark with JavaScript
+      // switched off and there is no flash of the wrong colour on the way in.
+      const tag = html.match(/<html\b[^>]*>/);
+      expect(tag, `${rel} has no <html> tag`).not.toBeNull();
+      expect(tag[0], `${rel} does not open dark`).toMatch(/\sdata-theme="dark"/);
+    });
+
+    it(`${rel} loads the theme reader without defer`, () => {
+      const tag = html.match(/<script[^>]*src="\/theme\.js"[^>]*>/);
+      expect(tag, `${rel} does not load /theme.js`).not.toBeNull();
+      // defer and async both run after the first paint, which is exactly when
+      // a colour change is visible as a jump.
+      expect(tag[0], `${rel} defers the theme reader`).not.toMatch(/\b(defer|async)\b/);
+      expect(html.indexOf(tag[0]), `${rel} loads the theme reader outside the head`).toBeLessThan(
+        html.indexOf("</head>")
+      );
+    });
+  }
+
+  it("reads the same record the app writes", () => {
+    expect(themeJs).toContain("credenza-prefs-v1");
+    // "rainbow" is the app's key for the dark theme, so only the exact string
+    // "light" may move a page to light. Anything else stays dark.
+    expect(themeJs).toMatch(/\.theme === "light"/);
+  });
+
+  it("keeps a page dark when the record cannot be read", () => {
+    expect(themeJs, "no fallback to dark").toMatch(/var theme = "dark"/);
+    expect(themeJs, "no guard around storage").toContain("catch");
+  });
+
+  it("declares the dark colours against the attribute, not the machine", () => {
+    expect(siteCss, "/site.css still follows the operating system").not.toContain(
+      "prefers-color-scheme"
+    );
+    expect(siteCss).toContain(':root[data-theme="dark"]');
+  });
+
+  it("leaves no page following the operating system for its colours", () => {
+    // A theme-color meta tag is allowed to carry the media query: it colours
+    // the browser's own bar, and /theme.js replaces the pair at run time.
+    for (const { rel, html } of DOCS) {
+      const stripped = html.replace(/<meta[^>]*name="theme-color"[^>]*>/gs, "");
+      expect(stripped, `${rel} styles itself from the machine's setting`).not.toContain(
+        "prefers-color-scheme"
+      );
+    }
   });
 });

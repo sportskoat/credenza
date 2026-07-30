@@ -284,10 +284,13 @@ describe("recommendSize", () => {
   });
 
   it("labels a smaller runner-up as snugger", () => {
-    // body 104 + 12 = 116 → L exact; M (112) runner-up → snugger
+    // Fit engine v2: an unnamed shirt reads as a regular knit, band 5–10cm,
+    // so body 104 wants a 109–114cm garment. M (112) is inside it. S (108,
+    // +4) misses the band by 1cm and L (116, +12) misses by 2, so S is the
+    // runner-up and it is the smaller one.
     const rec = recommendSize(shirtChart, { chest: 104 }, "shirt");
-    expect(rec.size).toBe("L");
-    expect(rec.alt).toMatchObject({ size: "M", fit: "snugger" });
+    expect(rec.size).toBe("M");
+    expect(rec.alt).toMatchObject({ size: "S", fit: "snugger" });
   });
 
   it("uses wider ease for outerwear", () => {
@@ -310,9 +313,14 @@ describe("recommendSize", () => {
     const smallChart = parseSizeChart(
       "S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70\nruns small"
     );
-    // body 100 + 12 + 4 = 116 → L exactly
+    // The point of the test is the SHIFT, so assert it against the same chart
+    // without the hint. Regular knit band 5–10cm: body 100 wants 105–110, and
+    // S (108) is inside it. "Runs small" moves the whole band up 4cm to
+    // 109–114, and M (112) is inside that instead.
+    const plainChart = parseSizeChart("S: 胸围108 衣长66\nM: 胸围112 衣长68\nL: 胸围116 衣长70");
+    expect(recommendSize(plainChart, { chest: 100 }, "shirt").size).toBe("S");
     const rec = recommendSize(smallChart, { chest: 100 }, "shirt");
-    expect(rec.size).toBe("L");
+    expect(rec.size).toBe("M");
     expect(rec.fitNote).toContain("runs small");
   });
 
@@ -540,11 +548,14 @@ describe("prescriptionSentence (handoff turn 3 §5)", () => {
   );
 
   it("names the deciding measurement and the next size down", () => {
-    // body 100 + 12 ease = 112 → M, diff 12 → "meant to sit"
-    const rec = recommendSize(shirtChart, { chest: 100 }, "shirt");
+    // Fit engine v2: regular knit band 5–10cm, so body 104 wants 109–114cm
+    // and M (112) sits inside it. The sentence reads against the SAME band the
+    // pick used — 8cm of room is on target now, where the old flat 12cm target
+    // would have called it snug.
+    const rec = recommendSize(shirtChart, { chest: 104 }, "shirt");
     const s = prescriptionSentence(shirtChart, rec, { units: "cm", category: "shirt" });
     expect(s).toBe(
-      "Take the Medium — its 112cm chest gives you 12cm of room over your 100cm, which is where this shirt is meant to sit. The Small's 104cm would pull across the chest."
+      "Take the Medium — its 112cm chest gives you 8cm of room over your 104cm, which is where this shirt is meant to sit. The Small's 104cm would pull across the chest."
     );
   });
 
@@ -600,31 +611,46 @@ XL 胸围128`);
     expect(loosenessNudge(null)).toBe(0);
   });
 
-  it("baggy / oversized nudges one size up", () => {
-    expect(base().size).toBe("M");
+  // Fit engine v2 (C's review, 2026-07-30). Looseness no longer moves the pick
+  // one chart row. It chooses the room band the pick aims for, so the taste and
+  // the garment argue in the same currency — centimetres of room — instead of
+  // one overruling the other after the fact. Doing both would charge the
+  // customer for the same preference twice, so `prefShift` stays null on a top.
+  // Body 100 against S 104 / M 112 / L 120 / XL 128:
+  //   slim      0–5cm  → wants 100–105 → S (104)
+  //   regular   5–10cm → wants 105–110 → S (104, out by 1) beats M (112, out by 2)
+  //   oversized 15cm+  → wants 115–125 → L (120)
+  it("oversized asks for a roomier chest, not a bumped row", () => {
     const rec = recommendSize(shirtChart, { chest: 100 }, "shirt", {
       looseness: "oversized",
     });
-    expect(rec.baseSize).toBe("M");
     expect(rec.size).toBe("L");
+    expect(rec.easeBand).toEqual([15, 25]);
+    // The band moved the pick, not a row nudge — but the customer still sees
+    // the size taste took it from, and which way.
+    expect(rec.baseSize).toBe("S");
     expect(rec.prefShift).toBe("up");
-    expect(rec.prefReason).toMatch(/oversized|bumped/i);
+    expect(rec.prefReason).toMatch(/oversized/i);
+    // The line names the room, so the change is visible and not implied.
+    expect(rec.prefReason).toMatch(/15–25cm/);
   });
 
-  it("slim nudges one size down", () => {
+  it("slim asks for a closer chest", () => {
     const rec = recommendSize(shirtChart, { chest: 100 }, "shirt", {
       looseness: "slim",
     });
-    expect(rec.baseSize).toBe("M");
     expect(rec.size).toBe("S");
-    expect(rec.prefShift).toBe("down");
+    expect(rec.easeBand).toEqual([0, 5]);
+    // Regular already lands on S here, so slim changed nothing and the panel
+    // must claim nothing. The shift only appears when the taste moved the pick.
+    expect(rec.prefShift).toBeNull();
   });
 
   it("length-only preference does not shift size", () => {
     const rec = recommendSize(shirtChart, { chest: 100 }, "shirt", {
       length: "long",
     });
-    expect(rec.size).toBe("M");
+    expect(rec.size).toBe(base().size);
     expect(rec.prefShift).toBeNull();
     expect(rec.fitPref.length).toBe("long");
   });
@@ -634,7 +660,8 @@ XL 胸围128`);
       looseness: "baggy",
       dismissed: true,
     });
-    expect(rec.size).toBe("M");
+    expect(rec.size).toBe(base().size);
+    expect(rec.easeBand).toEqual([5, 10]);
     expect(rec.prefShift).toBeNull();
   });
 
@@ -756,5 +783,76 @@ describe("serializeSizeChart", () => {
     expect(serializeSizeChart({})).toBe("");
     expect(serializeSizeChart({ rows: [] })).toBe("");
     expect(serializeSizeChart({ rows: [{ chest: 116 }] })).toBe("");
+  });
+});
+
+// Kyle 2026-07-30, #design: "half-chest and half-waist: can't those be easily
+// calculated? we should only use what the charts are using, right?" Two live
+// defects sat behind that question, both proven against the thethunder shorts
+// chart on credenzafashion.com.
+describe("half-waist and half-hip shorts charts", () => {
+  const LABELED = [
+    "S: 1/2Waist 36, 1/2Hip 48, length 44",
+    "M: 1/2Waist 38, 1/2Hip 50, length 46",
+    "L: 1/2Waist 40, 1/2Hip 52, length 48",
+  ].join("\n");
+  const TABLE = "Size 1/2Waist 1/2Hip Length\nS 36 48 44\nM 38 50 46\nL 40 52 48";
+
+  it("doubles a labeled half-waist and half-hip", () => {
+    const rows = parseSizeChart(LABELED).rows;
+    expect(rows.map((r) => r.size)).toEqual(["S", "M", "L"]);
+    expect(rows[1].waist).toBe(76);
+    expect(rows[1].hip).toBe(100);
+    // The length column is not a circumference and never doubles.
+    expect(rows[1].length).toBe(46);
+  });
+
+  it("doubles a half-waist header on a positional table too", () => {
+    const rows = parseSizeChart(TABLE).rows;
+    expect(rows[2].waist).toBe(80);
+    expect(rows[2].hip).toBe(104);
+  });
+
+  it("keeps the letter size names when a measurement value looks like a size", () => {
+    // "1/2Waist 38" made 38 the SIZE NAME on the live site, and the waist
+    // column vanished with it.
+    const rows = parseSizeChart(LABELED).rows;
+    expect(rows.every((r) => r.waist != null)).toBe(true);
+    expect(rows.some((r) => r.size === "38")).toBe(false);
+  });
+
+  it("leaves a numeric-size waist chart alone", () => {
+    const rows = parseSizeChart("28: waist 71, hip 92\n30: waist 76, hip 97\n32: waist 81, hip 102").rows;
+    expect(rows.map((r) => r.size)).toEqual(["28", "30", "32"]);
+    expect(rows[1].waist).toBe(76);
+  });
+
+  it("never doubles a waist the seller did not call half", () => {
+    // A numeric waist run can be a real waist in inches. Without the label
+    // there is no evidence, so the number stands as printed.
+    const rows = parseSizeChart("S: waist 36, hip 48\nM: waist 38, hip 50\nL: waist 40, hip 52").rows;
+    expect(rows[1].waist).toBe(38);
+    expect(rows[1].hip).toBe(50);
+  });
+
+  it("still reads a half-chest label as a chest", () => {
+    const rows = parseSizeChart("S: 1/2 chest 52\nM: 1/2 chest 54\nL: 1/2 chest 56").rows;
+    expect(rows[1].chest).toBe(108);
+  });
+});
+
+describe("a guessed measurement is never graded", () => {
+  it("names the fields it invented from height and weight", () => {
+    const out = effectiveBodyProfile({ height: 180, weight: 78, waist: 82 });
+    expect(out.estimated).toBe(true);
+    expect(out.estimatedFields).toContain("hip");
+    expect(out.estimatedFields).toContain("chest");
+    expect(out.estimatedFields).not.toContain("waist");
+  });
+
+  it("names nothing when every field is measured", () => {
+    const out = effectiveBodyProfile({ height: 180, weight: 78, chest: 100, waist: 82, hip: 98 });
+    expect(out.estimated).toBeUndefined();
+    expect(out.estimatedFields).toBeUndefined();
   });
 });

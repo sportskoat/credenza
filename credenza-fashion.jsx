@@ -658,25 +658,37 @@ const CM_NUMBER_SRC = "\\d{2,3}(?:\\.\\d{1,2})?";
 // "pants length" beats "length". cm values are realistically 20–250.
 // 半胸 / 1/2 chest first so pit-to-pit labels win over bare 胸围 in the same
 // segment; normalizeHalfChestRows still doubles when the column looks half.
+//
+// The half forms of WAIST and HIP are listed too (Kyle 2026-07-30: "half-chest
+// and half-waist: can't those be easily calculated?"). Shorts charts print
+// "1/2Waist 38" constantly. Without the half form in this list the label only
+// matched "Waist", so nothing knew the column was half a circumference, and a
+// 76cm waist was read as 38cm — a size twice as tight as the seller's.
 const MEASURE_PAIR_RE = new RegExp(
-  "(半胸|1\\/2\\s*胸|½\\s*胸|1\\/2\\s*chest|half[\\s-]*chest|pit[\\s-]*to[\\s-]*pit|胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\\s*length|trouser\\s*length|衣长|衣長|length)\\s*[:：]?\\s*(" +
+  "(半胸|1\\/2\\s*胸|½\\s*胸|1\\/2\\s*chest|half[\\s-]*chest|pit[\\s-]*to[\\s-]*pit|半腰|1\\/2\\s*腰|½\\s*腰|1\\/2\\s*waist|half[\\s-]*waist|半臀|1\\/2\\s*臀|½\\s*臀|1\\/2\\s*hip|half[\\s-]*hip|胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\\s*length|trouser\\s*length|衣长|衣長|length)\\s*[:：]?\\s*(" +
     CM_NUMBER_SRC +
     ")",
   "gi"
 );
+// A label that names half a circumference: flat measure, pit to pit, 半, 1/2.
+const HALF_LABEL_RE = /半|1\/2|½|half|pit[\s-]*to[\s-]*pit/i;
 // The bare-number scan for the positional table strategies. It must read the
 // decimals too: "104.25" split into "104" and "25" put a stray 25 into the NEXT
 // column, so one decimal value corrupted every measurement after it.
 const CM_NUMBER_RE = new RegExp(CM_NUMBER_SRC, "g");
 
+// The named measurement wins over the "half" word. "1/2Waist" is a waist, and
+// the old order made it a chest (Kyle 2026-07-30). Only a label that names no
+// measurement at all falls back to chest on the half word, which is where a
+// bare "half 52" or "pit to pit 52" belongs.
 function measureKeyForLabel(label) {
   const l = label.toLowerCase();
-  if (/半胸|1\/2|½|half|pit|胸|chest|bust/.test(l)) return "chest";
   if (/肩|shoulder/.test(l)) return "shoulder";
   if (/袖|sleeve/.test(l)) return "sleeve";
   if (/腰|waist/.test(l)) return "waist";
   if (/臀|hip/.test(l)) return "hip";
   if (/裤|褲|pants|trouser/.test(l)) return "pantsLength";
+  if (/胸|chest|bust|pit|1\/2|½|half/.test(l)) return "chest";
   return "length";
 }
 
@@ -687,7 +699,9 @@ function sizeRunHint(text) {
   return null;
 }
 
-function chartHeaderLabels(line) {
+// `halfKeys`, when given, collects every measurement this header names as half
+// a circumference, so parseSizeChart can double those columns.
+function chartHeaderLabels(line, halfKeys = null) {
   const labels = [];
   // Header detection uses bare labels (no numbers required after them).
   const labelOnly = new RegExp(
@@ -695,7 +709,11 @@ function chartHeaderLabels(line) {
     "gi"
   );
   let lm;
-  while ((lm = labelOnly.exec(line))) labels.push(measureKeyForLabel(lm[1]));
+  while ((lm = labelOnly.exec(line))) {
+    const key = measureKeyForLabel(lm[1]);
+    if (halfKeys && HALF_LABEL_RE.test(lm[1])) halfKeys.add(key);
+    labels.push(key);
+  }
   // Dedup while keeping order — "臀围 /hip circumference" can match twice.
   const seen = new Set();
   return labels.filter((k) => (seen.has(k) ? false : (seen.add(k), true)));
@@ -709,10 +727,18 @@ export function parseSizeChart(text) {
   // label+number pairs out of each token's segment.
   const rows = [];
   const seen = new Set();
-  const mentions = [];
+  const halfKeys = new Set();
+  const allMentions = [];
   SIZE_MENTION_RE.lastIndex = 0;
   let m;
-  while ((m = SIZE_MENTION_RE.exec(src))) mentions.push({ size: m[1], end: m.index + m[0].length, start: m.index });
+  while ((m = SIZE_MENTION_RE.exec(src))) allMentions.push({ size: m[1], end: m.index + m[0].length, start: m.index });
+  // A numeric size token (26–40) also matches a measurement VALUE, and on a
+  // shorts chart it did: "1/2Waist 38" made 38 the size name and swallowed the
+  // waist column with it (Kyle 2026-07-30 — the app then read three sizes
+  // called 36, 38 and 40 with no waist at all). When the chart already names
+  // two or more letter sizes, the numbers are measurements, not size names.
+  const letterMentions = allMentions.filter((x) => !/^\d+$/.test(x.size));
+  const mentions = letterMentions.length >= 2 ? letterMentions : allMentions;
   for (let i = 0; i < mentions.length; i++) {
     const seg = src.slice(mentions[i].end, i + 1 < mentions.length ? mentions[i + 1].start : undefined);
     const row = { size: mentions[i].size.toUpperCase() };
@@ -721,7 +747,10 @@ export function parseSizeChart(text) {
     while ((p = MEASURE_PAIR_RE.exec(seg))) {
       const key = measureKeyForLabel(p[1]);
       const value = parseFloat(p[2]);
-      if (row[key] == null && value >= 20 && value <= 250) row[key] = value;
+      if (row[key] == null && value >= 20 && value <= 250) {
+        row[key] = value;
+        if (HALF_LABEL_RE.test(p[1])) halfKeys.add(key);
+      }
     }
     const measures = Object.keys(row).length - 1;
     if (measures >= 1 && !seen.has(row.size)) {
@@ -736,7 +765,7 @@ export function parseSizeChart(text) {
   if (rows.length < 2) {
     const lines = src.split(/\n+/).map((l) => l.trim()).filter(Boolean);
     for (let h = 0; h < lines.length; h++) {
-      const labels = chartHeaderLabels(lines[h]);
+      const labels = chartHeaderLabels(lines[h], halfKeys);
       if (labels.length < 1) continue;
       const tableRows = [];
       for (let r = h + 1; r < lines.length; r++) {
@@ -782,7 +811,7 @@ export function parseSizeChart(text) {
     const lines = src.split(/\n+/).map((l) => l.trim()).filter(Boolean);
     let pendingKey = null;
     for (let i = 0; i < lines.length; i++) {
-      const labels = chartHeaderLabels(lines[i]);
+      const labels = chartHeaderLabels(lines[i], halfKeys);
       if (labels.length === 1) pendingKey = labels[0];
       if (labels.length > 1) pendingKey = labels[0]; // prefer first measure
       if (!pendingKey) continue;
@@ -792,7 +821,7 @@ export function parseSizeChart(text) {
         if (!tm) {
           if (tableRows.length) break;
           // Maybe this line is another header — update pending key.
-          const more = chartHeaderLabels(lines[r]);
+          const more = chartHeaderLabels(lines[r], halfKeys);
           if (more.length) pendingKey = more[0];
           continue;
         }
@@ -820,8 +849,27 @@ export function parseSizeChart(text) {
   // Chinese tee charts often print 半胸 / pit-to-pit (half chest). Body profile
   // and ease math need full circumference. Double when every chest column is
   // in the half-chest band, or the source text says half/flat measure.
-  const rowsNorm = normalizeHalfChestRows(rows, src);
+  const rowsNorm = normalizeHalfBottomRows(normalizeHalfChestRows(rows, src), halfKeys);
   return { rows: rowsNorm, runHint: sizeRunHint(src) };
+}
+
+// Half waist / half hip → full circumference. Unlike the chest, these double
+// ONLY when the seller's own label says half ("1/2Waist", 半臀). No size-band
+// guess is allowed here: a numeric waist run of 36/38/40 is a real waist in
+// inches on some charts, so a heuristic would wreck the charts it guessed
+// wrong. The label is the evidence; without the label the number stands.
+export function normalizeHalfBottomRows(rows, halfKeys) {
+  if (!Array.isArray(rows) || !halfKeys || !halfKeys.size) return rows;
+  const keys = ["waist", "hip"].filter((k) => halfKeys.has(k));
+  if (!keys.length) return rows;
+  return rows.map((r) => {
+    if (!r) return r;
+    const out = { ...r };
+    for (const k of keys) {
+      if (out[k] != null && isFinite(out[k])) out[k] = Math.round(out[k] * 2);
+    }
+    return out;
+  });
 }
 
 // Half-chest (pit-to-pit) → full circumference. Adult full chest is almost
@@ -928,6 +976,170 @@ export function sleeveStyle(title, chart) {
   return "unknown";
 }
 
+// ═══ Fit engine v2 — garment type, cut, and the room each one needs ═══
+//
+// Kyle 2026-07-30: "a jacket, it's supposed to be a little bit bigger on you
+// than, say, a fitted T shirt or a dry fit". Before this the engine had ONE
+// room number per category: 16 cm for outerwear, 12 cm for every other top.
+// A blazer and a parka shared 16 cm, and a dry-fit shared 12 cm with a hoodie.
+//
+// C's review (RESEARCH/GARMENT_FIT_INTELLIGENCE_REVIEW_2026_07_30.md) set the
+// bands below and required four things this code obeys:
+//   1. A tailored jacket and a coat are different products. Split them.
+//   2. The shoulder is a strong score, not a universal veto.
+//   3. Keep the drop-shoulder exception, but name it from the title first.
+//   4. Raglan is a third construction. It has no comparable shoulder seam.
+// Store decimals; round only what the customer reads.
+//
+// Everything here is pure, and matches sleeveStyle's shape: English regexes on
+// word boundaries, Chinese words as plain substrings (they carry no boundary).
+
+const GARMENT_RES = {
+  compression: [/dry[-\s]?fit/i, /dri[-\s]?fit/i, /\bcompression\b/i, /base[-\s]?layer\b/i, /\brash\s?guard\b/i],
+  woven: [/button[-\s]?(?:up|down)\b/i, /\boxford\b/i, /\bpoplin\b/i, /\bflannel\b/i, /dress\s?shirts?\b/i],
+  blazer: [/\bblazers?\b/i, /suit\s?jackets?\b/i, /sport\s?coats?\b/i],
+  coat: [/\bcoats?\b/i, /\bparkas?\b/i, /\bpuffers?\b/i, /down\s?jackets?\b/i, /\btrench\b/i, /\banoraks?\b/i],
+  knit: [/\btees?\b/i, /\bt[-\s]?shirts?\b/i, /\bhoodies?\b/i, /\bsweatshirts?\b/i, /\bcrewnecks?\b/i, /\bpolos?\b/i, /\bsweaters?\b/i, /\bknits?\b/i],
+};
+const GARMENT_ZH = {
+  compression: ["紧身", "速干"],
+  woven: ["衬衫", "衬衣"],
+  blazer: ["西装", "西服"],
+  coat: ["大衣", "羽绒服", "棉服", "风衣"],
+  knit: ["卫衣", "t恤", "短袖", "长袖", "毛衣", "polo衫"],
+};
+// Most specific first. "西装外套" holds both a blazer word and a coat word, and
+// a blazer is the narrower claim, so blazer must win. compression outranks
+// knit for the same reason: a dry-fit tee is a dry-fit, not a regular tee.
+const GARMENT_ORDER = ["compression", "blazer", "coat", "woven", "knit"];
+// Category is the fallback, never the first answer: a customer files a blazer
+// under Outerwear, and Outerwear alone cannot tell a blazer from a parka.
+const CATEGORY_GARMENT = {
+  shirt: "knit",
+  outerwear: "coat",
+  pants: "pants",
+  shorts: "shorts",
+};
+
+// "compression" | "knit" | "woven" | "blazer" | "coat" | "pants" | "shorts" |
+// "unknown". `unknown` keeps the pre-v2 numbers — the engine never guesses.
+export function garmentType(title, chart, category) {
+  const t = String(title || "").toLowerCase();
+  if (t) {
+    for (const kind of GARMENT_ORDER) {
+      if (GARMENT_RES[kind].some((re) => re.test(t))) return kind;
+      if (GARMENT_ZH[kind].some((w) => t.includes(w))) return kind;
+    }
+  }
+  return CATEGORY_GARMENT[category] || "unknown";
+}
+
+// How the sleeve joins the body, which decides whether the shoulder number
+// means anything. C: name it from the title first; a wide shoulder is
+// SUPPORTING evidence only, never the sole classifier.
+const CUT_DROP_RES = [/drop(?:ped)?[-\s]?shoulders?\b/i, /\boversized?\b/i, /\bboxy\b/i, /\bbaggy\b/i];
+const CUT_DROP_ZH = ["落肩", "廓形", "宽松", "oversize"];
+const CUT_RAGLAN_RES = [/\braglan\b/i];
+const CUT_RAGLAN_ZH = ["插肩"];
+const CUT_SETIN_RES = [/slim[-\s]?fit\b/i, /\bfitted\b/i, /\btailored\b/i];
+const CUT_SETIN_ZH = ["修身"];
+// C: 5 cm of extra shoulder width is supporting evidence for a drop shoulder.
+const DROP_SHOULDER_CM = 5;
+
+// "set-in" | "drop" | "raglan" | "unknown". `unknown` scores like set-in but
+// never rejects a size — an uncertain classification must not cost a customer
+// a size that fits.
+export function topCut(title, chart, profile) {
+  const t = String(title || "").toLowerCase();
+  if (t) {
+    if (CUT_RAGLAN_RES.some((re) => re.test(t)) || CUT_RAGLAN_ZH.some((w) => t.includes(w))) {
+      return "raglan";
+    }
+    if (CUT_DROP_RES.some((re) => re.test(t)) || CUT_DROP_ZH.some((w) => t.includes(w))) {
+      return "drop";
+    }
+    if (CUT_SETIN_RES.some((re) => re.test(t)) || CUT_SETIN_ZH.some((w) => t.includes(w))) {
+      return "set-in";
+    }
+  }
+  // Supporting evidence: every shoulder the chart lists runs 5 cm past the
+  // body. One wide row could be a big size the customer will never pick; all
+  // of them wide is a cut, not a size.
+  const body = profile && profile.shoulder != null ? Number(profile.shoulder) : null;
+  if (body != null && isFinite(body)) {
+    const shoulders = (chart && Array.isArray(chart.rows) ? chart.rows : [])
+      .map((r) => (r && r.shoulder != null ? Number(r.shoulder) : null))
+      .filter((v) => v != null && isFinite(v));
+    if (shoulders.length > 0 && shoulders.every((v) => v - body >= DROP_SHOULDER_CM)) return "drop";
+  }
+  return "unknown";
+}
+
+// The fit the SELLER declares in the title. C required the woven-shirt band to
+// be "adjusted by the declared fit", and the same words help on a knit: a
+// listing that says "slim fit" is describing the cut, not the customer.
+// The customer's own saved taste always beats this — it is a fallback only.
+export function declaredFit(title) {
+  const t = String(title || "").toLowerCase();
+  if (!t) return null;
+  if (CUT_DROP_RES.some((re) => re.test(t)) || CUT_DROP_ZH.some((w) => t.includes(w))) {
+    return "oversized";
+  }
+  if (CUT_SETIN_RES.some((re) => re.test(t)) || CUT_SETIN_ZH.some((w) => t.includes(w))) {
+    return "slim";
+  }
+  return null;
+}
+
+// Chest ease bands in centimetres, [low, high], from C's review table. The
+// engine aims for the middle of a band and scores the distance outside it.
+// Decimals are deliberate — do not round these to whole centimetres.
+export const CHEST_EASE_BANDS = {
+  compression: [-2.5, 2.5],
+  knitSlim: [0, 5],
+  knit: [5, 10],
+  knitRelaxed: [10, 15],
+  knitOver: [15, 25],
+  woven: [5, 15],
+  blazer: [7.5, 12.5],
+  coat: [12.5, 20],
+};
+
+// Which band a garment reads against, once its type, cut and the customer's
+// looseness taste are known. Returns null for `unknown` and for bottoms, and
+// the caller then keeps the pre-v2 single number.
+export function chestEaseBand(kind, cut, looseness) {
+  if (kind === "compression") return CHEST_EASE_BANDS.compression;
+  if (kind === "blazer") return CHEST_EASE_BANDS.blazer;
+  if (kind === "coat") return CHEST_EASE_BANDS.coat;
+  // C: a woven shirt is one broad band "adjusted by the declared fit".
+  if (kind === "woven") {
+    if (looseness === "slim") return CHEST_EASE_BANDS.knitSlim;
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knitOver;
+    return CHEST_EASE_BANDS.woven;
+  }
+  if (kind !== "knit") return null;
+  if (looseness === "slim") return CHEST_EASE_BANDS.knitSlim;
+  if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knitOver;
+  // A drop-shoulder knit is cut relaxed even when the customer asked for
+  // nothing. The extra width is the design, not a mistake to correct.
+  if (cut === "drop") return CHEST_EASE_BANDS.knitRelaxed;
+  return CHEST_EASE_BANDS.knit;
+}
+
+// One word for each garment the engine can name. The card prints it on the
+// chart panel (garmentTypeWord below). A kind missing from this map, and
+// "unknown", print nothing — the engine never guesses out loud.
+export const GARMENT_WORD = {
+  compression: "Dry-fit",
+  knit: "Tee",
+  woven: "Shirt",
+  blazer: "Blazer",
+  coat: "Coat",
+  pants: "Trousers",
+  shorts: "Shorts",
+};
+
 // Pick a size from a parsed chart against a body profile (all cm; weight kg).
 // Tops → chest (+ease). Bottoms → waist, falling back to hip when the chart
 // only lists 臀围 (common Yupoo pants/shorts sheets). Outerwear gets more ease.
@@ -961,6 +1173,17 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   let primaryKey = null;
   let bodyKey = null;
   let ease = 12;
+  // Fit engine v2. The garment names its own room band; the band's middle
+  // becomes `ease`, so every downstream reader (the target, the length pass,
+  // the FIT READ table) keeps working on one number. `band` is what the score
+  // actually uses: inside it costs nothing, outside it costs the distance out.
+  const looseness = fitPref && !fitPref.dismissed ? fitPref.looseness : null;
+  const kind = garmentType(title, chart, category);
+  const cut = isBottoms ? null : topCut(title, chart, p);
+  // The customer's saved taste wins. With no taste saved, the fit the seller
+  // declared in the title stands in for it — "slim fit shirt" is a real signal
+  // about the cut, and ignoring it made a slim shirt read as a regular one.
+  const band = isBottoms ? null : chestEaseBand(kind, cut, looseness || declaredFit(title));
   if (isBottoms) {
     if (has("waist") && p.waist != null) {
       primaryKey = "waist";
@@ -982,7 +1205,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     if (has("chest") && p.chest != null) {
       primaryKey = "chest";
       bodyKey = "chest";
-      ease = category === "outerwear" ? 16 : 12;
+      // A named garment uses its band. An unnamed one keeps the pre-v2
+      // numbers: 16 cm for outerwear, 12 cm for everything else.
+      ease = band ? (band[0] + band[1]) / 2 : category === "outerwear" ? 16 : 12;
     } else if (has("chest")) {
       return { missing: "chest" };
     } else if (has("hip") && p.hip != null) {
@@ -1003,10 +1228,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     }
   }
 
-  let target = p[bodyKey] + ease;
   // Garment runs big → the label understates it → aim smaller, and vice versa.
-  if (chart.runHint === "big") target -= 4;
-  else if (chart.runHint === "small") target += 4;
+  const runShift = chart.runHint === "big" ? -4 : chart.runHint === "small" ? 4 : 0;
+  const target = p[bodyKey] + ease + runShift;
 
   const candidates = rows.filter((r) => r[primaryKey] != null);
   if (candidates.length < 2) return null;
@@ -1014,9 +1238,35 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // Confirmed short sleeve: the chart's 20–25 cm sleeves are by design, not a
   // fit failure, so they carry no penalty. Long/unknown keeps the penalty.
   const skipSleevePenalty = sleeveStyle(title, chart) === "short";
+  // C: a raglan sleeve has no comparable shoulder seam, and a drop shoulder
+  // hangs down the arm by design. Neither one can be graded on shoulder width.
+  const skipShoulder = isTop && (cut === "drop" || cut === "raglan");
+  // C: reject on the shoulder only when the cut is confirmed set-in, both
+  // sides carry a number, and the gap beats a real tolerance. Applied as a
+  // heavy cost, not a filter: a chart where every row fails still returns the
+  // best of them instead of no size at all.
+  const SHOULDER_REJECT_CM = 3;
+  const SHOULDER_REJECT_COST = 100;
+  const bandOf = (r) => {
+    // Distance outside the band. Inside the band is a perfect read, so the
+    // whole band scores 0 and the pick then turns on shoulder, sleeve, length.
+    // The run hint moves the whole band, exactly as it moves the old target.
+    const e = r[primaryKey] - p[bodyKey] - runShift;
+    if (e < band[0]) return band[0] - e;
+    if (e > band[1]) return e - band[1];
+    // Inside the band every size is correct, so the pick belongs to the
+    // shoulder and the sleeve. This last term only breaks a dead tie — at
+    // 0.05 it can never outweigh the shoulder's 0.4.
+    return Math.abs(e - (band[0] + band[1]) / 2) * 0.05;
+  };
   const score = (r) => {
-    let s = Math.abs(r[primaryKey] - target);
-    if (isTop && p.shoulder != null && r.shoulder != null) s += Math.abs(r.shoulder - (p.shoulder + 2)) * 0.4;
+    let s = band && isTop ? bandOf(r) : Math.abs(r[primaryKey] - target);
+    if (isTop && !skipShoulder && p.shoulder != null && r.shoulder != null) {
+      s += Math.abs(r.shoulder - (p.shoulder + 2)) * 0.4;
+      if (cut === "set-in" && Math.abs(r.shoulder - (p.shoulder + 2)) > SHOULDER_REJECT_CM) {
+        s += SHOULDER_REJECT_COST;
+      }
+    }
     // Sleeves shorter than the arm are worse than sleeves that run long.
     if (isTop && !skipSleevePenalty && p.sleeve != null && r.sleeve != null) s += Math.max(0, p.sleeve - r.sleeve) * 0.6;
     // Secondary hip nudge on bottoms when both sides have it.
@@ -1033,7 +1283,70 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const forcedRow = forceSize
     ? candidates.find((r) => String(r.size).toUpperCase() === String(forceSize).toUpperCase()) || null
     : null;
-  const best = forcedRow || scored[0].row;
+  // ── The length pass (Kyle 2026-07-30) ─────────────────────────────────────
+  // Kyle's rule, in his words: the length breaks a tie when two sizes fit the
+  // chest. So this is a filter, not a weight. A weight would need tuning and
+  // could trade a good chest for a good hem at any gap; a filter cannot.
+  //
+  //   1. The chest scores alone, above. That winner stands unless step 3 fires.
+  //   2. Eligible = every row whose chest ease is inside tolerance (the ease
+  //      the pick aims for, ±6cm — the same band the FIT READ table draws).
+  //   3. Among two or more eligible rows, the one closest to the wanted length
+  //      wins. It is by definition a size that already fits the chest.
+  //
+  // BOTH winners are kept. When they differ, the caller gets lengthWin, so the
+  // sentence can name what the chest paid. The app never sizes up in silence.
+  // Fit engine v2: "inside tolerance" is the garment's own room band plus 4cm
+  // of slack at each edge, the same slack prescriptionSentence allows before
+  // it drops "meant to sit". An unnamed garment keeps the old ±6cm around the
+  // single target, so nothing changes for a chart the engine cannot classify.
+  const CHEST_TOLERANCE = 6;
+  const CHEST_BAND_SLACK = 4;
+  const chestFits = (r) => {
+    const e = r[primaryKey] - p[bodyKey] - runShift;
+    if (band && isTop) return e >= band[0] - CHEST_BAND_SLACK && e <= band[1] + CHEST_BAND_SLACK;
+    return Math.abs(e - ease) <= CHEST_TOLERANCE;
+  };
+  const chestWinner = scored[0].row;
+  let lengthWin = null;
+  let lengthPick = null;
+  const lengthTarget =
+    isTop && p.length != null && isFinite(Number(p.length))
+      ? Number(p.length) + lengthNudgeCm(fitPref)
+      : null;
+  if (lengthTarget != null) {
+    const eligible = candidates.filter((r) => r.length != null && chestFits(r));
+    if (eligible.length >= 2) {
+      const byLength = eligible
+        .map((r) => ({ row: r, d: Math.abs(r.length - lengthTarget), s: score(r) }))
+        // Same distance from the wanted length → the better chest wins.
+        .sort((a, b) => a.d - b.d || a.s - b.s);
+      lengthPick = byLength[0].row;
+      if (lengthPick.size !== chestWinner.size) {
+        lengthWin = {
+          fromSize: chestWinner.size,
+          // What the chest ease becomes, and what it was. A null body chest
+          // cannot reach here: isTop means the chest led the pick.
+          chestEase: lengthPick[primaryKey] - p[bodyKey],
+          chestEaseBefore: chestWinner[primaryKey] - p[bodyKey],
+          lengthTarget,
+          length: lengthPick.length,
+        };
+      }
+    }
+  }
+  // A hand pick beats every calculation. Then the length winner, then the chest.
+  const best = forcedRow || lengthPick || chestWinner;
+  // What the same body would have been given with no looseness taste. The
+  // taste no longer moves a chart row (the band does the work), but the panel
+  // still owes the customer the old, plain signal: "you like these oversized,
+  // so this is not the size we would otherwise name." One extra pure pass, and
+  // it cannot recurse — the inner call carries no looseness.
+  const neutralSize =
+    looseness && band && !forcedRow
+      ? (recommendSize(chart, profile, category, { length: fitPref.length }, null, title) || {}).size ||
+        null
+      : null;
   const runnerUp = scored.map((s) => s.row).find((r) => r.size !== best.size) || null;
 
   const fitNote =
@@ -1047,11 +1360,13 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const garment = best[primaryKey];
   const body = p[bodyKey];
   const diff = garment - body;
-  // Secondary leg-length check on bottoms. Seller 裤长 is OUTSEAM (inseam +
-  // rise), so it never feeds the pick math — surfaced as info only.
+  // Secondary leg-length check on bottoms. Both numbers are now the seller's
+  // own measurement — waistband to hem (裤长) — so this is a like-for-like
+  // comparison. It still never feeds the pick math: the waist decides the size.
+  const bodyLegKey = category === "shorts" ? "shortsLength" : "pantsLength";
   const lengthCheck =
-    !isTop && best.pantsLength != null && p.inseam != null
-      ? { garment: best.pantsLength, body: p.inseam }
+    !isTop && best.pantsLength != null && p[bodyLegKey] != null
+      ? { garment: best.pantsLength, body: Number(p[bodyLegKey]) }
       : null;
   const label = primaryKey === "waist" ? "Waist" : primaryKey === "hip" ? "Hip" : "Chest";
   const reason =
@@ -1083,10 +1398,24 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     diff,
     lengthCheck,
     alt,
+    // Present only when the body length moved the pick off the chest winner.
+    // A hand pick clears it below: the customer chose, the app did not.
+    lengthWin,
+    // The length the pick aimed for, taste included, or null when the customer
+    // saved no shirt length. The copy needs to tell "no number" from "matched".
+    lengthTargetUsed: lengthTarget,
+    // Fit engine v2. The garment the engine read, how its sleeve joins the
+    // body, and the room band it aimed for. The panel needs all three: the
+    // reason line names the garment, and the FIT READ table must grade the
+    // shoulder the same way the pick did or the two contradict each other.
+    garmentKind: kind,
+    cut,
+    easeBand: band,
+    neutralSize,
   };
   // Optional 4th arg: per-category taste (length + looseness). Looseness can
-  // nudge one size up/down; length is metadata only (design turn 5).
-  if (forcedRow) return baseRec;
+  // nudge one size up/down; the length axis moves the target length above.
+  if (forcedRow) return { ...baseRec, lengthWin: null };
   return applyFitPreference(baseRec, chart, fitPref, category);
 }
 
@@ -1122,6 +1451,15 @@ const FIT_READ_EASE = {
   sleeve: { ideal: 1, span: 4 },
   waist: { ideal: 2, span: 3 },
   hip: { ideal: 2, span: 4 },
+  // Trouser / shorts length. Ideal 0: the length the customer saves IS the
+  // length they want, and both numbers are waistband to hem. 3cm each way
+  // still wears as the length asked for.
+  pantsLength: { ideal: 0, span: 3 },
+  // Ideal 0: the Shirt length a customer saves IS where the hem should sit, so
+  // a garment that matches it needs no ease at all. 3cm each way still reads
+  // as the length asked for; past that it wears cropped or long.
+  // A length the app GUESSED from height carries no target — see fitReadRows.
+  length: { ideal: 0, span: 3 },
 };
 
 export function fitReadRows(chart, rec, profile, category, title = null) {
@@ -1136,21 +1474,45 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   // becomes information only, like Body length — no ease, no mark, no warn.
   // Long/unknown keeps the verdict: when unsure, we keep the warning.
   const shortSleeve = sleeveStyle(title, chart) === "short";
+  // Fit engine v2. The table must grade a row exactly as the pick graded it,
+  // or the panel argues with itself. Two rows change:
+  //   Chest — the garment's own room band replaces the flat 12±6, so a blazer
+  //     at +10cm reads as correct instead of tight.
+  //   Shoulder — a drop-shoulder or raglan top has no comparable seam, so the
+  //     row becomes information only, the same way a short sleeve already is.
+  const easeBand = rec && Array.isArray(rec.easeBand) ? rec.easeBand : null;
+  const cut = rec ? rec.cut : null;
+  const noShoulderSeam = !isBottoms && (cut === "drop" || cut === "raglan");
   // Body length on a bottoms chart is the same "Length" idea as 裤长; only
   // one of the two keys renders, pantsLength first.
   const rows = [];
   for (const key of order) {
     if (isBottoms && key === "length" && picked && picked.pantsLength != null) continue;
     const theirs = picked && picked[key] != null ? picked[key] : null;
-    // 裤长 is OUTSEAM; the closest body field (inseam) measures a different
-    // leg segment, so bottoms Length never claims a "yours" or an ease.
-    const bodyKey = key === "pantsLength" ? null : key === "length" && isBottoms ? null : key;
+    // The bottoms Length row compares 裤长 against the customer's own saved
+    // waistband-to-hem length (Kyle 2026-07-30: "the values should be the
+    // values of the seller charts"). Shorts and trousers keep separate saved
+    // lengths, because nobody wants both the same. A bottoms "Body length"
+    // row still claims nothing — only 裤长 has a match.
+    const bodyKey =
+      key === "pantsLength"
+        ? category === "shorts"
+          ? "shortsLength"
+          : "pantsLength"
+        : key === "length" && isBottoms
+          ? null
+          : key;
     const rawYours = bodyKey != null && p[bodyKey] != null ? Number(p[bodyKey]) : null;
     let yours = rawYours != null && isFinite(rawYours) ? rawYours : null;
     // Torso estimate (Kyle approved, #design 2026-07-30): nobody tapes their
     // torso, so the Body length row estimates it from height — shoulder-to-
     // hip runs about 30% of height. Flagged so the table can label it.
-    let estimated = false;
+    // A chest, waist or hip the app worked out from height and weight is a
+    // guess too, and it must not earn a verdict either.
+    let estimated =
+      bodyKey != null &&
+      Array.isArray(p.estimatedFields) &&
+      p.estimatedFields.includes(bodyKey);
     if (yours == null && key === "length" && !isBottoms) {
       const h = Number(p.height);
       if (isFinite(h) && h >= 120 && h <= 230) {
@@ -1159,13 +1521,32 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       }
     }
     if (theirs == null && yours == null) continue;
-    const infoOnly = shortSleeve && key === "sleeve";
+    const infoOnly = (shortSleeve && key === "sleeve") || (noShoulderSeam && key === "shoulder");
     // Oom 2026-07-29: a ragged chart can give the picked size no sleeve
     // number. The row would survive the test above on a body arm length,
     // then lose YOURS to the info-only rule and print "Sleeve — — —".
     if (infoOnly && theirs == null) continue;
-    const target = infoOnly ? null : FIT_READ_EASE[key] || null;
-    const ease = infoOnly ? null : theirs != null && yours != null ? theirs - yours : null;
+    // Never grade a guess (Kyle 2026-07-30). A Body length the app estimated
+    // from height carries the number and nothing else: no ease, no mark, no
+    // warning. Only a length the customer measured earns a verdict.
+    const graded = !infoOnly && !estimated;
+    // The chest row reads against the garment's own band when the engine named
+    // one. Ideal = the band's middle, span = its half-width, so a blazer's
+    // 7.5–12.5cm draws the same 36–66 track a tee's 6–18cm draws.
+    // The span carries the band's half-width PLUS the same 4cm slack the pick
+    // and the prescription sentence allow. Without it a regular knit's narrow
+    // 5–10cm band would warn at 11cm — a shirt that is merely a little roomy
+    // than the band, not a shirt that fits badly. The band decides the size;
+    // the warning is for a real mismatch.
+    const bandTarget =
+      key === "chest" && easeBand
+        ? {
+            ideal: (easeBand[0] + easeBand[1]) / 2,
+            span: (easeBand[1] - easeBand[0]) / 2 + 4,
+          }
+        : null;
+    const target = graded ? bandTarget || FIT_READ_EASE[key] || null : null;
+    const ease = graded && theirs != null && yours != null ? theirs - yours : null;
     let mark = null;
     let warn = false;
     if (ease != null && target) {
@@ -1185,9 +1566,15 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       ease,
       mark,
       warn,
+      // Kyle 2026-07-30: say it out loud when the seller's chart has no such
+      // column. The row used to print a bare "—", which reads the same as a
+      // number we failed to use. An empty cell on a chart we DO hold is a
+      // missing column, and the table names it in the footnote.
+      notOnChart: !!chart && theirs == null,
     });
   }
-  // Body length has no ease target — it is information, not a fit verdict.
+  // A measured Body length is a fit verdict now (Kyle 2026-07-30). An
+  // estimated one is still information only.
   return rows;
 }
 
@@ -1244,6 +1631,18 @@ export const FIT_PREF_AXES = {
   },
 };
 
+// Length taste → centimetres on the target body length, for tops only.
+// Kyle 2026-07-30 overruled deleting these rows, so they have to do something.
+// They shift the LENGTH the pick aims for; they never move the letter size on
+// their own. Bottoms keep no nudge: a seller's 裤长 is an outside-leg number
+// and our inseam field measures a different segment, so it stays information.
+export function lengthNudgeCm(fitPref) {
+  if (!fitPref || typeof fitPref !== "object" || fitPref.dismissed) return 0;
+  if (fitPref.length === "cropped" || fitPref.length === "short") return -4;
+  if (fitPref.length === "long") return 4;
+  return 0;
+}
+
 // Looseness → chart-row nudge. Regular / unset = 0. Slim = one size smaller.
 // Baggy / oversized = one size larger. Length does not move the letter size.
 export function loosenessNudge(looseness) {
@@ -1262,6 +1661,94 @@ export function fitPrefLabel(category, axis, value) {
   if (!axes || !value) return value || "";
   const opt = (axes[axis] || []).find((o) => o.value === value);
   return opt ? opt.label : value;
+}
+
+// What the Cropped / Regular / Long choice DID. The old copy said "Length
+// preference saved", which was true and useless — the choice changed nothing
+// (Kyle 2026-07-30). Three states, in order of how much the customer gets:
+//   1. No saved Shirt length → the app asks for one, because it cannot act.
+//   2. A length that did not change the size → it says the size already fits.
+//   3. A length that DID change the size → recLengthCostLine names the cost.
+function lengthPrefLine(category, fitPref, rec) {
+  const word = fitPrefLabel(category, "length", fitPref.length).toLowerCase();
+  if (!word) return null;
+  // The cost line owns the message when the length moved the pick.
+  if (rec && rec.lengthWin) return null;
+  if (!rec || rec.lengthTargetUsed == null) {
+    return "Save your shirt length and we can hold this item to a " + word + " hem.";
+  }
+  return "Your " + word + " length matches this size.";
+}
+
+// One line naming what the engine thought it was sizing, and why that garment
+// gets the room it gets (Kyle 2026-07-30: "a jacket, it's supposed to be a
+// little bit bigger on you than, say, a fitted T shirt or a dry fit"). Empty
+// when the engine could not name the garment — it never guesses out loud.
+const GARMENT_REASON = {
+  compression: "Dry-fit: sized close to the body, the way it is meant to sit.",
+  knit: "Tee: sized for everyday room, not tight and not loose.",
+  woven: "Shirt: sized for room to move and to tuck.",
+  blazer: "Blazer: sized to close over a shirt, not over a jumper.",
+  coat: "Coat: sized to layer over a tee and a jumper.",
+};
+export function garmentReasonLine(rec) {
+  if (!rec || !rec.garmentKind || !rec.easeBand) return "";
+  // A knit sized on a wider or closer band must not claim "everyday room" —
+  // the line has to describe the room the pick actually used, or it argues
+  // with the centimetres printed under it.
+  if (rec.garmentKind === "knit") {
+    const [low, high] = rec.easeBand;
+    if (low === CHEST_EASE_BANDS.knitOver[0]) {
+      return "Oversized tee: sized to hang loose, which is the cut.";
+    }
+    if (low === CHEST_EASE_BANDS.knitRelaxed[0]) {
+      return "Drop-shoulder tee: sized to sit past the shoulder, which is the cut.";
+    }
+    if (high === CHEST_EASE_BANDS.knitSlim[1]) {
+      return "Tee: sized close to the body, the way you like them.";
+    }
+  }
+  return GARMENT_REASON[rec.garmentKind] || "";
+}
+
+// One word for the garment the engine read (Kyle 2026-07-30: "only show the
+// type in the chart photo"). The reason SENTENCE is retired on the card; this
+// word replaces it, sitting on the chart panel's own header. A kind the engine
+// did not name returns "" and the card shows nothing at all.
+export function garmentTypeWord(rec) {
+  if (!rec || !rec.garmentKind) return "";
+  return GARMENT_WORD[rec.garmentKind] || "";
+}
+
+// Shorts leg length (Kyle 2026-07-30: "the values should be the values of the
+// seller charts").
+//
+// The first version of this line estimated an inside leg from the seller's 裤长
+// by subtracting a guessed rise, and said so. Kyle rejected the guess. The
+// saved Shorts length is now the same measurement the seller prints — the
+// waistband down to the hem — so this line compares two numbers of the same
+// kind and states the difference. No rise, no estimate, no "~".
+const SHORTS_LENGTH_SLACK_CM = 2.5;
+export function shortsLengthNote(rec, profile, category, { units = "cm" } = {}) {
+  if (category !== "shorts") return "";
+  const want = profile && profile.shortsLength != null ? Number(profile.shortsLength) : null;
+  const theirs = rec && rec.row && rec.row.pantsLength != null ? Number(rec.row.pantsLength) : null;
+  if (want == null || theirs == null || !isFinite(want) || !isFinite(theirs)) return "";
+  const gap = theirs - want;
+  const head =
+    "This size measures " +
+    formatMeasure(theirs, units) +
+    " from waist to hem. You like " +
+    formatMeasure(want, units) +
+    ".";
+  if (Math.abs(gap) <= SHORTS_LENGTH_SLACK_CM) return head + " That is the length you want.";
+  return (
+    head +
+    " That is " +
+    formatMeasure(Math.abs(gap), units) +
+    (gap > 0 ? " longer" : " shorter") +
+    " than you like."
+  );
 }
 
 function prefReasonLine(category, fitPref, nudge) {
@@ -1290,6 +1777,27 @@ function prefReasonLine(category, fitPref, nudge) {
   );
 }
 
+// v2 replacement for prefReasonLine on tops. The looseness taste no longer
+// moves a chart row; it widens or narrows the room the pick aims for. This
+// line names the room in centimetres so the change is visible, not implied.
+function bandPrefLine(category, fitPref, rec) {
+  const loose = fitPrefLabel(category, "looseness", fitPref.looseness).toLowerCase();
+  if (!loose || !rec.easeBand) return null;
+  const catWord =
+    category && CATEGORIES[category] ? CATEGORIES[category].label.toLowerCase() : "this item";
+  return (
+    "You like " +
+    catWord +
+    " " +
+    loose +
+    ", so we sized for " +
+    rec.easeBand[0] +
+    "–" +
+    rec.easeBand[1] +
+    "cm of room in the chest."
+  );
+}
+
 // Apply per-category taste to a base recommendSize result. Safe no-op when
 // fitPref is null, dismissed, or has no looseness nudge.
 export function applyFitPreference(rec, chart, fitPref, category) {
@@ -1303,7 +1811,13 @@ export function applyFitPreference(rec, chart, fitPref, category) {
       fitPref: fitPref && !fitPref.dismissed ? fitPref : null,
     };
   }
-  const nudge = loosenessNudge(fitPref.looseness);
+  // Fit engine v2: on a top whose garment the engine named, the looseness
+  // taste already chose the room band inside recommendSize (Slim → 0–5cm,
+  // Oversized → 15cm+). Moving one chart row on top of that would charge the
+  // customer for the same preference twice. Bottoms have no bands yet, so
+  // they keep the row nudge.
+  const bandDidLooseness = !!rec.easeBand;
+  const nudge = bandDidLooseness ? 0 : loosenessNudge(fitPref.looseness);
   const ladder = (chart && Array.isArray(chart.rows) ? chart.rows : []).filter(
     (r) => r && r.size
   );
@@ -1322,15 +1836,29 @@ export function applyFitPreference(rec, chart, fitPref, category) {
   };
   if (!nudge || idx < 0) {
     // Length-only prefs still surface as tags on the rec.
+    // v2: the band moved the pick instead of a row nudge, so rebuild the same
+    // two signals the strike-through UI reads — the size taste took it from,
+    // and which way. Without this an Oversized customer sees a size change and
+    // no reason for it.
+    if (bandDidLooseness && rec.neutralSize && rec.neutralSize !== rec.size) {
+      const ladderIdx = (s) =>
+        ladder.findIndex((r) => String(r.size).toUpperCase() === String(s).toUpperCase());
+      const from = ladderIdx(rec.neutralSize);
+      const to = ladderIdx(rec.size);
+      next.baseSize = rec.neutralSize;
+      next.prefShift = from >= 0 && to >= 0 && to < from ? "down" : "up";
+    }
     if (fitPref.length || fitPref.looseness) {
       next.prefReason =
-        fitPref.looseness && !nudge
-          ? null
-          : fitPref.length
-            ? "Length preference saved for " +
-              (CATEGORIES[category] ? CATEGORIES[category].label.toLowerCase() : "this item") +
-              "."
-            : null;
+        fitPref.looseness && bandDidLooseness
+          ? // v2: the taste chose the room band, so it DID something and the
+            // panel must say so. The old code showed nothing here.
+            bandPrefLine(category, fitPref, rec)
+          : fitPref.looseness && !nudge
+            ? null
+            : fitPref.length
+              ? lengthPrefLine(category, fitPref, rec)
+              : null;
     }
     return next;
   }
@@ -1349,6 +1877,10 @@ export function applyFitPreference(rec, chart, fitPref, category) {
     garment,
     diff,
     baseSize: rec.size,
+    // Looseness moved the size AFTER the length pass, so the length's chest
+    // numbers describe a size nobody is being shown now. Drop them rather than
+    // print a figure that belongs to another row.
+    lengthWin: null,
     prefShift: nudge > 0 ? "up" : "down",
     prefReason: prefReasonLine(category, fitPref, nudge),
     reason:
@@ -1415,6 +1947,30 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
 // section 14, "Prescription, chart, overridden"): the numbers describe the tap,
 // and the closing clause still names the size we would take. Callers that pass
 // no `recommended` keep the original single form.
+// The promise I made Kyle 2026-07-30: the app never sizes up in silence. When
+// the saved shirt length pulled the pick off the size the chest chose, this
+// line names the size it left and what the chest paid for the change. Built in
+// the UI's units, like the reason row, because the numbers are the point.
+export function lengthCostSentence(rec, { units = "cm" } = {}) {
+  const win = rec && rec.lengthWin;
+  if (!win || win.chestEase == null || win.chestEaseBefore == null) return "";
+  if (!isFinite(win.chestEase) || !isFinite(win.chestEaseBefore)) return "";
+  const bigger = win.chestEase > win.chestEaseBefore;
+  const from = formatSizeToken(win.fromSize) || win.fromSize;
+  return (
+    (bigger ? "Sized up for length" : "Sized down for length") +
+    ", away from the " +
+    from +
+    ". The chest is " +
+    (win.chestEase >= 0 ? "+" : "") +
+    formatMeasure(win.chestEase, units) +
+    " now, not " +
+    (win.chestEaseBefore >= 0 ? "+" : "") +
+    formatMeasure(win.chestEaseBefore, units) +
+    "."
+  );
+}
+
 export function prescriptionSentence(
   chart,
   rec,
@@ -1438,9 +1994,23 @@ export function prescriptionSentence(
   const body = formatMeasure(rec.body, units);
   const room = formatMeasure(Math.abs(rec.diff), units);
   // The ease targets recommendSize aims for; "meant to sit" only when the
-  // pick lands on target.
-  const target = measure === "chest" ? (category === "outerwear" ? 16 : 12) : 2;
-  const sitsRight = Math.abs(rec.diff - target) <= 4;
+  // pick lands on target. Fit engine v2: when the engine named the garment,
+  // this sentence must read against the SAME band the pick used, or it calls a
+  // correct blazer wrong. `easeBand` is absent on an unnamed garment and on
+  // bottoms, and those keep the pre-v2 targets.
+  const band = Array.isArray(rec.easeBand) ? rec.easeBand : null;
+  const target = band
+    ? (band[0] + band[1]) / 2
+    : measure === "chest"
+      ? category === "outerwear"
+        ? 16
+        : 12
+      : 2;
+  // Inside the band always sits right. Outside it, the old ±4cm slack applies
+  // around the band's edge rather than around its middle.
+  const sitsRight = band
+    ? rec.diff >= band[0] - 4 && rec.diff <= band[1] + 4
+    : Math.abs(rec.diff - target) <= 4;
   // Overridden: the customer tapped a size that is not the one we scored. The
   // numbers below are the tapped row's, so the sentence must own that — "Take
   // the Small" over the Large's measurements is the contradiction Kyle saw.
@@ -3953,20 +4523,27 @@ export function effectiveBodyProfile(profile) {
   const ratio = bmi / 22;
   const half = (n) => Math.round(n * 2) / 2;
   const out = { ...profile };
-  let estimated = false;
+  // Which fields are guesses, not measurements. The FIT READ table warned
+  // against a hip it had invented from height and weight, which breaks the
+  // app's own rule: never grade a guess (Kyle 2026-07-30). Naming the guessed
+  // fields lets that table show the number and pass no judgement.
+  const estimatedFields = [];
   if (out.chest == null) {
     out.chest = half(0.52 * h * Math.pow(ratio, 0.6));
-    estimated = true;
+    estimatedFields.push("chest");
   }
   if (out.waist == null) {
     out.waist = half(0.45 * h * Math.pow(ratio, 0.85));
-    estimated = true;
+    estimatedFields.push("waist");
   }
   if (out.hip == null) {
     out.hip = half(0.47 * h * Math.pow(ratio, 0.7));
-    estimated = true;
+    estimatedFields.push("hip");
   }
-  if (estimated) out.estimated = true;
+  if (estimatedFields.length) {
+    out.estimated = true;
+    out.estimatedFields = estimatedFields;
+  }
   return out;
 }
 
@@ -4335,9 +4912,24 @@ export const BODY_PROFILE_FIELDS = [
   ["chest", "Chest", "length", "96", "38", "top"],
   ["shoulder", "Shoulder", "length", "45", "17.7", "top"],
   ["sleeve", "Arm length", "length", "62", "24.5", "top"],
+  // Kyle 2026-07-30: the seller's 衣长 had nothing to compare against, so the
+  // Body length row could only ever be information. This is that missing
+  // number — shoulder seam to where the hem should sit. Storage key `length`
+  // matches the chart's own key, so fitReadRows finds it with no mapping.
+  // NOT the same thing as fitPref.length, which is Cropped / Regular / Long.
+  ["length", "Shirt length", "length", "70", "27.5", "top"],
   ["waist", "Waist", "length", "80", "31.5", "bottom"],
   ["hip", "Hip", "length", "98", "38.5", "bottom"],
-  ["inseam", "Inseam", "length", "81", "32", "bottom"],
+  // Kyle 2026-07-30: "the values should be the values of the seller charts."
+  // The old boxes asked for an INSIDE leg. Every seller prints 裤长, the
+  // OUTSIDE leg from the waistband to the hem, so an inside-leg number had
+  // nothing to compare against and the app could only ever estimate. These
+  // two ask for the same thing the seller prints. Storage keys match the
+  // chart's own key, so the Length row needs no conversion and no guess.
+  // The old `inseam` and `shortsInseam` values are left unread on purpose:
+  // grading an inside leg against an outside leg names a wrong size.
+  ["pantsLength", "Trouser length", "length", "104", "41", "bottom"],
+  ["shortsLength", "Shorts length", "length", "46", "18", "bottom"],
 ];
 
 // Heading and one-line reason per group. The reason answers "why does Credenza

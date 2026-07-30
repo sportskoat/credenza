@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Credenza Fashion · the agent haul planner</title>
     <meta
@@ -114,35 +117,36 @@
   --pad-x: clamp(24px, 6.5vw, 48px);
 }
 
-      @media (prefers-color-scheme: dark) {
-  :root {
-    --bg-soft: #0c0c0e;
-    --bg-panel: #141416;
-    --ink-soft: #c8cbcf;
-    --sub: #a1a1aa;
-    --muted: #8a9099;
-    --faint: #6b7078;
-    --line: rgba(244, 244, 240, 0.14);
-    --line-soft: rgba(244, 244, 240, 0.1);
-    --money-deep: #4ade80;
-    --money-bright: #86efac;
-    --money-on-dark: #86efac;
-    --action: #f4f4f0;
-    --action-text: #17181a;
-    --status-shipped-bg: oklch(0.28 0.05 290);
-    --status-shipped-text: oklch(0.86 0.05 290);
-    --status-bought-bg: oklch(0.28 0.05 250);
-    --status-bought-text: oklch(0.86 0.05 250);
-    --status-qc-bg: oklch(0.3 0.05 85);
-    --status-qc-text: oklch(0.88 0.06 85);
-    --chip-fill: rgba(255, 255, 255, 0.1);
-    --fit-band: rgba(74, 222, 128, 0.18);
-    --warn: #d9a83c;
-    --warn-ink: #e8bf63;
-    --card-shadow: 0 1px 2px oklch(0 0 0 / 0.55), 0 12px 28px oklch(0 0 0 / 0.45);
-    --card-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.6), 0 22px 44px oklch(0 0 0 / 0.5);
-  }
-}
+      /* The dark theme, keyed to the attribute /theme.js sets from the colour
+         the visitor picked in the app — not to the operating system setting
+         (Kyle 2026-07-30, option B). */
+      :root[data-theme="dark"] {
+  --bg-soft: #0c0c0e;
+  --bg-panel: #141416;
+  --ink-soft: #c8cbcf;
+  --sub: #a1a1aa;
+  --muted: #8a9099;
+  --faint: #6b7078;
+  --line: rgba(244, 244, 240, 0.14);
+  --line-soft: rgba(244, 244, 240, 0.1);
+  --money-deep: #4ade80;
+  --money-bright: #86efac;
+  --money-on-dark: #86efac;
+  --action: #f4f4f0;
+  --action-text: #17181a;
+  --status-shipped-bg: oklch(0.28 0.05 290);
+  --status-shipped-text: oklch(0.86 0.05 290);
+  --status-bought-bg: oklch(0.28 0.05 250);
+  --status-bought-text: oklch(0.86 0.05 250);
+  --status-qc-bg: oklch(0.3 0.05 85);
+  --status-qc-text: oklch(0.88 0.06 85);
+  --chip-fill: rgba(255, 255, 255, 0.1);
+  --fit-band: rgba(74, 222, 128, 0.18);
+  --warn: #d9a83c;
+  --warn-ink: #e8bf63;
+  --card-shadow: 0 1px 2px oklch(0 0 0 / 0.55), 0 12px 28px oklch(0 0 0 / 0.45);
+  --card-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.6), 0 22px 44px oklch(0 0 0 / 0.5);
+      }
 
       html { scroll-behavior: smooth; }
 
@@ -162,15 +166,6 @@
         line-height: 1.14;
         letter-spacing: -0.022em;
         text-wrap: balance;
-      }
-
-      .brand .kicker {
-        font-size: 8.5px;
-        font-weight: 700;
-        letter-spacing: 0.3em;
-        text-transform: uppercase;
-        line-height: 1;
-        color: var(--muted);
       }
 
       .spacer { flex: 1; }
@@ -1137,7 +1132,7 @@
           <a href="/support/">Support</a>
           <a href="/contact/">Contact</a>
         </nav>
-        <a class="nav-open" href="/">Open app</a>
+        <a class="nav-open" href="/" aria-label="Open app" title="Open app"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
       </div>
     </header>
 

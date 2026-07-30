@@ -104,7 +104,7 @@ describe("§3 no-chart state", () => {
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     expect(screen.queryByText("FELL BACK TO YOUR USUAL")).toBeNull();
     expect(
-      screen.getByText("The listing had no measurements. Upload the seller chart to read its measurements.")
+      screen.getByText("No size chart found.")
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Upload chart photo" })).toHaveLength(1);
@@ -133,7 +133,6 @@ describe("§3 no-chart state", () => {
   });
 
   it("keeps item and profile sizing in the Size and fit section", async () => {
-    const user = userEvent.setup();
     const onOpenSizes = vi.fn();
     renderBody(chartless(), { onOpenSizes });
 
@@ -144,10 +143,15 @@ describe("§3 no-chart state", () => {
     // no tap (Kyle 2026-07-29).
     expect(within(section).getByLabelText("Custom item size")).toBeInTheDocument();
 
-    // Round 4 point 3: "Edit sizes and measurements" left the chart actions;
-    // the profile-size route is the fit read footnote now.
-    await user.click(screen.getByRole("button", { name: "Edit my measurements" }));
-    expect(onOpenSizes).toHaveBeenCalledTimes(1);
+    // Kyle 2026-07-30 shrank this state, and the fit-read table went with it.
+    // "Edit my measurements" lived in that table's footnote, so the no-chart
+    // card no longer offers it: with no seller numbers to compare, editing
+    // your own changes nothing on this card. Profile still owns the route.
+    expect(screen.queryByRole("button", { name: "Edit my measurements" })).toBe(null);
+    expect(onOpenSizes).not.toHaveBeenCalled();
+    // The two ways to get a chart are what this state offers instead.
+    expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Type the numbers" })).toBeInTheDocument();
   });
 
   it("offers the item's own album photos as a shortcut", async () => {
