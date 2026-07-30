@@ -8565,6 +8565,73 @@ function CredenzaApp() {
     </motion.section>
   );
 
+  // Mobile shelf redesign (handoff 2026-07-30, task 2): on the phone the tab
+  // row becomes the header and carries Search + Profile itself. The actions
+  // render in exactly ONE place — duplicated buttons would double the
+  // accessible names (two "Profile" buttons) for screen readers and tests.
+  const actionsInTabs = isPhone && items.length > 0;
+  const chromeActions = (
+    <div className="cz-masthead-actions">
+      {/* Search collapses to this icon on phone; the pill below reveals
+          on tap and keeps its query while open. */}
+      {isPhone && items.length > 0 && (
+        <button
+          type="button"
+          className={"cz-mast-btn" + (searchOpen ? " is-active" : "")}
+          aria-label={searchOpen ? "Hide search" : "Search your shelf"}
+          aria-expanded={searchOpen}
+          title="Search"
+          onClick={() => {
+            const next = !searchOpen;
+            setSearchOpen(next);
+            if (next) setTimeout(() => searchRef.current?.focus(), 0);
+          }}
+        >
+          <Search size={isPhone ? 19 : 17} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+      )}
+      {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
+          top-right entry — initials when signed in, person glyph when
+          out. It drops the quick menu (design 1c); the settings page
+          sits behind the menu's "All settings" row. */}
+      <button
+        type="button"
+        className="cz-avatar"
+        aria-label="Profile"
+        title="Profile"
+        aria-expanded={avatarMenuOpen}
+        onClick={() => setAvatarMenuOpen((v) => !v)}
+      >
+        {avatarInitials ? (
+          <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
+        ) : (
+          <User size={isPhone ? 19 : 17} strokeWidth={2.2} aria-hidden="true" />
+        )}
+      </button>
+      {avatarMenuOpen && (
+        <Suspense fallback={null}>
+        <AvatarMenu
+          accountSession={accountSession}
+          accountPlan={accountPlan}
+          avatarInitials={avatarInitials}
+          mode={mode}
+          onTheme={setTheme}
+          agentLabel={agentBarLabel}
+          onOpenAgent={() => {
+            agentReturnToMenuRef.current = true;
+            setAgentSheetOpen(true);
+          }}
+          pricePrimary={pricePrimary}
+          onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+          onOpenSettings={(section) => navigateSettings(section)}
+          onSignOut={accountSignOut}
+          onClose={() => setAvatarMenuOpen(false)}
+        />
+        </Suspense>
+      )}
+    </div>
+  );
+
   return (
     <div
       className="cz-app"
@@ -8890,15 +8957,15 @@ function CredenzaApp() {
             full-bleed capture/search/tabs on a wide monitor read as sprawl).
             The carousel/grid panels below stay full-width. */}
         <div className="cz-chrome">
-        {/* Phone masthead is ONE row (mobile handoff C2): mark + wordmark, a
-            flex spacer, then Search / ⋯ Settings / Account. The 45%-viewport
-            hero still drops once the shelf has items — that plus the merged
-            tabs/totals row is ~150px, the difference between zero cards and
-            one-and-a-half rows above the fold.
-            "Fashion" no longer drops (logo spec, Kyle 2026-07-26): stacked
-            under the wordmark it costs no horizontal room, so the compact
-            masthead can keep the full lockup. */}
-        <header className={"cz-masthead" + (isPhone && items.length > 0 ? " is-compact" : "")}>
+        {/* Phone masthead (mobile shelf redesign 2026-07-30, task 2): once the
+            shelf has items, the phone drops the masthead entirely — the tab
+            row in the sticky band becomes the header and carries Search +
+            Profile (actionsInTabs). The masthead still renders on desktop,
+            and on a phone with an EMPTY shelf, where the brand and the
+            avatar are the only chrome above the hero. The wordmark itself is
+            hidden ≤767px by CSS (spec 5.1: Safari already prints the host). */}
+        {!actionsInTabs && (
+        <header className="cz-masthead">
           <h1 className="cz-brand">
             <BrandMark size={isPhone && items.length > 0 ? 30 : 34} />
             <span className="cz-brand-name">
@@ -8924,68 +8991,9 @@ function CredenzaApp() {
               ))}
             </nav>
           )}
-          {!firstRunIntro && (
-          <div className="cz-masthead-actions">
-            {/* Search collapses to this icon on phone; the pill below reveals
-                on tap and keeps its query while open. */}
-            {isPhone && items.length > 0 && (
-              <button
-                type="button"
-                className={"cz-mast-btn" + (searchOpen ? " is-active" : "")}
-                aria-label={searchOpen ? "Hide search" : "Search your shelf"}
-                aria-expanded={searchOpen}
-                title="Search"
-                onClick={() => {
-                  const next = !searchOpen;
-                  setSearchOpen(next);
-                  if (next) setTimeout(() => searchRef.current?.focus(), 0);
-                }}
-              >
-                <Search size={17} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            )}
-            {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
-                top-right entry — initials when signed in, person glyph when
-                out. It drops the quick menu (design 1c); the settings page
-                sits behind the menu's "All settings" row. */}
-            <button
-              type="button"
-              className="cz-avatar"
-              aria-label="Profile"
-              title="Profile"
-              aria-expanded={avatarMenuOpen}
-              onClick={() => setAvatarMenuOpen((v) => !v)}
-            >
-              {avatarInitials ? (
-                <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
-              ) : (
-                <User size={17} strokeWidth={2.2} aria-hidden="true" />
-              )}
-            </button>
-            {avatarMenuOpen && (
-              <Suspense fallback={null}>
-              <AvatarMenu
-                accountSession={accountSession}
-                accountPlan={accountPlan}
-                avatarInitials={avatarInitials}
-                mode={mode}
-                onTheme={setTheme}
-                agentLabel={agentBarLabel}
-                onOpenAgent={() => {
-                  agentReturnToMenuRef.current = true;
-                  setAgentSheetOpen(true);
-                }}
-                pricePrimary={pricePrimary}
-                onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
-                onOpenSettings={(section) => navigateSettings(section)}
-                onSignOut={accountSignOut}
-                onClose={() => setAvatarMenuOpen(false)}
-              />
-              </Suspense>
-            )}
-          </div>
-          )}
+          {!firstRunIntro && chromeActions}
         </header>
+        )}
 
         {/* The .cz-onboard intro gate was deleted here (onboarding spec, Kyle
             2026-07-26). It said "One shelf for the whole haul" and offered a
@@ -9388,8 +9396,13 @@ function CredenzaApp() {
         )}
 
         {/* Shelf / Hauls / Inbox — hidden on a brand-new empty shelf so the 7a
-            hero stays the full welcome (tabs return once something is stashed). */}
+            hero stays the full welcome (tabs return once something is stashed).
+            Mobile shelf redesign (2026-07-30, task 2): on the phone this row
+            and the filter strip sit inside ONE sticky band (.cz-shelf-band),
+            the row becomes the 46px header, and Search + Profile ride its
+            right end. The band classes are inert on desktop. */}
         {items.length > 0 && (
+        <div className="cz-shelf-band">
         <div className="cz-view-tabs-row">
           <div
             role="tablist"
@@ -9397,12 +9410,12 @@ function CredenzaApp() {
             className="cz-view-tabs"
           >
             {[
-              ["shelf", "Shelf"],
-              ["hauls", "Hauls · " + haulDirectory.hauls.length],
+              ["shelf", "Shelf", null],
+              ["hauls", "Hauls", haulDirectory.hauls.length],
               ...(inboxItems.length > 0
-                ? [["inbox", "Inbox · " + inboxItems.length]]
+                ? [["inbox", "Inbox", inboxItems.length]]
                 : []),
-            ].map(([key, label]) => (
+            ].map(([key, label, count]) => (
               <button
                 type="button"
                 role="tab"
@@ -9426,9 +9439,13 @@ function CredenzaApp() {
                 }}
               >
                 {label}
+                {count !== null && (
+                  <span className="cz-tab-count">· {count}</span>
+                )}
               </button>
             ))}
           </div>
+          {actionsInTabs && chromeActions}
           {/* Phone: the shelf totals used to ride this row (C2). The shelf
               handoff (2026-07-28) moves them into the docked bottom bar, where
               the money sits beside the button that adds to it. That leaves ONE
@@ -9465,7 +9482,6 @@ function CredenzaApp() {
             </div>
           )}
         </div>
-        )}
 
         {/* Filter strip (shelf handoff 2026-07-28, §"Filter strip"). One chip
             is active at a time and every count is live — the counts follow the
@@ -9492,7 +9508,11 @@ function CredenzaApp() {
                     shelfFilterCounts[f.key] +
                     (shelfFilterCounts[f.key] === 1 ? " card" : " cards")
                   }
-                  className={"cz-filter-chip" + (active ? " is-active" : "")}
+                  className={
+                    "cz-filter-chip" +
+                    (active ? " is-active" : "") +
+                    (shelfFilterCounts[f.key] === 0 ? " is-zero" : "")
+                  }
                   onClick={() => {
                     setShelfFilter(f.key);
                     setExpandedId(null);
@@ -9506,6 +9526,8 @@ function CredenzaApp() {
               );
             })}
           </div>
+        )}
+        </div>
         )}
 
         {/* Shelf meta row: count + cost on the left, filter/view on the right.

@@ -2212,6 +2212,11 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
       const user = userEvent.setup();
       render(<Credenza />);
 
+      // Wait for the shelf to load first: once items arrive, the phone drops
+      // the masthead and the avatar moves into the tab row (mobile shelf
+      // redesign 2026-07-30, task 2). Clicking before the swap hits a node
+      // that unmounts mid-gesture, so the click is lost.
+      await screen.findByRole("tab", { name: /^Shelf/ });
       await user.click(await screen.findByRole("button", { name: "Profile" }));
       await user.click(await screen.findByRole("button", { name: /All settings/ }));
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
