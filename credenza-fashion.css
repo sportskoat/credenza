@@ -9996,20 +9996,23 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     margin-right: -12px;
   }
 
-  /* Spec 5.4: the four outlined boxes become one row of borderless chips
-     that scrolls sideways and never wraps. */
+  /* Spec 5.4: the four outlined boxes become one borderless row that scrolls
+     sideways and never wraps. Kyle's 2026-07-30 correction makes the active
+     filter a square-cornered block that fills the row instead of a lopsided
+     pill. */
   .cz-shelf-band .cz-filter-strip {
     gap: 4px;
-    padding: 0 12px 12px;
+    min-height: 44px;
+    padding: 0 12px;
     margin-bottom: 0;
   }
 
   .cz-shelf-band .cz-filter-chip {
-    height: 32px;
-    min-height: 32px;
+    height: 44px;
+    min-height: 44px;
     padding: 0 12px;
     border: 0;
-    border-radius: 999px;
+    border-radius: 0;
     background: transparent;
     color: var(--cz-sub);
     font-size: 13.5px;
@@ -10044,22 +10047,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     color: var(--cz-action-text-divider);
   }
 
-  /* The 44px tap height comes from padding, not from a taller pill (spec
-     5.4), and the padding must overlap the space around the row instead of
-     stretching it (F's ruling 2026-07-30: check 1 is 90px). The chip box
-     grows 12px DOWNWARD on a coarse pointer; the negative margin holds the
-     row's layout height at 32px, so the band stays 46 + 44 = 90px. The
-     extra tap area lands inside the strip's own 12px bottom padding — dead
-     space that taps nothing today — and the fill clips to the 32px content
-     box, so the visual pill never changes. */
-  @media (pointer: coarse) {
-    .cz-shelf-band .cz-filter-chip {
-      box-sizing: content-box;
-      padding-bottom: 12px;
-      margin-bottom: -12px;
-      background-clip: content-box;
-    }
-  }
+  /* The visible block and the tap area both fill the 44px row. The complete
+     sticky band stays 90px: 46px for tabs plus 44px for filters. */
 }
 
 /* Mobile handoff 2026-07-30 (task 3, spec 5.5): a wide listing photo
