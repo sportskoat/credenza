@@ -1711,7 +1711,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(block).not.toBeNull();
     expect(block.className).not.toContain("is-manual");
     expect(block.querySelector(".cz-sizing-kicker").textContent.trim()).toBe("AI size");
-    expect(block.querySelector(".cz-sizing-value").textContent.trim()).toBe("Medium");
+    // Fit engine v2 (2026-07-30): the 5–10cm room band for a knit top puts a
+    // 100cm chest on the Small (108), not the Medium (112).
+    expect(block.querySelector(".cz-sizing-value").textContent.trim()).toBe("Small");
     // The recommendation is stated, not hidden behind the fit breakdown.
     expect(document.querySelector(".cz-detail-fit")).toBeNull();
   });
@@ -2364,7 +2366,7 @@ describe("Inline preference controls (CH-14)", () => {
         [PREFS_KEY]: JSON.stringify({
           colorwayVersion: 4,
           theme: "rainbow",
-          bodyProfile: { chest: 100 },
+          bodyProfile: { chest: 104 },
           measureUnits: "cm",
         }),
       });
@@ -2374,6 +2376,10 @@ describe("Inline preference controls (CH-14)", () => {
       await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
 
       // Concise is the default: the pick, without the down-size consequence.
+      // The detailed form names the next size DOWN, so the pick must not be
+      // the smallest row on the chart. Fit engine v2 (2026-07-30): an unnamed
+      // knit top reads against the 5–10cm room band, so a 104cm chest wants
+      // 109–114cm and lands on the Medium (112), with the Small below it.
       const why = document.querySelector(".cz-sizing-why");
       expect(why.textContent).toContain("Take the Medium");
       expect(why.textContent).not.toContain("would pull across the chest");
@@ -2420,10 +2426,10 @@ describe("Inline preference controls (CH-14)", () => {
       await user.click(await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ }));
       await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
 
-      expect(document.querySelector(".cz-sizing-why").textContent).toContain("Take the Medium");
+      expect(document.querySelector(".cz-sizing-why").textContent).toContain("Take the Small");
       await user.click(screen.getByRole("button", { name: "Turn the fit summary off" }));
       await waitFor(() =>
-        expect(document.querySelector(".cz-sizing-why").textContent).not.toContain("Take the Medium")
+        expect(document.querySelector(".cz-sizing-why").textContent).not.toContain("Take the Small")
       );
       // The pref persists app-wide.
       await waitFor(() =>
@@ -2432,7 +2438,7 @@ describe("Inline preference controls (CH-14)", () => {
       // The way back on lives where the sentence was.
       await user.click(screen.getByRole("button", { name: "Turn the fit summary on" }));
       await waitFor(() =>
-        expect(document.querySelector(".cz-sizing-why").textContent).toContain("Take the Medium")
+        expect(document.querySelector(".cz-sizing-why").textContent).toContain("Take the Small")
       );
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);

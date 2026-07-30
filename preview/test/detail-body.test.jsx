@@ -489,12 +489,19 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
     const handlers = prefHandlers({
       shirt: { length: null, looseness: "oversized", dismissed: false },
     });
-    const { container } = render(body(item("fit5c"), handlers));
+    // Fit engine v2: the taste now widens the room the pick aims for, so it
+    // only moves the letter when a wider band actually reaches another row.
+    // CHART_TEXT is M 116 / L 120 / XL 124. A 108cm chest wants 113–118cm on
+    // the regular knit band (M), and 123–133cm on the oversized band (XL).
+    const { container } = render(
+      body(item("fit5c"), { ...handlers, bodyProfile: { chest: 108 } })
+    );
 
     // Taste shifted the letter — old size struck through, shift named.
     expect(container.querySelector(".cz-fit4-size-base")).not.toBe(null);
     expect(screen.getByText("sized up")).toBeInTheDocument();
-    expect(screen.getByText(/so we bumped one size/)).toBeInTheDocument();
+    // The reason names the room in centimetres, so the change is visible.
+    expect(screen.getByText(/so we sized for 15–25cm of room/)).toBeInTheDocument();
     // Tags + Edit carry the why; the math row stands down (clutter rule).
     expect(screen.getByText("Oversized")).toBeInTheDocument();
     expect(container.querySelector(".cz-fit4-math")).toBe(null);
