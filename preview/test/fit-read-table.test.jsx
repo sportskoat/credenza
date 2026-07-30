@@ -301,34 +301,24 @@ describe("FitReadTable in the detail body", () => {
     expect(screen.queryByRole("button", { name: "Forget this chart" })).toBe(null);
   });
 
-  it("ghosts the table without a chart; YOURS stays, THEIRS shows a dash", async () => {
-    // Fable RULED 2026-07-29, Kimi confirmed: the handoff's no-chart state
-    // wins over round 5 point 5.4. The table stays and says what it does not
-    // know. The app owes the customer their own numbers while it waits for
-    // the seller's. The band and the marks stay off — there is nothing to
-    // score against yet.
+  it("drops the table entirely when the hunt finds no chart", async () => {
+    // Fable RULED 2026-07-29 that the ghost table stays with no chart, and the
+    // rule was "not without Kyle's word". KYLE'S WORD, 2026-07-30: "if we
+    // can't find the chart, we don't want this to take up the entire right
+    // side of the page." The empty table is the biggest of those blocks, so it
+    // goes. The size, the size buttons and the two ways to get a chart stay.
     huntMock.mockResolvedValue(null);
     const { container } = renderBody(
       fitItem({ sizeNotes: undefined, sizeChartSource: undefined })
     );
     expect(await screen.findByText("No chart")).toBeInTheDocument();
 
-    const table = container.querySelector(".cz-fitread");
-    expect(table.classList.contains("is-ghost")).toBe(true);
-    const scoped = within(table);
-    expect(table.querySelectorAll(".cz-fitread-heads").length).toBe(1);
-    expect(table.querySelectorAll(".cz-fitread-track").length).toBeGreaterThan(0);
-    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-mark").length).toBe(0);
-    expect(scoped.getAllByText("—").length).toBeGreaterThan(0);
+    expect(container.querySelector(".cz-fitread")).toBe(null);
+    expect(screen.getByText("No size chart found.")).toBeInTheDocument();
     expect(
-      scoped.getByText(
-        "Your measurements, waiting on theirs. Body length is estimated from your height."
-      )
+      screen.getByRole("button", { name: "Upload chart photo" })
     ).toBeInTheDocument();
-    expect(
-      scoped.getByRole("button", { name: "Edit my measurements" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Type the numbers" })).toBeInTheDocument();
   });
 
   it("stays out of skip categories", () => {

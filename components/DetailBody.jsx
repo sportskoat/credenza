@@ -30,7 +30,7 @@ import {
   parseSizeChart,
   prescriptionSentence,
   lengthCostSentence,
-  garmentReasonLine,
+  garmentTypeWord,
   shortsLengthNote,
   itemUsdAmount,
   itemCnyAmount,
@@ -321,6 +321,10 @@ function SizingBlock({
   // otherwise the block derives them from the chart itself (see below).
   cells: cellsProp,
   measureKey: measureKeyProp,
+  // Kyle 2026-07-30: "only show the type in the chart photo". One word, on the
+  // header of the chart panel itself. It replaces the reason sentence that used
+  // to sit under the pick — same fact, no new block, no new row.
+  typeWord = "",
   onPick,
   // Kyle 2026-07-29: the fifth box rides at the right of the cell run, on the
   // same line as the sizes it overrides. Null when the caller has no box.
@@ -394,6 +398,7 @@ function SizingBlock({
       <div className="cz-sizing-head">
         <span className="cz-sizing-dot" aria-hidden="true" />
         <span className="cz-sizing-kicker">{isManual ? "Your pick" : "AI size"}</span>
+        {typeWord ? <span className="cz-sizing-type">{typeWord}</span> : null}
         {provenance ? <span className="cz-sizing-prov">{provenance}</span> : null}
       </div>
 
@@ -654,7 +659,10 @@ function SizingBlockNoChart({
       <p className="cz-sizing-nochart-body">
         {needsClear
           ? "This saved chart came from another item. It is hidden. Clear it before reading this item's photos."
-          : "The listing had no measurements. Upload the seller chart to read its measurements."}
+          : /* Kyle 2026-07-30: keep this state short. Two lines, then the
+               buttons. The old copy explained the upload button that sits
+               directly below it. */
+            "No size chart found."}
       </p>
 
       {needsClear && onClearChart ? (
@@ -686,12 +694,14 @@ function SizingBlockNoChart({
 //
 // Per-measurement fit bars under the pick: how far each garment measure sits
 // from the body on a tight↔loose track, with a fixed 36–66% tolerance band.
-// With no chart the table ghosts — names in placeholder, YOURS kept, no
-// tracks' band or marks — so the customer sees what a chart would unlock.
-// Round 5 point 5.4 tried to hide the whole table here. Fable RULED against
-// it on 2026-07-29 and Kimi confirmed: the handoff's no-chart state wins.
-// The app owes the customer their own numbers while it waits for the
-// seller's. Do not hide this table again without Kyle's word.
+// With no chart the table used to ghost — names in placeholder, YOURS kept, no
+// band and no marks — so the customer saw what a chart would unlock. Round 5
+// point 5.4 tried to hide it; Fable ruled against that on 2026-07-29 and the
+// rule was "not without Kyle's word".
+// KYLE'S WORD, 2026-07-30: "if we can't find the chart, we don't want this to
+// take up the entire right side of the page." The caller now hides the table in
+// the no-chart state (see `noChart` in DetailBody). `hasChart={false}` still
+// ghosts, because a read in flight has no chart yet and keeps the table.
 // Row math lives in fitReadRows (pure, tested on its own).
 function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart }) {
   if (!rows.length) return null;
@@ -1966,6 +1976,14 @@ export default function DetailBody({
   // §3: the customer's own chart read, and the album photos its third option
   // offers. Remote URLs only — a local data: URL cannot go down the images door.
   const chartRead = useCustomerChartRead(item, onSaveEdit);
+  // No chart, and none on the way. Kyle 2026-07-30: "if we can't find the
+  // chart, we don't want this to take up the entire right side of the page."
+  // Everything downstream of a chart — the fit table, the confidence strip, the
+  // type word and the fit sentence — has nothing to say without one, so the
+  // section collapses to the size, the buttons and the two ways to get a chart.
+  // A read in flight is NOT this state: the ghost table carries the reading
+  // sweep and footnote, and pulling it mid-read would blank the section.
+  const noChart = !verdict.chart && !hunting && !chartRead.reading;
   useEffect(() => {
     const url = chartPhotoUrlRef.current;
     if (url && chartRead.thumb !== url) {
@@ -2544,6 +2562,7 @@ export default function DetailBody({
                 reduced={reduced}
                 cells={sizeCells}
                 measureKey={sizeMeasureKey}
+                typeWord={garmentTypeWord(verdict.rec)}
                 onPick={pickItemSize}
                 customBox={
                   <CustomSizeBox
@@ -2586,6 +2605,7 @@ export default function DetailBody({
                 onDone={() => setAskingPref(false)}
               />
             ) : !askingMeasures &&
+              !noChart &&
               bodyProfile &&
               onSaveBodyProfile &&
               !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
@@ -2602,15 +2622,10 @@ export default function DetailBody({
               />
             ) : null}
 
-            {/* Fit engine v2 (Kyle 2026-07-30): "a jacket, it's supposed to be
-                a little bit bigger on you than, say, a fitted T shirt". This
-                line names the garment the engine read, so the room it chose is
-                not a mystery. It sits with the fit sentence, not inside the
-                confidence strip — the strip needs a save handler to render at
-                all, and the reason must appear wherever a pick appears. */}
-            {garmentReasonLine(verdict.rec) ? (
-              <p className="cz-sizing-garment">{garmentReasonLine(verdict.rec)}</p>
-            ) : null}
+            {/* Fit engine v2 named the garment in a full sentence here. Kyle
+                cut it on 2026-07-30: "only show the type in the chart photo".
+                The word now rides the chart panel's header (SizingBlock
+                typeWord) and this row is gone. */}
             {/* Shorts only, and only when a shorts length is saved. Both
                 numbers are waistband to hem — the seller's own measurement —
                 so the line states the difference instead of estimating one. */}
@@ -2619,7 +2634,7 @@ export default function DetailBody({
                 {shortsLengthNote(verdict.rec, bodyProfile, item.category, { units: measureUnits })}
               </p>
             ) : null}
-            {verdict.prescription ? (
+            {verdict.prescription && !noChart ? (
               <p className="cz-sizing-why">
                 {verdict.prescription}
                 {/* CH-14: the fit-detail pref is changeable on the sentence it
@@ -2654,7 +2669,10 @@ export default function DetailBody({
                   </button>
                 ) : null}
               </p>
-            ) : typeof onToggleFitSummary === "function" && !fitSummaryOn && verdict.recSize ? (
+            ) : typeof onToggleFitSummary === "function" &&
+              !fitSummaryOn &&
+              !noChart &&
+              verdict.recSize ? (
               // Summary off but a pick exists: the way back on stays where the
               // sentence would be, not back in a settings sheet.
               <p className="cz-sizing-why">
@@ -2669,7 +2687,7 @@ export default function DetailBody({
               </p>
             ) : null}
 
-            {!askingMeasures ? (
+            {!askingMeasures && !noChart ? (
               <FitReadTable
                 rows={fitRows}
                 hasChart={!!verdict.chart}

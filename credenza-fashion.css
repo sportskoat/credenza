@@ -12001,6 +12001,21 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   white-space: nowrap;
 }
 
+/* The garment the engine read, in one word (Kyle 2026-07-30). It replaces a
+   full sentence under the pick, so it has to stay quiet: same size as the
+   kicker beside it, a hairline box, and no colour of its own. */
+.cz-sizing-type {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 3px;
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
 .cz-sizing-value-row {
   display: flex;
   align-items: flex-end;

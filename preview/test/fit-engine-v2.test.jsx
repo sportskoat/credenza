@@ -22,6 +22,7 @@ const {
   declaredFit,
   fitReadRows,
   garmentReasonLine,
+  garmentTypeWord,
   garmentType,
   parseSizeChart,
   recommendSize,
@@ -185,6 +186,20 @@ describe("a blazer and a coat are not the same size", () => {
     expect(garmentReasonLine(slim)).toBe("Tee: sized close to the body, the way you like them.");
     const plain = recommendSize(chart, body, "shirt", null, null, "Cotton tee");
     expect(garmentReasonLine(plain)).toBe("Tee: sized for everyday room, not tight and not loose.");
+  });
+
+  // Kyle 2026-07-30: "only show the type in the chart photo". The card prints
+  // this word instead of the sentence above, so it has to be one word, and it
+  // has to be empty whenever the engine did not name a garment.
+  it("gives the card one word for the garment, or nothing", () => {
+    const blazer = recommendSize(chart, body, "outerwear", null, null, "Wool blazer");
+    expect(garmentTypeWord(blazer)).toBe("Blazer");
+    const tee = recommendSize(chart, body, "shirt", null, null, "Oversized boxy tee");
+    // One word for every tee, however it was sized. The band is not the type.
+    expect(garmentTypeWord(tee)).toBe("Tee");
+    expect(garmentTypeWord({ garmentKind: "unknown" })).toBe("");
+    expect(garmentTypeWord({})).toBe("");
+    expect(garmentTypeWord(null)).toBe("");
   });
 });
 

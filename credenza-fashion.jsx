@@ -1127,13 +1127,17 @@ export function chestEaseBand(kind, cut, looseness) {
   return CHEST_EASE_BANDS.knit;
 }
 
-// The word the reason line uses. Null keeps the old wording.
+// One word for each garment the engine can name. The card prints it on the
+// chart panel (garmentTypeWord below). A kind missing from this map, and
+// "unknown", print nothing — the engine never guesses out loud.
 export const GARMENT_WORD = {
   compression: "Dry-fit",
   knit: "Tee",
   woven: "Shirt",
   blazer: "Blazer",
   coat: "Coat",
+  pants: "Trousers",
+  shorts: "Shorts",
 };
 
 // Pick a size from a parsed chart against a body profile (all cm; weight kg).
@@ -1705,6 +1709,15 @@ export function garmentReasonLine(rec) {
     }
   }
   return GARMENT_REASON[rec.garmentKind] || "";
+}
+
+// One word for the garment the engine read (Kyle 2026-07-30: "only show the
+// type in the chart photo"). The reason SENTENCE is retired on the card; this
+// word replaces it, sitting on the chart panel's own header. A kind the engine
+// did not name returns "" and the card shows nothing at all.
+export function garmentTypeWord(rec) {
+  if (!rec || !rec.garmentKind) return "";
+  return GARMENT_WORD[rec.garmentKind] || "";
 }
 
 // Shorts leg length (Kyle 2026-07-30: "the values should be the values of the
