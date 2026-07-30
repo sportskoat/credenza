@@ -5215,6 +5215,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   overflow: hidden;
   border: 1px solid var(--cz-hair);
   background: var(--cz-card-solid);
+  /* The whole tile is the button now: a tap opens the big photo view, which
+     owns Delete and Make cover photo (Kyle 2026-07-29). */
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+}
+
+.cz-edit-photo-tile:focus,
+.cz-edit-photo-tile:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .cz-edit-photo-tile img {
@@ -5249,50 +5261,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-card-solid);
   border: none;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
-}
-
-.cz-edit-photo-delete {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(12, 10, 16, 0.55);
-  color: var(--cz-overlay-danger);
-  cursor: pointer;
-  padding: 0;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  /* Quiet until the tile is interacted with — an always-on red trash over
-     every photo read as clutter (Kyle 2026-07-22). */
-  opacity: 0.55;
-  transition: background var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
-}
-
-.cz-edit-photo-tile:hover .cz-edit-photo-delete,
-.cz-edit-photo-delete:focus-visible {
-  opacity: 1;
-}
-
-.cz-edit-photo-delete:hover {
-  background: rgba(40, 12, 18, 0.88);
-  opacity: 1;
-}
-
-.cz-edit-photo-delete:focus,
-.cz-edit-photo-delete:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-
-.cz-edit-photo-delete-icon {
-  display: inline-flex;
-  line-height: 0;
 }
 
 .cz-edit-photo-add {
@@ -9237,8 +9205,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   inset: -8px;
 }
 /* 26px controls: 9px ring. */
-.cz-combobox-clear::after,
-.cz-edit-photo-delete::after {
+.cz-combobox-clear::after {
   content: "";
   position: absolute;
   inset: -9px;
@@ -10573,11 +10540,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   bottom: -34px;
   left: 50%;
   transform: translateX(-50%);
-  color: var(--cz-ink);
+  /* The backdrop is always dark, so a theme token fails: --cz-ink is black
+     in the light theme and the title vanishes (Kyle 2026-07-29: "that little
+     text above it is in black. You can't even read it"). Fixed on-dark
+     value, same idea as the ‹ › arrows' frosted pill. */
+  color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  opacity: 0.9;
 }
 
 .cz-photo-coverflow-controls {
@@ -10669,7 +10639,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-photo-coverflow-ask {
-  color: var(--cz-ink);
+  /* Same always-dark backdrop as the caption — a theme token goes black in
+     the light theme and the delete question would vanish. */
+  color: rgba(255, 255, 255, 0.92);
   font-size: 13px;
   font-weight: 600;
 }
@@ -10683,14 +10655,24 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   height: 40px;
   border-radius: 999px;
   border: 1px solid var(--cz-hair-strong);
-  background: var(--cz-seg);
+  /* The backdrop is always dark, but --cz-seg follows the theme: in the
+     light theme it painted a near-white pill that read as permanently
+     highlighted (Kyle 2026-07-29: "the X at the top right always is
+     highlighted"). Frosted card fill, the same treatment as the ‹ ›
+     arrows and the zoom exit, stays quiet and readable in both themes. */
+  background: color-mix(in srgb, var(--cz-card-solid) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   color: var(--cz-ink);
   cursor: pointer;
   display: grid;
   place-items: center;
-  opacity: 0.88;
   font-size: 15px;
   font-weight: 500;
+}
+
+.cz-photo-coverflow-close:hover {
+  background: color-mix(in srgb, var(--cz-card-solid) 88%, transparent);
 }
 
 /* Hit ring matches the other 40px round buttons. */
@@ -13158,14 +13140,6 @@ input.cz-sizing-cell.is-custom:focus-visible {
     height: 48px;
     aspect-ratio: auto;
   }
-  /* The delete puck is 26px on a 84px tile. On a 48px tile it would cover
-     half the photo, so it drops to the tile corner at 22px. */
-  .cz-detail-photos .cz-edit-photo-delete {
-    top: 3px;
-    right: 3px;
-    width: 22px;
-    height: 22px;
-  }
   .cz-detail-photos .cz-edit-photo-cover-badge {
     left: 3px;
     bottom: 3px;
@@ -13909,40 +13883,6 @@ input.cz-sizing-cell.is-custom:focus-visible {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     pointer-events: none;
-  }
-  /* Round 4 point 5 (2026-07-29, Fable's amendment): photo delete hides until
-     it is needed. The badge appears when the pointer rests on the small photo
-     or when focus lands inside it; the "..." menu carries "Delete this photo"
-     for touch, and the Backspace path stays for the keyboard. */
-  .cz-dpanel-thumb-delete {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.62);
-    color: #fff;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity var(--dur-micro) var(--ease-out);
-  }
-  .cz-dpanel-thumb-wrap:hover .cz-dpanel-thumb-delete,
-  .cz-dpanel-thumb-wrap:focus-within .cz-dpanel-thumb-delete {
-    opacity: 1;
-  }
-  .cz-dpanel-thumb-delete:hover,
-  .cz-dpanel-thumb-delete:focus-visible {
-    background: color-mix(in srgb, var(--cz-danger, #e11d48) 85%, #000);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .cz-dpanel-thumb-delete {
-      transition: none;
-    }
   }
   .cz-dpanel-thumb-add {
     display: inline-flex;

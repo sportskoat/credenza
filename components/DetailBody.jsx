@@ -2308,7 +2308,7 @@ export default function DetailBody({
               <EditPhotosManager
                 item={item}
                 onAttachPhoto={onAttachPhoto}
-                onRemovePhoto={onRemovePhoto}
+                onOpenPhoto={(i) => setPhotoView({ startIndex: i })}
               />
             </div>
             <AlbumLinksRow item={item} />

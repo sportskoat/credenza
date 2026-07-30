@@ -91,4 +91,18 @@ describe("Full-screen photo album", () => {
     await user.click(screen.getByRole("button", { name: "Close photo preview" }));
     expect(screen.queryByRole("dialog", { name: "Album photo preview" })).not.toBeInTheDocument();
   });
+
+  it("a tap on a strip photo opens the album at that photo (Kyle 2026-07-29)", async () => {
+    const user = userEvent.setup();
+    renderBody(albumItem());
+    // The thin per-tile trash is gone — it was an accident magnet. The tap
+    // opens the same album the hero opens, and Delete lives there, still
+    // asking first.
+    expect(screen.queryByRole("button", { name: /^Delete photo/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "View photo 2 full screen" }));
+    await screen.findByRole("dialog", { name: "Album photo preview" });
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByText("Delete this photo?")).toBeInTheDocument();
+  });
 });

@@ -4,7 +4,7 @@
 // the ⋯ actions menu. Layout itself is CSS; these guard the behavior
 // contract.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import DesktopDetailPanel from "../../components/DesktopDetailPanel.jsx";
@@ -245,22 +245,28 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
   });
 
-  it("filmstrip has add/delete and no right-column photos block", async () => {
+  it("filmstrip has no per-tile trash; delete lives in the card actions menu", async () => {
     const onAttachPhoto = vi.fn();
     const onRemovePhoto = vi.fn();
     const user = userEvent.setup();
     renderPanel(panelItem(), { onAttachPhoto, onRemovePhoto });
 
     // The right column still carries no second PHOTOS block — the left
-    // filmstrip is the one place that adds and deletes. Album + seller meta
-    // sit under the strip (replacing the old AlbumLinksRow tiles).
+    // filmstrip is the one place that adds. Album + seller meta sit under
+    // the strip (replacing the old AlbumLinksRow tiles).
     expect(document.querySelector(".cz-detail-photos")).toBeNull();
     expect(document.querySelector(".cz-dpanel-left .cz-dpanel-meta")).not.toBeNull();
     expect(document.querySelector(".cz-dpanel-left .cz-album-links")).toBeNull();
     expect(screen.getByRole("button", { name: "Add photo" })).toBeInTheDocument();
-    // Cover (first photo) has no trash; gallery photo 2 does.
-    expect(screen.queryByRole("button", { name: "Delete photo 1" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Delete photo 2" }));
+    // Kyle 2026-07-29: the thin per-tile trash went away — an accident
+    // magnet. A tap on a thumb pages the stage, and delete lives in the
+    // "..." menu (and in the full-screen photo view).
+    expect(screen.queryByRole("button", { name: /^Delete photo/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show photo 2" }));
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Card actions" }));
+    const menu = screen.getByRole("menu", { name: "Card actions" });
+    await user.click(within(menu).getByRole("menuitem", { name: "Delete this photo" }));
     expect(onRemovePhoto).toHaveBeenCalledWith("dp-1", "https://si.geilicdn.com/img-2.jpg");
   });
 
