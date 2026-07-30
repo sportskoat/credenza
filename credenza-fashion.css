@@ -30,6 +30,34 @@
     rgb(6 6 8 / 0.15) 76%,
     rgb(6 6 8 / 0) 100%
   );
+  /* Mobile handoff 2026-07-30 (task 1). --cz-band is the sticky shelf band
+     and the footer bar; --cz-scrim is the fade under the floating controls;
+     --cz-track is the empty part of a fit bar. */
+  --cz-band: rgba(244, 244, 240, 0.84);
+  --cz-scrim: linear-gradient(to top, #F4F4F0 55%, rgba(244, 244, 240, 0));
+  --cz-track: rgba(23, 24, 26, 0.12);
+}
+
+/* The Blackout colourway sets data-theme="rainbow" at runtime; "dark" is the
+   spec name and covers any future mapping. Both selectors must stay. */
+.cz-app[data-theme="dark"],
+.cz-app[data-theme="rainbow"] {
+  --cz-band: rgba(0, 0, 0, 0.84);
+  --cz-scrim: linear-gradient(to top, #000 55%, rgba(0, 0, 0, 0));
+  --cz-track: rgba(255, 255, 255, 0.12);
+}
+
+/* No backdrop-filter: make the band opaque so text under it cannot show
+   through (mobile handoff §5.3). */
+@supports not (backdrop-filter: blur(1px)) {
+  :root {
+    --cz-band: rgba(244, 244, 240, 1);
+  }
+
+  .cz-app[data-theme="dark"],
+  .cz-app[data-theme="rainbow"] {
+    --cz-band: rgba(0, 0, 0, 1);
+  }
 }
 
 /* --cz-placeholder is --cz-faint in both fashion themes (v3 keeps them
