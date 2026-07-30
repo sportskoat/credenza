@@ -11514,6 +11514,23 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding-top: 16px;
 }
 
+/* Kyle 2026-07-30: "still too much Whitespace at the top of this card, take it
+   out AND TAKE THE LINE OUT." The chip row above the rail is already the seam,
+   so the sizing block's own hairline drew a second rule across an empty band.
+   Four gaps also stacked above the AI SIZE kicker on the desktop panel — facts
+   16 + section 16 + block margin 18 + block padding 16, all at the panel's 1.25
+   zoom. The block now opens the rail flush. The phone rule below is the same
+   shape and keeps its slightly wider band. */
+.cz-detail-facts-section:first-child {
+  padding-top: 0;
+}
+
+.cz-detail-facts-section .cz-sizing:first-child {
+  margin-top: 0;
+  padding-top: 8px;
+  border-top: none;
+}
+
 /* Phone: the title, the facts block, the first section and the sizing block
    each carried their own 16-18px, so four separate gaps stacked into one dead
    band under the title (Kyle 2026-07-28). The phone keeps one gap. */
@@ -11525,7 +11542,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     padding-top: 0;
   }
   .cz-detail-facts-section .cz-sizing:first-child {
-    margin-top: 0;
     padding-top: 12px;
   }
 }
@@ -11964,6 +11980,15 @@ input.cz-detail-size-choice.is-custom:focus-visible {
    block carries its own right padding there; the phone sheet is untouched. */
 .cz-dpanel .cz-sizing {
   padding-right: 16px;
+}
+
+/* Kyle 2026-07-30, second pass: the band that is left over is the scroll pane's
+   own 12px plus the rail's 16px, and the desktop panel magnifies both by its
+   1.25 zoom — 35 real pixels of nothing under the chip row. The rail drops its
+   top margin inside the panel; the scroll pane's 12px is the whole gap now. The
+   phone sheet keeps its own 8px (see the media query above). */
+.cz-dpanel .cz-detail-facts {
+  margin-top: 0;
 }
 
 .cz-sizing-head {
