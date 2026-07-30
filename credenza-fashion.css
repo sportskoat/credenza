@@ -10045,12 +10045,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 
   /* The 44px tap height comes from padding, not from a taller pill (spec
-     5.4): the box grows to 44px on a coarse pointer and the fill clips to
-     the 32px content box, so the visual pill never changes. */
+     5.4), and the padding must overlap the space around the row instead of
+     stretching it (F's ruling 2026-07-30: check 1 is 90px). The chip box
+     grows 12px DOWNWARD on a coarse pointer; the negative margin holds the
+     row's layout height at 32px, so the band stays 46 + 44 = 90px. The
+     extra tap area lands inside the strip's own 12px bottom padding — dead
+     space that taps nothing today — and the fill clips to the 32px content
+     box, so the visual pill never changes. */
   @media (pointer: coarse) {
     .cz-shelf-band .cz-filter-chip {
       box-sizing: content-box;
-      padding-block: 6px;
+      padding-bottom: 12px;
+      margin-bottom: -12px;
       background-clip: content-box;
     }
   }
