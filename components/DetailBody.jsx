@@ -467,11 +467,36 @@ function SizingBlock({
 // customer aimed themselves is the most likely of all the reads to be right,
 // and also the only one they can check against the thing in their hand. So the
 // preview exists, and `commit` is a separate call.
+// One empty preview, shared by every exit the read has. `typed` marks a chart
+// the customer is typing by hand: there is no photo behind it, so the preview
+// opens on the grid and commits from the grid.
+const EMPTY_CHART_READ = {
+  reading: false,
+  chart: null,
+  text: "",
+  thumb: "",
+  error: "",
+  dirty: false,
+  count: 0,
+  typed: false,
+};
+
+// The columns a hand-typed chart offers, per category. Only labels sellers
+// actually print (Kyle 2026-07-30: "we should only use what the charts are
+// using"). Bottoms get waist, hip and 裤长; everything else gets the four top
+// columns. A column left empty is simply dropped.
+const TYPE_IN_COLUMNS = {
+  pants: ["waist", "hip", "pantsLength"],
+  shorts: ["waist", "hip", "pantsLength"],
+};
+const TYPE_IN_TOP_COLUMNS = ["chest", "length", "shoulder", "sleeve"];
+const TYPE_IN_SIZES = ["S", "M", "L", "XL"];
+
 function useCustomerChartRead(item, onSaveEdit) {
   // `count` is how many photos the open read was handed — the fit-read
   // footnote says "Reading four photos…" and a hard-coded four would lie
   // about a single upload.
-  const [state, setState] = useState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false, count: 0 });
+  const [state, setState] = useState(EMPTY_CHART_READ);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -482,12 +507,12 @@ function useCustomerChartRead(item, onSaveEdit) {
   // A different item means a stale preview. Drop it rather than offer someone
   // else's chart on this card.
   useEffect(() => {
-    setState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false });
+    setState(EMPTY_CHART_READ);
   }, [item.id]);
 
   const read = async (sources, { thumb = "", referer = "" } = {}) => {
     const list = Array.isArray(sources) ? sources : [sources];
-    setState({ reading: true, chart: null, text: "", thumb, error: "", dirty: false, count: list.length });
+    setState({ ...EMPTY_CHART_READ, reading: true, thumb, count: list.length });
     // Remote album photos go down the images door (the server fetches them
     // through its allowlist); files and data: URLs go inline. Never both.
     const remote = list.filter((s) => typeof s === "string" && /^https?:\/\//i.test(s));
@@ -498,41 +523,60 @@ function useCustomerChartRead(item, onSaveEdit) {
     const chart = text ? parseSizeChart(text) : null;
     if (!chart) {
       setState({
-        reading: false,
-        chart: null,
-        text: "",
+        ...EMPTY_CHART_READ,
         thumb,
-        dirty: false,
         error: text
           ? "I read the photo but could not find sizes in it. Try a straighter shot of the table."
           : "I could not read that photo. Try again with the whole table in frame.",
       });
       return;
     }
-    setState({ reading: false, chart, text, thumb, error: "", dirty: false });
+    setState({ ...EMPTY_CHART_READ, chart, text, thumb });
+  };
+
+  // Kyle 2026-07-30: "let you type the chart numbers by hand in twenty
+  // seconds". A blank chart is staged in the same preview a photo read uses,
+  // so one grid, one confirm and one save path serve both. Nothing is stored
+  // until the customer presses save.
+  const startTyping = (category) => {
+    const cols = TYPE_IN_COLUMNS[category] || TYPE_IN_TOP_COLUMNS;
+    setState({
+      ...EMPTY_CHART_READ,
+      typed: true,
+      dirty: true,
+      chart: { rows: TYPE_IN_SIZES.map((size) => ({ size })), columns: cols },
+    });
   };
 
   const commit = () => {
-    if (!state.text) return;
+    // A typed chart has no read text behind it, so the grid IS the source.
+    if (!state.text && !state.typed) return;
     // Corrections live on the staged chart, so the text comes from IT and not
     // from the raw read. Fall back to the read when nothing was corrected, or
     // when a correction emptied the chart past the point of serializing.
     const fixed = state.dirty ? serializeSizeChart(state.chart) : "";
     const text = fixed && parseSizeChart(fixed) ? fixed : state.text;
+    if (!text) {
+      setState((prev) => ({
+        ...prev,
+        error: "Type at least two sizes with one measurement each, then save.",
+      }));
+      return;
+    }
     onSaveEdit(item.id, {
       sizeChartText: text,
       sizeChartNeedsClear: false,
       sizeChartSource: {
-        via: "customer-photo",
-        photos: 1,
+        via: state.typed ? "customer-typed" : "customer-photo",
+        photos: state.typed ? 0 : 1,
         at: new Date().toISOString(),
         ...(item.seller ? { seller: String(item.seller).slice(0, 60) } : {}),
       },
     });
-    setState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false });
+    setState(EMPTY_CHART_READ);
   };
 
-  const dismiss = () => setState({ reading: false, chart: null, text: "", thumb: "", error: "", dirty: false });
+  const dismiss = () => setState(EMPTY_CHART_READ);
 
   // A corrected cell rewrites the staged chart. It does NOT re-parse: a
   // half-typed "1" is under the parser's 20cm floor, so a round trip per
@@ -542,7 +586,7 @@ function useCustomerChartRead(item, onSaveEdit) {
     setState((prev) => ({ ...prev, chart: nextChart, dirty: true, error: "" }));
   };
 
-  return { ...state, read, commit, dismiss, fix };
+  return { ...state, read, commit, dismiss, fix, startTyping };
 }
 
 // The no-chart state keeps the usual size visible but unverified.
@@ -661,6 +705,14 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
   const estNote = rows.some((r) => r.estimated)
     ? " Body length is estimated from your height."
     : "";
+  // Kyle 2026-07-30: "show a clear warning when it is not measured". A blank
+  // THEIRS cell on a chart we hold means the seller printed no such column.
+  // The footnote says so in words, and the cell reads "not on chart" instead
+  // of a dash that could mean anything.
+  const missing = hasChart ? rows.filter((r) => r.notOnChart).map((r) => r.name.toLowerCase()) : [];
+  const missNote = missing.length
+    ? " The seller does not print the " + listPhrase(missing) + ". Type it in or read the chart photo."
+    : "";
   const footnote = reading
     ? "Reading " +
       (readingCount === 1 ? "one photo" : word(readingCount || 0) + " photos") +
@@ -678,7 +730,7 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
           : word(insideCount).replace(/^./, (c) => c.toUpperCase()) +
             " of " +
             word(scoredCount) +
-            " inside tolerance.") + estNote;
+            " inside tolerance.") + estNote + missNote;
   return (
     <div
       className={
@@ -720,8 +772,11 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
               />
             ) : null}
           </span>
-          <span className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}>
-            {r.theirs != null ? formatMeasure(r.theirs, units) : "—"}
+          <span
+            className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
+            title={r.notOnChart ? "The seller's chart has no " + r.name.toLowerCase() : undefined}
+          >
+            {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "n/a" : "—"}
           </span>
           <span className="cz-fitread-yours">
             {r.yours != null
@@ -761,7 +816,7 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
 //
 // The scan line rides the source thumb while the read is open. It is decoration
 // with a job: it says the photo is the thing being worked on, not an attachment.
-function SizingBlockReading({ reading, chart, thumb, error, units, onUse, onRetry, onFix }) {
+function SizingBlockReading({ reading, chart, thumb, error, units, typed = false, onUse, onRetry, onFix }) {
   // "Fix a number" (spec §3): the vision read gets a digit wrong often enough
   // that a chart with one bad cell must be salvageable. Without this the only
   // options are accept a wrong chart or throw the whole read away.
@@ -769,15 +824,23 @@ function SizingBlockReading({ reading, chart, thumb, error, units, onUse, onRetr
   const rows = chart && Array.isArray(chart.rows) ? chart.rows : [];
   // The measurement keys the parser actually filled, in the order the table had
   // them. `size` is the row label, not a measurement.
-  const columns = rows.length
-    ? Object.keys(rows[0]).filter((k) => k !== "size" && rows[0][k] != null)
-    : [];
-  const provenance = reading
-    ? "READING…"
-    : chart
-      ? rows.length + " ROW" + (rows.length === 1 ? "" : "S") + " · " +
-        columns.length + " COLUMN" + (columns.length === 1 ? "" : "S")
-      : "COULD NOT READ";
+  // A hand-typed chart names its own columns: every cell starts empty, so
+  // reading the keys off the first row would give an empty grid.
+  const columns =
+    chart && Array.isArray(chart.columns) && chart.columns.length
+      ? chart.columns
+      : rows.length
+        ? Object.keys(rows[0]).filter((k) => k !== "size" && rows[0][k] != null)
+        : [];
+  const filledColumns = columns.filter((k) => rows.some((r) => r[k] != null));
+  const provenance = typed
+    ? "YOUR NUMBERS"
+    : reading
+      ? "READING…"
+      : chart
+        ? rows.length + " ROW" + (rows.length === 1 ? "" : "S") + " · " +
+          columns.length + " COLUMN" + (columns.length === 1 ? "" : "S")
+        : "COULD NOT READ";
   const preview = rows.slice(0, 6);
   const key = columns[0] || "chest";
   // A new read replaces the cells, so the editor must close. Watch `reading`,
@@ -795,7 +858,9 @@ function SizingBlockReading({ reading, chart, thumb, error, units, onUse, onRetr
     >
       <div className="cz-sizing-head">
         <span className="cz-sizing-dot" aria-hidden="true" />
-        <span className="cz-sizing-kicker">{error ? "No chart" : "Reading chart"}</span>
+        <span className="cz-sizing-kicker">
+          {typed ? "Type the chart" : error ? "No chart" : "Reading chart"}
+        </span>
         <span className="cz-sizing-prov">{provenance}</span>
       </div>
 
@@ -810,15 +875,25 @@ function SizingBlockReading({ reading, chart, thumb, error, units, onUse, onRetr
             ? "Reading the numbers off your photo…"
             : error
               ? error
-              : columns.length
-                ? "I found " + listPhrase(columns.map(measureWord)) + " for " +
-                  rows.length + " size" + (rows.length === 1 ? "" : "s") + "."
-                : "I read the table but could not name its columns."}
+              : typed
+                ? "Type the seller's numbers in centimetres. Leave a box empty when the chart does not show it."
+                : filledColumns.length
+                  ? "I found " + listPhrase(filledColumns.map(measureWord)) + " for " +
+                    rows.length + " size" + (rows.length === 1 ? "" : "s") + "."
+                  : "I read the table but could not name its columns."}
         </p>
       </div>
 
-      {fixing && chart ? (
-        <ChartFixGrid rows={rows} columns={columns} units={units} onFix={onFix} />
+      {(fixing || typed) && chart ? (
+        <ChartFixGrid
+          rows={rows}
+          columns={columns}
+          units={units}
+          onFix={onFix}
+          /* Typing by hand also names the sizes: a shorts chart runs 36/38/40,
+             not S/M/L, and the buttons must read the seller's own words. */
+          renameSizes={typed}
+        />
       ) : preview.length ? (
         <div className="cz-sizing-chart" aria-hidden="true">
           {preview.map((row) => (
@@ -834,23 +909,33 @@ function SizingBlockReading({ reading, chart, thumb, error, units, onUse, onRetr
         <div className="cz-sizing-actions">
           {chart ? (
             <button type="button" className="cz-sizing-action is-primary" onClick={onUse}>
-              Use this chart
+              {typed ? "Save this chart" : "Use this chart"}
             </button>
           ) : null}
-          <button
-            type="button"
-            className="cz-sizing-read-retry"
-            onClick={chart ? () => setFixing((v) => !v) : onRetry}
-          >
-            {chart ? (fixing ? "Done fixing" : "Fix a number") : "Try another photo"}
-          </button>
-          {/* Rejecting the whole read still needs a way out, and it must not be
-              the same button as the per-cell fix. */}
-          {chart ? (
-            <button type="button" className="cz-sizing-read-retry is-wide" onClick={onRetry}>
-              Not this one
+          {/* A typed chart is already in the grid, so "Fix a number" would open
+              the thing that is open. It gets one way out instead. */}
+          {typed ? (
+            <button type="button" className="cz-sizing-read-retry" onClick={onRetry}>
+              Cancel
             </button>
-          ) : null}
+          ) : (
+            <>
+              <button
+                type="button"
+                className="cz-sizing-read-retry"
+                onClick={chart ? () => setFixing((v) => !v) : onRetry}
+              >
+                {chart ? (fixing ? "Done fixing" : "Fix a number") : "Try another photo"}
+              </button>
+              {/* Rejecting the whole read still needs a way out, and it must not
+                  be the same button as the per-cell fix. */}
+              {chart ? (
+                <button type="button" className="cz-sizing-read-retry is-wide" onClick={onRetry}>
+                  Not this one
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
       ) : null}
     </section>
@@ -867,8 +952,16 @@ function SizingBlockReading({ reading, chart, thumb, error, units, onUse, onRetr
 // The edit lifts to the parent as a whole replacement chart, because the chart
 // is derived from text and only the text is stored. A blank cell drops the
 // measurement rather than storing zero.
-function ChartFixGrid({ rows, columns, units, onFix }) {
+function ChartFixGrid({ rows, columns, units, onFix, renameSizes = false }) {
   const cols = columns.length ? columns : ["chest"];
+  // The column list is the grid's own shape, not something to re-derive from
+  // the cells. A hand-typed chart starts with every cell empty, and dropping
+  // the list here would collapse the grid on the first keystroke.
+  const lift = (nextRows) => onFix({ rows: nextRows, columns: cols });
+  const setSize = (rowIndex, raw) => {
+    const name = String(raw).replace(/[^0-9a-zA-Z/. -]/g, "").slice(0, 10);
+    lift(rows.map((row, i) => (i === rowIndex ? { ...row, size: name } : row)));
+  };
   const setCell = (rowIndex, key, raw) => {
     const digits = String(raw).replace(/[^0-9]/g, "").slice(0, 3);
     const next = rows.map((row, i) => {
@@ -888,11 +981,11 @@ function ChartFixGrid({ rows, columns, units, onFix }) {
       }
       return copy;
     });
-    onFix({ rows: next });
+    lift(next);
   };
 
   return (
-    <div className="cz-sizing-fix">
+    <div className={"cz-sizing-fix" + (renameSizes ? " is-typed" : "")}>
       <div className="cz-sizing-fix-head">
         <span className="cz-sizing-fix-size" />
         {cols.map((key) => (
@@ -903,8 +996,21 @@ function ChartFixGrid({ rows, columns, units, onFix }) {
         ))}
       </div>
       {rows.map((row, i) => (
-        <div key={String(row.size) + i} className="cz-sizing-fix-row">
-          <span className="cz-sizing-fix-size">{formatSizeToken(row.size) || row.size}</span>
+        /* Keyed by position: the size name is editable here, and keying on it
+           would rebuild the input on every keystroke and drop the caret. */
+        <div key={i} className="cz-sizing-fix-row">
+          {renameSizes ? (
+            <input
+              className="cz-sizing-fix-size cz-sizing-fix-cell"
+              type="text"
+              maxLength={10}
+              aria-label={"Size name, row " + (i + 1)}
+              value={row.size == null ? "" : String(row.size)}
+              onChange={(e) => setSize(i, e.target.value)}
+            />
+          ) : (
+            <span className="cz-sizing-fix-size">{formatSizeToken(row.size) || row.size}</span>
+          )}
           {cols.map((key) => (
             <input
               key={key}
@@ -2584,6 +2690,16 @@ export default function DetailBody({
                 <Upload size={16} strokeWidth={2} aria-hidden="true" />
                 Upload chart photo
               </button>
+              {/* Kyle 2026-07-30: a chart photo is not always readable, and a
+                  seller sometimes prints the numbers in the listing text. Four
+                  sizes by four columns is about twenty seconds of typing. */}
+              <button
+                type="button"
+                className="cz-detail-chart-upload"
+                onClick={() => chartRead.startTyping(item.category)}
+              >
+                Type the numbers
+              </button>
               <input
                 ref={chartInputRef}
                 className="cz-detail-chart-file"
@@ -2601,6 +2717,7 @@ export default function DetailBody({
                 thumb={chartRead.thumb}
                 error={chartRead.error}
                 units={measureUnits}
+                typed={chartRead.typed}
                 onUse={chartRead.commit}
                 onRetry={chartRead.dismiss}
                 onFix={chartRead.fix}

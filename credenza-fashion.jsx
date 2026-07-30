@@ -1562,6 +1562,11 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       ease,
       mark,
       warn,
+      // Kyle 2026-07-30: say it out loud when the seller's chart has no such
+      // column. The row used to print a bare "—", which reads the same as a
+      // number we failed to use. An empty cell on a chart we DO hold is a
+      // missing column, and the table names it in the footnote.
+      notOnChart: !!chart && theirs == null,
     });
   }
   // A measured Body length is a fit verdict now (Kyle 2026-07-30). An

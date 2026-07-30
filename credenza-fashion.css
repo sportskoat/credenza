@@ -12789,6 +12789,20 @@ input.cz-sizing-cell.is-custom:focus-visible {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--cz-money) 22%, transparent);
 }
 
+/* Typing a chart by hand (Kyle 2026-07-30). The size name is a field too, so
+   the label column widens to hold a real box and every row still lines up
+   under the header. */
+.cz-sizing-fix.is-typed .cz-sizing-fix-size {
+  flex: 0 0 62px;
+}
+
+input.cz-sizing-fix-size {
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  color: var(--cz-ink);
+  text-align: center;
+}
+
 @media (min-width: 1024px) {
   .cz-sizing-value {
     font-size: 23px;
