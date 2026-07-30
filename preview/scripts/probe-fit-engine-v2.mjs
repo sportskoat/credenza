@@ -90,7 +90,12 @@ const prefs = {
 };
 
 const browser = await chromium.launch();
-const context = await browser.newContext({ ...devices["iPhone 15 Pro"] });
+// A phone width, but a tall viewport: the sizing block is taller than a real
+// phone screen, and a picture that cuts it in half proves nothing.
+const context = await browser.newContext({
+  ...devices["iPhone 15 Pro"],
+  viewport: { width: 393, height: 1600 },
+});
 await context.addInitScript(
   ({ shelf, prefsJson }) => {
     window.localStorage.setItem("credenza-fashion-items-v1", shelf);
@@ -122,6 +127,13 @@ for (const [id, title] of [
     await cell.first().click({ force: true });
     await page.waitForTimeout(800);
   }
+  // Scroll the sizing block into view before the picture — the sheet opens at
+  // the photos, and a shot of the top proves nothing about the fit.
+  await page.evaluate(() => {
+    const el = document.querySelector(".cz-sizing");
+    if (el) el.scrollIntoView({ block: "start" });
+  });
+  await page.waitForTimeout(600);
   const prose = await page.locator(".cz-sizing-garment, .cz-fit4-prose").allTextContents().catch(() => []);
   const warnCount = await page.locator(".cz-fitread-mark.is-warn").count().catch(() => 0);
   const rows = await page.locator(".cz-fitread-row").allTextContents().catch(() => []);
