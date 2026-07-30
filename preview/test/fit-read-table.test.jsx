@@ -404,3 +404,91 @@ describe("a guessed body number carries no verdict", () => {
     expect(hip.ease).not.toBe(null);
   });
 });
+
+// Kyle 2026-07-30: "show a clear warning when it is not measured", and "let
+// you type the chart numbers by hand in twenty seconds".
+describe("a measurement the seller does not print", () => {
+  const NO_SHOULDER_TEXT = "M: chest 116, length 70\nL: chest 120, length 72";
+
+  it("marks the row as absent from the chart, not as an unread number", () => {
+    const chart = parseSizeChart(NO_SHOULDER_TEXT);
+    const profile = { chest: 105, shoulder: 45 };
+    const rec = recommendSize(chart, profile, "shirt");
+    const rows = fitReadRows(chart, rec, profile, "shirt");
+    const shoulder = rows.find((r) => r.key === "shoulder");
+    expect(shoulder.theirs).toBe(null);
+    expect(shoulder.notOnChart).toBe(true);
+    expect(rows.find((r) => r.key === "chest").notOnChart).toBe(false);
+  });
+
+  it("claims nothing about the chart when there is no chart at all", () => {
+    const rows = fitReadRows(null, null, { chest: 105, shoulder: 45 }, "shirt");
+    for (const row of rows) expect(row.notOnChart).toBe(false);
+  });
+
+  it("names the missing measurement in the footnote", () => {
+    const { container } = renderBody(fitItem({ sizeNotes: NO_SHOULDER_TEXT }));
+    const footnote = container.querySelector(".cz-fitread-footnote").textContent;
+    expect(footnote).toContain("The seller does not print the shoulder.");
+    expect(footnote).toContain("Type it in or read the chart photo.");
+    expect(within(container.querySelector(".cz-fitread")).getAllByText("n/a").length).toBe(1);
+  });
+});
+
+describe("typing a chart by hand", () => {
+  it("opens an empty grid, then saves what was typed", async () => {
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    const { container } = renderBody(fitItem(), { onSaveEdit });
+
+    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    const grid = container.querySelector(".cz-sizing-fix.is-typed");
+    expect(grid).not.toBe(null);
+    // Four size rows, four top columns, every measurement box empty.
+    expect(grid.querySelectorAll(".cz-sizing-fix-row").length).toBe(4);
+    expect(within(grid).getByLabelText("Small chest in cm")).toHaveValue("");
+
+    await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
+    await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
+    await user.click(screen.getByRole("button", { name: "Save this chart" }));
+
+    expect(onSaveEdit).toHaveBeenCalledTimes(1);
+    const [id, patch] = onSaveEdit.mock.calls[0];
+    expect(id).toBe("fitread-1");
+    expect(patch.sizeChartText).toBe("S: chest 100\nM: chest 104");
+    expect(patch.sizeChartSource.via).toBe("customer-typed");
+  });
+
+  it("refuses to save an empty grid and says what is missing", async () => {
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    renderBody(fitItem(), { onSaveEdit });
+
+    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    await user.click(screen.getByRole("button", { name: "Save this chart" }));
+    expect(onSaveEdit).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Type at least two sizes with one measurement each, then save.")
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the seller's own size names", async () => {
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    const { container } = renderBody(fitItem(), { onSaveEdit });
+
+    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    const grid = container.querySelector(".cz-sizing-fix.is-typed");
+    const firstName = within(grid).getByLabelText("Size name, row 1");
+    await user.clear(firstName);
+    await user.type(firstName, "36");
+    await user.type(within(grid).getByLabelText("36 chest in cm"), "100");
+    const secondName = within(grid).getByLabelText("Size name, row 2");
+    await user.clear(secondName);
+    await user.type(secondName, "38");
+    await user.type(within(grid).getByLabelText("38 chest in cm"), "104");
+    await user.click(screen.getByRole("button", { name: "Save this chart" }));
+
+    expect(onSaveEdit.mock.calls[0][1].sizeChartText).toBe("36: chest 100\n38: chest 104");
+  });
+});
