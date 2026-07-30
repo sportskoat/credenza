@@ -12218,6 +12218,55 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: #fff;
 }
 
+/* Kyle 2026-07-30 (#design): green keeps ONE meaning — the app's pick. A
+   hand pick that disagrees with the chart goes gray, and the recommended
+   cell takes the green: three pulses when the panel opens, then a steady
+   green outline with an OUR PICK tag. Reduced motion holds the steady
+   outline with no pulse. */
+.cz-sizing-cell.is-pick-manual {
+  background: var(--cz-hair-strong);
+}
+
+.cz-sizing-cell.is-pick-manual .cz-sizing-cell-k {
+  font-weight: 700;
+  color: var(--cz-sub);
+}
+
+.cz-sizing-cell.is-pick-manual .cz-sizing-cell-v {
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+
+.cz-sizing-cell.is-rec {
+  box-shadow: inset 0 0 0 2px var(--cz-money);
+  animation: cz-rec-pulse 0.9s var(--ease-out) 3;
+}
+
+.cz-sizing-cell-tag {
+  font-family: var(--cz-mono);
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+}
+
+@keyframes cz-rec-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 2px var(--cz-money);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cz-money) 22%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-sizing-cell.is-rec {
+    animation: none;
+  }
+}
+
 /* A dashed rule marks the unverified usual-size fallback. */
 .cz-sizing-nochart {
   border-top-style: dashed;
@@ -12401,9 +12450,11 @@ input.cz-sizing-cell.is-custom:focus-visible {
 .cz-fitread-mark {
   position: absolute;
   top: -4px;
-  width: 2px;
+  /* Kyle 2026-07-30: "more color on the actual chart" — the mark widens a
+     step so the green (inside) and amber (outside) read at a glance. */
+  width: 3px;
   height: 13px;
-  border-radius: 1px;
+  border-radius: 1.5px;
   background: var(--cz-money);
 }
 
@@ -14118,24 +14169,27 @@ input.cz-sizing-cell.is-custom:focus-visible {
        share keeps a usable floor while the new slot scrolls. */
     min-height: 260px;
   }
-  .cz-dpanel-lognotes .cz-detail-notes {
+  .cz-dpanel-body .cz-detail-notes {
     font-size: 13.5px;
   }
   /* Desktop notes never resize the card (Kyle 2026-07-27: "when you expand
      the notes, the whole card expands — that shouldn't be a thing at all").
      The box's animated 73px→185px track is pinned to one height here, the
      text scrolls inside it, and the Expand toggle goes away — expansion has
-     nothing left to do. The phone sheet keeps its grow-on-open behavior. */
-  .cz-dpanel-lognotes .cz-detail-notes-box,
-  .cz-dpanel-lognotes .cz-detail-notes-box.is-open {
+     nothing left to do. The phone sheet keeps its grow-on-open behavior.
+     2026-07-30: the notes writer moved out of the photo column into the
+     bottom of the decision column (Kyle), so these rules ride .cz-dpanel-body
+     instead of the old .cz-dpanel-lognotes slot. */
+  .cz-dpanel-body .cz-detail-notes-box,
+  .cz-dpanel-body .cz-detail-notes-box.is-open {
     grid-template-rows: auto 118px;
   }
-  .cz-dpanel-lognotes .cz-detail-notes-box .cz-detail-notes {
+  .cz-dpanel-body .cz-detail-notes-box .cz-detail-notes {
     min-height: 0;
     max-height: none;
     overflow-y: auto;
   }
-  .cz-dpanel-lognotes .cz-detail-notes-toggle {
+  .cz-dpanel-body .cz-detail-notes-toggle {
     display: none;
   }
   .cz-dpanel-lognotes .cz-timeline-text {
@@ -14200,16 +14254,19 @@ input.cz-sizing-cell.is-custom:focus-visible {
     z-index: 6;
     grid-column: 1 / -1;
     padding: 0 20px 0 16px;
-    border-bottom: 1px solid var(--cz-hair);
+    /* Kyle 2026-07-30: "take out this line — what is this line even doing
+       here?" The hairline under the chip row is gone and the columns below
+       move up into the space it held. */
   }
   .cz-dpanel-bar .cz-cmdbar {
-    /* The slot draws the rule and the bar sits inside it, so the bar drops
-       its own bottom border and its inline top margin. */
+    /* No rule under the bar any more (Kyle 2026-07-30), so the bar keeps its
+       own border off and only trims its bottom padding. */
     flex-wrap: nowrap;
     margin-top: 0;
     /* 11px → 8px: the chips are 34px tall, so the row still clears the hairline
-       above and below, and the photo starts 6px higher (Kyle 2026-07-29). */
-    padding: 8px 0;
+       above and below, and the photo starts 6px higher (Kyle 2026-07-29).
+       Bottom 8px → 2px: the divider line is gone, the columns move up. */
+    padding: 8px 0 2px;
     border-bottom: none;
   }
   /* Spec :56 shadow, Gallery only. Blackout keeps the deeper shadow from the

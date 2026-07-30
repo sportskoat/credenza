@@ -447,11 +447,24 @@ function SizingBlock({
           {cells.map((row) => {
             const picked =
               String(row.size).toUpperCase() === String(heroSize).toUpperCase();
+            // Kyle 2026-07-30: green keeps ONE meaning — the app's pick. A
+            // hand pick that disagrees goes gray (is-pick-manual), and the
+            // recommended cell claims the green: a pulse on open, then a
+            // steady outline with an OUR PICK tag (F's ruling in #design).
+            const isRec =
+              !!recSize &&
+              String(row.size).toUpperCase() === String(recSize).toUpperCase();
+            const recOutlined = isRec && !picked;
             return (
               <button
                 key={row.size}
                 type="button"
-                className={"cz-sizing-cell" + (picked ? " is-pick" : "")}
+                className={
+                  "cz-sizing-cell" +
+                  (picked ? " is-pick" : "") +
+                  (picked && isManual && !isRec ? " is-pick-manual" : "") +
+                  (recOutlined ? " is-rec" : "")
+                }
                 aria-pressed={isManual && picked}
                 onClick={() =>
                   onPick && onPick(isManual && picked ? "" : String(row.size))
@@ -459,6 +472,7 @@ function SizingBlock({
               >
                 <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
                 <span className="cz-sizing-cell-v">{formatMeasure(row[measureKey], units)}</span>
+                {recOutlined ? <span className="cz-sizing-cell-tag">Our pick</span> : null}
               </button>
             );
           })}
@@ -650,11 +664,16 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
   // Copy deck: "All four inside tolerance." — the count is spelled out.
   const COUNT_WORDS = ["", "one", "two", "three", "four", "five", "six", "seven"];
   const word = (n) => COUNT_WORDS[n] || String(n);
+  // A torso estimate (Body length, from height) is labelled twice: a "~" on
+  // the number itself and a plain sentence in the footnote (Kyle 2026-07-30).
+  const estNote = rows.some((r) => r.estimated)
+    ? " Body length is estimated from your height."
+    : "";
   const footnote = reading
     ? "Reading " +
       (readingCount === 1 ? "one photo" : word(readingCount || 0) + " photos") +
       "…"
-    : !hasChart
+    : (!hasChart
     ? "Your measurements, waiting on theirs."
     : scoredCount === 0
       ? "Waiting on your measurements."
@@ -667,7 +686,7 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
           : word(insideCount).replace(/^./, (c) => c.toUpperCase()) +
             " of " +
             word(scoredCount) +
-            " inside tolerance.";
+            " inside tolerance.") + estNote;
   return (
     <div
       className={
@@ -713,7 +732,9 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
             {r.theirs != null ? formatMeasure(r.theirs, units) : "—"}
           </span>
           <span className="cz-fitread-yours">
-            {r.yours != null ? formatMeasure(r.yours, units) : "—"}
+            {r.yours != null
+              ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
+              : "—"}
           </span>
           <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
             {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "—"}
@@ -1519,9 +1540,11 @@ export default function DetailBody({
   // sizes this item with no network call. Optional — callers that do not pass
   // it simply fall back to the network hunt.
   shelfItems = null,
-  // The two-column panel can place Timeline + Notes under its photo without
-  // taking ownership of the notes draft. Undefined keeps them inline for
+  // The two-column panel can place the Timeline under its photo without
+  // taking ownership of the notes draft. Undefined keeps it inline for
   // every existing caller; null suppresses the pre-mount desktop frame.
+  // (Notes no longer ride this slot — Kyle 2026-07-30: the notes writer
+  // lives at the bottom of the decision column.)
   logNotesTarget = undefined,
   // Handoff §3: the desktop panel hands the command bar a full-width slot
   // above both columns. Same contract as logNotesTarget — undefined keeps the
@@ -2066,13 +2089,22 @@ export default function DetailBody({
     );
   };
 
-  const logNotesBlock = (
+  // Kyle 2026-07-30: one block became two. The timeline still portals into
+  // the desktop panel's photo column (logNotesTarget), but the notes writer
+  // stays inline at the END of the decision column — "move the notes sheet
+  // to the bottom of the right side, it's crunched on the left". On the
+  // phone sheet both render right here, in the same order as before.
+  const timelineBlock = (
     <>
       {/* Timeline (§6). Generated from fields the item already carries, so
           it renders only when there is something true to say. Round 4 point
           5 removed the TIMELINE heading — the rows speak for themselves. */}
       {timeline.length ? <Timeline rows={timeline} /> : null}
+    </>
+  );
 
+  const notesBlock = (
+    <>
       {/* Notes (§7). The header moves INSIDE the box, so the box reads as
           one object instead of a label with a field under it.
           §7: "Never a fixed 2-line box, never a truncation with no way
@@ -2556,10 +2588,13 @@ export default function DetailBody({
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
 
         {logNotesTarget === undefined
-          ? logNotesBlock
+          ? timelineBlock
           : logNotesTarget === null
             ? null
-            : createPortal(logNotesBlock, logNotesTarget)}
+            : createPortal(timelineBlock, logNotesTarget)}
+        {/* Notes stay inline even on the desktop panel — the bottom of the
+            right side, above the footer (Kyle 2026-07-30). */}
+        {notesBlock}
 
         {/* QC prompt (§9). It is the LAST block, after the notes, because it
             asks about a moment that has not happened yet. It appears only

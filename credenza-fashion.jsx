@@ -222,8 +222,9 @@ const PALETTES = {
     "--cz-accent-tint": "rgba(20, 122, 58, 0.06)",
     /* Split-rail handoff (2026-07-28): the fit-read tolerance band and the
        pick sheen. Both are --cz-money with alpha; named so Blackout can ride
-       its own green (#4ade80) without a raw rgba in the CSS. */
-    "--cz-fit-band": "rgba(20, 122, 58, 0.20)",
+       its own green (#4ade80) without a raw rgba in the CSS.
+       Kyle 2026-07-30: "more color on the actual chart" — 0.20 → 0.34. */
+    "--cz-fit-band": "rgba(20, 122, 58, 0.34)",
     "--cz-sheen": "rgba(20, 122, 58, 0.16)",
     "--cz-strip-bg": "#EAEAE4",
     "--cz-footer-bg": "#EFEFE9",
@@ -259,7 +260,12 @@ const PALETTES = {
     "--cz-action-text-divider": "rgba(0, 0, 0, 0.18)",
     "--cz-action-muted-bg": "rgba(245, 245, 247, 0.92)",
     "--cz-action-muted-text": "#1a1a1d",
-    "--cz-focus": "#f5f5f7",
+    /* Kyle 2026-07-30 (#design): "take out these white lines that always
+       populate around things, all of them." Every focus ring in the app rides
+       this one token, so Blackout drops it to transparent — no white outline
+       on chips, fields, or popovers any more. Trade-off, accepted by Kyle:
+       keyboard Tab stops no longer draw a visible ring in dark mode. */
+    "--cz-focus": "transparent",
     "--cz-like": "#f40051",
     "--cz-money": "#4ade80",
     "--cz-money-bg": "rgba(74, 222, 128, 0.12)",
@@ -298,8 +304,8 @@ const PALETTES = {
     "--cz-warn-ink": "#e8bf63",
     "--cz-accent-tint": "rgba(74, 222, 128, 0.10)",
     /* Split-rail handoff (2026-07-28): Blackout rides its own money green.
-       The band lightens a step (0.18) so it does not glow on true black. */
-    "--cz-fit-band": "rgba(74, 222, 128, 0.18)",
+       Kyle 2026-07-30: "more color on the actual chart" — 0.18 → 0.38. */
+    "--cz-fit-band": "rgba(74, 222, 128, 0.38)",
     "--cz-sheen": "rgba(74, 222, 128, 0.16)",
     "--cz-strip-bg": "#151517",
     "--cz-footer-bg": "#0c0c0e",
@@ -1140,7 +1146,18 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     // leg segment, so bottoms Length never claims a "yours" or an ease.
     const bodyKey = key === "pantsLength" ? null : key === "length" && isBottoms ? null : key;
     const rawYours = bodyKey != null && p[bodyKey] != null ? Number(p[bodyKey]) : null;
-    const yours = rawYours != null && isFinite(rawYours) ? rawYours : null;
+    let yours = rawYours != null && isFinite(rawYours) ? rawYours : null;
+    // Torso estimate (Kyle approved, #design 2026-07-30): nobody tapes their
+    // torso, so the Body length row estimates it from height — shoulder-to-
+    // hip runs about 30% of height. Flagged so the table can label it.
+    let estimated = false;
+    if (yours == null && key === "length" && !isBottoms) {
+      const h = Number(p.height);
+      if (isFinite(h) && h >= 120 && h <= 230) {
+        yours = Math.round(0.3 * h * 2) / 2;
+        estimated = true;
+      }
+    }
     if (theirs == null && yours == null) continue;
     const infoOnly = shortSleeve && key === "sleeve";
     // Oom 2026-07-29: a ragged chart can give the picked size no sleeve
@@ -1164,6 +1181,7 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       // Option B (Kyle 2026-07-29): a short sleeve shows only the garment
       // number. The arm length measures a different thing, so YOURS hides.
       yours: infoOnly ? null : yours,
+      estimated,
       ease,
       mark,
       warn,

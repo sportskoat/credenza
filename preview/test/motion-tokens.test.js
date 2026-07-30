@@ -61,6 +61,9 @@ const ALLOWED_LITERAL_DURATIONS = new Set([
   "18s",
   // Fit-hunt pulse loop.
   "1400ms",
+  // OUR PICK cell pulse ×3 on panel open (Kyle 2026-07-30) — discrete
+  // entrance, between the 500ms hero and the 1.1s ambient loops.
+  "0.9s",
   // Protected view-transition morph text fade (P2).
   "60ms",
 ]);

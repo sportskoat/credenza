@@ -250,7 +250,15 @@ describe("FitReadTable in the detail body", () => {
     expect(table.querySelectorAll(".cz-fitread-band").length).toBe(3);
     expect(table.querySelectorAll(".cz-fitread-mark").length).toBe(2);
     expect(table.querySelectorAll(".cz-fitread-mark.is-warn").length).toBe(0);
-    expect(scoped.getByText("All two inside tolerance.")).toBeInTheDocument();
+    // Torso estimate (Kyle 2026-07-30): the profile has no torso number, so
+    // the Body length row estimates from the 180cm height — "~" on the
+    // number and a plain sentence in the footnote.
+    expect(scoped.getByText("~54cm")).toBeInTheDocument();
+    expect(
+      scoped.getByText(
+        "All two inside tolerance. Body length is estimated from your height."
+      )
+    ).toBeInTheDocument();
   });
 
   it("routes Edit my measurements to the profile sizes opener", async () => {
@@ -301,7 +309,11 @@ describe("FitReadTable in the detail body", () => {
     expect(table.querySelectorAll(".cz-fitread-band").length).toBe(0);
     expect(table.querySelectorAll(".cz-fitread-mark").length).toBe(0);
     expect(scoped.getAllByText("—").length).toBeGreaterThan(0);
-    expect(scoped.getByText("Your measurements, waiting on theirs.")).toBeInTheDocument();
+    expect(
+      scoped.getByText(
+        "Your measurements, waiting on theirs. Body length is estimated from your height."
+      )
+    ).toBeInTheDocument();
     expect(
       scoped.getByRole("button", { name: "Edit my measurements" })
     ).toBeInTheDocument();

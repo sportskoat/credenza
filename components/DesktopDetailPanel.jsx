@@ -598,8 +598,9 @@ export default function DesktopDetailPanel({
               <span className="cz-dpanel-meta-kicker">ALBUM</span>
             </button>
           </div>
-          {/* Wide screens use the spare photo-column depth for the shared
-              Timeline + Notes tree; DetailBody still owns its draft writer. */}
+          {/* Wide screens use the spare photo-column depth for the Timeline;
+              DetailBody still owns its writer. The notes writer stays at the
+              bottom of the decision column (Kyle 2026-07-30). */}
           {isWide ? <div className="cz-dpanel-lognotes" ref={setLogNotesEl} /> : null}
         </div>
 
