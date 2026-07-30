@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Estimate haul weight before you submit a parcel · Credenza</title>
     <meta name="description" content="Estimate an agent parcel weight before you submit it. Where the number comes from, what it leaves out, and why the warehouse scale still wins." />

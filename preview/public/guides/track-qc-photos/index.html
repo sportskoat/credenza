@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Keep QC photos with each item in an agent haul · Credenza</title>
     <meta name="description" content="Keep agent QC photos beside the listing, price, seller, and size on one item card." />
