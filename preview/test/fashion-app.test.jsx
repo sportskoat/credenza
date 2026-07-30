@@ -2339,19 +2339,19 @@ describe("Inline preference controls (CH-14)", () => {
     expect(screen.getAllByText("¥229").length).toBeGreaterThan(1);
   });
 
-  // The chip used to ride the tabs row on a phone, then the docked bottom
-  // bar. The mobile shelf redesign (2026-07-30, spec 5.6) floats it inside
-  // the summary pill, beside the money it changes. There must be exactly ONE
-  // on a phone: two chips can disagree.
-  it("the phone summary pill carries the same chip, and only one", async () => {
+  // The chip used to ride the phone summary pill. Kyle 2026-07-30: "Drop the
+  // USD tag just use a '$'" — the pill's money carries the currency mark and
+  // the switch lives in settings. A phone shows no currency chip at all.
+  it("the phone summary pill carries no chip — the money shows the mark", async () => {
     window.__setMediaMatches("(max-width: 767px)", true);
     try {
       installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
       render(<Credenza />);
       await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ });
-      const chip = await screen.findByRole("button", { name: "Show prices in CNY" });
-      expect(chip.closest(".cz-shelf-summary")).not.toBeNull();
-      expect(screen.getAllByRole("button", { name: "Show prices in CNY" })).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: /^Show prices in / })).toBeNull();
+      const pill = document.querySelector(".cz-shelf-summary");
+      expect(pill).not.toBeNull();
+      expect(pill).toHaveTextContent("$32.06");
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);
     }

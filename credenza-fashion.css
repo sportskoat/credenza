@@ -10074,9 +10074,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    (CH-03, 2026-07-28) is gone. A 150px fade (--cz-scrim) paints over the tail
    of the grid, BEHIND both controls — over the near-white Stash button the
    fade would read grey, so the controls sit at z-index 2. The pair floats
-   12px above the safe area: a summary pill (count · weight · total, with the
-   CH-14 currency chip kept beside the money — still exactly one chip on a
-   phone) and a full-width Stash button. The shell reserves 160px of bottom
+   12px above the safe area: a summary pill (count · weight · total — the
+   CH-14 currency chip left the pill on Kyle's 2026-07-30 call: the money
+   carries its own mark, the switch lives in settings) and a full-width
+   Stash button. The shell reserves 160px of bottom
    padding (see the phone column rule below) so the last card row scrolls
    clear of the pair. Desktop never shows either node.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -10114,8 +10115,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* Summary pill: 30px, mono, upper-case. The money leads in --cz-money; the
-   CH-14 currency chip rides inside it, unchanged from the dock. */
+/* Summary pill: 30px, mono, upper-case. The money leads in --cz-money and
+   carries the currency mark itself (Kyle 2026-07-30: no USD tag on a phone). */
 .cz-shelf-summary {
   display: inline-flex;
   align-items: center;
@@ -10142,20 +10143,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-money);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-
-/* The chip's visual is 16px tall inside a 30px pill, but every control owes
-   a 44px tap target (spec §13.11). A transparent ::after widens the hit area
-   without growing the pill — clicks on a pseudo-element land on the button. */
-@media (pointer: coarse) {
-  .cz-shelf-summary .cz-total-currency {
-    position: relative;
-  }
-  .cz-shelf-summary .cz-total-currency::after {
-    content: "";
-    position: absolute;
-    inset: -14px -8px;
-  }
 }
 
 /* Stash button: full width, 50px, near-white action fill, real lift shadow. */

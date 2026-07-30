@@ -9568,8 +9568,10 @@ function CredenzaApp() {
                       currency={pricePrimary}
                     />
                   </span>
-                  {/* CH-14: same chip as the phone tabs row — one currency
-                      pref, two entrances. The reel follows the chip. */}
+                  {/* CH-14: the currency pref's inline entrance. The phone
+                      pill lost its copy on Kyle's 2026-07-30 call — there the
+                      money carries the mark and the switch lives in settings.
+                      The reel follows the chip. */}
                   <button
                     type="button"
                     className="cz-total-currency"
@@ -9794,8 +9796,9 @@ function CredenzaApp() {
           full-width Stash button. The capture sheet already surfaces a
           clipboard link, so one button covers both capture paths; the agent
           choice lives in the item sheet footer (spec 6.6). The CH-14 currency
-          chip survives inside the pill — exactly one chip on a phone, beside
-          the money it changes. The isPhone gate keeps both nodes out of the
+          chip is OUT of the pill (Kyle 2026-07-30: "Drop the USD tag just use
+          a '$'") — the money carries its own currency mark and the switch
+          lives in settings. The isPhone gate keeps both nodes out of the
           desktop DOM (the ≥768px CSS hide is the second wall); desktop keeps
           its own total row and capture in the chrome.
           Hidden on the first-run intro (CO-04) and on the brand-new empty
@@ -9812,21 +9815,9 @@ function CredenzaApp() {
               {/* CO-10: a zero-result search must not show a green $0.00 —
                   it read as a real balance. */}
               {!(q && visible.length === 0) && (
-                <>
-                  <span className="cz-shelf-summary-money" aria-live="polite">
-                    {formatMoney(pricePrimary === "CNY" ? listTotalCny : listTotalUsd, pricePrimary)}
-                  </span>
-                  <button
-                    type="button"
-                    className="cz-total-currency"
-                    aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                    title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                    onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
-                  >
-                    {pricePrimary}
-                    <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
-                  </button>
-                </>
+                <span className="cz-shelf-summary-money" aria-live="polite">
+                  {formatMoney(pricePrimary === "CNY" ? listTotalCny : listTotalUsd, pricePrimary)}
+                </span>
               )}
             </span>
           )}
