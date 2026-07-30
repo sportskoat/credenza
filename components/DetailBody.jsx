@@ -592,7 +592,7 @@ function SizingBlockNoChart({
 
       <p className="cz-sizing-nochart-body">
         {needsClear
-          ? "This saved chart came from another item. Clear it before reading this item's photos."
+          ? "This saved chart came from another item. It is hidden. Clear it before reading this item's photos."
           : "The listing had no measurements. Upload the seller chart to read its measurements."}
       </p>
 
@@ -1796,10 +1796,10 @@ export default function DetailBody({
   const clearBlockedChart = () => {
     chartHuntTried.delete(item.id);
     onSaveEdit(item.id, {
-      sizeNotes: "",
       sizeChartText: "",
       sizeChartSource: null,
       sizeChartNeedsClear: false,
+      sizeChartIgnoreNotes: true,
     });
   };
   // CH-14: the toggle's label follows the same value the sentence length does.

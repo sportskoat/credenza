@@ -72,6 +72,18 @@ describe("sizeChartTextFor", () => {
     ).toBe("");
   });
 
+  it("preserves ignored customer notes without parsing them as a chart", () => {
+    expect(
+      sizeChartTextFor({
+        sizeChartIgnoreNotes: true,
+        sizeNotes: "Runs small.\nM: chest 999",
+        summary: "A shirt",
+        rawText: "Mook listing",
+        note: "Keep this note",
+      })
+    ).toBe("A shirt\nMook listing\nKeep this note");
+  });
+
   it("tolerates missing fields", () => {
     expect(sizeChartTextFor({})).toBe("");
     expect(sizeChartTextFor({ note: "x" })).toBe("x");

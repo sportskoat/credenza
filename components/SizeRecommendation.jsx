@@ -5,8 +5,6 @@ import {
   FIT_SUMMARY_ON,
   SIZE_PICK_SKIP_CATEGORIES,
   effectiveBodyProfile,
-  fetchChartFromPhotos,
-  fetchYupooImages,
   fitPrefHasChoice,
   fitPrefLabel,
   fitSummarySentence,
@@ -17,13 +15,8 @@ import {
   parseSizeChart,
   recommendSize,
   sizeChartTextFor,
-  yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 import SizeChartTable from "./SizeChartTable.jsx";
-
-// Session-scoped guard: the silent chart hunt runs at most once per item per
-// session (one album-text attempt + one vision scan of the album photos).
-const chartAutoFetchTried = new Set();
 
 // Measure fields the progressive fit ask needs for this category (design 4f).
 // Tops → chest. Bottoms → waist + inseam. Shoes → foot length. Fallback →
@@ -144,51 +137,6 @@ export default function SizeRecommendation({
       onSaveEdit(item.id, { recommendedSize: recSize });
     }
   }, [recSize, recIsEstimated, item.id, item.recommendedSize, onSaveEdit]);
-
-  // Silent chart hunt: Yupoo album text first, then a vision scan of photos
-  // (Yupoo album images, or Weidian geilicdn/alicdn gallery after resolve).
-  // Found charts land in sizeNotes and the pick simply appears.
-  useEffect(() => {
-    if (!sizeActive || skipped || chart) return;
-    if (chartAutoFetchTried.has(item.id)) return;
-    const album = yupooAlbumUrl(item);
-    const localPhotos = [item.image, ...(item.gallery || [])].filter(
-      (src) => typeof src === "string" && /^https?:\/\//i.test(src)
-    );
-    // Need either a Yupoo album or remote gallery photos (Weidian after resolve).
-    if (!album && !localPhotos.length) return;
-    chartAutoFetchTried.add(item.id);
-    let cancelled = false;
-    (async () => {
-      if (album) {
-        const data = await fetchYupooImages(album);
-        if (cancelled) return;
-        const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
-        if (text.trim() && parseSizeChart(text)) {
-          onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text.trim() });
-          return;
-        }
-        const albumPhotos = (data && data.images) || [];
-        if (albumPhotos.length) {
-          const chartText = await fetchChartFromPhotos(albumPhotos.slice(-10), { referer: album });
-          if (!cancelled && chartText && parseSizeChart(chartText)) {
-            onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText });
-            return;
-          }
-        }
-      }
-      // Weidian / Taobao path: resolve already filled gallery with CDN URLs.
-      if (localPhotos.length) {
-        const chartText = await fetchChartFromPhotos(localPhotos.slice(-10), {
-          referer: item.url || undefined,
-        });
-        if (!cancelled && chartText && parseSizeChart(chartText)) {
-          onSaveEdit(item.id, { sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + chartText });
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [sizeActive, skipped, chart, item, onSaveEdit]);
 
   // Prefill measure ask from the saved body profile when the sheet opens.
   useEffect(() => {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   cleanLegacySellerCharts,
+  restoreChartNotesOnEdit,
   sizeChartTextFor,
 } from "../../credenza-fashion.jsx";
 
@@ -48,6 +49,19 @@ afterEach(() => {
 });
 
 describe("legacy borrowed chart cleanup", () => {
+  it("lets a new customer size note become chart input again", () => {
+    expect(
+      restoreChartNotesOnEdit({
+        sizeNotes: "M: chest 116",
+        sizeChartIgnoreNotes: true,
+      })
+    ).toEqual({
+      sizeNotes: "M: chest 116",
+      sizeChartIgnoreNotes: false,
+    });
+    expect(restoreChartNotesOnEdit({ note: "Runs small." })).toEqual({ note: "Runs small." });
+  });
+
   it("removes only an exact sibling chart block", () => {
     const donor = item("donor", {
       sizeNotes: CHART_TEXT,
@@ -188,20 +202,33 @@ describe("item-only chart reads", () => {
   it("does not call the reader while a legacy chart awaits clearing", async () => {
     huntMock.mockResolvedValue(null);
     const target = item("blocked-read", {
-      sizeNotes: CHART_TEXT,
+      sizeNotes: "Runs small.\n" + CHART_TEXT,
       sizeChartNeedsClear: true,
     });
     const { onSaveEdit } = renderBody(target);
 
+    expect(
+      screen.getByText(
+        "This saved chart came from another item. It is hidden. Clear it before reading this item's photos."
+      )
+    ).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Clear this chart" })).toBeInTheDocument();
     expect(huntMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Clear this chart" }));
     expect(onSaveEdit).toHaveBeenCalledWith("blocked-read", {
-      sizeNotes: "",
       sizeChartText: "",
       sizeChartSource: null,
       sizeChartNeedsClear: false,
+      sizeChartIgnoreNotes: true,
     });
+    expect(target.sizeNotes).toBe("Runs small.\n" + CHART_TEXT);
+    expect(
+      sizeChartTextFor({
+        ...target,
+        sizeChartNeedsClear: false,
+        sizeChartIgnoreNotes: true,
+      })
+    ).toBe("");
   });
 
   it("does not read again when the item already stores a chart", () => {

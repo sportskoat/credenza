@@ -97,6 +97,7 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
       ...base,
       sizeChartText: "M: chest 116\nL: chest 120",
       sizeChartNeedsClear: true,
+      sizeChartIgnoreNotes: true,
       sizeChartSource: {
         via: "customer-photo",
         photos: 1,
@@ -106,8 +107,10 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
     });
     expect(migrated.sizeChartText).toBe("M: chest 116\nL: chest 120");
     expect(migrated.sizeChartNeedsClear).toBe(true);
+    expect(migrated.sizeChartIgnoreNotes).toBe(true);
     expect(migrated.sizeChartSource.seller).toBe("chromeheartsrep");
     expect(migrated.sizeChartSource.via).toBe("customer-photo");
+    expect(migrateItem(base).sizeChartIgnoreNotes).toBe(false);
     // A non-string seller is not a seller.
     expect(
       migrateItem({ ...base, sizeChartSource: { via: "customer-photo", seller: 42 } }).sizeChartSource

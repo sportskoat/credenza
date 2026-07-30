@@ -2477,6 +2477,7 @@ function createItem(parsed, rawText, extra) {
     sizeChartText: "",
     sizeChartSource: null,
     sizeChartNeedsClear: false,
+    sizeChartIgnoreNotes: false,
     seller: "",
     batch: "",
     size: "",
@@ -2620,6 +2621,9 @@ export function migrateItem(old) {
     // A legacy borrowed chart with no exact sibling match stays hidden until
     // the customer clears it. This marker survives reloads.
     sizeChartNeedsClear: old.sizeChartNeedsClear === true,
+    // Clearing an unmatched borrowed chart must preserve the customer's words.
+    // Ignore sizeNotes for chart parsing until the customer changes that field.
+    sizeChartIgnoreNotes: old.sizeChartIgnoreNotes === true,
     // Where the size chart came from (handoff turn 3 §5 provenance footer):
     // { via: "album-text"|"album-photos"|"desc-photos"|"gallery-photos"|
     //        "customer-photo",
@@ -3259,6 +3263,8 @@ function stripExactAppendedChart(sizeNotes, borrowedText) {
 
 export function cleanLegacySellerCharts(items) {
   const list = Array.isArray(items) ? items : [];
+  // This one-time legacy repair scans siblings for each imported item.
+  // Shelf limits keep the quadratic scan small; correctness needs the exact match.
   return list.map((item) => {
     if (!item || !item.sizeChartSource || item.sizeChartSource.via !== "seller-cache") return item;
     const seller = String(item.sizeChartSource.seller || item.seller || "").trim().toLowerCase();
@@ -4265,10 +4271,32 @@ export function carouselLayerZ(cardCount, index, foreground) {
 // A machine-read chart owns its field and wins over free text. A customer can
 // still paste a chart into sizeNotes or note when the machine field is empty.
 // A blocked legacy borrowed chart returns nothing until the customer clears it.
+// Clearing can preserve sizeNotes while excluding that field from chart parsing.
 export function sizeChartTextFor(item) {
   if (!item || item.sizeChartNeedsClear) return "";
   if (item.sizeChartText) return item.sizeChartText;
-  return [item.sizeNotes, item.summary, item.rawText, item.note].filter(Boolean).join("\n");
+  return [
+    item.sizeChartIgnoreNotes ? "" : item.sizeNotes,
+    item.summary,
+    item.rawText,
+    item.note,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// A customer-provided sizeNotes value is new evidence. Let the chart parser
+// read it again after a blocked legacy chart made the old field untrusted.
+export function restoreChartNotesOnEdit(patch) {
+  if (
+    patch &&
+    typeof patch === "object" &&
+    Object.prototype.hasOwnProperty.call(patch, "sizeNotes") &&
+    typeof patch.sizeNotes === "string"
+  ) {
+    return { ...patch, sizeChartIgnoreNotes: false };
+  }
+  return patch;
 }
 
 // Body measurements — the input half of the size pick. Lives in prefs, edited
@@ -5794,6 +5822,7 @@ function CredenzaApp() {
     return true;
   };
   const saveEdit = (id, patch) => {
+    patch = restoreChartNotesOnEdit(patch);
     if (patch && typeof patch === "object" && typeof patch.project === "string") {
       // Refuse the haul, keep the rest of the edit. A user renaming a card and
       // picking a third haul in one save should still get the rename.
