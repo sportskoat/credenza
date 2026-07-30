@@ -254,33 +254,41 @@ describe("the shoulder is a score, not a veto", () => {
 });
 
 describe("shorts leg length", () => {
-  // Kyle 2026-07-30: "I know I love the seven inch inseam." 7in = 17.8cm.
+  // Kyle 2026-07-30: "the values should be the values of the seller charts."
+  // The saved Shorts length is now waistband to hem, the same as the chart's
+  // 裤长, so the line compares two numbers of the same kind.
   const chart = chartOf("M: waist 78, hip 100, pants length 44\nL: waist 82, hip 104, pants length 48");
 
-  it("estimates the inside leg and says that it is an estimate", () => {
-    const profile = { waist: 80, shortsInseam: 17.8 };
+  it("compares waist-to-hem against waist-to-hem, with no estimate", () => {
+    const profile = { waist: 80, shortsLength: 46 };
     const rec = recommendSize(chart, profile, "shorts");
     const note = shortsLengthNote(rec, profile, "shorts", { units: "cm" });
-    expect(note).toContain("inside leg");
+    expect(note).toContain("waist to hem");
     expect(note).toContain("You like");
-    expect(note, "the app hid that the number is an estimate").toContain("estimate");
+    expect(note, "an estimate crept back in").not.toMatch(/estimate|about|inside leg|~/i);
   });
 
-  it("never warns, because the two numbers are not the same measurement", () => {
-    // A seller's 裤长 is the OUTSIDE leg, rise included. Kyle's 7in is the
-    // inside leg. Converting one to the other carries about 2cm of error, and
-    // a warning built on that would fire on shorts that are right.
-    const profile = { waist: 80, shortsInseam: 17.8 };
+  it("names the length the customer asked for when the size matches", () => {
+    const profile = { waist: 80, shortsLength: 47 };
+    const rec = recommendSize(chart, profile, "shorts");
+    // The pick is the L at 48cm — 1cm from the 47cm asked for.
+    expect(shortsLengthNote(rec, profile, "shorts", { units: "cm" })).toContain(
+      "the length you want"
+    );
+  });
+
+  it("names the gap when the size runs longer or shorter", () => {
+    const profile = { waist: 80, shortsLength: 38 };
     const rec = recommendSize(chart, profile, "shorts");
     const note = shortsLengthNote(rec, profile, "shorts", { units: "cm" });
-    expect(note).not.toMatch(/too long|too short|warning|does not fit/i);
+    expect(note).toMatch(/longer than you like/);
   });
 
   it("says nothing without the saved number, and nothing on other garments", () => {
     const profile = { waist: 80 };
     const rec = recommendSize(chart, profile, "shorts");
     expect(shortsLengthNote(rec, profile, "shorts", { units: "cm" })).toBe("");
-    const withPref = { waist: 80, shortsInseam: 17.8 };
+    const withPref = { waist: 80, shortsLength: 46 };
     expect(shortsLengthNote(rec, withPref, "pants", { units: "cm" })).toBe("");
   });
 });

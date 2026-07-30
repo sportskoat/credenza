@@ -935,6 +935,8 @@ const MEASURE_WORDS = {
   shoulder: "shoulders",
   sleeve: "sleeve",
   inseam: "inseam",
+  pantsLength: "length",
+  shortsLength: "length",
   thigh: "thigh",
   height: "height",
   weight: "weight",
@@ -1473,7 +1475,7 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
     (item.category === "pants" || item.category === "shorts" ? "waist" : "chest");
   const sharpenLabel =
     item.category === "pants" || item.category === "shorts"
-      ? "Add waist & inseam"
+      ? "Add waist & length"
       : item.category === "shirt" || item.category === "outerwear"
         ? "Add chest"
         : "Add chest & waist";
@@ -2503,9 +2505,9 @@ export default function DetailBody({
             {garmentReasonLine(verdict.rec) ? (
               <p className="cz-sizing-garment">{garmentReasonLine(verdict.rec)}</p>
             ) : null}
-            {/* Shorts only, and only when a shorts length is saved. Never a
-                warning: a seller's 裤长 is the outside leg and an inseam is
-                not, so the number is an estimate and says so. */}
+            {/* Shorts only, and only when a shorts length is saved. Both
+                numbers are waistband to hem — the seller's own measurement —
+                so the line states the difference instead of estimating one. */}
             {shortsLengthNote(verdict.rec, bodyProfile, item.category, { units: measureUnits }) ? (
               <p className="cz-sizing-garment">
                 {shortsLengthNote(verdict.rec, bodyProfile, item.category, { units: measureUnits })}

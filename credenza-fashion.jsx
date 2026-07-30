@@ -658,25 +658,37 @@ const CM_NUMBER_SRC = "\\d{2,3}(?:\\.\\d{1,2})?";
 // "pants length" beats "length". cm values are realistically 20–250.
 // 半胸 / 1/2 chest first so pit-to-pit labels win over bare 胸围 in the same
 // segment; normalizeHalfChestRows still doubles when the column looks half.
+//
+// The half forms of WAIST and HIP are listed too (Kyle 2026-07-30: "half-chest
+// and half-waist: can't those be easily calculated?"). Shorts charts print
+// "1/2Waist 38" constantly. Without the half form in this list the label only
+// matched "Waist", so nothing knew the column was half a circumference, and a
+// 76cm waist was read as 38cm — a size twice as tight as the seller's.
 const MEASURE_PAIR_RE = new RegExp(
-  "(半胸|1\\/2\\s*胸|½\\s*胸|1\\/2\\s*chest|half[\\s-]*chest|pit[\\s-]*to[\\s-]*pit|胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\\s*length|trouser\\s*length|衣长|衣長|length)\\s*[:：]?\\s*(" +
+  "(半胸|1\\/2\\s*胸|½\\s*胸|1\\/2\\s*chest|half[\\s-]*chest|pit[\\s-]*to[\\s-]*pit|半腰|1\\/2\\s*腰|½\\s*腰|1\\/2\\s*waist|half[\\s-]*waist|半臀|1\\/2\\s*臀|½\\s*臀|1\\/2\\s*hip|half[\\s-]*hip|胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\\s*length|trouser\\s*length|衣长|衣長|length)\\s*[:：]?\\s*(" +
     CM_NUMBER_SRC +
     ")",
   "gi"
 );
+// A label that names half a circumference: flat measure, pit to pit, 半, 1/2.
+const HALF_LABEL_RE = /半|1\/2|½|half|pit[\s-]*to[\s-]*pit/i;
 // The bare-number scan for the positional table strategies. It must read the
 // decimals too: "104.25" split into "104" and "25" put a stray 25 into the NEXT
 // column, so one decimal value corrupted every measurement after it.
 const CM_NUMBER_RE = new RegExp(CM_NUMBER_SRC, "g");
 
+// The named measurement wins over the "half" word. "1/2Waist" is a waist, and
+// the old order made it a chest (Kyle 2026-07-30). Only a label that names no
+// measurement at all falls back to chest on the half word, which is where a
+// bare "half 52" or "pit to pit 52" belongs.
 function measureKeyForLabel(label) {
   const l = label.toLowerCase();
-  if (/半胸|1\/2|½|half|pit|胸|chest|bust/.test(l)) return "chest";
   if (/肩|shoulder/.test(l)) return "shoulder";
   if (/袖|sleeve/.test(l)) return "sleeve";
   if (/腰|waist/.test(l)) return "waist";
   if (/臀|hip/.test(l)) return "hip";
   if (/裤|褲|pants|trouser/.test(l)) return "pantsLength";
+  if (/胸|chest|bust|pit|1\/2|½|half/.test(l)) return "chest";
   return "length";
 }
 
@@ -687,7 +699,9 @@ function sizeRunHint(text) {
   return null;
 }
 
-function chartHeaderLabels(line) {
+// `halfKeys`, when given, collects every measurement this header names as half
+// a circumference, so parseSizeChart can double those columns.
+function chartHeaderLabels(line, halfKeys = null) {
   const labels = [];
   // Header detection uses bare labels (no numbers required after them).
   const labelOnly = new RegExp(
@@ -695,7 +709,11 @@ function chartHeaderLabels(line) {
     "gi"
   );
   let lm;
-  while ((lm = labelOnly.exec(line))) labels.push(measureKeyForLabel(lm[1]));
+  while ((lm = labelOnly.exec(line))) {
+    const key = measureKeyForLabel(lm[1]);
+    if (halfKeys && HALF_LABEL_RE.test(lm[1])) halfKeys.add(key);
+    labels.push(key);
+  }
   // Dedup while keeping order — "臀围 /hip circumference" can match twice.
   const seen = new Set();
   return labels.filter((k) => (seen.has(k) ? false : (seen.add(k), true)));
@@ -709,10 +727,18 @@ export function parseSizeChart(text) {
   // label+number pairs out of each token's segment.
   const rows = [];
   const seen = new Set();
-  const mentions = [];
+  const halfKeys = new Set();
+  const allMentions = [];
   SIZE_MENTION_RE.lastIndex = 0;
   let m;
-  while ((m = SIZE_MENTION_RE.exec(src))) mentions.push({ size: m[1], end: m.index + m[0].length, start: m.index });
+  while ((m = SIZE_MENTION_RE.exec(src))) allMentions.push({ size: m[1], end: m.index + m[0].length, start: m.index });
+  // A numeric size token (26–40) also matches a measurement VALUE, and on a
+  // shorts chart it did: "1/2Waist 38" made 38 the size name and swallowed the
+  // waist column with it (Kyle 2026-07-30 — the app then read three sizes
+  // called 36, 38 and 40 with no waist at all). When the chart already names
+  // two or more letter sizes, the numbers are measurements, not size names.
+  const letterMentions = allMentions.filter((x) => !/^\d+$/.test(x.size));
+  const mentions = letterMentions.length >= 2 ? letterMentions : allMentions;
   for (let i = 0; i < mentions.length; i++) {
     const seg = src.slice(mentions[i].end, i + 1 < mentions.length ? mentions[i + 1].start : undefined);
     const row = { size: mentions[i].size.toUpperCase() };
@@ -721,7 +747,10 @@ export function parseSizeChart(text) {
     while ((p = MEASURE_PAIR_RE.exec(seg))) {
       const key = measureKeyForLabel(p[1]);
       const value = parseFloat(p[2]);
-      if (row[key] == null && value >= 20 && value <= 250) row[key] = value;
+      if (row[key] == null && value >= 20 && value <= 250) {
+        row[key] = value;
+        if (HALF_LABEL_RE.test(p[1])) halfKeys.add(key);
+      }
     }
     const measures = Object.keys(row).length - 1;
     if (measures >= 1 && !seen.has(row.size)) {
@@ -736,7 +765,7 @@ export function parseSizeChart(text) {
   if (rows.length < 2) {
     const lines = src.split(/\n+/).map((l) => l.trim()).filter(Boolean);
     for (let h = 0; h < lines.length; h++) {
-      const labels = chartHeaderLabels(lines[h]);
+      const labels = chartHeaderLabels(lines[h], halfKeys);
       if (labels.length < 1) continue;
       const tableRows = [];
       for (let r = h + 1; r < lines.length; r++) {
@@ -782,7 +811,7 @@ export function parseSizeChart(text) {
     const lines = src.split(/\n+/).map((l) => l.trim()).filter(Boolean);
     let pendingKey = null;
     for (let i = 0; i < lines.length; i++) {
-      const labels = chartHeaderLabels(lines[i]);
+      const labels = chartHeaderLabels(lines[i], halfKeys);
       if (labels.length === 1) pendingKey = labels[0];
       if (labels.length > 1) pendingKey = labels[0]; // prefer first measure
       if (!pendingKey) continue;
@@ -792,7 +821,7 @@ export function parseSizeChart(text) {
         if (!tm) {
           if (tableRows.length) break;
           // Maybe this line is another header — update pending key.
-          const more = chartHeaderLabels(lines[r]);
+          const more = chartHeaderLabels(lines[r], halfKeys);
           if (more.length) pendingKey = more[0];
           continue;
         }
@@ -820,8 +849,27 @@ export function parseSizeChart(text) {
   // Chinese tee charts often print 半胸 / pit-to-pit (half chest). Body profile
   // and ease math need full circumference. Double when every chest column is
   // in the half-chest band, or the source text says half/flat measure.
-  const rowsNorm = normalizeHalfChestRows(rows, src);
+  const rowsNorm = normalizeHalfBottomRows(normalizeHalfChestRows(rows, src), halfKeys);
   return { rows: rowsNorm, runHint: sizeRunHint(src) };
+}
+
+// Half waist / half hip → full circumference. Unlike the chest, these double
+// ONLY when the seller's own label says half ("1/2Waist", 半臀). No size-band
+// guess is allowed here: a numeric waist run of 36/38/40 is a real waist in
+// inches on some charts, so a heuristic would wreck the charts it guessed
+// wrong. The label is the evidence; without the label the number stands.
+export function normalizeHalfBottomRows(rows, halfKeys) {
+  if (!Array.isArray(rows) || !halfKeys || !halfKeys.size) return rows;
+  const keys = ["waist", "hip"].filter((k) => halfKeys.has(k));
+  if (!keys.length) return rows;
+  return rows.map((r) => {
+    if (!r) return r;
+    const out = { ...r };
+    for (const k of keys) {
+      if (out[k] != null && isFinite(out[k])) out[k] = Math.round(out[k] * 2);
+    }
+    return out;
+  });
 }
 
 // Half-chest (pit-to-pit) → full circumference. Adult full chest is almost
@@ -1308,11 +1356,13 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const garment = best[primaryKey];
   const body = p[bodyKey];
   const diff = garment - body;
-  // Secondary leg-length check on bottoms. Seller 裤长 is OUTSEAM (inseam +
-  // rise), so it never feeds the pick math — surfaced as info only.
+  // Secondary leg-length check on bottoms. Both numbers are now the seller's
+  // own measurement — waistband to hem (裤长) — so this is a like-for-like
+  // comparison. It still never feeds the pick math: the waist decides the size.
+  const bodyLegKey = category === "shorts" ? "shortsLength" : "pantsLength";
   const lengthCheck =
-    !isTop && best.pantsLength != null && p.inseam != null
-      ? { garment: best.pantsLength, body: p.inseam }
+    !isTop && best.pantsLength != null && p[bodyLegKey] != null
+      ? { garment: best.pantsLength, body: Number(p[bodyLegKey]) }
       : null;
   const label = primaryKey === "waist" ? "Waist" : primaryKey === "hip" ? "Hip" : "Chest";
   const reason =
@@ -1397,6 +1447,10 @@ const FIT_READ_EASE = {
   sleeve: { ideal: 1, span: 4 },
   waist: { ideal: 2, span: 3 },
   hip: { ideal: 2, span: 4 },
+  // Trouser / shorts length. Ideal 0: the length the customer saves IS the
+  // length they want, and both numbers are waistband to hem. 3cm each way
+  // still wears as the length asked for.
+  pantsLength: { ideal: 0, span: 3 },
   // Ideal 0: the Shirt length a customer saves IS where the hem should sit, so
   // a garment that matches it needs no ease at all. 3cm each way still reads
   // as the length asked for; past that it wears cropped or long.
@@ -1431,15 +1485,30 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   for (const key of order) {
     if (isBottoms && key === "length" && picked && picked.pantsLength != null) continue;
     const theirs = picked && picked[key] != null ? picked[key] : null;
-    // 裤长 is OUTSEAM; the closest body field (inseam) measures a different
-    // leg segment, so bottoms Length never claims a "yours" or an ease.
-    const bodyKey = key === "pantsLength" ? null : key === "length" && isBottoms ? null : key;
+    // The bottoms Length row compares 裤长 against the customer's own saved
+    // waistband-to-hem length (Kyle 2026-07-30: "the values should be the
+    // values of the seller charts"). Shorts and trousers keep separate saved
+    // lengths, because nobody wants both the same. A bottoms "Body length"
+    // row still claims nothing — only 裤长 has a match.
+    const bodyKey =
+      key === "pantsLength"
+        ? category === "shorts"
+          ? "shortsLength"
+          : "pantsLength"
+        : key === "length" && isBottoms
+          ? null
+          : key;
     const rawYours = bodyKey != null && p[bodyKey] != null ? Number(p[bodyKey]) : null;
     let yours = rawYours != null && isFinite(rawYours) ? rawYours : null;
     // Torso estimate (Kyle approved, #design 2026-07-30): nobody tapes their
     // torso, so the Body length row estimates it from height — shoulder-to-
     // hip runs about 30% of height. Flagged so the table can label it.
-    let estimated = false;
+    // A chest, waist or hip the app worked out from height and weight is a
+    // guess too, and it must not earn a verdict either.
+    let estimated =
+      bodyKey != null &&
+      Array.isArray(p.estimatedFields) &&
+      p.estimatedFields.includes(bodyKey);
     if (yours == null && key === "length" && !isBottoms) {
       const h = Number(p.height);
       if (isFinite(h) && h >= 120 && h <= 230) {
@@ -1633,32 +1702,34 @@ export function garmentReasonLine(rec) {
   return GARMENT_REASON[rec.garmentKind] || "";
 }
 
-// Shorts leg length (Kyle 2026-07-30: "I know I love the seven inch inseam").
+// Shorts leg length (Kyle 2026-07-30: "the values should be the values of the
+// seller charts").
 //
-// The honest problem, and why this line never warns: a seller's 裤长 on shorts
-// is the OUTSIDE leg — waistband down to the hem, rise included. Kyle's 7 in
-// is the INSIDE leg. They are different measurements and one cannot be
-// subtracted from the other exactly. A men's shorts rise runs about 26–30 cm,
-// so converting one to the other carries roughly ±2 cm of error.
-//
-// A warning built on ±2 cm of error would fire on shorts that are right and
-// stay quiet on shorts that are wrong. So this returns an ESTIMATE with the
-// app's own "~" mark — the same promise the Body length row makes — and no
-// verdict at all. An honest number beats a confident wrong warning.
-const SHORTS_RISE_CM = 28;
+// The first version of this line estimated an inside leg from the seller's 裤长
+// by subtracting a guessed rise, and said so. Kyle rejected the guess. The
+// saved Shorts length is now the same measurement the seller prints — the
+// waistband down to the hem — so this line compares two numbers of the same
+// kind and states the difference. No rise, no estimate, no "~".
+const SHORTS_LENGTH_SLACK_CM = 2.5;
 export function shortsLengthNote(rec, profile, category, { units = "cm" } = {}) {
   if (category !== "shorts") return "";
-  const want = profile && profile.shortsInseam != null ? Number(profile.shortsInseam) : null;
-  const outseam = rec && rec.row && rec.row.pantsLength != null ? Number(rec.row.pantsLength) : null;
-  if (want == null || outseam == null || !isFinite(want) || !isFinite(outseam)) return "";
-  const legEstimate = outseam - SHORTS_RISE_CM;
-  if (legEstimate <= 0) return "";
-  return (
-    "This size runs about " +
-    formatMeasure(legEstimate, units) +
-    " on the inside leg. You like " +
+  const want = profile && profile.shortsLength != null ? Number(profile.shortsLength) : null;
+  const theirs = rec && rec.row && rec.row.pantsLength != null ? Number(rec.row.pantsLength) : null;
+  if (want == null || theirs == null || !isFinite(want) || !isFinite(theirs)) return "";
+  const gap = theirs - want;
+  const head =
+    "This size measures " +
+    formatMeasure(theirs, units) +
+    " from waist to hem. You like " +
     formatMeasure(want, units) +
-    ". The seller measures waist to hem, so this is an estimate."
+    ".";
+  if (Math.abs(gap) <= SHORTS_LENGTH_SLACK_CM) return head + " That is the length you want.";
+  return (
+    head +
+    " That is " +
+    formatMeasure(Math.abs(gap), units) +
+    (gap > 0 ? " longer" : " shorter") +
+    " than you like."
   );
 }
 
@@ -4434,20 +4505,27 @@ export function effectiveBodyProfile(profile) {
   const ratio = bmi / 22;
   const half = (n) => Math.round(n * 2) / 2;
   const out = { ...profile };
-  let estimated = false;
+  // Which fields are guesses, not measurements. The FIT READ table warned
+  // against a hip it had invented from height and weight, which breaks the
+  // app's own rule: never grade a guess (Kyle 2026-07-30). Naming the guessed
+  // fields lets that table show the number and pass no judgement.
+  const estimatedFields = [];
   if (out.chest == null) {
     out.chest = half(0.52 * h * Math.pow(ratio, 0.6));
-    estimated = true;
+    estimatedFields.push("chest");
   }
   if (out.waist == null) {
     out.waist = half(0.45 * h * Math.pow(ratio, 0.85));
-    estimated = true;
+    estimatedFields.push("waist");
   }
   if (out.hip == null) {
     out.hip = half(0.47 * h * Math.pow(ratio, 0.7));
-    estimated = true;
+    estimatedFields.push("hip");
   }
-  if (estimated) out.estimated = true;
+  if (estimatedFields.length) {
+    out.estimated = true;
+    out.estimatedFields = estimatedFields;
+  }
   return out;
 }
 
@@ -4824,11 +4902,16 @@ export const BODY_PROFILE_FIELDS = [
   ["length", "Shirt length", "length", "70", "27.5", "top"],
   ["waist", "Waist", "length", "80", "31.5", "bottom"],
   ["hip", "Hip", "length", "98", "38.5", "bottom"],
-  ["inseam", "Inseam", "length", "81", "32", "bottom"],
-  // Kyle 2026-07-30: "I know I love the seven inch inseam." This is a taste,
-  // not a body measurement — it is the leg length he wants on shorts, and it
-  // never rejects a size. 7 in = 17.8 cm.
-  ["shortsInseam", "Shorts length", "length", "18", "7", "bottom"],
+  // Kyle 2026-07-30: "the values should be the values of the seller charts."
+  // The old boxes asked for an INSIDE leg. Every seller prints 裤长, the
+  // OUTSIDE leg from the waistband to the hem, so an inside-leg number had
+  // nothing to compare against and the app could only ever estimate. These
+  // two ask for the same thing the seller prints. Storage keys match the
+  // chart's own key, so the Length row needs no conversion and no guess.
+  // The old `inseam` and `shortsInseam` values are left unread on purpose:
+  // grading an inside leg against an outside leg names a wrong size.
+  ["pantsLength", "Trouser length", "length", "104", "41", "bottom"],
+  ["shortsLength", "Shorts length", "length", "46", "18", "bottom"],
 ];
 
 // Heading and one-line reason per group. The reason answers "why does Credenza

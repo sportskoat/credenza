@@ -25,7 +25,9 @@ vi.mock("../../credenza-fashion.jsx", async () => {
 // credenza-fashion module is the one bound into its graph. Importing the app
 // root first hands DetailBody the REAL readChartFromPhotoFiles.
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
-const { fitReadRows, parseSizeChart, recommendSize } = await import("../../credenza-fashion.jsx");
+const { effectiveBodyProfile, fitReadRows, parseSizeChart, recommendSize } = await import(
+  "../../credenza-fashion.jsx"
+);
 
 const TOP_TEXT =
   "M: chest 116, shoulder 46, length 70\nL: chest 120, shoulder 48, length 72\nXL: chest 124, shoulder 50, length 74";
@@ -78,17 +80,27 @@ describe("fitReadRows", () => {
     expect(chest.mark).toBeGreaterThan(66);
   });
 
-  it("orders a bottoms chart waist-first and keeps 裤长 informational", () => {
+  it("orders a bottoms chart waist-first and grades 裤长 against the saved length", () => {
     const chart = parseSizeChart(BOTTOM_TEXT);
-    const profile = { waist: 78, hip: 100, inseam: 76 };
+    // Kyle 2026-07-30: the saved trouser length is waistband to hem, the same
+    // measurement the seller prints, so the Length row grades like for like.
+    const profile = { waist: 78, hip: 100, pantsLength: 102 };
     const rec = recommendSize(chart, profile, "pants");
     expect(rec.size).toBe("M");
 
     const rows = fitReadRows(chart, rec, profile, "pants");
     expect(rows.map((r) => r.name)).toEqual(["Waist", "Hip", "Length"]);
-    // Seller 裤长 is OUTSEAM; the inseam measures a different segment, so the
-    // Length row must not claim a "yours" or an ease.
     const length = rows[2];
+    expect(length.theirs).toBe(100);
+    expect(length.yours).toBe(102);
+    expect(length.ease).toBe(-2);
+  });
+
+  it("keeps the Length row informational when no trouser length is saved", () => {
+    const chart = parseSizeChart(BOTTOM_TEXT);
+    const profile = { waist: 78, hip: 100 };
+    const rec = recommendSize(chart, profile, "pants");
+    const length = fitReadRows(chart, rec, profile, "pants")[2];
     expect(length.theirs).toBe(100);
     expect(length.yours).toBe(null);
     expect(length.ease).toBe(null);
@@ -366,5 +378,29 @@ describe("FitReadTable in the detail body", () => {
     // The read resolved: the reading state must drop without a timer.
     expect(await screen.findByRole("button", { name: "Use this chart" })).toBeInTheDocument();
     expect(container.querySelector(".cz-fitread.is-reading")).toBe(null);
+  });
+});
+
+// Kyle 2026-07-30: the Hip row warned against a hip the app had invented from
+// height and weight. The app promises never to grade a guess.
+describe("a guessed body number carries no verdict", () => {
+  it("shows the guessed hip and passes no judgement", () => {
+    const chart = parseSizeChart(BOTTOM_TEXT);
+    const profile = effectiveBodyProfile({ height: 178, weight: 70, waist: 80 });
+    const rec = recommendSize(chart, profile, "pants");
+    const hip = fitReadRows(chart, rec, profile, "pants").find((r) => r.key === "hip");
+    expect(hip.yours).not.toBe(null);
+    expect(hip.estimated).toBe(true);
+    expect(hip.ease).toBe(null);
+    expect(hip.warn).toBe(false);
+  });
+
+  it("still grades a measured hip", () => {
+    const chart = parseSizeChart(BOTTOM_TEXT);
+    const profile = { waist: 80, hip: 100 };
+    const rec = recommendSize(chart, profile, "pants");
+    const hip = fitReadRows(chart, rec, profile, "pants").find((r) => r.key === "hip");
+    expect(hip.estimated).toBe(false);
+    expect(hip.ease).not.toBe(null);
   });
 });

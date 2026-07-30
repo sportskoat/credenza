@@ -7076,6 +7076,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
+/* One line under the lower-body boxes naming WHICH length to measure. Quieter
+   than a label, louder than a placeholder. */
+.cz-measure-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+
 /* Each group is its own card. The eight boxes used to run together in one
    grid; a surface per group is what makes "I have finished the upper body"
    a thing you can see rather than count. */

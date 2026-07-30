@@ -141,6 +141,16 @@ export default function BodyProfileSheet({ value, units = "in", onSave, onChange
               />
             ))}
           </div>
+          {/* Kyle 2026-07-30: the two length boxes ask for the seller's own
+              measurement, not an inside leg. The app cannot compare an inside
+              leg against a seller chart, so the form has to say which one to
+              measure. */}
+          {group === "bottom" ? (
+            <p className="cz-measure-note">
+              Measure the trouser and shorts lengths the way sellers do: lay a pair you
+              like flat, then measure from the top of the waistband to the hem.
+            </p>
+          ) : null}
         </section>
       ))}
 

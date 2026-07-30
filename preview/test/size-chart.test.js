@@ -785,3 +785,74 @@ describe("serializeSizeChart", () => {
     expect(serializeSizeChart({ rows: [{ chest: 116 }] })).toBe("");
   });
 });
+
+// Kyle 2026-07-30, #design: "half-chest and half-waist: can't those be easily
+// calculated? we should only use what the charts are using, right?" Two live
+// defects sat behind that question, both proven against the thethunder shorts
+// chart on credenzafashion.com.
+describe("half-waist and half-hip shorts charts", () => {
+  const LABELED = [
+    "S: 1/2Waist 36, 1/2Hip 48, length 44",
+    "M: 1/2Waist 38, 1/2Hip 50, length 46",
+    "L: 1/2Waist 40, 1/2Hip 52, length 48",
+  ].join("\n");
+  const TABLE = "Size 1/2Waist 1/2Hip Length\nS 36 48 44\nM 38 50 46\nL 40 52 48";
+
+  it("doubles a labeled half-waist and half-hip", () => {
+    const rows = parseSizeChart(LABELED).rows;
+    expect(rows.map((r) => r.size)).toEqual(["S", "M", "L"]);
+    expect(rows[1].waist).toBe(76);
+    expect(rows[1].hip).toBe(100);
+    // The length column is not a circumference and never doubles.
+    expect(rows[1].length).toBe(46);
+  });
+
+  it("doubles a half-waist header on a positional table too", () => {
+    const rows = parseSizeChart(TABLE).rows;
+    expect(rows[2].waist).toBe(80);
+    expect(rows[2].hip).toBe(104);
+  });
+
+  it("keeps the letter size names when a measurement value looks like a size", () => {
+    // "1/2Waist 38" made 38 the SIZE NAME on the live site, and the waist
+    // column vanished with it.
+    const rows = parseSizeChart(LABELED).rows;
+    expect(rows.every((r) => r.waist != null)).toBe(true);
+    expect(rows.some((r) => r.size === "38")).toBe(false);
+  });
+
+  it("leaves a numeric-size waist chart alone", () => {
+    const rows = parseSizeChart("28: waist 71, hip 92\n30: waist 76, hip 97\n32: waist 81, hip 102").rows;
+    expect(rows.map((r) => r.size)).toEqual(["28", "30", "32"]);
+    expect(rows[1].waist).toBe(76);
+  });
+
+  it("never doubles a waist the seller did not call half", () => {
+    // A numeric waist run can be a real waist in inches. Without the label
+    // there is no evidence, so the number stands as printed.
+    const rows = parseSizeChart("S: waist 36, hip 48\nM: waist 38, hip 50\nL: waist 40, hip 52").rows;
+    expect(rows[1].waist).toBe(38);
+    expect(rows[1].hip).toBe(50);
+  });
+
+  it("still reads a half-chest label as a chest", () => {
+    const rows = parseSizeChart("S: 1/2 chest 52\nM: 1/2 chest 54\nL: 1/2 chest 56").rows;
+    expect(rows[1].chest).toBe(108);
+  });
+});
+
+describe("a guessed measurement is never graded", () => {
+  it("names the fields it invented from height and weight", () => {
+    const out = effectiveBodyProfile({ height: 180, weight: 78, waist: 82 });
+    expect(out.estimated).toBe(true);
+    expect(out.estimatedFields).toContain("hip");
+    expect(out.estimatedFields).toContain("chest");
+    expect(out.estimatedFields).not.toContain("waist");
+  });
+
+  it("names nothing when every field is measured", () => {
+    const out = effectiveBodyProfile({ height: 180, weight: 78, chest: 100, waist: 82, hip: 98 });
+    expect(out.estimated).toBeUndefined();
+    expect(out.estimatedFields).toBeUndefined();
+  });
+});

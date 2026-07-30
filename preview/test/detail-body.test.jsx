@@ -392,7 +392,7 @@ describe("DetailBody no-measurements flow", () => {
     const first = render(body(shorts, trio()));
     fireEvent.click(screen.getByRole("button", { name: "Add my size" }));
     expect(screen.getByLabelText("Waist in cm")).toBeInTheDocument();
-    expect(screen.getByLabelText("Inseam in cm")).toBeInTheDocument();
+    expect(screen.getByLabelText("Trouser length in cm")).toBeInTheDocument();
     expect(screen.queryByLabelText("Chest in cm")).toBe(null);
     first.unmount();
 

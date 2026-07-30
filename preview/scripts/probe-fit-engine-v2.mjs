@@ -60,8 +60,8 @@ const card = (id, title, category, chart, i) => ({
   sizeChartSource: { via: "album-text", at: "2026-07-30T10:00:00.000Z" },
 });
 
-// Kyle's 7-inch shorts length. The chart gives 裤长 (waist to hem), so the
-// panel must show an ESTIMATE of the inside leg and never a warning.
+// Kyle 2026-07-30: the saved shorts length is waist to hem, the same
+// measurement the chart prints, so the panel compares like with like.
 const SHORTS_CHART = [
   "Size chart (cm)",
   "M: waist 78, hip 100, pants length 44",
@@ -84,7 +84,7 @@ const prefs = {
   preferredAgent: null,
   affiliateCodes: {},
   // One body for every card. Chest 100, shoulder 45.
-  bodyProfile: { chest: 100, shoulder: 45, height: 178, weight: 75, waist: 80, shortsInseam: 17.8 },
+  bodyProfile: { chest: 100, shoulder: 45, height: 178, weight: 75, waist: 80, shortsLength: 46 },
   measureUnits: "cm",
   onboardingDone: true,
 };
