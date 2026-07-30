@@ -1033,7 +1033,54 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const forcedRow = forceSize
     ? candidates.find((r) => String(r.size).toUpperCase() === String(forceSize).toUpperCase()) || null
     : null;
-  const best = forcedRow || scored[0].row;
+  // ── The length pass (Kyle 2026-07-30) ─────────────────────────────────────
+  // Kyle's rule, in his words: the length breaks a tie when two sizes fit the
+  // chest. So this is a filter, not a weight. A weight would need tuning and
+  // could trade a good chest for a good hem at any gap; a filter cannot.
+  //
+  //   1. The chest scores alone, above. That winner stands unless step 3 fires.
+  //   2. Eligible = every row whose chest ease is inside tolerance (the ease
+  //      the pick aims for, ±6cm — the same band the FIT READ table draws).
+  //   3. Among two or more eligible rows, the one closest to the wanted length
+  //      wins. It is by definition a size that already fits the chest.
+  //
+  // BOTH winners are kept. When they differ, the caller gets lengthWin, so the
+  // sentence can name what the chest paid. The app never sizes up in silence.
+  const CHEST_TOLERANCE = 6;
+  const chestWinner = scored[0].row;
+  let lengthWin = null;
+  let lengthPick = null;
+  const lengthTarget =
+    isTop && p.length != null && isFinite(Number(p.length))
+      ? Number(p.length) + lengthNudgeCm(fitPref)
+      : null;
+  if (lengthTarget != null) {
+    const eligible = candidates.filter(
+      (r) =>
+        r.length != null &&
+        Math.abs(r[primaryKey] - p[bodyKey] - ease) <= CHEST_TOLERANCE
+    );
+    if (eligible.length >= 2) {
+      const byLength = eligible
+        .map((r) => ({ row: r, d: Math.abs(r.length - lengthTarget), s: score(r) }))
+        // Same distance from the wanted length → the better chest wins.
+        .sort((a, b) => a.d - b.d || a.s - b.s);
+      lengthPick = byLength[0].row;
+      if (lengthPick.size !== chestWinner.size) {
+        lengthWin = {
+          fromSize: chestWinner.size,
+          // What the chest ease becomes, and what it was. A null body chest
+          // cannot reach here: isTop means the chest led the pick.
+          chestEase: lengthPick[primaryKey] - p[bodyKey],
+          chestEaseBefore: chestWinner[primaryKey] - p[bodyKey],
+          lengthTarget,
+          length: lengthPick.length,
+        };
+      }
+    }
+  }
+  // A hand pick beats every calculation. Then the length winner, then the chest.
+  const best = forcedRow || lengthPick || chestWinner;
   const runnerUp = scored.map((s) => s.row).find((r) => r.size !== best.size) || null;
 
   const fitNote =
@@ -1083,10 +1130,16 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     diff,
     lengthCheck,
     alt,
+    // Present only when the body length moved the pick off the chest winner.
+    // A hand pick clears it below: the customer chose, the app did not.
+    lengthWin,
+    // The length the pick aimed for, taste included, or null when the customer
+    // saved no shirt length. The copy needs to tell "no number" from "matched".
+    lengthTargetUsed: lengthTarget,
   };
   // Optional 4th arg: per-category taste (length + looseness). Looseness can
-  // nudge one size up/down; length is metadata only (design turn 5).
-  if (forcedRow) return baseRec;
+  // nudge one size up/down; the length axis moves the target length above.
+  if (forcedRow) return { ...baseRec, lengthWin: null };
   return applyFitPreference(baseRec, chart, fitPref, category);
 }
 
@@ -1122,6 +1175,11 @@ const FIT_READ_EASE = {
   sleeve: { ideal: 1, span: 4 },
   waist: { ideal: 2, span: 3 },
   hip: { ideal: 2, span: 4 },
+  // Ideal 0: the Shirt length a customer saves IS where the hem should sit, so
+  // a garment that matches it needs no ease at all. 3cm each way still reads
+  // as the length asked for; past that it wears cropped or long.
+  // A length the app GUESSED from height carries no target — see fitReadRows.
+  length: { ideal: 0, span: 3 },
 };
 
 export function fitReadRows(chart, rec, profile, category, title = null) {
@@ -1164,8 +1222,12 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     // number. The row would survive the test above on a body arm length,
     // then lose YOURS to the info-only rule and print "Sleeve — — —".
     if (infoOnly && theirs == null) continue;
-    const target = infoOnly ? null : FIT_READ_EASE[key] || null;
-    const ease = infoOnly ? null : theirs != null && yours != null ? theirs - yours : null;
+    // Never grade a guess (Kyle 2026-07-30). A Body length the app estimated
+    // from height carries the number and nothing else: no ease, no mark, no
+    // warning. Only a length the customer measured earns a verdict.
+    const graded = !infoOnly && !estimated;
+    const target = graded ? FIT_READ_EASE[key] || null : null;
+    const ease = graded && theirs != null && yours != null ? theirs - yours : null;
     let mark = null;
     let warn = false;
     if (ease != null && target) {
@@ -1187,7 +1249,8 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       warn,
     });
   }
-  // Body length has no ease target — it is information, not a fit verdict.
+  // A measured Body length is a fit verdict now (Kyle 2026-07-30). An
+  // estimated one is still information only.
   return rows;
 }
 
@@ -1244,6 +1307,18 @@ export const FIT_PREF_AXES = {
   },
 };
 
+// Length taste → centimetres on the target body length, for tops only.
+// Kyle 2026-07-30 overruled deleting these rows, so they have to do something.
+// They shift the LENGTH the pick aims for; they never move the letter size on
+// their own. Bottoms keep no nudge: a seller's 裤长 is an outside-leg number
+// and our inseam field measures a different segment, so it stays information.
+export function lengthNudgeCm(fitPref) {
+  if (!fitPref || typeof fitPref !== "object" || fitPref.dismissed) return 0;
+  if (fitPref.length === "cropped" || fitPref.length === "short") return -4;
+  if (fitPref.length === "long") return 4;
+  return 0;
+}
+
 // Looseness → chart-row nudge. Regular / unset = 0. Slim = one size smaller.
 // Baggy / oversized = one size larger. Length does not move the letter size.
 export function loosenessNudge(looseness) {
@@ -1262,6 +1337,23 @@ export function fitPrefLabel(category, axis, value) {
   if (!axes || !value) return value || "";
   const opt = (axes[axis] || []).find((o) => o.value === value);
   return opt ? opt.label : value;
+}
+
+// What the Cropped / Regular / Long choice DID. The old copy said "Length
+// preference saved", which was true and useless — the choice changed nothing
+// (Kyle 2026-07-30). Three states, in order of how much the customer gets:
+//   1. No saved Shirt length → the app asks for one, because it cannot act.
+//   2. A length that did not change the size → it says the size already fits.
+//   3. A length that DID change the size → recLengthCostLine names the cost.
+function lengthPrefLine(category, fitPref, rec) {
+  const word = fitPrefLabel(category, "length", fitPref.length).toLowerCase();
+  if (!word) return null;
+  // The cost line owns the message when the length moved the pick.
+  if (rec && rec.lengthWin) return null;
+  if (!rec || rec.lengthTargetUsed == null) {
+    return "Save your shirt length and we can hold this item to a " + word + " hem.";
+  }
+  return "Your " + word + " length matches this size.";
 }
 
 function prefReasonLine(category, fitPref, nudge) {
@@ -1327,9 +1419,7 @@ export function applyFitPreference(rec, chart, fitPref, category) {
         fitPref.looseness && !nudge
           ? null
           : fitPref.length
-            ? "Length preference saved for " +
-              (CATEGORIES[category] ? CATEGORIES[category].label.toLowerCase() : "this item") +
-              "."
+            ? lengthPrefLine(category, fitPref, rec)
             : null;
     }
     return next;
@@ -1349,6 +1439,10 @@ export function applyFitPreference(rec, chart, fitPref, category) {
     garment,
     diff,
     baseSize: rec.size,
+    // Looseness moved the size AFTER the length pass, so the length's chest
+    // numbers describe a size nobody is being shown now. Drop them rather than
+    // print a figure that belongs to another row.
+    lengthWin: null,
     prefShift: nudge > 0 ? "up" : "down",
     prefReason: prefReasonLine(category, fitPref, nudge),
     reason:
@@ -1415,6 +1509,30 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
 // section 14, "Prescription, chart, overridden"): the numbers describe the tap,
 // and the closing clause still names the size we would take. Callers that pass
 // no `recommended` keep the original single form.
+// The promise I made Kyle 2026-07-30: the app never sizes up in silence. When
+// the saved shirt length pulled the pick off the size the chest chose, this
+// line names the size it left and what the chest paid for the change. Built in
+// the UI's units, like the reason row, because the numbers are the point.
+export function lengthCostSentence(rec, { units = "cm" } = {}) {
+  const win = rec && rec.lengthWin;
+  if (!win || win.chestEase == null || win.chestEaseBefore == null) return "";
+  if (!isFinite(win.chestEase) || !isFinite(win.chestEaseBefore)) return "";
+  const bigger = win.chestEase > win.chestEaseBefore;
+  const from = formatSizeToken(win.fromSize) || win.fromSize;
+  return (
+    (bigger ? "Sized up for length" : "Sized down for length") +
+    ", away from the " +
+    from +
+    ". The chest is " +
+    (win.chestEase >= 0 ? "+" : "") +
+    formatMeasure(win.chestEase, units) +
+    " now, not " +
+    (win.chestEaseBefore >= 0 ? "+" : "") +
+    formatMeasure(win.chestEaseBefore, units) +
+    "."
+  );
+}
+
 export function prescriptionSentence(
   chart,
   rec,
@@ -4335,6 +4453,12 @@ export const BODY_PROFILE_FIELDS = [
   ["chest", "Chest", "length", "96", "38", "top"],
   ["shoulder", "Shoulder", "length", "45", "17.7", "top"],
   ["sleeve", "Arm length", "length", "62", "24.5", "top"],
+  // Kyle 2026-07-30: the seller's 衣长 had nothing to compare against, so the
+  // Body length row could only ever be information. This is that missing
+  // number — shoulder seam to where the hem should sit. Storage key `length`
+  // matches the chart's own key, so fitReadRows finds it with no mapping.
+  // NOT the same thing as fitPref.length, which is Cropped / Regular / Long.
+  ["length", "Shirt length", "length", "70", "27.5", "top"],
   ["waist", "Waist", "length", "80", "31.5", "bottom"],
   ["hip", "Hip", "length", "98", "38.5", "bottom"],
   ["inseam", "Inseam", "length", "81", "32", "bottom"],

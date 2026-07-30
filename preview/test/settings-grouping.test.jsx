@@ -7,6 +7,7 @@ import { cleanup, render, within } from "@testing-library/react";
 import SettingsContext from "../../settings/SettingsContext.jsx";
 import YourDataSection from "../../settings/YourDataSection.jsx";
 import BodyProfileSheet from "../../sheets/BodyProfileSheet.jsx";
+import { BODY_PROFILE_FIELDS } from "../../credenza-fashion.jsx";
 
 // LB-70 (Kyle 2026-07-27): "make the navigation and profile setting experience
 // much better, make it cleaner, profile sign in cleaner, different options
@@ -114,7 +115,16 @@ describe("Measurements are big and grouped (LB-70)", () => {
       <BodyProfileSheet value={null} units="in" onSave={noop} onChangeUnits={noop} onClose={noop} />
     );
 
-  it("groups the eight measurements by part of the body", () => {
+  // Derived, not counted by hand: the sheet is driven by BODY_PROFILE_FIELDS,
+  // and a new measurement lands in it (Shirt length did, 2026-07-30). The old
+  // literal 8 made an added field look like a defect.
+  const measureCount = BODY_PROFILE_FIELDS.length;
+  const unitWord = (units) =>
+    BODY_PROFILE_FIELDS.map(([, , kind]) =>
+      kind === "weight" ? (units === "in" ? "lb" : "kg") : units
+    );
+
+  it("groups every measurement by part of the body", () => {
     const { container } = renderMeasure();
     const heads = [...container.querySelectorAll(".cz-measure-group-head")].map((n) =>
       n.textContent.trim()
@@ -129,12 +139,12 @@ describe("Measurements are big and grouped (LB-70)", () => {
 
   it("labels each box with the body part alone and shows the unit inside it", () => {
     const { container } = renderMeasure();
-    // The label used to read "Chest (in)" — the unit repeated eight times.
+    // The label used to read "Chest (in)" — the unit repeated on every box.
     expect(within(container).getByLabelText("Chest")).toBeTruthy();
     const units = [...container.querySelectorAll(".cz-measure-unit")].map((n) =>
       n.textContent.trim()
     );
-    expect(units).toEqual(["in", "lb", "in", "in", "in", "in", "in", "in"]);
+    expect(units).toEqual(unitWord("in"));
   });
 
   it("switches every unit label together when the toggle flips", () => {
@@ -144,10 +154,10 @@ describe("Measurements are big and grouped (LB-70)", () => {
     const units = [...container.querySelectorAll(".cz-measure-unit")].map((n) =>
       n.textContent.trim()
     );
-    expect(units).toEqual(["cm", "kg", "cm", "cm", "cm", "cm", "cm", "cm"]);
+    expect(units).toEqual(unitWord("cm"));
   });
 
-  it("counts how many of the eight are filled in", () => {
+  it("counts how many of them are filled in", () => {
     const { container } = render(
       <BodyProfileSheet
         value={{ height: 178, chest: 96 }}
@@ -157,7 +167,9 @@ describe("Measurements are big and grouped (LB-70)", () => {
         onClose={noop}
       />
     );
-    expect(within(container).getByText(/2 of 8 filled in/)).toBeTruthy();
+    expect(
+      within(container).getByText(new RegExp("2 of " + measureCount + " filled in"))
+    ).toBeTruthy();
   });
 
   it("the input is large enough to read, and large enough that iOS will not zoom", () => {

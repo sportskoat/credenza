@@ -29,6 +29,7 @@ import {
   measureToStorage,
   parseSizeChart,
   prescriptionSentence,
+  lengthCostSentence,
   itemUsdAmount,
   itemCnyAmount,
   priceLabelShort,
@@ -1391,6 +1392,8 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
         ? formatSizeToken(rec.baseSize) || rec.baseSize
         : null;
     const activePref = rec.fitPref || (fitPrefHasChoice(fitPref) ? fitPref : null);
+    // Empty unless the saved shirt length moved the pick (Kyle 2026-07-30).
+    const lengthCost = lengthCostSentence(rec, { units });
     const lengthTag =
       activePref && activePref.length
         ? fitPrefLabel(item.category, "length", activePref.length)
@@ -1420,6 +1423,10 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
           </div>
         ) : null}
         {rec.prefReason ? <p className="cz-fit4-prose">{rec.prefReason}</p> : null}
+        {/* Kyle 2026-07-30: the saved shirt length may move the pick off the
+            size the chest chose. When it does, the app must say so and name
+            what the chest paid — never a silent size change. */}
+        {lengthCost ? <p className="cz-fit4-prose">{lengthCost}</p> : null}
         {/* Kyle 2026-07-23: the math row is the no-preference payoff (4g).
             When taste shifted the size (5c), the reason line + pref tags
             carry the why — showing both stacked read as clutter. */}
