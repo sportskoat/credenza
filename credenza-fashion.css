@@ -10604,7 +10604,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-photo-coverflow-controls .cz-photo-coverflow-counter {
   min-width: 54px;
   text-align: center;
-  color: var(--cz-sub);
+  /* Same defect as the caption: the backdrop is always dark, but --cz-sub
+     follows the theme and reads dim grey in the light theme. Fixed on-dark
+     value. */
+  color: rgba(255, 255, 255, 0.72);
   font-size: 13px;
   font-weight: 500;
 }
