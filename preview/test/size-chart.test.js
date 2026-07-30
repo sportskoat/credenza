@@ -53,6 +53,37 @@ describe("sizeChartTextFor", () => {
     expect(text).toBe("a\nb\nc\nd");
   });
 
+  it("uses the item machine chart without mixing other text", () => {
+    expect(
+      sizeChartTextFor({
+        sizeChartText: "M: chest 116",
+        sizeNotes: "Runs oversized.",
+        summary: "A shirt",
+      })
+    ).toBe("M: chest 116");
+  });
+
+  it("hides a legacy borrowed chart until the customer clears it", () => {
+    expect(
+      sizeChartTextFor({
+        sizeChartNeedsClear: true,
+        sizeNotes: "M: chest 999",
+      })
+    ).toBe("");
+  });
+
+  it("preserves ignored customer notes without parsing them as a chart", () => {
+    expect(
+      sizeChartTextFor({
+        sizeChartIgnoreNotes: true,
+        sizeNotes: "Runs small.\nM: chest 999",
+        summary: "A shirt",
+        rawText: "Mook listing",
+        note: "Keep this note",
+      })
+    ).toBe("A shirt\nMook listing\nKeep this note");
+  });
+
   it("tolerates missing fields", () => {
     expect(sizeChartTextFor({})).toBe("");
     expect(sizeChartTextFor({ note: "x" })).toBe("x");

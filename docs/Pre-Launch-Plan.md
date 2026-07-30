@@ -3863,7 +3863,7 @@ status check. That one catches a fifth call site added later with the same bug.
 
 **The page.** `/guides/what-spends-a-chart-read/`, 1390 words in `<main>`, a
 `HowTo` with four steps in the order that saves reads: local text parser, then
-the shelf cache, then photos, then how to read the result. Every number read from
+the item's saved result, then photos, then how to read the result. Every number read from
 source, not from memory:
 
 | Claim on the page | Source |
@@ -3875,8 +3875,8 @@ source, not from memory:
 | 25 s server, 30 s device | `chart-vision.js` `TIMEOUT_MS`; `postChartVision` timer |
 | local parsing costs nothing | `parseSizeChart()` at `credenza-fashion.jsx:620` — pure, no network |
 | 20 cm to 250 cm accepted | the range check inside `parseSizeChart` |
-| a second item from one seller is free | `chartCacheForSeller()` at `credenza-fashion.jsx:3152` |
-| newest chart wins, read beats guessed | the same function's ordering |
+| reopening an item uses no new read | `sizeChartTextFor()` uses the item's saved `sizeChartText` |
+| another item never receives that chart | `useChartHunt()` writes only the current item |
 | reset at midnight UTC | `usage.js:25` `DAY_FMT` with `timeZone: "UTC"` |
 | original labels kept, 胸围 and 衣长 | the tool schema in `chart-vision.js:175` |
 

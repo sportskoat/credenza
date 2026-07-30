@@ -11,7 +11,6 @@ import {
   CATEGORIES,
   computeRecommendedSize,
   effectiveBodyProfile,
-  chartCacheForSeller,
   fetchChartFromPhotos,
   readChartFromPhotoFiles,
   serializeSizeChart,
@@ -74,19 +73,14 @@ const focusOnMount = (el) => {
 // Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
 // SIZES" — charts never arrived because the old hunt died with the desktop
 // panel). With no chart, hunt once: Yupoo album text, then a vision read of
-// the album/desc/gallery photos. A found chart writes into sizeNotes (+ its
-// provenance into sizeChartSource) and the pick appears.
+// the album/desc/gallery photos. A found chart writes into its own item field
+// and the pick appears.
 //
 // The sizing block is always visible, so the hunt starts when the detail opens.
 // One component owns the hook because two callers would start two paid reads.
 // `enabled` lets callers disable the hook without calling it conditionally.
 //
-// Lane D (Kyle 2026-07-30): the item's own chart hunts FIRST. Turn 9 §3 ran
-// the seller cache before the network, so a chart borrowed from a sibling
-// item beat the item's own chart photo — the wrong numbers won. The cache is
-// now the fallback only: it fills in when the hunt finds nothing, and it
-// stays labelled via "seller-cache" so the customer knows it is borrowed.
-function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null) {
+function useChartHunt(item, chart, onSaveEdit, enabled = true) {
   const [hunting, setHunting] = useState(false);
   useEffect(() => {
     if (!enabled) return;
@@ -108,28 +102,12 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
         const text = typeof found === "string" ? found : found && found.text;
         if (text) {
           onSaveEdit(item.id, {
-            sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text,
+            sizeChartText: text,
+            sizeChartNeedsClear: false,
             ...(found && found.source
               ? { sizeChartSource: { ...found.source, at: new Date().toISOString() } }
               : {}),
           });
-          return;
-        }
-        // The hunt found nothing — only now may a sibling item's chart fill
-        // in. A borrowed chart never wins over the item's own photos.
-        if (shelfItems && shelfItems.length) {
-          const cached = chartCacheForSeller(shelfItems, item);
-          if (cached) {
-            onSaveEdit(item.id, {
-              sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + cached.text,
-              sizeChartSource: {
-                via: "seller-cache",
-                photos: 0,
-                at: new Date().toISOString(),
-                seller: cached.seller || item.seller || "",
-              },
-            });
-          }
         }
       } finally {
         if (!cancelled) setHunting(false);
@@ -142,7 +120,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
       // after an abort; the next mount will start a fresh hunt if not tried.
       setHunting(false);
     };
-  }, [enabled, chart, item, onSaveEdit, shelfItems]);
+  }, [enabled, chart, item, onSaveEdit]);
   return hunting;
 }
 
@@ -344,9 +322,6 @@ function SizingBlock({
   // Kyle 2026-07-29: the fifth box rides at the right of the cell run, on the
   // same line as the sizes it overrides. Null when the caller has no box.
   customBox = null,
-  // §3: names the seller whose cached chart sized this item. Null on every
-  // other path, and the provenance falls back to SELLER'S CHART.
-  cachedFrom = "",
 }) {
   const isManual = !!chosenSize;
   const heroSize = chosenSize || recSize || usualSize || "";
@@ -363,9 +338,7 @@ function SizingBlock({
   const provenance = hunting
     ? "READING CHART"
     : precise
-      ? cachedFrom
-        ? "FROM " + String(cachedFrom).toUpperCase() + "'S CHART (CACHED)"
-        : "SELLER'S CHART"
+      ? "SELLER'S CHART"
       : recSize
         ? "BEST GUESS"
         : isManual
@@ -544,7 +517,8 @@ function useCustomerChartRead(item, onSaveEdit) {
     const fixed = state.dirty ? serializeSizeChart(state.chart) : "";
     const text = fixed && parseSizeChart(fixed) ? fixed : state.text;
     onSaveEdit(item.id, {
-      sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + text,
+      sizeChartText: text,
+      sizeChartNeedsClear: false,
       sizeChartSource: {
         via: "customer-photo",
         photos: 1,
@@ -588,7 +562,15 @@ function AlbumThumb({ src }) {
   );
 }
 
-function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCount, onOpenAlbum }) {
+function SizingBlockNoChart({
+  usualSize,
+  isManual = false,
+  albumPhotos,
+  albumCount,
+  onOpenAlbum,
+  needsClear = false,
+  onClearChart,
+}) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const thumbs = (albumPhotos || []).slice(0, 2);
 
@@ -623,10 +605,17 @@ function SizingBlockNoChart({ usualSize, isManual = false, albumPhotos, albumCou
       </div>
 
       <p className="cz-sizing-nochart-body">
-        The listing had no measurements. Upload the seller chart to read its measurements.
+        {needsClear
+          ? "This saved chart came from another item. It is hidden. Clear it before reading this item's photos."
+          : "The listing had no measurements. Upload the seller chart to read its measurements."}
       </p>
 
-      {albumCount ? (
+      {needsClear && onClearChart ? (
+        <button type="button" className="cz-sizing-albumrow" onClick={onClearChart}>
+          <span className="cz-sizing-albumtext">Clear this chart</span>
+          <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      ) : albumCount ? (
         <button type="button" className="cz-sizing-albumrow" onClick={onOpenAlbum}>
           <span className="cz-sizing-albumthumbs" aria-hidden="true">
             {thumbs.map((src, i) => (
@@ -1813,11 +1802,28 @@ export default function DetailBody({
   // chart — one parsed from the listing's own text would survive the clear,
   // and a link that does nothing teaches the customer not to trust links.
   const chartIsForgettable = useMemo(
-    () => !!verdict.chart && !parseSizeChart(sizeChartTextFor({ ...item, sizeNotes: "" })),
+    () =>
+      !!verdict.chart &&
+      (!!item.sizeChartText || !parseSizeChart(sizeChartTextFor({ ...item, sizeNotes: "" }))),
     [verdict.chart, item]
   );
   const forgetChart = () => {
-    onSaveEdit(item.id, { sizeNotes: "", sizeChartSource: null });
+    chartHuntTried.delete(item.id);
+    onSaveEdit(
+      item.id,
+      item.sizeChartText
+        ? { sizeChartText: "", sizeChartSource: null, sizeChartNeedsClear: false }
+        : { sizeNotes: "", sizeChartSource: null, sizeChartNeedsClear: false }
+    );
+  };
+  const clearBlockedChart = () => {
+    chartHuntTried.delete(item.id);
+    onSaveEdit(item.id, {
+      sizeChartText: "",
+      sizeChartSource: null,
+      sizeChartNeedsClear: false,
+      sizeChartIgnoreNotes: true,
+    });
   };
   // CH-14: the toggle's label follows the same value the sentence length does.
   const fitDetailPref = fitDetail || fitDisplayPrefs().detail;
@@ -1839,7 +1845,7 @@ export default function DetailBody({
     !!bodyProfile &&
     !fitPrefHasChoice(fitPref) &&
     !(fitPref && fitPref.dismissed);
-  const hunting = useChartHunt(item, verdict.chart, onSaveEdit, true, shelfItems);
+  const hunting = useChartHunt(item, verdict.chart, onSaveEdit, !item.sizeChartNeedsClear);
   // §3: the customer's own chart read, and the album photos its third option
   // offers. Remote URLs only — a local data: URL cannot go down the images door.
   const chartRead = useCustomerChartRead(item, onSaveEdit);
@@ -2400,6 +2406,8 @@ export default function DetailBody({
                 isManual={!!chosenSize}
                 albumPhotos={sizingAlbumPhotos}
                 albumCount={sizingAlbumPhotos.length}
+                needsClear={item.sizeChartNeedsClear}
+                onClearChart={clearBlockedChart}
                 onOpenAlbum={() => {
                   chartRead.read(sizingAlbumPhotos.slice(0, 3), {
                     thumb: sizingAlbumPhotos[0] || "",
@@ -2427,11 +2435,6 @@ export default function DetailBody({
                     onChange={setCustomSize}
                     onCommit={commitCustomSize}
                   />
-                }
-                cachedFrom={
-                  item.sizeChartSource && item.sizeChartSource.via === "seller-cache"
-                    ? item.sizeChartSource.seller || item.seller || ""
-                    : ""
                 }
               />
             )}

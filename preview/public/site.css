@@ -36,6 +36,14 @@
   --money: #15803d;
   --max: 40rem;
   --pad: 1.25rem;
+  /* Masthead tokens, copied from the app's own palette (PALETTES in
+     credenza-fashion.jsx: --cz-sub, --cz-faint, --cz-hair). The page's --muted
+     and --line are a shade off the app's, and Kyle 2026-07-30 asked for the
+     header to carry NO difference from the one in the product. */
+  --mast-sub: #4f545b;
+  --mast-faint: #6b7078;
+  --mast-hair: #d2d2c9;
+  --mast-hover-bg: rgba(23, 24, 26, 0.06);
   font-family: var(--cz-display);
 }
 
@@ -48,6 +56,10 @@
     --line: rgba(244, 244, 240, 0.12);
     --accent: #f4f4f0;
     --money: #4ade80;
+    --mast-sub: #b7bbc2;
+    --mast-faint: #9ea3ab;
+    --mast-hair: rgba(255, 255, 255, 0.16);
+    --mast-hover-bg: rgba(255, 255, 255, 0.07);
   }
 }
 
@@ -208,21 +220,60 @@ main { padding-top: 0.25rem; }
  * button off the page.
  */
 @media (min-width: 1024px) {
+  /* The app's .cz-shell caps at 1080px and includes 28px of padding on each
+     side. The visible masthead is therefore 1024px wide. This element is the
+     masthead itself, not its padded shell, so copy the inner width.
+     100vw includes the scrollbar in WebKit, so a small subtraction keeps a
+     narrow window from gaining a horizontal scrollbar. */
   .site-head {
-    --band: min(76rem, 100vw - 4rem);
+    --band: min(1024px, 100vw - 3.5rem);
+    /* The app's row is as tall as its 44px avatar, which puts the hairline at
+       59px. Match the row, or the header under the same wordmark ends 9px
+       higher than the one in the product. */
+    min-height: 59px;
     width: var(--band);
     margin-left: calc(50% - var(--band) / 2);
     margin-right: 0;
-    grid-template-columns: auto 1fr auto;
+    /* Equal outer columns, so the links sit on the REAL centre line. The app
+       fixed the same complaint the same way (credenza-fashion.css:9418 gives
+       the brand and the actions flex: 1 1 0). With `auto 1fr auto` the middle
+       column centres inside the LEFTOVER room: a 190px brand against a 105px
+       button pushed the row 65px right of centre, measured at 1280px. */
+    grid-template-columns: 1fr auto 1fr;
     row-gap: 0;
     column-gap: 1.5rem;
-    padding-bottom: 1rem;
+    /* The app masthead's own spacing (credenza-fashion.css:3492). */
+    padding: 0 0 14px;
+    margin-bottom: 18px;
+    border-bottom-color: var(--mast-hair);
   }
+  .brand { justify-self: start; gap: 12px; }
+  /* The width/height attributes in the page markup say 30; the app draws 34. */
+  .mark { width: 34px; height: 34px; }
+  .brand-name { gap: 4px; }
+  .wordmark { font-size: 19px; letter-spacing: 0.16em; }
+  .kicker { font-size: 10.5px; letter-spacing: 0.34em; color: var(--mast-faint); }
+  /* The nav keeps flex-wrap: wrap on purpose. At the narrow end of this range
+     the six links can still exceed the centre column; wrapping puts them on a
+     second line inside that column, where overflow would instead push the
+     button off the page. */
   .nav {
     grid-row: 1;
     grid-column: 2;
     justify-content: center;
+    gap: 0.35rem 2px;
+    font-size: 13px;
   }
+  .nav a {
+    padding: 7px 11px;
+    border-radius: 999px;
+    color: var(--mast-sub);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    transition: color 120ms ease, background 120ms ease;
+  }
+  .nav a:hover { color: var(--ink); background: var(--mast-hover-bg); }
+  .nav-open { grid-column: 3; justify-self: end; }
 }
 
 /* ── One title scale ──────────────────────────────────────────────────────

@@ -1880,20 +1880,19 @@ describe("a feature the price table sells is explained somewhere else", () => {
     // LB-59. Added 2026-07-27. The next census after LB-58 ran the same
     // <main>-stripped count over the rows with no entry here. AI size-chart
     // reads was the thinnest: five sentences on five pages, and all five were
-    // limits lists or data-processing lists. It also carries the widest ratio
-    // on the whole table — 2 a day free against 100 on Pro, fifty times.
+    // limits lists or data-processing lists.
     // /guides/weidian-size-chart/ exists, but its headings show it teaches how
     // to READ a chart, not what one AI read is or what spends one.
     //
     // Both phrases are the mechanism. "Chart read" passes on any limits list.
     // The first says what the counter counts — a call, so three photos of one
     // chart are one read, which is the misunderstanding that makes 2 sound
-    // small. The second says what makes the number go further: the shelf is the
-    // cache, so a haul from one seller costs one read however many items it has.
+    // small. The second protects correctness: one seller can list garments
+    // with different charts, so a saved result must stay on its item.
     {
       row: "AI size-chart reads",
-      needs: ["the unit is the call, not the image", "spends one read, not ten"],
-      why: "the widest free-to-pro ratio on the table, and no page said what one read is",
+      needs: ["the unit is the call, not the image", "never uses it for another garment"],
+      why: "the page must explain both the cost unit and the item-only chart rule",
     },
     // LB-60. Added 2026-07-27. The census after LB-59 ran the same
     // <main>-stripped count over the rows still with no entry here. "Cards on
@@ -2152,6 +2151,35 @@ describe("the public site shares one look and one header", () => {
     expect(margin, "the band's left margin hard-codes a column width").not.toMatch(/\d+(\.\d+)?rem/);
   });
 
+  // Kyle 2026-07-30, second report on the same header: "its not even centred,
+  // create the identical page that I have right now for these other pages".
+  //
+  // Two numbers made it different, both measured in WebKit with
+  // scripts/probe-header-match.mjs at 1100/1280/1440:
+  //   1. The first repair copied the 1080px OUTER shell. The app's 28px side
+  //      padding makes the visible masthead 1024px wide. The page header is
+  //      already the visible masthead, so 1080px left it 56px too wide.
+  //   2. `grid-template-columns: auto 1fr auto` centres the middle column in
+  //      the LEFTOVER room, not on the page. A 190px brand against a 105px
+  //      button put the links 65px right of centre. Equal outer columns fix
+  //      it — the app does the same thing with flex: 1 1 0 on its two outer
+  //      children (credenza-fashion.css:9418).
+  it("puts the wide header on the app's visible 1024px masthead grid", () => {
+    const wide = cssRules(SITE_CSS).find(
+      (r) => /^@media \(min-width: 1024px\)$/.test(selectorOf(r)) && r.includes(".site-head")
+    );
+    const block = tidy(wide);
+    expect(block, "the band does not match the app's 1024px inner masthead").toMatch(
+      /--band: min\(1024px,/
+    );
+    expect(block, "the page adds the app shell padding to the masthead twice").toMatch(
+      /padding: 0 0 14px/
+    );
+    expect(block, "the outer header columns are not equal, so the links miss the centre").toMatch(
+      /grid-template-columns: 1fr auto 1fr/
+    );
+  });
+
   for (const { rel, html } of DOCS) {
     it(`${rel} reads the shared stylesheet`, () => {
       expect(html, `${rel} does not link /site.css`).toContain('href="/site.css"');
@@ -2221,6 +2249,18 @@ describe("the public site shares one look and one header", () => {
     expect(landing.html, "/landing/ lost its own --max and reads at 40rem").toMatch(
       /--max:\s*1120px/
     );
+  });
+
+  it("applies the landing page dark colors after its light colors", () => {
+    // Kyle 2026-07-30 showed two light panels with white headings. The dark
+    // token block came first, so the later light :root rule overwrote it.
+    const landing = DOCS.find((d) => d.rel === "landing/index.html");
+    const own = landing.html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const light = own.indexOf("--bg-soft: #eeeee8");
+    const dark = own.indexOf("@media (prefers-color-scheme: dark)");
+    expect(light, "the landing page lost its light colors").toBeGreaterThan(-1);
+    expect(dark, "the landing page lost its dark colors").toBeGreaterThan(-1);
+    expect(dark, "light colors overwrite dark colors in dark mode").toBeGreaterThan(light);
   });
 
   it("resolves every token it uses", () => {

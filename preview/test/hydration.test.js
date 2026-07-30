@@ -82,9 +82,7 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
       via: "desc-photos",
       photos: 10,
       at: "2026-07-25T01:00:00.000Z",
-      // Handoff turn 9 §3: the chart's own seller tag. Empty on every chart
-      // read before the seller cache shipped, which is correct — an untagged
-      // chart must never be reused for a seller nobody recorded.
+      // The source can name the seller for display and support work.
       seller: "",
     });
     // Junk shapes sanitize, absent defaults to null.
@@ -94,12 +92,12 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
     expect(migrateItem({ id: "p4", rawText: "note" }).sizeChartSource).toBe(null);
   });
 
-  it("keeps the chart's seller tag so the cache survives a reload", () => {
-    // The cache IS the shelf, so this field is the whole lookup key. If it
-    // vanished on reload, every second item from a seller would pay for a
-    // fresh vision read.
+  it("keeps the item chart fields across a reload", () => {
     const migrated = migrateItem({
       ...base,
+      sizeChartText: "M: chest 116\nL: chest 120",
+      sizeChartNeedsClear: true,
+      sizeChartIgnoreNotes: true,
       sizeChartSource: {
         via: "customer-photo",
         photos: 1,
@@ -107,11 +105,15 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
         seller: "chromeheartsrep",
       },
     });
+    expect(migrated.sizeChartText).toBe("M: chest 116\nL: chest 120");
+    expect(migrated.sizeChartNeedsClear).toBe(true);
+    expect(migrated.sizeChartIgnoreNotes).toBe(true);
     expect(migrated.sizeChartSource.seller).toBe("chromeheartsrep");
     expect(migrated.sizeChartSource.via).toBe("customer-photo");
+    expect(migrateItem(base).sizeChartIgnoreNotes).toBe(false);
     // A non-string seller is not a seller.
     expect(
-      migrateItem({ ...base, sizeChartSource: { via: "seller-cache", seller: 42 } }).sizeChartSource
+      migrateItem({ ...base, sizeChartSource: { via: "customer-photo", seller: 42 } }).sizeChartSource
         .seller
     ).toBe("");
   });

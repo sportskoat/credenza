@@ -197,9 +197,8 @@ describe("§3 read and confirm", () => {
     await user.click(await screen.findByRole("button", { name: "Use this chart" }));
 
     expect(onSaveEdit).toHaveBeenCalledWith(expect.any(String), {
-      sizeNotes: CHART_TEXT,
-      // The seller tag is the cache key. Without it the next item from this
-      // seller pays for a second vision read.
+      sizeChartText: CHART_TEXT,
+      sizeChartNeedsClear: false,
       sizeChartSource: {
         via: "customer-photo",
         photos: 1,
@@ -279,12 +278,11 @@ describe("§3 read and confirm", () => {
     await user.type(large, "118");
     await user.click(screen.getByRole("button", { name: "Use this chart" }));
 
-    // The correction lands as TEXT, because sizeNotes is the stored thing and
-    // every render re-parses it.
+    // The correction lands as item chart text, and every render re-parses it.
     const patch = onSaveEdit.mock.calls[0][1];
-    expect(patch.sizeNotes).toContain("L: chest 118");
-    expect(patch.sizeNotes).not.toContain("chest 120");
-    expect(patch.sizeNotes).toContain("M: chest 116");
+    expect(patch.sizeChartText).toContain("L: chest 118");
+    expect(patch.sizeChartText).not.toContain("chest 120");
+    expect(patch.sizeChartText).toContain("M: chest 116");
   });
 
   it("keeps the corrected chart across a re-render", async () => {
