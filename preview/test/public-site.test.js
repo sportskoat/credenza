@@ -2193,6 +2193,68 @@ describe("the public site shares one look and one header", () => {
     );
   });
 
+  // Kyle 2026-07-30, fourth report: "now make sure the color is perfectly
+  // matching". Two colours were off, both measured in WebKit against the live
+  // app at 1440px in dark mode:
+  //   1. The wordmark. The app's ink is #f5f5f7; the page's --ink is #f4f4f0,
+  //      a warmer white. So the header carries its own --mast-ink now.
+  //   2. /landing/ dimmed its own "FASHION" line to rgb(138,144,153) and shrank
+  //      it to 8.5px, because it kept a `.brand .kicker` rule of its own. A
+  //      page may not style the header at all — see the test below.
+  it("takes every header colour from the app's palette", () => {
+    // The four values the app's dark and light palettes hold. Read out of the
+    // app source, so a change there fails here instead of drifting quietly.
+    const app = readFileSync(join(ROOT, "credenza-fashion.jsx"), "utf8");
+    const palette = (name) => {
+      const start = app.indexOf(`  ${name}: {`);
+      const body = app.slice(start, app.indexOf("\n  },", start));
+      const read = (token) => body.match(new RegExp(`"${token}":\\s*"([^"]+)"`))[1];
+      return { ink: read("--cz-ink"), sub: read("--cz-sub"), faint: read("--cz-faint"), hair: read("--cz-hair") };
+    };
+    const light = palette("light");
+    const dark = palette("rainbow");
+    const darkBlock = SITE_CSS.match(/@media \(prefers-color-scheme: dark\)\s*\{([\s\S]*?)\n\}/)[1];
+    const lightBlock = SITE_CSS.slice(0, SITE_CSS.indexOf("@media (prefers-color-scheme: dark)"));
+    const token = (block, name) => {
+      const m = block.match(new RegExp(`${name}:\\s*([^;]+);`));
+      return m && m[1].trim().toLowerCase();
+    };
+    for (const [block, want, mode] of [
+      [lightBlock, light, "light"],
+      [darkBlock, dark, "dark"],
+    ]) {
+      expect(token(block, "--mast-ink"), `${mode} header ink is not the app's`).toBe(want.ink.toLowerCase());
+      expect(token(block, "--mast-sub"), `${mode} header link colour is not the app's`).toBe(want.sub.toLowerCase());
+      expect(token(block, "--mast-faint"), `${mode} header kicker colour is not the app's`).toBe(want.faint.toLowerCase());
+      expect(token(block, "--mast-hair"), `${mode} header hairline is not the app's`).toBe(want.hair.toLowerCase());
+    }
+    // And the header rules must spend those tokens, not the page's own. A page
+    // may override --ink, --muted or --line for its sections; /landing/ does.
+    for (const sel of [".site-head", ".kicker", ".nav a", ".nav-open"]) {
+      const rule = cssRules(SITE_CSS).find((r) => selectorOf(r) === sel);
+      expect(rule, `site.css has no ${sel} rule`).toBeTruthy();
+      expect(tidy(rule), `${sel} takes a page colour instead of the app's`).not.toMatch(
+        /var\(--(ink|muted|line)\)/
+      );
+    }
+  });
+
+  it("lets no page restyle the shared header", () => {
+    // /landing/ kept `.brand .kicker`, which beats site.css on specificity and
+    // is invisible to the "one copy of each shared rule" test above, because
+    // that test compares whole selectors.
+    const bad = [];
+    for (const { rel, html } of DOCS) {
+      const own = html.match(/<style>([\s\S]*?)<\/style>/);
+      if (!own) continue;
+      for (const rule of cssRules(own[1])) {
+        const sel = selectorOf(rule);
+        if (/(^|[\s,>])\.(site-head|brand|nav-open|wordmark)\b/.test(sel)) bad.push(`${rel}: ${sel}`);
+      }
+    }
+    expect(bad, "pages styling the shared header").toEqual([]);
+  });
+
   // The app's top-right control is a 44px avatar ring. The public pages showed
   // a wide "Open app" pill, which was the one part of the header a visitor
   // could still tell apart. Same ring, same glyph, same size now.

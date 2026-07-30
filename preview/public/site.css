@@ -40,6 +40,7 @@
      credenza-fashion.jsx: --cz-sub, --cz-faint, --cz-hair). The page's --muted
      and --line are a shade off the app's, and Kyle 2026-07-30 asked for the
      header to carry NO difference from the one in the product. */
+  --mast-ink: #17181a;
   --mast-sub: #4f545b;
   --mast-faint: #6b7078;
   --mast-hair: #d2d2c9;
@@ -59,6 +60,10 @@
     --line: rgba(244, 244, 240, 0.12);
     --accent: #f4f4f0;
     --money: #4ade80;
+    /* The app's dark ink is #f5f5f7. The page's --ink is #f4f4f0, a warmer
+       white. Side by side the two wordmarks did not match (Kyle 2026-07-30),
+       so the header takes the app's value and the body text keeps its own. */
+    --mast-ink: #f5f5f7;
     --mast-sub: #b7bbc2;
     --mast-faint: #9ea3ab;
     --mast-hair: rgba(255, 255, 255, 0.16);
@@ -109,6 +114,11 @@ main { padding-top: 0.25rem; }
    links plus a button do not fit in 40rem — laid out as one flex row the
    button wrapped on its own and left a hole. So: the mark and the way into
    the product hold the first line, the page links hold the second. */
+/* Every colour in this row comes from a --mast- token, which holds the app's
+   own value. The page tokens (--ink, --muted, --line) are each a shade off,
+   and a page may override them for its own sections — /landing/ does. The
+   header must read the same on all 36 pages and in the product (Kyle
+   2026-07-30: "make sure the color is perfectly matching"). */
 .site-head {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -117,7 +127,8 @@ main { padding-top: 0.25rem; }
   column-gap: 1rem;
   padding-bottom: 0.85rem;
   margin-bottom: 1.6rem;
-  border-bottom: 1px solid var(--line);
+  color: var(--mast-ink);
+  border-bottom: 1px solid var(--mast-hair);
 }
 
 .brand {
@@ -157,7 +168,7 @@ main { padding-top: 0.25rem; }
   letter-spacing: 0.30em;
   text-transform: uppercase;
   line-height: 1;
-  color: var(--muted);
+  color: var(--mast-faint);
 }
 
 .nav {
@@ -176,11 +187,11 @@ main { padding-top: 0.25rem; }
 /* No underline in the header. The app's masthead has none, and a row of ten
    underlined words reads as a paragraph, not as navigation. */
 .nav a {
-  color: var(--muted);
+  color: var(--mast-sub);
   text-decoration: none;
 }
-.nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.nav a:hover { color: var(--mast-ink); }
+.nav a[aria-current="page"] { color: var(--mast-ink); font-weight: 600; }
 
 /* The way into the product is the app's own masthead avatar, not a wide pill
    (Kyle 2026-07-30: "I don't want there to be any difference"). Every number
@@ -206,7 +217,7 @@ main { padding-top: 0.25rem; }
 /* The app brightens the glyph on hover. It must not take --bg, which is the
    page behind it: on the old pill that was the readable colour, on a ring it
    is invisible. */
-.nav-open:hover { color: var(--ink); }
+.nav-open:hover { color: var(--mast-ink); }
 .nav-open svg { display: block; }
 
 /* On a phone the six links wrap to two lines of three. That is fine; what is
@@ -291,7 +302,7 @@ main { padding-top: 0.25rem; }
     letter-spacing: -0.01em;
     transition: color 120ms ease, background 120ms ease;
   }
-  .nav a:hover { color: var(--ink); background: var(--mast-hover-bg); }
+  .nav a:hover { color: var(--mast-ink); background: var(--mast-hover-bg); }
   .nav-open { grid-column: 3; justify-self: end; }
 }
 
