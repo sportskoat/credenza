@@ -81,34 +81,17 @@ const focusOnMount = (el) => {
 // One component owns the hook because two callers would start two paid reads.
 // `enabled` lets callers disable the hook without calling it conditionally.
 //
-// Turn 9 §3 adds one step BEFORE the network: the seller cache. A chart read
-// once for a seller sizes every later item from that seller with no call at
-// all, which is the whole point of "the next item from that seller sizes
-// instantly". It costs a walk of the shelf against a network round trip.
+// Lane D (Kyle 2026-07-30): the item's own chart hunts FIRST. Turn 9 §3 ran
+// the seller cache before the network, so a chart borrowed from a sibling
+// item beat the item's own chart photo — the wrong numbers won. The cache is
+// now the fallback only: it fills in when the hunt finds nothing, and it
+// stays labelled via "seller-cache" so the customer knows it is borrowed.
 function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null) {
   const [hunting, setHunting] = useState(false);
   useEffect(() => {
     if (!enabled) return;
     if (chart || SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return;
     if (chartHuntTried.has(item.id)) return;
-    // Seller cache first. It is free, and a chart the customer already accepted
-    // for this seller beats anything a fresh vision read would guess.
-    if (shelfItems && shelfItems.length) {
-      const cached = chartCacheForSeller(shelfItems, item);
-      if (cached) {
-        chartHuntTried.add(item.id);
-        onSaveEdit(item.id, {
-          sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + cached.text,
-          sizeChartSource: {
-            via: "seller-cache",
-            photos: 0,
-            at: new Date().toISOString(),
-            seller: cached.seller || item.seller || "",
-          },
-        });
-        return;
-      }
-    }
     let cancelled = false;
     const controller = new AbortController();
     setHunting(true);
@@ -130,6 +113,23 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
               ? { sizeChartSource: { ...found.source, at: new Date().toISOString() } }
               : {}),
           });
+          return;
+        }
+        // The hunt found nothing — only now may a sibling item's chart fill
+        // in. A borrowed chart never wins over the item's own photos.
+        if (shelfItems && shelfItems.length) {
+          const cached = chartCacheForSeller(shelfItems, item);
+          if (cached) {
+            onSaveEdit(item.id, {
+              sizeNotes: (item.sizeNotes ? item.sizeNotes.trim() + "\n" : "") + cached.text,
+              sizeChartSource: {
+                via: "seller-cache",
+                photos: 0,
+                at: new Date().toISOString(),
+                seller: cached.seller || item.seller || "",
+              },
+            });
+          }
         }
       } finally {
         if (!cancelled) setHunting(false);

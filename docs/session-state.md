@@ -601,7 +601,9 @@ its chart in `sizeNotes` and provenance in `sizeChartSource`, so a separate
 store would be a copy that can go stale against the original. Only READ charts
 qualify (`CHART_CACHE_VIA`), so a guess never spreads between items; newest `at`
 wins; the CHART's own `seller` tag outranks the item's field. `useChartHunt`
-checks it BEFORE the network and writes `via: "seller-cache"`, surfaced as
+checks it AFTER the item's own hunt finds nothing (Lane D, Kyle 2026-07-30:
+a borrowed chart must never beat the item's own chart photo) and writes
+`via: "seller-cache"`, surfaced as
 `FROM REPLUX'S CHART (CACHED)`. `migrateItem` keeps `sizeChartSource.seller` —
 without that whitelist entry the whole lookup key vanishes on reload.
 

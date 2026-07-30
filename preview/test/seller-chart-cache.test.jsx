@@ -1,12 +1,14 @@
 // Handoff turn 9 §3 — the seller cache.
 //
-// One seller's tag chart covers every item they list. Reading it again for the
-// second item costs money and returns the same numbers, so the second item
-// must answer from the shelf.
+// One seller's tag chart usually covers every item they list. The cache IS
+// the shelf: every item already carries its chart in `sizeNotes` and its
+// provenance in `sizeChartSource`, so a separate store would only be a copy
+// that can go stale against the original.
 //
-// The cache IS the shelf. Every item already carries its chart in `sizeNotes`
-// and its provenance in `sizeChartSource`, so a separate store would only be a
-// copy that can go stale against the original.
+// Lane D (Kyle 2026-07-30): the cache is the FALLBACK, not the first stop.
+// The item's own photos hunt first; a borrowed chart fills in only when the
+// hunt finds nothing, so a sibling's numbers can never beat the item's own
+// chart photo.
 //
 // Two rules keep it honest:
 //   - only READ charts qualify (CHART_CACHE_VIA), so a guess never spreads;
@@ -204,7 +206,36 @@ describe("§3 cache in the sizing block", () => {
     return onSaveEdit;
   }
 
-  it("sizes a second item from the cache, with no vision read", async () => {
+  it("the item's own chart beats a borrowed one (Lane D)", async () => {
+    // A sibling holds a read chart, but the hunt finds the item's own — the
+    // own chart must win. Kyle 2026-07-30: the borrowed chart used to block
+    // the shirt's own chart.
+    const donor = withChart();
+    const target = item();
+    huntMock.mockResolvedValue({
+      text: OTHER_CHART,
+      source: { via: "yupoo-text", photos: 0, seller: "replux" },
+    });
+    const onSaveEdit = renderBody(target, [donor, target]);
+
+    await waitFor(() =>
+      expect(onSaveEdit).toHaveBeenCalledWith(target.id, {
+        sizeNotes: OTHER_CHART,
+        sizeChartSource: {
+          via: "yupoo-text",
+          photos: 0,
+          seller: "replux",
+          at: expect.any(String),
+        },
+      })
+    );
+    expect(onSaveEdit).not.toHaveBeenCalledWith(
+      target.id,
+      expect.objectContaining({ sizeChartSource: expect.objectContaining({ via: "seller-cache" }) })
+    );
+  });
+
+  it("falls back to the cache when the item's own hunt finds nothing", async () => {
     const donor = withChart();
     const target = item();
     const onSaveEdit = renderBody(target, [donor, target]);
@@ -220,8 +251,8 @@ describe("§3 cache in the sizing block", () => {
         },
       })
     );
-    // The whole point: the cache is free.
-    expect(huntMock).not.toHaveBeenCalled();
+    // The cache is the fallback now: the hunt ran first and found nothing.
+    expect(huntMock).toHaveBeenCalledTimes(1);
   });
 
   it("still hunts when the shelf holds no chart for this seller", async () => {
