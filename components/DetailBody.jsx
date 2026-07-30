@@ -1396,11 +1396,6 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
     const activePref = rec.fitPref || (fitPrefHasChoice(fitPref) ? fitPref : null);
     // Empty unless the saved shirt length moved the pick (Kyle 2026-07-30).
     const lengthCost = lengthCostSentence(rec, { units });
-    // Fit engine v2: what the engine thought it was sizing, and why that
-    // garment gets the room it gets. Empty when it could not name the garment.
-    const garmentReason = garmentReasonLine(rec);
-    // Shorts only, and only when Kyle saved a shorts length. Never a warning.
-    const shortsNote = shortsLengthNote(rec, bodyProfile, item.category, { units });
     const lengthTag =
       activePref && activePref.length
         ? fitPrefLabel(item.category, "length", activePref.length)
@@ -1429,13 +1424,7 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
             </span>
           </div>
         ) : null}
-        {/* Fit engine v2 (Kyle 2026-07-30): "a jacket, it's supposed to be a
-            little bit bigger on you than, say, a fitted T shirt". This line
-            names the garment the engine read, so the room it chose is not a
-            mystery. It leads, because it explains every number below it. */}
-        {garmentReason ? <p className="cz-fit4-prose">{garmentReason}</p> : null}
         {rec.prefReason ? <p className="cz-fit4-prose">{rec.prefReason}</p> : null}
-        {shortsNote ? <p className="cz-fit4-prose">{shortsNote}</p> : null}
         {/* Kyle 2026-07-30: the saved shirt length may move the pick off the
             size the chest chose. When it does, the app must say so and name
             what the chest paid — never a silent size change. */}
@@ -2505,6 +2494,23 @@ export default function DetailBody({
               />
             ) : null}
 
+            {/* Fit engine v2 (Kyle 2026-07-30): "a jacket, it's supposed to be
+                a little bit bigger on you than, say, a fitted T shirt". This
+                line names the garment the engine read, so the room it chose is
+                not a mystery. It sits with the fit sentence, not inside the
+                confidence strip — the strip needs a save handler to render at
+                all, and the reason must appear wherever a pick appears. */}
+            {garmentReasonLine(verdict.rec) ? (
+              <p className="cz-sizing-garment">{garmentReasonLine(verdict.rec)}</p>
+            ) : null}
+            {/* Shorts only, and only when a shorts length is saved. Never a
+                warning: a seller's 裤长 is the outside leg and an inseam is
+                not, so the number is an estimate and says so. */}
+            {shortsLengthNote(verdict.rec, bodyProfile, item.category, { units: measureUnits }) ? (
+              <p className="cz-sizing-garment">
+                {shortsLengthNote(verdict.rec, bodyProfile, item.category, { units: measureUnits })}
+              </p>
+            ) : null}
             {verdict.prescription ? (
               <p className="cz-sizing-why">
                 {verdict.prescription}

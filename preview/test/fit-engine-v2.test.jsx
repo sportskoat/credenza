@@ -174,6 +174,18 @@ describe("a blazer and a coat are not the same size", () => {
     expect(garmentReasonLine({ garmentKind: "unknown", easeBand: null })).toBe("");
     expect(garmentReasonLine(null)).toBe("");
   });
+
+  it("describes the room the pick actually used, not just the garment", () => {
+    // A tee sized on the oversized band must not say "everyday room" — the
+    // line would argue with the centimetres printed under it.
+    const over = recommendSize(chart, body, "shirt", null, null, "Oversized boxy tee");
+    expect(over.easeBand).toEqual([15, 25]);
+    expect(garmentReasonLine(over)).toBe("Oversized tee: sized to hang loose, which is the cut.");
+    const slim = recommendSize(chart, body, "shirt", { looseness: "slim" }, null, "Cotton tee");
+    expect(garmentReasonLine(slim)).toBe("Tee: sized close to the body, the way you like them.");
+    const plain = recommendSize(chart, body, "shirt", null, null, "Cotton tee");
+    expect(garmentReasonLine(plain)).toBe("Tee: sized for everyday room, not tight and not loose.");
+  });
 });
 
 describe("the shoulder is a score, not a veto", () => {

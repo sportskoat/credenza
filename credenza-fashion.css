@@ -12091,6 +12091,18 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   text-wrap: pretty;
 }
 
+/* Fit engine v2 (Kyle 2026-07-30): the garment the engine read, and the
+   shorts-length estimate. Same voice as the fit sentence below it, one shade
+   quieter — it sets up the numbers rather than stating the pick. */
+.cz-sizing-garment {
+  margin: 8px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  opacity: 0.85;
+  text-wrap: pretty;
+}
+
 /* CH-14: the Concise/Detailed pref, changeable on the sentence it governs.
    Sits inline after the prose like a quiet footnote chip. */
 .cz-sizing-detail-toggle {

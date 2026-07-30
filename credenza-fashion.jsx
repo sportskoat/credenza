@@ -1615,6 +1615,21 @@ const GARMENT_REASON = {
 };
 export function garmentReasonLine(rec) {
   if (!rec || !rec.garmentKind || !rec.easeBand) return "";
+  // A knit sized on a wider or closer band must not claim "everyday room" —
+  // the line has to describe the room the pick actually used, or it argues
+  // with the centimetres printed under it.
+  if (rec.garmentKind === "knit") {
+    const [low, high] = rec.easeBand;
+    if (low === CHEST_EASE_BANDS.knitOver[0]) {
+      return "Oversized tee: sized to hang loose, which is the cut.";
+    }
+    if (low === CHEST_EASE_BANDS.knitRelaxed[0]) {
+      return "Drop-shoulder tee: sized to sit past the shoulder, which is the cut.";
+    }
+    if (high === CHEST_EASE_BANDS.knitSlim[1]) {
+      return "Tee: sized close to the body, the way you like them.";
+    }
+  }
   return GARMENT_REASON[rec.garmentKind] || "";
 }
 
