@@ -22,6 +22,12 @@ const MARK = `<svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-
             <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
           </svg>`;
 
+// The way into the app is the app's own avatar ring, not a wide pill (Kyle
+// 2026-07-30: "I don't want there to be any difference"). A visitor is signed
+// out, so the app draws the lucide User glyph at 17px, stroke 2.2
+// (credenza-fashion.jsx:8352). This is that glyph, inlined.
+const PERSON = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
 // The same six the app's masthead carries (components/site-nav.js), in the
 // same order. About, Privacy, Terms and llms.txt stay in the footer: eleven
 // links do not fit in a header row.
@@ -50,7 +56,7 @@ function head(current) {
         <nav class="nav" aria-label="Site">
 ${links}
         </nav>
-        <a class="nav-open" href="/">Open app</a>
+        <a class="nav-open" href="/" aria-label="Open app" title="Open app">${PERSON}</a>
       </div>`;
 }
 

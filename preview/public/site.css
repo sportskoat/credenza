@@ -44,6 +44,9 @@
   --mast-faint: #6b7078;
   --mast-hair: #d2d2c9;
   --mast-hover-bg: rgba(23, 24, 26, 0.06);
+  /* The avatar ring's fill. The app's --cz-card-solid, not the page's --card:
+     the two differ by a shade in dark mode (#202024 against #1a1a1d). */
+  --mast-avatar-bg: #ffffff;
   font-family: var(--cz-display);
 }
 
@@ -60,6 +63,7 @@
     --mast-faint: #9ea3ab;
     --mast-hair: rgba(255, 255, 255, 0.16);
     --mast-hover-bg: rgba(255, 255, 255, 0.07);
+    --mast-avatar-bg: #202024;
   }
 }
 
@@ -80,7 +84,11 @@ header, main, footer {
 }
 
 header {
-  padding-top: 2rem;
+  /* 28px, not 2rem. The app's .cz-shell pads its top by 28px
+     (credenza-fashion.css:3202), and the masthead is the first thing inside
+     it. 2rem is 32px, which put the whole public header block 4px lower than
+     the product's — the last visible difference Kyle reported 2026-07-30. */
+  padding-top: 28px;
   padding-bottom: 0.25rem;
 }
 
@@ -174,21 +182,32 @@ main { padding-top: 0.25rem; }
 .nav a:hover { color: var(--ink); }
 .nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
 
+/* The way into the product is the app's own masthead avatar, not a wide pill
+   (Kyle 2026-07-30: "I don't want there to be any difference"). Every number
+   is copied from .cz-avatar (credenza-fashion.css:6278): 44px square, 50%
+   radius, a 1px --mast-hair ring, the --mast-avatar-bg fill, and the
+   --mast-sub person glyph. A visitor is signed out, so the app draws that same
+   glyph rather than initials. */
 .nav-open {
   grid-row: 1;
   grid-column: 2;
   justify-self: end;
-  padding: 0.45rem 0.95rem;
-  background: var(--accent);
-  color: var(--bg);
-  border-radius: 999px;
-  font-family: var(--cz-sans);
-  font-size: 0.85rem;
-  font-weight: 600;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--mast-avatar-bg);
+  border: 1px solid var(--mast-hair);
+  border-radius: 50%;
+  color: var(--mast-sub);
   text-decoration: none;
-  white-space: nowrap;
 }
-.nav-open:hover { opacity: 0.9; color: var(--bg); }
+/* The app brightens the glyph on hover. It must not take --bg, which is the
+   page behind it: on the old pill that was the readable colour, on a ring it
+   is invisible. */
+.nav-open:hover { color: var(--ink); }
+.nav-open svg { display: block; }
 
 /* On a phone the six links wrap to two lines of three. That is fine; what is
    not fine is them touching, so the row gap grows a little. */

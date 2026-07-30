@@ -13,7 +13,7 @@ const HELPERS = `
     const el = document.querySelector(sel);
     if (!el) return null;
     const r = el.getBoundingClientRect();
-    return { left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width), height: Math.round(r.height) };
+    return { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), width: Math.round(r.width), height: Math.round(r.height) };
   };
   const styleOf = (el) => {
     if (!el) return null;
@@ -78,6 +78,11 @@ for (const width of [1440, 1280, 1100]) {
     width,
     headBounds: [app.head, pub.head],
     brandLeft: [app.brand && app.brand.left, pub.brand && pub.brand.left],
+    // Kyle's third report was vertical: the whole block sat 4px low. The
+    // hairline under it is the easiest number to compare.
+    headTop: [app.head && app.head.top, pub.head && pub.head.top],
+    hairline: [app.head && app.head.bottom, pub.head && pub.head.bottom],
+    actionsBox: [app.actions, pub.actions],
     actionsRight: [app.actions && app.actions.right, pub.actions && pub.actions.right],
     navMid: [mid(app.nav), mid(pub.nav)],
     viewportMid: width / 2,

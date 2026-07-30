@@ -2180,6 +2180,38 @@ describe("the public site shares one look and one header", () => {
     );
   });
 
+  // Kyle 2026-07-30, third report: "THEY MOVE DOWN AND TO THE LEFT". The left
+  // half was the band above. The down half was this: the <header> that wraps
+  // the masthead padded its top by 2rem = 32px, where the app's shell pads
+  // 28px. Measured in WebKit at 1100/1280/1440, the public header started at
+  // y=32 against the app's y=28 at every width.
+  it("starts the header 28px down, the same as the app shell", () => {
+    const rule = cssRules(SITE_CSS).find((r) => selectorOf(r) === "header");
+    expect(rule, "site.css no longer sets the page header's own padding").toBeTruthy();
+    expect(tidy(rule), "the header top padding is not the app's 28px").toMatch(
+      /padding-top: 28px/
+    );
+  });
+
+  // The app's top-right control is a 44px avatar ring. The public pages showed
+  // a wide "Open app" pill, which was the one part of the header a visitor
+  // could still tell apart. Same ring, same glyph, same size now.
+  it("opens the app from the same round ring the app draws", () => {
+    const rule = cssRules(SITE_CSS).find((r) => selectorOf(r) === ".nav-open");
+    expect(rule, "site.css has no .nav-open rule").toBeTruthy();
+    const block = tidy(rule);
+    expect(block, "the app link is not the app's 44px ring").toMatch(/width: 44px/);
+    expect(block, "the app link is not round").toMatch(/border-radius: 50%/);
+    expect(block, "the app link kept the pill fill").not.toMatch(/background: var\(--accent\)/);
+    for (const { rel, html } of DOCS) {
+      const head = html.match(/<div class="site-head">[\s\S]*?\n {6}<\/div>/)[0];
+      expect(head, `${rel} still shows the wide pill`).not.toMatch(/>Open app</);
+      expect(head, `${rel} lost the name a screen reader reads`).toMatch(
+        /class="nav-open"[^>]*aria-label="Open app"/
+      );
+    }
+  });
+
   for (const { rel, html } of DOCS) {
     it(`${rel} reads the shared stylesheet`, () => {
       expect(html, `${rel} does not link /site.css`).toContain('href="/site.css"');
