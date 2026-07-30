@@ -888,9 +888,8 @@
   }
 }
 
-/* The phone capture surface is the docked bottom bar (.cz-stash-dock, end of
-   this file). It sits under the shelf as a real sibling, so it covers no
-   card. */
+/* The phone capture surface is the floating Stash button (spec 5.6, end of
+   this file). It opens the same capture sheet as the desktop row. */
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    ═══ CAROUSEL VIEW ═══
@@ -4255,9 +4254,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-variant-numeric: tabular-nums;
 }
 
-/* CH-14: the currency pref, changeable at the total. Rides both total rows
-   (desktop .cz-total-row, phone .cz-dock-totals) right after the money reel.
-   Quiet chip — the reel is the reading, this is the setting. */
+/* CH-14: the currency pref, changeable at the total. Rides the desktop
+   .cz-total-row after the money reel, and the phone's floating summary pill
+   beside the money. Quiet chip — the money is the reading, this is the
+   setting. */
 .cz-total-currency {
   display: inline-flex;
   align-items: center;
@@ -6144,7 +6144,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* ─── Capture surfaces (design handoff PR3, shelf handoff 2026-07-28) ──────
-   Mobile: the docked bottom bar (.cz-stash-dock, end of this file).
+   Mobile: the floating Stash button (spec 5.6, end of this file).
    Desktop: the inline search + Stash row below. */
 
 /* Desktop top capture / search row (≥768px). Under logo, above tabs. */
@@ -9871,299 +9871,144 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ═══ MOBILE BOTTOM BAR (CH-03) — docked totals + Stash pill + Agent ════════
-   Shelf handoff 2026-07-28: the bar is a flex SIBLING of the scrolling shelf,
-   not an overlay. Nothing is ever covered by it, and it carries its own
-   bottom padding for the home indicator. It used to float, so the shelf had
-   to reserve 88px of dead space under the last card; that space is gone.
-   Row 1 is the shelf money: the count, the rough ship weight, the total, and
-   the currency chip. Row 2 is capture. With a link on the clipboard it is ONE
-   split pill on --cz-action-fill: left region reviews the link in the capture
-   sheet, right region stashes in one tap. Empty clipboard → a single
-   full-width ＋ pill. The Agent secondary button stays beside it. Row 3 is
-   the home-indicator grip. Every value reads a --cz-* token so Blackout dark
-   inherits it.
+/* ═══ MOBILE FLOATING SHELF CONTROLS — summary pill + Stash button ══════════
+   Mobile shelf redesign 2026-07-30 (task 4, spec 5.6). The docked bottom bar
+   (CH-03, 2026-07-28) is gone. A 150px fade (--cz-scrim) paints over the tail
+   of the grid, BEHIND both controls — over the near-white Stash button the
+   fade would read grey, so the controls sit at z-index 2. The pair floats
+   12px above the safe area: a summary pill (count · weight · total, with the
+   CH-14 currency chip kept beside the money — still exactly one chip on a
+   phone) and a full-width Stash button. The shell reserves 160px of bottom
+   padding (see the phone column rule below) so the last card row scrolls
+   clear of the pair. Desktop never shows either node.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.cz-stash-dock {
-  flex: 0 0 auto;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 11px 16px 0;
-  border-top: 1px solid var(--cz-hair);
-  /* Translucent over the shelf so a card scrolling under the top hairline
-     reads as motion, not as a hard cut. */
-  background: color-mix(in srgb, var(--cz-bg) 88%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.cz-shelf-scrim,
+.cz-shelf-float {
+  display: none;
 }
 
-/* Row 1: "On the shelf" + count · weight on the left, money + currency on
-   the right. */
-.cz-dock-totals {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-}
+@media (max-width: 767px) {
+  /* The fade is fixed to the viewport bottom. The phone app is exactly
+     100dvh (see the column rule below), so fixed and absolute agree — and
+     fixed needs no positioned ancestor. */
+  .cz-shelf-scrim {
+    display: block;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 150px;
+    pointer-events: none;
+    background: var(--cz-scrim);
+  }
 
-.cz-dock-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.cz-dock-kicker {
-  font-size: 9.5px;
-  font-weight: 650;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-  white-space: nowrap;
-}
-
-.cz-dock-count {
-  font-size: 13px;
-  color: var(--cz-sub);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cz-dock-money {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  flex: 0 0 auto;
-}
-
-.cz-dock-total,
-.cz-dock-total .t-reel {
-  font-family: var(--cz-mono);
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--cz-money);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* The reel sets its own 16px height for the 13px desktop total; the docked
-   19px number needs the taller box or the digits clip. */
-.cz-dock-total .t-reel {
-  height: 22px;
-}
-
-/* Row 2: the capture pill and the Agent button. */
-.cz-dock-actions {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-}
-
-/* Row 3: the home-indicator grip. It names the swipe zone the phone already
-   owns, so the last row of cards never ends flush with it. */
-.cz-dock-grip {
-  display: block;
-  width: 134px;
-  height: 5px;
-  margin: 3px auto 0;
-  border-radius: 999px;
-  background: var(--cz-hair-strong);
-  /* The dock pads 0 at the bottom; the grip owns the safe area itself. */
-  margin-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-}
-
-/* Desktop keeps the search + Stash row under the masthead. */
-@media (min-width: 768px) {
-  .cz-stash-dock {
-    display: none;
+  .cz-shelf-float {
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+    position: fixed;
+    z-index: 2;
+    left: 14px;
+    right: 14px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }
 
-/* The pill. Height 46, radius 14, on the action fill. As a lone button
-   (empty clipboard) it holds ＋ Stash a link itself; as a split container it
-   holds the clip region and the Stash ↑ region. It carried a floating-button
-   shadow while the bar floated; the bar is docked now, so a shadow would
-   only fake a lift that is not there. */
-.cz-stash-pill {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: stretch;
-  min-height: 46px;
-  padding: 0;
-  border: 0;
-  border-radius: 14px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
+/* Summary pill: 30px, mono, upper-case. The money leads in --cz-money; the
+   CH-14 currency chip rides inside it, unchanged from the dock. */
+.cz-shelf-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: var(--cz-card);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+  white-space: nowrap;
   overflow: hidden;
 }
 
-.cz-stash-pill.is-solo {
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 700;
+.cz-shelf-summary-money {
+  color: var(--cz-money);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The chip's visual is 16px tall inside a 30px pill, but every control owes
+   a 44px tap target (spec §13.11). A transparent ::after widens the hit area
+   without growing the pill — clicks on a pseudo-element land on the button. */
+@media (pointer: coarse) {
+  .cz-shelf-summary .cz-total-currency {
+    position: relative;
+  }
+  .cz-shelf-summary .cz-total-currency::after {
+    content: "";
+    position: absolute;
+    inset: -14px -8px;
+  }
+}
+
+/* Stash button: full width, 50px, near-white action fill, real lift shadow. */
+.cz-shelf-stash {
+  width: 100%;
+  height: 50px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-family: var(--cz-sans);
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   cursor: pointer;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
   transition: transform var(--dur-press) var(--ease-out);
 }
 
-/* The plus reads small next to a 700-weight label unless it is set larger. */
-.cz-stash-pill-plus {
-  font-size: 17px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.cz-stash-pill.is-solo:active {
+/* Full-width rows press at 0.98 (spec §7); pills and chips press at 0.96. */
+.cz-shelf-stash:active {
   transform: scale(0.98);
 }
 
-.cz-stash-pill.is-solo:disabled {
+.cz-shelf-stash:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.cz-stash-pill.is-solo:focus-visible {
+.cz-shelf-stash:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--cz-focus);
+  box-shadow: 0 0 0 3px var(--cz-focus), 0 10px 26px rgba(0, 0, 0, 0.5);
 }
 
-/* Left region: platform dot + CLIPBOARD · {platform} + host. Opens the
-   capture sheet for a look before stashing. */
-.cz-stash-pill-clip {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px 0 16px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.cz-stash-pill-clip:disabled,
-.cz-stash-pill-go:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.cz-stash-pill-clip:focus-visible,
-.cz-stash-pill-go:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 3px var(--cz-focus);
-}
-
-.cz-stash-pill-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.cz-stash-pill-meta {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cz-stash-pill-kicker {
-  font-family: var(--cz-mono);
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  opacity: 0.6;
-  white-space: nowrap;
-}
-
-.cz-stash-pill-host {
-  font-family: var(--cz-mono);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Right region: the 1-tap verb, divided from the clip region by the
-   action-text divider hairline. */
-.cz-stash-pill-go {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  padding: 0 18px;
-  border: 0;
-  border-left: 1px solid var(--cz-action-text-divider);
-  background: none;
-  color: inherit;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-/* Agent stays as the secondary button (CH-03 point 3). Quiet card surface
-   next to the loud pill; 46px tall so the row reads as one bar. */
-.cz-stash-agent {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  min-height: 46px;
-  padding: 0 16px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 14px;
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform var(--dur-press) var(--ease-out);
-}
-
-.cz-stash-agent:active {
-  transform: scale(0.97);
-}
-
-.cz-stash-agent:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.cz-stash-agent:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--cz-focus);
-}
-
-/* ─── The docked column (shelf handoff 2026-07-28) ──────────────────────────
+/* ─── The phone column (shelf handoff 2026-07-28, float revision 2026-07-30) ─
    The app is one fixed-height column on a phone: chrome and cards scroll in
-   .cz-shell, the bar sits under them and never moves. The bar used to float
-   over the cards, so the shelf reserved 88px of dead space to keep the last
-   card clear. That reservation is deleted here — the bar is a real sibling
-   now, so the space it takes is the space it needs. */
+   .cz-shell. The bottom bar no longer docks under the shell — the summary
+   pill and the Stash button now FLOAT over the grid (spec 5.6), so the shell
+   reserves 160px plus the safe area to keep the last card row clear of them. */
 @media (max-width: 767px) {
   .cz-app[data-fashion="true"] {
     /* border-box is load-bearing: the notch padding above must come OUT of
        the 100dvh, not add to it. There is no global box-sizing rule in this
-       app, so content-box would push the bar below the screen edge. */
+       app, so content-box would push the layout below the screen edge. */
     box-sizing: border-box;
     height: 100dvh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    /* The dock owns the bottom edge and the safe area. The column must not
-       add its own or the bar floats above the home indicator. */
+    /* The floating controls own the bottom edge and the safe area. The column
+       must not add its own or the pair floats above the home indicator. */
     padding-bottom: 0;
     overflow: hidden;
   }
@@ -10186,7 +10031,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     /* Contain the flick so a fast scroll to the end never rubber-bands the
        whole column and exposes the page behind it. */
     overscroll-behavior-y: contain;
-    padding-bottom: 18px;
+    /* The floating summary pill + Stash button + their 150px fade never cover
+       the last row (spec 5.5). */
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
   }
 }
 

@@ -7577,8 +7577,9 @@ function CredenzaApp() {
     };
   }, [openHaulName, totalsItems, hauls]);
   // Rough ship weight for whatever is on the surface. haulPipeline computes the
-  // same number but only inside an open haul; the docked phone bar (shelf
-  // handoff 2026-07-28) prints "9 saved · ~2.4 kg est." on the plain shelf too.
+  // same number but only inside an open haul; the floating phone summary pill
+  // (spec 5.6, 2026-07-30) prints "9 saved · ~2.4 kg est." on the plain shelf
+  // too.
   const shelfWeightLabel = useMemo(() => {
     const grams = haulWeightGrams(totalsItems);
     return grams != null ? formatWeightGrams(grams) : "";
@@ -8540,6 +8541,7 @@ function CredenzaApp() {
         <PhotoShelfList
           items={listItems}
           selectedId={selectedId}
+          phone={isPhone}
           onOpenDetail={(item, nodes) => {
             retireFirstCardHint();
             openWithMorph(item.id, nodes);
@@ -8647,10 +8649,9 @@ function CredenzaApp() {
         color: INK,
         fontFamily: FONT,
         // Padding used to live here as an inline shorthand, which no media query
-        // could reach. The phone bottom bar is docked now (shelf handoff
-        // 2026-07-28) instead of floating, so the app no longer reserves 104px
-        // of dead space for it. Padding moved to credenza-fashion.css so the
-        // phone and the desktop can differ.
+        // could reach. Padding moved to credenza-fashion.css so the phone and
+        // the desktop can differ — the phone shell reserves 160px under the
+        // floating shelf controls (spec 5.5).
         transition: "background 250ms var(--ease-out)",
       }}
     >
@@ -9446,10 +9447,10 @@ function CredenzaApp() {
             ))}
           </div>
           {actionsInTabs && chromeActions}
-          {/* Phone: the shelf totals used to ride this row (C2). The shelf
-              handoff (2026-07-28) moves them into the docked bottom bar, where
-              the money sits beside the button that adds to it. That leaves ONE
-              count, ONE total, and ONE currency chip on a phone. */}
+          {/* Phone: the shelf totals used to ride this row (C2). They now
+              float over the grid in the summary pill (spec 5.6, 2026-07-30).
+              That leaves ONE count, ONE total, and ONE currency chip on a
+              phone. */}
           {indexingJobs.length > 0 && (
             <div className="cz-index-chip-row" aria-live="polite">
               {indexingJobs.map((job) => (
@@ -9786,115 +9787,61 @@ function CredenzaApp() {
         </div>
       )}
 
-      {/* Docked bottom bar — MOBILE ONLY (≤767px), CH-03 + shelf handoff
-          2026-07-28. It is a flex SIBLING of the scrolling shelf, not an
-          overlay: nothing is ever covered by it, and it carries its own
-          bottom padding for the home indicator.
-          Row 1 is the shelf money — count, rough ship weight, total, currency.
-          Row 2 is the capture row. With a link on the clipboard it is ONE
-          split pill on --cz-action-fill: the left region reviews the link in
-          the capture sheet, the right region stashes it in one tap. Empty
-          clipboard → a single full-width ＋ pill. The Agent button stays
-          beside it.
-          Row 3 is the home-indicator grip.
+      {/* Floating shelf controls — MOBILE ONLY (≤767px), mobile shelf redesign
+          2026-07-30 (task 4, spec 5.6). The docked bottom bar is gone. A 150px
+          fade paints over the tail of the grid, and two controls float 12px
+          above the safe area: a summary pill (count · weight · total) and a
+          full-width Stash button. The capture sheet already surfaces a
+          clipboard link, so one button covers both capture paths; the agent
+          choice lives in the item sheet footer (spec 6.6). The CH-14 currency
+          chip survives inside the pill — exactly one chip on a phone, beside
+          the money it changes. The isPhone gate keeps both nodes out of the
+          desktop DOM (the ≥768px CSS hide is the second wall); desktop keeps
+          its own total row and capture in the chrome.
           Hidden on the first-run intro (CO-04) and on the brand-new empty
           shelf: the hero already carries capture there (Kyle: "too many
           buttons"). */}
-      {!firstRunIntro && items.length > 0 && (
-      <div className="cz-stash-dock">
-        {isPhone && shelfTotalsVisible && (
-          <div className="cz-dock-totals">
-            <span className="cz-dock-meta">
-              <span className="cz-dock-kicker">On the shelf</span>
-              <span className="cz-dock-count cz-fade-text-in" key={totalCountLabel}>
-                {totalCountLabel}
-                {shelfWeightLabel ? " · " + shelfWeightLabel + " est." : ""}
-              </span>
+      {!firstRunIntro && items.length > 0 && isPhone && (
+      <>
+        <div className="cz-shelf-scrim" aria-hidden="true" />
+        <div className="cz-shelf-float">
+          {shelfTotalsVisible && (
+            <span className="cz-shelf-summary cz-fade-text-in" key={totalCountLabel}>
+              {totalCountLabel}
+              {shelfWeightLabel ? " · " + shelfWeightLabel + " est." : ""}
+              {/* CO-10: a zero-result search must not show a green $0.00 —
+                  it read as a real balance. */}
+              {!(q && visible.length === 0) && (
+                <>
+                  <span className="cz-shelf-summary-money" aria-live="polite">
+                    {formatMoney(pricePrimary === "CNY" ? listTotalCny : listTotalUsd, pricePrimary)}
+                  </span>
+                  <button
+                    type="button"
+                    className="cz-total-currency"
+                    aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
+                    title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
+                    onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+                  >
+                    {pricePrimary}
+                    <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
+                  </button>
+                </>
+              )}
             </span>
-            {/* CO-10: a zero-result search must not show a green $0.00 —
-                it read as a real balance. */}
-            {!(q && visible.length === 0) && (
-              <span className="cz-dock-money">
-                <span className="cz-dock-total" aria-live="polite">
-                  <ReelCounter
-                    value={pricePrimary === "CNY" ? listTotalCny : listTotalUsd}
-                    currency={pricePrimary}
-                  />
-                </span>
-                {/* CH-14: the currency pref is changeable at the total, not
-                    only in Profile. The reel follows the chip (Kyle
-                    2026-07-28) — cards, footer, and total agree. This is the
-                    ONLY currency chip on a phone; the tabs row gave its copy
-                    up so the two can never disagree. */}
-                <button
-                  type="button"
-                  className="cz-total-currency"
-                  aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                  title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                  onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
-                >
-                  {pricePrimary}
-                  <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
-                </button>
-              </span>
-            )}
-          </div>
-        )}
-        <div className="cz-dock-actions">
-          {clipPreview ? (
-            <div className="cz-stash-pill is-split">
-              <button
-                type="button"
-                className="cz-stash-pill-clip"
-                disabled={interactionLocked}
-                onClick={() => setCaptureSheetOpen(true)}
-                title="Review the clipboard link"
-                aria-label={"Review the clipboard link: " + clipPreview.host}
-              >
-                <span className="cz-stash-pill-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
-                <span className="cz-stash-pill-meta">
-                  <span className="cz-stash-pill-kicker">{"CLIPBOARD · " + clipPreview.platform}</span>
-                  <span className="cz-stash-pill-host">{clipPreview.host}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className="cz-stash-pill-go"
-                disabled={interactionLocked}
-                onClick={stashClipboard}
-                title="Stash the clipboard in one tap"
-                aria-label={"Stash the clipboard: " + clipPreview.host}
-              >
-                Stash ↑
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="cz-stash-pill is-solo"
-              disabled={interactionLocked}
-              onClick={() => setCaptureSheetOpen(true)}
-              title="Stash a link or note"
-              aria-label="Stash to shelf"
-            >
-              <span className="cz-stash-pill-plus" aria-hidden="true">＋</span> Stash a link
-            </button>
           )}
           <button
             type="button"
-            className="cz-stash-agent"
+            className="cz-shelf-stash"
             disabled={interactionLocked}
-            onClick={() => setAgentSheetOpen(true)}
-            title="Choose agent"
-            aria-label={"Agent: " + agentBarLabel}
+            onClick={() => setCaptureSheetOpen(true)}
+            title="Stash a link or note"
+            aria-label="Stash to shelf"
           >
-            Agent
+            +&nbsp;Stash a link
           </button>
         </div>
-        {/* Home-indicator grip. Decorative: it names the swipe zone the phone
-            already owns, so the last row of cards never ends flush with it. */}
-        <span className="cz-dock-grip" aria-hidden="true" />
-      </div>
+      </>
       )}
     </div>
   );

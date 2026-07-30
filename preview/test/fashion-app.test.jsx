@@ -2339,17 +2339,18 @@ describe("Inline preference controls (CH-14)", () => {
     expect(screen.getAllByText("¥229").length).toBeGreaterThan(1);
   });
 
-  // The chip used to ride the tabs row on a phone. The shelf handoff
-  // (2026-07-28) moved it into the docked bottom bar, beside the total it
-  // changes. There must be exactly ONE on a phone: two chips can disagree.
-  it("the phone docked bar carries the same chip, and only one", async () => {
+  // The chip used to ride the tabs row on a phone, then the docked bottom
+  // bar. The mobile shelf redesign (2026-07-30, spec 5.6) floats it inside
+  // the summary pill, beside the money it changes. There must be exactly ONE
+  // on a phone: two chips can disagree.
+  it("the phone summary pill carries the same chip, and only one", async () => {
     window.__setMediaMatches("(max-width: 767px)", true);
     try {
       installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
       render(<Credenza />);
       await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ });
       const chip = await screen.findByRole("button", { name: "Show prices in CNY" });
-      expect(chip.closest(".cz-stash-dock")).not.toBeNull();
+      expect(chip.closest(".cz-shelf-summary")).not.toBeNull();
       expect(screen.getAllByRole("button", { name: "Show prices in CNY" })).toHaveLength(1);
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);
