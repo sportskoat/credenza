@@ -3,7 +3,9 @@
 // hand in twenty seconds … and then read the numbers out of the chart photos
 // with the AI reader").
 //
-// One card. Its chart prints chest and length only — no shoulder, no sleeve.
+// One card, a plain set-in-sleeve shirt. Its chart prints chest and length
+// only — no shoulder, no sleeve. (A "tee" or a "boxy" cut would hide those two
+// rows for a different reason, which is not what this probe is about.)
 // Shot 1: the FIT READ table. The shoulder row reads "n/a" and the footnote
 // names the column the seller does not print.
 // Shot 2: the hand-typing grid, opened by "Type the numbers", with the size
@@ -36,7 +38,7 @@ const items = [
     url: "https://mook-official.x.yupoo.com/albums/239021655?uid=1",
     type: "article",
     host: "mook-official.x.yupoo.com",
-    title: "Boxy crewneck tee",
+    title: "Heavy cotton oxford shirt",
     summary: "",
     tags: [],
     links: [],
@@ -84,7 +86,7 @@ page.on("pageerror", (err) => console.log("PAGE ERROR:", err.message));
 await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
 await page.waitForTimeout(4000);
 
-await page.getByRole("button", { name: /^Open Boxy crewneck tee$/ }).click({ force: true });
+await page.getByRole("button", { name: /^Open Heavy cotton oxford shirt$/ }).click({ force: true });
 await page.waitForTimeout(1200);
 const cell = page.locator(".cz-detail-modal .cz-detail-cell", { hasText: "Size · fit" });
 if (await cell.count()) {
@@ -99,7 +101,7 @@ await page.waitForTimeout(600);
 
 const rows = await page.locator(".cz-fitread-row").allTextContents();
 const footnote = await page.locator(".cz-fitread-footnote").first().textContent();
-await page.screenshot({ path: join(outDir, "typed-1-missing-column.png") });
+await page.locator(".cz-fitread").first().screenshot({ path: join(outDir, "typed-1-missing-column.png") });
 
 await page.getByRole("button", { name: "Type the numbers" }).click({ force: true });
 await page.waitForTimeout(700);
@@ -110,7 +112,7 @@ await page.evaluate(() => {
 await page.waitForTimeout(400);
 const gridRows = await page.locator(".cz-sizing-fix.is-typed .cz-sizing-fix-row").count();
 const gridCols = await page.locator(".cz-sizing-fix-col").allTextContents();
-await page.screenshot({ path: join(outDir, "typed-2-grid.png") });
+await page.locator(".cz-sizing-reading").first().screenshot({ path: join(outDir, "typed-2-grid.png") });
 
 console.log(JSON.stringify({ rows, footnote, gridRows, gridCols }, null, 2));
 await context.close();
