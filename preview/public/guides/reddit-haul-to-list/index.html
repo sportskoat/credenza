@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Turn a Reddit haul into a shopping list · Credenza</title>
     <meta name="description" content="How to turn a Reddit haul comment into a shopping list: paste the wall of text, get one card per item with name and links, then size and open your agent." />

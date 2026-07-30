@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>What a link resolve is, and what spends one · Credenza</title>
     <meta name="description" content="A link resolve is one server read of one buy link. What comes back, which stores it works on, why it sometimes returns less, and what spends your 20 a day." />

@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Turn a Yupoo album into a shopping list · Credenza</title>
     <meta name="description" content="Paste a Yupoo album link and get a card with the photos, the seller, the price and the size chart. What carries over, and what does not." />

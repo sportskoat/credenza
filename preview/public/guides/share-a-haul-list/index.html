@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Share a haul list, not your whole shelf · Credenza</title>
     <meta name="description" content="Post a haul list to Reddit or Discord as a read-only page. Pick the items, choose which fields go in, and delete the link when the thread ends." />

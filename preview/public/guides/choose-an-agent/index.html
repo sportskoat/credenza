@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Superbuy vs Sugargoo vs Kakobuy · decide size first</title>
     <meta name="description" content="Superbuy, Sugargoo, Kakobuy, Hoobuy and CNFans all forward the same item. Compare them on link format and coverage, and keep the canonical store link." />
