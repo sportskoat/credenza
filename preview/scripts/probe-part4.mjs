@@ -15,7 +15,7 @@ const browser = await chromium.launch();
     // explicit file path here.
     const res = await page.goto("http://localhost:5173" + path + "index.html", { waitUntil: "domcontentloaded" });
     const h1 = await page.locator("h1").first().textContent();
-    const support = await page.locator('a[href="mailto:wenselllc@gmail.com"]').count();
+    const support = await page.locator('a[href="mailto:support@credenzafashion.com"]').count();
     console.log(path, "status:", res.status(), "| h1:", h1.trim(), "| support links:", support);
   }
   await ctx.close();
@@ -47,7 +47,7 @@ await page.waitForTimeout(800);
 const legal = await page.evaluate(() => ({
   privacy: !!document.querySelector('.cz-profile-legal-link[href="/privacy/"]'),
   terms: !!document.querySelector('.cz-profile-legal-link[href="/terms/"]'),
-  support: !!document.querySelector('.cz-profile-legal-link[href="mailto:wenselllc@gmail.com"]'),
+  support: !!document.querySelector('.cz-profile-legal-link[href="mailto:support@credenzafashion.com"]'),
   erase: !!document.querySelector(".cz-profile-danger"),
 }));
 console.log("profile legal:", JSON.stringify(legal));
