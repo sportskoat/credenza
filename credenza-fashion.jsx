@@ -59,7 +59,8 @@ import {
   deleteAccount as accountDeleteRequest,
   safeErrorMessage,
 } from "./preview/src/account.js";
-import { overFreeLimit, bumpUsage, planLimit, PRO_LIMITS } from "./preview/src/usage.js";
+import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS } from "./preview/src/usage.js";
+import { limitStatus, ANON_FREE_CARDS } from "./preview/src/limits.js";
 import { buildShareSnapshot, makeShareCode, expiryFromDays, shareUrl } from "./credenza-share.js";
 import { shareItemCard } from "./credenza-item-share.js";
 import { createShare, listShares, deleteShare, copyLink } from "./preview/src/share-api.js";
@@ -83,6 +84,9 @@ const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsPage = lazy(() => import("./settings/SettingsPage.jsx"));
 const AvatarMenu = lazy(() => import("./components/AvatarMenu.jsx"));
 const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
+// One sheet for every limit wall (Kyle 2026-07-30). Lazy: it opens on a tap or
+// at a wall, never on the first paint.
+const LimitsSheet = lazy(() => import("./sheets/LimitsSheet.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -2797,6 +2801,9 @@ const V2_KEY = "credenza-items-v1";
 // Deleted-card gravestones (LB-7). Kept beside the shelf, not inside it, so a
 // .json backup restores cards without also restoring the record of deletions.
 export const TOMBSTONE_KEY = "credenza-fashion-tombstones-v1";
+// "You get 3 free full cards." — shown on a visitor's first paste, once per
+// device (Kyle 2026-07-30, rule 3: warn before the wall, never at it).
+export const FREE_NOTE_KEY = "credenza-fashion-free-note-v1";
 
 // When a host storage shim exists (the extension), it IS the backend — failed
 // reads and writes must surface instead of silently splitting or emptying the shelf.
@@ -5355,6 +5362,58 @@ function CredenzaApp() {
     return () => setSignInRequiredHook(null);
   }, [askForSignIn]);
 
+  // ── One meter, one sheet (Kyle 2026-07-30) ────────────────────────────────
+  //
+  // Rule 1: a pill in the header always says where this person stands.
+  // Rule 2: the pill, a spent allowance, a daily cap and an ended membership
+  //         all open the SAME sheet.
+  // Rule 3: the last free read turns the pill amber, so nobody meets a wall
+  //         they were not told about.
+  // The sheet NEVER opens on its own — only on a tap or at a real wall.
+  const [limitsOpen, setLimitsOpen] = useState(false);
+  // The daily counters live in localStorage, which never tells React that it
+  // changed. Every spent read bumps this, and the pill re-reads.
+  const [usageTick, setUsageTick] = useState(0);
+  useEffect(() => onUsageChange(() => setUsageTick((n) => n + 1)), []);
+  const signedInAccount = AUTH_ENABLED && !!accountSession;
+  const limits = useMemo(
+    () =>
+      AUTH_ENABLED
+        ? limitStatus({
+            plan: accountPlan,
+            signedIn: signedInAccount,
+            // The server has already refused, so the true count is zero
+            // whatever this device's own counter says.
+            blocked: signInRequired && !signedInAccount,
+          })
+        : null,
+    // usageTick is the whole point of this dependency list: it is what makes
+    // the pill re-read localStorage after a read is spent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountPlan, signedInAccount, signInRequired, usageTick],
+  );
+  const openLimits = useCallback(() => setLimitsOpen(true), []);
+  // Rule 3, the other half: the first paste by a signed-out visitor says how
+  // many free cards there are. Once per device — a line repeated on every
+  // paste is nagging, and nagging drives visitors away.
+  const freeNoteRef = useRef(false);
+  const noteFreeAllowanceOnce = () => {
+    if (!AUTH_ENABLED || signedInAccount || freeNoteRef.current) return;
+    freeNoteRef.current = true;
+    try {
+      if (window.localStorage.getItem(FREE_NOTE_KEY)) return;
+      window.localStorage.setItem(FREE_NOTE_KEY, "1");
+    } catch {
+      // No storage (private mode). Showing the line once this session is the
+      // right failure: the visitor still learns the number.
+    }
+    notify("You get " + ANON_FREE_CARDS + " free full cards.", {
+      sub: "Sign in for more, any time. Your shelf stays on this device.",
+      actionLabel: "What do I get?",
+      onAction: () => setLimitsOpen(true),
+    });
+  };
+
   const SETTINGS_KEYS = ["account", "sizes", "fit", "shelf", "data", "about"];
   const normalizeSettingsSection = (s) => {
     const mapped = { agent: "shelf", import: "data", links: "data" }[s] || s;
@@ -6045,6 +6104,10 @@ function CredenzaApp() {
       askForSignIn(text);
       return { status: "signin" };
     }
+    // Rule 3: warn before the wall, never at it. The FIRST paste by a visitor
+    // says how many free cards there are, once per device, so the third card
+    // is never a surprise. It is one line, and it is not a modal.
+    noteFreeAllowanceOnce();
     if (options.linksOnly) {
       const links = extractValidUrls(text);
       if (!links.length) return { status: "no-link" };
@@ -7397,15 +7460,20 @@ function CredenzaApp() {
 
     const shelf = serializeAskCandidates(query, shelfAll, { limit: 25 });
     // Part 7e: a signed-in FREE user over the daily ask cap gets the honest
-    // message + the upgrade path instead of a server 429.
+    // message instead of a server 429.
+    //
+    // Kyle 2026-07-30, rule 2: this line no longer carries its own upgrade
+    // words. Every wall opens the ONE limits sheet, and the sheet holds the
+    // caps and the price, so the Ask box cannot quote a number that drifts.
     if (overFreeLimit(accountPlan, "ask")) {
       setAskState({
         status: "error",
         query,
         answer: "",
         results: [],
-        error: "That is today's free Ask limit. Upgrade to Pro in Profile for 40 asks a day.",
+        error: "That is today's free Ask limit.",
       });
+      openLimits();
       return;
     }
     const controller = new AbortController();
@@ -8779,6 +8847,26 @@ function CredenzaApp() {
         </Suspense>
       )}
 
+      {/* The one limits sheet. Every wall in the app opens THIS, so a person
+          reads the same three answers wherever they met the limit. */}
+      {limitsOpen && (
+        <Suspense fallback={null}>
+          <LimitsSheet
+            status={limits}
+            signedIn={signedInAccount}
+            onSignIn={() => {
+              setLimitsOpen(false);
+              navigateSettings("account");
+            }}
+            onUpgrade={() => {
+              setLimitsOpen(false);
+              navigateSettings("account");
+            }}
+            onClose={() => setLimitsOpen(false)}
+          />
+        </Suspense>
+      )}
+
       {pendingDeleteId && (
         <ModalShell
           title="Delete this card?"
@@ -9051,6 +9139,21 @@ function CredenzaApp() {
           )}
           {!firstRunIntro && (
           <div className="cz-masthead-actions">
+            {/* The counter pill (Kyle 2026-07-30, rule 1): one meter, always
+                visible, so nobody meets a wall by surprise. It turns amber on
+                the last free read (rule 3) and opens the one limits sheet.
+                A Pro member has no meter, so limits is null and nothing
+                renders. */}
+            {limits && (
+              <button
+                type="button"
+                className={"cz-limit-pill is-" + limits.tone}
+                onClick={openLimits}
+                title="What you have left"
+              >
+                {limits.label}
+              </button>
+            )}
             {/* Search collapses to this icon on phone; the pill below reveals
                 on tap and keeps its query while open. */}
             {isPhone && items.length > 0 && (
