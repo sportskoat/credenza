@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
-import { m as motion } from "framer-motion";
-import { Plus, Trash2 } from "lucide-react";
-import { itemPhotoList, usePrefersReducedMotion, DETAIL_PHOTO_CAP } from "../credenza-fashion.jsx";
+import { Plus } from "lucide-react";
+import { itemPhotoList, DETAIL_PHOTO_CAP } from "../credenza-fashion.jsx";
 
-// Edit-mode photo strip: every indexed photo with a shake-trash delete, plus
-// a + tile to add ones the resolver missed.
-export function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = DETAIL_PHOTO_CAP }) {
+// Edit-mode photo strip: every indexed photo, plus a + tile to add ones the
+// resolver missed. A tap on a photo opens the big photo view, which carries
+// Delete and Make cover photo — the thin per-tile trash is gone (Kyle
+// 2026-07-29: "it's very thin and you always hit the delete box").
+export function EditPhotosManager({ item, onAttachPhoto, onOpenPhoto, max = DETAIL_PHOTO_CAP }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const photos = itemPhotoList(item, max);
@@ -38,7 +39,7 @@ export function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = DE
             src={src}
             index={idx}
             isCover={idx === 0 && item.image === src}
-            onRemove={() => onRemovePhoto?.(item.id, src)}
+            onOpen={() => onOpenPhoto?.(idx)}
           />
         ))}
         {canAdd ? (
@@ -72,25 +73,27 @@ export function EditPhotosManager({ item, onAttachPhoto, onRemovePhoto, max = DE
   );
 }
 
-export function EditPhotoTile({ src, index, isCover, onRemove }) {
-  const [hovered, setHovered] = useState(false);
+export function EditPhotoTile({ src, index, isCover, onOpen }) {
   // Round 4 point 7 (2026-07-29): a failed photo draws a plain dark tile,
   // never the browser's broken-image mark. Per tile, so one bad photo does
   // not hide the good ones.
   const [bad, setBad] = useState(false);
-  const reduced = usePrefersReducedMotion();
   return (
-    <div
+    <button
+      type="button"
       className={"cz-edit-photo-tile" + (isCover ? " is-cover" : "")}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      aria-label={"View photo " + (index + 1) + " full screen"}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen?.();
+      }}
     >
       {bad ? (
         <span className="cz-photo-tile-missing" aria-hidden="true" />
       ) : (
         <img
           src={src}
-          alt={"Photo " + (index + 1)}
+          alt=""
           draggable={false}
           loading="lazy"
           decoding="async"
@@ -98,35 +101,6 @@ export function EditPhotoTile({ src, index, isCover, onRemove }) {
         />
       )}
       {isCover ? <span className="cz-edit-photo-cover-badge">Cover</span> : null}
-      {/* No trash ON the cover photo (Kyle 2026-07-22: "what is this over the
-          cover photo"). Delete the cover by deleting it after another photo
-          takes over — non-cover tiles keep the quiet delete. */}
-      {isCover ? null : (
-        <motion.button
-          type="button"
-          className="cz-edit-photo-delete"
-          aria-label={"Delete photo " + (index + 1)}
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove?.();
-          }}
-          onMouseEnter={() => setHovered(true)}
-          whileHover={reduced ? undefined : { scale: 1.06 }}
-          whileTap={reduced ? undefined : { scale: 0.94 }}
-        >
-          <motion.span
-            className="cz-edit-photo-delete-icon"
-            animate={
-              reduced || !hovered
-                ? { y: 0, rotate: 0 }
-                : { y: [0, -2, 0, -2, 0], rotate: [0, -10, 10, -10, 0] }
-            }
-            transition={{ duration: 0.4 }}
-          >
-            <Trash2 size={14} strokeWidth={2.2} aria-hidden="true" />
-          </motion.span>
-        </motion.button>
-      )}
-    </div>
+    </button>
   );
 }

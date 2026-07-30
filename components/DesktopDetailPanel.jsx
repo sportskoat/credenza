@@ -543,20 +543,6 @@ export default function DesktopDetailPanel({
                     )}
                     {isCover ? <span className="cz-dpanel-thumb-cover">Cover</span> : null}
                   </button>
-                  {/* No trash on cover — same rule as EditPhotosManager. */}
-                  {!isCover && onRemovePhoto ? (
-                    <button
-                      type="button"
-                      className="cz-dpanel-thumb-delete"
-                      aria-label={"Delete photo " + (i + 1)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemovePhoto(item.id, src);
-                      }}
-                    >
-                      <Trash2 size={14} strokeWidth={2.2} aria-hidden="true" />
-                    </button>
-                  ) : null}
                 </div>
               );
             })}
