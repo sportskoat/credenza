@@ -4941,6 +4941,31 @@ export const BODY_MEASURE_GROUPS = [
 ];
 // Size facts live inside SizeRecommendation now — no second "Sizes" bubble.
 
+// How to take each measurement, keyed by the same storage key the profile and
+// the charts use. Kyle 2026-07-30: "can we get a tool tip next to each of these
+// to inform the customer how best to measure this?" A wrong tape position is
+// the one input error the app cannot detect — a chest taken under the arms
+// grades as confidently as a chest taken right — so the instruction has to sit
+// beside the box, not in a help page.
+//
+// ONE source, two surfaces: the measurements form reveals these behind a "?"
+// beside each label, and the card's progressive fit ask (fitMeasureFieldsFor
+// in components/SizeRecommendation.jsx) uses the same sentence. `footLength`
+// has no profile box; it exists here because the shoes ask needs it.
+export const MEASURE_HOW_TO = {
+  height: "Stand against a wall with no shoes on. Measure from the floor to the top of your head.",
+  weight: "Weigh yourself in the morning, before you eat.",
+  chest: "Measure around the fullest part of your chest. Keep the tape level and do not pull it tight.",
+  shoulder: "Measure across your back, from the bone at one shoulder tip to the bone at the other.",
+  sleeve: "Hold your arm straight down. Measure from your shoulder tip to your wrist bone.",
+  length: "Measure from the top of your shoulder, beside your neck, down to where you want the hem to sit.",
+  waist: "Measure around your body where you wear the waistband. This is lower than your natural waist.",
+  hip: "Measure around the fullest part of your seat. Keep the tape level.",
+  pantsLength: "Lay trousers you like flat. Measure from the top of the waistband to the hem — the way sellers do.",
+  shortsLength: "Lay shorts you like flat. Measure from the top of the waistband to the hem — the way sellers do.",
+  footLength: "Stand on paper. Mark your heel and your longest toe. Measure between the marks.",
+};
+
 
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ MAIN APP ═══

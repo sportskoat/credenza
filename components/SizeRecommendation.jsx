@@ -3,6 +3,7 @@ import {
   CATEGORIES,
   FIT_PREF_AXES,
   FIT_SUMMARY_ON,
+  MEASURE_HOW_TO,
   SIZE_PICK_SKIP_CATEGORIES,
   effectiveBodyProfile,
   fitPrefHasChoice,
@@ -22,26 +23,30 @@ import SizeChartTable from "./SizeChartTable.jsx";
 // Tops → chest. Bottoms → waist + trouser length. Shoes → foot length. Fallback →
 // chest + waist. Exported for the live DetailBody ask (CH-08) — the hint is
 // the "Not sure how to measure?" line for each field.
+//
+// The hint text comes from MEASURE_HOW_TO, the same sentences the measurements
+// form shows behind its "?" buttons. Two surfaces asking for one measurement
+// must not describe it two ways.
 export function fitMeasureFieldsFor(category) {
   if (category === "pants" || category === "shorts") {
     return [
-      { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
-      { key: "pantsLength", label: "Trouser length", kind: "length", phCm: "104", phIn: "41", hint: "Lay trousers you like flat. Measure from the top of the waistband to the hem — the way sellers do." },
+      { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: MEASURE_HOW_TO.waist },
+      { key: "pantsLength", label: "Trouser length", kind: "length", phCm: "104", phIn: "41", hint: MEASURE_HOW_TO.pantsLength },
     ];
   }
   if (category === "shoes") {
     return [
-      { key: "footLength", label: "Foot length", kind: "length", phCm: "26.5", phIn: "10.4", hint: "Stand on paper, mark heel and longest toe, measure between the marks." },
+      { key: "footLength", label: "Foot length", kind: "length", phCm: "26.5", phIn: "10.4", hint: MEASURE_HOW_TO.footLength },
     ];
   }
   if (category === "outerwear" || category === "shirt") {
     return [
-      { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38", hint: "Measure around the fullest part of your chest, tape level." },
+      { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38", hint: MEASURE_HOW_TO.chest },
     ];
   }
   return [
-    { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38", hint: "Measure around the fullest part of your chest, tape level." },
-    { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
+    { key: "chest", label: "Chest", kind: "length", phCm: "96", phIn: "38", hint: MEASURE_HOW_TO.chest },
+    { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: MEASURE_HOW_TO.waist },
   ];
 }
 

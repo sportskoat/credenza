@@ -7076,7 +7076,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
-/* One line under the lower-body boxes naming WHICH length to measure. Quieter
+/* Kept for any surface that still wants one quiet line under a grid. Quieter
    than a label, louder than a placeholder. */
 .cz-measure-note {
   margin: 10px 0 0;
@@ -7121,6 +7121,20 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: grid;
   gap: 7px;
   min-width: 0;
+  /* An open instruction makes its own cell taller than the rest of the row.
+     Without this the other boxes in that row float down to the middle of the
+     taller cell, so opening one tip visibly nudges its neighbours out of line.
+     `start` pins every box to the top of the row instead. */
+  align-content: start;
+}
+
+/* The label and its "?" share one row so the question mark reads as part of
+   the label, not as a control that belongs to the box below it. */
+.cz-measure-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .cz-measure-label {
@@ -7129,6 +7143,47 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--cz-faint);
+  min-width: 0;
+}
+
+/* Small enough to stay out of the way, but the hit area is padded out to 24px
+   so a thumb can find it. It sits on the label line, which is why it borrows
+   the label's colour rather than the ink. */
+.cz-measure-how-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin: -4px;
+  padding: 4px;
+  box-sizing: content-box;
+  border: 1px solid var(--cz-hair);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cz-faint);
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-measure-how-btn:hover,
+.cz-measure-how-btn[aria-expanded="true"] {
+  color: var(--cz-ink);
+  border-color: var(--cz-ink);
+}
+
+/* In flow under its own box, so opening one tip pushes that box's row down
+   and never covers the number being typed. */
+.cz-measure-how {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
 }
 
 /* The unit rides inside the box. The input is transparent and sits on this

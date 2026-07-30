@@ -3,6 +3,7 @@ import {
   BODY_MEASURE_GROUPS,
   BODY_PROFILE_FIELDS,
   Field,
+  MEASURE_HOW_TO,
   ModalShell,
   Pill,
   SegmentedControl,
@@ -22,13 +23,37 @@ import {
 // The input is 20px. That is large enough to check a typed number at arm's
 // length with a tape measure in your other hand, and 16px or more is also the
 // threshold that stops iOS zooming the page on focus.
-function Measure({ label, unit, value, onChange, placeholder }) {
+//
+// Kyle 2026-07-30 asked for "a tool tip next to each of these". A hover tooltip
+// is not one: on a phone there is no hover, and this form is filled in on a
+// phone with a tape measure in the other hand. So the "?" is a real button and
+// the sentence opens IN FLOW under the box — the same choice the first-card
+// hint made (credenza-fashion.css, .cz-first-hint). Nothing floats over the
+// number you are typing, and nothing needs a second tap to dismiss before you
+// can carry on. The row keeps its height when closed; only the sentence moves.
+function Measure({ label, unit, value, onChange, placeholder, how }) {
   const id = useId();
+  const howId = `${id}-how`;
+  const [howOpen, setHowOpen] = useState(false);
   return (
     <div className="cz-measure-field">
-      <label className="cz-measure-label" htmlFor={id}>
-        {label}
-      </label>
+      <div className="cz-measure-label-row">
+        <label className="cz-measure-label" htmlFor={id}>
+          {label}
+        </label>
+        {how ? (
+          <button
+            type="button"
+            className="cz-measure-how-btn"
+            aria-expanded={howOpen}
+            aria-controls={howId}
+            aria-label={`How to measure ${label.toLowerCase()}`}
+            onClick={() => setHowOpen((v) => !v)}
+          >
+            ?
+          </button>
+        ) : null}
+      </div>
       <div className="cz-measure-input">
         <input
           id={id}
@@ -36,11 +61,17 @@ function Measure({ label, unit, value, onChange, placeholder }) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          aria-describedby={how && howOpen ? howId : undefined}
         />
         <span className="cz-measure-unit" aria-hidden="true">
           {unit}
         </span>
       </div>
+      {how && howOpen ? (
+        <p className="cz-measure-how" id={howId}>
+          {how}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -138,19 +169,14 @@ export default function BodyProfileSheet({ value, units = "in", onSave, onChange
                 value={draft[key] || ""}
                 onChange={set(key)}
                 placeholder={units === "in" ? phIn : phCm}
+                how={MEASURE_HOW_TO[key]}
               />
             ))}
           </div>
-          {/* Kyle 2026-07-30: the two length boxes ask for the seller's own
-              measurement, not an inside leg. The app cannot compare an inside
-              leg against a seller chart, so the form has to say which one to
-              measure. */}
-          {group === "bottom" ? (
-            <p className="cz-measure-note">
-              Measure the trouser and shorts lengths the way sellers do: lay a pair you
-              like flat, then measure from the top of the waistband to the hem.
-            </p>
-          ) : null}
+          {/* The lower-body note that used to sit here said which length to
+              measure. Both length boxes now carry that sentence on their own
+              "?", so the standing paragraph only repeated it. Kyle 2026-07-28:
+              "reduce the overall text… consolidate it so it's on one screen." */}
         </section>
       ))}
 
