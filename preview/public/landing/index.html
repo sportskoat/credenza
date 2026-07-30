@@ -70,36 +70,6 @@
     <link rel="preload" href="/fonts/ClashGrotesk-Variable.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/site.css" />
     <style>
-      @media (prefers-color-scheme: dark) {
-  :root {
-    --bg-soft: #0c0c0e;
-    --bg-panel: #141416;
-    --ink-soft: #c8cbcf;
-    --sub: #a1a1aa;
-    --muted: #8a9099;
-    --faint: #6b7078;
-    --line: rgba(244, 244, 240, 0.14);
-    --line-soft: rgba(244, 244, 240, 0.1);
-    --money-deep: #4ade80;
-    --money-bright: #86efac;
-    --money-on-dark: #86efac;
-    --action: #f4f4f0;
-    --action-text: #17181a;
-    --status-shipped-bg: oklch(0.28 0.05 290);
-    --status-shipped-text: oklch(0.86 0.05 290);
-    --status-bought-bg: oklch(0.28 0.05 250);
-    --status-bought-text: oklch(0.86 0.05 250);
-    --status-qc-bg: oklch(0.3 0.05 85);
-    --status-qc-text: oklch(0.88 0.06 85);
-    --chip-fill: rgba(255, 255, 255, 0.1);
-    --fit-band: rgba(74, 222, 128, 0.18);
-    --warn: #d9a83c;
-    --warn-ink: #e8bf63;
-    --card-shadow: 0 1px 2px oklch(0 0 0 / 0.55), 0 12px 28px oklch(0 0 0 / 0.45);
-    --card-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.6), 0 22px 44px oklch(0 0 0 / 0.5);
-  }
-}
-
       :root {
   --bg-soft: #eeeee8;
   --bg-panel: #e9e9e3;
@@ -142,6 +112,36 @@
   --card-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.14), 0 22px 44px oklch(0 0 0 / 0.13);
   --max: 1120px;
   --pad-x: clamp(24px, 6.5vw, 48px);
+}
+
+      @media (prefers-color-scheme: dark) {
+  :root {
+    --bg-soft: #0c0c0e;
+    --bg-panel: #141416;
+    --ink-soft: #c8cbcf;
+    --sub: #a1a1aa;
+    --muted: #8a9099;
+    --faint: #6b7078;
+    --line: rgba(244, 244, 240, 0.14);
+    --line-soft: rgba(244, 244, 240, 0.1);
+    --money-deep: #4ade80;
+    --money-bright: #86efac;
+    --money-on-dark: #86efac;
+    --action: #f4f4f0;
+    --action-text: #17181a;
+    --status-shipped-bg: oklch(0.28 0.05 290);
+    --status-shipped-text: oklch(0.86 0.05 290);
+    --status-bought-bg: oklch(0.28 0.05 250);
+    --status-bought-text: oklch(0.86 0.05 250);
+    --status-qc-bg: oklch(0.3 0.05 85);
+    --status-qc-text: oklch(0.88 0.06 85);
+    --chip-fill: rgba(255, 255, 255, 0.1);
+    --fit-band: rgba(74, 222, 128, 0.18);
+    --warn: #d9a83c;
+    --warn-ink: #e8bf63;
+    --card-shadow: 0 1px 2px oklch(0 0 0 / 0.55), 0 12px 28px oklch(0 0 0 / 0.45);
+    --card-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.6), 0 22px 44px oklch(0 0 0 / 0.5);
+  }
 }
 
       html { scroll-behavior: smooth; }

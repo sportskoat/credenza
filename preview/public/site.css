@@ -220,14 +220,13 @@ main { padding-top: 0.25rem; }
  * button off the page.
  */
 @media (min-width: 1024px) {
-  /* The band is the app's own container: .cz-shell caps at 1080px, centres
-     itself, and .cz-chrome pads it 28px on each side (credenza-fashion.css
-     :3202 and the injected chrome rule). Copy both numbers, or the wordmark
-     starts 96px left of where the product starts it.
+  /* The app's .cz-shell caps at 1080px and includes 28px of padding on each
+     side. The visible masthead is therefore 1024px wide. This element is the
+     masthead itself, not its padded shell, so copy the inner width.
      100vw includes the scrollbar in WebKit, so a small subtraction keeps a
      narrow window from gaining a horizontal scrollbar. */
   .site-head {
-    --band: min(1080px, 100vw - 1.25rem);
+    --band: min(1024px, 100vw - 3.5rem);
     /* The app's row is as tall as its 44px avatar, which puts the hairline at
        59px. Match the row, or the header under the same wordmark ends 9px
        higher than the one in the product. */
@@ -243,8 +242,8 @@ main { padding-top: 0.25rem; }
     grid-template-columns: 1fr auto 1fr;
     row-gap: 0;
     column-gap: 1.5rem;
-    /* The app masthead's own spacing (credenza-fashion.css:3465). */
-    padding: 0 28px 14px;
+    /* The app masthead's own spacing (credenza-fashion.css:3492). */
+    padding: 0 0 14px;
     margin-bottom: 18px;
     border-bottom-color: var(--mast-hair);
   }

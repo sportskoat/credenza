@@ -76,6 +76,7 @@ for (const width of [1440, 1280, 1100]) {
   const mid = (r) => (r ? Math.round((r.left + r.right) / 2) : null);
   report.push({
     width,
+    headBounds: [app.head, pub.head],
     brandLeft: [app.brand && app.brand.left, pub.brand && pub.brand.left],
     actionsRight: [app.actions && app.actions.right, pub.actions && pub.actions.right],
     navMid: [mid(app.nav), mid(pub.nav)],
