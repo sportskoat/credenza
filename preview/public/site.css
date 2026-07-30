@@ -184,6 +184,47 @@ main { padding-top: 0.25rem; }
   .nav { font-size: 0.875rem; gap: 0.55rem 0.95rem; }
 }
 
+/* One row on a wide screen (Kyle 2026-07-30): mark left, links centred, the
+ * way into the product right — the app's masthead shape exactly.
+ *
+ * The two-row layout above exists only because <header> is capped at the
+ * 40rem reading column, and a wordmark plus six links plus a button do not
+ * fit in 37.5rem of content box. The app masthead has the whole window, so it
+ * fits one line. So widen the HEADER BAND only, and leave the reading column
+ * alone: the words still wrap at 40rem, which is what makes the pages read.
+ *
+ * The band breaks out of its parent with a negative left margin. The offset
+ * is measured from the PARENT's own centre (50%), never from a literal column
+ * width: /landing/ caps its <header> at 70rem, not 40rem, so a formula built
+ * on 37.5rem hung that page's band 240px left of centre. A percentage margin
+ * resolves against whatever the parent turns out to be, so both cap widths
+ * land on the same centre line. 100vw includes the scrollbar in WebKit, hence
+ * the 4rem subtraction rather than the 2.5rem of real padding; without it a
+ * wide page can gain a horizontal scrollbar.
+ *
+ * The nav keeps flex-wrap: wrap on purpose. At the narrow end of this range
+ * the six links can still exceed the centre column; wrapping puts them on a
+ * second line inside that column, where overflow would instead push the
+ * button off the page.
+ */
+@media (min-width: 1024px) {
+  .site-head {
+    --band: min(76rem, 100vw - 4rem);
+    width: var(--band);
+    margin-left: calc(50% - var(--band) / 2);
+    margin-right: 0;
+    grid-template-columns: auto 1fr auto;
+    row-gap: 0;
+    column-gap: 1.5rem;
+    padding-bottom: 1rem;
+  }
+  .nav {
+    grid-row: 1;
+    grid-column: 2;
+    justify-content: center;
+  }
+}
+
 /* ── One title scale ──────────────────────────────────────────────────────
  * h1 names the page, h2 names a section, h3 names a card. All three used to
  * differ per page. They do not now.

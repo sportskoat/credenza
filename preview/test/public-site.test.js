@@ -2127,6 +2127,31 @@ describe("the public site shares one look and one header", () => {
     }
   });
 
+  // The wide-screen header band (Kyle 2026-07-30: "make it the same as this",
+  // meaning the app masthead — one row, mark left, links centred).
+  //
+  // The band is wider than its own <header>, so it breaks out with a negative
+  // left margin. That offset MUST be measured from the parent's centre. The
+  // first version subtracted a literal 37.5rem, which is the article pages'
+  // content box; /landing/ caps its header at 70rem instead, so its band hung
+  // 240px left of centre on a 1440px screen and nobody saw it in a unit test.
+  // A percentage resolves against whatever the parent turns out to be.
+  it("centres the wide header band on its parent, not on a fixed column", () => {
+    const wide = cssRules(SITE_CSS).find(
+      (r) => /^@media \(min-width: 1024px\)$/.test(selectorOf(r)) && r.includes(".site-head")
+    );
+    expect(wide, "site.css has no wide-screen .site-head rule").toBeTruthy();
+    const block = tidy(wide);
+    expect(block, "the wide header band sets no width").toMatch(/width: var\(--band\)/);
+    expect(block, "the band's left margin is not measured from the parent centre").toMatch(
+      /margin-left: calc\(50% - var\(--band\) \/ 2\)/
+    );
+    // The exact shape of the old defect: a hard column width inside the
+    // margin. --band itself may hold rem values; the margin may not.
+    const margin = block.match(/margin-left:[^;]*;/)[0];
+    expect(margin, "the band's left margin hard-codes a column width").not.toMatch(/\d+(\.\d+)?rem/);
+  });
+
   for (const { rel, html } of DOCS) {
     it(`${rel} reads the shared stylesheet`, () => {
       expect(html, `${rel} does not link /site.css`).toContain('href="/site.css"');
