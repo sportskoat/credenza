@@ -4464,7 +4464,13 @@ function CredenzaApp() {
       }
       // Return from the Stripe Customer Portal: land on Account and plan,
       // where billing lives (portal.js builds this return URL).
-      if (params.get("profile")) {
+      // A paid checkout lands here too (Kyle 2026-07-30: "billing worked, but
+      // there's no confirmation page after you get Pro"). A toast that fades
+      // was the only answer, on the shelf, with nothing to read afterwards.
+      // Account and plan states the plan in words — "You are on Pro as …" —
+      // and the delayed entitlement refresh below flips it there if the
+      // webhook is still landing.
+      if (params.get("profile") || params.get("upgraded")) {
         stripUrl();
         setSettingsView({ section: "account" });
         settingsBootRef.current = true;

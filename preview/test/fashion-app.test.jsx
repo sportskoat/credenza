@@ -2272,6 +2272,20 @@ describe("Settings deep links (CH-12)", () => {
     expect(window.location.pathname).toBe("/settings/account");
   });
 
+  // Kyle 2026-07-30: "billing worked! but there's no confirmation page after
+  // you get pro". Stripe returns to /?upgraded=1; a toast on the shelf was the
+  // whole answer and it faded. Land on Account and plan, which states the plan
+  // in words.
+  it("a paid return from Stripe opens Account and plan", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    window.history.replaceState(null, "", "/?upgraded=1");
+    render(<Credenza />);
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/account");
+    expect(window.location.search, "the ?upgraded flag stays in the address").toBe("");
+  });
+
   it("/settings/account opens the same routed page", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     window.history.replaceState(null, "", "/settings/account");

@@ -2152,6 +2152,29 @@ describe("the public site shares one look and one header", () => {
     expect(margin, "the band's left margin hard-codes a column width").not.toMatch(/\d+(\.\d+)?rem/);
   });
 
+  // Kyle 2026-07-30, second report on the same header: "its not even centred,
+  // create the identical page that I have right now for these other pages".
+  //
+  // Two numbers made it different, both measured in WebKit with
+  // scripts/probe-header-match.mjs at 1100/1280/1440:
+  //   1. The band was 76rem while the app's .cz-shell caps at 1080px, so the
+  //      wordmark started 96px left of the product's wordmark.
+  //   2. `grid-template-columns: auto 1fr auto` centres the middle column in
+  //      the LEFTOVER room, not on the page. A 190px brand against a 105px
+  //      button put the links 65px right of centre. Equal outer columns fix
+  //      it — the app does the same thing with flex: 1 1 0 on its two outer
+  //      children (credenza-fashion.css:9418).
+  it("puts the wide header on the app's own grid: 1080px band, equal outer columns", () => {
+    const wide = cssRules(SITE_CSS).find(
+      (r) => /^@media \(min-width: 1024px\)$/.test(selectorOf(r)) && r.includes(".site-head")
+    );
+    const block = tidy(wide);
+    expect(block, "the band no longer caps at the app's 1080px shell").toMatch(/--band: min\(1080px,/);
+    expect(block, "the outer header columns are not equal, so the links miss the centre").toMatch(
+      /grid-template-columns: 1fr auto 1fr/
+    );
+  });
+
   for (const { rel, html } of DOCS) {
     it(`${rel} reads the shared stylesheet`, () => {
       expect(html, `${rel} does not link /site.css`).toContain('href="/site.css"');
