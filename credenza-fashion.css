@@ -11914,11 +11914,17 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   font-size: 10.5px;
 }
 
+/* Kyle 2026-07-30: the two chart actions are text links now, in the same shape
+   as "Edit my measurements" and "Forget this chart" one row above. The gap and
+   the type size match .cz-fitread-footlinks so the four read as one row of
+   choices, not as a link row plus a button bar. */
 .cz-detail-chart-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .cz-detail-chart-upload,
@@ -11946,15 +11952,11 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   color: var(--cz-sub);
 }
 
-/* Phone chart actions (split-rail spec :171): stacked full width, 44px each.
-   Two half-width buttons cut "Read this album's 4 photos" to two lines and
-   left the labels unreadable at 390px. */
+/* Phone chart actions: the row was two stacked 44px buttons (split-rail spec
+   :171), because two half-width pills cut their labels to two lines at 390px.
+   Kyle 2026-07-30 turned both into text links, so the stack is gone — they wrap
+   like the fit table's own links above them. */
 @media (max-width: 767px) {
-  .cz-detail-chart-actions {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
-  }
   .cz-detail-chart-upload,
   .cz-detail-profile-sizes {
     width: 100%;

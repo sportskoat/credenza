@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload, X } from "lucide-react";
+import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, X } from "lucide-react";
 import { listAgents } from "../agents.js";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import CommandBar from "./CommandBar.jsx";
@@ -2699,24 +2699,30 @@ export default function DetailBody({
               />
             ) : null}
 
+            {/* Kyle 2026-07-30: "upload and type the numbers should be the same
+                format as 'edit my measurements' and forget this chart". Those
+                two are plain text links in the table's foot; these two were
+                44px pills right under them, so the same kind of job wore two
+                different shapes. Both are text links now, and the second one
+                carries Kyle's own words. The upload drops its icon — the four
+                links it joins do not carry one. */}
             <div className="cz-detail-chart-actions">
               <button
                 type="button"
-                className="cz-detail-chart-upload"
+                className="cz-fitread-footlink"
                 onClick={() => chartInputRef.current?.click()}
               >
-                <Upload size={16} strokeWidth={2} aria-hidden="true" />
                 Upload chart photo
               </button>
-              {/* Kyle 2026-07-30: a chart photo is not always readable, and a
-                  seller sometimes prints the numbers in the listing text. Four
-                  sizes by four columns is about twenty seconds of typing. */}
+              {/* A chart photo is not always readable, and a seller sometimes
+                  prints the numbers in the listing text. Four sizes by four
+                  columns is about twenty seconds of typing. */}
               <button
                 type="button"
-                className="cz-detail-chart-upload"
+                className="cz-fitread-footlink"
                 onClick={() => chartRead.startTyping(item.category)}
               >
-                Type the numbers
+                Input sizing chart manually
               </button>
               <input
                 ref={chartInputRef}
