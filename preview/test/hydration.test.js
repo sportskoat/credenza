@@ -81,6 +81,7 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
     expect(migrated.sizeChartSource).toEqual({
       via: "desc-photos",
       photos: 10,
+      imageHash: "",
       at: "2026-07-25T01:00:00.000Z",
       // The source can name the seller for display and support work.
       seller: "",
@@ -88,7 +89,7 @@ describe("migrateItem poster data (audit 2026-07-24)", () => {
     // Junk shapes sanitize, absent defaults to null.
     expect(
       migrateItem({ ...base, sizeChartSource: { via: 42, photos: "lots", at: null } }).sizeChartSource
-    ).toEqual({ via: "", photos: 0, at: "", seller: "" });
+    ).toEqual({ via: "", photos: 0, at: "", seller: "", imageHash: "" });
     expect(migrateItem({ id: "p4", rawText: "note" }).sizeChartSource).toBe(null);
   });
 

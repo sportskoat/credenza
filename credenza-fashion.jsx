@@ -3228,9 +3228,11 @@ export function migrateItem(old) {
     sizeChartIgnoreNotes: old.sizeChartIgnoreNotes === true,
     // Where the size chart came from (handoff turn 3 §5 provenance footer):
     // { via: "album-text"|"album-photos"|"desc-photos"|"gallery-photos"|
-    //        "customer-photo",
-    //   photos: N scanned, at: ISO date, seller: who it belongs to }.
+    //        "customer-photo"|"image-cache",
+    //   photos: N scanned, at: ISO date, seller: legacy only,
+    //   imageHash: exact chart image key for safe reuse }.
     // Written by the silent chart hunt and by the customer's own read.
+    // imageHash is the only cross-item reuse key — never seller name.
     sizeChartSource:
       old.sizeChartSource && typeof old.sizeChartSource === "object"
         ? {
@@ -3243,6 +3245,10 @@ export function migrateItem(old) {
             seller:
               typeof old.sizeChartSource.seller === "string"
                 ? old.sizeChartSource.seller.slice(0, 60)
+                : "",
+            imageHash:
+              typeof old.sizeChartSource.imageHash === "string"
+                ? old.sizeChartSource.imageHash.slice(0, 160)
                 : "",
           }
         : null,

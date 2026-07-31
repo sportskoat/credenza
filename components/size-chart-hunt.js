@@ -1,15 +1,10 @@
-// Silent chart hunt for the live FitBlock (2026-07-25; Kyle: "WHAT IS GOING
-// ON WITH THE SIZING CHARTS"). The old hunt lived in SizeRecommendation —
-// that panel lost its last caller when every back unified on DetailBody, so
-// charts stopped arriving and every card read "No size chart on this
-// listing". Yupoo album text first, then a vision scan of album photos,
-// then the seller's Product Details photos (resolve descImages — chart
-// tables often live there), then the gallery photos (charts also appear
-// early in the product gallery — Kyle 2026-07-25 Mook tee, slide 2/9).
-// Returns { text, source } — text parseable by parseSizeChart plus a
-// provenance tag for the breakdown footer (handoff turn 3 §5) — or null.
-// Callers throttle (one hunt per item per session) and persist the text
-// into sizeNotes and the tag into sizeChartSource.
+// Silent chart hunt for the live FitBlock.
+// Low-cost pipeline (2026-07-30): rank candidates without AI, reuse exact
+// image keys, send one photo per paid read, validate before accepting.
+//
+// Returns { text, source } — text that validateChartResult accepts, plus a
+// provenance tag — or null. Callers throttle (one hunt per item per session)
+// and persist the text into sizeChartText and the tag into sizeChartSource.
 //
 // Lives in its own module (not credenza-fashion.jsx) so tests can stub the
 // hunt without mocking the circular app module.
@@ -20,148 +15,165 @@ import {
   parseSizeChart,
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
+import {
+  chartCacheForImageKeys,
+  chartImageKey,
+  rankChartCandidates,
+  rememberChartImage,
+  validateChartResult,
+} from "./chart-pipeline.js";
 
-/** Vision caps at 10 images per call. Cap gallery/desc windows to control cost. */
-const VISION_WINDOW = 10;
-/** Max gallery photos to scan (2 windows). Charts are usually early. */
-const MAX_GALLERY_SCAN = 20;
+/** Max single-photo paid reads per hunt. Ranking should hit on the first. */
+const MAX_PAID_CANDIDATES = 3;
+/** Cap how many gallery/desc photos enter the ranking pool. */
+const MAX_POOL = 24;
 
 /**
- * Scan photo lists in forward windows of 10.
- * @returns {Promise<{ text: string, photos: number } | null>}
+ * @param {string[]} urls
+ * @param {string} via
+ * @returns {import("./chart-pipeline.js").ChartCandidate[]}
  */
-async function visionWindows(photos, { signal, referer, maxPhotos } = {}) {
-  const list = (photos || []).filter((src) => typeof src === "string" && /^https?:\/\//i.test(src));
-  const capped = typeof maxPhotos === "number" ? list.slice(0, maxPhotos) : list;
-  for (let i = 0; i < capped.length; i += VISION_WINDOW) {
-    if (signal && signal.aborted) return null;
-    const window = capped.slice(i, i + VISION_WINDOW);
-    const chartText = await fetchChartFromPhotos(window, { signal, referer });
-    if (signal && signal.aborted) return null;
-    if (chartText && parseSizeChart(chartText)) {
-      return { text: chartText, photos: window.length };
-    }
-  }
-  return null;
+function asCandidates(urls, via) {
+  return (urls || [])
+    .filter((src) => typeof src === "string" && (/^https?:\/\//i.test(src) || /^data:image\//i.test(src)))
+    .map((url) => ({ url, via, name: url }));
 }
 
-export async function huntSizeChart(item, { signal } = {}) {
+/**
+ * Accept free album text only when local validation passes.
+ * @param {string} text
+ * @returns {{ text: string, source: object } | null}
+ */
+function acceptText(text, source) {
+  const body = String(text || "").trim();
+  if (!body) return null;
+  const check = validateChartResult(body, parseSizeChart);
+  if (!check.ok) return null;
+  return {
+    text: body,
+    source: {
+      ...source,
+      photos: source.photos || 0,
+      direction: check.direction,
+    },
+  };
+}
+
+/**
+ * Try one candidate: image-key cache first, then one paid vision read.
+ * @returns {Promise<{ text: string, source: object } | null>}
+ */
+async function tryCandidate(candidate, { signal, referer, shelfItems }) {
+  if (!candidate || !candidate.url) return null;
+  const imageKey = candidate.imageKey || chartImageKey(candidate.url);
+  if (!imageKey) return null;
+
+  // Exact image reuse — free, no seller match.
+  const cached = chartCacheForImageKeys(shelfItems, [imageKey], parseSizeChart);
+  if (cached) {
+    return {
+      text: cached.text,
+      source: {
+        via: cached.via,
+        photos: 0,
+        imageHash: cached.imageKey,
+      },
+    };
+  }
+
+  if (signal && signal.aborted) return null;
+  const chartText = await fetchChartFromPhotos([candidate.url], { signal, referer });
+  if (signal && signal.aborted) return null;
+  const check = validateChartResult(chartText, parseSizeChart);
+  if (!check.ok) return null;
+
+  rememberChartImage(imageKey, chartText, parseSizeChart);
+  return {
+    text: chartText,
+    source: {
+      via: candidate.via || "gallery-photos",
+      photos: 1,
+      imageHash: imageKey,
+      direction: check.direction,
+    },
+  };
+}
+
+/**
+ * Hunt a size chart for one item.
+ * @param {object} item
+ * @param {{ signal?: AbortSignal, shelfItems?: object[] }} [opts]
+ */
+export async function huntSizeChart(item, { signal, shelfItems } = {}) {
   const album = yupooAlbumUrl(item);
+  const referer = album || item.url || undefined;
   const localPhotos = [item.image, ...(item.gallery || [])].filter(
     (src) => typeof src === "string" && /^https?:\/\//i.test(src)
   );
-  // Chart tiles the album parser held out of the gallery (2026-07-26). These
-  // ARE the chart, so scan them before anything else — one vision call instead
-  // of walking the whole album. Kyle: "you want to index the sizing chart
-  // because you need to understand how it's going to fit somebody, but you
-  // don't really care for it if someone is looking through photos."
   const knownCharts = (item.chartImages || []).filter(
     (src) => typeof src === "string" && /^https?:\/\//i.test(src)
   );
-  if (knownCharts.length) {
-    const chartText = await fetchChartFromPhotos(knownCharts.slice(0, VISION_WINDOW), {
-      signal,
-      referer: album || item.url || undefined,
-    });
-    if (signal && signal.aborted) return null;
-    if (chartText && parseSizeChart(chartText)) {
-      return { text: chartText, source: { via: "chart-photos", photos: knownCharts.length } };
-    }
-  }
+
+  /** @type {import("./chart-pipeline.js").ChartCandidate[]} */
+  let pool = [...asCandidates(knownCharts, "chart-photos")];
+
   if (album) {
     const data = await fetchYupooImages(album, { signal });
     if (signal && signal.aborted) return null;
     const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
-    if (text.trim() && parseSizeChart(text)) {
-      return { text: text.trim(), source: { via: "album-text", photos: 0 } };
-    }
-    // Charts the parser separated on THIS fetch, if the item did not carry
-    // them yet (enriched before chartImages existed).
-    const freshCharts = ((data && data.chartImages) || []).filter(
-      (src) => !knownCharts.includes(src)
-    );
-    if (freshCharts.length) {
-      const chartText = await fetchChartFromPhotos(freshCharts.slice(0, VISION_WINDOW), {
-        signal,
-        referer: album,
-      });
-      if (signal && signal.aborted) return null;
-      if (chartText && parseSizeChart(chartText)) {
-        return { text: chartText, source: { via: "chart-photos", photos: freshCharts.length } };
-      }
-    }
+    const free = acceptText(text, { via: "album-text", photos: 0 });
+    if (free) return free;
+
+    const freshCharts = ((data && data.chartImages) || []).filter((src) => !knownCharts.includes(src));
+    pool = pool.concat(asCandidates(freshCharts, "chart-photos"));
     const albumPhotos = (data && data.images) || [];
-    if (albumPhotos.length) {
-      // Yupoo charts often sit at the end of the album — try the tail first.
-      const tail = albumPhotos.slice(-VISION_WINDOW);
-      const chartText = await fetchChartFromPhotos(tail, { signal, referer: album });
-      if (signal && signal.aborted) return null;
-      if (chartText && parseSizeChart(chartText)) {
-        return { text: chartText, source: { via: "album-photos", photos: tail.length } };
-      }
-      // Then walk the front of long albums if the tail missed.
-      if (albumPhotos.length > VISION_WINDOW) {
-        const headHit = await visionWindows(albumPhotos.slice(0, -VISION_WINDOW), {
-          signal,
-          referer: album,
-          maxPhotos: MAX_GALLERY_SCAN,
-        });
-        if (headHit) {
-          return { text: headHit.text, source: { via: "album-photos", photos: headHit.photos } };
-        }
-      }
-    }
+    // Prefer the album tail — Yupoo charts often sit at the end — then the head.
+    const tail = albumPhotos.slice(-8);
+    const head = albumPhotos.slice(0, Math.max(0, albumPhotos.length - 8));
+    pool = pool.concat(asCandidates(tail, "album-photos"), asCandidates(head, "album-photos"));
   }
-  // Weidian Product Details path: the description feed often carries the chart
-  // table images (Kyle 2026-07-25, item 7718340223). Charts sit near the top,
-  // so scan forward windows of 10.
+
   const descPhotos = (item.descImages || []).filter(
     (src) => typeof src === "string" && /^https?:\/\//i.test(src)
   );
-  if (descPhotos.length) {
-    const hit = await visionWindows(descPhotos, {
-      signal,
-      referer: item.url || undefined,
-    });
-    if (hit) {
-      return { text: hit.text, source: { via: "desc-photos", photos: hit.photos } };
-    }
-  }
-  // Gallery path: charts also appear early in the product carousel (Kyle
-  // 2026-07-25 Mook Palace tee — size chart is photo 2/9). Never only the
-  // last 10 — that dropped early charts when the gallery was long.
-  if (localPhotos.length) {
-    const hit = await visionWindows(localPhotos, {
-      signal,
-      referer: item.url || undefined,
-      maxPhotos: MAX_GALLERY_SCAN,
-    });
-    if (hit) {
-      return { text: hit.text, source: { via: "gallery-photos", photos: hit.photos } };
-    }
-  }
-  // Last resort: the card holds NO description photos, so nothing above could
-  // read the seller's Product Details (Kyle 2026-07-26: "it's got that size
-  // chart right there in the product details of the advertisement, but for
-  // whatever reason it doesn't want to pick it up"). On Weidian the chart is
-  // usually there and not in the gallery. Cards saved before descImages
-  // shipped — and cards whose resolve was skipped, capped, or failed — carry
-  // an empty list, so the hunt was blind to the one place the chart was.
-  // Fetch the feed now, then scan it. Only runs when the list is EMPTY and
-  // everything else missed, so it costs one extra call on the cards that
-  // would otherwise report "No size chart on this listing".
+  pool = pool.concat(asCandidates(descPhotos, "desc-photos"));
+  pool = pool.concat(asCandidates(localPhotos, "gallery-photos"));
+
+  // Last resort: fetch Product Details when the card never stored them.
   if (!descPhotos.length && fetchDescImages) {
     const fetched = await fetchDescImages(item, { signal });
     if (signal && signal.aborted) return null;
     const fresh = (fetched || []).filter(
       (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !localPhotos.includes(src)
     );
-    if (fresh.length) {
-      const hit = await visionWindows(fresh, { signal, referer: item.url || undefined });
-      if (hit) {
-        return { text: hit.text, source: { via: "desc-photos", photos: hit.photos } };
-      }
-    }
+    pool = pool.concat(asCandidates(fresh, "desc-photos"));
+  }
+
+  const ranked = rankChartCandidates(pool).slice(0, MAX_POOL);
+  if (!ranked.length) return null;
+
+  // Whole-pool image cache check before any paid call.
+  const keys = ranked.map((c) => c.imageKey).filter(Boolean);
+  const bulkHit = chartCacheForImageKeys(shelfItems, keys, parseSizeChart);
+  if (bulkHit) {
+    return {
+      text: bulkHit.text,
+      source: {
+        via: bulkHit.via,
+        photos: 0,
+        imageHash: bulkHit.imageKey,
+      },
+    };
+  }
+
+  // One photo per paid read. Stop on the first validated chart.
+  let paid = 0;
+  for (const candidate of ranked) {
+    if (signal && signal.aborted) return null;
+    if (paid >= MAX_PAID_CANDIDATES) break;
+    paid += 1;
+    const hit = await tryCandidate(candidate, { signal, referer, shelfItems });
+    if (hit) return hit;
   }
   return null;
 }

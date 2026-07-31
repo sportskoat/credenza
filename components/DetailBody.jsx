@@ -48,6 +48,7 @@ import {
 import { normalizeFindStatus } from "../credenza-find-status.js";
 import { fitMeasureFieldsFor, FitPrefAxis } from "./SizeRecommendation.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
+import { chartImageKey, rememberChartImage, validateChartResult } from "./chart-pipeline.js";
 import { AlbumLinksRow } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
@@ -75,15 +76,15 @@ const focusOnMount = (el) => {
 
 // Silent chart hunt (Kyle 2026-07-25: "WHY CAN'T IT WORK WITH RECOMMENDED
 // SIZES" — charts never arrived because the old hunt died with the desktop
-// panel). With no chart, hunt once: Yupoo album text, then a vision read of
-// the album/desc/gallery photos. A found chart writes into its own item field
-// and the pick appears.
+// panel). With no chart, hunt once: free album text, then ranked single-photo
+// vision reads. A found chart writes into its own item field and the pick
+// appears. shelfItems is only for exact image-key reuse — never seller borrow.
 //
 // The sizing block is always visible, so the hunt starts when the detail opens.
 // One component owns the hook because two callers would start two paid reads.
 // `enabled` lets callers disable the hook without calling it conditionally.
 //
-function useChartHunt(item, chart, onSaveEdit, enabled = true) {
+function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null) {
   const [hunting, setHunting] = useState(false);
   useEffect(() => {
     if (!enabled) return;
@@ -94,7 +95,10 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true) {
     setHunting(true);
     (async () => {
       try {
-        const found = await huntSizeChart(item, { signal: controller.signal });
+        const found = await huntSizeChart(item, {
+          signal: controller.signal,
+          shelfItems,
+        });
         if (cancelled) return;
         // Mark tried only after a completed (non-aborted) hunt so React
         // Strict Mode / panel remounts can retry instead of sticking on
@@ -123,7 +127,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true) {
       // after an abort; the next mount will start a fresh hunt if not tried.
       setHunting(false);
     };
-  }, [enabled, chart, item, onSaveEdit]);
+  }, [enabled, chart, item, onSaveEdit, shelfItems]);
   return hunting;
 }
 
@@ -484,6 +488,7 @@ const EMPTY_CHART_READ = {
   dirty: false,
   count: 0,
   typed: false,
+  imageHash: "",
 };
 
 // The columns a hand-typed chart offers, per category. Only labels sellers
@@ -520,23 +525,58 @@ function useCustomerChartRead(item, onSaveEdit) {
     setState({ ...EMPTY_CHART_READ, reading: true, thumb, count: list.length });
     // Remote album photos go down the images door (the server fetches them
     // through its allowlist); files and data: URLs go inline. Never both.
+    // Low-cost rule: one candidate for a paid read when the customer hands
+    // us a list — rank is not needed for a deliberate single upload, but a
+    // multi-photo album pick still pays once for the first successful read.
     const remote = list.filter((s) => typeof s === "string" && /^https?:\/\//i.test(s));
-    const text = remote.length
-      ? await fetchChartFromPhotos(remote, { referer: referer || item.url || undefined })
-      : await readChartFromPhotoFiles(list, { referer: referer || item.url || undefined });
+    let text = null;
+    let imageHash = "";
+    // true when the model returned text that failed local validation
+    let sawUnparseable = false;
+    if (remote.length) {
+      // One photo per paid read (low-cost rule 3). Stop on first valid chart.
+      for (const url of remote.slice(0, 3)) {
+        const raw = await fetchChartFromPhotos([url], {
+          referer: referer || item.url || undefined,
+        });
+        if (!alive.current) return;
+        if (!raw) continue;
+        if (validateChartResult(raw, parseSizeChart).ok) {
+          text = raw;
+          imageHash = chartImageKey(url);
+          rememberChartImage(imageHash, text, parseSizeChart);
+          break;
+        }
+        sawUnparseable = true;
+      }
+    } else {
+      const raw = await readChartFromPhotoFiles(list, {
+        referer: referer || item.url || undefined,
+      });
+      if (!alive.current) return;
+      if (raw && validateChartResult(raw, parseSizeChart).ok) {
+        text = raw;
+        if (typeof list[0] === "string" && /^data:image\//i.test(list[0])) {
+          imageHash = chartImageKey(list[0]);
+          rememberChartImage(imageHash, text, parseSizeChart);
+        }
+      } else if (raw) {
+        sawUnparseable = true;
+      }
+    }
     if (!alive.current) return;
-    const chart = text ? parseSizeChart(text) : null;
-    if (!chart) {
+    const check = text ? validateChartResult(text, parseSizeChart) : { ok: false };
+    if (!check.ok) {
       setState({
         ...EMPTY_CHART_READ,
         thumb,
-        error: text
+        error: sawUnparseable
           ? "I read the photo but could not find sizes in it. Try a straighter shot of the table."
           : "I could not read that photo. Try again with the whole table in frame.",
       });
       return;
     }
-    setState({ ...EMPTY_CHART_READ, chart, text, thumb });
+    setState({ ...EMPTY_CHART_READ, chart: check.chart, text, thumb, imageHash });
   };
 
   // Kyle 2026-07-30: "let you type the chart numbers by hand in twenty
@@ -568,6 +608,14 @@ function useCustomerChartRead(item, onSaveEdit) {
       }));
       return;
     }
+    const check = validateChartResult(text, parseSizeChart);
+    if (!check.ok) {
+      setState((prev) => ({
+        ...prev,
+        error: "Type at least two sizes with one measurement each, then save.",
+      }));
+      return;
+    }
     onSaveEdit(item.id, {
       sizeChartText: text,
       sizeChartNeedsClear: false,
@@ -575,6 +623,7 @@ function useCustomerChartRead(item, onSaveEdit) {
         via: state.typed ? "customer-typed" : "customer-photo",
         photos: state.typed ? 0 : 1,
         at: new Date().toISOString(),
+        ...(state.imageHash ? { imageHash: state.imageHash } : {}),
         ...(item.seller ? { seller: String(item.seller).slice(0, 60) } : {}),
       },
     });
@@ -1980,7 +2029,13 @@ export default function DetailBody({
     !!bodyProfile &&
     !fitPrefHasChoice(fitPref) &&
     !(fitPref && fitPref.dismissed);
-  const hunting = useChartHunt(item, verdict.chart, onSaveEdit, !item.sizeChartNeedsClear);
+  const hunting = useChartHunt(
+    item,
+    verdict.chart,
+    onSaveEdit,
+    !item.sizeChartNeedsClear,
+    shelfItems
+  );
   // §3: the customer's own chart read, and the album photos its third option
   // offers. Remote URLs only — a local data: URL cannot go down the images door.
   const chartRead = useCustomerChartRead(item, onSaveEdit);
