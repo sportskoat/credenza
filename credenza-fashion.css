@@ -9531,7 +9531,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
   /* The pill is drawn 30px tall on a phone so the masthead keeps one row.
      A 30px target is too small for a thumb, so the invisible ring grows to
-     44px in height. The drawn pill does not change. */
+     44px in height. The drawn pill does not change.
+     This reuses the shared tap-ring above, so the pill gets a ring on a
+     desktop too. A second ::before ring would have covered the phone only. */
   .cz-limit-pill::after {
     inset: -7px -4px;
   }

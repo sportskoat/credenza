@@ -5347,13 +5347,17 @@ function CredenzaApp() {
   const askForSignIn = useCallback((heldText = "") => {
     if (heldText) heldLinkRef.current = heldText;
     setSignInRequired(true);
+    // A refused paid read is a real limit wall. Open the same limits sheet
+    // used by the header meter and Ask. Keep the persistent card notice too:
+    // it owns the held link and stays until sign-in finishes the stopped work.
+    setLimitsOpen(true);
     signInNoticeRef.current = notify("Sign in to read this link.", {
       sub: "Credenza reads the product, the photos, and the size chart for you.",
       persistent: true,
       // Rule 2: every wall opens the SAME sheet. This notice used to jump
       // straight to the account settings screen, so the third card met a
-      // different wall from the Ask box and the header pill. The sheet holds
-      // the Sign in button, and the held link still finishes after sign-in.
+      // different wall from the Ask box and the header pill. The label matches
+      // the free-allowance notice below, so one sheet has one name everywhere.
       actionLabel: "What do I get?",
       onAction: () => setLimitsOpen(true),
     });

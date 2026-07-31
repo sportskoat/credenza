@@ -96,6 +96,14 @@ await page.waitForTimeout(4000);
 const noticeText = await page.evaluate(() => document.body.innerText);
 check(/Sign in to read this link/.test(noticeText), "the refusal notice appears");
 
+// The wall opens the sheet by itself. Close it, then prove the notice's own
+// button re-opens the SAME sheet, so the person is never left without a way
+// back to the answer.
+const autoOpen = await page.locator(".cz-limits").first().isVisible().catch(() => false);
+check(autoOpen, "the sheet opens at the refusal itself");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(700);
+
 const action = page.getByRole("button", { name: "What do I get?" }).first();
 check(await action.isVisible(), "the notice offers 'What do I get?'");
 await action.click();

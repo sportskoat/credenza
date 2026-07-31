@@ -19,6 +19,8 @@ import { PLAN_CAPS, USAGE_KEY, bumpUsage, onUsageChange, usageToday } from "../s
 import LimitsSheet from "../../sheets/LimitsSheet.jsx";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const APP = readFileSync(join(ROOT, "credenza-fashion.jsx"), "utf8");
+const CSS = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
 
 afterEach(cleanup);
 
@@ -162,6 +164,25 @@ describe("the daily counters", () => {
 // ── Rule 2 and rule 4: the sheet ───────────────────────────────────────────
 
 describe("the one limits sheet", () => {
+  it("opens for the refused fourth card and keeps the held-link retry", () => {
+    const wallStart = APP.indexOf("const askForSignIn = useCallback");
+    const wallEnd = APP.indexOf("// The chart hunt", wallStart);
+    expect(wallStart).toBeGreaterThan(-1);
+    expect(wallEnd).toBeGreaterThan(wallStart);
+    const wall = APP.slice(wallStart, wallEnd);
+    expect(wall).toContain("setLimitsOpen(true)");
+    expect(wall).not.toContain('navigateSettings("account")');
+
+    const retryStart = APP.indexOf("const signInRetryRef = useRef");
+    const retryEnd = APP.indexOf("const recordOpen", retryStart);
+    expect(retryStart).toBeGreaterThan(-1);
+    expect(retryEnd).toBeGreaterThan(retryStart);
+    const retry = APP.slice(retryStart, retryEnd);
+    expect(retry).toContain("const held = heldLinkRef.current");
+    expect(retry).toContain("dispatchStash(held)");
+    expect(retry).toContain("beginIndexingJob(result)");
+  });
+
   it("tells a visitor where they stand, and what an account gives", () => {
     const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
     render(<LimitsSheet status={status} signedIn={false} />);
@@ -191,22 +212,26 @@ describe("the one limits sheet", () => {
   });
 });
 
-// ── The two sign-in walls ──────────────────────────────────────────────────
+// ── The phone tap area ─────────────────────────────────────────────────────
 //
-// Both fixes below live in the app shell, not in a component this file can
-// render, so both are pinned at the source. A source pin is the right test
-// here: each fix is a one-line choice that a later edit can silently undo.
+// This fix lives in the stylesheet, not in a component this file can render,
+// so it is pinned at the source. A source pin is the right test here: the fix
+// is a one-line choice that a later edit can silently undo.
 
-describe("the fourth card meets the same wall as every other limit", () => {
-  it("sends the sign-in notice to the sheet, not to the account screen", () => {
-    const src = readFileSync(join(ROOT, "credenza-fashion.jsx"), "utf8");
-    const start = src.indexOf("const askForSignIn = useCallback(");
-    expect(start).toBeGreaterThan(-1);
-    const block = src.slice(start, src.indexOf("}, []);", start));
-    expect(block).toContain("setLimitsOpen(true)");
-    // The old behaviour jumped straight to the account settings screen, so
-    // this wall read differently from the Ask box and the header pill.
-    expect(block).not.toContain("navigateSettings(");
+describe("the counter pill is big enough for a thumb", () => {
+  it("gives the phone pill a 44px tap area without changing its size", () => {
+    // The pill joins the shared invisible-ring rule, so it also gets a ring
+    // on a desktop. A phone-only ring would have left the desktop pill bare.
+    const ring = CSS.slice(CSS.indexOf(".cz-carousel-orbit-close::after"));
+    expect(ring.slice(0, 200)).toContain(".cz-limit-pill::after");
+    // On a phone the pill is drawn shorter so the masthead keeps one row.
+    // The ring above and below must still add up to a 44px tap area, so both
+    // numbers are read from the file instead of being written down here.
+    const phone = CSS.slice(CSS.indexOf("@media (max-width: 767px) {\n  .cz-limit-pill {"));
+    const drawn = Number(phone.match(/\.cz-limit-pill\s*{\s*height:\s*(\d+)px;/)[1]);
+    const ringY = Number(phone.match(/\.cz-limit-pill::after\s*{\s*inset:\s*-(\d+)px/)[1]);
+    expect(drawn).toBeLessThan(44);
+    expect(drawn + ringY * 2).toBe(44);
   });
 });
 
