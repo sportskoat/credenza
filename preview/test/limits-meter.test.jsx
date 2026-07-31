@@ -190,3 +190,39 @@ describe("the one limits sheet", () => {
     expect(limitStandingLine(status)).toBe("1 of 2 chart reads used today.");
   });
 });
+
+// ── The two sign-in walls ──────────────────────────────────────────────────
+//
+// Both fixes below live in the app shell, not in a component this file can
+// render, so both are pinned at the source. A source pin is the right test
+// here: each fix is a one-line choice that a later edit can silently undo.
+
+describe("the fourth card meets the same wall as every other limit", () => {
+  it("sends the sign-in notice to the sheet, not to the account screen", () => {
+    const src = readFileSync(join(ROOT, "credenza-fashion.jsx"), "utf8");
+    const start = src.indexOf("const askForSignIn = useCallback(");
+    expect(start).toBeGreaterThan(-1);
+    const block = src.slice(start, src.indexOf("}, []);", start));
+    expect(block).toContain("setLimitsOpen(true)");
+    // The old behaviour jumped straight to the account settings screen, so
+    // this wall read differently from the Ask box and the header pill.
+    expect(block).not.toContain("navigateSettings(");
+  });
+});
+
+describe("the counter pill is big enough for a thumb", () => {
+  it("gives the phone pill a 44px tap area without changing its size", () => {
+    const css = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
+    // The pill joins the shared invisible-ring rule.
+    const ring = css.slice(css.indexOf(".cz-carousel-orbit-close::after"));
+    expect(ring.slice(0, 200)).toContain(".cz-limit-pill::after");
+    // On a phone the pill is drawn shorter so the masthead keeps one row.
+    // The ring above and below must still add up to a 44px tap area, so both
+    // numbers are read from the file instead of being written down here.
+    const phoneRules = css.slice(css.indexOf("@media (max-width: 767px) {\n  .cz-limit-pill {"));
+    const drawn = Number(phoneRules.match(/\.cz-limit-pill\s*{\s*height:\s*(\d+)px;/)[1]);
+    const ringY = Number(phoneRules.match(/\.cz-limit-pill::after\s*{\s*inset:\s*-(\d+)px/)[1]);
+    expect(drawn).toBeLessThan(44);
+    expect(drawn + ringY * 2).toBe(44);
+  });
+});

@@ -9174,6 +9174,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-morph-button.is-icon-only,
 .cz-favorite-button,
 .cz-mast-btn,
+.cz-limit-pill,
 .cz-haul-chip-clear,
 .cz-note-toggle,
 .cz-info-bubble-header button,
@@ -9195,7 +9196,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 /* 36px buttons: 4px ring. The masthead trio sits at gap 8px, so the rings
    meet exactly and never overlap. */
 .cz-carousel-orbit-close::after,
-.cz-mast-btn::after {
+.cz-mast-btn::after,
+.cz-limit-pill::after {
   content: "";
   position: absolute;
   inset: -4px;
@@ -9526,6 +9528,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     height: 30px;
     padding: 0 9px;
     font-size: 11px;
+  }
+  /* The pill is drawn 30px tall on a phone so the masthead keeps one row.
+     A 30px target is too small for a thumb, so the invisible ring grows to
+     44px in height. The drawn pill does not change. */
+  .cz-limit-pill::after {
+    inset: -7px -4px;
   }
 }
 

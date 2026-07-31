@@ -5350,8 +5350,12 @@ function CredenzaApp() {
     signInNoticeRef.current = notify("Sign in to read this link.", {
       sub: "Credenza reads the product, the photos, and the size chart for you.",
       persistent: true,
-      actionLabel: "Sign in and continue",
-      onAction: () => navigateSettings("account"),
+      // Rule 2: every wall opens the SAME sheet. This notice used to jump
+      // straight to the account settings screen, so the third card met a
+      // different wall from the Ask box and the header pill. The sheet holds
+      // the Sign in button, and the held link still finishes after sign-in.
+      actionLabel: "What do I get?",
+      onAction: () => setLimitsOpen(true),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
