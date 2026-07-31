@@ -78,12 +78,15 @@ const HOW = {
   },
 };
 
-// Percent of the photo box. Tuned for a centered flat-lay / figure in 4:5.
+// Percent of the photo box. Tops tuned to Kyle's tee flat-lay (F review
+// 2026-07-31): pit-to-pit joins the armpit seams, shoulder joins the seam
+// tips, sleeve runs the outside of the right sleeve, length drops from the
+// high shoulder point beside the collar. Bottoms approved as-is.
 const PTS = {
-  shoulder: { x1: 18, y1: 22, x2: 82, y2: 22 },
-  chest: { x1: 13, y1: 39, x2: 87, y2: 39 },
-  sleeve: { x1: 74, y1: 28, x2: 91, y2: 45 },
-  length: { x1: 43, y1: 15, x2: 43, y2: 89 },
+  shoulder: { x1: 2, y1: 22, x2: 83, y2: 21 },
+  chest: { x1: 9, y1: 38, x2: 79, y2: 38 },
+  sleeve: { x1: 83, y1: 20, x2: 94, y2: 32 },
+  length: { x1: 36, y1: 14, x2: 36, y2: 90 },
   waist: { x1: 26, y1: 12, x2: 74, y2: 12 },
   hip: { x1: 20, y1: 28, x2: 80, y2: 28 },
   pantsLength: { x1: 33, y1: 10, x2: 33, y2: 92 },
@@ -192,9 +195,17 @@ function MeasureLines({ keys, activeKey, draft, onSelect, labels }) {
   );
 }
 
+// Garment mode ships real flat-lay photos; body mode keeps the drop-in slot
+// until the front-on figure photos land.
+const GARMENT_PHOTO = {
+  tops: "/img/sizes-tee.jpg",
+  bot: "/img/sizes-trousers.jpg",
+};
+
 function PhotoPanel({ mode, group, activeKey, draft, onSelect, labels, how, valueText }) {
   const isTops = group === "tops";
   const keys = isTops ? TOPS : BOT;
+  const photo = mode === "garment" ? GARMENT_PHOTO[group] : null;
   const placeholder =
     mode === "garment"
       ? isTops
@@ -208,7 +219,11 @@ function PhotoPanel({ mode, group, activeKey, draft, onSelect, labels, how, valu
     <div className="cz-sizes-photo-col">
       <div className="cz-sizes-photo">
         <div className="cz-sizes-photo-slot" aria-hidden="true">
-          <span className="cz-sizes-photo-ph">{placeholder}</span>
+          {photo ? (
+            <img className="cz-sizes-photo-img" src={photo} alt="" loading="lazy" />
+          ) : (
+            <span className="cz-sizes-photo-ph">{placeholder}</span>
+          )}
         </div>
         <MeasureLines keys={keys} activeKey={activeKey} draft={draft} onSelect={onSelect} labels={labels} />
       </div>

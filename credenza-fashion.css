@@ -7043,7 +7043,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-sizes {
   max-width: 1080px;
-  padding: 0 0 28px;
 }
 
 .cz-sizes.is-embedded {
@@ -7312,6 +7311,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   opacity: 0.7;
 }
 
+.cz-sizes-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .cz-sizes-lines {
   position: absolute;
   inset: 0;
@@ -7500,6 +7507,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Save bar */
+/* In-flow band at the true bottom of the form — never sticky. A stuck bar
+   floated over the fields and cut the sticky photo in half (Kyle 2026-07-31);
+   docked here, nothing can ever slide under it. */
 .cz-sizes-save {
   display: flex;
   align-items: center;
@@ -7507,11 +7517,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 16px;
   flex-wrap: wrap;
   border-top: 1px solid var(--cz-hair-strong);
+  margin-top: 26px;
   padding: 18px 0 8px;
-  position: sticky;
-  bottom: 0;
   background: var(--cz-bg);
-  z-index: 5;
 }
 
 .cz-sizes-save-hint {
