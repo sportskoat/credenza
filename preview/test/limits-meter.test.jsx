@@ -234,20 +234,3 @@ describe("the counter pill is big enough for a thumb", () => {
     expect(drawn + ringY * 2).toBe(44);
   });
 });
-
-describe("the counter pill is big enough for a thumb", () => {
-  it("gives the phone pill a 44px tap area without changing its size", () => {
-    const css = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
-    // The pill joins the shared invisible-ring rule.
-    const ring = css.slice(css.indexOf(".cz-carousel-orbit-close::after"));
-    expect(ring.slice(0, 200)).toContain(".cz-limit-pill::after");
-    // On a phone the pill is drawn shorter so the masthead keeps one row.
-    // The ring above and below must still add up to a 44px tap area, so both
-    // numbers are read from the file instead of being written down here.
-    const phoneRules = css.slice(css.indexOf("@media (max-width: 767px) {\n  .cz-limit-pill {"));
-    const drawn = Number(phoneRules.match(/\.cz-limit-pill\s*{\s*height:\s*(\d+)px;/)[1]);
-    const ringY = Number(phoneRules.match(/\.cz-limit-pill::after\s*{\s*inset:\s*-(\d+)px/)[1]);
-    expect(drawn).toBeLessThan(44);
-    expect(drawn + ringY * 2).toBe(44);
-  });
-});
