@@ -10,11 +10,13 @@ const BodyProfileSheet = lazy(() => import("../sheets/BodyProfileSheet.jsx"));
 // the old profile sub-page embedded — the routed page owns the chrome now.
 export default function SizesSection() {
   const { bodyProfile, measureUnits, onSaveBodyProfile, onChangeUnits } = useSettings();
+  // Wide section: photo left + fields right needs ~1080px, not the 640 default.
   return (
     <SettingsSection
       kicker="Sizes"
-      title="Sizes and measurements"
-      lead="Every size Credenza suggests starts here."
+      title="Sizes and measurements."
+      lead="Every size Credenza suggests starts here. None of it is required, and the card always says which part it leaned on."
+      wide
     >
       <Suspense fallback={null}>
         <BodyProfileSheet
