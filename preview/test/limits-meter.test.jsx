@@ -19,6 +19,8 @@ import { PLAN_CAPS, USAGE_KEY, bumpUsage, onUsageChange, usageToday } from "../s
 import LimitsSheet from "../../sheets/LimitsSheet.jsx";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const APP = readFileSync(join(ROOT, "credenza-fashion.jsx"), "utf8");
+const CSS = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
 
 afterEach(cleanup);
 
@@ -162,6 +164,36 @@ describe("the daily counters", () => {
 // ── Rule 2 and rule 4: the sheet ───────────────────────────────────────────
 
 describe("the one limits sheet", () => {
+  it("opens for the refused fourth card and keeps the held-link retry", () => {
+    const wallStart = APP.indexOf("const askForSignIn = useCallback");
+    const wallEnd = APP.indexOf("// The chart hunt", wallStart);
+    expect(wallStart).toBeGreaterThan(-1);
+    expect(wallEnd).toBeGreaterThan(wallStart);
+    const wall = APP.slice(wallStart, wallEnd);
+    expect(wall).toContain("setLimitsOpen(true)");
+    expect(wall).not.toContain('navigateSettings("account")');
+
+    const retryStart = APP.indexOf("const signInRetryRef = useRef");
+    const retryEnd = APP.indexOf("const recordOpen", retryStart);
+    expect(retryStart).toBeGreaterThan(-1);
+    expect(retryEnd).toBeGreaterThan(retryStart);
+    const retry = APP.slice(retryStart, retryEnd);
+    expect(retry).toContain("const held = heldLinkRef.current");
+    expect(retry).toContain("dispatchStash(held)");
+    expect(retry).toContain("beginIndexingJob(result)");
+  });
+
+  it("keeps the phone pill visible at 30px with a 44px tap area", () => {
+    const phoneStart = CSS.indexOf("@media (max-width: 767px)", CSS.indexOf(".cz-limit-pill"));
+    const phoneEnd = CSS.indexOf("/* ── The one limits sheet", phoneStart);
+    expect(phoneStart).toBeGreaterThan(-1);
+    expect(phoneEnd).toBeGreaterThan(phoneStart);
+    const phone = CSS.slice(phoneStart, phoneEnd);
+    expect(phone).toContain("height: 30px");
+    expect(phone).toContain(".cz-limit-pill::before");
+    expect(phone).toContain("inset: -7px 0");
+  });
+
   it("tells a visitor where they stand, and what an account gives", () => {
     const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
     render(<LimitsSheet status={status} signedIn={false} />);

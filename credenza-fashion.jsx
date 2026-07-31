@@ -5347,11 +5347,15 @@ function CredenzaApp() {
   const askForSignIn = useCallback((heldText = "") => {
     if (heldText) heldLinkRef.current = heldText;
     setSignInRequired(true);
+    // A refused paid read is a real limit wall. Open the same limits sheet
+    // used by the header meter and Ask. Keep the persistent card notice too:
+    // it owns the held link and stays until sign-in finishes the stopped work.
+    setLimitsOpen(true);
     signInNoticeRef.current = notify("Sign in to read this link.", {
       sub: "Credenza reads the product, the photos, and the size chart for you.",
       persistent: true,
       actionLabel: "Sign in and continue",
-      onAction: () => navigateSettings("account"),
+      onAction: () => setLimitsOpen(true),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

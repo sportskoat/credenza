@@ -9523,9 +9523,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 @media (max-width: 767px) {
   .cz-limit-pill {
+    position: relative;
     height: 30px;
     padding: 0 9px;
     font-size: 11px;
+  }
+
+  /* Keep the visible 30px pill. Extend its tap area seven pixels above and
+     below, so the phone target is 44px without making the header look taller. */
+  .cz-limit-pill::before {
+    content: "";
+    position: absolute;
+    inset: -7px 0;
   }
 }
 
