@@ -1,5 +1,4 @@
 import { ModalShell, PRICING } from "../credenza-fashion.jsx";
-import { Pill } from "../components/atoms.jsx";
 import { PLAN_CAPS } from "../preview/src/usage.js";
 import { ANON_FREE_CARDS, limitStandingLine } from "../preview/src/limits.js";
 
@@ -32,17 +31,68 @@ const ROWS = [
   { key: "askPerDay", label: "Questions about your shelf" },
 ];
 
-function CapTable({ plan }) {
-  const caps = PLAN_CAPS[plan];
+function CapTable() {
   return (
-    <ul className="cz-limits-caps">
-      {ROWS.map((row) => (
-        <li key={row.key} className="cz-limits-cap">
-          <span className="cz-limits-cap-label">{row.label}</span>
-          <span className="cz-limits-cap-value">{caps[row.key]} a day</span>
-        </li>
-      ))}
-    </ul>
+    <table className="cz-limits-caps">
+      <thead>
+        <tr>
+          <th scope="col">Per day</th>
+          <th scope="col">Free</th>
+          <th scope="col" className="cz-limits-pro-cell">
+            Pro
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {ROWS.map((row) => (
+          <tr key={row.key}>
+            <th scope="row">{row.label}</th>
+            <td>{PLAN_CAPS.free[row.key]}</td>
+            <td className="cz-limits-pro-cell">{PLAN_CAPS.pro[row.key]}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function meterWords(status) {
+  if (!status) return "";
+  if (status.kind === "anon") return "free cards";
+  if (status.feature === "chartVision") return "chart reads";
+  if (status.feature === "ask") return "questions";
+  return "cards from a link";
+}
+
+function UsageMeter({ status }) {
+  if (!status) return null;
+  const used = Math.max(0, Math.min(status.used, status.cap));
+  const segments = Array.from({ length: status.cap }, (_, index) => index < used);
+
+  return (
+    <div className="cz-limits-meter">
+      <div
+        className="cz-limits-meter-track"
+        role="progressbar"
+        style={{ "--cz-limit-segments": status.cap }}
+        aria-label={limitStandingLine(status)}
+        aria-valuemin={0}
+        aria-valuemax={status.cap}
+        aria-valuenow={used}
+      >
+        {segments.map((filled, index) => (
+          <span
+            // The meter has no interactive children. Its fixed order is its identity.
+            key={index}
+            className={filled ? "is-filled" : ""}
+            aria-hidden="true"
+          />
+        ))}
+      </div>
+      <p className="cz-limits-meter-caption">
+        {used} of {status.cap} {meterWords(status)} used · resets tomorrow
+      </p>
+    </div>
   );
 }
 
@@ -53,18 +103,22 @@ export default function LimitsSheet({ status, signedIn = false, onSignIn, onUpgr
   // The title names the situation the person is in, because the sheet opens
   // from four different places and a generic title leaves them guessing.
   const title = ended
-    ? "Your Pro ended"
+    ? "Your Pro ended."
     : status && status.tone === "wall"
       ? anon
-        ? "That is your third free card"
-        : "That is today's free limit"
-      : "Your free allowance";
+        ? "That is your third free card."
+        : "That is today's free limit."
+      : "Your free allowance.";
 
   return (
-    <ModalShell title={title} onClose={onClose} maxWidth={460}>
+    <ModalShell
+      title={title}
+      onClose={onClose}
+      maxWidth={460}
+      surfaceClassName="cz-limits-sheet"
+    >
       <div className="cz-limits">
-        {/* 1. Where you are now. Whole numbers, no bar, no percentage. */}
-        <p className="cz-limits-standing">{limitStandingLine(status)}</p>
+        <UsageMeter status={status} />
 
         {ended && (
           // Rule 4: a wall never breaks what you already have. Say that first,
@@ -76,46 +130,35 @@ export default function LimitsSheet({ status, signedIn = false, onSignIn, onUpgr
         )}
 
         {anon && (
-          <>
-            {/* 2. What sign-in gives. Free, and it is the cheaper answer, so
-                it comes before the price. */}
-            <div className="cz-limits-block">
-              <div className="cz-limits-block-title">Sign in — free</div>
-              <p className="cz-limits-body">
-                A free account raises the daily reads and keeps your shelf across your devices.
-              </p>
-              <CapTable plan="free" />
-            </div>
-          </>
+          <p className="cz-limits-body">
+            A free account raises every daily ceiling and keeps your shelf across your devices. No
+            card, no checkout.
+          </p>
         )}
 
-        {/* 3. What Pro gives, and the price. */}
-        <div className="cz-limits-block">
-          <div className="cz-limits-block-title">Pro — {PRICING.monthly} a month</div>
-          <CapTable plan="pro" />
-          <p className="cz-limits-fine">
-            {PRICING.weekly} a week or {PRICING.yearly} a year. Cancel any time.
+        <CapTable />
+
+        <div className="cz-limits-actions">
+          {anon && (
+            <button type="button" className="cz-limits-action is-primary" onClick={onSignIn}>
+              Sign in — free
+            </button>
+          )}
+          <button type="button" className="cz-limits-action" onClick={onUpgrade}>
+            {ended ? "Resume Pro" : "Go Pro"} — {PRICING.monthly} a month
+          </button>
+          <p className="cz-limits-price-note">
+            {PRICING.yearly} a year works out to {PRICING.yearlyPerMonth} · cancel any time
           </p>
         </div>
 
-        <div className="cz-limits-actions">
-          {anon ? (
-            <Pill primary style={{ flex: 1, minHeight: 46, borderRadius: 14 }} onClick={onSignIn}>
-              Sign in
-            </Pill>
-          ) : (
-            <Pill primary style={{ flex: 1, minHeight: 46, borderRadius: 14 }} onClick={onUpgrade}>
-              {ended ? "Resume Pro" : "Go Pro"}
-            </Pill>
-          )}
-          <Pill style={{ flex: 1, minHeight: 46, borderRadius: 14 }} onClick={onClose}>
-            Not now
-          </Pill>
-        </div>
-
-        <p className="cz-limits-fine">
+        <p className="cz-limits-promise">
           Your shelf is yours. Credenza never deletes a card you made, whatever your plan.
         </p>
+
+        <button type="button" className="cz-limits-dismiss" onClick={onClose}>
+          Not now
+        </button>
       </div>
     </ModalShell>
   );

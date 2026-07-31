@@ -9,7 +9,7 @@
 // This file pins the sentence on the pill, the tone of it, the numbers the
 // sheet quotes, and the promise the sheet makes about saved cards.
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -186,23 +186,74 @@ describe("the one limits sheet", () => {
   it("tells a visitor where they stand, and what an account gives", () => {
     const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
     render(<LimitsSheet status={status} signedIn={false} />);
-    expect(screen.getByText("3 of 3 free cards used.")).toBeTruthy();
-    expect(screen.getByText(/Sign in — free/)).toBeTruthy();
-    expect(screen.getByText(/Pro — \$5\.99 a month/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "That is your third free card." })).toBeTruthy();
+    expect(screen.getByText("3 of 3 free cards used · resets tomorrow")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in — free" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Go Pro — $5.99 a month" })).toBeTruthy();
+    expect(
+      screen.getByText(
+        "A free account raises every daily ceiling and keeps your shelf across your devices. No card, no checkout."
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText(/\$2\.49 a week/)).toBe(null);
+    expect(
+      screen.getByText("$44.99 a year works out to $3.75 a month · cancel any time")
+    ).toBeTruthy();
     // The caps come from PLAN_CAPS, so the sheet cannot quote a number the
     // app does not enforce.
-    expect(screen.getByText(PLAN_CAPS.free.resolvePerDay + " a day")).toBeTruthy();
-    expect(screen.getByText(PLAN_CAPS.pro.chartVisionPerDay + " a day")).toBeTruthy();
+    const table = screen.getByRole("table");
+    expect(table.textContent).toContain(
+      "Cards from a link" + PLAN_CAPS.free.resolvePerDay + PLAN_CAPS.pro.resolvePerDay
+    );
+    expect(table.textContent).toContain(
+      "Size chart reads" +
+        PLAN_CAPS.free.chartVisionPerDay +
+        PLAN_CAPS.pro.chartVisionPerDay
+    );
   });
 
   it("promises a signed-in person that a wall never deletes a card", () => {
     const plan = { state: "free", lim: PLAN_CAPS.free, graceUntil: NOW - 1000 };
     const status = limitStatus({ plan, signedIn: true, host: withUsed({}), now: NOW });
     render(<LimitsSheet status={status} signedIn />);
-    expect(screen.getByText("Your Pro ended")).toBeTruthy();
+    expect(screen.getByText("Your Pro ended.")).toBeTruthy();
     expect(screen.getByText(/stays on your shelf and stays readable/)).toBeTruthy();
     // No sign-in block: this person is already signed in.
     expect(screen.queryByText(/Sign in — free/)).toBe(null);
+    expect(screen.getByRole("button", { name: "Resume Pro — $5.99 a month" })).toBeTruthy();
+    expect(screen.getByText(/resets tomorrow/)).toBeTruthy();
+  });
+
+  it("shows a signed-in free account its daily meter without a sign-in button", () => {
+    const plan = { state: "free", lim: PLAN_CAPS.free };
+    const status = limitStatus({
+      plan,
+      signedIn: true,
+      host: withUsed({ chartVision: 1 }),
+      now: NOW,
+    });
+    render(<LimitsSheet status={status} signedIn />);
+    expect(screen.getByText("1 of 2 chart reads used · resets tomorrow")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sign in — free" })).toBe(null);
+    expect(screen.getByRole("button", { name: "Go Pro — $5.99 a month" })).toBeTruthy();
+  });
+
+  it("keeps the sign-in, upgrade, and dismiss actions connected", () => {
+    const calls = [];
+    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
+    render(
+      <LimitsSheet
+        status={status}
+        signedIn={false}
+        onSignIn={() => calls.push("sign-in")}
+        onUpgrade={() => calls.push("upgrade")}
+        onClose={() => calls.push("close")}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sign in — free" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go Pro — $5.99 a month" }));
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(calls).toEqual(["sign-in", "upgrade", "close"]);
   });
 
   it("reads the standing line in whole numbers", () => {

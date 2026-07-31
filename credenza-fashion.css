@@ -9539,80 +9539,202 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ── The one limits sheet ──────────────────────────────────────────────────
-   Three answers in one order: where you are, what sign-in gives, what Pro
-   gives. Numbers only, no progress bar — a bar reads as a countdown. */
+/* ── The one limits sheet ────────────────────────────────────────────────── */
+.cz-limits-sheet {
+  --tap-min: 44px;
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 14px;
+  --space-7: 16px;
+  --space-9: 22px;
+  --radius-pill: 999px;
+  --radius-field: 10px;
+  --radius-card-tight: 14px;
+  --type-body-sm: 13px;
+  --type-meta: 12px;
+  --type-kicker: 11px;
+}
+
+.cz-limits-sheet .cz-modal-header {
+  padding: var(--space-6) var(--space-7) !important;
+}
+
+.cz-limits-sheet .cz-modal-header h2 {
+  font-family: var(--cz-sans) !important;
+  font-size: var(--space-9) !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.03em;
+  line-height: 1.15 !important;
+}
+
+.cz-limits-sheet .cz-modal-header .cz-icon-button {
+  flex: 0 0 var(--tap-min);
+  width: var(--tap-min) !important;
+  height: var(--tap-min) !important;
+  border: 1px solid var(--cz-hair) !important;
+  background: var(--cz-card-solid) !important;
+}
+
 .cz-limits {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-7);
+  padding: var(--space-7);
 }
 
-.cz-limits-standing {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--cz-ink);
-}
-
-.cz-limits-block {
-  border: 1px solid var(--cz-hair);
-  border-radius: 14px;
-  padding: 14px;
+.cz-limits-meter {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
-.cz-limits-block-title {
-  font-size: 13px;
+.cz-limits-meter-track {
+  display: grid;
+  grid-template-columns: repeat(var(--cz-limit-segments, 3), minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.cz-limits-meter-track > span {
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--cz-seg);
+}
+
+.cz-limits-meter-track > span.is-filled {
+  background: var(--cz-ink);
+}
+
+.cz-limits-meter-caption {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: var(--type-kicker);
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--cz-ink);
+  color: var(--cz-sub);
 }
 
 .cz-limits-body {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--type-body-sm);
+  line-height: 1.5;
   color: var(--cz-sub);
 }
 
 .cz-limits-caps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  width: 100%;
+  border-spacing: 0;
+  table-layout: fixed;
+  overflow: hidden;
+  border: 1px solid var(--cz-hair);
+  border-radius: var(--radius-card-tight);
+  color: var(--cz-sub);
+  font-size: var(--type-body-sm);
 }
 
-.cz-limits-cap {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
+.cz-limits-caps th,
+.cz-limits-caps td {
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-limits-caps thead th {
+  font-family: var(--cz-mono);
+  font-size: var(--type-kicker);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-limits-caps th:first-child {
+  width: 58%;
+  text-align: left;
+}
+
+.cz-limits-caps tbody th {
+  font-weight: 500;
   color: var(--cz-sub);
 }
 
-.cz-limits-cap-value {
-  font-weight: 600;
-  color: var(--cz-ink);
+.cz-limits-caps tbody td {
   font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--cz-ink);
 }
 
-.cz-limits-fine {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--cz-faint);
+.cz-limits-caps tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.cz-limits-caps .cz-limits-pro-cell {
+  background: var(--cz-seg);
 }
 
 .cz-limits-actions {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cz-limits-action {
+  min-height: var(--tap-min);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--cz-ink);
+  border-radius: var(--radius-field);
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: var(--type-body-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-limits-action.is-primary {
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
+.cz-limits-action:active {
+  transform: scale(0.98);
+}
+
+.cz-limits-price-note {
+  margin: 0;
+  color: var(--cz-faint);
+  font-size: var(--type-meta);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.cz-limits-promise {
+  margin: 0;
+  padding-top: var(--space-7);
+  border-top: 1px solid var(--cz-hair);
+  color: var(--cz-sub);
+  font-size: var(--type-body-sm);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.cz-limits-dismiss {
+  align-self: center;
+  min-width: calc(var(--tap-min) * 2);
+  min-height: var(--tap-min);
+  padding: 0 var(--space-5);
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-size: var(--type-body-sm);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.cz-limits-dismiss:hover {
+  color: var(--cz-ink);
 }
 
 .cz-mast-btn {
