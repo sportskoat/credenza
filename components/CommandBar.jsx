@@ -377,7 +377,7 @@ export default function CommandBar({
     ),
     color: (
       <Chip id="color" chipRef={refs.color} open={menu === "color"} onToggle={() => toggle("color")}>
-        <span className="cz-cmdbar-label">Colorway</span>
+        <span className="cz-cmdbar-label">Colourway</span>
         <span className={"cz-cmdbar-value" + (colorway ? "" : " is-unset")}>
           {colorway || "Add a colorway"}
         </span>

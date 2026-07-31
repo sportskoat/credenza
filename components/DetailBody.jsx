@@ -454,6 +454,16 @@ function SizingBlock({
                 <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
                 <span className="cz-sizing-cell-v">{formatMeasure(row[measureKey], units)}</span>
                 {recOutlined ? <span className="cz-sizing-cell-tag">Our pick</span> : null}
+                {/* Phone panes (mobile item sheet spec 6.3): the picked card
+                    names itself YOUR PICK, and the recommended card keeps its
+                    OUR PICK tag even when it is the pick. The tag is display:
+                    none outside the phone sheet, so the desktop card back is
+                    unchanged. */}
+                {!recOutlined && (isRec || (picked && isManual)) ? (
+                  <span className="cz-sizing-cell-tag cz-sizing-cell-tag-phone">
+                    {isRec ? "Our pick" : "Your pick"}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -711,7 +721,7 @@ function SizingBlockNoChart({
 // the no-chart state (see `noChart` in DetailBody). `hasChart={false}` still
 // ghosts, because a read in flight has no chart yet and keeps the table.
 // Row math lives in fitReadRows (pure, tested on its own).
-function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart }) {
+function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart, outsidePhrasing = false }) {
   if (!rows.length) return null;
   const insideCount = rows.filter((r) => r.mark != null && !r.warn).length;
   const scoredCount = rows.filter((r) => r.mark != null).length;
@@ -735,20 +745,25 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
     ? "Reading " +
       (readingCount === 1 ? "one photo" : word(readingCount || 0) + " photos") +
       "…"
-    : (!hasChart
-    ? "Your measurements, waiting on theirs."
-    : scoredCount === 0
-      ? "Waiting on your measurements."
-      : scoredCount === 1
-        ? insideCount === 1
-          ? "Inside tolerance."
-          : "Outside tolerance."
-        : insideCount === scoredCount
-          ? "All " + word(scoredCount) + " inside tolerance."
-          : word(insideCount).replace(/^./, (c) => c.toUpperCase()) +
-            " of " +
-            word(scoredCount) +
-            " inside tolerance.") + estNote + missNote;
+    : // Phone fit pane (mobile item sheet spec 6.3): the tolerance line
+      // counts what is OUT, not what is in — "1 of two outside tolerance."
+      // The desktop card back keeps the inside-count copy below.
+      outsidePhrasing && hasChart && scoredCount > 0
+      ? scoredCount - insideCount + " of " + word(scoredCount) + " outside tolerance." + estNote + missNote
+      : (!hasChart
+      ? "Your measurements, waiting on theirs."
+      : scoredCount === 0
+        ? "Waiting on your measurements."
+        : scoredCount === 1
+          ? insideCount === 1
+            ? "Inside tolerance."
+            : "Outside tolerance."
+          : insideCount === scoredCount
+            ? "All " + word(scoredCount) + " inside tolerance."
+            : word(insideCount).replace(/^./, (c) => c.toUpperCase()) +
+              " of " +
+              word(scoredCount) +
+              " inside tolerance.") + estNote + missNote;
   return (
     <div
       className={
@@ -1706,12 +1721,25 @@ export default function DetailBody({
   // (close, ⋯ menu) comes in through renderHeroActions; the desktop back
   // passes none because its card header already carries those.
   const [photoIdx, setPhotoIdx] = useState(0);
+  const [pane, setPane] = useState("fit");
+  // Phone sheet (mobile item sheet spec §7): a size tap confirms itself with
+  // a one-line toast, "Sized Medium", cleared after 1900ms. The app-wide
+  // toast region lives under the native dialog's top layer, so the sheet
+  // carries its own.
+  const [sizeToast, setSizeToast] = useState("");
+  const sizeToastTimer = useRef(null);
+  useEffect(() => () => clearTimeout(sizeToastTimer.current), []);
   // Round 4 point 7 (2026-07-29): a failed photo draws the brand tile, never
   // the browser's broken-image mark. Tracked per photo URL — one bad photo
   // must not hide the good ones.
   const [badPhotos, setBadPhotos] = useState(() => new Set());
   const trackRef = useRef(null);
   const photos = heroPager ? itemPhotoList(item, DETAIL_PHOTO_CAP) : [];
+
+  useEffect(() => {
+    setPane("fit");
+    setPhotoIdx(0);
+  }, [item.id]);
 
   // §9 sticky bar. The photo block used to leave a stranded sliver of image
   // above the title as you scrolled. The bar replaces that sliver: thumb,
@@ -2016,7 +2044,6 @@ export default function DetailBody({
     setCustomSize(chosenSize);
     customSizeCommittedRef.current = chosenSize;
   }, [item.id, chosenSize]);
-  const sizeIsRec = !chosenSize && !!recSize;
   const sizeText = chosenSize
     ? formatSizeToken(chosenSize) || chosenSize
     : recSize
@@ -2051,10 +2078,7 @@ export default function DetailBody({
   // it, in the sizing block's own vocabulary — the bar must not upgrade a
   // profile guess into an AI read. Either half may be missing; the separator
   // only appears between two real values.
-  const stickyMeta = [
-    sizeText ? (sizeIsRec ? "AI SIZE " : "SIZE ") + sizeText : "",
-    priceLabelShort(item),
-  ]
+  const stickyMeta = [sizeText ? String(sizeText).toUpperCase() : "", priceLabelShort(item)]
     .filter(Boolean)
     .join(" · ");
   // The QC prompt is a question about the order, so it only asks after the
@@ -2176,6 +2200,14 @@ export default function DetailBody({
     setCustomSize(cleaned);
     setOwnedDraft(next);
     onSaveEdit(item.id, buildEditPatch(next, item));
+    // Spec §7: "Tap a size card — the pick, the verdict, the reasoning, the
+    // ease values, and the markers update. Toast: Sized Medium." Clearing a
+    // pick (empty size) stays silent; the desktop card back never toasts.
+    if (wantsStickyBar && cleaned) {
+      clearTimeout(sizeToastTimer.current);
+      setSizeToast("Sized " + (formatSizeToken(cleaned) || cleaned));
+      sizeToastTimer.current = setTimeout(() => setSizeToast(""), 1900);
+    }
   };
 
   const commitCustomSize = () => {
@@ -2366,6 +2398,46 @@ export default function DetailBody({
     />
   );
 
+  const mobileRecommended = verdict.recSize || verdict.usualSize || chosenSize;
+  const mobileRecommendedWord =
+    formatSizeToken(mobileRecommended) || String(mobileRecommended || "").trim();
+  const mobileChosenWord = formatSizeToken(chosenSize) || chosenSize;
+  const mobileOutsideCount = fitRows.filter((row) => row.warn).length;
+  const mobileFitKicker = verdict.chart ? "We recommend" : "No seller chart";
+  const mobileConfidence = verdict.chart
+    ? mobileOutsideCount
+      ? "Roomy for this cut"
+      : "Precise fit"
+    : "Says when it doesn't know";
+  const mobileVerdict = verdict.chart
+    ? !mobileRecommendedWord
+      ? "No confident size yet."
+      : chosenSize &&
+          verdict.recSize &&
+          String(chosenSize).toUpperCase() === String(verdict.recSize).toUpperCase()
+        ? "The " + mobileChosenWord + " is the one."
+        : "Take the " + mobileRecommendedWord + "."
+    : "We'd keep your usual " + (mobileRecommendedWord || "size") + ".";
+  const mobileReason =
+    verdict.prescription ||
+    (verdict.chart
+      ? "This pick uses the seller's chart and your saved measurements."
+      : "This listing has no seller chart, so this is your saved usual size.");
+
+  const mobileFitIntro = (
+    <div className={"cz-mobile-fit-intro" + (mobileOutsideCount ? " is-warn" : "")}>
+      <div className="cz-mobile-fit-kicker-row">
+        <span className="cz-mobile-fit-kicker">{mobileFitKicker}</span>
+        <span className="cz-mobile-fit-confidence">
+          <span className="cz-mobile-fit-confidence-dot" aria-hidden="true" />
+          {mobileConfidence}
+        </span>
+      </div>
+      <h2 className="cz-mobile-fit-verdict">{mobileVerdict}</h2>
+      <p className="cz-mobile-fit-reason">{mobileReason}</p>
+    </div>
+  );
+
   return (
     <>
       {/* Sticky bar (§9). It pins under the drag handle once the photo block
@@ -2374,7 +2446,10 @@ export default function DetailBody({
           already in the sheet, so a screen reader gains nothing and a
           duplicate title is worse than no bar. */}
       {wantsStickyBar ? (
-        <div className={"cz-detail-stickybar" + (heroGone ? " is-up" : "")} aria-hidden={!heroGone}>
+        <div
+          className={"cz-detail-stickybar cz-detail-pane-header" + (heroGone ? " is-up" : "")}
+          aria-hidden={false}
+        >
           {photos.length ? (
             <img className="cz-detail-stickybar-thumb" src={photos[0]} alt="" decoding="async" />
           ) : null}
@@ -2386,7 +2461,6 @@ export default function DetailBody({
             type="button"
             className="cz-detail-stickybar-close"
             aria-label="Close"
-            tabIndex={heroGone ? 0 : -1}
             onClick={onRequestClose}
           >
             <X size={16} strokeWidth={2.4} aria-hidden="true" />
@@ -2394,10 +2468,41 @@ export default function DetailBody({
         </div>
       ) : null}
 
+      {wantsStickyBar ? (
+        <div className="cz-detail-pane-picker" role="tablist" aria-label="Item section">
+          {[
+            ["fit", "Fit"],
+            ["photos", "Photos · " + photos.length],
+            ["details", "Details"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={pane === key}
+              className={pane === key ? "is-active" : ""}
+              onClick={() => setPane(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div
         ref={scrollRef}
-        className={"cz-detail-scroll" + (editingCell ? " is-editing" : "")}
+        className={
+          "cz-detail-scroll" +
+          (editingCell ? " is-editing" : "") +
+          (wantsStickyBar ? " has-panes" : "")
+        }
+        data-pane={wantsStickyBar ? pane : undefined}
       >
+        <section
+          className="cz-detail-pane cz-detail-pane-photos"
+          role={wantsStickyBar ? "tabpanel" : undefined}
+          aria-label={wantsStickyBar ? "Photos" : undefined}
+        >
         {heroPager ? (
           // Photo pager. The dots track the scroll position — one snap per
           // photo, so a swipe is the only gesture needed.
@@ -2485,6 +2590,13 @@ export default function DetailBody({
             there, so this block stays tied to the hero that owns it. */}
         {heroPager ? (
           <div className="cz-detail-photo-tail">
+            <div className="cz-detail-photo-strip-head">
+              <span>Photos</span>
+              <span aria-hidden="true" />
+              <span>
+                {photos.length} · cover {photoIdx + 1}
+              </span>
+            </div>
             <div className="cz-detail-photos">
               <EditPhotosManager
                 item={item}
@@ -2493,32 +2605,41 @@ export default function DetailBody({
               />
             </div>
             <AlbumLinksRow item={item} />
+            <p className="cz-detail-photo-footnote">
+              Cover is the photo the shelf card shows. QC photos appear here after your agent sends them.
+            </p>
           </div>
         ) : null}
+        </section>
 
         {/* Title. The text itself is the tap target — there is no Title
             field and no Save button. Blur commits through the debounce. */}
+        <div className="cz-detail-pane-title">
         {titleTarget === undefined
           ? titleBlock
           : titleTarget === null
             ? null
             : createPortal(titleBlock, titleTarget)}
+        </div>
 
         {/* The bar is inline on the phone sheet and the tablet band. On the
             desktop panel it portals to a full-width slot above both columns
             (handoff §3) — five chips do not fit one row inside the decision
             column. See commandBarBlock above. */}
+        <div className="cz-detail-pane cz-detail-pane-details cz-detail-pane-command">
         {commandBarTarget === undefined
           ? commandBarBlock
           : commandBarTarget === null
             ? null
             : createPortal(commandBarBlock, commandBarTarget)}
+        </div>
 
         {/* Split rail: the four detail tabs are gone. Size, colorway, weight
             and haul are always-visible facts — three of them hidden behind a
             tab bar made the card a guessing game. */}
-        <div className="cz-detail-facts">
+        <div className="cz-detail-facts cz-detail-pane cz-detail-pane-fit">
           <section className="cz-detail-facts-section" aria-label="Size and fit">
+            {wantsStickyBar ? mobileFitIntro : null}
             {askingMeasures && onSaveBodyProfile ? (
               // 4f — the ask replaces the sizing block until saved or skipped.
               <FitMeasureAsk
@@ -2703,8 +2824,11 @@ export default function DetailBody({
                 units={measureUnits}
                 reading={chartRead.reading}
                 readingCount={chartRead.count}
-                onEditMeasures={onOpenSizes ? openProfileSizes : null}
-                onForgetChart={chartIsForgettable ? forgetChart : null}
+                outsidePhrasing={wantsStickyBar}
+                onEditMeasures={wantsStickyBar ? null : onOpenSizes ? openProfileSizes : null}
+                onForgetChart={
+                  wantsStickyBar ? null : chartIsForgettable ? forgetChart : null
+                }
               />
             ) : null}
 
@@ -2725,8 +2849,26 @@ export default function DetailBody({
                 className="cz-detail-chart-upload"
                 onClick={() => chartRead.startTyping(item.category)}
               >
-                Type the numbers
+                Input sizing chart manually
               </button>
+              {wantsStickyBar && onOpenSizes ? (
+                <button
+                  type="button"
+                  className="cz-detail-chart-link"
+                  onClick={openProfileSizes}
+                >
+                  Edit my measurements
+                </button>
+              ) : null}
+              {wantsStickyBar && chartIsForgettable ? (
+                <button
+                  type="button"
+                  className="cz-detail-chart-link"
+                  onClick={forgetChart}
+                >
+                  Forget this chart
+                </button>
+              ) : null}
               <input
                 ref={chartInputRef}
                 className="cz-detail-chart-file"
@@ -2760,6 +2902,10 @@ export default function DetailBody({
 
         </div>
 
+        <section
+          className="cz-detail-pane cz-detail-pane-details cz-detail-pane-history"
+          aria-label={wantsStickyBar ? "Details" : undefined}
+        >
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
 
         {logNotesTarget === undefined
@@ -2796,6 +2942,12 @@ export default function DetailBody({
           </div>
         ) : null}
 
+        {wantsStickyBar ? (
+          <p className="cz-detail-device-note">
+            Everything here is yours and stays on this device. Nothing you saved is deleted.
+          </p>
+        ) : null}
+        </section>
       </div>
 
       {footerPrice || buyButton ? (
@@ -2851,6 +3003,15 @@ export default function DetailBody({
               Referral code funds the app. Never changes your price.
             </p>
           ) : null}
+        </div>
+      ) : null}
+      {/* Phone sheet toast (spec §7): one mono line, 78px off the bottom,
+          pointer-events none so it never blocks a tap. Only pickItemSize
+          sets it, and only when wantsStickyBar — the desktop back stays
+          quiet. */}
+      {sizeToast ? (
+        <div className="cz-detail-toast" role="status">
+          {sizeToast}
         </div>
       ) : null}
       {photoView ? (

@@ -1,11 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
 vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
 
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const CSS = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
 
 const CHART_TEXT = "M: chest 116, length 70\nL: chest 120, length 72\nXL: chest 124, length 74";
 
@@ -46,6 +51,59 @@ afterEach(() => {
 });
 
 describe("DetailBody detail facts", () => {
+  it("opens the phone item sheet on Fit and switches between all three panes", async () => {
+    const user = userEvent.setup();
+    const first = item("phone-panes", {
+      image: "data:image/png;base64,iVBORw0KGgo=",
+      gallery: ["data:image/png;base64,iVBORw0KGgoA="],
+    });
+    const { container, rerender } = render(
+      body(first, {
+        heroPager: true,
+        onRequestClose: vi.fn(),
+        footerPrice: "$27.75",
+      })
+    );
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Fit", "Photos · 2", "Details"]);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(container.querySelector(".cz-detail-scroll")).toHaveAttribute("data-pane", "fit");
+
+    await user.click(screen.getByRole("tab", { name: "Photos · 2" }));
+    expect(container.querySelector(".cz-detail-scroll")).toHaveAttribute("data-pane", "photos");
+
+    await user.click(screen.getByRole("tab", { name: "Details" }));
+    expect(container.querySelector(".cz-detail-scroll")).toHaveAttribute("data-pane", "details");
+    expect(container.querySelectorAll(".cz-detail-pane-command .cz-cmdbar-chip")).toHaveLength(5);
+
+    rerender(
+      body(item("phone-panes-next"), {
+        heroPager: true,
+        onRequestClose: vi.fn(),
+        footerPrice: "$27.75",
+      })
+    );
+    expect(container.querySelector(".cz-detail-scroll")).toHaveAttribute("data-pane", "fit");
+  });
+
+  it("uses the phone three-column fit read and the final chart-control copy", () => {
+    render(
+      body(item("phone-fit"), {
+        heroPager: true,
+        onRequestClose: vi.fn(),
+        footerPrice: "$27.75",
+      })
+    );
+
+    expect(screen.getByRole("button", { name: "Input sizing chart manually" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Type the numbers" })).toBeNull();
+    expect(CSS).toContain("grid-template-columns: 76px 1fr 52px");
+    expect(CSS).toContain(
+      '.cz-detail-scroll.has-panes[data-pane="fit"] > .cz-detail-pane:not(.cz-detail-pane-fit)'
+    );
+  });
+
   it("shows the sizing block and the command bar at once, with no tabs", () => {
     render(body(item("facts")));
 

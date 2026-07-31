@@ -1535,7 +1535,13 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     // labelled sections became five chips in one bar under the title. Size and
     // fit is the only section left, because it is the only block the product
     // advises rather than the customer sets.
-    expect(within(sheet).queryAllByRole("tab")).toHaveLength(0);
+    // Mobile item sheet (2026-07-31, spec 6.2): the only tabs in the sheet
+    // are the three of its own pane picker — the old detail rail stays dead.
+    expect(
+      within(sheet)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent)
+    ).toEqual(["Fit", "Photos · 3", "Details"]);
     expect(within(sheet).getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
     for (const name of ["Bought", "Haul", "Colorway", "Weight", "Seller", "Size", "Category", "Batch"]) {
       expect(within(sheet).queryByRole("region", { name })).toBeNull();
@@ -2067,11 +2073,11 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-detail-qc-prompt")).toBeNull();
   });
 
-  it("keeps the sticky bar out of the tree where no observer exists", async () => {
-    // §9's bar is driven by IntersectionObserver, which jsdom does not have —
-    // and neither does an old iOS. No observer must mean no bar, never a bar
-    // stuck up over the title. The gate is the observer, so the markup is
-    // present but stays in its closed state.
+  it("keeps the mini-header always visible, observer or not", async () => {
+    // Mobile item sheet (2026-07-31, spec 6.1): the old scroll-driven sticky
+    // bar is now the sheet's mini-header — one row, ALWAYS visible, above the
+    // panes. jsdom has no IntersectionObserver, and neither does an old iOS;
+    // the header must not depend on one.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -2079,20 +2085,19 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     const bar = sheet.querySelector(".cz-detail-stickybar");
     expect(bar).not.toBeNull();
-    expect(bar.classList.contains("is-up")).toBe(false);
-    // Down means hidden: it repeats controls the sheet already shows, so a
-    // screen reader gains nothing and its ✕ must not take a tab stop.
-    expect(bar).toHaveAttribute("aria-hidden", "true");
-    expect(bar.querySelector(".cz-detail-stickybar-close")).toHaveAttribute("tabindex", "-1");
-    // It says which item you are in, and it names who chose the size.
+    // Always visible means never aria-hidden, and its ✕ always takes a tab
+    // stop — it is the sheet's header now, not a duplicate of one.
+    expect(bar).toHaveAttribute("aria-hidden", "false");
+    expect(bar.querySelector(".cz-detail-stickybar-close")).not.toHaveAttribute("tabindex", "-1");
+    // It says which item you are in.
     expect(bar.querySelector(".cz-detail-stickybar-title").textContent).toBe(
       "Palace x Nike jersey"
     );
-    // "SIZE", not "AI SIZE": the fixture carries a chosen size, so the bar
-    // must not upgrade a saved choice into a recommendation. The token is
-    // spelled the way the sizing block spells it.
+    // Spec 6.1: the sub line is the picked size word in caps, then the price
+    // — "X-LARGE · $32.06". No "SIZE"/"AI SIZE" prefix: the header states the
+    // pick, it does not grade it.
     expect(bar.querySelector(".cz-detail-stickybar-meta").textContent).toBe(
-      "SIZE X-Large · $32.06"
+      "X-LARGE · $32.06"
     );
     // The bar is a SIBLING of the scroller: a child would scroll away with
     // the content it exists to outlive.

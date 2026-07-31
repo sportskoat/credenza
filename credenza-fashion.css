@@ -12636,6 +12636,14 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-money);
 }
 
+/* The YOUR PICK / OUR PICK phone tags (mobile item sheet spec 6.3) render in
+   the markup everywhere but paint only inside the phone panes — the desktop
+   card back keeps its exact old look. The 767px block below is the only
+   place this displays. */
+.cz-sizing-cell-tag-phone {
+  display: none;
+}
+
 @keyframes cz-rec-pulse {
   0%,
   100% {
@@ -13180,6 +13188,561 @@ input.cz-sizing-fix-size {
     box-shadow:
       0 1px 0 color-mix(in srgb, var(--cz-money) 8%, transparent),
       0 8px 22px color-mix(in srgb, var(--cz-money) 7%, transparent);
+  }
+}
+
+/* These wrappers keep the desktop child layout unchanged. The phone query
+   restores their boxes so each selected pane becomes one scroll surface. */
+.cz-detail-pane,
+.cz-detail-pane-title {
+  display: contents;
+}
+
+/* Mobile item sheet, three panes. The desktop card back keeps its existing
+   layout because every visual rule stays below 768px. */
+@media (max-width: 767px) {
+  .cz-detail-pane-header,
+  .cz-detail-pane-header.is-up {
+    height: 50px;
+    padding: 2px 12px 10px;
+    gap: 11px;
+    border-bottom: 0;
+    background: var(--cz-bg-elevated);
+  }
+
+  .cz-detail-pane-header .cz-detail-stickybar-thumb {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .cz-detail-pane-header .cz-detail-stickybar-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .cz-detail-pane-header .cz-detail-stickybar-meta {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .cz-detail-pane-header .cz-detail-stickybar-close {
+    width: 44px;
+    height: 44px;
+    background: var(--cz-chip-fill);
+  }
+
+  .cz-detail-pane-picker {
+    flex: 0 0 auto;
+    display: flex;
+    margin: 0 12px 12px;
+    padding: 2px;
+    border-radius: 12px;
+    background: var(--cz-seg);
+  }
+
+  .cz-detail-pane-picker button {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--cz-faint);
+    font-family: var(--cz-sans);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background var(--dur-micro) var(--ease-out),
+      color var(--dur-micro) var(--ease-out),
+      transform var(--dur-press) var(--ease-out);
+  }
+
+  .cz-detail-pane-picker button.is-active {
+    background: var(--cz-card-solid);
+    color: var(--cz-ink);
+    box-shadow: var(--shadow-hairline, 0 1px 2px rgba(23, 24, 26, 0.06));
+  }
+
+  .cz-detail-pane-picker button:active {
+    transform: scale(0.96);
+  }
+
+  .cz-detail-scroll.has-panes {
+    padding: 0 14px 104px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-title {
+    display: none;
+  }
+
+  .cz-detail-scroll.has-panes > .cz-detail-pane {
+    display: block;
+  }
+
+  .cz-detail-scroll.has-panes[data-pane="fit"] > .cz-detail-pane:not(.cz-detail-pane-fit),
+  .cz-detail-scroll.has-panes[data-pane="photos"] > .cz-detail-pane:not(.cz-detail-pane-photos),
+  .cz-detail-scroll.has-panes[data-pane="details"] > .cz-detail-pane:not(.cz-detail-pane-details) {
+    display: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-facts {
+    margin-top: 0;
+  }
+
+  .cz-mobile-fit-intro {
+    display: block;
+    padding-bottom: 2px;
+  }
+
+  .cz-mobile-fit-kicker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .cz-mobile-fit-kicker {
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cz-faint);
+    white-space: nowrap;
+  }
+
+  .cz-mobile-fit-confidence {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    color: var(--cz-money);
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .cz-mobile-fit-confidence-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .cz-mobile-fit-intro.is-warn .cz-mobile-fit-confidence {
+    color: var(--cz-warn-ink);
+  }
+
+  .cz-mobile-fit-verdict {
+    margin: 0;
+    color: var(--cz-ink);
+    font-family: var(--cz-display);
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .cz-mobile-fit-reason {
+    margin: 6px 0 0;
+    color: var(--cz-sub);
+    font-size: 13.5px;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing {
+    margin-top: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-head,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-value-row,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-why,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-fit4 {
+    display: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-chart {
+    gap: 8px;
+    padding: 12px 0 4px;
+    overflow-x: auto;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell {
+    flex: 0 0 76px;
+    width: 76px;
+    min-height: 62px;
+    padding: 9px 0 8px;
+    border-radius: 14px;
+  }
+
+  /* Spec 6.3 size cards: the recommended card is a 1px money border on
+     money-bg with an OUR PICK tag; a hand pick that disagrees is chip-fill
+     with a YOUR PICK tag. The desktop treatments (green fill, the pulsing
+     inset outline) stay on the desktop card back. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-rec,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick {
+    border: 1px solid var(--cz-money);
+    background: var(--cz-money-bg);
+    box-shadow: none;
+    animation: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-rec .cz-sizing-cell-k,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick .cz-sizing-cell-k {
+    color: var(--cz-money);
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-rec .cz-sizing-cell-v,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick .cz-sizing-cell-v {
+    color: var(--cz-ink);
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick-manual {
+    border: 0;
+    background: var(--cz-chip-fill);
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick-manual .cz-sizing-cell-k {
+    color: var(--cz-sub);
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick-manual .cz-sizing-cell-v {
+    color: var(--cz-ink);
+  }
+
+  /* Tag type per spec 6.3: mono, 8.5px, weight 700. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell-tag {
+    font-size: 8.5px;
+    font-weight: 700;
+  }
+
+  .cz-detail-scroll.has-panes .cz-sizing-cell-tag-phone {
+    display: block;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick-manual .cz-sizing-cell-tag-phone {
+    color: var(--cz-sub);
+  }
+
+  /* Phone sheet toast (spec §7): one mono line, pill, 78px off the bottom,
+     gone after 1900ms. It never blocks a tap. */
+  .cz-detail-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 78px;
+    z-index: 30;
+    transform: translateX(-50%);
+    padding: 9px 14px;
+    border-radius: 999px;
+    background: var(--cz-action-muted-bg);
+    color: var(--cz-action-muted-text);
+    font-family: var(--cz-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-row {
+    grid-template-columns: 76px 1fr 52px;
+    gap: 10px;
+    min-height: 38px;
+    padding: 0;
+    border-top: 0;
+    border-bottom: 1px solid var(--cz-hair);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-heads {
+    min-height: auto;
+    padding: 16px 0 6px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-scale {
+    font-size: 0;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-scale::before {
+    content: "";
+    display: block;
+    height: 1px;
+    margin-top: 5px;
+    background: var(--cz-hair);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-heads .cz-fitread-ease {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--cz-faint);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-head,
+  .cz-detail-scroll.has-panes .cz-fitread-theirs,
+  .cz-detail-scroll.has-panes .cz-fitread-yours {
+    display: none;
+  }
+
+  /* Spec 6.3: the header is FIT READ, a hairline, then EASE on the right.
+     THEIRS and YOURS stay hidden; the last head is the EASE one. */
+  .cz-detail-scroll.has-panes .cz-fitread-heads .cz-fitread-head:last-child {
+    display: block;
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--cz-faint);
+    text-align: right;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-name {
+    font-size: 13px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-track {
+    height: 6px;
+    background: var(--cz-track);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-band {
+    left: 26%;
+    width: 44%;
+    background: var(--cz-money);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-mark {
+    height: 14px;
+    top: -4px;
+    border-radius: 2px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-ease {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-foot {
+    border-top: 0;
+    padding-top: 10px;
+    font-size: 11.5px;
+  }
+
+  /* Spec 6.3: ONE chip row. The older phone rule above stacks these buttons
+     full-width in a column; the panes put them back on one wrapping row of
+     pills. The two bordered chips take the spec shape (radius 999px, 1px
+     --cz-hair, no fill); the visual stays 34px while the ::after keeps a
+     44px hit area, the same trick as .cz-detail-hero-btn. */
+  .cz-detail-scroll.has-panes .cz-detail-chart-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding-top: 12px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-chart-upload {
+    position: relative;
+    width: auto;
+    min-height: 34px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-chart-upload::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  .cz-detail-chart-link {
+    min-height: 44px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cz-link);
+    font-family: var(--cz-sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero {
+    border-radius: 14px;
+    background: #f3f3f0;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero-slide,
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero-empty {
+    aspect-ratio: 4 / 5;
+    background: #f3f3f0;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero-slide img {
+    object-fit: contain;
+  }
+
+  /* Spec 6.4: ONE strip header — the pane's own PHOTOS kicker with the hair
+     and the count · cover readout. The manager's own label would print the
+     same words a second time right under it. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-edit-photos-label {
+    display: none;
+  }
+
+  .cz-detail-photo-strip-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0 8px;
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .cz-detail-photo-strip-head > span:nth-child(2) {
+    flex: 1;
+    height: 1px;
+    background: var(--cz-hair);
+  }
+
+  .cz-detail-photo-strip-head > span:last-child {
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+
+  .cz-detail-photo-footnote {
+    margin: 10px 0 0;
+    color: var(--cz-faint);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 1px solid var(--cz-hair);
+    border-radius: 14px;
+    background: var(--cz-card-solid);
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-chip {
+    width: 100%;
+    height: 46px;
+    padding: 0 13px;
+    border: 0;
+    border-bottom: 1px solid var(--cz-hair);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-slot:nth-child(5) .cz-cmdbar-chip {
+    border-bottom: 0;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-chip.is-money {
+    background: transparent;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-chip[data-chip="status"]::before {
+    content: "STATUS";
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-chip[data-chip="status"] .cz-cmdbar-status-word,
+  .cz-detail-pane-command .cz-cmdbar-value {
+    margin-left: auto;
+    max-width: 18ch;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-label {
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-caret {
+    width: 14px;
+    height: 14px;
+    transform: rotate(-90deg);
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-seller {
+    display: none;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-pop {
+    grid-column: 1;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0;
+    border-width: 1px 0;
+    border-radius: 0;
+  }
+
+  .cz-detail-pane-history {
+    padding-top: 18px;
+  }
+
+  .cz-detail-pane-history .cz-timeline::before {
+    content: "HISTORY";
+    display: block;
+    margin-bottom: 7px;
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+
+  .cz-detail-pane-history .cz-detail-notes-add {
+    min-height: 44px;
+    margin-top: 4px;
+  }
+
+  .cz-detail-device-note {
+    margin: 16px 0 0;
+    color: var(--cz-faint);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  /* Spec 6.6: the footer price "sits left, with no box" — mono 17px money,
+     no border, no fill. The box stays on the desktop card back and panel.
+     The price is still the button that opens the price editor. */
+  .cz-detail-surface .cz-detail-foot-price {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 17px;
+  }
+
+  .cz-detail-surface .cz-detail-foot-price:active {
+    background: transparent;
   }
 }
 
