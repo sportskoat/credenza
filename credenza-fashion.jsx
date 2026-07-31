@@ -9911,6 +9911,7 @@ function CredenzaApp() {
               record={hauls.find((h) => h.name === openHaulName) || null}
               pipeline={haulPipeline}
               totalUsd={listTotalUsd}
+              items={totalsItems}
               onUpdate={(patch, historyEntry) => updateHaul(openHaulName, patch, historyEntry)}
               onArchive={() => {
                 const rec = hauls.find((h) => h.name === openHaulName);

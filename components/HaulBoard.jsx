@@ -4,12 +4,20 @@ import {
   chargeableWeightGrams,
   formatMoney,
   formatWeightGrams,
+  itemWeightGrams,
 } from "../credenza-fashion.jsx";
 
 // The open haul's money + parcel panel (Execution Plan Part 5, Tier A):
 // budget with a spent line, parcel editor with chargeable weight, and
 // Archive. Everything writes through onUpdate with a history entry.
-export default function HaulBoard({ record, pipeline, totalUsd, onUpdate, onArchive }) {
+export default function HaulBoard({
+  record,
+  pipeline,
+  totalUsd,
+  onUpdate,
+  onArchive,
+  items,
+}) {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetDraft, setBudgetDraft] = useState("");
   const [parcelOpen, setParcelOpen] = useState(false);
@@ -20,6 +28,16 @@ export default function HaulBoard({ record, pipeline, totalUsd, onUpdate, onArch
   const parcel = record && record.parcel ? record.parcel : null;
   const archived = record && record.archived === true;
   const spent = Math.round((totalUsd || 0) * 100) / 100;
+
+  // Same percent the Budget text shows. Cap fill at a full circle only.
+  const spentPct =
+    budget != null && budget > 0
+      ? Math.min(999, Math.round((spent / budget) * 100))
+      : 0;
+  const ringFillPct = Math.min(100, spentPct);
+  // Breakpoints 0 / 70 / 100: accent → warn → error.
+  const ringTone =
+    spentPct >= 100 ? "over" : spentPct >= 70 ? "warn" : "ok";
 
   const savedChargeable = parcel
     ? chargeableWeightGrams({
@@ -35,6 +53,18 @@ export default function HaulBoard({ record, pipeline, totalUsd, onUpdate, onArch
         packaging: parcelDraft.packaging,
       })
     : null;
+
+  // Parcel weight bar: only items with a known positive weight.
+  const weightSegs = (() => {
+    const list = Array.isArray(items) ? items : [];
+    const weighed = list
+      .map((item) => itemWeightGrams(item))
+      .filter((g) => Number.isFinite(g) && g > 0);
+    if (weighed.length === 0) return [];
+    const sum = weighed.reduce((a, g) => a + g, 0);
+    if (!(sum > 0)) return [];
+    return weighed.map((g) => (g / sum) * 100);
+  })();
 
   const openBudget = () => {
     setBudgetDraft(budget != null ? String(budget) : "");
@@ -93,8 +123,14 @@ export default function HaulBoard({ record, pipeline, totalUsd, onUpdate, onArch
       <div className="cz-haul-board-row">
         {budget != null ? (
           <button type="button" className="cz-haul-board-stat" onClick={openBudget}>
+            <span
+              className={"cz-haul-board-ring cz-haul-board-ring--" + ringTone}
+              role="img"
+              aria-label={spentPct + "% of budget spent"}
+              style={{ "--fill": ringFillPct + "%" }}
+            />
             Budget {formatMoney(budget, currency)} · spent {formatMoney(spent, "USD")}
-            {budget > 0 ? " (" + Math.min(999, Math.round((spent / budget) * 100)) + "%)" : ""}
+            {budget > 0 ? " (" + spentPct + "%)" : ""}
           </button>
         ) : (
           <button type="button" className="cz-haul-board-btn" onClick={openBudget}>
@@ -102,8 +138,34 @@ export default function HaulBoard({ record, pipeline, totalUsd, onUpdate, onArch
           </button>
         )}
         {savedChargeable != null ? (
-          <button type="button" className="cz-haul-board-stat" onClick={openParcel}>
-            Parcel {formatWeightGrams(savedChargeable)} chargeable
+          <button
+            type="button"
+            className={
+              "cz-haul-board-stat" +
+              (weightSegs.length > 0 ? " cz-haul-board-stat--with-bar" : "")
+            }
+            onClick={openParcel}
+          >
+            <span className="cz-haul-board-stat-text">
+              Parcel {formatWeightGrams(savedChargeable)} chargeable
+            </span>
+            {weightSegs.length > 0 ? (
+              <span
+                className="cz-haul-board-weight-bar"
+                role="img"
+                aria-label={
+                  "Parcel weight breakdown, " + weightSegs.length + " items"
+                }
+              >
+                {weightSegs.map((pct, i) => (
+                  <span
+                    key={i}
+                    className="cz-haul-board-weight-seg"
+                    style={{ "--seg-w": pct + "%" }}
+                  />
+                ))}
+              </span>
+            ) : null}
           </button>
         ) : (
           <button type="button" className="cz-haul-board-btn" onClick={openParcel}>
