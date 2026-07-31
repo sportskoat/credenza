@@ -9558,8 +9558,48 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   --type-kicker: 11px;
 }
 
+/* Kyle drew this card as a bottom sheet with a grab bar (2026-07-31: "no make
+   it correct"). On a phone the shared modal rule already anchors the card to
+   the bottom edge and squares the bottom corners, so only the grab bar is
+   missing. On a desktop the card floats in the middle of the window, where a
+   grab bar promises a drag the card does not do — so the bar is phone-only.
+   The gate below is copied from .cz-modal in credenza.css on purpose: the bar
+   must appear on exactly the screens where the card is really anchored. A
+   narrow DESKTOP window has a mouse, keeps the floating card, and gets no bar. */
+.cz-limits-sheet {
+  /* The shared modal surface has no radius of its own, so the floating card
+     read as a square box. Same value the phone gate uses. */
+  border-radius: 18px;
+}
+
 .cz-limits-sheet .cz-modal-header {
   padding: var(--space-6) var(--space-7) !important;
+}
+
+/* This block sits AFTER the header padding above on purpose. Both rules carry
+   !important at the same weight, so the later one wins. */
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-limits-sheet {
+    border-radius: 18px 18px 0 0;
+  }
+
+  /* The grab bar. It is drawn, not built, because it is decoration: the sheet
+     closes with the x, with "Not now", and with Escape, and all three stay. */
+  .cz-limits-sheet::before {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: var(--space-3) auto 0;
+    border-radius: var(--radius-pill);
+    background: var(--cz-hair);
+  }
+
+  /* The bar takes the space above the title, so the title moves up to meet it
+     and the head of the sheet keeps its height. */
+  .cz-limits-sheet .cz-modal-header {
+    padding-top: var(--space-4) !important;
+  }
 }
 
 .cz-limits-sheet .cz-modal-header h2 {

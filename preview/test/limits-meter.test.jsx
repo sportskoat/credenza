@@ -285,3 +285,40 @@ describe("the counter pill is big enough for a thumb", () => {
     expect(drawn + ringY * 2).toBe(44);
   });
 });
+
+// ── The bottom sheet (Kyle 2026-07-31) ─────────────────────────────────────
+//
+// Kyle drew the sign-in card as a sheet against the bottom edge, with a grab
+// bar. This also lives in the stylesheet, so it is pinned at the source.
+
+describe("the sign-in card is a bottom sheet on a phone", () => {
+  const phoneStart = CSS.indexOf(
+    "@media (max-width: 767px) and (pointer: coarse) {\n  .cz-limits-sheet {",
+  );
+  const phone = CSS.slice(phoneStart, CSS.indexOf("\n}\n", phoneStart));
+
+  it("keeps the grab bar on the phone gate only", () => {
+    // The gate must carry BOTH conditions. A width-only gate would put a grab
+    // bar on a narrow desktop window, where the card still floats.
+    expect(phoneStart).toBeGreaterThan(-1);
+    expect(phone).toContain(".cz-limits-sheet::before");
+    expect(phone).toMatch(/\.cz-limits-sheet::before\s*{\s*content:\s*""/);
+  });
+
+  it("squares the bottom corners on a phone and rounds all four elsewhere", () => {
+    expect(phone).toMatch(/\.cz-limits-sheet\s*{\s*border-radius:\s*18px 18px 0 0;/);
+    // The floating card keeps its own radius: the shared modal surface has
+    // none, so without this line the desktop card reads as a square box.
+    const base = CSS.slice(CSS.indexOf("/* ── The one limits sheet ──"), phoneStart);
+    expect(base).toMatch(/\.cz-limits-sheet\s*{\s*\n\s*\/\*[\s\S]*?\*\/\s*\n\s*border-radius:\s*18px;/);
+  });
+
+  it("puts the phone header padding after the shared header padding", () => {
+    // Both rules carry !important at the same weight, so order decides the
+    // winner. A later edit that moves this block up would silently undo it.
+    const shared = CSS.indexOf(".cz-limits-sheet .cz-modal-header {\n  padding: var(--space-6)");
+    expect(shared).toBeGreaterThan(-1);
+    expect(phoneStart).toBeGreaterThan(shared);
+    expect(phone).toContain("padding-top: var(--space-4) !important");
+  });
+});
