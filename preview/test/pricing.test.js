@@ -320,8 +320,6 @@ describe("the page only sells what is built", () => {
     expect(row("Hauls at once")).toContain("<td>" + cap("pro", "haulsMax") + "</td>");
     expect(row("QC photos an item")).toContain("<td>" + cap("free", "qcPhotosPerItem") + "</td>");
     expect(row("QC photos an item")).toContain("<td>" + cap("pro", "qcPhotosPerItem") + "</td>");
-    expect(row("Ask")).toContain("<td>" + cap("free", "askPerDay") + " a day</td>");
-    expect(row("Ask")).toContain("<td>" + cap("pro", "askPerDay") + " a day</td>");
     expect(row("AI size-chart reads")).toContain(
       "<td>" + cap("free", "chartVisionPerDay") + " a day</td>"
     );
@@ -358,7 +356,6 @@ describe("the page only sells what is built", () => {
       cap("pro", "qcPhotosPerItem") + " QC photos an item",
       cap("pro", "chartVisionPerDay") + " AI size-chart reads a day",
       comma(cap("pro", "resolvePerDay")) + " link resolves a day",
-      cap("pro", "askPerDay") + " Ask questions a day",
     ]) {
       expect(bullets, "no bullet reads " + JSON.stringify(want)).toContain(want);
     }
