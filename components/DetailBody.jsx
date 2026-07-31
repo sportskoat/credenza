@@ -4,6 +4,7 @@ import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload,
 import { listAgents } from "../agents.js";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import CommandBar from "./CommandBar.jsx";
+import SizeChartTable from "./SizeChartTable.jsx";
 import {
   EditPhotosManager,
   buildEditDraft,
@@ -734,7 +735,22 @@ function SizingBlockNoChart({
 // the no-chart state (see `noChart` in DetailBody). `hasChart={false}` still
 // ghosts, because a read in flight has no chart yet and keeps the table.
 // Row math lives in fitReadRows (pure, tested on its own).
-function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart, outsidePhrasing = false }) {
+// Kyle 2026-07-31: tap FIT READ to open the full seller chart (SizeChartTable)
+// so ease (room in the garment) is readable next to every size, not just the pick.
+function FitReadTable({
+  rows,
+  hasChart,
+  units,
+  reading,
+  readingCount,
+  onEditMeasures,
+  onForgetChart,
+  outsidePhrasing = false,
+  chart = null,
+  highlight = null,
+  highlightAlt = null,
+}) {
+  const [chartOpen, setChartOpen] = useState(false);
   if (!rows.length) return null;
   const insideCount = rows.filter((r) => r.mark != null && !r.warn).length;
   const scoredCount = rows.filter((r) => r.mark != null).length;
@@ -777,14 +793,31 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
               " of " +
               word(scoredCount) +
               " inside tolerance.") + estNote + missNote;
+  const canOpenChart = hasChart && chart && Array.isArray(chart.rows) && chart.rows.length > 0;
   return (
     <div
       className={
-        "cz-fitread" + (hasChart ? "" : " is-ghost") + (reading ? " is-reading" : "")
+        "cz-fitread" +
+        (hasChart ? "" : " is-ghost") +
+        (reading ? " is-reading" : "") +
+        (chartOpen ? " is-open" : "")
       }
     >
+      {canOpenChart ? (
+        <button
+          type="button"
+          className="cz-fitread-toggle"
+          aria-expanded={chartOpen}
+          onClick={() => setChartOpen((v) => !v)}
+        >
+          <span className="cz-fitread-kicker">FIT READ</span>
+          <span className="cz-fitread-toggle-hint">
+            {chartOpen ? "Hide full chart" : "Full chart"}
+          </span>
+        </button>
+      ) : null}
       <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
-        <span className="cz-fitread-kicker">FIT READ</span>
+        {canOpenChart ? <span /> : <span className="cz-fitread-kicker">FIT READ</span>}
         {hasChart ? (
           <span className="cz-fitread-scale">
             <span>TIGHT</span>
@@ -834,6 +867,23 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
           </span>
         </div>
       ))}
+      {canOpenChart && chartOpen ? (
+        <div className="cz-fitread-detail">
+          <p className="cz-fitread-detail-help">
+            <strong>Ease</strong> is the room in the garment: seller size minus
+            your body. Length ease is how much longer the piece is than your body
+            length. The highlighted row is the size this card picked.
+          </p>
+          <div className="cz-size-chart-wrap">
+            <SizeChartTable
+              chart={chart}
+              units={units}
+              highlight={highlight}
+              highlightAlt={highlightAlt}
+            />
+          </div>
+        </div>
+      ) : null}
       <div className="cz-fitread-foot">
         <span className="cz-fitread-footnote">{footnote}</span>
         <span className="cz-fitread-footlinks">
@@ -2885,6 +2935,11 @@ export default function DetailBody({
                 reading={chartRead.reading}
                 readingCount={chartRead.count}
                 outsidePhrasing={wantsStickyBar}
+                chart={verdict.chart}
+                highlight={verdict.shown && verdict.shown.size}
+                highlightAlt={
+                  verdict.shown && verdict.shown.alt ? verdict.shown.alt.size : null
+                }
                 onEditMeasures={wantsStickyBar ? null : onOpenSizes ? openProfileSizes : null}
                 onForgetChart={
                   wantsStickyBar ? null : chartIsForgettable ? forgetChart : null

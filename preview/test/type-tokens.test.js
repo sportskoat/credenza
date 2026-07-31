@@ -76,7 +76,8 @@ describe("Type tokens are the only font stacks (LB-69)", () => {
       expect(hits, `${token} definitions in credenza.css`).toHaveLength(1);
     }
     // And each one still names a real family, not an empty value.
-    expect(css).toMatch(/--cz-display:\s*Georgia/);
+    // Kyle 2026-07-31: DROP Georgia — display and sans both use Clash Grotesk.
+    expect(css).toMatch(/--cz-display:\s*"Clash Grotesk"/);
     expect(css).toMatch(/--cz-sans:\s*"Clash Grotesk"/);
     expect(css).toMatch(/--cz-mono:\s*ui-monospace/);
   });

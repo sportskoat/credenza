@@ -90,7 +90,7 @@ function code(event) {
 const STYLE = `
 @font-face{font-family:"Clash Grotesk";src:url("/fonts/ClashGrotesk-Variable.woff2") format("woff2-variations");font-weight:200 700;font-display:swap}
 :root{--bg:#f4f4f0;--ink:#17181a;--muted:#5c5f66;--faint:#8a857c;--card:#ffffff;--line:#e2e2dc;
---display:Georgia,'Iowan Old Style','Times New Roman',serif;
+--display:"Clash Grotesk",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 --sans:'Clash Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
 --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 @media (prefers-color-scheme:dark){:root{--bg:#000000;--ink:#f4f4f0;--muted:#a1a1aa;--faint:#8a857c;--card:#1a1a1d;--line:#2a2a2e}}
