@@ -127,12 +127,11 @@ function filledCount(draft, keys) {
 }
 
 function FieldRow({ id, label, unit, value, active, onChange, onFocus, text = false, placeholder = "—" }) {
+  // No onClick on the label — htmlFor already focuses the input, and the
+  // input’s onFocus paints the active row. A click handler here trips a11y
+  // lint (label is non-interactive for mouse/keyboard listeners).
   return (
-    <label
-      className={"cz-sizes-row" + (active ? " is-active" : "")}
-      htmlFor={id}
-      onClick={onFocus}
-    >
+    <label className={"cz-sizes-row" + (active ? " is-active" : "")} htmlFor={id}>
       <span className="cz-sizes-row-bar" aria-hidden="true" />
       <span className="cz-sizes-row-label">{label}</span>
       <input
