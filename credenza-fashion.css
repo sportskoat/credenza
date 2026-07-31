@@ -7476,7 +7476,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-sizes-verdict-text {
   margin: 0 0 10px;
-  font-family: var(--cz-display);
+  /* F visual check 2026-07-31: Kyle's approved shot uses bold body text,
+     not the serif title face, for the live verdict sentence. */
+  font-family: var(--cz-sans);
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.02em;
