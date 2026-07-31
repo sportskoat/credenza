@@ -192,9 +192,17 @@ function MeasureLines({ keys, activeKey, draft, onSelect, labels }) {
   );
 }
 
+// Garment mode ships real flat-lay photos; body mode keeps the drop-in slot
+// until the front-on figure photos land.
+const GARMENT_PHOTO = {
+  tops: "/img/sizes-tee.jpg",
+  bot: "/img/sizes-trousers.jpg",
+};
+
 function PhotoPanel({ mode, group, activeKey, draft, onSelect, labels, how, valueText }) {
   const isTops = group === "tops";
   const keys = isTops ? TOPS : BOT;
+  const photo = mode === "garment" ? GARMENT_PHOTO[group] : null;
   const placeholder =
     mode === "garment"
       ? isTops
@@ -208,7 +216,11 @@ function PhotoPanel({ mode, group, activeKey, draft, onSelect, labels, how, valu
     <div className="cz-sizes-photo-col">
       <div className="cz-sizes-photo">
         <div className="cz-sizes-photo-slot" aria-hidden="true">
-          <span className="cz-sizes-photo-ph">{placeholder}</span>
+          {photo ? (
+            <img className="cz-sizes-photo-img" src={photo} alt="" loading="lazy" />
+          ) : (
+            <span className="cz-sizes-photo-ph">{placeholder}</span>
+          )}
         </div>
         <MeasureLines keys={keys} activeKey={activeKey} draft={draft} onSelect={onSelect} labels={labels} />
       </div>
