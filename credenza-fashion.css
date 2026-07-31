@@ -13396,6 +13396,13 @@ input.cz-sizing-fix-size {
     animation: none;
   }
 
+  /* Size labels shout on the phone pane (F's review of 43a1f4f, matching
+     Kyle's drawing): SMALL / MEDIUM / LARGE. Text-transform only, so the
+     data and the desktop card back keep their own casing. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell-k {
+    text-transform: uppercase;
+  }
+
   .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-rec .cz-sizing-cell-k,
   .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick .cz-sizing-cell-k {
     color: var(--cz-money);
@@ -13423,6 +13430,13 @@ input.cz-sizing-fix-size {
   .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell-tag {
     font-size: 8.5px;
     font-weight: 700;
+  }
+
+  /* 2026-07-31 (Kyle: no stretch on a size tap): the phone lane owns the tag
+     here — it carries OUR PICK and YOUR PICK in every state, so the desktop
+     lane steps out and every cell keeps one height. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell-tag:not(.cz-sizing-cell-tag-phone) {
+    display: none;
   }
 
   .cz-detail-scroll.has-panes .cz-sizing-cell-tag-phone {
