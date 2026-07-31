@@ -6798,6 +6798,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   margin: 0 auto;
 }
 
+/* Sizes and measurements v2: photo left + fields right needs the full track. */
+.cz-settings-section.is-wide {
+  max-width: 1080px;
+}
+
 .cz-settings-section-kicker {
   font-family: var(--cz-sans);
   font-size: 11px;
@@ -7055,67 +7060,573 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-top: 1px solid var(--cz-hair);
 }
 
-/* ── Your measurements (LB-70) ─────────────────────────────────────────────
-   Kyle 2026-07-27: "I think the measurements could use a little bit of a
-   bigger, better thing."
+/* ── Sizes and measurements v2 ─────────────────────────────────────────────
+   Design: Sizes and Measurements v2.dc.html (Kyle approved 2026-07-31).
 
-   What was there: eight identical boxes in one 2-column grid, every label
-   carrying its own "(in)", the input at 14px, the whole sheet styled inline
-   with no class of its own. Nothing told you where to start or when to stop.
+   No bordered cards. Hairline rules divide sections. Left gutter holds the
+   section labels. Fields are a plain table: mono label left, bold mono
+   tabular numeral right. Active row gets a 2px ink bar plus 6% tint.
+   Photo lines are fixed (not draggable). Solid = measured, dashed = empty.
+   ──────────────────────────────────────────────────────────────────────── */
 
-   What it is now. The eight measurements are grouped the way you take them —
-   You, then Upper body, then Lower body — and each group states why Credenza
-   wants it. The input is 20px with the unit set inside the box against the
-   right edge, so the label is just the body part. A count above the first
-   group says how many of the eight are filled in.
+.cz-sizes {
+  max-width: 1080px;
+}
 
-   20px also clears the 16px threshold below which iOS zooms the page on
-   focus, the same reason .cz-profile-signin-field input is 16px. */
+.cz-sizes.is-embedded {
+  padding-top: 0;
+}
+
+/* Section with left gutter label (Usual sizes, What we can say) */
+.cz-sizes-block {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 0 40px;
+  border-top: 1px solid var(--cz-hair-strong);
+  padding: 22px 0 26px;
+  align-items: start;
+}
+
+.cz-sizes-gutter {
+  position: sticky;
+  top: 78px;
+}
+
+.cz-sizes-gutter-label {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-gutter-help {
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+/* Usual sizes 2-up table */
+.cz-sizes-usual {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 34px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-usual-note {
+  display: flex;
+  align-items: center;
+  padding: 13px 2px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-usual-note p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+.cz-sizes-tilde {
+  font-family: var(--cz-mono);
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+
+/* Field row — mono label left, numeral right, no borders or pills */
+.cz-sizes-row {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 4px 12px 14px;
+  border-bottom: 1px solid var(--cz-hair);
+  cursor: text;
+  transition: background var(--dur-micro) var(--ease-out);
+  background: transparent;
+}
+
+.cz-sizes-usual .cz-sizes-row {
+  padding: 11px 2px 11px 2px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-usual .cz-sizes-row .cz-sizes-row-bar {
+  display: none;
+}
+
+.cz-sizes-row:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-sizes-row.is-active {
+  background: var(--cz-accent-bg);
+}
+
+.cz-sizes-row-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-sizes-row.is-active .cz-sizes-row-bar {
+  background: var(--cz-ink);
+}
+
+.cz-sizes-row-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+}
+
+.cz-sizes-usual .cz-sizes-row-label {
+  font-size: 10px;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-row-input {
+  flex: 1 1 auto;
+  min-width: 48px;
+  border: none;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding: 0;
+  min-height: 24px;
+}
+
+.cz-sizes-row-input.is-text {
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: normal;
+}
+
+.cz-sizes-row-input:focus {
+  outline: none;
+}
+
+.cz-sizes-row-input::placeholder {
+  color: var(--cz-faint);
+  font-weight: 600;
+}
+
+.cz-sizes-row-unit {
+  flex: 0 0 auto;
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* Measurements header */
+.cz-sizes-meas-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--cz-hair-strong);
+  padding: 24px 0 6px;
+}
+
+.cz-sizes-meas-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.cz-sizes-meas-title {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.032em;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-meas-progress {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+.cz-sizes-meas-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cz-sizes-mode-help {
+  margin: 0 0 24px;
+  max-width: 66ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* Tops / Bottoms: photo left, fields right */
+.cz-sizes-group {
+  display: grid;
+  grid-template-columns: minmax(240px, 380px) minmax(300px, 1fr);
+  gap: 0 44px;
+  align-items: start;
+  border-top: 1px solid var(--cz-hair-strong);
+  padding: 22px 0 30px;
+}
+
+.cz-sizes-photo-col {
+  min-width: 0;
+}
+
+.cz-sizes-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--cz-strip-bg);
+}
+
+.cz-sizes-photo-slot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.cz-sizes-photo-ph {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  text-align: center;
+  text-wrap: pretty;
+  max-width: 22ch;
+  opacity: 0.7;
+}
+
+.cz-sizes-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cz-sizes-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cz-sizes-lines-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.cz-sizes-line-g {
+  cursor: pointer;
+  outline: none;
+}
+
+.cz-sizes-line-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+}
+
+.cz-sizes-line-stroke {
+  fill: none;
+  stroke: rgba(245, 245, 247, 0.22);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  transition:
+    stroke var(--dur-micro) var(--ease-out),
+    stroke-dasharray var(--dur-micro) var(--ease-out);
+}
+
+.cz-sizes-line-g.is-filled .cz-sizes-line-stroke {
+  stroke: rgba(245, 245, 247, 0.42);
+  stroke-dasharray: none;
+  stroke-width: 1;
+}
+
+.cz-sizes-line-g.is-live .cz-sizes-line-stroke {
+  stroke: rgba(245, 245, 247, 0.96);
+  stroke-dasharray: none;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.cz-sizes-dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 999px;
+  background: var(--cz-ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  /* On dark strip the ink is light; invert via mix so it reads as a pin */
+  background: #f5f5f7;
+}
+
+.cz-sizes-how {
+  border-bottom: 1px solid var(--cz-hair);
+  padding: 13px 2px 14px;
+}
+
+.cz-sizes-how-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 6px;
+}
+
+.cz-sizes-how-label {
+  white-space: nowrap;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-how-value {
+  white-space: nowrap;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-how-body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* Field column */
+.cz-sizes-fields {
+  min-width: 0;
+}
+
+.cz-sizes-fields-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+}
+
+.cz-sizes-fields-title {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-fields-count {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+.cz-sizes-field-list {
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-fields > .cz-sizes-row {
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-fields-note {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+/* Verdict */
+.cz-sizes-verdict-block {
+  padding-bottom: 18px;
+}
+
+.cz-sizes-verdict-text {
+  margin: 0 0 10px;
+  /* F visual check 2026-07-31: Kyle's approved shot uses bold body text,
+     not the serif title face, for the live verdict sentence. */
+  font-family: var(--cz-sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--cz-ink);
+  text-wrap: pretty;
+  max-width: 46ch;
+}
+
+.cz-sizes-verdict-basis {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  line-height: 1.5;
+}
+
+/* Save bar */
+/* In-flow band at the true bottom of the form — never sticky. A stuck bar
+   floated over the fields and cut the sticky photo in half (Kyle 2026-07-31);
+   docked here, nothing can ever slide under it. */
+.cz-sizes-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--cz-hair-strong);
+  margin-top: 26px;
+  padding: 18px 0 8px;
+  background: var(--cz-bg);
+}
+
+.cz-sizes-save-hint {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-save-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Narrow: stack photo above fields; photo sticks so the link survives typing */
+@media (max-width: 900px) {
+  .cz-sizes-block {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .cz-sizes-gutter {
+    position: static;
+  }
+
+  .cz-sizes-usual {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .cz-sizes-group {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .cz-sizes-photo {
+    aspect-ratio: 3 / 2;
+    position: sticky;
+    top: 56px;
+    z-index: 2;
+    max-height: 40vh;
+  }
+}
+
+/* Legacy class hooks kept so older tests / deep links do not explode.
+   New UI does not render these; sizes are under .cz-sizes-*. */
 .cz-measure {
   padding: 4px 20px 10px;
 }
-
 .cz-measure-head {
   display: flex;
   align-items: flex-start;
   gap: 14px;
 }
-
 .cz-measure-lead {
   margin: 0;
   flex: 1;
   font-size: 14px;
   line-height: 1.55;
   color: var(--cz-sub);
-  text-wrap: pretty;
 }
-
 .cz-measure-units {
   flex-shrink: 0;
   min-width: 116px;
 }
-
 .cz-measure-count {
   margin: 10px 0 0;
   font-family: var(--cz-mono);
   font-size: 11px;
-  line-height: 1.5;
-  letter-spacing: 0.06em;
   color: var(--cz-faint);
 }
-
-/* One line under the lower-body boxes naming WHICH length to measure. Quieter
-   than a label, louder than a placeholder. */
 .cz-measure-note {
   margin: 10px 0 0;
   font-size: 12px;
-  line-height: 1.45;
   color: var(--cz-faint);
 }
-
-/* Each group is its own card. The eight boxes used to run together in one
-   grid; a surface per group is what makes "I have finished the upper body"
-   a thing you can see rather than count. */
 .cz-measure-group {
   margin-top: 10px;
   padding: 14px;
@@ -7123,34 +7634,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 18px;
   background: var(--cz-card-solid);
 }
-
 .cz-measure-group-head {
   margin: 0 0 10px;
   font-family: var(--cz-display);
   font-size: 17px;
   font-weight: 700;
-  letter-spacing: -0.01em;
   color: var(--cz-ink);
 }
-
-/* Three across: every group (2/3/3 fields) then fits on one row, which is
-   what puts the whole section on one screen (Kyle 2026-07-28). */
 .cz-measure-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
-
 .cz-measure-grid-3 {
   grid-template-columns: 1fr 1fr 1fr;
 }
-
 .cz-measure-field {
   display: grid;
   gap: 7px;
   min-width: 0;
 }
-
 .cz-measure-label {
   font-family: var(--cz-mono);
   font-size: 10px;
@@ -7158,10 +7661,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   text-transform: uppercase;
   color: var(--cz-faint);
 }
-
-/* The unit rides inside the box. The input is transparent and sits on this
-   wrapper, so the focus ring lands on the whole control and the unit never
-   looks like something you can type over. */
 .cz-measure-input {
   display: flex;
   align-items: center;
@@ -7171,11 +7670,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 14px;
   background: var(--cz-bg);
 }
-
 .cz-measure-input:focus-within {
   border-color: var(--cz-ink);
 }
-
 .cz-measure-input input {
   flex: 1;
   min-width: 0;
@@ -7190,16 +7687,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
-
 .cz-measure-input input:focus {
   outline: none;
 }
-
 .cz-measure-input input::placeholder {
   color: var(--cz-faint);
   font-weight: 400;
 }
-
 .cz-measure-unit {
   flex-shrink: 0;
   font-family: var(--cz-mono);
@@ -7208,15 +7702,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   text-transform: uppercase;
   color: var(--cz-faint);
 }
-
 .cz-measure-actions {
   display: flex;
   gap: 10px;
   margin-top: 14px;
 }
-
-/* One column on a phone. Two 54px boxes side by side inside a 16px card
-   leaves each about 120px, which is not enough for a label and a unit. */
 @media (max-width: 460px) {
   .cz-measure-grid,
   .cz-measure-grid-3 {
@@ -11879,6 +12369,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
+/* Kyle 2026-07-31: the same stacked band sat on the desktop panel — "we still
+   have this big ass gap at the top of the page." The desktop gets the phone's
+   arithmetic: one small gap under the command bar, never four stacked ones. */
+@media (min-width: 768px) {
+  .cz-detail-facts {
+    margin-top: 8px;
+  }
+  .cz-detail-facts-section {
+    padding-top: 0;
+  }
+  .cz-detail-facts-section .cz-sizing:first-child {
+    margin-top: 0;
+    padding-top: 12px;
+  }
+}
+
 .cz-detail-facts-section + .cz-detail-facts-section {
   margin-top: 16px;
   border-top: 1px solid var(--cz-hair);
@@ -12849,6 +13355,15 @@ input.cz-sizing-cell.is-custom:focus-visible {
   height: 13px;
   border-radius: 1.5px;
   background: var(--cz-money);
+  /* Kyle 2026-07-31: "make the sizing graph move smoothly when you click a
+     new size." The mark slides to the new numbers instead of jumping. */
+  transition: left var(--dur-open) var(--ease-out), background-color var(--dur-open) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-fitread-mark {
+    transition: none;
+  }
 }
 
 .cz-fitread-mark.is-warn {
@@ -13949,7 +14464,10 @@ input.cz-sizing-fix-size {
      line. So the box owns the bottom gap and the textarea owns only its top
      one: 5 top + 3 lines at 15px/1.5 (67.5) = 72.5, rounded to 73. */
   grid-template-rows: auto 73px;
-  margin-top: 8px;
+  /* Kyle 2026-07-31: "get the notes section to not bump all the way up to
+     the line on top of it." 8px read as glued to the block above; 16px is
+     the panel's own rhythm. */
+  margin-top: 16px;
   padding-bottom: 11px;
   border: 1px solid var(--cz-hair);
   border-radius: 12px;

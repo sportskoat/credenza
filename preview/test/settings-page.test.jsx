@@ -90,7 +90,7 @@ describe("SettingsPage (routed settings)", () => {
     // Section head, not the rail label — both carry the same words.
     const heads = {
       account: "Free is the whole app. Pro is more of it.",
-      sizes: "Sizes and measurements",
+      sizes: "Sizes and measurements.",
       fit: "Fit preferences",
       shelf: "Shelf defaults",
       data: "Your data",

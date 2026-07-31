@@ -573,7 +573,7 @@ describe("Desktop sizing destination", () => {
     await user.click(editSizes);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/sizes");
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
@@ -1603,8 +1603,10 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
       "aria-pressed",
       "true"
     );
-    // The fifth box keeps the chip value that was copied into it.
-    expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
+    // Kyle 2026-07-31: the fifth box keeps ONE look — it reads "Other"
+    // (empty) while the pick sits on a chart cell, and shows a size only
+    // when no cell carries it.
+    expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toHaveValue("");
     expect(within(sheet).queryByRole("region", { name: "Size" })).toBeNull();
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
     // Round 4 point 3: the profile-size route is the fit read footnote.
@@ -1636,7 +1638,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await user.click(editSizes);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/sizes");
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
@@ -1735,8 +1737,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await user.click(screen.getByRole("button", { name: /^Large/ }));
 
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].size).toBe("L"));
-    // The fifth box mirrors the chip pick.
-    expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("L");
+    // Kyle 2026-07-31: the fifth box does not echo a chart-cell pick — one
+    // look ("Other"), with the tapped cell carrying the size.
+    expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("");
   });
 
   // Shelf handoff 2026-07-28: the seven-stop order track is gone. The card
@@ -2250,7 +2253,7 @@ describe("Settings deep links (CH-12)", () => {
     render(<Credenza />);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     // The URL is state, not an entrance — it must stick.
     expect(window.location.pathname).toBe("/settings/sizes");
@@ -2264,7 +2267,7 @@ describe("Settings deep links (CH-12)", () => {
       render(<Credenza />);
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
       expect(
-        await screen.findByRole("heading", { name: "Sizes and measurements" })
+        await screen.findByRole("heading", { name: "Sizes and measurements." })
       ).toBeInTheDocument();
       expect(window.location.pathname).toBe("/settings/sizes");
     } finally {
