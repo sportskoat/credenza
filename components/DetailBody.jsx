@@ -447,9 +447,12 @@ function SizingBlock({
                   (recOutlined ? " is-rec" : "")
                 }
                 aria-pressed={isManual && picked}
-                onClick={() =>
-                  onPick && onPick(isManual && picked ? "" : String(row.size))
-                }
+                // Kyle 2026-07-31: a second tap on the picked cell must NOT
+                // clear the pick ("it toggles off, it is redundant"). A tap
+                // always picks. Clearing still has its own doors: the Clear
+                // size button on the no-chart chip run, and an empty commit
+                // in the Other box.
+                onClick={() => onPick && onPick(String(row.size))}
               >
                 <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
                 <span className="cz-sizing-cell-v">{formatMeasure(row[measureKey], units)}</span>

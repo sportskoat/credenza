@@ -655,6 +655,20 @@ describe("DetailBody size tap drives the numbers", () => {
     ).toBeInTheDocument();
   });
 
+  it("a second tap on the picked cell keeps the pick (Kyle 2026-07-31)", () => {
+    const { container } = render(body(item("tap-stay"), chestOnly()));
+
+    tapSize(container, "Large");
+    expect(garmentText(container)).toBe("120cm");
+    // The second tap used to clear the hand pick and drop back to the
+    // recommendation. Redundant, says Kyle — the pick stays.
+    tapSize(container, "Large");
+    expect(garmentText(container)).toBe("120cm");
+    expect(container.querySelector(".cz-sizing-aside").textContent).toBe(
+      "your pick · we'd take the Medium"
+    );
+  });
+
   it("agrees out loud when the tap lands on the recommendation", () => {
     const { container } = render(body(item("tap-agree"), chestOnly()));
 

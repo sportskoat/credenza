@@ -1648,7 +1648,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
   });
 
-  it("the Size section clears a hand size without an obsolete AI action", async () => {
+  it("the Size section keeps the hand size on a second tap", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([
         fashionItem({
@@ -1671,13 +1671,13 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use AI size" })).toBeNull();
-    // Round 5 point 5.1: the chart cells are the picker — a second tap on the
-    // picked cell clears the hand size. The old "Clear size" chip is gone.
+    // Kyle 2026-07-31: a second tap on the picked cell must NOT clear the
+    // hand size ("it toggles off, it is redundant"). The pick stays.
     await user.click(screen.getByRole("button", { name: /^X-Large/ }));
 
     await waitFor(() => {
       const saved = JSON.parse(data[STORE_KEY] || "[]");
-      expect(saved[0].size).toBe("");
+      expect(saved[0].size).toBe("XL");
     });
   });
 
