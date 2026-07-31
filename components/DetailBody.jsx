@@ -453,17 +453,30 @@ function SizingBlock({
               >
                 <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
                 <span className="cz-sizing-cell-v">{formatMeasure(row[measureKey], units)}</span>
-                {recOutlined ? <span className="cz-sizing-cell-tag">Our pick</span> : null}
+                {/* Kyle 2026-07-31: the OUR PICK tag used to mount only on the
+                    recommended cell, so a size tap grew that cell — and the
+                    whole flex row stretched with it. The lane is always here
+                    now, invisible when empty, and the row keeps one height. */}
+                <span
+                  className="cz-sizing-cell-tag"
+                  aria-hidden={recOutlined ? undefined : true}
+                >
+                  {recOutlined ? "Our pick" : " "}
+                </span>
                 {/* Phone panes (mobile item sheet spec 6.3): the picked card
                     names itself YOUR PICK, and the recommended card keeps its
                     OUR PICK tag even when it is the pick. The tag is display:
                     none outside the phone sheet, so the desktop card back is
-                    unchanged. */}
-                {!recOutlined && (isRec || (picked && isManual)) ? (
-                  <span className="cz-sizing-cell-tag cz-sizing-cell-tag-phone">
-                    {isRec ? "Our pick" : "Your pick"}
-                  </span>
-                ) : null}
+                    unchanged. 2026-07-31: the phone lane is always rendered too
+                    (invisible when empty) — it owns the tag on the phone, where
+                    the desktop lane hides, so a size tap never stretches the
+                    row there either. */}
+                <span
+                  className="cz-sizing-cell-tag cz-sizing-cell-tag-phone"
+                  aria-hidden={isRec || (picked && isManual) ? undefined : true}
+                >
+                  {isRec ? "Our pick" : picked && isManual ? "Your pick" : " "}
+                </span>
               </button>
             );
           })}

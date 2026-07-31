@@ -184,4 +184,21 @@ describe("FitBlock chart hunt", () => {
     // The fifth box is visible with no tap.
     expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
   });
+
+  it("keeps one cell height when the pick tags mount (Kyle 2026-07-31)", async () => {
+    // A size tap stretched the row when the OUR PICK / YOUR PICK tags
+    // mounted. Both tag lanes are always rendered now — visible or blank —
+    // so the row keeps one height on the phone pane and the desktop back.
+    huntMock.mockResolvedValue(null);
+    const item = { ...noChartItem("hunt-tag-lane"), sizeNotes: CHART_TEXT, size: "L" };
+    renderBody(item);
+
+    await screen.findByText("SELLER'S CHART");
+    const cells = [...document.querySelectorAll("button.cz-sizing-cell")];
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(cell.querySelector(".cz-sizing-cell-tag")).not.toBe(null);
+      expect(cell.querySelector(".cz-sizing-cell-tag-phone")).not.toBe(null);
+    }
+  });
 });
