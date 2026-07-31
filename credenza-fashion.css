@@ -11830,6 +11830,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
+/* Kyle 2026-07-31: the same stacked band sat on the desktop panel — "we still
+   have this big ass gap at the top of the page." The desktop gets the phone's
+   arithmetic: one small gap under the command bar, never four stacked ones. */
+@media (min-width: 768px) {
+  .cz-detail-facts {
+    margin-top: 8px;
+  }
+  .cz-detail-facts-section {
+    padding-top: 0;
+  }
+  .cz-detail-facts-section .cz-sizing:first-child {
+    margin-top: 0;
+    padding-top: 12px;
+  }
+}
+
 .cz-detail-facts-section + .cz-detail-facts-section {
   margin-top: 16px;
   border-top: 1px solid var(--cz-hair);
@@ -12792,6 +12808,15 @@ input.cz-sizing-cell.is-custom:focus-visible {
   height: 13px;
   border-radius: 1.5px;
   background: var(--cz-money);
+  /* Kyle 2026-07-31: "make the sizing graph move smoothly when you click a
+     new size." The mark slides to the new numbers instead of jumping. */
+  transition: left var(--dur-open) var(--ease-out), background-color var(--dur-open) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-fitread-mark {
+    transition: none;
+  }
 }
 
 .cz-fitread-mark.is-warn {
@@ -13323,7 +13348,10 @@ input.cz-sizing-fix-size {
      line. So the box owns the bottom gap and the textarea owns only its top
      one: 5 top + 3 lines at 15px/1.5 (67.5) = 72.5, rounded to 73. */
   grid-template-rows: auto 73px;
-  margin-top: 8px;
+  /* Kyle 2026-07-31: "get the notes section to not bump all the way up to
+     the line on top of it." 8px read as glued to the block above; 16px is
+     the panel's own rhythm. */
+  margin-top: 16px;
   padding-bottom: 11px;
   border: 1px solid var(--cz-hair);
   border-radius: 12px;

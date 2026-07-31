@@ -453,7 +453,16 @@ function SizingBlock({
               >
                 <span className="cz-sizing-cell-k">{formatSizeToken(row.size) || row.size}</span>
                 <span className="cz-sizing-cell-v">{formatMeasure(row[measureKey], units)}</span>
-                {recOutlined ? <span className="cz-sizing-cell-tag">Our pick</span> : null}
+                {/* Kyle 2026-07-31: the OUR PICK tag used to mount only on the
+                    recommended cell, so a size tap grew that cell — and the
+                    whole flex row stretched with it. The lane is always here
+                    now, invisible when empty, and the row keeps one height. */}
+                <span
+                  className="cz-sizing-cell-tag"
+                  aria-hidden={recOutlined ? undefined : true}
+                >
+                  {recOutlined ? "Our pick" : " "}
+                </span>
               </button>
             );
           })}
@@ -1084,15 +1093,29 @@ function listPhrase(words) {
 // different size" link — Fable blocked that on 2026-07-29.
 // Two hosts, one box: the chart cells when the seller has a chart, the plain
 // chip run when it does not. `className` names the host.
-function CustomSizeBox({ className, value, onChange, onCommit }) {
+// Kyle 2026-07-31: `shownValue` is the resting look — blank ("Other") when
+// the size it holds already sits on a chart cell or chip, so the box keeps
+// ONE look instead of echoing every tap. The raw value only appears while
+// the field is being edited, and a focus that finds an echo starts the edit
+// from the resting look, not from the echo.
+function CustomSizeBox({ className, value, shownValue, onChange, onCommit }) {
+  const [editing, setEditing] = useState(false);
+  const shown = shownValue !== undefined ? shownValue : value;
   return (
     <input
       className={className}
       aria-label="Custom item size"
       placeholder="Other"
-      value={value}
+      value={editing ? value : shown}
       onChange={(event) => onChange(event.target.value)}
-      onBlur={onCommit}
+      onFocus={() => {
+        if (shown !== value) onChange(shown);
+        setEditing(true);
+      }}
+      onBlur={() => {
+        setEditing(false);
+        onCommit();
+      }}
       onKeyDown={(event) => {
         event.stopPropagation();
         if (event.key === "Enter") {
@@ -1110,10 +1133,17 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
   // The chart cells host the box themselves when they are on screen, so this
   // editor draws nothing at all rather than a second, lonely box below them.
   if (choicesHidden) return null;
+  // Kyle 2026-07-31: same one-look rule as the chart cells — the box reads
+  // "Other" while the pick already sits on a chip, and shows a size only
+  // when no chip carries it.
+  const customInChoices = choices.some(
+    (size) => String(size).toUpperCase() === String(customSize).toUpperCase()
+  );
   const customBox = (
     <CustomSizeBox
       className="cz-detail-size-choice is-custom"
       value={customSize}
+      shownValue={customInChoices ? "" : customSize}
       onChange={onCustomChange}
       onCommit={onCommit}
     />
@@ -1914,6 +1944,16 @@ export default function DetailBody({
     verdict.chart && Array.isArray(verdict.chart.rows)
       ? verdict.chart.rows.filter((r) => r.size && r[sizeMeasureKey] != null).slice(0, 6)
       : [];
+  // Kyle 2026-07-31: "when you click on this button two times you get
+  // different views — standardize it." The fifth box used to echo EVERY pick,
+  // so a tap on the Small cell turned the box from "Other" into "S". One look
+  // now: the box shows a size only when that size is NOT on the chart — the
+  // odd sizes ("170/92A", "EU 44") it exists for. A chart size lives on its
+  // own cell, and the box keeps reading "Other".
+  const customSizeInChart = sizeCells.some(
+    (row) => String(row.size).toUpperCase() === String(customSize).toUpperCase()
+  );
+  const customSizeShown = customSizeInChart ? "" : customSize;
   // Split rail: the per-measurement fit bars. YOURS uses the same effective
   // profile the pick math used, so the table's ease always agrees with
   // shown.diff — a raw-profile table would show a different chest than the one
@@ -2181,6 +2221,21 @@ export default function DetailBody({
   const commitCustomSize = () => {
     const cleaned = customSize.trim();
     if (cleaned === customSizeCommittedRef.current) return;
+    // Kyle 2026-07-31: an empty commit only clears a size the box was truly
+    // showing. When the pick sits on a chart cell the box reads "Other", so
+    // a tap in and back out must not wipe that pick.
+    if (!cleaned) {
+      const committed = customSizeCommittedRef.current;
+      const committedIsListed =
+        sizeCells.some((row) => String(row.size).toUpperCase() === committed.toUpperCase()) ||
+        chipSizes(verdict.runValues, committed).some(
+          (size) => String(size).toUpperCase() === committed.toUpperCase()
+        );
+      if (committedIsListed) {
+        setCustomSize(committed);
+        return;
+      }
+    }
     pickItemSize(cleaned);
   };
 
@@ -2577,6 +2632,7 @@ export default function DetailBody({
                   <CustomSizeBox
                     className="cz-sizing-cell is-custom"
                     value={customSize}
+                    shownValue={customSizeShown}
                     onChange={setCustomSize}
                     onCommit={commitCustomSize}
                   />
