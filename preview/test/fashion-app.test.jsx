@@ -573,7 +573,7 @@ describe("Desktop sizing destination", () => {
     await user.click(editSizes);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/sizes");
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
@@ -1630,7 +1630,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await user.click(editSizes);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/sizes");
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
@@ -2240,7 +2240,7 @@ describe("Settings deep links (CH-12)", () => {
     render(<Credenza />);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     // The URL is state, not an entrance — it must stick.
     expect(window.location.pathname).toBe("/settings/sizes");
@@ -2254,7 +2254,7 @@ describe("Settings deep links (CH-12)", () => {
       render(<Credenza />);
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
       expect(
-        await screen.findByRole("heading", { name: "Sizes and measurements" })
+        await screen.findByRole("heading", { name: "Sizes and measurements." })
       ).toBeInTheDocument();
       expect(window.location.pathname).toBe("/settings/sizes");
     } finally {
