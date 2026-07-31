@@ -9202,6 +9202,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-morph-button.is-icon-only,
 .cz-favorite-button,
 .cz-mast-btn,
+.cz-limit-pill,
 .cz-haul-chip-clear,
 .cz-note-toggle,
 .cz-info-bubble-header button,
@@ -9223,7 +9224,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 /* 36px buttons: 4px ring. The masthead trio sits at gap 8px, so the rings
    meet exactly and never overlap. */
 .cz-carousel-orbit-close::after,
-.cz-mast-btn::after {
+.cz-mast-btn::after,
+.cz-limit-pill::after {
   content: "";
   position: absolute;
   inset: -4px;
@@ -9503,6 +9505,142 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-mast-nav {
     display: none;
   }
+}
+
+/* ── The counter pill (Kyle 2026-07-30, rule 1) ────────────────────────────
+   One meter, always in the header, so nobody meets a wall by surprise. It is
+   quiet by default: hairline border, muted text, the same 36px height as the
+   buttons beside it. On the LAST free read it turns amber (rule 3), and when
+   the allowance is spent it goes solid amber — the only loud state.
+   The phone masthead has one row and no width for the words, so ≤767px keeps
+   the pill but drops it to the number alone. */
+.cz-limit-pill {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: var(--cz-card-solid);
+  color: var(--cz-sub);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-limit-pill:hover {
+  color: var(--cz-ink);
+}
+
+.cz-limit-pill:active {
+  transform: scale(0.96);
+}
+
+.cz-limit-pill.is-warn {
+  color: var(--cz-warn-ink);
+  border-color: var(--cz-warn);
+}
+
+.cz-limit-pill.is-wall {
+  color: var(--cz-warn-ink);
+  border-color: var(--cz-warn);
+  background: color-mix(in srgb, var(--cz-warn) 18%, var(--cz-card-solid));
+}
+
+@media (max-width: 767px) {
+  .cz-limit-pill {
+    height: 30px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+  /* The pill is drawn 30px tall on a phone so the masthead keeps one row.
+     A 30px target is too small for a thumb, so the invisible ring grows to
+     44px in height. The drawn pill does not change.
+     This reuses the shared tap-ring above, so the pill gets a ring on a
+     desktop too. A second ::before ring would have covered the phone only. */
+  .cz-limit-pill::after {
+    inset: -7px -4px;
+  }
+}
+
+/* ── The one limits sheet ──────────────────────────────────────────────────
+   Three answers in one order: where you are, what sign-in gives, what Pro
+   gives. Numbers only, no progress bar — a bar reads as a countdown. */
+.cz-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cz-limits-standing {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-limits-block {
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cz-limits-block-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-limits-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+
+.cz-limits-caps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cz-limits-cap {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--cz-sub);
+}
+
+.cz-limits-cap-value {
+  font-weight: 600;
+  color: var(--cz-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cz-limits-fine {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+}
+
+.cz-limits-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .cz-mast-btn {

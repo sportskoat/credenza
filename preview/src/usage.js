@@ -11,6 +11,18 @@
 
 export const USAGE_KEY = "credenza-fashion-usage-v1";
 
+// The browser, unless a test hands us a fake one.
+//
+// This default used to be missing, and every caller in the app omits `host`
+// (bumpUsage("resolve") and friends). So every write returned early and every
+// read answered zero: the counters in this file were dead, and overFreeLimit
+// never fired. The header pill reads the same counters, so a pill built on top
+// of that would have read "3 free cards left" forever. account.js already
+// defaults its host this way.
+function defaultHost() {
+  return typeof window !== "undefined" ? window : null;
+}
+
 function readUsage(host) {
   try {
     if (!host || !host.localStorage) return {};
@@ -28,13 +40,25 @@ export function usageKey(feature, now = Date.now()) {
   return feature + ":" + DAY_FMT.format(now);
 }
 
-export function usageToday(feature, { host, now } = {}) {
+export function usageToday(feature, { host = defaultHost(), now } = {}) {
   return readUsage(host)[usageKey(feature, now)] || 0;
+}
+
+// The header pill reads these counters, and localStorage never tells React it
+// changed. Every bump calls the listeners so the pill re-reads. The list is
+// module-level because bumpUsage is called from module scope too — the chart
+// hunt and the link resolver both run outside React.
+const usageListeners = new Set();
+
+export function onUsageChange(fn) {
+  if (typeof fn !== "function") return () => {};
+  usageListeners.add(fn);
+  return () => usageListeners.delete(fn);
 }
 
 // Increment today's counter and prune every day that is not today or
 // yesterday (same shape as the server record — small forever).
-export function bumpUsage(feature, { host, now = Date.now() } = {}) {
+export function bumpUsage(feature, { host = defaultHost(), now = Date.now() } = {}) {
   if (!host || !host.localStorage) return;
   const key = usageKey(feature, now);
   const keep = new Set([key, usageKey(feature, now - 24 * 60 * 60 * 1000)]);
@@ -46,6 +70,13 @@ export function bumpUsage(feature, { host, now = Date.now() } = {}) {
   try {
     host.localStorage.setItem(USAGE_KEY, JSON.stringify(usage));
   } catch {}
+  // A listener that throws must not stop the next one, and must never fail the
+  // call that spent the read.
+  for (const fn of usageListeners) {
+    try {
+      fn(feature);
+    } catch {}
+  }
 }
 
 // The full caps table, repeated on the client because the client must answer

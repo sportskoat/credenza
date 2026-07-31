@@ -18,6 +18,8 @@
 
 const auth = require("./auth.js");
 const ent = require("./entitlements.js");
+const anon = require("./anon-allowance.js");
+const limit = require("./limit.js");
 const { storeFromEnv } = require("./entitlement-store.js");
 
 // Seconds until the UTC day rolls over — the Retry-After for a daily cap.
@@ -57,23 +59,44 @@ async function authorizePaid(event, env, feature) {
     return { ok: true, via: "account", claims, record, store };
   }
 
-  // No Bearer: anonymous path. REQUIRE_ACCOUNTS=true ends it (Part 7f).
-  if (env.REQUIRE_ACCOUNTS === "true") {
-    return { ok: false, status: 401, body: { error: "Sign in to use this feature" } };
-  }
+  // No Bearer: anonymous path. The shared key still has to be right — it
+  // proves the caller is our own browser bundle rather than a script.
   const secret = env.CREDENZA_SEARCH_SECRET;
   if (!secret) {
     return { ok: false, status: 500, body: { error: "Server not configured: missing CREDENZA_SEARCH_SECRET" } };
   }
   const supplied = event && event.headers && event.headers["x-credenza-key"];
   if (supplied !== secret) return { ok: false, status: 401, body: { error: "Unauthorized" } };
+
+  // REQUIRE_ACCOUNTS=true ends the open anonymous path (Part 7f), but a
+  // visitor who has never signed in still gets the free taste Kyle asked for
+  // on 2026-07-30: three complete cards, then sign in. `code` tells the
+  // browser WHICH refusal this is, so it can show "Sign in to read this link"
+  // instead of leaving a blank card behind.
+  if (env.REQUIRE_ACCOUNTS === "true") {
+    const clientKey = limit.clientKey(event);
+    if (!anon.allowAnon(feature, clientKey)) {
+      return {
+        ok: false,
+        status: 401,
+        body: { error: "Sign in to use this feature", code: "sign_in_required" },
+      };
+    }
+    return { ok: true, via: "anon-free", clientKey, feature };
+  }
   return { ok: true, via: "shared-key" };
 }
 
-// Count one successful paid call against the account (task 4). Best-effort:
-// a failed save must not turn the customer's completed request into an error.
+// Count one successful paid call against the account (task 4), or against the
+// signed-out visitor's three free reads. Best-effort: a failed save must not
+// turn the customer's completed request into an error.
 async function recordPaidUsage(gate, feature) {
-  if (!gate || gate.via !== "account") return;
+  if (!gate) return;
+  if (gate.via === "anon-free") {
+    anon.recordAnon(feature, gate.clientKey);
+    return;
+  }
+  if (gate.via !== "account") return;
   try {
     await gate.store.saveEntitlement(ent.recordUsage(gate.record, feature));
   } catch {}

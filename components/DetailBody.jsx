@@ -622,6 +622,7 @@ function SizingBlockNoChart({
   onOpenAlbum,
   needsClear = false,
   onClearChart,
+  needsSignIn = false,
 }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const thumbs = (albumPhotos || []).slice(0, 2);
@@ -630,7 +631,10 @@ function SizingBlockNoChart({
     <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
       <div className="cz-sizing-head">
         <span className="cz-sizing-dot" aria-hidden="true" />
-        <span className="cz-sizing-kicker">No chart</span>
+        {/* The server refused to read this link because nobody is signed in.
+            The card says so here, where the chart belongs, so an empty card
+            never reads as a broken site (Kyle 2026-07-30). */}
+        <span className="cz-sizing-kicker">{needsSignIn ? "Needs sign-in" : "No chart"}</span>
         {/* Round 5 point 5.1: one notice for a hand pick — "you picked this"
             beside the size word. The "SET BY YOU" label here was a second
             copy, so a hand pick now leaves the provenance slot empty.
@@ -657,7 +661,9 @@ function SizingBlockNoChart({
       </div>
 
       <p className="cz-sizing-nochart-body">
-        {needsClear
+        {needsSignIn
+          ? "Sign in to finish this card. Credenza then reads the product, the photos, and the size chart."
+          : needsClear
           ? "This saved chart came from another item. It is hidden. Clear it before reading this item's photos."
           : /* Kyle 2026-07-30: keep this state short. Two lines, then the
                buttons. The old copy explained the upload button that sits
@@ -665,7 +671,9 @@ function SizingBlockNoChart({
             "No size chart found."}
       </p>
 
-      {needsClear && onClearChart ? (
+      {/* A photo read costs the same refused call, so hide the album row until
+          the visitor signs in. */}
+      {needsSignIn ? null : needsClear && onClearChart ? (
         <button type="button" className="cz-sizing-albumrow" onClick={onClearChart}>
           <span className="cz-sizing-albumtext">Clear this chart</span>
           <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
@@ -2542,6 +2550,7 @@ export default function DetailBody({
                 albumPhotos={sizingAlbumPhotos}
                 albumCount={sizingAlbumPhotos.length}
                 needsClear={item.sizeChartNeedsClear}
+                needsSignIn={item.needsSignIn === true}
                 onClearChart={clearBlockedChart}
                 onOpenAlbum={() => {
                   chartRead.read(sizingAlbumPhotos.slice(0, 3), {
