@@ -9,7 +9,7 @@
 // This file pins the sentence on the pill, the tone of it, the numbers the
 // sheet quotes, and the promise the sheet makes about saved cards.
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -186,23 +186,74 @@ describe("the one limits sheet", () => {
   it("tells a visitor where they stand, and what an account gives", () => {
     const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
     render(<LimitsSheet status={status} signedIn={false} />);
-    expect(screen.getByText("3 of 3 free cards used.")).toBeTruthy();
-    expect(screen.getByText(/Sign in — free/)).toBeTruthy();
-    expect(screen.getByText(/Pro — \$5\.99 a month/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "That is your third free card." })).toBeTruthy();
+    expect(screen.getByText("3 of 3 free cards used · resets tomorrow")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in — free" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Go Pro — $5.99 a month" })).toBeTruthy();
+    expect(
+      screen.getByText(
+        "A free account raises every daily ceiling and keeps your shelf across your devices. No card, no checkout."
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText(/\$2\.49 a week/)).toBe(null);
+    expect(
+      screen.getByText("$44.99 a year works out to $3.75 a month · cancel any time")
+    ).toBeTruthy();
     // The caps come from PLAN_CAPS, so the sheet cannot quote a number the
     // app does not enforce.
-    expect(screen.getByText(PLAN_CAPS.free.resolvePerDay + " a day")).toBeTruthy();
-    expect(screen.getByText(PLAN_CAPS.pro.chartVisionPerDay + " a day")).toBeTruthy();
+    const table = screen.getByRole("table");
+    expect(table.textContent).toContain(
+      "Cards from a link" + PLAN_CAPS.free.resolvePerDay + PLAN_CAPS.pro.resolvePerDay
+    );
+    expect(table.textContent).toContain(
+      "Size chart reads" +
+        PLAN_CAPS.free.chartVisionPerDay +
+        PLAN_CAPS.pro.chartVisionPerDay
+    );
   });
 
   it("promises a signed-in person that a wall never deletes a card", () => {
     const plan = { state: "free", lim: PLAN_CAPS.free, graceUntil: NOW - 1000 };
     const status = limitStatus({ plan, signedIn: true, host: withUsed({}), now: NOW });
     render(<LimitsSheet status={status} signedIn />);
-    expect(screen.getByText("Your Pro ended")).toBeTruthy();
+    expect(screen.getByText("Your Pro ended.")).toBeTruthy();
     expect(screen.getByText(/stays on your shelf and stays readable/)).toBeTruthy();
     // No sign-in block: this person is already signed in.
     expect(screen.queryByText(/Sign in — free/)).toBe(null);
+    expect(screen.getByRole("button", { name: "Resume Pro — $5.99 a month" })).toBeTruthy();
+    expect(screen.getByText(/resets tomorrow/)).toBeTruthy();
+  });
+
+  it("shows a signed-in free account its daily meter without a sign-in button", () => {
+    const plan = { state: "free", lim: PLAN_CAPS.free };
+    const status = limitStatus({
+      plan,
+      signedIn: true,
+      host: withUsed({ chartVision: 1 }),
+      now: NOW,
+    });
+    render(<LimitsSheet status={status} signedIn />);
+    expect(screen.getByText("1 of 2 chart reads used · resets tomorrow")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sign in — free" })).toBe(null);
+    expect(screen.getByRole("button", { name: "Go Pro — $5.99 a month" })).toBeTruthy();
+  });
+
+  it("keeps the sign-in, upgrade, and dismiss actions connected", () => {
+    const calls = [];
+    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
+    render(
+      <LimitsSheet
+        status={status}
+        signedIn={false}
+        onSignIn={() => calls.push("sign-in")}
+        onUpgrade={() => calls.push("upgrade")}
+        onClose={() => calls.push("close")}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sign in — free" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go Pro — $5.99 a month" }));
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(calls).toEqual(["sign-in", "upgrade", "close"]);
   });
 
   it("reads the standing line in whole numbers", () => {
@@ -232,5 +283,42 @@ describe("the counter pill is big enough for a thumb", () => {
     const ringY = Number(phone.match(/\.cz-limit-pill::after\s*{\s*inset:\s*-(\d+)px/)[1]);
     expect(drawn).toBeLessThan(44);
     expect(drawn + ringY * 2).toBe(44);
+  });
+});
+
+// ── The bottom sheet (Kyle 2026-07-31) ─────────────────────────────────────
+//
+// Kyle drew the sign-in card as a sheet against the bottom edge, with a grab
+// bar. This also lives in the stylesheet, so it is pinned at the source.
+
+describe("the sign-in card is a bottom sheet on a phone", () => {
+  const phoneStart = CSS.indexOf(
+    "@media (max-width: 767px) and (pointer: coarse) {\n  .cz-limits-sheet {",
+  );
+  const phone = CSS.slice(phoneStart, CSS.indexOf("\n}\n", phoneStart));
+
+  it("keeps the grab bar on the phone gate only", () => {
+    // The gate must carry BOTH conditions. A width-only gate would put a grab
+    // bar on a narrow desktop window, where the card still floats.
+    expect(phoneStart).toBeGreaterThan(-1);
+    expect(phone).toContain(".cz-limits-sheet::before");
+    expect(phone).toMatch(/\.cz-limits-sheet::before\s*{\s*content:\s*""/);
+  });
+
+  it("squares the bottom corners on a phone and rounds all four elsewhere", () => {
+    expect(phone).toMatch(/\.cz-limits-sheet\s*{\s*border-radius:\s*18px 18px 0 0;/);
+    // The floating card keeps its own radius: the shared modal surface has
+    // none, so without this line the desktop card reads as a square box.
+    const base = CSS.slice(CSS.indexOf("/* ── The one limits sheet ──"), phoneStart);
+    expect(base).toMatch(/\.cz-limits-sheet\s*{\s*\n\s*\/\*[\s\S]*?\*\/\s*\n\s*border-radius:\s*18px;/);
+  });
+
+  it("puts the phone header padding after the shared header padding", () => {
+    // Both rules carry !important at the same weight, so order decides the
+    // winner. A later edit that moves this block up would silently undo it.
+    const shared = CSS.indexOf(".cz-limits-sheet .cz-modal-header {\n  padding: var(--space-6)");
+    expect(shared).toBeGreaterThan(-1);
+    expect(phoneStart).toBeGreaterThan(shared);
+    expect(phone).toContain("padding-top: var(--space-4) !important");
   });
 });
