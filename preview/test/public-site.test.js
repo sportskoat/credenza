@@ -2433,16 +2433,16 @@ describe("the pages follow the app's colour", () => {
     });
   }
 
-  it("reads the same record the app writes", () => {
-    expect(themeJs).toContain("credenza-prefs-v1");
-    // "rainbow" is the app's key for the dark theme, so only the exact string
-    // "light" may move a page to light. Anything else stays dark.
-    expect(themeJs).toMatch(/\.theme === "light"/);
+  // Kyle 2026-08-01: Gallery parked. theme.js no longer reads prefs for light.
+  it("stays on Blackout and does not flip pages to light", () => {
+    expect(themeJs).toMatch(/var theme = "dark"/);
+    expect(themeJs).not.toContain("credenza-prefs-v1");
+    expect(themeJs).not.toMatch(/\.theme === "light"/);
+    expect(themeJs).toContain("#050506");
   });
 
-  it("keeps a page dark when the record cannot be read", () => {
+  it("keeps a page dark with no storage read", () => {
     expect(themeJs, "no fallback to dark").toMatch(/var theme = "dark"/);
-    expect(themeJs, "no guard around storage").toContain("catch");
   });
 
   it("declares the dark colours against the attribute, not the machine", () => {
