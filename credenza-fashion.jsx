@@ -4,7 +4,11 @@ import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
 import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
 
-/** Fairground carousel (canopy + horse). Lucide has no match; Kyle 2026-08-01. */
+/**
+ * Image-slider / carousel UI icon (not a fairground ride).
+ * Kyle 2026-08-01 round 3: rounded photo card + mountain glyph + curved
+ * side brackets (media 97cc9704). Stroke recipe matches LayoutGrid (15 / 2.2).
+ */
 function CarouselIcon({ size = 15, strokeWidth = 2.2, className, ...rest }) {
   return (
     <svg
@@ -21,18 +25,14 @@ function CarouselIcon({ size = 15, strokeWidth = 2.2, className, ...rest }) {
       aria-hidden="true"
       {...rest}
     >
-      {/* peaked canopy */}
-      <path d="M3.5 11c0-4.5 3.8-7.5 8.5-7.5s8.5 3 8.5 7.5" />
-      {/* scalloped fringe */}
-      <path d="M3.5 11c1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0" />
-      {/* center pole */}
-      <path d="M12 11.5v6" />
-      {/* horse side view */}
-      <path d="M8.5 15.2c0-.7.6-1.3 1.3-1.3h.6l.7-1.2.9.4v.8h1.2c.7 0 1.3.6 1.3 1.3v1.2H8.5v-1.2z" />
-      <path d="M10.2 13.9l-.4-1.1" />
-      {/* platform */}
-      <path d="M6 19h12" />
-      <path d="M7 19v1.5M17 19v1.5" />
+      {/* center photo card */}
+      <rect x="7" y="5" width="10.5" height="13.5" rx="2.3" />
+      {/* photo/mountain glyph — short diagonal + longer diagonal, lower-center */}
+      <path d="M10.2 14.4l1.7-2.1" />
+      <path d="M11 16.4l3.7-4.5" />
+      {/* curved side brackets (swipeable panels), not touching the card */}
+      <path d="M4.3 7.2C2.2 9.4 2.2 14.6 4.3 16.8" />
+      <path d="M20.2 7.2C22.3 9.4 22.3 14.6 20.2 16.8" />
     </svg>
   );
 }
