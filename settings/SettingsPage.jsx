@@ -141,6 +141,9 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
   }, [section]);
 
   // Scroll-spy: last section whose top is within 60px of the scroller top.
+  // Must use sectionScrollTop (same box as click/deep-link), not el.offsetTop
+  // against the dialog — mixed frames flip the rail back to Account after a
+  // sizes deep link settles.
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
@@ -151,7 +154,7 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
       for (const { key } of SETTINGS_SECTIONS) {
         const el = sectionEls.current[key];
         if (!el) continue;
-        if (el.offsetTop <= threshold) current = key;
+        if (sectionScrollTop(scroller, el, 0) <= threshold) current = key;
       }
       setActive((prev) => {
         if (prev === current) return prev;
