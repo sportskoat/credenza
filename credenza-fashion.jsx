@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronDown, ChevronLeft, Search, User, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Heart, Layers, LayoutGrid, Plus, Search, Tag, User, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -79,6 +79,7 @@ import "./credenza-fashion.css";
 // stays put while the small chunk arrives. The circular import back into this
 // file is safe: the sheet chunk evaluates only after this module is done.
 const CaptureSheet = lazy(() => import("./sheets/CaptureSheet.jsx"));
+const SearchSheet = lazy(() => import("./sheets/SearchSheet.jsx"));
 const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsPage = lazy(() => import("./settings/SettingsPage.jsx"));
@@ -4471,11 +4472,13 @@ export const FIND_STATUS_COLORS = {
 // Shelf filter strip (shelf handoff 2026-07-28). One chip is active at a time
 // and every chip carries a live count. Order is fixed: the whole shelf first,
 // then the three answers a customer actually asks the shelf for.
+// Design 7a (2026-07-31): glyph segmented control. Key "starred" stays so
+// stored prefs keep working; the face label is "Likes".
 export const SHELF_FILTERS = [
-  { key: "all", label: "All" },
-  { key: "starred", label: "Starred" },
-  { key: "tobuy", label: "To buy" },
-  { key: "bought", label: "Bought" },
+  { key: "all", label: "All", Icon: LayoutGrid },
+  { key: "starred", label: "Likes", Icon: Heart },
+  { key: "tobuy", label: "To buy", Icon: Tag },
+  { key: "bought", label: "Bought", Icon: Check },
 ];
 
 // Design 4c: one auto-detected category row. Tap expands a tidy chip list.
@@ -5089,6 +5092,11 @@ function CredenzaApp() {
   // Mobile handoff C2/C4 (2026-07-25). The phone masthead collapsed to one
   // row, so search hides behind an icon.
   const [searchOpen, setSearchOpen] = useState(false);
+  // Design 7b: "Likes only" inside the search sheet. Stays on until the
+  // person turns it off, even after the sheet closes.
+  const [likesOnly, setLikesOnly] = useState(false);
+  // Recent search chips — last few non-empty queries the person ran.
+  const [searchRecent, setSearchRecent] = useState([]);
   // Routed settings page (Profile Settings design, Phase 1). Replaces the
   // modal stack one section at a time: /settings/<section> is a real URL
   // with history, pushed on entry and peeled by the browser Back button.
@@ -7602,8 +7610,9 @@ function CredenzaApp() {
   const shelfItems = useMemo(() => {
     let a = [...typed];
     // Filter strip: one chip at a time. "all" is the whole shelf.
-    if (shelfFilter === "starred") a = a.filter((x) => x.favorite === true);
-    else if (shelfFilter === "bought")
+    // likesOnly (search sheet 7b) further narrows to favourites on any filter.
+    if (shelfFilter === "starred" || likesOnly) a = a.filter((x) => x.favorite === true);
+    if (shelfFilter === "bought")
       a = a.filter((x) => normalizeFindStatus(x.findStatus) === "bought");
     else if (shelfFilter === "tobuy")
       a = a.filter((x) => normalizeFindStatus(x.findStatus) !== "bought");
@@ -7611,7 +7620,7 @@ function CredenzaApp() {
     // Newest first — favoriting only marks the card, it never moves it.
     a.sort((x, y) => y.createdAt - x.createdAt);
     return a;
-  }, [typed, q, shelfFilter]);
+  }, [typed, q, shelfFilter, likesOnly]);
 
   // Live counts for the filter strip. They count the searched set, so the
   // chips agree with what a search leaves on the shelf.
@@ -7777,14 +7786,8 @@ function CredenzaApp() {
       bulkyHint,
     };
   }, [openHaulName, totalsItems, hauls]);
-  // Rough ship weight for whatever is on the surface. haulPipeline computes the
-  // same number but only inside an open haul; the floating phone summary pill
-  // (spec 5.6, 2026-07-30) prints "9 saved · ~2.4 kg est." on the plain shelf
-  // too.
-  const shelfWeightLabel = useMemo(() => {
-    const grams = haulWeightGrams(totalsItems);
-    return grams != null ? formatWeightGrams(grams) : "";
-  }, [totalsItems]);
+  // Design 7a dropped the phone weight/money summary pill. Haul weight still
+  // comes from haulPipeline inside an open haul. Desktop totals stay below.
   // Same context for the count chip — one consistent spot next to the total.
   // Starred filter MUST show through here. Keep the label short on mobile so
   // "N starred of M saved" + TOTAL SHELF COST + heart don't pile up.
@@ -8768,20 +8771,42 @@ function CredenzaApp() {
     </motion.section>
   );
 
-  // Mobile shelf redesign (handoff 2026-07-30, task 2): on the phone the tab
-  // row becomes the header and carries Search + Profile itself. The actions
-  // render in exactly ONE place — duplicated buttons would double the
-  // accessible names (two "Profile" buttons) for screen readers and tests.
-  const actionsInTabs = isPhone && items.length > 0;
+  // Design 7a (2026-07-31): on the phone with cards, the header is a title
+  // masthead (Shelf + caption) with Search + Profile. Shelf / Hauls / Stash
+  // live in the frosted bottom dock. Desktop keeps the brand masthead and
+  // top tabs. The empty-shelf phone still shows the brand masthead above
+  // the hero.
+  const phoneShelfChrome = isPhone && items.length > 0;
+  const mastTitle =
+    view === "hauls" ? "Hauls" : view === "inbox" ? "Inbox" : "Shelf";
+  const mastCaption = (() => {
+    if (view === "hauls") {
+      const n = haulDirectory.hauls.length;
+      return n + (n === 1 ? " haul" : " hauls");
+    }
+    if (view === "inbox") {
+      const n = inboxItems.length;
+      return n + (n === 1 ? " item" : " items");
+    }
+    // Shelf: "4 saved · 3 free cards left". Pro has no meter, so just the count.
+    const saved =
+      shelfAll.length + (shelfAll.length === 1 ? " saved" : " saved");
+    if (limits && limits.kind === "anon") return saved + " · " + limits.label;
+    if (limits) return saved + " · " + limits.label;
+    return saved;
+  })();
+  const rememberSearch = useCallback((raw) => {
+    const t = String(raw || "").trim();
+    if (t.length < 2) return;
+    setSearchRecent((list) => [t, ...list.filter((x) => x !== t)].slice(0, 8));
+  }, []);
   const chromeActions = (
     <div className="cz-masthead-actions">
-      {/* The counter pill (Kyle 2026-07-30, rule 1): one meter, always
-          visible, so nobody meets a wall by surprise. It turns amber on
-          the last free read (rule 3) and opens the one limits sheet.
-          A Pro member has no meter, so limits is null and nothing
-          renders. Lives in chromeActions so the phone tab row carries
-          it too when the masthead is gone (mobile shelf redesign). */}
-      {limits && (
+      {/* The counter pill (Kyle 2026-07-30, rule 1). On phone 7a the free-
+          card count rides the masthead caption, so the pill stays off the
+          phone shelf chrome. Desktop and the empty-shelf phone still show
+          it. A Pro member has no meter. */}
+      {limits && !phoneShelfChrome && (
         <button
           type="button"
           className={"cz-limit-pill is-" + limits.tone}
@@ -8791,22 +8816,18 @@ function CredenzaApp() {
           {limits.label}
         </button>
       )}
-      {/* Search collapses to this icon on phone; the pill below reveals
-          on tap and keeps its query while open. */}
-      {isPhone && items.length > 0 && (
+      {/* Design 7b: the phone magnifier opens the search sheet, not an
+          inline field. Desktop keeps its permanent search in the top bar. */}
+      {phoneShelfChrome && (
         <button
           type="button"
           className={"cz-mast-btn" + (searchOpen ? " is-active" : "")}
-          aria-label={searchOpen ? "Hide search" : "Search your shelf"}
+          aria-label="Search your shelf"
           aria-expanded={searchOpen}
           title="Search"
-          onClick={() => {
-            const next = !searchOpen;
-            setSearchOpen(next);
-            if (next) setTimeout(() => searchRef.current?.focus(), 0);
-          }}
+          onClick={() => setSearchOpen(true)}
         >
-          <Search size={isPhone ? 19 : 17} strokeWidth={2.2} aria-hidden="true" />
+          <Search size={17} strokeWidth={2} aria-hidden="true" />
         </button>
       )}
       {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
@@ -8936,6 +8957,30 @@ function CredenzaApp() {
           onClose={() => setCaptureSheetOpen(false)}
           textareaRef={sheetCaptureRef}
         />
+        </Suspense>
+      )}
+
+      {/* Design 7b: search is a bottom sheet from the phone magnifier. The
+          query filters the shelf live behind the scrim. Desktop keeps its
+          permanent field in the top bar. */}
+      {searchOpen && isPhone && (
+        <Suspense fallback={null}>
+          <SearchSheet
+            query={search}
+            onQuery={setSearch}
+            matchCount={shelfItems.length}
+            likesOnly={likesOnly}
+            onLikesOnly={setLikesOnly}
+            recent={searchRecent}
+            onPickRecent={(chip) => {
+              setSearch(chip);
+              rememberSearch(chip);
+            }}
+            onClose={() => {
+              rememberSearch(search);
+              setSearchOpen(false);
+            }}
+          />
         </Suspense>
       )}
 
@@ -9195,14 +9240,30 @@ function CredenzaApp() {
             full-bleed capture/search/tabs on a wide monitor read as sprawl).
             The carousel/grid panels below stay full-width. */}
         <div className="cz-chrome">
-        {/* Phone masthead (mobile shelf redesign 2026-07-30, task 2): once the
-            shelf has items, the phone drops the masthead entirely — the tab
-            row in the sticky band becomes the header and carries Search +
-            Profile (actionsInTabs). The masthead still renders on desktop,
-            and on a phone with an EMPTY shelf, where the brand and the
-            avatar are the only chrome above the hero. The wordmark itself is
-            hidden ≤767px by CSS (spec 5.1: Safari already prints the host). */}
-        {!actionsInTabs && (
+        {/* Design 7a phone masthead: title + caption on the left, search and
+            avatar on the right. Desktop keeps the brand masthead. The empty
+            phone shelf still shows the brand above the hero. */}
+        {phoneShelfChrome ? (
+        <header className="cz-masthead cz-masthead-7a">
+          <div className="cz-mast-title-col">
+            <h1 className="cz-mast-title">{mastTitle}</h1>
+            <p className="cz-mast-caption">
+              {view === "shelf" && limits ? (
+                <button
+                  type="button"
+                  className="cz-mast-caption-btn"
+                  onClick={openLimits}
+                >
+                  {mastCaption}
+                </button>
+              ) : (
+                mastCaption
+              )}
+            </p>
+          </div>
+          {chromeActions}
+        </header>
+        ) : (
         <header className="cz-masthead">
           <h1 className="cz-brand">
             <BrandMark size={isPhone && items.length > 0 ? 30 : 34} />
@@ -9438,13 +9499,11 @@ function CredenzaApp() {
           </div>
         )}
 
-        {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it),
-            on the first-run intro (CO-04), and on the empty shelf — the hero
-            field is the ONE capture surface there (Kyle 2026-07-24).
-            C2 (2026-07-25): on phone it also stays collapsed until the
-            masthead Search icon opens it. A live query keeps it open, so
-            filtered results never lose their field. */}
-        {!firstRunIntro && items.length > 0 && (!isPhone || searchOpen || search) && (
+        {/* Design 7b: phone search is a sheet from the magnifier — this row
+            no longer opens on a phone. Kept as a legacy surface for any
+            non-phone path that still wants an inline field under the chrome.
+            Desktop uses .cz-desk-capture above; CSS hides this row ≥768px. */}
+        {!firstRunIntro && items.length > 0 && !isPhone && (
         <div className="cz-search-row">
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- shell-padding mousedown only focuses the input; the input itself owns keyboard interaction (CO-29) */}
           <div
@@ -9633,14 +9692,13 @@ function CredenzaApp() {
           </div>
         )}
 
-        {/* Shelf / Hauls / Inbox — hidden on a brand-new empty shelf so the 7a
-            hero stays the full welcome (tabs return once something is stashed).
-            Mobile shelf redesign (2026-07-30, task 2): on the phone this row
-            and the filter strip sit inside ONE sticky band (.cz-shelf-band),
-            the row becomes the 46px header, and Search + Profile ride its
-            right end. The band classes are inert on desktop. */}
+        {/* Shelf / Hauls / Inbox tabs. Desktop: top tab row as before.
+            Design 7a phone: tabs move to the frosted bottom dock — this row
+            stays for desktop only. The filter strip still rides the phone
+            under the title masthead as a glyph segmented control. */}
         {items.length > 0 && (
-        <div className="cz-shelf-band">
+        <div className={"cz-shelf-band" + (phoneShelfChrome ? " is-phone-7a" : "")}>
+        {!phoneShelfChrome && (
         <div className="cz-view-tabs-row">
           <div
             role="tablist"
@@ -9683,11 +9741,6 @@ function CredenzaApp() {
               </button>
             ))}
           </div>
-          {actionsInTabs && chromeActions}
-          {/* Phone: the shelf totals used to ride this row (C2). They now
-              float over the grid in the summary pill (spec 5.6, 2026-07-30).
-              That leaves ONE count, ONE total, and ONE currency chip on a
-              phone. */}
           {indexingJobs.length > 0 && (
             <div className="cz-index-chip-row" aria-live="polite">
               {indexingJobs.map((job) => (
@@ -9720,20 +9773,48 @@ function CredenzaApp() {
             </div>
           )}
         </div>
+        )}
 
-        {/* Filter strip (shelf handoff 2026-07-28, §"Filter strip"). One chip
-            is active at a time and every count is live — the counts follow the
-            search, so the strip always agrees with the cards below it.
-            It is hidden inside an open haul: a haul shows every card in it,
-            and narrowing one would read as cards going missing. */}
+        {/* Phone indexing chip — the desk tabs row no longer mounts on
+            phone 7a, so the chip rides the band alone when a card indexes. */}
+        {phoneShelfChrome && indexingJobs.length > 0 && (
+          <div className="cz-index-chip-row is-phone-7a" aria-live="polite">
+            {indexingJobs.map((job) => (
+              <div
+                key={job.id}
+                className={"cz-index-chip" + (job.phase === "done" ? " is-done" : "")}
+                title={job.title}
+              >
+                <span className="cz-index-chip-icon" aria-hidden="true">
+                  {job.phase === "done" ? (
+                    <Check size={12} strokeWidth={2.6} />
+                  ) : (
+                    <span className="cz-index-chip-dot" />
+                  )}
+                </span>
+                <span className="cz-index-chip-label">
+                  {job.phase === "done" ? "Indexed" : "Indexing"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Filter strip. Desktop: text chips. Design 7a phone: glyph
+            segmented control (All · Likes · To buy · Bought). Hidden inside
+            an open haul: a haul shows every card in it. */}
         {toolbarActive && !openHaulName && view === "shelf" && (
           <div
-            className="cz-filter-strip"
+            className={
+              "cz-filter-strip" + (phoneShelfChrome ? " is-glyph" : "")
+            }
             role="radiogroup"
             aria-label="Filter the shelf"
           >
             {SHELF_FILTERS.map((f) => {
               const active = shelfFilter === f.key;
+              const Icon = f.Icon;
+              const count = shelfFilterCounts[f.key];
               return (
                 <button
                   type="button"
@@ -9743,23 +9824,46 @@ function CredenzaApp() {
                   aria-label={
                     f.label +
                     ", " +
-                    shelfFilterCounts[f.key] +
-                    (shelfFilterCounts[f.key] === 1 ? " card" : " cards")
+                    count +
+                    (count === 1 ? " card" : " cards")
                   }
                   className={
                     "cz-filter-chip" +
                     (active ? " is-active" : "") +
-                    (shelfFilterCounts[f.key] === 0 ? " is-zero" : "")
+                    (count === 0 ? " is-zero" : "")
                   }
                   onClick={() => {
                     setShelfFilter(f.key);
                     setExpandedId(null);
                   }}
                 >
-                  {f.label}
-                  <span className="cz-filter-chip-count">
-                    · {shelfFilterCounts[f.key]}
-                  </span>
+                  {phoneShelfChrome && Icon && (
+                    <Icon
+                      className="cz-filter-chip-icon"
+                      size={15}
+                      strokeWidth={2.2}
+                      fill={
+                        f.key === "starred" && active ? "currentColor" : "none"
+                      }
+                      aria-hidden="true"
+                    />
+                  )}
+                  {phoneShelfChrome ? (
+                    <span className="cz-filter-chip-label">
+                      {f.label}
+                      <span className="cz-filter-chip-count">
+                        {" · "}
+                        {count}
+                      </span>
+                    </span>
+                  ) : (
+                    <>
+                      {f.label}
+                      <span className="cz-filter-chip-count">
+                        · {count}
+                      </span>
+                    </>
+                  )}
                 </button>
               );
             })}
@@ -9994,6 +10098,18 @@ function CredenzaApp() {
             onFocus={pauseNotification}
             onBlur={resumeNotification}
           >
+            {/* Kyle 2026-07-31: check for the normal tone, X for error. */}
+            <span
+              className="cz-toast-icon"
+              data-icon={notification.tone === "error" ? "error" : "ok"}
+              aria-hidden="true"
+            >
+              {notification.tone === "error" ? (
+                <X size={15} strokeWidth={2.5} />
+              ) : (
+                <Check size={15} strokeWidth={2.5} />
+              )}
+            </span>
             {notification.sub ? (
               <span className="cz-toast-text">
                 <span className="cz-toast-message">{notification.message}</span>
@@ -10026,50 +10142,76 @@ function CredenzaApp() {
         </div>
       )}
 
-      {/* Floating shelf controls — MOBILE ONLY (≤767px), mobile shelf redesign
-          2026-07-30 (task 4, spec 5.6). The docked bottom bar is gone. A 150px
-          fade paints over the tail of the grid, and two controls float 12px
-          above the safe area: a summary pill (count · weight · total) and a
-          full-width Stash button. The capture sheet already surfaces a
-          clipboard link, so one button covers both capture paths; the agent
-          choice lives in the item sheet footer (spec 6.6). The CH-14 currency
-          chip is OUT of the pill (Kyle 2026-07-30: "Drop the USD tag just use
-          a '$'") — the money carries its own currency mark and the switch
-          lives in settings. The isPhone gate keeps both nodes out of the
-          desktop DOM (the ≥768px CSS hide is the second wall); desktop keeps
-          its own total row and capture in the chrome.
-          Hidden on the first-run intro (CO-04) and on the brand-new empty
-          shelf: the hero already carries capture there (Kyle: "too many
-          buttons"). */}
-      {!firstRunIntro && items.length > 0 && isPhone && (
-      <>
-        <div className="cz-shelf-scrim" aria-hidden="true" />
-        <div className="cz-shelf-float">
-          {shelfTotalsVisible && (
-            <span className="cz-shelf-summary cz-fade-text-in" key={totalCountLabel}>
-              {totalCountLabel}
-              {shelfWeightLabel ? " · " + shelfWeightLabel + " est." : ""}
-              {/* CO-10: a zero-result search must not show a green $0.00 —
-                  it read as a real balance. */}
-              {!(q && visible.length === 0) && (
-                <span className="cz-shelf-summary-money" aria-live="polite">
-                  {formatMoney(pricePrimary === "CNY" ? listTotalCny : listTotalUsd, pricePrimary)}
-                </span>
-              )}
-            </span>
+      {/* Design 7a bottom dock (F 2026-07-31): floating frosted pill —
+          Shelf | Stash circle | Hauls. No money total on the shelf. Frost
+          stays on the dock and sheets only; the rest of the site is flat.
+          CaptureSheet opens from the + circle (5b). Hidden on the empty
+          shelf — the hero already carries capture. */}
+      {!firstRunIntro && phoneShelfChrome && (
+        <nav className="cz-dock" aria-label="Main">
+          <div className="cz-dock-pill">
+            <button
+              type="button"
+              className={
+                "cz-dock-tab" + (view === "shelf" || view === "inbox" ? " is-active" : "")
+              }
+              aria-current={view === "shelf" || view === "inbox" ? "page" : undefined}
+              onClick={() => {
+                setExpandedId(null);
+                setView("shelf");
+                if (view === "hauls") setActiveHaul(null);
+              }}
+            >
+              <Layers size={20} strokeWidth={2.2} aria-hidden="true" />
+              <span className="cz-dock-tab-label">Shelf</span>
+            </button>
+            <button
+              type="button"
+              className="cz-dock-stash"
+              disabled={interactionLocked}
+              onClick={() => setCaptureSheetOpen(true)}
+              title="Stash a link or note"
+              aria-label="Stash a link"
+            >
+              <Plus size={26} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={"cz-dock-tab" + (view === "hauls" ? " is-active" : "")}
+              aria-current={view === "hauls" ? "page" : undefined}
+              onClick={() => {
+                setExpandedId(null);
+                setView("hauls");
+                if (view !== "hauls") setActiveHaul(null);
+              }}
+            >
+              <span className="cz-dock-tab-label">
+                Hauls
+                {haulDirectory.hauls.length > 0 && (
+                  <span className="cz-dock-tab-count">
+                    {" · "}
+                    {haulDirectory.hauls.length}
+                  </span>
+                )}
+              </span>
+            </button>
+          </div>
+          {inboxItems.length > 0 && (
+            <button
+              type="button"
+              className={
+                "cz-dock-inbox" + (view === "inbox" ? " is-active" : "")
+              }
+              onClick={() => {
+                setExpandedId(null);
+                setView("inbox");
+                if (view === "hauls") setActiveHaul(null);
+              }}
+            >
+              Inbox · {inboxItems.length}
+            </button>
           )}
-          <button
-            type="button"
-            className="cz-shelf-stash"
-            disabled={interactionLocked}
-            onClick={() => setCaptureSheetOpen(true)}
-            title="Stash a link or note"
-            aria-label="Stash to shelf"
-          >
-            +&nbsp;Stash a link
-          </button>
-        </div>
-      </>
+        </nav>
       )}
     </div>
   );

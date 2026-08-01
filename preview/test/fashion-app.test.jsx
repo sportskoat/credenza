@@ -1354,8 +1354,9 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = document.querySelector(".cz-stash-paste");
-    expect(box).toBeTruthy();
+    // CaptureSheet is lazy — wait for the paste box, not a synchronous
+    // querySelector that races the chunk.
+    const box = await screen.findByPlaceholderText(/Paste a link, or a whole/);
     fireEvent.change(box, {
       target: { value: "https://www.reddit.com/r/FashionReps/comments/1v3fupe/in_hand_review/" },
     });
@@ -2162,13 +2163,15 @@ describe("Phone haul board (Kyle 2026-07-25)", () => {
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
 
-    await user.click(await screen.findByRole("tab", { name: /Hauls/ }));
+    // Design 7a: Shelf / Hauls live in the frosted bottom dock as buttons,
+    // not top tabs.
+    await user.click(await screen.findByRole("button", { name: /Hauls/ }));
     await user.click(await screen.findByRole("button", { name: /summer/ }));
     await waitFor(() => expect(container.querySelector(".cz-haul-board")).not.toBeNull());
     expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
 
     // Back to the Shelf: still the grid, not the rack.
-    await user.click(screen.getByRole("tab", { name: "Shelf" }));
+    await user.click(screen.getByRole("button", { name: "Shelf" }));
     expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
     expect(container.querySelector(".cz-carousel")).toBeNull();
   });
@@ -2220,11 +2223,10 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
       const user = userEvent.setup();
       render(<Credenza />);
 
-      // Wait for the shelf to load first: once items arrive, the phone drops
-      // the masthead and the avatar moves into the tab row (mobile shelf
-      // redesign 2026-07-30, task 2). Clicking before the swap hits a node
-      // that unmounts mid-gesture, so the click is lost.
-      await screen.findByRole("tab", { name: /^Shelf/ });
+      // Wait for the shelf to load first: design 7a puts "Shelf" in the title
+      // masthead and the frosted dock. Clicking before items land can hit a
+      // node that unmounts mid-gesture, so the click is lost.
+      await screen.findByRole("heading", { name: "Shelf" });
       await user.click(await screen.findByRole("button", { name: "Profile" }));
       await user.click(await screen.findByRole("button", { name: /All settings/ }));
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
@@ -2347,19 +2349,21 @@ describe("Inline preference controls (CH-14)", () => {
     expect(screen.getAllByText("¥229").length).toBeGreaterThan(1);
   });
 
-  // The chip used to ride the phone summary pill. Kyle 2026-07-30: "Drop the
-  // USD tag just use a '$'" — the pill's money carries the currency mark and
-  // the switch lives in settings. A phone shows no currency chip at all.
-  it("the phone summary pill carries no chip — the money shows the mark", async () => {
+  // Design 7a (2026-07-31) dropped the phone money summary pill entirely —
+  // money lives on cards and in Hauls only. The frosted dock has no currency
+  // chip either (Kyle 2026-07-30: the switch lives in settings).
+  it("the phone dock has no currency chip and no money total", async () => {
     window.__setMediaMatches("(max-width: 767px)", true);
     try {
       installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
       render(<Credenza />);
       await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ });
       expect(screen.queryByRole("button", { name: /^Show prices in / })).toBeNull();
-      const pill = document.querySelector(".cz-shelf-summary");
-      expect(pill).not.toBeNull();
-      expect(pill).toHaveTextContent("$32.06");
+      expect(document.querySelector(".cz-shelf-summary")).toBeNull();
+      const dock = document.querySelector(".cz-dock");
+      expect(dock).not.toBeNull();
+      expect(dock).not.toHaveTextContent("$");
+      expect(dock).not.toHaveTextContent("¥");
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);
     }

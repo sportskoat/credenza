@@ -11,14 +11,20 @@ function rule(selector) {
 }
 
 describe("the phone shelf filter highlight", () => {
-  it("fills the 44px row with square corners", () => {
-    const strip = rule(".cz-shelf-band .cz-filter-strip");
-    const chip = rule(".cz-shelf-band .cz-filter-chip");
+  // Design 7a (2026-07-31): glyph segmented control — pill track, 52px
+  // segments, active card fill with soft shadow. Replaces the 2026-07-30
+  // square-cornered 44px row.
+  it("is a glyph segmented control with 52px pill segments", () => {
+    const strip = rule(".cz-filter-strip.is-glyph");
+    const chip = rule(".cz-filter-strip.is-glyph .cz-filter-chip");
+    const active = rule(".cz-filter-strip.is-glyph .cz-filter-chip.is-active");
 
-    expect(strip).toMatch(/min-height:\s*44px/);
-    expect(strip).toMatch(/padding:\s*0 12px/);
-    expect(chip).toMatch(/height:\s*44px/);
-    expect(chip).toMatch(/min-height:\s*44px/);
-    expect(chip).toMatch(/border-radius:\s*0/);
+    expect(strip).toMatch(/grid-template-columns:\s*repeat\(4/);
+    expect(strip).toMatch(/border-radius:\s*999px/);
+    expect(strip).toMatch(/background:\s*var\(--cz-seg\)/);
+    expect(chip).toMatch(/height:\s*52px/);
+    expect(chip).toMatch(/min-height:\s*52px/);
+    expect(chip).toMatch(/border-radius:\s*999px/);
+    expect(active).toMatch(/background:\s*var\(--cz-card-solid\)/);
   });
 });
