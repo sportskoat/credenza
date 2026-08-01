@@ -11,8 +11,7 @@
    logo are now the same letterforms, so never set a heading at the wordmark's
    0.16em tracking — the tracking is what keeps them distinct.
 
-   NOTE FOR THE REPO: credenza.css still sets --cz-display to Georgia. The two
-   disagree. See ../DRIFT.md — Kyle decides which one wins. */
+   CLOSED 2026-07-31: Kyle dropped Georgia. Repo tokens match this file. */
 :root {
   --cz-display: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --cz-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

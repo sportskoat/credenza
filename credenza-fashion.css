@@ -6705,7 +6705,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 14px 22px;
+  /* Kyle 2026-07-31 picture 3: iOS clock covered the title. Pad under the
+     notch / status bar so the masthead never sits under the system chrome. */
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 22px 14px;
   border-bottom: 1px solid var(--cz-hair);
   background: var(--cz-bg-elevated);
 }
@@ -10026,33 +10028,33 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ── The counter pill (Kyle 2026-07-30, rule 1) ────────────────────────────
-   One meter, always in the header, so nobody meets a wall by surprise. It is
-   quiet by default: hairline border, muted text, the same 36px height as the
-   buttons beside it. On the LAST free read it turns amber (rule 3), and when
-   the allowance is spent it goes solid amber — the only loud state.
-   The phone masthead has one row and no width for the words, so ≤767px keeps
-   the pill but drops it to the number alone. */
+/* ── Free-cards counter (Kyle 2026-07-31) ──────────────────────────────────
+   One meter, always in the header, so nobody meets a wall by surprise.
+   No bubble: green italic text only. On the last free read it turns amber
+   (rule 3). When the allowance is spent it stays amber, still no bubble.
+   The invisible tap ring keeps a 44px hit target. */
 .cz-limit-pill {
   height: 36px;
   display: inline-flex;
   align-items: center;
-  padding: 0 12px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 999px;
-  background: var(--cz-card-solid);
-  color: var(--cz-sub);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cz-money);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   cursor: pointer;
-  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out),
-    border-color var(--dur-micro) var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
 }
 
 .cz-limit-pill:hover {
-  color: var(--cz-ink);
+  color: var(--cz-money);
+  opacity: 0.85;
 }
 
 .cz-limit-pill:active {
@@ -10061,29 +10063,58 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-limit-pill.is-warn {
   color: var(--cz-warn-ink);
-  border-color: var(--cz-warn);
 }
 
 .cz-limit-pill.is-wall {
   color: var(--cz-warn-ink);
-  border-color: var(--cz-warn);
-  background: color-mix(in srgb, var(--cz-warn) 18%, var(--cz-card-solid));
+  background: transparent;
 }
 
 @media (max-width: 767px) {
   .cz-limit-pill {
     height: 30px;
-    padding: 0 9px;
-    font-size: 11px;
+    padding: 0 2px;
+    font-size: 12px;
   }
-  /* The pill is drawn 30px tall on a phone so the masthead keeps one row.
-     A 30px target is too small for a thumb, so the invisible ring grows to
-     44px in height. The drawn pill does not change.
-     This reuses the shared tap-ring above, so the pill gets a ring on a
-     desktop too. A second ::before ring would have covered the phone only. */
+  /* Drawn 30px tall on a phone so the masthead keeps one row. The ring above
+     and below still adds up to a 44px tap area. */
   .cz-limit-pill::after {
     inset: -7px -4px;
   }
+}
+
+/* Free-allowance toast at the bottom of the shelf: same green italic voice,
+   no heavy pill. */
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] {
+  max-width: min(360px, 100%);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 6px 4px;
+  gap: 10px;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] .cz-toast-message {
+  color: var(--cz-money);
+  font-weight: 500;
+  font-style: italic;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] .cz-toast-sub {
+  color: var(--cz-sub);
+  font-style: italic;
+  font-weight: 400;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] .cz-toast-action {
+  background: transparent;
+  color: var(--cz-money);
+  font-style: italic;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 4px 0;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] .cz-toast-dismiss {
+  color: var(--cz-faint);
 }
 
 /* ── The one limits sheet ────────────────────────────────────────────────── */
@@ -13076,14 +13107,15 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 44px;
-  padding: 0 13px;
+  min-height: 34px;
+  padding: 0 12px;
   border: 1px solid var(--cz-hair-strong);
   border-radius: 10px;
   background: transparent;
   color: var(--cz-ink);
-  font-size: 12.5px;
-  font-weight: 650;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -13392,12 +13424,18 @@ input.cz-sizing-cell.is-custom:focus-visible {
 
 .cz-sizing-cell-k {
   font-family: var(--cz-mono);
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--cz-faint);
 }
 
 .cz-sizing-cell-v {
+  font-family: var(--cz-mono);
   font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-sub);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13514,12 +13552,13 @@ input.cz-sizing-cell.is-custom:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 46px;
+  min-height: 36px;
   padding: 0 10px;
   border: 1px solid var(--cz-hair-strong);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--cz-card-solid);
-  font-size: 13px;
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--cz-ink);
   cursor: pointer;
@@ -13595,31 +13634,83 @@ input.cz-sizing-cell.is-custom:focus-visible {
   padding: 0 0 5px;
 }
 
-.cz-fitread-kicker {
+/* One mono voice for every fit-read label (Kyle 2026-07-31 font consistency). */
+.cz-fitread-kicker,
+.cz-fitread-scale,
+.cz-fitread-head,
+.cz-fitread-toggle-hint {
   font-family: var(--cz-mono);
   font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--cz-faint);
+}
+
+.cz-fitread-kicker {
+  letter-spacing: 0.12em;
 }
 
 .cz-fitread-scale {
   display: flex;
   justify-content: space-between;
-  font-family: var(--cz-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
   color: var(--cz-placeholder);
 }
 
 .cz-fitread-head {
-  font-family: var(--cz-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
   color: var(--cz-placeholder);
   text-align: right;
+}
+
+/* Tap the FIT READ header to open the full seller chart and ease detail. */
+.cz-fitread-toggle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 5px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cz-fitread-toggle:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.cz-fitread-toggle-hint {
+  flex: 0 0 auto;
+  color: var(--cz-link);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 500;
+  font-size: 11px;
+  font-family: var(--cz-sans);
+}
+
+.cz-fitread-detail {
+  margin-top: 8px;
+  padding: 10px 0 2px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-fitread-detail-help {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-fitread-detail-help strong {
+  font-weight: 600;
+  color: var(--cz-ink);
 }
 
 .cz-fitread-head-short {
@@ -13627,9 +13718,10 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 .cz-fitread-name {
-  font-size: 12px;
+  font-family: var(--cz-mono);
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
   color: var(--cz-ink);
 }
 
@@ -13718,12 +13810,18 @@ input.cz-sizing-cell.is-custom:focus-visible {
   }
 }
 
-.cz-fitread-theirs {
+.cz-fitread-theirs,
+.cz-fitread-yours,
+.cz-fitread-ease {
   font-family: var(--cz-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  color: var(--cz-ink);
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cz-fitread-theirs {
+  color: var(--cz-ink);
 }
 
 .cz-fitread-theirs.is-unknown {
@@ -13731,19 +13829,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 .cz-fitread-yours {
-  font-family: var(--cz-mono);
-  font-size: 12px;
-  font-weight: 500;
   color: var(--cz-placeholder);
-  text-align: right;
 }
 
 .cz-fitread-ease {
-  font-family: var(--cz-mono);
-  font-size: 12px;
   font-weight: 600;
   color: var(--cz-money);
-  text-align: right;
 }
 
 .cz-fitread-ease.is-warn {
@@ -14028,8 +14119,9 @@ input.cz-sizing-fix-size {
 @media (max-width: 767px) {
   .cz-detail-pane-header,
   .cz-detail-pane-header.is-up {
-    height: 50px;
-    padding: 2px 12px 10px;
+    /* Safe-area so the status bar never covers the title or close control. */
+    height: calc(50px + env(safe-area-inset-top, 0px));
+    padding: calc(2px + env(safe-area-inset-top, 0px)) 12px 10px;
     gap: 11px;
     border-bottom: 0;
     background: var(--cz-bg-elevated);

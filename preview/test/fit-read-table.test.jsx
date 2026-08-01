@@ -273,6 +273,21 @@ describe("FitReadTable in the detail body", () => {
     ).toBeInTheDocument();
   });
 
+  it("opens the full seller chart when FIT READ is tapped (Kyle 2026-07-31)", async () => {
+    const user = userEvent.setup();
+    const { container } = renderBody(fitItem());
+    const table = container.querySelector(".cz-fitread");
+    expect(table.querySelector(".cz-size-chart-table")).toBe(null);
+    await user.click(screen.getByRole("button", { name: /Full chart/i }));
+    expect(table.classList.contains("is-open")).toBe(true);
+    expect(table.querySelector(".cz-size-chart-table")).not.toBe(null);
+    // Ease help + every size row so length room is readable next to the pick.
+    expect(within(table).getByText(/Ease/)).toBeInTheDocument();
+    expect(table.querySelector(".cz-size-chart-table .is-rec")).not.toBe(null);
+    await user.click(screen.getByRole("button", { name: /Hide full chart/i }));
+    expect(table.querySelector(".cz-size-chart-table")).toBe(null);
+  });
+
   it("routes Edit my measurements to the profile sizes opener", async () => {
     const user = userEvent.setup();
     const { onOpenSizes } = renderBody(fitItem());

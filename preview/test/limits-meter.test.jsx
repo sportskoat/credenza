@@ -286,6 +286,35 @@ describe("the counter pill is big enough for a thumb", () => {
   });
 });
 
+// Kyle 2026-07-31: no bubble around the cards-left count — green italic text only.
+describe("the cards-left counter has no bubble", () => {
+  it("drops the border and fill, and uses green italic text", () => {
+    const block = CSS.slice(CSS.indexOf(".cz-limit-pill {"), CSS.indexOf(".cz-limit-pill:hover"));
+    expect(block).toMatch(/border:\s*0/);
+    expect(block).toMatch(/background:\s*transparent/);
+    expect(block).toMatch(/font-style:\s*italic/);
+    expect(block).toMatch(/color:\s*var\(--cz-money\)/);
+  });
+});
+
+// Kyle 2026-07-31 picture 3: status bar must not cover Settings or the phone pane header.
+describe("phone headings clear the status bar", () => {
+  it("pads the settings masthead with safe-area-inset-top", () => {
+    const block = CSS.slice(
+      CSS.indexOf(".cz-settings-page-masthead {"),
+      CSS.indexOf(".cz-settings-back {"),
+    );
+    expect(block).toMatch(/safe-area-inset-top/);
+  });
+
+  it("pads the phone detail pane header with safe-area-inset-top", () => {
+    const start = CSS.indexOf(".cz-detail-pane-header,\n  .cz-detail-pane-header.is-up {");
+    expect(start).toBeGreaterThan(-1);
+    const block = CSS.slice(start, start + 280);
+    expect(block).toMatch(/safe-area-inset-top/);
+  });
+});
+
 // ── The bottom sheet (Kyle 2026-07-31) ─────────────────────────────────────
 //
 // Kyle drew the sign-in card as a sheet against the bottom edge, with a grab

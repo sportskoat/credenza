@@ -267,7 +267,8 @@ async function loadSafeImage(source, deps) {
 // carries labels, and data the eye scans (sizes, weights) sets in mono. An
 // exported card is the brand in someone else's chat — Arial here read as a
 // different company (Kyle 2026-07-27).
-const FONT_DISPLAY = 'Georgia, "Iowan Old Style", "Times New Roman", serif';
+// Kyle 2026-07-31: DROP Georgia — Clash Grotesk for titles and body.
+const FONT_DISPLAY = '"Clash Grotesk", Arial, ui-sans-serif, sans-serif';
 const FONT_SANS = '"Clash Grotesk", Arial, ui-sans-serif, sans-serif';
 const FONT_MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
