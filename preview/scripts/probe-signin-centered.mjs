@@ -1,17 +1,14 @@
-// Prove the sign-in card is a bottom sheet on a real phone, and a centered
-// card on a desktop (Kyle 2026-07-31: "no make it correct" — the drawing wins).
+// Prove the sign-in card is a centered, frosted window on a real phone AND
+// a desktop (F 2026-08-01: "give it its own centered container, frosted, on
+// all screens"). Before this it was a phone bottom sheet — see git history
+// on this file for that probe.
 //
-// The earlier shots were taken in a browser with a MOUSE pointer at 402px
-// wide. The app's bottom-sheet rule is gated on a touch pointer, so those
-// shots showed the centered desktop card. This probe emulates a real phone:
-// touch on, mobile on.
-//
-// Checks, on a phone:
-//   1. the card touches the bottom edge of the screen;
-//   2. the card fills the full width;
-//   3. only the top corners are rounded;
-//   4. the drag handle bar is drawn, centered, at the top of the card.
-// Checks, on a desktop: the card floats, with all four corners rounded.
+// Checks, on a phone AND a desktop:
+//   1. the card floats clear of every edge (never anchors to the bottom);
+//   2. all four corners stay rounded;
+//   3. no drag handle bar (nothing to grab — it does not anchor to an edge);
+//   4. the surface background is the translucent frost fill, not the
+//      opaque card color the limits wall still uses.
 import { chromium, devices } from "playwright";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -91,7 +88,7 @@ async function openSheet(context) {
 }
 
 function readCard() {
-  const sheet = document.querySelector(".cz-limits-sheet");
+  const sheet = document.querySelector(".cz-signin-sheet");
   const dialog = sheet.closest("dialog");
   const r = dialog.getBoundingClientRect();
   const cs = getComputedStyle(sheet);
@@ -100,7 +97,7 @@ function readCard() {
     top: Math.round(r.top),
     bottom: Math.round(r.bottom),
     left: Math.round(r.left),
-    width: Math.round(r.width),
+    right: Math.round(r.right),
     viewH: Math.round(window.innerHeight),
     viewW: Math.round(window.innerWidth),
     radius: [
@@ -110,9 +107,28 @@ function readCard() {
       cs.borderBottomLeftRadius,
     ],
     handleContent: handle.content,
-    handleW: handle.width,
-    handleH: handle.height,
+    background: cs.backgroundColor,
+    backdropFilter: cs.backdropFilter || cs.webkitBackdropFilter,
   };
+}
+
+function checkCentered(m, label) {
+  check(m.top > 8, `${label}: floats clear of the top: ${m.top}`);
+  check(m.bottom < m.viewH - 8, `${label}: floats clear of the bottom: ${m.bottom} of ${m.viewH}`);
+  check(m.left > 0 || m.right < m.viewW, `${label}: does not touch both side edges`);
+  check(
+    parseFloat(m.radius[0]) > 0 &&
+      parseFloat(m.radius[1]) > 0 &&
+      parseFloat(m.radius[2]) > 0 &&
+      parseFloat(m.radius[3]) > 0,
+    `${label}: all four corners stay rounded: ${m.radius.join(" / ")}`,
+  );
+  check(m.handleContent === "none", `${label}: no drag handle bar: ${m.handleContent}`);
+  // rgba(...) with an alpha under 1 is the frost fill; the limits wall's
+  // opaque --cz-card-solid would read alpha 1 (or no alpha channel at all).
+  const alphaMatch = m.background.match(/rgba?\([^)]*,\s*([\d.]+)\)/);
+  const alpha = alphaMatch ? parseFloat(alphaMatch[1]) : 1;
+  check(alpha < 1, `${label}: surface uses the translucent frost fill: ${m.background}`);
 }
 
 // ── A real phone ───────────────────────────────────────────────────────────
@@ -126,25 +142,8 @@ function readCard() {
   const page = await openSheet(context);
   const m = await page.evaluate(readCard);
   console.log("phone:", JSON.stringify(m));
-
-  check(m.bottom >= m.viewH - 1, `the card touches the bottom edge: ${m.bottom} of ${m.viewH}`);
-  check(m.width >= m.viewW - 1, `the card fills the width: ${m.width} of ${m.viewW}`);
-  check(m.left <= 1, `the card starts at the left edge: ${m.left}`);
-  check(
-    parseFloat(m.radius[0]) > 0 && parseFloat(m.radius[1]) > 0,
-    `the top corners are rounded: ${m.radius[0]} / ${m.radius[1]}`,
-  );
-  check(
-    parseFloat(m.radius[2]) === 0 && parseFloat(m.radius[3]) === 0,
-    `the bottom corners are square: ${m.radius[2]} / ${m.radius[3]}`,
-  );
-  check(m.handleContent !== "none", `the drag handle bar is drawn: ${m.handleContent}`);
-  check(
-    parseFloat(m.handleW) >= 32 && parseFloat(m.handleH) >= 3,
-    `the drag handle bar has size: ${m.handleW} x ${m.handleH}`,
-  );
-
-  await page.screenshot({ path: join(outDir, "limits-bottom-phone.png") });
+  checkCentered(m, "phone");
+  await page.screenshot({ path: join(outDir, "signin-centered-phone.png") });
   await context.close();
 }
 
@@ -154,16 +153,8 @@ function readCard() {
   const page = await openSheet(context);
   const m = await page.evaluate(readCard);
   console.log("desktop:", JSON.stringify(m));
-
-  check(m.bottom < m.viewH - 20, `the card floats clear of the bottom: ${m.bottom} of ${m.viewH}`);
-  check(m.top > 20, `the card floats clear of the top: ${m.top}`);
-  check(
-    parseFloat(m.radius[2]) > 0 && parseFloat(m.radius[3]) > 0,
-    `all four corners stay rounded: ${m.radius[2]} / ${m.radius[3]}`,
-  );
-  check(m.handleContent === "none", `no drag handle bar on a desktop: ${m.handleContent}`);
-
-  await page.screenshot({ path: join(outDir, "limits-float-desktop.png") });
+  checkCentered(m, "desktop");
+  await page.screenshot({ path: join(outDir, "signin-centered-desktop.png") });
   await context.close();
 }
 

@@ -115,7 +115,12 @@ export default function LimitsSheet({ status, signedIn = false, onSignIn, onUpgr
       title={title}
       onClose={onClose}
       maxWidth={460}
-      surfaceClassName="cz-limits-sheet"
+      // F 2026-08-01: the sign-in ask is a decision, not a quick tool, so it
+      // gets its own centered, frosted window on every screen instead of the
+      // shared phone bottom sheet the other limit states keep. The extra
+      // class carries that override; cz-limits-sheet still supplies the
+      // shared spacing tokens and typography.
+      surfaceClassName={anon ? "cz-limits-sheet cz-signin-sheet" : "cz-limits-sheet"}
     >
       <div className="cz-limits">
         <UsageMeter status={status} />
