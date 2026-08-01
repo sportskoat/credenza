@@ -3580,34 +3580,48 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 }
 
-/* ═══ Shelf / Hauls tabs + haul directory ═══ */
+/* ═══ Shelf / Hauls tabs + haul directory (Kimi pill track) ═══ */
 .cz-view-tabs {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 18px;
-  border-bottom: 1px solid var(--cz-hair);
+  gap: 2px;
   margin-bottom: 16px;
+  padding: 3px;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  border-radius: 999px;
+  background: var(--cz-seg);
+  border-bottom: 1px solid var(--cz-card-border, var(--cz-hair));
 }
 
 .cz-view-tabs .cz-tab {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cz-faint);
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  padding: 9px 0 11px;
-  margin-bottom: -1px;
+  border-bottom: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  margin-bottom: 0;
   cursor: pointer;
-  transition: color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-view-tabs .cz-tab:hover:not([aria-selected="true"]) {
+    color: var(--cz-ink);
+    background: var(--cz-hover);
+  }
 }
 
 .cz-view-tabs .cz-tab[aria-selected="true"] {
-  font-weight: 600;
-  color: var(--cz-ink);
-  border-bottom-color: var(--cz-accent);
+  font-weight: 700;
+  color: var(--cz-seg-on-text, var(--cz-action-text));
+  background: var(--cz-seg-on, var(--cz-action-fill));
+  border-bottom-color: transparent;
 }
 
 .cz-hauls-panel {
@@ -3668,21 +3682,27 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 10px;
   text-align: left;
   padding: 14px 12px 12px;
-  border: 0;
-  border-radius: 0;
+  border: 1px solid transparent;
+  border-radius: 16px;
   overflow: visible;
   background: transparent;
   color: var(--cz-ink);
   cursor: pointer;
-  transition: transform var(--dur-micro) var(--ease-out);
+  transition:
+    transform var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
 }
 
 .cz-haul-card:hover {
-  transform: translateY(-2px);
+  transform: none;
+  background: var(--cz-hover);
+  border-color: var(--cz-card-border, var(--cz-hair));
 }
 
 .cz-haul-card:active {
   transform: scale(0.99);
+  background: var(--cz-selected);
 }
 
 /* KM-07: "Start a haul" ghost tile — quieter than a real haul card. */
@@ -4192,6 +4212,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-view-switch {
   gap: 2px;
   padding: 3px;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   border-radius: 999px;
   background: var(--cz-seg);
 }
@@ -4201,7 +4222,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--cz-sub);
+  color: var(--cz-faint);
   font-family: var(--cz-sans);
   font-size: 12.5px;
   font-weight: 600;
@@ -4211,13 +4232,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
-.cz-view-switch .cz-view-button:hover {
+.cz-view-switch .cz-view-button:hover:not(.is-active) {
   color: var(--cz-ink);
+  background: var(--cz-hover);
 }
 
 .cz-view-switch .cz-view-button.is-active {
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
+  background: var(--cz-seg-on, var(--cz-action-fill));
+  color: var(--cz-seg-on-text, var(--cz-action-text));
 }
 
 .cz-toolbar-sep {
@@ -10961,15 +10983,17 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    segments, pill track. Active segment is a solid card with a soft shadow.
    Desktop caps the width instead of stretching edge to edge — same cap the
    phone content column already uses (see .cz-toast[data-tone="action"]). */
+/* Kimi segmented track: All · Likes · To buy · Bought */
 .cz-filter-strip.is-glyph {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 3px;
+  gap: 2px;
   min-height: 0;
   max-width: min(420px, 100%);
   margin: 0 0 12px;
   padding: 3px;
   border-radius: 999px;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   background: var(--cz-seg);
   overflow: visible;
 }
@@ -10987,6 +11011,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 999px;
   background: transparent;
   color: var(--cz-faint);
+  font-family: var(--cz-sans);
   font-size: 10.5px;
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -10997,10 +11022,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     transform var(--dur-press) var(--ease-out);
 }
 
-@media (hover: hover) {
-  .cz-filter-strip.is-glyph .cz-filter-chip:hover {
+@media (hover: hover) and (pointer: fine) {
+  .cz-filter-strip.is-glyph .cz-filter-chip:hover:not(.is-active) {
     color: var(--cz-ink);
-    border-color: transparent;
+    background: var(--cz-hover);
   }
 }
 
@@ -11009,10 +11034,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-filter-strip.is-glyph .cz-filter-chip.is-active {
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
+  background: var(--cz-seg-on, var(--cz-action-fill));
+  color: var(--cz-seg-on-text, var(--cz-action-text));
   font-weight: 700;
-  box-shadow: 0 1px 2px rgba(23, 24, 26, 0.06);
+  box-shadow: none;
 }
 
 .cz-filter-strip.is-glyph .cz-filter-chip-icon {
@@ -11216,9 +11241,16 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     transform: scale(0.96);
   }
 
+  @media (hover: hover) and (pointer: fine) {
+    .cz-dock-tab:hover:not(.is-active) {
+      color: var(--cz-frost-ink);
+      background: var(--cz-hover);
+    }
+  }
+
   .cz-dock-tab.is-active {
-    color: var(--cz-frost-ink);
-    background: var(--cz-frost-active);
+    color: var(--cz-seg-on-text, var(--cz-frost-ink));
+    background: var(--cz-seg-on, var(--cz-frost-active));
   }
 
   .cz-dock-tab-label {

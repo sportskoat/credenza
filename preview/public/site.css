@@ -352,9 +352,10 @@ a:hover { color: var(--money); }
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 1rem;
   padding: 1.15rem 1.2rem;
   margin: 0 0 0.85rem;
+  transition: background 150ms cubic-bezier(0.23, 1, 0.32, 1), border-color 150ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .card p { margin: 0 0 0.65rem; color: var(--muted); }
 .card p:last-child { margin-bottom: 0; }
@@ -366,11 +367,11 @@ a:hover { color: var(--money); }
 .card li { margin: 0.25rem 0; }
 
 .n {
-  font-family: var(--cz-sans);
+  font-family: var(--cz-mono);
   font-size: 0.7rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--money);
+  color: var(--muted);
   display: block;
   margin-bottom: 0.35rem;
 }
@@ -398,12 +399,14 @@ footer {
   background: var(--accent);
   color: var(--bg);
   text-decoration: none;
+  border: 1px solid var(--line);
   border-radius: 999px;
   font-family: var(--cz-sans);
   font-size: 0.9rem;
   font-weight: 600;
+  transition: opacity 150ms cubic-bezier(0.23, 1, 0.32, 1), background 150ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.cta:hover { opacity: 0.9; color: var(--bg); }
+.cta:hover { opacity: 0.92; color: var(--bg); }
 
 .related {
   margin-top: 1.25rem;
