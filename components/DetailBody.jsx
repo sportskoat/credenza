@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Check, ChevronDown, ChevronRight, Maximize2, Minimize2, Upload, X } from "lucide-react";
-import { listAgents } from "../agents.js";
+import { getAgent, buildSignupUrl, listAgents } from "../agents.js";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import CommandBar from "./CommandBar.jsx";
 import SizeChartTable from "./SizeChartTable.jsx";
@@ -2243,6 +2243,9 @@ export default function DetailBody({
   // ONE primary action: the first buy link only. Two filled twins read as a
   // bug (Kyle 2026-07-25, desktop card back included).
   const buyButton = buyButtons[0] || null;
+  // Signup link: only agents with a signupTemplate and a saved code give a URL.
+  const signupAgent = getAgent(preferredAgent);
+  const signupUrl = signupAgent && signupAgent.signupTemplate ? buildSignupUrl(preferredAgent) : null;
   const savedDate = item.createdAt
     ? new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
@@ -3175,6 +3178,16 @@ export default function DetailBody({
             <p className="cz-detail-disclosure">
               Referral code funds the app. Never changes your price.
             </p>
+          ) : null}
+          {buyButton && signupUrl ? (
+            <a
+              className="cz-detail-signup-link"
+              href={signupUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {"New to " + signupAgent.name + "? Sign up"}
+            </a>
           ) : null}
         </div>
       ) : null}
