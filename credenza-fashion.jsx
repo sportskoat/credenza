@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronDown, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
+import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -7885,8 +7885,8 @@ function CredenzaApp() {
   // Same context for the count chip — one consistent spot next to the total.
   // Starred filter MUST show through here. Keep the label short on mobile so
   // "N starred of M saved" + TOTAL SHELF COST + heart don't pile up.
-  // One condition, two renderers: the phone shows these totals inside the
-  // tabs row (C2), the desktop keeps its own .cz-total-row below.
+  // Desktop: totals + view icons ride the right of the Shelf/Hauls tabs row
+  // (Kyle 2026-08-01). Phone 7a keeps totals off the chrome (dock only).
   const shelfTotalsVisible =
     view !== "inbox" && shelfAll.length > 0 && (view !== "hauls" || openHaulName);
   // The chip already names the filter, so the count only has to say how many
@@ -9866,6 +9866,65 @@ function CredenzaApp() {
               ))}
             </div>
           )}
+          {/* Kyle 2026-08-01: cost + view controls ride the right of the
+              Shelf/Hauls tabs — no underline row, no currency chip here
+              (currency lives in Settings), icon-only view switch. */}
+          {shelfTotalsVisible && (
+            <div className="cz-total-row">
+              <div className="cz-total-main">
+                <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
+                  {totalCountLabel}
+                </span>
+                {/* CO-10: a zero-result search showed "0 FOUND | TOTAL $0.00" —
+                    the green money token read as a real balance. Hide it. */}
+                {!(q && visible.length === 0) && (
+                  <>
+                    <span className="cz-total-sep" aria-hidden="true">|</span>
+                    <span className="cz-total-chip" aria-live="polite">
+                      <span
+                        className="cz-total-chip-label cz-fade-text-in"
+                        key={openHaulName ? "haul" : shelfFilter}
+                      >
+                        {openHaulName
+                          ? "Haul"
+                          : shelfFilter === "all"
+                            ? "Total"
+                            : SHELF_FILTERS.find((f) => f.key === shelfFilter).label}
+                      </span>
+                      <ReelCounter
+                        value={pricePrimary === "CNY" ? listTotalCny : pricePrimary === "EUR" ? listTotalEur : listTotalUsd}
+                        currency={pricePrimary}
+                      />
+                    </span>
+                  </>
+                )}
+              </div>
+              {toolbarActive && !openHaulName && (
+                <div className="cz-toolbar-end cz-view-switch">
+                  <button
+                    type="button"
+                    className={"cz-view-button" + (viewMode === "carousel" ? " is-active" : "")}
+                    onClick={() => setViewMode("carousel")}
+                    aria-label="Carousel view"
+                    aria-pressed={viewMode === "carousel"}
+                    title="Carousel view"
+                  >
+                    <Layers size={15} strokeWidth={2.2} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className={"cz-view-button" + (viewMode === "cards" ? " is-active" : "")}
+                    onClick={() => setViewMode("cards")}
+                    aria-label="Grid view"
+                    aria-pressed={viewMode === "cards"}
+                    title="Grid view"
+                  >
+                    <LayoutGrid size={15} strokeWidth={2.2} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         )}
 
@@ -9949,92 +10008,6 @@ function CredenzaApp() {
           </div>
         )}
         </div>
-        )}
-
-        {/* Shelf meta row: count + cost on the left, filter/view on the right.
-            One quiet row — no sticky bar, no full-width black strip. The old
-            wrap + marginLeft:auto put the icons on their own tall empty line
-            that read as a solid black bar; keep both groups on one row.
-            On the Hauls tab the row only renders inside an open haul: the
-            directory has its own "N hauls" head, and the shelf totals and
-            toggles do not apply to hauls (KM-05 / CO-09).
-            Phone (C2): this row is gone — the tabs row above absorbed it. */}
-        {!isPhone && shelfTotalsVisible && (
-          <div className="cz-total-row">
-            <div className="cz-total-main">
-              <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
-                {totalCountLabel}
-              </span>
-              {/* CO-10: a zero-result search showed "0 FOUND | TOTAL $0.00" —
-                  the green money token read as a real balance. Hide it. */}
-              {!(q && visible.length === 0) && (
-                <>
-                  <span className="cz-total-sep" aria-hidden="true">|</span>
-                  <span className="cz-total-chip" aria-live="polite">
-                    <span
-                      className="cz-total-chip-label cz-fade-text-in"
-                      key={openHaulName ? "haul" : shelfFilter}
-                    >
-                      {/* The label names the money on screen, so it follows the
-                          filter chip: a Bought total is not a shelf total. */}
-                      {openHaulName
-                        ? "Haul"
-                        : shelfFilter === "all"
-                          ? "Total"
-                          : SHELF_FILTERS.find((f) => f.key === shelfFilter).label}
-                    </span>
-                    <ReelCounter
-                      value={pricePrimary === "CNY" ? listTotalCny : pricePrimary === "EUR" ? listTotalEur : listTotalUsd}
-                      currency={pricePrimary}
-                    />
-                  </span>
-                  {/* CH-14: the currency pref's inline entrance. The phone
-                      pill lost its copy on Kyle's 2026-07-30 call — there the
-                      money carries the mark and the switch lives in settings.
-                      The reel follows the chip. */}
-                  <button
-                    type="button"
-                    className="cz-total-currency"
-                    aria-label={"Show prices in " + nextPricePrimary(pricePrimary)}
-                    title={"Show prices in " + nextPricePrimary(pricePrimary)}
-                    onClick={() => setPricePrimary(nextPricePrimary)}
-                  >
-                    {pricePrimary}
-                    <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
-                  </button>
-                </>
-              )}
-            </div>
-            {/* View toggles. Hidden inside an open haul. The starred heart
-                left this row on 2026-07-28 — starred is a chip on the filter
-                strip now, beside To buy and Bought. */}
-            {toolbarActive && !openHaulName && (
-              /* One track, two words (shelf handoff 2026-07-28, README :144).
-                 The switch was two bare glyphs, ◈ and ▦. Nobody reads a glyph
-                 as a choice between two states — the track does that, and the
-                 words say which two. */
-              <div className="cz-toolbar-end cz-view-switch">
-                <button
-                  type="button"
-                  className={"cz-view-button" + (viewMode === "carousel" ? " is-active" : "")}
-                  onClick={() => setViewMode("carousel")}
-                  aria-label="Carousel view"
-                  aria-pressed={viewMode === "carousel"}
-                >
-                  Carousel
-                </button>
-                <button
-                  type="button"
-                  className={"cz-view-button" + (viewMode === "cards" ? " is-active" : "")}
-                  onClick={() => setViewMode("cards")}
-                  aria-label="Grid view"
-                  aria-pressed={viewMode === "cards"}
-                >
-                  Grid
-                </button>
-              </div>
-            )}
-          </div>
         )}
 
         {/* Haul chrome lives here (not inside the surface swap) so it can fade in

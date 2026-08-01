@@ -138,16 +138,18 @@ describe("Fashion carousel startup", () => {
     expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
   });
 
-  // Shelf handoff 2026-07-28 (README :144). The switch was two bare glyphs,
-  // ◈ and ▦. Words in one track say what the two choices are.
-  it("labels the view switch with words in one track", async () => {
+  // Kyle 2026-08-01: icon-only view switch; aria-labels keep the names.
+  it("shows the view switch as icons in one track", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     render(<Credenza />);
 
     const grid = await screen.findByRole("button", { name: "Grid view" });
     const carousel = screen.getByRole("button", { name: "Carousel view" });
-    expect(grid.textContent).toBe("Grid");
-    expect(carousel.textContent).toBe("Carousel");
+    // Visible text is gone — the icon is the reading; the label is aria-only.
+    expect(grid.textContent.trim()).toBe("");
+    expect(carousel.textContent.trim()).toBe("");
+    expect(grid.querySelector("svg")).not.toBeNull();
+    expect(carousel.querySelector("svg")).not.toBeNull();
     // Both sit in the same track, and only the active one carries the fill.
     expect(grid.closest(".cz-view-switch")).toBe(carousel.closest(".cz-view-switch"));
     expect(grid.className).toContain("is-active");
@@ -2321,43 +2323,20 @@ describe("Settings deep links (CH-12)", () => {
   });
 });
 
-// CH-14: agent, currency and fit detail are each changeable without opening
-// /settings. The agent already had the Buy notch; these cover the other two —
-// a currency chip on the shelf total and a length toggle on the fit sentence.
+// CH-14: fit detail stays inline. Currency moved to Settings only
+// (Kyle 2026-08-01 — drop the USD chip next to shelf cost).
 describe("Inline preference controls (CH-14)", () => {
-  it("the shelf total carries a currency chip that flips the pref", async () => {
-    const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
-    const user = userEvent.setup();
+  it("the shelf total has no currency chip — currency is Settings only", async () => {
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     render(<Credenza />);
-    // The chip lives in the shelf meta row — visible in the default list view
-    // (Kyle 2026-07-28), no carousel needed.
     await screen.findByRole("button", { name: "Open Palace x Nike jersey" });
 
-    const chip = screen.getByRole("button", { name: "Show prices in EUR" });
-    expect(chip).toHaveTextContent("USD");
-    // The amounts convert with the switch (Kyle 2026-07-28: "If you switch
-    // from USD to CNY, it doesn't change the dollar amount"). ¥229 shows as
-    // $32.06 on the row and in the total reel before the flip.
+    expect(screen.queryByRole("button", { name: /^Show prices in / })).toBeNull();
+    expect(document.querySelector(".cz-total-currency")).toBeNull();
+    // Money still shows in the preferred currency (default USD).
     expect(screen.getAllByText("$32.06").length).toBeGreaterThan(1);
-    await user.click(chip);
-
-    await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).pricePrimary).toBe("EUR"));
-    // The chip now names the next stop. The cycle is CNY -> USD -> EUR -> CNY,
-    // so from EUR the chip offers yuan.
-    expect(screen.getByRole("button", { name: "Show prices in CNY" })).toHaveTextContent("EUR");
-    // Row and reel both lead with euro now — no dollar amount survives. With
-    // no priceEur on the fixture, €29.77 is ¥229 through the offline rate
-    // (FX_FALLBACK_EUR_PER_CNY = 0.13).
-    await waitFor(() => expect(screen.queryByText("$32.06")).toBeNull());
-    expect(screen.getAllByText("€29.77").length).toBeGreaterThan(1);
-    expect(screen.queryByText("¥229")).toBeNull();
-
-    await user.click(screen.getByRole("button", { name: "Show prices in CNY" }));
-    await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).pricePrimary).toBe("CNY"));
-    // The chip now offers dollars again, and yuan leads the row and reel.
-    expect(screen.getByRole("button", { name: "Show prices in USD" })).toHaveTextContent("CNY");
-    await waitFor(() => expect(screen.queryByText("€29.77")).toBeNull());
-    expect(screen.getAllByText("¥229").length).toBeGreaterThan(1);
+    // Cost + view icons sit on the Shelf/Hauls tabs row (right side).
+    expect(document.querySelector(".cz-view-tabs-row .cz-total-row")).not.toBeNull();
   });
 
   // Design 7a (2026-07-31) dropped the phone money summary pill entirely —
