@@ -18,8 +18,6 @@ function renderMenu(extra = {}) {
       accountSession={{ user: { email: "kyle@example.com" } }}
       accountPlan={{ state: "free" }}
       avatarInitials="KY"
-      mode="rainbow"
-      onTheme={noop}
       agentLabel="Sugargoo"
       onOpenAgent={noop}
       pricePrimary="USD"
@@ -55,11 +53,12 @@ describe("AvatarMenu (design 1c)", () => {
     expect(within(container).getByText("Pro · saved on this device")).toBeTruthy();
   });
 
-  it("flips the colourway through the segmented control", () => {
-    const onTheme = vi.fn();
-    const { container } = renderMenu({ onTheme });
-    fireEvent.click(within(container).getByRole("radio", { name: "Gallery" }));
-    expect(onTheme).toHaveBeenCalledWith("light");
+  // Kyle 2026-08-01: Gallery parked — colourway switch is gone; Blackout only.
+  it("has no colourway switch", () => {
+    const { container } = renderMenu();
+    expect(within(container).queryByRole("radio", { name: "Gallery" })).toBeNull();
+    expect(within(container).queryByRole("radio", { name: "Blackout" })).toBeNull();
+    expect(within(container).queryByText("Colourway")).toBeNull();
   });
 
   it("carries the agent and currency rows", () => {

@@ -138,7 +138,6 @@ import HaulCoverFan from "./components/HaulCoverFan.jsx";
 import {
   Caption,
   Field,
-  HolographicBackground,
   Pill,
   PriceChip,
   RainbowBackground,
@@ -5687,14 +5686,13 @@ function CredenzaApp() {
   // second card — which replaces the toast and dismisses the first — does not
   // discard the batch the second card just joined.
   const undoGenRef = useRef(0);
-  const [theme, setTheme] = useState(null);
-  // New editorial gradient is the default colorway; light stays as the alt.
-  const mode = theme || "rainbow";
+  // Kyle 2026-08-01: Blackout only. Gallery (light) is parked for now.
+  // Prefs still write theme: "rainbow" so public pages stay dark too.
+  const mode = "rainbow";
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
-    // Blackout black / Gallery warm-white — matches the live field for iOS chrome.
-    if (meta) meta.setAttribute("content", mode === "rainbow" ? "#050506" : "#F4F4F0");
-  }, [mode]);
+    if (meta) meta.setAttribute("content", "#050506");
+  }, []);
   // A waiting service worker means a new build is staged. Quiet, compact toast
   // (not a sticky full-width Restart slab) — dismissible, auto-hides.
   useEffect(() => {
@@ -5897,8 +5895,8 @@ function CredenzaApp() {
             viewMode,
             sortMode,
             shelfFilter,
-            theme: theme || "rainbow",
-            colorwayVersion: 4,
+            theme: "rainbow",
+            colorwayVersion: 5,
             preferredAgent,
             agentToastSeenFor,
             bodyProfile,
@@ -5911,7 +5909,7 @@ function CredenzaApp() {
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, shelfFilter, theme, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, shelfFilter, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
 
   // Onboarding 3B: focus the hero paste field on a desktop cold open, so ⌘V
   // works with no click first. Guarded three ways — desktop width only, the
@@ -6071,10 +6069,9 @@ function CredenzaApp() {
               ? "starred"
               : "all";
           setShelfFilter(storedFilter);
-          // One-shot colorway migrate: land on Blackout dark once (Gallery light is
-          // the other toggle). After that, Theme preference is sticky again.
-          if (p.colorwayVersion !== 4) {
-            setTheme("rainbow");
+          // Kyle 2026-08-01: Blackout only. Any stored Gallery (light) or older
+          // colorwayVersion rewrites to Blackout and stays there.
+          if (p.colorwayVersion !== 5 || p.theme !== "rainbow") {
             storageBackend
               .set(
                 "credenza-prefs-v1",
@@ -6084,8 +6081,7 @@ function CredenzaApp() {
                   sortMode: storedFilter === "starred" ? "starred" : "recent",
                   shelfFilter: storedFilter,
                   theme: "rainbow",
-                  colorwayVersion: 4,
-                  // Agent prefs survive the one-shot colorway rewrite.
+                  colorwayVersion: 5,
                   preferredAgent: validStoredAgentId(p.preferredAgent),
                   agentToastSeenFor: p.agentToastSeenFor || null,
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
@@ -6098,8 +6094,6 @@ function CredenzaApp() {
                 })
               )
               .catch(() => {});
-          } else if (["light", "rainbow"].includes(p.theme)) {
-            setTheme(p.theme);
           }
           // A2: agent prefs. Unknown/retired stored agents fall back to the
           // soft default rather than stranding Buy buttons. Stored
@@ -8981,8 +8975,6 @@ function CredenzaApp() {
           accountSession={accountSession}
           accountPlan={accountPlan}
           avatarInitials={avatarInitials}
-          mode={mode}
-          onTheme={setTheme}
           agentLabel={agentBarLabel}
           onOpenAgent={() => {
             agentReturnToMenuRef.current = true;
@@ -9005,10 +8997,9 @@ function CredenzaApp() {
       data-theme={mode}
       data-fashion="true"
       style={{
-        ...PALETTES[mode],
-        // Gallery is a genuine light theme, so native form chrome and
-        // scrollbars follow the mode. ("rainbow" is the prefs key for Blackout.)
-        colorScheme: mode === "light" ? "light" : "dark",
+        ...PALETTES.rainbow,
+        // Blackout only (Kyle 2026-08-01). "rainbow" is the prefs key.
+        colorScheme: "dark",
         minHeight: "100dvh",
         background: BG,
         color: INK,
@@ -9021,7 +9012,7 @@ function CredenzaApp() {
       }}
     >
       <style>{KEYFRAMES}</style>
-      {mode === "rainbow" ? <RainbowBackground /> : <HolographicBackground />}
+      <RainbowBackground />
       {digest && (
         <DigestDeck
           slides={digest}

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { PRICING, SegmentedControl } from "../credenza-fashion.jsx";
+import { PRICING } from "../credenza-fashion.jsx";
 
 // Avatar quick menu (Profile Settings design 1c). Replaces the modal as the
 // avatar's first surface: who you are, the switches you actually flip, and a
@@ -7,13 +7,13 @@ import { PRICING, SegmentedControl } from "../credenza-fashion.jsx";
 //
 // Prices come from PRICING. The upsell line is the trial note — it is a
 // legal term, so it is never paraphrased.
+//
+// Kyle 2026-08-01: Gallery colourway is parked. Blackout is the only look.
 
 export default function AvatarMenu({
   accountSession,
   accountPlan,
   avatarInitials,
-  mode,
-  onTheme,
   agentLabel,
   onOpenAgent,
   pricePrimary,
@@ -83,19 +83,6 @@ export default function AvatarMenu({
           </button>
         </div>
       )}
-
-      <div className="cz-avatar-menu-row is-control">
-        <span className="cz-avatar-menu-label">Colourway</span>
-        <SegmentedControl
-          label="Colourway"
-          value={mode === "light" ? "light" : "rainbow"}
-          onChange={(v) => onTheme(v || "rainbow")}
-          options={[
-            { value: "light", label: "Gallery" },
-            { value: "rainbow", label: "Blackout" },
-          ]}
-        />
-      </div>
 
       <button type="button" className="cz-avatar-menu-row" onClick={go(onOpenAgent)}>
         <span className="cz-avatar-menu-label">Agent</span>

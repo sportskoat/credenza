@@ -487,10 +487,10 @@ describe("Fashion morph controls and favorites", () => {
     expect(search).toHaveFocus();
   });
 
-  it("toggles the labeled Theme morph without changing preference values", async () => {
+  // Kyle 2026-08-01: Blackout only. Stored Gallery (light) rewrites to rainbow.
+  it("forces Blackout even when an older preference says Gallery", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([fashionItem()]),
-      // colorwayVersion: 4 freezes the one-shot migrate so this test can start on light.
       [PREFS_KEY]: JSON.stringify({
         viewMode: "carousel",
         sortMode: "recent",
@@ -498,17 +498,14 @@ describe("Fashion morph controls and favorites", () => {
         colorwayVersion: 4,
       }),
     });
-    const user = userEvent.setup();
     const { container } = render(<Credenza />);
-    // Theme lives in the avatar quick menu now (Profile Settings design 1c).
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
-    const blackout = await screen.findByRole("radio", { name: "Blackout" });
-    expect(blackout).toHaveAttribute("aria-checked", "false");
-    await user.click(blackout);
+    await screen.findByRole("button", { name: "Profile" });
     expect(container.querySelector(".cz-app")).toHaveAttribute("data-theme", "rainbow");
-    await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).theme).toBe("rainbow"));
-    await user.click(screen.getByRole("radio", { name: "Gallery" }));
-    expect(container.querySelector(".cz-app")).toHaveAttribute("data-theme", "light");
+    await waitFor(() => {
+      const prefs = JSON.parse(data[PREFS_KEY]);
+      expect(prefs.theme).toBe("rainbow");
+      expect(prefs.colorwayVersion).toBe(5);
+    });
   });
 
   it("strictly migrates favorites and persists them across carousel and grid cards", async () => {
@@ -2184,17 +2181,17 @@ describe("Phone haul board (Kyle 2026-07-25)", () => {
 // page sits behind its All settings row. The phone Settings and Profile
 // sheets this block used to test are being replaced section by section.
 describe("Avatar quick menu and settings page (Profile Settings design)", () => {
-  it("the menu carries the switches: colourway, agent, currency, settings", async () => {
+  it("the menu carries agent, currency, and settings (no colourway — Blackout only)", async () => {
     installShim({
       [STORE_KEY]: JSON.stringify([fashionItem()]),
-      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, theme: "rainbow", sortMode: "recent" }),
+      [PREFS_KEY]: JSON.stringify({ colorwayVersion: 5, theme: "rainbow", sortMode: "recent" }),
     });
     const user = userEvent.setup();
     render(<Credenza />);
 
     await user.click(await screen.findByRole("button", { name: "Profile" }));
-    expect(await screen.findByRole("radio", { name: "Blackout" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Gallery" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Blackout" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Gallery" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Agent\S+ ›$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Currency/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /All settings/ })).toBeInTheDocument();
