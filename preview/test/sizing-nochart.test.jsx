@@ -378,11 +378,9 @@ describe("§3 read and confirm", () => {
     await user.click(screen.getByRole("button", { name: /Read the 2 album photos/ }));
 
     await screen.findByText("Use this chart");
+    // Low-cost rule: one photo per paid read, not a batch of album URLs.
     expect(urlReadMock).toHaveBeenCalledTimes(1);
-    expect(urlReadMock.mock.calls[0][0]).toEqual([
-      "https://si.geilicdn.com/img-1.jpg",
-      "https://si.geilicdn.com/a.jpg",
-    ]);
+    expect(urlReadMock.mock.calls[0][0]).toEqual(["https://si.geilicdn.com/img-1.jpg"]);
     expect(fileReadMock).not.toHaveBeenCalled();
   });
 
