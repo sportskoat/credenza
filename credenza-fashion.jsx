@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronDown, ChevronLeft, Heart, Layers, LayoutGrid, Plus, Search, Tag, User, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -10173,6 +10173,9 @@ function CredenzaApp() {
                 if (view !== "hauls") setActiveHaul(null);
               }}
             >
+              {/* Box icon, not Layers — Shelf already uses the stack so the
+                  two dock ends must read as different places (O 2026-08-01). */}
+              <Package size={20} strokeWidth={2.2} aria-hidden="true" />
               <span className="cz-dock-tab-label">
                 Hauls
                 {haulDirectory.hauls.length > 0 && (
