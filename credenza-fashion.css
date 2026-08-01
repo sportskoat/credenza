@@ -7024,7 +7024,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-settings-section-anchor {
-  scroll-margin-top: 20px;
+  /* Keep in sync with SECTION_SCROLL_LEAD in SettingsPage.jsx */
+  scroll-margin-top: 28px;
 }
 
 .cz-settings-section {

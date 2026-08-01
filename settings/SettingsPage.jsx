@@ -24,6 +24,10 @@ const SECTION_BODY = {
 };
 
 const VALID_KEYS = new Set(SETTINGS_SECTIONS.map((s) => s.key));
+// Space above a deep-linked section so the green kicker is not cut off.
+// Matches scroll-margin-top on .cz-settings-section-anchor.
+const SECTION_SCROLL_LEAD = 28;
+const FIRST_SECTION_KEY = SETTINGS_SECTIONS[0].key;
 
 function normalizeSection(key) {
   if (key === "fit") return "sizes";
@@ -39,14 +43,23 @@ function prefersReducedMotion() {
   }
 }
 
+// Scroll offset for a section inside the content column. Use the scroller's
+// own box — el.offsetTop is relative to the dialog (masthead + pad), so it
+// overshoots and clips the kicker.
+function sectionScrollTop(scroller, el, lead = SECTION_SCROLL_LEAD) {
+  const delta =
+    el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  return Math.max(0, scroller.scrollTop + delta - lead);
+}
+
 export default function SettingsPage({ section, onNavigate, onClose, value, isPhone }) {
   const dialogRef = useRef(null);
   const scrollerRef = useRef(null);
   const sectionEls = useRef({});
   // Suppress scroll-spy while a click-driven scroll is in flight.
   const scrollLock = useRef(false);
-  // First open must scroll even when active is already seeded from the URL
-  // (otherwise /settings/sizes highlights the rail but stays at scroll 0).
+  // First open must scroll for a non-first deep link even when active is
+  // already seeded from the URL (otherwise /settings/sizes stays at 0).
   const didInitialScroll = useRef(false);
   const [active, setActive] = useState(() => normalizeSection(section));
 
@@ -93,7 +106,7 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
       scrollLock.current = true;
       setActive(target);
       if (updateUrl && onNavigate) onNavigate(target);
-      const top = Math.max(0, el.offsetTop - 20);
+      const top = sectionScrollTop(scroller, el);
       scroller.scrollTo({
         top,
         behavior: prefersReducedMotion() ? "auto" : "smooth",
@@ -110,10 +123,13 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
     const target = normalizeSection(section);
     // Wait a frame so section refs exist after paint.
     const jump = () => scrollToSection(target, { updateUrl: false });
-    // First mount: always scroll. active is initialized from `section`, so
-    // target === active would otherwise skip the jump and leave scrollTop 0.
+    // First mount: active is initialized from `section`, so target === active
+    // would otherwise skip a later-section deep link and leave scrollTop 0.
+    // The first section is already at the top — do not scroll it (a forced
+    // jump clips the green kicker into the title below).
     if (!didInitialScroll.current) {
       didInitialScroll.current = true;
+      if (target === FIRST_SECTION_KEY) return;
       requestAnimationFrame(jump);
       return;
     }

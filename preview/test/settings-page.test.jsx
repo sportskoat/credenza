@@ -145,6 +145,25 @@ describe("SettingsPage (one-page redesign)", () => {
     }
   });
 
+  it("does not force-scroll on first open for the default account section", async () => {
+    // Account is already at the top. A forced jump used dialog-relative
+    // offsetTop and clipped the green kicker into the title (smudge).
+    const scrollTo = vi.fn();
+    const prev = Element.prototype.scrollTo;
+    Element.prototype.scrollTo = scrollTo;
+    try {
+      const { container } = renderPage({ section: "account" });
+      const active = container.querySelector(".cz-settings-nav-item.is-active");
+      expect(active.textContent).toContain("Account and plan");
+      // One frame for the deep-link effect, plus a tick so a mistaken jump
+      // would have fired scrollTo.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      expect(scrollTo).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollTo = prev;
+    }
+  });
+
   it("shelf defaults rows work — each flips or opens its switch", () => {
     const onOpenAgent = vi.fn();
     const onCycleCurrency = vi.fn();
