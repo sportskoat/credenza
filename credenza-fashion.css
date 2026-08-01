@@ -815,7 +815,7 @@
 .cz-app[data-fashion="true"] article > div,
 .cz-app[data-fashion="true"] .cz-modal-surface {
   background: var(--cz-card);
-  border: 1px solid var(--cz-hair);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
     0 12px 32px rgba(0, 0, 0, 0.35);
@@ -834,6 +834,18 @@
   border-radius: 16px;
 }
 
+/* Kyle 2026-08-01: stash / agent / other sheets use the same 16px card
+   corner as the shelf cards (desktop). Phone bottom-sheet gate keeps
+   18px 18px 0 0 from credenza.css. */
+.cz-app[data-fashion="true"] .cz-modal-surface {
+  border-radius: 16px;
+}
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-app[data-fashion="true"] .cz-modal-surface {
+    border-radius: 18px 18px 0 0;
+  }
+}
+
 /* The photo-card text overlay is a direct child div of the article, so the
    card-surface rules above would paint an 86% panel under the words — the
    flat band Kyle flagged. The words sit on the scrim; the panel must not. */
@@ -844,22 +856,25 @@
   box-shadow: none;
 }
 
-/* Focus: keyboard only. No sticky glow rings after a finger tap (iOS leaves
-   :focus on buttons until something else is tapped — Kyle 2026-07-22). */
-.cz-app[data-fashion="true"] .cz-interactive:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-pill:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-chip:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-icon-button:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-card-toggle:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-tab:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-view-button:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-favorite-button:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] .cz-morph-button:focus:not(:focus-visible),
-.cz-app[data-fashion="true"] button:focus:not(:focus-visible) {
+/* Focus: keyboard only. No ring after a mouse/finger click (Kyle 2026-08-01
+   screenshots — the outline pulled focus off the product). iOS also leaves
+   :focus on buttons until something else is tapped. */
+.cz-app[data-fashion="true"] *:focus {
   outline: none;
-  box-shadow: none;
+}
+.cz-app[data-fashion="true"] *:focus:not(:focus-visible) {
+  outline: none !important;
 }
 
+/* Keyboard: one quiet 2px ring. No outer glow (the old 4px glow-weak ring
+   was the heavy outline in Kyle's screenshots). */
+.cz-app[data-fashion="true"] a:focus-visible,
+.cz-app[data-fashion="true"] button:focus-visible,
+.cz-app[data-fashion="true"] [role="button"]:focus-visible,
+.cz-app[data-fashion="true"] [role="tab"]:focus-visible,
+.cz-app[data-fashion="true"] [role="radio"]:focus-visible,
+.cz-app[data-fashion="true"] [role="menuitem"]:focus-visible,
+.cz-app[data-fashion="true"] [tabindex]:focus-visible,
 .cz-app[data-fashion="true"] .cz-interactive:focus-visible,
 .cz-app[data-fashion="true"] .cz-pill:focus-visible,
 .cz-app[data-fashion="true"] .cz-chip:focus-visible,
@@ -867,31 +882,37 @@
 .cz-app[data-fashion="true"] .cz-card-toggle:focus-visible,
 .cz-app[data-fashion="true"] .cz-tab:focus-visible,
 .cz-app[data-fashion="true"] .cz-view-button:focus-visible,
+.cz-app[data-fashion="true"] .cz-filter-chip:focus-visible,
 .cz-app[data-fashion="true"] .cz-sort-select:focus-visible,
+.cz-app[data-fashion="true"] .cz-avatar:focus-visible,
+.cz-app[data-fashion="true"] .cz-mast-btn:focus-visible,
+.cz-app[data-fashion="true"] .cz-mast-nav-link:focus-visible,
+.cz-app[data-fashion="true"] .cz-settings-nav-item:focus-visible,
+.cz-app[data-fashion="true"] .cz-settings-back:focus-visible,
+.cz-app[data-fashion="true"] .cz-morph-button:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+/* Inputs keep a soft ring so the caret field still reads as active. */
 .cz-app[data-fashion="true"] .cz-field:focus-visible,
 .cz-app[data-fashion="true"] .cz-capture:focus-visible,
 .cz-app[data-fashion="true"] .cz-search-input:focus-visible,
 .cz-app[data-fashion="true"] .cz-note-field:focus-visible,
-/* The masthead buttons were missing from this list, so nothing here matched
-   them and the browser's own outline painted instead (Kyle 2026-07-27, with a
-   screenshot of the avatar wearing a blue ring). It shows up on the way OUT of
-   the profile sheet: ModalShell restores focus to the trigger, and because the
-   key that closed the sheet was Escape, the button matches :focus-visible.
-   Restoring focus is correct — a keyboard user has to land somewhere. The ring
-   just has to be the app's ring, not Chrome's. */
-.cz-app[data-fashion="true"] .cz-avatar:focus-visible,
-.cz-app[data-fashion="true"] .cz-mast-btn:focus-visible {
+.cz-app[data-fashion="true"] input:focus-visible,
+.cz-app[data-fashion="true"] textarea:focus-visible,
+.cz-app[data-fashion="true"] select:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--cz-focus), 0 0 0 4px var(--cz-glow-weak);
+  box-shadow: 0 0 0 2px var(--cz-focus);
 }
 
-/* Touch: never paint the big outer glow ring — ink is enough. */
+/* Favorite stays clean — its fill state is the cue. */
+.cz-app[data-fashion="true"] .cz-favorite-button:focus-visible {
+  outline: none;
+}
+
+/* Touch: same quiet ring, never a multi-layer glow. */
 @media (hover: none) and (pointer: coarse) {
-  .cz-app[data-fashion="true"] *:focus-visible {
-    box-shadow: none !important;
-    outline: 2px solid var(--cz-focus);
-    outline-offset: 2px;
-  }
   .cz-app[data-fashion="true"] .cz-favorite-button:focus-visible {
     outline: none;
   }
@@ -3252,11 +3273,29 @@ a.cz-empty-hero-link {
   margin-inline: auto;
 }
 
+/* Kyle 2026-08-01: hide scroll bars everywhere in the app. Scroll still
+   works with trackpad, wheel, drag, and keyboard — only the bar is gone. */
+.cz-app[data-fashion="true"],
+.cz-app[data-fashion="true"] *,
+.cz-modal,
+.cz-modal *,
+.cz-settings-page,
+.cz-settings-page * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
 .cz-app[data-fashion="true"]::-webkit-scrollbar,
-.cz-app[data-fashion="true"] .cz-shell::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+.cz-app[data-fashion="true"] *::-webkit-scrollbar,
+.cz-app[data-fashion="true"] .cz-shell::-webkit-scrollbar,
+.cz-modal::-webkit-scrollbar,
+.cz-modal *::-webkit-scrollbar,
+.cz-settings-page::-webkit-scrollbar,
+.cz-settings-page *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent;
 }
 
 html:has(.cz-app[data-fashion="true"]),
@@ -5940,6 +5979,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-card-solid);
 }
 
+/* Sticky modal header matches the solid card (not translucent --cz-card). */
+.cz-app[data-fashion="true"] .cz-modal-surface-stacked .cz-modal-header,
+.cz-app[data-fashion="true"] .cz-modal-surface .cz-modal-header {
+  background: var(--cz-card-solid);
+  border-bottom-color: var(--cz-card-border, var(--cz-hair));
+}
+
 /* Top padding clears the sticky shelf toolbar (star + view toggles) so the
    front card never collides with that row. The bottom used to clear a
    floating bar as well; the bar is docked under the scroll area now (shelf
@@ -6734,7 +6780,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 /* The page is a native <dialog> so it can paint above an open card, which is
    also a native dialog (Kyle 2026-07-28). The browser gives a dialog its own
-   frame, padding, and size caps, so all of them are cleared here. */
+   frame, padding, and size caps, so all of them are cleared here.
+   Kyle 2026-08-01: desktop settings is a floating card (same look as stash
+   and buying-agent sheets). Phone stays edge-to-edge. */
 .cz-settings-page {
   position: fixed;
   inset: 0;
@@ -6749,16 +6797,41 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 0;
   border: 0;
   overflow: hidden;
-  background: var(--cz-bg);
+  background: var(--cz-card-solid);
   color: var(--cz-ink);
   font-family: var(--cz-sans);
 }
 .cz-settings-page::backdrop {
-  background: var(--cz-bg);
+  background: oklch(0.16 0.01 260 / 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .cz-settings-page:focus,
 .cz-settings-page:focus-visible {
   outline: none;
+}
+
+/* Desktop: floating card, not a full-bleed takeover. margin:auto centers
+   a fixed dialog when width and height are set. */
+@media (min-width: 768px) {
+  .cz-settings-page {
+    width: min(920px, calc(100vw - 48px));
+    height: min(720px, calc(100dvh - 48px));
+    max-width: min(920px, calc(100vw - 48px));
+    max-height: min(720px, calc(100dvh - 48px));
+    margin: auto;
+    border: 1px solid var(--cz-card-border, var(--cz-hair));
+    border-radius: 16px;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+      0 24px 64px rgba(0, 0, 0, 0.4);
+  }
+  .cz-app[data-theme="dark"] .cz-settings-page,
+  .cz-app[data-fashion="true"][data-theme="dark"] .cz-settings-page {
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+      0 24px 64px rgba(0, 0, 0, 0.55);
+  }
 }
 
 .cz-settings-page-masthead {
@@ -6768,8 +6841,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   /* Kyle 2026-07-31 picture 3: iOS clock covered the title. Pad under the
      notch / status bar so the masthead never sits under the system chrome. */
   padding: calc(14px + env(safe-area-inset-top, 0px)) 22px 14px;
-  border-bottom: 1px solid var(--cz-hair);
-  background: var(--cz-bg-elevated);
+  border-bottom: 1px solid var(--cz-card-border, var(--cz-hair));
+  background: var(--cz-card-solid);
 }
 
 .cz-settings-back {
@@ -8242,8 +8315,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-carousel-overlay-close:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--cz-focus), 0 0 0 5px var(--cz-glow-weak);
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 /* ─── Editorial grid card (design handoff 2a/2b) ─────────────────────────── */
@@ -10079,8 +10153,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-app[data-fashion="true"] .cz-mast-nav-link:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--cz-focus), 0 0 0 4px var(--cz-glow-weak);
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 /* Below 900px the six links crowd the wordmark and the avatar. Drop the two
