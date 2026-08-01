@@ -3,6 +3,39 @@ import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
 import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
+
+/** Fairground carousel (canopy + horse). Lucide has no match; Kyle 2026-08-01. */
+function CarouselIcon({ size = 15, strokeWidth = 2.2, className, ...rest }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+      {...rest}
+    >
+      {/* peaked canopy */}
+      <path d="M3.5 11c0-4.5 3.8-7.5 8.5-7.5s8.5 3 8.5 7.5" />
+      {/* scalloped fringe */}
+      <path d="M3.5 11c1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0" />
+      {/* center pole */}
+      <path d="M12 11.5v6" />
+      {/* horse side view */}
+      <path d="M8.5 15.2c0-.7.6-1.3 1.3-1.3h.6l.7-1.2.9.4v.8h1.2c.7 0 1.3.6 1.3 1.3v1.2H8.5v-1.2z" />
+      <path d="M10.2 13.9l-.4-1.1" />
+      {/* platform */}
+      <path d="M6 19h12" />
+      <path d="M7 19v1.5M17 19v1.5" />
+    </svg>
+  );
+}
 import {
   createStorageBackend,
   loadStoredItems,
@@ -9866,66 +9899,120 @@ function CredenzaApp() {
               ))}
             </div>
           )}
-          {/* Kyle 2026-08-01: cost + view controls ride the right of the
-              Shelf/Hauls tabs — no underline row, no currency chip here
-              (currency lives in Settings), icon-only view switch. */}
-          {shelfTotalsVisible && (
-            <div className="cz-total-row">
-              <div className="cz-total-main">
-                <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
-                  {totalCountLabel}
-                </span>
-                {/* CO-10: a zero-result search showed "0 FOUND | TOTAL $0.00" —
-                    the green money token read as a real balance. Hide it. */}
-                {!(q && visible.length === 0) && (
-                  <>
-                    <span className="cz-total-sep" aria-hidden="true">|</span>
-                    <span className="cz-total-chip" aria-live="polite">
-                      <span
-                        className="cz-total-chip-label cz-fade-text-in"
-                        key={openHaulName ? "haul" : shelfFilter}
-                      >
-                        {openHaulName
-                          ? "Haul"
-                          : shelfFilter === "all"
-                            ? "Total"
-                            : SHELF_FILTERS.find((f) => f.key === shelfFilter).label}
-                      </span>
-                      <ReelCounter
-                        value={pricePrimary === "CNY" ? listTotalCny : pricePrimary === "EUR" ? listTotalEur : listTotalUsd}
-                        currency={pricePrimary}
+          {/* Kyle 2026-08-01: filters on the RIGHT of Shelf/Hauls, same size. */}
+          {toolbarActive && !openHaulName && view === "shelf" && (
+            <div
+              className="cz-filter-strip is-glyph is-tabs-peer"
+              role="radiogroup"
+              aria-label="Filter the shelf"
+            >
+              {SHELF_FILTERS.map((f) => {
+                const active = shelfFilter === f.key;
+                const Icon = f.Icon;
+                const count = shelfFilterCounts[f.key];
+                return (
+                  <button
+                    type="button"
+                    role="radio"
+                    key={f.key}
+                    aria-checked={active}
+                    aria-label={
+                      f.label +
+                      ", " +
+                      count +
+                      (count === 1 ? " card" : " cards")
+                    }
+                    className={
+                      "cz-filter-chip" +
+                      (active ? " is-active" : "") +
+                      (count === 0 ? " is-zero" : "")
+                    }
+                    onClick={() => {
+                      setShelfFilter(f.key);
+                      setExpandedId(null);
+                    }}
+                  >
+                    {Icon && (
+                      <Icon
+                        className="cz-filter-chip-icon"
+                        size={15}
+                        strokeWidth={2.2}
+                        fill={
+                          f.key === "starred" && active ? "currentColor" : "none"
+                        }
+                        aria-hidden="true"
                       />
+                    )}
+                    <span className="cz-filter-chip-label">
+                      {f.label}
+                      <span className="cz-filter-chip-count">
+                        {" · "}
+                        {count}
+                      </span>
                     </span>
-                  </>
-                )}
-              </div>
-              {toolbarActive && !openHaulName && (
-                <div className="cz-toolbar-end cz-view-switch">
-                  <button
-                    type="button"
-                    className={"cz-view-button" + (viewMode === "carousel" ? " is-active" : "")}
-                    onClick={() => setViewMode("carousel")}
-                    aria-label="Carousel view"
-                    aria-pressed={viewMode === "carousel"}
-                    title="Carousel view"
-                  >
-                    <Layers size={15} strokeWidth={2.2} aria-hidden="true" />
                   </button>
-                  <button
-                    type="button"
-                    className={"cz-view-button" + (viewMode === "cards" ? " is-active" : "")}
-                    onClick={() => setViewMode("cards")}
-                    aria-label="Grid view"
-                    aria-pressed={viewMode === "cards"}
-                    title="Grid view"
-                  >
-                    <LayoutGrid size={15} strokeWidth={2.2} aria-hidden="true" />
-                  </button>
-                </div>
-              )}
+                );
+              })}
             </div>
           )}
         </div>
+        )}
+
+        {/* Row 2: saved count + total + view icons, under Shelf/Hauls.
+            Kyle 2026-08-01 — not on the tabs row. */}
+        {!phoneShelfChrome && shelfTotalsVisible && (
+          <div className="cz-total-row">
+            <div className="cz-total-main">
+              <span className="cz-total-count cz-fade-text-in" key={totalCountLabel}>
+                {totalCountLabel}
+              </span>
+              {!(q && visible.length === 0) && (
+                <>
+                  <span className="cz-total-sep" aria-hidden="true">|</span>
+                  <span className="cz-total-chip" aria-live="polite">
+                    <span
+                      className="cz-total-chip-label cz-fade-text-in"
+                      key={openHaulName ? "haul" : shelfFilter}
+                    >
+                      {openHaulName
+                        ? "Haul"
+                        : shelfFilter === "all"
+                          ? "Total"
+                          : SHELF_FILTERS.find((f) => f.key === shelfFilter).label}
+                    </span>
+                    <ReelCounter
+                      value={pricePrimary === "CNY" ? listTotalCny : pricePrimary === "EUR" ? listTotalEur : listTotalUsd}
+                      currency={pricePrimary}
+                    />
+                  </span>
+                </>
+              )}
+            </div>
+            {toolbarActive && !openHaulName && (
+              <div className="cz-toolbar-end cz-view-switch">
+                <button
+                  type="button"
+                  className={"cz-view-button" + (viewMode === "carousel" ? " is-active" : "")}
+                  onClick={() => setViewMode("carousel")}
+                  aria-label="Carousel view"
+                  aria-pressed={viewMode === "carousel"}
+                  title="Carousel view"
+                >
+                  <CarouselIcon size={15} strokeWidth={2.2} />
+                </button>
+                <button
+                  type="button"
+                  className={"cz-view-button" + (viewMode === "cards" ? " is-active" : "")}
+                  onClick={() => setViewMode("cards")}
+                  aria-label="Grid view"
+                  aria-pressed={viewMode === "cards"}
+                  title="Grid view"
+                >
+                  <LayoutGrid size={15} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Phone indexing chip — the desk tabs row no longer mounts on
@@ -9953,10 +10040,9 @@ function CredenzaApp() {
           </div>
         )}
 
-        {/* Filter strip: glyph segmented control (All · Likes · To buy ·
-            Bought), same on phone and desktop (Kyle 2026-08-01). Hidden
-            inside an open haul: a haul shows every card in it. */}
-        {toolbarActive && !openHaulName && view === "shelf" && (
+        {/* Phone filter strip stays under the masthead (Design 7a). Desktop
+            filters ride the tabs row above (is-tabs-peer). */}
+        {phoneShelfChrome && toolbarActive && !openHaulName && view === "shelf" && (
           <div className="cz-filter-strip is-glyph" role="radiogroup" aria-label="Filter the shelf">
             {SHELF_FILTERS.map((f) => {
               const active = shelfFilter === f.key;
