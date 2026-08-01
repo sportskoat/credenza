@@ -29,6 +29,9 @@ const MAX_GALLERY_IMAGES = 10;
 const CHART_SHAPE_RATIO = 1.25;
 const FX_API = "https://open.er-api.com/v6/latest/CNY";
 const FX_FALLBACK_USD_PER_CNY = 0.14;
+// Rough offline EUR rate (2026-08-01): the euro is stronger than the dollar,
+// so fewer CNY buy one EUR than one USD. Fallback only — the live FX_API wins.
+const FX_FALLBACK_EUR_PER_CNY = 0.13;
 const TIMEOUT_MS = 20000;
 const MAX_VARIANT_VALUES = 60;
 const MAX_HTML_BYTES = 1.5 * 1024 * 1024;
@@ -697,15 +700,25 @@ function extractFacts(result) {
   };
 }
 
-async function fetchUsdRate(signal) {
+// One fetch, both currencies (F, 2026-08-01): the FX_API response already
+// carries every currency in one answer, so USD and EUR must read the SAME
+// response instead of each making their own network call. That free rate
+// service has a daily request limit; a second call per item burns through it
+// twice as fast, and once it blocks us the app silently falls back to the
+// fixed rates with no error shown.
+async function fetchFxRates(signal) {
   try {
     const res = await fetch(FX_API, { signal });
-    if (!res.ok) return FX_FALLBACK_USD_PER_CNY;
+    if (!res.ok) return { usdPerCny: FX_FALLBACK_USD_PER_CNY, eurPerCny: FX_FALLBACK_EUR_PER_CNY };
     const data = await res.json();
-    const rate = data && data.rates && data.rates.USD;
-    return typeof rate === "number" && rate > 0 && rate < 1 ? rate : FX_FALLBACK_USD_PER_CNY;
+    const usd = data && data.rates && data.rates.USD;
+    const eur = data && data.rates && data.rates.EUR;
+    return {
+      usdPerCny: typeof usd === "number" && usd > 0 && usd < 1 ? usd : FX_FALLBACK_USD_PER_CNY,
+      eurPerCny: typeof eur === "number" && eur > 0 && eur < 1 ? eur : FX_FALLBACK_EUR_PER_CNY,
+    };
   } catch {
-    return FX_FALLBACK_USD_PER_CNY;
+    return { usdPerCny: FX_FALLBACK_USD_PER_CNY, eurPerCny: FX_FALLBACK_EUR_PER_CNY };
   }
 }
 
@@ -837,9 +850,9 @@ async function handle(event) {
     let facts;
     let canonicalUrl;
     if (resolved.marketplace === "weidian") {
-      const [result, usdPerCny, descBundle] = await Promise.all([
+      const [result, fxRates, descBundle] = await Promise.all([
         fetchWeidianItem(resolved.itemId, controller.signal),
-        fetchUsdRate(controller.signal),
+        fetchFxRates(controller.signal),
         fetchWeidianDescBundle(resolved.itemId, controller.signal),
       ]);
       facts = extractFacts(result);
@@ -852,24 +865,27 @@ async function handle(event) {
       // Bare Yupoo shops from desc notes (chart-empty multi-model listings).
       facts.sellerYupooLinks = descBundle.sellerYupooLinks || [];
       // stash rate on facts for response builder below
-      facts._usdPerCny = usdPerCny;
+      facts._usdPerCny = fxRates.usdPerCny;
+      facts._eurPerCny = fxRates.eurPerCny;
       canonicalUrl = `https://weidian.com/item.html?itemID=${facts.itemId || resolved.itemId}`;
     } else if (resolved.marketplace === "1688") {
-      const [aFacts, usdPerCny] = await Promise.all([
+      const [aFacts, fxRates] = await Promise.all([
         fetch1688Facts(resolved.itemId, controller.signal),
-        fetchUsdRate(controller.signal),
+        fetchFxRates(controller.signal),
       ]);
       facts = aFacts;
-      facts._usdPerCny = usdPerCny;
+      facts._usdPerCny = fxRates.usdPerCny;
+      facts._eurPerCny = fxRates.eurPerCny;
       canonicalUrl = `https://detail.1688.com/offer/${resolved.itemId}.html`;
     } else {
       // taobao | tmall — HTML og tags; price often null
-      const [tbFacts, usdPerCny] = await Promise.all([
+      const [tbFacts, fxRates] = await Promise.all([
         fetchTaobaoWorldFacts(resolved.itemId, controller.signal),
-        fetchUsdRate(controller.signal),
+        fetchFxRates(controller.signal),
       ]);
       facts = tbFacts;
-      facts._usdPerCny = usdPerCny;
+      facts._usdPerCny = fxRates.usdPerCny;
+      facts._eurPerCny = fxRates.eurPerCny;
       canonicalUrl =
         resolved.marketplace === "tmall"
           ? `https://detail.tmall.com/item.htm?id=${resolved.itemId}`
@@ -904,6 +920,7 @@ async function handle(event) {
     }));
 
     const usdPerCny = facts._usdPerCny != null ? facts._usdPerCny : FX_FALLBACK_USD_PER_CNY;
+    const eurPerCny = facts._eurPerCny != null ? facts._eurPerCny : FX_FALLBACK_EUR_PER_CNY;
     await paidGate.recordPaidUsage(gate, "resolve");
     return response(200, {
       source: resolved.marketplace,
@@ -918,7 +935,9 @@ async function handle(event) {
       priceCny: facts.priceCny,
       priceCnyHigh: facts.priceCnyHigh,
       priceUsd: facts.priceCny != null ? Math.round(facts.priceCny * usdPerCny * 100) / 100 : null,
+      priceEur: facts.priceCny != null ? Math.round(facts.priceCny * eurPerCny * 100) / 100 : null,
       usdPerCny,
+      eurPerCny,
       stock: facts.stock,
       mainImage: facts.mainImage,
       images: facts.images || [],

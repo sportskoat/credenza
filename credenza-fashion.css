@@ -15531,6 +15531,24 @@ input.cz-sizing-fix-size {
   color: var(--cz-faint);
 }
 
+/* Signup link for new agent customers. Small and secondary. It matches the
+   disclosure line above it. */
+.cz-detail-signup-link {
+  display: block;
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--cz-link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--cz-link) 50%, transparent);
+  text-underline-offset: 2px;
+}
+.cz-detail-signup-link:hover {
+  text-decoration-color: var(--cz-link);
+}
+
 /* Round 5 point 5.3 (2026-07-29): legal and affiliate copy is small, faint,
    never bold — one line in normal view, the full wording behind this small
    "i" control. The disclosure stays reachable, never deleted. */
