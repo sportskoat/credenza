@@ -43,8 +43,8 @@ const setTheme = async (value) => {
 };
 
 for (const [label, stored, wantAttr, wantBg, wantMeta] of [
-  ["new visitor", null, "dark", DARK, "#000000"],
-  ["app set to Blackout", "rainbow", "dark", DARK, "#000000"],
+  ["new visitor", null, "dark", DARK, "#050506"],
+  ["app set to Blackout", "rainbow", "dark", DARK, "#050506"],
   ["app set to Gallery", "light", "light", LIGHT, "#f4f4f0"],
 ]) {
   await setTheme(stored);

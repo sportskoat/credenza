@@ -19,6 +19,11 @@
   --cz-footer-bg: #EFEFE9;
   --cz-inset-bg: #FAFAF6;
   --cz-seg: rgba(23, 24, 26, 0.06);
+  --cz-hover: rgba(23, 24, 26, 0.04);
+  --cz-selected: rgba(23, 24, 26, 0.07);
+  --cz-card-border: rgba(23, 24, 26, 0.10);
+  --cz-seg-on: #17181a;
+  --cz-seg-on-text: #F4F4F0;
 
   /* Lines */
   --cz-hair: #d2d2c9;
@@ -87,22 +92,28 @@
 }
 
 [data-theme="dark"] {
-  --cz-bg: #000000;
-  --cz-bg-elevated: #101012;
-  --cz-card: rgba(32, 32, 36, 0.86);
-  --cz-card-solid: #202024;
+  /* Kimi-feel Blackout (2026-08-01): near-black field, #0d0d10 cards. */
+  --cz-bg: #050506;
+  --cz-bg-elevated: #0d0d10;
+  --cz-card: rgba(13, 13, 16, 0.92);
+  --cz-card-solid: #0d0d10;
   --cz-chip-fill: rgba(255, 255, 255, 0.10);
-  --cz-strip-bg: #151517;
-  --cz-footer-bg: #0c0c0e;
-  --cz-inset-bg: #26262b;
-  --cz-seg: rgba(255, 255, 255, 0.07);
+  --cz-strip-bg: #0a0a0c;
+  --cz-footer-bg: #08080a;
+  --cz-inset-bg: #141418;
+  --cz-seg: rgba(255, 255, 255, 0.04);
+  --cz-hover: rgba(255, 255, 255, 0.04);
+  --cz-selected: rgba(255, 255, 255, 0.07);
+  --cz-card-border: rgba(255, 255, 255, 0.10);
+  --cz-seg-on: #ffffff;
+  --cz-seg-on-text: #000000;
 
-  --cz-hair: rgba(255, 255, 255, 0.16);
-  --cz-hair-strong: rgba(255, 255, 255, 0.24);
+  --cz-hair: rgba(255, 255, 255, 0.10);
+  --cz-hair-strong: rgba(255, 255, 255, 0.15);
 
   --cz-ink: #f5f5f7;
-  --cz-sub: #b7bbc2;
-  --cz-faint: #9ea3ab;
+  --cz-sub: #a3a3ab;
+  --cz-faint: #73737a;
   --cz-placeholder: #8a9099;
 
   --cz-brand-ground: #0f1114;

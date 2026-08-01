@@ -93,7 +93,7 @@ const STYLE = `
 --display:"Clash Grotesk",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 --sans:'Clash Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
 --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-@media (prefers-color-scheme:dark){:root{--bg:#000000;--ink:#f4f4f0;--muted:#a1a1aa;--faint:#8a857c;--card:#1a1a1d;--line:#2a2a2e}}
+@media (prefers-color-scheme:dark){:root{--bg:#050506;--ink:#f4f4f0;--muted:#a1a1aa;--faint:#8a857c;--card:#0d0d10;--line:#2a2a2e}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);
 padding:2.5rem 1.25rem 3rem;font-synthesis:none;-webkit-font-smoothing:antialiased}

@@ -648,7 +648,7 @@
   letter-spacing: -0.01em;
   color: var(--cz-action-muted-text);
   background: var(--cz-action-muted-bg);
-  border: none;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   border-radius: 999px;
   min-height: 40px;
   padding: 8px 14px;
@@ -658,7 +658,18 @@
     transform var(--dur-micro) var(--ease-out),
     background var(--dur-micro) var(--ease-out),
     color var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out),
     opacity var(--dur-micro) var(--ease-out);
+}
+
+/* Kimi hover recipe: 4% tint only — no slide, no jump. */
+@media (hover: hover) and (pointer: fine) {
+  .cz-app[data-fashion="true"] .cz-pill:hover:not(:disabled):not([data-variant="primary"]) {
+    background: var(--cz-hover);
+  }
+  .cz-app[data-fashion="true"] .cz-pill[data-variant="subtle"]:hover:not(:disabled) {
+    background: var(--cz-hover);
+  }
 }
 
 /* Shared press scale for chrome that used to feel dead (Kyle UI audit). */
@@ -6721,18 +6732,24 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 7px;
   padding: 8px 14px;
-  border: 1px solid var(--cz-hair);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   border-radius: 999px;
-  background: var(--cz-card);
-  color: var(--cz-ink);
+  background: transparent;
+  color: var(--cz-sub);
   font-family: var(--cz-sans);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
 }
 .cz-settings-back:hover {
-  border-color: var(--cz-sub);
+  color: var(--cz-ink);
+  background: var(--cz-hover);
+  border-color: var(--cz-card-border, var(--cz-hair));
 }
 
 .cz-settings-page-brand {
@@ -6781,13 +6798,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   letter-spacing: 0.01em;
   text-align: left;
   cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
 }
 .cz-settings-nav-item:hover {
   color: var(--cz-ink);
+  background: var(--cz-hover);
 }
 .cz-settings-nav-item.is-active {
-  background: var(--cz-accent-bg);
+  background: var(--cz-selected);
   color: var(--cz-ink);
+  outline: 1px solid var(--cz-card-border, var(--cz-hair));
 }
 
 .cz-settings-nav-summary {
@@ -6839,21 +6861,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-settings-section-kicker {
-  font-family: var(--cz-sans);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--cz-money);
+  color: var(--cz-faint);
   margin-bottom: 10px;
 }
 
 .cz-settings-section-head {
   margin: 0 0 10px;
-  font-family: var(--cz-display);
-  font-size: 30px;
+  font-family: var(--cz-sans);
+  font-size: 28px;
   font-weight: 600;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   line-height: 1.12;
   color: var(--cz-ink);
 }
@@ -6951,10 +6973,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-account-plan-amount {
-  font-family: var(--cz-display);
+  font-family: var(--cz-mono);
   font-size: 30px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-ink);
 }
 
@@ -7196,11 +7219,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizes-row:hover {
-  background: var(--cz-accent-bg);
+  background: var(--cz-hover, var(--cz-accent-bg));
 }
 
 .cz-sizes-row.is-active {
-  background: var(--cz-accent-bg);
+  background: var(--cz-selected, var(--cz-accent-bg));
 }
 
 .cz-sizes-row-bar {
@@ -8930,14 +8953,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-fit-pref-axis-row {
   display: flex;
-  gap: 0;
-  padding: 3px;
-  border-radius: 11px;
-  border: 0;
-  /* Inset well (design 5a): one tidy control per axis. The old elevated +
-     hairline combo drew two box outlines per axis — visual noise. A touch
-     stronger than --cz-seg so the well reads on the white sheet. */
-  background: color-mix(in srgb, var(--cz-ink) 7%, transparent);
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  /* Kimi segmented track: quiet fill, solid on pick. */
+  background: var(--cz-seg);
   box-sizing: border-box;
 }
 .cz-fit-pref-chip {
@@ -8946,22 +8967,23 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   min-height: 34px;
   padding: 7px 4px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
-  color: var(--cz-sub);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
+  color: var(--cz-faint);
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   text-align: center;
   transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
 .cz-fit-pref-chip:hover:not(.is-active) {
   color: var(--cz-ink);
+  background: var(--cz-hover);
 }
 .cz-fit-pref-chip.is-active {
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
+  background: var(--cz-seg-on, var(--cz-action-fill));
+  color: var(--cz-seg-on-text, var(--cz-action-text));
   font-weight: 600;
 }
 .cz-fit-pref-chip:focus-visible {
@@ -13351,11 +13373,12 @@ input.cz-detail-size-choice.is-custom:focus-visible {
 }
 
 .cz-sizing-value {
-  font-family: var(--cz-display);
+  font-family: var(--cz-mono);
   font-size: 21px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-money);
 }
 
@@ -14840,25 +14863,40 @@ input.cz-sizing-fix-size {
 .cz-detail-unit {
   flex: 0 0 auto;
   display: flex;
-  border: 1px solid var(--cz-hair);
-  border-radius: 10px;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  border-radius: 999px;
+  background: var(--cz-seg);
   overflow: hidden;
 }
 
 .cz-detail-unit-btn {
-  min-height: 44px;
-  padding: 0 12px;
+  min-height: 40px;
+  padding: 0 14px;
   border: 0;
+  border-radius: 999px;
   background: transparent;
   color: var(--cz-sub);
-  font-size: 13px;
-  font-weight: 700;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-detail-unit-btn:hover:not(.is-active) {
+    color: var(--cz-ink);
+    background: var(--cz-hover);
+  }
 }
 
 .cz-detail-unit-btn.is-active {
-  background: var(--cz-seg);
-  color: var(--cz-ink);
+  background: var(--cz-seg-on, var(--cz-action-fill));
+  color: var(--cz-seg-on-text, var(--cz-action-text));
 }
 
 /* ── Section labels ── */
@@ -16656,4 +16694,124 @@ input.cz-sizing-fix-size {
   .cz-dpanel-arrow {
     z-index: 2;
   }
+}
+
+/* ═══ Kimi-feel shared chrome (2026-08-01) ═══
+   One recipe for segmented pills, dark cards, list rows, and kickers.
+   Source: Kimi measurements UI (localhost:7100) + Kyle #design thread. */
+
+/* Segmented control — solid white (or ink) on pick, 4% hover, color only. */
+.cz-segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  background: var(--cz-seg);
+}
+
+.cz-segment-btn {
+  flex: 1 0 auto;
+  appearance: none;
+  min-height: 32px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-faint);
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-segment-btn:hover:not(.is-active) {
+    color: var(--cz-ink);
+    background: var(--cz-hover);
+  }
+}
+
+.cz-segment-btn.is-active {
+  background: var(--cz-seg-on, var(--cz-action-fill));
+  color: var(--cz-seg-on-text, var(--cz-action-text));
+}
+
+.cz-segment-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.cz-segment-btn:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+/* Dark card surface — one solid + 10% border.
+   Blackout sets data-theme="rainbow"; "dark" is the skill-doc alias. */
+.cz-app[data-theme="dark"] .cz-card,
+.cz-app[data-theme="rainbow"] .cz-card,
+.cz-app[data-theme="dark"] .cz-sheet,
+.cz-app[data-theme="rainbow"] .cz-sheet,
+.cz-app[data-theme="dark"] .cz-modal,
+.cz-app[data-theme="rainbow"] .cz-modal,
+.cz-app[data-theme="dark"] .cz-settings-card,
+.cz-app[data-theme="rainbow"] .cz-settings-card,
+.cz-app[data-theme="dark"] .cz-account-plan,
+.cz-app[data-theme="rainbow"] .cz-account-plan,
+.cz-app[data-theme="dark"] .cz-sizes-panel,
+.cz-app[data-theme="rainbow"] .cz-sizes-panel,
+.cz-app[data-theme="dark"] .cz-fit-prefs,
+.cz-app[data-theme="rainbow"] .cz-fit-prefs {
+  border-color: var(--cz-card-border, var(--cz-hair));
+}
+
+/* List / measure row: hover 4%, selected 7% + thin outline. */
+.cz-kimi-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-kimi-row:hover {
+    background: var(--cz-hover);
+  }
+}
+
+.cz-kimi-row.is-active {
+  background: var(--cz-selected);
+  outline: 1px solid var(--cz-card-border, var(--cz-hair));
+}
+
+.cz-kimi-row-value {
+  font-family: var(--cz-mono);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-ink);
+}
+
+.cz-kimi-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
 }

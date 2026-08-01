@@ -168,6 +168,12 @@ const PALETTES = {
     "--cz-brand-c": "#e9edf2",
     "--cz-brand-rule": "#4da3ff",
     "--cz-seg": "rgba(23, 24, 26, 0.06)",
+    /* Kimi-feel surface recipe on paper (black tints). */
+    "--cz-hover": "rgba(23, 24, 26, 0.04)",
+    "--cz-selected": "rgba(23, 24, 26, 0.07)",
+    "--cz-card-border": "rgba(23, 24, 26, 0.10)",
+    "--cz-seg-on": "#17181a",
+    "--cz-seg-on-text": "#F4F4F0",
     "--cz-accent": "#17181a",
     "--cz-accent-bg": "rgba(23, 24, 26, 0.08)",
     "--cz-accent-deep": "#3c3e44",
@@ -235,27 +241,32 @@ const PALETTES = {
     "--cz-footer-bg": "#EFEFE9",
     "--cz-inset-bg": "#FAFAF6",
   },
-  // Blackout dark: true-black field, neutral #1a1a1d surfaces, zero blue cast.
-  // Money green + heart red are the only hue; everything else is grayscale.
+  // Blackout dark: Kimi-feel near-black field (#050506), card #0d0d10,
+  // white tints only. Money green + heart red are the only hue.
   rainbow: {
-    "--cz-bg": "#000000",
-    "--cz-bg-elevated": "#101012",
-    "--cz-card": "rgba(32, 32, 36, 0.86)",
-    /* CO-19: #1a1a1d on #000 vanished — the lower half of each card merged
-       into the field. Surface and hairline raised so the card edge holds. */
-    "--cz-card-solid": "#202024",
-    "--cz-hair": "rgba(255, 255, 255, 0.16)",
-    "--cz-hair-strong": "rgba(255, 255, 255, 0.24)",
+    "--cz-bg": "#050506",
+    "--cz-bg-elevated": "#0d0d10",
+    "--cz-card": "rgba(13, 13, 16, 0.92)",
+    /* Kimi recipe: one dark card solid + thin 10% white border. */
+    "--cz-card-solid": "#0d0d10",
+    "--cz-hair": "rgba(255, 255, 255, 0.10)",
+    "--cz-hair-strong": "rgba(255, 255, 255, 0.15)",
     "--cz-ink": "#f5f5f7",
-    "--cz-sub": "#b7bbc2",
-    "--cz-faint": "#9ea3ab",
+    "--cz-sub": "#a3a3ab",
+    "--cz-faint": "#73737a",
     // Same three values as Gallery — see the note there.
     "--cz-brand-ground": "#0f1114",
     "--cz-brand-c": "#e9edf2",
     "--cz-brand-rule": "#4da3ff",
-    "--cz-seg": "rgba(255, 255, 255, 0.07)",
+    "--cz-seg": "rgba(255, 255, 255, 0.04)",
+    /* Kimi hover 4% / selected 7% / segment solid white on pick. */
+    "--cz-hover": "rgba(255, 255, 255, 0.04)",
+    "--cz-selected": "rgba(255, 255, 255, 0.07)",
+    "--cz-card-border": "rgba(255, 255, 255, 0.10)",
+    "--cz-seg-on": "#ffffff",
+    "--cz-seg-on-text": "#000000",
     "--cz-accent": "#f5f5f7",
-    "--cz-accent-bg": "rgba(245, 245, 247, 0.12)",
+    "--cz-accent-bg": "rgba(255, 255, 255, 0.07)",
     "--cz-accent-deep": "#ffffff",
     "--cz-favorite": "#f5f5f7",
     // Near-white face carries the black label at ~17:1 (Kyle spec: Buy action
@@ -263,8 +274,8 @@ const PALETTES = {
     "--cz-action-fill": "#f5f5f7",
     "--cz-action-text": "#000000",
     "--cz-action-text-divider": "rgba(0, 0, 0, 0.18)",
-    "--cz-action-muted-bg": "rgba(245, 245, 247, 0.92)",
-    "--cz-action-muted-text": "#1a1a1d",
+    "--cz-action-muted-bg": "rgba(255, 255, 255, 0.10)",
+    "--cz-action-muted-text": "#f5f5f7",
     /* Kyle 2026-07-30 (#design): "take out these white lines that always
        populate around things, all of them." Every focus ring in the app rides
        this one token, so Blackout drops it to transparent — no white outline
@@ -294,14 +305,11 @@ const PALETTES = {
     // The light shadow is invisible on a true-black field. Deeper and wider
     // so the button still separates from the shelf.
     "--cz-fab-shadow": "0 10px 30px rgba(0, 0, 0, 0.62)",
-    "--cz-glow-weak": "rgba(26, 26, 29, 0.55)",
-    "--cz-gradient-1": "#1a1a1d",
-    "--cz-gradient-2": "#3a3a40",
+    "--cz-glow-weak": "rgba(13, 13, 16, 0.55)",
+    "--cz-gradient-1": "#0d0d10",
+    "--cz-gradient-2": "#2a2a30",
     "--cz-gradient-3": "#a3a3ab",
-    /* Blackout equivalents for turn 9 §10. The light values are warm paper
-       tints; on a true-black field they invert to raised neutral surfaces.
-       The three surface tints step ABOVE --cz-card-solid (#202024) so an
-       inset strip still reads as inset, not as a hole in the card. */
+    /* Blackout: chip fill and raised strips step above #0d0d10. */
     "--cz-chip-fill": "rgba(255, 255, 255, 0.10)",
     "--cz-warn": "#d9a83c",
     /* On black the warning label goes light, not dark: #8a6714 would vanish.
@@ -312,9 +320,9 @@ const PALETTES = {
        Kyle 2026-07-30: "more color on the actual chart" — 0.18 → 0.38. */
     "--cz-fit-band": "rgba(74, 222, 128, 0.38)",
     "--cz-sheen": "rgba(74, 222, 128, 0.16)",
-    "--cz-strip-bg": "#151517",
-    "--cz-footer-bg": "#0c0c0e",
-    "--cz-inset-bg": "#26262b",
+    "--cz-strip-bg": "#0a0a0c",
+    "--cz-footer-bg": "#08080a",
+    "--cz-inset-bg": "#141418",
   },
 };
 
@@ -5650,7 +5658,7 @@ function CredenzaApp() {
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
     // Blackout black / Gallery warm-white — matches the live field for iOS chrome.
-    if (meta) meta.setAttribute("content", mode === "rainbow" ? "#000000" : "#F4F4F0");
+    if (meta) meta.setAttribute("content", mode === "rainbow" ? "#050506" : "#F4F4F0");
   }, [mode]);
   // A waiting service worker means a new build is staged. Quiet, compact toast
   // (not a sticky full-width Restart slab) — dismissible, auto-hides.

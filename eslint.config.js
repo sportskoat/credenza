@@ -78,9 +78,9 @@ export default [
         },
         {
           selector:
-            "Property[key.name='fontFamily'] > Literal[value=/^(?!.*Clash Grotesk).*$/]",
+            "Property[key.name='fontFamily'] > Literal[value=/^(?!var\\(--cz-(sans|display|mono)\\)).*$/]",
           message:
-            "Only Clash Grotesk is allowed. Use var(--cz-sans), var(--cz-display), or var(--cz-mono).",
+            "Use a type token only: var(--cz-sans), var(--cz-display), or var(--cz-mono).",
         },
       ],
     },
