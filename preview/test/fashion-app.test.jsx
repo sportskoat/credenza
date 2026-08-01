@@ -2333,7 +2333,7 @@ describe("Inline preference controls (CH-14)", () => {
     // (Kyle 2026-07-28), no carousel needed.
     await screen.findByRole("button", { name: "Open Palace x Nike jersey" });
 
-    const chip = screen.getByRole("button", { name: "Show prices in CNY" });
+    const chip = screen.getByRole("button", { name: "Show prices in EUR" });
     expect(chip).toHaveTextContent("USD");
     // The amounts convert with the switch (Kyle 2026-07-28: "If you switch
     // from USD to CNY, it doesn't change the dollar amount"). ¥229 shows as
@@ -2341,11 +2341,22 @@ describe("Inline preference controls (CH-14)", () => {
     expect(screen.getAllByText("$32.06").length).toBeGreaterThan(1);
     await user.click(chip);
 
-    await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).pricePrimary).toBe("CNY"));
-    // The chip now names the way back.
-    expect(screen.getByRole("button", { name: "Show prices in USD" })).toHaveTextContent("CNY");
-    // Row and reel both lead with yuan now — no dollar amount survives.
+    await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).pricePrimary).toBe("EUR"));
+    // The chip now names the next stop. The cycle is CNY -> USD -> EUR -> CNY,
+    // so from EUR the chip offers yuan.
+    expect(screen.getByRole("button", { name: "Show prices in CNY" })).toHaveTextContent("EUR");
+    // Row and reel both lead with euro now — no dollar amount survives. With
+    // no priceEur on the fixture, €29.77 is ¥229 through the offline rate
+    // (FX_FALLBACK_EUR_PER_CNY = 0.13).
     await waitFor(() => expect(screen.queryByText("$32.06")).toBeNull());
+    expect(screen.getAllByText("€29.77").length).toBeGreaterThan(1);
+    expect(screen.queryByText("¥229")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Show prices in CNY" }));
+    await waitFor(() => expect(JSON.parse(data[PREFS_KEY]).pricePrimary).toBe("CNY"));
+    // The chip now offers dollars again, and yuan leads the row and reel.
+    expect(screen.getByRole("button", { name: "Show prices in USD" })).toHaveTextContent("CNY");
+    await waitFor(() => expect(screen.queryByText("€29.77")).toBeNull());
     expect(screen.getAllByText("¥229").length).toBeGreaterThan(1);
   });
 
