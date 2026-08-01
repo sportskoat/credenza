@@ -288,10 +288,13 @@ describe("the counter pill is big enough for a thumb", () => {
 
 // ── The bottom sheet (Kyle 2026-07-31) ─────────────────────────────────────
 //
-// Kyle drew the sign-in card as a sheet against the bottom edge, with a grab
+// Kyle drew the limits wall as a sheet against the bottom edge, with a grab
 // bar. This also lives in the stylesheet, so it is pinned at the source.
+// The sign-in card left this path 2026-08-01 (see the next describe block);
+// this one now covers only the states that still show it — today's free
+// limit and a lapsed Pro.
 
-describe("the sign-in card is a bottom sheet on a phone", () => {
+describe("the limits wall is a bottom sheet on a phone", () => {
   const phoneStart = CSS.indexOf(
     "@media (max-width: 767px) and (pointer: coarse) {\n  .cz-limits-sheet {",
   );
@@ -320,5 +323,51 @@ describe("the sign-in card is a bottom sheet on a phone", () => {
     expect(shared).toBeGreaterThan(-1);
     expect(phoneStart).toBeGreaterThan(shared);
     expect(phone).toContain("padding-top: var(--space-4) !important");
+  });
+});
+
+// ── The sign-in card: a centered window everywhere (F 2026-08-01) ──────────
+//
+// Kyle: "while you are at the sign in, can you center it and make it its
+// own modal." Signing in is a decision, not a quick tool, so unlike the
+// limits wall above it never bottom-slides on a phone — cz-signin-sheet
+// overrides the shared bottom-sheet gate back to centered and adds the
+// glass surface.
+
+describe("the sign-in card is a centered, frosted window on every screen", () => {
+  const signinBase = CSS.slice(
+    CSS.indexOf('.cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-sheet {'),
+  );
+  const phoneStart = signinBase.indexOf(
+    "@media (max-width: 767px) and (pointer: coarse) {\n  /* The phone bottom-sheet gate",
+  );
+  const phone = signinBase.slice(phoneStart, signinBase.indexOf("\n}\n", phoneStart));
+
+  it("gives the surface a translucent frost fill, no blur", () => {
+    expect(signinBase).toMatch(/\.cz-modal-surface\.cz-signin-sheet\s*{[\s\S]*?background:\s*var\(--cz-frost-fill\);/);
+    // No backdrop-filter: the 2026-07-27 compositing audit measured 0%
+    // visible change from blurring a static modal surface. A regression
+    // here would silently pay that cost back.
+    const surfaceBlock = signinBase.slice(0, signinBase.indexOf("\n}\n"));
+    // The colon form only matches a real declaration, not this file's own
+    // explanatory comment about why there is none.
+    expect(surfaceBlock).not.toContain("backdrop-filter:");
+  });
+
+  it("re-centers on the phone gate that bottom-anchors every other modal", () => {
+    expect(phoneStart).toBeGreaterThan(-1);
+    expect(phone).toContain(".cz-modal:has(.cz-signin-sheet)");
+    const hasBlock = phone.slice(phone.indexOf(".cz-modal:has(.cz-signin-sheet)"));
+    // margin: auto cancels the shared gate's bottom anchor. width must be
+    // cancelled too, or the phone gate's width:100% stays edge-to-edge under
+    // the inline maxWidth={460} React sets — a real bug this test caught
+    // once already (probe-signin-centered.mjs, phone check).
+    expect(hasBlock).toMatch(/width:\s*min\(720px,\s*calc\(100% - 32px\)\);/);
+    expect(hasBlock).toMatch(/margin:\s*auto;/);
+  });
+
+  it("drops the grab bar and the squared corners the limits wall uses", () => {
+    expect(phone).toMatch(/\.cz-signin-sheet\s*{\s*border-radius:\s*18px;/);
+    expect(phone).toMatch(/\.cz-signin-sheet::before\s*{\s*content:\s*none;/);
   });
 });
