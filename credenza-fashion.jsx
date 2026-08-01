@@ -5,10 +5,9 @@ import { loadMotionFeatures } from "./components/motion-features.js";
 import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
 
 /**
- * Merry-go-round / roundabout carousel icon.
- * Kyle 2026-08-01 rejected the canopy-only mark; ref is the Vecteezy
- * carousel (dome + hang poles + horses + round platform). Lucide has no match.
- * Stroke recipe matches LayoutGrid on the view switch (15 / 2.2).
+ * Image-slider / carousel UI icon (not a fairground ride).
+ * Kyle 2026-08-01 round 3: rounded photo card + mountain glyph + curved
+ * side brackets (media 97cc9704). Stroke recipe matches LayoutGrid (15 / 2.2).
  */
 function CarouselIcon({ size = 15, strokeWidth = 2.2, className, ...rest }) {
   return (
@@ -26,23 +25,14 @@ function CarouselIcon({ size = 15, strokeWidth = 2.2, className, ...rest }) {
       aria-hidden="true"
       {...rest}
     >
-      {/* finial on the center pole */}
-      <path d="M12 2v2" />
-      {/* domed canopy */}
-      <path d="M4 11c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-      {/* canopy fringe (soft scallops) */}
-      <path d="M4 11c1.15 1.35 2.3 1.35 3.45 0 1.15 1.35 2.3 1.35 3.45 0 1.15 1.35 2.3 1.35 3.45 0 1.15 1.35 2.3 1.35 3.45 0 1.15 1.35 2.3 1.35 3.45 0" />
-      {/* center pole down to the platform */}
-      <path d="M12 11.5v6.5" />
-      {/* hang poles for the horses */}
-      <path d="M7.5 11.5v3.5M16.5 11.5v3.5" />
-      {/* left horse, facing out */}
-      <path d="M5.4 17c0-.75.55-1.3 1.25-1.3h.35l.55-1.15.9.4v.75h.7V17H5.4z" />
-      {/* right horse, facing out */}
-      <path d="M18.6 17c0-.75-.55-1.3-1.25-1.3h-.35l-.55-1.15-.9.4v.75h-.7V17h3.75z" />
-      {/* round platform (the roundabout base) */}
-      <ellipse cx="12" cy="18.6" rx="7.5" ry="1.7" />
-      <path d="M4.5 18.6v1.1c0 1.15 3.35 2.1 7.5 2.1s7.5-.95 7.5-2.1v-1.1" />
+      {/* center photo card */}
+      <rect x="7" y="5" width="10.5" height="13.5" rx="2.3" />
+      {/* photo/mountain glyph — short diagonal + longer diagonal, lower-center */}
+      <path d="M10.2 14.4l1.7-2.1" />
+      <path d="M11 16.4l3.7-4.5" />
+      {/* curved side brackets (swipeable panels), not touching the card */}
+      <path d="M4.3 7.2C2.2 9.4 2.2 14.6 4.3 16.8" />
+      <path d="M20.2 7.2C22.3 9.4 22.3 14.6 20.2 16.8" />
     </svg>
   );
 }
