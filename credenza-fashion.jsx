@@ -5257,13 +5257,30 @@ function CredenzaApp() {
   //   3. Plain open: restore the stored session + cached snapshot, then
   //      refresh the snapshot in the background (offline keeps the cache).
   useEffect(() => {
-    if (!AUTH_ENABLED) return;
     let cancelled = false;
     const stripUrl = () => {
       try {
         window.history.replaceState(null, "", window.location.pathname);
       } catch {}
     };
+    // Stripe return + portal return land on Account and plan even when
+    // accounts are off in this build — the confirmation page still shows.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgraded") || params.get("upgrade")) {
+      const upgraded = params.get("upgraded");
+      if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
+      else notify("Checkout cancelled — nothing was charged.");
+    }
+    if (params.get("profile") || params.get("upgraded")) {
+      stripUrl();
+      setSettingsView({ section: "account" });
+      settingsBootRef.current = true;
+      settingsSeqRef.current = 1;
+      try {
+        window.history.replaceState({ czSettings: "account", seq: 1 }, "", "/settings/account");
+      } catch {}
+    }
+    if (!AUTH_ENABLED) return;
     const pullEntitlement = async (session) => {
       try {
         const payload = await refreshEntitlement(session.accessToken);
@@ -5287,30 +5304,6 @@ function CredenzaApp() {
           await pullEntitlement(fromUrl.session);
         }
         return;
-      }
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("upgraded") || params.get("upgrade")) {
-        const upgraded = params.get("upgraded");
-        stripUrl();
-        if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
-        else notify("Checkout cancelled — nothing was charged.");
-      }
-      // Return from the Stripe Customer Portal: land on Account and plan,
-      // where billing lives (portal.js builds this return URL).
-      // A paid checkout lands here too (Kyle 2026-07-30: "billing worked, but
-      // there's no confirmation page after you get Pro"). A toast that fades
-      // was the only answer, on the shelf, with nothing to read afterwards.
-      // Account and plan states the plan in words — "You are on Pro as …" —
-      // and the delayed entitlement refresh below flips it there if the
-      // webhook is still landing.
-      if (params.get("profile") || params.get("upgraded")) {
-        stripUrl();
-        setSettingsView({ section: "account" });
-        settingsBootRef.current = true;
-        settingsSeqRef.current = 1;
-        try {
-          window.history.replaceState({ czSettings: "account", seq: 1 }, "", "/settings/account");
-        } catch {}
       }
       const session = await getValidSession();
       if (cancelled) return;
@@ -5551,9 +5544,11 @@ function CredenzaApp() {
     });
   };
 
-  const SETTINGS_KEYS = ["account", "sizes", "fit", "shelf", "data", "about"];
+  // Fit preferences folded into Sizes (handoff 2026-08-01). Keep "fit" as a
+  // deep-link alias so /settings/fit still opens the sizes section.
+  const SETTINGS_KEYS = ["account", "sizes", "shelf", "data", "about"];
   const normalizeSettingsSection = (s) => {
-    const mapped = { agent: "shelf", import: "data", links: "data" }[s] || s;
+    const mapped = { agent: "shelf", import: "data", links: "data", fit: "sizes" }[s] || s;
     return SETTINGS_KEYS.includes(mapped) ? mapped : "account";
   };
   useEffect(() => {

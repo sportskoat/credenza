@@ -1,47 +1,52 @@
-import { useEffect, useRef } from "react";
-import BrandMark from "../components/BrandMark.jsx";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import SettingsContext from "./SettingsContext.jsx";
 import SettingsNav, { SETTINGS_SECTIONS } from "./SettingsNav.jsx";
 import AccountPlanSection from "./AccountPlanSection.jsx";
 import SizesSection from "./SizesSection.jsx";
-import FitPrefsSection from "./FitPrefsSection.jsx";
 import ShelfDefaultsSection from "./ShelfDefaultsSection.jsx";
 import YourDataSection from "./YourDataSection.jsx";
 import AboutSupportSection from "./AboutSupportSection.jsx";
 
-// SettingsPage: the routed settings surface (design: "anything with a back
-// button, a form, or a destructive action gets a URL"). It renders
-// full-screen over the shelf. Desktop gets the 236px rail plus a content
-// pane; the phone gets a full-screen list that pushes to a full-screen
-// section.
+// One scrolling settings page (design handoff 2026-08-01). Five sections live
+// in one column. The rail smooth-scrolls and tracks the active section.
+// Fit preferences folds into Sizes — the old /settings/fit URL maps to sizes.
 //
-// Routing lives in credenza-fashion.jsx: `section` is the current URL's
-// section key (null on the phone's list view), onNavigate pushes
-// /settings/<section>, onClose returns to the shelf. This component only
-// renders what it is told.
+// `section` still comes from the URL for deep links. Clicking the rail and
+// scrolling both keep the URL and the highlight in sync.
 
-// All six sections are real (Phase 4). Sizes and Fit reuse the editors the
-// old sheet stack embedded; Shelf defaults is read-only by design (1e);
-// About and support took the site links from the deleted Profile sheet.
 const SECTION_BODY = {
   account: AccountPlanSection,
   sizes: SizesSection,
-  fit: FitPrefsSection,
   shelf: ShelfDefaultsSection,
   data: YourDataSection,
   about: AboutSupportSection,
 };
 
+const VALID_KEYS = new Set(SETTINGS_SECTIONS.map((s) => s.key));
+
+function normalizeSection(key) {
+  if (key === "fit") return "sizes";
+  if (key && VALID_KEYS.has(key)) return key;
+  return "account";
+}
+
+function prefersReducedMotion() {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
 export default function SettingsPage({ section, onNavigate, onClose, value, isPhone }) {
-  // The open card is a native <dialog>, and a native dialog paints above every
-  // ordinary element whatever the z-index says. As a plain panel this page
-  // drew UNDERNEATH it, so a tap on a setting landed on the right section but
-  // behind the blurred card (Kyle 2026-07-28: "it'll take you there in the
-  // background with it blurred out"). A dialog of its own joins the same layer
-  // and, opening last, sits on top. The card stays mounted, so Back returns to
-  // it. `cancel` is blocked because Escape is handled below — the browser's own
-  // close would remove the page without telling the app.
   const dialogRef = useRef(null);
+  const scrollerRef = useRef(null);
+  const sectionEls = useRef({});
+  // Suppress scroll-spy while a click-driven scroll is in flight.
+  const scrollLock = useRef(false);
+  const [active, setActive] = useState(() => normalizeSection(section));
+
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
@@ -53,7 +58,6 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
     };
   }, []);
 
-  // Escape closes the page, same contract as the sheets it replaces.
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") {
@@ -65,7 +69,6 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // The page is fixed over the shelf; stop the shelf scrolling under it.
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -74,45 +77,97 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
     };
   }, []);
 
-  const active = SETTINGS_SECTIONS.find((s) => s.key === section) || null;
-  const Body = active ? SECTION_BODY[active.key] : null;
-  // Phone with no section picked: the list IS the page. Desktop always has
-  // a section (the router defaults to account).
-  const showList = isPhone && !active;
+  const scrollToSection = useCallback(
+    (key, { updateUrl = true } = {}) => {
+      const target = normalizeSection(key);
+      const el = sectionEls.current[target];
+      const scroller = scrollerRef.current;
+      if (!el || !scroller) {
+        setActive(target);
+        if (updateUrl && onNavigate) onNavigate(target);
+        return;
+      }
+      scrollLock.current = true;
+      setActive(target);
+      if (updateUrl && onNavigate) onNavigate(target);
+      const top = Math.max(0, el.offsetTop - 20);
+      scroller.scrollTo({
+        top,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+      window.setTimeout(() => {
+        scrollLock.current = false;
+      }, prefersReducedMotion() ? 50 : 450);
+    },
+    [onNavigate]
+  );
+
+  // Deep link / external navigation: jump to the requested section.
+  useEffect(() => {
+    const target = normalizeSection(section);
+    if (target === active && !section) return;
+    // Only re-scroll when the URL section changes from outside.
+    if (target !== active) {
+      // First paint: wait a frame so section refs exist.
+      requestAnimationFrame(() => scrollToSection(target, { updateUrl: false }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to section prop
+  }, [section]);
+
+  // Scroll-spy: last section whose top is within 60px of the scroller top.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const onScroll = () => {
+      if (scrollLock.current) return;
+      const threshold = scroller.scrollTop + 60;
+      let current = SETTINGS_SECTIONS[0].key;
+      for (const { key } of SETTINGS_SECTIONS) {
+        const el = sectionEls.current[key];
+        if (!el) continue;
+        if (el.offsetTop <= threshold) current = key;
+      }
+      setActive((prev) => {
+        if (prev === current) return prev;
+        if (onNavigate) onNavigate(current);
+        return current;
+      });
+    };
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, [onNavigate]);
+
+  const bindSection = (key) => (el) => {
+    if (el) sectionEls.current[key] = el;
+    else delete sectionEls.current[key];
+  };
 
   return (
     <SettingsContext.Provider value={value}>
       <dialog ref={dialogRef} className="cz-settings-page" aria-label="Settings">
         <header className="cz-settings-page-masthead">
           <button type="button" className="cz-settings-back" onClick={onClose}>
-            <span aria-hidden="true">←</span> Back to the shelf
+            <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
+            Back to the shelf
           </button>
-          <span className="cz-settings-page-brand">
-            <BrandMark size={20} />
-            <span className="cz-settings-page-title">Settings</span>
-          </span>
+          <span className="cz-settings-page-wordmark">CREDENZA</span>
+          <span className="cz-settings-page-title">Settings</span>
         </header>
         <div className="cz-settings-page-layout">
           {!isPhone ? (
-            <SettingsNav active={active ? active.key : null} onSelect={onNavigate} />
+            <SettingsNav active={active} onSelect={(key) => scrollToSection(key)} />
           ) : null}
-          <main className="cz-settings-content">
-            {showList ? (
-              <SettingsNav active={null} onSelect={onNavigate} />
-            ) : active ? (
-              <>
-                {isPhone ? (
-                  <button
-                    type="button"
-                    className="cz-settings-back cz-settings-back-section"
-                    onClick={() => onNavigate(null)}
-                  >
-                    <span aria-hidden="true">←</span> Settings
-                  </button>
-                ) : null}
-                {Body ? <Body /> : null}
-              </>
-            ) : null}
+          <main ref={scrollerRef} className="cz-settings-content">
+            <div className="cz-settings-column">
+              {SETTINGS_SECTIONS.map(({ key }) => {
+                const Body = SECTION_BODY[key];
+                return (
+                  <div key={key} ref={bindSection(key)} className="cz-settings-section-anchor">
+                    {Body ? <Body /> : null}
+                  </div>
+                );
+              })}
+            </div>
           </main>
         </div>
       </dialog>

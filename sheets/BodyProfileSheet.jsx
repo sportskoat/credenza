@@ -7,10 +7,9 @@ import {
   measureToStorage,
 } from "../credenza-fashion.jsx";
 
-// Sizes and measurements v2 (design: Sizes and Measurements v2.dc.html).
-// Hairline sections, mono field table, fixed photo measure lines, two modes
-// that keep separate values on one saved record. Labels and numbers live in
-// the field list only — never on the photo.
+// Sizes and measurements redesign (handoff 2026-08-01).
+// Same dual body/garment data model as before. Layout + SVG tape diagrams
+// are new. No demo "result" sentence. Auto-saves when embedded.
 
 const TOPS = ["chest", "shoulder", "sleeve", "length"];
 const BOT = ["waist", "hip", "pantsLength", "shortsLength"];
@@ -33,8 +32,8 @@ const LABELS = {
   body: {
     chest: "Chest",
     shoulder: "Shoulder",
-    sleeve: "Arm length",
-    length: "Shirt length",
+    sleeve: "Sleeve",
+    length: "Length",
     waist: "Waist",
     hip: "Hip",
     pantsLength: "Trouser length",
@@ -53,44 +52,40 @@ const LABELS = {
 };
 
 const HOW = {
+  body: {
+    chest: "Around the fullest part, tape level, arms down.",
+    shoulder: "Bone to bone across your back, following the flat of the shoulders.",
+    sleeve: "Shoulder point down the outside of the arm to where you want the cuff.",
+    length: "Top of the shoulder straight down to where you want the hem to land.",
+    waist: "Around where you actually wear the waistband, not your natural waist.",
+    hip: "Around the fullest part of the seat, feet together.",
+    pantsLength: "Waistband down the outside of the leg to the ankle.",
+    shortsLength: "Waistband down to where you want the hem to land.",
+  },
   garment: {
     chest:
-      "Lay the top flat and smooth the fabric. Measure straight across from one armpit seam to the other — don’t stretch it.",
-    shoulder:
-      "Top of one shoulder seam to the top of the other. On a drop-shoulder tee that seam sits down the arm — measure it there anyway, sellers do.",
-    sleeve:
-      "From the shoulder seam point, down the outside of the sleeve, to the cuff edge. A diagonal on a flat-lay, not a drop down the side seam.",
-    length: "From the high point of the shoulder — right beside the collar — straight down to the hem.",
+      "Lay the top flat and smooth the fabric. Straight across from one armpit seam to the other — don't stretch it.",
+    shoulder: "Seam to seam across the back, flat.",
+    sleeve: "Shoulder seam down to the cuff edge.",
+    length: "High point of shoulder straight down to the hem.",
     waist: "Buttoned and flat. Across the top of the waistband, edge to edge. Sellers list this flat measure, not the loop.",
-    hip: "Flat across the widest point, roughly 18cm below the waistband.",
-    pantsLength: "From the top of the waistband straight down the outside to the hem.",
-    shortsLength: "Top of the waistband to the hem, the same way as trousers.",
-  },
-  body: {
-    chest: "Arms down, tape level under the armpits and across the fullest part. Breathe normally.",
-    shoulder: "Across the back, from the bony point of one shoulder to the bony point of the other.",
-    sleeve: "From the shoulder point, elbow slightly bent, down to the wrist bone.",
-    length: "Bodies have no hem. Measure a shirt you already like, high shoulder point to hem.",
-    waist: "Around the narrowest part, usually just above the navel. Don’t pull the tape tight.",
-    hip: "Around the fullest part of the seat, feet together.",
-    pantsLength: "Off a pair you own: top of the waistband down to the hem.",
-    shortsLength: "Off a pair you own: top of the waistband down to the hem.",
+    hip: "Flat, about 7in below the waistband, edge to edge.",
+    pantsLength: "Top of the waistband to the hem, the way sellers list it.",
+    shortsLength: "Top of the waistband to the hem.",
   },
 };
 
-// Percent of the photo box. Tops tuned to Kyle's tee flat-lay (F review
-// 2026-07-31): pit-to-pit joins the armpit seams, shoulder joins the seam
-// tips, sleeve runs the outside of the right sleeve, length drops from the
-// high shoulder point beside the collar. Bottoms approved as-is.
-const PTS = {
-  shoulder: { x1: 2, y1: 22, x2: 83, y2: 21 },
-  chest: { x1: 9, y1: 38, x2: 79, y2: 38 },
-  sleeve: { x1: 83, y1: 20, x2: 94, y2: 32 },
-  length: { x1: 36, y1: 14, x2: 36, y2: 90 },
-  waist: { x1: 26, y1: 12, x2: 74, y2: 12 },
-  hip: { x1: 20, y1: 28, x2: 80, y2: 28 },
-  pantsLength: { x1: 33, y1: 10, x2: 33, y2: 92 },
-  shortsLength: { x1: 67, y1: 10, x2: 67, y2: 48 },
+// Tape-line geometry: centre point + length + rotation (handoff §3c).
+// Paths lifted from Settings Redesign.dc.html — do not redraw.
+const TAPE = {
+  chest: { x: 75, y: 76, len: 62, r: 0 },
+  shoulder: { x: 75, y: 32, len: 46, r: 0 },
+  sleeve: { x: 122, y: 48, len: 34, r: 55 },
+  length: { x: 98, y: 82, len: 112, r: 90 },
+  waist: { x: 75, y: 22, len: 74, r: 0 },
+  hip: { x: 75, y: 52, len: 70, r: 0 },
+  pantsLength: { x: 54, y: 103, len: 142, r: 90 },
+  shortsLength: { x: 94, y: 64, len: 64, r: 90 },
 };
 
 function emptyDraft() {
@@ -114,183 +109,139 @@ function usualFromValue(value) {
   };
 }
 
-function formatNum(n) {
-  if (!isFinite(n)) return "";
-  return Math.abs(n - Math.round(n)) < 0.05 ? String(Math.round(n)) : n.toFixed(1);
-}
-
-function asCm(text, units) {
-  const n = parseFloat(text);
-  if (!isFinite(n) || n <= 0) return null;
-  return units === "in" ? n * 2.54 : n;
-}
-
 function filledCount(draft, keys) {
   return keys.filter((k) => parseFloat(draft[k]) > 0).length;
 }
 
-function FieldRow({ id, label, unit, value, active, onChange, onFocus, text = false, placeholder = "—" }) {
-  // No onClick on the label — htmlFor already focuses the input, and the
-  // input’s onFocus paints the active row. A click handler here trips a11y
-  // lint (label is non-interactive for mouse/keyboard listeners).
+function formatHint(n) {
+  if (!isFinite(n) || n <= 0) return "";
+  return Math.abs(n - Math.round(n)) < 0.05 ? String(Math.round(n)) : n.toFixed(1);
+}
+
+function TopsDiagram() {
   return (
-    <label className={"cz-sizes-row" + (active ? " is-active" : "")} htmlFor={id}>
-      <span className="cz-sizes-row-bar" aria-hidden="true" />
-      <span className="cz-sizes-row-label">{label}</span>
-      <input
-        id={id}
-        className={"cz-sizes-row-input" + (text ? " is-text" : "")}
-        inputMode={text ? "text" : "decimal"}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={onFocus}
-        placeholder={placeholder}
-        autoComplete="off"
-        aria-label={label}
+    <svg
+      viewBox="0 0 150 148"
+      width="150"
+      height="148"
+      role="img"
+      aria-label="Diagram of a tee laid flat, with the tape positions marked"
+    >
+      <path
+        d="M57,29 L21,59 L37,75 L47,65 L47,143 L109,143 L109,65 L119,75 L135,59 L99,29 Q78,43 57,29 Z"
+        fill="rgba(255,255,255,.06)"
       />
-      {text ? null : (
-        <span className="cz-sizes-row-unit" aria-hidden="true">
-          {unit}
-        </span>
-      )}
-    </label>
+      <path
+        d="M54,25 L18,55 L34,71 L44,61 L44,139 L106,139 L106,61 L116,71 L132,55 L96,25 Q75,39 54,25 Z"
+        fill="var(--cz-card-solid)"
+        stroke="var(--cz-hair-strong)"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M54,25 Q75,39 96,25"
+        fill="none"
+        stroke="var(--cz-hair-strong)"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M52,44 L52,133 M98,44 L98,133"
+        fill="none"
+        stroke="rgba(255,255,255,.10)"
+        strokeWidth="1.2"
+      />
+    </svg>
   );
 }
 
-function MeasureLines({ keys, activeKey, draft, onSelect, labels }) {
-  const active = PTS[activeKey] || PTS[keys[0]];
+function BottomsDiagram() {
   return (
-    <div className="cz-sizes-lines">
-      <svg className="cz-sizes-lines-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {keys.map((key) => {
-          const p = PTS[key];
-          const has = parseFloat(draft[key]) > 0;
-          const live = key === activeKey;
-          const state = live ? "live" : has ? "filled" : "empty";
-          return (
-            <g
-              key={key}
-              className={"cz-sizes-line-g is-" + state}
-              role="button"
-              tabIndex={0}
-              aria-label={"Select " + labels[key]}
-              onClick={() => onSelect(key)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelect(key);
-                }
-              }}
-            >
-              {/* Wide invisible stroke: 44px floor on a ~360px photo ≈ 12 viewBox units */}
-              <line className="cz-sizes-line-hit" x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2} />
-              <line className="cz-sizes-line-stroke" x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2} />
-            </g>
-          );
-        })}
-      </svg>
-      <span className="cz-sizes-dot" style={{ left: active.x1 + "%", top: active.y1 + "%" }} />
-      <span className="cz-sizes-dot" style={{ left: active.x2 + "%", top: active.y2 + "%" }} />
+    <svg
+      viewBox="0 0 150 186"
+      width="150"
+      height="186"
+      role="img"
+      aria-label="Diagram of a pair of trousers laid flat, with the tape positions marked"
+    >
+      <path
+        d="M41,20 L115,20 L115,36 L111,178 L83,178 L78,88 L73,178 L45,178 L41,36 Z"
+        fill="rgba(255,255,255,.06)"
+      />
+      <path
+        d="M38,16 L112,16 L112,32 L108,174 L80,174 L75,84 L70,174 L42,174 L38,32 Z"
+        fill="var(--cz-card-solid)"
+        stroke="var(--cz-hair-strong)"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path d="M38,32 L112,32" fill="none" stroke="var(--cz-hair-strong)" strokeWidth="1.4" />
+      <path d="M75,34 L75,62" fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="1.2" />
+      <path
+        d="M56,42 L56,168 M94,42 L94,168"
+        fill="none"
+        stroke="rgba(255,255,255,.08)"
+        strokeWidth="1.2"
+      />
+    </svg>
+  );
+}
+
+function TapeLines({ keys, activeKey, labels, onSelect }) {
+  return (
+    <div className="cz-sizes-tape-layer">
+      {keys.map((key) => {
+        const t = TAPE[key];
+        if (!t) return null;
+        const live = key === activeKey;
+        return (
+          <button
+            key={key}
+            type="button"
+            className={"cz-sizes-tape" + (live ? " is-live" : "")}
+            style={{
+              left: t.x + "px",
+              top: t.y + "px",
+              width: t.len + "px",
+              transform: "translate(-50%,-50%) rotate(" + t.r + "deg)",
+            }}
+            title={labels[key]}
+            aria-label={"Jump to " + labels[key]}
+            onClick={() => onSelect(key)}
+          >
+            <span className="cz-sizes-tape-bar" aria-hidden="true" />
+          </button>
+        );
+      })}
+      <span className="cz-sizes-guide-chip" aria-hidden="true">
+        GUIDE ONLY
+      </span>
     </div>
   );
 }
 
-// Garment mode ships real flat-lay photos; body mode keeps the drop-in slot
-// until the front-on figure photos land.
-const GARMENT_PHOTO = {
-  tops: "/img/sizes-tee.jpg",
-  bot: "/img/sizes-trousers.jpg",
-};
-
-function PhotoPanel({ mode, group, activeKey, draft, onSelect, labels, how, valueText }) {
-  const isTops = group === "tops";
-  const keys = isTops ? TOPS : BOT;
-  const photo = mode === "garment" ? GARMENT_PHOTO[group] : null;
-  const placeholder =
-    mode === "garment"
-      ? isTops
-        ? "Drop a top that fits, laid flat"
-        : "Drop trousers that fit, laid flat"
-      : isTops
-        ? "Drop a front-on photo, shoulders to hip"
-        : "Drop a front-on photo, waist to floor";
-
-  return (
-    <div className="cz-sizes-photo-col">
-      <div className="cz-sizes-photo">
-        <div className="cz-sizes-photo-slot" aria-hidden="true">
-          {photo ? (
-            <img className="cz-sizes-photo-img" src={photo} alt="" loading="lazy" />
-          ) : (
-            <span className="cz-sizes-photo-ph">{placeholder}</span>
-          )}
-        </div>
-        <MeasureLines keys={keys} activeKey={activeKey} draft={draft} onSelect={onSelect} labels={labels} />
-      </div>
-      <div className="cz-sizes-how">
-        <div className="cz-sizes-how-head">
-          <span className="cz-sizes-how-label">{labels[activeKey]}</span>
-          <span className="cz-sizes-how-value">{valueText}</span>
-        </div>
-        <p className="cz-sizes-how-body">{how[activeKey]}</p>
-      </div>
-    </div>
-  );
-}
-
-function buildVerdict(mode, draft, units, usualTops, height, weight) {
-  const chest = asCm(draft.chest, units);
-  const usual = String(usualTops || "").trim();
-  const h = parseFloat(height);
-  const w = parseFloat(weight);
-  const rough = isFinite(h) && h > 0 && isFinite(w) && w > 0;
-
-  if (!chest) {
-    if (rough) {
-      return {
-        text: "~ Large, estimated from your height and weight. The chart is right there — one measurement turns this into a real answer.",
-        basis: "Kit jersey · black · chart present · estimated from height and weight · marked ~",
-      };
-    }
-    if (usual) {
-      return {
-        text: "No chart on this listing, so Credenza takes your usual " + usual + " — and the card says that out loud.",
-        basis: "Kit jersey · black · no chart · falling back to your usual size",
-      };
-    }
-    return {
-      text: "Nothing to go on yet. Fill in your usual sizes and Credenza can at least stop guessing silently.",
-      basis: "Kit jersey · black · no chart · no usual size yet",
-    };
+function buildPayload(bodyDraft, garmentDraft, usual, garmentTop, garmentBottom, mode, units) {
+  const out = {};
+  for (const key of BODY_KEYS) {
+    const kind = key === "weight" ? "weight" : "length";
+    const nVal = measureToStorage(bodyDraft[key], units, kind);
+    if (nVal != null) out[key] = nVal;
   }
-
-  if (mode === "garment") {
-    // Demo chart: Kit jersey Large at 54cm pit-to-pit (half chest).
-    const ease = 54 - chest;
-    const dir =
-      ease >= 0
-        ? "leaves " + formatNum(ease) + "cm over"
-        : "sits " + formatNum(-ease) + "cm under";
-    return {
-      text:
-        "Take the Large. Its 54cm pit-to-pit " +
-        dir +
-        " the " +
-        formatNum(chest) +
-        "cm you measured flat, which is where this jersey is meant to sit.",
-      basis: "Kit jersey · black · chart present · flat to flat, no ease estimated",
-    };
+  for (const key of ["usualTops", "usualBottoms", "usualShoes"]) {
+    const s = String(usual[key] || "").trim();
+    if (s) out[key] = s;
   }
-
-  return {
-    text:
-      "Take the Large. Its 104cm chest gives you " +
-      formatNum(104 - chest) +
-      "cm of room over your " +
-      formatNum(chest) +
-      "cm.",
-    basis: "Kit jersey · black · chart present · ease added by Credenza",
-  };
+  const gOut = {};
+  for (const key of ALL) {
+    const nVal = measureToStorage(garmentDraft[key], units, "length");
+    if (nVal != null) gOut[key] = nVal;
+  }
+  if (Object.keys(gOut).length) out.garment = gOut;
+  const gt = String(garmentTop || "").trim();
+  const gb = String(garmentBottom || "").trim();
+  if (gt) out.garmentTop = gt;
+  if (gb) out.garmentBottom = gb;
+  out.measureMode = mode;
+  return out;
 }
 
 export default function BodyProfileSheet({
@@ -303,6 +254,8 @@ export default function BodyProfileSheet({
 }) {
   const baseId = useId();
   const inputRefs = useRef({});
+  const dirty = useRef(false);
+  const saveTimer = useRef(null);
 
   const [mode, setMode] = useState(() =>
     value && (value.measureMode === "body" || value.measureMode === "garment")
@@ -311,7 +264,6 @@ export default function BodyProfileSheet({
   );
   const [bodyDraft, setBodyDraft] = useState(() => {
     const d = draftFromStorage(value, units);
-    // height / weight live with usual sizes, not on the photo groups
     d.height = measureFromStorage(value && value.height, units, "length");
     d.weight = measureFromStorage(value && value.weight, units, "weight");
     return d;
@@ -325,33 +277,83 @@ export default function BodyProfileSheet({
   const [active, setActive] = useState({ tops: "chest", bot: "waist" });
   const [saved, setSaved] = useState(false);
 
-  // Keep display drafts in the selected unit when the parent flips units.
-  useEffect(() => {
-    // units prop is the source of truth from settings; drafts already convert
-    // on local switchUnits. No sync needed unless the parent remounts.
-  }, [units]);
-
   const draft = mode === "garment" ? garmentDraft : bodyDraft;
+  const otherDraft = mode === "garment" ? bodyDraft : garmentDraft;
   const labels = LABELS[mode];
   const how = HOW[mode];
-  const unitShort = units === "in" ? "in" : "cm";
-  const weightUnit = units === "in" ? "lb" : "kg";
+  const unitShort = units === "in" ? "IN" : "CM";
+  const weightUnit = units === "in" ? "LB" : "KG";
 
   const nTops = filledCount(draft, TOPS);
   const nBot = filledCount(draft, BOT);
   const n = nTops + nBot;
 
+  const persist = (next) => {
+    if (!onSave) return;
+    const payload = buildPayload(
+      next.bodyDraft,
+      next.garmentDraft,
+      next.usual,
+      next.garmentTop,
+      next.garmentBottom,
+      next.mode,
+      next.units
+    );
+    const hasAnything =
+      Object.keys(payload).some((k) => k !== "measureMode") ||
+      (payload.garment && Object.keys(payload.garment).length > 0);
+    onSave(hasAnything ? payload : null);
+    setSaved(true);
+  };
+
+  const scheduleSave = (patch) => {
+    dirty.current = true;
+    setSaved(false);
+    if (!embedded) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      persist({
+        bodyDraft: patch.bodyDraft ?? bodyDraft,
+        garmentDraft: patch.garmentDraft ?? garmentDraft,
+        usual: patch.usual ?? usual,
+        garmentTop: patch.garmentTop ?? garmentTop,
+        garmentBottom: patch.garmentBottom ?? garmentBottom,
+        mode: patch.mode ?? mode,
+        units: patch.units ?? units,
+      });
+    }, 280);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
+
   const setMeasure = (key, raw) => {
     const v = String(raw).replace(/[^0-9.]/g, "");
-    setSaved(false);
-    if (mode === "garment") setGarmentDraft((d) => ({ ...d, [key]: v }));
-    else setBodyDraft((d) => ({ ...d, [key]: v }));
+    if (mode === "garment") {
+      setGarmentDraft((d) => {
+        const next = { ...d, [key]: v };
+        scheduleSave({ garmentDraft: next });
+        return next;
+      });
+    } else {
+      setBodyDraft((d) => {
+        const next = { ...d, [key]: v };
+        scheduleSave({ bodyDraft: next });
+        return next;
+      });
+    }
   };
 
   const setBodyMeta = (key, raw) => {
     const v = String(raw).replace(/[^0-9.]/g, "");
-    setSaved(false);
-    setBodyDraft((d) => ({ ...d, [key]: v }));
+    setBodyDraft((d) => {
+      const next = { ...d, [key]: v };
+      scheduleSave({ bodyDraft: next });
+      return next;
+    });
   };
 
   const focusKey = (key) => {
@@ -359,7 +361,6 @@ export default function BodyProfileSheet({
     setActive((a) => (a[group] === key ? a : { ...a, [group]: key }));
     const el = inputRefs.current[key];
     if (el && typeof el.focus === "function") {
-      // Defer so the active class paints before the caret lands.
       requestAnimationFrame(() => el.focus());
     }
   };
@@ -375,207 +376,237 @@ export default function BodyProfileSheet({
       }
       return out;
     };
-    setBodyDraft((d) =>
-      convert(d, (k) => (k === "weight" ? "weight" : "length"))
-    );
-    setGarmentDraft((d) => convert(d, () => "length"));
+    const nextBody = convert(bodyDraft, (k) => (k === "weight" ? "weight" : "length"));
+    const nextGarment = convert(garmentDraft, () => "length");
+    setBodyDraft(nextBody);
+    setGarmentDraft(nextGarment);
     onChangeUnits(next);
+    scheduleSave({ bodyDraft: nextBody, garmentDraft: nextGarment, units: next });
   };
 
-  const save = () => {
-    const out = {};
-    // Body measures always write from the body draft so garment mode never
-    // overwrites the body record (F’s condition).
-    for (const key of BODY_KEYS) {
-      const kind = key === "weight" ? "weight" : "length";
-      const nVal = measureToStorage(bodyDraft[key], units, kind);
-      if (nVal != null) out[key] = nVal;
-    }
-    for (const key of ["usualTops", "usualBottoms", "usualShoes"]) {
-      const s = String(usual[key] || "").trim();
-      if (s) out[key] = s;
-    }
-    const gOut = {};
-    for (const key of ALL) {
-      const nVal = measureToStorage(garmentDraft[key], units, "length");
-      if (nVal != null) gOut[key] = nVal;
-    }
-    if (Object.keys(gOut).length) out.garment = gOut;
-    const gt = String(garmentTop || "").trim();
-    const gb = String(garmentBottom || "").trim();
-    if (gt) out.garmentTop = gt;
-    if (gb) out.garmentBottom = gb;
-    out.measureMode = mode;
+  const switchMode = (next) => {
+    if (next === mode) return;
+    setMode(next);
+    scheduleSave({ mode: next });
+  };
 
-    const hasAnything =
-      Object.keys(out).some((k) => k !== "measureMode") || Object.keys(gOut).length > 0;
-    onSave(hasAnything ? out : null);
-    setSaved(true);
+  const saveManual = () => {
+    persist({ bodyDraft, garmentDraft, usual, garmentTop, garmentBottom, mode, units });
     if (!embedded) onClose();
   };
 
-  const modeHelp =
-    mode === "garment"
-      ? "Sellers publish these four numbers, so yours compare directly — nothing is estimated in the middle. The lines on the photo show where each one is taken."
-      : "Measure your body over a t-shirt, tape level. Credenza adds the ease the garment is meant to have.";
-
-  const topsNote =
-    mode === "garment"
-      ? garmentTop
-        ? "Every tops verdict will cite this as “from your " + garmentTop + ".”"
-        : "Name the top and every verdict can cite where the number came from."
-      : "Shirt length is the one exception — bodies have no hem, so measure a shirt you already like.";
-
-  // Kyle 2026-08-01: he re-typed a number he thought he already saved. The
-  // real cause: his old `inseam`/`shortsInseam` values measure the INSIDE
-  // leg, and the redesign above intentionally never reads them into the new
-  // outside-leg fields (grading one against the other names a wrong size).
-  // The app never said so, so it read as "ignored my input." This note only
-  // shows when that exact gap exists — an old value sits unread AND the new
-  // field is still empty — so it explains itself without new sizing math.
-  const hasUnreadLegacyLength =
-    value != null &&
-    ((value.inseam != null && !draft.pantsLength) ||
-      (value.shortsInseam != null && !draft.shortsLength));
-  const botNote = hasUnreadLegacyLength
-    ? "Trouser and shorts length run from the top of the waistband to the hem, the way sellers list them. Your old inside-leg number measures something different, so it does not carry over — enter this new number once."
-    : "Trouser and shorts length run from the top of the waistband to the hem, the way sellers list them.";
-
-  const valueText = (key) => {
-    const v = draft[key];
-    return parseFloat(v) > 0 ? v + " " + unitShort : "not measured";
+  const otherHint = (key) => {
+    const raw = otherDraft[key];
+    const nVal = parseFloat(raw);
+    if (!isFinite(nVal) || nVal <= 0) return "";
+    const tag = mode === "body" ? "garment" : "body";
+    return tag + " " + formatHint(nVal);
   };
-
-  const verdict = buildVerdict(
-    mode,
-    draft,
-    units,
-    usual.usualTops,
-    bodyDraft.height,
-    bodyDraft.weight
-  );
 
   const bindRef = (key) => (el) => {
     inputRefs.current[key] = el;
   };
 
-  const row = (key) => (
-    <label
-      key={key}
-      className={"cz-sizes-row" + (active[TOPS.indexOf(key) >= 0 ? "tops" : "bot"] === key ? " is-active" : "")}
-      htmlFor={baseId + "-" + key}
-    >
-      <span className="cz-sizes-row-bar" aria-hidden="true" />
-      <span className="cz-sizes-row-label">{labels[key]}</span>
-      <input
-        ref={bindRef(key)}
-        id={baseId + "-" + key}
-        className="cz-sizes-row-input"
-        inputMode="decimal"
-        value={draft[key] || ""}
-        onChange={(e) => setMeasure(key, e.target.value)}
-        onFocus={() => focusKey(key)}
-        placeholder="—"
-        autoComplete="off"
-        aria-label={labels[key]}
-      />
-      <span className="cz-sizes-row-unit" aria-hidden="true">
-        {unitShort}
-      </span>
-    </label>
-  );
+  const fieldRow = (key) => {
+    const group = TOPS.indexOf(key) >= 0 ? "tops" : "bot";
+    const isActive = active[group] === key;
+    const hint = otherHint(key);
+    return (
+      <label
+        key={key}
+        className={"cz-sizes-row" + (isActive ? " is-active" : "")}
+        htmlFor={baseId + "-" + key}
+      >
+        <span className="cz-sizes-row-label">{labels[key]}</span>
+        {hint ? <span className="cz-sizes-row-also">{hint}</span> : null}
+        <input
+          ref={bindRef(key)}
+          id={baseId + "-" + key}
+          className="cz-sizes-row-input"
+          inputMode="decimal"
+          value={draft[key] || ""}
+          onChange={(e) => setMeasure(key, e.target.value)}
+          onFocus={() => focusKey(key)}
+          placeholder="—"
+          autoComplete="off"
+          aria-label={labels[key]}
+        />
+        <span className="cz-sizes-row-unit" aria-hidden="true">
+          {unitShort}
+        </span>
+      </label>
+    );
+  };
+
+  const groupCard = (group) => {
+    const isTops = group === "tops";
+    const keys = isTops ? TOPS : BOT;
+    const count = isTops ? nTops : nBot;
+    const focus = active[isTops ? "tops" : "bot"];
+    const howText = how[focus] || how[keys[0]];
+    return (
+      <div className="cz-sizes-group-card" key={group}>
+        <div className="cz-sizes-group-head">
+          <span className="cz-sizes-group-label">{isTops ? "TOPS" : "BOTTOMS"}</span>
+          <span className="cz-sizes-group-count">
+            {count} OF {keys.length}
+          </span>
+        </div>
+        <div className="cz-sizes-group-body">
+          <div className="cz-sizes-diagram-col">
+            <div
+              className={"cz-sizes-diagram" + (isTops ? " is-tops" : " is-bot")}
+            >
+              {isTops ? <TopsDiagram /> : <BottomsDiagram />}
+              <TapeLines
+                keys={keys}
+                activeKey={focus}
+                labels={labels}
+                onSelect={focusKey}
+              />
+            </div>
+            {isTops ? (
+              <p className="cz-sizes-diagram-hint">
+                Tap a line to jump to its box. Credenza never reads the photo.
+              </p>
+            ) : null}
+          </div>
+          <div className="cz-sizes-fields">
+            {mode === "garment" ? (
+              <label className="cz-sizes-which">
+                <span className="cz-sizes-which-label">{isTops ? "WHICH TOP" : "WHICH PAIR"}</span>
+                <input
+                  className="cz-sizes-which-input"
+                  type="text"
+                  value={isTops ? garmentTop : garmentBottom}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (isTops) {
+                      setGarmentTop(v);
+                      scheduleSave({ garmentTop: v });
+                    } else {
+                      setGarmentBottom(v);
+                      scheduleSave({ garmentBottom: v });
+                    }
+                  }}
+                  placeholder={isTops ? "Uniqlo U tee · L" : "Dickies 874 · 33"}
+                  autoComplete="off"
+                />
+              </label>
+            ) : null}
+            <div className="cz-sizes-field-list">{keys.map(fieldRow)}</div>
+            <p className="cz-sizes-how-line">{howText}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const modeBlurb =
+    (mode === "garment"
+      ? "A piece you already own that fits the way you want, measured flat."
+      : "You, with a tape measure.") +
+    " Both sets stay saved — the switch never erases the other one.";
 
   const body = (
     <div className={"cz-sizes" + (embedded ? " is-embedded" : "")}>
-      {/* Usual sizes — top, not buried under the form */}
-      <section className="cz-sizes-block">
-        <div className="cz-sizes-gutter">
-          <div className="cz-sizes-gutter-label">Usual sizes</div>
-          <p className="cz-sizes-gutter-help">Enough on its own. The fallback when a listing has no chart.</p>
-        </div>
-        <div className="cz-sizes-usual">
-          <FieldRow
-            id={baseId + "-tops"}
-            label="Tops"
-            unit=""
-            text
+      {/* Usual sizes strip */}
+      <div className="cz-sizes-usual-strip">
+        <span className="cz-sizes-usual-kicker">USUAL SIZES</span>
+        <label className="cz-sizes-usual-pill">
+          <span>Tops</span>
+          <input
+            className="cz-sizes-usual-input is-text"
             value={usual.usualTops}
-            active={false}
-            onChange={(v) => {
-              setSaved(false);
-              setUsual((u) => ({ ...u, usualTops: v }));
+            onChange={(e) => {
+              const v = e.target.value;
+              setUsual((u) => {
+                const next = { ...u, usualTops: v };
+                scheduleSave({ usual: next });
+                return next;
+              });
             }}
-            onFocus={() => {}}
             placeholder="—"
+            aria-label="Usual tops size"
           />
-          <FieldRow
-            id={baseId + "-bottoms"}
-            label="Bottoms"
-            unit=""
-            text
+        </label>
+        <label className="cz-sizes-usual-pill">
+          <span>Bottoms</span>
+          <input
+            className="cz-sizes-usual-input is-text"
             value={usual.usualBottoms}
-            active={false}
-            onChange={(v) => {
-              setSaved(false);
-              setUsual((u) => ({ ...u, usualBottoms: v }));
+            onChange={(e) => {
+              const v = e.target.value;
+              setUsual((u) => {
+                const next = { ...u, usualBottoms: v };
+                scheduleSave({ usual: next });
+                return next;
+              });
             }}
-            onFocus={() => {}}
             placeholder="—"
+            aria-label="Usual bottoms size"
           />
-          <FieldRow
-            id={baseId + "-shoes"}
-            label="Shoes"
-            unit=""
-            text
+        </label>
+        <label className="cz-sizes-usual-pill">
+          <span>Shoes</span>
+          <input
+            className="cz-sizes-usual-input is-text"
             value={usual.usualShoes}
-            active={false}
-            onChange={(v) => {
-              setSaved(false);
-              setUsual((u) => ({ ...u, usualShoes: v }));
+            onChange={(e) => {
+              const v = e.target.value;
+              setUsual((u) => {
+                const next = { ...u, usualShoes: v };
+                scheduleSave({ usual: next });
+                return next;
+              });
             }}
-            onFocus={() => {}}
             placeholder="—"
+            aria-label="Usual shoes size"
           />
-          <FieldRow
-            id={baseId + "-height"}
-            label="Height"
-            unit={unitShort}
+        </label>
+        <label className="cz-sizes-usual-pill">
+          <span>Height</span>
+          <input
+            className="cz-sizes-usual-input"
+            inputMode="decimal"
             value={bodyDraft.height || ""}
-            active={false}
-            onChange={(v) => setBodyMeta("height", v)}
-            onFocus={() => {}}
+            onChange={(e) => setBodyMeta("height", e.target.value)}
+            placeholder="—"
+            aria-label="Height"
           />
-          <FieldRow
-            id={baseId + "-weight"}
-            label="Weight"
-            unit={weightUnit}
+          <em>{unitShort}</em>
+        </label>
+        <label className="cz-sizes-usual-pill">
+          <span>Weight</span>
+          <input
+            className="cz-sizes-usual-input is-weight"
+            inputMode="decimal"
             value={bodyDraft.weight || ""}
-            active={false}
-            onChange={(v) => setBodyMeta("weight", v)}
-            onFocus={() => {}}
+            onChange={(e) => setBodyMeta("weight", e.target.value)}
+            placeholder="—"
+            aria-label="Weight"
           />
-          <div className="cz-sizes-usual-note">
-            <p>
-              Height and weight only feed the <span className="cz-sizes-tilde">~</span> estimate when a
-              chart exists and your measurements don’t.
-            </p>
-          </div>
-        </div>
-      </section>
+          <em>{weightUnit}</em>
+        </label>
+        <p className="cz-sizes-usual-note">
+          Height and weight only feed the ~ estimate when a chart exists and your measurements
+          don&apos;t.
+        </p>
+      </div>
 
       {/* Measurements header */}
       <div className="cz-sizes-meas-head">
         <div className="cz-sizes-meas-title-row">
-          <h2 className="cz-sizes-meas-title">Measurements.</h2>
+          <h3 className="cz-sizes-meas-title">Measurements</h3>
           <span className="cz-sizes-meas-progress">
-            {n} of {ALL.length}
+            {n} OF {ALL.length}
           </span>
         </div>
         <div className="cz-sizes-meas-controls">
           <SegmentedControl
-            label="Where the numbers come from"
+            label="Measurement source"
             value={mode}
-            onChange={(v) => setMode(v)}
+            onChange={switchMode}
             options={[
               { value: "body", label: "Your body" },
               { value: "garment", label: "A garment that fits" },
@@ -592,115 +623,28 @@ export default function BodyProfileSheet({
           />
         </div>
       </div>
-      <p className="cz-sizes-mode-help">{modeHelp}</p>
+      <p className="cz-sizes-mode-help">{modeBlurb}</p>
 
-      {/* Tops */}
-      <section className="cz-sizes-group">
-        <PhotoPanel
-          mode={mode}
-          group="tops"
-          activeKey={active.tops}
-          draft={draft}
-          onSelect={focusKey}
-          labels={labels}
-          how={how}
-          valueText={valueText(active.tops)}
-        />
-        <div className="cz-sizes-fields">
-          <div className="cz-sizes-fields-head">
-            <span className="cz-sizes-fields-title">Tops</span>
-            <span className="cz-sizes-fields-count">
-              {nTops} of {TOPS.length}
-            </span>
-          </div>
-          {mode === "garment" ? (
-            <FieldRow
-              id={baseId + "-which-top"}
-              label="Which top"
-              unit=""
-              text
-              value={garmentTop}
-              active={false}
-              onChange={(v) => {
-                setSaved(false);
-                setGarmentTop(v);
-              }}
-              onFocus={() => {}}
-              placeholder="Uniqlo U tee · L"
-            />
-          ) : null}
-          <div className="cz-sizes-field-list">{TOPS.map(row)}</div>
-          <p className="cz-sizes-fields-note">{topsNote}</p>
-        </div>
-      </section>
+      <div className="cz-sizes-groups">{groupCard("tops")}
+        {groupCard("bot")}
+      </div>
 
-      {/* Bottoms */}
-      <section className="cz-sizes-group">
-        <PhotoPanel
-          mode={mode}
-          group="bot"
-          activeKey={active.bot}
-          draft={draft}
-          onSelect={focusKey}
-          labels={labels}
-          how={how}
-          valueText={valueText(active.bot)}
-        />
-        <div className="cz-sizes-fields">
-          <div className="cz-sizes-fields-head">
-            <span className="cz-sizes-fields-title">Bottoms</span>
-            <span className="cz-sizes-fields-count">
-              {nBot} of {BOT.length}
-            </span>
-          </div>
-          {mode === "garment" ? (
-            <FieldRow
-              id={baseId + "-which-pair"}
-              label="Which pair"
-              unit=""
-              text
-              value={garmentBottom}
-              active={false}
-              onChange={(v) => {
-                setSaved(false);
-                setGarmentBottom(v);
-              }}
-              onFocus={() => {}}
-              placeholder="Dickies 874 · 33"
-            />
-          ) : null}
-          <div className="cz-sizes-field-list">{BOT.map(row)}</div>
-          <p className="cz-sizes-fields-note">{botNote}</p>
-        </div>
-      </section>
-
-      {/* What we can say */}
-      <section className="cz-sizes-block cz-sizes-verdict-block">
-        <div className="cz-sizes-gutter">
-          <div className="cz-sizes-gutter-label">What we can say</div>
-        </div>
-        <div className="cz-sizes-verdict">
-          <p className="cz-sizes-verdict-text">{verdict.text}</p>
-          <p className="cz-sizes-verdict-basis">{verdict.basis}</p>
-        </div>
-      </section>
-
-      {/* Save bar */}
-      <div className="cz-sizes-save">
-        <span className="cz-sizes-save-hint">
-          {saved ? "Saved" : n ? "Unsaved changes" : "Nothing measured yet"}
-        </span>
-        <div className="cz-sizes-save-actions">
-          {embedded ? null : (
+      {/* Modal-only save bar. Embedded settings auto-saves. */}
+      {embedded ? null : (
+        <div className="cz-sizes-save">
+          <span className="cz-sizes-save-hint">
+            {saved ? "Saved" : n ? "Unsaved changes" : "Nothing measured yet"}
+          </span>
+          <div className="cz-sizes-save-actions">
             <Pill subtle onClick={onClose}>
               Cancel
             </Pill>
-          )}
-          <Pill primary onClick={save} style={{ minHeight: 46, justifyContent: "center" }}>
-            {saved ? "Saved" : "Save measurements"}
-          </Pill>
+            <Pill primary onClick={saveManual} style={{ minHeight: 46, placeContent: "center" }}>
+              {saved ? "Saved" : "Save measurements"}
+            </Pill>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 

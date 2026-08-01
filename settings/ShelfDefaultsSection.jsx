@@ -1,12 +1,7 @@
 import { useSettings } from "./SettingsContext.jsx";
 import SettingsSection from "./SettingsSection.jsx";
 
-// Shelf defaults (Profile Settings design 1e). These four used to be rows in
-// the settings sheets; each moved next to the thing it changes. The design
-// made this section read-only — Kyle overrode that (2026-07-28: "you can't
-// toggle any of those on or off"). Every row works here AND on the shelf;
-// the small line under a value still names the shelf surface, because two
-// places to flip one switch needs the map.
+// Shelf defaults — same four switches, hairline card recipe (handoff §4).
 export default function ShelfDefaultsSection() {
   const {
     agentLabel,
@@ -31,16 +26,19 @@ export default function ShelfDefaultsSection() {
   ];
   return (
     <SettingsSection
-      kicker="Shelf"
-      title="Shelf defaults"
+      kicker="SHELF"
+      title="Shelf defaults."
       lead="Every row works. The same switches also live on the shelf, next to the thing they change."
+      sectionId="shelf"
     >
-      <div className="cz-profile-group">
+      <div className="cz-settings-card cz-settings-rows">
         {rows.map(([label, value, where, onClick]) => (
-          <button type="button" className="cz-profile-row" key={label} onClick={onClick}>
-            <span>{label}</span>
-            <span className="cz-profile-row-val">{value}</span>
-            <span className="cz-shelf-defaults-where">{where}</span>
+          <button type="button" className="cz-settings-row-btn" key={label} onClick={onClick}>
+            <span className="cz-settings-row-main">
+              <span className="cz-settings-row-name">{label}</span>
+              <span className="cz-settings-row-note">{where}</span>
+            </span>
+            <span className="cz-settings-row-chip">{value}</span>
           </button>
         ))}
       </div>

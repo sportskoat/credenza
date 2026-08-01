@@ -212,7 +212,9 @@ export default function ImportSheet({ items, onImport, onClose, onExport, onExpo
           </label>
         </div>
 
-        {items.length > 0 && (
+        {/* When embedded in Settings → Your data, the OUT card owns export,
+            CSV, and clear. Keep those actions only on the free-standing sheet. */}
+        {!embedded && items.length > 0 && (
           <button type="button" className="cz-import-export" onClick={onExport}>
             Download your shelf as a .json backup
           </button>
@@ -221,7 +223,7 @@ export default function ImportSheet({ items, onImport, onClose, onExport, onExpo
         {/* CSV goes to a spreadsheet, not back into Credenza. Free users see
             the row rather than a hidden feature — the click explains the gate
             and opens the upgrade. */}
-        {items.length > 0 && (
+        {!embedded && items.length > 0 && (
           <button
             type="button"
             className="cz-import-export cz-import-csv"
@@ -232,7 +234,7 @@ export default function ImportSheet({ items, onImport, onClose, onExport, onExpo
           </button>
         )}
 
-        {items.length > 0 && (
+        {!embedded && items.length > 0 && (
           <button
             type="button"
             className="cz-import-export cz-import-clear"

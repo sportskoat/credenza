@@ -1,29 +1,9 @@
 import SettingsSection from "./SettingsSection.jsx";
 
-// About and support (design: one of the six sections). The app's route out
-// to the site. Ordered by what a person in the product actually wants next:
-// what does this do, how do I do the thing, what does it cost, and who do I
-// ask. Keep it to four — a long list turns the section into a sitemap.
-//
-// The test at test/app-site-nav.test.js asserts every href here is a
-// directory with an index.html under preview/public. A typo here is a 404 in
-// the one place a confused person goes.
-//
-// No counts in the value column. "13 walkthroughs" was the first draft, and
-// a number here goes stale the next time a guide ships — in a file nobody
-// edits when they add a page.
-//
-// Kyle 2026-07-29: "make sure that these pages do not go to a separate window
-// and we stay in this tab". They are our own pages, so they open in place now.
-// The cost he accepted: these are real navigations out of a single-page app,
-// so an open sheet closes and Back is the way home. Links that LEAVE Credenza
-// — a seller listing, a photo album — still open a new tab, because losing the
-// shelf behind a seller page is a worse trade.
+// About and support. Href list is asserted by test/app-site-nav.test.js.
 export const SITE_LINKS = [
   ["/how/", "How it works", "The shelf"],
   ["/guides/", "Guides", "Walkthroughs"],
-  // One name for /pricing/ everywhere (Kyle 2026-07-29). This row said
-  // "Plans", the masthead said "Pro", and the static site said "Pricing".
   ["/pricing/", "Pricing", "Free & Pro"],
   ["/support/", "Support", "Cancel, refund, bug"],
 ];
@@ -31,35 +11,30 @@ export const SITE_LINKS = [
 export default function AboutSupportSection() {
   return (
     <SettingsSection
-      kicker="About"
-      title="About and support"
+      kicker="ABOUT"
+      title="About and support."
       lead="Credenza is a save-it-later shelf for fashion finds. These are the ways to learn it and the ways to reach us."
+      sectionId="about"
     >
-      <div className="cz-profile-label">Learn</div>
-      <div className="cz-profile-group">
+      <div className="cz-settings-card cz-settings-rows">
         {SITE_LINKS.map(([href, label, val]) => (
-          <a
-            key={href}
-            className="cz-profile-row cz-profile-row-link"
-            href={href}
-          >
-            <span>{label}</span>
-            {/* The ↗ arrow promised a new tab. The link stays in this tab now,
-                so the arrow would be a lie. */}
-            <span className="cz-profile-row-val">{val}</span>
+          <a key={href} className="cz-settings-row-btn cz-settings-row-link" href={href}>
+            <span className="cz-settings-row-name">{label}</span>
+            <span className="cz-settings-row-meta">{val}</span>
           </a>
         ))}
       </div>
-      <div className="cz-profile-legal">
-        <a className="cz-profile-legal-link" href="/privacy/">
+      <div className="cz-settings-about-footer">
+        <a className="cz-settings-about-link" href="/privacy/">
           Privacy
         </a>
-        <a className="cz-profile-legal-link" href="/terms/">
+        <a className="cz-settings-about-link" href="/terms/">
           Terms
         </a>
-        <a className="cz-profile-legal-link" href="mailto:wenselllc@gmail.com">
+        <a className="cz-settings-about-link" href="mailto:wenselllc@gmail.com">
           Email us
         </a>
+        <span className="cz-settings-about-ver">v2.4.0 · LOCAL</span>
       </div>
     </SettingsSection>
   );

@@ -1,29 +1,27 @@
 import { useSettings } from "./SettingsContext.jsx";
 
-// The section registry. Order is the design's order: account first, because
-// that is the screen a person opens settings to find; about last. `summary`
-// is the small value the rail shows on the right — static per section; the
-// Shelf defaults row computes its own from context ("Superbuy · USD").
+// Five sections. Fit preferences folds into Sizes (design handoff 2026-08-01).
+// Order matches the scroll column. Shelf carries the agent · currency meta.
 export const SETTINGS_SECTIONS = [
   { key: "account", label: "Account and plan", summary: null },
   { key: "sizes", label: "Sizes and measurements", summary: null },
-  { key: "fit", label: "Fit preferences", summary: null },
   { key: "shelf", label: "Shelf defaults", summary: null },
   { key: "data", label: "Your data", summary: null },
   { key: "about", label: "About and support", summary: null },
 ];
 
-// The rail (desktop) and the full-screen list (phone). Same rows, same
-// order; the page decides the chrome around them. The Shelf defaults row
-// carries the design's "Sugargoo · USD" summary — the two values a person
-// most often opens settings to check.
+// Desktop rail (236px). Phone drops the rail; the page stacks every section.
+// Account block is pinned to the bottom and scrolls to Account and plan.
 export default function SettingsNav({ active, onSelect }) {
   const { accountSession, accountPlan, agentLabel, pricePrimary } = useSettings();
   const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
   const isPro = planState === "pro" || planState === "grace";
+  const email = accountSession && accountSession.user ? accountSession.user.email : "";
+  const initial = email ? email.charAt(0).toUpperCase() : "?";
+
   return (
     <nav className="cz-settings-nav" aria-label="Settings sections">
-      {SETTINGS_SECTIONS.map(({ key, label, summary }) => (
+      {SETTINGS_SECTIONS.map(({ key, label }) => (
         <button
           key={key}
           type="button"
@@ -34,19 +32,23 @@ export default function SettingsNav({ active, onSelect }) {
           <span className="cz-settings-nav-label">{label}</span>
           {key === "shelf" && agentLabel ? (
             <span className="cz-settings-nav-summary">
-              {agentLabel} · {pricePrimary}
+              {String(agentLabel).toUpperCase()} · {pricePrimary}
             </span>
-          ) : summary ? (
-            <span className="cz-settings-nav-summary">{summary}</span>
           ) : null}
         </button>
       ))}
-      {accountSession ? (
-        <div className="cz-settings-nav-footer">
-          <span className="cz-settings-nav-email">{accountSession.user.email || "Signed in"}</span>
-          <span className={"cz-profile-plan" + (isPro ? " is-pro" : "")}>{isPro ? "Pro" : "Free"}</span>
-        </div>
-      ) : null}
+      <button
+        type="button"
+        className="cz-settings-nav-account"
+        onClick={() => onSelect("account")}
+        aria-label={email ? "Account: " + email : "Account and plan"}
+      >
+        <span className="cz-settings-nav-avatar" aria-hidden="true">
+          {initial}
+        </span>
+        <span className="cz-settings-nav-email">{email || "Signed out"}</span>
+        {isPro ? <span className="cz-settings-nav-pro">PRO</span> : null}
+      </button>
     </nav>
   );
 }

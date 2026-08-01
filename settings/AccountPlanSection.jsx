@@ -48,7 +48,6 @@ const BILLING = {
 // in the cell so "5 a day" reads as one claim. Rows after the metered six
 // are facts about the product, not caps — they have no server source.
 const CAP_ROWS = [
-  { label: "Ask questions", note: "One question about your shelf.", free: PLAN_CAPS.free.askPerDay + " a day", pro: PLAN_CAPS.pro.askPerDay + " a day" },
   { label: "AI chart reads", note: "One read of one size chart.", free: PLAN_CAPS.free.chartVisionPerDay + " a day", pro: PLAN_CAPS.pro.chartVisionPerDay + " a day" },
   { label: "Link resolves", note: "One server read of one buy link.", free: PLAN_CAPS.free.resolvePerDay + " a day", pro: PLAN_CAPS.pro.resolvePerDay + " a day" },
   { label: "QC photos", note: "Stored on the card.", free: PLAN_CAPS.free.qcPhotosPerItem + " an item", pro: PLAN_CAPS.pro.qcPhotosPerItem + " an item" },
@@ -101,8 +100,9 @@ export default function AccountPlanSection() {
 
   return (
     <SettingsSection
-      kicker="Account and plan"
+      kicker="ACCOUNT AND PLAN"
       title="Free is the whole app. Pro is more of it."
+      sectionId="account"
       lead={
         signedIn
           ? "You are on " + (isPro ? "Pro" : "Free") + " as " + (accountSession.user.email || "this account") +

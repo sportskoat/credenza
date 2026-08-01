@@ -6834,14 +6834,17 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
+/* Settings redesign 2026-08-01 — one-page scroll-spy shell (handoff 1a/1d). */
 .cz-settings-page-masthead {
   display: flex;
   align-items: center;
-  gap: 18px;
-  /* Kyle 2026-07-31 picture 3: iOS clock covered the title. Pad under the
-     notch / status bar so the masthead never sits under the system chrome. */
-  padding: calc(14px + env(safe-area-inset-top, 0px)) 22px 14px;
-  border-bottom: 1px solid var(--cz-card-border, var(--cz-hair));
+  gap: 14px;
+  flex: none;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 18px;
+  padding-top: env(safe-area-inset-top, 0px);
+  border-bottom: 1px solid var(--cz-hair);
   background: var(--cz-card-solid);
 }
 
@@ -6849,38 +6852,38 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 14px;
-  border: 1px solid var(--cz-card-border, var(--cz-hair));
-  border-radius: 999px;
+  height: 32px;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-radius: 0;
   background: transparent;
   color: var(--cz-sub);
   font-family: var(--cz-sans);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition:
-    color var(--dur-micro) var(--ease-out),
-    background var(--dur-micro) var(--ease-out),
-    border-color var(--dur-micro) var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out);
 }
 .cz-settings-back:hover {
   color: var(--cz-ink);
-  background: var(--cz-hover);
-  border-color: var(--cz-card-border, var(--cz-hair));
+  background: transparent;
 }
 
-.cz-settings-page-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
+.cz-settings-page-wordmark {
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--cz-ink);
 }
 
 .cz-settings-page-title {
-  font-family: var(--cz-display);
-  font-size: 17px;
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  color: var(--cz-faint);
 }
 
 .cz-settings-page-layout {
@@ -6895,26 +6898,29 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 18px 12px;
+  padding: 12px 10px;
   border-right: 1px solid var(--cz-hair);
+  background: var(--cz-strip-bg);
   overflow-y: auto;
 }
 
 .cz-settings-nav-item {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 11px;
   border: none;
-  border-radius: 10px;
+  border-radius: 9px;
   background: transparent;
   color: var(--cz-sub);
   font-family: var(--cz-sans);
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color var(--dur-micro) var(--ease-out),
@@ -6922,111 +6928,338 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-settings-nav-item:hover {
   color: var(--cz-ink);
-  background: var(--cz-hover);
+  background: var(--cz-accent-bg);
 }
 .cz-settings-nav-item.is-active {
-  background: var(--cz-selected);
+  background: var(--cz-accent-bg);
   color: var(--cz-ink);
-  outline: 1px solid var(--cz-card-border, var(--cz-hair));
+}
+
+.cz-settings-nav-label {
+  min-width: 0;
 }
 
 .cz-settings-nav-summary {
-  font-size: 12px;
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
   font-weight: 500;
+  letter-spacing: 0.08em;
   color: var(--cz-faint);
 }
 
-.cz-settings-nav-footer {
-  margin-top: auto;
-  padding: 14px 12px 4px;
+.cz-settings-nav-account {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 9px;
+  width: 100%;
+  margin-top: auto;
+  padding: 9px 11px;
+  border: 0;
   border-top: 1px solid var(--cz-hair);
+  border-radius: 0;
+  background: transparent;
+  color: var(--cz-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+.cz-settings-nav-account:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-settings-nav-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--cz-accent-bg);
+  font-family: var(--cz-sans);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cz-ink);
 }
 
 .cz-settings-nav-email {
-  font-size: 12px;
-  color: var(--cz-sub);
+  flex: 1;
+  min-width: 0;
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.cz-settings-nav-pro {
+  flex: none;
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
 .cz-settings-content {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
-  padding: 34px 40px 80px;
+  padding: 26px 34px 40px;
+  scroll-behavior: smooth;
 }
 
-.cz-settings-back-section {
-  margin-bottom: 18px;
+.cz-settings-column {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  max-width: 860px;
+}
+
+.cz-settings-section-anchor {
+  scroll-margin-top: 20px;
 }
 
 .cz-settings-section {
-  max-width: 640px;
-  /* Center the column in the content pane (Kyle 2026-07-28: "is that centered
-     on the website? It doesn't look like it"). Left-aligned, a 640px section
-     in a 1200px pane leaned hard left on wide windows. */
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }
 
-/* Sizes and measurements v2: photo left + fields right needs the full track. */
 .cz-settings-section.is-wide {
-  max-width: 1080px;
+  max-width: none;
 }
 
 .cz-settings-section-kicker {
   font-family: var(--cz-mono);
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--cz-faint);
-  margin-bottom: 10px;
+  color: var(--cz-money);
+  margin-bottom: 7px;
 }
 
 .cz-settings-section-head {
-  margin: 0 0 10px;
-  font-family: var(--cz-sans);
-  font-size: 28px;
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 26px;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
   color: var(--cz-ink);
 }
 
 .cz-settings-section-lead {
-  margin: 0 0 26px;
-  font-size: 14px;
-  line-height: 1.55;
+  margin: 6px 0 0;
+  max-width: 560px;
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
   color: var(--cz-sub);
 }
 
-/* Phone: the rail becomes a full-screen list; the content pane goes edge to
-   edge. */
+/* Shared hairline card recipe for settings blocks */
+.cz-settings-card {
+  margin-top: 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.cz-settings-card-label {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  margin-bottom: 7px;
+}
+
+.cz-settings-card-label-pad {
+  padding: 12px 15px 9px;
+  margin: 0;
+}
+
+.cz-settings-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.cz-settings-row-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 11px 15px;
+  border: 0;
+  border-top: 1px solid var(--cz-hair);
+  background: transparent;
+  color: var(--cz-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+.cz-settings-rows > .cz-settings-row-btn:first-child,
+.cz-settings-rows > .cz-settings-card-label + .cz-settings-row-btn {
+  border-top-color: transparent;
+}
+.cz-settings-row-btn:hover:not(:disabled):not(.is-static) {
+  background: var(--cz-accent-bg);
+}
+.cz-settings-row-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.cz-settings-row-btn.is-static {
+  cursor: default;
+}
+.cz-settings-row-btn.is-danger,
+.cz-settings-row-btn.is-danger .cz-settings-row-name {
+  color: var(--cz-error-text);
+}
+
+.cz-settings-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.cz-settings-row-name {
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-settings-row-note {
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--cz-faint);
+}
+
+.cz-settings-row-chip {
+  flex: none;
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--cz-chip-fill);
+  color: var(--cz-ink);
+  white-space: nowrap;
+}
+
+.cz-settings-row-meta {
+  flex: none;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+.cz-settings-row-link {
+  text-decoration: none;
+  color: inherit;
+}
+.cz-settings-row-link:visited {
+  color: inherit;
+}
+
+.cz-settings-data-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 14px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+.cz-settings-data-import {
+  padding: 13px 14px;
+  overflow: visible;
+}
+
+.cz-settings-data-shared {
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-settings-about-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cz-settings-about-link {
+  color: var(--cz-sub);
+  text-decoration: none;
+}
+.cz-settings-about-link:hover {
+  color: var(--cz-ink);
+}
+
+.cz-settings-about-ver {
+  margin-left: auto;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--cz-faint);
+}
+
+/* Phone (1d): no rail; one stacked column. */
 @media (max-width: 767px) {
   .cz-settings-page-layout {
     display: block;
-    overflow-y: auto;
+    min-height: 0;
+    overflow: hidden;
   }
   .cz-settings-nav {
-    width: auto;
-    border-right: none;
-    padding: 10px 14px 30px;
-  }
-  .cz-settings-nav-item {
-    padding: 14px 14px;
-    font-size: 15px;
+    display: none;
   }
   .cz-settings-content {
-    padding: 20px 18px 70px;
-    overflow: visible;
+    height: 100%;
+    padding: 14px 16px 28px;
+    overflow-y: auto;
+  }
+  .cz-settings-column {
+    gap: 28px;
+    max-width: none;
   }
   .cz-settings-section-head {
-    font-size: 25px;
+    font-size: 22px;
+  }
+  .cz-settings-data-grid {
+    grid-template-columns: 1fr;
+  }
+  .cz-settings-row-btn {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-settings-content {
+    scroll-behavior: auto;
   }
 }
 
@@ -7246,484 +7479,476 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    ──────────────────────────────────────────────────────────────────────── */
 
 .cz-sizes {
-  max-width: 1080px;
+  max-width: none;
+  margin-top: 14px;
 }
 
 .cz-sizes.is-embedded {
   padding-top: 0;
 }
 
-/* Section with left gutter label (Usual sizes, What we can say) */
-.cz-sizes-block {
-  display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
-  gap: 0 40px;
-  border-top: 1px solid var(--cz-hair-strong);
-  padding: 22px 0 26px;
-  align-items: start;
+/* ── Sizes redesign 2026-08-01 (handoff §3) ─────────────────────────────── */
+
+.cz-sizes-usual-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 11px 14px;
+  margin-bottom: 18px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
 }
 
-.cz-sizes-gutter {
-  position: sticky;
-  top: 78px;
-}
-
-.cz-sizes-gutter-label {
+.cz-sizes-usual-kicker {
+  width: 78px;
   font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--cz-ink);
-}
-
-.cz-sizes-gutter-help {
-  margin: 7px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   color: var(--cz-faint);
-  text-wrap: pretty;
 }
 
-/* Usual sizes 2-up table */
-.cz-sizes-usual {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 34px;
-  border-top: 1px solid var(--cz-hair);
+.cz-sizes-usual-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 9px;
+  background: var(--cz-inset-bg);
+  font-family: var(--cz-sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cz-faint);
+  cursor: text;
+}
+
+.cz-sizes-usual-input {
+  width: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  padding: 0;
+}
+.cz-sizes-usual-input.is-text {
+  width: 28px;
+}
+.cz-sizes-usual-input.is-weight {
+  width: 38px;
+}
+.cz-sizes-usual-input:focus {
+  outline: none;
+}
+.cz-sizes-usual-pill em {
+  font-style: normal;
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--cz-faint);
 }
 
 .cz-sizes-usual-note {
-  display: flex;
-  align-items: center;
-  padding: 13px 2px;
-  border-bottom: 1px solid var(--cz-hair);
-}
-
-.cz-sizes-usual-note p {
+  flex: 1;
+  min-width: 200px;
   margin: 0;
+  font-family: var(--cz-sans);
   font-size: 11.5px;
+  font-weight: 500;
   line-height: 1.4;
   color: var(--cz-faint);
-  text-wrap: pretty;
 }
 
-.cz-sizes-tilde {
-  font-family: var(--cz-mono);
-  font-weight: 700;
-  color: var(--cz-ink);
-}
-
-/* Field row — mono label left, numeral right, no borders or pills */
-.cz-sizes-row {
-  position: relative;
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 12px 4px 12px 14px;
-  border-bottom: 1px solid var(--cz-hair);
-  cursor: text;
-  transition: background var(--dur-micro) var(--ease-out);
-  background: transparent;
-}
-
-.cz-sizes-usual .cz-sizes-row {
-  padding: 11px 2px 11px 2px;
-  border-bottom: 1px solid var(--cz-hair);
-}
-
-.cz-sizes-usual .cz-sizes-row .cz-sizes-row-bar {
-  display: none;
-}
-
-.cz-sizes-row:hover {
-  background: var(--cz-hover, var(--cz-accent-bg));
-}
-
-.cz-sizes-row.is-active {
-  background: var(--cz-selected, var(--cz-accent-bg));
-}
-
-.cz-sizes-row-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: transparent;
-  transition: background var(--dur-micro) var(--ease-out);
-}
-
-.cz-sizes-row.is-active .cz-sizes-row-bar {
-  background: var(--cz-ink);
-}
-
-.cz-sizes-row-label {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  font-family: var(--cz-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--cz-sub);
-}
-
-.cz-sizes-usual .cz-sizes-row-label {
-  font-size: 10px;
-  color: var(--cz-faint);
-}
-
-.cz-sizes-row-input {
-  flex: 1 1 auto;
-  min-width: 48px;
-  border: none;
-  background: transparent;
-  color: var(--cz-ink);
-  font-family: var(--cz-mono);
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  padding: 0;
-  min-height: 24px;
-}
-
-.cz-sizes-row-input.is-text {
-  font-family: var(--cz-sans);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0;
-  font-variant-numeric: normal;
-}
-
-.cz-sizes-row-input:focus {
-  outline: none;
-}
-
-.cz-sizes-row-input::placeholder {
-  color: var(--cz-faint);
-  font-weight: 600;
-}
-
-.cz-sizes-row-unit {
-  flex: 0 0 auto;
-  font-family: var(--cz-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-
-/* Measurements header */
 .cz-sizes-meas-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
   flex-wrap: wrap;
-  border-top: 1px solid var(--cz-hair-strong);
-  padding: 24px 0 6px;
+  margin-bottom: 10px;
+  white-space: nowrap;
 }
 
 .cz-sizes-meas-title-row {
   display: flex;
   align-items: baseline;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .cz-sizes-meas-title {
   margin: 0;
   font-family: var(--cz-display);
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: -0.032em;
+  letter-spacing: -0.03em;
   color: var(--cz-ink);
 }
 
 .cz-sizes-meas-progress {
   font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
   color: var(--cz-faint);
-  white-space: nowrap;
 }
 
 .cz-sizes-meas-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .cz-sizes-mode-help {
-  margin: 0 0 24px;
-  max-width: 66ch;
+  margin: 0 0 14px;
+  font-family: var(--cz-sans);
   font-size: 12px;
+  font-weight: 500;
   line-height: 1.5;
   color: var(--cz-sub);
-  text-wrap: pretty;
 }
 
-/* Tops / Bottoms: photo left, fields right */
-.cz-sizes-group {
+.cz-sizes-groups {
   display: grid;
-  grid-template-columns: minmax(240px, 380px) minmax(300px, 1fr);
-  gap: 0 44px;
-  align-items: start;
-  border-top: 1px solid var(--cz-hair-strong);
-  padding: 22px 0 30px;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
-.cz-sizes-photo-col {
-  min-width: 0;
+.cz-sizes-group-card {
+  padding: 13px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
 }
 
-.cz-sizes-photo {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 5;
-  overflow: hidden;
-  background: var(--cz-strip-bg);
-}
-
-.cz-sizes-photo-slot {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  pointer-events: none;
-}
-
-.cz-sizes-photo-ph {
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-  text-align: center;
-  text-wrap: pretty;
-  max-width: 22ch;
-  opacity: 0.7;
-}
-
-.cz-sizes-photo-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cz-sizes-lines {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.cz-sizes-lines-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: auto;
-}
-
-.cz-sizes-line-g {
-  cursor: pointer;
-  outline: none;
-}
-
-.cz-sizes-line-hit {
-  fill: none;
-  stroke: transparent;
-  stroke-width: 12;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-  pointer-events: stroke;
-}
-
-.cz-sizes-line-stroke {
-  fill: none;
-  stroke: rgba(245, 245, 247, 0.22);
-  stroke-width: 1;
-  stroke-linecap: round;
-  stroke-dasharray: 4 3;
-  vector-effect: non-scaling-stroke;
-  pointer-events: none;
-  transition:
-    stroke var(--dur-micro) var(--ease-out),
-    stroke-dasharray var(--dur-micro) var(--ease-out);
-}
-
-.cz-sizes-line-g.is-filled .cz-sizes-line-stroke {
-  stroke: rgba(245, 245, 247, 0.42);
-  stroke-dasharray: none;
-  stroke-width: 1;
-}
-
-.cz-sizes-line-g.is-live .cz-sizes-line-stroke {
-  stroke: rgba(245, 245, 247, 0.96);
-  stroke-dasharray: none;
-  stroke-width: 1.5;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-}
-
-.cz-sizes-dot {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  margin: -4.5px 0 0 -4.5px;
-  border-radius: 999px;
-  background: var(--cz-ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-  /* On dark strip the ink is light; invert via mix so it reads as a pin */
-  background: #f5f5f7;
-}
-
-.cz-sizes-how {
-  border-bottom: 1px solid var(--cz-hair);
-  padding: 13px 2px 14px;
-}
-
-.cz-sizes-how-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  margin-bottom: 6px;
-}
-
-.cz-sizes-how-label {
-  white-space: nowrap;
-  font-family: var(--cz-mono);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cz-ink);
-}
-
-.cz-sizes-how-value {
-  white-space: nowrap;
-  font-family: var(--cz-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-
-.cz-sizes-how-body {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--cz-sub);
-  text-wrap: pretty;
-}
-
-/* Field column */
-.cz-sizes-fields {
-  min-width: 0;
-}
-
-.cz-sizes-fields-head {
+.cz-sizes-group-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
-.cz-sizes-fields-title {
+.cz-sizes-group-label {
   font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--cz-ink);
-}
-
-.cz-sizes-fields-count {
-  font-family: var(--cz-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-group-count {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-group-body {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+
+.cz-sizes-diagram-col {
+  flex: none;
+  width: 150px;
+}
+
+.cz-sizes-diagram {
+  position: relative;
+  width: 150px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--cz-inset-bg);
+}
+.cz-sizes-diagram.is-tops {
+  height: 148px;
+}
+.cz-sizes-diagram.is-bot {
+  height: 186px;
+}
+.cz-sizes-diagram svg {
+  display: block;
+}
+
+.cz-sizes-tape-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cz-sizes-tape {
+  position: absolute;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.cz-sizes-tape-bar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.55);
+  transition: background var(--dur-micro) var(--ease-out);
+}
+.cz-sizes-tape.is-live .cz-sizes-tape-bar {
+  background: #ffffff;
+}
+
+.cz-sizes-guide-chip {
+  position: absolute;
+  left: 6px;
+  bottom: 5px;
+  font-family: var(--cz-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+.cz-sizes-diagram-hint {
+  margin: 7px 0 0;
+  font-family: var(--cz-sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cz-sizes-which {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 9px 6px;
+  cursor: text;
+}
+
+.cz-sizes-which-label {
+  flex: none;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   color: var(--cz-faint);
   white-space: nowrap;
 }
 
-.cz-sizes-field-list {
-  border-top: 1px solid var(--cz-hair);
-}
-
-.cz-sizes-fields > .cz-sizes-row {
-  border-top: 1px solid var(--cz-hair);
-}
-
-.cz-sizes-fields-note {
-  margin: 12px 0 0;
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: var(--cz-faint);
-  text-wrap: pretty;
-}
-
-/* Verdict */
-.cz-sizes-verdict-block {
-  padding-bottom: 18px;
-}
-
-.cz-sizes-verdict-text {
-  margin: 0 0 10px;
-  /* F visual check 2026-07-31: Kyle's approved shot uses bold body text,
-     not the serif title face, for the live verdict sentence. */
-  font-family: var(--cz-sans);
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+.cz-sizes-which-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
   color: var(--cz-ink);
-  text-wrap: pretty;
-  max-width: 46ch;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+  padding: 0;
+}
+.cz-sizes-which-input:focus {
+  outline: none;
 }
 
-.cz-sizes-verdict-basis {
-  margin: 0;
+.cz-sizes-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cz-sizes-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  cursor: text;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+.cz-sizes-row:hover {
+  background: var(--cz-accent-bg);
+}
+.cz-sizes-row.is-active {
+  background: var(--cz-accent-bg);
+}
+.cz-sizes-row.is-active .cz-sizes-row-label {
+  color: var(--cz-ink);
+}
+
+.cz-sizes-row-label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--cz-sub);
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.cz-sizes-row-also {
+  flex: none;
   font-family: var(--cz-mono);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 500;
   color: var(--cz-faint);
-  line-height: 1.5;
+  white-space: nowrap;
 }
 
-/* Save bar */
-/* In-flow band at the true bottom of the form — never sticky. A stuck bar
-   floated over the fields and cut the sticky photo in half (Kyle 2026-07-31);
-   docked here, nothing can ever slide under it. */
+.cz-sizes-row-input {
+  width: 52px;
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  padding: 0;
+  min-height: 0;
+}
+.cz-sizes-row-input:focus {
+  outline: none;
+}
+.cz-sizes-row-input::placeholder {
+  color: var(--cz-faint);
+  font-weight: 500;
+}
+
+.cz-sizes-row-unit {
+  width: 16px;
+  flex: none;
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-how-line {
+  margin: 6px 0 0;
+  padding: 7px 9px 0;
+  border-top: 1px solid var(--cz-hair);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--cz-sub);
+}
+
+/* How you like it to sit (fit prefs folded into Sizes) */
+.cz-sizes-fit {
+  margin-top: 22px;
+}
+
+.cz-sizes-fit-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.cz-sizes-fit-title {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-fit-flag {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-fit-lead {
+  margin: 0 0 10px;
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--cz-sub);
+}
+
+.cz-sizes-fit-table {
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.cz-sizes-fit-table-head,
+.cz-sizes-fit-row {
+  display: grid;
+  grid-template-columns: 92px 1fr 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 14px;
+}
+
+.cz-sizes-fit-table-head {
+  padding: 9px 14px;
+  background: var(--cz-strip-bg);
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-fit-row {
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-fit-cat {
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-fit-axis .cz-segment {
+  width: 100%;
+}
+
 .cz-sizes-save {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  border-top: 1px solid var(--cz-hair-strong);
-  margin-top: 26px;
-  padding: 18px 0 8px;
-  background: var(--cz-bg);
+  border-top: 1px solid var(--cz-hair);
+  margin-top: 22px;
+  padding: 14px 0 0;
 }
 
 .cz-sizes-save-hint {
@@ -7741,33 +7966,61 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 10px;
 }
 
-/* Narrow: stack photo above fields; photo sticks so the link survives typing */
 @media (max-width: 900px) {
-  .cz-sizes-block {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
+  .cz-sizes-groups {
+    grid-template-columns: 1fr;
   }
-
-  .cz-sizes-gutter {
-    position: static;
+  .cz-sizes-group-body {
+    flex-direction: column;
   }
-
-  .cz-sizes-usual {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+  .cz-sizes-diagram-col {
+    width: 100%;
   }
-
-  .cz-sizes-group {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
+  .cz-sizes-diagram {
+    margin: 0 auto;
   }
+  .cz-sizes-fit-table-head,
+  .cz-sizes-fit-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
 
-  .cz-sizes-photo {
-    aspect-ratio: 3 / 2;
-    position: sticky;
-    top: 56px;
-    z-index: 2;
-    max-height: 40vh;
+@media (max-width: 767px) {
+  .cz-sizes-meas-controls {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 7px;
+  }
+  .cz-sizes-meas-controls .cz-segment {
+    width: 100%;
+    min-height: 44px;
+  }
+  .cz-sizes-row {
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: 10px;
+  }
+  .cz-sizes-row.is-active {
+    box-shadow: inset 2px 0 0 var(--cz-accent);
+  }
+  .cz-sizes-row-label {
+    font-size: 12.5px;
+  }
+  .cz-sizes-row-input {
+    width: 56px;
+    font-size: 16px;
+  }
+  .cz-sizes-row-unit {
+    width: 18px;
+    font-size: 10px;
+  }
+  .cz-sizes-row-also {
+    display: none;
+  }
+  .cz-sizes-tape {
+    height: 20px;
   }
 }
 
