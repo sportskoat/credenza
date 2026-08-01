@@ -1616,3 +1616,29 @@ The top is a little bland."
   Build clean.
 
 **Not deployed.** Only Kyle ships.
+
+## 2026-08-01 — Euro currency (worktree build/euro-currency)
+
+Adds EUR as a third display currency. The shelf toggle, the avatar menu, and
+the settings row now cycle CNY -> USD -> EUR -> CNY via a shared
+`nextPricePrimary` helper in `credenza-fashion.jsx`.
+
+**What changed**
+
+1. `preview/netlify/functions/resolve.js` — `FX_FALLBACK_EUR_PER_CNY = 0.13`,
+   `fetchEurRate` (same FX_API response, no second call), `priceEur` and
+   `eurPerCny` in the response.
+2. `credenza-fashion.jsx` — `formatMoney` EUR branch, `itemEurAmount`,
+   `sumItemsEur`, `listTotalEur`, EUR branches in `priceLabel` /
+   `priceLabelShort`, 3-way prefs save/restore and `setPricePrimaryPref`.
+3. `components/atoms.jsx` — ReelCounter EUR case (€ prefix, 2 decimals).
+4. `preview/test/money.test.js` — EUR format, itemEurAmount, cycle tests.
+5. `preview/scripts/shot-euro-currency.mjs` — screenshot script (not yet run).
+
+**Blocked:** the sandbox declined every executing command this session
+(build, test, lint, typecheck, git add/commit). The edits are uncommitted
+in this worktree. Next step: approve the prompts, run
+`cd preview && npx vite build && npm test && npm run typecheck && npm run lint`,
+then run the screenshot script, then commit and push.
+
+**Not deployed.** Only Kyle ships.

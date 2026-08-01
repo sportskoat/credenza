@@ -309,10 +309,11 @@ export function ReelDigit({ digit, index, reduced }) {
 export function ReelCounter({ value, currency = "USD" }) {
   const reduced = usePrefersReducedMotion();
   // CNY totals are whole yuan (itemCnyAmount rounds) — no decimal reels.
+  // EUR totals keep the USD 2-decimal shape; only the symbol changes (2026-08-01).
   const text =
     currency === "CNY"
       ? "¥" + Math.max(0, Math.round(value)).toLocaleString("en-US")
-      : "$" +
+      : (currency === "EUR" ? "€" : "$") +
         Math.max(0, value).toLocaleString("en-US", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,

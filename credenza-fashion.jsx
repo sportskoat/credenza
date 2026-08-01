@@ -493,12 +493,13 @@ export function formatMoney(amount, currency) {
   if (amount == null || !isFinite(Number(amount))) return "";
   const n = Number(amount);
   const pretty =
-    currency === "USD"
+    currency === "USD" || currency === "EUR"
       ? (Number.isInteger(n) ? String(n) : n.toFixed(2))
       : Number.isInteger(n)
         ? String(n)
         : String(Math.round(n * 100) / 100);
   if (currency === "USD") return "$" + pretty;
+  if (currency === "EUR") return "€" + pretty;
   if (currency === "CNY") return "¥" + pretty;
   return currency + " " + pretty;
 }
@@ -506,6 +507,9 @@ export function formatMoney(amount, currency) {
 // Same fallback the resolve function uses when FX is unavailable — keeps
 // shelf totals stable across devices before/without enrichment priceUsd.
 const FX_FALLBACK_USD_PER_CNY = 0.14;
+// Same fallback the resolve function uses for EUR (2026-08-01): the euro is
+// stronger than the dollar, so fewer CNY buy one EUR than one USD.
+const FX_FALLBACK_EUR_PER_CNY = 0.13;
 
 export function itemUsdAmount(item) {
   if (!item || typeof item !== "object") return null;
@@ -517,6 +521,22 @@ export function itemUsdAmount(item) {
     return Math.round(Number(item.price) * FX_FALLBACK_USD_PER_CNY * 100) / 100;
   }
   // Unknown currency: don't invent USD (would inflate the reel).
+  return null;
+}
+
+// EUR mirror of itemUsdAmount (2026-08-01): prefers the resolved EUR
+// conversion, falls back through the same offline rate, and never invents an
+// amount for an unknown currency.
+export function itemEurAmount(item) {
+  if (!item || typeof item !== "object") return null;
+  if (item.priceEur != null && isFinite(Number(item.priceEur))) return Number(item.priceEur);
+  if (item.price == null || !isFinite(Number(item.price))) return null;
+  const currency = String(item.currency || "CNY").toUpperCase();
+  if (currency === "EUR" || currency === "€") return Number(item.price);
+  if (currency === "CNY" || currency === "RMB" || currency === "¥" || currency === "CNH") {
+    return Math.round(Number(item.price) * FX_FALLBACK_EUR_PER_CNY * 100) / 100;
+  }
+  // Unknown currency: don't invent EUR (would inflate the reel).
   return null;
 }
 
@@ -556,6 +576,17 @@ export function sumItemsUsd(items, { excludeReturned: _excludeReturned = false }
   return Math.round(sum * 100) / 100;
 }
 
+// EUR twin of sumItemsUsd (2026-08-01): euro is a decimal currency like the
+// dollar, so the total keeps the same 2-decimal rounding.
+export function sumItemsEur(items, { excludeReturned: _excludeReturned = false } = {}) {
+  let sum = 0;
+  for (const it of items || []) {
+    const eur = itemEurAmount(it);
+    if (eur != null && isFinite(eur)) sum += eur;
+  }
+  return Math.round(sum * 100) / 100;
+}
+
 // CNY twin of sumItemsUsd (Kyle 2026-07-28): the shelf total follows the
 // primary currency now, and summing the per-item rounded yuan keeps the
 // total equal to the card labels the customer can see.
@@ -574,7 +605,12 @@ export function sumItemsCny(items, { excludeReturned: _excludeReturned = false }
 // non-app caller unchanged.
 let PRICE_PRIMARY = "USD";
 function setPricePrimaryPref(v) {
-  PRICE_PRIMARY = v === "CNY" ? "CNY" : "USD";
+  PRICE_PRIMARY = v === "CNY" || v === "EUR" ? v : "USD";
+}
+// 3-way display cycle (2026-08-01): CNY -> USD -> EUR -> CNY. One pure helper
+// so the shelf toggle, the avatar menu, and the settings row never disagree.
+export function nextPricePrimary(v) {
+  return v === "CNY" ? "USD" : v === "USD" ? "EUR" : "CNY";
 }
 // DetailBody price editor (and tests) read the same mirror the app syncs.
 export function pricePrimaryPref() {
@@ -614,6 +650,13 @@ export function priceLabel(item) {
     if (item.price != null) return formatMoney(item.price, currency);
     return "";
   }
+  if (PRICE_PRIMARY === "EUR") {
+    const eur = itemEurAmount(item);
+    if (eur != null) return formatMoney(eur, "EUR");
+    if (cny != null) return formatMoney(cny, "CNY");
+    if (item.price != null) return formatMoney(item.price, currency);
+    return "";
+  }
   if (cny != null) return formatMoney(cny, "CNY");
   if (usd != null) return formatMoney(usd, "USD");
   if (item.price != null) return formatMoney(item.price, currency);
@@ -627,6 +670,9 @@ export function priceLabelShort(item) {
   if (PRICE_PRIMARY === "CNY") {
     const cny = itemCnyAmount(item);
     if (cny != null) return formatMoney(cny, "CNY");
+  } else if (PRICE_PRIMARY === "EUR") {
+    const eur = itemEurAmount(item);
+    if (eur != null) return formatMoney(eur, "EUR");
   } else {
     const usd = itemUsdAmount(item);
     if (usd != null) return formatMoney(usd, "USD");
@@ -6001,7 +6047,7 @@ function CredenzaApp() {
                   agentToastSeenFor: p.agentToastSeenFor || null,
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
                   measureUnits: p.measureUnits === "cm" ? "cm" : "in",
-                  pricePrimary: p.pricePrimary === "CNY" ? "CNY" : "USD",
+                  pricePrimary: p.pricePrimary === "CNY" || p.pricePrimary === "EUR" ? p.pricePrimary : "USD",
                   fitSummary: p.fitSummary !== false,
                   fitDetail: p.fitDetail === "detailed" ? "detailed" : "concise",
                   onboardingDone: p.onboardingDone !== false,
@@ -6020,7 +6066,7 @@ function CredenzaApp() {
           if (p.agentToastSeenFor) setAgentToastSeenFor(p.agentToastSeenFor);
           if (p.bodyProfile && typeof p.bodyProfile === "object") setBodyProfile(p.bodyProfile);
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
-          if (p.pricePrimary === "CNY" || p.pricePrimary === "USD") setPricePrimary(p.pricePrimary);
+          if (p.pricePrimary === "CNY" || p.pricePrimary === "USD" || p.pricePrimary === "EUR") setPricePrimary(p.pricePrimary);
           if (p.fitSummary === false) setFitSummary(false);
           if (p.fitDetail === "concise" || p.fitDetail === "detailed") setFitDetail(p.fitDetail);
           if (p.fitPrefs && typeof p.fitPrefs === "object") setFitPrefsByCat(p.fitPrefs);
@@ -7789,6 +7835,11 @@ function CredenzaApp() {
     () => sumItemsCny(totalsItems, { excludeReturned: !!openHaulName }),
     [totalsItems, openHaulName]
   );
+  // EUR twin (2026-08-01): the total follows the primary currency in euros too.
+  const listTotalEur = useMemo(
+    () => sumItemsEur(totalsItems, { excludeReturned: !!openHaulName }),
+    [totalsItems, openHaulName]
+  );
   // Haul board: how many cards are bought, how many are not, and the rough
   // ship weight. Computed over the whole haul (totalsItems), so search inside
   // the haul narrows the cards but never the board.
@@ -8895,7 +8946,7 @@ function CredenzaApp() {
             setAgentSheetOpen(true);
           }}
           pricePrimary={pricePrimary}
-          onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+          onCycleCurrency={() => setPricePrimary(nextPricePrimary)}
           onOpenSettings={(section) => navigateSettings(section)}
           onSignOut={accountSignOut}
           onClose={() => setAvatarMenuOpen(false)}
@@ -9128,7 +9179,7 @@ function CredenzaApp() {
             fitSummary,
             fitDetail,
             onOpenAgent: () => setAgentSheetOpen(true),
-            onCycleCurrency: () => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY")),
+            onCycleCurrency: () => setPricePrimary(nextPricePrimary),
             onToggleFitSummary: () => setFitSummary((v) => !v),
             onCycleFitDetail: () => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed")),
           }}
@@ -9938,7 +9989,7 @@ function CredenzaApp() {
                           : SHELF_FILTERS.find((f) => f.key === shelfFilter).label}
                     </span>
                     <ReelCounter
-                      value={pricePrimary === "CNY" ? listTotalCny : listTotalUsd}
+                      value={pricePrimary === "CNY" ? listTotalCny : pricePrimary === "EUR" ? listTotalEur : listTotalUsd}
                       currency={pricePrimary}
                     />
                   </span>
@@ -9949,9 +10000,9 @@ function CredenzaApp() {
                   <button
                     type="button"
                     className="cz-total-currency"
-                    aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                    title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                    onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+                    aria-label={"Show prices in " + nextPricePrimary(pricePrimary)}
+                    title={"Show prices in " + nextPricePrimary(pricePrimary)}
+                    onClick={() => setPricePrimary(nextPricePrimary)}
                   >
                     {pricePrimary}
                     <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />

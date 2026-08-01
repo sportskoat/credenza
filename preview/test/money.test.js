@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, itemCnyAmount, itemUsdAmount, priceLabel, sumItemsCny, sumItemsUsd } from "../../credenza-fashion.jsx";
+import { formatMoney, itemCnyAmount, itemEurAmount, itemUsdAmount, nextPricePrimary, priceLabel, sumItemsCny, sumItemsUsd } from "../../credenza-fashion.jsx";
 
 describe("itemUsdAmount", () => {
   it("prefers priceUsd over CNY price", () => {
@@ -65,6 +65,48 @@ describe("formatMoney", () => {
     expect(formatMoney(12.5, "USD")).toBe("$12.50");
     expect(formatMoney(100, "CNY")).toBe("¥100");
     expect(formatMoney(null, "USD")).toBe("");
+  });
+
+  it("formats EUR with the € prefix like USD", () => {
+    expect(formatMoney(45, "EUR")).toBe("€45");
+    expect(formatMoney(45.5, "EUR")).toBe("€45.50");
+  });
+});
+
+// EUR mirror of itemUsdAmount (2026-08-01): same shape, 0.13 fallback.
+describe("itemEurAmount", () => {
+  it("prefers priceEur over CNY price", () => {
+    expect(itemEurAmount({ priceEur: 10.5, price: 100, currency: "CNY" })).toBe(10.5);
+  });
+
+  it("converts CNY with the 0.13 fallback", () => {
+    expect(itemEurAmount({ price: 100, currency: "CNY" })).toBe(13);
+    expect(itemEurAmount({ price: 229, currency: "¥" })).toBe(29.77);
+  });
+
+  it("keeps EUR price as EUR", () => {
+    expect(itemEurAmount({ price: 40, currency: "EUR" })).toBe(40);
+    expect(itemEurAmount({ price: 18.5, currency: "€" })).toBe(18.5);
+  });
+
+  it("returns null for missing or unknown currency amounts", () => {
+    expect(itemEurAmount(null)).toBe(null);
+    expect(itemEurAmount({})).toBe(null);
+    expect(itemEurAmount({ price: 50, currency: "GBP" })).toBe(null);
+  });
+
+  it("accepts zero without inventing a positive total", () => {
+    expect(itemEurAmount({ priceEur: 0 })).toBe(0);
+    expect(itemEurAmount({ price: 0, currency: "CNY" })).toBe(0);
+  });
+});
+
+// The 3-way display cycle (2026-08-01): CNY -> USD -> EUR -> CNY.
+describe("nextPricePrimary", () => {
+  it("cycles CNY -> USD -> EUR -> CNY", () => {
+    expect(nextPricePrimary("CNY")).toBe("USD");
+    expect(nextPricePrimary("USD")).toBe("EUR");
+    expect(nextPricePrimary("EUR")).toBe("CNY");
   });
 });
 
