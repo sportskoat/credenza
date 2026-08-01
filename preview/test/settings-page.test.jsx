@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 
 import SettingsPage from "../../settings/SettingsPage.jsx";
 import { SETTINGS_SECTIONS } from "../../settings/SettingsNav.jsx";
@@ -123,6 +123,26 @@ describe("SettingsPage (one-page redesign)", () => {
     const { container } = renderPage({ section: "fit" });
     const active = container.querySelector(".cz-settings-nav-item.is-active");
     expect(active.textContent).toContain("Sizes and measurements");
+  });
+
+  it("scrolls the content column on first open for a non-account deep link", async () => {
+    // active is seeded from the URL, so a naive "only scroll when active
+    // changes" path never jumps — scrollTop stays 0 while the rail is right.
+    const scrollTo = vi.fn();
+    const prev = Element.prototype.scrollTo;
+    Element.prototype.scrollTo = scrollTo;
+    try {
+      const { container } = renderPage({ section: "sizes" });
+      const active = container.querySelector(".cz-settings-nav-item.is-active");
+      expect(active.textContent).toContain("Sizes and measurements");
+      await waitFor(() => {
+        expect(scrollTo).toHaveBeenCalled();
+      });
+      const call = scrollTo.mock.calls.find((c) => c[0] && typeof c[0].top === "number");
+      expect(call, "scrollTo was called with a top offset").toBeTruthy();
+    } finally {
+      Element.prototype.scrollTo = prev;
+    }
   });
 
   it("shelf defaults rows work — each flips or opens its switch", () => {

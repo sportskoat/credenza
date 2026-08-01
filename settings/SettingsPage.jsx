@@ -45,6 +45,9 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
   const sectionEls = useRef({});
   // Suppress scroll-spy while a click-driven scroll is in flight.
   const scrollLock = useRef(false);
+  // First open must scroll even when active is already seeded from the URL
+  // (otherwise /settings/sizes highlights the rail but stays at scroll 0).
+  const didInitialScroll = useRef(false);
   const [active, setActive] = useState(() => normalizeSection(section));
 
   useEffect(() => {
@@ -105,11 +108,18 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
   // Deep link / external navigation: jump to the requested section.
   useEffect(() => {
     const target = normalizeSection(section);
+    // Wait a frame so section refs exist after paint.
+    const jump = () => scrollToSection(target, { updateUrl: false });
+    // First mount: always scroll. active is initialized from `section`, so
+    // target === active would otherwise skip the jump and leave scrollTop 0.
+    if (!didInitialScroll.current) {
+      didInitialScroll.current = true;
+      requestAnimationFrame(jump);
+      return;
+    }
     if (target === active && !section) return;
-    // Only re-scroll when the URL section changes from outside.
     if (target !== active) {
-      // First paint: wait a frame so section refs exist.
-      requestAnimationFrame(() => scrollToSection(target, { updateUrl: false }));
+      requestAnimationFrame(jump);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to section prop
   }, [section]);
