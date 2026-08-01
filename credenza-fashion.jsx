@@ -9884,17 +9884,11 @@ function CredenzaApp() {
           </div>
         )}
 
-        {/* Filter strip. Desktop: text chips. Design 7a phone: glyph
-            segmented control (All · Likes · To buy · Bought). Hidden inside
-            an open haul: a haul shows every card in it. */}
+        {/* Filter strip: glyph segmented control (All · Likes · To buy ·
+            Bought), same on phone and desktop (Kyle 2026-08-01). Hidden
+            inside an open haul: a haul shows every card in it. */}
         {toolbarActive && !openHaulName && view === "shelf" && (
-          <div
-            className={
-              "cz-filter-strip" + (phoneShelfChrome ? " is-glyph" : "")
-            }
-            role="radiogroup"
-            aria-label="Filter the shelf"
-          >
+          <div className="cz-filter-strip is-glyph" role="radiogroup" aria-label="Filter the shelf">
             {SHELF_FILTERS.map((f) => {
               const active = shelfFilter === f.key;
               const Icon = f.Icon;
@@ -9921,7 +9915,7 @@ function CredenzaApp() {
                     setExpandedId(null);
                   }}
                 >
-                  {phoneShelfChrome && Icon && (
+                  {Icon && (
                     <Icon
                       className="cz-filter-chip-icon"
                       size={15}
@@ -9932,22 +9926,13 @@ function CredenzaApp() {
                       aria-hidden="true"
                     />
                   )}
-                  {phoneShelfChrome ? (
-                    <span className="cz-filter-chip-label">
-                      {f.label}
-                      <span className="cz-filter-chip-count">
-                        {" · "}
-                        {count}
-                      </span>
+                  <span className="cz-filter-chip-label">
+                    {f.label}
+                    <span className="cz-filter-chip-count">
+                      {" · "}
+                      {count}
                     </span>
-                  ) : (
-                    <>
-                      {f.label}
-                      <span className="cz-filter-chip-count">
-                        · {count}
-                      </span>
-                    </>
-                  )}
+                  </span>
                 </button>
               );
             })}
