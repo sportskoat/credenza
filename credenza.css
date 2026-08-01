@@ -31,6 +31,15 @@
   --cz-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --cz-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
+  /* Colour token fallbacks (Gallery light). Theme palettes in
+     credenza-fashion.jsx override these on .cz-app. Kept here so every
+     --cz-* name the design docs list resolves as a real CSS token. */
+  --cz-chip-fill: #E6E6DE;
+  --cz-seg: rgba(23, 24, 26, 0.06);
+  --cz-money: #147a3a;
+  --cz-like: #e11d48;
+  --cz-link: #1d5fd0;
+
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --dur-press: 120ms;
   --dur-micro: 140ms;
