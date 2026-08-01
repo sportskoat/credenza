@@ -294,9 +294,12 @@ describe("recommendSize", () => {
   });
 
   it("uses wider ease for outerwear", () => {
-    // body 96 + 16 ease = 112 target → M (112)
+    // Unnamed outerwear reads as a coat, band 12.5-20cm. Body 96: M (chest
+    // 112, ease 16) and L (chest 116, ease 20) both sit inside the band, so
+    // both fit. Kyle's rule: when the size sits between two rows that both
+    // fit, the app picks the bigger one.
     const rec = recommendSize(shirtChart, { chest: 96 }, "outerwear");
-    expect(rec.size).toBe("M");
+    expect(rec.size).toBe("L");
   });
 
   it("sizes down when the chart says 版型偏大 (runs big)", () => {

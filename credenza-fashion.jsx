@@ -1114,9 +1114,18 @@ export const CHEST_EASE_BANDS = {
 // looseness taste are known. Returns null for `unknown` and for bottoms, and
 // the caller then keeps the pre-v2 single number.
 export function chestEaseBand(kind, cut, looseness) {
-  if (kind === "compression") return CHEST_EASE_BANDS.compression;
-  if (kind === "blazer") return CHEST_EASE_BANDS.blazer;
-  if (kind === "coat") return CHEST_EASE_BANDS.coat;
+  if (kind === "compression") {
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knit;
+    return CHEST_EASE_BANDS.compression;
+  }
+  if (kind === "blazer") {
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.coat;
+    return CHEST_EASE_BANDS.blazer;
+  }
+  if (kind === "coat") {
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knitOver;
+    return CHEST_EASE_BANDS.coat;
+  }
   // C: a woven shirt is one broad band "adjusted by the declared fit".
   if (kind === "woven") {
     if (looseness === "slim") return CHEST_EASE_BANDS.knitSlim;
@@ -1252,6 +1261,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // best of them instead of no size at all.
   const SHOULDER_REJECT_CM = 3;
   const SHOULDER_REJECT_COST = 100;
+  // Two scores this close are a tie, and the tie goes to the bigger size.
+  // Nobody likes a shirt that is too tight.
+  const TIE_EPSILON = 0.5;
   const bandOf = (r) => {
     // Distance outside the band. Inside the band is a perfect read, so the
     // whole band scores 0 and the pick then turns on shoulder, sleeve, length.
@@ -1282,7 +1294,13 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   };
   // Score every row, not just the winner — the runner-up becomes the "also
   // works" second option (snugger vs roomier) Kyle asked for.
-  const scored = candidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
+  const scored = candidates
+    .map((r, i) => ({ row: r, s: score(r), i }))
+    .sort((a, b) => {
+      const d = a.s - b.s;
+      if (Math.abs(d) < TIE_EPSILON) return b.i - a.i;
+      return d;
+    });
   // A tapped size the chart does not carry falls back to the scored winner —
   // a pick with no row has no measurements to print.
   const forcedRow = forceSize

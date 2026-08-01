@@ -321,3 +321,54 @@ describe("a garment the engine cannot name is left exactly as it was", () => {
     expect(rec.size).toBe("M");
   });
 });
+
+describe("oversized widens the band on a compression top, a blazer, and a coat", () => {
+  it("gives a compression top the everyday knit band when the customer likes loose", () => {
+    expect(chestEaseBand("compression", null, "oversized")).toEqual(CHEST_EASE_BANDS.knit);
+    expect(chestEaseBand("compression", null, "baggy")).toEqual(CHEST_EASE_BANDS.knit);
+    expect(chestEaseBand("compression", null, null)).toEqual(CHEST_EASE_BANDS.compression);
+  });
+
+  it("gives a blazer the coat band when the customer likes loose", () => {
+    expect(chestEaseBand("blazer", null, "oversized")).toEqual(CHEST_EASE_BANDS.coat);
+    expect(chestEaseBand("blazer", null, null)).toEqual(CHEST_EASE_BANDS.blazer);
+  });
+
+  it("gives a coat the oversized knit band when the customer likes loose", () => {
+    expect(chestEaseBand("coat", null, "oversized")).toEqual(CHEST_EASE_BANDS.knitOver);
+    expect(chestEaseBand("coat", null, null)).toEqual(CHEST_EASE_BANDS.coat);
+  });
+
+  it("moves a coat up a size in practice when the customer likes oversized", () => {
+    // Chest 100. Normal coat band 12.5–20cm: the M (113) sits inside, the L
+    // (123) misses by 3cm, so the M wins. Oversized band 15–25cm: the M
+    // misses by 2cm, the L sits inside, so the L wins.
+    const chart = chartOf("M: chest 113, length 72\nL: chest 123, length 74");
+    const body = { chest: 100 };
+    const plain = recommendSize(chart, body, "outerwear", null, null, "Wool Overcoat");
+    expect(plain.garmentKind).toBe("coat");
+    expect(plain.size).toBe("M");
+    const loose = recommendSize(chart, body, "outerwear", { looseness: "oversized" }, null, "Wool Overcoat");
+    expect(loose.size).toBe("L");
+  });
+});
+
+describe("a near-tie between two sizes goes to the larger one", () => {
+  const body = { chest: 100 };
+
+  it("picks the larger size when two rows score within half a point", () => {
+    // Knit band 5–10cm, midpoint 7.5. The M (107) scores 0.025, the L (109)
+    // scores 0.075 — a gap of 0.05, far inside the tie margin. The L wins.
+    const chart = chartOf("M: chest 107, length 70\nL: chest 109, length 72");
+    const rec = recommendSize(chart, body, "shirt", null, null, "Cotton tee");
+    expect(rec.size).toBe("L");
+  });
+
+  it("still picks the smaller size when it is clearly the better fit", () => {
+    // The M (107) scores 0.025, the L (113) misses the band by 3cm — a gap
+    // near 3 points, no tie. The M wins, exactly as before the change.
+    const chart = chartOf("M: chest 107, length 70\nL: chest 113, length 72");
+    const rec = recommendSize(chart, body, "shirt", null, null, "Cotton tee");
+    expect(rec.size).toBe("M");
+  });
+});
