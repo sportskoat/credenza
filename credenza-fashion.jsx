@@ -1114,9 +1114,18 @@ export const CHEST_EASE_BANDS = {
 // looseness taste are known. Returns null for `unknown` and for bottoms, and
 // the caller then keeps the pre-v2 single number.
 export function chestEaseBand(kind, cut, looseness) {
-  if (kind === "compression") return CHEST_EASE_BANDS.compression;
-  if (kind === "blazer") return CHEST_EASE_BANDS.blazer;
-  if (kind === "coat") return CHEST_EASE_BANDS.coat;
+  if (kind === "compression") {
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knit;
+    return CHEST_EASE_BANDS.compression;
+  }
+  if (kind === "blazer") {
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.coat;
+    return CHEST_EASE_BANDS.blazer;
+  }
+  if (kind === "coat") {
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knitOver;
+    return CHEST_EASE_BANDS.coat;
+  }
   // C: a woven shirt is one broad band "adjusted by the declared fit".
   if (kind === "woven") {
     if (looseness === "slim") return CHEST_EASE_BANDS.knitSlim;
@@ -1252,6 +1261,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // best of them instead of no size at all.
   const SHOULDER_REJECT_CM = 3;
   const SHOULDER_REJECT_COST = 100;
+  // Two scores this close are a tie, and the tie goes to the bigger size.
+  // Nobody likes a shirt that is too tight.
+  const TIE_EPSILON = 0.5;
   const bandOf = (r) => {
     // Distance outside the band. Inside the band is a perfect read, so the
     // whole band scores 0 and the pick then turns on shoulder, sleeve, length.
@@ -1281,7 +1293,13 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     return s;
   };
   // Score every row, not just the winner — the runner-up becomes the "also
-  // works" second option (snugger vs roomier) Kyle asked for.
+  // works" second option (snugger vs roomier) Kyle asked for. Sort by score
+  // alone here (F, 2026-08-01): the tie-break itself happens below, once,
+  // against the true best score — not inside the comparator. A comparator
+  // that calls two rows "tied" whenever they are within TIE_EPSILON of EACH
+  // OTHER is not consistent (A ties B, B ties C, A does not tie C), and
+  // `Array.sort` gives no guaranteed result for a comparator like that — the
+  // winner could drift two sizes up instead of one.
   const scored = candidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
   // A tapped size the chart does not carry falls back to the scored winner —
   // a pick with no row has no measurements to print.
@@ -1312,7 +1330,16 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     if (band && isTop) return e >= band[0] - CHEST_BAND_SLACK && e <= band[1] + CHEST_BAND_SLACK;
     return Math.abs(e - ease) <= CHEST_TOLERANCE;
   };
-  const chestWinner = scored[0].row;
+  // Ties go to the bigger size (F, 2026-08-01): among every row within
+  // TIE_EPSILON of the true best score, the one with the larger measurement
+  // wins — not the row that happens to sit later in the chart. The chart
+  // parser keeps the seller's own row order and never sorts it, so a chart
+  // written largest-first would have flipped "later row" into "smaller size".
+  const bestScore = scored[0].s;
+  const tiedForBest = scored.filter((s) => s.s - bestScore < TIE_EPSILON);
+  const chestWinner = tiedForBest.reduce((biggest, s) =>
+    s.row[primaryKey] > biggest.row[primaryKey] ? s : biggest
+  ).row;
   let lengthWin = null;
   let lengthPick = null;
   const lengthTarget =
