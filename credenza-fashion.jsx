@@ -1371,7 +1371,12 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // single target, so nothing changes for a chart the engine cannot classify.
   const CHEST_TOLERANCE = 6;
   const CHEST_BAND_SLACK = 4;
-  const chestFits = (r) => {
+  // Named for the chest pass that built it, but the formula is generic:
+  // with no band (every bottoms row, since band is top-only) it falls
+  // straight to the plain ±CHEST_TOLERANCE check on whatever primaryKey
+  // is — waist or hip included. The pants/shorts length tie-break below
+  // reuses it unchanged.
+  const primaryFits = (r) => {
     const e = r[primaryKey] - p[bodyKey] - runShift;
     if (band && isTop) return e >= band[0] - CHEST_BAND_SLACK && e <= band[1] + CHEST_BAND_SLACK;
     return Math.abs(e - ease) <= CHEST_TOLERANCE;
@@ -1393,7 +1398,7 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
       ? Number(p.length) + lengthNudgeCm(fitPref)
       : null;
   if (lengthTarget != null) {
-    const eligible = candidates.filter((r) => r.length != null && chestFits(r));
+    const eligible = candidates.filter((r) => r.length != null && primaryFits(r));
     if (eligible.length >= 2) {
       const byLength = eligible
         .map((r) => ({ row: r, d: Math.abs(r.length - lengthTarget), s: score(r) }))
@@ -1413,8 +1418,38 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
       }
     }
   }
-  // A hand pick beats every calculation. Then the length winner, then the chest.
-  const best = forcedRow || lengthPick || chestWinner;
+  // ── The pants/shorts length pass (F, 2026-08-01) ──────────────────────────
+  // Same rule as the shirt length pass above, moved to the leg: the saved
+  // trouser (or shorts) length only breaks a tie between sizes that already
+  // fit the waist/hip equally. It never outweighs a clear waist winner.
+  // Both sides are the seller's own full outside-leg number (裤长), matching
+  // what the customer saves — no inseam column, no estimate, per PR #20.
+  const bodyLegKey = category === "shorts" ? "shortsLength" : "pantsLength";
+  let legLengthWin = null;
+  let legLengthPick = null;
+  const legLengthTarget =
+    catPants && p[bodyLegKey] != null && isFinite(Number(p[bodyLegKey]))
+      ? Number(p[bodyLegKey])
+      : null;
+  if (legLengthTarget != null) {
+    const eligible = candidates.filter((r) => r.pantsLength != null && primaryFits(r));
+    if (eligible.length >= 2) {
+      const byLength = eligible
+        .map((r) => ({ row: r, d: Math.abs(r.pantsLength - legLengthTarget), s: score(r) }))
+        // Same distance from the wanted length → the better waist wins.
+        .sort((a, b) => a.d - b.d || a.s - b.s);
+      legLengthPick = byLength[0].row;
+      if (legLengthPick.size !== chestWinner.size) {
+        legLengthWin = {
+          fromSize: chestWinner.size,
+          legLength: legLengthPick.pantsLength,
+          legLengthTarget,
+        };
+      }
+    }
+  }
+  // A hand pick beats every calculation. Then a length winner, then the chest/waist.
+  const best = forcedRow || lengthPick || legLengthPick || chestWinner;
   // What the same body would have been given with no looseness taste. The
   // taste no longer moves a chart row (the band does the work), but the panel
   // still owes the customer the old, plain signal: "you like these oversized,
@@ -1440,11 +1475,22 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const diff = garment - body;
   // Secondary leg-length check on bottoms. Both numbers are now the seller's
   // own measurement — waistband to hem (裤长) — so this is a like-for-like
-  // comparison. It still never feeds the pick math: the waist decides the size.
-  const bodyLegKey = category === "shorts" ? "shortsLength" : "pantsLength";
+  // comparison. The pick above may already have moved to the length winner;
+  // this only adds the "runs long/runs short" flag once a gap is real enough
+  // to call out (F, 2026-08-01: 5cm or more), it never feeds the pick math.
+  const LEG_LENGTH_WARN_CM = 5;
   const lengthCheck =
     !isTop && best.pantsLength != null && p[bodyLegKey] != null
-      ? { garment: best.pantsLength, body: Number(p[bodyLegKey]) }
+      ? {
+          garment: best.pantsLength,
+          body: Number(p[bodyLegKey]),
+          warn:
+            Math.abs(best.pantsLength - Number(p[bodyLegKey])) >= LEG_LENGTH_WARN_CM
+              ? best.pantsLength - Number(p[bodyLegKey]) > 0
+                ? "long"
+                : "short"
+              : null,
+        }
       : null;
   const label = primaryKey === "waist" ? "Waist" : primaryKey === "hip" ? "Hip" : "Chest";
   const reason =
@@ -1479,6 +1525,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     // Present only when the body length moved the pick off the chest winner.
     // A hand pick clears it below: the customer chose, the app did not.
     lengthWin,
+    // Same idea as lengthWin, for pants/shorts: present only when the saved
+    // trouser/shorts length moved the pick off the waist/hip winner.
+    legLengthWin,
     // The length the pick aimed for, taste included, or null when the customer
     // saved no shirt length. The copy needs to tell "no number" from "matched".
     lengthTargetUsed: lengthTarget,
@@ -1493,7 +1542,7 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   };
   // Optional 4th arg: per-category taste (length + looseness). Looseness can
   // nudge one size up/down; the length axis moves the target length above.
-  if (forcedRow) return { ...baseRec, lengthWin: null };
+  if (forcedRow) return { ...baseRec, lengthWin: null, legLengthWin: null };
   return applyFitPreference(baseRec, chart, fitPref, category);
 }
 

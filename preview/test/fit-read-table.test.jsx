@@ -31,8 +31,14 @@ const { effectiveBodyProfile, fitReadRows, parseSizeChart, recommendSize } = awa
 
 const TOP_TEXT =
   "M: chest 116, shoulder 46, length 70\nL: chest 120, shoulder 48, length 72\nXL: chest 124, shoulder 50, length 74";
+// L's waist sits 14cm off the M — outside the leg-length tie-break's ±6cm
+// waist tolerance (F, 2026-08-01) — so a saved trouser length below can
+// never move the pick off the M. Before that pass existed, L's waist (82)
+// was close enough to tie on waist alone; once a test here saves a trouser
+// length, that tie would otherwise resolve to L, not the M this file
+// actually means to test the Length ROW math on.
 const BOTTOM_TEXT =
-  "M: waist 78, hip 104, pants length 100\nL: waist 82, hip 108, pants length 102";
+  "M: waist 78, hip 104, pants length 100\nL: waist 92, hip 108, pants length 102";
 
 afterEach(() => {
   cleanup();
