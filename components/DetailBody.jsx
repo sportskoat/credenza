@@ -407,7 +407,9 @@ function SizingBlock({
       <div className="cz-sizing-head">
         <span className="cz-sizing-dot" aria-hidden="true" />
         <span className="cz-sizing-kicker">
-          {isManual ? "Your pick" : precise ? "AI size" : "your usual size"}
+          {/* Chart-derived pick (recSize) is "AI size" even when provenance
+              hedges with BEST GUESS. Only no chart rec says "your usual size". */}
+          {isManual ? "Your pick" : recSize ? "AI size" : "your usual size"}
         </span>
         {typeWord ? <span className="cz-sizing-type">{typeWord}</span> : null}
         {provenance ? <span className="cz-sizing-prov">{provenance}</span> : null}

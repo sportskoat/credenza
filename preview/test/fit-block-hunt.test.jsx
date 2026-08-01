@@ -119,6 +119,10 @@ describe("FitBlock chart hunt", () => {
     expect(screen.getByText("BEST GUESS")).toBeInTheDocument();
     expect(screen.queryByText("SELLER'S CHART")).not.toBeInTheDocument();
     expect(document.querySelector(".cz-sizing-value-row.has-sheen")).toBe(null);
+    // F 2026-08-01: chart-derived recSize still says "AI size"; BEST GUESS
+    // is the hedge in provenance, not a "your usual size" kicker.
+    expect(screen.getByText("AI size")).toBeInTheDocument();
+    expect(screen.queryByText("your usual size")).not.toBeInTheDocument();
     // The fit read still scores the estimated tape against the chart.
     expect(document.querySelector(".cz-fitread")).not.toBe(null);
   });
