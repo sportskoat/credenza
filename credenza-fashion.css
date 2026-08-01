@@ -11705,6 +11705,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   justify-content: center;
   gap: 5px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
 .cz-detail-dot {
@@ -13440,7 +13441,7 @@ input.cz-detail-size-choice.is-custom:focus-visible {
    verdict is checkable without opening the full table. */
 .cz-sizing-chart {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   padding: 10px 0 0;
 }
 
@@ -13450,7 +13451,7 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   display: grid;
   gap: 2px;
   justify-items: center;
-  padding: 6px 2px;
+  padding: 6px 4px;
   border: 0;
   border-radius: 8px;
   background: var(--cz-seg);
@@ -14204,7 +14205,8 @@ input.cz-sizing-fix-size {
   .cz-detail-pane-header,
   .cz-detail-pane-header.is-up {
     /* Safe-area so the status bar never covers the title or close control. */
-    height: calc(50px + env(safe-area-inset-top, 0px));
+    min-height: calc(50px + env(safe-area-inset-top, 0px));
+    overflow: visible;
     padding: calc(2px + env(safe-area-inset-top, 0px)) 12px 10px;
     gap: 11px;
     border-bottom: 0;
