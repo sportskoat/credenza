@@ -10098,6 +10098,18 @@ function CredenzaApp() {
             onFocus={pauseNotification}
             onBlur={resumeNotification}
           >
+            {/* Kyle 2026-07-31: check for the normal tone, X for error. */}
+            <span
+              className="cz-toast-icon"
+              data-icon={notification.tone === "error" ? "error" : "ok"}
+              aria-hidden="true"
+            >
+              {notification.tone === "error" ? (
+                <X size={15} strokeWidth={2.5} />
+              ) : (
+                <Check size={15} strokeWidth={2.5} />
+              )}
+            </span>
             {notification.sub ? (
               <span className="cz-toast-text">
                 <span className="cz-toast-message">{notification.message}</span>

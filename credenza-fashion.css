@@ -5952,8 +5952,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   width: auto;
   max-width: min(320px, 100%);
   min-height: 0;
-  border-radius: 999px;
-  padding: 8px 10px 8px 14px;
+  /* Kyle 2026-07-31: small-rounded card, not a full pill. Bottom-center stays. */
+  border-radius: 14px;
+  padding: 8px 10px 8px 12px;
   gap: 8px;
   align-items: center;
   color: var(--cz-ink);
@@ -5966,6 +5967,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   animation: cz-toast-in var(--toast-open) var(--toast-ease) both;
+}
+/* Leading status icon: check for success / info, X for error. Decorative only. */
+.cz-app[data-fashion="true"] .cz-toast-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: inherit;
+  opacity: 0.92;
+}
+.cz-app[data-fashion="true"] .cz-toast-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.5;
 }
 
 @media (prefers-reduced-motion: reduce) {
