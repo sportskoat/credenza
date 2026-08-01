@@ -2335,8 +2335,10 @@ describe("Inline preference controls (CH-14)", () => {
     expect(document.querySelector(".cz-total-currency")).toBeNull();
     // Money still shows in the preferred currency (default USD).
     expect(screen.getAllByText("$32.06").length).toBeGreaterThan(1);
-    // Cost + view icons sit on the Shelf/Hauls tabs row (right side).
-    expect(document.querySelector(".cz-view-tabs-row .cz-total-row")).not.toBeNull();
+    // Row 1: filters peer Shelf/Hauls. Row 2: total under the tabs.
+    expect(document.querySelector(".cz-view-tabs-row .cz-filter-strip.is-tabs-peer")).not.toBeNull();
+    expect(document.querySelector(".cz-view-tabs-row .cz-total-row")).toBeNull();
+    expect(document.querySelector(".cz-total-row")).not.toBeNull();
   });
 
   // Design 7a (2026-07-31) dropped the phone money summary pill entirely —

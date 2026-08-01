@@ -4174,15 +4174,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* ─── Total-cost chip + spinning reel counter (transitions.dev-style) ───
-   Lives on the right of the Shelf/Hauls tabs row (Kyle 2026-08-01).
-   One quiet group: [count | cost] [icon | icon]. No currency chip — that
-   switch is Settings only. No sticky bar, no full-width black strip. */
+   Row 2 under Shelf/Hauls (Kyle 2026-08-01 redo): left-aligned
+   [count | cost] then view icons. No currency chip — Settings only. */
 .cz-total-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 10px;
-  margin: 0;
+  margin: 0 0 14px;
   /* Never paint a bar — transparent over the ambient bg. */
   background: transparent;
 }
@@ -5655,14 +5654,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Indexing chip row next to Shelf / Hauls / Inbox tabs.
-   Kyle 2026-08-01: no underline under the tabs — the hair line read as a
-   stray rule. Cost + view icons sit on the right of this same row. */
+   Kyle 2026-08-01: no underline. Row 1 = tabs LEFT + filters RIGHT.
+   Row 2 (below) = saved/total + view icons. */
 .cz-view-tabs-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   border-bottom: 0;
 }
 
@@ -5673,11 +5672,45 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   min-width: 0;
 }
 
-.cz-view-tabs-row .cz-total-row {
-  margin: 0;
-  margin-left: auto;
+/* Desktop filters peer the Shelf/Hauls track — same height, padding, type.
+   Sit on the right of row 1. */
+.cz-view-tabs-row .cz-filter-strip.is-glyph.is-tabs-peer {
+  display: inline-flex;
   flex: 0 1 auto;
-  min-width: 0;
+  grid-template-columns: none;
+  max-width: none;
+  margin: 0 0 0 auto;
+  margin-left: auto;
+  min-height: 0;
+  height: auto;
+  gap: 2px;
+  padding: 3px;
+  overflow: visible;
+}
+
+.cz-view-tabs-row .cz-filter-strip.is-glyph.is-tabs-peer .cz-filter-chip {
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: 4px;
+  height: auto;
+  min-height: 0;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.cz-view-tabs-row .cz-filter-strip.is-glyph.is-tabs-peer .cz-filter-chip-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.cz-view-tabs-row .cz-filter-strip.is-glyph.is-tabs-peer .cz-filter-chip-label {
+  font-size: 12px;
+}
+
+.cz-view-tabs-row .cz-filter-strip.is-glyph.is-tabs-peer .cz-filter-chip-count {
+  font-size: 12px;
 }
 
 /* ── Filter strip (shelf handoff 2026-07-28) ──
