@@ -2719,7 +2719,7 @@
   flex: 0 0 16px;
 }
 
-/* Capture + search: same rounded “field + action” language. */
+/* Capture + search: Kimi-feel pill track (quiet border, no heavy drop). */
 .cz-app[data-fashion="true"] .cz-capture-shell {
   position: relative;
   z-index: 1;
@@ -2729,11 +2729,9 @@
   margin-bottom: 16px;
   padding: 8px 8px 8px 16px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--cz-card-solid) 90%, black 10%);
-  border: 1px solid var(--cz-hair-strong);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-    0 12px 30px rgba(0, 0, 0, 0.30);
+  background: var(--cz-card-solid);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  box-shadow: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   /* Keep the pill + field in one paint layer on iOS so scroll never detaches them. */
@@ -3437,18 +3435,17 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   text-shadow: none !important;
 }
 
-/* Control bar under the carousel: chevrons + stretch dots.
-   No oval — bare controls floating under the stage, dots in a soft white. */
+/* Control bar under the carousel: Kimi pill track + solid active dot. */
 .cz-coverflow-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: fit-content;
   margin: 14px auto 0;
-  padding: 3px 7px;
+  padding: 4px 8px;
   border-radius: 999px;
-  background: transparent;
-  border: 0;
+  background: var(--cz-seg);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   position: relative;
   z-index: 20;
 }
@@ -3456,17 +3453,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-coverflow-arrow {
   display: grid;
   place-items: center;
+  min-width: 32px;
+  min-height: 32px;
   padding: 5px;
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--cz-sub);
+  color: var(--cz-faint);
   cursor: pointer;
   transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
 
 .cz-coverflow-arrow:hover:not(:disabled) {
-  background: var(--cz-hair);
+  background: var(--cz-hover);
   color: var(--cz-ink);
 }
 
@@ -3503,18 +3502,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   width: 16px;
   height: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--cz-ink) 60%, transparent);
+  background: color-mix(in srgb, var(--cz-ink) 28%, transparent);
   transform: scaleX(0.25);
-  transition: transform 300ms var(--ease-out), background 300ms var(--ease-out);
+  transition: transform var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
 
 .cz-coverflow-dot:hover::after {
-  background: var(--cz-ink);
+  background: color-mix(in srgb, var(--cz-ink) 55%, transparent);
 }
 
 .cz-coverflow-dot.is-active::after {
   transform: scaleX(1);
-  background: linear-gradient(90deg, var(--cz-gradient-1), var(--cz-gradient-2), var(--cz-gradient-3));
+  background: var(--cz-seg-on, var(--cz-ink));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -8115,26 +8114,27 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    2026-07-22) — the old sticky .cz-shelf-toolbar rectangle ("comes up and
    stays up") is gone; the meta row scrolls away with the page. */
 
+/* Kimi-feel: flat card + 10% border; no drop shadow on stash/search tracks. */
 .cz-app[data-fashion="true"] .cz-capture-shell,
 .cz-app[data-fashion="true"] .cz-search-shell {
   background: var(--cz-card-solid);
-  border: 1px solid var(--cz-hair);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  box-shadow: none;
 }
 
 .cz-app[data-fashion="true"] .cz-search-shell:focus-within {
-  border-color: color-mix(in srgb, var(--cz-accent) 55%, var(--cz-hair));
-  box-shadow: 0 0 0 3px var(--cz-glow-weak), 0 1px 3px rgba(0, 0, 0, 0.14);
+  border-color: var(--cz-hair-strong);
+  box-shadow: none;
+  background: var(--cz-selected, var(--cz-card-solid));
 }
 
-/* Gallery light: shadows read as gray grime on the warm canvas — go nearly
-   flat and let the hairline do the separation. */
+/* Gallery light: keep flat — hairline only. */
 .cz-app[data-fashion="true"][data-theme="light"] .cz-capture-shell,
 .cz-app[data-fashion="true"][data-theme="light"] .cz-search-shell {
-  box-shadow: 0 1px 2px rgba(23, 24, 26, 0.06);
+  box-shadow: none;
 }
 .cz-app[data-fashion="true"][data-theme="light"] .cz-search-shell:focus-within {
-  box-shadow: 0 0 0 3px var(--cz-glow-weak), 0 1px 2px rgba(23, 24, 26, 0.06);
+  box-shadow: none;
 }
 
 /* Design handoff PR2 (2026-07-23): the masthead shows on phones too — it is
@@ -9405,9 +9405,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    to show the paste before the button creates cards from it. */
 
 /* QW9: opaque. The shared sheet surface is translucent, and shelf cards read
-   straight through it on a busy shelf. */
+   straight through it on a busy shelf. Kimi card: solid + 10% border. */
 .cz-stash-surface {
   background: var(--cz-card-solid);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   /* All four corners by default. The sheet opens on desktop too now (Kyle
      2026-07-27), where the dialog floats in the middle of the window — a flat
      bottom edge there reads as a box cut off by nothing. */
@@ -9446,7 +9447,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-stash-clipcard {
   padding: 14px;
   margin-bottom: 12px;
-  border: 1px solid var(--cz-hair);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   border-radius: 16px;
   background: var(--cz-bg);
 }
@@ -9510,9 +9511,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   box-sizing: border-box;
   margin: 0;
   padding: 14px 14px 14px 37px;
-  border: 1px solid var(--cz-hair);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   border-radius: 14px;
-  background: var(--cz-card-solid);
+  background: var(--cz-bg);
   color: var(--cz-ink);
   font-family: var(--cz-mono);
   font-size: 16px;
@@ -11593,11 +11594,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   width: 100%;
   height: calc(100dvh - 88px);
   overflow: hidden;
-  background: var(--cz-bg);
+  background: var(--cz-card-solid);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   /* §9: 22px, not 26. A tighter corner reads as a sheet pinned to the edge
      rather than a floating card. */
   border-radius: 22px 22px 0 0;
-  box-shadow: 0 -12px 40px oklch(0 0 0 / 0.24);
+  box-shadow: none;
   animation: cz-detail-up 260ms cubic-bezier(0.22, 0.9, 0.3, 1) both;
 }
 
@@ -12277,13 +12279,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 999px;
-  background: oklch(0.2 0.01 260 / 0.5);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: oklch(1 0 0);
+  color: #ffffff;
   cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-detail-hero-btn:hover {
+    background: rgba(0, 0, 0, 0.62);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
 }
 
 /* The button reads 36px on the photo, but the finger gets the full 44px.
@@ -12927,7 +12937,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 a.cz-detail-seller-row:hover {
-  background: var(--cz-accent-bg);
+  background: var(--cz-hover, var(--cz-accent-bg));
 }
 
 a.cz-detail-seller-row:active {
@@ -13000,18 +13010,31 @@ a.cz-detail-seller-row:focus-visible {
 /* Compact chip run (SIZE_CHIP_COMPACT_PLAN, 2026-07-29): 34px chips with a
    clear gap, so four sizes plus the Other box fit one row. The phone block
    below keeps 44px — that is the finger-target floor and does not shrink.
-   The Other box and Clear size share this class, so the row stays even. */
+   The Other box and Clear size share this class, so the row stays even.
+   Kyle 2026-08-01: Kimi pill — solid on pick, soft hover. */
 .cz-detail-size-choice {
   min-width: 44px;
   min-height: 34px;
   padding: 0 10px;
-  border: 1px solid var(--cz-hair-strong);
-  border-radius: 10px;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  border-radius: 999px;
   background: transparent;
-  color: var(--cz-ink);
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-detail-size-choice:hover:not(.is-active) {
+    color: var(--cz-ink);
+    background: var(--cz-hover);
+  }
 }
 
 .cz-detail-size-choice.is-recommended {
@@ -13020,9 +13043,9 @@ a.cz-detail-seller-row:focus-visible {
 }
 
 .cz-detail-size-choice.is-active {
-  border-color: var(--cz-action-fill);
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
+  border-color: transparent;
+  background: var(--cz-seg-on, var(--cz-action-fill));
+  color: var(--cz-seg-on-text, var(--cz-action-text));
 }
 
 .cz-detail-size-choice.is-clear {
@@ -15494,14 +15517,14 @@ input.cz-sizing-fix-size {
   padding: 0 14px;
   overflow: hidden;
   border-bottom: 1px solid transparent;
-  background: var(--cz-bg);
+  background: var(--cz-card-solid);
   transition:
     height var(--dur-micro) var(--ease-out),
     border-color var(--dur-micro) var(--ease-out);
 }
 .cz-detail-stickybar.is-up {
   height: 44px;
-  border-bottom-color: var(--cz-hair);
+  border-bottom-color: var(--cz-card-border, var(--cz-hair));
 }
 .cz-detail-stickybar-thumb {
   flex: 0 0 auto;
@@ -15540,11 +15563,21 @@ input.cz-sizing-fix-size {
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
   border-radius: 999px;
-  background: var(--cz-seg);
-  color: var(--cz-ink);
+  background: transparent;
+  color: var(--cz-sub);
   cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-detail-stickybar-close:hover {
+    color: var(--cz-ink);
+    background: var(--cz-hover);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

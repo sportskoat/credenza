@@ -39,7 +39,10 @@
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --dur-press: 120ms;
-  --dur-micro: 150ms;
+  /* Keep 140ms. Kimi hover feels near 150ms, but K's motion lane pins this
+     token (Kyle 2026-08-01). Do not drift it twice. Color-only hover still
+     reads calm at 140ms. */
+  --dur-micro: 140ms;
   --dur-open: 250ms;
   --dur-resize: 300ms;
 
