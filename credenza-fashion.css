@@ -4174,16 +4174,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* ─── Total-cost chip + spinning reel counter (transitions.dev-style) ───
-   One row: [count | cost] ………… [♡ | ◈ | ▦]
-   No sticky bar, no full-width black strip. The old flex-wrap + marginLeft:auto
-   parked the icons on a second tall empty line that read as a solid black bar
-   (Kyle 2026-07-22). space-between keeps both groups on one quiet line. */
+   Lives on the right of the Shelf/Hauls tabs row (Kyle 2026-08-01).
+   One quiet group: [count | cost] [icon | icon]. No currency chip — that
+   switch is Settings only. No sticky bar, no full-width black strip. */
 .cz-total-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: -8px 0 14px;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0;
   /* Never paint a bar — transparent over the ambient bg. */
   background: transparent;
 }
@@ -4191,9 +4190,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-total-main {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
 }
 
 .cz-toolbar-end {
@@ -4201,13 +4200,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
-  margin-left: 8px;
+  margin-left: 0;
   background: transparent;
 }
 
-/* ── View switch (shelf handoff 2026-07-28, README :144) ──
-   Two words inside one rounded track. The active one carries the fill, so the
-   pair reads as a choice with a state, not as two separate buttons. */
+/* ── View switch (Kyle 2026-08-01) ──
+   Two icons in one rounded track. Active fill carries the state; aria-label
+   names Carousel / Grid for assistive tech. */
 .cz-view-switch {
   gap: 2px;
   padding: 3px;
@@ -4217,7 +4216,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-view-switch .cz-view-button {
-  padding: 6px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -4299,32 +4303,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-variant-numeric: tabular-nums;
 }
 
-/* CH-14: the currency pref, changeable at the total. Rides the desktop
-   .cz-total-row after the money reel, and the phone's floating summary pill
-   beside the money. Quiet chip — the money is the reading, this is the
-   setting. */
+/* Currency chip removed from the shelf total (Kyle 2026-08-01). Change
+   currency in Settings. Keep the class inert if any old markup survives. */
 .cz-total-currency {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 5px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--cz-sub);
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.05em;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
-}
-
-.cz-total-currency:hover {
-  color: var(--cz-ink);
-  border-color: var(--cz-hair-strong);
+  display: none;
 }
 
 .t-reel {
@@ -5672,20 +5654,29 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* Indexing chip row next to Shelf / Hauls / Inbox tabs. */
+/* Indexing chip row next to Shelf / Hauls / Inbox tabs.
+   Kyle 2026-08-01: no underline under the tabs — the hair line read as a
+   stray rule. Cost + view icons sit on the right of this same row. */
 .cz-view-tabs-row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
-  border-bottom: 1px solid var(--cz-hair);
+  border-bottom: 0;
 }
 
 .cz-view-tabs-row .cz-view-tabs {
   margin-bottom: 0;
   border-bottom: 0;
-  flex: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.cz-view-tabs-row .cz-total-row {
+  margin: 0;
+  margin-left: auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
