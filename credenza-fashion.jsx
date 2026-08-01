@@ -5267,6 +5267,9 @@ function CredenzaApp() {
     // accounts are off in this build — the confirmation page still shows.
     const params = new URLSearchParams(window.location.search);
     if (params.get("upgraded") || params.get("upgrade")) {
+      // Always clear the query string — including checkout cancelled
+      // (?upgrade= without the trailing d), not only upgraded/profile.
+      stripUrl();
       const upgraded = params.get("upgraded");
       if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
       else notify("Checkout cancelled — nothing was charged.");
