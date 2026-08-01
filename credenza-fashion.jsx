@@ -1293,14 +1293,14 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     return s;
   };
   // Score every row, not just the winner — the runner-up becomes the "also
-  // works" second option (snugger vs roomier) Kyle asked for.
-  const scored = candidates
-    .map((r, i) => ({ row: r, s: score(r), i }))
-    .sort((a, b) => {
-      const d = a.s - b.s;
-      if (Math.abs(d) < TIE_EPSILON) return b.i - a.i;
-      return d;
-    });
+  // works" second option (snugger vs roomier) Kyle asked for. Sort by score
+  // alone here (F, 2026-08-01): the tie-break itself happens below, once,
+  // against the true best score — not inside the comparator. A comparator
+  // that calls two rows "tied" whenever they are within TIE_EPSILON of EACH
+  // OTHER is not consistent (A ties B, B ties C, A does not tie C), and
+  // `Array.sort` gives no guaranteed result for a comparator like that — the
+  // winner could drift two sizes up instead of one.
+  const scored = candidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
   // A tapped size the chart does not carry falls back to the scored winner —
   // a pick with no row has no measurements to print.
   const forcedRow = forceSize
@@ -1330,7 +1330,16 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
     if (band && isTop) return e >= band[0] - CHEST_BAND_SLACK && e <= band[1] + CHEST_BAND_SLACK;
     return Math.abs(e - ease) <= CHEST_TOLERANCE;
   };
-  const chestWinner = scored[0].row;
+  // Ties go to the bigger size (F, 2026-08-01): among every row within
+  // TIE_EPSILON of the true best score, the one with the larger measurement
+  // wins — not the row that happens to sit later in the chart. The chart
+  // parser keeps the seller's own row order and never sorts it, so a chart
+  // written largest-first would have flipped "later row" into "smaller size".
+  const bestScore = scored[0].s;
+  const tiedForBest = scored.filter((s) => s.s - bestScore < TIE_EPSILON);
+  const chestWinner = tiedForBest.reduce((biggest, s) =>
+    s.row[primaryKey] > biggest.row[primaryKey] ? s : biggest
+  ).row;
   let lengthWin = null;
   let lengthPick = null;
   const lengthTarget =

@@ -371,4 +371,32 @@ describe("a near-tie between two sizes goes to the larger one", () => {
     const rec = recommendSize(chart, body, "shirt", null, null, "Cotton tee");
     expect(rec.size).toBe("M");
   });
+
+  it("still goes to the bigger size when the chart lists the larger row first", () => {
+    // F, 2026-08-01: the chart parser keeps the seller's own row order and
+    // never sorts it. A row's position in the chart text must never decide
+    // the tie — only the actual chest measurement can. Same two rows as
+    // above, written L-then-M instead of M-then-L. L must still win.
+    const chart = chartOf("L: chest 109, length 72\nM: chest 107, length 70");
+    const rec = recommendSize(chart, body, "shirt", null, null, "Cotton tee");
+    expect(rec.size).toBe("L");
+  });
+
+  it("never drifts more than one size up through a chain of near-ties", () => {
+    // F, 2026-08-01: three rows each ~0.4 apart on shoulder (S ties M, M ties
+    // L, S does NOT tie L) must not let the winner drift two sizes from the
+    // true best score. The best score belongs to S; only M is within
+    // TIE_EPSILON of it, so M wins — never L. Chest is nudged by a hundredth
+    // of a centimetre per row (real charts always carry distinct
+    // measurements) purely so the tie-break has a real number to compare —
+    // at this scale it barely moves the band score, so the shoulder penalty
+    // still drives the 0.4-point spacing between rows.
+    const chart = chartOf(
+      "S: chest 107.00, shoulder 40, length 70\n" +
+      "M: chest 107.01, shoulder 41, length 70\n" +
+      "L: chest 107.02, shoulder 42, length 70"
+    );
+    const rec = recommendSize({ ...chart }, { chest: 100, shoulder: 38 }, "shirt", null, null, "Cotton tee");
+    expect(rec.size).toBe("M");
+  });
 });
