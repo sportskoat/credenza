@@ -4,7 +4,12 @@ import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
 import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
 
-/** Fairground carousel (canopy + horse). Lucide has no match; Kyle 2026-08-01. */
+/**
+ * Merry-go-round / roundabout carousel icon.
+ * Kyle 2026-08-01 rejected the canopy-only mark; ref is the Vecteezy
+ * carousel (dome + hang poles + horses + round platform). Lucide has no match.
+ * Stroke recipe matches LayoutGrid on the view switch (15 / 2.2).
+ */
 function CarouselIcon({ size = 15, strokeWidth = 2.2, className, ...rest }) {
   return (
     <svg
@@ -21,18 +26,23 @@ function CarouselIcon({ size = 15, strokeWidth = 2.2, className, ...rest }) {
       aria-hidden="true"
       {...rest}
     >
-      {/* peaked canopy */}
-      <path d="M3.5 11c0-4.5 3.8-7.5 8.5-7.5s8.5 3 8.5 7.5" />
-      {/* scalloped fringe */}
-      <path d="M3.5 11c1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0 1.1 1.3 2.2 1.3 3.3 0" />
-      {/* center pole */}
-      <path d="M12 11.5v6" />
-      {/* horse side view */}
-      <path d="M8.5 15.2c0-.7.6-1.3 1.3-1.3h.6l.7-1.2.9.4v.8h1.2c.7 0 1.3.6 1.3 1.3v1.2H8.5v-1.2z" />
-      <path d="M10.2 13.9l-.4-1.1" />
-      {/* platform */}
-      <path d="M6 19h12" />
-      <path d="M7 19v1.5M17 19v1.5" />
+      {/* finial on the center pole */}
+      <path d="M12 2v2" />
+      {/* domed canopy */}
+      <path d="M4 11c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+      {/* canopy fringe (soft scallops) */}
+      <path d="M4 11c1.15 1.35 2.3 1.35 3.45 0 1.15 1.35 2.3 1.35 3.45 0 1.15 1.35 2.3 1.35 3.45 0 1.15 1.35 2.3 1.35 3.45 0 1.15 1.35 2.3 1.35 3.45 0" />
+      {/* center pole down to the platform */}
+      <path d="M12 11.5v6.5" />
+      {/* hang poles for the horses */}
+      <path d="M7.5 11.5v3.5M16.5 11.5v3.5" />
+      {/* left horse, facing out */}
+      <path d="M5.4 17c0-.75.55-1.3 1.25-1.3h.35l.55-1.15.9.4v.75h.7V17H5.4z" />
+      {/* right horse, facing out */}
+      <path d="M18.6 17c0-.75-.55-1.3-1.25-1.3h-.35l-.55-1.15-.9.4v.75h-.7V17h3.75z" />
+      {/* round platform (the roundabout base) */}
+      <ellipse cx="12" cy="18.6" rx="7.5" ry="1.7" />
+      <path d="M4.5 18.6v1.1c0 1.15 3.35 2.1 7.5 2.1s7.5-.95 7.5-2.1v-1.1" />
     </svg>
   );
 }
