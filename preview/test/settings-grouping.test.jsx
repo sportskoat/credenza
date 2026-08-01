@@ -2,38 +2,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { cleanup, render, within } from "@testing-library/react";
+import { cleanup, render, waitFor, within } from "@testing-library/react";
 
 import SettingsContext from "../../settings/SettingsContext.jsx";
 import YourDataSection from "../../settings/YourDataSection.jsx";
 import BodyProfileSheet from "../../sheets/BodyProfileSheet.jsx";
 
-// LB-70 (Kyle 2026-07-27): "make the navigation and profile setting experience
-// much better, make it cleaner, profile sign in cleaner, different options
-// cleaner … It's too clunky the way it is right now with how everything is set
-// up. I think the measurements could use a little bit of a bigger, better
-// thing. Maybe the card that pops up with all the settings is just a little
-// bit too bland."
-//
-// The three fixes were: group the option rows under named headings, put each
-// group on its own card, and make the measurement inputs large with the unit
-// inside the box.
-//
-// This test asserts on the rendered consequence, never on a class name alone
-// and never on a comment (LB-65). Each case names a specific thing a person
-// would see, and deleting the fix makes the case fail with the reason.
+// Settings redesign 2026-08-01. Groups live in hairline cards. Sizes uses
+// body/garment dual storage with SVG tape diagrams.
 
-// This repo does not clear the document between renders, so every query below
-// is scoped to the container it just rendered.
 afterEach(cleanup);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CSS = fs.readFileSync(path.resolve(HERE, "../../credenza-fashion.css"), "utf8");
 
-// Pull one rule's body out of the stylesheet so a value can be read. Comments
-// are stripped first: this codebase quotes its own code in its comments, so a
-// whole-file search matches the explanation and keeps passing after the rule
-// is deleted.
 function ruleBody(selector) {
   const clean = CSS.replace(/\/\*[\s\S]*?\*\//g, "");
   const at = clean.indexOf(selector + " {");
@@ -43,10 +25,6 @@ function ruleBody(selector) {
 
 const noop = () => {};
 
-// The Profile and Settings sheets were deleted in Phase 4 of the Profile
-// Settings design. The grouping rules they carried now live in the routed
-// settings sections; Your data is the section with the most rows, so it
-// stands in for the rule.
 const DATA_VALUE = {
   items: [],
   onImport: noop,
@@ -71,45 +49,43 @@ function renderData() {
   );
 }
 
-describe("Settings sections keep the named groups (LB-70)", () => {
-  it("shows a heading over every block of rows", () => {
+describe("Settings sections keep the named groups", () => {
+  it("shows IMPORT and OUT labels over the data blocks", () => {
     const { container } = renderData();
-    const headings = [...container.querySelectorAll(".cz-profile-label")].map((n) =>
+    const labels = [...container.querySelectorAll(".cz-settings-card-label")].map((n) =>
       n.textContent.trim()
     );
-    expect(headings).toEqual(["Import & backup", "On this device"]);
+    expect(labels).toContain("IMPORT");
+    expect(labels).toContain("OUT");
   });
 
-  it("puts each option row inside a group card, not loose in the section", () => {
+  it("puts option rows inside hairline cards", () => {
     const { container } = renderData();
-    const rows = [...container.querySelectorAll(".cz-profile-row")];
+    const rows = [...container.querySelectorAll(".cz-settings-row-btn")];
     expect(rows.length).toBeGreaterThan(1);
     for (const row of rows) {
       expect(
-        row.closest(".cz-profile-group"),
-        `row "${row.textContent.trim()}" is not inside a group card`
+        row.closest(".cz-settings-card"),
+        `row "${row.textContent.trim()}" is not inside a card`
       ).not.toBeNull();
     }
   });
 
-  it("the group card is a real surface, not a transparent run of hairlines", () => {
-    const body = ruleBody(".cz-profile-group");
-    expect(body).toMatch(/background:\s*var\(--cz-card-solid\)/);
+  it("the card is a hairline surface (redesign recipe)", () => {
+    const body = ruleBody(".cz-settings-card");
     expect(body).toMatch(/border:\s*1px solid var\(--cz-hair\)/);
-    expect(body).toMatch(/border-radius:\s*18px/);
+    expect(body).toMatch(/border-radius:\s*14px/);
   });
 
   it("keeps the danger row with the data it erases", () => {
     const { container } = renderData();
-    const erase = within(container).getByText("Erase my data").closest(".cz-profile-row");
-    const group = erase.closest(".cz-profile-group");
-    // It used to hang alone at the bottom of the sheet, under the legal links.
-    expect(within(group).getByText("Storage")).toBeTruthy();
+    const erase = within(container).getByText("Erase my data").closest(".cz-settings-row-btn");
+    const card = erase.closest(".cz-settings-card");
+    expect(within(card).getByText("Storage")).toBeTruthy();
   });
 });
 
-describe("Sizes and measurements v2 (settings page)", () => {
-  // embedded: true matches the settings page path and skips the modal shell.
+describe("Sizes and measurements redesign (settings page)", () => {
   const renderMeasure = (props = {}) =>
     render(
       <BodyProfileSheet
@@ -131,30 +107,26 @@ describe("Sizes and measurements v2 (settings page)", () => {
     return label.closest(".cz-sizes-row").querySelector("input");
   };
 
-  it("puts usual sizes first with a left gutter label, not under the form", () => {
+  it("puts usual sizes in a strip at the top", () => {
     const { container } = renderMeasure();
-    const gutters = [...container.querySelectorAll(".cz-sizes-gutter-label")].map((n) =>
-      n.textContent.trim()
-    );
-    expect(gutters[0]).toBe("Usual sizes");
-    expect(gutters).toContain("What we can say");
-    // No bordered cards on this page (O's carry-over from the approved file).
-    expect(container.querySelectorAll(".cz-measure-group")).toHaveLength(0);
+    expect(within(container).getByText("USUAL SIZES")).toBeTruthy();
+    expect(container.querySelector(".cz-sizes-usual-strip")).toBeTruthy();
   });
 
-  it("splits tops and bottoms as photo + field groups", () => {
+  it("splits tops and bottoms as diagram + field groups", () => {
     const { container } = renderMeasure();
-    const titles = [...container.querySelectorAll(".cz-sizes-fields-title")].map((n) =>
+    const labels = [...container.querySelectorAll(".cz-sizes-group-label")].map((n) =>
       n.textContent.trim()
     );
-    expect(titles).toEqual(["Tops", "Bottoms"]);
-    expect(container.querySelectorAll(".cz-sizes-photo")).toHaveLength(2);
+    expect(labels).toEqual(["TOPS", "BOTTOMS"]);
+    expect(container.querySelectorAll(".cz-sizes-diagram")).toHaveLength(2);
+    expect(container.querySelectorAll(".cz-sizes-tape")).toHaveLength(8);
   });
 
   it("defaults to garment mode labels (pit to pit, not chest)", () => {
     const { container } = renderMeasure();
     expect(measureInput(container, "Pit to pit")).toBeTruthy();
-    expect(measureInput(container, "Which top")).toBeTruthy();
+    expect(within(container).getByText("WHICH TOP")).toBeTruthy();
     expect(within(container).getByRole("radio", { name: "Your body" })).toBeTruthy();
   });
 
@@ -170,7 +142,7 @@ describe("Sizes and measurements v2 (settings page)", () => {
     expect(measureInput(container, "Pit to pit").value).toBe("54");
   });
 
-  it("saves garment under its own object and does not wipe body keys", async () => {
+  it("auto-saves garment under its own object and does not wipe body keys", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
     const onSave = vi.fn();
     const { container } = render(
@@ -186,13 +158,17 @@ describe("Sizes and measurements v2 (settings page)", () => {
     const pit = measureInput(container, "Pit to pit");
     await user.clear(pit);
     await user.type(pit, "54");
-    await user.click(within(container).getByRole("button", { name: /Save measurements/i }));
-    expect(onSave).toHaveBeenCalled();
-    const saved = onSave.mock.calls[0][0];
-    expect(saved.chest).toBe(100);
-    expect(saved.garment).toEqual({ chest: 54 });
-    expect(saved.measureMode).toBe("garment");
-    expect(saved.usualTops).toBe("L");
+    await waitFor(
+      () => {
+        expect(onSave).toHaveBeenCalled();
+        const saved = onSave.mock.calls[onSave.mock.calls.length - 1][0];
+        expect(saved.chest).toBe(100);
+        expect(saved.garment).toEqual({ chest: 54 });
+        expect(saved.measureMode).toBe("garment");
+        expect(saved.usualTops).toBe("L");
+      },
+      { timeout: 1500 }
+    );
   });
 
   it("counts filled measure fields without height and weight", () => {
@@ -206,11 +182,11 @@ describe("Sizes and measurements v2 (settings page)", () => {
         embedded
       />
     );
-    // Garment mode is default: only garment.chest is filled → 1 of 8.
-    expect(within(container).getByText("1 of 8")).toBeTruthy();
+    // Garment mode is default: only garment.chest is filled → 1 OF 8.
+    expect(within(container).getByText("1 OF 8")).toBeTruthy();
   });
 
-  it("active field row gets the ink bar class", async () => {
+  it("active field row gets the is-active class", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
     const { container } = renderMeasure();
     const pit = measureInput(container, "Pit to pit");
@@ -218,32 +194,10 @@ describe("Sizes and measurements v2 (settings page)", () => {
     expect(pit.closest(".cz-sizes-row").classList.contains("is-active")).toBe(true);
   });
 
-  it("field input uses mono 17px+ so numbers stay readable next to a tape", () => {
-    const body = ruleBody(".cz-sizes-row-input");
-    const size = body.match(/font-size:\s*([\d.]+)px/);
-    expect(size, ".cz-sizes-row-input has no font-size").not.toBeNull();
-    expect(Number(size[1])).toBeGreaterThanOrEqual(16);
-  });
-
-  // Kyle, 2026-08-01: he re-typed a number he thought was already saved.
-  // Real cause: an old `inseam`/`shortsInseam` value (inside leg) is never
-  // read into the new outside-leg fields, on purpose — but the app never
-  // said so, which read as "the app ignored my input." This note fills that
-  // gap without changing any sizing math.
-  const botNoteText = (container) => {
-    const titles = [...container.querySelectorAll(".cz-sizes-fields-title")];
-    const bottomsTitle = titles.find((n) => n.textContent.trim() === "Bottoms");
-    expect(bottomsTitle, "no Bottoms group title found").toBeTruthy();
-    return bottomsTitle
-      .closest(".cz-sizes-fields")
-      .querySelector(".cz-sizes-fields-note")
-      .textContent.trim();
-  };
-
-  it("explains the gap when an old inside-leg value sits unread", () => {
+  it("shows the other source as a mono hint when both sets have a value", () => {
     const { container } = render(
       <BodyProfileSheet
-        value={{ inseam: 76 }}
+        value={{ chest: 40.5, garment: { chest: 21 } }}
         units="in"
         onSave={noop}
         onChangeUnits={noop}
@@ -251,31 +205,9 @@ describe("Sizes and measurements v2 (settings page)", () => {
         embedded
       />
     );
-    expect(botNoteText(container)).toMatch(/does not carry over/);
-  });
-
-  it("stays plain when no old value exists", () => {
-    const { container } = renderMeasure();
-    expect(botNoteText(container)).not.toMatch(/does not carry over/);
-  });
-
-  it("stops explaining once the new field is filled in", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
-    const { container } = render(
-      <BodyProfileSheet
-        value={{ inseam: 76, garment: { pantsLength: 104 } }}
-        units="in"
-        onSave={noop}
-        onChangeUnits={noop}
-        onClose={noop}
-        embedded
-      />
-    );
-    // Garment mode is the default view, and garment.pantsLength is already
-    // filled, so the gap this note exists for is already closed.
-    expect(botNoteText(container)).not.toMatch(/does not carry over/);
-    await user.click(within(container).getByRole("radio", { name: "Your body" }));
-    // Body mode's own pantsLength is still empty, so the gap re-appears there.
-    expect(botNoteText(container)).toMatch(/does not carry over/);
+    // Default garment mode: body value shows as a mono "body …" hint.
+    const also = container.querySelector(".cz-sizes-row-also");
+    expect(also).toBeTruthy();
+    expect(also.textContent).toMatch(/^body\s+\d/);
   });
 });

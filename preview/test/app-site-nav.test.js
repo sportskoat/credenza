@@ -89,16 +89,16 @@ describe("the app links out to the site it belongs to", () => {
     // Kyle 2026-07-29: "make sure that these pages do not go to a separate
     // window and we stay in this tab". They are our own pages, so they open
     // in place. He accepted the cost: an open sheet closes on the jump.
-    const row = SHEET.match(/className="cz-profile-row cz-profile-row-link"[\s\S]{0,220}/);
-    expect(row, "the Learn rows no longer use cz-profile-row-link").not.toBeNull();
+    const row = SHEET.match(/className="cz-settings-row-btn cz-settings-row-link"[\s\S]{0,280}/);
+    expect(row, "the About rows no longer use cz-settings-row-link").not.toBeNull();
     expect(row[0], "site links still open in a new tab").not.toContain('target="_blank"');
   });
 
   it("keeps the new-tab arrow off the site rows", () => {
     // The ↗ glyph promised a new tab. The rows stay in this tab now, so the
     // arrow would say something the link does not do.
-    const row = SHEET.match(/className="cz-profile-row-val"[\s\S]{0,60}/);
-    expect(row, "the Learn rows lost their value column").not.toBeNull();
+    const row = SHEET.match(/className="cz-settings-row-meta"[\s\S]{0,60}/);
+    expect(row, "the About rows lost their meta column").not.toBeNull();
     expect(row[0], "the value column still shows the new-tab arrow").not.toContain("↗");
   });
 
@@ -115,15 +115,15 @@ describe("the app links out to the site it belongs to", () => {
   });
 
   it("styles the anchor rows so they match the button rows", () => {
-    // .cz-profile-row was written for <button>. An <a> inherits an underline
-    // and a visited colour, so without this class the Learn rows read as a
-    // different kind of control than the rows directly above them.
+    // .cz-settings-row-btn was written for <button>. An <a> inherits an
+    // underline and a visited colour, so without this class the About rows
+    // read as a different kind of control than the rows directly above them.
     const css = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
-    expect(css, "cz-profile-row-link has no rule in credenza-fashion.css").toContain(
-      ".cz-profile-row-link"
+    expect(css, "cz-settings-row-link has no rule in credenza-fashion.css").toContain(
+      ".cz-settings-row-link"
     );
-    expect(css, "cz-profile-row-link does not clear the default underline").toMatch(
-      /\.cz-profile-row-link\s*\{[^}]*text-decoration:\s*none/
+    expect(css, "cz-settings-row-link does not clear the default underline").toMatch(
+      /\.cz-settings-row-link\s*\{[^}]*text-decoration:\s*none/
     );
   });
 });

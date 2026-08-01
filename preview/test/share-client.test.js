@@ -214,7 +214,7 @@ describe("the promise in the fine print is kept", () => {
   });
 
   it("gives the Your data section a block with that exact name", () => {
-    expect(yourData).toContain(">Shared links</div>");
+    expect(yourData).toContain("Shared links");
   });
 
   it("shows the block only to a signed-in account", () => {

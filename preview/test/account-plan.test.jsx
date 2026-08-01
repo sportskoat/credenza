@@ -78,8 +78,8 @@ describe("Account and plan screen (design 1f)", () => {
   it("prints the caps table from PLAN_CAPS, not from the design's mock numbers", () => {
     const { container } = renderSection();
     const table = within(container).getByRole("table", { name: "What changes with Pro" });
-    expect(within(table).getByText(PLAN_CAPS.free.askPerDay + " a day")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.pro.askPerDay + " a day")).toBeTruthy();
+    // Handoff 2026-08-01: no "Ask questions" row on purpose.
+    expect(within(table).queryByText(/Ask questions/i)).toBeNull();
     expect(within(table).getByText(PLAN_CAPS.free.chartVisionPerDay + " a day")).toBeTruthy();
     expect(within(table).getByText(PLAN_CAPS.pro.chartVisionPerDay + " a day")).toBeTruthy();
     expect(within(table).getByText(PLAN_CAPS.free.resolvePerDay + " a day")).toBeTruthy();

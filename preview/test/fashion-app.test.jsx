@@ -2212,7 +2212,7 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
     expect(window.location.pathname).toBe("/settings/account");
   });
 
-  it("on the phone, All settings opens the full-screen list that pushes to a section", async () => {
+  it("on the phone, All settings opens the one-page settings scroller", async () => {
     window.__setMediaMatches("(max-width: 767px)", true);
     try {
       installShim({
@@ -2229,14 +2229,11 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
       await user.click(await screen.findByRole("button", { name: "Profile" }));
       await user.click(await screen.findByRole("button", { name: /All settings/ }));
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-      expect(window.location.pathname).toBe("/settings");
-
-      // The list pushes to a full-screen section with a way back.
-      await user.click(await screen.findByRole("button", { name: "Account and plan" }));
+      // Redesign 2026-08-01: phone stacks every section in one column. No
+      // list-then-detail push. URL still names a section for deep links.
       expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
-      expect(window.location.pathname).toBe("/settings/account");
-      await user.click(screen.getByRole("button", { name: "Settings" }));
-      await waitFor(() => expect(window.location.pathname).toBe("/settings"));
+      expect(await screen.findByRole("heading", { name: "Sizes and measurements." })).toBeInTheDocument();
+      expect(window.location.pathname).toMatch(/^\/settings/);
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);
     }

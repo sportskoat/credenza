@@ -4,11 +4,8 @@ import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import SettingsPage from "../../settings/SettingsPage.jsx";
 import { SETTINGS_SECTIONS } from "../../settings/SettingsNav.jsx";
 
-// The routed settings page (Profile Settings design). The design rule:
-// anything with a back button, a form, or a destructive action gets a URL.
-// These tests assert the page's structure: six sections in the rail, one
-// active at a time, a way back to the shelf, and Escape parity with the
-// sheets it replaces.
+// Settings redesign 2026-08-01: one scrolling page, five sections (fit folds
+// into sizes), scroll-spy rail on desktop, stacked column on phone.
 
 afterEach(cleanup);
 
@@ -25,6 +22,31 @@ const VALUE = {
   onSignOut: noop,
   onDeleteAccount: noop,
   onRestorePurchase: noop,
+  bodyProfile: null,
+  measureUnits: "in",
+  onSaveBodyProfile: noop,
+  onChangeUnits: noop,
+  fitPrefs: {},
+  onSaveFitPrefs: noop,
+  agentLabel: "Direct",
+  pricePrimary: "USD",
+  fitSummary: true,
+  fitDetail: "detailed",
+  onOpenAgent: noop,
+  onCycleCurrency: noop,
+  onToggleFitSummary: noop,
+  onCycleFitDetail: noop,
+  items: [],
+  onImport: noop,
+  onExport: noop,
+  onExportCsv: noop,
+  isPro: false,
+  onClearShelf: noop,
+  onRestore: noop,
+  storageLabel: "Plenty of room",
+  storageColor: "#22c55e",
+  onEraseData: noop,
+  sharedLinks: null,
 };
 
 function renderPage(extra = {}) {
@@ -40,31 +62,32 @@ function renderPage(extra = {}) {
   );
 }
 
-describe("SettingsPage (routed settings)", () => {
-  it("lists the design's six sections in order", () => {
+describe("SettingsPage (one-page redesign)", () => {
+  it("lists the five sections in order (fit folded into sizes)", () => {
     const { container } = renderPage();
     const items = [...container.querySelectorAll(".cz-settings-nav-item")].map((n) =>
-      n.textContent.trim()
+      n.querySelector(".cz-settings-nav-label")
+        ? n.querySelector(".cz-settings-nav-label").textContent.trim()
+        : n.textContent.trim()
     );
     expect(items).toEqual([
       "Account and plan",
       "Sizes and measurements",
-      "Fit preferences",
       "Shelf defaults",
       "Your data",
       "About and support",
     ]);
-    expect(SETTINGS_SECTIONS).toHaveLength(6);
+    expect(SETTINGS_SECTIONS).toHaveLength(5);
   });
 
-  it("marks the current section active and navigates on click", () => {
+  it("marks the current section active and scrolls on rail click", () => {
     const onNavigate = vi.fn();
     const { container } = renderPage({ onNavigate });
     const active = container.querySelector(".cz-settings-nav-item.is-active");
     expect(active.textContent).toContain("Account and plan");
     expect(active.getAttribute("aria-current")).toBe("page");
-    fireEvent.click(within(container).getByText("Fit preferences"));
-    expect(onNavigate).toHaveBeenCalledWith("fit");
+    fireEvent.click(within(container).getByText("Sizes and measurements"));
+    expect(onNavigate).toHaveBeenCalledWith("sizes");
   });
 
   it("offers the way back to the shelf", () => {
@@ -81,39 +104,33 @@ describe("SettingsPage (routed settings)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the Account and plan section for the account route", () => {
+  it("renders every section into one scroll column", () => {
     const { container } = renderPage();
-    expect(within(container).getByText("Free is the whole app. Pro is more of it.")).toBeTruthy();
+    const heads = [...container.querySelectorAll(".cz-settings-section-head")].map((n) =>
+      n.textContent.trim()
+    );
+    expect(heads).toEqual([
+      "Free is the whole app. Pro is more of it.",
+      "Sizes and measurements.",
+      "Shelf defaults.",
+      "Your data.",
+      "About and support.",
+    ]);
+    expect(container.querySelectorAll("[data-settings-section]")).toHaveLength(5);
   });
 
-  it("renders a real section for every route (Phase 4 — the stubs are gone)", () => {
-    // Section head, not the rail label — both carry the same words.
-    const heads = {
-      account: "Free is the whole app. Pro is more of it.",
-      sizes: "Sizes and measurements.",
-      fit: "Fit preferences",
-      shelf: "Shelf defaults",
-      data: "Your data",
-      about: "About and support",
-    };
-    for (const [section, head] of Object.entries(heads)) {
-      const { container, unmount } = renderPage({ section });
-      const found = container.querySelector(".cz-settings-content .cz-settings-section-head");
-      expect(found && found.textContent, `no section body for ${section}`).toBe(head);
-      expect(container.textContent).not.toContain("on its way");
-      unmount();
-    }
+  it("maps the old fit deep link onto sizes", () => {
+    const { container } = renderPage({ section: "fit" });
+    const active = container.querySelector(".cz-settings-nav-item.is-active");
+    expect(active.textContent).toContain("Sizes and measurements");
   });
 
-  it("shelf defaults rows work — each flips or opens its switch (Kyle 2026-07-28)", () => {
-    // Design 1e made this section read-only; Kyle overrode it ("you can't
-    // toggle any of those on or off"). Every row must call its handler.
+  it("shelf defaults rows work — each flips or opens its switch", () => {
     const onOpenAgent = vi.fn();
     const onCycleCurrency = vi.fn();
     const onToggleFitSummary = vi.fn();
     const onCycleFitDetail = vi.fn();
     const { container } = renderPage({
-      section: "shelf",
       value: {
         ...VALUE,
         agentLabel: "Superbuy",
@@ -140,18 +157,9 @@ describe("SettingsPage (routed settings)", () => {
     expect(onCycleFitDetail).toHaveBeenCalledTimes(1);
   });
 
-  it("on a phone with no section picked, the list IS the page", () => {
-    const onNavigate = vi.fn();
-    const { container } = renderPage({ section: null, isPhone: true, onNavigate });
-    expect(container.querySelector(".cz-settings-content .cz-settings-nav")).not.toBeNull();
-    fireEvent.click(within(container).getByText("Account and plan"));
-    expect(onNavigate).toHaveBeenCalledWith("account");
-  });
-
-  it("on a phone inside a section, a back row returns to the list", () => {
-    const onNavigate = vi.fn();
-    const { container } = renderPage({ section: "account", isPhone: true, onNavigate });
-    fireEvent.click(within(container).getByText("Settings", { selector: ".cz-settings-back-section" }));
-    expect(onNavigate).toHaveBeenCalledWith(null);
+  it("on a phone, the rail is gone and every section is in the column", () => {
+    const { container } = renderPage({ section: null, isPhone: true });
+    expect(container.querySelector(".cz-settings-nav")).toBeNull();
+    expect(container.querySelectorAll("[data-settings-section]")).toHaveLength(5);
   });
 });
