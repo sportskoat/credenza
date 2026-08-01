@@ -248,13 +248,37 @@ export function CoverPlaceholder({ item, aspectRatio = "4/5", maxHeight, style }
 }
 
 // Shared cover image: handles broken/missing images and renders a category-aware placeholder.
-export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, className, style, imgStyle, fill = false }) {
+export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, className, style, imgStyle, fill = false, letterbox = false }) {
   const [imgOk, setImgOk] = useState(true);
+  // Mobile shelf redesign 2026-07-30 (task 3, spec 5.5): on the phone shelf a
+  // photo wider than the 4:5 box shows whole — object-fit contain on a light
+  // field — instead of a crop that cuts the lineup off. 4:5 or taller keeps
+  // cover. Phone-only by prop: the desktop shelf does not change.
+  const [wide, setWide] = useState(false);
   const imageSrc = item.image || (item.videoId ? "https://i.ytimg.com/vi/" + item.videoId + "/hqdefault.jpg" : null);
 
   useEffect(() => {
     setImgOk(true);
+    setWide(false);
   }, [imageSrc]);
+
+  const measure = (event) => {
+    if (!letterbox) return;
+    const img = event.currentTarget;
+    setWide(
+      img.naturalWidth > 0 &&
+        img.naturalHeight > 0 &&
+        img.naturalWidth / img.naturalHeight > 4 / 5
+    );
+  };
+
+  const fit = letterbox && wide ? "contain" : "cover";
+  // The light letterbox field is the .cz-cover-letterbox class (spec 5.5) —
+  // the hex lives in credenza-fashion.css, never in a component.
+  const coverClass =
+    [className, letterbox && wide ? "cz-cover-letterbox" : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   // Carousel/card faces pass fill so the cover always paints the full image
   // slot — aspect-ratio + maxHeight made price chips land at different Ys when
@@ -263,7 +287,7 @@ export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, classNa
     ? {
         width: "100%",
         height: "100%",
-        objectFit: "cover",
+        objectFit: fit,
         display: "block",
         userSelect: "none",
         WebkitUserDrag: "none",
@@ -273,7 +297,7 @@ export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, classNa
         width: "100%",
         aspectRatio,
         maxHeight,
-        objectFit: "cover",
+        objectFit: fit,
         display: "block",
         userSelect: "none",
         WebkitUserDrag: "none",
@@ -296,7 +320,7 @@ export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, classNa
 
   return (
     <img
-      className={className}
+      className={coverClass}
       src={imageSrc}
       alt=""
       draggable={false}
@@ -304,6 +328,7 @@ export function CoverImage({ item, aspectRatio = "4/5", maxHeight = 320, classNa
       decoding="async"
       onDragStart={(event) => event.preventDefault()}
       onError={() => setImgOk(false)}
+      onLoad={measure}
       style={boxStyle}
     />
   );

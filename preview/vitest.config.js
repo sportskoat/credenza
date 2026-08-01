@@ -7,8 +7,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
-  // Same LB-37 pin as vite.config.js: app files live one level above preview/,
-  // so bare imports must not walk to a missing <repo>/node_modules.
+  // App files live one level above preview/, so bare imports must resolve
+  // into preview/node_modules (same pin as vite.config.js).
   resolve: {
     alias: {
       "framer-motion": resolve(__dirname, "node_modules/framer-motion"),

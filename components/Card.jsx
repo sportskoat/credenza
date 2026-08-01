@@ -93,6 +93,9 @@ export default function Card({
                 aspectRatio="4/5"
                 maxHeight={phone ? 460 : 320}
                 className="cz-card-image"
+                // Mobile shelf redesign 2026-07-30 (task 3, spec 5.5): a wide
+                // listing photo letterboxes inside the 4:5 box on the phone.
+                letterbox={phone}
                 imgStyle={{
                   borderRadius: 0,
                   outline: "1px solid " + (mode !== "light" ? "oklch(1 0 0 / 0.08)" : "oklch(0 0 0 / 0.08)"),

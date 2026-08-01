@@ -30,6 +30,47 @@
     rgb(6 6 8 / 0.15) 76%,
     rgb(6 6 8 / 0) 100%
   );
+  /* Mobile handoff 2026-07-30 (task 1). --cz-band is the sticky shelf band;
+     --cz-track is the empty part of a fit bar. Design 7a (2026-07-31) keeps
+     the top chrome flat (F: frost only on the dock and sheets). */
+  --cz-band: #F4F4F0;
+  --cz-track: rgba(23, 24, 26, 0.12);
+  /* F 2026-07-31: frosted dock. Dark see-through fill + blur. Solid
+     fallback for browsers without backdrop-filter. */
+  --cz-frost-fill: rgba(23, 24, 26, 0.62);
+  --cz-frost-fallback: rgba(23, 24, 26, 0.94);
+  --cz-frost-blur: 20px;
+  --cz-frost-active: rgba(255, 255, 255, 0.16);
+  --cz-frost-ink: #F4F4F0;
+  --cz-frost-faint: rgba(244, 244, 240, 0.58);
+  --cz-frost-border: rgba(255, 255, 255, 0.10);
+}
+
+/* The Blackout colourway sets data-theme="rainbow" at runtime; "dark" is the
+   spec name and covers any future mapping. Both selectors must stay. */
+.cz-app[data-theme="dark"],
+.cz-app[data-theme="rainbow"] {
+  --cz-band: #000000;
+  --cz-track: rgba(255, 255, 255, 0.12);
+  --cz-frost-fill: rgba(32, 32, 36, 0.72);
+  --cz-frost-fallback: rgba(20, 20, 24, 0.96);
+  --cz-frost-active: rgba(255, 255, 255, 0.12);
+  --cz-frost-ink: #f5f5f7;
+  --cz-frost-faint: rgba(245, 245, 247, 0.55);
+  --cz-frost-border: rgba(255, 255, 255, 0.08);
+}
+
+/* No backdrop-filter: solid frost fill so the dock never goes transparent
+   without a readable surface (F 2026-07-31 solid fallback). */
+@supports not (backdrop-filter: blur(1px)) {
+  :root {
+    --cz-frost-fill: var(--cz-frost-fallback);
+  }
+
+  .cz-app[data-theme="dark"],
+  .cz-app[data-theme="rainbow"] {
+    --cz-frost-fill: var(--cz-frost-fallback);
+  }
 }
 
 /* --cz-placeholder is --cz-faint in both fashion themes (v3 keeps them
@@ -860,9 +901,8 @@
   }
 }
 
-/* The phone capture surface is the docked bottom bar (.cz-stash-dock, end of
-   this file). It sits under the shelf as a real sibling, so it covers no
-   card. */
+/* The phone capture surface is the floating Stash button (spec 5.6, end of
+   this file). It opens the same capture sheet as the desktop row. */
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    ═══ CAROUSEL VIEW ═══
@@ -4227,9 +4267,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-variant-numeric: tabular-nums;
 }
 
-/* CH-14: the currency pref, changeable at the total. Rides both total rows
-   (desktop .cz-total-row, phone .cz-dock-totals) right after the money reel.
-   Quiet chip — the reel is the reading, this is the setting. */
+/* CH-14: the currency pref, changeable at the total. Rides the desktop
+   .cz-total-row after the money reel, and the phone's floating summary pill
+   beside the money. Quiet chip — the money is the reading, this is the
+   setting. */
 .cz-total-currency {
   display: inline-flex;
   align-items: center;
@@ -5911,8 +5952,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   width: auto;
   max-width: min(320px, 100%);
   min-height: 0;
-  border-radius: 999px;
-  padding: 8px 10px 8px 14px;
+  /* Kyle 2026-07-31: small-rounded card, not a full pill. Bottom-center stays. */
+  border-radius: 14px;
+  padding: 8px 10px 8px 12px;
   gap: 8px;
   align-items: center;
   color: var(--cz-ink);
@@ -5925,6 +5967,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   animation: cz-toast-in var(--toast-open) var(--toast-ease) both;
+}
+/* Leading status icon: check for success / info, X for error. Decorative only. */
+.cz-app[data-fashion="true"] .cz-toast-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: inherit;
+  opacity: 0.92;
+}
+.cz-app[data-fashion="true"] .cz-toast-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.5;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6116,7 +6173,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* ─── Capture surfaces (design handoff PR3, shelf handoff 2026-07-28) ──────
-   Mobile: the docked bottom bar (.cz-stash-dock, end of this file).
+   Mobile: the floating Stash button (spec 5.6, end of this file).
    Desktop: the inline search + Stash row below. */
 
 /* Desktop top capture / search row (≥768px). Under logo, above tabs. */
@@ -6648,7 +6705,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 14px 22px;
+  /* Kyle 2026-07-31 picture 3: iOS clock covered the title. Pad under the
+     notch / status bar so the masthead never sits under the system chrome. */
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 22px 14px;
   border-bottom: 1px solid var(--cz-hair);
   background: var(--cz-bg-elevated);
 }
@@ -6768,6 +6827,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
      on the website? It doesn't look like it"). Left-aligned, a 640px section
      in a 1200px pane leaned hard left on wide windows. */
   margin: 0 auto;
+}
+
+/* Sizes and measurements v2: photo left + fields right needs the full track. */
+.cz-settings-section.is-wide {
+  max-width: 1080px;
 }
 
 .cz-settings-section-kicker {
@@ -7027,67 +7091,573 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-top: 1px solid var(--cz-hair);
 }
 
-/* ── Your measurements (LB-70) ─────────────────────────────────────────────
-   Kyle 2026-07-27: "I think the measurements could use a little bit of a
-   bigger, better thing."
+/* ── Sizes and measurements v2 ─────────────────────────────────────────────
+   Design: Sizes and Measurements v2.dc.html (Kyle approved 2026-07-31).
 
-   What was there: eight identical boxes in one 2-column grid, every label
-   carrying its own "(in)", the input at 14px, the whole sheet styled inline
-   with no class of its own. Nothing told you where to start or when to stop.
+   No bordered cards. Hairline rules divide sections. Left gutter holds the
+   section labels. Fields are a plain table: mono label left, bold mono
+   tabular numeral right. Active row gets a 2px ink bar plus 6% tint.
+   Photo lines are fixed (not draggable). Solid = measured, dashed = empty.
+   ──────────────────────────────────────────────────────────────────────── */
 
-   What it is now. The eight measurements are grouped the way you take them —
-   You, then Upper body, then Lower body — and each group states why Credenza
-   wants it. The input is 20px with the unit set inside the box against the
-   right edge, so the label is just the body part. A count above the first
-   group says how many of the eight are filled in.
+.cz-sizes {
+  max-width: 1080px;
+}
 
-   20px also clears the 16px threshold below which iOS zooms the page on
-   focus, the same reason .cz-profile-signin-field input is 16px. */
+.cz-sizes.is-embedded {
+  padding-top: 0;
+}
+
+/* Section with left gutter label (Usual sizes, What we can say) */
+.cz-sizes-block {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 0 40px;
+  border-top: 1px solid var(--cz-hair-strong);
+  padding: 22px 0 26px;
+  align-items: start;
+}
+
+.cz-sizes-gutter {
+  position: sticky;
+  top: 78px;
+}
+
+.cz-sizes-gutter-label {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-gutter-help {
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+/* Usual sizes 2-up table */
+.cz-sizes-usual {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 34px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-usual-note {
+  display: flex;
+  align-items: center;
+  padding: 13px 2px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-usual-note p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+.cz-sizes-tilde {
+  font-family: var(--cz-mono);
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+
+/* Field row — mono label left, numeral right, no borders or pills */
+.cz-sizes-row {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 4px 12px 14px;
+  border-bottom: 1px solid var(--cz-hair);
+  cursor: text;
+  transition: background var(--dur-micro) var(--ease-out);
+  background: transparent;
+}
+
+.cz-sizes-usual .cz-sizes-row {
+  padding: 11px 2px 11px 2px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-usual .cz-sizes-row .cz-sizes-row-bar {
+  display: none;
+}
+
+.cz-sizes-row:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-sizes-row.is-active {
+  background: var(--cz-accent-bg);
+}
+
+.cz-sizes-row-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-sizes-row.is-active .cz-sizes-row-bar {
+  background: var(--cz-ink);
+}
+
+.cz-sizes-row-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+}
+
+.cz-sizes-usual .cz-sizes-row-label {
+  font-size: 10px;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-row-input {
+  flex: 1 1 auto;
+  min-width: 48px;
+  border: none;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding: 0;
+  min-height: 24px;
+}
+
+.cz-sizes-row-input.is-text {
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: normal;
+}
+
+.cz-sizes-row-input:focus {
+  outline: none;
+}
+
+.cz-sizes-row-input::placeholder {
+  color: var(--cz-faint);
+  font-weight: 600;
+}
+
+.cz-sizes-row-unit {
+  flex: 0 0 auto;
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* Measurements header */
+.cz-sizes-meas-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--cz-hair-strong);
+  padding: 24px 0 6px;
+}
+
+.cz-sizes-meas-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.cz-sizes-meas-title {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.032em;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-meas-progress {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+.cz-sizes-meas-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cz-sizes-mode-help {
+  margin: 0 0 24px;
+  max-width: 66ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* Tops / Bottoms: photo left, fields right */
+.cz-sizes-group {
+  display: grid;
+  grid-template-columns: minmax(240px, 380px) minmax(300px, 1fr);
+  gap: 0 44px;
+  align-items: start;
+  border-top: 1px solid var(--cz-hair-strong);
+  padding: 22px 0 30px;
+}
+
+.cz-sizes-photo-col {
+  min-width: 0;
+}
+
+.cz-sizes-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--cz-strip-bg);
+}
+
+.cz-sizes-photo-slot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.cz-sizes-photo-ph {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  text-align: center;
+  text-wrap: pretty;
+  max-width: 22ch;
+  opacity: 0.7;
+}
+
+.cz-sizes-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cz-sizes-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cz-sizes-lines-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.cz-sizes-line-g {
+  cursor: pointer;
+  outline: none;
+}
+
+.cz-sizes-line-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+}
+
+.cz-sizes-line-stroke {
+  fill: none;
+  stroke: rgba(245, 245, 247, 0.22);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  transition:
+    stroke var(--dur-micro) var(--ease-out),
+    stroke-dasharray var(--dur-micro) var(--ease-out);
+}
+
+.cz-sizes-line-g.is-filled .cz-sizes-line-stroke {
+  stroke: rgba(245, 245, 247, 0.42);
+  stroke-dasharray: none;
+  stroke-width: 1;
+}
+
+.cz-sizes-line-g.is-live .cz-sizes-line-stroke {
+  stroke: rgba(245, 245, 247, 0.96);
+  stroke-dasharray: none;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.cz-sizes-dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 999px;
+  background: var(--cz-ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  /* On dark strip the ink is light; invert via mix so it reads as a pin */
+  background: #f5f5f7;
+}
+
+.cz-sizes-how {
+  border-bottom: 1px solid var(--cz-hair);
+  padding: 13px 2px 14px;
+}
+
+.cz-sizes-how-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 6px;
+}
+
+.cz-sizes-how-label {
+  white-space: nowrap;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-how-value {
+  white-space: nowrap;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-how-body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* Field column */
+.cz-sizes-fields {
+  min-width: 0;
+}
+
+.cz-sizes-fields-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+}
+
+.cz-sizes-fields-title {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--cz-ink);
+}
+
+.cz-sizes-fields-count {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  white-space: nowrap;
+}
+
+.cz-sizes-field-list {
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-fields > .cz-sizes-row {
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-sizes-fields-note {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+/* Verdict */
+.cz-sizes-verdict-block {
+  padding-bottom: 18px;
+}
+
+.cz-sizes-verdict-text {
+  margin: 0 0 10px;
+  /* F visual check 2026-07-31: Kyle's approved shot uses bold body text,
+     not the serif title face, for the live verdict sentence. */
+  font-family: var(--cz-sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--cz-ink);
+  text-wrap: pretty;
+  max-width: 46ch;
+}
+
+.cz-sizes-verdict-basis {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+  line-height: 1.5;
+}
+
+/* Save bar */
+/* In-flow band at the true bottom of the form — never sticky. A stuck bar
+   floated over the fields and cut the sticky photo in half (Kyle 2026-07-31);
+   docked here, nothing can ever slide under it. */
+.cz-sizes-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--cz-hair-strong);
+  margin-top: 26px;
+  padding: 18px 0 8px;
+  background: var(--cz-bg);
+}
+
+.cz-sizes-save-hint {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-sizes-save-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Narrow: stack photo above fields; photo sticks so the link survives typing */
+@media (max-width: 900px) {
+  .cz-sizes-block {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .cz-sizes-gutter {
+    position: static;
+  }
+
+  .cz-sizes-usual {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .cz-sizes-group {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .cz-sizes-photo {
+    aspect-ratio: 3 / 2;
+    position: sticky;
+    top: 56px;
+    z-index: 2;
+    max-height: 40vh;
+  }
+}
+
+/* Legacy class hooks kept so older tests / deep links do not explode.
+   New UI does not render these; sizes are under .cz-sizes-*. */
 .cz-measure {
   padding: 4px 20px 10px;
 }
-
 .cz-measure-head {
   display: flex;
   align-items: flex-start;
   gap: 14px;
 }
-
 .cz-measure-lead {
   margin: 0;
   flex: 1;
   font-size: 14px;
   line-height: 1.55;
   color: var(--cz-sub);
-  text-wrap: pretty;
 }
-
 .cz-measure-units {
   flex-shrink: 0;
   min-width: 116px;
 }
-
 .cz-measure-count {
   margin: 10px 0 0;
   font-family: var(--cz-mono);
   font-size: 11px;
-  line-height: 1.5;
-  letter-spacing: 0.06em;
   color: var(--cz-faint);
 }
-
-/* One line under the lower-body boxes naming WHICH length to measure. Quieter
-   than a label, louder than a placeholder. */
 .cz-measure-note {
   margin: 10px 0 0;
   font-size: 12px;
-  line-height: 1.45;
   color: var(--cz-faint);
 }
-
-/* Each group is its own card. The eight boxes used to run together in one
-   grid; a surface per group is what makes "I have finished the upper body"
-   a thing you can see rather than count. */
 .cz-measure-group {
   margin-top: 10px;
   padding: 14px;
@@ -7095,34 +7665,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 18px;
   background: var(--cz-card-solid);
 }
-
 .cz-measure-group-head {
   margin: 0 0 10px;
   font-family: var(--cz-display);
   font-size: 17px;
   font-weight: 700;
-  letter-spacing: -0.01em;
   color: var(--cz-ink);
 }
-
-/* Three across: every group (2/3/3 fields) then fits on one row, which is
-   what puts the whole section on one screen (Kyle 2026-07-28). */
 .cz-measure-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
-
 .cz-measure-grid-3 {
   grid-template-columns: 1fr 1fr 1fr;
 }
-
 .cz-measure-field {
   display: grid;
   gap: 7px;
   min-width: 0;
 }
-
 .cz-measure-label {
   font-family: var(--cz-mono);
   font-size: 10px;
@@ -7130,10 +7692,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   text-transform: uppercase;
   color: var(--cz-faint);
 }
-
-/* The unit rides inside the box. The input is transparent and sits on this
-   wrapper, so the focus ring lands on the whole control and the unit never
-   looks like something you can type over. */
 .cz-measure-input {
   display: flex;
   align-items: center;
@@ -7143,11 +7701,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-radius: 14px;
   background: var(--cz-bg);
 }
-
 .cz-measure-input:focus-within {
   border-color: var(--cz-ink);
 }
-
 .cz-measure-input input {
   flex: 1;
   min-width: 0;
@@ -7162,16 +7718,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
-
 .cz-measure-input input:focus {
   outline: none;
 }
-
 .cz-measure-input input::placeholder {
   color: var(--cz-faint);
   font-weight: 400;
 }
-
 .cz-measure-unit {
   flex-shrink: 0;
   font-family: var(--cz-mono);
@@ -7180,15 +7733,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   text-transform: uppercase;
   color: var(--cz-faint);
 }
-
 .cz-measure-actions {
   display: flex;
   gap: 10px;
   margin-top: 14px;
 }
-
-/* One column on a phone. Two 54px boxes side by side inside a 16px card
-   leaves each about 120px, which is not enough for a label and a unit. */
 @media (max-width: 460px) {
   .cz-measure-grid,
   .cz-measure-grid-3 {
@@ -9479,33 +10028,33 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ── The counter pill (Kyle 2026-07-30, rule 1) ────────────────────────────
-   One meter, always in the header, so nobody meets a wall by surprise. It is
-   quiet by default: hairline border, muted text, the same 36px height as the
-   buttons beside it. On the LAST free read it turns amber (rule 3), and when
-   the allowance is spent it goes solid amber — the only loud state.
-   The phone masthead has one row and no width for the words, so ≤767px keeps
-   the pill but drops it to the number alone. */
+/* ── Free-cards counter (Kyle 2026-07-31) ──────────────────────────────────
+   One meter, always in the header, so nobody meets a wall by surprise.
+   No bubble: green italic text only. On the last free read it turns amber
+   (rule 3). When the allowance is spent it stays amber, still no bubble.
+   The invisible tap ring keeps a 44px hit target. */
 .cz-limit-pill {
   height: 36px;
   display: inline-flex;
   align-items: center;
-  padding: 0 12px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 999px;
-  background: var(--cz-card-solid);
-  color: var(--cz-sub);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cz-money);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   cursor: pointer;
-  transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out),
-    border-color var(--dur-micro) var(--ease-out);
+  transition: color var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
 }
 
 .cz-limit-pill:hover {
-  color: var(--cz-ink);
+  color: var(--cz-money);
+  opacity: 0.85;
 }
 
 .cz-limit-pill:active {
@@ -9514,29 +10063,58 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-limit-pill.is-warn {
   color: var(--cz-warn-ink);
-  border-color: var(--cz-warn);
 }
 
 .cz-limit-pill.is-wall {
   color: var(--cz-warn-ink);
-  border-color: var(--cz-warn);
-  background: color-mix(in srgb, var(--cz-warn) 18%, var(--cz-card-solid));
+  background: transparent;
 }
 
 @media (max-width: 767px) {
   .cz-limit-pill {
     height: 30px;
-    padding: 0 9px;
-    font-size: 11px;
+    padding: 0 2px;
+    font-size: 12px;
   }
-  /* The pill is drawn 30px tall on a phone so the masthead keeps one row.
-     A 30px target is too small for a thumb, so the invisible ring grows to
-     44px in height. The drawn pill does not change.
-     This reuses the shared tap-ring above, so the pill gets a ring on a
-     desktop too. A second ::before ring would have covered the phone only. */
+  /* Drawn 30px tall on a phone so the masthead keeps one row. The ring above
+     and below still adds up to a 44px tap area. */
   .cz-limit-pill::after {
     inset: -7px -4px;
   }
+}
+
+/* Free-allowance toast at the bottom of the shelf: same green italic voice,
+   no heavy pill. */
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] {
+  max-width: min(360px, 100%);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 6px 4px;
+  gap: 10px;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] .cz-toast-message {
+  color: var(--cz-money);
+  font-weight: 500;
+  font-style: italic;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] .cz-toast-sub {
+  color: var(--cz-sub);
+  font-style: italic;
+  font-weight: 400;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] .cz-toast-action {
+  background: transparent;
+  color: var(--cz-money);
+  font-style: italic;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 4px 0;
+}
+.cz-app[data-fashion="true"] .cz-toast[data-tone="limit"] .cz-toast-dismiss {
+  color: var(--cz-faint);
 }
 
 /* ── The one limits sheet ────────────────────────────────────────────────── */
@@ -10143,299 +10721,605 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ═══ MOBILE BOTTOM BAR (CH-03) — docked totals + Stash pill + Agent ════════
-   Shelf handoff 2026-07-28: the bar is a flex SIBLING of the scrolling shelf,
-   not an overlay. Nothing is ever covered by it, and it carries its own
-   bottom padding for the home indicator. It used to float, so the shelf had
-   to reserve 88px of dead space under the last card; that space is gone.
-   Row 1 is the shelf money: the count, the rough ship weight, the total, and
-   the currency chip. Row 2 is capture. With a link on the clipboard it is ONE
-   split pill on --cz-action-fill: left region reviews the link in the capture
-   sheet, right region stashes in one tap. Empty clipboard → a single
-   full-width ＋ pill. The Agent secondary button stays beside it. Row 3 is
-   the home-indicator grip. Every value reads a --cz-* token so Blackout dark
-   inherits it.
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══ MOBILE SHELF BAND — the sticky tab header (task 2 styles, spec 5.1–5.4) ═
+   Mobile shelf redesign 2026-07-30. The task-2 commit wrapped the tab row and
+   the filter strip in .cz-shelf-band but shipped no rules for it; this block
+   is the clothing. Everything is phone-only — the band classes stay inert on
+   the desktop, which keeps the full masthead. */
 
-.cz-stash-dock {
-  flex: 0 0 auto;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 11px 16px 0;
-  border-top: 1px solid var(--cz-hair);
-  /* Translucent over the shelf so a card scrolling under the top hairline
-     reads as motion, not as a hard cut. */
-  background: color-mix(in srgb, var(--cz-bg) 88%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-/* Row 1: "On the shelf" + count · weight on the left, money + currency on
-   the right. */
-.cz-dock-totals {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-}
-
-.cz-dock-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.cz-dock-kicker {
-  font-size: 9.5px;
-  font-weight: 650;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-  white-space: nowrap;
-}
-
-.cz-dock-count {
-  font-size: 13px;
-  color: var(--cz-sub);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cz-dock-money {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  flex: 0 0 auto;
-}
-
-.cz-dock-total,
-.cz-dock-total .t-reel {
-  font-family: var(--cz-mono);
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--cz-money);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* The reel sets its own 16px height for the 13px desktop total; the docked
-   19px number needs the taller box or the digits clip. */
-.cz-dock-total .t-reel {
-  height: 22px;
-}
-
-/* Row 2: the capture pill and the Agent button. */
-.cz-dock-actions {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-}
-
-/* Row 3: the home-indicator grip. It names the swipe zone the phone already
-   owns, so the last row of cards never ends flush with it. */
-.cz-dock-grip {
-  display: block;
-  width: 134px;
-  height: 5px;
-  margin: 3px auto 0;
-  border-radius: 999px;
-  background: var(--cz-hair-strong);
-  /* The dock pads 0 at the bottom; the grip owns the safe area itself. */
-  margin-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-}
-
-/* Desktop keeps the search + Stash row under the masthead. */
-@media (min-width: 768px) {
-  .cz-stash-dock {
+@media (max-width: 767px) {
+  /* Spec 5.1: Safari prints the host 8px above the masthead, so the wordmark
+     band repeats it. The desktop keeps the brand. */
+  .cz-masthead .cz-brand {
     display: none;
+  }
+
+  /* Spec 5.3 + design 7a: sticky band is flat (no blur — F keeps frost on
+     the dock and sheets only). Shell pads 14px a side; the band pulls
+     full-bleed so the solid fill covers the whole screen width. */
+  .cz-shelf-band {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    margin-inline: -14px;
+    background: var(--cz-band);
+  }
+
+  /* Design 7a: phone band holds only the glyph filter under the title
+     masthead. Tabs live in the frosted dock. */
+  .cz-shelf-band.is-phone-7a {
+    position: static;
+    margin-inline: 0;
+    background: transparent;
+  }
+
+  /* The band sits inside .cz-chrome, which ends before the grid — a sticky
+     child can only travel inside its own parent, so the band would scroll
+     away with the chrome. On the phone the wrapper keeps its DOM (every
+     selector still matches) but drops its box: the band's containing block
+     becomes the scrolling shell and the band sticks through the whole list.
+     The desktop keeps the wrapper. */
+  .cz-app[data-fashion="true"] .cz-chrome {
+    display: contents;
+  }
+
+  /* The shell's 16px top padding is part of the band's containing block, so
+     a stuck band would park 16px below the screen edge with photos leaking
+     through the slit above it. When the band exists, drop the padding: the
+     band sits flush and sticks at the very top. The empty-shelf hero has no
+     band and keeps its 16px of air. */
+  .cz-app[data-fashion="true"] > .cz-shell:has(.cz-shelf-band) {
+    padding-top: 0;
+  }
+
+  /* Spec 5.2: the tab row IS the header — 46px, 14px sides, no bottom line.
+     min-height, not height: while a card indexes, the indexing chip wraps to
+     its own line (the C2 rule below) and the band grows instead of clipping. */
+  .cz-shelf-band .cz-view-tabs-row {
+    align-items: center;
+    min-height: 46px;
+    margin-bottom: 0;
+    padding: 0 14px;
+    border-bottom: 0;
+  }
+
+  .cz-shelf-band .cz-view-tabs {
+    gap: 16px;
+    margin-bottom: 0;
+    border-bottom: 0;
+  }
+
+  /* Tabs: display face, 19px, no underline anywhere — weight and colour show
+     the selection (spec 5.2). The coarse-pointer min-height keeps the 44px
+     tap target; padding-inline must beat the coarse rule that spreads the
+     desktop tabs. */
+  .cz-shelf-band .cz-view-tabs .cz-tab {
+    padding: 0;
+    margin-bottom: 0;
+    border-bottom: 0;
+    font-family: var(--cz-display);
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--cz-faint);
+    white-space: nowrap;
+  }
+
+  .cz-shelf-band .cz-view-tabs .cz-tab[aria-selected="true"] {
+    color: var(--cz-ink);
+    border-bottom: 0;
+  }
+
+  .cz-shelf-band .cz-tab-count {
+    font-family: var(--cz-mono);
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--cz-faint);
+  }
+
+  /* Search and profile ride the right end: 44px plain buttons, transparent,
+     no border, no circle (spec 5.2). The last button pulls 12px right so its
+     glyph sits 14px from the screen edge and the 44px target still holds. */
+  .cz-shelf-band .cz-masthead-actions {
+    gap: 0;
+  }
+
+  .cz-shelf-band .cz-mast-btn,
+  .cz-shelf-band .cz-avatar {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--cz-sub);
+  }
+
+  .cz-shelf-band .cz-mast-btn:hover,
+  .cz-shelf-band .cz-avatar:hover {
+    color: var(--cz-ink);
+    background: transparent;
+  }
+
+  /* The open-search state fills a circle on the desktop masthead; with no
+     circle on the phone, colour alone carries the state. */
+  .cz-shelf-band .cz-mast-btn.is-active {
+    background: transparent;
+    color: var(--cz-ink);
+  }
+
+  .cz-shelf-band .cz-masthead-actions > :last-child {
+    margin-right: -12px;
+  }
+
+  /* Design 7a: glyph segmented control — 4-col grid, 52px segments, pill
+     track. Active segment is a solid card with a soft shadow. */
+  .cz-filter-strip.is-glyph {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 3px;
+    min-height: 0;
+    margin: 0 0 12px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--cz-seg);
+    overflow: visible;
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 52px;
+    min-height: 52px;
+    padding: 0 2px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cz-faint);
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    transition:
+      background var(--dur-micro) var(--ease-out),
+      color var(--dur-micro) var(--ease-out),
+      transform var(--dur-press) var(--ease-out);
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip:hover {
+    color: var(--cz-ink);
+    border-color: transparent;
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip:active {
+    transform: scale(0.96);
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip.is-active {
+    background: var(--cz-card-solid);
+    color: var(--cz-ink);
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(23, 24, 26, 0.06);
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip-icon {
+    flex: 0 0 auto;
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip-label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip-count {
+    font-family: var(--cz-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: inherit;
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip.is-zero .cz-filter-chip-count {
+    color: inherit;
+    opacity: 0.7;
+  }
+
+  .cz-filter-strip.is-glyph .cz-filter-chip.is-active .cz-filter-chip-count {
+    color: inherit;
   }
 }
 
-/* The pill. Height 46, radius 14, on the action fill. As a lone button
-   (empty clipboard) it holds ＋ Stash a link itself; as a split container it
-   holds the clip region and the Stash ↑ region. It carried a floating-button
-   shadow while the bar floated; the bar is docked now, so a shadow would
-   only fake a lift that is not there. */
-.cz-stash-pill {
-  flex: 1 1 auto;
-  min-width: 0;
+/* Mobile handoff 2026-07-30 (task 3, spec 5.5): a wide listing photo
+   letterboxes whole on this light field inside the 4:5 box. The hex lives in
+   the stylesheet, never in a component. */
+.cz-cover-letterbox {
+  background: #f3f3f0;
+}
+
+/* ═══ DESIGN 7a — phone masthead, frosted dock, search sheet (2026-07-31) ══
+   F: floating frosted pill dock (blur + solid fallback). No money total on
+   the shelf. Frost stays on the dock and sheets only. Legacy summary/stash
+   float classes are inert (display:none) so old markup cannot reappear. */
+
+.cz-shelf-scrim,
+.cz-shelf-float,
+.cz-shelf-summary,
+.cz-shelf-stash {
+  display: none !important;
+}
+
+/* Title masthead — phone with cards only. */
+.cz-masthead-7a {
   display: flex;
-  align-items: stretch;
-  min-height: 46px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 0 12px;
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+.cz-mast-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cz-mast-title {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: var(--cz-ink);
+}
+
+.cz-mast-caption {
+  margin: 0;
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cz-faint);
+}
+
+.cz-mast-caption-btn {
+  margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 14px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  overflow: hidden;
-}
-
-.cz-stash-pill.is-solo {
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform var(--dur-press) var(--ease-out);
-}
-
-/* The plus reads small next to a 700-weight label unless it is set larger. */
-.cz-stash-pill-plus {
-  font-size: 17px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.cz-stash-pill.is-solo:active {
-  transform: scale(0.98);
-}
-
-.cz-stash-pill.is-solo:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.cz-stash-pill.is-solo:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--cz-focus);
-}
-
-/* Left region: platform dot + CLIPBOARD · {platform} + host. Opens the
-   capture sheet for a look before stashing. */
-.cz-stash-pill-clip {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px 0 16px;
-  border: 0;
-  background: none;
+  background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.cz-stash-pill-clip:disabled,
-.cz-stash-pill-go:disabled {
-  opacity: 0.5;
-  cursor: default;
+.cz-mast-caption-btn:hover {
+  color: var(--cz-ink);
 }
 
-.cz-stash-pill-clip:focus-visible,
-.cz-stash-pill-go:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 3px var(--cz-focus);
+.cz-masthead-7a .cz-masthead-actions {
+  gap: 0;
+  flex: 0 0 auto;
+  align-self: center;
 }
 
-.cz-stash-pill-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.cz-masthead-7a .cz-mast-btn,
+.cz-masthead-7a .cz-avatar {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cz-sub);
 }
 
-.cz-stash-pill-meta {
-  min-width: 0;
+.cz-masthead-7a .cz-avatar {
+  border-radius: 999px;
+  background: var(--cz-chip-fill);
+  border: 1px solid var(--cz-hair);
+  color: var(--cz-ink);
+}
+
+.cz-masthead-7a .cz-avatar-initials {
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.cz-masthead-7a .cz-mast-btn:hover,
+.cz-masthead-7a .cz-avatar:hover {
+  color: var(--cz-ink);
+}
+
+.cz-masthead-7a .cz-mast-btn.is-active {
+  color: var(--cz-ink);
+}
+
+/* Frosted floating dock — F 2026-07-31. */
+.cz-dock {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .cz-dock {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    position: fixed;
+    z-index: 2;
+    left: 14px;
+    right: 14px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    pointer-events: none;
+  }
+
+  .cz-dock-pill {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    height: 58px;
+    padding: 0 6px;
+    border: 1px solid var(--cz-frost-border);
+    border-radius: 999px;
+    background: var(--cz-frost-fill);
+    backdrop-filter: blur(var(--cz-frost-blur));
+    -webkit-backdrop-filter: blur(var(--cz-frost-blur));
+    box-shadow: 0 10px 28px rgba(23, 24, 26, 0.22);
+    pointer-events: auto;
+  }
+
+  .cz-dock-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 44px;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cz-frost-faint);
+    font-family: var(--cz-sans);
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition:
+      color var(--dur-micro) var(--ease-out),
+      background var(--dur-micro) var(--ease-out),
+      transform var(--dur-press) var(--ease-out);
+  }
+
+  .cz-dock-tab:active {
+    transform: scale(0.96);
+  }
+
+  .cz-dock-tab.is-active {
+    color: var(--cz-frost-ink);
+    background: var(--cz-frost-active);
+  }
+
+  .cz-dock-tab-label {
+    white-space: nowrap;
+  }
+
+  .cz-dock-tab-count {
+    font-family: var(--cz-mono);
+    font-weight: 700;
+  }
+
+  .cz-dock-stash {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin-top: -28px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--cz-action-fill);
+    color: var(--cz-action-text);
+    cursor: pointer;
+    box-shadow:
+      0 0 0 5px var(--cz-bg),
+      0 10px 24px rgba(23, 24, 26, 0.22);
+    transition: transform var(--dur-press) var(--ease-out);
+  }
+
+  .cz-dock-stash:active {
+    transform: scale(0.96);
+  }
+
+  .cz-dock-stash:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .cz-dock-stash:focus-visible,
+  .cz-dock-tab:focus-visible {
+    outline: 2px solid var(--cz-focus);
+    outline-offset: 2px;
+  }
+
+  .cz-dock-inbox {
+    align-self: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 999px;
+    background: var(--cz-card-solid);
+    color: var(--cz-sub);
+    font-family: var(--cz-sans);
+    font-size: 12px;
+    font-weight: 650;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .cz-dock-inbox.is-active {
+    color: var(--cz-ink);
+    border-color: var(--cz-ink);
+  }
+}
+
+/* Search sheet (7b) */
+.cz-search-sheet {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 14px;
+  padding: 4px 4px 8px;
 }
 
-.cz-stash-pill-kicker {
-  font-family: var(--cz-mono);
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  opacity: 0.6;
-  white-space: nowrap;
+.cz-search-sheet-lead {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
 }
 
-.cz-stash-pill-host {
-  font-family: var(--cz-mono);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.cz-search-sheet-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 1px 2px rgba(23, 24, 26, 0.06);
 }
 
-/* Right region: the 1-tap verb, divided from the clip region by the
-   action-text divider hairline. */
-.cz-stash-pill-go {
+.cz-search-sheet-field-icon {
   flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  padding: 0 18px;
+  color: var(--cz-faint);
+}
+
+.cz-search-sheet-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 48px;
   border: 0;
-  border-left: 1px solid var(--cz-action-text-divider);
-  background: none;
-  color: inherit;
-  font-family: inherit;
-  font-size: 14px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  outline: none;
+}
+
+.cz-search-sheet-input::placeholder {
+  color: var(--cz-faint);
+}
+
+.cz-search-sheet-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cz-search-sheet-count {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
   font-weight: 700;
-  white-space: nowrap;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-search-sheet-like-track {
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+
+.cz-search-sheet-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 650;
   cursor: pointer;
 }
 
-/* Agent stays as the secondary button (CH-03 point 3). Quiet card surface
-   next to the loud pill; 46px tall so the row reads as one bar. */
-.cz-stash-agent {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  min-height: 46px;
-  padding: 0 16px;
-  border: 1px solid var(--cz-hair);
+.cz-search-sheet-like.is-active {
+  background: var(--cz-card-solid);
+  color: var(--cz-like);
+  box-shadow: 0 1px 2px rgba(23, 24, 26, 0.06);
+}
+
+.cz-search-sheet-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cz-search-sheet-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-search-sheet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
   border-radius: 14px;
+  background: var(--cz-seg);
+}
+
+.cz-search-sheet-chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
   background: var(--cz-card-solid);
   color: var(--cz-ink);
-  font-family: inherit;
-  font-size: 14px;
+  font-family: var(--cz-sans);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--dur-press) var(--ease-out);
+  box-shadow: 0 1px 2px rgba(23, 24, 26, 0.06);
 }
 
-.cz-stash-agent:active {
-  transform: scale(0.97);
+.cz-search-sheet-chip:active {
+  transform: scale(0.96);
 }
 
-.cz-stash-agent:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.cz-stash-agent:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--cz-focus);
-}
-
-/* ─── The docked column (shelf handoff 2026-07-28) ──────────────────────────
-   The app is one fixed-height column on a phone: chrome and cards scroll in
-   .cz-shell, the bar sits under them and never moves. The bar used to float
-   over the cards, so the shelf reserved 88px of dead space to keep the last
-   card clear. That reservation is deleted here — the bar is a real sibling
-   now, so the space it takes is the space it needs. */
+/* ─── The phone column (design 7a dock) ─
+   Fixed-height column; chrome and cards scroll in .cz-shell. The frosted
+   dock floats over the grid, so the shell reserves bottom space. */
 @media (max-width: 767px) {
   .cz-app[data-fashion="true"] {
-    /* border-box is load-bearing: the notch padding above must come OUT of
-       the 100dvh, not add to it. There is no global box-sizing rule in this
-       app, so content-box would push the bar below the screen edge. */
     box-sizing: border-box;
     height: 100dvh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    /* The dock owns the bottom edge and the safe area. The column must not
-       add its own or the bar floats above the home indicator. */
     padding-bottom: 0;
     overflow: hidden;
   }
@@ -10443,22 +11327,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-app[data-fashion="true"] > .cz-shell {
     flex: 1 1 auto;
     min-height: 0;
-    /* Load-bearing. The column above is a flex container, and the shell keeps
-       margin-inline: auto from the wide-screen rule. An auto cross-axis margin
-       cancels the stretch, so the shell sized itself to its own content: 246px
-       of a 402px screen on the Hauls tab. Everything drew in a narrow centred
-       strip, the account menu hung off the left edge, and a drag outside the
-       strip scrolled nothing. Width 100% restores the stretch and makes the
-       auto margins compute to zero. */
     width: 100%;
     overflow-y: auto;
-    /* clip and auto cannot pair on one box; hidden is the honest value. */
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    /* Contain the flick so a fast scroll to the end never rubber-bands the
-       whole column and exposes the page behind it. */
     overscroll-behavior-y: contain;
-    padding-bottom: 18px;
+    /* Frosted dock + raised stash circle clear of the last card row. */
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Title masthead sits at the top of the shell; no extra top band pad. */
+  .cz-app[data-fashion="true"] > .cz-shell:has(.cz-masthead-7a) {
+    padding-top: 0;
   }
 }
 
@@ -11830,6 +12710,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
+/* Kyle 2026-07-31: the same stacked band sat on the desktop panel — "we still
+   have this big ass gap at the top of the page." The desktop gets the phone's
+   arithmetic: one small gap under the command bar, never four stacked ones. */
+@media (min-width: 768px) {
+  .cz-detail-facts {
+    margin-top: 8px;
+  }
+  .cz-detail-facts-section {
+    padding-top: 0;
+  }
+  .cz-detail-facts-section .cz-sizing:first-child {
+    margin-top: 0;
+    padding-top: 12px;
+  }
+}
+
 .cz-detail-facts-section + .cz-detail-facts-section {
   margin-top: 16px;
   border-top: 1px solid var(--cz-hair);
@@ -12211,14 +13107,15 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 44px;
-  padding: 0 13px;
+  min-height: 34px;
+  padding: 0 12px;
   border: 1px solid var(--cz-hair-strong);
   border-radius: 10px;
   background: transparent;
   color: var(--cz-ink);
-  font-size: 12.5px;
-  font-weight: 650;
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -12527,12 +13424,18 @@ input.cz-sizing-cell.is-custom:focus-visible {
 
 .cz-sizing-cell-k {
   font-family: var(--cz-mono);
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--cz-faint);
 }
 
 .cz-sizing-cell-v {
+  font-family: var(--cz-mono);
   font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-sub);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -12585,6 +13488,14 @@ input.cz-sizing-cell.is-custom:focus-visible {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--cz-money);
+}
+
+/* The YOUR PICK / OUR PICK phone tags (mobile item sheet spec 6.3) render in
+   the markup everywhere but paint only inside the phone panes — the desktop
+   card back keeps its exact old look. The 767px block below is the only
+   place this displays. */
+.cz-sizing-cell-tag-phone {
+  display: none;
 }
 
 @keyframes cz-rec-pulse {
@@ -12641,12 +13552,13 @@ input.cz-sizing-cell.is-custom:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 46px;
+  min-height: 36px;
   padding: 0 10px;
   border: 1px solid var(--cz-hair-strong);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--cz-card-solid);
-  font-size: 13px;
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--cz-ink);
   cursor: pointer;
@@ -12722,31 +13634,83 @@ input.cz-sizing-cell.is-custom:focus-visible {
   padding: 0 0 5px;
 }
 
-.cz-fitread-kicker {
+/* One mono voice for every fit-read label (Kyle 2026-07-31 font consistency). */
+.cz-fitread-kicker,
+.cz-fitread-scale,
+.cz-fitread-head,
+.cz-fitread-toggle-hint {
   font-family: var(--cz-mono);
   font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--cz-faint);
+}
+
+.cz-fitread-kicker {
+  letter-spacing: 0.12em;
 }
 
 .cz-fitread-scale {
   display: flex;
   justify-content: space-between;
-  font-family: var(--cz-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
   color: var(--cz-placeholder);
 }
 
 .cz-fitread-head {
-  font-family: var(--cz-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
   color: var(--cz-placeholder);
   text-align: right;
+}
+
+/* Tap the FIT READ header to open the full seller chart and ease detail. */
+.cz-fitread-toggle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 5px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cz-fitread-toggle:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.cz-fitread-toggle-hint {
+  flex: 0 0 auto;
+  color: var(--cz-link);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 500;
+  font-size: 11px;
+  font-family: var(--cz-sans);
+}
+
+.cz-fitread-detail {
+  margin-top: 8px;
+  padding: 10px 0 2px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-fitread-detail-help {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-fitread-detail-help strong {
+  font-weight: 600;
+  color: var(--cz-ink);
 }
 
 .cz-fitread-head-short {
@@ -12754,9 +13718,10 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 .cz-fitread-name {
-  font-size: 12px;
+  font-family: var(--cz-mono);
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
   color: var(--cz-ink);
 }
 
@@ -12792,6 +13757,15 @@ input.cz-sizing-cell.is-custom:focus-visible {
   height: 13px;
   border-radius: 1.5px;
   background: var(--cz-money);
+  /* Kyle 2026-07-31: "make the sizing graph move smoothly when you click a
+     new size." The mark slides to the new numbers instead of jumping. */
+  transition: left var(--dur-open) var(--ease-out), background-color var(--dur-open) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-fitread-mark {
+    transition: none;
+  }
 }
 
 .cz-fitread-mark.is-warn {
@@ -12836,12 +13810,18 @@ input.cz-sizing-cell.is-custom:focus-visible {
   }
 }
 
-.cz-fitread-theirs {
+.cz-fitread-theirs,
+.cz-fitread-yours,
+.cz-fitread-ease {
   font-family: var(--cz-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  color: var(--cz-ink);
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cz-fitread-theirs {
+  color: var(--cz-ink);
 }
 
 .cz-fitread-theirs.is-unknown {
@@ -12849,19 +13829,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 .cz-fitread-yours {
-  font-family: var(--cz-mono);
-  font-size: 12px;
-  font-weight: 500;
   color: var(--cz-placeholder);
-  text-align: right;
 }
 
 .cz-fitread-ease {
-  font-family: var(--cz-mono);
-  font-size: 12px;
   font-weight: 600;
   color: var(--cz-money);
-  text-align: right;
 }
 
 .cz-fitread-ease.is-warn {
@@ -13134,6 +14107,576 @@ input.cz-sizing-fix-size {
   }
 }
 
+/* These wrappers keep the desktop child layout unchanged. The phone query
+   restores their boxes so each selected pane becomes one scroll surface. */
+.cz-detail-pane,
+.cz-detail-pane-title {
+  display: contents;
+}
+
+/* Mobile item sheet, three panes. The desktop card back keeps its existing
+   layout because every visual rule stays below 768px. */
+@media (max-width: 767px) {
+  .cz-detail-pane-header,
+  .cz-detail-pane-header.is-up {
+    /* Safe-area so the status bar never covers the title or close control. */
+    height: calc(50px + env(safe-area-inset-top, 0px));
+    padding: calc(2px + env(safe-area-inset-top, 0px)) 12px 10px;
+    gap: 11px;
+    border-bottom: 0;
+    background: var(--cz-bg-elevated);
+  }
+
+  .cz-detail-pane-header .cz-detail-stickybar-thumb {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .cz-detail-pane-header .cz-detail-stickybar-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .cz-detail-pane-header .cz-detail-stickybar-meta {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .cz-detail-pane-header .cz-detail-stickybar-close {
+    width: 44px;
+    height: 44px;
+    background: var(--cz-chip-fill);
+  }
+
+  .cz-detail-pane-picker {
+    flex: 0 0 auto;
+    display: flex;
+    margin: 0 12px 12px;
+    padding: 2px;
+    border-radius: 12px;
+    background: var(--cz-seg);
+  }
+
+  .cz-detail-pane-picker button {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--cz-faint);
+    font-family: var(--cz-sans);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background var(--dur-micro) var(--ease-out),
+      color var(--dur-micro) var(--ease-out),
+      transform var(--dur-press) var(--ease-out);
+  }
+
+  .cz-detail-pane-picker button.is-active {
+    background: var(--cz-card-solid);
+    color: var(--cz-ink);
+    box-shadow: var(--shadow-hairline, 0 1px 2px rgba(23, 24, 26, 0.06));
+  }
+
+  .cz-detail-pane-picker button:active {
+    transform: scale(0.96);
+  }
+
+  .cz-detail-scroll.has-panes {
+    padding: 0 14px 104px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-title {
+    display: none;
+  }
+
+  .cz-detail-scroll.has-panes > .cz-detail-pane {
+    display: block;
+  }
+
+  .cz-detail-scroll.has-panes[data-pane="fit"] > .cz-detail-pane:not(.cz-detail-pane-fit),
+  .cz-detail-scroll.has-panes[data-pane="photos"] > .cz-detail-pane:not(.cz-detail-pane-photos),
+  .cz-detail-scroll.has-panes[data-pane="details"] > .cz-detail-pane:not(.cz-detail-pane-details) {
+    display: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-facts {
+    margin-top: 0;
+  }
+
+  .cz-mobile-fit-intro {
+    display: block;
+    padding-bottom: 2px;
+  }
+
+  .cz-mobile-fit-kicker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .cz-mobile-fit-kicker {
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cz-faint);
+    white-space: nowrap;
+  }
+
+  .cz-mobile-fit-confidence {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    color: var(--cz-money);
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .cz-mobile-fit-confidence-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .cz-mobile-fit-intro.is-warn .cz-mobile-fit-confidence {
+    color: var(--cz-warn-ink);
+  }
+
+  .cz-mobile-fit-verdict {
+    margin: 0;
+    color: var(--cz-ink);
+    font-family: var(--cz-display);
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .cz-mobile-fit-reason {
+    margin: 6px 0 0;
+    color: var(--cz-sub);
+    font-size: 13.5px;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing {
+    margin-top: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-head,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-value-row,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-why,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-fit4 {
+    display: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-chart {
+    gap: 8px;
+    padding: 12px 0 4px;
+    overflow-x: auto;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell {
+    flex: 0 0 76px;
+    width: 76px;
+    min-height: 62px;
+    padding: 9px 0 8px;
+    border-radius: 14px;
+  }
+
+  /* Spec 6.3 size cards: the recommended card is a 1px money border on
+     money-bg with an OUR PICK tag; a hand pick that disagrees is chip-fill
+     with a YOUR PICK tag. The desktop treatments (green fill, the pulsing
+     inset outline) stay on the desktop card back. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-rec,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick {
+    border: 1px solid var(--cz-money);
+    background: var(--cz-money-bg);
+    box-shadow: none;
+    animation: none;
+  }
+
+  /* Size labels shout on the phone pane (F's review of 43a1f4f, matching
+     Kyle's drawing): SMALL / MEDIUM / LARGE. Text-transform only, so the
+     data and the desktop card back keep their own casing. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell-k {
+    text-transform: uppercase;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-rec .cz-sizing-cell-k,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick .cz-sizing-cell-k {
+    color: var(--cz-money);
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-rec .cz-sizing-cell-v,
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick .cz-sizing-cell-v {
+    color: var(--cz-ink);
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick-manual {
+    border: 0;
+    background: var(--cz-chip-fill);
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick-manual .cz-sizing-cell-k {
+    color: var(--cz-sub);
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick-manual .cz-sizing-cell-v {
+    color: var(--cz-ink);
+  }
+
+  /* Tag type per spec 6.3: mono, 8.5px, weight 700. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell-tag {
+    font-size: 8.5px;
+    font-weight: 700;
+  }
+
+  /* 2026-07-31 (Kyle: no stretch on a size tap): the phone lane owns the tag
+     here — it carries OUR PICK and YOUR PICK in every state, so the desktop
+     lane steps out and every cell keeps one height. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell-tag:not(.cz-sizing-cell-tag-phone) {
+    display: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-sizing-cell-tag-phone {
+    display: block;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-pick-manual .cz-sizing-cell-tag-phone {
+    color: var(--cz-sub);
+  }
+
+  /* Phone sheet toast (spec §7): one mono line, pill, 78px off the bottom,
+     gone after 1900ms. It never blocks a tap. */
+  .cz-detail-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 78px;
+    z-index: 30;
+    transform: translateX(-50%);
+    padding: 9px 14px;
+    border-radius: 999px;
+    background: var(--cz-action-muted-bg);
+    color: var(--cz-action-muted-text);
+    font-family: var(--cz-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-row {
+    grid-template-columns: 76px 1fr 52px;
+    gap: 10px;
+    min-height: 38px;
+    padding: 0;
+    border-top: 0;
+    border-bottom: 1px solid var(--cz-hair);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-heads {
+    min-height: auto;
+    padding: 16px 0 6px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-scale {
+    font-size: 0;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-scale::before {
+    content: "";
+    display: block;
+    height: 1px;
+    margin-top: 5px;
+    background: var(--cz-hair);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-heads .cz-fitread-ease {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--cz-faint);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-head,
+  .cz-detail-scroll.has-panes .cz-fitread-theirs,
+  .cz-detail-scroll.has-panes .cz-fitread-yours {
+    display: none;
+  }
+
+  /* Spec 6.3: the header is FIT READ, a hairline, then EASE on the right.
+     THEIRS and YOURS stay hidden; the last head is the EASE one. */
+  .cz-detail-scroll.has-panes .cz-fitread-heads .cz-fitread-head:last-child {
+    display: block;
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--cz-faint);
+    text-align: right;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-name {
+    font-size: 13px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-track {
+    height: 6px;
+    background: var(--cz-track);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-band {
+    left: 26%;
+    width: 44%;
+    background: var(--cz-money);
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-mark {
+    height: 14px;
+    top: -4px;
+    border-radius: 2px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-ease {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .cz-detail-scroll.has-panes .cz-fitread-foot {
+    border-top: 0;
+    padding-top: 10px;
+    font-size: 11.5px;
+  }
+
+  /* Spec 6.3: ONE chip row. The older phone rule above stacks these buttons
+     full-width in a column; the panes put them back on one wrapping row of
+     pills. The two bordered chips take the spec shape (radius 999px, 1px
+     --cz-hair, no fill); the visual stays 34px while the ::after keeps a
+     44px hit area, the same trick as .cz-detail-hero-btn. */
+  .cz-detail-scroll.has-panes .cz-detail-chart-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding-top: 12px;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-chart-upload {
+    position: relative;
+    width: auto;
+    min-height: 34px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-chart-upload::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  .cz-detail-chart-link {
+    min-height: 44px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cz-link);
+    font-family: var(--cz-sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero {
+    border-radius: 14px;
+    background: #f3f3f0;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero-slide,
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero-empty {
+    aspect-ratio: 4 / 5;
+    background: #f3f3f0;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero-slide img {
+    object-fit: contain;
+  }
+
+  /* Spec 6.4: ONE strip header — the pane's own PHOTOS kicker with the hair
+     and the count · cover readout. The manager's own label would print the
+     same words a second time right under it. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-edit-photos-label {
+    display: none;
+  }
+
+  .cz-detail-photo-strip-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0 8px;
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .cz-detail-photo-strip-head > span:nth-child(2) {
+    flex: 1;
+    height: 1px;
+    background: var(--cz-hair);
+  }
+
+  .cz-detail-photo-strip-head > span:last-child {
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+
+  .cz-detail-photo-footnote {
+    margin: 10px 0 0;
+    color: var(--cz-faint);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 1px solid var(--cz-hair);
+    border-radius: 14px;
+    background: var(--cz-card-solid);
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-chip {
+    width: 100%;
+    height: 46px;
+    padding: 0 13px;
+    border: 0;
+    border-bottom: 1px solid var(--cz-hair);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-slot:nth-child(5) .cz-cmdbar-chip {
+    border-bottom: 0;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-chip.is-money {
+    background: transparent;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-chip[data-chip="status"]::before {
+    content: "STATUS";
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-chip[data-chip="status"] .cz-cmdbar-status-word,
+  .cz-detail-pane-command .cz-cmdbar-value {
+    margin-left: auto;
+    max-width: 18ch;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-label {
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-caret {
+    width: 14px;
+    height: 14px;
+    transform: rotate(-90deg);
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-seller {
+    display: none;
+  }
+
+  .cz-detail-pane-command .cz-cmdbar-pop {
+    grid-column: 1;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0;
+    border-width: 1px 0;
+    border-radius: 0;
+  }
+
+  .cz-detail-pane-history {
+    padding-top: 18px;
+  }
+
+  .cz-detail-pane-history .cz-timeline::before {
+    content: "HISTORY";
+    display: block;
+    margin-bottom: 7px;
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+
+  .cz-detail-pane-history .cz-detail-notes-add {
+    min-height: 44px;
+    margin-top: 4px;
+  }
+
+  .cz-detail-device-note {
+    margin: 16px 0 0;
+    color: var(--cz-faint);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  /* Spec 6.6: the footer price "sits left, with no box" — mono 17px money,
+     no border, no fill. The box stays on the desktop card back and panel.
+     The price is still the button that opens the price editor. */
+  .cz-detail-surface .cz-detail-foot-price {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 17px;
+  }
+
+  .cz-detail-surface .cz-detail-foot-price:active {
+    background: transparent;
+  }
+}
+
 /* ── The one inline editor ── */
 .cz-detail-editor {
   display: flex;
@@ -13323,7 +14866,10 @@ input.cz-sizing-fix-size {
      line. So the box owns the bottom gap and the textarea owns only its top
      one: 5 top + 3 lines at 15px/1.5 (67.5) = 72.5, rounded to 73. */
   grid-template-rows: auto 73px;
-  margin-top: 8px;
+  /* Kyle 2026-07-31: "get the notes section to not bump all the way up to
+     the line on top of it." 8px read as glued to the block above; 16px is
+     the panel's own rhythm. */
+  margin-top: 16px;
   padding-bottom: 11px;
   border: 1px solid var(--cz-hair);
   border-radius: 12px;

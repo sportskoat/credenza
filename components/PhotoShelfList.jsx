@@ -11,6 +11,7 @@ export default function PhotoShelfList({
   onToggleFavorite,
   bodyProfile = null,
   fitPrefs = null,
+  phone = false,
 }) {
   return (
     <div className="cz-photo-list" role="list">
@@ -23,6 +24,7 @@ export default function PhotoShelfList({
           onToggleFavorite={onToggleFavorite}
           bodyProfile={bodyProfile}
           fitPrefs={fitPrefs}
+          phone={phone}
         />
       ))}
     </div>
@@ -46,7 +48,7 @@ export default function PhotoShelfList({
 // open button, never a child — the card face is one <button> and a nested
 // <a> is invalid HTML. It sits in an overlay block above the button in the
 // stacking order and re-enables pointer events on the links only.
-function PhotoShelfCard({ item, selected, onOpenDetail, onToggleFavorite, bodyProfile, fitPrefs }) {
+function PhotoShelfCard({ item, selected, onOpenDetail, onToggleFavorite, bodyProfile, fitPrefs, phone }) {
   const photoRef = useRef(null);
   const textRef = useRef(null);
   const title = item.title || "Untitled item";
@@ -67,7 +69,10 @@ function PhotoShelfCard({ item, selected, onOpenDetail, onToggleFavorite, bodyPr
           onOpenDetail(item, { photo: photoRef.current, text: textRef.current })
         }
       >
-        <CoverImage item={item} fill className="cz-photo-list-image" />
+        {/* Mobile shelf redesign 2026-07-30 (task 3, spec 5.5): on the phone
+            a photo wider than the 4:5 box letterboxes instead of cropping.
+            Desktop keeps cover. */}
+        <CoverImage item={item} fill className="cz-photo-list-image" letterbox={phone} />
         <span className="cz-photo-list-topshade" aria-hidden="true" />
         <span className="cz-photo-list-scrim" aria-hidden="true" />
       </button>

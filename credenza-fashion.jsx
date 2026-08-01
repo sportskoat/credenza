@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronDown, ChevronLeft, Search, User, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
 import {
   createStorageBackend,
   loadStoredItems,
@@ -79,6 +79,7 @@ import "./credenza-fashion.css";
 // stays put while the small chunk arrives. The circular import back into this
 // file is safe: the sheet chunk evaluates only after this module is done.
 const CaptureSheet = lazy(() => import("./sheets/CaptureSheet.jsx"));
+const SearchSheet = lazy(() => import("./sheets/SearchSheet.jsx"));
 const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsPage = lazy(() => import("./settings/SettingsPage.jsx"));
@@ -4477,11 +4478,13 @@ export const FIND_STATUS_COLORS = {
 // Shelf filter strip (shelf handoff 2026-07-28). One chip is active at a time
 // and every chip carries a live count. Order is fixed: the whole shelf first,
 // then the three answers a customer actually asks the shelf for.
+// Design 7a (2026-07-31): glyph segmented control. Key "starred" stays so
+// stored prefs keep working; the face label is "Likes".
 export const SHELF_FILTERS = [
-  { key: "all", label: "All" },
-  { key: "starred", label: "Starred" },
-  { key: "tobuy", label: "To buy" },
-  { key: "bought", label: "Bought" },
+  { key: "all", label: "All", Icon: LayoutGrid },
+  { key: "starred", label: "Likes", Icon: Heart },
+  { key: "tobuy", label: "To buy", Icon: Tag },
+  { key: "bought", label: "Bought", Icon: Check },
 ];
 
 // Design 4c: one auto-detected category row. Tap expands a tidy chip list.
@@ -5095,6 +5098,11 @@ function CredenzaApp() {
   // Mobile handoff C2/C4 (2026-07-25). The phone masthead collapsed to one
   // row, so search hides behind an icon.
   const [searchOpen, setSearchOpen] = useState(false);
+  // Design 7b: "Likes only" inside the search sheet. Stays on until the
+  // person turns it off, even after the sheet closes.
+  const [likesOnly, setLikesOnly] = useState(false);
+  // Recent search chips — last few non-empty queries the person ran.
+  const [searchRecent, setSearchRecent] = useState([]);
   // Routed settings page (Profile Settings design, Phase 1). Replaces the
   // modal stack one section at a time: /settings/<section> is a real URL
   // with history, pushed on entry and peeled by the browser Back button.
@@ -7608,8 +7616,9 @@ function CredenzaApp() {
   const shelfItems = useMemo(() => {
     let a = [...typed];
     // Filter strip: one chip at a time. "all" is the whole shelf.
-    if (shelfFilter === "starred") a = a.filter((x) => x.favorite === true);
-    else if (shelfFilter === "bought")
+    // likesOnly (search sheet 7b) further narrows to favourites on any filter.
+    if (shelfFilter === "starred" || likesOnly) a = a.filter((x) => x.favorite === true);
+    if (shelfFilter === "bought")
       a = a.filter((x) => normalizeFindStatus(x.findStatus) === "bought");
     else if (shelfFilter === "tobuy")
       a = a.filter((x) => normalizeFindStatus(x.findStatus) !== "bought");
@@ -7617,7 +7626,7 @@ function CredenzaApp() {
     // Newest first — favoriting only marks the card, it never moves it.
     a.sort((x, y) => y.createdAt - x.createdAt);
     return a;
-  }, [typed, q, shelfFilter]);
+  }, [typed, q, shelfFilter, likesOnly]);
 
   // Live counts for the filter strip. They count the searched set, so the
   // chips agree with what a search leaves on the shelf.
@@ -7783,13 +7792,8 @@ function CredenzaApp() {
       bulkyHint,
     };
   }, [openHaulName, totalsItems, hauls]);
-  // Rough ship weight for whatever is on the surface. haulPipeline computes the
-  // same number but only inside an open haul; the docked phone bar (shelf
-  // handoff 2026-07-28) prints "9 saved · ~2.4 kg est." on the plain shelf too.
-  const shelfWeightLabel = useMemo(() => {
-    const grams = haulWeightGrams(totalsItems);
-    return grams != null ? formatWeightGrams(grams) : "";
-  }, [totalsItems]);
+  // Design 7a dropped the phone weight/money summary pill. Haul weight still
+  // comes from haulPipeline inside an open haul. Desktop totals stay below.
   // Same context for the count chip — one consistent spot next to the total.
   // Starred filter MUST show through here. Keep the label short on mobile so
   // "N starred of M saved" + TOTAL SHELF COST + heart don't pile up.
@@ -8747,6 +8751,7 @@ function CredenzaApp() {
         <PhotoShelfList
           items={listItems}
           selectedId={selectedId}
+          phone={isPhone}
           onOpenDetail={(item, nodes) => {
             retireFirstCardHint();
             openWithMorph(item.id, nodes);
@@ -8772,6 +8777,107 @@ function CredenzaApp() {
     </motion.section>
   );
 
+  // Design 7a (2026-07-31): on the phone with cards, the header is a title
+  // masthead (Shelf + caption) with Search + Profile. Shelf / Hauls / Stash
+  // live in the frosted bottom dock. Desktop keeps the brand masthead and
+  // top tabs. The empty-shelf phone still shows the brand masthead above
+  // the hero.
+  const phoneShelfChrome = isPhone && items.length > 0;
+  const mastTitle =
+    view === "hauls" ? "Hauls" : view === "inbox" ? "Inbox" : "Shelf";
+  const mastCaption = (() => {
+    if (view === "hauls") {
+      const n = haulDirectory.hauls.length;
+      return n + (n === 1 ? " haul" : " hauls");
+    }
+    if (view === "inbox") {
+      const n = inboxItems.length;
+      return n + (n === 1 ? " item" : " items");
+    }
+    // Shelf: "4 saved · 3 free cards left". Pro has no meter, so just the count.
+    const saved =
+      shelfAll.length + (shelfAll.length === 1 ? " saved" : " saved");
+    if (limits && limits.kind === "anon") return saved + " · " + limits.label;
+    if (limits) return saved + " · " + limits.label;
+    return saved;
+  })();
+  const rememberSearch = useCallback((raw) => {
+    const t = String(raw || "").trim();
+    if (t.length < 2) return;
+    setSearchRecent((list) => [t, ...list.filter((x) => x !== t)].slice(0, 8));
+  }, []);
+  const chromeActions = (
+    <div className="cz-masthead-actions">
+      {/* The counter pill (Kyle 2026-07-30, rule 1). On phone 7a the free-
+          card count rides the masthead caption, so the pill stays off the
+          phone shelf chrome. Desktop and the empty-shelf phone still show
+          it. A Pro member has no meter. */}
+      {limits && !phoneShelfChrome && (
+        <button
+          type="button"
+          className={"cz-limit-pill is-" + limits.tone}
+          onClick={openLimits}
+          title="What you have left"
+        >
+          {limits.label}
+        </button>
+      )}
+      {/* Design 7b: the phone magnifier opens the search sheet, not an
+          inline field. Desktop keeps its permanent search in the top bar. */}
+      {phoneShelfChrome && (
+        <button
+          type="button"
+          className={"cz-mast-btn" + (searchOpen ? " is-active" : "")}
+          aria-label="Search your shelf"
+          aria-expanded={searchOpen}
+          title="Search"
+          onClick={() => setSearchOpen(true)}
+        >
+          <Search size={17} strokeWidth={2} aria-hidden="true" />
+        </button>
+      )}
+      {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
+          top-right entry — initials when signed in, person glyph when
+          out. It drops the quick menu (design 1c); the settings page
+          sits behind the menu's "All settings" row. */}
+      <button
+        type="button"
+        className="cz-avatar"
+        aria-label="Profile"
+        title="Profile"
+        aria-expanded={avatarMenuOpen}
+        onClick={() => setAvatarMenuOpen((v) => !v)}
+      >
+        {avatarInitials ? (
+          <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
+        ) : (
+          <User size={isPhone ? 19 : 17} strokeWidth={2.2} aria-hidden="true" />
+        )}
+      </button>
+      {avatarMenuOpen && (
+        <Suspense fallback={null}>
+        <AvatarMenu
+          accountSession={accountSession}
+          accountPlan={accountPlan}
+          avatarInitials={avatarInitials}
+          mode={mode}
+          onTheme={setTheme}
+          agentLabel={agentBarLabel}
+          onOpenAgent={() => {
+            agentReturnToMenuRef.current = true;
+            setAgentSheetOpen(true);
+          }}
+          pricePrimary={pricePrimary}
+          onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
+          onOpenSettings={(section) => navigateSettings(section)}
+          onSignOut={accountSignOut}
+          onClose={() => setAvatarMenuOpen(false)}
+        />
+        </Suspense>
+      )}
+    </div>
+  );
+
   return (
     <div
       className="cz-app"
@@ -8787,10 +8893,9 @@ function CredenzaApp() {
         color: INK,
         fontFamily: FONT,
         // Padding used to live here as an inline shorthand, which no media query
-        // could reach. The phone bottom bar is docked now (shelf handoff
-        // 2026-07-28) instead of floating, so the app no longer reserves 104px
-        // of dead space for it. Padding moved to credenza-fashion.css so the
-        // phone and the desktop can differ.
+        // could reach. Padding moved to credenza-fashion.css so the phone and
+        // the desktop can differ — the phone shell reserves 160px under the
+        // floating shelf controls (spec 5.5).
         transition: "background 250ms var(--ease-out)",
       }}
     >
@@ -8858,6 +8963,30 @@ function CredenzaApp() {
           onClose={() => setCaptureSheetOpen(false)}
           textareaRef={sheetCaptureRef}
         />
+        </Suspense>
+      )}
+
+      {/* Design 7b: search is a bottom sheet from the phone magnifier. The
+          query filters the shelf live behind the scrim. Desktop keeps its
+          permanent field in the top bar. */}
+      {searchOpen && isPhone && (
+        <Suspense fallback={null}>
+          <SearchSheet
+            query={search}
+            onQuery={setSearch}
+            matchCount={shelfItems.length}
+            likesOnly={likesOnly}
+            onLikesOnly={setLikesOnly}
+            recent={searchRecent}
+            onPickRecent={(chip) => {
+              setSearch(chip);
+              rememberSearch(chip);
+            }}
+            onClose={() => {
+              rememberSearch(search);
+              setSearchOpen(false);
+            }}
+          />
         </Suspense>
       )}
 
@@ -9117,15 +9246,31 @@ function CredenzaApp() {
             full-bleed capture/search/tabs on a wide monitor read as sprawl).
             The carousel/grid panels below stay full-width. */}
         <div className="cz-chrome">
-        {/* Phone masthead is ONE row (mobile handoff C2): mark + wordmark, a
-            flex spacer, then Search / ⋯ Settings / Account. The 45%-viewport
-            hero still drops once the shelf has items — that plus the merged
-            tabs/totals row is ~150px, the difference between zero cards and
-            one-and-a-half rows above the fold.
-            "Fashion" no longer drops (logo spec, Kyle 2026-07-26): stacked
-            under the wordmark it costs no horizontal room, so the compact
-            masthead can keep the full lockup. */}
-        <header className={"cz-masthead" + (isPhone && items.length > 0 ? " is-compact" : "")}>
+        {/* Design 7a phone masthead: title + caption on the left, search and
+            avatar on the right. Desktop keeps the brand masthead. The empty
+            phone shelf still shows the brand above the hero. */}
+        {phoneShelfChrome ? (
+        <header className="cz-masthead cz-masthead-7a">
+          <div className="cz-mast-title-col">
+            <h1 className="cz-mast-title">{mastTitle}</h1>
+            <p className="cz-mast-caption">
+              {view === "shelf" && limits ? (
+                <button
+                  type="button"
+                  className="cz-mast-caption-btn"
+                  onClick={openLimits}
+                >
+                  {mastCaption}
+                </button>
+              ) : (
+                mastCaption
+              )}
+            </p>
+          </div>
+          {chromeActions}
+        </header>
+        ) : (
+        <header className="cz-masthead">
           <h1 className="cz-brand">
             <BrandMark size={isPhone && items.length > 0 ? 30 : 34} />
             <span className="cz-brand-name">
@@ -9151,83 +9296,9 @@ function CredenzaApp() {
               ))}
             </nav>
           )}
-          {!firstRunIntro && (
-          <div className="cz-masthead-actions">
-            {/* The counter pill (Kyle 2026-07-30, rule 1): one meter, always
-                visible, so nobody meets a wall by surprise. It turns amber on
-                the last free read (rule 3) and opens the one limits sheet.
-                A Pro member has no meter, so limits is null and nothing
-                renders. */}
-            {limits && (
-              <button
-                type="button"
-                className={"cz-limit-pill is-" + limits.tone}
-                onClick={openLimits}
-                title="What you have left"
-              >
-                {limits.label}
-              </button>
-            )}
-            {/* Search collapses to this icon on phone; the pill below reveals
-                on tap and keeps its query while open. */}
-            {isPhone && items.length > 0 && (
-              <button
-                type="button"
-                className={"cz-mast-btn" + (searchOpen ? " is-active" : "")}
-                aria-label={searchOpen ? "Hide search" : "Search your shelf"}
-                aria-expanded={searchOpen}
-                title="Search"
-                onClick={() => {
-                  const next = !searchOpen;
-                  setSearchOpen(next);
-                  if (next) setTimeout(() => searchRef.current?.focus(), 0);
-                }}
-              >
-                <Search size={17} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            )}
-            {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
-                top-right entry — initials when signed in, person glyph when
-                out. It drops the quick menu (design 1c); the settings page
-                sits behind the menu's "All settings" row. */}
-            <button
-              type="button"
-              className="cz-avatar"
-              aria-label="Profile"
-              title="Profile"
-              aria-expanded={avatarMenuOpen}
-              onClick={() => setAvatarMenuOpen((v) => !v)}
-            >
-              {avatarInitials ? (
-                <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
-              ) : (
-                <User size={17} strokeWidth={2.2} aria-hidden="true" />
-              )}
-            </button>
-            {avatarMenuOpen && (
-              <Suspense fallback={null}>
-              <AvatarMenu
-                accountSession={accountSession}
-                accountPlan={accountPlan}
-                avatarInitials={avatarInitials}
-                mode={mode}
-                onTheme={setTheme}
-                agentLabel={agentBarLabel}
-                onOpenAgent={() => {
-                  agentReturnToMenuRef.current = true;
-                  setAgentSheetOpen(true);
-                }}
-                pricePrimary={pricePrimary}
-                onCycleCurrency={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
-                onOpenSettings={(section) => navigateSettings(section)}
-                onSignOut={accountSignOut}
-                onClose={() => setAvatarMenuOpen(false)}
-              />
-              </Suspense>
-            )}
-          </div>
-          )}
+          {!firstRunIntro && chromeActions}
         </header>
+        )}
 
         {/* The .cz-onboard intro gate was deleted here (onboarding spec, Kyle
             2026-07-26). It said "One shelf for the whole haul" and offered a
@@ -9434,13 +9505,11 @@ function CredenzaApp() {
           </div>
         )}
 
-        {/* Mobile search — quiet field. Hidden on desktop (glass toggle owns it),
-            on the first-run intro (CO-04), and on the empty shelf — the hero
-            field is the ONE capture surface there (Kyle 2026-07-24).
-            C2 (2026-07-25): on phone it also stays collapsed until the
-            masthead Search icon opens it. A live query keeps it open, so
-            filtered results never lose their field. */}
-        {!firstRunIntro && items.length > 0 && (!isPhone || searchOpen || search) && (
+        {/* Design 7b: phone search is a sheet from the magnifier — this row
+            no longer opens on a phone. Kept as a legacy surface for any
+            non-phone path that still wants an inline field under the chrome.
+            Desktop uses .cz-desk-capture above; CSS hides this row ≥768px. */}
+        {!firstRunIntro && items.length > 0 && !isPhone && (
         <div className="cz-search-row">
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- shell-padding mousedown only focuses the input; the input itself owns keyboard interaction (CO-29) */}
           <div
@@ -9629,9 +9698,13 @@ function CredenzaApp() {
           </div>
         )}
 
-        {/* Shelf / Hauls / Inbox — hidden on a brand-new empty shelf so the 7a
-            hero stays the full welcome (tabs return once something is stashed). */}
+        {/* Shelf / Hauls / Inbox tabs. Desktop: top tab row as before.
+            Design 7a phone: tabs move to the frosted bottom dock — this row
+            stays for desktop only. The filter strip still rides the phone
+            under the title masthead as a glyph segmented control. */}
         {items.length > 0 && (
+        <div className={"cz-shelf-band" + (phoneShelfChrome ? " is-phone-7a" : "")}>
+        {!phoneShelfChrome && (
         <div className="cz-view-tabs-row">
           <div
             role="tablist"
@@ -9639,12 +9712,12 @@ function CredenzaApp() {
             className="cz-view-tabs"
           >
             {[
-              ["shelf", "Shelf"],
-              ["hauls", "Hauls · " + haulDirectory.hauls.length],
+              ["shelf", "Shelf", null],
+              ["hauls", "Hauls", haulDirectory.hauls.length],
               ...(inboxItems.length > 0
-                ? [["inbox", "Inbox · " + inboxItems.length]]
+                ? [["inbox", "Inbox", inboxItems.length]]
                 : []),
-            ].map(([key, label]) => (
+            ].map(([key, label, count]) => (
               <button
                 type="button"
                 role="tab"
@@ -9668,13 +9741,12 @@ function CredenzaApp() {
                 }}
               >
                 {label}
+                {count !== null && (
+                  <span className="cz-tab-count">{" · "}{count}</span>
+                )}
               </button>
             ))}
           </div>
-          {/* Phone: the shelf totals used to ride this row (C2). The shelf
-              handoff (2026-07-28) moves them into the docked bottom bar, where
-              the money sits beside the button that adds to it. That leaves ONE
-              count, ONE total, and ONE currency chip on a phone. */}
           {indexingJobs.length > 0 && (
             <div className="cz-index-chip-row" aria-live="polite">
               {indexingJobs.map((job) => (
@@ -9709,19 +9781,46 @@ function CredenzaApp() {
         </div>
         )}
 
-        {/* Filter strip (shelf handoff 2026-07-28, §"Filter strip"). One chip
-            is active at a time and every count is live — the counts follow the
-            search, so the strip always agrees with the cards below it.
-            It is hidden inside an open haul: a haul shows every card in it,
-            and narrowing one would read as cards going missing. */}
+        {/* Phone indexing chip — the desk tabs row no longer mounts on
+            phone 7a, so the chip rides the band alone when a card indexes. */}
+        {phoneShelfChrome && indexingJobs.length > 0 && (
+          <div className="cz-index-chip-row is-phone-7a" aria-live="polite">
+            {indexingJobs.map((job) => (
+              <div
+                key={job.id}
+                className={"cz-index-chip" + (job.phase === "done" ? " is-done" : "")}
+                title={job.title}
+              >
+                <span className="cz-index-chip-icon" aria-hidden="true">
+                  {job.phase === "done" ? (
+                    <Check size={12} strokeWidth={2.6} />
+                  ) : (
+                    <span className="cz-index-chip-dot" />
+                  )}
+                </span>
+                <span className="cz-index-chip-label">
+                  {job.phase === "done" ? "Indexed" : "Indexing"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Filter strip. Desktop: text chips. Design 7a phone: glyph
+            segmented control (All · Likes · To buy · Bought). Hidden inside
+            an open haul: a haul shows every card in it. */}
         {toolbarActive && !openHaulName && view === "shelf" && (
           <div
-            className="cz-filter-strip"
+            className={
+              "cz-filter-strip" + (phoneShelfChrome ? " is-glyph" : "")
+            }
             role="radiogroup"
             aria-label="Filter the shelf"
           >
             {SHELF_FILTERS.map((f) => {
               const active = shelfFilter === f.key;
+              const Icon = f.Icon;
+              const count = shelfFilterCounts[f.key];
               return (
                 <button
                   type="button"
@@ -9731,23 +9830,52 @@ function CredenzaApp() {
                   aria-label={
                     f.label +
                     ", " +
-                    shelfFilterCounts[f.key] +
-                    (shelfFilterCounts[f.key] === 1 ? " card" : " cards")
+                    count +
+                    (count === 1 ? " card" : " cards")
                   }
-                  className={"cz-filter-chip" + (active ? " is-active" : "")}
+                  className={
+                    "cz-filter-chip" +
+                    (active ? " is-active" : "") +
+                    (count === 0 ? " is-zero" : "")
+                  }
                   onClick={() => {
                     setShelfFilter(f.key);
                     setExpandedId(null);
                   }}
                 >
-                  {f.label}
-                  <span className="cz-filter-chip-count">
-                    · {shelfFilterCounts[f.key]}
-                  </span>
+                  {phoneShelfChrome && Icon && (
+                    <Icon
+                      className="cz-filter-chip-icon"
+                      size={15}
+                      strokeWidth={2.2}
+                      fill={
+                        f.key === "starred" && active ? "currentColor" : "none"
+                      }
+                      aria-hidden="true"
+                    />
+                  )}
+                  {phoneShelfChrome ? (
+                    <span className="cz-filter-chip-label">
+                      {f.label}
+                      <span className="cz-filter-chip-count">
+                        {" · "}
+                        {count}
+                      </span>
+                    </span>
+                  ) : (
+                    <>
+                      {f.label}
+                      <span className="cz-filter-chip-count">
+                        · {count}
+                      </span>
+                    </>
+                  )}
                 </button>
               );
             })}
           </div>
+        )}
+        </div>
         )}
 
         {/* Shelf meta row: count + cost on the left, filter/view on the right.
@@ -9787,8 +9915,10 @@ function CredenzaApp() {
                       currency={pricePrimary}
                     />
                   </span>
-                  {/* CH-14: same chip as the phone tabs row — one currency
-                      pref, two entrances. The reel follows the chip. */}
+                  {/* CH-14: the currency pref's inline entrance. The phone
+                      pill lost its copy on Kyle's 2026-07-30 call — there the
+                      money carries the mark and the switch lives in settings.
+                      The reel follows the chip. */}
                   <button
                     type="button"
                     className="cz-total-currency"
@@ -9974,6 +10104,18 @@ function CredenzaApp() {
             onFocus={pauseNotification}
             onBlur={resumeNotification}
           >
+            {/* Kyle 2026-07-31: check for the normal tone, X for error. */}
+            <span
+              className="cz-toast-icon"
+              data-icon={notification.tone === "error" ? "error" : "ok"}
+              aria-hidden="true"
+            >
+              {notification.tone === "error" ? (
+                <X size={15} strokeWidth={2.5} />
+              ) : (
+                <Check size={15} strokeWidth={2.5} />
+              )}
+            </span>
             {notification.sub ? (
               <span className="cz-toast-text">
                 <span className="cz-toast-message">{notification.message}</span>
@@ -10006,115 +10148,79 @@ function CredenzaApp() {
         </div>
       )}
 
-      {/* Docked bottom bar — MOBILE ONLY (≤767px), CH-03 + shelf handoff
-          2026-07-28. It is a flex SIBLING of the scrolling shelf, not an
-          overlay: nothing is ever covered by it, and it carries its own
-          bottom padding for the home indicator.
-          Row 1 is the shelf money — count, rough ship weight, total, currency.
-          Row 2 is the capture row. With a link on the clipboard it is ONE
-          split pill on --cz-action-fill: the left region reviews the link in
-          the capture sheet, the right region stashes it in one tap. Empty
-          clipboard → a single full-width ＋ pill. The Agent button stays
-          beside it.
-          Row 3 is the home-indicator grip.
-          Hidden on the first-run intro (CO-04) and on the brand-new empty
-          shelf: the hero already carries capture there (Kyle: "too many
-          buttons"). */}
-      {!firstRunIntro && items.length > 0 && (
-      <div className="cz-stash-dock">
-        {isPhone && shelfTotalsVisible && (
-          <div className="cz-dock-totals">
-            <span className="cz-dock-meta">
-              <span className="cz-dock-kicker">On the shelf</span>
-              <span className="cz-dock-count cz-fade-text-in" key={totalCountLabel}>
-                {totalCountLabel}
-                {shelfWeightLabel ? " · " + shelfWeightLabel + " est." : ""}
-              </span>
-            </span>
-            {/* CO-10: a zero-result search must not show a green $0.00 —
-                it read as a real balance. */}
-            {!(q && visible.length === 0) && (
-              <span className="cz-dock-money">
-                <span className="cz-dock-total" aria-live="polite">
-                  <ReelCounter
-                    value={pricePrimary === "CNY" ? listTotalCny : listTotalUsd}
-                    currency={pricePrimary}
-                  />
-                </span>
-                {/* CH-14: the currency pref is changeable at the total, not
-                    only in Profile. The reel follows the chip (Kyle
-                    2026-07-28) — cards, footer, and total agree. This is the
-                    ONLY currency chip on a phone; the tabs row gave its copy
-                    up so the two can never disagree. */}
-                <button
-                  type="button"
-                  className="cz-total-currency"
-                  aria-label={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                  title={"Show prices in " + (pricePrimary === "CNY" ? "USD" : "CNY")}
-                  onClick={() => setPricePrimary((v) => (v === "CNY" ? "USD" : "CNY"))}
-                >
-                  {pricePrimary}
-                  <ChevronDown aria-hidden="true" size={11} strokeWidth={2.4} />
-                </button>
-              </span>
-            )}
-          </div>
-        )}
-        <div className="cz-dock-actions">
-          {clipPreview ? (
-            <div className="cz-stash-pill is-split">
-              <button
-                type="button"
-                className="cz-stash-pill-clip"
-                disabled={interactionLocked}
-                onClick={() => setCaptureSheetOpen(true)}
-                title="Review the clipboard link"
-                aria-label={"Review the clipboard link: " + clipPreview.host}
-              >
-                <span className="cz-stash-pill-dot" style={{ background: clipPreview.dot }} aria-hidden="true" />
-                <span className="cz-stash-pill-meta">
-                  <span className="cz-stash-pill-kicker">{"CLIPBOARD · " + clipPreview.platform}</span>
-                  <span className="cz-stash-pill-host">{clipPreview.host}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className="cz-stash-pill-go"
-                disabled={interactionLocked}
-                onClick={stashClipboard}
-                title="Stash the clipboard in one tap"
-                aria-label={"Stash the clipboard: " + clipPreview.host}
-              >
-                Stash ↑
-              </button>
-            </div>
-          ) : (
+      {/* Design 7a bottom dock (F 2026-07-31): floating frosted pill —
+          Shelf | Stash circle | Hauls. No money total on the shelf. Frost
+          stays on the dock and sheets only; the rest of the site is flat.
+          CaptureSheet opens from the + circle (5b). Hidden on the empty
+          shelf — the hero already carries capture. */}
+      {!firstRunIntro && phoneShelfChrome && (
+        <nav className="cz-dock" aria-label="Main">
+          <div className="cz-dock-pill">
             <button
               type="button"
-              className="cz-stash-pill is-solo"
+              className={
+                "cz-dock-tab" + (view === "shelf" || view === "inbox" ? " is-active" : "")
+              }
+              aria-current={view === "shelf" || view === "inbox" ? "page" : undefined}
+              onClick={() => {
+                setExpandedId(null);
+                setView("shelf");
+                if (view === "hauls") setActiveHaul(null);
+              }}
+            >
+              <Layers size={20} strokeWidth={2.2} aria-hidden="true" />
+              <span className="cz-dock-tab-label">Shelf</span>
+            </button>
+            <button
+              type="button"
+              className="cz-dock-stash"
               disabled={interactionLocked}
               onClick={() => setCaptureSheetOpen(true)}
               title="Stash a link or note"
-              aria-label="Stash to shelf"
+              aria-label="Stash a link"
             >
-              <span className="cz-stash-pill-plus" aria-hidden="true">＋</span> Stash a link
+              <Plus size={26} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={"cz-dock-tab" + (view === "hauls" ? " is-active" : "")}
+              aria-current={view === "hauls" ? "page" : undefined}
+              onClick={() => {
+                setExpandedId(null);
+                setView("hauls");
+                if (view !== "hauls") setActiveHaul(null);
+              }}
+            >
+              {/* Box icon, not Layers — Shelf already uses the stack so the
+                  two dock ends must read as different places (O 2026-08-01). */}
+              <Package size={20} strokeWidth={2.2} aria-hidden="true" />
+              <span className="cz-dock-tab-label">
+                Hauls
+                {haulDirectory.hauls.length > 0 && (
+                  <span className="cz-dock-tab-count">
+                    {" · "}
+                    {haulDirectory.hauls.length}
+                  </span>
+                )}
+              </span>
+            </button>
+          </div>
+          {inboxItems.length > 0 && (
+            <button
+              type="button"
+              className={
+                "cz-dock-inbox" + (view === "inbox" ? " is-active" : "")
+              }
+              onClick={() => {
+                setExpandedId(null);
+                setView("inbox");
+                if (view === "hauls") setActiveHaul(null);
+              }}
+            >
+              Inbox · {inboxItems.length}
             </button>
           )}
-          <button
-            type="button"
-            className="cz-stash-agent"
-            disabled={interactionLocked}
-            onClick={() => setAgentSheetOpen(true)}
-            title="Choose agent"
-            aria-label={"Agent: " + agentBarLabel}
-          >
-            Agent
-          </button>
-        </div>
-        {/* Home-indicator grip. Decorative: it names the swipe zone the phone
-            already owns, so the last row of cards never ends flush with it. */}
-        <span className="cz-dock-grip" aria-hidden="true" />
-      </div>
+        </nav>
       )}
     </div>
   );

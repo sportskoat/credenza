@@ -181,7 +181,49 @@ describe("FitBlock chart hunt", () => {
     expect(screen.getByText("your usual · not verified")).toBeInTheDocument();
     expect(screen.getAllByText("Large").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: "Large" })).toBeInTheDocument();
-    // The fifth box is visible with no tap.
-    expect(screen.getByLabelText("Custom item size")).toBeInTheDocument();
+  });
+
+  it("keeps one cell height and one look for the fifth box (Kyle 2026-07-31)", async () => {
+    // Kyle: a size tap stretched the row when the OUR PICK tag mounted, and
+    // the fifth box echoed every pick ("Other" became "S"). The tag lane is
+    // always rendered now, and the box shows a size only when no chart cell
+    // carries it.
+    huntMock.mockResolvedValue(null);
+    const item = { ...noChartItem("hunt-one-look"), sizeNotes: CHART_TEXT, size: "L" };
+    renderBody(item);
+
+    await screen.findByText("SELLER'S CHART");
+    const cells = [...document.querySelectorAll("button.cz-sizing-cell")];
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(cell.querySelector(".cz-sizing-cell-tag")).not.toBe(null);
+    }
+    const box = screen.getByLabelText("Custom item size");
+    // The pick sits on a chart cell, so the box reads "Other".
+    expect(box.value).toBe("");
+    // A tap on another chart cell keeps the box on "Other".
+    fireEvent.click(cells[0]);
+    await waitFor(() => expect(box.value).toBe(""));
+    // An odd size the chart never listed stays visible in the box.
+    fireEvent.change(box, { target: { value: "EU 44" } });
+    fireEvent.blur(box);
+    await waitFor(() => expect(box.value).toBe("EU 44"));
+  });
+
+  it("keeps one cell height when the pick tags mount (Kyle 2026-07-31)", async () => {
+    // A size tap stretched the row when the OUR PICK / YOUR PICK tags
+    // mounted. Both tag lanes are always rendered now — visible or blank —
+    // so the row keeps one height on the phone pane and the desktop back.
+    huntMock.mockResolvedValue(null);
+    const item = { ...noChartItem("hunt-tag-lane"), sizeNotes: CHART_TEXT, size: "L" };
+    renderBody(item);
+
+    await screen.findByText("SELLER'S CHART");
+    const cells = [...document.querySelectorAll("button.cz-sizing-cell")];
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(cell.querySelector(".cz-sizing-cell-tag")).not.toBe(null);
+      expect(cell.querySelector(".cz-sizing-cell-tag-phone")).not.toBe(null);
+    }
   });
 });

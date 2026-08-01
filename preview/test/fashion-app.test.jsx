@@ -573,7 +573,7 @@ describe("Desktop sizing destination", () => {
     await user.click(editSizes);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/sizes");
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
@@ -1354,8 +1354,9 @@ W2C: https://shop1850859027.v.weidian.com/item.html?itemID=7808837642`;
     render(<Credenza />);
     await startFromEmptyShelf(user);
 
-    const box = document.querySelector(".cz-stash-paste");
-    expect(box).toBeTruthy();
+    // CaptureSheet is lazy — wait for the paste box, not a synchronous
+    // querySelector that races the chunk.
+    const box = await screen.findByPlaceholderText(/Paste a link, or a whole/);
     fireEvent.change(box, {
       target: { value: "https://www.reddit.com/r/FashionReps/comments/1v3fupe/in_hand_review/" },
     });
@@ -1535,7 +1536,13 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     // labelled sections became five chips in one bar under the title. Size and
     // fit is the only section left, because it is the only block the product
     // advises rather than the customer sets.
-    expect(within(sheet).queryAllByRole("tab")).toHaveLength(0);
+    // Mobile item sheet (2026-07-31, spec 6.2): the only tabs in the sheet
+    // are the three of its own pane picker — the old detail rail stays dead.
+    expect(
+      within(sheet)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent)
+    ).toEqual(["Fit", "Photos · 3", "Details"]);
     expect(within(sheet).getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
     for (const name of ["Bought", "Haul", "Colorway", "Weight", "Seller", "Size", "Category", "Batch"]) {
       expect(within(sheet).queryByRole("region", { name })).toBeNull();
@@ -1597,8 +1604,10 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
       "aria-pressed",
       "true"
     );
-    // The fifth box keeps the chip value that was copied into it.
-    expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toHaveValue("XL");
+    // Kyle 2026-07-31: the fifth box keeps ONE look — it reads "Other"
+    // (empty) while the pick sits on a chart cell, and shows a size only
+    // when no cell carries it.
+    expect(within(fit).getByRole("textbox", { name: "Custom item size" })).toHaveValue("");
     expect(within(sheet).queryByRole("region", { name: "Size" })).toBeNull();
     expect(screen.queryByLabelText("Size · fit")).toBeNull();
     // Round 4 point 3: the profile-size route is the fit read footnote.
@@ -1630,7 +1639,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await user.click(editSizes);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/sizes");
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
@@ -1640,7 +1649,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(screen.getByRole("dialog", { name: "Palace x Nike jersey" })).toBe(detail);
   });
 
-  it("the Size section clears a hand size without an obsolete AI action", async () => {
+  it("the Size section keeps the hand size on a second tap", async () => {
     const data = installShim({
       [STORE_KEY]: JSON.stringify([
         fashionItem({
@@ -1663,13 +1672,13 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     expect(screen.getByRole("region", { name: "Size and fit" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use AI size" })).toBeNull();
-    // Round 5 point 5.1: the chart cells are the picker — a second tap on the
-    // picked cell clears the hand size. The old "Clear size" chip is gone.
+    // Kyle 2026-07-31: a second tap on the picked cell must NOT clear the
+    // hand size ("it toggles off, it is redundant"). The pick stays.
     await user.click(screen.getByRole("button", { name: /^X-Large/ }));
 
     await waitFor(() => {
       const saved = JSON.parse(data[STORE_KEY] || "[]");
-      expect(saved[0].size).toBe("");
+      expect(saved[0].size).toBe("XL");
     });
   });
 
@@ -1729,8 +1738,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await user.click(screen.getByRole("button", { name: /^Large/ }));
 
     await waitFor(() => expect(JSON.parse(data[STORE_KEY])[0].size).toBe("L"));
-    // The fifth box mirrors the chip pick.
-    expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("L");
+    // Kyle 2026-07-31: the fifth box does not echo a chart-cell pick — one
+    // look ("Other"), with the tapped cell carrying the size.
+    expect(screen.getByRole("textbox", { name: "Custom item size" })).toHaveValue("");
   });
 
   // Shelf handoff 2026-07-28: the seven-stop order track is gone. The card
@@ -2067,11 +2077,11 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-detail-qc-prompt")).toBeNull();
   });
 
-  it("keeps the sticky bar out of the tree where no observer exists", async () => {
-    // §9's bar is driven by IntersectionObserver, which jsdom does not have —
-    // and neither does an old iOS. No observer must mean no bar, never a bar
-    // stuck up over the title. The gate is the observer, so the markup is
-    // present but stays in its closed state.
+  it("keeps the mini-header always visible, observer or not", async () => {
+    // Mobile item sheet (2026-07-31, spec 6.1): the old scroll-driven sticky
+    // bar is now the sheet's mini-header — one row, ALWAYS visible, above the
+    // panes. jsdom has no IntersectionObserver, and neither does an old iOS;
+    // the header must not depend on one.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -2079,20 +2089,19 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     const bar = sheet.querySelector(".cz-detail-stickybar");
     expect(bar).not.toBeNull();
-    expect(bar.classList.contains("is-up")).toBe(false);
-    // Down means hidden: it repeats controls the sheet already shows, so a
-    // screen reader gains nothing and its ✕ must not take a tab stop.
-    expect(bar).toHaveAttribute("aria-hidden", "true");
-    expect(bar.querySelector(".cz-detail-stickybar-close")).toHaveAttribute("tabindex", "-1");
-    // It says which item you are in, and it names who chose the size.
+    // Always visible means never aria-hidden, and its ✕ always takes a tab
+    // stop — it is the sheet's header now, not a duplicate of one.
+    expect(bar).toHaveAttribute("aria-hidden", "false");
+    expect(bar.querySelector(".cz-detail-stickybar-close")).not.toHaveAttribute("tabindex", "-1");
+    // It says which item you are in.
     expect(bar.querySelector(".cz-detail-stickybar-title").textContent).toBe(
       "Palace x Nike jersey"
     );
-    // "SIZE", not "AI SIZE": the fixture carries a chosen size, so the bar
-    // must not upgrade a saved choice into a recommendation. The token is
-    // spelled the way the sizing block spells it.
+    // Spec 6.1: the sub line is the picked size word in caps, then the price
+    // — "X-LARGE · $32.06". No "SIZE"/"AI SIZE" prefix: the header states the
+    // pick, it does not grade it.
     expect(bar.querySelector(".cz-detail-stickybar-meta").textContent).toBe(
-      "SIZE X-Large · $32.06"
+      "X-LARGE · $32.06"
     );
     // The bar is a SIBLING of the scroller: a child would scroll away with
     // the content it exists to outlive.
@@ -2154,13 +2163,15 @@ describe("Phone haul board (Kyle 2026-07-25)", () => {
     const user = userEvent.setup();
     const { container } = render(<Credenza />);
 
-    await user.click(await screen.findByRole("tab", { name: /Hauls/ }));
+    // Design 7a: Shelf / Hauls live in the frosted bottom dock as buttons,
+    // not top tabs.
+    await user.click(await screen.findByRole("button", { name: /Hauls/ }));
     await user.click(await screen.findByRole("button", { name: /summer/ }));
     await waitFor(() => expect(container.querySelector(".cz-haul-board")).not.toBeNull());
     expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
 
     // Back to the Shelf: still the grid, not the rack.
-    await user.click(screen.getByRole("tab", { name: "Shelf" }));
+    await user.click(screen.getByRole("button", { name: "Shelf" }));
     expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
     expect(container.querySelector(".cz-carousel")).toBeNull();
   });
@@ -2212,6 +2223,10 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
       const user = userEvent.setup();
       render(<Credenza />);
 
+      // Wait for the shelf to load first: design 7a puts "Shelf" in the title
+      // masthead and the frosted dock. Clicking before items land can hit a
+      // node that unmounts mid-gesture, so the click is lost.
+      await screen.findByRole("heading", { name: "Shelf" });
       await user.click(await screen.findByRole("button", { name: "Profile" }));
       await user.click(await screen.findByRole("button", { name: /All settings/ }));
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
@@ -2240,7 +2255,7 @@ describe("Settings deep links (CH-12)", () => {
     render(<Credenza />);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Sizes and measurements" })
+      await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
     // The URL is state, not an entrance — it must stick.
     expect(window.location.pathname).toBe("/settings/sizes");
@@ -2254,7 +2269,7 @@ describe("Settings deep links (CH-12)", () => {
       render(<Credenza />);
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
       expect(
-        await screen.findByRole("heading", { name: "Sizes and measurements" })
+        await screen.findByRole("heading", { name: "Sizes and measurements." })
       ).toBeInTheDocument();
       expect(window.location.pathname).toBe("/settings/sizes");
     } finally {
@@ -2334,18 +2349,21 @@ describe("Inline preference controls (CH-14)", () => {
     expect(screen.getAllByText("¥229").length).toBeGreaterThan(1);
   });
 
-  // The chip used to ride the tabs row on a phone. The shelf handoff
-  // (2026-07-28) moved it into the docked bottom bar, beside the total it
-  // changes. There must be exactly ONE on a phone: two chips can disagree.
-  it("the phone docked bar carries the same chip, and only one", async () => {
+  // Design 7a (2026-07-31) dropped the phone money summary pill entirely —
+  // money lives on cards and in Hauls only. The frosted dock has no currency
+  // chip either (Kyle 2026-07-30: the switch lives in settings).
+  it("the phone dock has no currency chip and no money total", async () => {
     window.__setMediaMatches("(max-width: 767px)", true);
     try {
       installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
       render(<Credenza />);
       await screen.findByRole("button", { name: /^Open Palace x Nike jersey$/ });
-      const chip = await screen.findByRole("button", { name: "Show prices in CNY" });
-      expect(chip.closest(".cz-stash-dock")).not.toBeNull();
-      expect(screen.getAllByRole("button", { name: "Show prices in CNY" })).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: /^Show prices in / })).toBeNull();
+      expect(document.querySelector(".cz-shelf-summary")).toBeNull();
+      const dock = document.querySelector(".cz-dock");
+      expect(dock).not.toBeNull();
+      expect(dock).not.toHaveTextContent("$");
+      expect(dock).not.toHaveTextContent("¥");
     } finally {
       window.__setMediaMatches("(max-width: 767px)", false);
     }

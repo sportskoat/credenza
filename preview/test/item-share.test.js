@@ -111,7 +111,7 @@ describe("buildItemShareModel", () => {
       savedPrice: "$23.50",
       facts: [
         { label: "Size", value: "L" },
-        { label: "Colorway", value: "Washed black" },
+        { label: "Colourway", value: "Washed black" },
         { label: "Haul", value: "Winter haul" },
       ],
       footer: "Credenza",
@@ -130,7 +130,7 @@ describe("buildItemShareModel", () => {
 
     expect(model.facts).toEqual([
       { label: "Size", value: "XL" },
-      { label: "Colorway", value: "Navy" },
+      { label: "Colourway", value: "Navy" },
       { label: "Haul", value: "Spring" },
       { label: "Weight", value: "1.3 kg" },
     ]);

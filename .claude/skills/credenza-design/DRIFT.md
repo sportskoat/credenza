@@ -2,18 +2,14 @@
 
 Places where the Design project and the repo disagree today. Checked 2026-07-28.
 
-## 1. The display font — needs a decision from Kyle
+## 1. The display font — CLOSED (Kyle 2026-07-31)
 
-- Design says: `--cz-display` is `"Clash Grotesk"`. The serif was retired on 2026-07-28.
-- The repo says: `--cz-display` is `Georgia, "Iowan Old Style", "Times New Roman", serif`.
-  See `credenza.css:30`.
+Kyle ruled: DROP Georgia. Clash Grotesk everywhere.
 
-`credenza-fashion.css` uses `var(--cz-display)` in at least 3 places, so this
-controls real headings on the live site. The design system and the shipping app
-currently show different letterforms.
-
-**Decision needed:** keep Georgia, or switch the app to Clash Grotesk.
-Nobody should change `credenza.css:30` until Kyle says which one wins.
+- Design and repo now agree: `--cz-display` is the Clash Grotesk stack
+  (same as `--cz-sans`). See `credenza.css`, `preview/public/site.css`,
+  and `tokens/typography.css`.
+- Headings and body share one family. Weight and tracking separate them.
 
 ## 2. Colour lives in two files
 

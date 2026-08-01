@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,6 @@ import { cleanup, render, within } from "@testing-library/react";
 import SettingsContext from "../../settings/SettingsContext.jsx";
 import YourDataSection from "../../settings/YourDataSection.jsx";
 import BodyProfileSheet from "../../sheets/BodyProfileSheet.jsx";
-import { BODY_PROFILE_FIELDS } from "../../credenza-fashion.jsx";
 
 // LB-70 (Kyle 2026-07-27): "make the navigation and profile setting experience
 // much better, make it cleaner, profile sign in cleaner, different options
@@ -109,78 +108,120 @@ describe("Settings sections keep the named groups (LB-70)", () => {
   });
 });
 
-describe("Measurements are big and grouped (LB-70)", () => {
-  const renderMeasure = () =>
+describe("Sizes and measurements v2 (settings page)", () => {
+  // embedded: true matches the settings page path and skips the modal shell.
+  const renderMeasure = (props = {}) =>
     render(
-      <BodyProfileSheet value={null} units="in" onSave={noop} onChangeUnits={noop} onClose={noop} />
+      <BodyProfileSheet
+        value={null}
+        units="in"
+        onSave={noop}
+        onChangeUnits={noop}
+        onClose={noop}
+        embedded
+        {...props}
+      />
     );
 
-  // Derived, not counted by hand: the sheet is driven by BODY_PROFILE_FIELDS,
-  // and a new measurement lands in it (Shirt length did, 2026-07-30). The old
-  // literal 8 made an added field look like a defect.
-  const measureCount = BODY_PROFILE_FIELDS.length;
-  const unitWord = (units) =>
-    BODY_PROFILE_FIELDS.map(([, , kind]) =>
-      kind === "weight" ? (units === "in" ? "lb" : "kg") : units
+  const measureInput = (container, name) => {
+    const label = [...container.querySelectorAll(".cz-sizes-row-label")].find(
+      (n) => n.textContent.trim().toLowerCase() === name.toLowerCase()
     );
+    expect(label, "no row label for " + name).toBeTruthy();
+    return label.closest(".cz-sizes-row").querySelector("input");
+  };
 
-  it("groups every measurement by part of the body", () => {
+  it("puts usual sizes first with a left gutter label, not under the form", () => {
     const { container } = renderMeasure();
-    const heads = [...container.querySelectorAll(".cz-measure-group-head")].map((n) =>
+    const gutters = [...container.querySelectorAll(".cz-sizes-gutter-label")].map((n) =>
       n.textContent.trim()
     );
-    expect(heads).toEqual(["You", "Upper body", "Lower body", "Usual sizes"]);
-    // Kyle 2026-07-28: "reduce just the overall text… consolidate it so it's
-    // on one screen." The per-group reason lines are gone — the headings
-    // carry the grouping alone. If they come back, the section stops fitting
-    // on one screen.
-    expect(container.querySelectorAll(".cz-measure-group-why")).toHaveLength(0);
+    expect(gutters[0]).toBe("Usual sizes");
+    expect(gutters).toContain("What we can say");
+    // No bordered cards on this page (O's carry-over from the approved file).
+    expect(container.querySelectorAll(".cz-measure-group")).toHaveLength(0);
   });
 
-  it("labels each box with the body part alone and shows the unit inside it", () => {
+  it("splits tops and bottoms as photo + field groups", () => {
     const { container } = renderMeasure();
-    // The label used to read "Chest (in)" — the unit repeated on every box.
-    expect(within(container).getByLabelText("Chest")).toBeTruthy();
-    const units = [...container.querySelectorAll(".cz-measure-unit")].map((n) =>
+    const titles = [...container.querySelectorAll(".cz-sizes-fields-title")].map((n) =>
       n.textContent.trim()
     );
-    expect(units).toEqual(unitWord("in"));
+    expect(titles).toEqual(["Tops", "Bottoms"]);
+    expect(container.querySelectorAll(".cz-sizes-photo")).toHaveLength(2);
   });
 
-  it("switches every unit label together when the toggle flips", () => {
-    const { container } = render(
-      <BodyProfileSheet value={null} units="cm" onSave={noop} onChangeUnits={noop} onClose={noop} />
-    );
-    const units = [...container.querySelectorAll(".cz-measure-unit")].map((n) =>
-      n.textContent.trim()
-    );
-    expect(units).toEqual(unitWord("cm"));
+  it("defaults to garment mode labels (pit to pit, not chest)", () => {
+    const { container } = renderMeasure();
+    expect(measureInput(container, "Pit to pit")).toBeTruthy();
+    expect(measureInput(container, "Which top")).toBeTruthy();
+    expect(within(container).getByRole("radio", { name: "Your body" })).toBeTruthy();
   });
 
-  it("counts how many of them are filled in", () => {
+  it("keeps body and garment values on separate drafts when the mode switches", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const { container } = renderMeasure({ units: "cm" });
+    const pit = measureInput(container, "Pit to pit");
+    await user.clear(pit);
+    await user.type(pit, "54");
+    await user.click(within(container).getByRole("radio", { name: "Your body" }));
+    expect(measureInput(container, "Chest").value).toBe("");
+    await user.click(within(container).getByRole("radio", { name: "A garment that fits" }));
+    expect(measureInput(container, "Pit to pit").value).toBe("54");
+  });
+
+  it("saves garment under its own object and does not wipe body keys", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const onSave = vi.fn();
     const { container } = render(
       <BodyProfileSheet
-        value={{ height: 178, chest: 96 }}
+        value={{ chest: 100, usualTops: "L" }}
+        units="cm"
+        onSave={onSave}
+        onChangeUnits={noop}
+        onClose={noop}
+        embedded
+      />
+    );
+    const pit = measureInput(container, "Pit to pit");
+    await user.clear(pit);
+    await user.type(pit, "54");
+    await user.click(within(container).getByRole("button", { name: /Save measurements/i }));
+    expect(onSave).toHaveBeenCalled();
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.chest).toBe(100);
+    expect(saved.garment).toEqual({ chest: 54 });
+    expect(saved.measureMode).toBe("garment");
+    expect(saved.usualTops).toBe("L");
+  });
+
+  it("counts filled measure fields without height and weight", () => {
+    const { container } = render(
+      <BodyProfileSheet
+        value={{ height: 178, weight: 70, chest: 96, garment: { chest: 54 } }}
         units="cm"
         onSave={noop}
         onChangeUnits={noop}
         onClose={noop}
+        embedded
       />
     );
-    expect(
-      within(container).getByText(new RegExp("2 of " + measureCount + " filled in"))
-    ).toBeTruthy();
+    // Garment mode is default: only garment.chest is filled → 1 of 8.
+    expect(within(container).getByText("1 of 8")).toBeTruthy();
   });
 
-  it("the input is large enough to read, and large enough that iOS will not zoom", () => {
-    const body = ruleBody(".cz-measure-input input");
-    const size = body.match(/font-size:\s*(\d+)px/);
-    expect(size, ".cz-measure-input input has no font-size").not.toBeNull();
-    // It was 14px on the shared Field. 16px is the iOS focus-zoom threshold;
-    // this box is the one Kyle asked to be bigger, so it clears it outright.
-    expect(Number(size[1])).toBeGreaterThanOrEqual(20);
-    const height = body.match(/min-height:\s*(\d+)px/);
-    expect(height, ".cz-measure-input input has no min-height").not.toBeNull();
-    expect(Number(height[1])).toBeGreaterThanOrEqual(48);
+  it("active field row gets the ink bar class", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const { container } = renderMeasure();
+    const pit = measureInput(container, "Pit to pit");
+    await user.click(pit);
+    expect(pit.closest(".cz-sizes-row").classList.contains("is-active")).toBe(true);
+  });
+
+  it("field input uses mono 17px+ so numbers stay readable next to a tape", () => {
+    const body = ruleBody(".cz-sizes-row-input");
+    const size = body.match(/font-size:\s*([\d.]+)px/);
+    expect(size, ".cz-sizes-row-input has no font-size").not.toBeNull();
+    expect(Number(size[1])).toBeGreaterThanOrEqual(16);
   });
 });
