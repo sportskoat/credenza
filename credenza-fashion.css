@@ -13624,6 +13624,45 @@ input.cz-sizing-cell.is-custom:focus-visible {
   text-wrap: pretty;
 }
 
+/* WhatsApp contact when no validated chart recommendation (Kyle copy). */
+.cz-sizing-whatsapp-copy {
+  margin-top: 10px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-sizing-variant-run {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.cz-sizing-whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--cz-hair-strong);
+  background: #25d366;
+  color: #fff;
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cz-sizing-whatsapp-btn:hover {
+  filter: brightness(1.05);
+}
+
+.cz-sizing-whatsapp-btn:active {
+  transform: scale(0.98);
+}
+
 /* Chart confirmation actions share one row. */
 .cz-sizing-actions {
   display: grid;

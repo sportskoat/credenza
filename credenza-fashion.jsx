@@ -3105,6 +3105,8 @@ function createItem(parsed, rawText, extra) {
     sizeChartSource: null,
     sizeChartNeedsClear: false,
     sizeChartIgnoreNotes: false,
+    // Seller WhatsApp from resolve (wa.me contact). Empty when none.
+    whatsapp: "",
     seller: "",
     batch: "",
     size: "",
@@ -3241,6 +3243,11 @@ export function migrateItem(old) {
           .filter((g) => typeof g === "string" && /^https?:\/\//i.test(g) && /yupoo\.com/i.test(g))
           .slice(0, 8)
       : [],
+    // Seller WhatsApp contact (digits or +country form); empty when none.
+    whatsapp:
+      typeof old.whatsapp === "string" && old.whatsapp.trim().length
+        ? old.whatsapp.trim().slice(0, 32)
+        : "",
     sizeNotes: typeof old.sizeNotes === "string" ? old.sizeNotes : "",
     // "Sign in to finish this card" survives a reload, so a card saved while
     // signed out still shows the reason it is empty.
@@ -4633,15 +4640,23 @@ export function effectiveBodyProfile(profile) {
 export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
   if (!item || !bodyProfile) return null;
   if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
-  if (item.recommendedSize) return String(item.recommendedSize).trim() || null;
+  // AI size only when a real chart parses. A stale recommendedSize without
+  // chart text must not label the card "AI size" (usual-size fallback path).
   const chart = parseSizeChart(sizeChartTextFor(item));
+  if (!chart) return null;
+  if (item.recommendedSize) return String(item.recommendedSize).trim() || null;
   const catPref =
     fitPrefs && item.category && fitPrefs[item.category]
       ? fitPrefs[item.category]
       : null;
-  const rec = chart
-    ? recommendSize(chart, effectiveBodyProfile(bodyProfile), item.category, catPref, null, item.title)
-    : null;
+  const rec = recommendSize(
+    chart,
+    effectiveBodyProfile(bodyProfile),
+    item.category,
+    catPref,
+    null,
+    item.title
+  );
   return rec && rec.size ? String(rec.size).trim() : null;
 }
 
@@ -6972,6 +6987,10 @@ function CredenzaApp() {
           Array.isArray(data.sellerYupooLinks) && data.sellerYupooLinks.length
             ? data.sellerYupooLinks
             : x.sellerYupooLinks,
+        whatsapp:
+          typeof data.whatsapp === "string" && data.whatsapp.trim()
+            ? data.whatsapp.trim().slice(0, 32)
+            : x.whatsapp || "",
         weightGrams: weightFromText,
         image: cover,
         gallery: mergeFashionImages(

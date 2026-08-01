@@ -1716,6 +1716,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     // The sizing block is .cz-sizing, and an AI read is its default state —
     // "is-manual" is the modifier, so its ABSENCE is what proves the pick
     // came from the chart and not from a hand-typed size.
+    // Deliberate pin (F 2026-08-01): kicker is "AI size" only when a chart-
+    // validated pick is precise. This fixture has a real sizeNotes chart, so
+    // the kicker stays "AI size". Non-chart paths say "your usual size".
     const block = document.querySelector(".cz-sizing");
     expect(block).not.toBeNull();
     expect(block.className).not.toContain("is-manual");
