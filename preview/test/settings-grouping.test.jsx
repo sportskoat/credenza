@@ -77,6 +77,13 @@ describe("Settings sections keep the named groups", () => {
     expect(body).toMatch(/border-radius:\s*14px/);
   });
 
+  it("stacks sizes groups on the settings content width, not the window", () => {
+    // Floating settings card is ~682px on a wide monitor — a viewport
+    // max-width: 900px rule never fires, so Bottoms fields overflow.
+    expect(CSS).toMatch(/container-name:\s*cz-settings/);
+    expect(CSS).toMatch(/@container\s+cz-settings\s*\(\s*max-width:\s*900px\s*\)/);
+  });
+
   it("keeps the danger row with the data it erases", () => {
     const { container } = renderData();
     const erase = within(container).getByText("Erase my data").closest(".cz-settings-row-btn");

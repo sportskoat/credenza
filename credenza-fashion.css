@@ -7012,8 +7012,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 26px 34px 40px;
   scroll-behavior: smooth;
+  /* Sizes stack rules key to this width, not the window — the floating
+     settings card is only ~682px wide on a normal desktop. */
+  container-type: inline-size;
+  container-name: cz-settings;
 }
 
 .cz-settings-column {
@@ -7617,9 +7622,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+  min-width: 0;
 }
 
 .cz-sizes-group-card {
+  min-width: 0;
   padding: 13px;
   border: 1px solid var(--cz-hair);
   border-radius: 14px;
@@ -7967,6 +7974,31 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 10px;
 }
 
+/* Stack when the settings content column is narrow. The floating card is
+   min(920px, 100vw - 48px), so the content pane is ~682px on a wide monitor —
+   a viewport max-width: 900px rule never fires there. */
+@container cz-settings (max-width: 900px) {
+  .cz-sizes-groups {
+    grid-template-columns: 1fr;
+  }
+  .cz-sizes-group-body {
+    flex-direction: column;
+  }
+  .cz-sizes-diagram-col {
+    width: 100%;
+  }
+  .cz-sizes-diagram {
+    margin: 0 auto;
+  }
+  .cz-sizes-fit-table-head,
+  .cz-sizes-fit-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Free-standing measurements sheet (not inside settings): still key to the
+   window width. */
 @media (max-width: 900px) {
   .cz-sizes-groups {
     grid-template-columns: 1fr;
