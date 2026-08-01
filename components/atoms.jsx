@@ -3,10 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { normalizeFindStatus } from "../credenza-find-status.js";
 import {
   BG,
-  CARD,
   CATEGORIES,
-  SEG,
-  SUB,
   FAINT,
   FIND_STATUS_COLORS,
   FIND_STATUS_LABELS,
@@ -86,7 +83,7 @@ export function HolographicBackground() {
   );
 }
 
-// Blackout dark ambient — pure black field with soft #1a1a1d neutral lifts.
+// Blackout dark ambient — Kimi-feel near-black (#050506) with soft #0d0d10 lifts.
 // Quiet depth only; no loud color wash, zero blue cast.
 export function RainbowBackground() {
   const [phase, setPhase] = useState(0);
@@ -120,31 +117,31 @@ export function RainbowBackground() {
         zIndex: 0,
         pointerEvents: "none",
         overflow: "hidden",
-        background: "#000000",
+        background: "var(--cz-bg)",
       }}
     >
-      {/* Soft neutral moons — barely-there depth from #1a1a1d */}
+      {/* Soft neutral moons — barely-there depth from card solid */}
       <div
         style={{
           position: "absolute",
           inset: "-10%",
           background: `
             radial-gradient(ellipse 70% 55% at ${42 + driftX}% ${28 + driftY}%,
-              rgba(26, 26, 29, 0.95) 0%,
-              rgba(26, 26, 29, 0.45) 40%,
+              color-mix(in srgb, var(--cz-card-solid) 95%, transparent) 0%,
+              color-mix(in srgb, var(--cz-card-solid) 45%, transparent) 40%,
               transparent 72%
             ),
             radial-gradient(ellipse 55% 50% at ${72 - driftX}% ${62 + driftY}%,
-              rgba(26, 26, 29, 0.72) 0%,
-              rgba(15, 15, 18, 0.28) 45%,
+              color-mix(in srgb, var(--cz-card-solid) 72%, transparent) 0%,
+              color-mix(in srgb, var(--cz-bg) 28%, transparent) 45%,
               transparent 75%
             ),
             radial-gradient(ellipse 50% 40% at ${22 + driftY}% ${70 - driftX}%,
-              rgba(40, 40, 46, 0.40) 0%,
+              color-mix(in srgb, var(--cz-inset-bg) 40%, transparent) 0%,
               transparent 70%
             ),
             radial-gradient(ellipse 90% 60% at 50% 100%,
-              rgba(0, 0, 0, 0.98) 0%,
+              color-mix(in srgb, var(--cz-bg) 98%, transparent) 0%,
               transparent 55%
             )
           `,
@@ -159,8 +156,8 @@ export function RainbowBackground() {
           position: "absolute",
           inset: 0,
           background: `
-            linear-gradient(180deg, rgba(245, 245, 247, 0.05) 0%, transparent 22%),
-            radial-gradient(ellipse 80% 50% at 50% 0%, rgba(26, 26, 29, 0.55) 0%, transparent 60%)
+            linear-gradient(180deg, rgba(245, 245, 247, 0.04) 0%, transparent 22%),
+            radial-gradient(ellipse 80% 50% at 50% 0%, color-mix(in srgb, var(--cz-card-solid) 55%, transparent) 0%, transparent 60%)
           `,
         }}
       />
@@ -546,13 +543,11 @@ export function Field({ label, value, onChange, placeholder, rows, suggestions, 
 
 // One segmented radiogroup for every chip-style picker — unit toggles and
 // other compact radios. Category uses CategorySelect (design 4c).
+// Kimi-feel segmented control: one pill track, solid on pick, color-only fade.
+// Look lives in .cz-segment* (credenza-fashion.css). Do not restyle inline.
 export function SegmentedControl({ value, onChange, options, label, allowUnset = false }) {
   return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      style={{ display: "flex", flexWrap: "wrap", gap: 4, background: SEG, borderRadius: 12, padding: 2 }}
-    >
+    <div role="radiogroup" aria-label={label} className="cz-segment">
       {options.map((opt) => {
         const active = value === opt.value;
         return (
@@ -560,21 +555,9 @@ export function SegmentedControl({ value, onChange, options, label, allowUnset =
             type="button"
             role="radio"
             aria-checked={active}
-            className="cz-chip"
+            className={"cz-segment-btn" + (active ? " is-active" : "")}
             key={opt.value}
             onClick={() => onChange(active && allowUnset ? "" : opt.value)}
-            style={{
-              flex: "1 0 auto",
-              fontFamily: FONT,
-              fontSize: 11,
-              fontWeight: 600,
-              color: active ? INK : SUB,
-              background: active ? CARD : "transparent",
-              border: "none",
-              borderRadius: 999,
-              padding: "6px 8px",
-              cursor: "pointer",
-            }}
           >
             {opt.label}
           </button>

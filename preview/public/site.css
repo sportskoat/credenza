@@ -20,18 +20,19 @@
 }
 
 :root {
-  /* Type tokens. Same three as the app. Kyle 2026-07-31: DROP Georgia —
-     Clash Grotesk for display and body. Nothing on this site may name a
-     family of its own (Kyle 2026-07-27). */
+  /* Type tokens. Same three as the app.
+     Kyle 2026-07-31: DROP Georgia.
+     Kyle 2026-08-01: body = system UI; Clash (gothic) for brand only.
+     Nothing on this site may name a family of its own (Kyle 2026-07-27). */
   --cz-display: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --cz-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cz-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --cz-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   color-scheme: light;
   --bg: #f4f4f0;
   --ink: #17181a;
   --muted: #5c5f66;
   --card: #ffffff;
-  --line: rgba(23, 24, 26, 0.12);
+  --line: rgba(23, 24, 26, 0.10);
   --accent: #17181a;
   --money: #15803d;
   --max: 40rem;
@@ -44,11 +45,11 @@
   --mast-sub: #4f545b;
   --mast-faint: #6b7078;
   --mast-hair: #d2d2c9;
-  --mast-hover-bg: rgba(23, 24, 26, 0.06);
-  /* The avatar ring's fill. The app's --cz-card-solid, not the page's --card:
-     the two differ by a shade in dark mode (#202024 against #1a1a1d). */
+  --mast-hover-bg: rgba(23, 24, 26, 0.04);
+  /* The avatar ring's fill. The app's --cz-card-solid, not the page's --card. */
   --mast-avatar-bg: #ffffff;
-  font-family: var(--cz-display);
+  /* Body chrome uses system sans; brand wordmark still uses display. */
+  font-family: var(--cz-sans);
 }
 
 /* The dark theme. It is keyed to an attribute, not to the operating system's
@@ -56,25 +57,26 @@
  * setting — it keeps its own choice — so a Mac set to Light used to show light
  * pages beside a dark product. Every page ships with data-theme="dark" on
  * <html>, and /theme.js moves the page to light only when the visitor picked
- * the app's Gallery theme. Dark is what a new visitor sees. */
+ * the app's Gallery theme. Dark is what a new visitor sees.
+ *
+ * Kyle 2026-08-01: match Kimi measurements feel — #050506 field, #0d0d10 card. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #000000;
-  --ink: #f4f4f0;
-  --muted: #a1a1aa;
-  --card: #1a1a1d;
-  --line: rgba(244, 244, 240, 0.12);
-  --accent: #f4f4f0;
+  --bg: #050506;
+  /* Kyle 2026-08-01: lighter body and meta text — sharper on near-black. */
+  --ink: #fafafa;
+  --muted: #c8c8d0;
+  --card: #0d0d10;
+  --line: rgba(255, 255, 255, 0.10);
+  --accent: #fafafa;
   --money: #4ade80;
-  /* The app's dark ink is #f5f5f7. The page's --ink is #f4f4f0, a warmer
-     white. Side by side the two wordmarks did not match (Kyle 2026-07-30),
-     so the header takes the app's value and the body text keeps its own. */
-  --mast-ink: #f5f5f7;
-  --mast-sub: #b7bbc2;
-  --mast-faint: #9ea3ab;
-  --mast-hair: rgba(255, 255, 255, 0.16);
-  --mast-hover-bg: rgba(255, 255, 255, 0.07);
-  --mast-avatar-bg: #202024;
+  /* Mast matches app Blackout palette. */
+  --mast-ink: #fafafa;
+  --mast-sub: #c8c8d0;
+  --mast-faint: #a3a3ab;
+  --mast-hair: rgba(255, 255, 255, 0.10);
+  --mast-hover-bg: rgba(255, 255, 255, 0.04);
+  --mast-avatar-bg: #0d0d10;
 }
 
 * { box-sizing: border-box; }
@@ -351,9 +353,10 @@ a:hover { color: var(--money); }
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 1rem;
   padding: 1.15rem 1.2rem;
   margin: 0 0 0.85rem;
+  transition: background 150ms cubic-bezier(0.23, 1, 0.32, 1), border-color 150ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .card p { margin: 0 0 0.65rem; color: var(--muted); }
 .card p:last-child { margin-bottom: 0; }
@@ -365,11 +368,11 @@ a:hover { color: var(--money); }
 .card li { margin: 0.25rem 0; }
 
 .n {
-  font-family: var(--cz-sans);
+  font-family: var(--cz-mono);
   font-size: 0.7rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--money);
+  color: var(--muted);
   display: block;
   margin-bottom: 0.35rem;
 }
@@ -397,12 +400,14 @@ footer {
   background: var(--accent);
   color: var(--bg);
   text-decoration: none;
+  border: 1px solid var(--line);
   border-radius: 999px;
   font-family: var(--cz-sans);
   font-size: 0.9rem;
   font-weight: 600;
+  transition: opacity 150ms cubic-bezier(0.23, 1, 0.32, 1), background 150ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.cta:hover { opacity: 0.9; color: var(--bg); }
+.cta:hover { opacity: 0.92; color: var(--bg); }
 
 .related {
   margin-top: 1.25rem;

@@ -37,7 +37,7 @@
   // tags on the page. The colour of the browser's own bar is not the page, so
   // waiting costs nothing visible.
   function oneThemeColor() {
-    var colors = { dark: "#000000", light: "#f4f4f0" };
+    var colors = { dark: "#050506", light: "#f4f4f0" };
     var metas = document.querySelectorAll('meta[name="theme-color"]');
     for (var i = 0; i < metas.length; i++) metas[i].parentNode.removeChild(metas[i]);
     var meta = document.createElement("meta");

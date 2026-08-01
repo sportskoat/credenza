@@ -19,7 +19,7 @@ They are hard constraints. Do not break one without asking Kyle first.
 ## Colour
 
 - The chrome is near-monochrome on purpose. The product photos own the colour.
-- Gallery (light) canvas is `#F4F4F0`. Blackout (dark) canvas is `#000000`.
+- Gallery (light) canvas is `#F4F4F0`. Blackout (dark) canvas is `#050506`.
 - `--cz-accent` is ink, not a colour. Do not treat it as a brand hue.
 - `--cz-faint` is the lightest ink that stays readable. Never go lighter.
 - Only three hues are allowed in the chrome: money green, like red, album-link blue.
@@ -29,9 +29,11 @@ They are hard constraints. Do not break one without asking Kyle first.
 
 ## Type
 
-- The display serif was retired on 2026-07-28. Display is Clash Grotesk now.
-- One face, two voices. Weight and tracking separate them, not family.
-- The wordmark is also Clash. Never set a heading at the wordmark's `0.16em` tracking.
+- The display serif was retired on 2026-07-28.
+- Kyle 2026-08-01 (Kimi feel): body chrome uses system UI sans. Clash Grotesk
+  (the gothic face) is for the wordmark and select brand titles only. Mono is
+  for sizes, weights, prices, and counts.
+- Never set a heading at the wordmark's `0.16em` tracking.
 - Marketing type is fluid (`clamp`). App type is fixed px. The shelf is a dense tool.
 
 ## Space

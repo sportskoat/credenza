@@ -12,8 +12,8 @@ function rule(selector) {
 
 describe("the phone shelf filter highlight", () => {
   // Design 7a (2026-07-31): glyph segmented control — pill track, 52px
-  // segments, active card fill with soft shadow. Replaces the 2026-07-30
-  // square-cornered 44px row.
+  // segments. Kyle 2026-08-01 Kimi-feel: active segment is solid
+  // --cz-seg-on (white on dark / ink on light), not card-solid.
   it("is a glyph segmented control with 52px pill segments", () => {
     const strip = rule(".cz-filter-strip.is-glyph");
     const chip = rule(".cz-filter-strip.is-glyph .cz-filter-chip");
@@ -25,6 +25,6 @@ describe("the phone shelf filter highlight", () => {
     expect(chip).toMatch(/height:\s*52px/);
     expect(chip).toMatch(/min-height:\s*52px/);
     expect(chip).toMatch(/border-radius:\s*999px/);
-    expect(active).toMatch(/background:\s*var\(--cz-card-solid\)/);
+    expect(active).toMatch(/background:\s*var\(--cz-seg-on/);
   });
 });

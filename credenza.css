@@ -5,29 +5,21 @@
   font-display: swap;
 }
 /* ═══ Type tokens — the ONLY place a font stack is written ═══
-   Kyle 2026-07-27: "Can we make some font standardizations for the entire
-   website? They're a little bit more different. They're kind of giving regular
-   Claude design, where I want it to be the fonts that the Credenza fashion
-   logo is made out of."
+   Kyle 2026-07-27: standardize on the logo face.
+   Kyle 2026-07-31: DROP Georgia. Clash Grotesk for brand.
+   Kyle 2026-08-01: match the Kimi measurements UI. Body chrome uses the
+   system UI sans (clean, quiet). Clash Grotesk (the gothic face) stays for
+   the wordmark and select brand titles only. Mono stays for data.
 
-   Kyle 2026-07-31: DROP Georgia. One family only — Clash Grotesk. Display
-   and body share the same face; weight and tracking separate the voices
-   (display is heavier and tighter; body is lighter). Mono stays for data.
-
-   Before this block there were TEN spellings of these three families across
-   credenza.css, credenza-fashion.css and credenza-fashion.jsx — same fonts,
-   different fallback order, different quote marks. Each one was a place the
-   type could silently change.
-
-   --cz-display  headings, titles, prices, numbers (Clash Grotesk).
-   --cz-sans     body copy, labels, controls (Clash Grotesk).
-   --cz-mono     data the eye scans in columns: IDs, codes, sizes, weights.
+   --cz-display  wordmark, logo, select brand titles (Clash Grotesk).
+   --cz-sans     body copy, labels, controls (system UI).
+   --cz-mono     sizes, weights, prices, counts (system mono).
 
    A literal font stack anywhere outside this block is a defect. The test
    test/type-tokens.test.js fails the build on one. */
 :root {
   --cz-display: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --cz-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cz-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --cz-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   /* Colour token fallbacks (Gallery light). Theme palettes in
@@ -35,12 +27,21 @@
      --cz-* name the design docs list resolves as a real CSS token. */
   --cz-chip-fill: #E6E6DE;
   --cz-seg: rgba(23, 24, 26, 0.06);
+  /* Kimi-feel surface recipe (light = black tints on paper). */
+  --cz-hover: rgba(23, 24, 26, 0.04);
+  --cz-selected: rgba(23, 24, 26, 0.07);
+  --cz-card-border: rgba(23, 24, 26, 0.10);
+  --cz-seg-on: #17181a;
+  --cz-seg-on-text: #f4f4f0;
   --cz-money: #147a3a;
   --cz-like: #e11d48;
   --cz-link: #1d5fd0;
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --dur-press: 120ms;
+  /* Keep 140ms. Kimi hover feels near 150ms, but K's motion lane pins this
+     token (Kyle 2026-08-01). Do not drift it twice. Color-only hover still
+     reads calm at 140ms. */
   --dur-micro: 140ms;
   --dur-open: 250ms;
   --dur-resize: 300ms;

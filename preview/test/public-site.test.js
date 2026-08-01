@@ -761,7 +761,7 @@ describe("the files that ship but are not pages", () => {
 
   // The app's own default. credenza-fashion.jsx:4586 writes this into the live
   // meta tag whenever mode is "rainbow", and mode defaults to "rainbow".
-  const APP_DARK = "#000000";
+  const APP_DARK = "#050506";
   const APP_LIGHT = "#f4f4f0";
   // The light value then the dark value, in the order /site.css declares them.
   const SHARED_BG = [
@@ -1071,7 +1071,7 @@ describe("the app shell is a page too", () => {
     // reader switches colourway, and it would leave a second tag stale.
     const tags = [...shell.matchAll(/<meta\s+name="theme-color"\s+content="([^"]+)"/g)];
     expect(tags.length, "the shell declares more than one theme-color").toBe(1);
-    expect(tags[0][1].toLowerCase(), "shell theme-color").toBe("#000000");
+    expect(tags[0][1].toLowerCase(), "shell theme-color").toBe("#050506");
   });
 
   it("keeps the live tag the app rewrites", () => {
