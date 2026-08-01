@@ -63,16 +63,17 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #050506;
-  --ink: #f5f5f7;
-  --muted: #a3a3ab;
+  /* Kyle 2026-08-01: lighter body and meta text — sharper on near-black. */
+  --ink: #fafafa;
+  --muted: #c8c8d0;
   --card: #0d0d10;
   --line: rgba(255, 255, 255, 0.10);
-  --accent: #f5f5f7;
+  --accent: #fafafa;
   --money: #4ade80;
   /* Mast matches app Blackout palette. */
-  --mast-ink: #f5f5f7;
-  --mast-sub: #a3a3ab;
-  --mast-faint: #73737a;
+  --mast-ink: #fafafa;
+  --mast-sub: #c8c8d0;
+  --mast-faint: #a3a3ab;
   --mast-hair: rgba(255, 255, 255, 0.10);
   --mast-hover-bg: rgba(255, 255, 255, 0.04);
   --mast-avatar-bg: #0d0d10;

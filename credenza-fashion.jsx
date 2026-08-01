@@ -251,9 +251,11 @@ const PALETTES = {
     "--cz-card-solid": "#0d0d10",
     "--cz-hair": "rgba(255, 255, 255, 0.10)",
     "--cz-hair-strong": "rgba(255, 255, 255, 0.15)",
-    "--cz-ink": "#f5f5f7",
-    "--cz-sub": "#a3a3ab",
-    "--cz-faint": "#73737a",
+    /* Kyle 2026-08-01: "lighten up the text… sharper… clearer" on Blackout.
+       Keep near-white primary; lift supporting and meta grays one step. */
+    "--cz-ink": "#fafafa",
+    "--cz-sub": "#c8c8d0",
+    "--cz-faint": "#a3a3ab",
     // Same three values as Gallery — see the note there.
     "--cz-brand-ground": "#0f1114",
     "--cz-brand-c": "#e9edf2",
@@ -265,17 +267,17 @@ const PALETTES = {
     "--cz-card-border": "rgba(255, 255, 255, 0.10)",
     "--cz-seg-on": "#ffffff",
     "--cz-seg-on-text": "#000000",
-    "--cz-accent": "#f5f5f7",
+    "--cz-accent": "#fafafa",
     "--cz-accent-bg": "rgba(255, 255, 255, 0.07)",
     "--cz-accent-deep": "#ffffff",
-    "--cz-favorite": "#f5f5f7",
+    "--cz-favorite": "#fafafa",
     // Near-white face carries the black label at ~17:1 (Kyle spec: Buy action
     // fill near-white with black text; floor per audit S2 table is 4.5:1).
-    "--cz-action-fill": "#f5f5f7",
+    "--cz-action-fill": "#fafafa",
     "--cz-action-text": "#000000",
     "--cz-action-text-divider": "rgba(0, 0, 0, 0.18)",
     "--cz-action-muted-bg": "rgba(255, 255, 255, 0.10)",
-    "--cz-action-muted-text": "#f5f5f7",
+    "--cz-action-muted-text": "#fafafa",
     /* Kyle 2026-07-30 (#design): "take out these white lines that always
        populate around things, all of them." Every focus ring in the app rides
        this one token, so Blackout drops it to transparent — no white outline
@@ -297,8 +299,8 @@ const PALETTES = {
     "--cz-status-shipped-text": "oklch(0.84 0.10 290)",
     "--cz-status-qc-bg": "oklch(0.32 0.07 85)",
     "--cz-status-qc-text": "oklch(0.86 0.11 85)",
-    "--cz-selection": "rgba(245, 245, 247, 0.22)",
-    "--cz-selection-text": "#f5f5f7",
+    "--cz-selection": "rgba(250, 250, 250, 0.22)",
+    "--cz-selection-text": "#fafafa",
     "--cz-error-bg": "rgba(244, 63, 94, 0.16)",
     "--cz-error-text": "#f08a92",
     "--cz-glow": "rgba(245, 245, 247, 0.30)",
