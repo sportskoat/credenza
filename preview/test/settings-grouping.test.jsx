@@ -224,4 +224,58 @@ describe("Sizes and measurements v2 (settings page)", () => {
     expect(size, ".cz-sizes-row-input has no font-size").not.toBeNull();
     expect(Number(size[1])).toBeGreaterThanOrEqual(16);
   });
+
+  // Kyle, 2026-08-01: he re-typed a number he thought was already saved.
+  // Real cause: an old `inseam`/`shortsInseam` value (inside leg) is never
+  // read into the new outside-leg fields, on purpose — but the app never
+  // said so, which read as "the app ignored my input." This note fills that
+  // gap without changing any sizing math.
+  const botNoteText = (container) => {
+    const titles = [...container.querySelectorAll(".cz-sizes-fields-title")];
+    const bottomsTitle = titles.find((n) => n.textContent.trim() === "Bottoms");
+    expect(bottomsTitle, "no Bottoms group title found").toBeTruthy();
+    return bottomsTitle
+      .closest(".cz-sizes-fields")
+      .querySelector(".cz-sizes-fields-note")
+      .textContent.trim();
+  };
+
+  it("explains the gap when an old inside-leg value sits unread", () => {
+    const { container } = render(
+      <BodyProfileSheet
+        value={{ inseam: 76 }}
+        units="in"
+        onSave={noop}
+        onChangeUnits={noop}
+        onClose={noop}
+        embedded
+      />
+    );
+    expect(botNoteText(container)).toMatch(/does not carry over/);
+  });
+
+  it("stays plain when no old value exists", () => {
+    const { container } = renderMeasure();
+    expect(botNoteText(container)).not.toMatch(/does not carry over/);
+  });
+
+  it("stops explaining once the new field is filled in", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const { container } = render(
+      <BodyProfileSheet
+        value={{ inseam: 76, garment: { pantsLength: 104 } }}
+        units="in"
+        onSave={noop}
+        onChangeUnits={noop}
+        onClose={noop}
+        embedded
+      />
+    );
+    // Garment mode is the default view, and garment.pantsLength is already
+    // filled, so the gap this note exists for is already closed.
+    expect(botNoteText(container)).not.toMatch(/does not carry over/);
+    await user.click(within(container).getByRole("radio", { name: "Your body" }));
+    // Body mode's own pantsLength is still empty, so the gap re-appears there.
+    expect(botNoteText(container)).toMatch(/does not carry over/);
+  });
 });

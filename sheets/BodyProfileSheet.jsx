@@ -426,8 +426,20 @@ export default function BodyProfileSheet({
         : "Name the top and every verdict can cite where the number came from."
       : "Shirt length is the one exception — bodies have no hem, so measure a shirt you already like.";
 
-  const botNote =
-    "Trouser and shorts length run from the top of the waistband to the hem, the way sellers list them.";
+  // Kyle 2026-08-01: he re-typed a number he thought he already saved. The
+  // real cause: his old `inseam`/`shortsInseam` values measure the INSIDE
+  // leg, and the redesign above intentionally never reads them into the new
+  // outside-leg fields (grading one against the other names a wrong size).
+  // The app never said so, so it read as "ignored my input." This note only
+  // shows when that exact gap exists — an old value sits unread AND the new
+  // field is still empty — so it explains itself without new sizing math.
+  const hasUnreadLegacyLength =
+    value != null &&
+    ((value.inseam != null && !draft.pantsLength) ||
+      (value.shortsInseam != null && !draft.shortsLength));
+  const botNote = hasUnreadLegacyLength
+    ? "Trouser and shorts length run from the top of the waistband to the hem, the way sellers list them. Your old inside-leg number measures something different, so it does not carry over — enter this new number once."
+    : "Trouser and shorts length run from the top of the waistband to the hem, the way sellers list them.";
 
   const valueText = (key) => {
     const v = draft[key];
