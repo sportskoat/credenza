@@ -4255,12 +4255,25 @@ function noteSignInRequired() {
   if (signInRequiredHook) signInRequiredHook();
 }
 
+// FIX 0 (2026-08-02): chart-vision 401/403 must not look like "no chart".
+// A frozen sentinel (never a string) so callers can branch without parsing
+// error text. Plain success stays a string; plain miss stays null.
+export const CHART_AUTH_REQUIRED = Object.freeze({ authRequired: true });
+export const CHART_AUTH_COPY = "You are signed out. Sign in to read charts.";
+export function isChartAuthRequired(result) {
+  return !!(result && typeof result === "object" && result.authRequired === true);
+}
+// Chart UI sign-in button rides the same wall as the free-card gate.
+export function requestChartSignIn() {
+  noteSignInRequired();
+}
+
 // Ask the vision function to read a size chart out of album PHOTOS — the
 // common Yupoo case where the chart exists only as a picture (Kyle's "the
 // chart is right there in the photos" report, 2026-07-22). Returns chart text
-// in the same format parseSizeChart reads, or null when nothing was found.
-// `referer` should be the album page URL: the photo CDN rejects requests
-// whose referer is not a yupoo album page.
+// in the same format parseSizeChart reads, CHART_AUTH_REQUIRED on 401/403, or
+// null when nothing was found. `referer` should be the album page URL: the
+// photo CDN rejects requests whose referer is not a yupoo album page.
 // One poster for both chart-vision inputs. `images` are CDN URLs the server
 // fetches through its allowlist; `photos` are inline base64 frames the customer
 // took or picked, which no allowlist can cover because a camera frame has no
@@ -4300,7 +4313,14 @@ async function postChartVision({ images, photos, signal, referer }) {
     // count, found:true and found:false alike, because the model was called
     // either way — /guides/what-spends-a-chart-read/ says so in those words.
     if (!res.ok) {
-      if (await isSignInRefusal(res)) noteSignInRequired();
+      // FIX 0: ANY 401/403 from chart-vision is an auth wall (expired session,
+      // missing bearer, free-card exhaustion with sign_in_required, etc.).
+      // Map them all to the same signed-out result so the UI never claims
+      // "no chart" or "could not read that photo" for a sign-in problem.
+      if (res.status === 401 || res.status === 403) {
+        noteSignInRequired();
+        return CHART_AUTH_REQUIRED;
+      }
       return null;
     }
     bumpUsage("chartVision");

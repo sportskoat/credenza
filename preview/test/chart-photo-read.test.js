@@ -5,7 +5,13 @@
 // INLINE instead. Both wrappers must reach the same endpoint and return the
 // same chart text, because §3 says "one ingest path, image or text".
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { fetchChartFromPhotos, readChartFromPhotoFiles } from "../../credenza-fashion.jsx";
+import {
+  fetchChartFromPhotos,
+  readChartFromPhotoFiles,
+  isChartAuthRequired,
+  CHART_AUTH_REQUIRED,
+  CHART_AUTH_COPY,
+} from "../../credenza-fashion.jsx";
 
 const CHART = "M 胸围112 衣长70\nL 胸围116 衣长72";
 const DATA_URL =
@@ -101,5 +107,40 @@ describe("chart photo read (handoff turn 9 §3)", () => {
     expect(await fetchChartFromPhotos([])).toBeNull();
     expect(await fetchChartFromPhotos(null)).toBeNull();
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  // FIX 0 (2026-08-02): chart-vision 401/403 must not look like a bad photo.
+  it("maps 401 from chart-vision to CHART_AUTH_REQUIRED (not null)", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: "Unauthorized" }),
+    }));
+    const result = await readChartFromPhotoFiles([DATA_URL]);
+    expect(isChartAuthRequired(result)).toBe(true);
+    expect(result).toBe(CHART_AUTH_REQUIRED);
+    // Plain miss path stays null — the UI branches on the sentinel only.
+    expect(result).not.toBeNull();
+  });
+
+  it("maps 403 from chart-vision to CHART_AUTH_REQUIRED", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Forbidden" }),
+    }));
+    const result = await fetchChartFromPhotos(["https://img.geilicdn.com/a.jpg"]);
+    expect(isChartAuthRequired(result)).toBe(true);
+  });
+
+  it("does not treat 502 as auth — still null so the photo-retry copy shows", async () => {
+    global.fetch = vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) }));
+    const result = await readChartFromPhotoFiles([DATA_URL]);
+    expect(isChartAuthRequired(result)).toBe(false);
+    expect(result).toBeNull();
+  });
+
+  it("pins the signed-out customer copy", () => {
+    expect(CHART_AUTH_COPY).toBe("You are signed out. Sign in to read charts.");
   });
 });
