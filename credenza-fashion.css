@@ -8416,6 +8416,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 @media (max-width: 767px) {
   .cz-sizes-group-body {
     flex-direction: column;
+    /* Stacked children must fill the card width. The base flex-start alignment
+       sizes the fields column to the how-line's one-line text width, so the
+       whole column narrowed whenever focus (and the tip text) changed. */
+    align-items: stretch;
   }
   .cz-sizes-diagram-col {
     width: 100%;
@@ -8433,6 +8437,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
   .cz-sizes-group-body {
     flex-direction: column;
+    /* Same width-follows-tip-text trap as the 767px phone block above. */
+    align-items: stretch;
   }
   .cz-sizes-diagram-col {
     width: 100%;

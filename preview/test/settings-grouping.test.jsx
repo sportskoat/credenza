@@ -246,6 +246,21 @@ describe("Sizes and measurements redesign (settings page)", () => {
     expect(howBlock).toMatch(/min-height:/);
   });
 
+  // Bug A (Kyle 2026-08-02): on a stacked (column) group body, the base
+  // align-items: flex-start sizes the fields column to the how-line's
+  // one-line text width — every row narrowed whenever focus swapped the tip.
+  // Column stacking must stretch children to the card width. Browser geometry
+  // proof: preview/scripts/probe-settings-width-jump.mjs (330px constant).
+  it("stacked group bodies stretch the fields column to full width", () => {
+    const columnBlocks = CSS.match(
+      /\.cz-sizes-group-body\s*\{[^}]*flex-direction:\s*column[^}]*\}/gs
+    );
+    expect(columnBlocks, "no column-stacking rule for .cz-sizes-group-body").toBeTruthy();
+    for (const block of columnBlocks) {
+      expect(block).toMatch(/align-items:\s*stretch/);
+    }
+  });
+
   it("focusKey uses preventScroll so the list does not jump between boxes", () => {
     const src = fs.readFileSync(
       path.resolve(HERE, "../../sheets/BodyProfileSheet.jsx"),
