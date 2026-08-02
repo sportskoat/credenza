@@ -138,6 +138,16 @@ describe("fitReadRows", () => {
     expect(sleeve.warn).toBe(false);
   });
 
+  it("compares a saved short sleeve against a short-sleeve chart", () => {
+    const chart = parseSizeChart(SLEEVE_TEXT);
+    const profile = { chest: 105, shortSleeve: 22 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "Vintage tee");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "Vintage tee");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve.yours).toBe(22);
+    expect(sleeve.ease).not.toBe(null);
+  });
+
   it("shows the sleeve row as information only for a Chinese short-sleeve title", () => {
     const chart = parseSizeChart(SLEEVE_TEXT);
     const profile = { chest: 105, sleeve: 62 };

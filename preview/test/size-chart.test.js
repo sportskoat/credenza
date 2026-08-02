@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, sleeveStyle, usualSizeForItem } from "../../credenza-fashion.jsx";
+import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, migrateSleeveMeasurements, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, sleeveStyle, usualSizeForItem } from "../../credenza-fashion.jsx";
 
 describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
   it("maps tops / bottoms / shoes slots", () => {
@@ -462,6 +462,46 @@ describe("recommendSize sleeve penalty (short-sleeve fix)", () => {
 
   it("keeps old calls working with no title argument", () => {
     expect(recommendSize(washChart, profile, "shirt").size).toBe("L");
+  });
+
+  it("uses the short-sleeve value for a short-sleeve listing", () => {
+    const profileWithBoth = { chest: 100, shortSleeve: 23, longSleeve: 62 };
+    expect(
+      recommendSize(shortChart, profileWithBoth, "shirt", null, null, "Vintage band tee").size
+    ).toBe("L");
+  });
+
+  it("uses the long-sleeve value for a long-sleeve listing", () => {
+    const profileWithBoth = { chest: 100, shortSleeve: 22, longSleeve: 62 };
+    expect(
+      recommendSize(washChart, profileWithBoth, "shirt", null, null, "Long sleeve tee").size
+    ).toBe("L");
+  });
+
+  it("ignores sleeve values when the chart has no sleeve column", () => {
+    const noSleeveChart = parseSizeChart("M: chest 112, length 68\nL: chest 113, length 70");
+    const profileWithBoth = { chest: 100, shortSleeve: 80, longSleeve: 80 };
+    expect(
+      recommendSize(noSleeveChart, profileWithBoth, "shirt", null, null, "Long sleeve tee").size
+    ).toBe("M");
+  });
+});
+
+describe("legacy sleeve migration", () => {
+  it("moves a body sleeve to long sleeve and a garment sleeve to short sleeve", () => {
+    expect(
+      migrateSleeveMeasurements({ sleeve: 62, garment: { sleeve: 24 }, chest: 100 })
+    ).toEqual({ longSleeve: 62, garment: { shortSleeve: 24 }, chest: 100 });
+  });
+
+  it("keeps new sleeve values when legacy values also exist", () => {
+    expect(
+      migrateSleeveMeasurements({
+        sleeve: 61,
+        longSleeve: 64,
+        garment: { sleeve: 23, shortSleeve: 25 },
+      })
+    ).toEqual({ longSleeve: 64, garment: { shortSleeve: 25 } });
   });
 });
 

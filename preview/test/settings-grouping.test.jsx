@@ -127,7 +127,7 @@ describe("Sizes and measurements redesign (settings page)", () => {
     );
     expect(labels).toEqual(["TOPS", "BOTTOMS"]);
     expect(container.querySelectorAll(".cz-sizes-diagram")).toHaveLength(2);
-    expect(container.querySelectorAll(".cz-sizes-tape")).toHaveLength(8);
+    expect(container.querySelectorAll(".cz-sizes-tape")).toHaveLength(9);
   });
 
   it("defaults to garment mode labels (pit to pit, not chest)", () => {
@@ -189,8 +189,8 @@ describe("Sizes and measurements redesign (settings page)", () => {
         embedded
       />
     );
-    // Garment mode is default: only garment.chest is filled → 1 OF 8.
-    expect(within(container).getByText("1 OF 8")).toBeTruthy();
+    // Garment mode is default: only garment.chest is filled → 1 OF 9.
+    expect(within(container).getByText("1 OF 9")).toBeTruthy();
   });
 
   it("active field row gets the is-active class", async () => {
@@ -220,5 +220,22 @@ describe("Sizes and measurements redesign (settings page)", () => {
     );
     expect(also).toBeTruthy();
     expect(also.textContent).toMatch(/^body\s+\d/);
+  });
+
+  it("moves legacy body and garment sleeve values into their matching rows", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const { container } = renderMeasure({
+      units: "cm",
+      value: {
+        sleeve: 62,
+        garment: { sleeve: 24 },
+        measureMode: "body",
+      },
+    });
+    expect(measureInput(container, "Short sleeve").value).toBe("");
+    expect(measureInput(container, "Long sleeve").value).toBe("62");
+    await user.click(within(container).getByRole("radio", { name: "A garment that fits" }));
+    expect(measureInput(container, "Short sleeve").value).toBe("24");
+    expect(measureInput(container, "Long sleeve").value).toBe("");
   });
 });
