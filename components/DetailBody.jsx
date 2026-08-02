@@ -977,7 +977,9 @@ function SellerChartFold({
   onForgetChart,
   onPullListing,
 }) {
-  const [open, setOpen] = useState(false);
+  // Kyle 2026-08-02 item 4: seller chart shown by default (photo 7 SHOW
+  // control was the complaint that it started closed). Hide toggle remains.
+  const [open, setOpen] = useState(true);
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
   const hasChart = !!(chart && Array.isArray(chart.rows) && chart.rows.length);
   const host = listingHostLabel(item);

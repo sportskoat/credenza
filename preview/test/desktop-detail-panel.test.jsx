@@ -547,7 +547,8 @@ describe("DesktopDetailPanel (Fix B)", () => {
   });
 
   // Fit fold (2026-08-02): Chart tab is gone. Seller chart folds under Fit.
-  it("folds the seller chart under Fit, opens it, and picks a size", async () => {
+  // Kyle 2026-08-02 item 4: fold starts open; Hide/Show still works.
+  it("folds the seller chart under Fit, open by default, and picks a size", async () => {
     window.__setMediaMatches("(min-width: 1024px)", true);
     const onSaveEdit = vi.fn();
     const user = userEvent.setup();
@@ -571,10 +572,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     const foldToggle = await screen.findByRole("button", {
       name: /THE SELLER'S CHART/i,
     });
-    expect(foldToggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("table", { name: /Size chart with ease/i })).toBeNull();
-
-    await user.click(foldToggle);
+    // Kyle 2026-08-02 item 4: seller chart open by default (Hide toggle remains).
     expect(foldToggle).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByText("PULLED FROM THE LISTING")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: /Size chart with ease/i })).toBeInTheDocument();
@@ -582,6 +580,14 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enter by hand" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Forget" })).toBeInTheDocument();
+
+    // Hide still collapses; Show reopens.
+    await user.click(foldToggle);
+    expect(foldToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("table", { name: /Size chart with ease/i })).toBeNull();
+    await user.click(foldToggle);
+    expect(foldToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("table", { name: /Size chart with ease/i })).toBeInTheDocument();
 
     const sizeName = [...document.querySelectorAll(".cz-chart-size-name")].find(
       (n) => /^L(arge)?$/i.test(n.textContent.trim()) || n.textContent.trim() === "L"
@@ -631,10 +637,9 @@ describe("DesktopDetailPanel (Fix B)", () => {
       (n) => n.style.left
     );
 
-    // Open seller chart and pick another size.
-    await user.click(
-      screen.getByRole("button", { name: /THE SELLER'S CHART/i })
-    );
+    // Seller chart is open by default (Kyle 2026-08-02 item 4) — pick a size.
+    const foldToggle = screen.getByRole("button", { name: /THE SELLER'S CHART/i });
+    expect(foldToggle).toHaveAttribute("aria-expanded", "true");
     const sizeRows = [...document.querySelectorAll("button.cz-chart-row.is-size")];
     expect(sizeRows.length).toBeGreaterThan(1);
     const pickRow =
