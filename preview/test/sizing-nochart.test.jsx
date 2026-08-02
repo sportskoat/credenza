@@ -247,6 +247,23 @@ describe("§3 read and confirm", () => {
     expect(onSaveEdit).not.toHaveBeenCalled();
   });
 
+  it("Try another photo re-opens the file picker after a failed read", async () => {
+    // Kyle 2026-08-02: the button was a dead dismiss. It must open the picker.
+    fileReadMock.mockResolvedValue(null);
+    const user = userEvent.setup();
+    renderBody(chartless());
+
+    await screen.findByText("No chart");
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
+    expect(await screen.findByText("COULD NOT READ")).toBeInTheDocument();
+
+    const input = document.querySelector(".cz-detail-chart-file");
+    const clickSpy = vi.spyOn(input, "click");
+    await user.click(screen.getByRole("button", { name: "Try another photo" }));
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
   it("distinguishes a read photo with no sizes in it from an unreadable one", async () => {
     // Text came back, but no row parsed. That is a different mistake, and it
     // gets different advice: straighten the shot, do not reframe it.

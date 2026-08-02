@@ -128,6 +128,27 @@ describe("fitReadRows", () => {
     expect(length.ease).toBe(-2);
   });
 
+  // Kyle 2026-08-02 item 6 acceptance: shorts + shortsLength must drive the
+  // Length row — never pantsLength / 32in when the saved shorts length is 10in.
+  // 10 inches stores as 25.4 cm; Length YOURS must be that value.
+  it("shorts Length row compares against shortsLength, not pantsLength", () => {
+    const chart = parseSizeChart(BOTTOM_TEXT);
+    const shortsCm = 25.4; // 10 in
+    const profile = {
+      waist: 78,
+      hip: 100,
+      shortsLength: shortsCm,
+      pantsLength: 81.28, // 32 in — the wrong field Kyle saw compared
+    };
+    const rec = recommendSize(chart, profile, "shorts");
+    const length = fitReadRows(chart, rec, profile, "shorts").find(
+      (r) => r.key === "pantsLength" || r.name === "Length"
+    );
+    expect(length, "Length row present").toBeTruthy();
+    expect(length.yours).toBe(shortsCm);
+    expect(length.yours).not.toBe(profile.pantsLength);
+  });
+
   it("keeps the Length row informational when no trouser length is saved", () => {
     const chart = parseSizeChart(BOTTOM_TEXT);
     const profile = { waist: 78, hip: 100 };
