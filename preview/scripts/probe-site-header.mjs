@@ -63,7 +63,7 @@ for (const scheme of ["dark", "light"]) {
       problems.push(`${url} (${scheme}) header links are ${seen.links.join(", ")}`);
     }
     if (seen.underlined) problems.push(`${url} (${scheme}) has ${seen.underlined} underlined header links`);
-    if (!seen.openApp) problems.push(`${url} (${scheme}) has no Open app button`);
+    if (!seen.openApp) problems.push(`${url} (${scheme}) has no Open the app button`);
     if (seen.hairline === "0px") problems.push(`${url} (${scheme}) header has no hairline`);
 
     const slug = url.replace(/\W+/g, "_");

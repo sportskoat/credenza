@@ -273,7 +273,6 @@ function buildTimeline(item, sizeText, sizeFrom) {
       date: stamp(item.updatedAt || item.createdAt),
       text: "Added to",
       strong: item.project,
-      tail: " haul",
     });
   }
 

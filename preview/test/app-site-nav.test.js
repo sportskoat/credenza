@@ -1,7 +1,7 @@
 // LB-50. The app is the platform, and it did not link to the platform's site.
 //
 // Every static page under preview/public carries the same nav and the same
-// footer: Open app, About, How it works, Guides, Pricing, FAQ, Support,
+// footer: Open the app, About, How it works, Guides, Pricing, FAQ, Support,
 // Privacy, Terms, llms.txt. Twenty-one pages, all reachable from each other.
 //
 // Inside the app there were three links — Privacy, Terms, and a mailto — in the

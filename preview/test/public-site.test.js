@@ -2304,7 +2304,7 @@ describe("the public site shares one look and one header", () => {
   });
 
   // The app's top-right control is a 44px avatar ring. The public pages showed
-  // a wide "Open app" pill, which was the one part of the header a visitor
+  // a wide "Open the app" pill, which was the one part of the header a visitor
   // could still tell apart. Same ring, same glyph, same size now.
   it("opens the app from the same round ring the app draws", () => {
     const rule = cssRules(SITE_CSS).find((r) => selectorOf(r) === ".nav-open");
@@ -2315,9 +2315,9 @@ describe("the public site shares one look and one header", () => {
     expect(block, "the app link kept the pill fill").not.toMatch(/background: var\(--accent\)/);
     for (const { rel, html } of DOCS) {
       const head = html.match(/<div class="site-head">[\s\S]*?\n {6}<\/div>/)[0];
-      expect(head, `${rel} still shows the wide pill`).not.toMatch(/>Open app</);
+      expect(head, `${rel} still shows the wide pill`).not.toMatch(/>Open the app</);
       expect(head, `${rel} lost the name a screen reader reads`).toMatch(
-        /class="nav-open"[^>]*aria-label="Open app"/
+        /class="nav-open"[^>]*aria-label="Open the app"/
       );
     }
   });
@@ -2443,6 +2443,32 @@ describe("the public site shares one look and one header", () => {
     const header = DOCS[0].html.match(/<a href="\/pricing\/"[^>]*>([^<]+)<\/a>/);
     expect(header, "the site header no longer links /pricing/").not.toBeNull();
     expect(header[1], "the site header and the app disagree").toBe(masthead[1]);
+  });
+});
+
+describe("public copy stays clear and consistent", () => {
+  it("uses one accessible name for the app button", () => {
+    for (const { rel, html } of DOCS) {
+      const button = html.match(/class="nav-open"[^>]*aria-label="([^"]+)"/);
+      expect(button, `${rel} has no app button`).not.toBeNull();
+      expect(button[1], `${rel} uses a different app-button name`).toBe("Open the app");
+    }
+  });
+
+  it("keeps internal publishing language out of public headings", () => {
+    const publicCopy = DOCS.map(({ html }) => html).join("\n");
+    expect(publicCopy).not.toContain("answer engines");
+    expect(publicCopy).not.toContain("Two rows that need a sentence");
+    expect(publicCopy).not.toContain("Along the way");
+  });
+
+  it("shows the current Pro limits in the Pro-ending guide", () => {
+    const guide = DOCS.find(
+      ({ rel }) => rel === "guides/what-happens-when-pro-ends/index.html"
+    );
+    expect(guide.html).toContain("2 a day instead of 15");
+    expect(guide.html).toContain("5 a day instead of 40");
+    expect(guide.html).not.toMatch(/instead of (100|200)/);
   });
 });
 
