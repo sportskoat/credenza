@@ -2173,6 +2173,26 @@ describe("the public site shares one look and one header", () => {
     );
   });
 
+  // Kyle 2026-08-02: footer sat left under a centred reading column. The
+  // line is centred, and article pages pin it to --max so it sits under the
+  // copy. Landing keeps the full shell for .site-foot.
+  it("centres the public page footer under the reading column", () => {
+    const footRule = cssRules(SITE_CSS).find((r) => selectorOf(r) === "footer");
+    expect(footRule, "site.css has no footer rule").toBeTruthy();
+    expect(tidy(footRule), "footer is not text-aligned centre").toMatch(
+      /text-align:\s*center/
+    );
+    const articleFoot = cssRules(SITE_CSS).find(
+      (r) =>
+        selectorOf(r) === "body:not(:has(> main > .hero.wrap)) > footer" ||
+        selectorOf(r).includes("body:not(:has(> main > .hero.wrap)) > footer")
+    );
+    expect(articleFoot, "article footer no longer pins to the reading column").toBeTruthy();
+    expect(tidy(articleFoot), "article footer is not pinned to --max").toMatch(
+      /max-width:\s*var\(--max\)/
+    );
+  });
+
   // A classic macOS scrollbar steals ~15px from the viewport, so the 1080px
   // public shell sits left of the app (which already hides its bars).
   it("hides the page scrollbar the same way the application does", () => {

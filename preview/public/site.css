@@ -485,11 +485,23 @@ a:hover { color: var(--money); }
   font-size: 0.98rem;
 }
 
+/* Kyle 2026-08-02: the footer sat left under a centred reading column and
+   read as off-centre on every public page. Centre the line; keep the shared
+   shell width so long link rows still wrap cleanly. Landing uses .site-foot
+   with its own full-width bar and is unchanged. */
 footer {
   color: var(--muted);
   font-size: 0.85rem;
   font-family: var(--cz-sans);
   padding-bottom: 3rem;
+  text-align: center;
+}
+
+/* Article and guide pages only: pin the footer to the same 40rem column as
+   the body copy so the centred line sits under the page, not under the wide
+   shell. Landing keeps the full shell for its dark bar. */
+body:not(:has(> main > .hero.wrap)) > footer {
+  max-width: var(--max);
 }
 
 .cta {
