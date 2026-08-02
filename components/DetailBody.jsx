@@ -336,6 +336,9 @@ function SizingBlock({
   customBox = null,
   // Card-back v2 Fit tab: quieter result line + size cards (layout only).
   editorial = false,
+  // Desktop Fit fold (2026-08-02): one analysis paragraph under the size
+  // headline, before the size cards. Empty string when nothing to say.
+  analysis = "",
 }) {
   const isManual = !!chosenSize;
   const heroSize = chosenSize || recSize || usualSize || "";
@@ -452,6 +455,11 @@ function SizingBlock({
           </div>
         </>
       )}
+
+      {/* Desktop Fit fold: analysis sits under the size headline, before the cards. */}
+      {editorial && analysis ? (
+        <p className="cz-fit-analysis">{analysis}</p>
+      ) : null}
 
       {/* Round 5 point 5.1: the measurement cells double as the size picker.
           One row does both jobs — before, a second plain chip row under it
@@ -804,11 +812,12 @@ function SizingBlockNoChart({
   );
 }
 
-// ── Chart tab (card-back v2 Phase 2) ──
+// ── Seller chart fold (card-back v2 Fit fold, 2026-08-02) ──
 //
-// Per-SIZE table with seller numbers + ease under each cell. Reuses
-// recommendSize + fitReadRows so ease/tolerance match the Fit tab bars.
-// Layout only — chart math stays in fashion.jsx.
+// The Chart tab is gone. Its per-size table now folds shut under the Fit
+// pane ("THE SELLER'S CHART"). Same grid markup as the old DesktopChartTab —
+// no bars (Fit already has them), no big action buttons (text links only).
+// Math still comes from recommendSize + fitReadRows.
 const CHART_MEASURE_COLS = [
   ["chest", "Chest"],
   ["shoulder", "Shoulder"],
@@ -837,7 +846,7 @@ function chartOriginLabel({ reading, hunting, hasChart, sourceVia }) {
   return "SELLER'S CHART";
 }
 
-function DesktopChartTab({
+function SellerChartFold({
   item,
   chart,
   bodyProfile,
@@ -845,11 +854,6 @@ function DesktopChartTab({
   units,
   recSize,
   chosenSize,
-  usualSize,
-  noChart,
-  hunting,
-  reading,
-  readingCount,
   chartIsForgettable,
   onPick,
   onUpload,
@@ -857,27 +861,24 @@ function DesktopChartTab({
   onForgetChart,
   onPullListing,
 }) {
+  const [open, setOpen] = useState(false);
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
   const hasChart = !!(chart && Array.isArray(chart.rows) && chart.rows.length);
-  const sourceVia = item && item.sizeChartSource && item.sizeChartSource.via;
-  const origin = chartOriginLabel({
-    reading: !!reading,
-    hunting: !!hunting,
-    hasChart,
-    sourceVia,
-  });
   const host = listingHostLabel(item);
   const sizeCount = hasChart ? chart.rows.length : 0;
-  const sourceLine = hasChart
-    ? sizeCount + " size" + (sizeCount === 1 ? "" : "s") + (host ? " · " + host : "")
-    : host || "—";
+  const sourceVia = item && item.sizeChartSource && item.sizeChartSource.via;
+  const origin = chartOriginLabel({
+    reading: false,
+    hunting: false,
+    hasChart: true,
+    sourceVia,
+  });
 
   const cols = useMemo(() => {
     if (!hasChart) return [];
     return CHART_MEASURE_COLS.filter(([key]) => chart.rows.some((r) => r[key] != null));
   }, [hasChart, chart]);
 
-  // Per size: map measure key → fitReadRows cell (ease, warn, estimated).
   const easeBySize = useMemo(() => {
     if (!hasChart || !profile) return {};
     const out = {};
@@ -897,9 +898,8 @@ function DesktopChartTab({
       out[String(row.size).toUpperCase()] = map;
     }
     return out;
-  }, [hasChart, chart, profile, fitPref, item.category, item.title]);
+  }, [chart, profile, fitPref, item.category, item.title]);
 
-  // YOURS values for the pinned row — same profile keys fitReadRows uses.
   const yoursByKey = useMemo(() => {
     const map = {};
     if (!profile) return map;
@@ -929,238 +929,150 @@ function DesktopChartTab({
     return map;
   }, [cols, profile, item.category]);
 
-  // Bars follow the table's chosen row (synced with Fit tab), not only the
-  // global recommended size — pick another size and the marks slide live.
-  const barSizeKey = String(chosenSize || recSize || "").toUpperCase();
-  const barRows = useMemo(() => {
-    if (!barSizeKey || !hasChart) return [];
-    const map = easeBySize[barSizeKey] || {};
-    const ordered = cols.map(([key]) => map[key]).filter(Boolean);
-    if (ordered.length) return ordered;
-    return Object.values(map);
-  }, [barSizeKey, hasChart, easeBySize, cols]);
-  const barSizeLabel = barSizeKey
-    ? formatSizeToken(barSizeKey) || barSizeKey
-    : "";
+  if (!hasChart) return null;
 
-  const note =
-    "Ease is the seller's number minus your body. Green marks the range this cut is drafted for. A dashed band means a number is missing and we are not guessing at one.";
-
-  if (reading || hunting) {
-    return (
-      <div className="cz-chart-tab">
-        <div className="cz-chart-head">
-          <span className="cz-chart-origin">{origin}</span>
-          <span className="cz-chart-source">{sourceLine}</span>
-        </div>
-        <div className="cz-chart-state-card">
-          <h3 className="cz-chart-state-title">Reading your photo</h3>
-          <p className="cz-chart-state-body">
-            {readingCount === 1
-              ? "One photo is being read for size numbers."
-              : readingCount > 1
-                ? readingCount + " photos are being read for size numbers."
-                : "Looking for the seller's size chart…"}
-          </p>
-        </div>
-        <ChartActions
-          chartIsForgettable={false}
-          hasChart={false}
-          onUpload={onUpload}
-          onEnterManual={onEnterManual}
-          onForgetChart={onForgetChart}
-          onPullListing={onPullListing}
-        />
-      </div>
-    );
-  }
-
-  if (noChart || !hasChart) {
-    const usualLabel = formatSizeToken(usualSize) || usualSize || "";
-    return (
-      <div className="cz-chart-tab">
-        <div className="cz-chart-head">
-          <span className="cz-chart-origin">{origin}</span>
-          <span className="cz-chart-source">{sourceLine}</span>
-        </div>
-        <div className="cz-chart-state-card">
-          <h3 className="cz-chart-state-title">No chart yet</h3>
-          <p className="cz-chart-state-body">
-            {usualLabel
-              ? "Fit fell back to your usual size (" +
-                usualLabel +
-                "). Upload a chart photo or enter the numbers by hand."
-              : "No size chart found. Upload a chart photo or enter the numbers by hand."}
-          </p>
-        </div>
-        <ChartActions
-          chartIsForgettable={false}
-          hasChart={false}
-          onUpload={onUpload}
-          onEnterManual={onEnterManual}
-          onForgetChart={onForgetChart}
-          onPullListing={onPullListing}
-        />
-      </div>
-    );
-  }
+  const headLabel =
+    "THE SELLER'S CHART · " +
+    sizeCount +
+    " SIZE" +
+    (sizeCount === 1 ? "" : "S") +
+    (host ? " · " + host.toUpperCase() : "");
 
   const gridStyle = {
     gridTemplateColumns: "76px repeat(" + cols.length + ", minmax(0, 1fr))",
   };
 
   return (
-    <div className="cz-chart-tab">
-      <div className="cz-chart-head">
-        <span className="cz-chart-origin">{origin}</span>
-        <span className="cz-chart-source">{sourceLine}</span>
-      </div>
-
-      <div className="cz-chart-table" role="table" aria-label="Size chart with ease">
-        <div className="cz-chart-row is-cols" role="row" style={gridStyle}>
-          <span className="cz-chart-cell is-head" role="columnheader">
-            Size
-          </span>
-          {cols.map(([key, label]) => (
-            <span key={key} className="cz-chart-cell is-head" role="columnheader">
-              {label}
+    <div className={"cz-seller-chart-fold" + (open ? " is-open" : "")}>
+      <button
+        type="button"
+        className="cz-fit-read-toggle cz-seller-chart-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span>{headLabel}</span>
+        <span>{open ? "Hide" : "Show"}</span>
+      </button>
+      {open ? (
+        <div className="cz-seller-chart-body">
+          <div className="cz-chart-head">
+            <span className="cz-chart-origin">{origin}</span>
+            <span className="cz-chart-source-links">
+              {onUpload ? (
+                <button type="button" className="cz-detail-chart-link" onClick={onUpload}>
+                  Replace
+                </button>
+              ) : null}
+              {onEnterManual ? (
+                <button type="button" className="cz-detail-chart-link" onClick={onEnterManual}>
+                  Enter by hand
+                </button>
+              ) : null}
+              {chartIsForgettable && onForgetChart ? (
+                <button type="button" className="cz-detail-chart-link" onClick={onForgetChart}>
+                  Forget
+                </button>
+              ) : null}
+              {!chartIsForgettable && onPullListing ? (
+                <button type="button" className="cz-detail-chart-link" onClick={onPullListing}>
+                  Pull from listing
+                </button>
+              ) : null}
             </span>
-          ))}
-        </div>
+          </div>
 
-        <div className="cz-chart-row is-yours" role="row" style={gridStyle}>
-          <span className="cz-chart-cell is-size" role="rowheader">
-            Yours
-          </span>
-          {cols.map(([key]) => {
-            const y = yoursByKey[key];
-            return (
-              <span key={key} className="cz-chart-cell is-yours-val" role="cell">
-                {y
-                  ? (y.estimated ? "~" : "") + formatMeasure(y.value, units)
-                  : "—"}
+          <div className="cz-chart-table" role="table" aria-label="Size chart with ease">
+            <div className="cz-chart-row is-cols" role="row" style={gridStyle}>
+              <span className="cz-chart-cell is-head" role="columnheader">
+                Size
               </span>
-            );
-          })}
-        </div>
-
-        {chart.rows.map((row) => {
-          if (!row.size) return null;
-          const keyU = String(row.size).toUpperCase();
-          const isPick = !!chosenSize && keyU === String(chosenSize).toUpperCase();
-          const isRec = !!recSize && keyU === String(recSize).toUpperCase();
-          const easeMap = easeBySize[keyU] || {};
-          return (
-            <button
-              key={row.size}
-              type="button"
-              className={
-                "cz-chart-row is-size" + (isPick ? " is-pick" : "") + (isRec ? " is-rec" : "")
-              }
-              style={gridStyle}
-              onClick={() => onPick && onPick(String(row.size))}
-              aria-pressed={isPick}
-              aria-label={
-                "Size " +
-                (formatSizeToken(row.size) || row.size) +
-                (isRec ? ", recommended" : "") +
-                (isPick ? ", your pick" : "")
-              }
-            >
-              <span className="cz-chart-cell is-size">
-                <span className="cz-chart-size-name">
-                  {formatSizeToken(row.size) || row.size}
+              {cols.map(([key, label]) => (
+                <span key={key} className="cz-chart-cell is-head" role="columnheader">
+                  {label}
                 </span>
-                {isRec ? (
-                  <span className="cz-chart-flag is-rec">Recommended</span>
-                ) : isPick ? (
-                  <span className="cz-chart-flag is-pick">Your pick</span>
-                ) : null}
+              ))}
+            </div>
+
+            <div className="cz-chart-row is-yours" role="row" style={gridStyle}>
+              <span className="cz-chart-cell is-size" role="rowheader">
+                Yours
               </span>
               {cols.map(([key]) => {
-                const theirs = row[key];
-                const read = easeMap[key];
-                const ease = read && read.ease != null ? read.ease : null;
-                const warn = !!(read && read.warn);
+                const y = yoursByKey[key];
                 return (
-                  <span key={key} className="cz-chart-cell is-measure">
-                    <span className="cz-chart-theirs">
-                      {theirs != null ? formatMeasure(theirs, units) : "—"}
-                    </span>
-                    <span
-                      className={
-                        "cz-chart-ease" +
-                        (ease == null ? " is-miss" : warn ? " is-out" : " is-in")
-                      }
-                    >
-                      {ease != null
-                        ? (ease >= 0 ? "+" : "") + formatMeasure(ease, units)
-                        : "—"}
-                    </span>
+                  <span key={key} className="cz-chart-cell is-yours-val" role="cell">
+                    {y
+                      ? (y.estimated ? "~" : "") + formatMeasure(y.value, units)
+                      : "—"}
                   </span>
                 );
               })}
-            </button>
-          );
-        })}
-      </div>
+            </div>
 
-      {barRows.length ? (
-        <div
-          className="cz-fitread cz-chart-fitread"
-          aria-label={
-            "How " +
-            (barSizeLabel || "this size") +
-            " fits on each measure"
-          }
-        >
-          <FitReadHeads hasChart={true} kicker={barSizeLabel || "SIZE FIT"} />
-          <FitReadMeasureRows rows={barRows} hasChart={true} units={units} />
+            {chart.rows.map((row) => {
+              if (!row.size) return null;
+              const keyU = String(row.size).toUpperCase();
+              const isPick = !!chosenSize && keyU === String(chosenSize).toUpperCase();
+              const isRec = !!recSize && keyU === String(recSize).toUpperCase();
+              const easeMap = easeBySize[keyU] || {};
+              return (
+                <button
+                  key={row.size}
+                  type="button"
+                  className={
+                    "cz-chart-row is-size" +
+                    (isPick ? " is-pick" : "") +
+                    (isRec ? " is-rec" : "")
+                  }
+                  style={gridStyle}
+                  onClick={() => onPick && onPick(String(row.size))}
+                  aria-pressed={isPick}
+                  aria-label={
+                    "Size " +
+                    (formatSizeToken(row.size) || row.size) +
+                    (isRec ? ", recommended" : "") +
+                    (isPick ? ", your pick" : "")
+                  }
+                >
+                  <span className="cz-chart-cell is-size">
+                    <span className="cz-chart-size-name">
+                      {formatSizeToken(row.size) || row.size}
+                    </span>
+                    {isRec ? (
+                      <span className="cz-chart-flag is-rec">Recommended</span>
+                    ) : isPick ? (
+                      <span className="cz-chart-flag is-pick">Your pick</span>
+                    ) : null}
+                  </span>
+                  {cols.map(([key]) => {
+                    const theirs = row[key];
+                    const read = easeMap[key];
+                    const ease = read && read.ease != null ? read.ease : null;
+                    const warn = !!(read && read.warn);
+                    return (
+                      <span key={key} className="cz-chart-cell is-measure">
+                        <span className="cz-chart-theirs">
+                          {theirs != null ? formatMeasure(theirs, units) : "—"}
+                        </span>
+                        <span
+                          className={
+                            "cz-chart-ease" +
+                            (ease == null ? " is-miss" : warn ? " is-out" : " is-in")
+                          }
+                        >
+                          {ease != null
+                            ? (ease >= 0 ? "+" : "") + formatMeasure(ease, units)
+                            : "—"}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </button>
+              );
+            })}
+          </div>
         </div>
       ) : null}
-
-      <p className="cz-chart-note">{note}</p>
-
-      <ChartActions
-        chartIsForgettable={chartIsForgettable}
-        hasChart={true}
-        onUpload={onUpload}
-        onEnterManual={onEnterManual}
-        onForgetChart={onForgetChart}
-        onPullListing={onPullListing}
-      />
-    </div>
-  );
-}
-
-function ChartActions({
-  chartIsForgettable,
-  hasChart,
-  onUpload,
-  onEnterManual,
-  onForgetChart,
-  onPullListing,
-}) {
-  return (
-    <div className="cz-chart-actions">
-      <span className="cz-chart-actions-label">Chart actions</span>
-      <div className="cz-chart-actions-row">
-        <button type="button" className="cz-chart-btn is-secondary" onClick={onUpload}>
-          Upload photo
-        </button>
-        <button type="button" className="cz-chart-btn is-secondary" onClick={onEnterManual}>
-          Enter manually
-        </button>
-        {hasChart && chartIsForgettable ? (
-          <button type="button" className="cz-chart-btn is-quiet" onClick={onForgetChart}>
-            Forget chart
-          </button>
-        ) : !hasChart && onPullListing ? (
-          <button type="button" className="cz-chart-btn is-quiet" onClick={onPullListing}>
-            Pull from listing
-          </button>
-        ) : null}
-      </div>
     </div>
   );
 }
@@ -1168,7 +1080,7 @@ function ChartActions({
 // ── Fit-read track + measure rows (shared by Fit tab + Chart tab) ──
 //
 // One tight/true/loose track with green tolerance band and white marker.
-// FitReadTable and DesktopChartTab both render these so the bars stay
+// FitReadTable renders these bars; the seller chart fold reuses the size pick only
 // pixel-identical. Row math still lives in fitReadRows (pure, tested alone).
 function FitReadTrack({ mark, warn, showBand = true }) {
   return (
@@ -1883,115 +1795,113 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
 // profile the sizing slot shows no size string at all: only the ask (4d).
 
 
-// Card-back v2 Fit tab: three stanzas from the same chart/rec data the
-// prescription sentence already uses. No live model call.
-function fitSummaryStanzas(verdict, fitRows, units, category) {
+// Card-back v2 Fit fold (2026-08-02): one analysis paragraph under the size
+// headline. Facts only — primary measure from the same logic as
+// prescriptionSentence, secondaries from fitRows. No process talk.
+function sizeAnalysisParagraph(verdict, fitRows, units, category) {
   const shown = verdict && (verdict.shown || verdict.rec);
-  const rec = verdict && verdict.rec;
-  if (!shown || !shown.size) return [];
-  const stanzas = [];
-  const type = garmentTypeWord(shown) || (category === "outerwear" ? "coat" : "piece");
-  const typeWord = String(type || "piece").toLowerCase();
-  const cut = shown.cut;
-  // ABOUT: only real clothes facts (cut + notable length). Never process talk
-  // ("the chart tells us…", "we read…"). If nothing crossed a threshold, skip
-  // the whole block — an empty slot beats a filler sentence (F 2026-08-02).
-  // Length uses the same ±3cm span as FIT_READ_EASE.length.
-  const LENGTH_NOTABLE = 3;
-  let cutFact = "";
-  if (cut === "drop") {
-    cutFact =
-      "This " +
-      typeWord +
-      " is loose and relaxed. The shoulder sits a little lower than usual.";
-  } else if (cut === "raglan") {
-    cutFact =
-      "This " +
-      typeWord +
-      " is loose and relaxed. The sleeves connect in one line up to the collar.";
-  }
-  const lengthRow = (fitRows || []).find((r) => r.key === "length" || r.key === "pantsLength");
-  let lengthFact = "";
-  if (lengthRow && lengthRow.ease != null && Math.abs(lengthRow.ease) >= LENGTH_NOTABLE) {
-    const amt = formatMeasure(Math.abs(lengthRow.ease), units);
-    lengthFact =
-      lengthRow.ease > 0
-        ? "It runs about " + amt + " long."
-        : "It runs about " + amt + " short.";
-  }
-  const aboutBits = [cutFact, lengthFact].filter(Boolean);
-  if (aboutBits.length) {
-    const aboutMetric = (fitRows || [])
-      .filter((r) => r.theirs != null && (r.key === "length" || r.key === "pantsLength" || r.key === "chest" || r.key === "waist"))
-      .slice(0, 2)
-      .map((r) => {
-        const ease = r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "";
-        return r.name.toLowerCase() + " " + formatMeasure(r.theirs, units) + (ease ? " · " + ease + " past your body" : "");
-      })
-      .join(" · ");
-    stanzas.push({
-      label: "About this piece",
-      body: aboutBits.join(" "),
-      metric: aboutMetric,
-    });
-  }
+  if (!shown || !shown.size) return "";
+  if (shown.garment == null || shown.body == null || shown.diff == null) return "";
+  if (!isFinite(shown.garment) || !isFinite(shown.body) || !isFinite(shown.diff)) return "";
 
-  const key = shown.primaryKey || "chest";
-  const keyWord = key === "waist" ? "waist" : key === "hip" ? "hip" : key === "sleeve" ? "sleeve" : "chest";
-  const sizeName = formatSizeToken(shown.size) || shown.size;
-  const recName = rec && rec.size ? formatSizeToken(rec.size) || rec.size : sizeName;
-  const whyBody =
-    verdict.overridden && rec && rec.size
-      ? "The " + recName + " is the closest match for your " + keyWord + "."
-      : "The " + sizeName + " is the closest match for your " + keyWord + ".";
-  const whyMetric = (fitRows || [])
-    .filter((r) => r.ease != null && !r.warn)
-    .slice(0, 3)
-    .map((r) => r.name.toLowerCase() + " " + (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units))
-    .join(" · ");
-  const inside = (fitRows || []).filter((r) => r.ease != null && !r.warn).length;
-  stanzas.push({
-    label: "Why this size",
-    body: whyBody,
-    metric: whyMetric + (inside ? " · both inside tolerance" : ""),
-  });
+  const measure =
+    shown.primaryKey === "waist"
+      ? "waist"
+      : shown.primaryKey === "hip"
+        ? "hip"
+        : "chest";
+  const noun =
+    category === "outerwear"
+      ? "jacket"
+      : category === "pants"
+        ? "pants"
+        : category === "shorts"
+          ? "shorts"
+          : category === "shirt"
+            ? "shirt"
+            : "piece";
+  const garment = formatMeasure(shown.garment, units);
+  const body = formatMeasure(shown.body, units);
+  const room = formatMeasure(Math.abs(shown.diff), units);
+  const band = Array.isArray(shown.easeBand) ? shown.easeBand : null;
+  const target = band
+    ? (band[0] + band[1]) / 2
+    : measure === "chest"
+      ? category === "outerwear"
+        ? 16
+        : 12
+      : 2;
+  const sitsRight = band
+    ? shown.diff >= band[0] - 4 && shown.diff <= band[1] + 4
+    : Math.abs(shown.diff - target) <= 4;
 
-  const chart = verdict.chart;
-  if (chart && Array.isArray(chart.rows) && shown.garment != null && shown.primaryKey) {
-    const up = chart.rows
-      .filter((r) => r && r.size && r[shown.primaryKey] != null && r[shown.primaryKey] > shown.garment)
-      .sort((a, b) => a[shown.primaryKey] - b[shown.primaryKey])[0];
-    if (up) {
-      const upName = formatSizeToken(up.size) || up.size;
-      const delta = up[shown.primaryKey] - shown.garment;
-      const nextBody =
-        "The " +
-        upName +
-        " is " +
-        formatMeasure(delta, units) +
-        " bigger around the " +
-        keyWord +
-        ".";
-      const sleeveUp =
-        up.sleeve != null && shown.row && shown.row.sleeve != null
-          ? " Its sleeves are " +
-            formatMeasure(up.sleeve - shown.row.sleeve, units) +
-            " longer too."
-          : "";
-      stanzas.push({
-        label: "The next size",
-        body: nextBody + sleeveUp,
-        metric:
-          upName +
-          " " +
-          keyWord +
-          " " +
-          formatMeasure(up[shown.primaryKey], units) +
-          (up.sleeve != null ? " · sleeve " + formatMeasure(up.sleeve, units) : ""),
-      });
+  let primary =
+    "Its " +
+    garment +
+    " " +
+    measure +
+    " gives you " +
+    room +
+    " of room over your " +
+    body;
+  if (sitsRight) primary += ", which is where this " + noun + " is meant to sit";
+  primary += ".";
+
+  const namedInside = [sitsRight];
+  const secondary = [];
+  for (const r of fitRows || []) {
+    if (!r || r.key === measure || r.key === shown.primaryKey) continue;
+    // Only name measures with a real grade (ease or mark). Skip info-only rows.
+    if (r.ease == null && r.mark == null) continue;
+    if (r.estimated) continue;
+    const name = (r.name || r.key || "measure").toLowerCase();
+    if (r.warn || (r.mark != null && r.warn)) {
+      if (r.ease == null || Math.abs(r.ease) < 0.05) {
+        secondary.push("The " + name + " is outside tolerance.");
+      } else {
+        // Length axes: long/short. Width axes: bigger/smaller — "shoulder
+        // runs long" sounds like garment length (F review of #39).
+        const isLengthKey =
+          r.key === "sleeve" || r.key === "length" || r.key === "pantsLength";
+        const amt = formatMeasure(Math.abs(r.ease), units);
+        if (isLengthKey) {
+          secondary.push(
+            "The " +
+              name +
+              " runs about " +
+              amt +
+              (r.ease > 0 ? " long." : " short.")
+          );
+        } else {
+          secondary.push(
+            "The " +
+              name +
+              " is about " +
+              amt +
+              (r.ease > 0 ? " bigger than yours." : " smaller than yours.")
+          );
+        }
+      }
+      namedInside.push(false);
+    } else if (r.mark != null || r.ease != null) {
+      if (r.ease != null && Math.abs(r.ease) < 0.5) {
+        secondary.push("The " + name + " lands on yours exactly.");
+      } else {
+        secondary.push("The " + name + " is inside tolerance.");
+      }
+      namedInside.push(true);
     }
   }
-  return stanzas;
+
+  let text = primary;
+  if (secondary.length) text += " " + secondary.join(" ");
+  if (namedInside.length >= 2 && namedInside.every(Boolean)) {
+    text +=
+      namedInside.length === 2
+        ? " Both are inside tolerance."
+        : " All are inside tolerance.";
+  }
+  return text;
 }
 
 function fitPrefSentence(item, fitPref) {
@@ -3157,15 +3067,14 @@ export default function DetailBody({
 
   const DESKTOP_TABS = [
     ["fit", "Fit"],
-    ["chart", "Chart"],
     ["photos", "Photos"],
     ["details", "Details"],
     ["settings", "Settings"],
   ];
-  const desktopStanzas =
+  const desktopAnalysis =
     isDesktopPanel && fitSummaryOn && !noChart
-      ? fitSummaryStanzas(verdict, fitRows, measureUnits, item.category)
-      : [];
+      ? sizeAnalysisParagraph(verdict, fitRows, measureUnits, item.category)
+      : "";
   const prefSentence = isDesktopPanel ? fitPrefSentence(item, fitPref) : "";
   const onDesktopTabKey = (event) => {
     if (!isDesktopPanel) return;
@@ -3450,55 +3359,10 @@ export default function DetailBody({
             and haul are always-visible facts — three of them hidden behind a
             tab bar made the card a guessing game. */}
         <div className="cz-detail-facts cz-detail-pane cz-detail-pane-fit">
-          {isDesktopPanel && desktopTab === "chart" ? (
-            <>
-              {chartRead.reading || chartRead.chart || chartRead.error || chartRead.typed ? (
-                <SizingBlockReading
-                  reading={chartRead.reading}
-                  chart={chartRead.chart}
-                  thumb={chartRead.thumb}
-                  error={chartRead.error}
-                  units={measureUnits}
-                  typed={chartRead.typed}
-                  onUse={chartRead.commit}
-                  onRetry={chartRead.dismiss}
-                  onFix={chartRead.fix}
-                />
-              ) : (
-                <DesktopChartTab
-                  item={item}
-                  chart={verdict.chart}
-                  bodyProfile={bodyProfile}
-                  fitPref={fitPref}
-                  units={measureUnits}
-                  recSize={verdict.recSize}
-                  chosenSize={chosenSize}
-                  usualSize={chosenSize || verdict.usualSize}
-                  noChart={noChart}
-                  hunting={hunting}
-                  reading={false}
-                  readingCount={0}
-                  chartIsForgettable={chartIsForgettable}
-                  onPick={pickItemSize}
-                  onUpload={() => chartInputRef.current?.click()}
-                  onEnterManual={() => chartRead.startTyping(item.category)}
-                  onForgetChart={forgetChart}
-                  onPullListing={
-                    sizingAlbumPhotos.length
-                      ? () =>
-                          chartRead.read(sizingAlbumPhotos.slice(0, 3), {
-                            thumb: sizingAlbumPhotos[0] || "",
-                          })
-                      : null
-                  }
-                />
-              )}
-            </>
-          ) : null}
-          {isDesktopPanel && desktopTab !== "fit" && desktopTab !== "chart" ? (
+          {isDesktopPanel && desktopTab !== "fit" ? (
             <div className="cz-fit-placeholder">
               <h3>{(DESKTOP_TABS.find((t) => t[0] === desktopTab) || ["", "Section"])[1]}</h3>
-              <p>This tab ships in a later phase. Fit and Chart are ready now.</p>
+              <p>This tab ships in a later phase. Fit is ready now.</p>
             </div>
           ) : null}
           {(!isDesktopPanel || desktopTab === "fit") ? (
@@ -3559,6 +3423,7 @@ export default function DetailBody({
                 typeWord={garmentTypeWord(verdict.rec)}
                 onPick={pickItemSize}
                 editorial={isDesktopPanel}
+                analysis={desktopAnalysis}
                 customBox={
                   <CustomSizeBox
                     className="cz-sizing-cell is-custom"
@@ -3631,7 +3496,7 @@ export default function DetailBody({
                 {shortsLengthNote(verdict.rec, bodyProfile, item.category, { units: measureUnits })}
               </p>
             ) : null}
-            {verdict.prescription && !noChart ? (
+            {!isDesktopPanel && verdict.prescription && !noChart ? (
               <p className="cz-sizing-why">
                 {verdict.prescription}
                 {/* CH-14: the fit-detail pref is changeable on the sentence it
@@ -3666,7 +3531,8 @@ export default function DetailBody({
                   </button>
                 ) : null}
               </p>
-            ) : typeof onToggleFitSummary === "function" &&
+            ) : !isDesktopPanel &&
+              typeof onToggleFitSummary === "function" &&
               !fitSummaryOn &&
               !noChart &&
               verdict.recSize ? (
@@ -3706,17 +3572,6 @@ export default function DetailBody({
                     Change
                   </button>
                 ) : null}
-              </div>
-            ) : null}
-
-            {isDesktopPanel && desktopStanzas.length ? (
-              <div className="cz-fit-summary">
-                {desktopStanzas.map((s) => (
-                  <div key={s.label} className="cz-fit-stanza">
-                    <span className="cz-fit-stanza-label">{s.label}</span>
-                    <p className="cz-fit-stanza-body">{s.body}</p>
-                  </div>
-                ))}
               </div>
             ) : null}
 
@@ -3770,6 +3625,31 @@ export default function DetailBody({
                 }
               />
               )
+            ) : null}
+
+            {isDesktopPanel && !noChart && !askingMeasures ? (
+              <SellerChartFold
+                item={item}
+                chart={verdict.chart}
+                bodyProfile={bodyProfile}
+                fitPref={fitPref}
+                units={measureUnits}
+                recSize={verdict.recSize}
+                chosenSize={chosenSize}
+                chartIsForgettable={chartIsForgettable}
+                onPick={pickItemSize}
+                onUpload={() => chartInputRef.current?.click()}
+                onEnterManual={() => chartRead.startTyping(item.category)}
+                onForgetChart={forgetChart}
+                onPullListing={
+                  sizingAlbumPhotos.length
+                    ? () =>
+                        chartRead.read(sizingAlbumPhotos.slice(0, 3), {
+                          thumb: sizingAlbumPhotos[0] || "",
+                        })
+                    : null
+                }
+              />
             ) : null}
 
             <div className="cz-detail-chart-actions">

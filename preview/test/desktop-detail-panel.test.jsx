@@ -363,8 +363,8 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByText("Weidian")).toBeInTheDocument();
   });
 
-  // Phase 2 Chart tab (2026-08-02): size table with ease, pick sync, actions.
-  it("renders the Chart tab table, picks a size, and offers chart actions", async () => {
+  // Fit fold (2026-08-02): Chart tab is gone. Seller chart folds under Fit.
+  it("folds the seller chart under Fit, opens it, and picks a size", async () => {
     window.__setMediaMatches("(min-width: 1024px)", true);
     const onSaveEdit = vi.fn();
     const user = userEvent.setup();
@@ -382,15 +382,23 @@ describe("DesktopDetailPanel (Fix B)", () => {
       }
     );
 
-    await user.click(await screen.findByRole("tab", { name: "Chart" }));
+    expect(screen.queryByRole("tab", { name: "Chart" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Fit" })).toBeInTheDocument();
+
+    const foldToggle = await screen.findByRole("button", {
+      name: /THE SELLER'S CHART/i,
+    });
+    expect(foldToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("table", { name: /Size chart with ease/i })).toBeNull();
+
+    await user.click(foldToggle);
+    expect(foldToggle).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByText("PULLED FROM THE LISTING")).toBeInTheDocument();
-    expect(screen.getByText(/3 sizes/i)).toBeInTheDocument();
     expect(screen.getByRole("table", { name: /Size chart with ease/i })).toBeInTheDocument();
     expect(screen.getByText("Yours")).toBeInTheDocument();
-    expect(screen.getByText("Chart actions")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Upload photo" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Enter manually" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Forget chart" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enter by hand" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Forget" })).toBeInTheDocument();
 
     const sizeName = [...document.querySelectorAll(".cz-chart-size-name")].find(
       (n) => /^L(arge)?$/i.test(n.textContent.trim()) || n.textContent.trim() === "L"
@@ -401,12 +409,15 @@ describe("DesktopDetailPanel (Fix B)", () => {
     const patch = onSaveEdit.mock.calls.find((c) => c[1] && c[1].size);
     expect(patch).toBeTruthy();
 
+    // One analysis paragraph under the size result — not three stanzas.
+    expect(document.querySelector(".cz-fit-analysis")).toBeTruthy();
+    expect(document.querySelector(".cz-fit-summary")).toBeNull();
+    expect(document.querySelectorAll(".cz-fit-stanza").length).toBe(0);
+
     window.__setMediaMatches("(min-width: 1024px)", false);
   });
 
-  // Chart tab fit bars (2026-08-02): same tight/true/loose tracks as Fit tab,
-  // driven by the chosen size so marks slide when you pick another row.
-  it("shows measurement bars under the Chart table and updates them when a size is picked", async () => {
+  it("keeps Fit bars and moves them when a size is picked from the folded chart", async () => {
     window.__setMediaMatches("(min-width: 1024px)", true);
     const user = userEvent.setup();
     const chartText =
@@ -422,47 +433,44 @@ describe("DesktopDetailPanel (Fix B)", () => {
       }
     );
 
-    await user.click(await screen.findByRole("tab", { name: "Chart" }));
+    // Open measurement bars on Fit.
+    const readToggle = await screen.findByRole("button", {
+      name: /Measurement by measurement/i,
+    });
+    await user.click(readToggle);
     const bars = await waitFor(() => {
-      const el = document.querySelector(".cz-chart-fitread");
+      const el = document.querySelector(".cz-fitread");
       expect(el).toBeTruthy();
       return el;
     });
-    expect(bars.querySelectorAll(".cz-fitread-track").length).toBeGreaterThan(0);
-    expect(bars.querySelectorAll(".cz-fitread-band").length).toBeGreaterThan(0);
-    expect(bars.querySelector(".cz-fitread-scale")).toBeTruthy();
-    expect(within(bars).getByText("TIGHT")).toBeInTheDocument();
-    expect(within(bars).getByText("TRUE")).toBeInTheDocument();
-    expect(within(bars).getByText("LOOSE")).toBeInTheDocument();
-
+    expect(bars.querySelectorAll(".cz-fitread-mark").length).toBeGreaterThan(0);
     const marksBefore = [...bars.querySelectorAll(".cz-fitread-mark")].map(
       (n) => n.style.left
     );
-    expect(marksBefore.length).toBeGreaterThan(0);
 
-    // Pick a non-recommended size row (last chart row is the largest).
+    // Open seller chart and pick another size.
+    await user.click(
+      screen.getByRole("button", { name: /THE SELLER'S CHART/i })
+    );
     const sizeRows = [...document.querySelectorAll("button.cz-chart-row.is-size")];
     expect(sizeRows.length).toBeGreaterThan(1);
     const pickRow =
-      sizeRows.find((row) => !row.classList.contains("is-rec") && !row.classList.contains("is-pick")) ||
-      sizeRows[sizeRows.length - 1];
+      sizeRows.find(
+        (row) => !row.classList.contains("is-rec") && !row.classList.contains("is-pick")
+      ) || sizeRows[sizeRows.length - 1];
     await user.click(pickRow);
 
-    const barsAfter = document.querySelector(".cz-chart-fitread");
-    expect(barsAfter).toBeTruthy();
-    const marksAfter = [...barsAfter.querySelectorAll(".cz-fitread-mark")].map(
-      (n) => n.style.left
-    );
+    const marksAfter = [
+      ...document.querySelectorAll(".cz-fitread .cz-fitread-mark"),
+    ].map((n) => n.style.left);
     expect(marksAfter.length).toBe(marksBefore.length);
-    // At least one mark should move when a different size is chosen.
     expect(marksAfter.some((left, i) => left !== marksBefore[i])).toBe(true);
 
     window.__setMediaMatches("(min-width: 1024px)", false);
   });
 
-  it("shows empty Chart tab with Pull from listing when there is no chart", async () => {
+  it("hides the seller chart fold when there is no chart", async () => {
     window.__setMediaMatches("(min-width: 1024px)", true);
-    const user = userEvent.setup();
     renderPanel(
       panelItem({
         sizeNotes: "",
@@ -475,11 +483,8 @@ describe("DesktopDetailPanel (Fix B)", () => {
         bodyProfile: { chest: 105 },
       }
     );
-    await user.click(await screen.findByRole("tab", { name: "Chart" }));
-    expect(await screen.findByText("NO CHART YET")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /No chart yet/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Pull from listing" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Forget chart" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Chart" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /THE SELLER'S CHART/i })).toBeNull();
     window.__setMediaMatches("(min-width: 1024px)", false);
   });
 
