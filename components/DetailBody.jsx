@@ -3597,26 +3597,8 @@ export default function DetailBody({
               />
               {timelineBlock}
               {notesBlock}
-              <div className="cz-desk-fact-list cz-desk-link-list">
-                {linkButtons(item, { buyLabel })
-                  .filter((b, i, arr) => arr.findIndex((x) => x.url === b.url) === i)
-                  .map((b) => (
-                    <div className="cz-desk-fact-row" key={b.url + b.label}>
-                      <span className="cz-desk-fact-k">Link</span>
-                      <span className="cz-desk-fact-v">
-                        <a
-                          className="cz-detail-seller-link"
-                          href={b.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {b.label}
-                        </a>
-                      </span>
-                    </div>
-                  ))}
-              </div>
+              {/* Round 2 (2026-08-02): no LINK "Buy via …" row — redundant with
+                  the pinned footer Buy. Album/gallery row stays. */}
               <AlbumLinksRow item={item} className="cz-desk-album-links" />
             </section>
           ) : null}

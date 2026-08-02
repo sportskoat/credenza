@@ -17771,10 +17771,16 @@ input.cz-sizing-fix-size {
     --cz-focus: #ffffff;
     display: flex;
     flex-direction: column;
+    /* Round 2 (2026-08-02): Kyle's mock is Desktop 1360×820. Cap the card —
+       not the viewport — so rows stay tight on a ~2440px monitor. Photo/body
+       40/60 is on .cz-dpanel-body-grid (of the card). No conflict with the
+       earlier 1080px+zoom:1.25 rule: this block wins, zoom is off. */
     width: min(92vw, 1360px);
+    max-width: 1360px;
     height: min(90vh, 820px);
     min-height: 0;
     max-height: min(90vh, 820px);
+    margin: auto;
     border-radius: 16px;
     border: 1px solid var(--cz-hair);
     background: var(--cz-card-solid);

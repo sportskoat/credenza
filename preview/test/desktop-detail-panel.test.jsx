@@ -321,6 +321,12 @@ describe("DesktopDetailPanel (Fix B)", () => {
       expect(within(details).getByDisplayValue("QC pending")).toBeInTheDocument();
       // Seller stays under the title, not duplicated in Details rows.
       expect(within(details).queryByRole("link", { name: /replux/i })).toBeNull();
+      // Round 2: no LINK "Buy via …" row — footer Buy owns that job.
+      expect(within(details).queryByText(/^Link$/i)).toBeNull();
+      expect(within(details).queryByRole("link", { name: /Buy via/i })).toBeNull();
+      expect(screen.getByRole("button", { name: /Buy via Superbuy/i })).toBeInTheDocument();
+      // Album/gallery row stays under the mock content.
+      expect(details.querySelector(".cz-desk-album-links")).toBeTruthy();
 
       await user.click(screen.getByRole("tab", { name: "Settings" }));
       const settings = document.querySelector(".cz-desk-tab-settings");
@@ -341,6 +347,24 @@ describe("DesktopDetailPanel (Fix B)", () => {
     } finally {
       window.matchMedia = mm;
     }
+  });
+
+  it("pins the desktop card dialog at max-width 1360px (mock Desktop 1360)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
+    const css = readFileSync(join(root, "credenza-fashion.css"), "utf8");
+    // Card-back v2 block (Phase 1 shell) is the winning rule at ≥1024px.
+    const start = css.indexOf("/* ── Card back v2 (Phase 1: shell + Fit tab) ── */");
+    expect(start).toBeGreaterThan(-1);
+    // Token block is long — read far enough for width + body-grid ratio.
+    const block = css.slice(start, start + 5200);
+    expect(block).toMatch(/max-width:\s*1360px/);
+    expect(block).toMatch(/width:\s*min\(92vw,\s*1360px\)/);
+    expect(block).toMatch(/max-height:\s*min\(90vh,\s*820px\)/);
+    // Photo/body ratio is of the card, not the viewport.
+    expect(block).toContain("grid-template-columns: 40% minmax(0, 60%)");
   });
 
   it("pins Add a note as a compact pill and Settings without Not sure yet", async () => {
