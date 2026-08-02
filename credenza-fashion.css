@@ -6959,10 +6959,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 /* Desktop: floating card, not a full-bleed takeover. margin:auto centers
    a fixed dialog when width and height are set.
-   Kyle 2026-08-02: use nearly the full desktop height so the settings form
-   needs less internal scrolling. Match the translucent sign-in card with the
-   same frost tokens; the dialog backdrop already supplies the visible blur,
-   so the surface must not add another backdrop-filter. */
+   Kyle 2026-08-02: nearly full desktop height so less internal scrolling.
+   Kyle 2026-08-02 (settings polish): solid card surface — frost/translucent
+   was distracting on the large settings page. Keep theme ink tokens (not
+   frost remaps). Backdrop dim stays on ::backdrop only. */
 @media (min-width: 768px) {
   .cz-settings-page {
     width: min(920px, calc(100vw - 48px));
@@ -6970,14 +6970,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     max-width: min(920px, calc(100vw - 48px));
     max-height: calc(100dvh - 24px);
     margin: auto;
-    border: 1px solid var(--cz-frost-border);
+    border: 1px solid var(--cz-card-border, var(--cz-hair));
     border-radius: 16px;
-    background: var(--cz-frost-fill);
-    --cz-ink: var(--cz-frost-ink);
-    --cz-sub: var(--cz-frost-faint);
-    --cz-faint: var(--cz-frost-faint);
-    --cz-hair: var(--cz-frost-border);
-    --cz-seg: var(--cz-frost-active);
+    background: var(--cz-card-solid);
     color: var(--cz-ink);
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.06),

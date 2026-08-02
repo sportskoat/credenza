@@ -173,7 +173,18 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
 
   return (
     <SettingsContext.Provider value={value}>
-      <dialog ref={dialogRef} className="cz-settings-page" aria-label="Settings">
+      {/* Backdrop click closes (same light-dismiss pattern as DesktopDetailPanel).
+          Escape closes via the key handler above. */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop click-to-close; keyboard users close via Escape */}
+      <dialog
+        ref={dialogRef}
+        className="cz-settings-page"
+        aria-label="Settings"
+        onClick={(e) => {
+          // A click on the dialog element itself is a click on its native backdrop.
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
         <header className="cz-settings-page-masthead">
           <button type="button" className="cz-settings-back" onClick={onClose}>
             <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
