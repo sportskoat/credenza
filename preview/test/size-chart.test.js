@@ -26,6 +26,19 @@ describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
     expect(display.label).toBe("YOUR USUAL");
     expect(display.size).toBe("L");
   });
+
+  it("does not label AI size from a stale recommendedSize without a chart", () => {
+    const item = {
+      category: "shirt",
+      title: "No chart tee",
+      recommendedSize: "L",
+    };
+    const profile = { usualTops: "L", chest: 100 };
+    const display = resolveDisplaySize(item, profile);
+    expect(display.kind).toBe("usual");
+    expect(display.label).toBe("YOUR USUAL");
+    expect(display.isRec).toBe(false);
+  });
 });
 
 describe("sizeChartTextFor", () => {

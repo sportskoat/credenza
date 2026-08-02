@@ -131,6 +131,33 @@ describe("Yupoo function", () => {
     expect(gallery.every((g) => !/chart|named/.test(g.url))).toBe(true);
   });
 
+  it("flags a small early JPG chart by size, not only PNG or filename", () => {
+    // Repro: album photo 1 is 750×625 JPG chart with a random CDN name.
+    const html = [
+      tile("cdnnoise1", { w: 750, h: 625, alt: "abc123.jpg", ext: "jpg" }),
+      ...Array.from({ length: 8 }, (_, i) => tile("p" + i, { w: 1600, h: 1600 })),
+    ].join("");
+    const { gallery, charts } = _test.partitionTiles(_test.extractPhotoTiles(html, ALBUM));
+    expect(charts.some((c) => /cdnnoise1/.test(c.url))).toBe(true);
+    expect(gallery.every((g) => !/cdnnoise1/.test(g.url))).toBe(true);
+    expect(gallery.length).toBeGreaterThan(0);
+  });
+
+  it("keeps photo 1 as cover when every tile is a named chart", () => {
+    // albumImages falls back to all tiles when gallery is empty, so the card
+    // still has a cover. Charts stay available for the hunt.
+    const html = Array.from({ length: 4 }, (_, i) =>
+      tile("c" + i, { w: 900, h: 700, alt: "size chart " + i + ".jpg", ext: "jpg" })
+    ).join("");
+    const tiles = _test.extractPhotoTiles(html, ALBUM);
+    const { gallery, charts } = _test.partitionTiles(tiles);
+    expect(gallery).toHaveLength(0);
+    expect(charts).toHaveLength(4);
+    // Fallthrough used by albumImages: empty gallery → use tiles for cover.
+    const shown = gallery.length ? gallery : tiles;
+    expect(shown[0].url).toBe(tiles[0].url);
+  });
+
   it("drops tiny and strip-shaped tiles, and keeps tiles with no declared size", () => {
     const html = [
       tile("tiny", { w: 120, h: 120 }),

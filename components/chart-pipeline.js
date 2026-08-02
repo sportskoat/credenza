@@ -112,10 +112,14 @@ export function scoreChartCandidate(candidate) {
   if (w > 0 && h > 0) {
     const aspect = Math.max(w / h, h / w);
     // Table screenshots are often wide or near-square, not tall product shots.
-    if (aspect >= 1.15 && aspect <= 2.8) score += 20;
+    // Near-square (750×625) still scores — do not require a wide aspect.
+    if (aspect >= 1.05 && aspect <= 2.8) score += 20;
     else if (aspect > 3.2) score -= 15; // banner strip
     const edge = Math.max(w, h);
-    if (edge > 0 && edge < 900) score += 10;
+    // Small edge vs typical product shots (often 1500–2000px) is the main
+    // chart signal when the filename is random CDN noise.
+    if (edge > 0 && edge < 900) score += 30;
+    else if (edge > 0 && edge < 1200) score += 15;
     if (edge > 2000) score -= 5;
   }
 

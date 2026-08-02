@@ -53,7 +53,11 @@ import { chartImageKey, rememberChartImage, validateChartResult } from "./chart-
 import { AlbumLinksRow } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import SlidingTabsPill from "./SlidingTabsPill.jsx";
-import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
+import {
+  pickSizeRunFromVariants,
+  pickSizeValuesFromVariants,
+  whatsAppChatUrl,
+} from "../listing-facts.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
 // to be consistent — like the mobile back"). The phone DetailSheet and the
@@ -426,7 +430,9 @@ function SizingBlock({
     ? "Verified fit"
     : "Your usual size";
   const kickerLabel = !isManual
-    ? "AI size"
+    ? recSize
+      ? "AI size"
+      : "Your usual size"
     : agreedWithRec
       ? "Recommended pick"
       : "Your pick";
@@ -776,9 +782,16 @@ function SizingBlockNoChart({
   needsClear = false,
   onClearChart,
   needsSignIn = false,
+  // WhatsApp when no validated chart rec (even if variants list S–XL).
+  whatsapp = "",
+  variantRun = "",
 }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const thumbs = (albumPhotos || []).slice(0, 2);
+  const waUrl = whatsAppChatUrl(whatsapp);
+  // Show WhatsApp when the seller listed a contact and we have no chart
+  // recommendation (this block only mounts with no validated chart).
+  const showWhatsApp = !!waUrl && !needsSignIn && !needsClear;
 
   return (
     <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
@@ -787,42 +800,68 @@ function SizingBlockNoChart({
         {/* The server refused to read this link because nobody is signed in.
             The card says so here, where the chart belongs, so an empty card
             never reads as a broken site (Kyle 2026-07-30). */}
-        <span className="cz-sizing-kicker">{needsSignIn ? "Needs sign-in" : "No chart"}</span>
+        <span className="cz-sizing-kicker">
+          {needsSignIn ? "Needs sign-in" : showWhatsApp ? "No size in link" : "No chart"}
+        </span>
         {/* Round 5 point 5.1: one notice for a hand pick — "you picked this"
             beside the size word. The "SET BY YOU" label here was a second
             copy, so a hand pick now leaves the provenance slot empty.
             2026-07-29 (Oom review): the fallback line shows only when a
             usual size EXISTS to fall back to — "FELL BACK TO YOUR USUAL"
             beside "no usual size saved" contradicts itself. */}
-        {isManual || !heroLabel ? null : <span className="cz-sizing-prov">FELL BACK TO YOUR USUAL</span>}
-      </div>
-
-      <div className="cz-sizing-value-row">
-        {heroLabel ? (
-          <>
-            <span className="cz-sizing-value">{heroLabel}</span>
-            <span className="cz-sizing-aside">
-              {isManual ? "you picked this · not verified" : "your usual · not verified"}
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="cz-sizing-value is-empty">—</span>
-            <span className="cz-sizing-aside">no usual size saved</span>
-          </>
+        {isManual || !heroLabel || showWhatsApp ? null : (
+          <span className="cz-sizing-prov">FELL BACK TO YOUR USUAL</span>
         )}
       </div>
 
-      <p className="cz-sizing-nochart-body">
-        {needsSignIn
-          ? "Sign in to finish this card. Credenza then reads the product, the photos, and the size chart."
-          : needsClear
-          ? "This saved chart came from another item. It is hidden. Clear it before reading this item's photos."
-          : /* Kyle 2026-07-30: keep this state short. Two lines, then the
-               buttons. The old copy explained the upload button that sits
-               directly below it. */
-            "No size chart found."}
-      </p>
+      {showWhatsApp ? (
+        <>
+          {/* Kyle exact copy — do not reword. */}
+          <p className="cz-sizing-nochart-body cz-sizing-whatsapp-copy">
+            No size available in link, message seller on WhatsApp
+          </p>
+          {variantRun ? (
+            <p className="cz-sizing-nochart-body cz-sizing-variant-run">Sizes listed: {variantRun}</p>
+          ) : null}
+          <a
+            className="cz-sizing-whatsapp-btn"
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            WhatsApp
+          </a>
+        </>
+      ) : (
+        <>
+          <div className="cz-sizing-value-row">
+            {heroLabel ? (
+              <>
+                <span className="cz-sizing-value">{heroLabel}</span>
+                <span className="cz-sizing-aside">
+                  {isManual ? "you picked this · not verified" : "your usual · not verified"}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="cz-sizing-value is-empty">—</span>
+                <span className="cz-sizing-aside">no usual size saved</span>
+              </>
+            )}
+          </div>
+
+          <p className="cz-sizing-nochart-body">
+            {needsSignIn
+              ? "Sign in to finish this card. Credenza then reads the product, the photos, and the size chart."
+              : needsClear
+              ? "This saved chart came from another item. It is hidden. Clear it before reading this item's photos."
+              : /* Kyle 2026-07-30: keep this state short. Two lines, then the
+                   buttons. The old copy explained the upload button that sits
+                   directly below it. */
+                "No size chart found."}
+          </p>
+        </>
+      )}
 
       {/* A photo read costs the same refused call, so hide the album row until
           the visitor signs in. */}
@@ -3519,6 +3558,8 @@ export default function DetailBody({
                 albumCount={sizingAlbumPhotos.length}
                 needsClear={item.sizeChartNeedsClear}
                 needsSignIn={item.needsSignIn === true}
+                whatsapp={item.whatsapp || ""}
+                variantRun={verdict.variantRun || ""}
                 onClearChart={clearBlockedChart}
                 onOpenAlbum={() => {
                   chartRead.read(sizingAlbumPhotos.slice(0, 3), {
