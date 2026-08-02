@@ -1861,22 +1861,11 @@ describe("a feature the price table sells is explained somewhere else", () => {
       needs: ["one link in, one resolve spent", "counts server reads, not items"],
       why: "the row with the widest free/Pro gap on the table was the one unit the site never defined",
     },
-    // LB-57. Added 2026-07-27. Fourth census, same method as LB-55: strip the
-    // chrome, read the sentence behind every hit. Ask looked well covered at 9
-    // mentions in the LB-51 count. With nav and footer removed it was four
-    // sentences on three pages, and three of the four were limits lists that
-    // name Ask beside chart reads and link resolves. The one real explanation
-    // was a single card on /how/. The price table sells 5 a day against 200.
+    // LB-57 sold "Ask" here. Removed 2026-07-31: /pricing/ dropped the row
+    // because nothing in the app calls the Ask button it advertised —
+    // the backend (netlify/functions/ask.js) has no caller in the UI.
+    // No row, no entry to explain it.
     //
-    // Both phrases are the mechanism, not the feature name. "Ask" passes on
-    // any limits list. The first says what the model actually receives — a
-    // slice of your own shelf, not a catalog and not the whole shelf. The
-    // second says what the counter counts, which is the row's whole subject.
-    {
-      row: "Ask",
-      needs: ["the 25 cards closest to your question", "one press of cloud ask is one ask"],
-      why: "the feature with the widest gap after link resolves had one card explaining it",
-    },
     // LB-59. Added 2026-07-27. The next census after LB-58 ran the same
     // <main>-stripped count over the rows with no entry here. AI size-chart
     // reads was the thinnest: five sentences on five pages, and all five were
