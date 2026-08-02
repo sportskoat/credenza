@@ -18157,21 +18157,22 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-fitread-kicker {
     color: var(--cz-faint);
   }
+  /* Keep five cells (name · scale · theirs · yours · ease) on a real grid so
+     the heads never run together as one word (Kyle 2026-08-02 squish). The
+     old flex + gap: 8px 0 zeroed column gap and crushed LARGETIGHTTRUE… */
   .cz-dpanel .cz-fitread-row {
     min-height: 44px;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 84px minmax(120px, 1fr) 48px 48px 54px;
+    gap: 8px 12px;
     align-items: center;
-    gap: 8px 0;
   }
   .cz-dpanel .cz-fitread-name {
-    flex: 0 0 84px;
     color: var(--cz-sub);
     font-size: 12.5px;
   }
   .cz-dpanel .cz-fitread-track {
-    flex: 1 1 180px;
-    min-width: 150px;
+    min-width: 0;
     height: 5px;
     border-radius: 999px;
     background: var(--cz-track);
