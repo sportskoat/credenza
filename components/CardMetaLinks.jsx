@@ -1,10 +1,13 @@
 import { sellerStoreUrl, yupooAlbumUrl } from "../credenza-fashion.jsx";
 
-// Seller name, hyperlinked to the store when we know it (Weidian/Yupoo home,
-// host fallback). The one place seller renders as a link-or-text.
+// Seller name as a hyperlink when we can open anything useful: the store
+// homepage first (Yupoo), else the listing URL (Weidian/Taobao/etc). Plain
+// text only when neither exists. Kyle 2026-08-02: the card detail lost the
+// seller link after the dark shell hid the title subline — keep this the one
+// place the name renders as link-or-text so the header can reuse it.
 export function SellerLink({ item, className = "cz-seller-link", style }) {
   if (!item || !item.seller) return null;
-  const href = sellerStoreUrl(item);
+  const href = sellerStoreUrl(item) || (item.url ? String(item.url).trim() : "") || null;
   if (href) {
     return (
       <a
