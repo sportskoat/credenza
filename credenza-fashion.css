@@ -3984,6 +3984,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   appearance: none;
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -3991,6 +3992,85 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font: inherit;
   white-space: nowrap;
   cursor: pointer;
+}
+
+/* Budget ring: small filled arc next to the Budget text. */
+.cz-haul-board-ring {
+  --fill: 0%;
+  --ring-color: var(--cz-accent);
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: conic-gradient(
+    var(--ring-color) var(--fill),
+    color-mix(in srgb, var(--cz-hair) 70%, transparent) 0
+  );
+  /* Hollow centre so it reads as a ring, not a pie. */
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 3px),
+    var(--cz-ink) calc(100% - 2px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 3px),
+    var(--cz-ink) calc(100% - 2px)
+  );
+}
+
+/* Spent share 0–69%: accent. 70–99%: warn. 100%+: error. */
+.cz-haul-board-ring--ok {
+  --ring-color: color-mix(in srgb, var(--cz-accent) 100%, var(--cz-warn) 0%);
+}
+.cz-haul-board-ring--warn {
+  --ring-color: color-mix(in srgb, var(--cz-warn) 100%, var(--cz-accent) 0%);
+}
+.cz-haul-board-ring--over {
+  --ring-color: color-mix(in srgb, var(--cz-error-text) 100%, var(--cz-warn) 0%);
+}
+
+/* Parcel text + thin weight bar stacked in one control. */
+.cz-haul-board-stat--with-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  white-space: normal;
+}
+
+.cz-haul-board-stat-text {
+  white-space: nowrap;
+}
+
+/* Segmented parcel weight bar — monochrome only. */
+.cz-haul-board-weight-bar {
+  display: inline-flex;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--cz-hair) 55%, transparent);
+}
+
+.cz-haul-board-weight-seg {
+  display: block;
+  height: 100%;
+  width: var(--seg-w, 0%);
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+
+.cz-haul-board-weight-seg:nth-child(odd) {
+  background: var(--cz-accent);
+}
+
+.cz-haul-board-weight-seg:nth-child(even) {
+  background: var(--cz-accent-bg);
+}
+
+.cz-haul-board-weight-seg:not(:last-child) {
+  border-right: 1px solid var(--cz-hair);
 }
 
 .cz-haul-board-btn {
