@@ -3328,7 +3328,7 @@ export default function DetailBody({
         </div>
       ) : null}
 
-      <div className={isDesktopPanel ? "cz-fit-shell" : undefined}>
+      <div className={isDesktopPanel ? "cz-fit-shell" : "cz-sheet-shell"}>
       {isDesktopPanel ? (
           <div className="cz-fit-controls">
             <div
