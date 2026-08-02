@@ -225,4 +225,37 @@ describe("SettingsPage (one-page redesign)", () => {
       /\.cz-settings-content\s*\{[^}]*overscroll-behavior:\s*contain;/s
     );
   });
+
+  // Mobile item 5 (2026-08-02): "Back to the shelf" was clipped under the
+  // status bar and too small to tap. Masthead grows with safe-area; back is 44px.
+  it("grows the settings masthead with safe-area so the back control is fully visible", () => {
+    const start = CSS.indexOf(".cz-settings-page-masthead {");
+    expect(start).toBeGreaterThan(-1);
+    const block = CSS.slice(start, CSS.indexOf(".cz-settings-back {", start));
+    expect(block).toMatch(
+      /min-height:\s*calc\(52px \+ env\(safe-area-inset-top,\s*0px\)\)/
+    );
+    expect(block).toMatch(/safe-area-inset-top/);
+    // Fixed height:52 was the clip: padding-top ate into it on notched phones.
+    expect(block).not.toMatch(/^\s*height:\s*52px;/m);
+  });
+
+  it("pins a 44px min hit area on Back to the shelf", () => {
+    const start = CSS.indexOf(".cz-settings-back {");
+    expect(start).toBeGreaterThan(-1);
+    const block = CSS.slice(start, CSS.indexOf(".cz-settings-back:hover", start));
+    expect(block).toMatch(/min-height:\s*44px/);
+  });
+
+  it("keeps the back control reachable on a phone layout", () => {
+    const onClose = vi.fn();
+    const { container } = renderPage({ onClose, isPhone: true });
+    const back = within(container).getByRole("button", {
+      name: /Back to the shelf/i,
+    });
+    expect(back).toBeTruthy();
+    expect(back.classList.contains("cz-settings-back")).toBe(true);
+    fireEvent.click(back);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

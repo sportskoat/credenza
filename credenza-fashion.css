@@ -6992,24 +6992,31 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Settings redesign 2026-08-01 — one-page scroll-spy shell (handoff 1a/1d). */
+/* Mobile item 5 (2026-08-02): a fixed height:52px plus padding-top:safe-area
+   ate the row on notched phones and clipped "Back to the shelf". Height grows
+   with the inset so the control stays fully visible under the status bar. */
 .cz-settings-page-masthead {
   display: flex;
   align-items: center;
   gap: 14px;
   flex: none;
-  height: 52px;
+  min-height: calc(52px + env(safe-area-inset-top, 0px));
+  height: auto;
   box-sizing: border-box;
-  padding: 0 18px;
-  padding-top: env(safe-area-inset-top, 0px);
+  padding: env(safe-area-inset-top, 0px) 18px 0;
   border-bottom: 1px solid var(--cz-hair);
   background: var(--cz-card-solid);
 }
 
+/* Mobile item 5: 44px tap floor (house pattern). Visual stays a text row;
+   min-height grows the hit box so the control is easy to tap on a phone. */
 .cz-settings-back {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  height: 32px;
+  position: relative;
+  min-height: 44px;
+  height: auto;
   padding: 0 4px 0 0;
   border: 0;
   border-radius: 0;
@@ -12308,10 +12315,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  /* Horizontal swipe only. Do not let the browser freestyle-pan the photo
-     or claim a vertical pan here (Kyle 2026-07-25: "lock this to only swipe"). */
-  touch-action: pan-x;
-  overscroll-behavior-x: contain;
+  /* Mobile item 3 (2026-08-02): pan-x alone ate vertical pans, so a finger on
+     the photo could not scroll the sheet and instead rubber-banded the whole
+     surface (looked like a sheet drag). Allow both axes: horizontal pages the
+     album; vertical chains to .cz-detail-scroll. Sheet-close is grip-only
+     (DetailSheet) and never arms from this track. */
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
 }
 
 .cz-detail-hero-track::-webkit-scrollbar {
@@ -12335,17 +12345,16 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    2026-07-25). Reset the button chrome; the img fills it.
    The selector carries the app root on purpose. Every button in the app takes
    `touch-action: manipulation` near the top of this file, and that rule is
-   stronger than a bare class, so it kept winning here. A finger on the photo
-   could then drag the sheet up and down as well as sideways (Kyle 2026-07-28:
-   "you can move them up and down, whereas you should just be able to move them
-   left to right"). Matching the root's strength gives the photo one axis. */
+   stronger than a bare class, so it kept winning here. Mobile item 3 needs
+   both axes (see .cz-detail-hero-track) so vertical pans scroll the sheet
+   instead of fighting the surface — match root strength with pan-x pan-y. */
 .cz-app[data-fashion="true"] .cz-detail-hero-slide,
 .cz-detail-hero-slide {
   display: block;
   padding: 0;
   border: 0;
   cursor: zoom-in;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
 }
 
 .cz-detail-hero-slide img {
