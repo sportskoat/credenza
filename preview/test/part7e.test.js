@@ -167,6 +167,55 @@ describe("getValidSession", () => {
     expect(await getValidSession({ fetchImpl, host })).toBeNull();
     expect(loadSession(host)).toBeNull();
   });
+
+  // 2026-08-02 incident: a single transient refresh failure (cold function,
+  // network blip) was falling through to null, so the caller sent NO
+  // Authorization header at all and the server 401'd a live session.
+  it("retries once on a transient refresh error, then succeeds", async () => {
+    const host = fakeHost();
+    saveSession({ accessToken: "old", refreshToken: "r1", expiresAt: Date.now() - 1000, user: {} }, host);
+    const token = fakeAccessToken();
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      if (calls === 1) return okJson({ error: "upstream timeout" }, 504);
+      return okJson({ access_token: token, refresh_token: "r2", expires_in: 3600 });
+    };
+    const session = await getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(calls).toBe(2);
+    expect(session.accessToken).toBe(token);
+    expect(loadSession(host).refreshToken).toBe("r2");
+  });
+
+  it("keeps the stored (still-live) token when the refresh stays transient after the retry", async () => {
+    const host = fakeHost();
+    saveSession({ accessToken: "old", refreshToken: "r1", expiresAt: Date.now() - 1000, user: {} }, host);
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      throw new Error("network unreachable"); // no .status -> transient
+    };
+    const session = await getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(calls).toBe(2); // one attempt + one retry, never a bare fall-through
+    expect(session).not.toBeNull();
+    expect(session.accessToken).toBe("old");
+    // The stored session is untouched — this was not treated as a sign-out.
+    expect(loadSession(host).accessToken).toBe("old");
+  });
+
+  it("still signs out on rejection even after the retry path exists", async () => {
+    const host = fakeHost();
+    saveSession({ accessToken: "old", refreshToken: "r1", expiresAt: Date.now() - 1000, user: {} }, host);
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      return okJson({ error: "invalid_grant" }, 401);
+    };
+    const session = await getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(calls).toBe(1); // rejection is permanent -> no retry
+    expect(session).toBeNull();
+    expect(loadSession(host)).toBeNull();
+  });
 });
 
 describe("signOut", () => {

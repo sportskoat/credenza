@@ -160,8 +160,13 @@ describe("a paid session survives a server outage", () => {
   it("keeps the session when the renewal server answers 500", async () => {
     saveExpiring();
     const fetchImpl = async () => ({ ok: false, status: 500, json: async () => ({}) });
-    expect(await auth.getValidSession({ fetchImpl, host })).toBe(null);
-    // The session is still on the device, so the next call tries again.
+    // A transient failure retries once, then falls back to the still-live
+    // stored token instead of no session at all (2026-08-02 incident: this
+    // used to return null here, so the caller sent no Authorization header
+    // and the server 401'd a session that was really fine).
+    const session = await auth.getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(session).not.toBe(null);
+    expect(session.accessToken).toBe("old-access");
     expect(auth.loadSession(host)).not.toBe(null);
   });
 
@@ -170,7 +175,9 @@ describe("a paid session survives a server outage", () => {
     const fetchImpl = async () => {
       throw new Error("offline");
     };
-    expect(await auth.getValidSession({ fetchImpl, host })).toBe(null);
+    const session = await auth.getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(session).not.toBe(null);
+    expect(session.accessToken).toBe("old-access");
     expect(auth.loadSession(host)).not.toBe(null);
   });
 
