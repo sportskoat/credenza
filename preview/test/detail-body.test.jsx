@@ -87,6 +87,34 @@ describe("DetailBody detail facts", () => {
     expect(container.querySelector(".cz-detail-scroll")).toHaveAttribute("data-pane", "fit");
   });
 
+  // Mobile item 1 (2026-08-02): phone sheet scrollport never formed because the
+  // middle wrapper was unclassed and sized to content. Named shell + constraint
+  // rules pin the fix; overscroll contain stays on the sheet scroller.
+  it("wraps the phone scroller in cz-sheet-shell so the scrollport can form", () => {
+    const { container } = render(
+      body(item("phone-shell"), {
+        heroPager: true,
+        onRequestClose: vi.fn(),
+        footerPrice: "$27.75",
+      })
+    );
+    const scroll = container.querySelector(".cz-detail-scroll");
+    expect(scroll).not.toBeNull();
+    const shell = scroll.closest(".cz-sheet-shell");
+    expect(shell, "phone middle wrapper must be .cz-sheet-shell").not.toBeNull();
+    expect(shell.querySelector(".cz-detail-scroll")).toBe(scroll);
+    expect(container.querySelector(".cz-fit-shell")).toBeNull();
+  });
+
+  it("pins cz-sheet-shell flex constraint and sheet-scroller overscroll contain", () => {
+    expect(CSS).toMatch(
+      /\.cz-sheet-shell\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*flex:\s*1\s+1\s+0;[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;/s
+    );
+    expect(CSS).toMatch(
+      /\.cz-detail-scroll\s*\{[^}]*overflow-y:\s*auto;[^}]*overscroll-behavior:\s*contain;/s
+    );
+  });
+
   it("uses the phone three-column fit read and the final chart-control copy", () => {
     render(
       body(item("phone-fit"), {

@@ -7170,6 +7170,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   padding: 26px 34px 40px;
   scroll-behavior: smooth;
   /* Sizes stack rules key to this width, not the window — the floating
@@ -12239,6 +12240,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   height: 4px;
   border-radius: 999px;
   background: var(--cz-hair-strong);
+}
+
+/* Phone item sheet: middle wrapper between surface chrome (grip / header /
+   tabs / foot) and .cz-detail-scroll. Without this constraint the wrapper
+   sizes to content, the scroll node grows with its children (ch === sh),
+   and vertical pans have nowhere to go. Desktop uses .cz-fit-shell instead. */
+.cz-sheet-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .cz-detail-scroll {

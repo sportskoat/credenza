@@ -217,4 +217,12 @@ describe("SettingsPage (one-page redesign)", () => {
     expect(container.querySelector(".cz-settings-nav")).toBeNull();
     expect(container.querySelectorAll("[data-settings-section]")).toHaveLength(5);
   });
+
+  // Mobile item 1 free win (2026-08-02): keep page-behind still when settings
+  // overscrolls. Body lock masks this today; contain makes it honest.
+  it("pins overscroll-behavior contain on .cz-settings-content", () => {
+    expect(CSS).toMatch(
+      /\.cz-settings-content\s*\{[^}]*overscroll-behavior:\s*contain;/s
+    );
+  });
 });
