@@ -8777,9 +8777,10 @@ function CredenzaApp() {
 
   // Plain shelf surface — also doubles as the open-haul carousel/cards/rows
   // surface when view === "hauls" && activeHaul (branches internally on viewMode).
-  // Only fades when it's standing in for the open-haul carousel inside the
-  // Hauls-tab AnimatePresence above; plain Shelf-tab renders skip animation
-  // entirely (initial={false}) so viewMode/tab switches stay instant.
+  // Fades on every surface swap: Shelf <-> directory, directory <-> open
+  // haul — one AnimatePresence at the render site drives all three (Kyle
+  // 2026-08-02). In-shelf switches (viewMode, filter chips) never remount
+  // the "shelf" key, so those stay instant as before.
   // One carousel renderer, two presentations (Kyle 2026-07-22): the toolbar's
   // carousel view swaps the surface and gets the full list; a grid tap pops
   // just the tapped card up in the overlay layer below — same props, same
@@ -8943,9 +8944,14 @@ function CredenzaApp() {
       role="tabpanel"
       id={view === "hauls" ? "view-panel-hauls" : "view-panel-shelf"}
       aria-labelledby={view === "hauls" ? "view-tab-hauls" : "view-tab-shelf"}
-      initial={openHaulName ? { opacity: 0, scale: 0.98 } : false}
+      // Kyle 2026-08-02: the Shelf/Hauls view switch gets the same motion as
+      // the shelf filters — the surfaces crossfade instead of snapping.
+      // First load still skips it (AnimatePresence initial={false} at the
+      // render site), and in-shelf switches (viewMode, filter chips) never
+      // remount this key, so those stay instant.
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={openHaulName ? { opacity: 0, scale: 0.98 } : undefined}
+      exit={{ opacity: 0, scale: 0.98 }}
       transition={HAUL_SURFACE_TRANSITION}
     >
       {/* Shelf */}
@@ -10424,16 +10430,17 @@ function CredenzaApp() {
               </div>
             ))}
           </div>
-        ) : view === "hauls" ? (
+        ) : (
+          // One swapper for every surface switch (Kyle 2026-08-02): Shelf,
+          // the haul directory, and an open haul crossfade through the same
+          // mode="wait" pair, so the view tabs move like the filter chips.
           <AnimatePresence
             mode="wait"
             initial={false}
             onExitComplete={() => setClosingHaulName(null)}
           >
-            {activeHaul ? shelfSurface : haulDirectorySurface}
+            {view === "hauls" && !activeHaul ? haulDirectorySurface : shelfSurface}
           </AnimatePresence>
-        ) : (
-          shelfSurface
         )}
         </main>
       </div>
