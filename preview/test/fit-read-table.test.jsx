@@ -8,6 +8,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const FIT_CSS = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../../credenza-fashion.css"),
+  "utf8"
+);
 
 const { huntMock, fileReadMock } = vi.hoisted(() => ({
   huntMock: vi.fn(),
@@ -523,5 +531,43 @@ describe("typing a chart by hand", () => {
     await user.click(screen.getByRole("button", { name: "Save this chart" }));
 
     expect(onSaveEdit.mock.calls[0][1].sizeChartText).toBe("36: chest 100\n38: chest 104");
+  });
+});
+
+// F 2026-08-02: number columns must fit CM worst case ("116.5cm", "+23.0cm")
+// without shrinking the 11px mono font. ch units keep columns aligned across
+// rows (max-content would rag short vs long values on separate row grids).
+describe("fit-read number column widths (CM legibility)", () => {
+  it("sizes the three number columns with ch floors on desktop and phone", () => {
+    expect(FIT_CSS).toContain(
+      "grid-template-columns: 70px 1fr max(40px, 8ch) max(40px, 8ch) max(54px, 9ch)"
+    );
+    expect(FIT_CSS).toContain(
+      "grid-template-columns: 54px 1fr max(30px, 8ch) max(30px, 8ch) max(40px, 9ch)"
+    );
+    // Old fixed px tracks must not return — they overflowed "116.5cm".
+    expect(FIT_CSS).not.toContain("grid-template-columns: 70px 1fr 40px 40px 54px");
+    expect(FIT_CSS).not.toContain("grid-template-columns: 54px 1fr 30px 30px 40px");
+  });
+
+  it("keeps mono numbers nowrap + tabular at 11px (no font shrink)", () => {
+    const block = FIT_CSS.match(
+      /\.cz-fitread-theirs,\s*\.cz-fitread-yours,\s*\.cz-fitread-ease\s*\{[^}]+\}/
+    );
+    expect(block, "number cell rule missing").toBeTruthy();
+    expect(block[0]).toContain("font-size: 11px");
+    expect(block[0]).toContain("font-variant-numeric: tabular-nums");
+    expect(block[0]).toContain("white-space: nowrap");
+    expect(block[0]).toContain("text-align: right");
+  });
+
+  it("sizes desktop panel number flex columns the same way", () => {
+    // Desktop panel uses flex, not the base grid — it needs its own floors.
+    expect(FIT_CSS).toMatch(
+      /\.cz-dpanel \.cz-fitread-theirs,[\s\S]*?min-width:\s*max\(40px,\s*8ch\)/
+    );
+    expect(FIT_CSS).toMatch(
+      /\.cz-dpanel \.cz-fitread-ease\s*\{[^}]*min-width:\s*max\(54px,\s*9ch\)/
+    );
   });
 });
