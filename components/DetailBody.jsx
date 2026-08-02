@@ -283,19 +283,58 @@ function buildTimeline(item, sizeText, sizeFrom) {
 function Timeline({ rows }) {
   if (!rows.length) return null;
   return (
-    <ol className="cz-timeline">
-      {rows.map((row) => (
-        <li key={row.key} className="cz-timeline-row">
-          <span className="cz-timeline-date">{row.date}</span>
-          <span className="cz-timeline-text">
-            {row.text}
-            {row.strong ? <strong> {row.strong}</strong> : null}
-            {row.tail || ""}
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div className="cz-timeline-block">
+      <h3 className="cz-timeline-kicker">History</h3>
+      <ol className="cz-timeline">
+        {rows.map((row) => (
+          <li key={row.key} className="cz-timeline-row">
+            <span className="cz-timeline-date">{row.date}</span>
+            <span className="cz-timeline-text">
+              {row.text}
+              {row.strong ? <strong> {row.strong}</strong> : null}
+              {row.tail || ""}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
+}
+
+// Mock Settings (Turn 3): fixed read-only body rows + height.
+// Sleeve uses long when present, else short. Empty values show an em dash.
+function formatBodyHeightLabel(cm, units) {
+  if (cm == null || !Number.isFinite(Number(cm)) || Number(cm) <= 0) return "—";
+  const n = Number(cm);
+  if (units === "cm") return Math.round(n) + " cm";
+  const totalIn = n / 2.54;
+  const ft = Math.floor(totalIn / 12);
+  let inch = Math.round(totalIn - ft * 12);
+  if (inch === 12) return ft + 1 + "'0\"";
+  return ft + "'" + inch + '"';
+}
+
+function bodyMeasureRows(bodyProfile, units) {
+  const p = bodyProfile && typeof bodyProfile === "object" ? bodyProfile : {};
+  const sleeve =
+    p.longSleeve != null && Number(p.longSleeve) > 0
+      ? p.longSleeve
+      : p.shortSleeve != null && Number(p.shortSleeve) > 0
+        ? p.shortSleeve
+        : p.sleeve != null
+          ? p.sleeve
+          : null;
+  const show = (cm) =>
+    cm != null && Number.isFinite(Number(cm)) && Number(cm) > 0
+      ? formatMeasure(Number(cm), units)
+      : "—";
+  return [
+    { key: "chest", label: "Chest", value: show(p.chest) },
+    { key: "sleeve", label: "Sleeve", value: show(sleeve) },
+    { key: "shoulder", label: "Shoulder", value: show(p.shoulder) },
+    { key: "torso", label: "Torso length", value: show(p.length) },
+    { key: "height", label: "Height", value: formatBodyHeightLabel(p.height, units) },
+  ];
 }
 
 // ── Sizing block (handoff turn 9 §2) — "the flagship" ──
@@ -2204,7 +2243,9 @@ function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, on
 // Provenance strings inside SizingBlock stay untouched — this strip only adds.
 // 5b — in-context taste ask, same copy as the orphan SizeRecommendation flow.
 // Owns its draft; mounts fresh each time, so it prefills from the live pref.
-function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone }) {
+// showSkip: first-ask flow on Fit keeps "Not sure yet". Settings placement
+// (mock Turn 3) is chips + Save only — nothing to skip on a Settings tab.
+function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true }) {
   const catAxes = FIT_PREF_AXES[item.category];
   const [draft, setDraft] = useState({
     length: (fitPref && fitPref.length) || null,
@@ -2246,20 +2287,22 @@ function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone }) {
       >
         Save preference
       </button>
-      <button
-        type="button"
-        className="cz-fit-prompt-skip"
-        onClick={() => {
-          onSaveFitPref(item.category, {
-            length: null,
-            looseness: null,
-            dismissed: true,
-          });
-          onDone();
-        }}
-      >
-        Not sure yet
-      </button>
+      {showSkip ? (
+        <button
+          type="button"
+          className="cz-fit-prompt-skip"
+          onClick={() => {
+            onSaveFitPref(item.category, {
+              length: null,
+              looseness: null,
+              dismissed: true,
+            });
+            onDone();
+          }}
+        >
+          Not sure yet
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -2424,15 +2467,10 @@ export default function DetailBody({
   // sizes this item with no network call. Optional — callers that do not pass
   // it simply fall back to the network hunt.
   shelfItems = null,
-  // The two-column panel can place the Timeline under its photo without
-  // taking ownership of the notes draft. Undefined keeps it inline for
-  // every existing caller; null suppresses the pre-mount desktop frame.
-  // (Notes no longer ride this slot — Kyle 2026-07-30: the notes writer
-  // lives at the bottom of the decision column.)
-  logNotesTarget = undefined,
   // Handoff §3: the desktop panel hands the command bar a full-width slot
-  // above both columns. Same contract as logNotesTarget — undefined keeps the
-  // bar inline (phone sheet, tablet band), null suppresses it before mount.
+  // above both columns. Undefined keeps the bar inline (phone sheet, tablet
+  // band), null suppresses it before mount. (logNotesTarget retired 2026-08-02:
+  // HISTORY lives in the Details tab, not under the photo column.)
   commandBarTarget = undefined,
   // Handoff section 3 region order: title, then bar, then body. Same contract
   // as commandBarTarget — undefined keeps the title inline.
@@ -3067,7 +3105,7 @@ export default function DetailBody({
   };
 
   // Kyle 2026-07-30: one block became two. The timeline still portals into
-  // the desktop panel's photo column (logNotesTarget), but the notes writer
+  // the desktop panel photo column, but the notes writer
   // stays inline at the END of the decision column — "move the notes sheet
   // to the bottom of the right side, it's crunched on the left". On the
   // phone sheet both render right here, in the same order as before.
@@ -3512,54 +3550,54 @@ export default function DetailBody({
 
         {/* The bar is inline on the phone sheet and the tablet band. On the
             desktop panel it portals to a full-width slot above both columns
-            (handoff §3) — five chips do not fit one row inside the decision
-            column. See commandBarBlock above. */}
-        <div className="cz-detail-pane cz-detail-pane-details cz-detail-pane-command">
-        {commandBarTarget === undefined
-          ? commandBarBlock
-          : commandBarTarget === null
-            ? null
-            : createPortal(commandBarBlock, commandBarTarget)}
-        </div>
+            (handoff §3). Hide the chip bar when Details owns the mock list
+            (phone Details pane or desktop Details/Settings) so the fact rows
+            are not shown twice. */}
+        {(() => {
+          const detailsOwnsList =
+            (wantsStickyBar && pane === "details") ||
+            (isDesktopPanel && (desktopTab === "details" || desktopTab === "settings"));
+          if (detailsOwnsList) return null;
+          return (
+            <div className="cz-detail-pane cz-detail-pane-details cz-detail-pane-command">
+              {commandBarTarget === undefined
+                ? commandBarBlock
+                : commandBarTarget === null
+                  ? null
+                  : createPortal(commandBarBlock, commandBarTarget)}
+            </div>
+          );
+        })()}
 
         {/* Split rail: Fit · Details · Settings on desktop. Phone keeps Fit
             and a separate Details pane lower down. */}
         <div className="cz-detail-facts cz-detail-pane cz-detail-pane-fit">
           {isDesktopPanel && desktopTab === "details" ? (
             <section className="cz-desk-tab cz-desk-tab-details" aria-label="Details">
-              <div className="cz-desk-fact-list">
-                {item.seller ? (
-                  <div className="cz-desk-fact-row">
-                    <span className="cz-desk-fact-k">Seller</span>
-                    <span className="cz-desk-fact-v">
-                      <SellerLink item={item} className="cz-detail-seller-link" />
-                    </span>
-                  </div>
-                ) : null}
-                {view.project ? (
-                  <div className="cz-desk-fact-row">
-                    <span className="cz-desk-fact-k">Haul</span>
-                    <span className="cz-desk-fact-v">{view.project}</span>
-                  </div>
-                ) : null}
-                {view.colorway ? (
-                  <div className="cz-desk-fact-row">
-                    <span className="cz-desk-fact-k">Colourway</span>
-                    <span className="cz-desk-fact-v">{view.colorway}</span>
-                  </div>
-                ) : null}
-                {view.weightGrams || weightText ? (
-                  <div className="cz-desk-fact-row">
-                    <span className="cz-desk-fact-k">Weight</span>
-                    <span className="cz-desk-fact-v">
-                      {weightText
-                        ? weightText + " " + weightUnit
-                        : view.weightGrams
-                          ? view.weightGrams + " g"
-                          : ""}
-                    </span>
-                  </div>
-                ) : null}
+              {/* Mock Details: Status · Haul · Colourway · Weight · Category rows
+                  (always shown, empty → "Add a …"), then HISTORY, Add a note,
+                  then links + album (mock omitted those for a Photos tab we
+                  no longer keep). Seller stays under the title. */}
+              <CommandBar
+                item={item}
+                view={view}
+                edit={edit}
+                commit={() => commitRef.current()}
+                onSaveEdit={onSaveEdit}
+                pickStatus={pickStatus}
+                knownHauls={knownHauls}
+                haulCounts={haulCounts}
+                sellerHref={sellerHref}
+                weightUnit={weightUnit}
+                weightText={weightText}
+                onWeightChange={writeWeight}
+                onSwitchWeightUnit={switchWeightUnit}
+                layout="list"
+                hideSeller
+              />
+              {timelineBlock}
+              {notesBlock}
+              <div className="cz-desk-fact-list cz-desk-link-list">
                 {linkButtons(item, { buyLabel })
                   .filter((b, i, arr) => arr.findIndex((x) => x.url === b.url) === i)
                   .map((b) => (
@@ -3580,12 +3618,45 @@ export default function DetailBody({
                   ))}
               </div>
               <AlbumLinksRow item={item} className="cz-desk-album-links" />
-              {notesBlock}
             </section>
           ) : null}
 
           {isDesktopPanel && desktopTab === "settings" ? (
             <section className="cz-desk-tab cz-desk-tab-settings" aria-label="Settings">
+              {/* Mock Settings top: How do you wear [category]? + measurements. */}
+              {onSaveFitPref && FIT_PREF_AXES[item.category] ? (
+                <div className="cz-desk-wear-block">
+                  <FitPrefAsk
+                    item={item}
+                    fitPref={fitPref}
+                    onSaveFitPref={onSaveFitPref}
+                    onDone={() => setAskingPref(false)}
+                    showSkip={false}
+                  />
+                </div>
+              ) : null}
+
+              <div className="cz-desk-measures-block">
+                <h3 className="cz-desk-setting-kicker">Your measurements</h3>
+                <div className="cz-desk-measure-list" role="list">
+                  {bodyMeasureRows(bodyProfile, measureUnits).map((row) => (
+                    <div className="cz-desk-measure-row" role="listitem" key={row.key}>
+                      <span className="cz-desk-measure-k">{row.label}</span>
+                      <span className="cz-desk-measure-v">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+                {onOpenSizes ? (
+                  <button
+                    type="button"
+                    className="cz-desk-measure-edit"
+                    onClick={openProfileSizes}
+                  >
+                    Edit my measurements in Settings
+                  </button>
+                ) : null}
+              </div>
+
               {typeof onSelectAgent === "function" ? (
                 <div className="cz-desk-setting-block">
                   <h3 className="cz-desk-setting-kicker">Buying agent</h3>
@@ -4028,19 +4099,35 @@ export default function DetailBody({
 
         </div>
 
-        {/* Desktop: timeline still portals under the left photo column when
-            the panel hands us a mount. Notes moved into the Details tab. */}
-        {isDesktopPanel && logNotesTarget
-          ? createPortal(timelineBlock, logNotesTarget)
-          : null}
-
-        {/* Phone / flip-card: Details pane with timeline, notes, QC. */}
+        {/* Phone / flip-card: Details pane — mock row list + history + notes. */}
         {!isDesktopPanel ? (
         <section
           className="cz-detail-pane cz-detail-pane-details cz-detail-pane-history"
           aria-label={wantsStickyBar ? "Details" : undefined}
         >
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
+
+        {/* Same mock fact rows as desktop Details. The chip bar under the title
+            stays for quick edits; this list is the full Details surface. */}
+        {wantsStickyBar ? (
+          <CommandBar
+            item={item}
+            view={view}
+            edit={edit}
+            commit={() => commitRef.current()}
+            onSaveEdit={onSaveEdit}
+            pickStatus={pickStatus}
+            knownHauls={knownHauls}
+            haulCounts={haulCounts}
+            sellerHref={sellerHref}
+            weightUnit={weightUnit}
+            weightText={weightText}
+            onWeightChange={writeWeight}
+            onSwitchWeightUnit={switchWeightUnit}
+            layout="list"
+            hideSeller
+          />
+        ) : null}
 
         {timelineBlock}
         {notesBlock}
