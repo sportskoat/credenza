@@ -165,6 +165,24 @@ describe("§3 no-chart state", () => {
     expect(document.querySelectorAll(".cz-sizing-albumthumb").length).toBe(2);
   });
 
+  // Fix 1 (2026-08-02): chart tiles held out of the gallery must still lead
+  // the manual album-read list — otherwise the button can never reach them.
+  it("puts chartImages first in the album-read candidates", async () => {
+    const chart = "https://photo.yupoo.com/seller/chart1/big.jpg";
+    const product = "https://si.geilicdn.com/product.jpg";
+    renderBody(
+      chartless({
+        image: product,
+        gallery: [],
+        chartImages: [chart],
+      })
+    );
+
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    // Cover + chart tile = 2 remote candidates.
+    expect(screen.getByText("Read the 2 album photos")).toBeInTheDocument();
+  });
+
   it("hides the album row when the item has no remote photos", async () => {
     renderBody(chartless({ image: "" }));
 
@@ -422,6 +440,36 @@ describe("§3 read and confirm", () => {
     // Low-cost rule: one photo per paid read, not a batch of album URLs.
     expect(urlReadMock).toHaveBeenCalledTimes(1);
     expect(urlReadMock.mock.calls[0][0]).toEqual(["https://si.geilicdn.com/img-1.jpg"]);
+    expect(fileReadMock).not.toHaveBeenCalled();
+  });
+
+  // Fix 1 pin: when chartImages exist, the first paid read is the chart tile,
+  // not a product photo. Product photos stay available as later candidates.
+  it("pays for a chartImage before product photos on album read", async () => {
+    const chart = "https://photo.yupoo.com/seller/chart1/big.jpg";
+    urlReadMock.mockResolvedValue(CHART_TEXT);
+    const user = userEvent.setup();
+    renderBody(
+      chartless({
+        image: "https://si.geilicdn.com/img-1.jpg",
+        gallery: ["https://si.geilicdn.com/a.jpg"],
+        chartImages: [chart],
+        url: "https://seller.x.yupoo.com/albums/246991495?uid=1",
+      })
+    );
+
+    await screen.findByText("No chart");
+    await user.click(screen.getByRole("button", { name: /Read the 3 album photos/ }));
+
+    await screen.findByText("Use this chart");
+    expect(urlReadMock).toHaveBeenCalledTimes(1);
+    expect(urlReadMock.mock.calls[0][0]).toEqual([chart]);
+    // Album referer so Yupoo CDN does not 567.
+    expect(urlReadMock.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        referer: "https://seller.x.yupoo.com/albums/246991495?uid=1",
+      })
+    );
     expect(fileReadMock).not.toHaveBeenCalled();
   });
 

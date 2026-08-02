@@ -24,7 +24,9 @@ import {
   compactSizeToken,
   formatSizeToken,
   itemPhotoList,
+  sizingAlbumReadCandidates,
   DETAIL_PHOTO_CAP,
+  yupooAlbumUrl,
   linkButtons,
   measureFromStorage,
   measureToStorage,
@@ -3011,9 +3013,15 @@ export default function DetailBody({
     chartPhotoUrlRef.current = "";
   }, []);
   const sizingAlbumPhotos = useMemo(
-    // Round 5 point 5.2: one shared cap for every detail photo list. The
-    // filter stays — this list is only the photos the server can fetch.
-    () => itemPhotoList(item, DETAIL_PHOTO_CAP).filter((src) => /^https?:\/\//i.test(src)),
+    // Fix 1 (2026-08-02): chartImages first, then product photos. The button
+    // exists to read a size chart; holding charts out of the gallery must not
+    // also hide them from this paid list. Cap + http(s) only.
+    () => sizingAlbumReadCandidates(item, DETAIL_PHOTO_CAP),
+    [item]
+  );
+  // Yupoo chart tiles need the album as referer (CDN 567 without it).
+  const albumReadReferer = useMemo(
+    () => yupooAlbumUrl(item) || item.url || undefined,
     [item]
   );
 
@@ -3870,6 +3878,7 @@ export default function DetailBody({
                       onClick={() =>
                         chartRead.read(sizingAlbumPhotos.slice(0, 3), {
                           thumb: sizingAlbumPhotos[0] || "",
+                          referer: albumReadReferer,
                         })
                       }
                     >
@@ -3968,6 +3977,7 @@ export default function DetailBody({
                 onOpenAlbum={() => {
                   chartRead.read(sizingAlbumPhotos.slice(0, 3), {
                     thumb: sizingAlbumPhotos[0] || "",
+                    referer: albumReadReferer,
                   });
                 }}
               />
@@ -4188,6 +4198,7 @@ export default function DetailBody({
                     ? () =>
                         chartRead.read(sizingAlbumPhotos.slice(0, 3), {
                           thumb: sizingAlbumPhotos[0] || "",
+                          referer: albumReadReferer,
                         })
                     : null
                 }
