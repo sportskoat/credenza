@@ -418,7 +418,8 @@ export default function BodyProfileSheet({
         htmlFor={baseId + "-" + key}
       >
         <span className="cz-sizes-row-label">{labels[key]}</span>
-        {hint ? <span className="cz-sizes-row-also">{hint}</span> : null}
+        {/* Always render so the fixed 4-column grid stays aligned when a row has no cross-mode hint. */}
+        <span className="cz-sizes-row-also">{hint || ""}</span>
         <input
           ref={bindRef(key)}
           id={baseId + "-" + key}
