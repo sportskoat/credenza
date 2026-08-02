@@ -2412,28 +2412,9 @@ function fitPrefToggleLabel(item, fitPref) {
   return "Set your fit preference";
 }
 
-// 4d — dashed empty prompt. Copy is canonical from Card Mockups design 4d.
-function FitEmptyPrompt({ onAdd, onSkip }) {
-  return (
-    <div className="cz-fit4-empty">
-      <div className="cz-fit4-empty-title">Will it fit you?</div>
-      <p className="cz-fit4-empty-copy">
-        Add your usual size and we’ll size every item on your shelf. Takes 10 seconds.
-      </p>
-      <button type="button" className="cz-fit4-empty-btn" onClick={onAdd}>
-        Add my size
-      </button>
-      {onSkip ? (
-        <button type="button" className="cz-fit-prompt-skip" onClick={onSkip}>
-          Skip for now
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 // 4f — the ask. Only what the category needs (fitMeasureFieldsFor), prefilled
 // from the profile in display units, saved back in storage units.
+// (4d FitEmptyPrompt deleted 2026-08-02 — superseded by FirstSizeBlock.)
 function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, onSkipFitPrompt }) {
   const fields = fitMeasureFieldsFor(item.category);
   const [draft, setDraft] = useState(() => {

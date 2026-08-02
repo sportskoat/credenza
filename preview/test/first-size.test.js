@@ -1,7 +1,9 @@
 // Phase 1 first-size chooser pure helpers (F 2026-08-02).
 import { describe, expect, it } from "vitest";
 import { parseSizeChart } from "../../credenza-fashion.jsx";
+import { CHEST_EASE_BANDS } from "../../credenza-fashion.jsx";
 import {
+  FIRST_SIZE_SIT_OPTIONS,
   FIRST_SIZE_USUAL_FIT_PROV,
   bodyFromUsualChartSize,
   circumferenceFromPitToPit,
@@ -26,6 +28,29 @@ describe("sitToLooseness maps onto existing fit machinery", () => {
   it("maps Roomy to baggy on bottoms (existing bottoms vocabulary)", () => {
     expect(sitToLooseness("roomy", "pants")).toBe("baggy");
     expect(sitToLooseness("roomy", "shorts")).toBe("baggy");
+  });
+
+  // F HOLD #81: sit hints must show the TRUE band ranges, never the design
+  // 2a +2/+6/+12 sketches that disagree with the engine.
+  it("pins sit hints to CHEST_EASE_BANDS (cannot drift from the mapping)", () => {
+    const byValue = Object.fromEntries(FIRST_SIZE_SIT_OPTIONS.map((o) => [o.value, o]));
+    expect(byValue.close.hint).toBe(
+      "+" + CHEST_EASE_BANDS.knitSlim[0] + "–" + CHEST_EASE_BANDS.knitSlim[1] + " cm"
+    );
+    expect(byValue.regular.hint).toBe(
+      "+" + CHEST_EASE_BANDS.knit[0] + "–" + CHEST_EASE_BANDS.knit[1] + " cm"
+    );
+    expect(byValue.roomy.hint).toBe(
+      "+" + CHEST_EASE_BANDS.knitOver[0] + "–" + CHEST_EASE_BANDS.knitOver[1] + " cm"
+    );
+    // Explicit true ranges so a future band rename still fails the pin.
+    expect(byValue.close.hint).toBe("+0–5 cm");
+    expect(byValue.regular.hint).toBe("+5–10 cm");
+    expect(byValue.roomy.hint).toBe("+15–25 cm");
+    // Old false sketches must never return.
+    expect(FIRST_SIZE_SIT_OPTIONS.map((o) => o.hint).join(" ")).not.toMatch(/\+12\s*cm/);
+    expect(FIRST_SIZE_SIT_OPTIONS.map((o) => o.hint).join(" ")).not.toMatch(/\+2\s*cm/);
+    expect(FIRST_SIZE_SIT_OPTIONS.map((o) => o.hint).join(" ")).not.toMatch(/\+6\s*cm/);
   });
 });
 

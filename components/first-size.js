@@ -15,7 +15,6 @@
 // the existing oversized band, not a new +12 mid-band.
 
 import {
-  CHEST_EASE_BANDS,
   chestEaseBand,
   compactSizeToken,
   fitPrefLabel,
@@ -24,11 +23,18 @@ import {
   measureToStorage,
 } from "../credenza-fashion.jsx";
 
-/** Sit taps shown on the Guess step-2 screen. */
+/**
+ * Sit taps on Guess step 2. Hints are the TRUE knit band ranges that
+ * chestEaseBand uses for slim / regular / oversized (knitSlim [0,5],
+ * knit [5,10], knitOver [15,25]) — not the design 2a +2/+6/+12 sketches.
+ * Literals here (not a live CHEST_EASE_BANDS read) avoid a circular import
+ * with credenza-fashion.jsx; the first-size test pins them equal to the
+ * live bands so a band change fails this flow's pin.
+ */
 export const FIRST_SIZE_SIT_OPTIONS = [
-  { value: "close", label: "Close", hint: "+2 cm" },
-  { value: "regular", label: "Regular", hint: "+6 cm" },
-  { value: "roomy", label: "Roomy", hint: "+12 cm" },
+  { value: "close", label: "Close", hint: "+0–5 cm", band: "knitSlim" },
+  { value: "regular", label: "Regular", hint: "+5–10 cm", band: "knit" },
+  { value: "roomy", label: "Roomy", hint: "+15–25 cm", band: "knitOver" },
 ];
 
 /** Usual-size chips on Guess step 1. */
@@ -142,7 +148,8 @@ export function bodyFromUsualChartSize(chart, usualLetter, category, title = nul
     idealEase = 2;
   } else {
     const kind = garmentType(title, chart, category);
-    const band = chestEaseBand(kind, null, "regular") || CHEST_EASE_BANDS.knit;
+    // Regular band mid — same domain as sit→regular→knit [5,10].
+    const band = chestEaseBand(kind, null, "regular") || [5, 10];
     idealEase = (band[0] + band[1]) / 2;
   }
 

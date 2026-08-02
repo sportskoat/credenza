@@ -1,7 +1,7 @@
 // Phase 1 first-size chooser UI (F 2026-08-02).
 // Mounts when the profile is empty. Three ways: Guess / Match (coming soon) /
 // Measure. Skip lands on the Fix-0 honest empty state for this visit.
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   FIRST_SIZE_SIT_OPTIONS,
   FIRST_SIZE_USUAL_CHIPS,
