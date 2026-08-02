@@ -804,6 +804,339 @@ function SizingBlockNoChart({
   );
 }
 
+// ── Chart tab (card-back v2 Phase 2) ──
+//
+// Per-SIZE table with seller numbers + ease under each cell. Reuses
+// recommendSize + fitReadRows so ease/tolerance match the Fit tab bars.
+// Layout only — chart math stays in fashion.jsx.
+const CHART_MEASURE_COLS = [
+  ["chest", "Chest"],
+  ["shoulder", "Shoulder"],
+  ["sleeve", "Sleeve"],
+  ["waist", "Waist"],
+  ["hip", "Hip"],
+  ["pantsLength", "Pants length"],
+  ["length", "Length"],
+];
+
+function listingHostLabel(item) {
+  try {
+    return new URL(item.url).hostname.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
+}
+
+function chartOriginLabel({ reading, hunting, hasChart, sourceVia }) {
+  if (reading) return "READING YOUR PHOTO";
+  if (hunting) return "READING YOUR PHOTO";
+  if (!hasChart) return "NO CHART YET";
+  if (sourceVia === "album-text" || sourceVia === "listing-text" || sourceVia === "summary") {
+    return "PULLED FROM THE LISTING";
+  }
+  return "SELLER'S CHART";
+}
+
+function DesktopChartTab({
+  item,
+  chart,
+  bodyProfile,
+  fitPref,
+  units,
+  recSize,
+  chosenSize,
+  usualSize,
+  noChart,
+  hunting,
+  reading,
+  readingCount,
+  chartIsForgettable,
+  onPick,
+  onUpload,
+  onEnterManual,
+  onForgetChart,
+  onPullListing,
+}) {
+  const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
+  const hasChart = !!(chart && Array.isArray(chart.rows) && chart.rows.length);
+  const sourceVia = item && item.sizeChartSource && item.sizeChartSource.via;
+  const origin = chartOriginLabel({
+    reading: !!reading,
+    hunting: !!hunting,
+    hasChart,
+    sourceVia,
+  });
+  const host = listingHostLabel(item);
+  const sizeCount = hasChart ? chart.rows.length : 0;
+  const sourceLine = hasChart
+    ? sizeCount + " size" + (sizeCount === 1 ? "" : "s") + (host ? " · " + host : "")
+    : host || "—";
+
+  const cols = useMemo(() => {
+    if (!hasChart) return [];
+    return CHART_MEASURE_COLS.filter(([key]) => chart.rows.some((r) => r[key] != null));
+  }, [hasChart, chart]);
+
+  // Per size: map measure key → fitReadRows cell (ease, warn, estimated).
+  const easeBySize = useMemo(() => {
+    if (!hasChart || !profile) return {};
+    const out = {};
+    for (const row of chart.rows) {
+      if (!row.size) continue;
+      const sizeRec = recommendSize(
+        chart,
+        profile,
+        item.category,
+        fitPref,
+        row.size,
+        item.title
+      );
+      const readRows = fitReadRows(chart, sizeRec, profile, item.category, item.title);
+      const map = {};
+      for (const r of readRows) map[r.key] = r;
+      out[String(row.size).toUpperCase()] = map;
+    }
+    return out;
+  }, [hasChart, chart, profile, fitPref, item.category, item.title]);
+
+  // YOURS values for the pinned row — same profile keys fitReadRows uses.
+  const yoursByKey = useMemo(() => {
+    const map = {};
+    if (!profile) return map;
+    for (const [key] of cols) {
+      const bodyKey =
+        key === "pantsLength"
+          ? item.category === "shorts"
+            ? "shortsLength"
+            : "pantsLength"
+          : key;
+      let yours = bodyKey != null && profile[bodyKey] != null ? Number(profile[bodyKey]) : null;
+      let estimated =
+        bodyKey != null &&
+        Array.isArray(profile.estimatedFields) &&
+        profile.estimatedFields.includes(bodyKey);
+      if ((yours == null || !isFinite(yours)) && key === "length") {
+        const h = Number(profile.height);
+        if (isFinite(h) && h >= 120 && h <= 230) {
+          yours = Math.round(0.3 * h * 2) / 2;
+          estimated = true;
+        }
+      }
+      if (yours != null && isFinite(yours)) {
+        map[key] = { value: yours, estimated: !!estimated };
+      }
+    }
+    return map;
+  }, [cols, profile, item.category]);
+
+  const note =
+    "Ease is the seller's number minus your body. Green marks the range this cut is drafted for. A dashed band means a number is missing and we are not guessing at one.";
+
+  if (reading || hunting) {
+    return (
+      <div className="cz-chart-tab">
+        <div className="cz-chart-head">
+          <span className="cz-chart-origin">{origin}</span>
+          <span className="cz-chart-source">{sourceLine}</span>
+        </div>
+        <div className="cz-chart-state-card">
+          <h3 className="cz-chart-state-title">Reading your photo</h3>
+          <p className="cz-chart-state-body">
+            {readingCount === 1
+              ? "One photo is being read for size numbers."
+              : readingCount > 1
+                ? readingCount + " photos are being read for size numbers."
+                : "Looking for the seller's size chart…"}
+          </p>
+        </div>
+        <ChartActions
+          chartIsForgettable={false}
+          hasChart={false}
+          onUpload={onUpload}
+          onEnterManual={onEnterManual}
+          onForgetChart={onForgetChart}
+          onPullListing={onPullListing}
+        />
+      </div>
+    );
+  }
+
+  if (noChart || !hasChart) {
+    const usualLabel = formatSizeToken(usualSize) || usualSize || "";
+    return (
+      <div className="cz-chart-tab">
+        <div className="cz-chart-head">
+          <span className="cz-chart-origin">{origin}</span>
+          <span className="cz-chart-source">{sourceLine}</span>
+        </div>
+        <div className="cz-chart-state-card">
+          <h3 className="cz-chart-state-title">No chart yet</h3>
+          <p className="cz-chart-state-body">
+            {usualLabel
+              ? "Fit fell back to your usual size (" +
+                usualLabel +
+                "). Upload a chart photo or enter the numbers by hand."
+              : "No size chart found. Upload a chart photo or enter the numbers by hand."}
+          </p>
+        </div>
+        <ChartActions
+          chartIsForgettable={false}
+          hasChart={false}
+          onUpload={onUpload}
+          onEnterManual={onEnterManual}
+          onForgetChart={onForgetChart}
+          onPullListing={onPullListing}
+        />
+      </div>
+    );
+  }
+
+  const gridStyle = {
+    gridTemplateColumns: "76px repeat(" + cols.length + ", minmax(0, 1fr))",
+  };
+
+  return (
+    <div className="cz-chart-tab">
+      <div className="cz-chart-head">
+        <span className="cz-chart-origin">{origin}</span>
+        <span className="cz-chart-source">{sourceLine}</span>
+      </div>
+
+      <div className="cz-chart-table" role="table" aria-label="Size chart with ease">
+        <div className="cz-chart-row is-cols" role="row" style={gridStyle}>
+          <span className="cz-chart-cell is-head" role="columnheader">
+            Size
+          </span>
+          {cols.map(([key, label]) => (
+            <span key={key} className="cz-chart-cell is-head" role="columnheader">
+              {label}
+            </span>
+          ))}
+        </div>
+
+        <div className="cz-chart-row is-yours" role="row" style={gridStyle}>
+          <span className="cz-chart-cell is-size" role="rowheader">
+            Yours
+          </span>
+          {cols.map(([key]) => {
+            const y = yoursByKey[key];
+            return (
+              <span key={key} className="cz-chart-cell is-yours-val" role="cell">
+                {y
+                  ? (y.estimated ? "~" : "") + formatMeasure(y.value, units)
+                  : "—"}
+              </span>
+            );
+          })}
+        </div>
+
+        {chart.rows.map((row) => {
+          if (!row.size) return null;
+          const keyU = String(row.size).toUpperCase();
+          const isPick = !!chosenSize && keyU === String(chosenSize).toUpperCase();
+          const isRec = !!recSize && keyU === String(recSize).toUpperCase();
+          const easeMap = easeBySize[keyU] || {};
+          return (
+            <button
+              key={row.size}
+              type="button"
+              className={
+                "cz-chart-row is-size" + (isPick ? " is-pick" : "") + (isRec ? " is-rec" : "")
+              }
+              style={gridStyle}
+              onClick={() => onPick && onPick(String(row.size))}
+              aria-pressed={isPick}
+              aria-label={
+                "Size " +
+                (formatSizeToken(row.size) || row.size) +
+                (isRec ? ", recommended" : "") +
+                (isPick ? ", your pick" : "")
+              }
+            >
+              <span className="cz-chart-cell is-size">
+                <span className="cz-chart-size-name">
+                  {formatSizeToken(row.size) || row.size}
+                </span>
+                {isRec ? (
+                  <span className="cz-chart-flag is-rec">Recommended</span>
+                ) : isPick ? (
+                  <span className="cz-chart-flag is-pick">Your pick</span>
+                ) : null}
+              </span>
+              {cols.map(([key]) => {
+                const theirs = row[key];
+                const read = easeMap[key];
+                const ease = read && read.ease != null ? read.ease : null;
+                const warn = !!(read && read.warn);
+                return (
+                  <span key={key} className="cz-chart-cell is-measure">
+                    <span className="cz-chart-theirs">
+                      {theirs != null ? formatMeasure(theirs, units) : "—"}
+                    </span>
+                    <span
+                      className={
+                        "cz-chart-ease" +
+                        (ease == null ? " is-miss" : warn ? " is-out" : " is-in")
+                      }
+                    >
+                      {ease != null
+                        ? (ease >= 0 ? "+" : "") + formatMeasure(ease, units)
+                        : "—"}
+                    </span>
+                  </span>
+                );
+              })}
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="cz-chart-note">{note}</p>
+
+      <ChartActions
+        chartIsForgettable={chartIsForgettable}
+        hasChart={true}
+        onUpload={onUpload}
+        onEnterManual={onEnterManual}
+        onForgetChart={onForgetChart}
+        onPullListing={onPullListing}
+      />
+    </div>
+  );
+}
+
+function ChartActions({
+  chartIsForgettable,
+  hasChart,
+  onUpload,
+  onEnterManual,
+  onForgetChart,
+  onPullListing,
+}) {
+  return (
+    <div className="cz-chart-actions">
+      <span className="cz-chart-actions-label">Chart actions</span>
+      <div className="cz-chart-actions-row">
+        <button type="button" className="cz-chart-btn is-secondary" onClick={onUpload}>
+          Upload photo
+        </button>
+        <button type="button" className="cz-chart-btn is-secondary" onClick={onEnterManual}>
+          Enter manually
+        </button>
+        {hasChart && chartIsForgettable ? (
+          <button type="button" className="cz-chart-btn is-quiet" onClick={onForgetChart}>
+            Forget chart
+          </button>
+        ) : !hasChart && onPullListing ? (
+          <button type="button" className="cz-chart-btn is-quiet" onClick={onPullListing}>
+            Pull from listing
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 // ── Fit read table (split-rail handoff 2026-07-28) ──
 //
 // Per-measurement fit bars under the pick: how far each garment measure sits
@@ -2004,7 +2337,7 @@ export default function DetailBody({
   const [photoIdx, setPhotoIdx] = useState(0);
   const [pane, setPane] = useState("fit");
   // Desktop card-back v2 tabs (Fit · Chart · Photos · Details · Settings).
-  // Only Fit has real content in Phase 1; the rest are placeholders.
+  // Phase 1: Fit. Phase 2: Chart. Photos / Details / Settings still placeholders.
   const [desktopTab, setDesktopTab] = useState("fit");
   const [openRead, setOpenRead] = useState(false);
   // Phone sheet (mobile item sheet spec §7): a size tap confirms itself with
@@ -3042,10 +3375,55 @@ export default function DetailBody({
             and haul are always-visible facts — three of them hidden behind a
             tab bar made the card a guessing game. */}
         <div className="cz-detail-facts cz-detail-pane cz-detail-pane-fit">
-          {isDesktopPanel && desktopTab !== "fit" ? (
+          {isDesktopPanel && desktopTab === "chart" ? (
+            <>
+              {chartRead.reading || chartRead.chart || chartRead.error || chartRead.typed ? (
+                <SizingBlockReading
+                  reading={chartRead.reading}
+                  chart={chartRead.chart}
+                  thumb={chartRead.thumb}
+                  error={chartRead.error}
+                  units={measureUnits}
+                  typed={chartRead.typed}
+                  onUse={chartRead.commit}
+                  onRetry={chartRead.dismiss}
+                  onFix={chartRead.fix}
+                />
+              ) : (
+                <DesktopChartTab
+                  item={item}
+                  chart={verdict.chart}
+                  bodyProfile={bodyProfile}
+                  fitPref={fitPref}
+                  units={measureUnits}
+                  recSize={verdict.recSize}
+                  chosenSize={chosenSize}
+                  usualSize={chosenSize || verdict.usualSize}
+                  noChart={noChart}
+                  hunting={hunting}
+                  reading={false}
+                  readingCount={0}
+                  chartIsForgettable={chartIsForgettable}
+                  onPick={pickItemSize}
+                  onUpload={() => chartInputRef.current?.click()}
+                  onEnterManual={() => chartRead.startTyping(item.category)}
+                  onForgetChart={forgetChart}
+                  onPullListing={
+                    sizingAlbumPhotos.length
+                      ? () =>
+                          chartRead.read(sizingAlbumPhotos.slice(0, 3), {
+                            thumb: sizingAlbumPhotos[0] || "",
+                          })
+                      : null
+                  }
+                />
+              )}
+            </>
+          ) : null}
+          {isDesktopPanel && desktopTab !== "fit" && desktopTab !== "chart" ? (
             <div className="cz-fit-placeholder">
               <h3>{(DESKTOP_TABS.find((t) => t[0] === desktopTab) || ["", "Section"])[1]}</h3>
-              <p>This tab ships in a later phase. Fit is ready now.</p>
+              <p>This tab ships in a later phase. Fit and Chart are ready now.</p>
             </div>
           ) : null}
           {(!isDesktopPanel || desktopTab === "fit") ? (
@@ -3357,14 +3735,6 @@ export default function DetailBody({
                   Forget this chart
                 </button>
               ) : null}
-              <input
-                ref={chartInputRef}
-                className="cz-detail-chart-file"
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={readUploadedChart}
-              />
             </div>
 
             {chartRead.reading || chartRead.chart || chartRead.error ? (
@@ -3382,6 +3752,16 @@ export default function DetailBody({
             ) : null}
           </section>
           ) : null}
+
+          {/* Shared chart file input — Fit and Chart tabs both trigger it. */}
+          <input
+            ref={chartInputRef}
+            className="cz-detail-chart-file"
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={readUploadedChart}
+          />
 
           {/* The Details kicker and the five rows under it are gone (item-detail
               handoff 2026-07-29). Status, haul, colorway, weight, category and
