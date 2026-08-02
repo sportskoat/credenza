@@ -363,6 +363,70 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByText("Weidian")).toBeInTheDocument();
   });
 
+  // Phase 2 Chart tab (2026-08-02): size table with ease, pick sync, actions.
+  it("renders the Chart tab table, picks a size, and offers chart actions", async () => {
+    window.__setMediaMatches("(min-width: 1024px)", true);
+    const onSaveEdit = vi.fn();
+    const user = userEvent.setup();
+    const chartText =
+      "M: chest 116, shoulder 46, length 70, sleeve 60\nL: chest 120, shoulder 48, length 72, sleeve 62\nXL: chest 124, shoulder 50, length 74, sleeve 64";
+    renderPanel(
+      panelItem({
+        sizeNotes: chartText,
+        sizeChartSource: { via: "album-text", at: "2026-07-25T10:00:00.000Z" },
+        category: "shirt",
+      }),
+      {
+        onSaveEdit,
+        bodyProfile: { chest: 105, shoulder: 45, sleeve: 62 },
+      }
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Chart" }));
+    expect(await screen.findByText("PULLED FROM THE LISTING")).toBeInTheDocument();
+    expect(screen.getByText(/3 sizes/i)).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: /Size chart with ease/i })).toBeInTheDocument();
+    expect(screen.getByText("Yours")).toBeInTheDocument();
+    expect(screen.getByText("Chart actions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload photo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enter manually" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Forget chart" })).toBeInTheDocument();
+
+    const sizeName = [...document.querySelectorAll(".cz-chart-size-name")].find(
+      (n) => /^L(arge)?$/i.test(n.textContent.trim()) || n.textContent.trim() === "L"
+    );
+    expect(sizeName).toBeTruthy();
+    await user.click(sizeName.closest("button.cz-chart-row"));
+    expect(onSaveEdit).toHaveBeenCalled();
+    const patch = onSaveEdit.mock.calls.find((c) => c[1] && c[1].size);
+    expect(patch).toBeTruthy();
+
+    window.__setMediaMatches("(min-width: 1024px)", false);
+  });
+
+  it("shows empty Chart tab with Pull from listing when there is no chart", async () => {
+    window.__setMediaMatches("(min-width: 1024px)", true);
+    const user = userEvent.setup();
+    renderPanel(
+      panelItem({
+        sizeNotes: "",
+        sizeChartSource: null,
+        sizeChartText: "",
+        category: "shirt",
+        gallery: ["https://si.geilicdn.com/img-2.jpg"],
+      }),
+      {
+        bodyProfile: { chest: 105 },
+      }
+    );
+    await user.click(await screen.findByRole("tab", { name: "Chart" }));
+    expect(await screen.findByText("NO CHART YET")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /No chart yet/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pull from listing" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Forget chart" })).toBeNull();
+    window.__setMediaMatches("(min-width: 1024px)", false);
+  });
+
   // Phase 1 desktop Fit bugs (2026-08-02): expanded measurement table must
   // expose the same Edit / Forget links the phone FitReadTable already has.
   it("shows Edit my measurements and Forget this chart when measurement rows expand", async () => {
