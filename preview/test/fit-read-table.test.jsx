@@ -698,6 +698,61 @@ describe("typing a chart by hand", () => {
 
     expect(onSaveEdit.mock.calls[0][1].sizeChartText).toBe("36: chest 100\n38: chest 104");
   });
+
+  // Bug B (2026-08-02): typed numbers are customer work product. A failed
+  // photo path and a second "type by hand" tap used to wipe them.
+  it("keeps typed numbers after a failed photo read", async () => {
+    const user = userEvent.setup();
+    const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
+    fileReadMock.mockResolvedValue(null);
+
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    const grid = container.querySelector(".cz-sizing-fix.is-typed");
+    await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
+    await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
+
+    const file = new File(["fake"], "chart.jpg", { type: "image/jpeg" });
+    const input = container.querySelector("input.cz-detail-chart-file");
+    await user.upload(input, file);
+
+    expect(
+      await screen.findByText(/could not read that photo/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Your typed numbers are still here/i)).toBeInTheDocument();
+    const gridAfter = container.querySelector(".cz-sizing-fix.is-typed");
+    expect(gridAfter).not.toBe(null);
+    expect(within(gridAfter).getByLabelText("Small chest in cm")).toHaveValue("100");
+    expect(within(gridAfter).getByLabelText("Medium chest in cm")).toHaveValue("104");
+  });
+
+  it("does not wipe typed numbers when the type button is tapped again", async () => {
+    const user = userEvent.setup();
+    const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
+
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    let grid = container.querySelector(".cz-sizing-fix.is-typed");
+    await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
+
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    grid = container.querySelector(".cz-sizing-fix.is-typed");
+    expect(grid).not.toBe(null);
+    expect(within(grid).getByLabelText("Small chest in cm")).toHaveValue("100");
+  });
+
+  it("clears typed numbers only on Cancel", async () => {
+    const user = userEvent.setup();
+    const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
+
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.type(
+      within(container.querySelector(".cz-sizing-fix.is-typed")).getByLabelText(
+        "Small chest in cm"
+      ),
+      "100"
+    );
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(container.querySelector(".cz-sizing-fix.is-typed")).toBe(null);
+  });
 });
 
 // F 2026-08-02: number columns must fit CM worst case ("116.5cm", "+23.0cm")
