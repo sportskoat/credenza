@@ -770,6 +770,18 @@ function useCustomerChartRead(item, onSaveEdit) {
     }
     if (!alive.current) return;
     if (sawAuth) {
+      // Bug B + Fix 0: auth wall must not wipe hand-typed numbers (the case
+      // Kyle hit tonight — signed-out photo path after typing a chart).
+      if (typedPrior) {
+        setState({
+          ...EMPTY_CHART_READ,
+          ...typedPrior,
+          thumb: thumb || "",
+          error: CHART_AUTH_COPY + " Your typed numbers are still here.",
+          authRequired: true,
+        });
+        return;
+      }
       setState({
         ...EMPTY_CHART_READ,
         thumb,

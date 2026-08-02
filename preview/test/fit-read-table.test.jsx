@@ -34,9 +34,14 @@ vi.mock("../../credenza-fashion.jsx", async () => {
 // credenza-fashion module is the one bound into its graph. Importing the app
 // root first hands DetailBody the REAL readChartFromPhotoFiles.
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
-const { effectiveBodyProfile, fitReadRows, parseSizeChart, recommendSize } = await import(
-  "../../credenza-fashion.jsx"
-);
+const {
+  effectiveBodyProfile,
+  fitReadRows,
+  parseSizeChart,
+  recommendSize,
+  CHART_AUTH_REQUIRED,
+  CHART_AUTH_COPY,
+} = await import("../../credenza-fashion.jsx");
 
 const TOP_TEXT =
   "M: chest 116, shoulder 46, length 70\nL: chest 120, shoulder 48, length 72\nXL: chest 124, shoulder 50, length 74";
@@ -752,6 +757,32 @@ describe("typing a chart by hand", () => {
     );
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(container.querySelector(".cz-sizing-fix.is-typed")).toBe(null);
+  });
+
+  // Bug B + Fix 0 composition: sawAuth on main wiped typed numbers before
+  // the validate-fail restore ran. Auth-failed photo must keep cells.
+  it("keeps typed numbers after an auth-failed photo read", async () => {
+    const user = userEvent.setup();
+    const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
+    fileReadMock.mockResolvedValue(CHART_AUTH_REQUIRED);
+
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    const grid = container.querySelector(".cz-sizing-fix.is-typed");
+    await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
+    await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
+
+    const file = new File(["fake"], "chart.jpg", { type: "image/jpeg" });
+    const input = container.querySelector("input.cz-detail-chart-file");
+    await user.upload(input, file);
+
+    expect(await screen.findByText(new RegExp(CHART_AUTH_COPY, "i"))).toBeInTheDocument();
+    expect(screen.getByText(/Your typed numbers are still here/i)).toBeInTheDocument();
+    const gridAfter = container.querySelector(".cz-sizing-fix.is-typed");
+    expect(gridAfter).not.toBe(null);
+    expect(within(gridAfter).getByLabelText("Small chest in cm")).toHaveValue("100");
+    expect(within(gridAfter).getByLabelText("Medium chest in cm")).toHaveValue("104");
+    // Sign-in path still surfaces (authRequired + honest copy).
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
   });
 });
 
