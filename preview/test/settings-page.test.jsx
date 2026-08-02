@@ -239,6 +239,56 @@ describe("SettingsPage (one-page redesign)", () => {
     expect(container.querySelectorAll("[data-settings-section]")).toHaveLength(5);
   });
 
+  // Mobile item C / backlog item 6 (2026-08-02): sticky jump chips on phone.
+  // Labels match the approved mock: Account / Sizes / Agent / Data / About.
+  it("renders phone jump chips with the approved short labels", () => {
+    const { container } = renderPage({ section: null, isPhone: true });
+    const chips = [...container.querySelectorAll(".cz-settings-chip")].map((n) =>
+      n.textContent.trim()
+    );
+    expect(chips).toEqual(["Account", "Sizes", "Agent", "Data", "About"]);
+    const nav = container.querySelector(".cz-settings-chips");
+    expect(nav).not.toBeNull();
+    expect(nav.getAttribute("aria-label")).toBe("Jump to section");
+    // Active chip tracks the current section (account by default).
+    const active = container.querySelector(".cz-settings-chip.is-active");
+    expect(active).not.toBeNull();
+    expect(active.textContent.trim()).toBe("Account");
+    expect(active.getAttribute("aria-current")).toBe("true");
+  });
+
+  it("does not show jump chips on desktop (rail stays)", () => {
+    const { container } = renderPage({ isPhone: false });
+    expect(container.querySelector(".cz-settings-chips")).toBeNull();
+    expect(container.querySelector(".cz-settings-nav")).not.toBeNull();
+  });
+
+  it("chip click scrolls to the matching section", () => {
+    const onNavigate = vi.fn();
+    const { container } = renderPage({ isPhone: true, onNavigate });
+    fireEvent.click(within(container).getByText("Sizes"));
+    expect(onNavigate).toHaveBeenCalledWith("sizes");
+    fireEvent.click(within(container).getByText("Agent"));
+    expect(onNavigate).toHaveBeenCalledWith("shelf");
+    fireEvent.click(within(container).getByText("Data"));
+    expect(onNavigate).toHaveBeenCalledWith("data");
+    fireEvent.click(within(container).getByText("About"));
+    expect(onNavigate).toHaveBeenCalledWith("about");
+  });
+
+  it("pins chip strip styles: flex row, solid surface, pill chips", () => {
+    const start = CSS.indexOf(".cz-settings-chips {");
+    expect(start).toBeGreaterThan(-1);
+    const block = CSS.slice(start, CSS.indexOf(".cz-settings-page-layout {", start));
+    expect(block).toMatch(/display:\s*none/); // desktop default; phone media flips on
+    expect(block).toMatch(/background:\s*var\(--cz-card-solid\)/);
+    expect(block).toMatch(/\.cz-settings-chip\.is-active/);
+    // Phone media turns chips on.
+    expect(CSS).toMatch(
+      /@media \(max-width:\s*767px\)[\s\S]{0,400}?\.cz-settings-chips\s*\{\s*display:\s*flex;/
+    );
+  });
+
   // Mobile item 1 free win (2026-08-02): keep page-behind still when settings
   // overscrolls. Body lock masks this today; contain makes it honest.
   it("pins overscroll-behavior contain on .cz-settings-content", () => {

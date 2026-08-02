@@ -201,6 +201,60 @@ describe("Sizes and measurements redesign (settings page)", () => {
     expect(pit.closest(".cz-sizes-row").classList.contains("is-active")).toBe(true);
   });
 
+  // Mobile item D (2026-08-02): focus may change paint only — never height,
+  // border width, padding, or scroll of the list. Pin active === inactive
+  // offsetHeight, and keep active styles free of layout-affecting deltas.
+  it("active and inactive measurement rows share the same offsetHeight", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const { container } = renderMeasure();
+    const pit = measureInput(container, "Pit to pit");
+    const shoulder = measureInput(container, "Shoulder seam");
+    const pitRow = pit.closest(".cz-sizes-row");
+    const shoulderRow = shoulder.closest(".cz-sizes-row");
+    // Idle heights equal before any focus.
+    expect(pitRow.offsetHeight).toBe(shoulderRow.offsetHeight);
+    await user.click(pit);
+    expect(pitRow.classList.contains("is-active")).toBe(true);
+    expect(shoulderRow.classList.contains("is-active")).toBe(false);
+    expect(pitRow.offsetHeight).toBe(shoulderRow.offsetHeight);
+    await user.click(shoulder);
+    expect(shoulderRow.classList.contains("is-active")).toBe(true);
+    expect(pitRow.classList.contains("is-active")).toBe(false);
+    expect(pitRow.offsetHeight).toBe(shoulderRow.offsetHeight);
+  });
+
+  it("pins paint-only active styles for .cz-sizes-row (no layout delta)", () => {
+    // Base active: background only — no border width, no padding delta.
+    const activeStart = CSS.indexOf(".cz-sizes-row.is-active {");
+    expect(activeStart).toBeGreaterThan(-1);
+    const activeBlock = CSS.slice(activeStart, CSS.indexOf("}", activeStart) + 1);
+    expect(activeBlock).toMatch(/background:\s*var\(--cz-accent-bg\)/);
+    expect(activeBlock).not.toMatch(/border:\s*[1-9]/);
+    expect(activeBlock).not.toMatch(/padding:\s*[1-9]/);
+    // Phone override: inset box-shadow only (paint). Fixed height shared.
+    expect(CSS).toMatch(
+      /\.cz-sizes-row\.is-active\s*\{[^}]*box-shadow:\s*inset 2px 0 0 var\(--cz-accent\)/s
+    );
+    // Global focus ring must not reappear on the number field.
+    expect(CSS).toMatch(
+      /\.cz-app\[data-fashion="true"\] \.cz-sizes-row-input:focus-visible\s*\{[^}]*box-shadow:\s*none/s
+    );
+    // How-line reserves height so tip text cannot shove the list.
+    const howStart = CSS.indexOf(".cz-sizes-how-line {");
+    expect(howStart).toBeGreaterThan(-1);
+    const howBlock = CSS.slice(howStart, CSS.indexOf("}", howStart) + 1);
+    expect(howBlock).toMatch(/min-height:/);
+  });
+
+  it("focusKey uses preventScroll so the list does not jump between boxes", () => {
+    const src = fs.readFileSync(
+      path.resolve(HERE, "../../sheets/BodyProfileSheet.jsx"),
+      "utf8"
+    );
+    expect(src).toMatch(/preventScroll:\s*true/);
+    expect(src).toMatch(/holdListScroll/);
+  });
+
   it("shows the other source as a mono hint when both sets have a value", () => {
     const { container } = render(
       <BodyProfileSheet

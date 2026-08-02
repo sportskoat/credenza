@@ -7045,6 +7045,60 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
+/* Phone jump chips (mobile item C / backlog item 6). Outside the scroller so
+   they stay under the masthead while sections scroll. Hidden on desktop —
+   desktop keeps the left rail. Short labels: Account · Sizes · Agent · Data · About. */
+.cz-settings-chips {
+  display: none;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--cz-hair);
+  background: var(--cz-card-solid);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.cz-settings-chips::-webkit-scrollbar {
+  display: none;
+}
+.cz-settings-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
+}
+.cz-settings-chip:active {
+  transform: scale(0.96);
+}
+.cz-settings-chip.is-active {
+  background: var(--cz-ink);
+  border-color: var(--cz-ink);
+  color: var(--cz-card-solid);
+}
+.cz-app[data-fashion="true"] .cz-settings-chip:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
 .cz-settings-page-layout {
   flex: 1;
   display: flex;
@@ -7395,8 +7449,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
-/* Phone (1d): no rail; one stacked column. */
+/* Phone (1d): no rail; one stacked column. Jump chips under masthead. */
 @media (max-width: 767px) {
+  .cz-settings-chips {
+    display: flex;
+  }
   .cz-settings-page-layout {
     display: block;
     min-height: 0;
@@ -7948,15 +8005,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Fixed columns so every field lines up the same way — with or without a
-   cross-mode "body 33" hint. Flex used to let the hint shove the numbers. */
+   cross-mode "body 33" hint. Flex used to let the hint shove the numbers.
+   Mobile item D (2026-08-02): active vs inactive must share the same box
+   metrics (height, padding, border). Focus may change paint only. */
 .cz-sizes-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 5.75rem 52px 18px;
   align-items: center;
   column-gap: 8px;
+  box-sizing: border-box;
+  height: 34px;
   min-height: 34px;
   padding: 0 9px;
-  border: 0;
+  border: 0 solid transparent;
   border-radius: 9px;
   background: transparent;
   cursor: text;
@@ -7966,10 +8027,17 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-accent-bg);
 }
 .cz-sizes-row.is-active {
+  /* Paint only — same height/padding/border as the idle row. */
   background: var(--cz-accent-bg);
+  border: 0 solid transparent;
+  padding: 0 9px;
+  height: 34px;
+  min-height: 34px;
+  box-shadow: none;
 }
 .cz-sizes-row.is-active .cz-sizes-row-label {
   color: var(--cz-ink);
+  font-weight: 500; /* match idle — weight must not grow the row */
 }
 
 .cz-sizes-row-label {
@@ -8011,6 +8079,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-sizes-row-input:focus {
   outline: none;
 }
+/* Kill the global fashion-app input:focus-visible 2px ring on these fields.
+   The row's is-active background is the only focus cue — a ring on the
+   number made the active row read as a taller bordered pill (Kyle 16:17Z). */
+.cz-app[data-fashion="true"] .cz-sizes-row-input:focus,
+.cz-app[data-fashion="true"] .cz-sizes-row-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .cz-sizes-row-input::placeholder {
   color: var(--cz-faint);
   font-weight: 500;
@@ -8034,6 +8110,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 500;
   line-height: 1.5;
   color: var(--cz-sub);
+  /* Item D: how-text swaps with the focused field. Reserve ~3 lines so a
+     longer tip cannot grow the sibling and shove every divider below. */
+  min-height: calc(1.5em * 3 + 7px);
+  box-sizing: border-box;
 }
 
 /* How you like it to sit (fit prefs folded into Sizes) */
@@ -8212,11 +8292,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .cz-sizes-row {
     /* No cross-mode hint on phone — three columns only. */
     grid-template-columns: minmax(0, 1fr) 56px 18px;
+    /* Fixed height (not min-height alone) so active paint cannot grow the box. */
+    height: 44px;
     min-height: 44px;
     padding: 0 10px;
+    border: 0 solid transparent;
     border-radius: 10px;
   }
   .cz-sizes-row.is-active {
+    /* Paint only: inset accent bar. Same height/padding/border as idle. */
+    height: 44px;
+    min-height: 44px;
+    padding: 0 10px;
+    border: 0 solid transparent;
     box-shadow: inset 2px 0 0 var(--cz-accent);
   }
   .cz-sizes-row-label {
@@ -12427,15 +12515,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-detail-hero-track {
   display: flex;
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   /* Mobile item 3 (2026-08-02): pan-x alone ate vertical pans, so a finger on
      the photo could not scroll the sheet and instead rubber-banded the whole
      surface (looked like a sheet drag). Allow both axes: horizontal pages the
      album; vertical chains to .cz-detail-scroll. Sheet-close is grip-only
-     (DetailSheet) and never arms from this track. */
+     (DetailSheet) and never arms from this track.
+     Mobile item B (2026-08-02): keep that scroll semantic, but kill the
+     vertical rubber-band on the track itself — overscroll-behavior:contain
+     still bounced the photo under the finger. X stays contained for paging;
+     Y is none so the page scrolls with no photo bounce. No JS drag on the
+     pager (DetailBody has none). */
   touch-action: pan-x pan-y;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
 }
 
 .cz-detail-hero-track::-webkit-scrollbar {
