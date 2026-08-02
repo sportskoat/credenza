@@ -6814,16 +6814,27 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Desktop: floating card, not a full-bleed takeover. margin:auto centers
-   a fixed dialog when width and height are set. */
+   a fixed dialog when width and height are set.
+   Kyle 2026-08-02: use nearly the full desktop height so the settings form
+   needs less internal scrolling. Match the translucent sign-in card with the
+   same frost tokens; the dialog backdrop already supplies the visible blur,
+   so the surface must not add another backdrop-filter. */
 @media (min-width: 768px) {
   .cz-settings-page {
     width: min(920px, calc(100vw - 48px));
-    height: min(720px, calc(100dvh - 48px));
+    height: calc(100dvh - 24px);
     max-width: min(920px, calc(100vw - 48px));
-    max-height: min(720px, calc(100dvh - 48px));
+    max-height: calc(100dvh - 24px);
     margin: auto;
-    border: 1px solid var(--cz-card-border, var(--cz-hair));
+    border: 1px solid var(--cz-frost-border);
     border-radius: 16px;
+    background: var(--cz-frost-fill);
+    --cz-ink: var(--cz-frost-ink);
+    --cz-sub: var(--cz-frost-faint);
+    --cz-faint: var(--cz-frost-faint);
+    --cz-hair: var(--cz-frost-border);
+    --cz-seg: var(--cz-frost-active);
+    color: var(--cz-ink);
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
       0 24px 64px rgba(0, 0, 0, 0.4);
@@ -8205,6 +8216,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    label. A person who has opened Profile once already knows how to read this.
    The one new idea is the locked row — a Pro control that stays legible and
    stays inert, rather than a disabled control that disappears. */
+@media (min-width: 768px) {
+  /* Kyle 2026-08-02: give the complete share form the available desktop
+     height and the same translucent frost as the three-free-cards card. */
+  .cz-modal:has(.cz-share-sheet),
+  .cz-app[data-fashion="true"] .cz-modal-surface.cz-share-sheet {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .cz-app[data-fashion="true"] .cz-modal-surface.cz-share-sheet {
+    border: 1px solid var(--cz-frost-border);
+    background: var(--cz-frost-fill);
+    --cz-ink: var(--cz-frost-ink);
+    --cz-sub: var(--cz-frost-faint);
+    --cz-faint: var(--cz-frost-faint);
+    --cz-hair: var(--cz-frost-border);
+    --cz-seg: var(--cz-frost-active);
+    color: var(--cz-ink);
+  }
+}
+
 .cz-share {
   display: block;
 }

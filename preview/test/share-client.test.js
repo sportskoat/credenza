@@ -285,6 +285,18 @@ describe("every class the sheets use exists in the stylesheet", () => {
     expect(css).toContain(".cz-haul-share");
   });
 
+  it("uses the taller shared frost treatment for Share Haul on desktop", () => {
+    expect(sheet).toContain('maxWidth={560}');
+    expect(sheet).toContain('surfaceClassName="cz-share-sheet"');
+    const start = css.indexOf('@media (min-width: 768px) {\n  /* Kyle 2026-08-02: give the complete share form');
+    expect(start).toBeGreaterThan(-1);
+    const desktop = css.slice(start, css.indexOf("\n.cz-share {", start));
+    expect(desktop).toMatch(/max-height:\s*calc\(100dvh - 24px\);/);
+    expect(desktop).toMatch(/background:\s*var\(--cz-frost-fill\);/);
+    expect(desktop).toMatch(/border:\s*1px solid var\(--cz-frost-border\);/);
+    expect(desktop).not.toContain("backdrop-filter:");
+  });
+
   it("uses tokens, not literal hex, in the share rules", () => {
     const block = css.slice(css.indexOf(".cz-share {"), css.indexOf(".cz-share-link {"));
     // The one exception is the --cz-heart fallback, which the profile sheet

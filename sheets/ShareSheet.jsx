@@ -104,7 +104,12 @@ export default function ShareSheet({
   );
 
   return (
-    <ModalShell title={link ? "Your link is ready" : "Share this haul"} onClose={onClose} maxWidth={460}>
+    <ModalShell
+      title={link ? "Your link is ready" : "Share this haul"}
+      onClose={onClose}
+      maxWidth={560}
+      surfaceClassName="cz-share-sheet"
+    >
       <div className="cz-share">
         {!signedIn ? (
           // Shared links live on the server, so they need an account. Say that
