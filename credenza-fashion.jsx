@@ -1667,14 +1667,16 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
 // ── Fit read rows (split-rail handoff 2026-07-28) ──
 //
 // One row per measurement on the PICKED chart row: name, theirs (garment cm),
-// yours (body cm), signed ease, a mark on the tight↔loose track, and a warn
-// flag when the ease falls outside the literal drafted band.
+// yours (body cm), signed ease, a mark on the tight↔loose track, and a
+// three-tier verdict on the ease (Kyle 2026-08-02): GREEN inside the drafted
+// band, ORANGE ("soft") within FIT_READ_SOFT_DELTA of the nearer edge —
+// "ehhh you can get away with it" — RED ("warn") only past that.
 //
 // Track domain is per-garment, per-row (K 2026-08-02): the padded range covers
 // the drafted ideal±span AND every size's ease for that measure, mapped to
 // [4%, 96%]. Oversized coats no longer pin every size at the same cap — the
-// mark always moves between sizes. The green band is drawn from the same map
-// (literal ideal±span, no +4cm visual slack), so red and green never disagree.
+// mark always moves between sizes. The green band and both orange zones are
+// drawn from the same map as the mark, so the three colors never disagree.
 //
 // Rows come from the parsed chart, not a hard-coded list ("drive them from
 // the parsed chart"). Order is worn-garment order per the spec: tops
@@ -1714,6 +1716,13 @@ const FIT_READ_EASE = {
 // mark never kisses the THEIRS column or the name (O 2026-08-02).
 const FIT_READ_TRACK_LO = 4;
 const FIT_READ_TRACK_HI = 96;
+
+// Kyle 2026-08-02: "within a certain delta it should be like an orange to
+// say 'ehhh you can get away with it'." Ease outside the drafted band but
+// within this delta of the nearer edge reads ORANGE (soft); only past it
+// does the row go RED (warn). Same 4cm the chest pick slack allows
+// (CHEST_BAND_SLACK) — display and pick now agree on the tolerated zone.
+const FIT_READ_SOFT_DELTA = 4;
 
 // Map an ease (cm) onto the track given a padded domain. Linear; clamp is a
 // safety net only for absurd values outside the padded domain.
@@ -1813,10 +1822,11 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     // warning. Only a length the customer measured earns a verdict.
     const graded = !infoOnly && !estimated;
     // The chest row reads against the garment's own band when the engine named
-    // one. Ideal = the band's middle, span = its half-width. Visual band and
-    // warn use the literal drafted range — no +4cm slack (K 2026-08-02: the
-    // band must match the range the footnote claims). Pick math still uses
-    // CHEST_BAND_SLACK elsewhere; this is display only.
+    // one. Ideal = the band's middle, span = its half-width. The green band
+    // draws the literal drafted range (K 2026-08-02: the band must match the
+    // range the footnote claims); the +4cm the pick tolerates now shows as
+    // the orange zone instead of hiding inside the band. Pick math still
+    // uses CHEST_BAND_SLACK elsewhere — same constant, now on display too.
     const bandTarget =
       key === "chest" && easeBand
         ? {
@@ -1828,8 +1838,13 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     const ease = graded && theirs != null && yours != null ? theirs - yours : null;
     let mark = null;
     let warn = false;
+    let soft = false;
     let bandLeft = null;
     let bandWidth = null;
+    let softLeft = null;
+    let softLeftWidth = null;
+    let softRight = null;
+    let softRightWidth = null;
     if (ease != null && target) {
       // Ease of every chart size for this measure (same body). Domain covers
       // drafted ideal±span and all those eases so every size stays on-track.
@@ -1844,9 +1859,23 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       bandLeft = mapEaseToTrack(draftedLo, domain.lo, domain.hi);
       const bandRight = mapEaseToTrack(draftedHi, domain.lo, domain.hi);
       bandWidth = bandRight - bandLeft;
+      // Orange zones: band edge to edge+FIT_READ_SOFT_DELTA, both sides, from
+      // the SAME map as the band and the mark — the three colors can never
+      // disagree. Clamp at the track edge just shortens the visible zone.
+      softLeft = mapEaseToTrack(draftedLo - FIT_READ_SOFT_DELTA, domain.lo, domain.hi);
+      softLeftWidth = Math.max(0, bandLeft - softLeft);
+      softRight = bandRight;
+      softRightWidth = Math.max(
+        0,
+        mapEaseToTrack(draftedHi + FIT_READ_SOFT_DELTA, domain.lo, domain.hi) - bandRight
+      );
       mark = mapEaseToTrack(ease, domain.lo, domain.hi);
-      // Warn from the same edges the band draws — red and green never disagree.
-      warn = mark < bandLeft || mark > bandRight;
+      // Tier from the ease VALUE, not the mapped mark, so clamping can never
+      // flip a color. At the band edge exactly: green. Up to edge+delta:
+      // orange. Past edge+delta: red.
+      const beyond = Math.max(ease - draftedHi, draftedLo - ease);
+      warn = beyond > FIT_READ_SOFT_DELTA;
+      soft = !warn && beyond > 0;
     }
     rows.push({
       key,
@@ -1859,8 +1888,13 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       ease,
       mark,
       warn,
+      soft,
       bandLeft,
       bandWidth,
+      softLeft,
+      softLeftWidth,
+      softRight,
+      softRightWidth,
       // Kyle 2026-07-30: say it out loud when the seller's chart has no such
       // column. The row used to print a bare "—", which reads the same as a
       // number we failed to use. An empty cell on a chart we DO hold is a

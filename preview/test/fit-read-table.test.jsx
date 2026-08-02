@@ -154,16 +154,61 @@ describe("fitReadRows", () => {
     expect(marks.L).toBeLessThan(marks.XL);
   });
 
-  it("keeps band edges equal to warn thresholds on every path", () => {
+  it("keeps band, orange zones, and tier flags on one map (three tiers)", () => {
+    // Kyle 2026-08-02: GREEN inside the band, ORANGE within the soft delta of
+    // an edge, RED past it. All three read off the same domain map, so the
+    // flags must agree with the drawn geometry on every row.
     const chart = parseSizeChart(TOP_TEXT);
+    // Chest 105 → M ease +11 on the 5–10 knit band: Kyle's orange example.
     const profile = { chest: 105, shoulder: 45 };
     const rec = recommendSize(chart, profile, "shirt");
     const rows = fitReadRows(chart, rec, profile, "shirt");
+    let sawSoft = false;
     for (const row of rows) {
       if (row.mark == null) continue;
       const bandRight = row.bandLeft + row.bandWidth;
-      const outside = row.mark < row.bandLeft || row.mark > bandRight;
-      expect(row.warn).toBe(outside);
+      const softRightEnd = row.softRight + row.softRightWidth;
+      const outsideBand = row.mark < row.bandLeft || row.mark > bandRight;
+      const beyondSoft = row.mark < row.softLeft || row.mark > softRightEnd;
+      expect(row.warn).toBe(beyondSoft);
+      expect(row.soft).toBe(outsideBand && !beyondSoft);
+      // Zones flank the band and never overlap it.
+      expect(row.softLeft).toBeLessThanOrEqual(row.bandLeft);
+      expect(row.softRight).toBe(bandRight);
+      if (row.soft) sawSoft = true;
+    }
+    // The +11 knit chest is orange in this fixture — the tier exists.
+    expect(sawSoft).toBe(true);
+  });
+
+  it("tiers the chest row green → orange → red at the exact band edges", () => {
+    // Knit band 5–10, soft delta 4: orange covers (10, 14] and [1, 5), red
+    // past those, edges themselves green. Force M so the pick never moves.
+    const chart = parseSizeChart(TOP_TEXT);
+    const title = "Vintage band tee";
+    const chestAt = (bodyChest) => {
+      const profile = { chest: bodyChest };
+      const rec = recommendSize(chart, profile, "shirt", null, "M", title);
+      return fitReadRows(chart, rec, profile, "shirt", title).find(
+        (r) => r.key === "chest"
+      );
+    };
+    const cases = [
+      // [body chest, ease (= 116 − body), soft, warn]
+      [106, 10, false, false], // hi edge exactly: green
+      [105, 11, true, false], // just past: orange (Kyle's +11 knit)
+      [102, 14, true, false], // edge + delta: still orange (inclusive)
+      [101, 15, false, true], // past edge + delta: red
+      [111, 5, false, false], // lo edge exactly: green
+      [112, 4, true, false], // below the band: orange
+      [115, 1, true, false], // lo edge − delta: still orange
+      [116, 0, false, true], // past lo edge − delta: red
+    ];
+    for (const [body, ease, soft, warn] of cases) {
+      const chest = chestAt(body);
+      expect(chest.ease, "body " + body).toBe(ease);
+      expect(chest.soft, "body " + body).toBe(soft);
+      expect(chest.warn, "body " + body).toBe(warn);
     }
   });
 
@@ -395,6 +440,39 @@ describe("FitReadTable in the detail body", () => {
         "All two inside tolerance. Body length is estimated from your height."
       )
     ).toBeInTheDocument();
+  });
+
+  it("renders the orange tier: amber mark and ease, flank zones on the track", () => {
+    // Kyle 2026-08-02: chest 105 → M ease +11 on the 5–10 knit band reads
+    // ORANGE ("get away with it"), not red. His exact example.
+    const { container } = renderBody(fitItem(), {
+      bodyProfile: { chest: 105, shoulder: 45, height: 180, weight: 75 },
+    });
+    const table = container.querySelector(".cz-fitread");
+    expect(table).not.toBe(null);
+    expect(table.querySelectorAll(".cz-fitread-mark.is-soft").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-mark.is-warn").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-ease.is-soft").length).toBe(1);
+    // Both graded rows (chest, shoulder) draw both flank zones from the map.
+    expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(4);
+    // An orange row still counts as inside for the verdict line — the old
+    // +4 slack's verdict, now shown honestly by the color.
+    expect(
+      within(table).getByText(
+        "All two inside tolerance. Body length is estimated from your height."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("renders the red tier only past the orange zone", () => {
+    // Chest 101 → M ease +15: past band edge 10 + delta 4, so RED.
+    const { container } = renderBody(fitItem(), {
+      bodyProfile: { chest: 101, shoulder: 45, height: 180, weight: 75 },
+    });
+    const table = container.querySelector(".cz-fitread");
+    expect(table.querySelectorAll(".cz-fitread-mark.is-warn").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-mark.is-soft").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-ease.is-warn").length).toBe(1);
   });
 
   it("opens the full seller chart when FIT READ is tapped (Kyle 2026-07-31)", async () => {
@@ -673,5 +751,34 @@ describe("fit-read number column widths (CM legibility)", () => {
     const after = FIT_CSS.match(/\.cz-detail-chart-link::after\s*\{[^}]+\}/);
     expect(after, "chart-link ::after missing").toBeTruthy();
     expect(after[0]).toContain("height: 44px");
+  });
+});
+
+// Kyle 2026-08-02 three tiers: the orange "get away with it" tier rides the
+// theme's amber tokens in both palettes — a raw hex would rot on Blackout.
+describe("three-tier orange paints from theme tokens", () => {
+  const HEX = /#[0-9a-fA-F]{3,8}\b/;
+  it("soft track zone, mark, and ease use var(--cz-warn*) and no hex", () => {
+    const zone = FIT_CSS.match(/\.cz-fitread-soft\s*\{[^}]+\}/);
+    expect(zone, "soft zone rule missing").toBeTruthy();
+    expect(zone[0]).toContain("var(--cz-warn)");
+    expect(zone[0]).not.toMatch(HEX);
+
+    const mark = FIT_CSS.match(/\.cz-fitread-mark\.is-soft\s*\{[^}]+\}/);
+    expect(mark, "soft mark rule missing").toBeTruthy();
+    expect(mark[0]).toContain("var(--cz-warn)");
+    expect(mark[0]).not.toMatch(HEX);
+
+    const ease = FIT_CSS.match(/\.cz-fitread-ease\.is-soft\s*\{[^}]+\}/);
+    expect(ease, "soft ease rule missing").toBeTruthy();
+    expect(ease[0]).toContain("var(--cz-warn-ink)");
+    expect(ease[0]).not.toMatch(HEX);
+  });
+
+  it("seller-chart ease gets the same amber tier", () => {
+    const cell = FIT_CSS.match(/\.cz-chart-ease\.is-soft\s*\{[^}]+\}/);
+    expect(cell, "chart soft ease rule missing").toBeTruthy();
+    expect(cell[0]).toContain("var(--cz-warn-ink)");
+    expect(cell[0]).not.toMatch(HEX);
   });
 });
