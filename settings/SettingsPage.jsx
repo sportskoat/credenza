@@ -193,6 +193,26 @@ export default function SettingsPage({ section, onNavigate, onClose, value, isPh
           <span className="cz-settings-page-wordmark">CREDENZA</span>
           <span className="cz-settings-page-title">Settings</span>
         </header>
+        {/* Phone jump chips (mobile item C / backlog item 6). Sit under the
+            masthead, outside the scroller, so they stay put while content
+            scrolls. Content of each section is unchanged. Desktop keeps the rail. */}
+        {isPhone ? (
+          <nav className="cz-settings-chips" aria-label="Jump to section">
+            {SETTINGS_SECTIONS.map(({ key, chip }) => (
+              <button
+                key={key}
+                type="button"
+                className={
+                  "cz-settings-chip" + (key === active ? " is-active" : "")
+                }
+                aria-current={key === active ? "true" : undefined}
+                onClick={() => scrollToSection(key)}
+              >
+                {chip}
+              </button>
+            ))}
+          </nav>
+        ) : null}
         <div className="cz-settings-page-layout">
           {!isPhone ? (
             <SettingsNav active={active} onSelect={(key) => scrollToSection(key)} />

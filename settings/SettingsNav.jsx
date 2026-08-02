@@ -2,12 +2,13 @@ import { useSettings } from "./SettingsContext.jsx";
 
 // Five sections. Fit preferences folds into Sizes (design handoff 2026-08-01).
 // Order matches the scroll column. Shelf carries the agent · currency meta.
+// `chip` is the short phone jump label (mobile item C / backlog item 6).
 export const SETTINGS_SECTIONS = [
-  { key: "account", label: "Account and plan", summary: null },
-  { key: "sizes", label: "Sizes and measurements", summary: null },
-  { key: "shelf", label: "Shelf defaults", summary: null },
-  { key: "data", label: "Your data", summary: null },
-  { key: "about", label: "About and support", summary: null },
+  { key: "account", label: "Account and plan", chip: "Account", summary: null },
+  { key: "sizes", label: "Sizes and measurements", chip: "Sizes", summary: null },
+  { key: "shelf", label: "Shelf defaults", chip: "Agent", summary: null },
+  { key: "data", label: "Your data", chip: "Data", summary: null },
+  { key: "about", label: "About and support", chip: "About", summary: null },
 ];
 
 // Desktop rail (236px). Phone drops the rail; the page stacks every section.

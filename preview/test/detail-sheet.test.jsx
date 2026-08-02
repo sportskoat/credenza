@@ -355,9 +355,13 @@ describe("mobile item 3 — photo pager never closes the sheet", () => {
     const trackStart = CSS.indexOf(".cz-detail-hero-track {");
     expect(trackStart).toBeGreaterThan(-1);
     // Comment block is long — read past it to the property declarations.
-    const trackBlock = CSS.slice(trackStart, trackStart + 900);
+    const trackBlock = CSS.slice(trackStart, trackStart + 1100);
     expect(trackBlock).toMatch(/touch-action:\s*pan-x\s+pan-y/);
-    expect(trackBlock).toMatch(/overscroll-behavior:\s*contain/);
+    // Item B (2026-08-02): X contained for paging; Y none so the photo does
+    // not rubber-band. Do not require a combined overscroll-behavior: contain.
+    expect(trackBlock).toMatch(/overscroll-behavior-x:\s*contain/);
+    expect(trackBlock).toMatch(/overscroll-behavior-y:\s*none/);
+    expect(trackBlock).toMatch(/overflow-y:\s*hidden/);
 
     const slideStart = CSS.indexOf(
       '.cz-app[data-fashion="true"] .cz-detail-hero-slide,\n.cz-detail-hero-slide {'
@@ -365,5 +369,18 @@ describe("mobile item 3 — photo pager never closes the sheet", () => {
     expect(slideStart).toBeGreaterThan(-1);
     const slideBlock = CSS.slice(slideStart, slideStart + 500);
     expect(slideBlock).toMatch(/touch-action:\s*pan-x\s+pan-y/);
+  });
+
+  // Mobile item B (2026-08-02): no JS drag on the pager — vertical motion is
+  // native sheet scroll only; photo must not translate under the finger.
+  it("has no touch/pointer drag handlers on the hero pager in DetailBody", () => {
+    const src = readFileSync(join(ROOT, "components/DetailBody.jsx"), "utf8");
+    const heroStart = src.indexOf('className="cz-detail-hero"');
+    expect(heroStart).toBeGreaterThan(-1);
+    // Slice through the hero block only (ends before sticky bar / next major block).
+    const heroBlock = src.slice(heroStart, heroStart + 2500);
+    expect(heroBlock).not.toMatch(/onTouch(Start|Move|End)=/);
+    expect(heroBlock).not.toMatch(/onPointer(Down|Move|Up)=/);
+    expect(heroBlock).not.toMatch(/translateY/);
   });
 });

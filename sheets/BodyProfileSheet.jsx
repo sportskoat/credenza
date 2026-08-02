@@ -365,12 +365,41 @@ export default function BodyProfileSheet({
     });
   };
 
+  // Mobile item D (2026-08-02): focus may repaint the active row, never jump
+  // the list. iOS scrolls a newly focused field into view (keyboard up reads
+  // as "the lines moved"). Hold the nearest scroller still and use
+  // preventScroll so tabbing/tapping between boxes is paint-only.
+  const holdListScroll = (el, run) => {
+    const scroller =
+      (el && typeof el.closest === "function"
+        ? el.closest(".cz-settings-content, .cz-modal-body, .cz-sheet-body")
+        : null) || null;
+    const y = scroller ? scroller.scrollTop : null;
+    run();
+    if (scroller && y != null) {
+      scroller.scrollTop = y;
+      requestAnimationFrame(() => {
+        scroller.scrollTop = y;
+      });
+    }
+  };
+
   const focusKey = (key) => {
     const group = TOPS.indexOf(key) >= 0 ? "tops" : "bot";
     setActive((a) => (a[group] === key ? a : { ...a, [group]: key }));
     const el = inputRefs.current[key];
     if (el && typeof el.focus === "function") {
-      requestAnimationFrame(() => el.focus());
+      requestAnimationFrame(() => {
+        holdListScroll(el, () => {
+          if (typeof el.focus === "function") {
+            try {
+              el.focus({ preventScroll: true });
+            } catch {
+              el.focus();
+            }
+          }
+        });
+      });
     }
   };
 
@@ -436,7 +465,12 @@ export default function BodyProfileSheet({
           inputMode="decimal"
           value={draft[key] || ""}
           onChange={(e) => setMeasure(key, e.target.value)}
-          onFocus={() => focusKey(key)}
+          onFocus={(e) => {
+            // Browser already moved focus (and may have scrolled). Re-pin
+            // scroll, then sync active key / diagram without a second jump.
+            holdListScroll(e.currentTarget, () => {});
+            focusKey(key);
+          }}
           placeholder="—"
           autoComplete="off"
           aria-label={labels[key]}
