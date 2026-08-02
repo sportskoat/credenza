@@ -45,9 +45,9 @@ if (await samplesBtn.count()) {
 await page.getByRole("button", { name: "Profile" }).click();
 await page.waitForTimeout(800);
 const legal = await page.evaluate(() => ({
-  privacy: !!document.querySelector('.cz-profile-legal-link[href="/privacy/"]'),
-  terms: !!document.querySelector('.cz-profile-legal-link[href="/terms/"]'),
-  support: !!document.querySelector('.cz-profile-legal-link[href="mailto:support@credenzafashion.com"]'),
+  privacy: !!document.querySelector('.cz-settings-about-link[href="/privacy/"]'),
+  terms: !!document.querySelector('.cz-settings-about-link[href="/terms/"]'),
+  support: !!document.querySelector('.cz-settings-about-link[href="mailto:support@credenzafashion.com"]'),
   erase: !!document.querySelector(".cz-profile-danger"),
 }));
 console.log("profile legal:", JSON.stringify(legal));
