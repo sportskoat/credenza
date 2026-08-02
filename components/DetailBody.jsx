@@ -2457,6 +2457,9 @@ export default function DetailBody({
   // pair — without them the block renders exactly as before.
   onToggleFitSummary = null,
   fitSummary = null,
+  // Settings tab: remove this card. Optional — phone sheet and hosts that
+  // own delete elsewhere (⋯ menu) may omit it; the Settings tab hides Remove.
+  onDelete = null,
 }) {
   const titleInputRef = useRef(null);
   const chartInputRef = useRef(null);
@@ -2469,8 +2472,7 @@ export default function DetailBody({
   // passes none because its card header already carries those.
   const [photoIdx, setPhotoIdx] = useState(0);
   const [pane, setPane] = useState("fit");
-  // Desktop card-back v2 tabs (Fit · Chart · Photos · Details · Settings).
-  // Phase 1: Fit. Phase 2: Chart. Photos / Details / Settings still placeholders.
+  // Desktop card-back tabs: Fit · Details · Settings (Photos live on the left strip).
   const [desktopTab, setDesktopTab] = useState("fit");
   // Kyle 2026-08-02: measurement-by-measurement bars open by default.
   const [openRead, setOpenRead] = useState(true);
@@ -3520,16 +3522,172 @@ export default function DetailBody({
             : createPortal(commandBarBlock, commandBarTarget)}
         </div>
 
-        {/* Split rail: the four detail tabs are gone. Size, colorway, weight
-            and haul are always-visible facts — three of them hidden behind a
-            tab bar made the card a guessing game. */}
+        {/* Split rail: Fit · Details · Settings on desktop. Phone keeps Fit
+            and a separate Details pane lower down. */}
         <div className="cz-detail-facts cz-detail-pane cz-detail-pane-fit">
-          {isDesktopPanel && desktopTab !== "fit" ? (
-            <div className="cz-fit-placeholder">
-              <h3>{(DESKTOP_TABS.find((t) => t[0] === desktopTab) || ["", "Section"])[1]}</h3>
-              <p>This tab ships in a later phase. Fit is ready now.</p>
-            </div>
+          {isDesktopPanel && desktopTab === "details" ? (
+            <section className="cz-desk-tab cz-desk-tab-details" aria-label="Details">
+              <div className="cz-desk-fact-list">
+                {item.seller ? (
+                  <div className="cz-desk-fact-row">
+                    <span className="cz-desk-fact-k">Seller</span>
+                    <span className="cz-desk-fact-v">
+                      <SellerLink item={item} className="cz-detail-seller-link" />
+                    </span>
+                  </div>
+                ) : null}
+                {view.project ? (
+                  <div className="cz-desk-fact-row">
+                    <span className="cz-desk-fact-k">Haul</span>
+                    <span className="cz-desk-fact-v">{view.project}</span>
+                  </div>
+                ) : null}
+                {view.colorway ? (
+                  <div className="cz-desk-fact-row">
+                    <span className="cz-desk-fact-k">Colourway</span>
+                    <span className="cz-desk-fact-v">{view.colorway}</span>
+                  </div>
+                ) : null}
+                {view.weightGrams || weightText ? (
+                  <div className="cz-desk-fact-row">
+                    <span className="cz-desk-fact-k">Weight</span>
+                    <span className="cz-desk-fact-v">
+                      {weightText
+                        ? weightText + " " + weightUnit
+                        : view.weightGrams
+                          ? view.weightGrams + " g"
+                          : ""}
+                    </span>
+                  </div>
+                ) : null}
+                {linkButtons(item, { buyLabel })
+                  .filter((b, i, arr) => arr.findIndex((x) => x.url === b.url) === i)
+                  .map((b) => (
+                    <div className="cz-desk-fact-row" key={b.url + b.label}>
+                      <span className="cz-desk-fact-k">Link</span>
+                      <span className="cz-desk-fact-v">
+                        <a
+                          className="cz-detail-seller-link"
+                          href={b.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {b.label}
+                        </a>
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              <AlbumLinksRow item={item} className="cz-desk-album-links" />
+              {notesBlock}
+            </section>
           ) : null}
+
+          {isDesktopPanel && desktopTab === "settings" ? (
+            <section className="cz-desk-tab cz-desk-tab-settings" aria-label="Settings">
+              {typeof onSelectAgent === "function" ? (
+                <div className="cz-desk-setting-block">
+                  <h3 className="cz-desk-setting-kicker">Buying agent</h3>
+                  <div
+                    className="cz-desk-agent-list"
+                    role="radiogroup"
+                    aria-label="Buying agent"
+                  >
+                    {listAgents().map((agent) => {
+                      const active = agent.id === preferredAgent;
+                      return (
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          key={agent.id}
+                          className={"cz-desk-agent-row" + (active ? " is-active" : "")}
+                          onClick={() => onSelectAgent(agent.id)}
+                        >
+                          <span className="cz-desk-agent-dot" aria-hidden="true" />
+                          <span className="cz-desk-agent-name">{agent.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="cz-desk-setting-note">
+                    Item price is the same everywhere — agents differ on shipping and service fee.
+                    Your pick sticks as the default.
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="cz-desk-setting-block">
+                <h3 className="cz-desk-setting-kicker">Size chart</h3>
+                <div className="cz-desk-setting-actions">
+                  <button
+                    type="button"
+                    className="cz-desk-setting-btn"
+                    onClick={() => chartInputRef.current?.click()}
+                  >
+                    Upload chart photo
+                  </button>
+                  <button
+                    type="button"
+                    className="cz-desk-setting-btn"
+                    onClick={() => chartRead.startTyping(item.category)}
+                  >
+                    Enter chart by hand
+                  </button>
+                  {sizingAlbumPhotos.length ? (
+                    <button
+                      type="button"
+                      className="cz-desk-setting-btn"
+                      onClick={() =>
+                        chartRead.read(sizingAlbumPhotos.slice(0, 3), {
+                          thumb: sizingAlbumPhotos[0] || "",
+                        })
+                      }
+                    >
+                      Re-read album photos
+                    </button>
+                  ) : null}
+                  {chartIsForgettable ? (
+                    <button
+                      type="button"
+                      className="cz-desk-setting-btn is-quiet"
+                      onClick={forgetChart}
+                    >
+                      Forget this chart
+                    </button>
+                  ) : null}
+                </div>
+                {chartRead.reading || chartRead.chart || chartRead.error ? (
+                  <SizingBlockReading
+                    reading={chartRead.reading}
+                    chart={chartRead.chart}
+                    thumb={chartRead.thumb}
+                    error={chartRead.error}
+                    units={measureUnits}
+                    typed={chartRead.typed}
+                    onUse={chartRead.commit}
+                    onRetry={chartRead.dismiss}
+                    onFix={chartRead.fix}
+                  />
+                ) : null}
+              </div>
+
+              {typeof onDelete === "function" ? (
+                <div className="cz-desk-setting-block">
+                  <h3 className="cz-desk-setting-kicker">Card</h3>
+                  <button
+                    type="button"
+                    className="cz-desk-setting-btn is-danger"
+                    onClick={() => onDelete(item.id)}
+                  >
+                    Remove this card
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
           {(!isDesktopPanel || desktopTab === "fit") ? (
           <section className="cz-detail-facts-section" aria-label="Size and fit">
             {wantsStickyBar ? mobileFitIntro : null}
@@ -3870,19 +4028,21 @@ export default function DetailBody({
 
         </div>
 
+        {/* Desktop: timeline still portals under the left photo column when
+            the panel hands us a mount. Notes moved into the Details tab. */}
+        {isDesktopPanel && logNotesTarget
+          ? createPortal(timelineBlock, logNotesTarget)
+          : null}
+
+        {/* Phone / flip-card: Details pane with timeline, notes, QC. */}
+        {!isDesktopPanel ? (
         <section
           className="cz-detail-pane cz-detail-pane-details cz-detail-pane-history"
           aria-label={wantsStickyBar ? "Details" : undefined}
         >
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
 
-        {logNotesTarget === undefined
-          ? timelineBlock
-          : logNotesTarget === null
-            ? null
-            : createPortal(timelineBlock, logNotesTarget)}
-        {/* Notes stay inline even on the desktop panel — the bottom of the
-            right side, above the footer (Kyle 2026-07-30). */}
+        {timelineBlock}
         {notesBlock}
 
         {/* QC prompt (§9). It is the LAST block, after the notes, because it
@@ -3916,6 +4076,7 @@ export default function DetailBody({
           </p>
         ) : null}
         </section>
+        ) : null}
       </div>
       </div>
 

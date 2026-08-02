@@ -680,6 +680,7 @@ export default function DesktopDetailPanel({
               onOpenSizes={onOpenSizes}
               onSetPrimaryImage={onSetPrimaryImage}
               onLoadPhotos={onLoadPhotos}
+              onDelete={onDelete}
               footerPrice={price}
               logNotesTarget={isWide ? logNotesEl : undefined}
               commandBarTarget={isWide ? commandBarEl : undefined}

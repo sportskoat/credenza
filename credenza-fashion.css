@@ -18121,6 +18121,188 @@ input.cz-sizing-fix-size {
     margin: 0;
   }
 
+  /* ── Desktop Details + Settings tabs (Lane 1 overnight, 2026-08-02) ──
+     Reuses phone-sheet facts (seller/haul/links/notes) and existing chart
+     / agent handlers. No new data paths. */
+  .cz-desk-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+    max-width: 520px;
+    padding: 4px 0 12px;
+  }
+  .cz-desk-fact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--cz-hair);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--cz-wash);
+  }
+  .cz-desk-fact-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--cz-hair);
+  }
+  .cz-desk-fact-row:last-child {
+    border-bottom: 0;
+  }
+  .cz-desk-fact-k {
+    flex: 0 0 88px;
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cz-faint);
+  }
+  .cz-desk-fact-v {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: var(--cz-sans);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--cz-ink);
+    word-break: break-word;
+  }
+  .cz-desk-fact-v a.cz-detail-seller-link {
+    color: var(--cz-link);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--cz-link) 45%, transparent);
+    text-underline-offset: 2px;
+  }
+  .cz-desk-fact-v a.cz-detail-seller-link:hover {
+    color: var(--cz-ink);
+  }
+  .cz-desk-album-links {
+    margin: 0;
+  }
+  /* Notes live in Details now — override the Phase 1 hide of .cz-detail-notes. */
+  .cz-dpanel .cz-desk-tab-details .cz-detail-notes-box,
+  .cz-dpanel .cz-desk-tab-details .cz-detail-notes-add {
+    display: flex !important;
+  }
+  .cz-dpanel .cz-desk-tab-details .cz-detail-notes-box {
+    flex-direction: column;
+  }
+  .cz-dpanel .cz-desk-tab-details .cz-detail-notes {
+    display: block !important;
+  }
+  .cz-dpanel .cz-desk-tab-details .cz-detail-notes-add {
+    display: inline-flex !important;
+    align-items: center;
+  }
+
+  .cz-desk-setting-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+  .cz-desk-setting-kicker {
+    margin: 0;
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cz-faint);
+  }
+  .cz-desk-agent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 14px;
+    background: var(--cz-wash);
+    max-height: min(44vh, 320px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cz-desk-agent-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--cz-ink);
+    font-family: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .cz-desk-agent-row.is-active {
+    background: var(--cz-seg);
+  }
+  .cz-desk-agent-row:hover {
+    background: var(--cz-hover);
+  }
+  .cz-desk-agent-dot {
+    flex: 0 0 auto;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    border: 1.5px solid var(--cz-hair-control);
+    background: transparent;
+  }
+  .cz-desk-agent-row.is-active .cz-desk-agent-dot {
+    border-color: var(--cz-ink);
+    background: var(--cz-ink);
+  }
+  .cz-desk-agent-name {
+    min-width: 0;
+  }
+  .cz-desk-setting-note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--cz-faint);
+  }
+  .cz-desk-setting-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cz-desk-setting-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 12px;
+    background: var(--cz-wash);
+    color: var(--cz-ink);
+    font-family: var(--cz-sans);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .cz-desk-setting-btn:hover {
+    background: var(--cz-hover);
+  }
+  .cz-desk-setting-btn.is-quiet {
+    font-weight: 500;
+    color: var(--cz-sub);
+  }
+  .cz-desk-setting-btn.is-danger {
+    border-color: color-mix(in srgb, var(--cz-error-text, #f87171) 40%, var(--cz-hair));
+    color: var(--cz-error-text, #f87171);
+    background: transparent;
+  }
+  .cz-desk-setting-btn.is-danger:hover {
+    background: color-mix(in srgb, var(--cz-error-text, #f87171) 10%, transparent);
+  }
+
   /* Fit result line */
   .cz-dpanel .cz-sizing {
     margin: 0 0 16px;
