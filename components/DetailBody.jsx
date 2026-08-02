@@ -43,6 +43,7 @@ import {
   resolveDisplaySize,
   sellerStoreUrl,
   sizeChartTextFor,
+  elasticEvidenceTextFor,
   usualSizeForItem,
   useWriteThroughDraft,
   usePrefersReducedMotion,
@@ -153,7 +154,10 @@ function useSizeVerdict(
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
   // so the badge never claims a precise fit it does not have.
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
-  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref, null, item.title) : null;
+  const rec =
+    chart && profile
+      ? recommendSize(chart, profile, item.category, fitPref, null, item.title, elasticEvidenceTextFor(item))
+      : null;
   const recSize = rec && rec.size ? rec.size : null;
   // `rec` is the advice; `shown` is what every printed number describes. They
   // are the same until the customer taps a different size, and then the panel
@@ -161,7 +165,7 @@ function useSizeVerdict(
   // the tap, the advice line keeps the recommendation).
   const pickRead =
     chosenSize && chart && profile
-      ? recommendSize(chart, profile, item.category, fitPref, chosenSize, item.title)
+      ? recommendSize(chart, profile, item.category, fitPref, chosenSize, item.title, elasticEvidenceTextFor(item))
       : null;
   const overridden = !!(
     pickRead &&
@@ -1010,7 +1014,8 @@ function SellerChartFold({
         item.category,
         fitPref,
         row.size,
-        item.title
+        item.title,
+        elasticEvidenceTextFor(item)
       );
       const readRows = fitReadRows(chart, sizeRec, profile, item.category, item.title);
       const map = {};

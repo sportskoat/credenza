@@ -16,6 +16,7 @@ import {
   parseSizeChart,
   recommendSize,
   sizeChartTextFor,
+  elasticEvidenceTextFor,
 } from "../credenza-fashion.jsx";
 import SizeChartTable from "./SizeChartTable.jsx";
 
@@ -121,7 +122,15 @@ export default function SizeRecommendation({
   const catAxes = FIT_PREF_AXES[item.category] || null;
   const rec =
     chart && bodyProfile
-      ? recommendSize(chart, effectiveBodyProfile(bodyProfile), item.category, fitPref, null, item.title)
+      ? recommendSize(
+          chart,
+          effectiveBodyProfile(bodyProfile),
+          item.category,
+          fitPref,
+          null,
+          item.title,
+          elasticEvidenceTextFor(item)
+        )
       : null;
   const recSize = rec && rec.size ? rec.size : null;
   // An estimated profile (height+weight stand-ins) shows a pick but never
