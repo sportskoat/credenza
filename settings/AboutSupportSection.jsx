@@ -31,7 +31,7 @@ export default function AboutSupportSection() {
         <a className="cz-settings-about-link" href="/terms/">
           Terms
         </a>
-        <a className="cz-settings-about-link" href="mailto:wenselllc@gmail.com">
+        <a className="cz-settings-about-link" href="mailto:support@credenzafashion.com">
           Email us
         </a>
         <span className="cz-settings-about-ver">v2.4.0 · LOCAL</span>

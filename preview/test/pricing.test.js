@@ -452,7 +452,7 @@ describe("the refund promise says the same thing on every page that makes it", (
   // The window, and the address to write to. Both are quoted verbatim on both
   // pages, so a change to either has to be made in both places or fail here.
   const WINDOW = "within 14 days";
-  const EMAIL = "wenselllc@gmail.com";
+  const EMAIL = "support@credenzafashion.com";
 
   it("states the window on the page where people decide to pay", () => {
     expect(page, "/pricing/ does not state the refund window").toContain(WINDOW);
