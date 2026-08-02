@@ -4,38 +4,6 @@ import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
 import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
 
-/**
- * Image-slider / carousel UI icon (not a fairground ride).
- * Kyle 2026-08-01 round 3: rounded photo card + mountain glyph + curved
- * side brackets (media 97cc9704). Stroke recipe matches LayoutGrid (15 / 2.2).
- */
-function CarouselIcon({ size = 15, strokeWidth = 2.2, className, ...rest }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-      {...rest}
-    >
-      {/* center photo card */}
-      <rect x="7" y="5" width="10.5" height="13.5" rx="2.3" />
-      {/* photo/mountain glyph — short diagonal + longer diagonal, lower-center */}
-      <path d="M10.2 14.4l1.7-2.1" />
-      <path d="M11 16.4l3.7-4.5" />
-      {/* curved side brackets (swipeable panels), not touching the card */}
-      <path d="M4.3 7.2C2.2 9.4 2.2 14.6 4.3 16.8" />
-      <path d="M20.2 7.2C22.3 9.4 22.3 14.6 20.2 16.8" />
-    </svg>
-  );
-}
 import {
   createStorageBackend,
   loadStoredItems,
@@ -1262,7 +1230,7 @@ export const GARMENT_WORD = {
 // penalty is skipped — a tee's 22 cm sleeve is not a fit failure.
 export function recommendSize(chart, profile, category, fitPref = null, forceSize = null, title = null) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
-  const p = profile || {};
+  const p = migrateSleeveMeasurements(profile) || {};
   const rows = chart.rows;
   const has = (key) => rows.filter((r) => r[key] != null).length >= 2;
   const catPants = category === "pants" || category === "shorts";
@@ -1337,9 +1305,12 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const candidates = rows.filter((r) => r[primaryKey] != null);
   if (candidates.length < 2) return null;
   const isTop = primaryKey === "chest";
-  // Confirmed short sleeve: the chart's 20–25 cm sleeves are by design, not a
-  // fit failure, so they carry no penalty. Long/unknown keeps the penalty.
-  const skipSleevePenalty = sleeveStyle(title, chart) === "short";
+  // Compare the seller's sleeve against the matching saved sleeve. A short
+  // sleeve never reads the wrist measurement. A long or unknown sleeve keeps
+  // the wrist measurement used before this split. No chart column means no
+  // sleeve score because r.sleeve stays empty.
+  const sleeveKind = sleeveStyle(title, chart);
+  const sleeveProfileKey = sleeveKind === "short" ? "shortSleeve" : "longSleeve";
   // C: a raglan sleeve has no comparable shoulder seam, and a drop shoulder
   // hangs down the arm by design. Neither one can be graded on shoulder width.
   const skipShoulder = isTop && (cut === "drop" || cut === "raglan");
@@ -1373,7 +1344,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
       }
     }
     // Sleeves shorter than the arm are worse than sleeves that run long.
-    if (isTop && !skipSleevePenalty && p.sleeve != null && r.sleeve != null) s += Math.max(0, p.sleeve - r.sleeve) * 0.6;
+    if (isTop && p[sleeveProfileKey] != null && r.sleeve != null) {
+      s += Math.max(0, p[sleeveProfileKey] - r.sleeve) * 0.6;
+    }
     // Secondary hip nudge on bottoms when both sides have it.
     if (!isTop && primaryKey === "waist" && p.hip != null && r.hip != null) {
       s += Math.abs(r.hip - (p.hip + 2)) * 0.35;
@@ -1584,7 +1557,7 @@ const FIT_READ_EASE = {
 
 export function fitReadRows(chart, rec, profile, category, title = null) {
   const picked = rec && rec.row ? rec.row : null;
-  const p = profile || {};
+  const p = migrateSleeveMeasurements(profile) || {};
   const isBottoms =
     (rec && (rec.primaryKey === "waist" || rec.primaryKey === "hip")) ||
     category === "pants" ||
@@ -1594,6 +1567,7 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   // becomes information only, like Body length — no ease, no mark, no warn.
   // Long/unknown keeps the verdict: when unsure, we keep the warning.
   const shortSleeve = sleeveStyle(title, chart) === "short";
+  const sleeveBodyKey = shortSleeve ? "shortSleeve" : "longSleeve";
   // Fit engine v2. The table must grade a row exactly as the pick graded it,
   // or the panel argues with itself. Two rows change:
   //   Chest — the garment's own room band replaces the flat 12±6, so a blazer
@@ -1615,7 +1589,9 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     // lengths, because nobody wants both the same. A bottoms "Body length"
     // row still claims nothing — only 裤长 has a match.
     const bodyKey =
-      key === "pantsLength"
+      key === "sleeve"
+        ? sleeveBodyKey
+        : key === "pantsLength"
         ? category === "shorts"
           ? "shortsLength"
           : "pantsLength"
@@ -1641,7 +1617,9 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       }
     }
     if (theirs == null && yours == null) continue;
-    const infoOnly = (shortSleeve && key === "sleeve") || (noShoulderSeam && key === "shoulder");
+    const infoOnly =
+      (shortSleeve && key === "sleeve" && yours == null) ||
+      (noShoulderSeam && key === "shoulder");
     // Oom 2026-07-29: a ragged chart can give the picked size no sleeve
     // number. The row would survive the test above on a body arm length,
     // then lose YOURS to the info-only rule and print "Sleeve — — —".
@@ -1679,8 +1657,8 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       key,
       name: FIT_READ_LABELS[key] || key,
       theirs,
-      // Option B (Kyle 2026-07-29): a short sleeve shows only the garment
-      // number. The arm length measures a different thing, so YOURS hides.
+      // A short sleeve with no saved short-sleeve value shows only the garment
+      // number. The long-sleeve wrist value measures a different thing.
       yours: infoOnly ? null : yours,
       estimated,
       ease,
@@ -4683,17 +4661,39 @@ export function compactSizeToken(raw) {
 // hardest, the chest least. Measured fields always win. The result is
 // flagged `estimated` so no surface calls the pick "precise" and nothing
 // persists it over a later measured profile.
+export function migrateSleeveMeasurements(profile) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return profile;
+  let changed = false;
+  const next = { ...profile };
+  if (Object.prototype.hasOwnProperty.call(next, "sleeve")) {
+    if (next.longSleeve == null) next.longSleeve = next.sleeve;
+    delete next.sleeve;
+    changed = true;
+  }
+  if (next.garment && typeof next.garment === "object" && !Array.isArray(next.garment)) {
+    const garment = { ...next.garment };
+    if (Object.prototype.hasOwnProperty.call(garment, "sleeve")) {
+      if (garment.shortSleeve == null) garment.shortSleeve = garment.sleeve;
+      delete garment.sleeve;
+      next.garment = garment;
+      changed = true;
+    }
+  }
+  return changed ? next : profile;
+}
+
 export function effectiveBodyProfile(profile) {
   if (!profile || typeof profile !== "object") return null;
-  const h = Number(profile.height);
-  const w = Number(profile.weight);
+  const migrated = migrateSleeveMeasurements(profile);
+  const h = Number(migrated.height);
+  const w = Number(migrated.weight);
   const canEstimate =
     isFinite(h) && h >= 120 && h <= 230 && isFinite(w) && w >= 35 && w <= 250;
-  if (!canEstimate) return profile;
+  if (!canEstimate) return migrated;
   const bmi = Math.min(40, Math.max(16, w / Math.pow(h / 100, 2)));
   const ratio = bmi / 22;
   const half = (n) => Math.round(n * 2) / 2;
-  const out = { ...profile };
+  const out = { ...migrated };
   // Which fields are guesses, not measurements. The FIT READ table warned
   // against a hip it had invented from height and weight, which breaks the
   // app's own rule: never grade a guess (Kyle 2026-07-30). Naming the guessed
@@ -6099,7 +6099,9 @@ function CredenzaApp() {
           // are build-time env only now.
           setPreferredAgent(validStoredAgentId(p.preferredAgent));
           if (p.agentToastSeenFor) setAgentToastSeenFor(p.agentToastSeenFor);
-          if (p.bodyProfile && typeof p.bodyProfile === "object") setBodyProfile(p.bodyProfile);
+          if (p.bodyProfile && typeof p.bodyProfile === "object") {
+            setBodyProfile(migrateSleeveMeasurements(p.bodyProfile));
+          }
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
           if (p.pricePrimary === "CNY" || p.pricePrimary === "USD" || p.pricePrimary === "EUR") setPricePrimary(p.pricePrimary);
           if (p.fitSummary === false) setFitSummary(false);
@@ -9988,7 +9990,7 @@ function CredenzaApp() {
                   aria-pressed={viewMode === "carousel"}
                   title="Carousel view"
                 >
-                  <CarouselIcon size={15} strokeWidth={2.2} />
+                  Carousel
                 </button>
                 <button
                   type="button"
@@ -9998,7 +10000,7 @@ function CredenzaApp() {
                   aria-pressed={viewMode === "cards"}
                   title="Grid view"
                 >
-                  <LayoutGrid size={15} strokeWidth={2.2} aria-hidden="true" />
+                  Grid
                 </button>
               </div>
             )}

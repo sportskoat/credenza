@@ -5,13 +5,14 @@ import {
   SegmentedControl,
   measureFromStorage,
   measureToStorage,
+  migrateSleeveMeasurements,
 } from "../credenza-fashion.jsx";
 
 // Sizes and measurements redesign (handoff 2026-08-01).
 // Same dual body/garment data model as before. Layout + SVG tape diagrams
 // are new. No demo "result" sentence. Auto-saves when embedded.
 
-const TOPS = ["chest", "shoulder", "sleeve", "length"];
+const TOPS = ["chest", "shoulder", "shortSleeve", "longSleeve", "length"];
 const BOT = ["waist", "hip", "pantsLength", "shortsLength"];
 const ALL = TOPS.concat(BOT);
 
@@ -20,7 +21,8 @@ const BODY_KEYS = [
   "weight",
   "chest",
   "shoulder",
-  "sleeve",
+  "shortSleeve",
+  "longSleeve",
   "length",
   "waist",
   "hip",
@@ -32,7 +34,8 @@ const LABELS = {
   body: {
     chest: "Chest",
     shoulder: "Shoulder",
-    sleeve: "Sleeve",
+    shortSleeve: "Short sleeve",
+    longSleeve: "Long sleeve",
     length: "Length",
     waist: "Waist",
     hip: "Hip",
@@ -42,7 +45,8 @@ const LABELS = {
   garment: {
     chest: "Pit to pit",
     shoulder: "Shoulder seam",
-    sleeve: "Sleeve",
+    shortSleeve: "Short sleeve",
+    longSleeve: "Long sleeve",
     length: "Length, HPS",
     waist: "Waist, flat",
     hip: "Hip, flat",
@@ -55,7 +59,8 @@ const HOW = {
   body: {
     chest: "Around the fullest part, tape level, arms down.",
     shoulder: "Bone to bone across your back, following the flat of the shoulders.",
-    sleeve: "Shoulder point down the outside of the arm to where you want the cuff.",
+    shortSleeve: "Shoulder point down the outside of the arm to where you want a short sleeve to end.",
+    longSleeve: "Shoulder point down the outside of the arm to the wrist.",
     length: "Top of the shoulder straight down to where you want the hem to land.",
     waist: "Around where you actually wear the waistband, not your natural waist.",
     hip: "Around the fullest part of the seat, feet together.",
@@ -66,7 +71,8 @@ const HOW = {
     chest:
       "Lay the top flat and smooth the fabric. Straight across from one armpit seam to the other — don't stretch it.",
     shoulder: "Seam to seam across the back, flat.",
-    sleeve: "Shoulder seam down to the cuff edge.",
+    shortSleeve: "Shoulder seam down to the short-sleeve cuff edge.",
+    longSleeve: "Shoulder seam down to the wrist cuff edge.",
     length: "High point of shoulder straight down to the hem.",
     waist: "Buttoned and flat. Across the top of the waistband, edge to edge. Sellers list this flat measure, not the loop.",
     hip: "Flat, about 7in below the waistband, edge to edge.",
@@ -78,9 +84,10 @@ const HOW = {
 // Tape-line geometry: centre point + length + rotation (handoff §3c).
 // Paths lifted from Settings Redesign.dc.html — do not redraw.
 const TAPE = {
-  chest: { x: 75, y: 76, len: 62, r: 0 },
+  chest: { x: 75, y: 61, len: 62, r: 0 },
   shoulder: { x: 75, y: 32, len: 46, r: 0 },
-  sleeve: { x: 122, y: 48, len: 34, r: 55 },
+  shortSleeve: { x: 122, y: 48, len: 34, r: 55 },
+  longSleeve: { x: 31, y: 76, len: 91, r: 114 },
   length: { x: 98, y: 82, len: 112, r: 90 },
   waist: { x: 75, y: 22, len: 74, r: 0 },
   hip: { x: 75, y: 52, len: 70, r: 0 },
@@ -94,10 +101,12 @@ function emptyDraft() {
   return d;
 }
 
-function draftFromStorage(src, units) {
+function draftFromStorage(src, units, source = "body") {
   const d = emptyDraft();
   if (!src || typeof src !== "object") return d;
-  for (const k of ALL) d[k] = measureFromStorage(src[k], units, "length");
+  const migrated =
+    source === "garment" ? migrateSleeveMeasurements({ garment: src }).garment : migrateSleeveMeasurements(src);
+  for (const k of ALL) d[k] = measureFromStorage(migrated[k], units, "length");
   return d;
 }
 
@@ -125,14 +134,14 @@ function TopsDiagram() {
       width="150"
       height="148"
       role="img"
-      aria-label="Diagram of a tee laid flat, with the tape positions marked"
+      aria-label="Diagram of a top with one short sleeve and one long sleeve, with the tape positions marked"
     >
       <path
-        d="M57,29 L21,59 L37,75 L47,65 L47,143 L109,143 L109,65 L119,75 L135,59 L99,29 Q78,43 57,29 Z"
+        d="M57,29 L43,41 L10,120 L30,127 L47,65 L47,143 L109,143 L109,65 L119,75 L135,59 L99,29 Q78,43 57,29 Z"
         fill="rgba(255,255,255,.06)"
       />
       <path
-        d="M54,25 L18,55 L34,71 L44,61 L44,139 L106,139 L106,61 L116,71 L132,55 L96,25 Q75,39 54,25 Z"
+        d="M54,25 L40,37 L7,116 L27,123 L44,61 L44,139 L106,139 L106,61 L116,71 L132,55 L96,25 Q75,39 54,25 Z"
         fill="var(--cz-card-solid)"
         stroke="var(--cz-hair-strong)"
         strokeWidth="1.4"
@@ -145,7 +154,7 @@ function TopsDiagram() {
         strokeWidth="1.4"
       />
       <path
-        d="M52,44 L52,133 M98,44 L98,133"
+        d="M52,44 L52,133 M98,44 L98,133 M40,37 L27,123"
         fill="none"
         stroke="rgba(255,255,255,.10)"
         strokeWidth="1.2"
@@ -269,7 +278,7 @@ export default function BodyProfileSheet({
     return d;
   });
   const [garmentDraft, setGarmentDraft] = useState(() =>
-    draftFromStorage(value && value.garment, units)
+    draftFromStorage(value && value.garment, units, "garment")
   );
   const [usual, setUsual] = useState(() => usualFromValue(value));
   const [garmentTop, setGarmentTop] = useState(() => (value && value.garmentTop) || "");

@@ -4238,36 +4238,36 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
-  margin-left: 0;
+  margin-left: auto;
   background: transparent;
 }
 
 /* ── View switch (Kyle 2026-08-01) ──
-   Two icons in one rounded track. Active fill carries the state; aria-label
-   names Carousel / Grid for assistive tech. */
+   Small text at the right edge. No track and no circular active fill. */
 .cz-view-switch {
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--cz-card-border, var(--cz-hair));
-  border-radius: 999px;
-  background: var(--cz-seg);
+  gap: 1em;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .cz-view-switch .cz-view-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 28px;
+  width: auto;
+  min-height: 2rem;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--cz-faint);
-  font-family: var(--cz-sans);
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-family: var(--cz-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
   transition: color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
@@ -4275,12 +4275,14 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-view-switch .cz-view-button:hover:not(.is-active) {
   color: var(--cz-ink);
-  background: var(--cz-hover);
+  background: transparent;
 }
 
 .cz-view-switch .cz-view-button.is-active {
-  background: var(--cz-seg-on, var(--cz-action-fill));
-  color: var(--cz-seg-on-text, var(--cz-action-text));
+  background: transparent;
+  color: var(--cz-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
 }
 
 .cz-toolbar-sep {

@@ -138,19 +138,18 @@ describe("Fashion carousel startup", () => {
     expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
   });
 
-  // Kyle 2026-08-01: icon-only view switch; aria-labels keep the names.
-  it("shows the view switch as icons in one track", async () => {
+  // Kyle 2026-08-01: small text on the right, with no circular icon track.
+  it("shows the view switch as compact text", async () => {
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     render(<Credenza />);
 
     const grid = await screen.findByRole("button", { name: "Grid view" });
     const carousel = screen.getByRole("button", { name: "Carousel view" });
-    // Visible text is gone — the icon is the reading; the label is aria-only.
-    expect(grid.textContent.trim()).toBe("");
-    expect(carousel.textContent.trim()).toBe("");
-    expect(grid.querySelector("svg")).not.toBeNull();
-    expect(carousel.querySelector("svg")).not.toBeNull();
-    // Both sit in the same track, and only the active one carries the fill.
+    expect(grid).toHaveTextContent("Grid");
+    expect(carousel).toHaveTextContent("Carousel");
+    expect(grid.querySelector("svg")).toBeNull();
+    expect(carousel.querySelector("svg")).toBeNull();
+    // Both stay together, and only the active text carries the selected state.
     expect(grid.closest(".cz-view-switch")).toBe(carousel.closest(".cz-view-switch"));
     expect(grid.className).toContain("is-active");
     expect(carousel.className).not.toContain("is-active");
