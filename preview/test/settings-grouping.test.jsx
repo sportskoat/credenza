@@ -213,7 +213,11 @@ describe("Sizes and measurements redesign (settings page)", () => {
       />
     );
     // Default garment mode: body value shows as a mono "body …" hint.
-    const also = container.querySelector(".cz-sizes-row-also");
+    // Every row always mounts .cz-sizes-row-also (empty when no hint) so the
+    // fixed grid columns stay aligned — find the one with content.
+    const also = [...container.querySelectorAll(".cz-sizes-row-also")].find(
+      (el) => el.textContent.trim().length > 0
+    );
     expect(also).toBeTruthy();
     expect(also.textContent).toMatch(/^body\s+\d/);
   });

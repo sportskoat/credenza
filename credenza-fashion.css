@@ -7188,9 +7188,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: inherit;
 }
 
+/* Kyle 2026-08-01: Import and Out stack one above the other — side-by-side
+   made Out wrap and read as a different format from Import. */
 .cz-settings-data-grid {
   display: grid;
-  grid-template-columns: 1.35fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
   align-items: start;
   margin-top: 14px;
@@ -7618,9 +7620,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
 }
 
+/* Always one card under the other. Side-by-side made Tops and Bottoms use a
+   tight side layout while the narrow stack used a tall layout — same fields,
+   two formats. Kyle 2026-08-01: need them consistent. */
 .cz-sizes-groups {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
   min-width: 0;
 }
@@ -7782,10 +7787,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 3px;
 }
 
+/* Fixed columns so every field lines up the same way — with or without a
+   cross-mode "body 33" hint. Flex used to let the hint shove the numbers. */
 .cz-sizes-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.75rem 52px 18px;
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
   min-height: 34px;
   padding: 0 9px;
   border: 0;
@@ -7805,29 +7813,31 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizes-row-label {
-  flex: 1;
   min-width: 0;
   font-family: var(--cz-sans);
   font-size: 11.5px;
   font-weight: 500;
   color: var(--cz-sub);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-transform: none;
   letter-spacing: 0;
 }
 
 .cz-sizes-row-also {
-  flex: none;
   font-family: var(--cz-mono);
   font-size: 10px;
   font-weight: 500;
   color: var(--cz-faint);
   white-space: nowrap;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cz-sizes-row-input {
   width: 52px;
-  flex: none;
   border: 0;
   background: transparent;
   color: var(--cz-ink);
@@ -7847,8 +7857,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizes-row-unit {
-  width: 16px;
-  flex: none;
+  width: 18px;
   font-family: var(--cz-mono);
   font-size: 9.5px;
   font-weight: 500;
@@ -8041,6 +8050,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     min-height: 44px;
   }
   .cz-sizes-row {
+    /* No cross-mode hint on phone — three columns only. */
+    grid-template-columns: minmax(0, 1fr) 56px 18px;
     min-height: 44px;
     padding: 0 10px;
     border-radius: 10px;
