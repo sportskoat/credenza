@@ -602,7 +602,7 @@ describe("Desktop detail category chip", () => {
     await user.click(await screen.findByRole("button", { name: "Open Palace x Nike jersey" }));
     await screen.findByRole("dialog", { name: "Palace x Nike jersey" });
 
-    await user.click(screen.getByRole("button", { name: "Card actions" }));
+    await user.click(screen.getByRole("button", { name: "More actions" }));
     expect(screen.queryByRole("menuitem", { name: "Change category" })).toBeNull();
   });
 

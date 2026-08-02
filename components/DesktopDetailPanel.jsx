@@ -13,11 +13,38 @@ import {
   priceLabel,
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
+import { normalizeFindStatus } from "../credenza-find-status.js";
 import DetailBody from "./DetailBody.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import PhotoCoverFlow from "./PhotoCoverFlow.jsx";
 import { useBodyScrollLock } from "./useBodyScrollLock.js";
+
+function panelHostLabel(item) {
+  const raw = item && (item.url || item.host || "");
+  if (raw) {
+    try {
+      const host = new URL(raw.startsWith("http") ? raw : "https://" + raw).hostname
+        .replace(/^www\./i, "")
+        .toUpperCase();
+      if (host) return host;
+    } catch {
+      /* fall through */
+    }
+  }
+  const seller = String((item && item.seller) || "").trim();
+  return seller ? seller.toUpperCase() : "LISTING";
+}
+
+function panelSavedLabel(item) {
+  if (!item || !item.createdAt) return "";
+  const d = new Date(item.createdAt);
+  if (Number.isNaN(d.getTime())) return "";
+  return (
+    "SAVED " +
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()
+  );
+}
 
 export default function DesktopDetailPanel({
   item,
@@ -35,6 +62,7 @@ export default function DesktopDetailPanel({
   onToggleFitSummary = null,
   fitSummary = null,
   measureUnits = "cm",
+  onChangeUnits = null,
   buyLabel = "Buy",
   preferredAgent = null,
   onSelectAgent = null,
@@ -81,6 +109,8 @@ export default function DesktopDetailPanel({
   // the body. The title lives inside DetailBody, so it portals into this slot
   // the same way the bar does.
   const [titleEl, setTitleEl] = useState(null);
+  // Card-back v2: purchase row spans the full modal under both columns.
+  const [footerEl, setFooterEl] = useState(null);
   const [isWide, setIsWide] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -301,6 +331,11 @@ export default function DesktopDetailPanel({
   // liking it. On a wide window the head sits in the full-width header row
   // beside the title; below 1024px it keeps its floated corner in the
   // decision column, because there is no header row there.
+  const hostKicker = panelHostLabel(item);
+  const savedKicker = panelSavedLabel(item);
+  const headerKicker = [hostKicker, savedKicker].filter(Boolean).join(" · ");
+  const isBought = normalizeFindStatus(item.findStatus) === "bought";
+
   const headBlock = (
     <div className="cz-dpanel-head">
       <FavoriteButton item={item} onToggle={onToggleFavorite} className="cz-dpanel-fav" />
@@ -308,14 +343,14 @@ export default function DesktopDetailPanel({
         <button
           type="button"
           className="cz-dpanel-icon"
-          aria-label="Card actions"
+          aria-label="More actions"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((v) => !v)}
         >
-          <MoreHorizontal aria-hidden="true" size={18} strokeWidth={2.2} />
+          <MoreHorizontal aria-hidden="true" size={16} strokeWidth={2} />
         </button>
         {menuOpen ? (
-          <div className="cz-dpanel-menu" role="menu" aria-label="Card actions">
+          <div className="cz-dpanel-menu" role="menu" aria-label="More actions">
             <button
               type="button"
               role="menuitem"
@@ -375,7 +410,7 @@ export default function DesktopDetailPanel({
         aria-label="Close"
         onClick={() => requestClose()}
       >
-        <X aria-hidden="true" size={18} strokeWidth={2.2} />
+        <X aria-hidden="true" size={16} strokeWidth={2} />
       </button>
     </div>
   );
@@ -405,13 +440,23 @@ export default function DesktopDetailPanel({
       <div className={"cz-dpanel" + (morphing ? " is-morphing" : "")}>
         {isWide ? (
           <div className="cz-dpanel-header">
-            <div className="cz-dpanel-title-slot" ref={setTitleEl} />
+            <div className="cz-dpanel-title-slot">
+              {headerKicker ? <span className="cz-dpanel-kicker">{headerKicker}</span> : null}
+              <div ref={setTitleEl} />
+            </div>
             {headBlock}
           </div>
         ) : null}
         {isWide ? <div className="cz-dpanel-bar" ref={setCommandBarEl} /> : null}
+        <div className={isWide ? "cz-dpanel-body-grid" : undefined}>
         <div className="cz-dpanel-left">
           <div className="cz-dpanel-stage">
+            {isBought ? (
+              <span className="cz-dpanel-bought">
+                <span className="cz-dpanel-bought-dot" aria-hidden="true" />
+                Bought
+              </span>
+            ) : null}
             {photos.length ? (
               <div
                 ref={trackRef}
@@ -592,10 +637,12 @@ export default function DesktopDetailPanel({
               className="cz-dpanel-meta-album"
               onClick={() => setPhotoView({ startIndex: 0 })}
             >
-              <span className="cz-dpanel-meta-name">
-                {photos.length} photo{photos.length === 1 ? "" : "s"}
+              <span className="cz-dpanel-meta-kicker">
+                ALBUM · {albumKnown} PHOTO{albumKnown === 1 ? "" : "S"}
               </span>
-              <span className="cz-dpanel-meta-kicker">ALBUM</span>
+              <span className="cz-dpanel-meta-name">
+                {item.image && photos[0] === item.image ? "COVER SET" : ""}
+              </span>
             </button>
           </div>
           {/* Wide screens use the spare photo-column depth for the Timeline;
@@ -622,6 +669,7 @@ export default function DesktopDetailPanel({
               onToggleFitSummary={onToggleFitSummary}
               fitSummary={fitSummary}
               measureUnits={measureUnits}
+              onChangeUnits={onChangeUnits}
               buyLabel={buyLabel}
               preferredAgent={preferredAgent}
               onSelectAgent={onSelectAgent}
@@ -636,11 +684,14 @@ export default function DesktopDetailPanel({
               logNotesTarget={isWide ? logNotesEl : undefined}
               commandBarTarget={isWide ? commandBarEl : undefined}
               titleTarget={isWide ? titleEl : undefined}
+              footerTarget={isWide ? footerEl : undefined}
               flushRef={bodyFlushRef}
               snapshotRef={bodySnapshotRef}
             />
           </div>
         </div>
+        </div>
+        {isWide ? <div className="cz-dpanel-footer-slot" ref={setFooterEl} /> : null}
       </div>
       {photoView ? (
         <PhotoCoverFlow

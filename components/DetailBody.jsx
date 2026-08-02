@@ -334,6 +334,8 @@ function SizingBlock({
   // Kyle 2026-07-29: the fifth box rides at the right of the cell run, on the
   // same line as the sizes it overrides. Null when the caller has no box.
   customBox = null,
+  // Card-back v2 Fit tab: quieter result line + size cards (layout only).
+  editorial = false,
 }) {
   const isManual = !!chosenSize;
   const heroSize = chosenSize || recSize || usualSize || "";
@@ -398,31 +400,58 @@ function SizingBlock({
       ? chart.rows.filter((r) => r.size && r[measureKey] != null).slice(0, 6)
       : []);
 
-  return (
-    <section className={"cz-sizing" + (isManual ? " is-manual" : "")} aria-label="Sizing">
-      <div className="cz-sizing-head">
-        <span className="cz-sizing-dot" aria-hidden="true" />
-        <span className="cz-sizing-kicker">{isManual ? "Your pick" : "AI size"}</span>
-        {typeWord ? <span className="cz-sizing-type">{typeWord}</span> : null}
-        {provenance ? <span className="cz-sizing-prov">{provenance}</span> : null}
-      </div>
+  // Card-back v2 copy: "Coat · your pick, we'd take the Medium"
+  const editorialAside = (() => {
+    if (!editorial) return aside;
+    const type = typeWord || "Piece";
+    if (overrodeName) return type + " · your pick, we'd take the " + overrodeName;
+    if (isManual && recSize) return type + " · your pick";
+    if (recSize) return type + " · we would take the " + (formatSizeToken(recSize) || recSize);
+    if (usualSize) return type + " · your usual size";
+    return type;
+  })();
+  const confidenceLabel = precise || (recSize && chart)
+    ? "Verified fit"
+    : "Your usual size";
 
-      <div className={"cz-sizing-value-row" + (sheen ? " has-sheen" : "")}>
-        {sheen ? <span className="cz-sizing-sheen" aria-hidden="true" /> : null}
-        {heroLabel ? (
-          <span
-            className={
-              "cz-sizing-value" + (!isManual && !reduced && recSize ? " t-shimmer" : "")
-            }
-            data-text={!isManual && !reduced && recSize ? heroLabel : undefined}
-          >
-            {heroLabel}
+  return (
+    <section className={"cz-sizing" + (isManual ? " is-manual" : "") + (editorial ? " is-editorial" : "")} aria-label="Sizing">
+      {editorial ? (
+        <div className="cz-fit-result">
+          <span className="cz-fit-result-size">{heroLabel || "—"}</span>
+          {editorialAside ? <span className="cz-fit-result-aside">{editorialAside}</span> : null}
+          <span className="cz-fit-result-badge">
+            <span className="cz-fit-result-dot" aria-hidden="true" />
+            {confidenceLabel}
           </span>
-        ) : (
-          <span className="cz-sizing-value is-empty">—</span>
-        )}
-        {aside ? <span className="cz-sizing-aside">{aside}</span> : null}
-      </div>
+        </div>
+      ) : (
+        <>
+          <div className="cz-sizing-head">
+            <span className="cz-sizing-dot" aria-hidden="true" />
+            <span className="cz-sizing-kicker">{isManual ? "Your pick" : "AI size"}</span>
+            {typeWord ? <span className="cz-sizing-type">{typeWord}</span> : null}
+            {provenance ? <span className="cz-sizing-prov">{provenance}</span> : null}
+          </div>
+
+          <div className={"cz-sizing-value-row" + (sheen ? " has-sheen" : "")}>
+            {sheen ? <span className="cz-sizing-sheen" aria-hidden="true" /> : null}
+            {heroLabel ? (
+              <span
+                className={
+                  "cz-sizing-value" + (!isManual && !reduced && recSize ? " t-shimmer" : "")
+                }
+                data-text={!isManual && !reduced && recSize ? heroLabel : undefined}
+              >
+                {heroLabel}
+              </span>
+            ) : (
+              <span className="cz-sizing-value is-empty">—</span>
+            )}
+            {aside ? <span className="cz-sizing-aside">{aside}</span> : null}
+          </div>
+        </>
+      )}
 
       {/* Round 5 point 5.1: the measurement cells double as the size picker.
           One row does both jobs — before, a second plain chip row under it
@@ -441,6 +470,7 @@ function SizingBlock({
               !!recSize &&
               String(row.size).toUpperCase() === String(recSize).toUpperCase();
             const recOutlined = isRec && !picked;
+            const showRecTag = editorial ? isRec : recOutlined;
             return (
               <button
                 key={row.size}
@@ -449,7 +479,7 @@ function SizingBlock({
                   "cz-sizing-cell" +
                   (picked ? " is-pick" : "") +
                   (picked && isManual && !isRec ? " is-pick-manual" : "") +
-                  (recOutlined ? " is-rec" : "")
+                  (recOutlined || (editorial && isRec) ? " is-rec" : "")
                 }
                 aria-pressed={isManual && picked}
                 // Kyle 2026-07-31: a second tap on the picked cell must NOT
@@ -467,9 +497,9 @@ function SizingBlock({
                     now, invisible when empty, and the row keeps one height. */}
                 <span
                   className="cz-sizing-cell-tag"
-                  aria-hidden={recOutlined ? undefined : true}
+                  aria-hidden={showRecTag ? undefined : true}
                 >
-                  {recOutlined ? "Our pick" : " "}
+                  {showRecTag ? (editorial ? "Recommended" : "Our pick") : " "}
                 </span>
                 {/* Phone panes (mobile item sheet spec 6.3): the picked card
                     names itself YOUR PICK, and the recommended card keeps its
@@ -801,6 +831,7 @@ function FitReadTable({
   chart = null,
   highlight = null,
   highlightAlt = null,
+  noteText = null,
 }) {
   const [chartOpen, setChartOpen] = useState(false);
   if (!rows.length) return null;
@@ -937,7 +968,7 @@ function FitReadTable({
         </div>
       ) : null}
       <div className="cz-fitread-foot">
-        <span className="cz-fitread-footnote">{footnote}</span>
+        <span className="cz-fitread-footnote">{noteText || footnote}</span>
         <span className="cz-fitread-footlinks">
           {onEditMeasures ? (
             <button type="button" className="cz-fitread-footlink" onClick={onEditMeasures}>
@@ -1219,14 +1250,14 @@ function listPhrase(words) {
 // ONE look instead of echoing every tap. The raw value only appears while
 // the field is being edited, and a focus that finds an echo starts the edit
 // from the resting look, not from the echo.
-function CustomSizeBox({ className, value, shownValue, onChange, onCommit }) {
+function CustomSizeBox({ className, value, shownValue, onChange, onCommit, placeholder = "Other" }) {
   const [editing, setEditing] = useState(false);
   const shown = shownValue !== undefined ? shownValue : value;
   return (
     <input
       className={className}
       aria-label="Custom item size"
-      placeholder="Other"
+      placeholder={placeholder}
       value={editing ? value : shown}
       onChange={(event) => onChange(event.target.value)}
       onFocus={() => {
@@ -1464,6 +1495,117 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
 // CH-08 (designs 4d–4g): the no-measurements flow on the live Size tab.
 // Confidence derives from data completeness — never fabricated. With an empty
 // profile the sizing slot shows no size string at all: only the ask (4d).
+
+
+// Card-back v2 Fit tab: three stanzas from the same chart/rec data the
+// prescription sentence already uses. No live model call.
+function fitSummaryStanzas(verdict, fitRows, units, category) {
+  const shown = verdict && (verdict.shown || verdict.rec);
+  const rec = verdict && verdict.rec;
+  if (!shown || !shown.size) return [];
+  const stanzas = [];
+  const type = garmentTypeWord(shown) || (category === "outerwear" ? "coat" : "piece");
+  const cut = shown.cut;
+  const aboutBits = [];
+  if (cut === "drop") aboutBits.push("A relaxed shell with a dropped shoulder.");
+  else if (cut === "raglan") aboutBits.push("A relaxed shell with raglan sleeves.");
+  else aboutBits.push("A " + type + " cut from the seller's chart.");
+  const lengthRow = (fitRows || []).find((r) => r.key === "length" || r.key === "pantsLength");
+  if (lengthRow && lengthRow.ease != null && lengthRow.ease > 0) {
+    aboutBits.push("It runs long.");
+  }
+  const aboutMetric = (fitRows || [])
+    .filter((r) => r.theirs != null && (r.key === "length" || r.key === "pantsLength" || r.key === "chest" || r.key === "waist"))
+    .slice(0, 2)
+    .map((r) => {
+      const ease = r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "";
+      return r.name.toLowerCase() + " " + formatMeasure(r.theirs, units) + (ease ? " · " + ease + " past your body" : "");
+    })
+    .join(" · ");
+  stanzas.push({
+    label: "About this piece",
+    body: aboutBits.join(" "),
+    metric: aboutMetric,
+  });
+
+  const key = shown.primaryKey || "chest";
+  const keyWord = key === "waist" ? "waist" : key === "hip" ? "hip" : key === "sleeve" ? "sleeve" : "chest";
+  const sizeName = formatSizeToken(shown.size) || shown.size;
+  const recName = rec && rec.size ? formatSizeToken(rec.size) || rec.size : sizeName;
+  const whyBody =
+    verdict.overridden && rec && rec.size
+      ? "The " + recName + " sits closest to your " + keyWord + "."
+      : "The " + sizeName + " sits closest to your " + keyWord + ".";
+  const whyMetric = (fitRows || [])
+    .filter((r) => r.ease != null && !r.warn)
+    .slice(0, 3)
+    .map((r) => r.name.toLowerCase() + " " + (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units))
+    .join(" · ");
+  const inside = (fitRows || []).filter((r) => r.ease != null && !r.warn).length;
+  stanzas.push({
+    label: "Why this size",
+    body: whyBody,
+    metric: whyMetric + (inside ? " · both inside tolerance" : ""),
+  });
+
+  const chart = verdict.chart;
+  if (chart && Array.isArray(chart.rows) && shown.garment != null && shown.primaryKey) {
+    const up = chart.rows
+      .filter((r) => r && r.size && r[shown.primaryKey] != null && r[shown.primaryKey] > shown.garment)
+      .sort((a, b) => a[shown.primaryKey] - b[shown.primaryKey])[0];
+    if (up) {
+      const upName = formatSizeToken(up.size) || up.size;
+      const delta = up[shown.primaryKey] - shown.garment;
+      const nextBody =
+        "The " +
+        upName +
+        " adds " +
+        formatMeasure(delta, units) +
+        " across the " +
+        keyWord +
+        ".";
+      const sleeveUp =
+        up.sleeve != null && shown.row && shown.row.sleeve != null
+          ? " Its sleeve runs " +
+            formatMeasure(up.sleeve - shown.row.sleeve, units) +
+            " longer."
+          : "";
+      stanzas.push({
+        label: "The next size",
+        body: nextBody + sleeveUp,
+        metric:
+          upName +
+          " " +
+          keyWord +
+          " " +
+          formatMeasure(up[shown.primaryKey], units) +
+          (up.sleeve != null ? " · sleeve " + formatMeasure(up.sleeve, units) : ""),
+      });
+    }
+  }
+  return stanzas;
+}
+
+function fitPrefSentence(item, fitPref) {
+  if (!fitPref || !fitPrefHasChoice(fitPref)) return "";
+  const length = fitPref.length ? fitPrefLabel(item.category, "length", fitPref.length) : "";
+  const loose = fitPref.looseness
+    ? fitPrefLabel(item.category, "looseness", fitPref.looseness)
+    : "";
+  const bits = [length, loose].filter(Boolean);
+  if (!bits.length) return "";
+  const cat =
+    item.category === "outerwear"
+      ? "outerwear"
+      : item.category === "shirt"
+        ? "shirts"
+        : item.category === "pants"
+          ? "pants"
+          : item.category === "shorts"
+            ? "shorts"
+            : "this category";
+  return "You wear " + cat + " " + bits.join(" and ").toLowerCase() + ". This card follows that.";
+}
 
 // 4d — dashed empty prompt. Copy is canonical from Card Mockups design 4d.
 function FitEmptyPrompt({ onAdd, onSkip }) {
@@ -1782,6 +1924,7 @@ export default function DetailBody({
   bodyProfile,
   fitPrefs,
   measureUnits = "cm",
+  onChangeUnits = null,
   buyLabel = "Buy",
   onSaveEdit,
   onOpen,
@@ -1828,6 +1971,8 @@ export default function DetailBody({
   // Handoff section 3 region order: title, then bar, then body. Same contract
   // as commandBarTarget — undefined keeps the title inline.
   titleTarget = undefined,
+  // Card-back v2: desktop modal footer spans both columns.
+  footerTarget = undefined,
   // CH-08 (4d–4g): the fit-prompt trio. All three optional — a caller that
   // does not pass onSaveBodyProfile gets no prompt and no ask, only the
   // existing sizing presentation.
@@ -1858,6 +2003,10 @@ export default function DetailBody({
   // passes none because its card header already carries those.
   const [photoIdx, setPhotoIdx] = useState(0);
   const [pane, setPane] = useState("fit");
+  // Desktop card-back v2 tabs (Fit · Chart · Photos · Details · Settings).
+  // Only Fit has real content in Phase 1; the rest are placeholders.
+  const [desktopTab, setDesktopTab] = useState("fit");
+  const [openRead, setOpenRead] = useState(false);
   // Phone sheet (mobile item sheet spec §7): a size tap confirms itself with
   // a one-line toast, "Sized Medium", cleared after 1900ms. The app-wide
   // toast region lives under the native dialog's top layer, so the sheet
@@ -1874,6 +2023,8 @@ export default function DetailBody({
 
   useEffect(() => {
     setPane("fit");
+    setDesktopTab("fit");
+    setOpenRead(false);
     setPhotoIdx(0);
   }, [item.id]);
 
@@ -1886,6 +2037,8 @@ export default function DetailBody({
   const scrollRef = useRef(null);
   const [heroGone, setHeroGone] = useState(false);
   const wantsStickyBar = heroPager && typeof onRequestClose === "function";
+  // Desktop two-column panel hands titleTarget a mount node.
+  const isDesktopPanel = titleTarget !== undefined;
   useEffect(() => {
     if (!wantsStickyBar) return undefined;
     // Kyle 2026-07-29: the bar used to watch the PHOTO, so between "photo
@@ -2594,6 +2747,42 @@ export default function DetailBody({
       ? "This pick uses the seller's chart and your saved measurements."
       : "This listing has no seller chart, so this is your saved usual size.");
 
+  const DESKTOP_TABS = [
+    ["fit", "Fit"],
+    ["chart", "Chart"],
+    ["photos", "Photos"],
+    ["details", "Details"],
+    ["settings", "Settings"],
+  ];
+  const desktopStanzas =
+    isDesktopPanel && fitSummaryOn && !noChart
+      ? fitSummaryStanzas(verdict, fitRows, measureUnits, item.category)
+      : [];
+  const prefSentence = isDesktopPanel ? fitPrefSentence(item, fitPref) : "";
+  const onDesktopTabKey = (event) => {
+    if (!isDesktopPanel) return;
+    const keys = DESKTOP_TABS.map((t) => t[0]);
+    const idx = keys.indexOf(desktopTab);
+    if (idx < 0) return;
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      const next =
+        event.key === "ArrowRight"
+          ? keys[(idx + 1) % keys.length]
+          : keys[(idx - 1 + keys.length) % keys.length];
+      setDesktopTab(next);
+      const el = event.currentTarget.parentElement &&
+        event.currentTarget.parentElement.querySelector('[data-tab="' + next + '"]');
+      if (el && el.focus) el.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setDesktopTab(keys[0]);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setDesktopTab(keys[keys.length - 1]);
+    }
+  };
+
   const mobileFitIntro = (
     <div className={"cz-mobile-fit-intro" + (mobileOutsideCount ? " is-warn" : "")}>
       <div className="cz-mobile-fit-kicker-row">
@@ -2659,14 +2848,59 @@ export default function DetailBody({
         </div>
       ) : null}
 
+      <div className={isDesktopPanel ? "cz-fit-shell" : undefined}>
+      {isDesktopPanel ? (
+          <div className="cz-fit-controls">
+            <div
+              className="cz-fit-tabs"
+              role="tablist"
+              aria-label="Item section"
+            >
+              {DESKTOP_TABS.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  data-tab={key}
+                  id={"cz-fit-tab-" + key}
+                  aria-selected={desktopTab === key}
+                  aria-controls={"cz-fit-panel-" + key}
+                  tabIndex={desktopTab === key ? 0 : -1}
+                  className={"cz-fit-tab" + (desktopTab === key ? " is-active" : "")}
+                  onClick={() => setDesktopTab(key)}
+                  onKeyDown={onDesktopTabKey}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="cz-fit-units" role="group" aria-label="Measurement units">
+              {["in", "cm"].map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  className="cz-fit-unit"
+                  aria-pressed={measureUnits === u}
+                  onClick={() => onChangeUnits && onChangeUnits(u)}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+      ) : null}
       <div
         ref={scrollRef}
         className={
           "cz-detail-scroll" +
           (editingCell ? " is-editing" : "") +
-          (wantsStickyBar ? " has-panes" : "")
+          (wantsStickyBar ? " has-panes" : "") +
+          (isDesktopPanel ? " cz-fit-pane" : "")
         }
-        data-pane={wantsStickyBar ? pane : undefined}
+        data-pane={wantsStickyBar ? pane : isDesktopPanel ? desktopTab : undefined}
+        role={isDesktopPanel ? "tabpanel" : undefined}
+        id={isDesktopPanel ? "cz-fit-panel-" + desktopTab : undefined}
+        aria-labelledby={isDesktopPanel ? "cz-fit-tab-" + desktopTab : undefined}
       >
         <section
           className="cz-detail-pane cz-detail-pane-photos"
@@ -2808,6 +3042,13 @@ export default function DetailBody({
             and haul are always-visible facts — three of them hidden behind a
             tab bar made the card a guessing game. */}
         <div className="cz-detail-facts cz-detail-pane cz-detail-pane-fit">
+          {isDesktopPanel && desktopTab !== "fit" ? (
+            <div className="cz-fit-placeholder">
+              <h3>{(DESKTOP_TABS.find((t) => t[0] === desktopTab) || ["", "Section"])[1]}</h3>
+              <p>This tab ships in a later phase. Fit is ready now.</p>
+            </div>
+          ) : null}
+          {(!isDesktopPanel || desktopTab === "fit") ? (
           <section className="cz-detail-facts-section" aria-label="Size and fit">
             {wantsStickyBar ? mobileFitIntro : null}
             {askingMeasures && onSaveBodyProfile ? (
@@ -2864,6 +3105,7 @@ export default function DetailBody({
                 measureKey={sizeMeasureKey}
                 typeWord={garmentTypeWord(verdict.rec)}
                 onPick={pickItemSize}
+                editorial={isDesktopPanel}
                 customBox={
                   <CustomSizeBox
                     className="cz-sizing-cell is-custom"
@@ -2871,6 +3113,7 @@ export default function DetailBody({
                     shownValue={customSizeShown}
                     onChange={setCustomSize}
                     onCommit={commitCustomSize}
+                    placeholder={isDesktopPanel ? "Other / Type it" : "Other"}
                   />
                 }
               />
@@ -2988,7 +3231,75 @@ export default function DetailBody({
               </p>
             ) : null}
 
+            {isDesktopPanel && prefSentence ? (
+              <div className="cz-fit-pref">
+                <p className="cz-fit-pref-copy">
+                  {(() => {
+                    const m = prefSentence.match(/You wear (.+?)\.(.*)/i);
+                    if (!m) return prefSentence;
+                    return (
+                      <>
+                        You wear <strong>{m[1]}</strong>.{m[2]}
+                      </>
+                    );
+                  })()}
+                </p>
+                {onSaveFitPref ? (
+                  <button
+                    type="button"
+                    className="cz-fit-pref-change"
+                    onClick={() => setAskingPref(true)}
+                  >
+                    Change
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {isDesktopPanel && desktopStanzas.length ? (
+              <div className="cz-fit-summary">
+                {desktopStanzas.map((s) => (
+                  <div key={s.label} className="cz-fit-stanza">
+                    <span className="cz-fit-stanza-label">{s.label}</span>
+                    <p className="cz-fit-stanza-body">{s.body}</p>
+                    {s.metric ? <p className="cz-fit-stanza-metric">{s.metric}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {!askingMeasures && !noChart ? (
+              isDesktopPanel ? (
+                <div className="cz-fit-read-block">
+                  <button
+                    type="button"
+                    className="cz-fit-read-toggle"
+                    aria-expanded={openRead}
+                    onClick={() => setOpenRead((v) => !v)}
+                  >
+                    <span>Measurement by measurement</span>
+                    <span>{openRead ? "Hide" : "Show"}</span>
+                  </button>
+                  {openRead ? (
+                    <FitReadTable
+                      rows={fitRows}
+                      hasChart={!!verdict.chart}
+                      units={measureUnits}
+                      reading={chartRead.reading}
+                      readingCount={chartRead.count}
+                      outsidePhrasing={false}
+                      chart={verdict.chart}
+                      highlight={verdict.shown && verdict.shown.size}
+                      highlightAlt={
+                        verdict.shown && verdict.shown.alt ? verdict.shown.alt.size : null
+                      }
+                      onEditMeasures={null}
+                      onForgetChart={null}
+                      noteText="Ease is the seller's number minus your body. Green marks the range this cut is drafted for. A dashed band means a number is missing and we are not guessing at one."
+                    />
+                  ) : null}
+                </div>
+              ) : (
               <FitReadTable
                 rows={fitRows}
                 hasChart={!!verdict.chart}
@@ -3006,6 +3317,7 @@ export default function DetailBody({
                   wantsStickyBar ? null : chartIsForgettable ? forgetChart : null
                 }
               />
+              )
             ) : null}
 
             <div className="cz-detail-chart-actions">
@@ -3069,6 +3381,7 @@ export default function DetailBody({
               />
             ) : null}
           </section>
+          ) : null}
 
           {/* The Details kicker and the five rows under it are gone (item-detail
               handoff 2026-07-29). Status, haul, colorway, weight, category and
@@ -3125,8 +3438,11 @@ export default function DetailBody({
         ) : null}
         </section>
       </div>
+      </div>
 
       {footerPrice || buyButton ? (
+        (() => {
+          const foot = (
         <div className={"cz-detail-foot" + (footerPrice ? " has-price" : "")}>
           {footerPrice ? (
             <div className="cz-detail-foot-row">
@@ -3176,7 +3492,7 @@ export default function DetailBody({
             // whole, and it answers the question the "i" was hiding. Round
             // 5.3's quiet-legal treatment still holds everywhere else.
             <p className="cz-detail-disclosure">
-              Referral code funds the app. Never changes your price.
+              Referral code funds the app. It never changes your price.
             </p>
           ) : null}
           {buyButton && signupUrl ? (
@@ -3190,6 +3506,11 @@ export default function DetailBody({
             </a>
           ) : null}
         </div>
+          );
+          if (footerTarget === undefined) return foot;
+          if (footerTarget === null) return null;
+          return createPortal(foot, footerTarget);
+        })()
       ) : null}
       {/* Phone sheet toast (spec §7): one mono line, 78px off the bottom,
           pointer-events none so it never blocks a tap. Only pickItemSize
