@@ -2129,55 +2129,69 @@ describe("the public site shares one look and one header", () => {
   // The wide-screen header band (Kyle 2026-07-30: "make it the same as this",
   // meaning the app masthead — one row, mark left, links centred).
   //
-  // The band is wider than its own <header>, so it breaks out with a negative
-  // left margin. That offset MUST be measured from the parent's centre. The
-  // first version subtracted a literal 37.5rem, which is the article pages'
-  // content box; /landing/ caps its header at 70rem instead, so its band hung
-  // 240px left of centre on a 1440px screen and nobody saw it in a unit test.
-  // A percentage resolves against whatever the parent turns out to be.
-  it("centres the wide header band on its parent, not on a fixed column", () => {
+  // The public page now uses the application's complete 1080px shell. The
+  // header no longer has to escape a separate 40rem reading column.
+  it("keeps the wide header inside the application shell", () => {
     const wide = cssRules(SITE_CSS).find(
       (r) => /^@media \(min-width: 1024px\)$/.test(selectorOf(r)) && r.includes(".site-head")
     );
     expect(wide, "site.css has no wide-screen .site-head rule").toBeTruthy();
     const block = tidy(wide);
-    expect(block, "the wide header band sets no width").toMatch(/width: var\(--band\)/);
-    expect(block, "the band's left margin is not measured from the parent centre").toMatch(
-      /margin-left: calc\(50% - var\(--band\) \/ 2\)/
-    );
-    // The exact shape of the old defect: a hard column width inside the
-    // margin. --band itself may hold rem values; the margin may not.
-    const margin = block.match(/margin-left:[^;]*;/)[0];
-    expect(margin, "the band's left margin hard-codes a column width").not.toMatch(/\d+(\.\d+)?rem/);
+    expect(block, "the masthead does not fill the shell content box").toMatch(/width: 100%/);
+    expect(block, "the masthead still escapes a different parent grid").not.toContain("calc(50%");
   });
 
   // Kyle 2026-07-30, second report on the same header: "its not even centred,
   // create the identical page that I have right now for these other pages".
   //
-  // Two numbers made it different, both measured in WebKit with
-  // scripts/probe-header-match.mjs at 1100/1280/1440:
-  //   1. The first repair copied the 1080px OUTER shell. The app's 28px side
-  //      padding makes the visible masthead 1024px wide. The page header is
-  //      already the visible masthead, so 1080px left it 56px too wide.
-  //   2. `grid-template-columns: auto 1fr auto` centres the middle column in
+  // Two numbers make the masthead match. The 1080px shell has 28px side
+  // padding, which leaves the same 1024px visible band as the application.
+  // `grid-template-columns: auto 1fr auto` centres the middle column in
   //      the LEFTOVER room, not on the page. A 190px brand against a 105px
   //      button put the links 65px right of centre. Equal outer columns fix
   //      it — the app does the same thing with flex: 1 1 0 on its two outer
   //      children (credenza-fashion.css:9418).
-  it("puts the wide header on the app's visible 1024px masthead grid", () => {
+  it("puts every public page on the application's 1080px shell", () => {
+    const shellRule = cssRules(SITE_CSS).find(
+      (r) => selectorOf(r) === "header, main, footer"
+    );
+    expect(tidy(shellRule), "the public shell has a different width").toMatch(
+      /max-width: var\(--shell-max\)/
+    );
+    expect(SITE_CSS, "the application shell width is missing").toMatch(/--shell-max:\s*1080px/);
+    expect(SITE_CSS, "the application shell padding is missing").toMatch(/--shell-pad:\s*28px/);
+
     const wide = cssRules(SITE_CSS).find(
       (r) => /^@media \(min-width: 1024px\)$/.test(selectorOf(r)) && r.includes(".site-head")
     );
     const block = tidy(wide);
-    expect(block, "the band does not match the app's 1024px inner masthead").toMatch(
-      /--band: min\(1024px,/
-    );
     expect(block, "the page adds the app shell padding to the masthead twice").toMatch(
       /padding: 0 0 14px/
     );
     expect(block, "the outer header columns are not equal, so the links miss the centre").toMatch(
       /grid-template-columns: 1fr auto 1fr/
     );
+  });
+
+  it("uses the application's background layers behind every public page", () => {
+    const moon = cssRules(SITE_CSS).find((r) => selectorOf(r) === "body::before");
+    const rim = cssRules(SITE_CSS).find((r) => selectorOf(r) === "body::after");
+    expect(tidy(moon), "the neutral moon layer is missing").toContain(
+      "radial-gradient(ellipse 70% 55% at 42% 28%"
+    );
+    expect(tidy(moon), "the app background blur is different").toMatch(/filter: blur\(48px\)/);
+    expect(tidy(rim), "the app top rim is missing").toContain(
+      "linear-gradient(180deg, rgba(245, 245, 247, 0.04)"
+    );
+  });
+
+  it("uses the application's hero title scale", () => {
+    const rule = cssRules(SITE_CSS).find((r) => selectorOf(r) === "h1");
+    const block = tidy(rule);
+    expect(block).toMatch(/font-size: clamp\(34px, 4\.3vw, 58px\)/);
+    expect(block).toMatch(/font-weight: 500/);
+    expect(block).toMatch(/letter-spacing: -0\.04em/);
+    expect(block).toMatch(/line-height: 1/);
   });
 
   // Kyle 2026-07-30, third report: "THEY MOVE DOWN AND TO THE LEFT". The left

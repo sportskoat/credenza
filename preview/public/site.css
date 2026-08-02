@@ -32,11 +32,13 @@
   --ink: #17181a;
   --muted: #5c5f66;
   --card: #ffffff;
+  --inset: #fafaf6;
   --line: rgba(23, 24, 26, 0.10);
   --accent: #17181a;
   --money: #15803d;
   --max: 40rem;
-  --pad: 1.25rem;
+  --shell-max: 1080px;
+  --shell-pad: 28px;
   /* Masthead tokens, copied from the app's own palette (PALETTES in
      credenza-fashion.jsx: --cz-sub, --cz-faint, --cz-hair). The page's --muted
      and --line are a shade off the app's, and Kyle 2026-07-30 asked for the
@@ -67,6 +69,7 @@
   --ink: #fafafa;
   --muted: #c8c8d0;
   --card: #0d0d10;
+  --inset: #141418;
   --line: rgba(255, 255, 255, 0.10);
   --accent: #fafafa;
   --money: #4ade80;
@@ -82,6 +85,8 @@
 * { box-sizing: border-box; }
 
 body {
+  position: relative;
+  min-height: 100vh;
   margin: 0;
   background: var(--bg);
   color: var(--ink);
@@ -89,10 +94,57 @@ body {
   font-size: 1.0625rem;
 }
 
+/* Copy the application's Blackout background. The app renders these same
+   four neutral lights behind its shell in components/atoms.jsx. Keeping the
+   layer here means a page change does not replace the field behind it. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+}
+
+body::before {
+  z-index: 0;
+  inset: -10%;
+  background:
+    radial-gradient(ellipse 70% 55% at 42% 28%,
+      color-mix(in srgb, var(--card) 95%, transparent) 0%,
+      color-mix(in srgb, var(--card) 45%, transparent) 40%,
+      transparent 72%),
+    radial-gradient(ellipse 55% 50% at 72% 62%,
+      color-mix(in srgb, var(--card) 72%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 28%, transparent) 45%,
+      transparent 75%),
+    radial-gradient(ellipse 50% 40% at 22% 70%,
+      color-mix(in srgb, var(--inset) 40%, transparent) 0%,
+      transparent 70%),
+    radial-gradient(ellipse 90% 60% at 50% 100%,
+      color-mix(in srgb, var(--bg) 98%, transparent) 0%,
+      transparent 55%);
+  filter: blur(48px);
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+
+body::after {
+  z-index: 1;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(245, 245, 247, 0.04) 0%, transparent 22%),
+    radial-gradient(ellipse 80% 50% at 50% 0%,
+      color-mix(in srgb, var(--card) 55%, transparent) 0%,
+      transparent 60%);
+}
+
 header, main, footer {
-  max-width: var(--max);
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: var(--shell-max);
   margin: 0 auto;
-  padding: var(--pad);
+  padding-left: var(--shell-pad);
+  padding-right: var(--shell-pad);
 }
 
 header {
@@ -102,6 +154,26 @@ header {
      the product's — the last visible difference Kyle reported 2026-07-30. */
   padding-top: 28px;
   padding-bottom: 0.25rem;
+}
+
+/* Article copy keeps the same centered 640px stage as the application's empty
+   shelf. The landing page owns full-width sections inside the shell. */
+body:not(:has(> main > .hero.wrap)) > header > :where(:not(.site-head)),
+body:not(:has(> main > .hero.wrap)) > main > * {
+  max-width: var(--max);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+body:not(:has(> main > .hero.wrap)) > header > h1 {
+  max-width: 16ch;
+  margin-top: 58px;
+  text-align: center;
+}
+
+body:not(:has(> main > .hero.wrap)) > header > .lede {
+  max-width: 44ch;
+  text-align: center;
 }
 
 /* The intro copy sits in <header> and the body in <main>, each with its own
@@ -263,13 +335,12 @@ main { padding-top: 0.25rem; }
      100vw includes the scrollbar in WebKit, so a small subtraction keeps a
      narrow window from gaining a horizontal scrollbar. */
   .site-head {
-    --band: min(1024px, 100vw - 3.5rem);
     /* The app's row is as tall as its 44px avatar, which puts the hairline at
        59px. Match the row, or the header under the same wordmark ends 9px
        higher than the one in the product. */
     min-height: 59px;
-    width: var(--band);
-    margin-left: calc(50% - var(--band) / 2);
+    width: 100%;
+    margin-left: 0;
     margin-right: 0;
     /* Equal outer columns, so the links sit on the REAL centre line. The app
        fixed the same complaint the same way (credenza-fashion.css:9418 gives
@@ -311,6 +382,15 @@ main { padding-top: 0.25rem; }
   }
   .nav a:hover { color: var(--mast-ink); background: var(--mast-hover-bg); }
   .nav-open { grid-column: 3; justify-self: end; }
+
+  body:not(:has(> main > .hero.wrap)) > header > h1 {
+    font-size: clamp(40px, 4.8vw, 52px);
+  }
+}
+
+@media (width <= 480px) {
+  :root { --shell-pad: 14px; }
+  header { padding-top: 16px; }
 }
 
 /* ── One title scale ──────────────────────────────────────────────────────
@@ -319,10 +399,11 @@ main { padding-top: 0.25rem; }
  */
 h1 {
   font-family: var(--cz-display);
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
-  font-weight: 400;
-  line-height: 1.2;
-  margin: 0 0 0.75rem;
+  font-size: clamp(34px, 4.3vw, 58px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0 0 24px;
 }
 
 h2 {

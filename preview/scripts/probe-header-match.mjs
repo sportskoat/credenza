@@ -36,6 +36,8 @@ const APP_JS = HELPERS + `
     nav: runOf(nav),
     words: nav.map((a) => a.textContent.trim()),
     navStyle: styleOf(nav[1]),
+    content: pick(".cz-hero-title"),
+    gradient: !!document.querySelector(".cz-gradient-bg"),
   })
 `;
 
@@ -49,6 +51,8 @@ const PUB_JS = HELPERS + `
     nav: runOf(nav),
     words: nav.map((a) => a.textContent.trim()),
     navStyle: styleOf(nav[1]),
+    content: pick("header > h1"),
+    gradient: getComputedStyle(document.body, "::before").backgroundImage,
   })
 `;
 
@@ -66,12 +70,12 @@ for (const width of [1440, 1280, 1100]) {
   await page.goto(BASE + "/", { waitUntil: "networkidle" });
   await page.waitForTimeout(1200);
   const app = await page.evaluate(APP_JS);
-  await page.screenshot({ path: `${OUT}/app-${width}.png`, clip: { x: 0, y: 0, width, height: 130 } });
+  await page.screenshot({ path: `${OUT}/app-${width}.png`, clip: { x: 0, y: 0, width, height: 340 } });
 
   await page.goto(BASE + "/pricing/", { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
   const pub = await page.evaluate(PUB_JS);
-  await page.screenshot({ path: `${OUT}/public-${width}.png`, clip: { x: 0, y: 0, width, height: 130 } });
+  await page.screenshot({ path: `${OUT}/public-${width}.png`, clip: { x: 0, y: 0, width, height: 340 } });
 
   const mid = (r) => (r ? Math.round((r.left + r.right) / 2) : null);
   report.push({
@@ -88,6 +92,10 @@ for (const width of [1440, 1280, 1100]) {
     viewportMid: width / 2,
     headHeight: [app.head && app.head.height, pub.head && pub.head.height],
     navStyle: [app.navStyle, pub.navStyle],
+    contentLeft: [app.content && app.content.left, pub.content && pub.content.left],
+    contentMid: [mid(app.content), mid(pub.content)],
+    contentTop: [app.content && app.content.top, pub.content && pub.content.top],
+    gradient: [app.gradient, pub.gradient !== "none"],
     words: [app.words, pub.words],
   });
   await ctx.close();
