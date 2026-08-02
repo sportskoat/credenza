@@ -1667,10 +1667,14 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
 // ── Fit read rows (split-rail handoff 2026-07-28) ──
 //
 // One row per measurement on the PICKED chart row: name, theirs (garment cm),
-// yours (body cm), signed ease, a 0–100 mark on the tight↔loose track, and a
-// warn flag when the ease falls outside tolerance. The spec fixes the
-// tolerance band at 36–66% of the track; the mark maps ease onto it so
-// "ideal ease" for the measurement lands at the band's center (51%).
+// yours (body cm), signed ease, a mark on the tight↔loose track, and a warn
+// flag when the ease falls outside the literal drafted band.
+//
+// Track domain is per-garment, per-row (K 2026-08-02): the padded range covers
+// the drafted ideal±span AND every size's ease for that measure, mapped to
+// [4%, 96%]. Oversized coats no longer pin every size at the same cap — the
+// mark always moves between sizes. The green band is drawn from the same map
+// (literal ideal±span, no +4cm visual slack), so red and green never disagree.
 //
 // Rows come from the parsed chart, not a hard-coded list ("drive them from
 // the parsed chart"). Order is worn-garment order per the spec: tops
@@ -1706,6 +1710,33 @@ const FIT_READ_EASE = {
   // A length the app GUESSED from height carries no target — see fitReadRows.
   length: { ideal: 0, span: 3 },
 };
+// Track percent range the domain maps into. Edges leave a hair of bar so the
+// mark never kisses the THEIRS column or the name (O 2026-08-02).
+const FIT_READ_TRACK_LO = 4;
+const FIT_READ_TRACK_HI = 96;
+
+// Map an ease (cm) onto the track given a padded domain. Linear; clamp is a
+// safety net only for absurd values outside the padded domain.
+function mapEaseToTrack(ease, domainLo, domainHi) {
+  if (!(domainHi > domainLo)) return (FIT_READ_TRACK_LO + FIT_READ_TRACK_HI) / 2;
+  const t = (ease - domainLo) / (domainHi - domainLo);
+  const pct = FIT_READ_TRACK_LO + t * (FIT_READ_TRACK_HI - FIT_READ_TRACK_LO);
+  return Math.max(FIT_READ_TRACK_LO, Math.min(FIT_READ_TRACK_HI, pct));
+}
+
+// Per-row domain: drafted ideal±span and every size's ease for this measure,
+// plus ~10% margin so the extreme size never pins the cap.
+function fitReadDomain(ideal, span, sizeEases) {
+  let minEase = ideal - span;
+  let maxEase = ideal + span;
+  for (const e of sizeEases) {
+    if (e < minEase) minEase = e;
+    if (e > maxEase) maxEase = e;
+  }
+  const range = maxEase - minEase;
+  const margin = range > 0 ? range * 0.1 : Math.max(span, 1) * 0.1;
+  return { lo: minEase - margin, hi: maxEase + margin };
+}
 
 export function fitReadRows(chart, rec, profile, category, title = null) {
   const picked = rec && rec.row ? rec.row : null;
@@ -1729,6 +1760,7 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   const easeBand = rec && Array.isArray(rec.easeBand) ? rec.easeBand : null;
   const cut = rec ? rec.cut : null;
   const noShoulderSeam = !isBottoms && (cut === "drop" || cut === "raglan");
+  const chartRows = chart && Array.isArray(chart.rows) ? chart.rows : [];
   // Body length on a bottoms chart is the same "Length" idea as 裤长; only
   // one of the two keys renders, pantsLength first.
   const rows = [];
@@ -1781,32 +1813,40 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     // warning. Only a length the customer measured earns a verdict.
     const graded = !infoOnly && !estimated;
     // The chest row reads against the garment's own band when the engine named
-    // one. Ideal = the band's middle, span = its half-width, so a blazer's
-    // 7.5–12.5cm draws the same 36–66 track a tee's 6–18cm draws.
-    // The span carries the band's half-width PLUS the same 4cm slack the pick
-    // and the prescription sentence allow. Without it a regular knit's narrow
-    // 5–10cm band would warn at 11cm — a shirt that is merely a little roomy
-    // than the band, not a shirt that fits badly. The band decides the size;
-    // the warning is for a real mismatch.
+    // one. Ideal = the band's middle, span = its half-width. Visual band and
+    // warn use the literal drafted range — no +4cm slack (K 2026-08-02: the
+    // band must match the range the footnote claims). Pick math still uses
+    // CHEST_BAND_SLACK elsewhere; this is display only.
     const bandTarget =
       key === "chest" && easeBand
         ? {
             ideal: (easeBand[0] + easeBand[1]) / 2,
-            span: (easeBand[1] - easeBand[0]) / 2 + 4,
+            span: (easeBand[1] - easeBand[0]) / 2,
           }
         : null;
     const target = graded ? bandTarget || FIT_READ_EASE[key] || null : null;
     const ease = graded && theirs != null && yours != null ? theirs - yours : null;
     let mark = null;
     let warn = false;
+    let bandLeft = null;
+    let bandWidth = null;
     if (ease != null && target) {
-      // Band center 51%, half-width 15%: ease at ideal → 51, at ideal±span →
-      // the band edges (36 / 66). Beyond that the mark keeps moving and warns.
-      // Cap at 6–90 so an extreme gap (e.g. 8"+ longer sleeve) sits on the
-      // bar with room before the THEIRS numbers — not flush on the text
-      // (O / Kyle 2026-08-02: white tick was lost against "32.3\"").
-      mark = Math.max(6, Math.min(90, 51 + ((ease - target.ideal) / target.span) * 15));
-      warn = mark < 36 || mark > 66;
+      // Ease of every chart size for this measure (same body). Domain covers
+      // drafted ideal±span and all those eases so every size stays on-track.
+      const sizeEases = [];
+      for (const row of chartRows) {
+        const g = row[key];
+        if (g != null && isFinite(Number(g))) sizeEases.push(Number(g) - yours);
+      }
+      const domain = fitReadDomain(target.ideal, target.span, sizeEases);
+      const draftedLo = target.ideal - target.span;
+      const draftedHi = target.ideal + target.span;
+      bandLeft = mapEaseToTrack(draftedLo, domain.lo, domain.hi);
+      const bandRight = mapEaseToTrack(draftedHi, domain.lo, domain.hi);
+      bandWidth = bandRight - bandLeft;
+      mark = mapEaseToTrack(ease, domain.lo, domain.hi);
+      // Warn from the same edges the band draws — red and green never disagree.
+      warn = mark < bandLeft || mark > bandRight;
     }
     rows.push({
       key,
@@ -1819,6 +1859,8 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       ease,
       mark,
       warn,
+      bandLeft,
+      bandWidth,
       // Kyle 2026-07-30: say it out loud when the seller's chart has no such
       // column. The row used to print a bare "—", which reads the same as a
       // number we failed to use. An empty cell on a chart we DO hold is a

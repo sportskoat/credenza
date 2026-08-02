@@ -14872,10 +14872,11 @@ input.cz-sizing-cell.is-custom:focus-visible {
   background: var(--cz-chip-fill);
 }
 
+/* left/width come from inline style (fitReadRows domain map). Fixed 36/66
+   and the phone 26–70 override disagreed with warn math on oversized coats
+   (K 2026-08-02) — do not hardcode band position here. */
 .cz-fitread-band {
   position: absolute;
-  left: 36%;
-  width: 30%;
   top: 0;
   bottom: 0;
   border-radius: 999px;
@@ -15706,9 +15707,9 @@ input.cz-sizing-fix-size {
     background: var(--cz-track);
   }
 
+  /* Band geometry is inline from data (same domain as the mark). Only paint
+     changes on phone — left/width must not diverge from warn thresholds. */
   .cz-detail-scroll.has-panes .cz-fitread-band {
-    left: 26%;
-    width: 44%;
     background: var(--cz-money);
   }
 

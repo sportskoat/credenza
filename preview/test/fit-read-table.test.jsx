@@ -2,9 +2,10 @@
 //
 // The table shows one bar per measurement on the PICKED chart row: garment
 // value (THEIRS), body value (YOURS), signed ease, and a mark on a
-// tight↔loose track with a fixed 36–66% tolerance band. Row math is a pure
-// function (fitReadRows) so the mapping is testable without the DOM; the
-// component tests then check the two states the spec names — chart and ghost.
+// tight↔loose track with a data-driven tolerance band (per-garment domain).
+// Row math is a pure function (fitReadRows) so the mapping is testable
+// without the DOM; the component tests then check the two states the spec
+// names — chart and ghost.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -57,7 +58,9 @@ afterEach(() => {
 describe("fitReadRows", () => {
   it("maps a top chart onto worn order with ease and marks", () => {
     const chart = parseSizeChart(TOP_TEXT);
-    const profile = { chest: 105, shoulder: 45 };
+    // Chest 108 → M ease +8 sits inside the regular-knit band (5–10cm).
+    // (Literal drafted range, no +4 visual slack — K 2026-08-02.)
+    const profile = { chest: 108, shoulder: 45 };
     const rec = recommendSize(chart, profile, "shirt");
     expect(rec.size).toBe("M");
 
@@ -67,12 +70,16 @@ describe("fitReadRows", () => {
 
     const chest = rows[0];
     expect(chest.theirs).toBe(116);
-    expect(chest.yours).toBe(105);
-    expect(chest.ease).toBe(11);
+    expect(chest.yours).toBe(108);
+    expect(chest.ease).toBe(8);
     expect(chest.warn).toBe(false);
-    // Ideal chest ease (12) maps to the band center; 11 sits just left of it.
-    expect(chest.mark).toBeGreaterThan(36);
-    expect(chest.mark).toBeLessThan(66);
+    // Ideal ease lands at band center; +8 is right of knit ideal 7.5.
+    expect(chest.bandLeft).toBeGreaterThan(0);
+    expect(chest.bandWidth).toBeGreaterThan(0);
+    const bandCenter = chest.bandLeft + chest.bandWidth / 2;
+    expect(chest.mark).toBeGreaterThan(chest.bandLeft);
+    expect(chest.mark).toBeLessThan(chest.bandLeft + chest.bandWidth);
+    expect(chest.mark).toBeGreaterThan(bandCenter);
 
     // Body length has no body-side field: information, never a verdict.
     const length = rows[1];
@@ -91,14 +98,14 @@ describe("fitReadRows", () => {
     const chest = rows.find((r) => r.key === "chest");
     expect(chest.ease).toBe(20);
     expect(chest.warn).toBe(true);
-    expect(chest.mark).toBeGreaterThan(66);
+    // Warn edges === band edges (same domain map).
+    expect(chest.mark).toBeGreaterThan(chest.bandLeft + chest.bandWidth);
   });
 
   it("keeps an extreme sleeve mark on the bar, not flush on the numbers", () => {
     // Kyle's oversized jacket case: garment sleeve far longer than saved
-    // wrist length. Uncapped math would pin past 100%; the clamp must leave
-    // room before the THEIRS column (O 2026-08-02).
-    // Mirror the working long-sleeve fixture shape (sleeve 58–60 + arm 68).
+    // wrist length. Domain includes every size so the mark stays on-track
+    // with room before THEIRS — not flush on the text (O 2026-08-02).
     const chart = parseSizeChart(
       "M: chest 116, shoulder 46, length 70, sleeve 82\nL: chest 120, shoulder 48, length 72, sleeve 84",
     );
@@ -109,7 +116,55 @@ describe("fitReadRows", () => {
     expect(sleeve, JSON.stringify(rows)).toBeTruthy();
     expect(sleeve.ease, JSON.stringify(sleeve)).toBeGreaterThan(15);
     expect(sleeve.warn).toBe(true);
-    expect(sleeve.mark).toBe(90);
+    expect(sleeve.mark).toBeGreaterThanOrEqual(4);
+    expect(sleeve.mark).toBeLessThanOrEqual(96);
+    // Not pinned flush past the bar into the number column.
+    expect(sleeve.mark).toBeLessThan(100);
+  });
+
+  it("moves the mark between sizes on an oversized coat (Kyle red-line pin)", () => {
+    // Every size is oversized on sleeve (> +5"); fixed 6–90 clamp used to pin
+    // all of them at 90 so the line sat still. Domain must keep marks distinct.
+    const chart = parseSizeChart(
+      "S: chest 124, shoulder 50, length 74, sleeve 80\n" +
+        "M: chest 128, shoulder 52, length 76, sleeve 82\n" +
+        "L: chest 132, shoulder 54, length 78, sleeve 84\n" +
+        "XL: chest 136, shoulder 56, length 80, sleeve 86",
+    );
+    const profile = { chest: 105, sleeve: 61 };
+    const title = "Oversized sports coat";
+    const marks = {};
+    for (const size of ["S", "M", "L", "XL"]) {
+      const rec = recommendSize(chart, profile, "shirt", null, size, title);
+      const sleeve = fitReadRows(chart, rec, profile, "shirt", title).find(
+        (r) => r.key === "sleeve",
+      );
+      expect(sleeve, size).toBeTruthy();
+      expect(sleeve.ease).toBeGreaterThan(12); // > ~5"
+      expect(sleeve.mark).toBeGreaterThanOrEqual(4);
+      expect(sleeve.mark).toBeLessThanOrEqual(96);
+      // None at the absolute cap.
+      expect(sleeve.mark).toBeLessThan(96);
+      marks[size] = sleeve.mark;
+    }
+    // S and L must differ — the line visibly slides with the size pick.
+    expect(marks.S).not.toBe(marks.L);
+    expect(marks.S).toBeLessThan(marks.M);
+    expect(marks.M).toBeLessThan(marks.L);
+    expect(marks.L).toBeLessThan(marks.XL);
+  });
+
+  it("keeps band edges equal to warn thresholds on every path", () => {
+    const chart = parseSizeChart(TOP_TEXT);
+    const profile = { chest: 105, shoulder: 45 };
+    const rec = recommendSize(chart, profile, "shirt");
+    const rows = fitReadRows(chart, rec, profile, "shirt");
+    for (const row of rows) {
+      if (row.mark == null) continue;
+      const bandRight = row.bandLeft + row.bandWidth;
+      const outside = row.mark < row.bandLeft || row.mark > bandRight;
+      expect(row.warn).toBe(outside);
+    }
   });
 
   it("orders a bottoms chart waist-first and grades 裤长 against the saved length", () => {
@@ -290,7 +345,8 @@ function renderBody(item, extra = {}) {
   const utils = render(
     <DetailBody
       item={item}
-      bodyProfile={{ chest: 105, shoulder: 45, height: 180, weight: 75 }}
+      // Chest 108 → M ease +8 inside regular-knit 5–10cm band (literal range).
+      bodyProfile={{ chest: 108, shoulder: 45, height: 180, weight: 75 }}
       onSaveEdit={vi.fn()}
       onOpen={vi.fn()}
       onAttachPhoto={vi.fn()}
@@ -316,15 +372,20 @@ describe("FitReadTable in the detail body", () => {
     expect(scoped.getByText("EASE")).toBeInTheDocument();
     expect(scoped.getByText("TIGHT")).toBeInTheDocument();
 
-    // The picked row is M: chest 116 vs 105 = +11, shoulder 46 vs 45 = +1.
+    // The picked row is M: chest 116 vs 108 = +8, shoulder 46 vs 45 = +1.
     expect(scoped.getByText("116cm")).toBeInTheDocument();
-    expect(scoped.getByText("105cm")).toBeInTheDocument();
-    expect(scoped.getByText("+11cm")).toBeInTheDocument();
+    expect(scoped.getByText("108cm")).toBeInTheDocument();
+    expect(scoped.getByText("+8cm")).toBeInTheDocument();
     expect(scoped.getByText("+1cm")).toBeInTheDocument();
 
-    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(3);
+    // Band only on graded rows (chest + shoulder). Estimated body length has no band.
+    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(2);
     expect(table.querySelectorAll(".cz-fitread-mark").length).toBe(2);
     expect(table.querySelectorAll(".cz-fitread-mark.is-warn").length).toBe(0);
+    // Band geometry is inline from the domain map, not fixed CSS left/width.
+    const band = table.querySelector(".cz-fitread-band");
+    expect(band.style.left).toMatch(/%$/);
+    expect(band.style.width).toMatch(/%$/);
     // Torso estimate (Kyle 2026-07-30): the profile has no torso number, so
     // the Body length row estimates from the 180cm height — "~" on the
     // number and a plain sentence in the footnote.

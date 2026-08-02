@@ -1200,10 +1200,16 @@ function SellerChartFold({
 // One tight/true/loose track with green tolerance band and white marker.
 // FitReadTable renders these bars; the seller chart fold reuses the size pick only
 // pixel-identical. Row math still lives in fitReadRows (pure, tested alone).
-function FitReadTrack({ mark, warn, showBand = true }) {
+// Band left/width come from the same domain map as the mark (K 2026-08-02) —
+// no fixed 36/66 CSS band; red and green stay in lockstep on every path.
+function FitReadTrack({ mark, warn, showBand = true, bandLeft = null, bandWidth = null }) {
+  const bandStyle =
+    bandLeft != null && bandWidth != null
+      ? { left: bandLeft + "%", width: bandWidth + "%" }
+      : undefined;
   return (
     <span className="cz-fitread-track">
-      {showBand ? <span className="cz-fitread-band" /> : null}
+      {showBand && bandStyle ? <span className="cz-fitread-band" style={bandStyle} /> : null}
       {mark != null ? (
         <span
           className={"cz-fitread-mark" + (warn ? " is-warn" : "")}
@@ -1246,7 +1252,13 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
   return rows.map((r) => (
     <div key={r.key} className="cz-fitread-row">
       <span className="cz-fitread-name">{r.name}</span>
-      <FitReadTrack mark={r.mark} warn={r.warn} showBand={hasChart} />
+      <FitReadTrack
+        mark={r.mark}
+        warn={r.warn}
+        showBand={hasChart}
+        bandLeft={r.bandLeft}
+        bandWidth={r.bandWidth}
+      />
       <span
         className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
         title={r.notOnChart ? "The seller's chart has no " + r.name.toLowerCase() : undefined}
@@ -1268,7 +1280,7 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
 // ── Fit read table (split-rail handoff 2026-07-28) ──
 //
 // Per-measurement fit bars under the pick: how far each garment measure sits
-// from the body on a tight↔loose track, with a fixed 36–66% tolerance band.
+// from the body on a tight↔loose track, with a data-driven tolerance band.
 // With no chart the table used to ghost — names in placeholder, YOURS kept, no
 // band and no marks — so the customer saw what a chart would unlock. Round 5
 // point 5.4 tried to hide it; Fable ruled against that on 2026-07-29 and the
