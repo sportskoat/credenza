@@ -1785,15 +1785,15 @@ function chipSizes(runValues, anchor) {
   return runValues.slice(start, start + MAX);
 }
 
-// Shell chrome for the pager. The render prop gets the live pager state and
-// returns { actions, overlay }: the buttons go in the top-right span, the
-// overlay (the sheet's ⋯ menu) renders as its sibling because .cz-detail-menu
-// positions absolutely off .cz-detail-hero, not off the span.
-function HeroActionsSlot({ render, photos, photoIdx, resetPager }) {
+// Shell chrome for the phone mini-header (and the photo hero on older builds).
+// The render prop gets the live pager state and returns { actions, overlay }:
+// buttons go in the trailing span; the ⋯ menu is a sibling so absolute
+// positioning can anchor to the sticky bar (position: relative), not the photo.
+function HeaderActionsSlot({ render, photos, photoIdx, resetPager, className = "cz-detail-header-actions" }) {
   const result = render({ photos, photoIdx, resetPager }) || {};
   return (
     <>
-      {result.actions ? <span className="cz-detail-hero-actions">{result.actions}</span> : null}
+      {result.actions ? <span className={className}>{result.actions}</span> : null}
       {result.overlay || null}
     </>
   );
@@ -2553,41 +2553,14 @@ export default function DetailBody({
     setPhotoIdx(0);
   }, [item.id]);
 
-  // §9 sticky bar. The photo block used to leave a stranded sliver of image
-  // above the title as you scrolled. The bar replaces that sliver: thumb,
-  // title, size · price, close. It only exists where the shell gives us a
-  // close action, which is the phone sheet.
+  // Phone mini-header: always under the grip. Thumb, title, size · price,
+  // and the action cluster. Close only exists on the phone sheet shell.
   const heroRef = useRef(null);
   const titleRowRef = useRef(null);
   const scrollRef = useRef(null);
-  const [heroGone, setHeroGone] = useState(false);
   const wantsStickyBar = heroPager && typeof onRequestClose === "function";
   // Desktop two-column panel hands titleTarget a mount node.
   const isDesktopPanel = titleTarget !== undefined;
-  useEffect(() => {
-    if (!wantsStickyBar) return undefined;
-    // Kyle 2026-07-29: the bar used to watch the PHOTO, so between "photo
-    // gone" and "title gone" the sheet printed the item name twice — once in
-    // the bar and once in the big title right under it. Watch the TITLE ROW
-    // instead: the bar only takes the name over once the big one has left.
-    // The hero stays the fallback for a caller with no inline title row.
-    const watched = titleRowRef.current || heroRef.current;
-    const root = scrollRef.current;
-    // jsdom has no IntersectionObserver, and neither does an old iOS. No
-    // observer means no bar — the sheet reads exactly as it did before §9.
-    if (!watched || !root || typeof IntersectionObserver === "undefined") return undefined;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const e = entries[0];
-        if (e) setHeroGone(!e.isIntersecting);
-      },
-      // The bar arrives as the LAST of the watched block leaves, not the
-      // first: a threshold of 0 flips the moment one pixel is gone.
-      { root, threshold: 0 }
-    );
-    io.observe(watched);
-    return () => io.disconnect();
-  }, [wantsStickyBar, item.id]);
 
   // Full-screen album (restored 2026-07-25, Kyle: "the old photos where you
   // could swipe through each photo... it was so good"). A tap on the hero
@@ -3316,14 +3289,13 @@ export default function DetailBody({
 
   return (
     <>
-      {/* Sticky bar (§9). It pins under the drag handle once the photo block
-          has scrolled away, so the sheet always says which item you are in.
-          aria-hidden while it is up: every control on it repeats one that is
-          already in the sheet, so a screen reader gains nothing and a
-          duplicate title is worse than no bar. */}
+      {/* Mini-header (phone sheet). Always visible under the grip: title,
+          size · price, and the action cluster (heart / ⋯ / ✕). Kyle 2026-08-02:
+          title fills the top of the card; one X at the top right with like and
+          more — never a second X on the photo. */}
       {wantsStickyBar ? (
         <div
-          className={"cz-detail-stickybar cz-detail-pane-header" + (heroGone ? " is-up" : "")}
+          className="cz-detail-stickybar cz-detail-pane-header is-up"
           aria-hidden={false}
         >
           {photos.length ? (
@@ -3333,14 +3305,23 @@ export default function DetailBody({
             <span className="cz-detail-stickybar-title">{view.title || "Saved item"}</span>
             {stickyMeta ? <span className="cz-detail-stickybar-meta">{stickyMeta}</span> : null}
           </span>
-          <button
-            type="button"
-            className="cz-detail-stickybar-close"
-            aria-label="Close"
-            onClick={onRequestClose}
-          >
-            <X size={16} strokeWidth={2.4} aria-hidden="true" />
-          </button>
+          {renderHeroActions ? (
+            <HeaderActionsSlot
+              render={renderHeroActions}
+              photos={photos}
+              photoIdx={photoIdx}
+              resetPager={resetPager}
+            />
+          ) : onRequestClose ? (
+            <button
+              type="button"
+              className="cz-detail-stickybar-close"
+              aria-label="Close"
+              onClick={onRequestClose}
+            >
+              <X size={16} strokeWidth={2.4} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -3498,12 +3479,16 @@ export default function DetailBody({
                 ))}
               </span>
             ) : null}
-            {renderHeroActions ? (
-              <HeroActionsSlot
+            {/* Phone sheet: actions live in the mini-header (no second X on
+                the photo). Desktop cover-flow still mounts a cover control
+                on the hero when there is no sticky mini-header. */}
+            {!wantsStickyBar && renderHeroActions ? (
+              <HeaderActionsSlot
                 render={renderHeroActions}
                 photos={photos}
                 photoIdx={photoIdx}
                 resetPager={resetPager}
+                className="cz-detail-hero-actions"
               />
             ) : null}
           </div>

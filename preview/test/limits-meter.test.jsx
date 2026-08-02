@@ -307,11 +307,16 @@ describe("phone headings clear the status bar", () => {
     expect(block).toMatch(/safe-area-inset-top/);
   });
 
-  it("pads the phone detail pane header with safe-area-inset-top", () => {
+  it("does not re-apply safe-area inside the phone detail pane header", () => {
+    // The sheet already peeks under the status bar via surface height.
+    // A second safe-area pad on the header dropped the close control too far
+    // (Kyle 2026-08-02).
     const start = CSS.indexOf(".cz-detail-pane-header,\n  .cz-detail-pane-header.is-up {");
     expect(start).toBeGreaterThan(-1);
-    const block = CSS.slice(start, start + 280);
-    expect(block).toMatch(/safe-area-inset-top/);
+    const block = CSS.slice(start, start + 420);
+    expect(block).not.toMatch(/env\(\s*safe-area-inset-top/);
+    expect(block).toMatch(/height:\s*50px/);
+    expect(block).toMatch(/min-height:\s*50px/);
   });
 });
 

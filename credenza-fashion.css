@@ -4888,6 +4888,28 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     transform var(--modal-close-dur) var(--modal-ease),
     opacity   var(--modal-close-dur) var(--modal-ease);
 }
+
+/* Phone bottom sheets: pull up like the item card (Kyle 2026-08-02 —
+   stash to shelf, search to shelf, and the rest). Desktop keeps scale. */
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-modal.t-modal {
+    transform: translateY(100%);
+    transform-origin: bottom center;
+    opacity: 1;
+  }
+  .cz-modal.t-modal.is-open {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .cz-modal.t-modal.is-closing {
+    transform: translateY(100%);
+    opacity: 1;
+    transition:
+      transform var(--modal-close-dur) var(--modal-ease),
+      opacity var(--modal-close-dur) var(--modal-ease);
+  }
+}
+
 /* Native <dialog> keeps layout; surface no longer fights the shell tween. */
 .cz-modal.t-modal .cz-modal-surface {
   opacity: 1;
@@ -12293,10 +12315,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   flex-direction: column;
   width: 100%;
   /* Mobile item 2 static gap (2026-08-02): 88px was a desktop-era reserve
-     (3e91074) and left a tall dead band above the phone sheet. Reserve only
-     the handle-strip peek (~28px in the 24–32px strip) plus safe-area so the
-     shelf is a small pull-sliver. Open/close animation half of item 2 stays
-     parked until Kyle asks. */
+     and left a tall dead band above the phone sheet. Reserve only the
+     handle-strip peek (~28px) plus the top safe-area so the shelf is a
+     small pull-sliver. Slide-up open is live below. */
   height: calc(100dvh - env(safe-area-inset-top, 0px) - 28px);
   overflow: hidden;
   background: var(--cz-card-solid);
@@ -12305,11 +12326,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
      rather than a floating card. */
   border-radius: 22px 22px 0 0;
   box-shadow: none;
-  animation: cz-detail-up 260ms cubic-bezier(0.22, 0.9, 0.3, 1) both;
+  /* Kyle 2026-08-02: smooth slide open. --dur-resize (300ms) is the longest
+     motion token; ease-out is the house curve. Reduced-motion drops this. */
+  animation: cz-detail-up var(--dur-resize, 300ms) var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
 }
 
 @keyframes cz-detail-up {
-  from { transform: translateY(102%); }
+  from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
 
@@ -12350,9 +12373,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   justify-content: center;
   /* The grip owns the swipe-down-to-close gesture; the browser must not
-     claim the pan as a scroll. The tall pad is the touch target. */
+     claim the pan as a scroll. Keep the strip short so title sits high
+     (Kyle 2026-08-02: X was half an inch down from the top). */
   touch-action: none;
-  padding: 14px 0 8px;
+  padding: 8px 0 4px;
 }
 
 .cz-detail-grip span {
@@ -12427,15 +12451,16 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-detail-hero-track {
   display: flex;
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  /* Mobile item 3 (2026-08-02): pan-x alone ate vertical pans, so a finger on
-     the photo could not scroll the sheet and instead rubber-banded the whole
-     surface (looked like a sheet drag). Allow both axes: horizontal pages the
-     album; vertical chains to .cz-detail-scroll. Sheet-close is grip-only
-     (DetailSheet) and never arms from this track. */
+  /* Mobile item 3 + Kyle 2026-08-02 photo lock: horizontal pages the album;
+     vertical pans chain to .cz-detail-scroll. overscroll-y: none stops the
+     photo from rubber-banding into white space when the user drags down.
+     Sheet-close is grip-only (DetailSheet) and never arms from this track. */
   touch-action: pan-x pan-y;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
 }
 
 .cz-detail-hero-track::-webkit-scrollbar {
@@ -12957,66 +12982,99 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
+/* Mini-header action cluster (Kyle 2026-08-02): heart, ⋯, ✕ sit in the
+   sticky bar top-right — not on the photo. */
+.cz-detail-header-actions {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-detail-header-fav.cz-favorite-button {
+  width: 36px;
+  height: 36px;
+  min-width: 0;
+  min-height: 0;
+  filter: none;
+  color: var(--cz-sub);
+  background: var(--cz-chip-fill);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  border-radius: 999px;
+}
+
+.cz-detail-header-fav.cz-favorite-button[data-liked="true"] {
+  color: var(--cz-like);
+}
+
+.cz-detail-header-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  border-radius: 999px;
+  background: var(--cz-chip-fill);
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cz-detail-header-btn:hover {
+    color: var(--cz-ink);
+    background: var(--cz-hover);
+  }
+}
+
+/* Finger gets the full 44px; the visual stays 36px. */
+.cz-detail-header-btn::after,
+.cz-detail-header-fav.cz-favorite-button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* Desktop cover-flow: one control on the photo (Make cover). Phone sheet
+   uses .cz-detail-header-actions instead and leaves the photo clean. */
 .cz-detail-hero-actions {
   position: absolute;
   top: 10px;
   right: 10px;
   display: flex;
-  /* §9: "one cluster, top-right". A tighter gap so three 32px circles read as
-     one group rather than three separate pucks. */
   gap: 6px;
 }
 
-/* The heart is a FavoriteButton, which brings its own 38px box and transparent
-   background. Inside the cluster it has to match its two neighbours exactly,
-   so the hero class wins on size and the fill comes from .cz-detail-hero-btn.
-   The heart colour stays FavoriteButton's — that is the like state, not
-   chrome. */
-.cz-detail-hero-fav.cz-favorite-button {
-  width: 32px;
-  height: 32px;
-  /* The coarse-pointer block above pins min-width/min-height 44px on every
-     .cz-favorite-button, which clamped a 32px width straight back to 44 and
-     left the heart a puck beside two smaller circles. Releasing the minimums
-     costs no reach: .cz-detail-hero-btn::after still gives this button the
-     full 44px hit area, and it wins over the heart's own 3px ring by order. */
-  min-width: 0;
-  min-height: 0;
-  filter: none;
-}
-
-/* 32px on purpose (§9): these sit on the photo, away from the thumb rail, and
-   a 44px circle would cover the image. Everything in the reachable half of
-   the sheet is 44px, and the ::after below gives this one the same hit area. */
 .cz-detail-hero-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* §9: "header buttons on the photo shrink to 32px frosted circles". The
-     visual is 32px; the ::after below still gives the finger a full 44px. */
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid color-mix(in srgb, var(--cz-card-solid) 15%, transparent);
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.5);
+  background: color-mix(in srgb, var(--cz-ink) 50%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #ffffff;
+  color: var(--cz-card-solid);
   cursor: pointer;
-  transition: background var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+  transition:
+    background var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .cz-detail-hero-btn:hover {
-    background: rgba(0, 0, 0, 0.62);
-    border-color: rgba(255, 255, 255, 0.28);
-  }
-}
-
-/* The button reads 36px on the photo, but the finger gets the full 44px.
-   A pseudo-element carries the extra hit area so the visual stays put. */
 .cz-detail-hero-btn::after {
   content: "";
   position: absolute;
@@ -13058,9 +13116,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    a quiet surface. */
 .cz-detail-menu {
   position: absolute;
-  top: 54px;
-  right: 10px;
-  z-index: 3;
+  /* Anchored under the mini-header action cluster (position: relative on
+     .cz-detail-header-actions / sticky bar). */
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
   min-width: 210px;
   display: flex;
   flex-direction: column;
@@ -13068,6 +13128,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border: 1px solid var(--cz-hair);
   border-radius: 12px;
   background: var(--cz-card-solid);
+  box-shadow: 0 10px 28px color-mix(in srgb, black 18%, transparent);
 }
 
 .cz-detail-menu-item {
@@ -15161,18 +15222,20 @@ input.cz-sizing-fix-size {
 @media (max-width: 767px) {
   .cz-detail-pane-header,
   .cz-detail-pane-header.is-up {
-    /* Safe-area so the status bar never covers the title or close control. */
-    min-height: calc(50px + env(safe-area-inset-top, 0px));
+    /* Sheet surface already peeks under the status bar. Do not pad this
+       header again for the notch — that dropped the X too far down. */
+    height: 50px;
+    min-height: 50px;
     overflow: visible;
-    padding: calc(2px + env(safe-area-inset-top, 0px)) 12px 10px;
-    gap: 11px;
-    border-bottom: 0;
-    background: var(--cz-bg-elevated);
+    padding: 6px 12px;
+    gap: 8px;
+    border-bottom: 1px solid var(--cz-card-border, var(--cz-hair));
+    background: var(--cz-card-solid);
   }
 
   .cz-detail-pane-header .cz-detail-stickybar-thumb {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
     border-radius: 10px;
   }
 
@@ -15189,8 +15252,8 @@ input.cz-sizing-fix-size {
   }
 
   .cz-detail-pane-header .cz-detail-stickybar-close {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     background: var(--cz-chip-fill);
   }
 
@@ -16441,19 +16504,15 @@ input.cz-sizing-fix-size {
 .cz-detail-foot-row .cz-buy-notch-wrap { flex: 1; min-width: 0; }
 .cz-detail-foot-row .cz-detail-buy { height: 50px; }
 
-/* ── Sticky bar (handoff turn 9 §9) ──
-   "When the photo block leaves the viewport, a 44px bar pins under the
-   handle." It replaces the sliver of photo that used to strand above the
-   title. The bar is a sibling of the scroller, not a child: a child would
-   scroll with the content it is meant to outlive. */
+/* ── Sticky bar / phone mini-header (handoff §9 + Kyle 2026-08-02) ──
+   Always visible under the grip on the phone sheet: thumb, title, size ·
+   price, action cluster. Sibling of the scroller so it never scrolls away. */
 .cz-detail-stickybar {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 9px;
-  /* Closed state: zero height, no border, nothing painted. The bar is only
-     ever ONE row tall, so it animates its own height rather than sliding a
-     44px block over the first line of the title. */
   height: 0;
   padding: 0 14px;
   overflow: hidden;
@@ -16464,7 +16523,9 @@ input.cz-sizing-fix-size {
     border-color var(--dur-micro) var(--ease-out);
 }
 .cz-detail-stickybar.is-up {
-  height: 44px;
+  height: 50px;
+  padding: 6px 12px;
+  overflow: visible;
   border-bottom-color: var(--cz-card-border, var(--cz-hair));
 }
 .cz-detail-stickybar-thumb {

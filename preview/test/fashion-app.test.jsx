@@ -2043,24 +2043,25 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-detail-editor")).toBeNull();
   });
 
-  it("leads the hero cluster with the heart, and the heart writes through", async () => {
-    // §9: "one cluster, top-right" — heart, ⋯, ✕. The heart used to live in
-    // the card face only, so the sheet had no way to star what you were
-    // reading.
+  it("leads the mini-header cluster with the heart, and the heart writes through", async () => {
+    // §9 + Kyle 2026-08-02: one cluster in the mini-header — heart, ⋯, ✕.
+    // Not on the photo (that made two close buttons).
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    const cluster = sheet.querySelector(".cz-detail-hero-actions");
+    const cluster = sheet.querySelector(".cz-detail-header-actions");
     expect(cluster).not.toBeNull();
+    // Photo must not host a second cluster.
+    expect(sheet.querySelector(".cz-detail-hero .cz-detail-header-actions")).toBeNull();
     const labels = [...cluster.querySelectorAll("button")].map((b) =>
       b.getAttribute("aria-label")
     );
     expect(labels).toEqual(["Star Palace x Nike jersey", "More actions", "Close"]);
 
     await user.click(within(cluster).getByRole("button", { name: /^Star / }));
-    // The star is a real write, not a hero-only flourish.
+    // The star is a real write, not a header-only flourish.
     await waitFor(() =>
       expect(JSON.parse(data[STORE_KEY])[0].favorite).toBe(true)
     );
@@ -2101,10 +2102,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
   });
 
   it("keeps the mini-header always visible, observer or not", async () => {
-    // Mobile item sheet (2026-07-31, spec 6.1): the old scroll-driven sticky
-    // bar is now the sheet's mini-header — one row, ALWAYS visible, above the
-    // panes. jsdom has no IntersectionObserver, and neither does an old iOS;
-    // the header must not depend on one.
+    // Mobile item sheet (2026-07-31, spec 6.1 + Kyle 2026-08-02): one row,
+    // ALWAYS visible under the grip. Title, size · price, and the action
+    // cluster. No IntersectionObserver gate.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -2112,10 +2112,12 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     const bar = sheet.querySelector(".cz-detail-stickybar");
     expect(bar).not.toBeNull();
-    // Always visible means never aria-hidden, and its ✕ always takes a tab
-    // stop — it is the sheet's header now, not a duplicate of one.
     expect(bar).toHaveAttribute("aria-hidden", "false");
-    expect(bar.querySelector(".cz-detail-stickybar-close")).not.toHaveAttribute("tabindex", "-1");
+    expect(bar.classList.contains("is-up")).toBe(true);
+    // Close lives in the header action cluster (one X only).
+    const close = bar.querySelector('button[aria-label="Close"]');
+    expect(close).not.toBeNull();
+    expect(close).not.toHaveAttribute("tabindex", "-1");
     // It says which item you are in.
     expect(bar.querySelector(".cz-detail-stickybar-title").textContent).toBe(
       "Palace x Nike jersey"
@@ -2132,43 +2134,18 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(bar.closest(".cz-detail-scroll")).toBeNull();
   });
 
-  it("watches the title row, so the name is never on screen twice", async () => {
-    // Kyle 2026-07-29: the sheet printed the item name twice — once in the
-    // sticky bar and once in the big title right under it. The bar watched
-    // the PHOTO, so it came up while the big title was still on screen.
-    // jsdom has no IntersectionObserver, so the test supplies one and asks
-    // the only question that matters: WHICH element does the bar watch?
-    const observed = [];
-    const roots = [];
-    class FakeObserver {
-      constructor(_cb, options) {
-        roots.push(options ? options.root : null);
-      }
-      observe(node) {
-        observed.push(node);
-      }
-      disconnect() {}
-      unobserve() {}
-    }
-    const previous = globalThis.IntersectionObserver;
-    globalThis.IntersectionObserver = FakeObserver;
-    try {
-      installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
-      const user = userEvent.setup();
-      render(<Credenza />);
-      await openSheet(user);
-
-      expect(observed.length).toBe(1);
-      expect(observed[0].classList.contains("cz-detail-title-row")).toBe(true);
-      // The photo is the wrong watch: it leaves the screen while the big
-      // title is still there, which is the doubled line Kyle photographed.
-      expect(observed[0].classList.contains("cz-detail-hero")).toBe(false);
-      // The scroller stays the root — the sheet scrolls in its own box.
-      expect(roots[0]).not.toBeNull();
-      expect(roots[0].classList.contains("cz-detail-scroll")).toBe(true);
-    } finally {
-      globalThis.IntersectionObserver = previous;
-    }
+  it("does not put a second close control on the photo", async () => {
+    // Kyle 2026-08-02: two X buttons on the photo front. Actions belong in
+    // the mini-header only.
+    installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    const sheet = await openSheet(user);
+    const hero = sheet.querySelector(".cz-detail-hero");
+    expect(hero).not.toBeNull();
+    expect(hero.querySelector('button[aria-label="Close"]')).toBeNull();
+    expect(hero.querySelector(".cz-detail-header-actions")).toBeNull();
+    expect(sheet.querySelectorAll('button[aria-label="Close"]')).toHaveLength(1);
   });
 });
 

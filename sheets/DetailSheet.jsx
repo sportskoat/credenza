@@ -214,14 +214,14 @@ export default function DetailSheet({
           renderHeroActions={({ photos, photoIdx, resetPager }) => ({
             actions: (
               <>
-                {/* §9: "one cluster, top-right" — heart, ⋯, ✕, in that order.
-                    FavoriteButton owns the burst animation; the hero class
-                    only gives it the frosted circle its neighbours have. */}
+                {/* §9 + Kyle 2026-08-02: one cluster in the mini-header —
+                    heart, ⋯, ✕. Not on the photo (that made two close buttons
+                    and left white drag space under the image). */}
                 {onToggleFavorite ? (
                   <FavoriteButton
                     item={item}
                     onToggle={onToggleFavorite}
-                    className="cz-detail-hero-btn cz-detail-hero-fav"
+                    className="cz-detail-header-btn cz-detail-header-fav"
                   />
                 ) : null}
                 {/* ⋯ opens a menu — never the delete itself (Kyle 2026-07-25:
@@ -230,7 +230,7 @@ export default function DetailSheet({
                     make it the cover. */}
                 <button
                   type="button"
-                  className="cz-detail-hero-btn"
+                  className="cz-detail-header-btn"
                   aria-label="More actions"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
@@ -241,7 +241,7 @@ export default function DetailSheet({
                 <button
                   ref={closeRef}
                   type="button"
-                  className="cz-detail-hero-btn"
+                  className="cz-detail-header-btn"
                   aria-label="Close"
                   onClick={closeSheet}
                 >

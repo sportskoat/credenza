@@ -357,7 +357,10 @@ describe("mobile item 3 — photo pager never closes the sheet", () => {
     // Comment block is long — read past it to the property declarations.
     const trackBlock = CSS.slice(trackStart, trackStart + 900);
     expect(trackBlock).toMatch(/touch-action:\s*pan-x\s+pan-y/);
-    expect(trackBlock).toMatch(/overscroll-behavior:\s*contain/);
+    // Photo lock (Kyle 2026-08-02): no vertical rubber-band into white space.
+    expect(trackBlock).toMatch(/overscroll-behavior-y:\s*none/);
+    expect(trackBlock).toMatch(/overscroll-behavior-x:\s*contain/);
+    expect(trackBlock).toMatch(/overflow-y:\s*hidden/);
 
     const slideStart = CSS.indexOf(
       '.cz-app[data-fashion="true"] .cz-detail-hero-slide,\n.cz-detail-hero-slide {'
@@ -365,5 +368,14 @@ describe("mobile item 3 — photo pager never closes the sheet", () => {
     expect(slideStart).toBeGreaterThan(-1);
     const slideBlock = CSS.slice(slideStart, slideStart + 500);
     expect(slideBlock).toMatch(/touch-action:\s*pan-x\s+pan-y/);
+  });
+
+  it("opens with a smooth slide-up on the detail surface", () => {
+    const start = CSS.indexOf(".cz-detail-surface {");
+    expect(start).toBeGreaterThan(-1);
+    // Rule + following keyframes; comments make the first block long.
+    const block = CSS.slice(start, start + 1600);
+    expect(block).toMatch(/animation:\s*cz-detail-up/);
+    expect(block).toMatch(/var\(--dur-resize/);
   });
 });
