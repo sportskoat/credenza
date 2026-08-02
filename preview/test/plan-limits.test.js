@@ -214,18 +214,42 @@ describe("the caps are enforced where the writes happen", () => {
   // These assertions pin the ORDER, which is the whole defect. Each looks for
   // the status check and the bump in one window, status check first.
   it("counts a metered call only after the server says it succeeded", () => {
-    const clean = src.replace(/^\s*\/\/.*$/gm, "");
+    // Strip full-line comments, then collapse the blank lines they leave so
+    // multi-line order pins stay stable when a block gains or loses comments.
+    const clean = src
+      .replace(/^\s*\/\/.*$/gm, "")
+      .replace(/\n(?:[ \t]*\n)+/g, "\n");
 
-    // postChartVision and fetchDescImages: guard clause, then bump. The guard
-    // also names a sign-in refusal, so the card can say why it is empty. The
-    // early return still stands between the failure and the count.
+    // postChartVision: guard clause, then bump. Fix 0 maps 401/403 to the
+    // CHART_AUTH_REQUIRED sentinel (not null) so the UI can show "signed out"
+    // instead of "no chart". Both early returns still stand between failure
+    // and the count — an auth wall must never burn a customer's quota.
+    // (a) success-only counting: bump only after res.ok.
+    // (b) auth path: 401/403 returns CHART_AUTH_REQUIRED before bumpUsage.
     expect(clean).toContain(
       "    if (!res.ok) {\n" +
-        "      if (await isSignInRefusal(res)) noteSignInRequired();\n" +
+        "      if (res.status === 401 || res.status === 403) {\n" +
+        "        noteSignInRequired();\n" +
+        "        return CHART_AUTH_REQUIRED;\n" +
+        "      }\n" +
         "      return null;\n" +
         "    }\n" +
         "    bumpUsage(\"chartVision\");"
     );
+    // Explicit pin: the auth sentinel return appears with no bumpUsage between
+    // it and the next statement that would count — order is return-then-bump.
+    const chartAuthWindow = clean.match(
+      /if \(res\.status === 401 \|\| res\.status === 403\) \{[\s\S]{0,120}?return CHART_AUTH_REQUIRED;[\s\S]{0,80}?return null;[\s\S]{0,40}?bumpUsage\("chartVision"\)/
+    );
+    expect(
+      chartAuthWindow,
+      "chart-vision 401/403 must return CHART_AUTH_REQUIRED before bumpUsage — auth must not burn quota"
+    ).toBeTruthy();
+    expect(clean).not.toMatch(
+      /bumpUsage\("chartVision"\)[\s\S]{0,200}?return CHART_AUTH_REQUIRED/
+    );
+
+    // fetchDescImages: guard clause with sign-in refusal, then bump.
     expect(clean).toContain(
       "    if (!res.ok) {\n" +
         "      if (await isSignInRefusal(res)) noteSignInRequired();\n" +
