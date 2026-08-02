@@ -600,6 +600,10 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
     // Control sits before the badge in the trail group.
     expect(trail.children[0]).toBe(prefBtn);
     expect(trail.children[1].classList.contains("cz-fit-result-badge")).toBe(true);
+    // Bottom "You wear … Change" card is gone — top control is the only Change.
+    expect(container.querySelector(".cz-fit-pref")).toBe(null);
+    expect(screen.queryByText(/You wear shirts/i)).toBe(null);
+    expect(screen.queryByRole("button", { name: "Change" })).toBe(null);
 
     fireEvent.click(prefBtn);
     expect(screen.getByText("How do you wear shirts?")).toBeInTheDocument();

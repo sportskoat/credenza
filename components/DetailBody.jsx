@@ -1920,27 +1920,6 @@ function sizeAnalysisParagraph(verdict, fitRows, units, category) {
   return text;
 }
 
-function fitPrefSentence(item, fitPref) {
-  if (!fitPref || !fitPrefHasChoice(fitPref)) return "";
-  const length = fitPref.length ? fitPrefLabel(item.category, "length", fitPref.length) : "";
-  const loose = fitPref.looseness
-    ? fitPrefLabel(item.category, "looseness", fitPref.looseness)
-    : "";
-  const bits = [length, loose].filter(Boolean);
-  if (!bits.length) return "";
-  const cat =
-    item.category === "outerwear"
-      ? "outerwear"
-      : item.category === "shirt"
-        ? "shirts"
-        : item.category === "pants"
-          ? "pants"
-          : item.category === "shorts"
-            ? "shorts"
-            : "this category";
-  return "You wear " + cat + " " + bits.join(" and ").toLowerCase() + ". This card follows that.";
-}
-
 // Desktop result row only: one short word left of Verified fit. Prefer
 // looseness (e.g. "Regular"); fall back to length; empty pref invites a set.
 function fitPrefToggleLabel(item, fitPref) {
@@ -3106,7 +3085,6 @@ export default function DetailBody({
     isDesktopPanel && fitSummaryOn && !noChart
       ? sizeAnalysisParagraph(verdict, fitRows, measureUnits, item.category)
       : "";
-  const prefSentence = isDesktopPanel ? fitPrefSentence(item, fitPref) : "";
   const onDesktopTabKey = (event) => {
     if (!isDesktopPanel) return;
     const keys = DESKTOP_TABS.map((t) => t[0]);
@@ -3582,31 +3560,6 @@ export default function DetailBody({
                   Show fit summary
                 </button>
               </p>
-            ) : null}
-
-            {isDesktopPanel && prefSentence ? (
-              <div className="cz-fit-pref">
-                <p className="cz-fit-pref-copy">
-                  {(() => {
-                    const m = prefSentence.match(/You wear (.+?)\.(.*)/i);
-                    if (!m) return prefSentence;
-                    return (
-                      <>
-                        You wear <strong>{m[1]}</strong>.{m[2]}
-                      </>
-                    );
-                  })()}
-                </p>
-                {onSaveFitPref ? (
-                  <button
-                    type="button"
-                    className="cz-fit-pref-change"
-                    onClick={() => setAskingPref(true)}
-                  >
-                    Change
-                  </button>
-                ) : null}
-              </div>
             ) : null}
 
             {!askingMeasures && !noChart ? (
