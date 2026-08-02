@@ -2173,6 +2173,17 @@ describe("the public site shares one look and one header", () => {
     );
   });
 
+  // A classic macOS scrollbar steals ~15px from the viewport, so the 1080px
+  // public shell sits left of the app (which already hides its bars).
+  it("hides the page scrollbar the same way the application does", () => {
+    expect(SITE_CSS, "html/body no longer hide the classic scrollbar").toMatch(
+      /html,\s*body\s*\{[\s\S]*?scrollbar-width:\s*none/
+    );
+    expect(SITE_CSS, "webkit scrollbar hide rule is missing").toMatch(
+      /html::-webkit-scrollbar,\s*body::-webkit-scrollbar\s*\{[\s\S]*?display:\s*none/
+    );
+  });
+
   it("uses the application's background layers behind every public page", () => {
     const moon = cssRules(SITE_CSS).find((r) => selectorOf(r) === "body::before");
     const rim = cssRules(SITE_CSS).find((r) => selectorOf(r) === "body::after");
