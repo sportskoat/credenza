@@ -146,11 +146,11 @@ export default function LimitsSheet({ status, signedIn = false, onSignIn, onUpgr
         <div className="cz-limits-actions">
           {anon && (
             <button type="button" className="cz-limits-action is-primary" onClick={onSignIn}>
-              Sign in — free
+              Sign in, free
             </button>
           )}
           <button type="button" className="cz-limits-action" onClick={onUpgrade}>
-            {ended ? "Resume Pro" : "Go Pro"} — {PRICING.monthly} a month
+            {ended ? "Resume Pro" : "Go Pro"}: {PRICING.monthly} a month
           </button>
           <p className="cz-limits-price-note">
             {PRICING.yearly} a year works out to {PRICING.yearlyPerMonth} · cancel any time

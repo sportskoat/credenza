@@ -86,11 +86,11 @@ const SERVER_MESSAGES_A_PERSON_SHOULD_SEE = new Set([
 // the thing that failed in our words — "Billing", "Cloud Ask" — because a 500
 // on the checkout screen and a 500 on the Ask box need different sentences.
 function messageForStatus(status, subject) {
-  if (status === 401 || status === 403) return "Your sign-in expired — sign in again first.";
+  if (status === 401 || status === 403) return "Your sign-in expired. Sign in again first.";
   if (status === 404) return "That is not available on this account.";
-  if (status === 429) return "Too many tries — wait a moment and try again.";
+  if (status === 429) return "Too many tries. Wait a moment and try again.";
   if (status >= 500) return subject + " is not answering right now. Try again in a minute.";
-  return "Something went wrong — try again.";
+  return "Something went wrong. Try again.";
 }
 
 // Exported for the test that pins this behaviour, and for any future caller

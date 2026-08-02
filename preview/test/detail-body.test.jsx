@@ -411,6 +411,103 @@ describe("DetailBody detail facts", () => {
     );
   });
 
+  // F/C 2026-08-02 pin: category pick + pending note draft must not restore
+  // the old category on flush (buildEditPatch used to carry draft.category).
+  it("mirrors a category pick into an open draft so flush keeps Shorts", async () => {
+    const user = userEvent.setup();
+    const onSaveEdit = vi.fn();
+    const flushRef = { current: null };
+    render(
+      body(item("cat-stick", { category: "other", note: "old note" }), {
+        onSaveEdit,
+        flushRef,
+      })
+    );
+
+    // Open a pending note draft first (the race Kyle hit).
+    fireEvent.change(screen.getByLabelText("Notes"), {
+      target: { value: "pending while picking category" },
+    });
+
+    // Details list layout on phone sticky; chip bar on flip card. Prefer the
+    // Category control that is currently mounted.
+    const catChip = document.querySelector('[data-chip="category"]');
+    if (catChip) {
+      await user.click(catChip);
+    } else {
+      // Desktop-ish: open Details if needed and find the Category row.
+      const detailsTab = screen.queryByRole("tab", { name: /^Details$/ });
+      if (detailsTab) await user.click(detailsTab);
+      await user.click(screen.getByRole("button", { name: /Category/i }));
+    }
+    const list = await screen.findByRole("menu", { name: "Category" });
+    await user.click(within(list).getByRole("menuitemradio", { name: /Shorts/i }));
+
+    expect(onSaveEdit).toHaveBeenCalledWith(
+      "cat-stick",
+      expect.objectContaining({ category: "shorts", categoryManual: true })
+    );
+
+    // Debounced flush of the note draft must NOT write category: "other".
+    act(() => flushRef.current());
+    const flushCalls = onSaveEdit.mock.calls.filter(
+      ([id, patch]) => id === "cat-stick" && patch && "note" in patch
+    );
+    expect(flushCalls.length).toBeGreaterThan(0);
+    const lastFlush = flushCalls[flushCalls.length - 1][1];
+    expect(lastFlush.category).toBe("shorts");
+    expect(lastFlush.note).toContain("pending");
+  });
+
+  it("resets scrollTop when desktop Fit → Details → Fit", async () => {
+    const user = userEvent.setup();
+    // titleTarget marks the desktop panel path (tabs Fit/Details/Settings).
+    const titleHost = document.createElement("div");
+    document.body.appendChild(titleHost);
+    const { container } = render(
+      body(item("scroll-tabs"), { titleTarget: titleHost })
+    );
+    const scroll = container.querySelector(".cz-detail-scroll");
+    expect(scroll).not.toBe(null);
+    scroll.scrollTop = 400;
+    expect(scroll.scrollTop).toBe(400);
+
+    await user.click(screen.getByRole("tab", { name: "Details" }));
+    expect(scroll.scrollTop).toBe(0);
+
+    scroll.scrollTop = 280;
+    await user.click(screen.getByRole("tab", { name: "Fit" }));
+    expect(scroll.scrollTop).toBe(0);
+    // Measurement block re-mounts with openRead still true.
+    expect(
+      screen.getByRole("button", { name: /Measurement by measurement/i })
+    ).toHaveAttribute("aria-expanded", "true");
+    titleHost.remove();
+  });
+
+  it("resets scrollTop when phone Fit → Details → Fit", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      body(item("scroll-phone", {
+        image: "data:image/png;base64,iVBORw0KGgo=",
+        gallery: ["data:image/png;base64,iVBORw0KGgoA="],
+      }), {
+        heroPager: true,
+        onRequestClose: vi.fn(),
+      })
+    );
+    const scroll = container.querySelector(".cz-detail-scroll");
+    expect(scroll).not.toBe(null);
+    scroll.scrollTop = 320;
+
+    await user.click(screen.getByRole("tab", { name: /Details/ }));
+    expect(scroll.scrollTop).toBe(0);
+
+    scroll.scrollTop = 200;
+    await user.click(screen.getByRole("tab", { name: /^Fit$/ }));
+    expect(scroll.scrollTop).toBe(0);
+  });
+
   it("opens profile sizing from the fit read footnote", async () => {
     const user = userEvent.setup();
     const onOpenSizes = vi.fn();
@@ -609,7 +706,7 @@ describe("DetailBody no-measurements flow", () => {
     // 4e: rough estimate strip with the category's sharpen ask.
     expect(screen.getByText("Rough estimate")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Add chest/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Skip — keep the rough size" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip, keep the rough size" }));
 
     expect(screen.getByText("Rough estimate")).toBeInTheDocument();
     expect(container.querySelector(".cz-sizing")).not.toBe(null);

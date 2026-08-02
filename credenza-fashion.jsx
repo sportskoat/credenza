@@ -1255,6 +1255,21 @@ export function declaredFit(title) {
   return null;
 }
 
+// Waist floor escape hatch (C's engine audit, F's spec, 2026-08-02). A
+// non-stretch waistband cannot fit a body bigger than its own measurement —
+// a 31.5cm waist does not hold a 33cm body. Sellers print the RELAXED number
+// on an elastic or drawstring waistband, so a stated waist smaller than the
+// body is normal there, not a fault. Detected from the title and the raw
+// chart/notes text the customer saved, same evidence sleeveStyle and
+// garmentType already read.
+const ELASTIC_WAIST_RES = [/elastic(?:ated)?\b/i, /\bdrawstring\b/i];
+const ELASTIC_WAIST_ZH = ["松紧", "抽绳"];
+export function hasElasticWaist(...texts) {
+  const t = texts.filter(Boolean).join(" ").toLowerCase();
+  if (!t) return false;
+  return ELASTIC_WAIST_RES.some((re) => re.test(t)) || ELASTIC_WAIST_ZH.some((w) => t.includes(w));
+}
+
 // Chest ease bands in centimetres, [low, high], from C's review table. The
 // engine aims for the middle of a band and scores the distance outside it.
 // Decimals are deliberate — do not round these to whole centimetres.
@@ -1331,7 +1346,20 @@ export const GARMENT_WORD = {
 // nudging a hand pick would answer a tap with a different size.
 // Optional title (6th arg): on a confirmed short-sleeve garment the sleeve
 // penalty is skipped — a tee's 22 cm sleeve is not a fit failure.
-export function recommendSize(chart, profile, category, fitPref = null, forceSize = null, title = null) {
+// Optional notesText (7th arg): elastic-evidence text — pass
+// elasticEvidenceTextFor(item), never sizeChartTextFor(item). The latter
+// returns the machine-parsed chart ALONE once one exists, which hides an
+// "elastic waistband" sitting in the free-text fields beside a numeric
+// chart. Read only for the waist-floor elastic escape hatch below.
+export function recommendSize(
+  chart,
+  profile,
+  category,
+  fitPref = null,
+  forceSize = null,
+  title = null,
+  notesText = null
+) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
   const p = migrateSleeveMeasurements(profile) || {};
   const rows = chart.rows;
@@ -1408,6 +1436,38 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const candidates = rows.filter((r) => r[primaryKey] != null);
   if (candidates.length < 2) return null;
   const isTop = primaryKey === "chest";
+  // ── Hard waist floor (C's audit + F's spec, 2026-08-02) ───────────────────
+  // Kyle's shorts card recommended a Large whose 31.5cm waist could not fit
+  // his 33cm body — primaryFits' ±6cm band let a negative-ease waist compete
+  // and the leg-length pass then let it win outright. A non-stretch waistband
+  // genuinely cannot do that, so the floor runs BEFORE scoring, not as a
+  // score penalty: garment waist must be >= body waist. An elastic or
+  // drawstring waistband is the one real exception — those charts print the
+  // relaxed number — so evidence in the title or saved notes raises the
+  // floor to a bounded −4cm instead of removing it.
+  // C's audit, round 2: runShift must NOT enter this check. A "runs big"
+  // chart's -4cm runShift is a SCORING adjustment (the label undersells the
+  // garment, so aim smaller) — it is not a physical fact about the fabric.
+  // Folding it into the floor let a runs-big chart pass a waist genuinely
+  // 4cm smaller than the body straight through a "hard" gate. The floor
+  // compares the seller's raw number against the body, full stop; runShift
+  // stays where it always did, inside target/score.
+  const WAIST_FLOOR_ELASTIC_CM = -4;
+  const applyWaistFloor = isBottoms && primaryKey === "waist";
+  const elasticWaist = applyWaistFloor && hasElasticWaist(title, notesText);
+  const waistFloorOk = (r) => r[primaryKey] - p[bodyKey] >= (elasticWaist ? WAIST_FLOOR_ELASTIC_CM : 0);
+  // Never return no pick (Kyle's favor-up instinct, 2026-08-01 01:04Z): when
+  // every row fails the floor, keep the largest waist on the chart. It is
+  // still the closest the seller offers, and the existing negative-ease
+  // sentence (PR #75) already tells the customer it will fit tighter.
+  let floorCandidates = candidates;
+  if (applyWaistFloor) {
+    const eligible = candidates.filter(waistFloorOk);
+    floorCandidates =
+      eligible.length > 0
+        ? eligible
+        : [candidates.reduce((biggest, r) => (r[primaryKey] > biggest[primaryKey] ? r : biggest))];
+  }
   // Compare the seller's sleeve against the matching saved sleeve. A short
   // sleeve never reads the wrist measurement. A long or unknown sleeve keeps
   // the wrist measurement used before this split. No chart column means no
@@ -1464,7 +1524,7 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // OTHER is not consistent (A ties B, B ties C, A does not tie C), and
   // `Array.sort` gives no guaranteed result for a comparator like that — the
   // winner could drift two sizes up instead of one.
-  const scored = candidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
+  const scored = floorCandidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
   // A tapped size the chart does not carry falls back to the scored winner —
   // a pick with no row has no measurements to print.
   const forcedRow = forceSize
@@ -1536,10 +1596,16 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
       }
     }
   }
-  // ── The pants/shorts length pass (F, 2026-08-01) ──────────────────────────
+  // ── The pants/shorts length pass (F, 2026-08-01; tightened C/F 2026-08-02) ─
   // Same rule as the shirt length pass above, moved to the leg: the saved
-  // trouser (or shorts) length only breaks a tie between sizes that already
-  // fit the waist/hip equally. It never outweighs a clear waist winner.
+  // trouser (or shorts) length only breaks a TRUE tie between sizes that
+  // already fit the waist/hip about equally. It never outweighs a clear
+  // waist winner. The original ±6cm primaryFits band was too wide for that
+  // promise — it let a row 4cm off the winner's score still compete on
+  // length alone, which is how a too-small Large beat a correct XL on Kyle's
+  // shorts card. Eligibility is now the same TIE_EPSILON used to decide the
+  // primary winner itself, and it runs against floorCandidates so a
+  // waist-floor reject can never come back through the length door.
   // Both sides are the seller's own full outside-leg number (裤长), matching
   // what the customer saves — no inseam column, no estimate, per PR #20.
   const bodyLegKey = category === "shorts" ? "shortsLength" : "pantsLength";
@@ -1550,7 +1616,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
       ? Number(p[bodyLegKey])
       : null;
   if (legLengthTarget != null) {
-    const eligible = candidates.filter((r) => r.pantsLength != null && primaryFits(r));
+    const eligible = floorCandidates.filter(
+      (r) => r.pantsLength != null && score(r) - bestScore < TIE_EPSILON
+    );
     if (eligible.length >= 2) {
       const byLength = eligible
         .map((r) => ({ row: r, d: Math.abs(r.pantsLength - legLengthTarget), s: score(r) }))
@@ -1575,16 +1643,16 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // it cannot recurse — the inner call carries no looseness.
   const neutralSize =
     looseness && band && !forcedRow
-      ? (recommendSize(chart, profile, category, { length: fitPref.length }, null, title) || {}).size ||
+      ? (recommendSize(chart, profile, category, { length: fitPref.length }, null, title, notesText) || {}).size ||
         null
       : null;
   const runnerUp = scored.map((s) => s.row).find((r) => r.size !== best.size) || null;
 
   const fitNote =
     chart.runHint === "big"
-      ? "runs big — sized down"
+      ? "runs big, sized down"
       : chart.runHint === "small"
-        ? "runs small — sized up"
+        ? "runs small, sized up"
         : chart.runHint === "true"
           ? "true to size"
           : "";
@@ -1661,7 +1729,7 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // Optional 4th arg: per-category taste (length + looseness). Looseness can
   // nudge one size up/down; the length axis moves the target length above.
   if (forcedRow) return { ...baseRec, lengthWin: null, legLengthWin: null };
-  return applyFitPreference(baseRec, chart, fitPref, category);
+  return applyFitPreference(baseRec, chart, fitPref, category, applyWaistFloor ? floorCandidates : null);
 }
 
 // ── Fit read rows (split-rail handoff 2026-07-28) ──
@@ -2129,7 +2197,12 @@ function bandPrefLine(category, fitPref, rec) {
 
 // Apply per-category taste to a base recommendSize result. Safe no-op when
 // fitPref is null, dismissed, or has no looseness nudge.
-export function applyFitPreference(rec, chart, fitPref, category) {
+// Optional 5th arg eligibleRows (C's audit, 2026-08-02): on a waist-floor
+// chart, the Slim nudge must never step the ladder onto a row the floor
+// already rejected — a full-chart ladder let a safe XL nudge back down to
+// a floor-rejected L. Pass floorCandidates here to confine the nudge to
+// rows that passed the floor; every other caller keeps the full chart.
+export function applyFitPreference(rec, chart, fitPref, category, eligibleRows = null) {
   if (!rec || !rec.size || rec.missing) return rec;
   if (!fitPrefHasChoice(fitPref)) {
     return {
@@ -2147,7 +2220,7 @@ export function applyFitPreference(rec, chart, fitPref, category) {
   // they keep the row nudge.
   const bandDidLooseness = !!rec.easeBand;
   const nudge = bandDidLooseness ? 0 : loosenessNudge(fitPref.looseness);
-  const ladder = (chart && Array.isArray(chart.rows) ? chart.rows : []).filter(
+  const ladder = (eligibleRows || (chart && Array.isArray(chart.rows) ? chart.rows : [])).filter(
     (r) => r && r.size
   );
   const idx = ladder.findIndex(
@@ -2262,7 +2335,42 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
     tail.push(rec.alt.size + " also works if you want it " + rec.alt.fit);
   }
   if (!tail.length) return first + ".";
-  return first + " — " + tail.join("; ") + ".";
+  const tailText = tail.join("; ");
+  return first + ". " + tailText.charAt(0).toUpperCase() + tailText.slice(1) + ".";
+}
+
+// Primary measure clause by sign of ease (cm storage). Negative ease is not
+// room (agreedRoom rule, DetailBody; Kyle 2026-08-02 Large shorts case).
+// Threshold ±0.5cm. Positive wording is byte-identical to the pre-fix form.
+// `roomFormatted` is formatMeasure(Math.abs(diff)); `bodyFormatted` is the
+// body number already in display units.
+export function easeRoomClause(diffCm, bodyFormatted, roomFormatted) {
+  if (!(diffCm > -0.5)) {
+    // diff <= -0.5cm: tighter than the body — never "room".
+    return (
+      "is " +
+      roomFormatted +
+      " smaller than your " +
+      bodyFormatted +
+      ", it will fit tighter than your body"
+    );
+  }
+  if (diffCm < 0.5) {
+    // |diff| < 0.5cm: on the body, no room claim and no tight claim.
+    return "sits right at your " + bodyFormatted;
+  }
+  // diff >= +0.5cm: keep the historical positive form.
+  return "gives you " + roomFormatted + " of room over your " + bodyFormatted;
+}
+
+// "meant to sit" only on positive or near-zero ease — never after a "smaller
+// than your body" primary. Plural nouns (pants/shorts) take "these … are".
+export function meantToSitClause(noun, sitsRight, diffCm) {
+  if (!sitsRight || !(diffCm > -0.5)) return "";
+  if (noun === "pants" || noun === "shorts") {
+    return ", which is where these " + noun + " are meant to sit";
+  }
+  return ", which is where this " + noun + " is meant to sit";
 }
 
 // The prescription sentence for the size breakdown (handoff turn 3 §5): 1–2
@@ -2340,6 +2448,8 @@ export function prescriptionSentence(
   const sitsRight = band
     ? rec.diff >= band[0] - 4 && rec.diff <= band[1] + 4
     : Math.abs(rec.diff - target) <= 4;
+  const easeClause = easeRoomClause(rec.diff, body, room);
+  const sitClause = meantToSitClause(noun, sitsRight, rec.diff);
   // Overridden: the customer tapped a size that is not the one we scored. The
   // numbers below are the tapped row's, so the sentence must own that — "Take
   // the Small" over the Large's measurements is the contradiction Kyle saw.
@@ -2348,11 +2458,15 @@ export function prescriptionSentence(
       ? formatSizeToken(recommended.size) || recommended.size
       : "";
   if (overrideName) {
-    const fitClause = sitsRight
-      ? ", which is where this " + noun + " is meant to sit"
-      : rec.diff < target
-        ? ", closer than this " + noun + " is drafted for"
-        : ", roomier than this " + noun + " is drafted for";
+    // Same sign-aware primary as the Take-the-X form; off-band falls back to
+    // the draft comparison only when ease is positive or near zero.
+    const fitClause =
+      sitClause ||
+      (rec.diff <= -0.5
+        ? ""
+        : rec.diff < target
+          ? ", closer than this " + noun + " is drafted for"
+          : ", roomier than this " + noun + " is drafted for");
     const picked =
       "You have picked the " +
       sizeName +
@@ -2360,10 +2474,8 @@ export function prescriptionSentence(
       garment +
       " " +
       measure +
-      " leaves " +
-      room +
-      " over your " +
-      body +
+      " " +
+      easeClause +
       fitClause +
       ".";
     if (detail === "concise") return picked;
@@ -2372,15 +2484,13 @@ export function prescriptionSentence(
   const first =
     "Take the " +
     sizeName +
-    " — its " +
+    ". Its " +
     garment +
     " " +
     measure +
-    " gives you " +
-    room +
-    " of room over your " +
-    body +
-    (sitsRight ? ", which is where this " + noun + " is meant to sit" : "") +
+    " " +
+    easeClause +
+    sitClause +
     ".";
   // CH-14: the Concise pref stops at the pick. Only the explicit opt shortens
   // the sentence — a caller that passes nothing keeps the full two-sentence
@@ -2538,7 +2648,7 @@ export function shareTextLabel(line) {
 const TAOKOULING_RE = /[￥₤]\s*[A-Za-z0-9][A-Za-z0-9\s]{3,}?[A-Za-z0-9]\s*[￥₤]|淘口令/;
 export function taokoulingTitle(text) {
   return text && TAOKOULING_RE.test(text)
-    ? "Taobao share code — open in the Taobao app"
+    ? "Taobao share code, open in the Taobao app"
     : "";
 }
 
@@ -3089,7 +3199,7 @@ function localDigestCopy(picks, gem, weekCount, now) {
   const intro =
     weekCount > 0
       ? weekCount + " new " + (weekCount === 1 ? "thing" : "things") + " stashed this week."
-      : "A quiet week on the shelf — a few older cards deserve attention.";
+      : "A quiet week on the shelf. A few older cards deserve attention.";
   const reasons = {};
   picks.forEach((it) => {
     if (it.note) {
@@ -3110,7 +3220,7 @@ function localDigestCopy(picks, gem, weekCount, now) {
     const days = Math.floor((now - gem.createdAt) / DAY_MS);
     gemReason = gem.note
       ? 'From ' + days + ' days back. You wrote: "' + gem.note.slice(0, 90) + '"'
-      : "Stashed " + days + " days ago — still worth a look.";
+      : "Stashed " + days + " days ago, still worth a look.";
   }
   return { intro, reasons, gemReason };
 }
@@ -4981,7 +5091,8 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
     item.category,
     catPref,
     null,
-    item.title
+    item.title,
+    elasticEvidenceTextFor(item)
   );
   return rec && rec.size ? String(rec.size).trim() : null;
 }
@@ -5304,6 +5415,19 @@ export function sizeChartTextFor(item) {
     .join("\n");
 }
 
+// C's audit, round 2 (2026-08-02): sizeChartTextFor returns sizeChartText
+// ALONE the moment a machine chart has parsed, which starves the waist-floor
+// elastic detector — a numeric parsed chart hides "elastic waistband" sitting
+// in summary/sizeNotes/rawText/note. Chart PARSING must keep that early
+// return (a machine field wins, full stop); elastic EVIDENCE must not. This
+// reads every free-text field regardless of which one fed the parser.
+export function elasticEvidenceTextFor(item) {
+  if (!item) return "";
+  return [item.sizeChartText, item.sizeNotes, item.summary, item.rawText, item.note]
+    .filter(Boolean)
+    .join("\n");
+}
+
 // A customer-provided sizeNotes value is new evidence. Let the chart parser
 // read it again after a blocked legacy chart made the old field untrusted.
 export function restoreChartNotesOnEdit(patch) {
@@ -5453,6 +5577,9 @@ function CredenzaApp() {
   // mounted for --modal-close-dur so the scale/fade can finish.
   const [overlayPhase, setOverlayPhase] = useState("closed");
   const overlayCloseTimer = useRef(null);
+  // DesktopDetailPanel registers its t-modal requestClose here so Escape and
+  // other shell handlers can play the close animation (Kyle item 7).
+  const desktopPanelCloseRef = useRef(null);
   const closeCarouselOverlayRef = useRef(() => {});
   const openInCarouselRef = useRef(() => {});
   const stepDetailItemRef = useRef(() => {});
@@ -5526,8 +5653,8 @@ function CredenzaApp() {
       // (?upgrade= without the trailing d), not only upgraded/profile.
       stripUrl();
       const upgraded = params.get("upgraded");
-      if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
-      else notify("Checkout cancelled — nothing was charged.");
+      if (upgraded) notify("Payment received. Pro turns on in a few seconds.");
+      else notify("Checkout cancelled. Nothing was charged.");
     }
     if (params.get("profile") || params.get("upgraded")) {
       stripUrl();
@@ -5616,7 +5743,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      notify("Your sign-in expired — sign in again first.");
+      notify("Your sign-in expired. Sign in again first.");
       return;
     }
     const url = await accountCheckout(session.accessToken, price);
@@ -5626,7 +5753,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      notify("Your sign-in expired — sign in again first.");
+      notify("Your sign-in expired. Sign in again first.");
       return;
     }
     const url = await accountPortal(session.accessToken);
@@ -5643,7 +5770,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      notify("Your sign-in expired — sign in again first.");
+      notify("Your sign-in expired. Sign in again first.");
       return;
     }
     await accountDeleteRequest(session.accessToken);
@@ -6022,7 +6149,7 @@ function CredenzaApp() {
         if (res.prunedImages > 0) {
           setItems(res.items);
           flashImportResult(
-            "Storage was full — removed thumbnails from " +
+            "Storage was full. Removed thumbnails from " +
               res.prunedImages +
               " older " +
               (res.prunedImages === 1 ? "card" : "cards") +
@@ -6262,7 +6389,7 @@ function CredenzaApp() {
             const key = canonicalKey(parsed, shared);
             const dup = it.find((x) => itemMatchesCanonicalKey(x, key));
             if (dup) {
-              notify("Already on the shelf: “" + dup.title + "” — opened it below.", { duration: DUPE_BANNER_MS });
+              notify("Already on the shelf: “" + dup.title + "”. Opened it below.", { duration: DUPE_BANNER_MS });
               setExpandedId(dup.id);
               setTimeout(() => enrichFashionItem(dup), 0);
             } else {
@@ -6390,7 +6517,7 @@ function CredenzaApp() {
     const key = canonicalKey(parsed, text);
     const dupItem = items.find((x) => itemMatchesCanonicalKey(x, key)) || null;
     if (dupItem) {
-      notify("Already on the shelf: “" + dupItem.title + "” — refreshing it below.", { duration: DUPE_BANNER_MS });
+      notify("Already on the shelf: “" + dupItem.title + "”. Refreshing it below.", { duration: DUPE_BANNER_MS });
       setExpandedId(dupItem.id);
       setSelectedId(dupItem.id);
       enrichFashionItem(dupItem);
@@ -6467,7 +6594,7 @@ function CredenzaApp() {
         // without re-finding the post (403/429 fail-open recovery).
         flashImportResult(
           (post && post.error) ||
-            "Couldn't read that Reddit post — paste the post text here instead."
+            "Couldn't read that Reddit post. Paste the post text here instead."
         );
       }
       return;
@@ -6514,7 +6641,7 @@ function CredenzaApp() {
     // video, music) never become cards silently. The paste stays in the box;
     // "Stash anyway" is the override for niche shops the gate doesn't know.
     if (fashionGateStatus(text) === "gated") {
-      notify("That doesn't look like a fashion link — nothing stashed yet.", {
+      notify("That doesn't look like a fashion link. Nothing stashed yet.", {
         actionLabel: "Stash anyway",
         onAction: () => {
           const result = stash(text);
@@ -6580,7 +6707,7 @@ function CredenzaApp() {
   const stashClipboard = async () => {
     if (!navigator.clipboard || !navigator.clipboard.readText) {
       focusCapture();
-      flashImportResult("This browser can't share the clipboard here — paste anywhere with ⌘V instead.");
+      flashImportResult("This browser can't share the clipboard here. Paste anywhere with ⌘V instead.");
       return;
     }
     let text = "";
@@ -6595,8 +6722,8 @@ function CredenzaApp() {
       focusCapture();
       flashImportResult(
         state === "denied"
-          ? "Clipboard access is turned off for this site — turn it on next to the address bar, or paste anywhere with ⌘V."
-          : "Clipboard needs a quick permission — allow it when your browser asks, or paste anywhere with ⌘V."
+          ? "Clipboard access is turned off for this site. Turn it on next to the address bar, or paste anywhere with ⌘V."
+          : "Clipboard needs a quick permission. Allow it when your browser asks, or paste anywhere with ⌘V."
       );
       return;
     }
@@ -6715,7 +6842,7 @@ function CredenzaApp() {
     if (fresh.length === 0) {
       flashImportResult(
         dupes > 0
-          ? "Nothing new — all " + dupes + " already on the shelf."
+          ? "Nothing new. All " + dupes + " already on the shelf."
           : "No links or notes found in that paste."
       );
     } else {
@@ -6891,7 +7018,7 @@ function CredenzaApp() {
     setImportOpen(false);
     flashImportResult(
       added === 0
-        ? "Backup read — everything in it is already on the shelf."
+        ? "Backup read. Everything in it is already on the shelf."
         : "Restored " + added + " " + (added === 1 ? "card" : "cards") + " from backup."
     );
   };
@@ -7051,7 +7178,7 @@ function CredenzaApp() {
     if (current.length >= qcPhotoCap) {
       notify(
         isProPlan
-          ? "That is " + qcPhotoCap + " QC photos on this item — remove one to add another."
+          ? "That is " + qcPhotoCap + " QC photos on this item. Remove one to add another."
           : qcPhotoCap +
             " QC photos an item on Free. Pro holds " +
             PRO_LIMITS.qcPhotosPerItem +
@@ -7359,14 +7486,21 @@ function CredenzaApp() {
           });
           const cover = item.image || albumImages[0] || null;
           const enrichedTitle = fashionDisplayTitle(data);
-          const guessedCategory =
-            item.category && CATEGORIES[item.category]
-              ? item.category
-              : guessFashionCategory(
-                  [enrichedTitle, data.title, data.sourceTitle, data.description, data.batch, item.title, item.summary, item.rawText]
-                    .filter(Boolean)
-                    .join(" ")
-                );
+          const albumGuessText = [
+            enrichedTitle,
+            data.title,
+            data.sourceTitle,
+            data.description,
+            data.batch,
+            item.title,
+            item.summary,
+            item.rawText,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          // Category guess from album text only. Do NOT seed from the stale
+          // item snapshot — a manual pick made mid-flight would be ignored.
+          const albumGuessedCategory = guessFashionCategory(albumGuessText);
           const albumPatch = {
             url: item.url && yupooAlbumIdentity(item.url) ? canonicalAlbum : item.url,
             canonicalKey: canonicalKey(classify(canonicalAlbum), canonicalAlbum),
@@ -7393,7 +7527,6 @@ function CredenzaApp() {
             links,
             seller: item.seller || data.seller || data.sellerAccount || "",
             batch: item.batch || data.batch || "",
-            category: guessedCategory || item.category || "",
             price: item.price != null ? item.price : data.priceCny,
             currency: "CNY",
             sourceTitle: data.sourceTitle || item.sourceTitle || "",
@@ -7401,8 +7534,29 @@ function CredenzaApp() {
             sellerAccount: data.sellerAccount || item.sellerAccount || "",
             status: data.buyUrl ? "enriching" : "ready",
           };
-          updateEnrichedItem(item.id, token, albumPatch);
-          const mergedItem = { ...item, ...albumPatch };
+          // CH-07 + F 2026-08-02: hand-picked category is pinned
+          // (categoryManual), like the resolve path. Functional patch so a
+          // Shorts pick made while this album read was in flight is not
+          // clobbered by the stale snapshot's "other".
+          updateEnrichedItem(item.id, token, (x) => ({
+            ...albumPatch,
+            category:
+              x.categoryManual && CATEGORIES[x.category]
+                ? x.category
+                : x.category && CATEGORIES[x.category]
+                  ? x.category
+                  : albumGuessedCategory || x.category || "",
+          }));
+          const mergedItem = {
+            ...item,
+            ...albumPatch,
+            category:
+              item.categoryManual && CATEGORIES[item.category]
+                ? item.category
+                : item.category && CATEGORIES[item.category]
+                  ? item.category
+                  : albumGuessedCategory || item.category || "",
+          };
           const resolvePromise = data.buyUrl
             ? resolveBuyDetails(mergedItem, {
                 token,
@@ -7562,7 +7716,7 @@ function CredenzaApp() {
       notify("Opening in " + name + " · change anytime in the Agent menu.", { duration: 6000 });
     } else if (!result.wrapped && (result.reason === "unsupported-marketplace" || result.reason === "no-item-id")) {
       const name = (getAgent(preferredAgent) || {}).name || "your agent";
-      notify(name + " can't take that link — opened the original instead.", { duration: 6000 });
+      notify(name + " can't take that link. Opened the original instead.", { duration: 6000 });
     }
     window.open(result.url, "_blank", "noopener");
   };
@@ -7710,7 +7864,7 @@ function CredenzaApp() {
     slides.push({
       eyebrow: "That's the deck",
       title: "Shelf's in good shape.",
-      body: "Come back next week — or stash something worth digesting.",
+      body: "Come back next week, or stash something worth digesting.",
     });
     setDigest(slides);
     const featured = [...picks, ...(gem ? [gem] : [])];
@@ -8232,7 +8386,7 @@ function CredenzaApp() {
       const session = await getValidSession();
       if (!session) {
         setAccountSession(null);
-        throw new Error("Your sign-in expired — sign in again first.");
+        throw new Error("Your sign-in expired. Sign in again first.");
       }
       const now = Date.now();
       const doc = buildShareSnapshot(shareItemsFor(shareHaulName), {
@@ -8260,7 +8414,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      throw new Error("Your sign-in expired — sign in again first.");
+      throw new Error("Your sign-in expired. Sign in again first.");
     }
     const rows = await listShares(session.accessToken);
     const origin =
@@ -8272,7 +8426,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      throw new Error("Your sign-in expired — sign in again first.");
+      throw new Error("Your sign-in expired. Sign in again first.");
     }
     return deleteShare(session.accessToken, code);
   }, []);
@@ -8458,8 +8612,14 @@ function CredenzaApp() {
         // reaching here means the rack is at rest. Selection stays so the grid
         // highlights the item you were just viewing.
         if (ctx.carouselOverlay) {
-          // Close through the t-modal is-closing path (not a hard unmount).
+          // Wide desktop panel: requestClose plays t-modal is-closing first.
+          // Flip overlay: closeCarouselOverlay still owns the timer.
           closeCarouselOverlayRef.current();
+          return;
+        }
+        // Rack-opened desktop panel (≥1024, no overlay) — same t-modal close.
+        if (ctx.isWideDetail && ctx.expandedId && desktopPanelCloseRef.current) {
+          desktopPanelCloseRef.current();
           return;
         }
         setExpandedId(null);
@@ -8575,10 +8735,27 @@ function CredenzaApp() {
     });
   };
   openInCarouselRef.current = openInCarousel;
-  // Closing plays is-closing, then unmounts after --modal-close-dur (150ms).
+  // Flip-card overlay (<1024): plays is-closing, then unmounts after 150ms.
+  // Wide desktop panel owns its own t-modal close (DesktopDetailPanel); when
+  // the panel finishes it calls hardUnmountCarouselOverlay via onClose.
+  const hardUnmountCarouselOverlay = useCallback(() => {
+    if (overlayCloseTimer.current) {
+      clearTimeout(overlayCloseTimer.current);
+      overlayCloseTimer.current = null;
+    }
+    setExpandedId(null);
+    setCarouselOverlay(null);
+    setOverlayPhase("closed");
+  }, []);
   const closeCarouselOverlay = useCallback(() => {
     if (overlayPhase === "closing" || !carouselOverlay) return;
     setExpandedId(null);
+    // Wide desktop card: route through the panel's requestClose so the
+    // t-modal is-closing path runs (Kyle 2026-08-02 item 7).
+    if (isWideDetail && desktopPanelCloseRef.current) {
+      desktopPanelCloseRef.current();
+      return;
+    }
     setOverlayPhase("closing");
     if (overlayCloseTimer.current) clearTimeout(overlayCloseTimer.current);
     const dur =
@@ -8592,7 +8769,7 @@ function CredenzaApp() {
       setOverlayPhase("closed");
       overlayCloseTimer.current = null;
     }, dur);
-  }, [overlayPhase, carouselOverlay]);
+  }, [overlayPhase, carouselOverlay, isWideDetail]);
   closeCarouselOverlayRef.current = closeCarouselOverlay;
   // If the open item disappears (deleted from its own card back), close.
   useEffect(() => {
@@ -8853,9 +9030,10 @@ function CredenzaApp() {
 
   // Plain shelf surface — also doubles as the open-haul carousel/cards/rows
   // surface when view === "hauls" && activeHaul (branches internally on viewMode).
-  // Only fades when it's standing in for the open-haul carousel inside the
-  // Hauls-tab AnimatePresence above; plain Shelf-tab renders skip animation
-  // entirely (initial={false}) so viewMode/tab switches stay instant.
+  // Fades on every surface swap: Shelf <-> directory, directory <-> open
+  // haul — one AnimatePresence at the render site drives all three (Kyle
+  // 2026-08-02). In-shelf switches (viewMode, filter chips) never remount
+  // the "shelf" key, so those stay instant as before.
   // One carousel renderer, two presentations (Kyle 2026-07-22): the toolbar's
   // carousel view swaps the surface and gets the full list; a grid tap pops
   // just the tapped card up in the overlay layer below — same props, same
@@ -8947,7 +9125,7 @@ function CredenzaApp() {
   // Fix B (handoff turn 4): the two-column no-flip detail panel at ≥1024px.
   // Shared by the grid-tap overlay and the rack-tap expansion — same item,
   // same actions, only the close target differs.
-  const renderDetailPanel = (panelItem, onClose, closing) => (
+  const renderDetailPanel = (panelItem, onClose, closing = false) => (
     <DesktopDetailPanel
       item={panelItem}
       onStepItem={(step) => stepDetailItem(panelItem.id, step)}
@@ -8987,6 +9165,9 @@ function CredenzaApp() {
       onDelete={setPendingDeleteId}
       onClose={onClose}
       closing={closing}
+      registerClose={(fn) => {
+        desktopPanelCloseRef.current = fn;
+      }}
       // §11: true only when this panel arrived through the photo morph.
       morphing={morphOpenId === panelItem.id}
       shelfItems={items}
@@ -9019,9 +9200,14 @@ function CredenzaApp() {
       role="tabpanel"
       id={view === "hauls" ? "view-panel-hauls" : "view-panel-shelf"}
       aria-labelledby={view === "hauls" ? "view-tab-hauls" : "view-tab-shelf"}
-      initial={openHaulName ? { opacity: 0, scale: 0.98 } : false}
+      // Kyle 2026-08-02: the Shelf/Hauls view switch gets the same motion as
+      // the shelf filters — the surfaces crossfade instead of snapping.
+      // First load still skips it (AnimatePresence initial={false} at the
+      // render site), and in-shelf switches (viewMode, filter chips) never
+      // remount this key, so those stay instant.
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={openHaulName ? { opacity: 0, scale: 0.98 } : undefined}
+      exit={{ opacity: 0, scale: 0.98 }}
       transition={HAUL_SURFACE_TRANSITION}
     >
       {/* Shelf */}
@@ -9102,8 +9288,8 @@ function CredenzaApp() {
                       // customer to paste again as if the stash did not work.
                       ? inboxItems.length +
                         (inboxItems.length === 1 ? " card is" : " cards are") +
-                        " indexing in the Inbox — cards land here when they are ready."
-                      : "Paste anything above — a link, a Reddit post, a list."}
+                        " indexing in the Inbox. Cards land here when they are ready."
+                      : "Paste anything above: a link, a Reddit post, a list."}
             </div>
             {(q || shelfFilter !== "all" || openHaulName || inboxItems.length > 0) && (
               <Pill
@@ -9584,7 +9770,8 @@ function CredenzaApp() {
           At ≥1024px the popup IS the two-column Fix B panel — no solo flip card. */}
       {carouselOverlay && overlayItem && viewMode !== "carousel" && (
         isWideDetail ? (
-          renderDetailPanel(overlayItem, closeCarouselOverlay, overlayPhase === "closing")
+          // Panel owns t-modal open/close; hard-unmount when its timer ends.
+          renderDetailPanel(overlayItem, hardUnmountCarouselOverlay, false)
         ) : (
         <div
           key="carousel-overlay"
@@ -9641,7 +9828,14 @@ function CredenzaApp() {
           panel above the rack (the rack itself never flips — it gets
           expandedId=null). */}
       {isWideDetail && !carouselOverlay && expandedItem
-        ? renderDetailPanel(expandedItem, () => setExpandedId(null), false)
+        ? renderDetailPanel(
+            expandedItem,
+            () => {
+              setExpandedId(null);
+              desktopPanelCloseRef.current = null;
+            },
+            false
+          )
         : null}
 
       <div className="cz-shell">
@@ -10491,7 +10685,7 @@ function CredenzaApp() {
                     {item.title || item.rawText}
                   </div>
                   <div style={{ fontSize: 11.5, color: FAINT }}>
-                    {item.status === "enriching" ? "Enhancing…" : "Couldn't enhance — still saved"}
+                    {item.status === "enriching" ? "Enhancing…" : "Couldn't enhance, still saved"}
                   </div>
                 </div>
                 {item.status === "failed" && aiAvailable() && (
@@ -10500,16 +10694,17 @@ function CredenzaApp() {
               </div>
             ))}
           </div>
-        ) : view === "hauls" ? (
+        ) : (
+          // One swapper for every surface switch (Kyle 2026-08-02): Shelf,
+          // the haul directory, and an open haul crossfade through the same
+          // mode="wait" pair, so the view tabs move like the filter chips.
           <AnimatePresence
             mode="wait"
             initial={false}
             onExitComplete={() => setClosingHaulName(null)}
           >
-            {activeHaul ? shelfSurface : haulDirectorySurface}
+            {view === "hauls" && !activeHaul ? haulDirectorySurface : shelfSurface}
           </AnimatePresence>
-        ) : (
-          shelfSurface
         )}
         </main>
       </div>

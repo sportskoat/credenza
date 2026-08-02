@@ -125,7 +125,7 @@ export function HaulAccordionField({
             tabIndex={-1}
           >
             {knownHauls.length === 0 && !creating ? (
-              <div className="cz-haul-acc-empty">No hauls yet — create one below.</div>
+              <div className="cz-haul-acc-empty">No hauls yet. Create one below.</div>
             ) : (
               knownHauls.map((name) => (
                 <button

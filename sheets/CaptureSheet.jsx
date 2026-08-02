@@ -212,7 +212,7 @@ export default function CaptureSheet({ clip, input, onInput, onStash, onClose, t
             line sets the expectation before the button, not after it. */}
         <p className="cz-stash-note">
           Paste a Reddit haul comment and Credenza splits it into one card per line. Lines it
-          can&apos;t read stay as text — nothing is dropped.
+          can&apos;t read stay as text, nothing is dropped.
         </p>
 
         {/* A way out that is not the ✕ (shelf handoff 2026-07-28, README :126).

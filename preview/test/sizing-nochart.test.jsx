@@ -11,7 +11,7 @@
 //   3. the seller cache answers for free, so the second item from a seller
 //      never pays for a second vision read.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { huntMock, urlReadMock, fileReadMock, createObjectUrlMock, revokeObjectUrlMock } = vi.hoisted(() => ({
@@ -261,6 +261,30 @@ describe("§3 read and confirm", () => {
     const clickSpy = vi.spyOn(input, "click");
     await user.click(screen.getByRole("button", { name: "Try another photo" }));
     expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  it("Try another photo keeps the failed-read prompt if the picker is cancelled", async () => {
+    // Kyle 2026-08-02 item 8: dismiss-before-click tore the prompt down; cancel
+    // never restored it. Open the picker without clearing error state.
+    fileReadMock.mockResolvedValue(null);
+    const user = userEvent.setup();
+    renderBody(chartless());
+
+    await screen.findByText("No chart");
+    await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
+    expect(await screen.findByText("COULD NOT READ")).toBeInTheDocument();
+    expect(screen.getByText(/whole table in frame/)).toBeInTheDocument();
+
+    const input = document.querySelector(".cz-detail-chart-file");
+    const clickSpy = vi.spyOn(input, "click");
+    await user.click(screen.getByRole("button", { name: "Try another photo" }));
+    expect(clickSpy).toHaveBeenCalled();
+    // Simulate OS cancel: cancel event, no change/upload. Prompt must stay.
+    fireEvent(input, new Event("cancel", { bubbles: true, cancelable: true }));
+    expect(screen.getByText("COULD NOT READ")).toBeInTheDocument();
+    expect(screen.getByText(/whole table in frame/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try another photo" })).toBeInTheDocument();
     clickSpy.mockRestore();
   });
 

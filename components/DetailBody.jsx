@@ -30,6 +30,8 @@ import {
   measureToStorage,
   parseSizeChart,
   prescriptionSentence,
+  easeRoomClause,
+  meantToSitClause,
   lengthCostSentence,
   garmentTypeWord,
   shortsLengthNote,
@@ -41,6 +43,7 @@ import {
   resolveDisplaySize,
   sellerStoreUrl,
   sizeChartTextFor,
+  elasticEvidenceTextFor,
   usualSizeForItem,
   useWriteThroughDraft,
   usePrefersReducedMotion,
@@ -151,7 +154,10 @@ function useSizeVerdict(
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
   // so the badge never claims a precise fit it does not have.
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
-  const rec = chart && profile ? recommendSize(chart, profile, item.category, fitPref, null, item.title) : null;
+  const rec =
+    chart && profile
+      ? recommendSize(chart, profile, item.category, fitPref, null, item.title, elasticEvidenceTextFor(item))
+      : null;
   const recSize = rec && rec.size ? rec.size : null;
   // `rec` is the advice; `shown` is what every printed number describes. They
   // are the same until the customer taps a different size, and then the panel
@@ -159,7 +165,7 @@ function useSizeVerdict(
   // the tap, the advice line keeps the recommendation).
   const pickRead =
     chosenSize && chart && profile
-      ? recommendSize(chart, profile, item.category, fitPref, chosenSize, item.title)
+      ? recommendSize(chart, profile, item.category, fitPref, chosenSize, item.title, elasticEvidenceTextFor(item))
       : null;
   const overridden = !!(
     pickRead &&
@@ -301,9 +307,9 @@ function Timeline({ rows }) {
 }
 
 // Mock Settings (Turn 3): fixed read-only body rows + height.
-// Sleeve uses long when present, else short. Empty values show an em dash.
+// Sleeve uses long when present, else short. Empty values show a hyphen.
 function formatBodyHeightLabel(cm, units) {
-  if (cm == null || !Number.isFinite(Number(cm)) || Number(cm) <= 0) return "—";
+  if (cm == null || !Number.isFinite(Number(cm)) || Number(cm) <= 0) return "-";
   const n = Number(cm);
   if (units === "cm") return Math.round(n) + " cm";
   const totalIn = n / 2.54;
@@ -326,7 +332,7 @@ function bodyMeasureRows(bodyProfile, units) {
   const show = (cm) =>
     cm != null && Number.isFinite(Number(cm)) && Number(cm) > 0
       ? formatMeasure(Number(cm), units)
-      : "—";
+      : "-";
   return [
     { key: "chest", label: "Chest", value: show(p.chest) },
     { key: "sleeve", label: "Sleeve", value: show(sleeve) },
@@ -479,7 +485,7 @@ function SizingBlock({
     <section className={"cz-sizing" + (isManual ? " is-manual" : "") + (editorial ? " is-editorial" : "")} aria-label="Sizing">
       {editorial ? (
         <div className="cz-fit-result">
-          <span className="cz-fit-result-size">{heroLabel || "—"}</span>
+          <span className="cz-fit-result-size">{heroLabel || "-"}</span>
           {editorialAside ? (
             <span
               className={
@@ -532,7 +538,7 @@ function SizingBlock({
                 {heroLabel}
               </span>
             ) : (
-              <span className="cz-sizing-value is-empty">—</span>
+              <span className="cz-sizing-value is-empty">-</span>
             )}
             {aside ? <span className="cz-sizing-aside">{aside}</span> : null}
           </div>
@@ -882,7 +888,7 @@ function SizingBlockNoChart({
               </>
             ) : (
               <>
-                <span className="cz-sizing-value is-empty">—</span>
+                <span className="cz-sizing-value is-empty">-</span>
                 <span className="cz-sizing-aside">no usual size saved</span>
               </>
             )}
@@ -1008,7 +1014,8 @@ function SellerChartFold({
         item.category,
         fitPref,
         row.size,
-        item.title
+        item.title,
+        elasticEvidenceTextFor(item)
       );
       const readRows = fitReadRows(chart, sizeRec, profile, item.category, item.title);
       const map = {};
@@ -1121,7 +1128,7 @@ function SellerChartFold({
                   <span key={key} className="cz-chart-cell is-yours-val" role="cell">
                     {y
                       ? (y.estimated ? "~" : "") + formatMeasure(y.value, units)
-                      : "—"}
+                      : "-"}
                   </span>
                 );
               })}
@@ -1171,7 +1178,7 @@ function SellerChartFold({
                     return (
                       <span key={key} className="cz-chart-cell is-measure">
                         <span className="cz-chart-theirs">
-                          {theirs != null ? formatMeasure(theirs, units) : "—"}
+                          {theirs != null ? formatMeasure(theirs, units) : "-"}
                         </span>
                         <span
                           className={
@@ -1187,7 +1194,7 @@ function SellerChartFold({
                         >
                           {ease != null
                             ? (ease >= 0 ? "+" : "") + formatMeasure(ease, units)
-                            : "—"}
+                            : "-"}
                         </span>
                       </span>
                     );
@@ -1303,19 +1310,19 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
         className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
         title={r.notOnChart ? "The seller's chart has no " + r.name.toLowerCase() : undefined}
       >
-        {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "n/a" : "—"}
+        {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "n/a" : "-"}
       </span>
       <span className="cz-fitread-yours">
         {r.yours != null
           ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
-          : "—"}
+          : "-"}
       </span>
       <span
         className={
           "cz-fitread-ease" + (r.warn ? " is-warn" : r.soft ? " is-soft" : "")
         }
       >
-        {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "—"}
+        {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "-"}
       </span>
     </div>
   ));
@@ -1858,6 +1865,72 @@ function HeroActionsSlot({ render, photos, photoIdx, resetPager, className = "cz
   );
 }
 
+// Kyle 2026-08-02 item 9: Settings buying-agent is a t-acc fold. Collapsed head
+// shows ONLY the current agent; expand reveals the full list. Selection logic
+// is unchanged — presentation + motion only.
+function SettingsAgentAccordion({ preferredAgent, onSelectAgent }) {
+  const [open, setOpen] = useState(false);
+  const current = getAgent(preferredAgent);
+  const currentName = (current && current.name) || "Choose an agent";
+
+  return (
+    <div
+      className="t-acc cz-agent-acc"
+      data-open={open ? "true" : "false"}
+    >
+      <button
+        type="button"
+        className="t-acc-head cz-agent-acc-head"
+        aria-expanded={open}
+        aria-controls="cz-settings-agent-panel"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="cz-agent-acc-head-label">Agent</span>
+        <span className="cz-agent-acc-head-value">{currentName}</span>
+        <ChevronDown
+          className="t-acc-chevron"
+          size={16}
+          strokeWidth={2.2}
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        id="cz-settings-agent-panel"
+        className="t-acc-panel"
+        aria-hidden={!open}
+        inert={!open ? "" : undefined}
+      >
+        <div className="t-acc-panel-inner">
+          <div
+            className="cz-agent-acc-list"
+            role="radiogroup"
+            aria-label="Buying agent"
+          >
+            {listAgents().map((agent) => {
+              const active = agent.id === preferredAgent;
+              return (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  key={agent.id}
+                  className={"cz-agent-acc-row" + (active ? " is-active" : "")}
+                  onClick={() => {
+                    onSelectAgent(agent.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="cz-agent-acc-row-name">{agent.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // The Buy button gets a notch (handoff turn 9 §8). One container, one radius,
 // split by a hairline: the label opens the agent, the chevron segment opens
 // the agent LIST. Before this the only way to change agent was Profile →
@@ -1954,7 +2027,7 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
             })}
           </div>
           <p className="cz-agent-pop-note">
-            Item price is the same everywhere — agents differ on shipping and service fee.
+            Item price is the same everywhere. Agents differ on shipping and service fee.
             Your pick sticks as the default.
           </p>
         </div>
@@ -2014,16 +2087,15 @@ function sizeAnalysisParagraph(verdict, fitRows, units, category, fitPref) {
     ? shown.diff >= band[0] - 4 && shown.diff <= band[1] + 4
     : Math.abs(shown.diff - target) <= 4;
 
+  // Sign of ease drives the verb: negative is never "room" (Kyle 2026-08-02).
   let primary =
     "Its " +
     garment +
     " " +
     measure +
-    " gives you " +
-    room +
-    " of room over your " +
-    body;
-  if (sitsRight) primary += ", which is where this " + noun + " is meant to sit";
+    " " +
+    easeRoomClause(shown.diff, body, room);
+  primary += meantToSitClause(noun, sitsRight, shown.diff);
   primary += ".";
 
   // One concrete second sentence from another measure — prefer rows with a
@@ -2316,7 +2388,7 @@ function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, on
             if (!hasUsual && onSkipFitPrompt) onSkipFitPrompt();
           }}
         >
-          {hasUsual ? "Skip — keep the rough size" : "Skip for now"}
+          {hasUsual ? "Skip, keep the rough size" : "Skip for now"}
         </button>
       </div>
     </form>
@@ -2645,6 +2717,14 @@ export default function DetailBody({
   // Desktop two-column panel hands titleTarget a mount node.
   const isDesktopPanel = titleTarget !== undefined;
 
+  // Fit/Details/Settings share one scroll container. Without a reset, Fit →
+  // Details → Fit keeps the shorter tab's scrollTop and lands past the
+  // re-mounted measurement block (Kyle 2026-08-02: "hidden and glitched").
+  // Phone panes share the same container. Reset to top on every tab change.
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [desktopTab, pane, item.id]);
+
   // Full-screen album (restored 2026-07-25, Kyle: "the old photos where you
   // could swipe through each photo... it was so good"). A tap on the hero
   // photo opens it at that photo; its "Use as cover" is the same explicit
@@ -2783,6 +2863,19 @@ export default function DetailBody({
     onSaveEdit(item.id, { findStatus: next });
     setDraft((d) =>
       draftOwnerRef.current === item.id && d ? { ...d, findStatus: next } : d
+    );
+    setSavedFlash(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
+  };
+
+  // Category same rule as status (F/C 2026-08-02): direct write + pin, and
+  // mirror into any open draft so buildEditPatch cannot restore the old
+  // category on the next debounced commit or close-flush.
+  const pickCategory = (next) => {
+    onSaveEdit(item.id, { category: next, categoryManual: true });
+    setDraft((d) =>
+      draftOwnerRef.current === item.id && d ? { ...d, category: next } : d
     );
     setSavedFlash(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -3285,6 +3378,7 @@ export default function DetailBody({
       commit={() => commitRef.current()}
       onSaveEdit={onSaveEdit}
       pickStatus={pickStatus}
+      pickCategory={pickCategory}
       knownHauls={knownHauls}
       haulCounts={haulCounts}
       sellerHref={sellerHref}
@@ -3683,6 +3777,7 @@ export default function DetailBody({
                 commit={() => commitRef.current()}
                 onSaveEdit={onSaveEdit}
                 pickStatus={pickStatus}
+                pickCategory={pickCategory}
                 knownHauls={knownHauls}
                 haulCounts={haulCounts}
                 sellerHref={sellerHref}
@@ -3740,30 +3835,12 @@ export default function DetailBody({
               {typeof onSelectAgent === "function" ? (
                 <div className="cz-desk-setting-block">
                   <h3 className="cz-desk-setting-kicker">Buying agent</h3>
-                  <div
-                    className="cz-desk-agent-list"
-                    role="radiogroup"
-                    aria-label="Buying agent"
-                  >
-                    {listAgents().map((agent) => {
-                      const active = agent.id === preferredAgent;
-                      return (
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={active}
-                          key={agent.id}
-                          className={"cz-desk-agent-row" + (active ? " is-active" : "")}
-                          onClick={() => onSelectAgent(agent.id)}
-                        >
-                          <span className="cz-desk-agent-dot" aria-hidden="true" />
-                          <span className="cz-desk-agent-name">{agent.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <SettingsAgentAccordion
+                    preferredAgent={preferredAgent}
+                    onSelectAgent={onSelectAgent}
+                  />
                   <p className="cz-desk-setting-note">
-                    Item price is the same everywhere — agents differ on shipping and service fee.
+                    Item price is the same everywhere. Agents differ on shipping and service fee.
                     Your pick sticks as the default.
                   </p>
                 </div>
@@ -3819,11 +3896,16 @@ export default function DetailBody({
                     typed={chartRead.typed}
                     onUse={chartRead.commit}
                     onRetry={() => {
-                      // Failed read → open picker again. Typed cancel / "Not
-                      // this one" with a chart just clears the stage.
+                      // Failed read → open picker WITHOUT dismiss (Kyle
+                      // 2026-08-02 item 8). dismiss() unmounted the prompt
+                      // before the picker returned; cancel then left no way
+                      // back. Typed cancel / "Not this one" still dismiss.
                       const hadChart = !!chartRead.chart || chartRead.typed;
-                      chartRead.dismiss();
-                      if (!hadChart) chartInputRef.current?.click();
+                      if (hadChart) {
+                        chartRead.dismiss();
+                        return;
+                      }
+                      chartInputRef.current?.click();
                     }}
                     onFix={chartRead.fix}
                   />
@@ -4162,10 +4244,17 @@ export default function DetailBody({
                 onUse={chartRead.commit}
                 onRetry={() => {
                   // Kyle 2026-08-02: "Try another photo" must open the picker.
-                  // Dismiss alone left a dead button after a failed read.
+                  // Item 8: do NOT dismiss first — cancel of the OS picker
+                  // fires no change event, so a prior dismiss left the user
+                  // with no prompt. Keep error state until a new read starts
+                  // (onChange) or they leave another way. "Not this one" /
+                  // typed Cancel still dismiss when a chart is staged.
                   const hadChart = !!chartRead.chart || chartRead.typed;
-                  chartRead.dismiss();
-                  if (!hadChart) chartInputRef.current?.click();
+                  if (hadChart) {
+                    chartRead.dismiss();
+                    return;
+                  }
+                  chartInputRef.current?.click();
                 }}
                 onFix={chartRead.fix}
               />
@@ -4209,6 +4298,7 @@ export default function DetailBody({
             commit={() => commitRef.current()}
             onSaveEdit={onSaveEdit}
             pickStatus={pickStatus}
+            pickCategory={pickCategory}
             knownHauls={knownHauls}
             haulCounts={haulCounts}
             sellerHref={sellerHref}

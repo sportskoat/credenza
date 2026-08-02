@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, measureFromStorage, measureToStorage, migrateSleeveMeasurements, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, sleeveStyle, usualSizeForItem } from "../../credenza-fashion.jsx";
+import { applyFitPreference, easeRoomClause, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, meantToSitClause, measureFromStorage, measureToStorage, migrateSleeveMeasurements, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, sleeveStyle, usualSizeForItem } from "../../credenza-fashion.jsx";
 
 describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
   it("maps tops / bottoms / shoes slots", () => {
@@ -571,8 +571,8 @@ describe("fitSummarySentence (design handoff PR4)", () => {
     // body 100 + 12 - 4 = 108 → S, diff 8 → regular
     const rec = recommendSize(bigChart, { chest: 100 }, "shirt");
     const sentence = fitSummarySentence(rec, { runHint: bigChart.runHint, units: "cm", detail: "detailed" });
-    expect(sentence).toContain("The S gives about 8cm of chest room, so it wears regular — ");
-    expect(sentence).toContain("the chart runs big, so the pick already sized down");
+    expect(sentence).toContain("The S gives about 8cm of chest room, so it wears regular. ");
+    expect(sentence).toContain("The chart runs big, so the pick already sized down");
     expect(sentence).toContain("M also works if you want it roomier");
   });
 
@@ -611,7 +611,7 @@ describe("prescriptionSentence (handoff turn 3 §5)", () => {
     const rec = recommendSize(shirtChart, { chest: 104 }, "shirt");
     const s = prescriptionSentence(shirtChart, rec, { units: "cm", category: "shirt" });
     expect(s).toBe(
-      "Take the Medium — its 112cm chest gives you 8cm of room over your 104cm, which is where this shirt is meant to sit. The Small's 104cm would pull across the chest."
+      "Take the Medium. Its 112cm chest gives you 8cm of room over your 104cm, which is where this shirt is meant to sit. The Small's 104cm would pull across the chest."
     );
   });
 
@@ -647,6 +647,72 @@ describe("prescriptionSentence (handoff turn 3 §5)", () => {
     expect(prescriptionSentence(shirtChart, null)).toBe("");
     expect(prescriptionSentence(null, { size: "M" })).toBe("");
     expect(prescriptionSentence(shirtChart, { missing: "chest" })).toBe("");
+  });
+
+  // Kyle 2026-08-02: Large shorts waist 80cm vs body 83.8cm → negative ease.
+  // Sentence must say "smaller", never "room".
+  it("says smaller (not room) when ease is negative", () => {
+    const shortsChart = parseSizeChart(
+      "M: waist 76, hip 104, pants length 48\nL: waist 80, hip 108, pants length 49\nXL: waist 84, hip 112, pants length 50"
+    );
+    const body = { waist: 83.8, hip: 99, shortsLength: 40 };
+    const rec = recommendSize(shortsChart, body, "shorts");
+    // Force the Large row Kyle was looking at, whatever the engine picks.
+    const large = recommendSize(shortsChart, body, "shorts", null, "L");
+    expect(large.diff).toBeLessThan(-0.5);
+    const s = prescriptionSentence(shortsChart, large, {
+      units: "in",
+      category: "shorts",
+      recommended: rec,
+    });
+    const roomIn = formatMeasure(Math.abs(large.diff), "in");
+    expect(s).toContain(roomIn + " smaller than your");
+    expect(s).toContain("fit tighter than your body");
+    expect(s).not.toContain("of room over");
+    expect(s).not.toMatch(/smaller than your[\s\S]*meant to sit/);
+  });
+
+  it("says sits right at the body when ease is near zero", () => {
+    const rec = {
+      size: "L",
+      primaryKey: "waist",
+      garment: 80,
+      body: 80.2,
+      diff: -0.2,
+      easeBand: null,
+    };
+    const s = prescriptionSentence(shirtChart, rec, { units: "cm", category: "pants" });
+    expect(s).toContain("sits right at your 80.2cm");
+    expect(s).not.toContain("of room over");
+    expect(s).not.toContain("smaller than your");
+  });
+});
+
+describe("easeRoomClause / meantToSitClause (negative-ease wording)", () => {
+  it("keeps the positive form byte-identical", () => {
+    expect(easeRoomClause(8, "104cm", "8cm")).toBe(
+      "gives you 8cm of room over your 104cm"
+    );
+  });
+
+  it("pins Kyle's negative shorts case in inches", () => {
+    // 80 − 83.8 = −3.8cm ≈ 1.5″
+    expect(easeRoomClause(-3.8, "33″", "1.5″")).toBe(
+      "is 1.5″ smaller than your 33″, it will fit tighter than your body"
+    );
+  });
+
+  it("never appends meant-to-sit after negative ease", () => {
+    expect(meantToSitClause("shorts", true, -3.8)).toBe("");
+    expect(meantToSitClause("shirt", true, 8)).toBe(
+      ", which is where this shirt is meant to sit"
+    );
+    expect(meantToSitClause("shorts", true, 2)).toBe(
+      ", which is where these shorts are meant to sit"
+    );
+    expect(meantToSitClause("pants", true, 0)).toBe(
+      ", which is where these pants are meant to sit"
+    );
   });
 });
 

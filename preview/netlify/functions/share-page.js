@@ -189,7 +189,7 @@ function pageHtml(doc, opts) {
   const ogTitle = unlisted ? "A Credenza haul" : title;
   const description = unlisted
     ? "A private haul list shared with Credenza Fashion. Open the link to see it."
-    : title + " — " + summary.join(" · ") + ". Shared with Credenza Fashion.";
+    : title + ". " + summary.join(" · ") + ". Shared with Credenza Fashion.";
 
   // The OG image never points at the seller's own URL, even though that URL is
   // right there in the snapshot. Yupoo answers a request with no Referer with
@@ -244,7 +244,7 @@ ${
   opts && opts.hideFooter
     ? ""
     : `<footer>
-<p style="margin:0">Made with <a href="${SITE}/">Credenza Fashion</a> — the agent haul planner for Weidian, Yupoo, and Taobao finds.</p>
+<p style="margin:0">Made with <a href="${SITE}/">Credenza Fashion</a>, the agent haul planner for Weidian, Yupoo, and Taobao finds.</p>
 <a class="cta" href="${SITE}/">Plan your own haul</a>
 </footer>`
 }
@@ -275,7 +275,7 @@ ${BRAND}
 <a class="cta" href="${SITE}/">Open Credenza</a>
 </main>
 <footer>
-<p style="margin:0">Credenza Fashion — the agent haul planner for Weidian, Yupoo, and Taobao finds.</p>
+<p style="margin:0">Credenza Fashion, the agent haul planner for Weidian, Yupoo, and Taobao finds.</p>
 </footer>
 </div>
 </body>

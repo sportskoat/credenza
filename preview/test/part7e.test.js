@@ -383,7 +383,7 @@ describe("no billing failure shows the server's own words", () => {
   });
 
   it("tells a signed-out person to sign in rather than what broke", () => {
-    expect(safeErrorMessage(401, "Unauthorized")).toBe("Your sign-in expired — sign in again first.");
-    expect(safeErrorMessage(429, "Too fast")).toBe("Too many tries — wait a moment and try again.");
+    expect(safeErrorMessage(401, "Unauthorized")).toBe("Your sign-in expired. Sign in again first.");
+    expect(safeErrorMessage(429, "Too fast")).toBe("Too many tries. Wait a moment and try again.");
   });
 });

@@ -124,16 +124,16 @@ function enter(route, key) {
   const cfg = ROUTES[route];
   if (!cfg) return null;
   if (cfg.paid && rollDaily().costUsd >= dailyCapUsd()) {
-    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached — try again tomorrow" };
+    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached. Try again tomorrow" };
   }
   if ((inflight.get(route) || 0) >= cfg.maxConcurrent) {
-    return { status: 429, retryAfter: 5, msg: "Busy — try again in a moment" };
+    return { status: 429, retryAfter: 5, msg: "Busy. Try again in a moment" };
   }
   sweep(ipWindows);
   const ip = hitWindow(ipWindows, route + "|" + key, cfg.perIpPerMin);
-  if (ip.over) return { status: 429, retryAfter: ip.retryAfter, msg: "Too many requests — slow down" };
+  if (ip.over) return { status: 429, retryAfter: ip.retryAfter, msg: "Too many requests. Slow down" };
   const rt = hitWindow(routeWindows, route, cfg.routePerMin);
-  if (rt.over) return { status: 429, retryAfter: rt.retryAfter, msg: "Too many requests — try again shortly" };
+  if (rt.over) return { status: 429, retryAfter: rt.retryAfter, msg: "Too many requests. Try again shortly" };
   inflight.set(route, (inflight.get(route) || 0) + 1);
   return null;
 }
@@ -226,7 +226,7 @@ async function checkDailyCap(route, env) {
   const total = await sharedSpendUsd(env);
   if (total === null) return null;
   if (total >= dailyCapUsd()) {
-    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached — try again tomorrow" };
+    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached. Try again tomorrow" };
   }
   return null;
 }

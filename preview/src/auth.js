@@ -138,7 +138,7 @@ export function sessionFromUrl(url = typeof window !== "undefined" ? window.loca
     refresh_token: params.get("refresh_token"),
     expires_in: params.get("expires_in"),
   });
-  return session ? { session } : { error: "Sign-in link was incomplete — request a new one." };
+  return session ? { session } : { error: "Sign-in link was incomplete. Request a new one." };
 }
 
 export async function refreshSession(session, { fetchImpl } = {}) {

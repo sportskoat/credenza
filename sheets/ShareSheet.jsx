@@ -157,7 +157,7 @@ export default function ShareSheet({
               {shared === 1 ? "One card" : shared + " cards"} from{" "}
               <strong>{haulName}</strong>, with the photos and the titles.
               {dropped > 0
-                ? " The newest " + SHARE_MAX_ITEMS + " go in — " + dropped + " stay behind."
+                ? " The newest " + SHARE_MAX_ITEMS + " go in. " + dropped + " stay behind."
                 : ""}
             </p>
 

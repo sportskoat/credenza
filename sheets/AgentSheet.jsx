@@ -79,7 +79,7 @@ export default function AgentSheet({ preferredAgent, onSelectAgent, storageBacke
           })}
         </div>
         <p style={{ fontSize: 12, lineHeight: 1.5, color: SUB, margin: "12px 0 0" }}>
-          Change anytime — your saved links are never rewritten. The agent is applied only when you
+          Change anytime. Your saved links are never rewritten. The agent is applied only when you
           tap Buy.
         </p>
         {/* Round 5 point 5.3: one quiet disclosure line; the full wording

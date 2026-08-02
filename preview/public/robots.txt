@@ -1,4 +1,4 @@
-# Credenza Fashion — https://credenzafashion.com
+# Credenza Fashion: https://credenzafashion.com
 User-agent: *
 Allow: /
 
