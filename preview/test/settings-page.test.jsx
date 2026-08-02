@@ -68,14 +68,16 @@ function renderPage(extra = {}) {
 }
 
 describe("SettingsPage (one-page redesign)", () => {
-  it("uses almost the full desktop height and the shared frost surface", () => {
+  it("uses almost the full desktop height and a solid card surface", () => {
     const desktopStart = CSS.indexOf("@media (min-width: 768px) {\n  .cz-settings-page {");
     expect(desktopStart).toBeGreaterThan(-1);
     const desktop = CSS.slice(desktopStart, CSS.indexOf("\n}\n", desktopStart));
     expect(desktop).toMatch(/height:\s*calc\(100dvh - 24px\);/);
     expect(desktop).toMatch(/max-height:\s*calc\(100dvh - 24px\);/);
-    expect(desktop).toMatch(/background:\s*var\(--cz-frost-fill\);/);
-    expect(desktop).toMatch(/border:\s*1px solid var\(--cz-frost-border\);/);
+    // Kyle 2026-08-02: solid, not frost/translucent — frost was distracting.
+    expect(desktop).toMatch(/background:\s*var\(--cz-card-solid\);/);
+    expect(desktop).toMatch(/border:\s*1px solid var\(--cz-card-border, var\(--cz-hair\)\);/);
+    expect(desktop).not.toContain("--cz-frost-fill");
     expect(desktop).not.toContain("backdrop-filter:");
   });
 
@@ -118,6 +120,25 @@ describe("SettingsPage (one-page redesign)", () => {
     renderPage({ onClose });
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes when you click the dimmed area outside the card", () => {
+    const onClose = vi.fn();
+    const { container } = renderPage({ onClose });
+    const dialog = container.querySelector("dialog.cz-settings-page");
+    expect(dialog).toBeTruthy();
+    // Click on the dialog element itself = native backdrop (house pattern).
+    fireEvent.click(dialog);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not close when you click inside the settings card", () => {
+    const onClose = vi.fn();
+    const { container } = renderPage({ onClose });
+    const title = container.querySelector(".cz-settings-page-title");
+    expect(title).toBeTruthy();
+    fireEvent.click(title);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("renders every section into one scroll column", () => {
