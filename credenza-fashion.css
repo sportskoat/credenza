@@ -4857,13 +4857,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .t-panel-slide { transition: none !important; }
 }
 
-/* ─── Modal open / close (transitions.dev) ─── */
+/* ─── Modal open / close (transitions.dev t-modal) ───
+   Kyle 2026-08-02 item 7: exact values from transitions.dev 06-modal —
+   open 250ms scale 0.96→1, close 150ms scale→0.96, ease (0.22, 1, 0.36, 1). */
 :root {
-  --modal-open-dur: var(--dur-open);
-  --modal-close-dur: var(--dur-micro);
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
-  --modal-ease: var(--ease-out);
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 .t-modal {
   transform-origin: center;
@@ -4905,9 +4907,49 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   opacity: 0;
   transition: opacity var(--modal-close-dur) var(--modal-ease);
 }
+/* Desktop detail card (DesktopDetailPanel): the dialog IS the painted scrim
+   (not ::backdrop). Fade the scrim on the same clock; scale the card surface. */
+.cz-dpanel-scrim.t-modal {
+  transform: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--modal-open-dur) var(--modal-ease);
+  will-change: opacity;
+}
+.cz-dpanel-scrim.t-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.cz-dpanel-scrim.t-modal.is-closing {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--modal-close-dur) var(--modal-ease);
+}
+.cz-dpanel-scrim.t-modal .cz-dpanel {
+  transform-origin: center;
+  transform: scale(var(--modal-scale));
+  opacity: 0;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+}
+.cz-dpanel-scrim.t-modal.is-open .cz-dpanel {
+  transform: scale(1);
+  opacity: 1;
+}
+.cz-dpanel-scrim.t-modal.is-closing .cz-dpanel {
+  transform: scale(var(--modal-scale-close));
+  opacity: 0;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity var(--modal-close-dur) var(--modal-ease);
+}
 @media (prefers-reduced-motion: reduce) {
   .t-modal { transition: none !important; }
   .cz-modal.t-modal::backdrop { transition: none !important; }
+  .cz-dpanel-scrim.t-modal,
+  .cz-dpanel-scrim.t-modal .cz-dpanel { transition: none !important; }
 }
 
 /* ─── Page side-by-side (transitions.dev) ─── */
@@ -16913,11 +16955,8 @@ input.cz-sizing-fix-size {
     backdrop-filter: blur(14px);
     overscroll-behavior: contain;
   }
-  .cz-dpanel-scrim.is-closing {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--modal-close-dur, 150ms) var(--modal-ease, var(--ease-out));
-  }
+  /* Close/open motion lives on .cz-dpanel-scrim.t-modal above (item 7).
+     The old opacity-only .is-closing rule was retired so it cannot stack. */
 
   .cz-dpanel {
     display: grid;

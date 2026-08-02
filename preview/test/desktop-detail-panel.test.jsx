@@ -77,16 +77,29 @@ describe("DesktopDetailPanel (Fix B)", () => {
     await waitFor(() => expect(closeButton).toHaveFocus());
 
     fireEvent.click(closeButton);
-    expect(onClose).toHaveBeenCalledTimes(1);
+    // t-modal close waits --modal-close-dur (150ms) before unmount (item 7).
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), { timeout: 400 });
     expect(dialog).not.toHaveAttribute("open");
     expect(document.body.style.overflow).toBe("scroll");
     expect(opener).toHaveFocus();
     opener.remove();
   });
 
+  it("marks the dialog t-modal is-open after mount, is-closing on close", async () => {
+    const onClose = vi.fn();
+    const { container } = renderPanel(panelItem(), { onClose });
+    const dialog = container.querySelector("dialog.cz-dpanel-scrim");
+    expect(dialog.classList.contains("t-modal")).toBe(true);
+    await waitFor(() => expect(dialog.classList.contains("is-open")).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(dialog.classList.contains("is-closing")).toBe(true);
+    expect(dialog.classList.contains("is-open")).toBe(false);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), { timeout: 400 });
+  });
+
   it.each(["Close", "backdrop", "Escape", "Remove"])(
     "flushes a pending DetailBody edit before %s",
-    (path) => {
+    async (path) => {
       const onSaveEdit = vi.fn();
       const onDelete = vi.fn();
       const onClose = vi.fn();
@@ -112,7 +125,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
       }
 
       expect(onSaveEdit).toHaveBeenCalledTimes(1);
-      expect(onClose).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), { timeout: 400 });
       expect(onSaveEdit.mock.invocationCallOrder[0]).toBeLessThan(
         onClose.mock.invocationCallOrder[0]
       );
@@ -127,7 +140,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     }
   );
 
-  it("does not close the panel while a nested dialog is open", () => {
+  it("does not close the panel while a nested dialog is open", async () => {
     const onClose = vi.fn();
     const { container } = renderPanel(panelItem(), { onClose });
     const panelDialog = container.querySelector("dialog.cz-dpanel-scrim");
@@ -140,13 +153,13 @@ describe("DesktopDetailPanel (Fix B)", () => {
 
     nestedDialog.remove();
     fireEvent(panelDialog, new Event("cancel", { bubbles: false, cancelable: true }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), { timeout: 400 });
   });
 
   // Kyle 2026-07-29: "after hitting upload photo and cancelling out of this,
   // detail view gets exited out". A dismissed OS file picker fires a BUBBLING
   // "cancel" on <input type="file">, which reached the dialog's onCancel.
-  it("stays open when a nested file picker is cancelled", () => {
+  it("stays open when a nested file picker is cancelled", async () => {
     const onClose = vi.fn();
     const { container } = renderPanel(panelItem(), { onClose });
     const fileInput = container.querySelector('input[type="file"]');
@@ -155,12 +168,12 @@ describe("DesktopDetailPanel (Fix B)", () => {
     fireEvent(fileInput, new Event("cancel", { bubbles: true, cancelable: true }));
     expect(onClose).not.toHaveBeenCalled();
 
-    // Escape on the dialog itself still closes it.
+    // Escape on the dialog itself still closes it (after t-modal close dur).
     fireEvent(
       container.querySelector("dialog.cz-dpanel-scrim"),
       new Event("cancel", { bubbles: false, cancelable: true })
     );
-    expect(onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), { timeout: 400 });
   });
 
   it("does not render the removed Open size chart action in the photo area", () => {
@@ -530,7 +543,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
 
     await user.click(screen.getByRole("menuitem", { name: "Remove card" }));
     expect(onDelete).toHaveBeenCalledWith("dp-1");
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalled(), { timeout: 400 });
     expect(onSaveEdit).not.toHaveBeenCalled();
   });
 
