@@ -14301,16 +14301,20 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 /* ── Fit read table (split-rail handoff 2026-07-28) ──
-   Per-measurement fit bars under the pick. Desktop grid literals are
-   load-bearing: 70px name / track / 40 / 40 / 54, gap 10, rows 7px 0 over a
-   top hairline. The phone override below narrows every column. */
+   Per-measurement fit bars under the pick. Desktop grid: 70px name / 1fr
+   track / three number columns sized with ch floors so cm values like
+   "116.5cm" and "+23.0cm" never collide (F 2026-08-02). ch keeps every
+   row's columns aligned — max-content would rag short vs long rows. Gap
+   10, rows 7px 0 over a top hairline. Phone override below. */
 .cz-fitread {
   margin-top: 13px;
 }
 
 .cz-fitread-row {
   display: grid;
-  grid-template-columns: 70px 1fr 40px 40px 54px;
+  /* ch sized to CM worst case ("116.5cm", "+23.0cm"). Floor keeps short
+     values (e.g. "46cm") from collapsing. */
+  grid-template-columns: 70px 1fr max(40px, 8ch) max(40px, 8ch) max(54px, 9ch);
   gap: 10px;
   align-items: center;
   padding: 7px 0;
@@ -14511,6 +14515,7 @@ input.cz-sizing-cell.is-custom:focus-visible {
   font-weight: 500;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .cz-fitread-theirs {
@@ -14563,11 +14568,11 @@ input.cz-sizing-cell.is-custom:focus-visible {
   cursor: pointer;
 }
 
-/* Phone: every column narrows (54 / track / 30 / 30 / 40, gap 8, rows 8px 0)
-   and the mono numbers drop a half step so five columns fit a 360px card. */
+/* Phone: name + floors narrow (54 / track / 30 / 30 / 40, gap 8, rows 8px 0).
+   Number columns keep the same 8ch/9ch CM worst-case width. Mono stays 11px. */
 @media (max-width: 480px) {
   .cz-fitread-row {
-    grid-template-columns: 54px 1fr 30px 30px 40px;
+    grid-template-columns: 54px 1fr max(30px, 8ch) max(30px, 8ch) max(40px, 9ch);
     gap: 8px;
     padding: 8px 0;
   }
@@ -15195,8 +15200,12 @@ input.cz-sizing-fix-size {
   }
 
   /* Quiet text links (Kyle 2026-08-02: Replace / Enter by hand looked like
-     bright pills). Same weight as body meta, not link purple or pill shape. */
+     bright pills). Same weight as body meta, not link purple or pill shape.
+     Visual stays ~13px grey text; ::after restores the 44px phone hit area
+     (F 2026-08-02 regression from min-height:0). Same trick as the upload
+     chips above. */
   .cz-detail-chart-link {
+    position: relative;
     min-height: 0;
     padding: 0;
     border: 0;
@@ -15210,6 +15219,17 @@ input.cz-sizing-fix-size {
     text-transform: none;
     cursor: pointer;
     text-decoration: none;
+  }
+
+  .cz-detail-chart-link::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    min-width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 
   .cz-detail-chart-link:hover {
@@ -15894,12 +15914,12 @@ input.cz-sizing-fix-size {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* The divider is the only seam. A gap or a second radius would split the
-     notch into two buttons, which is not what it is. */
-  border: 0;
-  border-left: 1px solid rgba(244, 244, 240, 0.22);
-  background: transparent;
-  color: var(--cz-action-text);
+  /* White face + black line so the chevron still reads as its own button
+     next to Buy (Kyle 2026-08-02). Dark icon on white, not action-text. */
+  border: 1px solid #050506;
+  border-left: 1px solid #050506;
+  background: #ffffff;
+  color: #050506;
   cursor: pointer;
 }
 .cz-buy-notch-toggle svg { transition: transform var(--dur-micro) var(--ease-out); }
@@ -16706,7 +16726,8 @@ input.cz-sizing-fix-size {
   .cz-dpanel-body .cz-detail-notes {
     font-size: 14.5px;
   }
-  /* Pinned footer: price left, Buy right, FTC beneath. */
+  /* Pinned footer: price sits beside Buy (same face as the Buy label),
+     not a big green number on the far left (Kyle 2026-08-02). */
   .cz-dpanel-body .cz-detail-foot {
     padding: 12px 26px 16px;
     background: transparent;
@@ -16714,13 +16735,20 @@ input.cz-sizing-fix-size {
   .cz-dpanel-body .cz-detail-foot-row {
     display: flex;
     align-items: center;
-    gap: 18px;
+    justify-content: flex-end;
+    gap: 12px;
   }
   .cz-dpanel-body .cz-detail-foot-price {
-    font-family: var(--cz-mono);
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--cz-money);
+    flex: 0 0 auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--cz-ink);
     white-space: nowrap;
   }
   /* The notch is the flex child in the footer row; the button inside it
@@ -16936,38 +16964,41 @@ input.cz-sizing-fix-size {
     border-top: 1px solid var(--cz-hair);
     background: var(--cz-footer-bg);
   }
-  /* Checklist line 9 — price left, disclosure in the middle, Buy at the right
-     at its natural width. The price and Buy share one wrapper because the
-     phone sheet needs them paired on one line. On the wide panel the wrapper
-     steps out of the layout, so all three parts order themselves across the
-     full footer. Buy is the last one and it keeps its own width. */
+  /* Checklist line 9 — disclosure left; price sits right next to Buy at the
+     end (Kyle 2026-08-02). Price matches the Buy label face, not a big green
+     money number. The phone sheet still pairs price + Buy on one row. On the
+     wide panel the wrapper steps out of the layout so all three parts order
+     across the full footer. */
   .cz-dpanel-body .cz-detail-foot-row {
     display: contents;
   }
-  .cz-dpanel-body .cz-detail-foot-price {
-    order: 1;
-  }
   .cz-dpanel-body .cz-detail-foot .cz-detail-disclosure {
-    order: 2;
+    order: 1;
     flex: 1 1 auto;
     min-width: 0;
+  }
+  .cz-dpanel-body .cz-detail-foot-price {
+    order: 2;
+    margin-left: auto;
   }
   .cz-dpanel-body .cz-detail-foot-row .cz-buy-notch-wrap {
     order: 3;
     flex: 0 0 auto;
     min-width: 0;
-    margin-left: auto;
+    margin-left: 0;
   }
-  /* Spec :146 — the price goes in the display face, not mono. System mono at
-     600/20px read heavier than everything around it. The element stays a
-     button: it is the only opener for the price editor. */
+  /* Price next to Buy: same size/weight as the Buy label, ink (not money green).
+     The element stays a button: it is the only opener for the price editor. */
   .cz-dpanel-body .cz-detail-foot-price {
-    height: 44px;
-    padding: 0 12px;
-    font-family: var(--cz-display);
-    font-size: 20px;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13.5px;
     font-weight: 600;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.01em;
+    color: var(--cz-ink);
   }
   /* The 230px floor belongs to the tablet band, where Buy fills the row. Here
      Buy takes the width of its own words, plus room to breathe. */
@@ -17005,7 +17036,10 @@ input.cz-sizing-fix-size {
   }
   .cz-dpanel-body .cz-detail-foot .cz-buy-notch-toggle {
     flex: 0 0 42px;
-    border-left: 1px solid var(--cz-action-text-divider);
+    border: 1px solid #050506;
+    border-left: 1px solid #050506;
+    background: #ffffff;
+    color: #050506;
   }
   /* Spec :149. The prototype's literal left/bottom offsets are frame
      coordinates; the picker stays anchored to its own notch here. */
@@ -17727,31 +17761,34 @@ input.cz-sizing-fix-size {
   .cz-dpanel-footer-slot .cz-detail-foot-row {
     display: contents;
   }
-  .cz-dpanel-footer-slot .cz-detail-foot-price {
-    order: 1;
-    height: auto;
-    padding: 0;
-    font-family: var(--cz-mono);
-    font-size: 19px;
-    font-weight: 700;
-    letter-spacing: 0;
-    color: var(--cz-money);
-    background: transparent;
-    border: 0;
-  }
+  /* Disclosure fills the left. Price + Buy cluster on the right; price uses
+     the same face as the Buy label (Kyle 2026-08-02). */
   .cz-dpanel-footer-slot .cz-detail-disclosure {
-    order: 2;
+    order: 1;
     flex: 1 1 auto;
     margin: 0;
     font-size: 12px;
     line-height: 1.4;
     color: var(--cz-faint);
   }
+  .cz-dpanel-footer-slot .cz-detail-foot-price {
+    order: 2;
+    height: auto;
+    padding: 0;
+    margin-left: auto;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: #050506;
+    background: transparent;
+    border: 0;
+  }
   .cz-dpanel-footer-slot .cz-buy-notch-wrap {
     order: 3;
     flex: 0 0 auto;
     min-width: 0;
-    margin-left: auto;
+    margin-left: 0;
   }
   .cz-dpanel-footer-slot .cz-detail-buy {
     min-height: 44px;
@@ -17787,15 +17824,15 @@ input.cz-sizing-fix-size {
     flex: 0 0 44px;
     width: 44px;
     height: 44px;
-    border: 1px solid var(--cz-hair);
-    border-left: 0;
+    border: 1px solid #050506;
+    border-left: 1px solid #050506;
     border-radius: 0 999px 999px 0;
-    background: transparent;
-    color: var(--cz-sub);
+    background: #ffffff;
+    color: #050506;
   }
   .cz-dpanel-footer-slot .cz-buy-notch-toggle:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--cz-ink);
+    background: #f4f4f0;
+    color: #050506;
   }
   .cz-dpanel-footer-slot .cz-detail-signup-link {
     display: none;
@@ -18223,11 +18260,13 @@ input.cz-sizing-fix-size {
   }
   /* Keep five cells (name · scale · theirs · yours · ease) on a real grid so
      the heads never run together as one word (Kyle 2026-08-02 squish). The
-     old flex + gap: 8px 0 zeroed column gap and crushed LARGETIGHTTRUE… */
+     old flex + gap: 8px 0 zeroed column gap and crushed LARGETIGHTTRUE…
+     Number columns use the same ch floors as the base grid so "116.5cm"
+     stays legible (F 2026-08-02). */
   .cz-dpanel .cz-fitread-row {
     min-height: 44px;
     display: grid;
-    grid-template-columns: 84px minmax(120px, 1fr) 48px 48px 54px;
+    grid-template-columns: 84px minmax(120px, 1fr) max(48px, 8ch) max(48px, 8ch) max(54px, 9ch);
     gap: 8px 12px;
     align-items: center;
   }
@@ -18260,6 +18299,9 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-fitread-ease {
     font-family: var(--cz-mono);
     font-size: 12px;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
   .cz-dpanel .cz-fitread-theirs { color: #ffffff; }
   .cz-dpanel .cz-fitread-yours { color: var(--cz-sub); }

@@ -1945,10 +1945,9 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(screen.queryByRole("radiogroup", { name: "Buying agent" })).toBeNull();
   });
 
-  it("every agent row shows the same item price, because that is the truth", async () => {
-    // §8: "Item price is the same everywhere — agents differ on shipping and
-    // service fee." Four different numbers would lie about what an agent
-    // changes, so the repetition is the message.
+  it("agent picker lists names only — same price on every row was pointless", async () => {
+    // Kyle 2026-08-02: cash on every agent row added nothing. The note under
+    // the list still states agents differ on shipping and service fee.
     installShim({
       [STORE_KEY]: JSON.stringify([fashionItem({ price: 249, currency: "CNY" })]),
       [PREFS_KEY]: JSON.stringify({ colorwayVersion: 4, preferredAgent: "superbuy" }),
@@ -1958,11 +1957,8 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     await openSheet(user);
     await user.click(screen.getByRole("button", { name: "Choose buying agent" }));
 
-    const prices = [...document.querySelectorAll(".cz-agent-pop-price")].map(
-      (el) => el.textContent
-    );
-    expect(prices.length).toBeGreaterThan(1);
-    expect(new Set(prices).size).toBe(1);
+    expect(document.querySelectorAll(".cz-agent-pop-price")).toHaveLength(0);
+    expect(document.querySelectorAll(".cz-agent-pop-row").length).toBeGreaterThan(1);
     expect(
       screen.getByText(/agents differ on shipping and service fee/i)
     ).toBeInTheDocument();

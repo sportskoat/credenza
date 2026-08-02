@@ -1722,15 +1722,11 @@ function HeroActionsSlot({ render, photos, photoIdx, resetPager }) {
 // the agent LIST. Before this the only way to change agent was Profile →
 // Buying agent, three taps away from the moment the choice matters.
 //
-// The list is the item's own price against every agent, repeated. That
-// repetition IS the message: "Item price is the same everywhere — agents
-// differ on shipping and service fee." A picker that showed four different
-// numbers would be lying about what an agent changes.
+// Agent rows list names only. The item price is the same for every agent, so
+// repeating it on each row added nothing (Kyle 2026-08-02). The note under the
+// list still says agents differ on shipping and service fee, not item price.
 function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
   const [open, setOpen] = useState(false);
-  // The price comes from the item, not from the footer layout: the phone sheet
-  // draws no footer price at all, and the picker still has to show a number.
-  const price = priceLabelShort(item);
   const wrapRef = useRef(null);
   const listRef = useRef(null);
   // No picker without a way to save the choice — the notch would open a list
@@ -1812,8 +1808,6 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
                 >
                   <span className="cz-agent-pop-dot" aria-hidden="true" />
                   <span className="cz-agent-pop-name">{agent.name}</span>
-                  {/* Same number on every row, on purpose. */}
-                  {price ? <span className="cz-agent-pop-price">{price}</span> : null}
                 </button>
               );
             })}
@@ -3184,9 +3178,10 @@ export default function DetailBody({
       ? "This pick uses the seller's chart and your saved measurements."
       : "This listing has no seller chart, so this is your saved usual size.");
 
+  // No Photos tab: the left photo strip already shows the album (O 2026-08-02).
+  // Phone sticky bar still has Photos — only the desktop rail drops it.
   const DESKTOP_TABS = [
     ["fit", "Fit"],
-    ["photos", "Photos"],
     ["details", "Details"],
     ["settings", "Settings"],
   ];
