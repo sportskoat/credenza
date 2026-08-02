@@ -158,6 +158,10 @@ export default function CommandBar({
   weightText,
   onWeightChange,
   onSwitchWeightUnit,
+  // "chips" = title-row bar (default). "list" = mock Details chevron rows.
+  layout = "chips",
+  // list layout: omit the seller link (seller stays under the title).
+  hideSeller = false,
 }) {
   const [menu, setMenu] = useState(null);
   const [newHaul, setNewHaul] = useState("");
@@ -411,6 +415,72 @@ export default function CommandBar({
     ),
   };
 
+  // Mock Details rows (Turn 3 quiet dark editorial): label left, value right,
+  // chevron far right, green status dot. Same popovers as the chip bar.
+  const listLabels = {
+    status: "Status",
+    haul: "Haul",
+    color: "Colourway",
+    weight: "Weight",
+    category: "Category",
+  };
+  const listValues = {
+    status: statusLabel,
+    haul: haul || "Add to a haul",
+    color: colorway || "Add a colorway",
+    weight: grams ? grams + " g" : "Add a weight",
+    category: categoryLabel || "Set a category",
+  };
+  const listUnset = {
+    status: false,
+    haul: !haul,
+    color: !colorway,
+    weight: !grams,
+    category: !categoryLabel,
+  };
+
+  if (layout === "list") {
+    return (
+      <div className="cz-cmdbar cz-cmdbar-list" role="group" aria-label="Item facts">
+        {BAR_ORDER.map((key) => (
+          <div className="cz-cmdbar-list-slot" key={key}>
+            <button
+              ref={refs[key]}
+              type="button"
+              className={
+                "cz-cmdbar-list-row" +
+                (key === "status" && bought ? " is-status-bought" : "") +
+                (listUnset[key] ? " is-unset" : "")
+              }
+              aria-expanded={menu === key}
+              aria-haspopup="menu"
+              data-chip={key}
+              onClick={() => toggle(key)}
+            >
+              <span className="cz-cmdbar-list-k">
+                {key === "status" ? (
+                  <span
+                    className={"cz-cmdbar-dot" + (bought ? " is-on" : "")}
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {listLabels[key]}
+              </span>
+              <span className="cz-cmdbar-list-v">{listValues[key]}</span>
+              <ChevronRight
+                className="cz-cmdbar-list-chev"
+                size={14}
+                strokeWidth={2.2}
+                aria-hidden="true"
+              />
+            </button>
+            {menu === key ? panels[key] : null}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="cz-cmdbar" role="group" aria-label="Item facts">
       {BAR_ORDER.map((key) => (
@@ -419,7 +489,7 @@ export default function CommandBar({
           {menu === key ? panels[key] : null}
         </div>
       ))}
-      {item.seller && sellerHref ? (
+      {!hideSeller && item.seller && sellerHref ? (
         <a
           className="cz-cmdbar-seller"
           href={sellerHref}

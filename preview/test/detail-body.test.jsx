@@ -75,7 +75,14 @@ describe("DetailBody detail facts", () => {
 
     await user.click(screen.getByRole("tab", { name: "Details" }));
     expect(container.querySelector(".cz-detail-scroll")).toHaveAttribute("data-pane", "details");
-    expect(container.querySelectorAll(".cz-detail-pane-command .cz-cmdbar-chip")).toHaveLength(5);
+    // Chip bar hides on Details — the mock list owns the five fact rows.
+    expect(container.querySelectorAll(".cz-detail-pane-command .cz-cmdbar-chip")).toHaveLength(0);
+    const detailsPane = container.querySelector(".cz-detail-pane-history");
+    expect(detailsPane).toBeTruthy();
+    expect(detailsPane.querySelector(".cz-cmdbar-list")).toBeTruthy();
+    expect(detailsPane.querySelectorAll(".cz-cmdbar-list-row")).toHaveLength(5);
+    expect(within(detailsPane).getByText("Status")).toBeInTheDocument();
+    expect(within(detailsPane).getByText("History")).toBeInTheDocument();
 
     rerender(
       body(item("phone-panes-next"), {

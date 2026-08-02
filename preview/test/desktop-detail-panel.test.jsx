@@ -278,7 +278,21 @@ describe("DesktopDetailPanel (Fix B)", () => {
     try {
       renderPanel(
         panelItem({ project: "July haul", colorway: "Bone", note: "QC pending" }),
-        { onDelete, onSelectAgent, preferredAgent: "superbuy" }
+        {
+          onDelete,
+          onSelectAgent,
+          preferredAgent: "superbuy",
+          onSaveFitPref: vi.fn(),
+          bodyProfile: {
+            chest: 96,
+            longSleeve: 62,
+            shoulder: 46,
+            length: 70,
+            height: 180,
+          },
+          measureUnits: "in",
+          onOpenSizes: vi.fn(),
+        }
       );
 
       // Desktop tabs are Fit / Details / Settings (no Photos — left strip owns album).
@@ -289,14 +303,33 @@ describe("DesktopDetailPanel (Fix B)", () => {
       await user.click(screen.getByRole("tab", { name: "Details" }));
       const details = document.querySelector(".cz-desk-tab-details");
       expect(details).toBeTruthy();
-      expect(within(details).getByText("July haul")).toBeInTheDocument();
-      expect(within(details).getByText("Bone")).toBeInTheDocument();
-      expect(within(details).getByRole("link", { name: /replux/i })).toBeInTheDocument();
+      // Mock Details: chevron list always shows Status / Haul / Colourway / Weight / Category.
+      expect(details.querySelector(".cz-cmdbar-list")).toBeTruthy();
+      expect(details.querySelectorAll(".cz-cmdbar-list-row")).toHaveLength(5);
+      // Haul value appears on the list row (History also names the haul).
+      const haulRow = [...details.querySelectorAll(".cz-cmdbar-list-row")].find((r) =>
+        /Haul/i.test(r.textContent)
+      );
+      expect(haulRow && haulRow.textContent).toMatch(/July haul/);
+      const colorRow = [...details.querySelectorAll(".cz-cmdbar-list-row")].find((r) =>
+        /Colourway/i.test(r.textContent)
+      );
+      expect(colorRow && colorRow.textContent).toMatch(/Bone/);
+      expect(within(details).getByText("Status")).toBeInTheDocument();
+      expect(within(details).getByText("Category")).toBeInTheDocument();
+      expect(within(details).getByText("History")).toBeInTheDocument();
       expect(within(details).getByDisplayValue("QC pending")).toBeInTheDocument();
+      // Seller stays under the title, not duplicated in Details rows.
+      expect(within(details).queryByRole("link", { name: /replux/i })).toBeNull();
 
       await user.click(screen.getByRole("tab", { name: "Settings" }));
       const settings = document.querySelector(".cz-desk-tab-settings");
       expect(settings).toBeTruthy();
+      // Mock Settings top: wear prefs + measurements, then chart / remove.
+      expect(within(settings).getByText(/How do you wear/i)).toBeInTheDocument();
+      expect(within(settings).getByText("Your measurements")).toBeInTheDocument();
+      expect(within(settings).getByText("Chest")).toBeInTheDocument();
+      expect(within(settings).getByText("Torso length")).toBeInTheDocument();
       expect(within(settings).getByRole("button", { name: /Upload chart photo/i })).toBeInTheDocument();
       expect(within(settings).getByRole("button", { name: /Enter chart by hand/i })).toBeInTheDocument();
       expect(within(settings).getByRole("button", { name: /Remove this card/i })).toBeInTheDocument();

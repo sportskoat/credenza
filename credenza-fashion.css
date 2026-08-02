@@ -13112,6 +13112,91 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-bottom: 1px solid var(--cz-hair);
 }
 
+/* Mock Details list (Turn 3): chevron rows, label left, value right.
+   Replaces the chip bar only when CommandBar layout="list". */
+.cz-cmdbar.cz-cmdbar-list {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0;
+  margin-top: 0;
+  padding: 0;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  overflow: visible;
+  background: transparent;
+}
+.cz-cmdbar-list-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid color-mix(in srgb, var(--cz-hair) 80%, transparent);
+}
+.cz-cmdbar-list-slot:last-child {
+  border-bottom: 0;
+}
+.cz-cmdbar-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-cmdbar-list-row:hover {
+  background: color-mix(in srgb, var(--cz-hover) 70%, transparent);
+}
+.cz-cmdbar-list-row:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: -2px;
+}
+.cz-cmdbar-list-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 7.5rem;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-cmdbar-list-v {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  font-family: var(--cz-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cz-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cz-cmdbar-list-row.is-unset .cz-cmdbar-list-v {
+  font-weight: 500;
+  color: var(--cz-placeholder);
+}
+.cz-cmdbar-list-chev {
+  flex: 0 0 auto;
+  color: var(--cz-faint);
+}
+.cz-cmdbar-list-slot .cz-cmdbar-pop {
+  /* Anchor under the full row, full width of the list. */
+  left: 8px;
+  right: 8px;
+  width: auto;
+  min-width: 0;
+}
+
 /* Each chip owns the box its popover anchors to, so one chip can never push
    another chip's menu sideways. */
 .cz-cmdbar-slot {
@@ -15529,16 +15614,8 @@ input.cz-sizing-fix-size {
     padding-top: 18px;
   }
 
-  .cz-detail-pane-history .cz-timeline::before {
-    content: "HISTORY";
-    display: block;
-    margin-bottom: 7px;
-    color: var(--cz-faint);
-    font-family: var(--cz-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-  }
+  /* HISTORY kicker is .cz-timeline-kicker in the Timeline component (tab reformat
+     2026-08-02). The old ::before label was retired to stop the double "HISTORY". */
 
   .cz-detail-pane-history .cz-detail-notes-add {
     min-height: 44px;
@@ -15719,14 +15796,30 @@ input.cz-sizing-fix-size {
 /* The order track (dots, rails, detour label, advance pill) left with the
    shelf handoff 2026-07-28. The Ordered row draws .cz-status-toggle. */
 
-/* ── Timeline (handoff turn 9 §6) ──
+/* ── Timeline (handoff turn 9 §6 + mock Details HISTORY kicker) ──
    Left-rule list. The date column is fixed so the sentences align, which is
    what makes three rows scan as one history and not three notes. */
+.cz-timeline-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 0;
+  min-width: 0;
+}
+.cz-timeline-kicker {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
 .cz-timeline {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0 0 0 5px;
   border-left: 2px solid var(--cz-hair);
   list-style: none;
@@ -18149,8 +18242,8 @@ input.cz-sizing-fix-size {
   }
 
   /* ── Desktop Details + Settings tabs (Lane 1 overnight, 2026-08-02) ──
-     Reuses phone-sheet facts (seller/haul/links/notes) and existing chart
-     / agent handlers. No new data paths. */
+     2026-08-02 tab reformat: Details = mock chevron rows + history + note;
+     Settings = How do you wear + Your measurements, then agent/chart/remove. */
   .cz-desk-tab {
     display: flex;
     flex-direction: column;
@@ -18223,6 +18316,76 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-desk-tab-details .cz-detail-notes-add {
     display: inline-flex !important;
     align-items: center;
+  }
+
+  /* Mock Settings: wear prefs first, then measurements list. */
+  .cz-desk-wear-block .cz-fit-pref-ask {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .cz-desk-wear-block .cz-fit-pref-ask-title {
+    font-size: 18px;
+    letter-spacing: -0.03em;
+  }
+  .cz-desk-measures-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+  .cz-desk-measure-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--cz-hair);
+    border-radius: 14px;
+    overflow: hidden;
+    background: transparent;
+  }
+  .cz-desk-measure-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 48px;
+    padding: 0 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--cz-hair) 70%, transparent);
+  }
+  .cz-desk-measure-row:last-child {
+    border-bottom: 0;
+  }
+  .cz-desk-measure-k {
+    font-family: var(--cz-sans);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--cz-sub);
+  }
+  .cz-desk-measure-v {
+    font-family: var(--cz-sans);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--cz-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .cz-desk-measure-edit {
+    align-self: flex-start;
+    margin: 2px 0 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--cz-sub);
+    font-family: var(--cz-sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--cz-sub) 45%, transparent);
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .cz-desk-measure-edit:hover {
+    color: var(--cz-ink);
   }
 
   .cz-desk-setting-block {
