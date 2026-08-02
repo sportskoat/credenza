@@ -1840,9 +1840,9 @@ function fitSummaryStanzas(verdict, fitRows, units, category) {
   const type = garmentTypeWord(shown) || (category === "outerwear" ? "coat" : "piece");
   const cut = shown.cut;
   const aboutBits = [];
-  if (cut === "drop") aboutBits.push("A relaxed shell with a dropped shoulder.");
-  else if (cut === "raglan") aboutBits.push("A relaxed shell with raglan sleeves.");
-  else aboutBits.push("A " + type + " cut from the seller's chart.");
+  if (cut === "drop") aboutBits.push("This piece is loose and relaxed. The shoulder sits a little lower than usual.");
+  else if (cut === "raglan") aboutBits.push("This piece is loose and relaxed. The sleeves connect in one line up to the collar.");
+  else aboutBits.push("The seller's size chart tells us how this " + type + " is shaped.");
   const lengthRow = (fitRows || []).find((r) => r.key === "length" || r.key === "pantsLength");
   if (lengthRow && lengthRow.ease != null && lengthRow.ease > 0) {
     aboutBits.push("It runs long.");
@@ -1867,8 +1867,8 @@ function fitSummaryStanzas(verdict, fitRows, units, category) {
   const recName = rec && rec.size ? formatSizeToken(rec.size) || rec.size : sizeName;
   const whyBody =
     verdict.overridden && rec && rec.size
-      ? "The " + recName + " sits closest to your " + keyWord + "."
-      : "The " + sizeName + " sits closest to your " + keyWord + ".";
+      ? "The " + recName + " is the closest match for your " + keyWord + "."
+      : "The " + sizeName + " is the closest match for your " + keyWord + ".";
   const whyMetric = (fitRows || [])
     .filter((r) => r.ease != null && !r.warn)
     .slice(0, 3)
@@ -1892,16 +1892,16 @@ function fitSummaryStanzas(verdict, fitRows, units, category) {
       const nextBody =
         "The " +
         upName +
-        " adds " +
+        " is " +
         formatMeasure(delta, units) +
-        " across the " +
+        " bigger around the " +
         keyWord +
         ".";
       const sleeveUp =
         up.sleeve != null && shown.row && shown.row.sleeve != null
-          ? " Its sleeve runs " +
+          ? " Its sleeves are " +
             formatMeasure(up.sleeve - shown.row.sleeve, units) +
-            " longer."
+            " longer too."
           : "";
       stanzas.push({
         label: "The next size",
@@ -3640,7 +3640,6 @@ export default function DetailBody({
                   <div key={s.label} className="cz-fit-stanza">
                     <span className="cz-fit-stanza-label">{s.label}</span>
                     <p className="cz-fit-stanza-body">{s.body}</p>
-                    {s.metric ? <p className="cz-fit-stanza-metric">{s.metric}</p> : null}
                   </div>
                 ))}
               </div>

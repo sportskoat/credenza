@@ -14055,8 +14055,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-ink);
 }
 
+/* Soft green glow — blur so the ring does not read as a hard box
+   (Kyle 2026-08-02 / O: zero-blur inset looked boxed). */
 .cz-sizing-cell.is-rec {
-  box-shadow: inset 0 0 0 2px var(--cz-money);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cz-money) 55%, transparent),
+    0 0 16px 2px color-mix(in srgb, var(--cz-money) 38%, transparent);
   animation: cz-rec-pulse 0.9s var(--ease-out) 3;
 }
 
@@ -14080,10 +14084,14 @@ input.cz-sizing-cell.is-custom:focus-visible {
 @keyframes cz-rec-pulse {
   0%,
   100% {
-    box-shadow: inset 0 0 0 2px var(--cz-money);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--cz-money) 55%, transparent),
+      0 0 16px 2px color-mix(in srgb, var(--cz-money) 38%, transparent);
   }
   50% {
-    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cz-money) 22%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--cz-money) 22%, transparent),
+      0 0 22px 4px color-mix(in srgb, var(--cz-money) 22%, transparent);
   }
 }
 
@@ -17883,14 +17891,23 @@ input.cz-sizing-fix-size {
     background: #ffffff;
     border-color: #ffffff;
     color: #050506;
+    /* Selected card is solid white — drop the rec glow so it does not
+       paint a green box on top of the white fill. */
+    box-shadow: none;
+    animation: none;
   }
   .cz-dpanel .cz-sizing-cell.is-pick-manual {
     background: #ffffff;
     border-color: #ffffff;
     color: #050506;
+    box-shadow: none;
+    animation: none;
   }
-  .cz-dpanel .cz-sizing-cell.is-rec {
-    /* Recommended outline only when not selected — quiet rest state */
+  .cz-dpanel .cz-sizing-cell.is-rec:not(.is-pick):not(.is-pick-manual) {
+    /* Soft outer glow only — rest state for recommended, not selected */
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--cz-money) 55%, transparent),
+      0 0 16px 2px color-mix(in srgb, var(--cz-money) 38%, transparent);
   }
   .cz-dpanel .cz-sizing-cell-k {
     font-family: var(--cz-mono);
@@ -18015,19 +18032,16 @@ input.cz-sizing-fix-size {
     color: var(--cz-faint);
   }
   .cz-fit-stanza-body {
-    margin: 0 0 6px;
+    margin: 0;
     font-size: 15px;
     font-weight: 400;
     line-height: 1.45;
     color: var(--cz-ink);
   }
+  /* Metric mono line removed (Kyle 2026-08-02: "this line also doesn't need
+     to be there"). Keep the rule inert so old markup never reappears styled. */
   .cz-fit-stanza-metric {
-    margin: 0;
-    font-family: var(--cz-mono);
-    font-size: 10.5px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    color: var(--cz-faint);
+    display: none;
   }
   .cz-dpanel .cz-sizing-why,
   .cz-dpanel .cz-sizing-garment {
