@@ -307,30 +307,24 @@ describe("phone headings clear the status bar", () => {
     expect(block).toMatch(/safe-area-inset-top/);
   });
 
-  it("does not re-add safe-area on the phone stickybar (sheet already clears it)", () => {
-    // PR #64 reserves safe-area + 28px ABOVE the sheet. The stickybar lives
-    // inside that surface. Re-adding env(safe-area-inset-top) on the bar
-    // double-counts and leaves a blank band under the grip (Kyle 2026-08-02).
-    // Expanded .is-up is a fixed ~50px row only — no safe-area in the rules.
-    // Strip comments so the historical note that names safe-area does not trip
-    // the negative assert.
+  it("does not re-add safe-area on the phone sheet header (sheet already clears it)", () => {
+    // PR #64 reserves safe-area + 28px ABOVE the sheet. The pinned phone
+    // header lives inside that surface. Re-adding env(safe-area-inset-top)
+    // double-counts into a blank band under the grip (Kyle 2026-08-02).
+    // Strip comments so the historical note that names safe-area does not
+    // trip the negative assert.
     const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "");
     const mobileAt = CSS.indexOf("/* Mobile item sheet, three panes");
     expect(mobileAt).toBeGreaterThan(-1);
-    const region = CSS.slice(mobileAt, mobileAt + 2500);
-    const start = region.indexOf("  .cz-detail-pane-header {");
+    const region = CSS.slice(mobileAt, mobileAt + 3500);
+    const start = region.indexOf("  .cz-detail-phone-header {");
     expect(start).toBeGreaterThan(-1);
-    const isUpAt = region.indexOf("  .cz-detail-pane-header.is-up {", start);
-    expect(isUpAt).toBeGreaterThan(start);
-    const closedBlock = stripComments(region.slice(start, isUpAt));
-    const isUpEnd = region.indexOf("\n  }", isUpAt);
-    const isUpBlock = stripComments(
-      region.slice(isUpAt, isUpEnd > -1 ? isUpEnd + 4 : isUpAt + 220),
-    );
-    expect(closedBlock).toMatch(/height:\s*0/);
-    expect(isUpBlock).toMatch(/height:\s*50px/);
-    expect(isUpBlock).not.toMatch(/safe-area-inset-top/);
-    expect(closedBlock).not.toMatch(/safe-area-inset-top/);
+    const end = region.indexOf("  .cz-detail-phone-header-top {", start);
+    expect(end).toBeGreaterThan(start);
+    const headerBlock = stripComments(region.slice(start, end));
+    expect(headerBlock).not.toMatch(/safe-area-inset-top/);
+    // Layout reset: header is always present (not height:0 collapse).
+    expect(headerBlock).toMatch(/flex-direction:\s*column/);
   });
 });
 

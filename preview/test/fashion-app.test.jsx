@@ -1874,8 +1874,8 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
   it("the album row sits under the photo strip, not at the bottom of the rail", async () => {
     // §4: the strip and the links are "its own row below" the photo.
-    // Kyle 2026-08-02: phone order is photo → big title → strip/links so the
-    // stickybar can collapse on open (title in view under the hero).
+    // Kyle 2026-08-02 layout reset: title lives in the pinned header; Photos
+    // pane order is hero → photo tail (strip + links).
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -1885,11 +1885,11 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     const tail = document.querySelector(".cz-detail-photo-tail");
     expect(tail.querySelector(".cz-detail-photos")).not.toBeNull();
     expect(tail.querySelector(".cz-album-links")).not.toBeNull();
-    // Title sits between hero and tail on Photos.
-    const title = document.querySelector(".cz-detail-title-btn");
     const hero = document.querySelector(".cz-detail-hero");
-    expect(hero.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(title.compareDocumentPosition(tail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(hero.compareDocumentPosition(tail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Title is in the pinned header, not under the photo.
+    expect(sheet.querySelector(".cz-detail-phone-header-title")).not.toBeNull();
+    expect(tail.contains(sheet.querySelector(".cz-detail-phone-header-title"))).toBe(false);
   });
 
   it("omits a tile it cannot point anywhere, never an empty one", async () => {
@@ -2047,29 +2047,37 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-detail-editor")).toBeNull();
   });
 
-  it("leads the hero cluster with the heart, and the heart writes through", async () => {
-    // §9: "one cluster, top-right" — heart, ⋯, ✕. The heart used to live in
-    // the card face only, so the sheet had no way to star what you were
-    // reading.
+  it("leads the pinned header cluster with the heart, and the heart writes through", async () => {
+    // Kyle 2026-08-02 layout reset: heart, ⋯, ✕ live in the pinned phone
+    // header (top right of the screen), not on the photo. Like works on every
+    // tab from that same cluster.
     const data = installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    const cluster = sheet.querySelector(".cz-detail-hero-actions");
+    const cluster = sheet.querySelector(".cz-detail-header-actions");
     expect(cluster).not.toBeNull();
+    expect(sheet.querySelector(".cz-detail-hero-actions")).toBeNull();
     const labels = [...cluster.querySelectorAll("button")].map((b) =>
       b.getAttribute("aria-label")
     );
     expect(labels).toEqual(["Star Palace x Nike jersey", "More actions", "Close"]);
 
     await user.click(within(cluster).getByRole("button", { name: /^Star / }));
-    // The star is a real write, not a hero-only flourish.
     await waitFor(() =>
       expect(JSON.parse(data[STORE_KEY])[0].favorite).toBe(true)
     );
     expect(
       within(cluster).getByRole("button", { name: /^Unstar / })
+    ).toBeInTheDocument();
+
+    // Still the same cluster after switching to Photos.
+    await user.click(within(sheet).getByRole("tab", { name: /Photos/i }));
+    expect(
+      within(sheet.querySelector(".cz-detail-header-actions")).getByRole("button", {
+        name: /^Unstar /,
+      })
     ).toBeInTheDocument();
   });
 
@@ -2104,95 +2112,43 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-detail-qc-prompt")).toBeNull();
   });
 
-  it("keeps Fit open with stickybar up; Photos collapses it so photo chrome owns close", async () => {
-    // Kyle 2026-08-02 batch items 1+2: Fit/Details keep the mini-header (title
-    // + close) because photo chrome is hidden. Photos pane collapses the bar
-    // until the under-photo title scrolls away — open Photos uses the
-    // photo-cluster close only (no second X). jsdom has no IntersectionObserver,
-    // so heroGone stays false.
+  it("keeps one pinned header on every tab: title left, actions top-right, tabs under", async () => {
+    // Kyle 2026-08-02 layout reset: sticky header always visible on Fit /
+    // Photos / Details. Exactly one close, always in the header cluster.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
     const sheet = await openSheet(user);
 
-    const bar = sheet.querySelector(".cz-detail-stickybar");
-    expect(bar).not.toBeNull();
-    // Default pane is Fit — bar is up for title + close.
-    expect(bar.classList.contains("is-up")).toBe(true);
-    expect(bar).toHaveAttribute("aria-hidden", "false");
-    expect(bar.querySelector(".cz-detail-stickybar-close")).not.toHaveAttribute("tabindex", "-1");
-    expect(bar.querySelector(".cz-detail-stickybar-title").textContent).toBe(
+    const header = sheet.querySelector(".cz-detail-phone-header");
+    expect(header).not.toBeNull();
+    expect(header.querySelector(".cz-detail-phone-header-title").textContent).toBe(
       "Palace x Nike jersey"
     );
-    // Spec 6.1: the sub line is the picked size word in caps, then the price
-    // — "X-LARGE · $32.06". No "SIZE"/"AI SIZE" prefix: the header states the
-    // pick, it does not grade it.
-    expect(bar.querySelector(".cz-detail-stickybar-meta").textContent).toBe(
+    // Spec 6.1: sub line is size word in caps, then price.
+    expect(header.querySelector(".cz-detail-phone-header-meta").textContent).toBe(
       "X-LARGE · $32.06"
     );
-    // The bar is a SIBLING of the scroller: a child would scroll away with
-    // the content it exists to outlive.
-    expect(bar.parentElement.querySelector(".cz-detail-scroll")).not.toBeNull();
-    expect(bar.closest(".cz-detail-scroll")).toBeNull();
-
-    // Switch to Photos: bar collapses; photo-cluster close is the only X.
-    await user.click(within(sheet).getByRole("tab", { name: /Photos/i }));
-    expect(bar.classList.contains("is-up")).toBe(false);
-    expect(bar).toHaveAttribute("aria-hidden", "true");
-    expect(bar.querySelector(".cz-detail-stickybar-close")).toHaveAttribute("tabindex", "-1");
-    const cluster = sheet.querySelector(".cz-detail-hero-actions");
-    expect(cluster).not.toBeNull();
+    const cluster = header.querySelector(".cz-detail-header-actions");
     expect(
       [...cluster.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"))
     ).toEqual(["Star Palace x Nike jersey", "More actions", "Close"]);
-    // Big title under the photo on Photos pane.
-    const bigTitle = sheet.querySelector(".cz-detail-title");
-    expect(bigTitle).not.toBeNull();
-    expect(bigTitle.textContent).toBe("Palace x Nike jersey");
-  });
+    // Header is a sibling of the scroller, not inside it.
+    expect(header.parentElement.querySelector(".cz-detail-scroll")).not.toBeNull();
+    expect(header.closest(".cz-detail-scroll")).toBeNull();
+    // Tabs sit under the title row, inside the same header.
+    expect(header.querySelector(".cz-detail-pane-picker")).not.toBeNull();
 
-  it("watches the under-photo title on Photos so the name is never on screen twice", async () => {
-    // Kyle 2026-07-29 + 2026-08-02: Fit/Details hide the big title, so the
-    // observer falls back to the hero. Photos shows the big title under the
-    // hero — watch THAT row so the bar only takes the name once it leaves.
-    // jsdom has no IntersectionObserver, so the test supplies one and asks
-    // which element each pane watches.
-    const observed = [];
-    const roots = [];
-    class FakeObserver {
-      constructor(_cb, options) {
-        roots.push(options ? options.root : null);
-      }
-      observe(node) {
-        observed.push(node);
-      }
-      disconnect() {}
-      unobserve() {}
-    }
-    const previous = globalThis.IntersectionObserver;
-    globalThis.IntersectionObserver = FakeObserver;
-    try {
-      installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
-      const user = userEvent.setup();
-      render(<Credenza />);
-      const sheet = await openSheet(user);
-
-      // Default Fit pane: title row is display:none — watch the hero fallback.
-      expect(observed.length).toBe(1);
-      expect(observed[0].classList.contains("cz-detail-hero")).toBe(true);
-      expect(roots[0]).not.toBeNull();
-      expect(roots[0].classList.contains("cz-detail-scroll")).toBe(true);
-
-      // Photos pane: watch the under-photo title row (not the hero alone).
-      observed.length = 0;
-      roots.length = 0;
-      await user.click(within(sheet).getByRole("tab", { name: /Photos/i }));
-      expect(observed.length).toBe(1);
-      expect(observed[0].classList.contains("cz-detail-title-row")).toBe(true);
-      expect(observed[0].classList.contains("cz-detail-hero")).toBe(false);
-      expect(roots[0].classList.contains("cz-detail-scroll")).toBe(true);
-    } finally {
-      globalThis.IntersectionObserver = previous;
+    for (const name of [/Photos/i, /Details/i, /Fit/i]) {
+      await user.click(within(sheet).getByRole("tab", { name }));
+      expect(sheet.querySelector(".cz-detail-phone-header-title").textContent).toBe(
+        "Palace x Nike jersey"
+      );
+      expect(sheet.querySelector(".cz-detail-hero-actions")).toBeNull();
+      const labels = [
+        ...sheet.querySelectorAll(".cz-detail-header-actions button"),
+      ].map((b) => b.getAttribute("aria-label"));
+      expect(labels).toEqual(["Star Palace x Nike jersey", "More actions", "Close"]);
     }
   });
 });
