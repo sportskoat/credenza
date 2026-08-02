@@ -81,8 +81,21 @@ describe("DetailBody detail facts", () => {
     expect(detailsPane).toBeTruthy();
     expect(detailsPane.querySelector(".cz-cmdbar-list")).toBeTruthy();
     expect(detailsPane.querySelectorAll(".cz-cmdbar-list-row")).toHaveLength(5);
+    // Phone Details parity with mock page 3b: Status / Haul / Colorway / Weight /
+    // Category + HISTORY + Add a note. American spelling only.
     expect(within(detailsPane).getByText("Status")).toBeInTheDocument();
+    expect(within(detailsPane).getByText("Haul")).toBeInTheDocument();
+    expect(within(detailsPane).getByText("Colorway")).toBeInTheDocument();
+    expect(within(detailsPane).getByText("Weight")).toBeInTheDocument();
+    expect(within(detailsPane).getByText("Category")).toBeInTheDocument();
     expect(within(detailsPane).getByText("History")).toBeInTheDocument();
+    expect(within(detailsPane).getByRole("button", { name: /Add a note/i })).toBeInTheDocument();
+    expect(detailsPane.textContent).not.toMatch(/Colourway/);
+    // wantsStickyBar = heroPager && onRequestClose (DetailBody). Phone sheet
+    // always passes both for a normal item — the fact list is gated on that.
+    // Without the gate the Details pane would render empty (no list rows).
+    expect(container.querySelector(".cz-detail-pane-picker")).toBeTruthy();
+    expect(detailsPane.querySelectorAll(".cz-cmdbar-list-row")).toHaveLength(5);
 
     rerender(
       body(item("phone-panes-next"), {
@@ -92,6 +105,27 @@ describe("DetailBody detail facts", () => {
       })
     );
     expect(container.querySelector(".cz-detail-scroll")).toHaveAttribute("data-pane", "fit");
+  });
+
+  // F 2026-08-02: phone fact rows live behind wantsStickyBar. Prove the gate
+  // is false without heroPager/onRequestClose so a missing prop cannot silently
+  // empty the pane without a failing pin.
+  it("hides phone Details fact rows when wantsStickyBar is false", () => {
+    const { container } = render(
+      body(item("phone-no-sticky", {
+        image: "data:image/png;base64,iVBORw0KGgo=",
+      }), {
+        // No heroPager / onRequestClose → wantsStickyBar false
+        footerPrice: "$27.75",
+      })
+    );
+    // No pane picker — sticky bar path is off.
+    expect(container.querySelector(".cz-detail-pane-picker")).toBeNull();
+    const detailsPane = container.querySelector(".cz-detail-pane-history");
+    expect(detailsPane).toBeTruthy();
+    // Fact list is gated; History + notes still render outside the gate.
+    expect(detailsPane.querySelector(".cz-cmdbar-list")).toBeNull();
+    expect(within(detailsPane).getByText("History")).toBeInTheDocument();
   });
 
   // Mobile item 1 (2026-08-02): phone sheet scrollport never formed because the
@@ -461,7 +495,7 @@ describe("DetailBody draft ownership", () => {
 });
 
 describe("DetailBody footer", () => {
-  it("keeps the desktop price visible and the agent button flush", () => {
+  it("keeps the desktop price money-green, larger, and the agent button flush", () => {
     const priceRule = CSS.match(
       /\.cz-dpanel-footer-slot \.cz-detail-foot-price\s*\{([^}]*)\}/
     )?.[1];
@@ -469,10 +503,31 @@ describe("DetailBody footer", () => {
       /\.cz-dpanel-footer-slot \.cz-buy-notch-toggle\s*\{([^}]*)\}/
     )?.[1];
 
-    expect(priceRule).toContain("color: var(--cz-ink)");
+    // Kyle 2026-08-02: green + bigger — --cz-money (not --cz-accent/ink).
+    expect(priceRule).toContain("color: var(--cz-money)");
+    expect(priceRule).toMatch(/font-size:\s*16px/);
+    expect(priceRule).not.toContain("color: var(--cz-ink)");
     expect(priceRule).not.toContain("color: #050506");
+    // Base + surface keep money-green; size bump is footer-slot only.
+    expect(CSS).toMatch(
+      /\.cz-detail-foot-price\s*\{[^}]*color:\s*var\(--cz-money\)/s
+    );
     expect(toggleRule).toContain("border: 0");
     expect(toggleRule).toContain("border-left: 1px solid #050506");
+  });
+
+  it("lets desktop Details and Settings tabs fill the column (no 520px cap)", () => {
+    // Kyle 2026-08-02: mock 3a — Status/Haul rows and measurements stretch
+    // edge-to-edge. A max-width on .cz-desk-tab was boxing them left.
+    const start = CSS.indexOf(".cz-desk-tab {");
+    expect(start).toBeGreaterThan(-1);
+    const block = CSS.slice(start, start + 280);
+    expect(block).toMatch(/width:\s*100%/);
+    expect(block).not.toMatch(/max-width:\s*520px/);
+    // Shared class — both .cz-desk-tab-details and .cz-desk-tab-settings.
+    expect(CSS).not.toMatch(
+      /\.cz-desk-tab(-details|-settings)?\s*\{[^}]*max-width:\s*520px/s
+    );
   });
 
   it("renders a price-only footer without the Buy disclosure", () => {

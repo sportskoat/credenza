@@ -303,7 +303,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
       await user.click(screen.getByRole("tab", { name: "Details" }));
       const details = document.querySelector(".cz-desk-tab-details");
       expect(details).toBeTruthy();
-      // Mock Details: chevron list always shows Status / Haul / Colourway / Weight / Category.
+      // Mock Details: chevron list always shows Status / Haul / Colorway / Weight / Category.
       expect(details.querySelector(".cz-cmdbar-list")).toBeTruthy();
       expect(details.querySelectorAll(".cz-cmdbar-list-row")).toHaveLength(5);
       // Haul value appears on the list row (History also names the haul).
@@ -312,9 +312,11 @@ describe("DesktopDetailPanel (Fix B)", () => {
       );
       expect(haulRow && haulRow.textContent).toMatch(/July haul/);
       const colorRow = [...details.querySelectorAll(".cz-cmdbar-list-row")].find((r) =>
-        /Colourway/i.test(r.textContent)
+        /Colorway/i.test(r.textContent)
       );
       expect(colorRow && colorRow.textContent).toMatch(/Bone/);
+      // American spelling only — British "Colourway" must not appear for users.
+      expect(details.textContent).not.toMatch(/Colourway/);
       expect(within(details).getByText("Status")).toBeInTheDocument();
       expect(within(details).getByText("Category")).toBeInTheDocument();
       expect(within(details).getByText("History")).toBeInTheDocument();

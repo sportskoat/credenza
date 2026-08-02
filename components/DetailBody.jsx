@@ -3574,7 +3574,7 @@ export default function DetailBody({
         <div className="cz-detail-facts cz-detail-pane cz-detail-pane-fit">
           {isDesktopPanel && desktopTab === "details" ? (
             <section className="cz-desk-tab cz-desk-tab-details" aria-label="Details">
-              {/* Mock Details: Status · Haul · Colourway · Weight · Category rows
+              {/* Mock Details: Status · Haul · Colorway · Weight · Category rows
                   (always shown, empty → "Add a …"), then HISTORY, Add a note,
                   then links + album (mock omitted those for a Photos tab we
                   no longer keep). Seller stays under the title. */}
