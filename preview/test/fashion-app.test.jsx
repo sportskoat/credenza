@@ -1814,6 +1814,19 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-timeline").textContent).not.toContain("Added to");
   });
 
+  it("does not repeat haul in the timeline when the haul name already includes it", async () => {
+    installShim({
+      [STORE_KEY]: JSON.stringify([fashionItem({ project: "July haul" })]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+    await openSheet(user);
+
+    const timeline = document.querySelector(".cz-timeline").textContent;
+    expect(timeline).toContain("Added to July haul");
+    expect(timeline).not.toContain("haul haul");
+  });
+
   // ── Handoff turn 9 §4 ──
   it("the album link returns, and the seller store keeps its own destination", async () => {
     // §4: "These are two different destinations and must not be merged."

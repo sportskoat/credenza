@@ -96,7 +96,7 @@
           <a href="/support/">Support</a>
           <a href="/contact/">Contact</a>
         </nav>
-        <a class="nav-open" href="/" aria-label="Open app" title="Open app"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
+        <a class="nav-open" href="/" aria-label="Open the app" title="Open the app"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
       </div>
       <h1>Delete a shared haul link, and know what is actually gone</h1>
       <p class="lede">
@@ -106,114 +106,65 @@
     </header>
     <main>
       <article class="card">
-        <span class="n">The promise</span>
-        <h2>Delete means gone, and gone has to mean now</h2>
+        <span class="n">Delete a link</span>
+        <h2>The page stops working immediately</h2>
         <p>
-          A shared haul is a public address. You paste it into a thread, the
-          thread runs its course, and then you want the address to stop working.
-          That is the ordinary case, and it is the one worth getting right,
-          because the reason people hesitate to share a haul at all is that they
-          cannot see how to un-share it.
+          Open <strong>Profile</strong>, choose <strong>Shared links</strong>,
+          and delete the link. The page returns 404 on the next request.
         </p>
         <p>
-          So the promise is short. Open <strong>Profile</strong>, then
-          <strong>Shared links</strong>, press Delete on the row, and the page
-          answers 404 straight away. Not in an hour. Not once something expires.
-          Straight away, on the next request, from anywhere.
-        </p>
-        <p>
-          Keeping that promise takes more work than it sounds like, and the rest
-          of this page explains why — because the difference between a delete
-          that works and a delete that looks like it works is invisible from the
-          outside until somebody catches it.
+          The shared page and its preview photo are removed together. Your haul
+          and cards remain on your shelf.
         </p>
       </article>
 
       <article class="card">
-        <span class="n">Why it is hard</span>
-        <h2>The row is not what a reader gets</h2>
+        <span class="n">What disappears</span>
+        <h2>The page and preview photo are removed</h2>
         <p>
-          A shared haul page is not a file sitting on a disk. It is built when
-          somebody asks for it: a request arrives, we read one row out of the
-          database, and we render the page from that row. Delete the row and
-          there is nothing left to render, so the next request gets a 404. That
-          much is easy.
+          Credenza removes the stored snapshot and clears its cached page and
+          preview photo. Someone opening the address after that sees a 404.
         </p>
         <p>
-          The complication is that we do not rebuild the page for every reader.
-          A haul posted to a busy thread might be opened two hundred times in an
-          hour, and rebuilding it two hundred times is two hundred database
-          reads for two hundred identical answers. So the page is cached at the
-          edge — held on the servers closest to each reader — and served from
-          there without touching us at all. The photo that a chat draws in its
-          preview card is cached the same way, and held far longer, because a
-          photo does not change.
-        </p>
-        <p>
-          Now the problem is visible. Deleting the row changes what we would
-          build. It does not change what is already built and sitting at the
-          edge. A cache does not know a database exists. Unless something tells
-          it otherwise, it keeps serving the answer it last received until the
-          age we stamped on that answer runs out.
+          This does not remove a preview that Discord, Reddit, or another chat
+          already saved. Delete the message there if you also want that preview
+          gone.
         </p>
         <table>
           <thead>
-            <tr><th scope="col">What is served</th><th scope="col">How long the edge holds it</th></tr>
+            <tr><th scope="col">After deletion</th><th scope="col">What happens</th></tr>
           </thead>
           <tbody>
-            <tr><th scope="row">The haul page</th><td>Five minutes fresh, then up to an hour while it refreshes</td></tr>
-            <tr><th scope="row">The card photo</th><td>Seven days</td></tr>
-            <tr><th scope="row">A page that was never found</th><td>Two minutes</td></tr>
+            <tr><th scope="row">The shared page</th><td>Returns 404</td></tr>
+            <tr><th scope="row">Credenza's preview photo</th><td>Removed</td></tr>
+            <tr><th scope="row">Your shelf</th><td>Unchanged</td></tr>
           </tbody>
         </table>
         <p>
-          Read the second row again. A delete that stops at the database is a
-          delete that leaves the photo of your haul on the open web for a week.
-          The page would go quiet in an hour and the picture would outlast it by
-          six days, which is the worst possible shape for this to fail in: you
-          check the address, you see the 404, you believe it worked.
+          Share links are snapshots. Deleting one never deletes the haul it came
+          from or any card on your shelf.
         </p>
       </article>
 
       <article class="card">
-        <span class="n">What we do</span>
-        <h2>Every cached answer carries a handle</h2>
+        <span class="n">Account deletion</span>
+        <h2>Deleting your account removes every shared link</h2>
         <p>
-          The fix is to label things. Every page and every photo we send for a
-          shared haul goes out with a tag naming that haul's address. The tag is
-          for the cache, not for the reader — it is stripped before the response
-          reaches a browser, so nobody sees it and nothing downstream stores it.
+          Closing your account removes all shared links in the same operation.
+          Their pages and Credenza-hosted preview photos stop working too.
         </p>
         <p>
-          When you delete the link, two things happen in order. First the row
-          goes. Then we call the cache and name the tag, and every copy of that
-          page and that photo, on every edge server holding one, is dropped.
-          The order matters: purging first would leave a gap in which one more
-          request rebuilds the page from a row that is about to disappear, and
-          re-caches it on the way out.
-        </p>
-        <p>
-          If the cache call fails — a network blip, a rate limit — your delete
-          still succeeds. The row is already gone, and the page will age out on
-          its own within the hour. Failing your delete because a cache was busy
-          would be the worse outcome, so we record the failure for ourselves and
-          tell you the link is deleted, which it is.
-        </p>
-        <p>
-          Deleting your whole account does the same thing, once, for every link
-          you ever published. That is the stronger version of the same promise.
-          One tidied-up thread is housekeeping; an account deletion is somebody
-          asking us to take their things off the open web, and leaving a card
-          photo behind for a week would not be an answer to that.
+          A screenshot or saved preview held by someone else remains outside
+          Credenza's control.
         </p>
       </article>
 
       <article class="card">
-        <span class="n">The honest part</span>
+        <span class="n">Limits</span>
         <h2>What a delete cannot reach</h2>
         <p>
-          Some things are outside our reach, and a guide that does not say so is
-          not much of a guide. Here is the full division.
+          Credenza can remove its page and photo. It cannot erase copies that
+          another service or person already saved.
         </p>
         <table>
           <thead>
@@ -229,18 +180,13 @@
           </tbody>
         </table>
         <p>
-          Rows four and five are the ones to plan around. A chat client fetches
-          a page the moment an address appears in the box and keeps the card it
-          drew in its own storage. Deleting the source does not reach into
-          Discord's servers and rub out a card from last Tuesday. If the card is
-          what you want gone, delete the message that carries it.
+          A chat may keep the preview it drew when you pasted the link. Delete
+          the message in that chat if you also want its copy removed.
         </p>
         <p>
-          If a card is a problem often enough to matter, the better move is to
-          stop it being drawn in the first place. Read
+          Use an unlisted link when you do not want a chat preview. Read
           <a href="/guides/what-an-unlisted-link-hides/">what an unlisted link hides</a>
-          — it blanks the card at the moment of pasting, so there is nothing for
-          a chat to keep.
+          before you share sensitive haul details.
         </p>
       </article>
 
@@ -248,26 +194,18 @@
         <span class="n">Housekeeping</span>
         <h2>Deleting is also how you get a slot back</h2>
         <p>
-          A free account keeps 3 links at a time. Pro keeps 100. The count is of
-          links standing right now, not of links you have ever made, so a delete
-          returns a slot the moment it goes through and the next share works
-          immediately.
+          Free keeps 3 active links. Pro keeps 100. Deleting a link returns its
+          slot immediately.
         </p>
         <p>
-          If you share often, the habit worth building is to delete when the
-          thread dies rather than when you hit the cap. Reaching the cap and
-          then hunting for something to remove is a worse minute than removing
-          it when you were already finished with it. Set an expiry at the moment
-          you create the link, and the removal happens on its own — see
+          Delete links when their conversations end. Pro can set an expiry when
+          a link is created. See
           <a href="/guides/share-a-haul-list/">share a haul list without sharing your whole shelf</a>
-          for how the fields and the expiry are chosen.
+          for the available controls.
         </p>
         <p>
-          Nothing about deleting touches the haul it came from. The shared page
-          was a snapshot taken when you pressed Share, never a live window onto
-          your shelf, and the shelf carries on exactly as it was. That is also
-          why editing an item after sharing does not change the shared page —
-          the two stopped being connected at the moment the link was made.
+          A shared page is a snapshot. Deleting or editing it never changes the
+          original haul on your shelf.
         </p>
       </article>
 
@@ -276,10 +214,8 @@
         <h2>Straight answers</h2>
         <p>
           <strong>I deleted it and I still see the haul.</strong> You are almost
-          certainly reading your own browser's copy, because you opened that
-          address before. Reload without the cache, or open the address in a
-          private window. If a different device on a different network still
-          shows it, tell us the address and we will look.
+          likely seeing a saved browser copy. Reload the page or open it in a
+          private window. Contact support if another device still shows it.
         </p>
         <p>
           <strong>Can I put the same address back?</strong> No. Addresses are
@@ -294,8 +230,7 @@
         <p>
           <strong>Where do I start?</strong>
           <a href="/">Open Credenza</a>, build a haul, and share it when you
-          want an opinion on it. Knowing you can take it back is the point of
-          reading this before you post, not after.
+          want an opinion on it. Delete the link when the conversation ends.
         </p>
       </article>
     </main>

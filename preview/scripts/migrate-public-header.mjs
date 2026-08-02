@@ -56,7 +56,7 @@ function head(current) {
         <nav class="nav" aria-label="Site">
 ${links}
         </nav>
-        <a class="nav-open" href="/" aria-label="Open app" title="Open app">${PERSON}</a>
+        <a class="nav-open" href="/" aria-label="Open the app" title="Open the app">${PERSON}</a>
       </div>`;
 }
 
