@@ -571,8 +571,8 @@ describe("fitSummarySentence (design handoff PR4)", () => {
     // body 100 + 12 - 4 = 108 → S, diff 8 → regular
     const rec = recommendSize(bigChart, { chest: 100 }, "shirt");
     const sentence = fitSummarySentence(rec, { runHint: bigChart.runHint, units: "cm", detail: "detailed" });
-    expect(sentence).toContain("The S gives about 8cm of chest room, so it wears regular — ");
-    expect(sentence).toContain("the chart runs big, so the pick already sized down");
+    expect(sentence).toContain("The S gives about 8cm of chest room, so it wears regular. ");
+    expect(sentence).toContain("The chart runs big, so the pick already sized down");
     expect(sentence).toContain("M also works if you want it roomier");
   });
 
@@ -611,7 +611,7 @@ describe("prescriptionSentence (handoff turn 3 §5)", () => {
     const rec = recommendSize(shirtChart, { chest: 104 }, "shirt");
     const s = prescriptionSentence(shirtChart, rec, { units: "cm", category: "shirt" });
     expect(s).toBe(
-      "Take the Medium — its 112cm chest gives you 8cm of room over your 104cm, which is where this shirt is meant to sit. The Small's 104cm would pull across the chest."
+      "Take the Medium. Its 112cm chest gives you 8cm of room over your 104cm, which is where this shirt is meant to sit. The Small's 104cm would pull across the chest."
     );
   });
 

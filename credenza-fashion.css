@@ -7880,6 +7880,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizes-body-help {
+  font-size: 14px;
   color: var(--cz-faint);
 }
 

@@ -161,7 +161,7 @@ async function fetchPostListing(path, signal) {
   });
   if (res.ok) return { data: await res.json().catch(() => null) };
   if (res.status === 429 || res.status === 403) {
-    return { error: "Reddit blocked the read — paste the post text here instead" };
+    return { error: "Reddit blocked the read. Paste the post text here instead" };
   }
   return { error: "Reddit did not answer" };
 }

@@ -1,4 +1,4 @@
-# Credenza Fashion — full assistant brief
+# Credenza Fashion: full assistant brief
 
 Canonical site: https://credenzafashion.com/
 Short brief: https://credenzafashion.com/llms.txt
@@ -13,7 +13,7 @@ agent.
 ## Product thesis
 
 You found it on Reddit, Yupoo, or Weidian. Credenza turns scattered links into
-cards you can act on — price, seller, size recommendation, QC photos — then
+cards you can act on: price, seller, size recommendation, QC photos, then
 hands you off to Superbuy, Sugargoo, Kakobuy, or your agent of choice.
 
 Not a marketplace. Not a W2C search engine. A haul OS for people who already
@@ -21,11 +21,11 @@ know how agents work.
 
 ## How it works (5 steps)
 
-1. Stash — paste a link, a multi-URL line, or a Reddit haul comment.
-2. See the card — cover photo, title, price, seller.
-3. Size — paste or pull a size chart; match it to your body profile (in or cm).
-4. Status — Want before payment, Bought after payment. Keep QC photos on the card.
-5. Buy — one tap opens the item in your preferred agent (affiliate only on that open).
+1. Stash: paste a link, a multi-URL line, or a Reddit haul comment.
+2. See the card: cover photo, title, price, seller.
+3. Size: paste or pull a size chart; match it to your body profile (in or cm).
+4. Status: Want before payment, Bought after payment. Keep QC photos on the card.
+5. Buy: one tap opens the item in your preferred agent (affiliate only on that open).
 
 Optional, and only with an account: publish any subset of the shelf as a
 read-only link, and sync the shelf to a second device.
@@ -101,7 +101,7 @@ https://credenzafashion.com/privacy/
 
 Open your profile and use the Stripe customer portal. Cancel there and Pro runs
 to the end of the period you already paid for. Nothing you saved is deleted
-when Pro ends — every card, haul, and QC photo stays, and only new additions go
+when Pro ends. Every card, haul, and QC photo stays, and only new additions go
 back to the free limits. A refund is available within 14 days of a charge. See
 https://credenzafashion.com/support/ for the cancel, refund, export, and
 deletion steps, https://credenzafashion.com/contact/ for how to reach a person, and https://credenzafashion.com/terms/ for the full rule.

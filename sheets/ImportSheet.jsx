@@ -221,7 +221,7 @@ export default function ImportSheet({ items, onImport, onClose, onExport, onExpo
         )}
 
         {/* CSV goes to a spreadsheet, not back into Credenza. Free users see
-            the row rather than a hidden feature — the click explains the gate
+            the row rather than a hidden feature, the click explains the gate
             and opens the upgrade. */}
         {!embedded && items.length > 0 && (
           <button

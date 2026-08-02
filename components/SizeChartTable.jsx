@@ -35,7 +35,7 @@ export default function SizeChartTable({ chart, units, highlight, highlightAlt }
           >
             <th scope="row">{row.size}</th>
             {cols.map(([key]) => (
-              <td key={key}>{row[key] != null ? formatMeasure(row[key], units) : "—"}</td>
+              <td key={key}>{row[key] != null ? formatMeasure(row[key], units) : "-"}</td>
             ))}
           </tr>
         ))}

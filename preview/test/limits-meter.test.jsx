@@ -188,8 +188,8 @@ describe("the one limits sheet", () => {
     render(<LimitsSheet status={status} signedIn={false} />);
     expect(screen.getByRole("heading", { name: "That is your third free card." })).toBeTruthy();
     expect(screen.getByText("3 of 3 free cards used · resets tomorrow")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sign in — free" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Go Pro — $5.99 a month" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in, free" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Go Pro: $5.99 a month" })).toBeTruthy();
     expect(
       screen.getByText(
         "A free account raises every daily ceiling and keeps your shelf across your devices. No card, no checkout."
@@ -219,8 +219,8 @@ describe("the one limits sheet", () => {
     expect(screen.getByText("Your Pro ended.")).toBeTruthy();
     expect(screen.getByText(/stays on your shelf and stays readable/)).toBeTruthy();
     // No sign-in block: this person is already signed in.
-    expect(screen.queryByText(/Sign in — free/)).toBe(null);
-    expect(screen.getByRole("button", { name: "Resume Pro — $5.99 a month" })).toBeTruthy();
+    expect(screen.queryByText(/Sign in, free/)).toBe(null);
+    expect(screen.getByRole("button", { name: "Resume Pro: $5.99 a month" })).toBeTruthy();
     expect(screen.getByText(/resets tomorrow/)).toBeTruthy();
   });
 
@@ -234,8 +234,8 @@ describe("the one limits sheet", () => {
     });
     render(<LimitsSheet status={status} signedIn />);
     expect(screen.getByText("1 of 2 chart reads used · resets tomorrow")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Sign in — free" })).toBe(null);
-    expect(screen.getByRole("button", { name: "Go Pro — $5.99 a month" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sign in, free" })).toBe(null);
+    expect(screen.getByRole("button", { name: "Go Pro: $5.99 a month" })).toBeTruthy();
   });
 
   it("keeps the sign-in, upgrade, and dismiss actions connected", () => {
@@ -250,8 +250,8 @@ describe("the one limits sheet", () => {
         onClose={() => calls.push("close")}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Sign in — free" }));
-    fireEvent.click(screen.getByRole("button", { name: "Go Pro — $5.99 a month" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in, free" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go Pro: $5.99 a month" }));
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(calls).toEqual(["sign-in", "upgrade", "close"]);
   });

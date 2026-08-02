@@ -69,7 +69,7 @@ const HOW = {
   },
   garment: {
     chest:
-      "Lay the top flat and smooth the fabric. Straight across from one armpit seam to the other — don't stretch it.",
+      "Lay the top flat and smooth the fabric. Straight across from one armpit seam to the other. Don't stretch it.",
     shoulder: "Seam to seam across the back, flat.",
     shortSleeve: "Shoulder seam down to the short-sleeve cuff edge.",
     longSleeve: "Shoulder seam down to the wrist cuff edge.",
@@ -471,7 +471,7 @@ export default function BodyProfileSheet({
             holdListScroll(e.currentTarget, () => {});
             focusKey(key);
           }}
-          placeholder="—"
+          placeholder="-"
           autoComplete="off"
           aria-label={labels[key]}
         />
@@ -550,7 +550,7 @@ export default function BodyProfileSheet({
     (mode === "garment"
       ? "A piece you already own that fits the way you want, measured flat."
       : "You, with a tape measure.") +
-    " Both sets stay saved — the switch never erases the other one.";
+    " Both sets stay saved. The switch never erases the other one.";
 
   const body = (
     <div className={"cz-sizes" + (embedded ? " is-embedded" : "")}>
@@ -570,7 +570,7 @@ export default function BodyProfileSheet({
                 return next;
               });
             }}
-            placeholder="—"
+            placeholder="-"
             aria-label="Usual tops size"
           />
         </label>
@@ -587,7 +587,7 @@ export default function BodyProfileSheet({
                 return next;
               });
             }}
-            placeholder="—"
+            placeholder="-"
             aria-label="Usual bottoms size"
           />
         </label>
@@ -604,7 +604,7 @@ export default function BodyProfileSheet({
                 return next;
               });
             }}
-            placeholder="—"
+            placeholder="-"
             aria-label="Usual shoes size"
           />
         </label>
@@ -615,7 +615,7 @@ export default function BodyProfileSheet({
             inputMode="decimal"
             value={bodyDraft.height || ""}
             onChange={(e) => setBodyMeta("height", e.target.value)}
-            placeholder="—"
+            placeholder="-"
             aria-label="Height"
           />
           <em>{unitShort}</em>
@@ -627,7 +627,7 @@ export default function BodyProfileSheet({
             inputMode="decimal"
             value={bodyDraft.weight || ""}
             onChange={(e) => setBodyMeta("weight", e.target.value)}
-            placeholder="—"
+            placeholder="-"
             aria-label="Weight"
           />
           <em>{weightUnit}</em>
@@ -672,7 +672,7 @@ export default function BodyProfileSheet({
         <p className="cz-sizes-mode-help cz-sizes-body-help">
           These numbers come from your body, not from a size label. Use a soft tape measure over
           bare skin or light clothing, not a bulky sweater. Waist and hip are your body&apos;s
-          real size around — not the number on your usual pants. Chest is the fullest part around
+          real size around, not the number on your usual pants. Chest is the fullest part around
           your body, not your usual shirt size. Trouser length here is waist to ankle down the
           outside of your leg, not your usual inseam label.
         </p>

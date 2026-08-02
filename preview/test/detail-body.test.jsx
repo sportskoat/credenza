@@ -609,7 +609,7 @@ describe("DetailBody no-measurements flow", () => {
     // 4e: rough estimate strip with the category's sharpen ask.
     expect(screen.getByText("Rough estimate")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Add chest/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Skip — keep the rough size" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip, keep the rough size" }));
 
     expect(screen.getByText("Rough estimate")).toBeInTheDocument();
     expect(container.querySelector(".cz-sizing")).not.toBe(null);

@@ -28,13 +28,13 @@ export function fitMeasureFieldsFor(category) {
   if (category === "shorts") {
     return [
       { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
-      { key: "shortsLength", label: "Shorts length", kind: "length", phCm: "46", phIn: "18", hint: "Lay shorts you like flat. Measure from the top of the waistband to the hem — the way sellers do." },
+      { key: "shortsLength", label: "Shorts length", kind: "length", phCm: "46", phIn: "18", hint: "Lay shorts you like flat. Measure from the top of the waistband to the hem, the way sellers do." },
     ];
   }
   if (category === "pants") {
     return [
       { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
-      { key: "pantsLength", label: "Trouser length", kind: "length", phCm: "104", phIn: "41", hint: "Lay trousers you like flat. Measure from the top of the waistband to the hem — the way sellers do." },
+      { key: "pantsLength", label: "Trouser length", kind: "length", phCm: "104", phIn: "41", hint: "Lay trousers you like flat. Measure from the top of the waistband to the hem, the way sellers do." },
     ];
   }
   if (category === "shoes") {
@@ -260,7 +260,7 @@ export default function SizeRecommendation({
               if (!hasUsual && onSkipFitPrompt) onSkipFitPrompt();
             }}
           >
-            {hasUsual ? "Skip — keep the rough size" : "Skip for now"}
+            {hasUsual ? "Skip, keep the rough size" : "Skip for now"}
           </button>
         </div>
       </form>

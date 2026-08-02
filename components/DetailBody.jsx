@@ -301,9 +301,9 @@ function Timeline({ rows }) {
 }
 
 // Mock Settings (Turn 3): fixed read-only body rows + height.
-// Sleeve uses long when present, else short. Empty values show an em dash.
+// Sleeve uses long when present, else short. Empty values show a hyphen.
 function formatBodyHeightLabel(cm, units) {
-  if (cm == null || !Number.isFinite(Number(cm)) || Number(cm) <= 0) return "—";
+  if (cm == null || !Number.isFinite(Number(cm)) || Number(cm) <= 0) return "-";
   const n = Number(cm);
   if (units === "cm") return Math.round(n) + " cm";
   const totalIn = n / 2.54;
@@ -326,7 +326,7 @@ function bodyMeasureRows(bodyProfile, units) {
   const show = (cm) =>
     cm != null && Number.isFinite(Number(cm)) && Number(cm) > 0
       ? formatMeasure(Number(cm), units)
-      : "—";
+      : "-";
   return [
     { key: "chest", label: "Chest", value: show(p.chest) },
     { key: "sleeve", label: "Sleeve", value: show(sleeve) },
@@ -479,7 +479,7 @@ function SizingBlock({
     <section className={"cz-sizing" + (isManual ? " is-manual" : "") + (editorial ? " is-editorial" : "")} aria-label="Sizing">
       {editorial ? (
         <div className="cz-fit-result">
-          <span className="cz-fit-result-size">{heroLabel || "—"}</span>
+          <span className="cz-fit-result-size">{heroLabel || "-"}</span>
           {editorialAside ? (
             <span
               className={
@@ -532,7 +532,7 @@ function SizingBlock({
                 {heroLabel}
               </span>
             ) : (
-              <span className="cz-sizing-value is-empty">—</span>
+              <span className="cz-sizing-value is-empty">-</span>
             )}
             {aside ? <span className="cz-sizing-aside">{aside}</span> : null}
           </div>
@@ -882,7 +882,7 @@ function SizingBlockNoChart({
               </>
             ) : (
               <>
-                <span className="cz-sizing-value is-empty">—</span>
+                <span className="cz-sizing-value is-empty">-</span>
                 <span className="cz-sizing-aside">no usual size saved</span>
               </>
             )}
@@ -1121,7 +1121,7 @@ function SellerChartFold({
                   <span key={key} className="cz-chart-cell is-yours-val" role="cell">
                     {y
                       ? (y.estimated ? "~" : "") + formatMeasure(y.value, units)
-                      : "—"}
+                      : "-"}
                   </span>
                 );
               })}
@@ -1170,7 +1170,7 @@ function SellerChartFold({
                     return (
                       <span key={key} className="cz-chart-cell is-measure">
                         <span className="cz-chart-theirs">
-                          {theirs != null ? formatMeasure(theirs, units) : "—"}
+                          {theirs != null ? formatMeasure(theirs, units) : "-"}
                         </span>
                         <span
                           className={
@@ -1180,7 +1180,7 @@ function SellerChartFold({
                         >
                           {ease != null
                             ? (ease >= 0 ? "+" : "") + formatMeasure(ease, units)
-                            : "—"}
+                            : "-"}
                         </span>
                       </span>
                     );
@@ -1251,15 +1251,15 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
         className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
         title={r.notOnChart ? "The seller's chart has no " + r.name.toLowerCase() : undefined}
       >
-        {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "n/a" : "—"}
+        {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "n/a" : "-"}
       </span>
       <span className="cz-fitread-yours">
         {r.yours != null
           ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
-          : "—"}
+          : "-"}
       </span>
       <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
-        {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "—"}
+        {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "-"}
       </span>
     </div>
   ));
@@ -1895,7 +1895,7 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
             })}
           </div>
           <p className="cz-agent-pop-note">
-            Item price is the same everywhere — agents differ on shipping and service fee.
+            Item price is the same everywhere. Agents differ on shipping and service fee.
             Your pick sticks as the default.
           </p>
         </div>
@@ -2234,7 +2234,7 @@ function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, on
             if (!hasUsual && onSkipFitPrompt) onSkipFitPrompt();
           }}
         >
-          {hasUsual ? "Skip — keep the rough size" : "Skip for now"}
+          {hasUsual ? "Skip, keep the rough size" : "Skip for now"}
         </button>
       </div>
     </form>
@@ -3681,7 +3681,7 @@ export default function DetailBody({
                     })}
                   </div>
                   <p className="cz-desk-setting-note">
-                    Item price is the same everywhere — agents differ on shipping and service fee.
+                    Item price is the same everywhere. Agents differ on shipping and service fee.
                     Your pick sticks as the default.
                   </p>
                 </div>

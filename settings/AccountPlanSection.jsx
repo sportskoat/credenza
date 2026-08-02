@@ -87,7 +87,7 @@ export default function AccountPlanSection() {
     try {
       await fn();
     } catch (err) {
-      setError(err && err.message ? String(err.message) : "Something went wrong — try again.");
+      setError(err && err.message ? String(err.message) : "Something went wrong. Try again.");
     } finally {
       setBusy("");
     }
@@ -134,7 +134,7 @@ export default function AccountPlanSection() {
           </div>
           {linkSent ? (
             <div className="cz-profile-signin-sent" role="status">
-              Check your email — the link signs you in. It works on this device only.
+              Check your email. The link signs you in. It works on this device only.
             </div>
           ) : (
             <>

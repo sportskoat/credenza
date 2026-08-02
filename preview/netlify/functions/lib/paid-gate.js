@@ -52,7 +52,7 @@ async function authorizePaid(event, env, feature) {
       return {
         ok: false,
         status: 429,
-        body: { error: "Daily " + feature + " limit reached — upgrade to Pro for more" },
+        body: { error: "Daily " + feature + " limit reached. Upgrade to Pro for more" },
         retryAfter: secondsToUtcMidnight(),
       };
     }

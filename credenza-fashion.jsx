@@ -1582,9 +1582,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
 
   const fitNote =
     chart.runHint === "big"
-      ? "runs big — sized down"
+      ? "runs big, sized down"
       : chart.runHint === "small"
-        ? "runs small — sized up"
+        ? "runs small, sized up"
         : chart.runHint === "true"
           ? "true to size"
           : "";
@@ -2186,7 +2186,8 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
     tail.push(rec.alt.size + " also works if you want it " + rec.alt.fit);
   }
   if (!tail.length) return first + ".";
-  return first + " — " + tail.join("; ") + ".";
+  const tailText = tail.join("; ");
+  return first + ". " + tailText.charAt(0).toUpperCase() + tailText.slice(1) + ".";
 }
 
 // The prescription sentence for the size breakdown (handoff turn 3 §5): 1–2
@@ -2296,7 +2297,7 @@ export function prescriptionSentence(
   const first =
     "Take the " +
     sizeName +
-    " — its " +
+    ". Its " +
     garment +
     " " +
     measure +
@@ -2462,7 +2463,7 @@ export function shareTextLabel(line) {
 const TAOKOULING_RE = /[￥₤]\s*[A-Za-z0-9][A-Za-z0-9\s]{3,}?[A-Za-z0-9]\s*[￥₤]|淘口令/;
 export function taokoulingTitle(text) {
   return text && TAOKOULING_RE.test(text)
-    ? "Taobao share code — open in the Taobao app"
+    ? "Taobao share code, open in the Taobao app"
     : "";
 }
 
@@ -3013,7 +3014,7 @@ function localDigestCopy(picks, gem, weekCount, now) {
   const intro =
     weekCount > 0
       ? weekCount + " new " + (weekCount === 1 ? "thing" : "things") + " stashed this week."
-      : "A quiet week on the shelf — a few older cards deserve attention.";
+      : "A quiet week on the shelf. A few older cards deserve attention.";
   const reasons = {};
   picks.forEach((it) => {
     if (it.note) {
@@ -3034,7 +3035,7 @@ function localDigestCopy(picks, gem, weekCount, now) {
     const days = Math.floor((now - gem.createdAt) / DAY_MS);
     gemReason = gem.note
       ? 'From ' + days + ' days back. You wrote: "' + gem.note.slice(0, 90) + '"'
-      : "Stashed " + days + " days ago — still worth a look.";
+      : "Stashed " + days + " days ago, still worth a look.";
   }
   return { intro, reasons, gemReason };
 }
@@ -5453,8 +5454,8 @@ function CredenzaApp() {
       // (?upgrade= without the trailing d), not only upgraded/profile.
       stripUrl();
       const upgraded = params.get("upgraded");
-      if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
-      else notify("Checkout cancelled — nothing was charged.");
+      if (upgraded) notify("Payment received. Pro turns on in a few seconds.");
+      else notify("Checkout cancelled. Nothing was charged.");
     }
     if (params.get("profile") || params.get("upgraded")) {
       stripUrl();
@@ -5543,7 +5544,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      notify("Your sign-in expired — sign in again first.");
+      notify("Your sign-in expired. Sign in again first.");
       return;
     }
     const url = await accountCheckout(session.accessToken, price);
@@ -5553,7 +5554,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      notify("Your sign-in expired — sign in again first.");
+      notify("Your sign-in expired. Sign in again first.");
       return;
     }
     const url = await accountPortal(session.accessToken);
@@ -5570,7 +5571,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      notify("Your sign-in expired — sign in again first.");
+      notify("Your sign-in expired. Sign in again first.");
       return;
     }
     await accountDeleteRequest(session.accessToken);
@@ -5949,7 +5950,7 @@ function CredenzaApp() {
         if (res.prunedImages > 0) {
           setItems(res.items);
           flashImportResult(
-            "Storage was full — removed thumbnails from " +
+            "Storage was full. Removed thumbnails from " +
               res.prunedImages +
               " older " +
               (res.prunedImages === 1 ? "card" : "cards") +
@@ -6189,7 +6190,7 @@ function CredenzaApp() {
             const key = canonicalKey(parsed, shared);
             const dup = it.find((x) => itemMatchesCanonicalKey(x, key));
             if (dup) {
-              notify("Already on the shelf: “" + dup.title + "” — opened it below.", { duration: DUPE_BANNER_MS });
+              notify("Already on the shelf: “" + dup.title + "”. Opened it below.", { duration: DUPE_BANNER_MS });
               setExpandedId(dup.id);
               setTimeout(() => enrichFashionItem(dup), 0);
             } else {
@@ -6317,7 +6318,7 @@ function CredenzaApp() {
     const key = canonicalKey(parsed, text);
     const dupItem = items.find((x) => itemMatchesCanonicalKey(x, key)) || null;
     if (dupItem) {
-      notify("Already on the shelf: “" + dupItem.title + "” — refreshing it below.", { duration: DUPE_BANNER_MS });
+      notify("Already on the shelf: “" + dupItem.title + "”. Refreshing it below.", { duration: DUPE_BANNER_MS });
       setExpandedId(dupItem.id);
       setSelectedId(dupItem.id);
       enrichFashionItem(dupItem);
@@ -6394,7 +6395,7 @@ function CredenzaApp() {
         // without re-finding the post (403/429 fail-open recovery).
         flashImportResult(
           (post && post.error) ||
-            "Couldn't read that Reddit post — paste the post text here instead."
+            "Couldn't read that Reddit post. Paste the post text here instead."
         );
       }
       return;
@@ -6441,7 +6442,7 @@ function CredenzaApp() {
     // video, music) never become cards silently. The paste stays in the box;
     // "Stash anyway" is the override for niche shops the gate doesn't know.
     if (fashionGateStatus(text) === "gated") {
-      notify("That doesn't look like a fashion link — nothing stashed yet.", {
+      notify("That doesn't look like a fashion link. Nothing stashed yet.", {
         actionLabel: "Stash anyway",
         onAction: () => {
           const result = stash(text);
@@ -6507,7 +6508,7 @@ function CredenzaApp() {
   const stashClipboard = async () => {
     if (!navigator.clipboard || !navigator.clipboard.readText) {
       focusCapture();
-      flashImportResult("This browser can't share the clipboard here — paste anywhere with ⌘V instead.");
+      flashImportResult("This browser can't share the clipboard here. Paste anywhere with ⌘V instead.");
       return;
     }
     let text = "";
@@ -6522,8 +6523,8 @@ function CredenzaApp() {
       focusCapture();
       flashImportResult(
         state === "denied"
-          ? "Clipboard access is turned off for this site — turn it on next to the address bar, or paste anywhere with ⌘V."
-          : "Clipboard needs a quick permission — allow it when your browser asks, or paste anywhere with ⌘V."
+          ? "Clipboard access is turned off for this site. Turn it on next to the address bar, or paste anywhere with ⌘V."
+          : "Clipboard needs a quick permission. Allow it when your browser asks, or paste anywhere with ⌘V."
       );
       return;
     }
@@ -6642,7 +6643,7 @@ function CredenzaApp() {
     if (fresh.length === 0) {
       flashImportResult(
         dupes > 0
-          ? "Nothing new — all " + dupes + " already on the shelf."
+          ? "Nothing new. All " + dupes + " already on the shelf."
           : "No links or notes found in that paste."
       );
     } else {
@@ -6818,7 +6819,7 @@ function CredenzaApp() {
     setImportOpen(false);
     flashImportResult(
       added === 0
-        ? "Backup read — everything in it is already on the shelf."
+        ? "Backup read. Everything in it is already on the shelf."
         : "Restored " + added + " " + (added === 1 ? "card" : "cards") + " from backup."
     );
   };
@@ -6978,7 +6979,7 @@ function CredenzaApp() {
     if (current.length >= qcPhotoCap) {
       notify(
         isProPlan
-          ? "That is " + qcPhotoCap + " QC photos on this item — remove one to add another."
+          ? "That is " + qcPhotoCap + " QC photos on this item. Remove one to add another."
           : qcPhotoCap +
             " QC photos an item on Free. Pro holds " +
             PRO_LIMITS.qcPhotosPerItem +
@@ -7489,7 +7490,7 @@ function CredenzaApp() {
       notify("Opening in " + name + " · change anytime in the Agent menu.", { duration: 6000 });
     } else if (!result.wrapped && (result.reason === "unsupported-marketplace" || result.reason === "no-item-id")) {
       const name = (getAgent(preferredAgent) || {}).name || "your agent";
-      notify(name + " can't take that link — opened the original instead.", { duration: 6000 });
+      notify(name + " can't take that link. Opened the original instead.", { duration: 6000 });
     }
     window.open(result.url, "_blank", "noopener");
   };
@@ -7637,7 +7638,7 @@ function CredenzaApp() {
     slides.push({
       eyebrow: "That's the deck",
       title: "Shelf's in good shape.",
-      body: "Come back next week — or stash something worth digesting.",
+      body: "Come back next week, or stash something worth digesting.",
     });
     setDigest(slides);
     const featured = [...picks, ...(gem ? [gem] : [])];
@@ -8159,7 +8160,7 @@ function CredenzaApp() {
       const session = await getValidSession();
       if (!session) {
         setAccountSession(null);
-        throw new Error("Your sign-in expired — sign in again first.");
+        throw new Error("Your sign-in expired. Sign in again first.");
       }
       const now = Date.now();
       const doc = buildShareSnapshot(shareItemsFor(shareHaulName), {
@@ -8187,7 +8188,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      throw new Error("Your sign-in expired — sign in again first.");
+      throw new Error("Your sign-in expired. Sign in again first.");
     }
     const rows = await listShares(session.accessToken);
     const origin =
@@ -8199,7 +8200,7 @@ function CredenzaApp() {
     const session = await getValidSession();
     if (!session) {
       setAccountSession(null);
-      throw new Error("Your sign-in expired — sign in again first.");
+      throw new Error("Your sign-in expired. Sign in again first.");
     }
     return deleteShare(session.accessToken, code);
   }, []);
@@ -9055,8 +9056,8 @@ function CredenzaApp() {
                       // customer to paste again as if the stash did not work.
                       ? inboxItems.length +
                         (inboxItems.length === 1 ? " card is" : " cards are") +
-                        " indexing in the Inbox — cards land here when they are ready."
-                      : "Paste anything above — a link, a Reddit post, a list."}
+                        " indexing in the Inbox. Cards land here when they are ready."
+                      : "Paste anything above: a link, a Reddit post, a list."}
             </div>
             {(q || shelfFilter !== "all" || openHaulName || inboxItems.length > 0) && (
               <Pill
@@ -10452,7 +10453,7 @@ function CredenzaApp() {
                     {item.title || item.rawText}
                   </div>
                   <div style={{ fontSize: 11.5, color: FAINT }}>
-                    {item.status === "enriching" ? "Enhancing…" : "Couldn't enhance — still saved"}
+                    {item.status === "enriching" ? "Enhancing…" : "Couldn't enhance, still saved"}
                   </div>
                 </div>
                 {item.status === "failed" && aiAvailable() && (

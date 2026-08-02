@@ -53,7 +53,7 @@ export default function SizesSection() {
           <span className="cz-sizes-fit-flag">SAVED AS YOU CHANGE THEM</span>
         </div>
         <p className="cz-sizes-fit-lead">
-          The numbers say what will fit. These say how you want it to sit — read together when
+          The numbers say what will fit. These say how you want it to sit, read together when
           Credenza picks a size.
         </p>
         <div className="cz-sizes-fit-table" role="table" aria-label="How you like it to sit">
@@ -101,7 +101,7 @@ export default function SizesSection() {
     <SettingsSection
       kicker="SIZES"
       title="Sizes and measurements."
-      lead="Every size Credenza suggests starts here — your numbers, and how you like things to sit. None of it is required, and the card always says which part it leaned on."
+      lead="Every size Credenza suggests starts here: your numbers, and how you like things to sit. None of it is required, and the card always says which part it leaned on."
       wide
       sectionId="sizes"
     >

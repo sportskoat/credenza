@@ -130,7 +130,7 @@ describe("paid gate (via ask)", () => {
     const res = await ask.handler(post({ authorization: "Bearer " + tokenFor("user-2") }));
     expect(res.statusCode).toBe(429);
     expect(res.headers["retry-after"]).toBeTruthy();
-    expect(res.body).toContain("upgrade to Pro");
+    expect(res.body).toContain("Upgrade to Pro");
     expect(sb.anthropicCalls.length).toBe(0);
   });
 
