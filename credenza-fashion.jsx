@@ -7286,14 +7286,21 @@ function CredenzaApp() {
           });
           const cover = item.image || albumImages[0] || null;
           const enrichedTitle = fashionDisplayTitle(data);
-          const guessedCategory =
-            item.category && CATEGORIES[item.category]
-              ? item.category
-              : guessFashionCategory(
-                  [enrichedTitle, data.title, data.sourceTitle, data.description, data.batch, item.title, item.summary, item.rawText]
-                    .filter(Boolean)
-                    .join(" ")
-                );
+          const albumGuessText = [
+            enrichedTitle,
+            data.title,
+            data.sourceTitle,
+            data.description,
+            data.batch,
+            item.title,
+            item.summary,
+            item.rawText,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          // Category guess from album text only. Do NOT seed from the stale
+          // item snapshot — a manual pick made mid-flight would be ignored.
+          const albumGuessedCategory = guessFashionCategory(albumGuessText);
           const albumPatch = {
             url: item.url && yupooAlbumIdentity(item.url) ? canonicalAlbum : item.url,
             canonicalKey: canonicalKey(classify(canonicalAlbum), canonicalAlbum),
@@ -7320,7 +7327,6 @@ function CredenzaApp() {
             links,
             seller: item.seller || data.seller || data.sellerAccount || "",
             batch: item.batch || data.batch || "",
-            category: guessedCategory || item.category || "",
             price: item.price != null ? item.price : data.priceCny,
             currency: "CNY",
             sourceTitle: data.sourceTitle || item.sourceTitle || "",
@@ -7328,8 +7334,29 @@ function CredenzaApp() {
             sellerAccount: data.sellerAccount || item.sellerAccount || "",
             status: data.buyUrl ? "enriching" : "ready",
           };
-          updateEnrichedItem(item.id, token, albumPatch);
-          const mergedItem = { ...item, ...albumPatch };
+          // CH-07 + F 2026-08-02: hand-picked category is pinned
+          // (categoryManual), like the resolve path. Functional patch so a
+          // Shorts pick made while this album read was in flight is not
+          // clobbered by the stale snapshot's "other".
+          updateEnrichedItem(item.id, token, (x) => ({
+            ...albumPatch,
+            category:
+              x.categoryManual && CATEGORIES[x.category]
+                ? x.category
+                : x.category && CATEGORIES[x.category]
+                  ? x.category
+                  : albumGuessedCategory || x.category || "",
+          }));
+          const mergedItem = {
+            ...item,
+            ...albumPatch,
+            category:
+              item.categoryManual && CATEGORIES[item.category]
+                ? item.category
+                : item.category && CATEGORIES[item.category]
+                  ? item.category
+                  : albumGuessedCategory || item.category || "",
+          };
           const resolvePromise = data.buyUrl
             ? resolveBuyDetails(mergedItem, {
                 token,

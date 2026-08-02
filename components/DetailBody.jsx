@@ -2629,6 +2629,14 @@ export default function DetailBody({
   // Desktop two-column panel hands titleTarget a mount node.
   const isDesktopPanel = titleTarget !== undefined;
 
+  // Fit/Details/Settings share one scroll container. Without a reset, Fit →
+  // Details → Fit keeps the shorter tab's scrollTop and lands past the
+  // re-mounted measurement block (Kyle 2026-08-02: "hidden and glitched").
+  // Phone panes share the same container. Reset to top on every tab change.
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [desktopTab, pane, item.id]);
+
   // Full-screen album (restored 2026-07-25, Kyle: "the old photos where you
   // could swipe through each photo... it was so good"). A tap on the hero
   // photo opens it at that photo; its "Use as cover" is the same explicit
@@ -2767,6 +2775,19 @@ export default function DetailBody({
     onSaveEdit(item.id, { findStatus: next });
     setDraft((d) =>
       draftOwnerRef.current === item.id && d ? { ...d, findStatus: next } : d
+    );
+    setSavedFlash(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSavedFlash(false), SAVED_HOLD_MS);
+  };
+
+  // Category same rule as status (F/C 2026-08-02): direct write + pin, and
+  // mirror into any open draft so buildEditPatch cannot restore the old
+  // category on the next debounced commit or close-flush.
+  const pickCategory = (next) => {
+    onSaveEdit(item.id, { category: next, categoryManual: true });
+    setDraft((d) =>
+      draftOwnerRef.current === item.id && d ? { ...d, category: next } : d
     );
     setSavedFlash(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -3269,6 +3290,7 @@ export default function DetailBody({
       commit={() => commitRef.current()}
       onSaveEdit={onSaveEdit}
       pickStatus={pickStatus}
+      pickCategory={pickCategory}
       knownHauls={knownHauls}
       haulCounts={haulCounts}
       sellerHref={sellerHref}
@@ -3667,6 +3689,7 @@ export default function DetailBody({
                 commit={() => commitRef.current()}
                 onSaveEdit={onSaveEdit}
                 pickStatus={pickStatus}
+                pickCategory={pickCategory}
                 knownHauls={knownHauls}
                 haulCounts={haulCounts}
                 sellerHref={sellerHref}
@@ -4187,6 +4210,7 @@ export default function DetailBody({
             commit={() => commitRef.current()}
             onSaveEdit={onSaveEdit}
             pickStatus={pickStatus}
+            pickCategory={pickCategory}
             knownHauls={knownHauls}
             haulCounts={haulCounts}
             sellerHref={sellerHref}

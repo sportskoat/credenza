@@ -151,6 +151,9 @@ export default function CommandBar({
   commit,
   onSaveEdit,
   pickStatus,
+  // Same tap pattern as pickStatus: direct write + mirror into open draft
+  // so a pending buildEditPatch cannot restore the old category (F 2026-08-02).
+  pickCategory,
   knownHauls = [],
   haulCounts = null,
   sellerHref = "",
@@ -344,10 +347,11 @@ export default function CommandBar({
             key={key}
             selected={key === categoryKey}
             onClick={() => {
-              // Category writes straight through, not via the debounced draft:
-              // a hand-set category must also clear the auto flag, and that is
-              // a two-field patch the single-key draft path cannot carry.
-              if (onSaveEdit) onSaveEdit(item.id, { category: key, categoryManual: true });
+              // Category writes straight through + mirrors any open draft
+              // (pickCategory), same as status. Fallback keeps the old direct
+              // patch for callers that have not wired pickCategory yet.
+              if (pickCategory) pickCategory(key);
+              else if (onSaveEdit) onSaveEdit(item.id, { category: key, categoryManual: true });
               close();
             }}
           >
@@ -578,7 +582,8 @@ export default function CommandBar({
               key={catKey}
               selected={catKey === categoryKey}
               onClick={() => {
-                if (onSaveEdit) onSaveEdit(item.id, { category: catKey, categoryManual: true });
+                if (pickCategory) pickCategory(catKey);
+                else if (onSaveEdit) onSaveEdit(item.id, { category: catKey, categoryManual: true });
                 close();
               }}
             >
