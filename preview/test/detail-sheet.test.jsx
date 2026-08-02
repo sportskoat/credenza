@@ -55,6 +55,21 @@ function renderSheet(item, extra = {}) {
 
 afterEach(cleanup);
 
+// Mobile item 2 static gap (2026-08-02): pin the reserved band above the sheet.
+// Was hard-coded 88px (desktop-era); now handle-strip + safe-area only.
+describe("DetailSheet surface height (item 2 dead zone)", () => {
+  it("reserves only safe-area + 28px above the phone sheet", () => {
+    const start = CSS.indexOf(".cz-detail-surface {");
+    expect(start).toBeGreaterThan(-1);
+    // Slice the first surface rule block (not nested media overrides).
+    const block = CSS.slice(start, CSS.indexOf("\n}\n", start) + 2);
+    expect(block).toMatch(
+      /height:\s*calc\(100dvh - env\(safe-area-inset-top, 0px\) - 28px\);/
+    );
+    expect(block).not.toMatch(/height:\s*calc\(100dvh - 88px\);/);
+  });
+});
+
 describe("DetailSheet buy action", () => {
   it("renders exactly one Buy button when the item has two buy links", () => {
     const { container } = renderSheet(twoBuyLinkItem());
