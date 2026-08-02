@@ -678,6 +678,11 @@ function useCustomerChartRead(item, onSaveEdit) {
   // footnote says "Reading four photos…" and a hard-coded four would lie
   // about a single upload.
   const [state, setState] = useState(EMPTY_CHART_READ);
+  // Bug B (2026-08-02): typed cells are customer work product. Keep a live
+  // ref so an async photo read can restore them after a failed attempt —
+  // setState alone cannot snapshot mid-flight for the failure branch.
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -691,8 +696,28 @@ function useCustomerChartRead(item, onSaveEdit) {
     setState(EMPTY_CHART_READ);
   }, [item.id]);
 
+  // Snapshot a hand-typed grid so a failed photo read can put it back.
+  // Photo success may replace it; Cancel (dismiss) is the only explicit clear.
+  // Deep-clone rows so a later fix/read cannot mutate the restored copy.
+  function snapshotTypedWork(prev) {
+    if (!prev || !prev.typed || !prev.chart) return null;
+    const rows = Array.isArray(prev.chart.rows)
+      ? prev.chart.rows.map((row) => ({ ...row }))
+      : [];
+    const columns = Array.isArray(prev.chart.columns) ? prev.chart.columns.slice() : [];
+    return {
+      typed: true,
+      dirty: prev.dirty === true,
+      chart: { rows, columns },
+      text: prev.text || "",
+      imageHash: prev.imageHash || "",
+    };
+  }
+
   const read = async (sources, { thumb = "", referer = "" } = {}) => {
     const list = Array.isArray(sources) ? sources : [sources];
+    // Capture BEFORE wiping into "reading" — typed numbers must survive a miss.
+    const typedPrior = snapshotTypedWork(stateRef.current);
     setState({ ...EMPTY_CHART_READ, reading: true, thumb, count: list.length });
     // Remote album photos go down the images door (the server fetches them
     // through its allowlist); files and data: URLs go inline. Never both.
@@ -745,6 +770,18 @@ function useCustomerChartRead(item, onSaveEdit) {
     }
     if (!alive.current) return;
     if (sawAuth) {
+      // Bug B + Fix 0: auth wall must not wipe hand-typed numbers (the case
+      // Kyle hit tonight — signed-out photo path after typing a chart).
+      if (typedPrior) {
+        setState({
+          ...EMPTY_CHART_READ,
+          ...typedPrior,
+          thumb: thumb || "",
+          error: CHART_AUTH_COPY + " Your typed numbers are still here.",
+          authRequired: true,
+        });
+        return;
+      }
       setState({
         ...EMPTY_CHART_READ,
         thumb,
@@ -755,12 +792,24 @@ function useCustomerChartRead(item, onSaveEdit) {
     }
     const check = text ? validateChartResult(text, parseSizeChart) : { ok: false };
     if (!check.ok) {
+      const photoError = sawUnparseable
+        ? "I read the photo but could not find sizes in it. Try a straighter shot of the table."
+        : "I could not read that photo. Try again with the whole table in frame.";
+      // Bug B: restore typed work. Never leave the customer with an empty grid
+      // after a failed photo path wiped their numbers.
+      if (typedPrior) {
+        setState({
+          ...EMPTY_CHART_READ,
+          ...typedPrior,
+          thumb: thumb || "",
+          error: photoError + " Your typed numbers are still here.",
+        });
+        return;
+      }
       setState({
         ...EMPTY_CHART_READ,
         thumb,
-        error: sawUnparseable
-          ? "I read the photo but could not find sizes in it. Try a straighter shot of the table."
-          : "I could not read that photo. Try again with the whole table in frame.",
+        error: photoError,
       });
       return;
     }
@@ -772,6 +821,12 @@ function useCustomerChartRead(item, onSaveEdit) {
   // so one grid, one confirm and one save path serve both. Nothing is stored
   // until the customer presses save.
   const startTyping = (category) => {
+    // Bug B: a second tap must not wipe numbers already entered. Only Cancel
+    // (dismiss) or a successful save clears the grid.
+    if (stateRef.current.typed && stateRef.current.chart) {
+      setState((prev) => ({ ...prev, error: "" }));
+      return;
+    }
     const cols = TYPE_IN_COLUMNS[category] || TYPE_IN_TOP_COLUMNS;
     setState({
       ...EMPTY_CHART_READ,
