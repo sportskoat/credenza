@@ -13895,6 +13895,12 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   color: var(--cz-faint);
 }
 
+/* Manual tap that matches the app size: green "Recommended pick" kicker.
+   Overrides the faint manual color above. Green = app's pick only. */
+.cz-sizing.is-manual .cz-sizing-kicker.is-rec {
+  color: var(--cz-money);
+}
+
 .cz-sizing.is-manual {
   border-color: var(--cz-hair);
 }
@@ -14390,7 +14396,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 .cz-fitread-mark.is-warn {
-  background: var(--cz-warn);
+  /* Extreme fit (too tight OR too loose): bright red, not dull gold
+     (Kyle / O 2026-08-02). Leave --cz-warn gold for other warnings. */
+  background: var(--cz-error-text);
 }
 
 /* Reading state: a 30%-wide sweep loops over each track while the photo read
@@ -14459,7 +14467,8 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 .cz-fitread-ease.is-warn {
-  color: var(--cz-warn-ink);
+  /* Extreme fit ease number: same red as the mark tick. */
+  color: var(--cz-error-text);
 }
 
 .cz-fitread-foot {
@@ -17873,6 +17882,11 @@ input.cz-sizing-fix-size {
     color: var(--cz-sub);
     line-height: 1.4;
   }
+  /* Tap equals the app's size: green "recommended pick" (Kyle / F 2026-08-02).
+     Green has one meaning — the app's pick. Use --cz-money only. */
+  .cz-fit-result-aside.is-rec {
+    color: var(--cz-money);
+  }
   /* Pref control + Verified mark sit as one right-side group. */
   .cz-fit-result-trail {
     display: inline-flex;
@@ -18160,7 +18174,9 @@ input.cz-sizing-fix-size {
     border-radius: 0;
   }
   .cz-dpanel .cz-fitread-mark.is-warn {
-    background: #ffffff;
+    /* Desktop panel used plain white for extreme marks — no warning color.
+       Use the same red as the mobile mark (O 2026-08-02). */
+    background: var(--cz-error-text);
   }
   .cz-dpanel .cz-fitread-theirs,
   .cz-dpanel .cz-fitread-yours,
@@ -18171,7 +18187,7 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-fitread-theirs { color: #ffffff; }
   .cz-dpanel .cz-fitread-yours { color: var(--cz-sub); }
   .cz-dpanel .cz-fitread-ease { color: var(--cz-money); font-weight: 700; }
-  .cz-dpanel .cz-fitread-ease.is-warn { color: #ffffff; }
+  .cz-dpanel .cz-fitread-ease.is-warn { color: var(--cz-error-text); }
   .cz-dpanel .cz-fitread-theirs.is-unknown,
   .cz-dpanel .cz-fitread-footnote {
     color: var(--cz-faint);
