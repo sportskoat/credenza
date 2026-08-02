@@ -342,15 +342,12 @@ button {
   box-shadow:
     0 24px 64px oklch(0 0 0 / 0.24),
     0 4px 14px oklch(0 0 0 / 0.12);
+  /* Tombstone 2026-08-02 (Kyle item 7): the old flat 200ms scale(0.98)
+     entrance lived here. Open/close is now t-modal on the dialog shell
+     (250ms open / 150ms close, scale 0.96) in credenza-fashion.css — do not
+     stack a second transition on the surface. */
   opacity: 1;
-  transform: scale(1);
-  transition: opacity 200ms var(--ease-out),
-    transform 200ms var(--ease-out);
-}
-
-.cz-modal:not([open]) .cz-modal-surface {
-  opacity: 0;
-  transform: scale(0.98);
+  transform: none;
 }
 
 .cz-bottom-bar-inner {

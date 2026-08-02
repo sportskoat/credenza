@@ -5377,6 +5377,9 @@ function CredenzaApp() {
   // mounted for --modal-close-dur so the scale/fade can finish.
   const [overlayPhase, setOverlayPhase] = useState("closed");
   const overlayCloseTimer = useRef(null);
+  // DesktopDetailPanel registers its t-modal requestClose here so Escape and
+  // other shell handlers can play the close animation (Kyle item 7).
+  const desktopPanelCloseRef = useRef(null);
   const closeCarouselOverlayRef = useRef(() => {});
   const openInCarouselRef = useRef(() => {});
   const stepDetailItemRef = useRef(() => {});
@@ -8382,8 +8385,14 @@ function CredenzaApp() {
         // reaching here means the rack is at rest. Selection stays so the grid
         // highlights the item you were just viewing.
         if (ctx.carouselOverlay) {
-          // Close through the t-modal is-closing path (not a hard unmount).
+          // Wide desktop panel: requestClose plays t-modal is-closing first.
+          // Flip overlay: closeCarouselOverlay still owns the timer.
           closeCarouselOverlayRef.current();
+          return;
+        }
+        // Rack-opened desktop panel (≥1024, no overlay) — same t-modal close.
+        if (ctx.isWideDetail && ctx.expandedId && desktopPanelCloseRef.current) {
+          desktopPanelCloseRef.current();
           return;
         }
         setExpandedId(null);
@@ -8499,10 +8508,27 @@ function CredenzaApp() {
     });
   };
   openInCarouselRef.current = openInCarousel;
-  // Closing plays is-closing, then unmounts after --modal-close-dur (150ms).
+  // Flip-card overlay (<1024): plays is-closing, then unmounts after 150ms.
+  // Wide desktop panel owns its own t-modal close (DesktopDetailPanel); when
+  // the panel finishes it calls hardUnmountCarouselOverlay via onClose.
+  const hardUnmountCarouselOverlay = useCallback(() => {
+    if (overlayCloseTimer.current) {
+      clearTimeout(overlayCloseTimer.current);
+      overlayCloseTimer.current = null;
+    }
+    setExpandedId(null);
+    setCarouselOverlay(null);
+    setOverlayPhase("closed");
+  }, []);
   const closeCarouselOverlay = useCallback(() => {
     if (overlayPhase === "closing" || !carouselOverlay) return;
     setExpandedId(null);
+    // Wide desktop card: route through the panel's requestClose so the
+    // t-modal is-closing path runs (Kyle 2026-08-02 item 7).
+    if (isWideDetail && desktopPanelCloseRef.current) {
+      desktopPanelCloseRef.current();
+      return;
+    }
     setOverlayPhase("closing");
     if (overlayCloseTimer.current) clearTimeout(overlayCloseTimer.current);
     const dur =
@@ -8516,7 +8542,7 @@ function CredenzaApp() {
       setOverlayPhase("closed");
       overlayCloseTimer.current = null;
     }, dur);
-  }, [overlayPhase, carouselOverlay]);
+  }, [overlayPhase, carouselOverlay, isWideDetail]);
   closeCarouselOverlayRef.current = closeCarouselOverlay;
   // If the open item disappears (deleted from its own card back), close.
   useEffect(() => {
@@ -8871,7 +8897,7 @@ function CredenzaApp() {
   // Fix B (handoff turn 4): the two-column no-flip detail panel at ≥1024px.
   // Shared by the grid-tap overlay and the rack-tap expansion — same item,
   // same actions, only the close target differs.
-  const renderDetailPanel = (panelItem, onClose, closing) => (
+  const renderDetailPanel = (panelItem, onClose, closing = false) => (
     <DesktopDetailPanel
       item={panelItem}
       onStepItem={(step) => stepDetailItem(panelItem.id, step)}
@@ -8911,6 +8937,9 @@ function CredenzaApp() {
       onDelete={setPendingDeleteId}
       onClose={onClose}
       closing={closing}
+      registerClose={(fn) => {
+        desktopPanelCloseRef.current = fn;
+      }}
       // §11: true only when this panel arrived through the photo morph.
       morphing={morphOpenId === panelItem.id}
       shelfItems={items}
@@ -9508,7 +9537,8 @@ function CredenzaApp() {
           At ≥1024px the popup IS the two-column Fix B panel — no solo flip card. */}
       {carouselOverlay && overlayItem && viewMode !== "carousel" && (
         isWideDetail ? (
-          renderDetailPanel(overlayItem, closeCarouselOverlay, overlayPhase === "closing")
+          // Panel owns t-modal open/close; hard-unmount when its timer ends.
+          renderDetailPanel(overlayItem, hardUnmountCarouselOverlay, false)
         ) : (
         <div
           key="carousel-overlay"
@@ -9565,7 +9595,14 @@ function CredenzaApp() {
           panel above the rack (the rack itself never flips — it gets
           expandedId=null). */}
       {isWideDetail && !carouselOverlay && expandedItem
-        ? renderDetailPanel(expandedItem, () => setExpandedId(null), false)
+        ? renderDetailPanel(
+            expandedItem,
+            () => {
+              setExpandedId(null);
+              desktopPanelCloseRef.current = null;
+            },
+            false
+          )
         : null}
 
       <div className="cz-shell">

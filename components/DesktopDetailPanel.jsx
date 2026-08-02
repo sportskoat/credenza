@@ -82,7 +82,13 @@ export default function DesktopDetailPanel({
   // walker; photos keep their chevron buttons. Without the prop (tests that
   // render the panel bare) arrows fall back to paging photos.
   onStepItem = null,
+  // Legacy external closing flag (overlay parent). Prefer panel-owned phase;
+  // still honored so a parent that already flipped to "closing" paints the
+  // is-closing class while the unmount timer runs.
   closing = false,
+  // Parent registers requestClose so Escape / outside handlers can play the
+  // t-modal close animation instead of hard-unmounting the dialog.
+  registerClose = null,
   // §11 photo morph: true when this panel arrived from a card tap through a
   // view transition. The stage then claims the shared view-transition-name so
   // the card's photo grows into it, and the right rail wipes in from the
@@ -128,17 +134,44 @@ export default function DesktopDetailPanel({
   const openerRef = useRef(null);
   const menuRef = useRef(null);
   const addInputRef = useRef(null);
+  const closeTimer = useRef(null);
   const PHOTO_MAX = 12;
+  // t-modal phase (Kyle 2026-08-02 item 7 / transitions.dev): enter → open →
+  // closing. Enter mounts at scale 0.96; open scales to 1; closing scales
+  // back over 150ms before the parent unmounts.
+  const [phase, setPhase] = useState("enter"); // enter | open | closing
+  const reduced =
+    typeof window !== "undefined" &&
+    !!window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const readCloseMs = () => {
+    if (typeof window === "undefined" || !window.getComputedStyle) return 150;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(
+      "--modal-close-dur"
+    );
+    const n = parseFloat(raw);
+    return Number.isFinite(n) ? n : 150;
+  };
 
   // Use the same native dialog lifecycle as the mobile detail sheet. The
   // browser then keeps Escape and nested modal dialogs on the correct layer.
+  // Two frames before is-open so the first paint is at scale 0.96.
   useEffect(() => {
     const dialog = dialogRef.current;
     openerRef.current = document.activeElement;
     if (dialog && !dialog.open) dialog.showModal();
-    const id = requestAnimationFrame(() => closeRef.current && closeRef.current.focus());
+    let openId2 = 0;
+    const openId1 = requestAnimationFrame(() => {
+      openId2 = requestAnimationFrame(() => {
+        setPhase("open");
+        if (closeRef.current) closeRef.current.focus();
+      });
+    });
     return () => {
-      cancelAnimationFrame(id);
+      cancelAnimationFrame(openId1);
+      cancelAnimationFrame(openId2);
+      if (closeTimer.current) clearTimeout(closeTimer.current);
       if (dialog && dialog.open) dialog.close();
       const opener = openerRef.current;
       if (opener && opener.isConnected && typeof opener.focus === "function") {
@@ -156,13 +189,29 @@ export default function DesktopDetailPanel({
       // A nested native dialog owns Escape while it is open. This guard also
       // protects synthetic events and tests that bypass the browser top layer.
       if (dialogRef.current && dialogRef.current.querySelector("dialog[open]")) return;
-      if (closing) return;
+      if (phase === "closing" || closing) return;
       if (bodyFlushRef.current) bodyFlushRef.current();
       if (reason === "remove" && onDelete) onDelete(item.id);
-      onClose();
+      if (reduced) {
+        onClose();
+        return;
+      }
+      setPhase("closing");
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      closeTimer.current = setTimeout(() => {
+        closeTimer.current = null;
+        onClose();
+      }, readCloseMs());
     },
-    [closing, item.id, onClose, onDelete]
+    [closing, item.id, onClose, onDelete, phase, reduced]
   );
+
+  // Let Escape / keyboard handlers outside this tree play the same close path.
+  useEffect(() => {
+    if (typeof registerClose !== "function") return undefined;
+    registerClose(requestClose);
+    return () => registerClose(null);
+  }, [registerClose, requestClose]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -414,11 +463,18 @@ export default function DesktopDetailPanel({
     </div>
   );
 
+  const phaseClass =
+    phase === "open" && !closing
+      ? " is-open"
+      : phase === "closing" || closing
+        ? " is-closing"
+        : "";
+
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- native backdrop click; Escape closes through onCancel
     <dialog
       ref={dialogRef}
-      className={"cz-dpanel-scrim" + (closing ? " is-closing" : "")}
+      className={"cz-dpanel-scrim t-modal" + phaseClass}
       style={{ width: "auto", maxWidth: "none", height: "auto", maxHeight: "none", margin: 0, padding: 0, border: 0, color: "inherit" }}
       aria-label={item.title || "Saved item"}
       onCancel={(e) => {
