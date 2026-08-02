@@ -2356,7 +2356,8 @@ export default function DetailBody({
   // Desktop card-back v2 tabs (Fit · Chart · Photos · Details · Settings).
   // Phase 1: Fit. Phase 2: Chart. Photos / Details / Settings still placeholders.
   const [desktopTab, setDesktopTab] = useState("fit");
-  const [openRead, setOpenRead] = useState(false);
+  // Kyle 2026-08-02: measurement-by-measurement bars open by default.
+  const [openRead, setOpenRead] = useState(true);
   // Phone sheet (mobile item sheet spec §7): a size tap confirms itself with
   // a one-line toast, "Sized Medium", cleared after 1900ms. The app-wide
   // toast region lives under the native dialog's top layer, so the sheet
@@ -2374,7 +2375,8 @@ export default function DetailBody({
   useEffect(() => {
     setPane("fit");
     setDesktopTab("fit");
-    setOpenRead(false);
+    // Re-open bars on each item so the chart is not left hidden.
+    setOpenRead(true);
     setPhotoIdx(0);
   }, [item.id]);
 

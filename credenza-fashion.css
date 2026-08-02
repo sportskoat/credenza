@@ -15130,17 +15130,29 @@ input.cz-sizing-fix-size {
     transform: translate(-50%, -50%);
   }
 
+  /* Quiet text links (Kyle 2026-08-02: Replace / Enter by hand looked like
+     bright pills). Same weight as body meta, not link purple or pill shape. */
   .cz-detail-chart-link {
-    min-height: 44px;
-    padding: 0 13px;
+    min-height: 0;
+    padding: 0;
     border: 0;
-    border-radius: 999px;
+    border-radius: 0;
     background: transparent;
-    color: var(--cz-link);
+    color: var(--cz-sub);
     font-family: var(--cz-sans);
     font-size: 12.5px;
-    font-weight: 600;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
     cursor: pointer;
+    text-decoration: none;
+  }
+
+  .cz-detail-chart-link:hover {
+    color: var(--cz-ink);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--cz-ink) 40%, transparent);
+    text-underline-offset: 2px;
   }
 
   .cz-detail-scroll.has-panes .cz-detail-pane-photos .cz-detail-hero {
@@ -18263,6 +18275,7 @@ input.cz-sizing-fix-size {
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
+    color: var(--cz-sub);
   }
   .cz-chart-table {
     display: flex;
