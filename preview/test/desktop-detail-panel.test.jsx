@@ -257,6 +257,56 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(link.getAttribute("target")).toBe("_blank");
   });
 
+  // Overnight Lane 1 (2026-08-02): Details + Settings replace the "later phase"
+  // placeholder. Reuses phone facts and existing chart/agent handlers.
+  it("fills the Details and Settings tabs with real content, not placeholders", async () => {
+    const onDelete = vi.fn();
+    const onSelectAgent = vi.fn();
+    const user = userEvent.setup();
+    // titleTarget is set only when isWide; force the desktop panel path by
+    // stubbing matchMedia so ≥1024px rules and wide mount nodes apply.
+    const mm = window.matchMedia;
+    window.matchMedia = (q) => ({
+      matches: String(q).includes("1024") || String(q).includes("min-width"),
+      media: q,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    });
+    try {
+      renderPanel(
+        panelItem({ project: "July haul", colorway: "Bone", note: "QC pending" }),
+        { onDelete, onSelectAgent, preferredAgent: "superbuy" }
+      );
+
+      // Desktop tabs are Fit / Details / Settings (no Photos — left strip owns album).
+      const tabs = screen.getAllByRole("tab");
+      expect(tabs.map((t) => t.textContent)).toEqual(["Fit", "Details", "Settings"]);
+      expect(document.body.textContent).not.toMatch(/ships in a later phase/i);
+
+      await user.click(screen.getByRole("tab", { name: "Details" }));
+      const details = document.querySelector(".cz-desk-tab-details");
+      expect(details).toBeTruthy();
+      expect(within(details).getByText("July haul")).toBeInTheDocument();
+      expect(within(details).getByText("Bone")).toBeInTheDocument();
+      expect(within(details).getByRole("link", { name: /replux/i })).toBeInTheDocument();
+      expect(within(details).getByDisplayValue("QC pending")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("tab", { name: "Settings" }));
+      const settings = document.querySelector(".cz-desk-tab-settings");
+      expect(settings).toBeTruthy();
+      expect(within(settings).getByRole("button", { name: /Upload chart photo/i })).toBeInTheDocument();
+      expect(within(settings).getByRole("button", { name: /Enter chart by hand/i })).toBeInTheDocument();
+      expect(within(settings).getByRole("button", { name: /Remove this card/i })).toBeInTheDocument();
+      await user.click(within(settings).getByRole("button", { name: /Remove this card/i }));
+      expect(onDelete).toHaveBeenCalledWith("dp-1");
+    } finally {
+      window.matchMedia = mm;
+    }
+  });
+
   it("filmstrip has no per-tile trash; delete lives in the card actions menu", async () => {
     const onAttachPhoto = vi.fn();
     const onRemovePhoto = vi.fn();
