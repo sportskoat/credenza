@@ -16,6 +16,7 @@ import {
   parseSizeChart,
   recommendSize,
   sizeChartTextFor,
+  elasticEvidenceTextFor,
 } from "../credenza-fashion.jsx";
 import SizeChartTable from "./SizeChartTable.jsx";
 
@@ -128,7 +129,7 @@ export default function SizeRecommendation({
           fitPref,
           null,
           item.title,
-          sizeChartTextFor(item)
+          elasticEvidenceTextFor(item)
         )
       : null;
   const recSize = rec && rec.size ? rec.size : null;

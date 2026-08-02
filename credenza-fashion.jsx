@@ -1346,9 +1346,11 @@ export const GARMENT_WORD = {
 // nudging a hand pick would answer a tap with a different size.
 // Optional title (6th arg): on a confirmed short-sleeve garment the sleeve
 // penalty is skipped — a tee's 22 cm sleeve is not a fit failure.
-// Optional notesText (7th arg): the customer's saved chart/description text.
-// Read only for the waist-floor elastic escape hatch below — an elastic or
-// drawstring word can sit in the notes even when the title is generic.
+// Optional notesText (7th arg): elastic-evidence text — pass
+// elasticEvidenceTextFor(item), never sizeChartTextFor(item). The latter
+// returns the machine-parsed chart ALONE once one exists, which hides an
+// "elastic waistband" sitting in the free-text fields beside a numeric
+// chart. Read only for the waist-floor elastic escape hatch below.
 export function recommendSize(
   chart,
   profile,
@@ -1443,10 +1445,17 @@ export function recommendSize(
   // drawstring waistband is the one real exception — those charts print the
   // relaxed number — so evidence in the title or saved notes raises the
   // floor to a bounded −4cm instead of removing it.
+  // C's audit, round 2: runShift must NOT enter this check. A "runs big"
+  // chart's -4cm runShift is a SCORING adjustment (the label undersells the
+  // garment, so aim smaller) — it is not a physical fact about the fabric.
+  // Folding it into the floor let a runs-big chart pass a waist genuinely
+  // 4cm smaller than the body straight through a "hard" gate. The floor
+  // compares the seller's raw number against the body, full stop; runShift
+  // stays where it always did, inside target/score.
   const WAIST_FLOOR_ELASTIC_CM = -4;
   const applyWaistFloor = isBottoms && primaryKey === "waist";
   const elasticWaist = applyWaistFloor && hasElasticWaist(title, notesText);
-  const waistFloorOk = (r) => r[primaryKey] - p[bodyKey] - runShift >= (elasticWaist ? WAIST_FLOOR_ELASTIC_CM : 0);
+  const waistFloorOk = (r) => r[primaryKey] - p[bodyKey] >= (elasticWaist ? WAIST_FLOOR_ELASTIC_CM : 0);
   // Never return no pick (Kyle's favor-up instinct, 2026-08-01 01:04Z): when
   // every row fails the floor, keep the largest waist on the chart. It is
   // still the closest the seller offers, and the existing negative-ease
@@ -1720,7 +1729,7 @@ export function recommendSize(
   // Optional 4th arg: per-category taste (length + looseness). Looseness can
   // nudge one size up/down; the length axis moves the target length above.
   if (forcedRow) return { ...baseRec, lengthWin: null, legLengthWin: null };
-  return applyFitPreference(baseRec, chart, fitPref, category);
+  return applyFitPreference(baseRec, chart, fitPref, category, applyWaistFloor ? floorCandidates : null);
 }
 
 // ── Fit read rows (split-rail handoff 2026-07-28) ──
@@ -2112,7 +2121,12 @@ function bandPrefLine(category, fitPref, rec) {
 
 // Apply per-category taste to a base recommendSize result. Safe no-op when
 // fitPref is null, dismissed, or has no looseness nudge.
-export function applyFitPreference(rec, chart, fitPref, category) {
+// Optional 5th arg eligibleRows (C's audit, 2026-08-02): on a waist-floor
+// chart, the Slim nudge must never step the ladder onto a row the floor
+// already rejected — a full-chart ladder let a safe XL nudge back down to
+// a floor-rejected L. Pass floorCandidates here to confine the nudge to
+// rows that passed the floor; every other caller keeps the full chart.
+export function applyFitPreference(rec, chart, fitPref, category, eligibleRows = null) {
   if (!rec || !rec.size || rec.missing) return rec;
   if (!fitPrefHasChoice(fitPref)) {
     return {
@@ -2130,7 +2144,7 @@ export function applyFitPreference(rec, chart, fitPref, category) {
   // they keep the row nudge.
   const bandDidLooseness = !!rec.easeBand;
   const nudge = bandDidLooseness ? 0 : loosenessNudge(fitPref.looseness);
-  const ladder = (chart && Array.isArray(chart.rows) ? chart.rows : []).filter(
+  const ladder = (eligibleRows || (chart && Array.isArray(chart.rows) ? chart.rows : [])).filter(
     (r) => r && r.size
   );
   const idx = ladder.findIndex(
@@ -5001,7 +5015,7 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
     catPref,
     null,
     item.title,
-    sizeChartTextFor(item)
+    elasticEvidenceTextFor(item)
   );
   return rec && rec.size ? String(rec.size).trim() : null;
 }
@@ -5320,6 +5334,19 @@ export function sizeChartTextFor(item) {
     item.rawText,
     item.note,
   ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// C's audit, round 2 (2026-08-02): sizeChartTextFor returns sizeChartText
+// ALONE the moment a machine chart has parsed, which starves the waist-floor
+// elastic detector — a numeric parsed chart hides "elastic waistband" sitting
+// in summary/sizeNotes/rawText/note. Chart PARSING must keep that early
+// return (a machine field wins, full stop); elastic EVIDENCE must not. This
+// reads every free-text field regardless of which one fed the parser.
+export function elasticEvidenceTextFor(item) {
+  if (!item) return "";
+  return [item.sizeChartText, item.sizeNotes, item.summary, item.rawText, item.note]
     .filter(Boolean)
     .join("\n");
 }

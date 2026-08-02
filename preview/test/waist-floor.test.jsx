@@ -1,4 +1,5 @@
-// The hard waist floor (C's engine audit + F's spec, 2026-08-02):
+// The hard waist floor (C's engine audit + F's spec, 2026-08-02; round 2
+// corrections from C's hold on PR #76, same day):
 //
 //   1. A non-stretch waistband cannot fit a body bigger than its own
 //      measurement, so garment waist must be >= body waist BEFORE scoring —
@@ -13,9 +14,18 @@
 //      largest waist on the chart (Kyle's favor-up instinct, 2026-08-01).
 //   4. Shirts never see this — the floor only applies to a bottoms chart
 //      scored on waist.
+//   5. The floor is a PHYSICAL check: raw garment − body only. A run-hint
+//      shift (runShift) is a scoring adjustment, not a fact about the
+//      fabric, and must never enter this comparison — C caught it folded
+//      in, which let a runs-big chart pass a waist genuinely 4cm too small.
+//   6. A looseness taste (Slim) can only nudge among rows that already
+//      passed the floor — C caught the nudge ladder built from the full
+//      chart, which could step a safe pick back onto a floor-rejected row.
 import { describe, expect, it } from "vitest";
 
-const { parseSizeChart, recommendSize } = await import("../../credenza-fashion.jsx");
+const { parseSizeChart, recommendSize, elasticEvidenceTextFor, sizeChartTextFor } = await import(
+  "../../credenza-fashion.jsx"
+);
 
 const chartOf = (text) => parseSizeChart(text);
 
@@ -86,5 +96,95 @@ describe("the hard waist floor", () => {
     const rec = recommendSize(chart, profile, "shirt", null, null, "Elastic waistband hoodie");
     expect(rec.size).toBe("M");
     expect(rec.primaryKey).toBe("chest");
+  });
+});
+
+describe("the waist floor is a physical check, not a scored one (C's hold, round 2)", () => {
+  it("a 'runs big' chart cannot pass a waist genuinely too small by exactly the run-shift amount", () => {
+    // Body waist 80. S is 4cm under (raw ease -4) — the exact amount the old
+    // code let a runs-big -4cm runShift cancel out (76-80-(-4)=0, wrongly
+    // eligible). The physical floor must reject it regardless of the hint.
+    const chart = chartOf("S: waist 76, hip 100, pants length 60\nM: waist 90, hip 110, pants length 64\nRuns big");
+    const rec = recommendSize(chart, { waist: 80 }, "pants");
+    expect(rec.size, "S must fail the floor on its raw ease, run hint or not").toBe("M");
+  });
+
+  it("a 'runs small' chart must not wrongly reject a waist that is not actually too small", () => {
+    // Body waist 80. S sits exactly on the body's own waist (raw ease 0,
+    // physically fine) and is also the better score. The old code's
+    // runShift subtraction (+4 for "small") would have read this as ease -4
+    // and floored S out, forcing the worse-scoring M to win instead.
+    const chart = chartOf("S: waist 80, hip 100, pants length 60\nM: waist 95, hip 110, pants length 64\nRuns small");
+    const rec = recommendSize(chart, { waist: 80 }, "pants");
+    expect(rec.size, "S is physically fine and the better score — it must win").toBe("S");
+  });
+});
+
+describe("a looseness taste cannot nudge past the waist floor (C's hold, round 2)", () => {
+  it("Kyle's exact shorts card stays X-Large under a Slim preference", () => {
+    const chart = chartOf(
+      "M: waist 75.946, hip 103.886, pants length 48.006\n" +
+        "L: waist 80.01, hip 107.95, pants length 49.022\n" +
+        "XL: waist 84.074, hip 112.014, pants length 50.038"
+    );
+    const profile = { waist: 83.82, hip: 99.06, shortsLength: 39.37 };
+    const rec = recommendSize(chart, profile, "shorts", { looseness: "slim" });
+    // A full-chart ladder would let Slim step from XL down onto the
+    // floor-rejected L. The ladder must be confined to floorCandidates,
+    // which here is XL alone, so there is nowhere to nudge.
+    expect(rec.size).toBe("XL");
+  });
+
+  it("the all-rows-fail fallback cannot be nudged down to an even smaller row", () => {
+    const chart = chartOf("M: waist 80, hip 100, pants length 100\nL: waist 84, hip 104, pants length 104");
+    const profile = { waist: 90 };
+    const rec = recommendSize(chart, profile, "pants", { looseness: "slim" });
+    // The fallback already picked the largest available (L). A Slim nudge
+    // over a full-chart ladder would have stepped down to M, which fits the
+    // body even worse than L does.
+    expect(rec.size).toBe("L");
+  });
+});
+
+describe("elasticEvidenceTextFor reads every free-text field, unlike sizeChartTextFor", () => {
+  it("keeps elastic wording visible even when a numeric chart has already parsed", () => {
+    const item = {
+      sizeChartText: "M: waist 76, hip 100\nL: waist 84, hip 108",
+      summary: "Elastic waistband cargo shorts, one size fits most",
+    };
+    // Chart PARSING still prefers the machine field alone — unchanged.
+    expect(sizeChartTextFor(item)).not.toMatch(/elastic/i);
+    // Elastic EVIDENCE must not be starved by that same precedence.
+    expect(elasticEvidenceTextFor(item)).toMatch(/elastic/i);
+  });
+
+  it("reads elastic wording from sizeNotes when the title is generic and no sizeChartText is set", () => {
+    const item = { title: "Cargo shorts", sizeNotes: "松紧腰 relaxed fit, see size chart photo" };
+    expect(elasticEvidenceTextFor(item)).toMatch(/松紧腰/);
+  });
+
+  it("feeds a real recommendSize pick: numeric sizeChartText hides elastic evidence sizeChartTextFor would have missed", () => {
+    // Body waist 80, target ease 82. S reads 2cm smaller than the body but
+    // scores closer; M reads 6cm over. Only elastic evidence (bounded to
+    // -4cm) admits S.
+    const item = {
+      sizeChartText: "S: waist 78, hip 100, pants length 60\nM: waist 88, hip 110, pants length 64",
+      title: "Cargo shorts",
+      summary: "松紧 elastic drawstring waist",
+    };
+    const chart = parseSizeChart(sizeChartTextFor(item));
+    const profile = { waist: 80 };
+    const withOldHelper = recommendSize(chart, profile, "pants", null, null, item.title, sizeChartTextFor(item));
+    expect(withOldHelper.size, "sizeChartTextFor alone hides the elastic evidence in summary").toBe("M");
+    const withEvidenceHelper = recommendSize(
+      chart,
+      profile,
+      "pants",
+      null,
+      null,
+      item.title,
+      elasticEvidenceTextFor(item)
+    );
+    expect(withEvidenceHelper.size, "elasticEvidenceTextFor surfaces it, so S can win on score").toBe("S");
   });
 });

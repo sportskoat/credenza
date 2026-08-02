@@ -43,6 +43,7 @@ import {
   resolveDisplaySize,
   sellerStoreUrl,
   sizeChartTextFor,
+  elasticEvidenceTextFor,
   usualSizeForItem,
   useWriteThroughDraft,
   usePrefersReducedMotion,
@@ -155,7 +156,7 @@ function useSizeVerdict(
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
   const rec =
     chart && profile
-      ? recommendSize(chart, profile, item.category, fitPref, null, item.title, sizeChartTextFor(item))
+      ? recommendSize(chart, profile, item.category, fitPref, null, item.title, elasticEvidenceTextFor(item))
       : null;
   const recSize = rec && rec.size ? rec.size : null;
   // `rec` is the advice; `shown` is what every printed number describes. They
@@ -164,7 +165,7 @@ function useSizeVerdict(
   // the tap, the advice line keeps the recommendation).
   const pickRead =
     chosenSize && chart && profile
-      ? recommendSize(chart, profile, item.category, fitPref, chosenSize, item.title, sizeChartTextFor(item))
+      ? recommendSize(chart, profile, item.category, fitPref, chosenSize, item.title, elasticEvidenceTextFor(item))
       : null;
   const overridden = !!(
     pickRead &&
@@ -1014,7 +1015,7 @@ function SellerChartFold({
         fitPref,
         row.size,
         item.title,
-        sizeChartTextFor(item)
+        elasticEvidenceTextFor(item)
       );
       const readRows = fitReadRows(chart, sizeRec, profile, item.category, item.title);
       const map = {};
