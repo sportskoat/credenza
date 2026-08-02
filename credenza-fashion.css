@@ -16035,7 +16035,7 @@ input.cz-sizing-fix-size {
   justify-content: center;
   /* White face + black line so the chevron still reads as its own button
      next to Buy (Kyle 2026-08-02). Dark icon on white, not action-text. */
-  border: 1px solid #050506;
+  border: 0;
   border-left: 1px solid #050506;
   background: #ffffff;
   color: #050506;
@@ -17155,7 +17155,7 @@ input.cz-sizing-fix-size {
   }
   .cz-dpanel-body .cz-detail-foot .cz-buy-notch-toggle {
     flex: 0 0 42px;
-    border: 1px solid #050506;
+    border: 0;
     border-left: 1px solid #050506;
     background: #ffffff;
     color: #050506;
@@ -17899,7 +17899,7 @@ input.cz-sizing-fix-size {
     font-size: 14px;
     font-weight: 650;
     letter-spacing: -0.01em;
-    color: #050506;
+    color: var(--cz-ink);
     background: transparent;
     border: 0;
   }
@@ -17943,7 +17943,7 @@ input.cz-sizing-fix-size {
     flex: 0 0 44px;
     width: 44px;
     height: 44px;
-    border: 1px solid #050506;
+    border: 0;
     border-left: 1px solid #050506;
     border-radius: 0 999px 999px 0;
     background: #ffffff;

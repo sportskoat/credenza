@@ -402,6 +402,20 @@ describe("DetailBody draft ownership", () => {
 });
 
 describe("DetailBody footer", () => {
+  it("keeps the desktop price visible and the agent button flush", () => {
+    const priceRule = CSS.match(
+      /\.cz-dpanel-footer-slot \.cz-detail-foot-price\s*\{([^}]*)\}/
+    )?.[1];
+    const toggleRule = CSS.match(
+      /\.cz-dpanel-footer-slot \.cz-buy-notch-toggle\s*\{([^}]*)\}/
+    )?.[1];
+
+    expect(priceRule).toContain("color: var(--cz-ink)");
+    expect(priceRule).not.toContain("color: #050506");
+    expect(toggleRule).toContain("border: 0");
+    expect(toggleRule).toContain("border-left: 1px solid #050506");
+  });
+
   it("renders a price-only footer without the Buy disclosure", () => {
     const priceOnly = item("price", {
       url: "https://seller.x.yupoo.com/albums/1",
