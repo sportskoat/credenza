@@ -410,11 +410,14 @@ function SizingBlock({
       : []);
 
   // Card-back v2 copy: "Coat · your pick, we'd take the Medium"
+  // Tap equals rec → green "recommended pick" (Kyle / F 2026-08-02). Green
+  // means the app's pick only — see credenza-fashion.css green rule.
+  const agreedWithRec = Boolean(isManual && recSize && !overrodeName);
   const editorialAside = (() => {
     if (!editorial) return aside;
     const type = typeWord || "Piece";
     if (overrodeName) return type + " · your pick, we'd take the " + overrodeName;
-    if (isManual && recSize) return type + " · your pick";
+    if (isManual && recSize) return type + " · recommended pick";
     if (recSize) return type + " · we would take the " + (formatSizeToken(recSize) || recSize);
     if (usualSize) return type + " · your usual size";
     return type;
@@ -422,13 +425,26 @@ function SizingBlock({
   const confidenceLabel = precise || (recSize && chart)
     ? "Verified fit"
     : "Your usual size";
+  const kickerLabel = !isManual
+    ? "AI size"
+    : agreedWithRec
+      ? "Recommended pick"
+      : "Your pick";
 
   return (
     <section className={"cz-sizing" + (isManual ? " is-manual" : "") + (editorial ? " is-editorial" : "")} aria-label="Sizing">
       {editorial ? (
         <div className="cz-fit-result">
           <span className="cz-fit-result-size">{heroLabel || "—"}</span>
-          {editorialAside ? <span className="cz-fit-result-aside">{editorialAside}</span> : null}
+          {editorialAside ? (
+            <span
+              className={
+                "cz-fit-result-aside" + (agreedWithRec ? " is-rec" : "")
+              }
+            >
+              {editorialAside}
+            </span>
+          ) : null}
           <span className="cz-fit-result-trail">
             {onAskPref && item ? (
               <button
@@ -449,7 +465,13 @@ function SizingBlock({
         <>
           <div className="cz-sizing-head">
             <span className="cz-sizing-dot" aria-hidden="true" />
-            <span className="cz-sizing-kicker">{isManual ? "Your pick" : "AI size"}</span>
+            <span
+              className={
+                "cz-sizing-kicker" + (agreedWithRec ? " is-rec" : "")
+              }
+            >
+              {kickerLabel}
+            </span>
             {typeWord ? <span className="cz-sizing-type">{typeWord}</span> : null}
             {provenance ? <span className="cz-sizing-prov">{provenance}</span> : null}
           </div>

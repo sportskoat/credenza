@@ -13959,6 +13959,12 @@ input.cz-detail-size-choice.is-custom:focus-visible {
   color: var(--cz-faint);
 }
 
+/* Manual tap that matches the app size: green "Recommended pick" kicker.
+   Overrides the faint manual color above. Green = app's pick only. */
+.cz-sizing.is-manual .cz-sizing-kicker.is-rec {
+  color: var(--cz-money);
+}
+
 .cz-sizing.is-manual {
   border-color: var(--cz-hair);
 }
@@ -14295,16 +14301,20 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 /* ── Fit read table (split-rail handoff 2026-07-28) ──
-   Per-measurement fit bars under the pick. Desktop grid literals are
-   load-bearing: 70px name / track / 40 / 40 / 54, gap 10, rows 7px 0 over a
-   top hairline. The phone override below narrows every column. */
+   Per-measurement fit bars under the pick. Desktop grid: 70px name / 1fr
+   track / three number columns sized to content with a floor so cm values
+   like "116.5cm" and "+23.0cm" never collide (F 2026-08-02). ch units keep
+   every row's columns aligned — max-content would make short/long rows
+   ragged. Gap 10, rows 7px 0 over a top hairline. Phone override below. */
 .cz-fitread {
   margin-top: 13px;
 }
 
 .cz-fitread-row {
   display: grid;
-  grid-template-columns: 70px 1fr 40px 40px 54px;
+  /* ch sized to CM worst case ("116.5cm", "+23.0cm") so columns match
+     across rows. Floor keeps short values (e.g. "46cm") from collapsing. */
+  grid-template-columns: 70px 1fr max(40px, 8ch) max(40px, 8ch) max(54px, 9ch);
   gap: 10px;
   align-items: center;
   padding: 7px 0;
@@ -14439,6 +14449,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
   height: 13px;
   border-radius: 1.5px;
   background: var(--cz-money);
+  /* Center the tick on its percent so the right edge at 90% still sits on
+     the bar, not into the number column (O 2026-08-02). */
+  transform: translateX(-50%);
   /* Kyle 2026-07-31: "make the sizing graph move smoothly when you click a
      new size." The mark slides to the new numbers instead of jumping. */
   transition: left var(--dur-open) var(--ease-out), background-color var(--dur-open) var(--ease-out);
@@ -14451,7 +14464,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 .cz-fitread-mark.is-warn {
-  background: var(--cz-warn);
+  /* Extreme fit (too tight OR too loose): bright red, not dull gold
+     (Kyle / O 2026-08-02). Leave --cz-warn gold for other warnings. */
+  background: var(--cz-error-text);
 }
 
 /* Reading state: a 30%-wide sweep loops over each track while the photo read
@@ -14500,6 +14515,7 @@ input.cz-sizing-cell.is-custom:focus-visible {
   font-weight: 500;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .cz-fitread-theirs {
@@ -14520,7 +14536,8 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 .cz-fitread-ease.is-warn {
-  color: var(--cz-warn-ink);
+  /* Extreme fit ease number: same red as the mark tick. */
+  color: var(--cz-error-text);
 }
 
 .cz-fitread-foot {
@@ -14551,11 +14568,11 @@ input.cz-sizing-cell.is-custom:focus-visible {
   cursor: pointer;
 }
 
-/* Phone: every column narrows (54 / track / 30 / 30 / 40, gap 8, rows 8px 0)
-   and the mono numbers drop a half step so five columns fit a 360px card. */
+/* Phone: name + floors narrow (54 / track / 30 / 30 / 40, gap 8, rows 8px 0).
+   Number columns keep the same 8ch/9ch CM worst-case width. Mono stays 11px. */
 @media (max-width: 480px) {
   .cz-fitread-row {
-    grid-template-columns: 54px 1fr 30px 30px 40px;
+    grid-template-columns: 54px 1fr max(30px, 8ch) max(30px, 8ch) max(40px, 9ch);
     gap: 8px;
     padding: 8px 0;
   }
@@ -17934,6 +17951,11 @@ input.cz-sizing-fix-size {
     color: var(--cz-sub);
     line-height: 1.4;
   }
+  /* Tap equals the app's size: green "recommended pick" (Kyle / F 2026-08-02).
+     Green has one meaning — the app's pick. Use --cz-money only. */
+  .cz-fit-result-aside.is-rec {
+    color: var(--cz-money);
+  }
   /* Pref control + Verified mark sit as one right-side group. */
   .cz-fit-result-trail {
     display: inline-flex;
@@ -18197,7 +18219,9 @@ input.cz-sizing-fix-size {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 0;
+    /* Horizontal gap so THEIRS / YOURS / EASE never glue together
+       (column gap was 0 — CM values read as one jammed string). */
+    gap: 8px 10px;
   }
   .cz-dpanel .cz-fitread-name {
     flex: 0 0 84px;
@@ -18221,18 +18245,31 @@ input.cz-sizing-fix-size {
     border-radius: 0;
   }
   .cz-dpanel .cz-fitread-mark.is-warn {
-    background: #ffffff;
+    /* Desktop panel used plain white for extreme marks — no warning color.
+       Use the same red as the mobile mark (O 2026-08-02). */
+    background: var(--cz-error-text);
   }
   .cz-dpanel .cz-fitread-theirs,
   .cz-dpanel .cz-fitread-yours,
   .cz-dpanel .cz-fitread-ease {
     font-family: var(--cz-mono);
     font-size: 12px;
+    /* Match the base grid floors so "116.5cm" / "+23.0cm" stay legible
+       and columns align across rows (F 2026-08-02 number legibility). */
+    flex: 0 0 auto;
+    min-width: max(40px, 8ch);
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
   .cz-dpanel .cz-fitread-theirs { color: #ffffff; }
   .cz-dpanel .cz-fitread-yours { color: var(--cz-sub); }
-  .cz-dpanel .cz-fitread-ease { color: var(--cz-money); font-weight: 700; }
-  .cz-dpanel .cz-fitread-ease.is-warn { color: #ffffff; }
+  .cz-dpanel .cz-fitread-ease {
+    min-width: max(54px, 9ch);
+    color: var(--cz-money);
+    font-weight: 700;
+  }
+  .cz-dpanel .cz-fitread-ease.is-warn { color: var(--cz-error-text); }
   .cz-dpanel .cz-fitread-theirs.is-unknown,
   .cz-dpanel .cz-fitread-footnote {
     color: var(--cz-faint);
