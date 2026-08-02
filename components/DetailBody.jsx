@@ -1817,7 +1817,9 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
 // Kyle 2026-08-02: always aim for two clear sentences (primary + one more
 // from fitRows or the next size up). Prefer real ease numbers over vague
 // "inside tolerance" when the data is there.
-function sizeAnalysisParagraph(verdict, fitRows, units, category) {
+// Kyle 2026-08-02: when a fit preference is saved, end with
+// "We recommend the X because your preference is regular shirts."
+function sizeAnalysisParagraph(verdict, fitRows, units, category, fitPref) {
   const shown = verdict && (verdict.shown || verdict.rec);
   if (!shown || !shown.size) return "";
   if (shown.garment == null || shown.body == null || shown.diff == null) return "";
@@ -1958,9 +1960,45 @@ function sizeAnalysisParagraph(verdict, fitRows, units, category) {
     }
   }
 
+  // Final sentence names the saved taste and the size we pick for it
+  // (Kyle 2026-08-02: "because your preference is regular shirts / long pants").
+  let prefLine = "";
+  const rec = verdict.rec;
+  if (rec && rec.size && fitPref && fitPrefHasChoice(fitPref)) {
+    let prefWord = "";
+    // Same priority as the chip left of Verified fit: looseness first, then length.
+    if (fitPref.looseness) {
+      prefWord = (fitPrefLabel(category, "looseness", fitPref.looseness) || "").toLowerCase();
+    } else if (fitPref.length) {
+      prefWord = (fitPrefLabel(category, "length", fitPref.length) || "").toLowerCase();
+    }
+    const catWord =
+      category === "pants"
+        ? "pants"
+        : category === "shorts"
+          ? "shorts"
+          : category === "outerwear"
+            ? "jackets"
+            : category === "shirt"
+              ? "shirts"
+              : "pieces";
+    if (prefWord) {
+      const recName = formatSizeToken(rec.size) || rec.size;
+      prefLine =
+        "We recommend the " +
+        recName +
+        " because your preference is " +
+        prefWord +
+        " " +
+        catWord +
+        ".";
+    }
+  }
+
   let text = primary;
   if (secondary) text += " " + secondary;
   if (nextUp) text += " " + nextUp;
+  if (prefLine) text += " " + prefLine;
   return text;
 }
 
@@ -3127,7 +3165,7 @@ export default function DetailBody({
   ];
   const desktopAnalysis =
     isDesktopPanel && fitSummaryOn && !noChart
-      ? sizeAnalysisParagraph(verdict, fitRows, measureUnits, item.category)
+      ? sizeAnalysisParagraph(verdict, fitRows, measureUnits, item.category, fitPref)
       : "";
   const onDesktopTabKey = (event) => {
     if (!isDesktopPanel) return;
