@@ -1650,7 +1650,10 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     if (ease != null && target) {
       // Band center 51%, half-width 15%: ease at ideal → 51, at ideal±span →
       // the band edges (36 / 66). Beyond that the mark keeps moving and warns.
-      mark = Math.max(2, Math.min(98, 51 + ((ease - target.ideal) / target.span) * 15));
+      // Cap at 6–90 so an extreme gap (e.g. 8"+ longer sleeve) sits on the
+      // bar with room before the THEIRS numbers — not flush on the text
+      // (O / Kyle 2026-08-02: white tick was lost against "32.3\"").
+      mark = Math.max(6, Math.min(90, 51 + ((ease - target.ideal) / target.span) * 15));
       warn = mark < 36 || mark > 66;
     }
     rows.push({

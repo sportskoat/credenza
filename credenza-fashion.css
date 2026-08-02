@@ -14375,6 +14375,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
   height: 13px;
   border-radius: 1.5px;
   background: var(--cz-money);
+  /* Center the tick on its percent so the right edge at 90% still sits on
+     the bar, not into the number column (O 2026-08-02). */
+  transform: translateX(-50%);
   /* Kyle 2026-07-31: "make the sizing graph move smoothly when you click a
      new size." The mark slides to the new numbers instead of jumping. */
   transition: left var(--dur-open) var(--ease-out), background-color var(--dur-open) var(--ease-out);

@@ -80,6 +80,24 @@ describe("fitReadRows", () => {
     expect(chest.mark).toBeGreaterThan(66);
   });
 
+  it("keeps an extreme sleeve mark on the bar, not flush on the numbers", () => {
+    // Kyle's oversized jacket case: garment sleeve far longer than saved
+    // wrist length. Uncapped math would pin past 100%; the clamp must leave
+    // room before the THEIRS column (O 2026-08-02).
+    // Mirror the working long-sleeve fixture shape (sleeve 58–60 + arm 68).
+    const chart = parseSizeChart(
+      "M: chest 116, shoulder 46, length 70, sleeve 82\nL: chest 120, shoulder 48, length 72, sleeve 84",
+    );
+    const profile = { chest: 105, sleeve: 61 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "Oxford shirt");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "Oxford shirt");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve, JSON.stringify(rows)).toBeTruthy();
+    expect(sleeve.ease, JSON.stringify(sleeve)).toBeGreaterThan(15);
+    expect(sleeve.warn).toBe(true);
+    expect(sleeve.mark).toBe(90);
+  });
+
   it("orders a bottoms chart waist-first and grades 裤长 against the saved length", () => {
     const chart = parseSizeChart(BOTTOM_TEXT);
     // Kyle 2026-07-30: the saved trouser length is waistband to hem, the same
