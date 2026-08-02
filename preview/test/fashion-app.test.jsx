@@ -9,6 +9,20 @@ const PREFS_KEY = "credenza-prefs-v1";
 const PHOTO_1 = "data:image/png;base64,iVBORw0KGgo=";
 const PHOTO_2 = "data:image/png;base64,iVBORw0KGgoA=";
 const PHOTO_3 = "data:image/png;base64,iVBORw0KGgoAA=";
+// SettingsPage is a real code-split route. The full 94-file run can keep
+// Vite busy long enough for its first transform to exceed Testing Library's
+// one-second default even though navigateSettings has already changed the
+// URL. Keep the route assertion strict, then give only that lazy boundary
+// enough time to settle under full-suite load.
+const SETTINGS_ROUTE_TIMEOUT = 3000;
+
+function findSettingsDialog() {
+  return screen.findByRole(
+    "dialog",
+    { name: "Settings" },
+    { timeout: SETTINGS_ROUTE_TIMEOUT }
+  );
+}
 
 function installShim(initial = {}) {
   const data = { ...initial };
@@ -569,7 +583,8 @@ describe("Desktop sizing destination", () => {
     // Phase 4: the sizes editor is the routed settings page now, not a modal
     // over the detail. The detail stays mounted underneath.
     await user.click(editSizes);
-    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/sizes");
+    expect(await findSettingsDialog()).toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
@@ -1635,7 +1650,8 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     // Phase 4: same destination as desktop — the routed sizes section.
     await user.click(editSizes);
-    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/sizes");
+    expect(await findSettingsDialog()).toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { name: "Sizes and measurements." })
     ).toBeInTheDocument();
