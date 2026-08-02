@@ -10592,6 +10592,82 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
 }
 
+/* ─── Currency picker (lane 2, 2026-08-02) ─────────────────────────────────
+   Same row recipe as the agent sheet: one list, active mark, quiet sample.
+   ModalShell already handles phone bottom-sheet vs desktop dialog. */
+.cz-currency-sheet {
+  padding: 20px 22px 22px;
+}
+.cz-currency-kicker {
+  margin-bottom: 10px;
+}
+.cz-currency-list {
+  display: grid;
+  gap: 6px;
+}
+.cz-currency-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-currency-row.is-active {
+  background: var(--cz-card);
+  border-color: var(--cz-hair-strong);
+  color: var(--cz-ink);
+  font-weight: 700;
+}
+.cz-currency-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.cz-currency-code {
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: inherit;
+}
+.cz-currency-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cz-faint);
+}
+.cz-currency-row.is-active .cz-currency-name {
+  color: var(--cz-sub);
+}
+.cz-currency-sample {
+  flex: 0 0 auto;
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+.cz-currency-check-slot {
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+}
+.cz-currency-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+}
+
 
 /* ─── Masthead site nav (Kyle 2026-07-27) ──────────────────────────────────
    The row of page links between the brand and the avatar. The masthead is

@@ -9,13 +9,13 @@ export default function ShelfDefaultsSection() {
     fitSummary,
     fitDetail,
     onOpenAgent,
-    onCycleCurrency,
+    onOpenCurrency,
     onToggleFitSummary,
     onCycleFitDetail,
   } = useSettings();
   const rows = [
     ["Default agent", agentLabel || "None picked", "Also on any Buy button. Your pick sticks.", onOpenAgent],
-    ["Primary currency", pricePrimary, "Also the currency chip on the shelf total.", onCycleCurrency],
+    ["Primary currency", pricePrimary, "Also the currency chip on the shelf total.", onOpenCurrency],
     ["Fit summary", fitSummary ? "On" : "Off", "Also the size paragraph of any card.", onToggleFitSummary],
     [
       "Fit detail",

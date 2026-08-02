@@ -82,6 +82,7 @@ import "./credenza-fashion.css";
 const CaptureSheet = lazy(() => import("./sheets/CaptureSheet.jsx"));
 const SearchSheet = lazy(() => import("./sheets/SearchSheet.jsx"));
 const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
+const CurrencySheet = lazy(() => import("./sheets/CurrencySheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsPage = lazy(() => import("./settings/SettingsPage.jsx"));
 const AvatarMenu = lazy(() => import("./components/AvatarMenu.jsx"));
@@ -495,41 +496,113 @@ function guessFashionCategory(text) {
   return "";
 }
 
-// USD-first display. Prefer the resolved USD conversion; fall back to a raw
-// USD price; only show CNY alone when no USD is known. Secondary currency
-// trails after a middle-dot when both are available.
-// Settings will later let people flip primary currency — see
-// docs/settings-toggles.md.
-export function formatMoney(amount, currency) {
-  if (amount == null || !isFinite(Number(amount))) return "";
-  const n = Number(amount);
-  const pretty =
-    currency === "USD" || currency === "EUR"
-      ? (Number.isInteger(n) ? String(n) : n.toFixed(2))
-      : Number.isInteger(n)
-        ? String(n)
-        : String(Math.round(n * 100) / 100);
-  if (currency === "USD") return "$" + pretty;
-  if (currency === "EUR") return "€" + pretty;
-  if (currency === "CNY") return "¥" + pretty;
-  return currency + " " + pretty;
-}
+// Top-8 display currencies (lane 2, 2026-08-02). Order is the picker order.
+// Stored item prices stay CNY/USD/EUR as before; the primary only changes
+// what the shelf labels and totals show.
+export const PRICE_PRIMARIES = ["USD", "EUR", "CNY", "GBP", "JPY", "KRW", "CAD", "AUD"];
+
+// Whole-unit currencies round to integers so the reel never shows "¥12.34".
+const WHOLE_UNIT_CODES = new Set(["CNY", "JPY", "KRW"]);
 
 // Same fallback the resolve function uses when FX is unavailable — keeps
 // shelf totals stable across devices before/without enrichment priceUsd.
+// Literal form is pinned by ask-shelf-fields (one rate, three copies).
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 // Same fallback the resolve function uses for EUR (2026-08-01): the euro is
 // stronger than the dollar, so fewer CNY buy one EUR than one USD.
 const FX_FALLBACK_EUR_PER_CNY = 0.13;
+// Fallback units of each currency per 1 CNY. USD/EUR re-export the pinned
+// literals so the three-copy check and the top-8 map never drift.
+export const FX_FALLBACK_PER_CNY = {
+  USD: FX_FALLBACK_USD_PER_CNY,
+  EUR: FX_FALLBACK_EUR_PER_CNY,
+  CNY: 1,
+  GBP: 0.11,
+  JPY: 21,
+  KRW: 190,
+  CAD: 0.19,
+  AUD: 0.21,
+};
+
+export function isPricePrimary(v) {
+  return PRICE_PRIMARIES.includes(v);
+}
+
+export function normalizePricePrimary(v) {
+  const code = String(v || "").toUpperCase();
+  return isPricePrimary(code) ? code : "USD";
+}
+
+function roundMoney(n, code) {
+  if (n == null || !isFinite(Number(n))) return null;
+  const v = Number(n);
+  if (WHOLE_UNIT_CODES.has(code)) return Math.round(v);
+  return Math.round(v * 100) / 100;
+}
+
+// formatMoney is the only place that prints a symbol; every shelf label goes
+// through it so the picker never invents a second format path.
+export function formatMoney(amount, currency) {
+  if (amount == null || !isFinite(Number(amount))) return "";
+  const code = String(currency || "").toUpperCase();
+  const n = Number(amount);
+  const whole = WHOLE_UNIT_CODES.has(code);
+  const pretty = whole
+    ? String(Math.round(n))
+    : Number.isInteger(n)
+      ? String(n)
+      : n.toFixed(2);
+  if (code === "USD") return "$" + pretty;
+  if (code === "EUR") return "€" + pretty;
+  if (code === "GBP") return "£" + pretty;
+  if (code === "KRW") return "₩" + pretty;
+  if (code === "CAD") return "C$" + pretty;
+  if (code === "AUD") return "A$" + pretty;
+  // CNY and JPY both use the yen/yuan mark; the picker row shows the code.
+  if (code === "CNY" || code === "JPY") return "¥" + pretty;
+  return code + " " + pretty;
+}
+
+function isCnyCurrency(currency) {
+  const c = String(currency || "CNY").toUpperCase();
+  return c === "CNY" || c === "RMB" || c === "¥" || c === "CNH";
+}
+
+// Best-effort yuan amount for conversion. Prefers a stored CNY price, then
+// walks the known USD/EUR fields with the same fallbacks the per-currency
+// helpers use so every direction agrees.
+function itemCnyBase(item) {
+  if (!item || typeof item !== "object") return null;
+  const currency = String(item.currency || "CNY").toUpperCase();
+  if (isCnyCurrency(currency) && item.price != null && isFinite(Number(item.price))) {
+    return Number(item.price);
+  }
+  if (item.priceUsd != null && isFinite(Number(item.priceUsd))) {
+    return Number(item.priceUsd) / FX_FALLBACK_USD_PER_CNY;
+  }
+  if (item.priceEur != null && isFinite(Number(item.priceEur))) {
+    return Number(item.priceEur) / FX_FALLBACK_EUR_PER_CNY;
+  }
+  if ((currency === "USD" || currency === "$") && item.price != null && isFinite(Number(item.price))) {
+    return Number(item.price) / FX_FALLBACK_USD_PER_CNY;
+  }
+  if ((currency === "EUR" || currency === "€") && item.price != null && isFinite(Number(item.price))) {
+    return Number(item.price) / FX_FALLBACK_EUR_PER_CNY;
+  }
+  return null;
+}
 
 export function itemUsdAmount(item) {
   if (!item || typeof item !== "object") return null;
   if (item.priceUsd != null && isFinite(Number(item.priceUsd))) return Number(item.priceUsd);
+  if (item.priceFx && item.priceFx.USD != null && isFinite(Number(item.priceFx.USD))) {
+    return Number(item.priceFx.USD);
+  }
   if (item.price == null || !isFinite(Number(item.price))) return null;
   const currency = String(item.currency || "CNY").toUpperCase();
   if (currency === "USD" || currency === "$") return Number(item.price);
-  if (currency === "CNY" || currency === "RMB" || currency === "¥" || currency === "CNH") {
-    return Math.round(Number(item.price) * FX_FALLBACK_USD_PER_CNY * 100) / 100;
+  if (isCnyCurrency(currency)) {
+    return roundMoney(Number(item.price) * FX_FALLBACK_USD_PER_CNY, "USD");
   }
   // Unknown currency: don't invent USD (would inflate the reel).
   return null;
@@ -541,11 +614,14 @@ export function itemUsdAmount(item) {
 export function itemEurAmount(item) {
   if (!item || typeof item !== "object") return null;
   if (item.priceEur != null && isFinite(Number(item.priceEur))) return Number(item.priceEur);
+  if (item.priceFx && item.priceFx.EUR != null && isFinite(Number(item.priceFx.EUR))) {
+    return Number(item.priceFx.EUR);
+  }
   if (item.price == null || !isFinite(Number(item.price))) return null;
   const currency = String(item.currency || "CNY").toUpperCase();
   if (currency === "EUR" || currency === "€") return Number(item.price);
-  if (currency === "CNY" || currency === "RMB" || currency === "¥" || currency === "CNH") {
-    return Math.round(Number(item.price) * FX_FALLBACK_EUR_PER_CNY * 100) / 100;
+  if (isCnyCurrency(currency)) {
+    return roundMoney(Number(item.price) * FX_FALLBACK_EUR_PER_CNY, "EUR");
   }
   // Unknown currency: don't invent EUR (would inflate the reel).
   return null;
@@ -560,15 +636,41 @@ export function itemCnyAmount(item) {
   if (!item || typeof item !== "object") return null;
   const currency = String(item.currency || "CNY").toUpperCase();
   if (
-    (currency === "CNY" || currency === "RMB" || currency === "¥" || currency === "CNH") &&
+    isCnyCurrency(currency) &&
     item.price != null &&
     isFinite(Number(item.price))
   ) {
     return Number(item.price);
   }
+  if (item.priceFx && item.priceFx.CNY != null && isFinite(Number(item.priceFx.CNY))) {
+    return Math.round(Number(item.priceFx.CNY));
+  }
   const usd = itemUsdAmount(item);
   if (usd != null) return Math.round(usd / FX_FALLBACK_USD_PER_CNY);
   return null;
+}
+
+// Generic amount in any top-8 currency. USD/EUR/CNY keep their dedicated
+// helpers (and their stored fields). Everything else prefers priceFx[code]
+// from the one-shot resolve fetch, then converts from the yuan base.
+export function itemAmountIn(item, code) {
+  const c = normalizePricePrimary(code);
+  if (c === "USD") return itemUsdAmount(item);
+  if (c === "EUR") return itemEurAmount(item);
+  if (c === "CNY") return itemCnyAmount(item);
+  if (!item || typeof item !== "object") return null;
+  if (item.priceFx && item.priceFx[c] != null && isFinite(Number(item.priceFx[c]))) {
+    return roundMoney(item.priceFx[c], c);
+  }
+  const currency = String(item.currency || "CNY").toUpperCase();
+  if (currency === c && item.price != null && isFinite(Number(item.price))) {
+    return roundMoney(item.price, c);
+  }
+  const cny = itemCnyBase(item);
+  if (cny == null) return null;
+  const rate = FX_FALLBACK_PER_CNY[c];
+  if (rate == null) return null;
+  return roundMoney(cny * rate, c);
 }
 
 // One pure sum for shelf + haul totals so chips, phone tabs, and the reel
@@ -610,18 +712,34 @@ export function sumItemsCny(items, { excludeReturned: _excludeReturned = false }
   return Math.round(sum);
 }
 
+// Sum in any top-8 currency. Whole-unit codes stay integers.
+export function sumItemsIn(items, code, { excludeReturned: _excludeReturned = false } = {}) {
+  const c = normalizePricePrimary(code);
+  if (c === "USD") return sumItemsUsd(items);
+  if (c === "EUR") return sumItemsEur(items);
+  if (c === "CNY") return sumItemsCny(items);
+  let sum = 0;
+  for (const it of items || []) {
+    const amt = itemAmountIn(it, c);
+    if (amt != null && isFinite(amt)) sum += amt;
+  }
+  return roundMoney(sum, c) ?? 0;
+}
+
 // Primary price currency (settings-toggles.md #1, design handoff PR3 profile
 // sheet): display ORDER only — stored item fields never change. The app root
 // syncs this from credenza-prefs-v1; the USD default keeps tests and any
-// non-app caller unchanged.
+// non-app caller unchanged. Top-8 set since the currency menu (2026-08-02).
 let PRICE_PRIMARY = "USD";
 function setPricePrimaryPref(v) {
-  PRICE_PRIMARY = v === "CNY" || v === "EUR" ? v : "USD";
+  PRICE_PRIMARY = normalizePricePrimary(v);
 }
-// 3-way display cycle (2026-08-01): CNY -> USD -> EUR -> CNY. One pure helper
-// so the shelf toggle, the avatar menu, and the settings row never disagree.
+// Kept for tests and any leftover cycle callers. The live UI opens the
+// picker instead of cycling (lane 2). Walks the top-8 list in picker order.
 export function nextPricePrimary(v) {
-  return v === "CNY" ? "USD" : v === "USD" ? "EUR" : "CNY";
+  const cur = normalizePricePrimary(v);
+  const i = PRICE_PRIMARIES.indexOf(cur);
+  return PRICE_PRIMARIES[(i + 1) % PRICE_PRIMARIES.length];
 }
 // DetailBody price editor (and tests) read the same mirror the app syncs.
 export function pricePrimaryPref() {
@@ -646,29 +764,21 @@ export function fitDisplayPrefs() {
 }
 
 export function priceLabel(item) {
-  if (item.price == null && item.priceUsd == null) return "";
+  if (item.price == null && item.priceUsd == null && !(item.priceFx && typeof item.priceFx === "object")) {
+    return "";
+  }
   const currency = item.currency || "CNY";
-  const usd = itemUsdAmount(item);
-  const cny = itemCnyAmount(item);
-
-  // One currency only (Kyle 2026-07-26): USD prefs hide ¥; CNY prefs hide $.
+  // One currency only (Kyle 2026-07-26): the primary hides every other mark.
   // Dual "$14.59 · ¥99" made the footer and cards fight the price toggle.
   // Both directions CONVERT (Kyle 2026-07-28): a USD-priced item under a CNY
   // pref shows yuan, not the dollar amount with a ¥-less label.
-  if (PRICE_PRIMARY === "USD") {
-    if (usd != null) return formatMoney(usd, "USD");
-    if (cny != null) return formatMoney(cny, "CNY");
-    if (item.price != null) return formatMoney(item.price, currency);
-    return "";
-  }
-  if (PRICE_PRIMARY === "EUR") {
-    const eur = itemEurAmount(item);
-    if (eur != null) return formatMoney(eur, "EUR");
-    if (cny != null) return formatMoney(cny, "CNY");
-    if (item.price != null) return formatMoney(item.price, currency);
-    return "";
-  }
+  // Top-8 menu (2026-08-02): every primary uses the same path.
+  const primaryAmt = itemAmountIn(item, PRICE_PRIMARY);
+  if (primaryAmt != null) return formatMoney(primaryAmt, PRICE_PRIMARY);
+  // Fallback chain if the primary cannot convert this item.
+  const cny = itemCnyAmount(item);
   if (cny != null) return formatMoney(cny, "CNY");
+  const usd = itemUsdAmount(item);
   if (usd != null) return formatMoney(usd, "USD");
   if (item.price != null) return formatMoney(item.price, currency);
   return "";
@@ -678,16 +788,8 @@ export function priceLabel(item) {
 // primary pref as priceLabel (Kyle 2026-07-28) — a toggle that changes the
 // label but not the amount reads as broken.
 export function priceLabelShort(item) {
-  if (PRICE_PRIMARY === "CNY") {
-    const cny = itemCnyAmount(item);
-    if (cny != null) return formatMoney(cny, "CNY");
-  } else if (PRICE_PRIMARY === "EUR") {
-    const eur = itemEurAmount(item);
-    if (eur != null) return formatMoney(eur, "EUR");
-  } else {
-    const usd = itemUsdAmount(item);
-    if (usd != null) return formatMoney(usd, "USD");
-  }
+  const primaryAmt = itemAmountIn(item, PRICE_PRIMARY);
+  if (primaryAmt != null) return formatMoney(primaryAmt, PRICE_PRIMARY);
   if (item.price != null && isFinite(item.price)) return formatMoney(item.price, item.currency || "CNY");
   return "";
 }
@@ -3217,6 +3319,8 @@ function createItem(parsed, rawText, extra) {
     price: null,
     currency: "CNY",
     priceUsd: null,
+    priceEur: null,
+    priceFx: null,
     category: "",
     variants: [],
     sizeNotes: "",
@@ -3339,6 +3443,11 @@ export function migrateItem(old) {
     price: typeof old.price === "number" && !isNaN(old.price) ? old.price : null,
     currency: old.currency || "CNY",
     priceUsd: typeof old.priceUsd === "number" && !isNaN(old.priceUsd) ? old.priceUsd : null,
+    priceEur: typeof old.priceEur === "number" && !isNaN(old.priceEur) ? old.priceEur : null,
+    priceFx:
+      old.priceFx && typeof old.priceFx === "object" && !Array.isArray(old.priceFx)
+        ? old.priceFx
+        : null,
     priceManual: old.priceManual === true,
     // CH-07 follow-up: the hand-picked-category pin must survive migration
     // (backup restore, share import), same as the hand-set-price pin above.
@@ -5234,6 +5343,7 @@ function CredenzaApp() {
   const [digest, setDigest] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
   const [agentSheetOpen, setAgentSheetOpen] = useState(false);
+  const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
   // A2 money pipe: which buying agent Buy deep-links into. Soft default with a
   // visible "change anytime" path; persisted in credenza-prefs-v1. Stored item
   // links stay canonical forever — the agent wrap happens only at open time.
@@ -5299,6 +5409,7 @@ function CredenzaApp() {
   // Closing that sheet returns to the menu (Kyle 2026-07-28) — but only when
   // the sheet came from the menu, not from a card's Buy notch.
   const agentReturnToMenuRef = useRef(false);
+  const currencyReturnToMenuRef = useRef(false);
   // LB-8: the share sheet, open on one named haul. A string, not a boolean —
   // the sheet needs to know WHICH haul, and the name is the haul's identity.
   const [shareHaulName, setShareHaulName] = useState(null);
@@ -6152,7 +6263,7 @@ function CredenzaApp() {
                   agentToastSeenFor: p.agentToastSeenFor || null,
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
                   measureUnits: p.measureUnits === "cm" ? "cm" : "in",
-                  pricePrimary: p.pricePrimary === "CNY" || p.pricePrimary === "EUR" ? p.pricePrimary : "USD",
+                  pricePrimary: normalizePricePrimary(p.pricePrimary),
                   fitSummary: p.fitSummary !== false,
                   fitDetail: p.fitDetail === "detailed" ? "detailed" : "concise",
                   onboardingDone: p.onboardingDone !== false,
@@ -6171,7 +6282,7 @@ function CredenzaApp() {
             setBodyProfile(migrateSleeveMeasurements(p.bodyProfile));
           }
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
-          if (p.pricePrimary === "CNY" || p.pricePrimary === "USD" || p.pricePrimary === "EUR") setPricePrimary(p.pricePrimary);
+          if (p.pricePrimary) setPricePrimary(normalizePricePrimary(p.pricePrimary));
           if (p.fitSummary === false) setFitSummary(false);
           if (p.fitDetail === "concise" || p.fitDetail === "detailed") setFitDetail(p.fitDetail);
           if (p.fitPrefs && typeof p.fitPrefs === "object") setFitPrefsByCat(p.fitPrefs);
@@ -7106,6 +7217,13 @@ function CredenzaApp() {
         price: x.priceManual ? x.price : data.priceCny != null ? data.priceCny : x.price,
         currency: "CNY",
         priceUsd: x.priceManual ? x.priceUsd : data.priceUsd != null ? data.priceUsd : x.priceUsd,
+        // Live EUR + full top-8 map from the one rates fetch (lane 2).
+        priceEur: x.priceManual ? x.priceEur : data.priceEur != null ? data.priceEur : x.priceEur,
+        priceFx: x.priceManual
+          ? x.priceFx
+          : data.priceFx && typeof data.priceFx === "object"
+            ? data.priceFx
+            : x.priceFx,
         // CH-07: a hand-picked category is pinned (categoryManual), like a
         // hand-set price — the resolve never reclassifies it.
         category: x.categoryManual && CATEGORIES[x.category]
@@ -7934,19 +8052,14 @@ function CredenzaApp() {
   // or the open haul — so the counter recalculates organically.
   // A3: inside a haul the total covers non-returned items only — a returned
   // card is money coming back, not money in the parcel.
+  // Top-8 menu (2026-08-02): one sum path follows pricePrimary for any code.
+  const listTotalPrimary = useMemo(
+    () => sumItemsIn(totalsItems, pricePrimary, { excludeReturned: !!openHaulName }),
+    [totalsItems, openHaulName, pricePrimary]
+  );
+  // Haul board still wants a USD figure for its own meter.
   const listTotalUsd = useMemo(
     () => sumItemsUsd(totalsItems, { excludeReturned: !!openHaulName }),
-    [totalsItems, openHaulName]
-  );
-  // Kyle 2026-07-28: the total follows the primary currency too — a chip
-  // that says CNY over a dollar amount read as broken.
-  const listTotalCny = useMemo(
-    () => sumItemsCny(totalsItems, { excludeReturned: !!openHaulName }),
-    [totalsItems, openHaulName]
-  );
-  // EUR twin (2026-08-01): the total follows the primary currency in euros too.
-  const listTotalEur = useMemo(
-    () => sumItemsEur(totalsItems, { excludeReturned: !!openHaulName }),
     [totalsItems, openHaulName]
   );
   // Haul board: how many cards are bought, how many are not, and the rough
@@ -8124,6 +8237,7 @@ function CredenzaApp() {
     items,
     importOpen,
     agentSheetOpen,
+    currencySheetOpen,
     captureSheetOpen,
     settingsOpen: !!settingsView,
     viewMode,
@@ -8164,6 +8278,7 @@ function CredenzaApp() {
           ctx.digest ||
           ctx.importOpen ||
           ctx.agentSheetOpen ||
+          ctx.currencySheetOpen ||
           ctx.captureSheetOpen ||
           ctx.settingsOpen
         )
@@ -8181,6 +8296,7 @@ function CredenzaApp() {
         ctx.digest ||
         ctx.importOpen ||
         ctx.agentSheetOpen ||
+        ctx.currencySheetOpen ||
         ctx.captureSheetOpen ||
         ctx.settingsOpen
       )
@@ -8330,6 +8446,7 @@ function CredenzaApp() {
         kb.current.digest ||
         kb.current.importOpen ||
         kb.current.agentSheetOpen ||
+        kb.current.currencySheetOpen ||
         kb.current.captureSheetOpen ||
         kb.current.settingsOpen
       )
@@ -9054,7 +9171,10 @@ function CredenzaApp() {
             setAgentSheetOpen(true);
           }}
           pricePrimary={pricePrimary}
-          onCycleCurrency={() => setPricePrimary(nextPricePrimary)}
+          onOpenCurrency={() => {
+            currencyReturnToMenuRef.current = true;
+            setCurrencySheetOpen(true);
+          }}
           onOpenSettings={(section) => navigateSettings(section)}
           onSignOut={accountSignOut}
           onClose={() => setAvatarMenuOpen(false)}
@@ -9108,6 +9228,28 @@ function CredenzaApp() {
           isPro={isProPlan}
           onClearShelf={clearShelf}
           onRestore={restoreBackup}
+        />
+        </Suspense>
+      )}
+      {currencySheetOpen && (
+        <Suspense fallback={null}>
+        <CurrencySheet
+          pricePrimary={pricePrimary}
+          onSelectCurrency={(code) => {
+            setPricePrimary(normalizePricePrimary(code));
+            setCurrencySheetOpen(false);
+            if (currencyReturnToMenuRef.current) {
+              currencyReturnToMenuRef.current = false;
+              setAvatarMenuOpen(true);
+            }
+          }}
+          onClose={() => {
+            setCurrencySheetOpen(false);
+            if (currencyReturnToMenuRef.current) {
+              currencyReturnToMenuRef.current = false;
+              setAvatarMenuOpen(true);
+            }
+          }}
         />
         </Suspense>
       )}
@@ -9286,7 +9428,7 @@ function CredenzaApp() {
             fitSummary,
             fitDetail,
             onOpenAgent: () => setAgentSheetOpen(true),
-            onCycleCurrency: () => setPricePrimary(nextPricePrimary),
+            onOpenCurrency: () => setCurrencySheetOpen(true),
             onToggleFitSummary: () => setFitSummary((v) => !v),
             onCycleFitDetail: () => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed")),
           }}
@@ -10049,7 +10191,7 @@ function CredenzaApp() {
                           : SHELF_FILTERS.find((f) => f.key === shelfFilter).label}
                     </span>
                     <ReelCounter
-                      value={pricePrimary === "CNY" ? listTotalCny : pricePrimary === "EUR" ? listTotalEur : listTotalUsd}
+                      value={listTotalPrimary}
                       currency={pricePrimary}
                     />
                   </span>
