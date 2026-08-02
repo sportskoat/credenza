@@ -668,6 +668,15 @@ export default function BodyProfileSheet({
         </div>
       </div>
       <p className="cz-sizes-mode-help">{modeBlurb}</p>
+      {mode === "body" ? (
+        <p className="cz-sizes-mode-help cz-sizes-body-help">
+          These numbers come from your body, not from a size label. Use a soft tape measure over
+          bare skin or light clothing, not a bulky sweater. Waist and hip are your body&apos;s
+          real size around — not the number on your usual pants. Chest is the fullest part around
+          your body, not your usual shirt size. Trouser length here is waist to ankle down the
+          outside of your leg, not your usual inseam label.
+        </p>
+      ) : null}
 
       <div className="cz-sizes-groups">{groupCard("tops")}
         {groupCard("bot")}

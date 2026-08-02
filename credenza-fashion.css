@@ -7879,6 +7879,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
 }
 
+.cz-sizes-body-help {
+  color: var(--cz-faint);
+}
+
 /* Always one card under the other. Side-by-side made Tops and Bottoms use a
    tight side layout while the narrow stack used a tall layout — same fields,
    two formats. Kyle 2026-08-01: need them consistent. */
