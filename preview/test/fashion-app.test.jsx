@@ -1909,8 +1909,7 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     // The label lives inside the box, so the box reads as one object. The
     // toggle changes the box height only — it never swaps in a second field,
     // so focus and the autosave path stay on the one textarea.
-    // Round 4 point 5: an EMPTY note is an "Add a note" button; the box itself
-    // is unchanged once a note exists.
+    // Kyle 2026-08-02: notes field is always visible (no Add-a-note gate).
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ note: "Batch M32126, QC passed" })]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -1933,15 +1932,12 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
   it("typing in the notes opens the box, so text is never hidden as you write", async () => {
     // A clamped box that stays clamped while you type is the truncation §7
-    // rejects. Focus opens it. Round 4 point 5: with no note yet, the small
-    // "Add a note" button opens the same box first.
+    // rejects. Focus opens it. Empty notes still show the box (Kyle 2026-08-02).
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem({ note: "" })]) });
     const user = userEvent.setup();
     render(<Credenza />);
     await openSheet(user);
 
-    expect(document.querySelector(".cz-detail-notes-box")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Add a note" }));
     const box = document.querySelector(".cz-detail-notes-box");
     expect(box).not.toBeNull();
     expect(box.classList.contains("is-open")).toBe(false);

@@ -335,6 +335,9 @@ describe("DesktopDetailPanel (Fix B)", () => {
       expect(settings).toBeTruthy();
       // Mock Settings top: wear prefs + measurements, then chart / remove.
       expect(within(settings).getByText(/How do you wear/i)).toBeInTheDocument();
+      // Clean: no checkmark until a chip changes (Kyle 2026-08-02).
+      expect(within(settings).queryByRole("button", { name: /Save preference/i })).toBeNull();
+      await user.click(within(settings).getByRole("radio", { name: "Oversized" }));
       expect(within(settings).getByRole("button", { name: /Save preference/i })).toBeInTheDocument();
       // "Not sure yet" is first-ask only — not on the Settings placement.
       expect(within(settings).queryByRole("button", { name: /Not sure yet/i })).toBeNull();
@@ -389,7 +392,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(css).not.toMatch(/@keyframes\s+cz-rec-pulse/);
   });
 
-  it("pins Add a note as a compact pill and Settings without Not sure yet", async () => {
+  it("shows Notes always and Settings checkmark only when dirty", async () => {
     const user = userEvent.setup();
     const mm = window.matchMedia;
     window.matchMedia = (q) => ({
@@ -409,25 +412,16 @@ describe("DesktopDetailPanel (Fix B)", () => {
       });
       await user.click(screen.getByRole("tab", { name: "Details" }));
       const details = document.querySelector(".cz-desk-tab-details");
-      const addNote = within(details).getByRole("button", { name: /Add a note/i });
-      expect(addNote.classList.contains("cz-detail-notes-add")).toBe(true);
-      // CSS pin: pill is auto-width, rounded, segment-on tokens.
-      const { readFileSync } = await import("node:fs");
-      const { dirname, join } = await import("node:path");
-      const { fileURLToPath } = await import("node:url");
-      const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
-      const css = readFileSync(join(root, "credenza-fashion.css"), "utf8");
-      // Anchor on the pill comment so the scoped history override is skipped.
-      const start = css.indexOf('/* Mock Details "Add a note"');
-      expect(start).toBeGreaterThan(-1);
-      const block = css.slice(start, start + 700);
-      expect(block).toMatch(/border-radius:\s*999px/);
-      expect(block).toMatch(/width:\s*auto/);
-      expect(block).toMatch(/--cz-seg-on/);
+      // Kyle 2026-08-02: always-visible notes field, no Add-a-note button.
+      expect(within(details).getByLabelText("Notes")).toBeInTheDocument();
+      expect(within(details).queryByRole("button", { name: /Add a note/i })).toBeNull();
+      expect(details.querySelector(".cz-detail-notes-box")).toBeTruthy();
 
       await user.click(screen.getByRole("tab", { name: "Settings" }));
       const settings = document.querySelector(".cz-desk-tab-settings");
       expect(within(settings).queryByRole("button", { name: /Not sure yet/i })).toBeNull();
+      expect(within(settings).queryByRole("button", { name: /Save preference/i })).toBeNull();
+      await user.click(within(settings).getByRole("radio", { name: "Oversized" }));
       expect(within(settings).getByRole("button", { name: /Save preference/i })).toBeInTheDocument();
     } finally {
       window.matchMedia = mm;

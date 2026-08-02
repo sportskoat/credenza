@@ -1409,6 +1409,9 @@ function FitReadTable({
 //
 // The scan line rides the source thumb while the read is open. It is decoration
 // with a job: it says the photo is the thing being worked on, not an attachment.
+// onRetry: "Try another photo" / Cancel / Not this one. When there is no
+// chart (failed read), the label is "Try another photo" and the parent should
+// open the file picker (Kyle 2026-08-02: the old path only dismissed).
 function SizingBlockReading({ reading, chart, thumb, error, units, typed = false, onUse, onRetry, onFix }) {
   // "Fix a number" (spec §3): the vision read gets a digit wrong often enough
   // that a chart with one bad cell must be salvageable. Without this the only
@@ -2243,20 +2246,45 @@ function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, on
 // 5b — in-context taste ask, same copy as the orphan SizeRecommendation flow.
 // Owns its draft; mounts fresh each time, so it prefills from the live pref.
 // showSkip: first-ask flow on Fit keeps "Not sure yet". Settings placement
-// (mock Turn 3) is chips + Save only — nothing to skip on a Settings tab.
+// (mock Turn 3) is chips only — nothing to skip on a Settings tab.
+// Kyle 2026-08-02: change a chip → classic checkmark save appears top-right.
+// Clean state shows no save control (same rule on Settings and first-ask).
 function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true }) {
   const catAxes = FIT_PREF_AXES[item.category];
-  const [draft, setDraft] = useState({
+  const baseline = {
     length: (fitPref && fitPref.length) || null,
     looseness: (fitPref && fitPref.looseness) || null,
-  });
+  };
+  const [draft, setDraft] = useState(baseline);
+  const dirty =
+    draft.length !== baseline.length || draft.looseness !== baseline.looseness;
   const catTitle = CATEGORIES[item.category]
     ? CATEGORIES[item.category].label.toLowerCase()
     : "this item";
   if (!catAxes) return null;
+  const commit = () => {
+    onSaveFitPref(item.category, {
+      length: draft.length,
+      looseness: draft.looseness,
+      dismissed: false,
+    });
+    onDone();
+  };
   return (
     <div className="cz-fit-pref-ask">
-      <div className="cz-fit-pref-ask-title">How do you wear {catTitle}?</div>
+      <div className="cz-fit-pref-ask-head">
+        <div className="cz-fit-pref-ask-title">How do you wear {catTitle}?</div>
+        {dirty ? (
+          <button
+            type="button"
+            className="cz-fit-pref-ask-check"
+            aria-label="Save preference"
+            onClick={commit}
+          >
+            <Check size={16} strokeWidth={2.6} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
       <p className="cz-fit-pref-ask-copy">
         Sets your default for all {catTitle}. Change any time in Settings.
       </p>
@@ -2272,20 +2300,6 @@ function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true }) {
         value={draft.looseness}
         onChange={(v) => setDraft((d) => ({ ...d, looseness: v }))}
       />
-      <button
-        type="button"
-        className="cz-fit-pref-ask-save"
-        onClick={() => {
-          onSaveFitPref(item.category, {
-            length: draft.length,
-            looseness: draft.looseness,
-            dismissed: false,
-          });
-          onDone();
-        }}
-      >
-        Save preference
-      </button>
       {showSkip ? (
         <button
           type="button"
@@ -2399,11 +2413,13 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
     (rec && rec.missing) ||
     (item.category === "pants" || item.category === "shorts" ? "waist" : "chest");
   const sharpenLabel =
-    item.category === "pants" || item.category === "shorts"
-      ? "Add waist & length"
-      : item.category === "shirt" || item.category === "outerwear"
-        ? "Add chest"
-        : "Add chest & waist";
+    item.category === "shorts"
+      ? "Add waist & shorts length"
+      : item.category === "pants"
+        ? "Add waist & length"
+        : item.category === "shirt" || item.category === "outerwear"
+          ? "Add chest"
+          : "Add chest & waist";
   return (
     <div className="cz-fit4">
       <div className="cz-fit4-head">
@@ -2595,9 +2611,8 @@ export default function DetailBody({
   const [customSize, setCustomSize] = useState(String(item.size || ""));
   const customSizeCommittedRef = useRef(String(item.size || ""));
   const [notesOpen, setNotesOpen] = useState(false);
-  // Round 4 point 5: an empty note box became a small "Add a note" button.
-  // The writer opens on demand; a note with text always shows.
-  const [noteWriterOpen, setNoteWriterOpen] = useState(false);
+  // Kyle 2026-08-02: notes are always a visible text box (photo 5). The old
+  // "Add a note" button is gone — no extra tap to start writing.
   // The weight editor converts on the fly; weightText is the raw kg string
   // while the kg unit is active so the caret never jumps mid-type.
   const [weightUnit, setWeightUnit] = useState("g");
@@ -3119,51 +3134,36 @@ export default function DetailBody({
 
   const notesBlock = (
     <>
-      {/* Notes (§7). The header moves INSIDE the box, so the box reads as
-          one object instead of a label with a field under it.
-          §7: "Never a fixed 2-line box, never a truncation with no way
-          out." Collapsed clamps to 3 lines; EXPAND grows it. The box stays
-          the same box you type in — there is still no mode to enter and no
-          "+" to hunt for, which is what turn 5 fixed and §7 keeps.
-          Round 4 point 5: an empty note is a small "Add a note" button, not
-          a large empty box. */}
-      {view.note || noteWriterOpen ? (
-        <div className={"cz-detail-notes-box" + (notesOpen ? " is-open" : "")}>
-          <div className="cz-detail-notes-head">
-            <span className="cz-detail-notes-kicker">Notes</span>
-            <span className="cz-detail-notes-gap" />
-            <button
-              type="button"
-              className="cz-detail-notes-toggle"
-              onClick={() => setNotesOpen((v) => !v)}
-            >
-              {notesOpen ? (
-                <Minimize2 size={11} strokeWidth={2.2} aria-hidden="true" />
-              ) : (
-                <Maximize2 size={11} strokeWidth={2.2} aria-hidden="true" />
-              )}
-              {notesOpen ? "Collapse" : "Expand"}
-            </button>
-          </div>
-          <textarea
-            className="cz-detail-notes"
-            aria-label="Notes"
-            value={view.note}
-            placeholder="Batch, QC notes, what you're pairing it with…"
-            onChange={(e) => edit("note", e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
-            onFocus={() => setNotesOpen(true)}
-          />
+      {/* Notes (§7). Always a visible text box (Kyle 2026-08-02 photo 5) —
+          not an "Add a note" button. Header lives INSIDE the box. Collapsed
+          clamps to 3 lines; EXPAND grows it. Same box you type in. */}
+      <div className={"cz-detail-notes-box" + (notesOpen ? " is-open" : "")}>
+        <div className="cz-detail-notes-head">
+          <span className="cz-detail-notes-kicker">Notes</span>
+          <span className="cz-detail-notes-gap" />
+          <button
+            type="button"
+            className="cz-detail-notes-toggle"
+            onClick={() => setNotesOpen((v) => !v)}
+          >
+            {notesOpen ? (
+              <Minimize2 size={11} strokeWidth={2.2} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={11} strokeWidth={2.2} aria-hidden="true" />
+            )}
+            {notesOpen ? "Collapse" : "Expand"}
+          </button>
         </div>
-      ) : (
-        <button
-          type="button"
-          className="cz-detail-notes-add"
-          onClick={() => setNoteWriterOpen(true)}
-        >
-          Add a note
-        </button>
-      )}
+        <textarea
+          className="cz-detail-notes"
+          aria-label="Notes"
+          value={view.note}
+          placeholder="Batch, QC notes, what you're pairing it with…"
+          onChange={(e) => edit("note", e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+          onFocus={() => setNotesOpen(true)}
+        />
+      </div>
     </>
   );
 
@@ -3719,7 +3719,13 @@ export default function DetailBody({
                     units={measureUnits}
                     typed={chartRead.typed}
                     onUse={chartRead.commit}
-                    onRetry={chartRead.dismiss}
+                    onRetry={() => {
+                      // Failed read → open picker again. Typed cancel / "Not
+                      // this one" with a chart just clears the stage.
+                      const hadChart = !!chartRead.chart || chartRead.typed;
+                      chartRead.dismiss();
+                      if (!hadChart) chartInputRef.current?.click();
+                    }}
                     onFix={chartRead.fix}
                   />
                 ) : null}
@@ -4055,7 +4061,13 @@ export default function DetailBody({
                 units={measureUnits}
                 typed={chartRead.typed}
                 onUse={chartRead.commit}
-                onRetry={chartRead.dismiss}
+                onRetry={() => {
+                  // Kyle 2026-08-02: "Try another photo" must open the picker.
+                  // Dismiss alone left a dead button after a failed read.
+                  const hadChart = !!chartRead.chart || chartRead.typed;
+                  chartRead.dismiss();
+                  if (!hadChart) chartInputRef.current?.click();
+                }}
                 onFix={chartRead.fix}
               />
             ) : null}

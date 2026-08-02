@@ -82,14 +82,15 @@ describe("DetailBody detail facts", () => {
     expect(detailsPane.querySelector(".cz-cmdbar-list")).toBeTruthy();
     expect(detailsPane.querySelectorAll(".cz-cmdbar-list-row")).toHaveLength(5);
     // Phone Details parity with mock page 3b: Status / Haul / Colorway / Weight /
-    // Category + HISTORY + Add a note. American spelling only.
+    // Category + HISTORY + always-visible Notes field. American spelling only.
     expect(within(detailsPane).getByText("Status")).toBeInTheDocument();
     expect(within(detailsPane).getByText("Haul")).toBeInTheDocument();
     expect(within(detailsPane).getByText("Colorway")).toBeInTheDocument();
     expect(within(detailsPane).getByText("Weight")).toBeInTheDocument();
     expect(within(detailsPane).getByText("Category")).toBeInTheDocument();
     expect(within(detailsPane).getByText("History")).toBeInTheDocument();
-    expect(within(detailsPane).getByRole("button", { name: /Add a note/i })).toBeInTheDocument();
+    expect(within(detailsPane).getByLabelText("Notes")).toBeInTheDocument();
+    expect(within(detailsPane).queryByRole("button", { name: /Add a note/i })).toBeNull();
     expect(detailsPane.textContent).not.toMatch(/Colourway/);
     // wantsStickyBar = heroPager && onRequestClose (DetailBody). Phone sheet
     // always passes both for a normal item — the fact list is gated on that.
@@ -450,9 +451,7 @@ describe("DetailBody draft ownership", () => {
     const flushRef = { current: null };
     render(body(item("flush", { batch: "Stored Batch" }), { onSaveEdit, flushRef }));
 
-    // Round 4 point 5: an empty note is a small "Add a note" button; the box
-    // opens on tap.
-    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
+    // Kyle 2026-08-02: notes field is always visible — type without an Add step.
     fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Flush this note" } });
     expect(onSaveEdit).not.toHaveBeenCalled();
 
@@ -475,8 +474,7 @@ describe("DetailBody draft ownership", () => {
       expect.objectContaining({ id: "snapshot", batch: "Batch S", title: "Item snapshot" })
     );
 
-    // Round 4 point 5: open the note writer before typing.
-    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
+    // Kyle 2026-08-02: notes field is always visible.
     fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Visible draft" } });
     expect(snapshotRef.current).toEqual(
       expect.objectContaining({ id: "snapshot", note: "Visible draft", batch: "Batch S" })
@@ -578,7 +576,9 @@ describe("DetailBody no-measurements flow", () => {
     const first = render(body(shorts, trio()));
     fireEvent.click(screen.getByRole("button", { name: "Add my size" }));
     expect(screen.getByLabelText("Waist in cm")).toBeInTheDocument();
-    expect(screen.getByLabelText("Trouser length in cm")).toBeInTheDocument();
+    // Kyle 2026-08-02: shorts write path is Shorts length → shortsLength.
+    expect(screen.getByLabelText("Shorts length in cm")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Trouser length in cm")).toBe(null);
     expect(screen.queryByLabelText("Chest in cm")).toBe(null);
     first.unmount();
 
@@ -650,6 +650,8 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
     // The sizing verdict stays visible behind the ask.
     expect(container.querySelector(".cz-sizing")).not.toBe(null);
 
+    // Clean state: no save control until a chip changes (Kyle 2026-08-02).
+    expect(screen.queryByRole("button", { name: "Save preference" })).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: "Oversized" }));
     fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
     expect(handlers.onSaveFitPref).toHaveBeenCalledWith("shirt", {

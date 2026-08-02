@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import {
   CATEGORIES,
   FIT_PREF_AXES,
@@ -19,11 +20,18 @@ import {
 import SizeChartTable from "./SizeChartTable.jsx";
 
 // Measure fields the progressive fit ask needs for this category (design 4f).
-// Tops → chest. Bottoms → waist + trouser length. Shoes → foot length. Fallback →
-// chest + waist. Exported for the live DetailBody ask (CH-08) — the hint is
-// the "Not sure how to measure?" line for each field.
+// Tops → chest. Pants → waist + trouser length. Shorts → waist + shorts length
+// (must write shortsLength — never pantsLength; engine reads bodyLegKey by
+// category). Shoes → foot length. Fallback → chest + waist. Exported for the
+// live DetailBody ask (CH-08) — the hint is the "Not sure how to measure?" line.
 export function fitMeasureFieldsFor(category) {
-  if (category === "pants" || category === "shorts") {
+  if (category === "shorts") {
+    return [
+      { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
+      { key: "shortsLength", label: "Shorts length", kind: "length", phCm: "46", phIn: "18", hint: "Lay shorts you like flat. Measure from the top of the waistband to the hem — the way sellers do." },
+    ];
+  }
+  if (category === "pants") {
     return [
       { key: "waist", label: "Waist", kind: "length", phCm: "80", phIn: "31.5", hint: "Measure around where you wear the waistband." },
       { key: "pantsLength", label: "Trouser length", kind: "length", phCm: "104", phIn: "41", hint: "Lay trousers you like flat. Measure from the top of the waistband to the hem — the way sellers do." },
@@ -272,9 +280,35 @@ export default function SizeRecommendation({
     const catTitle = CATEGORIES[item.category]
       ? CATEGORIES[item.category].label.toLowerCase()
       : "this item";
+    const prefBaseline = {
+      length: (fitPref && fitPref.length) || null,
+      looseness: (fitPref && fitPref.looseness) || null,
+    };
+    const prefDirty =
+      prefDraft.length !== prefBaseline.length ||
+      prefDraft.looseness !== prefBaseline.looseness;
     return (
       <div className="cz-fit-pref-ask">
-        <div className="cz-fit-pref-ask-title">How do you wear {catTitle}?</div>
+        <div className="cz-fit-pref-ask-head">
+          <div className="cz-fit-pref-ask-title">How do you wear {catTitle}?</div>
+          {prefDirty ? (
+            <button
+              type="button"
+              className="cz-fit-pref-ask-check"
+              aria-label="Save preference"
+              onClick={() => {
+                onSaveFitPref(item.category, {
+                  length: prefDraft.length,
+                  looseness: prefDraft.looseness,
+                  dismissed: false,
+                });
+                setAskingPref(false);
+              }}
+            >
+              <Check size={16} strokeWidth={2.6} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
         <p className="cz-fit-pref-ask-copy">
           Sets your default for all {catTitle}. Change any time in Settings.
         </p>
@@ -290,20 +324,6 @@ export default function SizeRecommendation({
           value={prefDraft.looseness}
           onChange={(v) => setPrefDraft((d) => ({ ...d, looseness: v }))}
         />
-        <button
-          type="button"
-          className="cz-fit-pref-ask-save"
-          onClick={() => {
-            onSaveFitPref(item.category, {
-              length: prefDraft.length,
-              looseness: prefDraft.looseness,
-              dismissed: false,
-            });
-            setAskingPref(false);
-          }}
-        >
-          Save preference
-        </button>
         <button
           type="button"
           className="cz-fit-prompt-skip"
