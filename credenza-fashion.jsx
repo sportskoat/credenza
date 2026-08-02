@@ -4958,6 +4958,26 @@ export function itemPhotoList(item, max) {
   return max == null ? photos : photos.slice(0, max);
 }
 
+// Manual "Read the N album photos" candidates (Fix 1, 2026-08-02).
+// chartImages are held out of the swipe gallery on purpose (cover quality),
+// but the album-read button exists to find a size chart — so known chart
+// tiles must lead the paid list. Product photos follow. Dedupe by URL.
+// Remote http(s) only: the vision door fetches CDN URLs, not data: frames.
+export function sizingAlbumReadCandidates(item, max = DETAIL_PHOTO_CAP) {
+  const remote = (src) => typeof src === "string" && /^https?:\/\//i.test(src);
+  const charts = (Array.isArray(item && item.chartImages) ? item.chartImages : []).filter(remote);
+  const product = itemPhotoList(item, max == null ? undefined : max).filter(remote);
+  const seen = new Set();
+  const out = [];
+  for (const src of [...charts, ...product]) {
+    if (seen.has(src)) continue;
+    seen.add(src);
+    out.push(src);
+    if (max != null && out.length >= max) break;
+  }
+  return out;
+}
+
 // Garment categories only — shoes/hats/bags etc. don't map body cm → letter size.
 // Declared here so resolveDisplaySize (and SizeRecommendation) can share it.
 export const SIZE_PICK_SKIP_CATEGORIES = new Set(["shoes", "hat", "bag", "accessory", "socks"]);
