@@ -115,6 +115,18 @@ describe("DetailBody detail facts", () => {
     );
   });
 
+  // Mobile item 4 (2026-08-02): active section tab used --cz-ink on a white
+  // --cz-seg-on pill (light-on-white on Blackout). Same fault class as #49.
+  // Active label must follow the segment-on text token.
+  it("pins active pane-tab label color to the segment-on text token", () => {
+    expect(CSS).toMatch(
+      /\.cz-detail-pane-picker button\.is-active\s*\{[^}]*color:\s*var\(--cz-seg-on-text\);/s
+    );
+    expect(CSS).toMatch(
+      /\.cz-app\[data-fashion="true"\] \.cz-detail-pane-picker\.t-tabs\s*\{[^}]*--tabs-pill-bg:\s*var\(--cz-seg-on\);[^}]*--tabs-text-active:\s*var\(--cz-seg-on-text\);/s
+    );
+  });
+
   it("uses the phone three-column fit read and the final chart-control copy", () => {
     render(
       body(item("phone-fit"), {
