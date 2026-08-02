@@ -580,6 +580,57 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
     expect(screen.queryByText("Baggy")).toBe(null);
     expect(container.querySelector(".cz-fit4-pref-bar")).toBe(null);
   });
+
+  // Desktop Fit row (2026-08-02): short pref control left of Verified fit.
+  // titleTarget !== undefined flips the editorial / desktop layout.
+  it("desktop: saved looseness shows as short underlined control left of the badge", () => {
+    const handlers = prefHandlers({
+      shirt: { length: null, looseness: "regular", dismissed: false },
+    });
+    const { container } = render(
+      body(item("fit-pref-toggle"), { ...handlers, titleTarget: null })
+    );
+
+    const prefBtn = container.querySelector(".cz-fit-result-pref");
+    expect(prefBtn).not.toBe(null);
+    expect(prefBtn.textContent).toBe("Regular");
+    const trail = container.querySelector(".cz-fit-result-trail");
+    expect(trail).not.toBe(null);
+    expect(trail.querySelector(".cz-fit-result-badge")).not.toBe(null);
+    // Control sits before the badge in the trail group.
+    expect(trail.children[0]).toBe(prefBtn);
+    expect(trail.children[1].classList.contains("cz-fit-result-badge")).toBe(true);
+    // Bottom "You wear … Change" card is gone — top control is the only Change.
+    expect(container.querySelector(".cz-fit-pref")).toBe(null);
+    expect(screen.queryByText(/You wear shirts/i)).toBe(null);
+    expect(screen.queryByRole("button", { name: "Change" })).toBe(null);
+
+    fireEvent.click(prefBtn);
+    expect(screen.getByText("How do you wear shirts?")).toBeInTheDocument();
+  });
+
+  it("desktop: no saved choice invites set with the same control", () => {
+    const handlers = prefHandlers({
+      shirt: { length: null, looseness: null, dismissed: true },
+    });
+    const { container } = render(
+      body(item("fit-pref-toggle-empty"), { ...handlers, titleTarget: null })
+    );
+
+    const prefBtn = container.querySelector(".cz-fit-result-pref");
+    expect(prefBtn).not.toBe(null);
+    expect(prefBtn.textContent).toBe("Set your fit preference");
+  });
+
+  it("phone: no pref control beside the result badge", () => {
+    const handlers = prefHandlers({
+      shirt: { length: null, looseness: "regular", dismissed: false },
+    });
+    const { container } = render(body(item("fit-pref-toggle-phone"), handlers));
+
+    expect(container.querySelector(".cz-fit-result-pref")).toBe(null);
+    expect(container.querySelector(".cz-fit-result")).toBe(null);
+  });
 });
 
 // Kyle 2026-07-29: he tapped Large and the panel kept printing the Small's
