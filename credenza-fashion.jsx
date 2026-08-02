@@ -1255,6 +1255,21 @@ export function declaredFit(title) {
   return null;
 }
 
+// Waist floor escape hatch (C's engine audit, F's spec, 2026-08-02). A
+// non-stretch waistband cannot fit a body bigger than its own measurement —
+// a 31.5cm waist does not hold a 33cm body. Sellers print the RELAXED number
+// on an elastic or drawstring waistband, so a stated waist smaller than the
+// body is normal there, not a fault. Detected from the title and the raw
+// chart/notes text the customer saved, same evidence sleeveStyle and
+// garmentType already read.
+const ELASTIC_WAIST_RES = [/elastic(?:ated)?\b/i, /\bdrawstring\b/i];
+const ELASTIC_WAIST_ZH = ["松紧", "抽绳"];
+export function hasElasticWaist(...texts) {
+  const t = texts.filter(Boolean).join(" ").toLowerCase();
+  if (!t) return false;
+  return ELASTIC_WAIST_RES.some((re) => re.test(t)) || ELASTIC_WAIST_ZH.some((w) => t.includes(w));
+}
+
 // Chest ease bands in centimetres, [low, high], from C's review table. The
 // engine aims for the middle of a band and scores the distance outside it.
 // Decimals are deliberate — do not round these to whole centimetres.
@@ -1331,7 +1346,18 @@ export const GARMENT_WORD = {
 // nudging a hand pick would answer a tap with a different size.
 // Optional title (6th arg): on a confirmed short-sleeve garment the sleeve
 // penalty is skipped — a tee's 22 cm sleeve is not a fit failure.
-export function recommendSize(chart, profile, category, fitPref = null, forceSize = null, title = null) {
+// Optional notesText (7th arg): the customer's saved chart/description text.
+// Read only for the waist-floor elastic escape hatch below — an elastic or
+// drawstring word can sit in the notes even when the title is generic.
+export function recommendSize(
+  chart,
+  profile,
+  category,
+  fitPref = null,
+  forceSize = null,
+  title = null,
+  notesText = null
+) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
   const p = migrateSleeveMeasurements(profile) || {};
   const rows = chart.rows;
@@ -1408,6 +1434,31 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   const candidates = rows.filter((r) => r[primaryKey] != null);
   if (candidates.length < 2) return null;
   const isTop = primaryKey === "chest";
+  // ── Hard waist floor (C's audit + F's spec, 2026-08-02) ───────────────────
+  // Kyle's shorts card recommended a Large whose 31.5cm waist could not fit
+  // his 33cm body — primaryFits' ±6cm band let a negative-ease waist compete
+  // and the leg-length pass then let it win outright. A non-stretch waistband
+  // genuinely cannot do that, so the floor runs BEFORE scoring, not as a
+  // score penalty: garment waist must be >= body waist. An elastic or
+  // drawstring waistband is the one real exception — those charts print the
+  // relaxed number — so evidence in the title or saved notes raises the
+  // floor to a bounded −4cm instead of removing it.
+  const WAIST_FLOOR_ELASTIC_CM = -4;
+  const applyWaistFloor = isBottoms && primaryKey === "waist";
+  const elasticWaist = applyWaistFloor && hasElasticWaist(title, notesText);
+  const waistFloorOk = (r) => r[primaryKey] - p[bodyKey] - runShift >= (elasticWaist ? WAIST_FLOOR_ELASTIC_CM : 0);
+  // Never return no pick (Kyle's favor-up instinct, 2026-08-01 01:04Z): when
+  // every row fails the floor, keep the largest waist on the chart. It is
+  // still the closest the seller offers, and the existing negative-ease
+  // sentence (PR #75) already tells the customer it will fit tighter.
+  let floorCandidates = candidates;
+  if (applyWaistFloor) {
+    const eligible = candidates.filter(waistFloorOk);
+    floorCandidates =
+      eligible.length > 0
+        ? eligible
+        : [candidates.reduce((biggest, r) => (r[primaryKey] > biggest[primaryKey] ? r : biggest))];
+  }
   // Compare the seller's sleeve against the matching saved sleeve. A short
   // sleeve never reads the wrist measurement. A long or unknown sleeve keeps
   // the wrist measurement used before this split. No chart column means no
@@ -1464,7 +1515,7 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // OTHER is not consistent (A ties B, B ties C, A does not tie C), and
   // `Array.sort` gives no guaranteed result for a comparator like that — the
   // winner could drift two sizes up instead of one.
-  const scored = candidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
+  const scored = floorCandidates.map((r) => ({ row: r, s: score(r) })).sort((a, b) => a.s - b.s);
   // A tapped size the chart does not carry falls back to the scored winner —
   // a pick with no row has no measurements to print.
   const forcedRow = forceSize
@@ -1536,10 +1587,16 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
       }
     }
   }
-  // ── The pants/shorts length pass (F, 2026-08-01) ──────────────────────────
+  // ── The pants/shorts length pass (F, 2026-08-01; tightened C/F 2026-08-02) ─
   // Same rule as the shirt length pass above, moved to the leg: the saved
-  // trouser (or shorts) length only breaks a tie between sizes that already
-  // fit the waist/hip equally. It never outweighs a clear waist winner.
+  // trouser (or shorts) length only breaks a TRUE tie between sizes that
+  // already fit the waist/hip about equally. It never outweighs a clear
+  // waist winner. The original ±6cm primaryFits band was too wide for that
+  // promise — it let a row 4cm off the winner's score still compete on
+  // length alone, which is how a too-small Large beat a correct XL on Kyle's
+  // shorts card. Eligibility is now the same TIE_EPSILON used to decide the
+  // primary winner itself, and it runs against floorCandidates so a
+  // waist-floor reject can never come back through the length door.
   // Both sides are the seller's own full outside-leg number (裤长), matching
   // what the customer saves — no inseam column, no estimate, per PR #20.
   const bodyLegKey = category === "shorts" ? "shortsLength" : "pantsLength";
@@ -1550,7 +1607,9 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
       ? Number(p[bodyLegKey])
       : null;
   if (legLengthTarget != null) {
-    const eligible = candidates.filter((r) => r.pantsLength != null && primaryFits(r));
+    const eligible = floorCandidates.filter(
+      (r) => r.pantsLength != null && score(r) - bestScore < TIE_EPSILON
+    );
     if (eligible.length >= 2) {
       const byLength = eligible
         .map((r) => ({ row: r, d: Math.abs(r.pantsLength - legLengthTarget), s: score(r) }))
@@ -1575,7 +1634,7 @@ export function recommendSize(chart, profile, category, fitPref = null, forceSiz
   // it cannot recurse — the inner call carries no looseness.
   const neutralSize =
     looseness && band && !forcedRow
-      ? (recommendSize(chart, profile, category, { length: fitPref.length }, null, title) || {}).size ||
+      ? (recommendSize(chart, profile, category, { length: fitPref.length }, null, title, notesText) || {}).size ||
         null
       : null;
   const runnerUp = scored.map((s) => s.row).find((r) => r.size !== best.size) || null;
@@ -4941,7 +5000,8 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
     item.category,
     catPref,
     null,
-    item.title
+    item.title,
+    sizeChartTextFor(item)
   );
   return rec && rec.size ? String(rec.size).trim() : null;
 }

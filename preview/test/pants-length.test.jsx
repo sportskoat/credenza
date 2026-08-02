@@ -1,9 +1,17 @@
 // The trouser/shorts length a customer saves, now used on pants and shorts
-// (F's spec, 2026-08-01, approved by Kyle in #build):
+// (F's spec, 2026-08-01, tightened by C's engine audit + F's spec, 2026-08-02):
 //
 //   1. Pants and shorts only. Shirts keep their own, separate length pass.
-//   2. Length only breaks a tie between sizes that already fit the waist
-//      (or hip) equally. It never overrides a clear waist winner.
+//   2. Length only breaks a GENUINE tie: candidates within TIE_EPSILON of the
+//      primary (waist/hip) winner's score, after the hard waist floor runs.
+//      It never overrides a clear waist winner. The original ±6cm
+//      primaryFits window was wide enough to let a size 5cm+ off the true
+//      winner's score still compete on length alone — that is how a
+//      too-small Large beat a correct X-Large on Kyle's shorts card
+//      (2026-08-02). TIE_EPSILON (0.5) is the same threshold that already
+//      decides "ties go to the bigger size" for the primary pick itself, so
+//      the length pass can only ever move the pick DOWN, from that
+//      tie-winner to a smaller row that is just as genuinely tied.
 //   3. Both sides are the seller's own full outside-leg number (裤长) —
 //      no inseam column, no estimate.
 //   4. A run-long/run-short flag appears on lengthCheck once the picked
@@ -12,13 +20,14 @@ import { describe, expect, it } from "vitest";
 
 const { parseSizeChart, recommendSize } = await import("../../credenza-fashion.jsx");
 
-// Waist target is p.waist + 2cm ease. M sits on the target (score 0); L sits
-// 5cm off it but still inside the ±6cm tolerance that makes a row eligible
-// for the length pass. Their leg lengths are 8cm apart.
+// Waist target is p.waist + 2cm ease = 80. Both rows sit inside TIE_EPSILON
+// (0.5) of that target, so they are a genuine tie: the plain tie rule
+// ("ties go to the bigger size") already picks the L with no leg length
+// saved. Their leg lengths are 8cm apart.
 const TIE_TEXT =
-  "M: waist 80, hip 104, pants length 100\nL: waist 85, hip 108, pants length 108";
-// L's waist is 15cm off target — outside the ±6cm tolerance — so it can
-// never enter the length pass, no matter how well its leg matches.
+  "M: waist 79.8, hip 104, pants length 100\nL: waist 80.3, hip 104, pants length 108";
+// L's waist is 15cm off target — nowhere near TIE_EPSILON of the M's score —
+// so it can never enter the length pass, no matter how well its leg matches.
 const WIDE_TEXT =
   "M: waist 78, hip 104, pants length 100\nL: waist 95, hip 120, pants length 108";
 const NO_LENGTH_COLUMN_TEXT = "M: waist 80, hip 106\nL: waist 85, hip 111";
@@ -26,22 +35,25 @@ const NO_LENGTH_COLUMN_TEXT = "M: waist 80, hip 106\nL: waist 85, hip 111";
 const chartOf = (text) => parseSizeChart(text);
 
 describe("the trouser/shorts length tie-break", () => {
-  it("breaks a tie on pants: the same waist, two sizes, the closer leg wins", () => {
+  it("breaks a genuine tie on pants: two sizes tied on waist, the closer leg wins", () => {
     const chart = chartOf(TIE_TEXT);
-    // With no saved leg length, waist alone picks the M (dead on target).
+    // With no saved leg length, the plain tie rule already picks the bigger
+    // of the two tied rows, the L.
     const base = { waist: 78 };
-    expect(recommendSize(chart, base, "pants").size).toBe("M");
-    // Saved leg length 106 → the L's 108 is closer than the M's 100.
-    const withLeg = recommendSize(chart, { waist: 78, pantsLength: 106 }, "pants");
-    expect(withLeg.size).toBe("L");
-    expect(withLeg.legLengthWin).toMatchObject({ fromSize: "M", legLength: 108, legLengthTarget: 106 });
+    expect(recommendSize(chart, base, "pants").size).toBe("L");
+    // Saved leg length 99 sits far closer to the M's 100 than the L's 108.
+    // Because M is genuinely tied with L on waist, the length pass can move
+    // the pick back down to it.
+    const withLeg = recommendSize(chart, { waist: 78, pantsLength: 99 }, "pants");
+    expect(withLeg.size).toBe("M");
+    expect(withLeg.legLengthWin).toMatchObject({ fromSize: "L", legLength: 100, legLengthTarget: 99 });
   });
 
-  it("breaks a tie on shorts using the saved shorts length, on the same pantsLength chart column", () => {
+  it("breaks a genuine tie on shorts using the saved shorts length, on the same pantsLength chart column", () => {
     const chart = chartOf(TIE_TEXT);
-    const withLeg = recommendSize(chart, { waist: 78, shortsLength: 106 }, "shorts");
-    expect(withLeg.size).toBe("L");
-    expect(withLeg.legLengthWin).toMatchObject({ fromSize: "M" });
+    const withLeg = recommendSize(chart, { waist: 78, shortsLength: 99 }, "shorts");
+    expect(withLeg.size).toBe("M");
+    expect(withLeg.legLengthWin).toMatchObject({ fromSize: "L" });
   });
 
   it("does not override a clear waist winner", () => {
@@ -64,7 +76,9 @@ describe("the trouser/shorts length tie-break", () => {
   it("does nothing without a saved trouser length", () => {
     const chart = chartOf(TIE_TEXT);
     const rec = recommendSize(chart, { waist: 78 }, "pants");
-    expect(rec.size).toBe("M");
+    // No leg length saved: the plain tie rule alone decides, and picks the
+    // bigger of the two tied rows.
+    expect(rec.size).toBe("L");
     expect(rec.legLengthWin).toBeNull();
   });
 
