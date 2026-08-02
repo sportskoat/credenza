@@ -2189,6 +2189,40 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
   return first + " — " + tail.join("; ") + ".";
 }
 
+// Primary measure clause by sign of ease (cm storage). Negative ease is not
+// room (agreedRoom rule, DetailBody; Kyle 2026-08-02 Large shorts case).
+// Threshold ±0.5cm. Positive wording is byte-identical to the pre-fix form.
+// `roomFormatted` is formatMeasure(Math.abs(diff)); `bodyFormatted` is the
+// body number already in display units.
+export function easeRoomClause(diffCm, bodyFormatted, roomFormatted) {
+  if (!(diffCm > -0.5)) {
+    // diff <= -0.5cm: tighter than the body — never "room".
+    return (
+      "is " +
+      roomFormatted +
+      " smaller than your " +
+      bodyFormatted +
+      " — it will fit tighter than your body"
+    );
+  }
+  if (diffCm < 0.5) {
+    // |diff| < 0.5cm: on the body, no room claim and no tight claim.
+    return "sits right at your " + bodyFormatted;
+  }
+  // diff >= +0.5cm: keep the historical positive form.
+  return "gives you " + roomFormatted + " of room over your " + bodyFormatted;
+}
+
+// "meant to sit" only on positive or near-zero ease — never after a "smaller
+// than your body" primary. Plural nouns (pants/shorts) take "these … are".
+export function meantToSitClause(noun, sitsRight, diffCm) {
+  if (!sitsRight || !(diffCm > -0.5)) return "";
+  if (noun === "pants" || noun === "shorts") {
+    return ", which is where these " + noun + " are meant to sit";
+  }
+  return ", which is where this " + noun + " is meant to sit";
+}
+
 // The prescription sentence for the size breakdown (handoff turn 3 §5): 1–2
 // short plain sentences naming the measurement that decided the pick and what
 // the next size down would do. Generated where the chart is parsed — same
@@ -2264,6 +2298,8 @@ export function prescriptionSentence(
   const sitsRight = band
     ? rec.diff >= band[0] - 4 && rec.diff <= band[1] + 4
     : Math.abs(rec.diff - target) <= 4;
+  const easeClause = easeRoomClause(rec.diff, body, room);
+  const sitClause = meantToSitClause(noun, sitsRight, rec.diff);
   // Overridden: the customer tapped a size that is not the one we scored. The
   // numbers below are the tapped row's, so the sentence must own that — "Take
   // the Small" over the Large's measurements is the contradiction Kyle saw.
@@ -2272,11 +2308,15 @@ export function prescriptionSentence(
       ? formatSizeToken(recommended.size) || recommended.size
       : "";
   if (overrideName) {
-    const fitClause = sitsRight
-      ? ", which is where this " + noun + " is meant to sit"
-      : rec.diff < target
-        ? ", closer than this " + noun + " is drafted for"
-        : ", roomier than this " + noun + " is drafted for";
+    // Same sign-aware primary as the Take-the-X form; off-band falls back to
+    // the draft comparison only when ease is positive or near zero.
+    const fitClause =
+      sitClause ||
+      (rec.diff <= -0.5
+        ? ""
+        : rec.diff < target
+          ? ", closer than this " + noun + " is drafted for"
+          : ", roomier than this " + noun + " is drafted for");
     const picked =
       "You have picked the " +
       sizeName +
@@ -2284,10 +2324,8 @@ export function prescriptionSentence(
       garment +
       " " +
       measure +
-      " leaves " +
-      room +
-      " over your " +
-      body +
+      " " +
+      easeClause +
       fitClause +
       ".";
     if (detail === "concise") return picked;
@@ -2300,11 +2338,9 @@ export function prescriptionSentence(
     garment +
     " " +
     measure +
-    " gives you " +
-    room +
-    " of room over your " +
-    body +
-    (sitsRight ? ", which is where this " + noun + " is meant to sit" : "") +
+    " " +
+    easeClause +
+    sitClause +
     ".";
   // CH-14: the Concise pref stops at the pick. Only the explicit opt shortens
   // the sentence — a caller that passes nothing keeps the full two-sentence

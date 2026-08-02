@@ -30,6 +30,8 @@ import {
   measureToStorage,
   parseSizeChart,
   prescriptionSentence,
+  easeRoomClause,
+  meantToSitClause,
   lengthCostSentence,
   garmentTypeWord,
   shortsLengthNote,
@@ -2021,16 +2023,15 @@ function sizeAnalysisParagraph(verdict, fitRows, units, category, fitPref) {
     ? shown.diff >= band[0] - 4 && shown.diff <= band[1] + 4
     : Math.abs(shown.diff - target) <= 4;
 
+  // Sign of ease drives the verb: negative is never "room" (Kyle 2026-08-02).
   let primary =
     "Its " +
     garment +
     " " +
     measure +
-    " gives you " +
-    room +
-    " of room over your " +
-    body;
-  if (sitsRight) primary += ", which is where this " + noun + " is meant to sit";
+    " " +
+    easeRoomClause(shown.diff, body, room);
+  primary += meantToSitClause(noun, sitsRight, shown.diff);
   primary += ".";
 
   // One concrete second sentence from another measure — prefer rows with a
