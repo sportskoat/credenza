@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import SettingsPage from "../../settings/SettingsPage.jsx";
 import { SETTINGS_SECTIONS } from "../../settings/SettingsNav.jsx";
@@ -10,6 +13,8 @@ import { SETTINGS_SECTIONS } from "../../settings/SettingsNav.jsx";
 afterEach(cleanup);
 
 const noop = () => {};
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const CSS = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
 
 const VALUE = {
   accountEnabled: false,
@@ -63,6 +68,17 @@ function renderPage(extra = {}) {
 }
 
 describe("SettingsPage (one-page redesign)", () => {
+  it("uses almost the full desktop height and the shared frost surface", () => {
+    const desktopStart = CSS.indexOf("@media (min-width: 768px) {\n  .cz-settings-page {");
+    expect(desktopStart).toBeGreaterThan(-1);
+    const desktop = CSS.slice(desktopStart, CSS.indexOf("\n}\n", desktopStart));
+    expect(desktop).toMatch(/height:\s*calc\(100dvh - 24px\);/);
+    expect(desktop).toMatch(/max-height:\s*calc\(100dvh - 24px\);/);
+    expect(desktop).toMatch(/background:\s*var\(--cz-frost-fill\);/);
+    expect(desktop).toMatch(/border:\s*1px solid var\(--cz-frost-border\);/);
+    expect(desktop).not.toContain("backdrop-filter:");
+  });
+
   it("lists the five sections in order (fit folded into sizes)", () => {
     const { container } = renderPage();
     const items = [...container.querySelectorAll(".cz-settings-nav-item")].map((n) =>
