@@ -1799,6 +1799,72 @@ function HeroActionsSlot({ render, photos, photoIdx, resetPager, className = "cz
   );
 }
 
+// Kyle 2026-08-02 item 9: Settings buying-agent is a t-acc fold. Collapsed head
+// shows ONLY the current agent; expand reveals the full list. Selection logic
+// is unchanged — presentation + motion only.
+function SettingsAgentAccordion({ preferredAgent, onSelectAgent }) {
+  const [open, setOpen] = useState(false);
+  const current = getAgent(preferredAgent);
+  const currentName = (current && current.name) || "Choose an agent";
+
+  return (
+    <div
+      className="t-acc cz-agent-acc"
+      data-open={open ? "true" : "false"}
+    >
+      <button
+        type="button"
+        className="t-acc-head cz-agent-acc-head"
+        aria-expanded={open}
+        aria-controls="cz-settings-agent-panel"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="cz-agent-acc-head-label">Agent</span>
+        <span className="cz-agent-acc-head-value">{currentName}</span>
+        <ChevronDown
+          className="t-acc-chevron"
+          size={16}
+          strokeWidth={2.2}
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        id="cz-settings-agent-panel"
+        className="t-acc-panel"
+        aria-hidden={!open}
+        inert={!open ? "" : undefined}
+      >
+        <div className="t-acc-panel-inner">
+          <div
+            className="cz-agent-acc-list"
+            role="radiogroup"
+            aria-label="Buying agent"
+          >
+            {listAgents().map((agent) => {
+              const active = agent.id === preferredAgent;
+              return (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  key={agent.id}
+                  className={"cz-agent-acc-row" + (active ? " is-active" : "")}
+                  onClick={() => {
+                    onSelectAgent(agent.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="cz-agent-acc-row-name">{agent.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // The Buy button gets a notch (handoff turn 9 §8). One container, one radius,
 // split by a hairline: the label opens the agent, the chevron segment opens
 // the agent LIST. Before this the only way to change agent was Profile →
@@ -3658,28 +3724,10 @@ export default function DetailBody({
               {typeof onSelectAgent === "function" ? (
                 <div className="cz-desk-setting-block">
                   <h3 className="cz-desk-setting-kicker">Buying agent</h3>
-                  <div
-                    className="cz-desk-agent-list"
-                    role="radiogroup"
-                    aria-label="Buying agent"
-                  >
-                    {listAgents().map((agent) => {
-                      const active = agent.id === preferredAgent;
-                      return (
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={active}
-                          key={agent.id}
-                          className={"cz-desk-agent-row" + (active ? " is-active" : "")}
-                          onClick={() => onSelectAgent(agent.id)}
-                        >
-                          <span className="cz-desk-agent-dot" aria-hidden="true" />
-                          <span className="cz-desk-agent-name">{agent.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <SettingsAgentAccordion
+                    preferredAgent={preferredAgent}
+                    onSelectAgent={onSelectAgent}
+                  />
                   <p className="cz-desk-setting-note">
                     Item price is the same everywhere — agents differ on shipping and service fee.
                     Your pick sticks as the default.

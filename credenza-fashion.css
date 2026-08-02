@@ -4782,32 +4782,44 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 
-/* ─── Accordion (transitions.dev) — used for haul expand ─── */
+/* ─── Accordion (transitions.dev t-acc) ───
+   Kyle 2026-08-02 item 9: exact values — expand/collapse/chevron 250ms,
+   ease cubic-bezier(0.22, 1, 0.36, 1). grid 0fr↔1fr; no JS height measure. */
+:root {
+  --acc-expand: 250ms;
+  --acc-collapse: 250ms;
+  --acc-chevron: 250ms;
+  --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
 .t-acc-panel {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows var(--dur-open) var(--ease-out);
+  transition: grid-template-rows var(--acc-collapse) var(--acc-ease);
 }
 .t-acc[data-open="true"] .t-acc-panel {
   grid-template-rows: 1fr;
+  transition: grid-template-rows var(--acc-expand) var(--acc-ease);
 }
 .t-acc-panel-inner {
   overflow: hidden;
   opacity: 0;
   filter: blur(2px);
   transition:
-    opacity var(--dur-open) var(--ease-out),
-    filter var(--dur-open) var(--ease-out);
+    opacity var(--acc-collapse) var(--acc-ease),
+    filter var(--acc-collapse) var(--acc-ease);
 }
 .t-acc[data-open="true"] .t-acc-panel-inner {
   opacity: 1;
   filter: blur(0);
+  transition:
+    opacity var(--acc-expand) var(--acc-ease),
+    filter var(--acc-expand) var(--acc-ease);
 }
 .t-acc-chevron {
   display: inline-flex;
   transform: scaleY(1);
   transform-origin: center;
-  transition: transform var(--dur-open) var(--ease-out);
+  transition: transform var(--acc-chevron) var(--acc-ease);
   color: var(--cz-sub);
 }
 .t-acc-chevron path { vector-effect: non-scaling-stroke; }
@@ -4819,6 +4831,111 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .t-acc-panel, .t-acc-panel-inner, .t-acc-chevron {
     transition: none !important;
   }
+}
+
+/* List-row pickers (Status / Haul / Colorway / Weight / Category) expand
+   in place under the row — no floating boxed pop (Kyle item 9). */
+.cz-cmdbar-list-slot.t-acc {
+  display: flex;
+  flex-direction: column;
+}
+/* Pad the body, never .t-acc-panel-inner — padding on the 0fr child leaves a
+   residual strip when the panel is closed. */
+.cz-cmdbar-list-acc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 8px 10px;
+  padding: 6px 8px 8px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-bg-elevated, var(--cz-card));
+}
+.cz-cmdbar-list-slot .cz-cmdbar-list-chev.t-acc-chevron {
+  color: var(--cz-faint);
+}
+
+/* Settings buying-agent accordion: collapsed head = current agent only. */
+.cz-agent-acc {
+  display: flex;
+  flex-direction: column;
+}
+.cz-agent-acc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card, transparent);
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-agent-acc[data-open="true"] .cz-agent-acc-head {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+}
+.cz-agent-acc-head-label {
+  flex: 0 0 auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-agent-acc-head-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cz-agent-acc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+.cz-agent-acc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-agent-acc-row.is-active {
+  border-color: var(--cz-hair-strong, var(--cz-hair));
+  background: var(--cz-card);
+  color: var(--cz-ink);
+  font-weight: 700;
+}
+.cz-agent-acc-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cz-agent-acc-row-meta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cz-faint);
 }
 
 /* ─── Panel reveal (transitions.dev) — dropdown panels (status, category) ─── */

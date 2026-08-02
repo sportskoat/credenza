@@ -440,44 +440,206 @@ export default function CommandBar({
     category: !categoryLabel,
   };
 
+  // Kyle 2026-08-02 item 9: list rows expand in place (t-acc), not a floating
+  // boxed pop. Selection logic is unchanged — only presentation + motion.
   if (layout === "list") {
+    // Inline panel bodies (no absolute Popover) so they live inside t-acc-panel.
+    const inlinePanels = {
+      status: (
+        <div className="cz-cmdbar-list-acc-body" role="menu" aria-label="Status">
+          {STATUS_STEPS.map((step) => (
+            <MenuItem
+              key={step.value}
+              selected={step.value === (bought ? "bought" : "want")}
+              meta={step.meta}
+              lead={
+                <span
+                  className={
+                    "cz-cmdbar-dot" +
+                    (step.value === "bought" && bought ? " is-on" : "") +
+                    (step.value === "want" && !bought ? " is-on" : "")
+                  }
+                  aria-hidden="true"
+                />
+              }
+              onClick={() => {
+                pickStatus(step.value);
+                close();
+              }}
+            >
+              {step.label}
+            </MenuItem>
+          ))}
+        </div>
+      ),
+      haul: (
+        <div className="cz-cmdbar-list-acc-body" role="menu" aria-label="Haul">
+          {knownHauls.map((name) => (
+            <MenuItem
+              key={name}
+              selected={name === haul}
+              onClick={() => commitHaul(name)}
+            >
+              {name}
+            </MenuItem>
+          ))}
+          {knownHauls.length ? <div className="cz-cmdbar-div" aria-hidden="true" /> : null}
+          <div className="cz-cmdbar-newhaul">
+            <input
+              className="cz-cmdbar-newhaul-input"
+              aria-label="New haul name"
+              placeholder="New haul"
+              value={newHaul}
+              onChange={(event) => setNewHaul(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                const next = newHaul.trim();
+                if (!next) return;
+                setNewHaul("");
+                commitHaul(next);
+              }}
+            />
+          </div>
+        </div>
+      ),
+      color: (
+        <div className="cz-cmdbar-list-acc-body" role="menu" aria-label="Colorway">
+          {SWATCHES.map((swatch) => (
+            <MenuItem
+              key={swatch.name}
+              selected={swatch.name === colorway}
+              lead={
+                <span
+                  className="cz-cmdbar-swatch"
+                  style={{ background: swatch.hex }}
+                  aria-hidden="true"
+                />
+              }
+              onClick={() => {
+                edit("colorway", swatch.name);
+                commit();
+                close();
+              }}
+            >
+              {swatch.name}
+            </MenuItem>
+          ))}
+          <div className="cz-cmdbar-div" aria-hidden="true" />
+          <input
+            className="cz-cmdbar-text"
+            aria-label="Colorway"
+            value={colorway}
+            onChange={(event) => edit("colorway", event.target.value)}
+            onBlur={() => commit()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+                close();
+              }
+            }}
+          />
+        </div>
+      ),
+      weight: (
+        <div className="cz-cmdbar-list-acc-body" role="menu" aria-label="Weight">
+          <div className="cz-cmdbar-weight">
+            <input
+              className="cz-cmdbar-weight-input"
+              aria-label={"Weight · " + weightUnit}
+              inputMode="decimal"
+              value={weightValue}
+              onChange={(event) => onWeightChange && onWeightChange(event.target.value)}
+              onBlur={() => commit()}
+            />
+            <div className="cz-cmdbar-seg" role="group" aria-label="Weight unit">
+              {["g", "kg"].map((unit) => (
+                <button
+                  key={unit}
+                  type="button"
+                  className={"cz-cmdbar-seg-btn" + (weightUnit === unit ? " is-on" : "")}
+                  onClick={() => onSwitchWeightUnit && onSwitchWeightUnit(unit)}
+                >
+                  {unit}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="cz-cmdbar-help">
+            {haul
+              ? "Feeds the parcel-weight estimate on the " + haul + " haul."
+              : "Feeds the parcel-weight estimate for this haul."}
+          </p>
+        </div>
+      ),
+      category: (
+        <div className="cz-cmdbar-list-acc-body" role="menu" aria-label="Category">
+          {Object.entries(CATEGORIES).map(([catKey, cat]) => (
+            <MenuItem
+              key={catKey}
+              selected={catKey === categoryKey}
+              onClick={() => {
+                if (onSaveEdit) onSaveEdit(item.id, { category: catKey, categoryManual: true });
+                close();
+              }}
+            >
+              {cat.label}
+            </MenuItem>
+          ))}
+        </div>
+      ),
+    };
+
     return (
       <div className="cz-cmdbar cz-cmdbar-list" role="group" aria-label="Item facts">
-        {BAR_ORDER.map((key) => (
-          <div className="cz-cmdbar-list-slot" key={key}>
-            <button
-              ref={refs[key]}
-              type="button"
-              className={
-                "cz-cmdbar-list-row" +
-                (key === "status" && bought ? " is-status-bought" : "") +
-                (listUnset[key] ? " is-unset" : "")
-              }
-              aria-expanded={menu === key}
-              aria-haspopup="menu"
-              data-chip={key}
-              onClick={() => toggle(key)}
+        {BAR_ORDER.map((key) => {
+          const open = menu === key;
+          return (
+            <div
+              className="cz-cmdbar-list-slot t-acc"
+              key={key}
+              data-open={open ? "true" : "false"}
             >
-              <span className="cz-cmdbar-list-k">
-                {key === "status" ? (
-                  <span
-                    className={"cz-cmdbar-dot" + (bought ? " is-on" : "")}
-                    aria-hidden="true"
-                  />
-                ) : null}
-                {listLabels[key]}
-              </span>
-              <span className="cz-cmdbar-list-v">{listValues[key]}</span>
-              <ChevronRight
-                className="cz-cmdbar-list-chev"
-                size={14}
-                strokeWidth={2.2}
-                aria-hidden="true"
-              />
-            </button>
-            {menu === key ? panels[key] : null}
-          </div>
-        ))}
+              <button
+                ref={refs[key]}
+                type="button"
+                className={
+                  "cz-cmdbar-list-row t-acc-head" +
+                  (key === "status" && bought ? " is-status-bought" : "") +
+                  (listUnset[key] ? " is-unset" : "")
+                }
+                aria-expanded={open}
+                aria-controls={"cz-cmdbar-acc-" + key}
+                data-chip={key}
+                onClick={() => toggle(key)}
+              >
+                <span className="cz-cmdbar-list-k">
+                  {key === "status" ? (
+                    <span
+                      className={"cz-cmdbar-dot" + (bought ? " is-on" : "")}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  {listLabels[key]}
+                </span>
+                <span className="cz-cmdbar-list-v">{listValues[key]}</span>
+                <ChevronDown
+                  className="cz-cmdbar-list-chev t-acc-chevron"
+                  size={14}
+                  strokeWidth={2.2}
+                  aria-hidden="true"
+                />
+              </button>
+              <div
+                id={"cz-cmdbar-acc-" + key}
+                className="t-acc-panel"
+                aria-hidden={!open}
+                inert={!open ? "" : undefined}
+              >
+                <div className="t-acc-panel-inner">{inlinePanels[key]}</div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   }
