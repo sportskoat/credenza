@@ -277,3 +277,21 @@ describe("the card a signed-out visitor gets back", () => {
     expect(document.querySelector(".cz-sizing-albumrow")).toBe(null);
   });
 });
+
+// FIX 0 (2026-08-02): chart-vision 401/403 shows distinct signed-out copy + Sign in.
+// Pins the customer-facing mapping so a signed-out person is not told
+// "No size chart found" or "I could not read that photo."
+describe("chart auth wall copy (FIX 0)", () => {
+  it("exports the pinned signed-out sentence for both manual and hunt paths", async () => {
+    const { CHART_AUTH_COPY, isChartAuthRequired, CHART_AUTH_REQUIRED } = await import(
+      "../../credenza-fashion.jsx"
+    );
+    expect(CHART_AUTH_COPY).toBe("You are signed out. Sign in to read charts.");
+    expect(isChartAuthRequired(CHART_AUTH_REQUIRED)).toBe(true);
+    expect(isChartAuthRequired(null)).toBe(false);
+    expect(isChartAuthRequired("M chest 100\nL chest 104")).toBe(false);
+    // Old lies must not match the new sentence.
+    expect(CHART_AUTH_COPY).not.toMatch(/could not read/i);
+    expect(CHART_AUTH_COPY).not.toMatch(/No size chart found/i);
+  });
+});
