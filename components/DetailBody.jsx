@@ -1856,22 +1856,31 @@ function sizeAnalysisParagraph(verdict, fitRows, units, category) {
     if (r.estimated) continue;
     const name = (r.name || r.key || "measure").toLowerCase();
     if (r.warn || (r.mark != null && r.warn)) {
-      if (r.ease == null) {
+      if (r.ease == null || Math.abs(r.ease) < 0.05) {
         secondary.push("The " + name + " is outside tolerance.");
-      } else if (Math.abs(r.ease) < 0.05) {
-        secondary.push("The " + name + " is outside tolerance.");
-      } else if (r.ease > 0) {
-        secondary.push(
-          "The " + name + " runs about " + formatMeasure(r.ease, units) + " long."
-        );
       } else {
-        secondary.push(
-          "The " +
-            name +
-            " runs about " +
-            formatMeasure(Math.abs(r.ease), units) +
-            " short."
-        );
+        // Length axes: long/short. Width axes: bigger/smaller — "shoulder
+        // runs long" sounds like garment length (F review of #39).
+        const isLengthKey =
+          r.key === "sleeve" || r.key === "length" || r.key === "pantsLength";
+        const amt = formatMeasure(Math.abs(r.ease), units);
+        if (isLengthKey) {
+          secondary.push(
+            "The " +
+              name +
+              " runs about " +
+              amt +
+              (r.ease > 0 ? " long." : " short.")
+          );
+        } else {
+          secondary.push(
+            "The " +
+              name +
+              " is about " +
+              amt +
+              (r.ease > 0 ? " bigger than yours." : " smaller than yours.")
+          );
+        }
       }
       namedInside.push(false);
     } else if (r.mark != null || r.ease != null) {
