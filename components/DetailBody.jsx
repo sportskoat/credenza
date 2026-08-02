@@ -339,6 +339,11 @@ function SizingBlock({
   // Desktop Fit fold (2026-08-02): one analysis paragraph under the size
   // headline, before the size cards. Empty string when nothing to say.
   analysis = "",
+  // Desktop: short fit-pref control left of the Verified fit mark. Opens
+  // FitPrefAsk. Null when the caller cannot save a preference.
+  item = null,
+  fitPref = null,
+  onAskPref = null,
 }) {
   const isManual = !!chosenSize;
   const heroSize = chosenSize || recSize || usualSize || "";
@@ -423,9 +428,20 @@ function SizingBlock({
         <div className="cz-fit-result">
           <span className="cz-fit-result-size">{heroLabel || "—"}</span>
           {editorialAside ? <span className="cz-fit-result-aside">{editorialAside}</span> : null}
-          <span className="cz-fit-result-badge">
-            <span className="cz-fit-result-dot" aria-hidden="true" />
-            {confidenceLabel}
+          <span className="cz-fit-result-trail">
+            {onAskPref && item ? (
+              <button
+                type="button"
+                className="cz-fit-result-pref"
+                onClick={onAskPref}
+              >
+                {fitPrefToggleLabel(item, fitPref)}
+              </button>
+            ) : null}
+            <span className="cz-fit-result-badge">
+              <span className="cz-fit-result-dot" aria-hidden="true" />
+              {confidenceLabel}
+            </span>
           </span>
         </div>
       ) : (
@@ -1923,6 +1939,21 @@ function fitPrefSentence(item, fitPref) {
             ? "shorts"
             : "this category";
   return "You wear " + cat + " " + bits.join(" and ").toLowerCase() + ". This card follows that.";
+}
+
+// Desktop result row only: one short word left of Verified fit. Prefer
+// looseness (e.g. "Regular"); fall back to length; empty pref invites a set.
+function fitPrefToggleLabel(item, fitPref) {
+  if (!fitPref || !fitPrefHasChoice(fitPref)) return "Set your fit preference";
+  if (fitPref.looseness) {
+    const word = fitPrefLabel(item.category, "looseness", fitPref.looseness);
+    if (word) return word;
+  }
+  if (fitPref.length) {
+    const word = fitPrefLabel(item.category, "length", fitPref.length);
+    if (word) return word;
+  }
+  return "Set your fit preference";
 }
 
 // 4d — dashed empty prompt. Copy is canonical from Card Mockups design 4d.
@@ -3424,6 +3455,9 @@ export default function DetailBody({
                 onPick={pickItemSize}
                 editorial={isDesktopPanel}
                 analysis={desktopAnalysis}
+                item={item}
+                fitPref={fitPref}
+                onAskPref={onSaveFitPref ? () => setAskingPref(true) : null}
                 customBox={
                   <CustomSizeBox
                     className="cz-sizing-cell is-custom"
