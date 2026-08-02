@@ -433,11 +433,11 @@ describe("DesktopDetailPanel (Fix B)", () => {
       }
     );
 
-    // Open measurement bars on Fit.
+    // Measurement bars start open on desktop Fit (Kyle 2026-08-02).
     const readToggle = await screen.findByRole("button", {
       name: /Measurement by measurement/i,
     });
-    await user.click(readToggle);
+    expect(readToggle).toHaveAttribute("aria-expanded", "true");
     const bars = await waitFor(() => {
       const el = document.querySelector(".cz-fitread");
       expect(el).toBeTruthy();
@@ -511,7 +511,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     );
 
     const toggle = await screen.findByRole("button", { name: /Measurement by measurement/i });
-    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
 
     const edit = await screen.findByRole("button", { name: "Edit my measurements" });
     await user.click(edit);
