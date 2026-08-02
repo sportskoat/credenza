@@ -18026,9 +18026,13 @@ input.cz-sizing-fix-size {
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--cz-sub);
-    font-size: 13px;
-    font-weight: 600;
+    /* Same section-label face as .cz-fit-stanza-label (README / handoff). */
+    font-family: var(--cz-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cz-faint);
     cursor: pointer;
   }
   .cz-fit-read-toggle:hover {
