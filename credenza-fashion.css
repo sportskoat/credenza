@@ -4782,32 +4782,44 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 
-/* ─── Accordion (transitions.dev) — used for haul expand ─── */
+/* ─── Accordion (transitions.dev t-acc) ───
+   Kyle 2026-08-02 item 9: exact values — expand/collapse/chevron 250ms,
+   ease cubic-bezier(0.22, 1, 0.36, 1). grid 0fr↔1fr; no JS height measure. */
+:root {
+  --acc-expand: 250ms;
+  --acc-collapse: 250ms;
+  --acc-chevron: 250ms;
+  --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
 .t-acc-panel {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows var(--dur-open) var(--ease-out);
+  transition: grid-template-rows var(--acc-collapse) var(--acc-ease);
 }
 .t-acc[data-open="true"] .t-acc-panel {
   grid-template-rows: 1fr;
+  transition: grid-template-rows var(--acc-expand) var(--acc-ease);
 }
 .t-acc-panel-inner {
   overflow: hidden;
   opacity: 0;
   filter: blur(2px);
   transition:
-    opacity var(--dur-open) var(--ease-out),
-    filter var(--dur-open) var(--ease-out);
+    opacity var(--acc-collapse) var(--acc-ease),
+    filter var(--acc-collapse) var(--acc-ease);
 }
 .t-acc[data-open="true"] .t-acc-panel-inner {
   opacity: 1;
   filter: blur(0);
+  transition:
+    opacity var(--acc-expand) var(--acc-ease),
+    filter var(--acc-expand) var(--acc-ease);
 }
 .t-acc-chevron {
   display: inline-flex;
   transform: scaleY(1);
   transform-origin: center;
-  transition: transform var(--dur-open) var(--ease-out);
+  transition: transform var(--acc-chevron) var(--acc-ease);
   color: var(--cz-sub);
 }
 .t-acc-chevron path { vector-effect: non-scaling-stroke; }
@@ -4819,6 +4831,116 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .t-acc-panel, .t-acc-panel-inner, .t-acc-chevron {
     transition: none !important;
   }
+}
+
+/* List pickers (Status / Haul / Colorway / Weight / Category) — ONE rounded
+   card per picker (Kyle 2026-08-02 NO on PR #71 frames). Collapsed = head
+   only inside the card. Expanded = same card grows; list is content inside
+   the same border. No second body box, no full-bleed hairlines between rows. */
+.cz-cmdbar-list-slot.t-acc {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card, transparent);
+  overflow: hidden;
+}
+/* Pad the body, never .t-acc-panel-inner — padding on the 0fr child leaves a
+   residual strip when the panel is closed. Body has NO border/background. */
+.cz-cmdbar-list-acc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0 8px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.cz-cmdbar-list-slot .cz-cmdbar-list-chev.t-acc-chevron {
+  color: var(--cz-faint);
+}
+
+/* Settings buying-agent: same one-container look as the list pickers. */
+.cz-agent-acc {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card, transparent);
+  overflow: hidden;
+}
+.cz-agent-acc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-agent-acc-head-label {
+  flex: 0 0 auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-agent-acc-head-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cz-agent-acc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Pad list body (not panel-inner) — same residual-strip guard as list pickers. */
+  padding: 0 8px 10px;
+}
+.cz-agent-acc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-agent-acc-row.is-active {
+  background: color-mix(in srgb, var(--cz-hover) 85%, transparent);
+  color: var(--cz-ink);
+  font-weight: 700;
+}
+.cz-agent-acc-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cz-agent-acc-row-meta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cz-faint);
 }
 
 /* ─── Panel reveal (transitions.dev) — dropdown panels (status, category) ─── */
@@ -13367,17 +13489,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-bottom: 1px solid var(--cz-hair);
 }
 
-/* Mock Details list (Turn 3): chevron rows, label left, value right.
-   Replaces the chip bar only when CommandBar layout="list". */
+/* Mock Details list (Turn 3 → item 9): five separate rounded cards with gap.
+   Each picker is one bordered container (head + in-place body). No outer shell
+   and no hairline dividers between rows (Kyle 2026-08-02 NO on PR #71 frames). */
 .cz-cmdbar.cz-cmdbar-list {
   flex-direction: column;
   align-items: stretch;
   flex-wrap: nowrap;
-  gap: 0;
+  gap: 8px;
   margin-top: 0;
+  /* Space under the last card so its 1px bottom edge is not flush against
+     HISTORY (Kyle 2026-08-02: Category bottom edge vanishing). */
+  margin-bottom: 12px;
   padding: 0;
-  border: 1px solid var(--cz-hair);
-  border-radius: 14px;
+  border: 0;
+  border-radius: 0;
   overflow: visible;
   background: transparent;
 }
@@ -13385,10 +13511,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: relative;
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid color-mix(in srgb, var(--cz-hair) 80%, transparent);
-}
-.cz-cmdbar-list-slot:last-child {
-  border-bottom: 0;
+  /* Card chrome lives on .t-acc. Do NOT zero border-bottom on :last-child —
+     that legacy hairline-list rule ate the Category card's bottom edge
+     (same specificity, later in file; Kyle 2026-08-02). */
 }
 .cz-cmdbar-list-row {
   display: flex;
