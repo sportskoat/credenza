@@ -6,11 +6,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import DetailSheet from "../../sheets/DetailSheet.jsx";
 import {
   lockBodyScroll,
   unlockBodyScroll,
 } from "../../components/useBodyScrollLock.js";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const CSS = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
 
 const PHOTO = "data:image/png;base64,iVBORw0KGgo=";
 
@@ -303,5 +309,46 @@ describe("DetailSheet body scroll lock", () => {
 
     unlockBodyScroll();
     expect(document.body.style.overflow).toBe("scroll");
+  });
+});
+
+// Mobile item 3 (2026-08-02): a vertical drag on the photo pager must not
+// close the sheet. Sheet-close arms only on the grip; the pager allows both
+// pan axes so vertical pans scroll the sheet instead of rubber-banding it.
+describe("mobile item 3 — photo pager never closes the sheet", () => {
+  it("binds swipe-to-close only on the grip strip (source pin)", () => {
+    const src = readFileSync(join(ROOT, "sheets/DetailSheet.jsx"), "utf8");
+    // Grip owns the four touch handlers; nothing else in this file does.
+    expect(src).toMatch(
+      /className="cz-detail-grip"[\s\S]{0,200}onTouchStart=\{onGripTouchStart\}/
+    );
+    expect(src).toMatch(/onTouchMove=\{onGripTouchMove\}/);
+    expect(src).toMatch(/onTouchEnd=\{onGripTouchEnd\}/);
+    // Exactly one touch-start binding in the shell — the grip, not the pager.
+    const starts = src.match(/onTouchStart=/g) || [];
+    expect(starts).toHaveLength(1);
+    // Pager lives in DetailBody; the shell must not wire drag onto the hero.
+    expect(src).not.toMatch(/cz-detail-hero[\s\S]{0,80}onTouchStart/);
+  });
+
+  it("renders the grip strip on the open sheet", () => {
+    const { container } = renderSheet(twoBuyLinkItem());
+    expect(container.querySelector(".cz-detail-grip")).not.toBeNull();
+  });
+
+  it("pins pan-x pan-y on the hero track and slide so vertical pans scroll", () => {
+    const trackStart = CSS.indexOf(".cz-detail-hero-track {");
+    expect(trackStart).toBeGreaterThan(-1);
+    // Comment block is long — read past it to the property declarations.
+    const trackBlock = CSS.slice(trackStart, trackStart + 900);
+    expect(trackBlock).toMatch(/touch-action:\s*pan-x\s+pan-y/);
+    expect(trackBlock).toMatch(/overscroll-behavior:\s*contain/);
+
+    const slideStart = CSS.indexOf(
+      '.cz-app[data-fashion="true"] .cz-detail-hero-slide,\n.cz-detail-hero-slide {'
+    );
+    expect(slideStart).toBeGreaterThan(-1);
+    const slideBlock = CSS.slice(slideStart, slideStart + 500);
+    expect(slideBlock).toMatch(/touch-action:\s*pan-x\s+pan-y/);
   });
 });
