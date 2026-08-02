@@ -3293,8 +3293,8 @@ export default function DetailBody({
                       highlightAlt={
                         verdict.shown && verdict.shown.alt ? verdict.shown.alt.size : null
                       }
-                      onEditMeasures={null}
-                      onForgetChart={null}
+                      onEditMeasures={onOpenSizes ? openProfileSizes : null}
+                      onForgetChart={chartIsForgettable ? forgetChart : null}
                       noteText="Ease is the seller's number minus your body. Green marks the range this cut is drafted for. A dashed band means a number is missing and we are not guessing at one."
                     />
                   ) : null}

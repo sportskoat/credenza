@@ -362,4 +362,56 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(document.querySelector(".cz-dpanel-slide-empty .cz-cover-tile")).toBeTruthy();
     expect(screen.getByText("Weidian")).toBeInTheDocument();
   });
+
+  // Phase 1 desktop Fit bugs (2026-08-02): expanded measurement table must
+  // expose the same Edit / Forget links the phone FitReadTable already has.
+  it("shows Edit my measurements and Forget this chart when measurement rows expand", async () => {
+    window.__setMediaMatches("(min-width: 1024px)", true);
+    const onOpenSizes = vi.fn();
+    const onSaveEdit = vi.fn();
+    const user = userEvent.setup();
+    const chartText =
+      "M: chest 116, shoulder 46, length 70\nL: chest 120, shoulder 48, length 72\nXL: chest 124, shoulder 50, length 74";
+    renderPanel(
+      panelItem({
+        sizeNotes: chartText,
+        sizeChartSource: { via: "album-text", at: "2026-07-25T10:00:00.000Z" },
+        category: "shirt",
+      }),
+      {
+        onOpenSizes,
+        onSaveEdit,
+        bodyProfile: { chest: 105, shoulder: 45 },
+      }
+    );
+
+    const toggle = await screen.findByRole("button", { name: /Measurement by measurement/i });
+    await user.click(toggle);
+
+    const edit = await screen.findByRole("button", { name: "Edit my measurements" });
+    await user.click(edit);
+    expect(onOpenSizes).toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Forget this chart" }));
+    expect(onSaveEdit).toHaveBeenCalledWith(
+      "dp-1",
+      expect.objectContaining({
+        sizeNotes: "",
+        sizeChartSource: null,
+      })
+    );
+
+    // Selected + recommended size card keeps both classes (CSS keeps the
+    // name dark on the white fill — see .is-pick.is-rec .cz-sizing-cell-k).
+    const recPick = document.querySelector(".cz-sizing-cell.is-pick.is-rec");
+    if (recPick) {
+      expect(recPick.querySelector(".cz-sizing-cell-k")).toBeTruthy();
+    }
+
+    // Fit pane scroller must carry both classes so padding can re-apply.
+    const pane = document.querySelector(".cz-detail-scroll.cz-fit-pane");
+    expect(pane).not.toBeNull();
+
+    window.__setMediaMatches("(min-width: 1024px)", false);
+  });
 });
