@@ -2243,7 +2243,9 @@ function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, on
 // Provenance strings inside SizingBlock stay untouched — this strip only adds.
 // 5b — in-context taste ask, same copy as the orphan SizeRecommendation flow.
 // Owns its draft; mounts fresh each time, so it prefills from the live pref.
-function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone }) {
+// showSkip: first-ask flow on Fit keeps "Not sure yet". Settings placement
+// (mock Turn 3) is chips + Save only — nothing to skip on a Settings tab.
+function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true }) {
   const catAxes = FIT_PREF_AXES[item.category];
   const [draft, setDraft] = useState({
     length: (fitPref && fitPref.length) || null,
@@ -2285,20 +2287,22 @@ function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone }) {
       >
         Save preference
       </button>
-      <button
-        type="button"
-        className="cz-fit-prompt-skip"
-        onClick={() => {
-          onSaveFitPref(item.category, {
-            length: null,
-            looseness: null,
-            dismissed: true,
-          });
-          onDone();
-        }}
-      >
-        Not sure yet
-      </button>
+      {showSkip ? (
+        <button
+          type="button"
+          className="cz-fit-prompt-skip"
+          onClick={() => {
+            onSaveFitPref(item.category, {
+              length: null,
+              looseness: null,
+              dismissed: true,
+            });
+            onDone();
+          }}
+        >
+          Not sure yet
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -2463,15 +2467,10 @@ export default function DetailBody({
   // sizes this item with no network call. Optional — callers that do not pass
   // it simply fall back to the network hunt.
   shelfItems = null,
-  // The two-column panel can place the Timeline under its photo without
-  // taking ownership of the notes draft. Undefined keeps it inline for
-  // every existing caller; null suppresses the pre-mount desktop frame.
-  // (Notes no longer ride this slot — Kyle 2026-07-30: the notes writer
-  // lives at the bottom of the decision column.)
-  logNotesTarget = undefined,
   // Handoff §3: the desktop panel hands the command bar a full-width slot
-  // above both columns. Same contract as logNotesTarget — undefined keeps the
-  // bar inline (phone sheet, tablet band), null suppresses it before mount.
+  // above both columns. Undefined keeps the bar inline (phone sheet, tablet
+  // band), null suppresses it before mount. (logNotesTarget retired 2026-08-02:
+  // HISTORY lives in the Details tab, not under the photo column.)
   commandBarTarget = undefined,
   // Handoff section 3 region order: title, then bar, then body. Same contract
   // as commandBarTarget — undefined keeps the title inline.
@@ -3106,7 +3105,7 @@ export default function DetailBody({
   };
 
   // Kyle 2026-07-30: one block became two. The timeline still portals into
-  // the desktop panel's photo column (logNotesTarget), but the notes writer
+  // the desktop panel photo column, but the notes writer
   // stays inline at the END of the decision column — "move the notes sheet
   // to the bottom of the right side, it's crunched on the left". On the
   // phone sheet both render right here, in the same order as before.
@@ -3632,6 +3631,7 @@ export default function DetailBody({
                     fitPref={fitPref}
                     onSaveFitPref={onSaveFitPref}
                     onDone={() => setAskingPref(false)}
+                    showSkip={false}
                   />
                 </div>
               ) : null}
@@ -4098,9 +4098,6 @@ export default function DetailBody({
               marked no longer exists. */}
 
         </div>
-
-        {/* History + notes live in the Details tab (mock Turn 3). The left-column
-            logNotes portal is retired so HISTORY is not duplicated under the photo. */}
 
         {/* Phone / flip-card: Details pane — mock row list + history + notes. */}
         {!isDesktopPanel ? (

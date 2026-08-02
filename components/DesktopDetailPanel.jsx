@@ -99,11 +99,10 @@ export default function DesktopDetailPanel({
   // per item, so one bad photo never hides the good ones.
   const [badPhotos, setBadPhotos] = useState(() => new Set());
   const [addBusy, setAddBusy] = useState(false);
-  const [logNotesEl, setLogNotesEl] = useState(null);
   // Handoff §3: the command bar spans the FULL panel, above both columns.
   // Inside the decision column the five chips wrapped to two rows. DetailBody
   // owns the bar's state, so the panel lends it a slot and DetailBody portals
-  // into it — the same arrangement .cz-dpanel-lognotes already uses.
+  // into it. (logNotes slot retired 2026-08-02 — HISTORY is in Details.)
   const [commandBarEl, setCommandBarEl] = useState(null);
   // Handoff section 3 region order: the title comes first, then the bar, then
   // the body. The title lives inside DetailBody, so it portals into this slot
@@ -645,10 +644,6 @@ export default function DesktopDetailPanel({
               </span>
             </button>
           </div>
-          {/* Wide screens use the spare photo-column depth for the Timeline;
-              DetailBody still owns its writer. The notes writer stays at the
-              bottom of the decision column (Kyle 2026-07-30). */}
-          {isWide ? <div className="cz-dpanel-lognotes" ref={setLogNotesEl} /> : null}
         </div>
 
         <div className="cz-dpanel-right">
@@ -682,7 +677,6 @@ export default function DesktopDetailPanel({
               onLoadPhotos={onLoadPhotos}
               onDelete={onDelete}
               footerPrice={price}
-              logNotesTarget={isWide ? logNotesEl : undefined}
               commandBarTarget={isWide ? commandBarEl : undefined}
               titleTarget={isWide ? titleEl : undefined}
               footerTarget={isWide ? footerEl : undefined}

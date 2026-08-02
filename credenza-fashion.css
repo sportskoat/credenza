@@ -15618,8 +15618,7 @@ input.cz-sizing-fix-size {
      2026-08-02). The old ::before label was retired to stop the double "HISTORY". */
 
   .cz-detail-pane-history .cz-detail-notes-add {
-    min-height: 44px;
-    margin-top: 4px;
+    margin-top: 10px;
   }
 
   .cz-detail-device-note {
@@ -15851,6 +15850,37 @@ input.cz-sizing-fix-size {
 .cz-timeline-text strong {
   font-weight: 600;
   color: var(--cz-ink);
+}
+
+/* Mock Details "Add a note" (Turn 3): compact white pill, auto width, rounded,
+   centered label — not a full-width grey bar. Segment-on tokens keep the pill
+   light on dark and dark on light without hardcodes. */
+.cz-detail-notes-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  width: auto;
+  min-height: 36px;
+  margin-top: 10px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-seg-on);
+  color: var(--cz-seg-on-text);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+.cz-detail-notes-add:hover {
+  opacity: 0.92;
+}
+.cz-detail-notes-add:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
 }
 
 /* ── Notes (handoff turn 9 §7) ──
@@ -18303,19 +18333,21 @@ input.cz-sizing-fix-size {
     margin: 0;
   }
   /* Notes live in Details now — override the Phase 1 hide of .cz-detail-notes. */
-  .cz-dpanel .cz-desk-tab-details .cz-detail-notes-box,
-  .cz-dpanel .cz-desk-tab-details .cz-detail-notes-add {
-    display: flex !important;
-  }
   .cz-dpanel .cz-desk-tab-details .cz-detail-notes-box {
+    display: flex !important;
     flex-direction: column;
   }
   .cz-dpanel .cz-desk-tab-details .cz-detail-notes {
     display: block !important;
   }
+  /* Mock: compact white pill under HISTORY — not a full-width grey bar. */
   .cz-dpanel .cz-desk-tab-details .cz-detail-notes-add {
     display: inline-flex !important;
     align-items: center;
+    justify-content: center;
+    align-self: flex-start;
+    width: auto;
+    max-width: none;
   }
 
   /* Mock Settings: wear prefs first, then measurements list. */
