@@ -12292,7 +12292,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: calc(100dvh - 88px);
+  /* Mobile item 2 static gap (2026-08-02): 88px was a desktop-era reserve
+     (3e91074) and left a tall dead band above the phone sheet. Reserve only
+     the handle-strip peek (~28px in the 24–32px strip) plus safe-area so the
+     shelf is a small pull-sliver. Open/close animation half of item 2 stays
+     parked until Kyle asks. */
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - 28px);
   overflow: hidden;
   background: var(--cz-card-solid);
   border: 1px solid var(--cz-card-border, var(--cz-hair));
