@@ -53,12 +53,13 @@ describe("AvatarMenu (design 1c)", () => {
     expect(within(container).getByText("Pro · saved on this device")).toBeTruthy();
   });
 
-  // Kyle 2026-08-01: Gallery parked — colourway switch is gone; Blackout only.
-  it("has no colourway switch", () => {
+  // Kyle 2026-08-01: Gallery parked — colorway switch is gone; Blackout only.
+  it("has no colorway switch", () => {
     const { container } = renderMenu();
     expect(within(container).queryByRole("radio", { name: "Gallery" })).toBeNull();
     expect(within(container).queryByRole("radio", { name: "Blackout" })).toBeNull();
     expect(within(container).queryByText("Colourway")).toBeNull();
+    expect(within(container).queryByText("Colorway")).toBeNull();
   });
 
   it("carries the agent and currency rows", () => {

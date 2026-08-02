@@ -73,7 +73,7 @@ export function buildItemShareModel(item = {}, options = {}) {
   const opts = options && typeof options === "object" ? options : {};
   const factCandidates = [
     { label: "Size", value: firstText(source.size, source.recommendedSize) },
-    { label: "Colourway", value: firstText(source.colorway, source.colourway, source.color) },
+    { label: "Colorway", value: firstText(source.colorway, source.colourway, source.color) },
     { label: "Haul", value: firstText(source.project, source.haul, source.haulName) },
     {
       label: "Weight",

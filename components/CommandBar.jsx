@@ -381,7 +381,7 @@ export default function CommandBar({
     ),
     color: (
       <Chip id="color" chipRef={refs.color} open={menu === "color"} onToggle={() => toggle("color")}>
-        <span className="cz-cmdbar-label">Colourway</span>
+        <span className="cz-cmdbar-label">Colorway</span>
         <span className={"cz-cmdbar-value" + (colorway ? "" : " is-unset")}>
           {colorway || "Add a colorway"}
         </span>
@@ -417,10 +417,11 @@ export default function CommandBar({
 
   // Mock Details rows (Turn 3 quiet dark editorial): label left, value right,
   // chevron far right, green status dot. Same popovers as the chip bar.
+  // Kyle 2026-08-02: American spelling — "Colorway", never "Colourway".
   const listLabels = {
     status: "Status",
     haul: "Haul",
-    color: "Colourway",
+    color: "Colorway",
     weight: "Weight",
     category: "Category",
   };

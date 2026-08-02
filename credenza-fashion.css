@@ -17020,7 +17020,7 @@ input.cz-sizing-fix-size {
     font-size: 14px;
     font-weight: 650;
     letter-spacing: -0.01em;
-    color: var(--cz-ink);
+    color: var(--cz-money);
     white-space: nowrap;
   }
   /* The notch is the flex child in the footer row; the button inside it
@@ -17259,8 +17259,9 @@ input.cz-sizing-fix-size {
     min-width: 0;
     margin-left: 0;
   }
-  /* Price next to Buy: same size/weight as the Buy label, ink (not money green).
-     The element stays a button: it is the only opener for the price editor. */
+  /* Price next to Buy: money green (the one green token). Size stays compact
+     here; the desktop footer-slot rule owns the larger 16px face. The element
+     stays a button: it is the only opener for the price editor. */
   .cz-dpanel-body .cz-detail-foot-price {
     height: auto;
     padding: 0;
@@ -17270,7 +17271,7 @@ input.cz-sizing-fix-size {
     font-size: 13.5px;
     font-weight: 600;
     letter-spacing: -0.01em;
-    color: var(--cz-ink);
+    color: var(--cz-money);
   }
   /* The 230px floor belongs to the tablet band, where Buy fills the row. Here
      Buy takes the width of its own words, plus room to breathe. */
@@ -18076,16 +18077,19 @@ input.cz-sizing-fix-size {
     line-height: 1.4;
     color: var(--cz-faint);
   }
+  /* Kyle 2026-08-02: footer price green + bigger. --cz-money is the one green
+     token (not --cz-accent, which is ink). Base .cz-detail-foot-price already
+     uses money; this desktop override had swapped it to ink (white on dark). */
   .cz-dpanel-footer-slot .cz-detail-foot-price {
     order: 2;
     height: auto;
     padding: 0;
     margin-left: auto;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 650;
     letter-spacing: -0.01em;
-    color: var(--cz-ink);
+    color: var(--cz-money);
     background: transparent;
     border: 0;
   }
@@ -18269,13 +18273,16 @@ input.cz-sizing-fix-size {
 
   /* ── Desktop Details + Settings tabs (Lane 1 overnight, 2026-08-02) ──
      2026-08-02 tab reformat: Details = mock chevron rows + history + note;
-     Settings = How do you wear + Your measurements, then agent/chart/remove. */
+     Settings = How do you wear + Your measurements, then agent/chart/remove.
+     Kyle 2026-08-02: both tabs fill the details column edge-to-edge (mock 3a).
+     Do NOT re-add a max-width cap here — Status/Haul/Colorway rows and the
+     Settings measurements table must stretch to the column's real width. */
   .cz-desk-tab {
     display: flex;
     flex-direction: column;
     gap: 18px;
     min-width: 0;
-    max-width: 520px;
+    width: 100%;
     padding: 4px 0 12px;
   }
   .cz-desk-fact-list {
