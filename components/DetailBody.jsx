@@ -66,6 +66,8 @@ import {
   pickSizeValuesFromVariants,
   whatsAppChatUrl,
 } from "../listing-facts.js";
+import FirstSizeBlock from "./FirstSizeBlock.jsx";
+import { isUsualFitSource, profileNeedsFirstSize } from "./first-size.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
 // to be consistent — like the mobile back"). The phone DetailSheet and the
@@ -408,6 +410,8 @@ function SizingBlock({
   item = null,
   fitPref = null,
   onAskPref = null,
+  // Phase 1 Guess path: pick came from usual size + sit, not a real measure.
+  usualFitSource = false,
 }) {
   const isManual = !!chosenSize;
   const heroSize = chosenSize || recSize || usualSize || "";
@@ -415,21 +419,25 @@ function SizingBlock({
 
   // Split-rail: the sheen marks a pick that came off a real chart. A manual
   // pick, a best guess, and a read in flight all render still.
-  const sheen = precise && !isManual && !hunting;
+  // Usual-fit is chart-anchored but not a measured body — no sheen.
+  const sheen = precise && !isManual && !hunting && !usualFitSource;
 
   // Provenance, right-aligned in the header. Mono, uppercase, and short —
   // the phone gets the trimmed form via CSS, not a second string. Round 5
   // point 5.1: "SET BY YOU" is gone — the aside beside the size word is the
   // one place a hand pick names itself.
+  // Phase 1 usual-fit: exact rail wording from FIRST_SIZE_USUAL_FIT_PROV.
   const provenance = hunting
     ? "READING CHART"
-    : precise
-      ? "SELLER'S CHART"
-      : recSize
-        ? "BEST GUESS"
-        : isManual
-          ? ""
-          : "YOUR USUAL";
+    : usualFitSource && recSize && !isManual
+      ? "CHART PICK · USUAL SIZE + FIT"
+      : precise
+        ? "SELLER'S CHART"
+        : recSize
+          ? "BEST GUESS"
+          : isManual
+            ? ""
+            : "YOUR USUAL";
 
   // "your usual is L too" — only worth saying when the AI pick and the
   // customer's usual size agree. Silent otherwise; a disagreement is the
@@ -488,6 +496,8 @@ function SizingBlock({
   const confidenceLabel = precise || (recSize && chart)
     ? "Verified fit"
     : "Your usual size";
+  // Phase 1 usual-fit keeps the AI size kicker with the new provenance rail
+  // (F: "AI SIZE / CHART PICK · USUAL SIZE + FIT") — not a bare "your usual".
   const kickerLabel = !isManual
     ? recSize
       ? "AI size"
@@ -4081,15 +4091,28 @@ export default function DetailBody({
                 onClose={() => setAskingMeasures(false)}
                 onSkipFitPrompt={onSkipFitPrompt}
               />
-            ) : !bodyProfile &&
-              !fitPromptSkipped &&
+            ) : profileNeedsFirstSize(bodyProfile) &&
               onSaveBodyProfile &&
               !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
-              // 4d — empty profile: no size string, only the ask. The size
-              // chips above stay (a hand-set size is the customer's own data).
-              <FitEmptyPrompt
-                onAdd={() => setAskingMeasures(true)}
-                onSkip={onSkipFitPrompt}
+              // Phase 1 (2026-08-02): three-way first-size chooser replaces
+              // the old dashed empty prompt when the profile has no measures
+              // and no usual size. Match-with-shirt is visible but disabled
+              // until Phase 2 brand data lands.
+              <FirstSizeBlock
+                item={item}
+                chart={verdict.chart}
+                units={measureUnits}
+                onSaveBodyProfile={onSaveBodyProfile}
+                onSaveFitPref={onSaveFitPref}
+                startSkipped={!!fitPromptSkipped}
+                onSkip={
+                  fitPromptSkipped
+                    ? null
+                    : () => {
+                        if (onSkipFitPrompt) onSkipFitPrompt();
+                      }
+                }
+                onOpenMeasureHelp={onOpenSizes || null}
               />
             ) : !verdict.chart && !hunting ? (
               <SizingBlockNoChart
@@ -4133,6 +4156,7 @@ export default function DetailBody({
                 item={item}
                 fitPref={fitPref}
                 onAskPref={onSaveFitPref ? () => setAskingPref(true) : null}
+                usualFitSource={isUsualFitSource(bodyProfile)}
                 customBox={
                   <CustomSizeBox
                     className="cz-sizing-cell is-custom"
