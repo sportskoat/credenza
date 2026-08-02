@@ -52,6 +52,7 @@ import { huntSizeChart } from "./size-chart-hunt.js";
 import { chartImageKey, rememberChartImage, validateChartResult } from "./chart-pipeline.js";
 import { AlbumLinksRow } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
+import SlidingTabsPill from "./SlidingTabsPill.jsx";
 import { pickSizeRunFromVariants, pickSizeValuesFromVariants } from "../listing-facts.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
@@ -3007,12 +3008,14 @@ export default function DetailBody({
             if (event.key === "Enter") setEditingCell(null);
           }}
         />
-        <div className="cz-detail-unit" role="group" aria-label="Price currency">
+        <div className="cz-detail-unit t-tabs" role="group" aria-label="Price currency">
+          <SlidingTabsPill value={priceUnit} />
           {["USD", "CNY"].map((unit) => (
             <button
               key={unit}
               type="button"
-              className={"cz-detail-unit-btn" + (priceUnit === unit ? " is-active" : "")}
+              className={"cz-detail-unit-btn t-tab" + (priceUnit === unit ? " is-active" : "")}
+              data-t-tab-value={unit}
               aria-pressed={priceUnit === unit}
               onClick={() => switchPriceUnit(unit)}
             >
@@ -3260,7 +3263,8 @@ export default function DetailBody({
       ) : null}
 
       {wantsStickyBar ? (
-        <div className="cz-detail-pane-picker" role="tablist" aria-label="Item section">
+        <div className="cz-detail-pane-picker t-tabs" role="tablist" aria-label="Item section">
+          <SlidingTabsPill value={pane} />
           {[
             ["fit", "Fit"],
             ["photos", "Photos · " + photos.length],
@@ -3271,7 +3275,8 @@ export default function DetailBody({
               type="button"
               role="tab"
               aria-selected={pane === key}
-              className={pane === key ? "is-active" : ""}
+              className={"t-tab" + (pane === key ? " is-active" : "")}
+              data-t-tab-value={key}
               onClick={() => setPane(key)}
             >
               {label}
@@ -3284,10 +3289,11 @@ export default function DetailBody({
       {isDesktopPanel ? (
           <div className="cz-fit-controls">
             <div
-              className="cz-fit-tabs"
+              className="cz-fit-tabs t-tabs"
               role="tablist"
               aria-label="Item section"
             >
+              <SlidingTabsPill value={desktopTab} />
               {DESKTOP_TABS.map(([key, label]) => (
                 <button
                   key={key}
@@ -3298,7 +3304,8 @@ export default function DetailBody({
                   aria-selected={desktopTab === key}
                   aria-controls={"cz-fit-panel-" + key}
                   tabIndex={desktopTab === key ? 0 : -1}
-                  className={"cz-fit-tab" + (desktopTab === key ? " is-active" : "")}
+                  className={"cz-fit-tab t-tab" + (desktopTab === key ? " is-active" : "")}
+                  data-t-tab-value={key}
                   onClick={() => setDesktopTab(key)}
                   onKeyDown={onDesktopTabKey}
                 >
@@ -3306,12 +3313,14 @@ export default function DetailBody({
                 </button>
               ))}
             </div>
-            <div className="cz-fit-units" role="group" aria-label="Measurement units">
+            <div className="cz-fit-units t-tabs" role="group" aria-label="Measurement units">
+              <SlidingTabsPill value={measureUnits} />
               {["in", "cm"].map((u) => (
                 <button
                   key={u}
                   type="button"
-                  className="cz-fit-unit"
+                  className="cz-fit-unit t-tab"
+                  data-t-tab-value={u}
                   aria-pressed={measureUnits === u}
                   onClick={() => onChangeUnits && onChangeUnits(u)}
                 >

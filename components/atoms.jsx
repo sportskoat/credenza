@@ -16,6 +16,7 @@ import {
   usePrefersReducedMotion,
 } from "../credenza-fashion.jsx";
 import ComboboxField from "./ComboboxField.jsx";
+import SlidingTabsPill from "./SlidingTabsPill.jsx";
 
 // Gallery ambient — warm-white field with soft paper-light blooms that
 // gently follow cursor/touch. Stays behind content; heavy blur keeps type clean.
@@ -547,7 +548,8 @@ export function Field({ label, value, onChange, placeholder, rows, suggestions, 
 // Look lives in .cz-segment* (credenza-fashion.css). Do not restyle inline.
 export function SegmentedControl({ value, onChange, options, label, allowUnset = false }) {
   return (
-    <div role="radiogroup" aria-label={label} className="cz-segment">
+    <div role="radiogroup" aria-label={label} className="cz-segment t-tabs">
+      <SlidingTabsPill value={value} />
       {options.map((opt) => {
         const active = value === opt.value;
         return (
@@ -555,7 +557,8 @@ export function SegmentedControl({ value, onChange, options, label, allowUnset =
             type="button"
             role="radio"
             aria-checked={active}
-            className={"cz-segment-btn" + (active ? " is-active" : "")}
+            className={"cz-segment-btn t-tab" + (active ? " is-active" : "")}
+            data-t-tab-value={opt.value}
             key={opt.value}
             onClick={() => onChange(active && allowUnset ? "" : opt.value)}
           >
