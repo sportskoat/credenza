@@ -17,7 +17,7 @@ export default function AvatarMenu({
   agentLabel,
   onOpenAgent,
   pricePrimary,
-  onCycleCurrency,
+  onOpenCurrency,
   onOpenSettings,
   onSignOut,
   onClose,
@@ -89,10 +89,9 @@ export default function AvatarMenu({
         <span className="cz-avatar-menu-value">{agentLabel} ›</span>
       </button>
 
-      {/* Currency flips in place (Kyle 2026-07-28): closing the menu on a
-          cycle made one tap do two jobs. The value updates live; the menu
-          stays. */}
-      <button type="button" className="cz-avatar-menu-row" onClick={onCycleCurrency}>
+      {/* Currency opens the top-8 picker (lane 2, 2026-08-02). Closing the
+          menu first keeps one surface on screen — same path as Agent. */}
+      <button type="button" className="cz-avatar-menu-row" onClick={go(onOpenCurrency)}>
         <span className="cz-avatar-menu-label">Currency</span>
         <span className="cz-avatar-menu-value">{pricePrimary} ›</span>
       </button>

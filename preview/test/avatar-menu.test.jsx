@@ -21,7 +21,7 @@ function renderMenu(extra = {}) {
       agentLabel="Sugargoo"
       onOpenAgent={noop}
       pricePrimary="USD"
-      onCycleCurrency={noop}
+      onOpenCurrency={noop}
       onOpenSettings={noop}
       onSignOut={noop}
       onClose={noop}
@@ -63,14 +63,14 @@ describe("AvatarMenu (design 1c)", () => {
 
   it("carries the agent and currency rows", () => {
     const onOpenAgent = vi.fn();
-    const onCycleCurrency = vi.fn();
-    const { container } = renderMenu({ onOpenAgent, onCycleCurrency });
+    const onOpenCurrency = vi.fn();
+    const { container } = renderMenu({ onOpenAgent, onOpenCurrency });
     expect(within(container).getByText("Sugargoo ›")).toBeTruthy();
     expect(within(container).getByText("USD ›")).toBeTruthy();
     fireEvent.click(within(container).getByText("Agent"));
     expect(onOpenAgent).toHaveBeenCalledTimes(1);
     fireEvent.click(within(container).getByText("Currency"));
-    expect(onCycleCurrency).toHaveBeenCalledTimes(1);
+    expect(onOpenCurrency).toHaveBeenCalledTimes(1);
   });
 
   it("opens the settings page from All settings", () => {

@@ -38,7 +38,7 @@ const VALUE = {
   fitSummary: true,
   fitDetail: "detailed",
   onOpenAgent: noop,
-  onCycleCurrency: noop,
+  onOpenCurrency: noop,
   onToggleFitSummary: noop,
   onCycleFitDetail: noop,
   items: [],
@@ -182,7 +182,7 @@ describe("SettingsPage (one-page redesign)", () => {
 
   it("shelf defaults rows work — each flips or opens its switch", () => {
     const onOpenAgent = vi.fn();
-    const onCycleCurrency = vi.fn();
+    const onOpenCurrency = vi.fn();
     const onToggleFitSummary = vi.fn();
     const onCycleFitDetail = vi.fn();
     const { container } = renderPage({
@@ -193,7 +193,7 @@ describe("SettingsPage (one-page redesign)", () => {
         fitSummary: true,
         fitDetail: "concise",
         onOpenAgent,
-        onCycleCurrency,
+        onOpenCurrency,
         onToggleFitSummary,
         onCycleFitDetail,
       },
@@ -205,7 +205,7 @@ describe("SettingsPage (one-page redesign)", () => {
     fireEvent.click(row("Default agent"));
     expect(onOpenAgent).toHaveBeenCalledTimes(1);
     fireEvent.click(row("Primary currency"));
-    expect(onCycleCurrency).toHaveBeenCalledTimes(1);
+    expect(onOpenCurrency).toHaveBeenCalledTimes(1);
     fireEvent.click(row("Fit summary"));
     expect(onToggleFitSummary).toHaveBeenCalledTimes(1);
     fireEvent.click(row("Fit detail"));

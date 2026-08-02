@@ -30,10 +30,25 @@ const MAX_GALLERY_IMAGES = 10;
 // Chart photos stay out of the gallery — Kyle's rule from 2026-07-26.
 const CHART_SHAPE_RATIO = 1.25;
 const FX_API = "https://open.er-api.com/v6/latest/CNY";
+// Top-8 display currencies (lane 2, 2026-08-02). One live fetch returns every
+// rate; offline fallbacks keep shelf totals stable when the free service is
+// down. USD/EUR literals stay in the form the three-copy pin expects.
+const FX_CODES = ["USD", "EUR", "CNY", "GBP", "JPY", "KRW", "CAD", "AUD"];
 const FX_FALLBACK_USD_PER_CNY = 0.14;
 // Rough offline EUR rate (2026-08-01): the euro is stronger than the dollar,
 // so fewer CNY buy one EUR than one USD. Fallback only — the live FX_API wins.
 const FX_FALLBACK_EUR_PER_CNY = 0.13;
+const FX_FALLBACK_PER_CNY = {
+  USD: FX_FALLBACK_USD_PER_CNY,
+  EUR: FX_FALLBACK_EUR_PER_CNY,
+  CNY: 1,
+  GBP: 0.11,
+  JPY: 21,
+  KRW: 190,
+  CAD: 0.19,
+  AUD: 0.21,
+};
+const WHOLE_UNIT_CODES = new Set(["CNY", "JPY", "KRW"]);
 const TIMEOUT_MS = 20000;
 const MAX_VARIANT_VALUES = 60;
 const MAX_HTML_BYTES = 1.5 * 1024 * 1024;
@@ -749,25 +764,53 @@ function extractFacts(result) {
   };
 }
 
-// One fetch, both currencies (F, 2026-08-01): the FX_API response already
-// carries every currency in one answer, so USD and EUR must read the SAME
-// response instead of each making their own network call. That free rate
-// service has a daily request limit; a second call per item burns through it
-// twice as fast, and once it blocks us the app silently falls back to the
-// fixed rates with no error shown.
+// One fetch, every top-8 currency (lane 2, 2026-08-02). The FX_API response
+// already carries every rate in one answer, so USD/EUR/GBP/… all read the
+// SAME response. That free rate service has a daily request limit; a second
+// call per item burns through it twice as fast, and once it blocks us the
+// app silently falls back to the fixed rates with no error shown.
+function pickRate(rates, code) {
+  const fallback = FX_FALLBACK_PER_CNY[code];
+  if (code === "CNY") return 1;
+  const raw = rates && rates[code];
+  if (typeof raw !== "number" || !(raw > 0)) return fallback;
+  // USD/EUR historically cap below 1 (per-CNY). Other codes (JPY, KRW) are
+  // larger than 1 — accept any positive finite number for those.
+  if ((code === "USD" || code === "EUR") && !(raw < 1)) return fallback;
+  return raw;
+}
+
+function roundFx(amount, code) {
+  if (amount == null || !isFinite(amount)) return null;
+  if (WHOLE_UNIT_CODES.has(code)) return Math.round(amount);
+  return Math.round(amount * 100) / 100;
+}
+
 async function fetchFxRates(signal) {
+  const fallback = () => {
+    const perCny = { ...FX_FALLBACK_PER_CNY };
+    return {
+      perCny,
+      usdPerCny: perCny.USD,
+      eurPerCny: perCny.EUR,
+    };
+  };
   try {
     const res = await fetch(FX_API, { signal });
-    if (!res.ok) return { usdPerCny: FX_FALLBACK_USD_PER_CNY, eurPerCny: FX_FALLBACK_EUR_PER_CNY };
+    if (!res.ok) return fallback();
     const data = await res.json();
-    const usd = data && data.rates && data.rates.USD;
-    const eur = data && data.rates && data.rates.EUR;
+    const rates = data && data.rates;
+    const perCny = {};
+    for (const code of FX_CODES) {
+      perCny[code] = pickRate(rates, code);
+    }
     return {
-      usdPerCny: typeof usd === "number" && usd > 0 && usd < 1 ? usd : FX_FALLBACK_USD_PER_CNY,
-      eurPerCny: typeof eur === "number" && eur > 0 && eur < 1 ? eur : FX_FALLBACK_EUR_PER_CNY,
+      perCny,
+      usdPerCny: perCny.USD,
+      eurPerCny: perCny.EUR,
     };
   } catch {
-    return { usdPerCny: FX_FALLBACK_USD_PER_CNY, eurPerCny: FX_FALLBACK_EUR_PER_CNY };
+    return fallback();
   }
 }
 
@@ -919,6 +962,7 @@ async function handle(event) {
       // stash rate on facts for response builder below
       facts._usdPerCny = fxRates.usdPerCny;
       facts._eurPerCny = fxRates.eurPerCny;
+      facts._fxPerCny = fxRates.perCny;
       canonicalUrl = `https://weidian.com/item.html?itemID=${facts.itemId || resolved.itemId}`;
     } else if (resolved.marketplace === "1688") {
       const [aFacts, fxRates] = await Promise.all([
@@ -928,6 +972,7 @@ async function handle(event) {
       facts = aFacts;
       facts._usdPerCny = fxRates.usdPerCny;
       facts._eurPerCny = fxRates.eurPerCny;
+      facts._fxPerCny = fxRates.perCny;
       canonicalUrl = `https://detail.1688.com/offer/${resolved.itemId}.html`;
     } else {
       // taobao | tmall — HTML og tags; price often null
@@ -938,6 +983,7 @@ async function handle(event) {
       facts = tbFacts;
       facts._usdPerCny = fxRates.usdPerCny;
       facts._eurPerCny = fxRates.eurPerCny;
+      facts._fxPerCny = fxRates.perCny;
       canonicalUrl =
         resolved.marketplace === "tmall"
           ? `https://detail.tmall.com/item.htm?id=${resolved.itemId}`
@@ -986,6 +1032,17 @@ async function handle(event) {
 
     const usdPerCny = facts._usdPerCny != null ? facts._usdPerCny : FX_FALLBACK_USD_PER_CNY;
     const eurPerCny = facts._eurPerCny != null ? facts._eurPerCny : FX_FALLBACK_EUR_PER_CNY;
+    const fxPerCny = facts._fxPerCny || { ...FX_FALLBACK_PER_CNY, USD: usdPerCny, EUR: eurPerCny };
+    // priceFx carries every top-8 conversion from the ONE rates fetch so the
+    // client never needs a second network call to paint GBP/JPY/….
+    let priceFx = null;
+    if (facts.priceCny != null && isFinite(Number(facts.priceCny))) {
+      priceFx = {};
+      for (const code of FX_CODES) {
+        const rate = fxPerCny[code] != null ? fxPerCny[code] : FX_FALLBACK_PER_CNY[code];
+        priceFx[code] = roundFx(Number(facts.priceCny) * rate, code);
+      }
+    }
     await paidGate.recordPaidUsage(gate, "resolve");
     return response(200, {
       source: resolved.marketplace,
@@ -999,8 +1056,9 @@ async function handle(event) {
       seller: facts.sellerName || "",
       priceCny: facts.priceCny,
       priceCnyHigh: facts.priceCnyHigh,
-      priceUsd: facts.priceCny != null ? Math.round(facts.priceCny * usdPerCny * 100) / 100 : null,
-      priceEur: facts.priceCny != null ? Math.round(facts.priceCny * eurPerCny * 100) / 100 : null,
+      priceUsd: priceFx ? priceFx.USD : null,
+      priceEur: priceFx ? priceFx.EUR : null,
+      priceFx,
       usdPerCny,
       eurPerCny,
       stock: facts.stock,

@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, itemCnyAmount, itemEurAmount, itemUsdAmount, nextPricePrimary, priceLabel, sumItemsCny, sumItemsUsd } from "../../credenza-fashion.jsx";
+import {
+  PRICE_PRIMARIES,
+  formatMoney,
+  itemAmountIn,
+  itemCnyAmount,
+  itemEurAmount,
+  itemUsdAmount,
+  nextPricePrimary,
+  normalizePricePrimary,
+  priceLabel,
+  sumItemsCny,
+  sumItemsIn,
+  sumItemsUsd,
+} from "../../credenza-fashion.jsx";
 
 describe("itemUsdAmount", () => {
   it("prefers priceUsd over CNY price", () => {
@@ -71,6 +84,14 @@ describe("formatMoney", () => {
     expect(formatMoney(45, "EUR")).toBe("€45");
     expect(formatMoney(45.5, "EUR")).toBe("€45.50");
   });
+
+  it("formats the rest of the top-8 set with stable symbols", () => {
+    expect(formatMoney(12, "GBP")).toBe("£12");
+    expect(formatMoney(1200, "JPY")).toBe("¥1200");
+    expect(formatMoney(19000, "KRW")).toBe("₩19000");
+    expect(formatMoney(19, "CAD")).toBe("C$19");
+    expect(formatMoney(21.5, "AUD")).toBe("A$21.50");
+  });
 });
 
 // EUR mirror of itemUsdAmount (2026-08-01): same shape, 0.13 fallback.
@@ -101,12 +122,46 @@ describe("itemEurAmount", () => {
   });
 });
 
-// The 3-way display cycle (2026-08-01): CNY -> USD -> EUR -> CNY.
+// Top-8 list order (lane 2, 2026-08-02). Live UI opens a picker; nextPricePrimary
+// still walks the list for any leftover cycle callers and for this pin.
 describe("nextPricePrimary", () => {
-  it("cycles CNY -> USD -> EUR -> CNY", () => {
-    expect(nextPricePrimary("CNY")).toBe("USD");
+  it("walks the top-8 list in picker order and wraps", () => {
+    expect(PRICE_PRIMARIES).toEqual(["USD", "EUR", "CNY", "GBP", "JPY", "KRW", "CAD", "AUD"]);
     expect(nextPricePrimary("USD")).toBe("EUR");
     expect(nextPricePrimary("EUR")).toBe("CNY");
+    expect(nextPricePrimary("CNY")).toBe("GBP");
+    expect(nextPricePrimary("AUD")).toBe("USD");
+  });
+
+  it("normalizes unknown codes to USD", () => {
+    expect(normalizePricePrimary("XYZ")).toBe("USD");
+    expect(normalizePricePrimary("gbp")).toBe("GBP");
+  });
+});
+
+describe("itemAmountIn top-8", () => {
+  it("converts CNY to GBP/JPY/KRW with offline fallbacks", () => {
+    const item = { price: 100, currency: "CNY" };
+    expect(itemAmountIn(item, "GBP")).toBe(11);
+    expect(itemAmountIn(item, "JPY")).toBe(2100);
+    expect(itemAmountIn(item, "KRW")).toBe(19000);
+    expect(itemAmountIn(item, "CAD")).toBe(19);
+    expect(itemAmountIn(item, "AUD")).toBe(21);
+  });
+
+  it("prefers priceFx over the offline fallback", () => {
+    const item = { price: 100, currency: "CNY", priceFx: { GBP: 9.5, JPY: 2000 } };
+    expect(itemAmountIn(item, "GBP")).toBe(9.5);
+    expect(itemAmountIn(item, "JPY")).toBe(2000);
+  });
+
+  it("sums in a non-legacy currency", () => {
+    const items = [
+      { price: 100, currency: "CNY" },
+      { price: 50, currency: "CNY" },
+    ];
+    expect(sumItemsIn(items, "GBP")).toBe(16.5);
+    expect(sumItemsIn(items, "JPY")).toBe(3150);
   });
 });
 

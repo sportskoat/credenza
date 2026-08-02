@@ -306,16 +306,29 @@ export function ReelDigit({ digit, index, reduced }) {
 
 export function ReelCounter({ value, currency = "USD" }) {
   const reduced = usePrefersReducedMotion();
-  // CNY totals are whole yuan (itemCnyAmount rounds) — no decimal reels.
-  // EUR totals keep the USD 2-decimal shape; only the symbol changes (2026-08-01).
-  const text =
-    currency === "CNY"
-      ? "¥" + Math.max(0, Math.round(value)).toLocaleString("en-US")
-      : (currency === "EUR" ? "€" : "$") +
-        Math.max(0, value).toLocaleString("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+  // Whole-unit codes (CNY/JPY/KRW) skip decimals. Everything else keeps two
+  // places so the reel matches formatMoney (top-8 menu, 2026-08-02).
+  const code = String(currency || "USD").toUpperCase();
+  const whole = code === "CNY" || code === "JPY" || code === "KRW";
+  const n = Math.max(0, whole ? Math.round(value) : Number(value) || 0);
+  const body = whole
+    ? n.toLocaleString("en-US")
+    : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const prefix =
+    code === "EUR"
+      ? "€"
+      : code === "GBP"
+        ? "£"
+        : code === "KRW"
+          ? "₩"
+          : code === "CAD"
+            ? "C$"
+            : code === "AUD"
+              ? "A$"
+              : code === "CNY" || code === "JPY"
+                ? "¥"
+                : "$";
+  const text = prefix + body;
   const len = text.length;
   return (
     <span className="t-reel">
