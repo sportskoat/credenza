@@ -5,6 +5,7 @@ import { CHEST_EASE_BANDS } from "../../credenza-fashion.jsx";
 import {
   FIRST_SIZE_SIT_OPTIONS,
   FIRST_SIZE_USUAL_FIT_PROV,
+  FIRST_SIZE_USUAL_NO_CHART_PROV,
   bodyFromUsualChartSize,
   circumferenceFromPitToPit,
   guessSizeFromUsual,
@@ -78,6 +79,16 @@ describe("usual-fit provenance pin", () => {
   });
 });
 
+describe("no-chart usual provenance pin", () => {
+  it("locks the YOUR USUAL fallback copy (not chart-anchored usual-fit)", () => {
+    expect(FIRST_SIZE_USUAL_NO_CHART_PROV.kicker).toBe("Your usual size");
+    expect(FIRST_SIZE_USUAL_NO_CHART_PROV.rail).toBe("Your usual size");
+    expect(FIRST_SIZE_USUAL_NO_CHART_PROV.body).toBe(
+      "This listing has no chart. The pick is your usual size."
+    );
+  });
+});
+
 describe("bodyFromUsualChartSize", () => {
   it("anchors the usual letter to the seller chart and infers a body chest", () => {
     // M chest 104, regular band mid 7.5 → body ≈ 96.5
@@ -130,6 +141,48 @@ describe("guessSizeFromUsual", () => {
     });
     expect(out.error).toBeUndefined();
     expect(out.fitPref.looseness).toBe("oversized");
+  });
+
+  // F Fix 1 (Kyle live 2026-08-02): no-chart is never a dead end.
+  it("no-chart: saves usual + sit and picks the usual letter (no error)", () => {
+    const out = guessSizeFromUsual({
+      chart: null,
+      usualLetter: "L",
+      sit: "regular",
+      category: "shirt",
+      title: "Bare listing",
+    });
+    expect(out.error).toBeUndefined();
+    expect(out.noChart).toBe(true);
+    expect(out.rec.size).toBe("L");
+    expect(out.fitPref.looseness).toBe("regular");
+    expect(out.body.firstSizeSource).toBe("usual-no-chart");
+    // Must not claim a chart-anchored measure.
+    expect(out.body.chest).toBeUndefined();
+    expect(out.body.chestFromUsual).toBe(false);
+  });
+
+  it("no-chart empty rows: same fallback, not an error", () => {
+    const out = guessSizeFromUsual({
+      chart: { rows: [] },
+      usualLetter: "M",
+      sit: "close",
+      category: "shirt",
+    });
+    expect(out.error).toBeUndefined();
+    expect(out.noChart).toBe(true);
+    expect(out.rec.size).toBe("M");
+    expect(out.fitPref.looseness).toBe("slim");
+  });
+
+  it("chart present: usual letter not on chart is still an honest error", () => {
+    const out = guessSizeFromUsual({
+      chart: TOP_CHART,
+      usualLetter: "XXS",
+      sit: "regular",
+      category: "shirt",
+    });
+    expect(out.error).toBe("usual-not-on-chart");
   });
 });
 
