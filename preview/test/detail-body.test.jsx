@@ -155,26 +155,38 @@ describe("DetailBody detail facts", () => {
     // The Details kicker went with the rows it separated.
     expect(document.querySelector(".cz-detail-facts-kicker")).toBeNull();
 
-    // Weidian has no store page Credenza can build, so the seller chip hides
-    // (Oom 5.5 ruling: no name in the bar, no chip without a store page).
-    expect(screen.queryByRole("link", { name: /replux/ })).toBe(null);
+    // Weidian has no store homepage Credenza can build, so the bar's "See
+    // other listings" chip stays hidden (Oom 5.5). The title subline still
+    // links the seller name to the listing URL (Kyle 2026-08-02).
     expect(document.querySelector(".cz-cmdbar-seller")).toBeNull();
     expect(bar.textContent).not.toContain("replux");
+    const sub = document.querySelector(".cz-detail-sub");
+    expect(sub).not.toBeNull();
+    const nameLink = within(sub).getByRole("link", { name: /replux/i });
+    expect(nameLink.getAttribute("href")).toBe(
+      "https://weidian.com/item.html?itemID=order"
+    );
+    expect(nameLink.getAttribute("target")).toBe("_blank");
   });
 
   it("the seller link opens the seller's other listings when a store page exists", () => {
     render(body(item("shop", { sellerAccount: "replux" })));
 
-    // Seller opens the seller's other listings; it never edits.
+    // Bar: "See other listings" opens the Yupoo store. Title: name is also a link.
     const seller = within(document.querySelector(".cz-cmdbar")).getByRole("link");
     expect(seller.getAttribute("target")).toBe("_blank");
     expect(seller.getAttribute("href")).toBe("https://replux.x.yupoo.com/");
+    const sub = document.querySelector(".cz-detail-sub");
+    expect(within(sub).getByRole("link", { name: /replux/i }).getAttribute("href")).toBe(
+      "https://replux.x.yupoo.com/"
+    );
   });
 
   it("drops the seller link when the item has no seller", () => {
     render(body(item("noseller", { seller: "" })));
 
     expect(document.querySelector(".cz-cmdbar-seller")).toBeNull();
+    expect(document.querySelector(".cz-detail-sub a")).toBeNull();
   });
 
   it("saves a direct size once and preserves Batch", () => {

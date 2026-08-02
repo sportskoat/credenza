@@ -50,7 +50,7 @@ import { normalizeFindStatus } from "../credenza-find-status.js";
 import { fitMeasureFieldsFor, FitPrefAxis } from "./SizeRecommendation.jsx";
 import { huntSizeChart } from "./size-chart-hunt.js";
 import { chartImageKey, rememberChartImage, validateChartResult } from "./chart-pipeline.js";
-import { AlbumLinksRow } from "./CardMetaLinks.jsx";
+import { AlbumLinksRow, SellerLink } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import SlidingTabsPill from "./SlidingTabsPill.jsx";
 import {
@@ -2870,10 +2870,11 @@ export default function DetailBody({
   const savedDate = item.createdAt
     ? new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
-  const subLine = [item.seller, savedDate ? "saved " + savedDate : ""].filter(Boolean).join(" · ");
-  // The SELLER row in the Details list opens the seller's other listings. Not
-  // every seller has a store page Credenza can build, so this can be null and
-  // the row falls back to plain text (shelf handoff 2026-07-28).
+  // Title subline: seller as a hyperlink (store or listing) + saved date.
+  // Phase 1 hid this under the desktop header; Kyle 2026-08-02 asked it back.
+  const hasSubLine = Boolean(item.seller || savedDate);
+  // Command-bar "See other listings" only when we have a real store page.
+  // Not every seller has one Credenza can build (shelf handoff 2026-07-28).
   const sellerHref = sellerStoreUrl(item);
   const knownHauls = Array.from(
     new Set([...(haulNames || []), item.project || ""].map((n) => String(n || "").trim()).filter(Boolean))
@@ -3162,7 +3163,13 @@ export default function DetailBody({
             <span className="cz-detail-title">{view.title || "Untitled"}</span>
           </button>
         )}
-        {subLine ? <div className="cz-detail-sub">{subLine}</div> : null}
+        {hasSubLine ? (
+          <div className="cz-detail-sub">
+            {item.seller ? <SellerLink item={item} className="cz-detail-seller-link" /> : null}
+            {item.seller && savedDate ? <span className="cz-detail-sub-sep"> · </span> : null}
+            {savedDate ? <span className="cz-detail-sub-date">saved {savedDate}</span> : null}
+          </div>
+        ) : null}
       </div>
       {savedFlash ? (
         <span className="cz-detail-saved">

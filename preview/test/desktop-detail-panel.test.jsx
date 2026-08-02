@@ -245,6 +245,18 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByRole("button", { name: "Buy via Superbuy" })).toBeInTheDocument();
   });
 
+  // Kyle 2026-08-02: Phase 1 hid the title subline, so the seller name
+  // disappeared from the card detail. It is a hyperlink again (store when we
+  // have one, else the listing URL).
+  it("shows the seller name under the title as a hyperlink", () => {
+    renderPanel(panelItem());
+    const sub = document.querySelector(".cz-detail-sub");
+    expect(sub).toBeTruthy();
+    const link = within(sub).getByRole("link", { name: /replux/i });
+    expect(link.getAttribute("href")).toBe("https://weidian.com/item.html?itemID=111");
+    expect(link.getAttribute("target")).toBe("_blank");
+  });
+
   it("filmstrip has no per-tile trash; delete lives in the card actions menu", async () => {
     const onAttachPhoto = vi.fn();
     const onRemovePhoto = vi.fn();

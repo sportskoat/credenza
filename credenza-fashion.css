@@ -13032,6 +13032,23 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
+/* Seller name under the title — hyperlink when store or listing URL exists
+   (Kyle 2026-08-02). Keeps the faint mono face of the subline, marks the
+   name as a link with the one blue the card already uses. */
+.cz-detail-sub a.cz-detail-seller-link,
+.cz-detail-sub a.cz-seller-link {
+  color: var(--cz-link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--cz-link) 40%, transparent);
+  text-underline-offset: 2px;
+}
+
+.cz-detail-sub a.cz-detail-seller-link:hover,
+.cz-detail-sub a.cz-seller-link:hover {
+  color: var(--cz-ink);
+  text-decoration-color: currentColor;
+}
+
 .cz-detail-saved {
   flex: 0 0 auto;
   display: inline-flex;
@@ -17588,6 +17605,9 @@ input.cz-sizing-fix-size {
     --cz-faint: #8b8b93;
     --cz-money: #4ade80;
     --cz-money-on-white: #137a3a;
+    /* Seller name under the title (and any other on-panel links). Matches
+       Blackout --cz-link so the hyperlink reads on near-black. */
+    --cz-link: #7fb2ff;
     --cz-wash: rgba(255, 255, 255, 0.02);
     --cz-hover: rgba(255, 255, 255, 0.04);
     --cz-track: rgba(255, 255, 255, 0.07);
@@ -17661,8 +17681,28 @@ input.cz-sizing-fix-size {
     display: block;
     text-align: left;
   }
+  /* Kyle 2026-08-02: Phase 1 hid the subline (seller · saved). Bring it back
+     under the title so the seller name is a visible hyperlink again. */
   .cz-dpanel-header .cz-detail-sub {
-    display: none;
+    display: block;
+    margin-top: 4px;
+    color: var(--cz-faint);
+    font-family: var(--cz-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .cz-dpanel-header .cz-detail-sub a.cz-detail-seller-link,
+  .cz-dpanel-header .cz-detail-sub a.cz-seller-link {
+    color: var(--cz-link);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--cz-link) 45%, transparent);
+    text-underline-offset: 2px;
+  }
+  .cz-dpanel-header .cz-detail-sub a.cz-detail-seller-link:hover,
+  .cz-dpanel-header .cz-detail-sub a.cz-seller-link:hover {
+    color: var(--cz-ink);
   }
   .cz-dpanel-header .cz-dpanel-head {
     flex: 0 0 auto;
