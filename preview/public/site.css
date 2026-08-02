@@ -84,6 +84,24 @@
 
 * { box-sizing: border-box; }
 
+/* Hide scroll bars on every public page — same rule as the app
+   (credenza-fashion.css ~3275, Kyle 2026-08-01). A classic macOS bar steals
+   ~15px from the viewport, so the 1080px shell sits left of the app's shell.
+   Scroll still works with trackpad, wheel, drag, and keyboard. */
+html,
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent;
+}
+
 body {
   position: relative;
   min-height: 100vh;
