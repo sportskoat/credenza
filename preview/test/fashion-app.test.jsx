@@ -417,6 +417,54 @@ describe("Fashion card-back navigation and editing", () => {
     expect(await screen.findByText("Your hauls")).toBeInTheDocument();
   });
 
+  it("swaps Shelf and Hauls both ways through the animated view switch", async () => {
+    // Kyle 2026-08-02: the Shelf/Hauls switch must move like the filter
+    // chips — one AnimatePresence swapper drives both directions. The round
+    // trip pins the swap itself; framer-motion still tweens in jsdom, so
+    // mode="wait" timing is exercised here too.
+    installShim({
+      [STORE_KEY]: JSON.stringify([
+        fashionItem({
+          id: "fashion-1",
+          title: "Summer tee",
+          project: "Summer Europe",
+          weidianUrl: "https://weidian.com/item.html?itemID=1",
+        }),
+      ]),
+    });
+    const user = userEvent.setup();
+    render(<Credenza />);
+
+    // The shelf card lives on the shelf panel; its accessible name varies by
+    // view mode, so pin the panel + title text, not the button label.
+    const shelfPanel = await waitFor(() => {
+      const el = document.getElementById("view-panel-shelf");
+      expect(el).not.toBeNull();
+      return el;
+    });
+    await waitFor(() =>
+      expect(within(shelfPanel).getAllByText("Summer tee").length).toBeGreaterThan(0)
+    );
+
+    await user.click(await screen.findByRole("tab", { name: /Hauls/i }));
+    expect(await screen.findByText("Your hauls")).toBeInTheDocument();
+    expect(document.getElementById("view-panel-hauls")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: /Shelf/i }));
+    const shelfBack = await waitFor(() => {
+      const el = document.getElementById("view-panel-shelf");
+      expect(el).not.toBeNull();
+      return el;
+    });
+    await waitFor(() =>
+      expect(within(shelfBack).getAllByText("Summer tee").length).toBeGreaterThan(0)
+    );
+
+    // And once more — the swapper must survive repeated switches.
+    await user.click(screen.getByRole("tab", { name: /Hauls/i }));
+    expect(await screen.findByText("Your hauls")).toBeInTheDocument();
+  });
+
   it("opens a full-face actions panel from the dots and never uses a browser prompt", async () => {
     const promptSpy = vi.spyOn(window, "prompt").mockImplementation(() => "Nope");
     const data = installShim({
