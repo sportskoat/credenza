@@ -17571,6 +17571,13 @@ input.cz-sizing-fix-size {
     flex: 1 1 auto;
     min-height: 0;
   }
+  /* Phase 1 Fit pane: two classes on one scroller. `.cz-dpanel-body
+     .cz-detail-scroll { padding: 0 }` was winning over `.cz-fit-pane
+     { padding: 18px }` (0,2,0 vs 0,1,0), so Verified fit / result line
+     sat flush to the right edge. Restore the 18px inset. */
+  .cz-dpanel-body .cz-detail-scroll.cz-fit-pane {
+    padding: 18px;
+  }
   .cz-dpanel-footer-slot {
     flex: 0 0 69px;
     border-top: 1px solid var(--cz-hair);
@@ -17889,6 +17896,17 @@ input.cz-sizing-fix-size {
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+  }
+  /* White card + global `.is-pick .cz-sizing-cell-k` white text = invisible
+     name. Keep the size label dark on every selected card. */
+  .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-k,
+  .cz-dpanel .cz-sizing-cell.is-pick-manual .cz-sizing-cell-k {
+    color: #050506;
+  }
+  /* Selected + recommended: same white card — name must stay dark (matches
+     value). Beats any later/rec green-on-dark rule when both classes apply. */
+  .cz-dpanel .cz-sizing-cell.is-pick.is-rec .cz-sizing-cell-k {
+    color: #050506;
   }
   .cz-dpanel .cz-sizing-cell-v {
     font-family: var(--cz-mono);
