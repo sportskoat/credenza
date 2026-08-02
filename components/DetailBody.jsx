@@ -3737,11 +3737,16 @@ export default function DetailBody({
                     typed={chartRead.typed}
                     onUse={chartRead.commit}
                     onRetry={() => {
-                      // Failed read → open picker again. Typed cancel / "Not
-                      // this one" with a chart just clears the stage.
+                      // Failed read → open picker WITHOUT dismiss (Kyle
+                      // 2026-08-02 item 8). dismiss() unmounted the prompt
+                      // before the picker returned; cancel then left no way
+                      // back. Typed cancel / "Not this one" still dismiss.
                       const hadChart = !!chartRead.chart || chartRead.typed;
-                      chartRead.dismiss();
-                      if (!hadChart) chartInputRef.current?.click();
+                      if (hadChart) {
+                        chartRead.dismiss();
+                        return;
+                      }
+                      chartInputRef.current?.click();
                     }}
                     onFix={chartRead.fix}
                   />
@@ -4080,10 +4085,17 @@ export default function DetailBody({
                 onUse={chartRead.commit}
                 onRetry={() => {
                   // Kyle 2026-08-02: "Try another photo" must open the picker.
-                  // Dismiss alone left a dead button after a failed read.
+                  // Item 8: do NOT dismiss first — cancel of the OS picker
+                  // fires no change event, so a prior dismiss left the user
+                  // with no prompt. Keep error state until a new read starts
+                  // (onChange) or they leave another way. "Not this one" /
+                  // typed Cancel still dismiss when a chart is staged.
                   const hadChart = !!chartRead.chart || chartRead.typed;
-                  chartRead.dismiss();
-                  if (!hadChart) chartInputRef.current?.click();
+                  if (hadChart) {
+                    chartRead.dismiss();
+                    return;
+                  }
+                  chartInputRef.current?.click();
                 }}
                 onFix={chartRead.fix}
               />
