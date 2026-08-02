@@ -14360,13 +14360,11 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-ink);
 }
 
-/* Soft green glow — blur so the ring does not read as a hard box
-   (Kyle 2026-08-02 / O: zero-blur inset looked boxed). */
+/* Kyle 2026-08-02: no green glow / black box on recommended size cells.
+   Recommended is the green RECOMMENDED tag + white selected fill only. */
 .cz-sizing-cell.is-rec {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--cz-money) 55%, transparent),
-    0 0 16px 2px color-mix(in srgb, var(--cz-money) 38%, transparent);
-  animation: cz-rec-pulse 0.9s var(--ease-out) 3;
+  box-shadow: none;
+  animation: none;
 }
 
 .cz-sizing-cell-tag {
@@ -14386,19 +14384,7 @@ input.cz-sizing-cell.is-custom:focus-visible {
   display: none;
 }
 
-@keyframes cz-rec-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--cz-money) 55%, transparent),
-      0 0 16px 2px color-mix(in srgb, var(--cz-money) 38%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--cz-money) 22%, transparent),
-      0 0 22px 4px color-mix(in srgb, var(--cz-money) 22%, transparent);
-  }
-}
+/* cz-rec-pulse retired 2026-08-02 — green glow read as a black box under the sizes. */
 
 @media (prefers-reduced-motion: reduce) {
   .cz-sizing-cell.is-rec {
@@ -17774,13 +17760,17 @@ input.cz-sizing-fix-size {
     /* Round 2 (2026-08-02): Kyle's mock is Desktop 1360×820. Cap the card —
        not the viewport — so rows stay tight on a ~2440px monitor. Photo/body
        40/60 is on .cz-dpanel-body-grid (of the card). No conflict with the
-       earlier 1080px+zoom:1.25 rule: this block wins, zoom is off. */
+       earlier 1080px+zoom:1.25 rule: this block wins, zoom is off.
+       max-width is required: width alone does not stop min-content children
+       from expanding a flex column past 1360 (Kyle: "fill up the page"). */
     width: min(92vw, 1360px);
-    max-width: 1360px;
+    max-width: min(92vw, 1360px);
+    min-width: 0;
     height: min(90vh, 820px);
     min-height: 0;
     max-height: min(90vh, 820px);
     margin: auto;
+    box-sizing: border-box;
     border-radius: 16px;
     border: 1px solid var(--cz-hair);
     background: var(--cz-card-solid);
@@ -18676,11 +18666,13 @@ input.cz-sizing-fix-size {
     box-shadow: none;
     animation: none;
   }
+  /* Kyle 2026-08-02: kill green glow on recommended size cards. Tag text
+     stays green; no outer ring, no black-box shadow under the size row. */
+  .cz-dpanel .cz-sizing-cell.is-rec,
   .cz-dpanel .cz-sizing-cell.is-rec:not(.is-pick):not(.is-pick-manual) {
-    /* Soft outer glow only — rest state for recommended, not selected */
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--cz-money) 55%, transparent),
-      0 0 16px 2px color-mix(in srgb, var(--cz-money) 38%, transparent);
+    box-shadow: none;
+    animation: none;
+    filter: none;
   }
   .cz-dpanel .cz-sizing-cell-k {
     font-family: var(--cz-mono);

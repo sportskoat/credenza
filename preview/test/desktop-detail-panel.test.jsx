@@ -360,11 +360,31 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(start).toBeGreaterThan(-1);
     // Token block is long — read far enough for width + body-grid ratio.
     const block = css.slice(start, start + 5200);
-    expect(block).toMatch(/max-width:\s*1360px/);
+    // max-width must be present so min-content children cannot blow past 1360.
+    expect(block).toMatch(/max-width:\s*min\(92vw,\s*1360px\)/);
     expect(block).toMatch(/width:\s*min\(92vw,\s*1360px\)/);
     expect(block).toMatch(/max-height:\s*min\(90vh,\s*820px\)/);
     // Photo/body ratio is of the card, not the viewport.
     expect(block).toContain("grid-template-columns: 40% minmax(0, 60%)");
+  });
+
+  it("size cells carry no green glow / black-box shadow (Kyle 2026-08-02)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
+    const css = readFileSync(join(root, "credenza-fashion.css"), "utf8");
+    // Global rec treatment: no outer glow.
+    const globalRec = css.match(/\.cz-sizing-cell\.is-rec\s*\{[^}]+\}/);
+    expect(globalRec, "global is-rec rule exists").not.toBeNull();
+    expect(globalRec[0]).toMatch(/box-shadow:\s*none/);
+    expect(globalRec[0]).not.toMatch(/0\s+0\s+16px/);
+    // Desktop panel rec: also none.
+    expect(css).toMatch(
+      /\.cz-dpanel\s+\.cz-sizing-cell\.is-rec[^{]*\{[^}]*box-shadow:\s*none/s
+    );
+    // Pulse keyframes must stay retired.
+    expect(css).not.toMatch(/@keyframes\s+cz-rec-pulse/);
   });
 
   it("pins Add a note as a compact pill and Settings without Not sure yet", async () => {
