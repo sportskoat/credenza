@@ -165,23 +165,62 @@ function refreshWasRejected(err) {
   return status === 400 || status === 401 || status === 403 || status === 422;
 }
 
+// One retry, short backoff, before we give up on a transient refresh error
+// (2026-08-02 incident: a single failed refresh attempt — cold function,
+// network blip — was falling all the way through to "no session", so the
+// next call went out with NO Authorization header and the server gave an
+// honest 401 for what was really a live session). Exported so a test can
+// shrink it instead of eating the real delay.
+export const REFRESH_RETRY_DELAY_MS = 250;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// One refresh attempt. Resolves { session } on success, { rejected: true }
+// on a permanent Supabase rejection, or { rejected: false } on anything
+// transient (network error, 5xx, timeout, or a malformed 200 body).
+async function attemptRefresh(session, opts) {
+  try {
+    const next = await refreshSession(session, opts);
+    return next ? { session: next } : { rejected: false };
+  } catch (err) {
+    return { rejected: refreshWasRejected(err) };
+  }
+}
+
 // The session to attach to a paid request. Refreshes when the access token is
-// inside its last minute. Returns null when this device has no usable session
-// right now; that is not always a sign-out (see refreshWasRejected).
-export async function getValidSession({ fetchImpl, host } = {}) {
+// inside its last minute. Returns null only when this device has no usable
+// session (never signed in, or Supabase explicitly rejected the refresh
+// token). A transient refresh failure — even after one retry — falls back to
+// the STORED token rather than no token at all: the refresh fires 60s early,
+// so that token is usually still good, and the worst case (the server 401s)
+// is no worse than today.
+export async function getValidSession({ fetchImpl, host, retryDelayMs = REFRESH_RETRY_DELAY_MS } = {}) {
   const session = loadSession(host);
   if (!session) return null;
   if (session.expiresAt - 60 * 1000 > Date.now()) return session;
   if (!inFlightRefresh) {
     inFlightRefresh = (async () => {
       try {
-        const next = await refreshSession(session, { fetchImpl });
-        if (!next) throw new Error("empty refresh");
-        saveSession(next, host);
-        return next;
-      } catch (err) {
-        if (refreshWasRejected(err)) clearSession(host);
-        return null;
+        let result = await attemptRefresh(session, { fetchImpl });
+        if (result.session) {
+          saveSession(result.session, host);
+          return result.session;
+        }
+        if (result.rejected) {
+          clearSession(host);
+          return null;
+        }
+        await sleep(retryDelayMs);
+        result = await attemptRefresh(session, { fetchImpl });
+        if (result.session) {
+          saveSession(result.session, host);
+          return result.session;
+        }
+        if (result.rejected) {
+          clearSession(host);
+          return null;
+        }
+        // Still transient after the retry — keep serving the stored token.
+        return session;
       } finally {
         inFlightRefresh = null;
       }

@@ -160,8 +160,13 @@ describe("a paid session survives a server outage", () => {
   it("keeps the session when the renewal server answers 500", async () => {
     saveExpiring();
     const fetchImpl = async () => ({ ok: false, status: 500, json: async () => ({}) });
-    expect(await auth.getValidSession({ fetchImpl, host })).toBe(null);
-    // The session is still on the device, so the next call tries again.
+    // A transient failure retries once, then falls back to the still-live
+    // stored token instead of no session at all (2026-08-02 incident: this
+    // used to return null here, so the caller sent no Authorization header
+    // and the server 401'd a session that was really fine).
+    const session = await auth.getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(session).not.toBe(null);
+    expect(session.accessToken).toBe("old-access");
     expect(auth.loadSession(host)).not.toBe(null);
   });
 
@@ -170,7 +175,9 @@ describe("a paid session survives a server outage", () => {
     const fetchImpl = async () => {
       throw new Error("offline");
     };
-    expect(await auth.getValidSession({ fetchImpl, host })).toBe(null);
+    const session = await auth.getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(session).not.toBe(null);
+    expect(session.accessToken).toBe("old-access");
     expect(auth.loadSession(host)).not.toBe(null);
   });
 
@@ -275,5 +282,23 @@ describe("the card a signed-out visitor gets back", () => {
 
     await screen.findByText("Needs sign-in");
     expect(document.querySelector(".cz-sizing-albumrow")).toBe(null);
+  });
+});
+
+// FIX 0 (2026-08-02): chart-vision 401/403 shows distinct signed-out copy + Sign in.
+// Pins the customer-facing mapping so a signed-out person is not told
+// "No size chart found" or "I could not read that photo."
+describe("chart auth wall copy (FIX 0)", () => {
+  it("exports the pinned signed-out sentence for both manual and hunt paths", async () => {
+    const { CHART_AUTH_COPY, isChartAuthRequired, CHART_AUTH_REQUIRED } = await import(
+      "../../credenza-fashion.jsx"
+    );
+    expect(CHART_AUTH_COPY).toBe("You are signed out. Sign in to read charts.");
+    expect(isChartAuthRequired(CHART_AUTH_REQUIRED)).toBe(true);
+    expect(isChartAuthRequired(null)).toBe(false);
+    expect(isChartAuthRequired("M chest 100\nL chest 104")).toBe(false);
+    // Old lies must not match the new sentence.
+    expect(CHART_AUTH_COPY).not.toMatch(/could not read/i);
+    expect(CHART_AUTH_COPY).not.toMatch(/No size chart found/i);
   });
 });

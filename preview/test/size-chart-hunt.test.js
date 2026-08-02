@@ -13,8 +13,11 @@ vi.mock("../../credenza-fashion.jsx", () => ({
   fetchChartFromPhotos: visionMock,
   fetchYupooImages: yupooMock,
   fetchDescImages: descMock,
+  // FIX 0: real helper so auth sentinel from visionMock is recognized.
+  isChartAuthRequired: (result) =>
+    !!(result && typeof result === "object" && result.authRequired === true),
   parseSizeChart: (text) => {
-    if (!text || !/chest/i.test(text)) return null;
+    if (!text || typeof text !== "string" || !/chest/i.test(text)) return null;
     const rows = [];
     for (const m of String(text).matchAll(/\b(XXS|XS|S|M|L|XL|XXL)\b/gi)) {
       const size = m[1].toUpperCase();
@@ -196,5 +199,26 @@ describe("huntSizeChart rejects low-confidence model text", () => {
       item({ descImages: ["https://si.geilicdn.com/size_chart.jpg"], gallery: [], image: null })
     );
     expect(found).toBe(null);
+  });
+});
+
+// FIX 0 (2026-08-02): hunt must surface auth, not "No size chart found."
+describe("huntSizeChart auth wall (FIX 0)", () => {
+  it("returns { authRequired: true } on first 401/403 and stops further paid reads", async () => {
+    visionMock.mockResolvedValue({ authRequired: true });
+    const found = await huntSizeChart(
+      item({
+        descImages: [
+          "https://si.geilicdn.com/size_chart_a.jpg",
+          "https://si.geilicdn.com/size_chart_b.jpg",
+          "https://si.geilicdn.com/size_chart_c.jpg",
+        ],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found).toEqual({ authRequired: true });
+    // One paid attempt then stop — more candidates cannot fix a signed-out wall.
+    expect(visionMock).toHaveBeenCalledTimes(1);
   });
 });
