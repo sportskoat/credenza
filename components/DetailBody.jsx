@@ -1838,28 +1838,50 @@ function fitSummaryStanzas(verdict, fitRows, units, category) {
   if (!shown || !shown.size) return [];
   const stanzas = [];
   const type = garmentTypeWord(shown) || (category === "outerwear" ? "coat" : "piece");
+  const typeWord = String(type || "piece").toLowerCase();
   const cut = shown.cut;
-  const aboutBits = [];
-  if (cut === "drop") aboutBits.push("This piece is loose and relaxed. The shoulder sits a little lower than usual.");
-  else if (cut === "raglan") aboutBits.push("This piece is loose and relaxed. The sleeves connect in one line up to the collar.");
-  else aboutBits.push("The seller's size chart tells us how this " + type + " is shaped.");
-  const lengthRow = (fitRows || []).find((r) => r.key === "length" || r.key === "pantsLength");
-  if (lengthRow && lengthRow.ease != null && lengthRow.ease > 0) {
-    aboutBits.push("It runs long.");
+  // ABOUT: only real clothes facts (cut + notable length). Never process talk
+  // ("the chart tells us…", "we read…"). If nothing crossed a threshold, skip
+  // the whole block — an empty slot beats a filler sentence (F 2026-08-02).
+  // Length uses the same ±3cm span as FIT_READ_EASE.length.
+  const LENGTH_NOTABLE = 3;
+  let cutFact = "";
+  if (cut === "drop") {
+    cutFact =
+      "This " +
+      typeWord +
+      " is loose and relaxed. The shoulder sits a little lower than usual.";
+  } else if (cut === "raglan") {
+    cutFact =
+      "This " +
+      typeWord +
+      " is loose and relaxed. The sleeves connect in one line up to the collar.";
   }
-  const aboutMetric = (fitRows || [])
-    .filter((r) => r.theirs != null && (r.key === "length" || r.key === "pantsLength" || r.key === "chest" || r.key === "waist"))
-    .slice(0, 2)
-    .map((r) => {
-      const ease = r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "";
-      return r.name.toLowerCase() + " " + formatMeasure(r.theirs, units) + (ease ? " · " + ease + " past your body" : "");
-    })
-    .join(" · ");
-  stanzas.push({
-    label: "About this piece",
-    body: aboutBits.join(" "),
-    metric: aboutMetric,
-  });
+  const lengthRow = (fitRows || []).find((r) => r.key === "length" || r.key === "pantsLength");
+  let lengthFact = "";
+  if (lengthRow && lengthRow.ease != null && Math.abs(lengthRow.ease) >= LENGTH_NOTABLE) {
+    const amt = formatMeasure(Math.abs(lengthRow.ease), units);
+    lengthFact =
+      lengthRow.ease > 0
+        ? "It runs about " + amt + " long."
+        : "It runs about " + amt + " short.";
+  }
+  const aboutBits = [cutFact, lengthFact].filter(Boolean);
+  if (aboutBits.length) {
+    const aboutMetric = (fitRows || [])
+      .filter((r) => r.theirs != null && (r.key === "length" || r.key === "pantsLength" || r.key === "chest" || r.key === "waist"))
+      .slice(0, 2)
+      .map((r) => {
+        const ease = r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "";
+        return r.name.toLowerCase() + " " + formatMeasure(r.theirs, units) + (ease ? " · " + ease + " past your body" : "");
+      })
+      .join(" · ");
+    stanzas.push({
+      label: "About this piece",
+      body: aboutBits.join(" "),
+      metric: aboutMetric,
+    });
+  }
 
   const key = shown.primaryKey || "chest";
   const keyWord = key === "waist" ? "waist" : key === "hip" ? "hip" : key === "sleeve" ? "sleeve" : "chest";
