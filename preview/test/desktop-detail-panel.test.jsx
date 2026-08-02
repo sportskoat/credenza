@@ -107,7 +107,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
           new Event("cancel", { bubbles: false, cancelable: true })
         );
       } else {
-        fireEvent.click(screen.getByRole("button", { name: "Card actions" }));
+        fireEvent.click(screen.getByRole("button", { name: "More actions" }));
         fireEvent.click(screen.getByRole("menuitem", { name: "Remove card" }));
       }
 
@@ -264,8 +264,8 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.queryByRole("button", { name: /^Delete photo/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Show photo 2" }));
     expect(screen.getByText("2 / 3")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Card actions" }));
-    const menu = screen.getByRole("menu", { name: "Card actions" });
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = screen.getByRole("menu", { name: "More actions" });
     await user.click(within(menu).getByRole("menuitem", { name: "Delete this photo" }));
     expect(onRemovePhoto).toHaveBeenCalledWith("dp-1", "https://si.geilicdn.com/img-2.jpg");
   });
@@ -302,9 +302,9 @@ describe("DesktopDetailPanel (Fix B)", () => {
       fireEvent.change(screen.getByRole("textbox", { name: "Colorway" }), {
         target: { value: "Bone white" },
       });
-      await user.click(screen.getByRole("button", { name: "Card actions" }));
+      await user.click(screen.getByRole("button", { name: "More actions" }));
 
-      const menu = screen.getByRole("menu", { name: "Card actions" });
+      const menu = screen.getByRole("menu", { name: "More actions" });
       const actions = [...menu.querySelectorAll('[role="menuitem"]')];
       // Kyle 2026-07-29: the "Change category" row is gone — the command bar
       // owns the Category chip. "Delete this photo" joins only when the pager
@@ -327,7 +327,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
       expect(onSaveEdit.mock.invocationCallOrder[0]).toBeLessThan(
         onShareCard.mock.invocationCallOrder[0]
       );
-      expect(screen.queryByRole("menu", { name: "Card actions" })).toBeNull();
+      expect(screen.queryByRole("menu", { name: "More actions" })).toBeNull();
       expect(screen.getByRole("dialog", { name: "M32126-109E Shirt" })).toBeInTheDocument();
       expect(onClose).not.toHaveBeenCalled();
     }
@@ -340,7 +340,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     const user = userEvent.setup();
     renderPanel(panelItem(), { haulNames: ["Summer Europe"], onSaveEdit, onDelete, onClose });
 
-    await user.click(screen.getByRole("button", { name: "Card actions" }));
+    await user.click(screen.getByRole("button", { name: "More actions" }));
     // The menu must not duplicate haul assignment: two writers for the same
     // field is how hauls got clobbered. The chip row owns it now.
     expect(screen.queryByRole("menuitem", { name: /Summer Europe/ })).toBeNull();

@@ -8704,6 +8704,7 @@ function CredenzaApp() {
       onToggleFitSummary={() => setFitSummary((v) => !v)}
       fitSummary={fitSummary}
       measureUnits={measureUnits}
+      onChangeUnits={setMeasureUnits}
       buyLabel={buyLabel}
       preferredAgent={preferredAgent}
       onSelectAgent={chooseBuyingAgent}
