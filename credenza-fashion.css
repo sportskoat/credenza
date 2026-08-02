@@ -4878,6 +4878,70 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   .t-page-slide .t-page { transition: none !important; }
 }
 
+/* ─── Tabs sliding (transitions.dev) ─── */
+:root {
+  --tabs-dur: 250ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tabs-text-muted: rgba(193, 193, 193, 0.8);
+  --tabs-text-active: #ffffff;
+  --tabs-bar-bg: #202020;
+  --tabs-pill-bg: #454545;
+}
+
+/* The bar is just a flex container with padding for the pill
+   to sit inside. Tabs sit on z-index: 1, the pill on z-index: 0,
+   so labels read above the pill background. */
+.t-tabs {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 48px;
+  background: var(--tabs-bar-bg);
+}
+.t-tab {
+  position: relative;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  height: 30px;
+  padding: 4px 12px;
+  color: var(--tabs-text-muted);
+  cursor: pointer;
+  border-radius: 48px;
+  z-index: 1;
+  transition: color var(--tabs-dur) var(--tabs-ease);
+}
+.t-tab:not([aria-selected="true"]):hover,
+.t-tab[aria-selected="true"] {
+  color: var(--tabs-text-active);
+}
+
+/* The pill: width + transform are written inline by JS so
+   the transition tweens between the previous and next
+   measured positions. */
+.t-tabs-pill {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  height: 30px;
+  width: 0;
+  background: var(--tabs-pill-bg);
+  border-radius: 48px;
+  transform: translateX(0);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width     var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-tabs-pill, .t-tab { transition: none !important; }
+}
+
 /* ─── Card resize (transitions.dev) ─── */
 /* Put .t-resize on anything whose width/height changes and the two sizes
    tween instead of snapping. */
@@ -18446,4 +18510,69 @@ input.cz-sizing-fix-size {
     outline: 2px solid #ffffff;
     outline-offset: 2px;
   }
+}
+
+/* Credenza keeps each control's existing size and colors. Only the selected
+   background moves. This block follows every component rule so the old
+   per-button fills cannot cover the shared indicator. */
+.cz-app[data-fashion="true"] .t-tabs {
+  isolation: isolate;
+  --tabs-bar-bg: var(--cz-seg);
+  --tabs-pill-bg: var(--cz-seg-on, var(--cz-action-fill));
+  --tabs-text-muted: var(--cz-faint);
+  --tabs-text-active: var(--cz-seg-on-text, var(--cz-action-text));
+}
+
+.cz-view-tabs.t-tabs {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+
+.cz-view-tabs.t-tabs > .t-tabs-pill,
+.cz-filter-strip.is-glyph.t-tabs > .t-tabs-pill,
+.cz-fit-tabs.t-tabs > .t-tabs-pill,
+.cz-fit-units.t-tabs > .t-tabs-pill {
+  top: 3px;
+  bottom: 3px;
+  height: auto;
+}
+
+.cz-segment.t-tabs > .t-tabs-pill,
+.cz-detail-unit.t-tabs > .t-tabs-pill,
+.cz-detail-pane-picker.t-tabs > .t-tabs-pill {
+  top: 2px;
+  bottom: 2px;
+  height: auto;
+}
+
+.cz-detail-pane-picker.t-tabs {
+  --tabs-pill-bg: var(--cz-card-solid);
+}
+
+.cz-dock-pill.t-tabs {
+  --tabs-bar-bg: var(--cz-frost-fill);
+  --tabs-pill-bg: var(--cz-seg-on, var(--cz-frost-active));
+  --tabs-text-muted: var(--cz-frost-faint);
+  --tabs-text-active: var(--cz-seg-on-text, var(--cz-frost-ink));
+  background: var(--cz-frost-fill);
+}
+
+.cz-dock-pill.t-tabs > .t-tabs-pill {
+  top: 7px;
+  bottom: 7px;
+  height: auto;
+}
+
+.cz-view-tabs.t-tabs .cz-tab[aria-selected="true"],
+.cz-filter-strip.is-glyph.t-tabs .cz-filter-chip.is-active,
+.cz-segment.t-tabs .cz-segment-btn.is-active,
+.cz-detail-unit.t-tabs .cz-detail-unit-btn.is-active,
+.cz-detail-pane-picker.t-tabs button.is-active,
+.cz-fit-tabs.t-tabs .cz-fit-tab[aria-selected="true"],
+.cz-fit-units.t-tabs .cz-fit-unit[aria-pressed="true"],
+.cz-dock-pill.t-tabs .cz-dock-tab.is-active {
+  background: transparent;
+  box-shadow: none;
 }

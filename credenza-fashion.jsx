@@ -133,6 +133,7 @@ import BrandMark from "./components/BrandMark.jsx";
 import { HaulAccordionField } from "./components/HaulAccordionField.jsx";
 import { EditPhotosManager } from "./components/EditPhotosManager.jsx";
 import { SegmentedControl, StatusChips } from "./components/atoms.jsx";
+import SlidingTabsPill from "./components/SlidingTabsPill.jsx";
 // Re-exported so sheets/components that import these from this file keep working.
 export { BrandIcon, Caption, ComboboxField, EditPhotosManager, Field, HaulAccordionField, ModalShell, Pill, PriceChip, SegmentedControl, StatusChips, StatusPill };
 
@@ -9822,8 +9823,9 @@ function CredenzaApp() {
           <div
             role="tablist"
             aria-label="Shelf views"
-            className="cz-view-tabs"
+            className="cz-view-tabs t-tabs"
           >
+            <SlidingTabsPill value={view} />
             {[
               ["shelf", "Shelf", null],
               ["hauls", "Hauls", haulDirectory.hauls.length],
@@ -9834,7 +9836,8 @@ function CredenzaApp() {
               <button
                 type="button"
                 role="tab"
-                className="cz-tab"
+                className="cz-tab t-tab"
+                data-t-tab-value={key}
                 key={key}
                 id={"view-tab-" + key}
                 aria-selected={view === key}
@@ -9894,10 +9897,11 @@ function CredenzaApp() {
           {/* Kyle 2026-08-01: filters on the RIGHT of Shelf/Hauls, same size. */}
           {toolbarActive && !openHaulName && view === "shelf" && (
             <div
-              className="cz-filter-strip is-glyph is-tabs-peer"
+              className="cz-filter-strip is-glyph is-tabs-peer t-tabs"
               role="radiogroup"
               aria-label="Filter the shelf"
             >
+              <SlidingTabsPill value={shelfFilter} />
               {SHELF_FILTERS.map((f) => {
                 const active = shelfFilter === f.key;
                 const Icon = f.Icon;
@@ -9915,10 +9919,11 @@ function CredenzaApp() {
                       (count === 1 ? " card" : " cards")
                     }
                     className={
-                      "cz-filter-chip" +
+                      "cz-filter-chip t-tab" +
                       (active ? " is-active" : "") +
                       (count === 0 ? " is-zero" : "")
                     }
+                    data-t-tab-value={f.key}
                     onClick={() => {
                       setShelfFilter(f.key);
                       setExpandedId(null);
@@ -10035,7 +10040,8 @@ function CredenzaApp() {
         {/* Phone filter strip stays under the masthead (Design 7a). Desktop
             filters ride the tabs row above (is-tabs-peer). */}
         {phoneShelfChrome && toolbarActive && !openHaulName && view === "shelf" && (
-          <div className="cz-filter-strip is-glyph" role="radiogroup" aria-label="Filter the shelf">
+          <div className="cz-filter-strip is-glyph t-tabs" role="radiogroup" aria-label="Filter the shelf">
+            <SlidingTabsPill value={shelfFilter} />
             {SHELF_FILTERS.map((f) => {
               const active = shelfFilter === f.key;
               const Icon = f.Icon;
@@ -10053,10 +10059,11 @@ function CredenzaApp() {
                     (count === 1 ? " card" : " cards")
                   }
                   className={
-                    "cz-filter-chip" +
+                    "cz-filter-chip t-tab" +
                     (active ? " is-active" : "") +
                     (count === 0 ? " is-zero" : "")
                   }
+                  data-t-tab-value={f.key}
                   onClick={() => {
                     setShelfFilter(f.key);
                     setExpandedId(null);
@@ -10279,12 +10286,14 @@ function CredenzaApp() {
           shelf — the hero already carries capture. */}
       {!firstRunIntro && phoneShelfChrome && (
         <nav className="cz-dock" aria-label="Main">
-          <div className="cz-dock-pill">
+          <div className="cz-dock-pill t-tabs">
+            <SlidingTabsPill value={view === "hauls" ? "hauls" : "shelf"} />
             <button
               type="button"
               className={
-                "cz-dock-tab" + (view === "shelf" || view === "inbox" ? " is-active" : "")
+                "cz-dock-tab t-tab" + (view === "shelf" || view === "inbox" ? " is-active" : "")
               }
+              data-t-tab-value="shelf"
               aria-current={view === "shelf" || view === "inbox" ? "page" : undefined}
               onClick={() => {
                 setExpandedId(null);
@@ -10307,7 +10316,8 @@ function CredenzaApp() {
             </button>
             <button
               type="button"
-              className={"cz-dock-tab" + (view === "hauls" ? " is-active" : "")}
+              className={"cz-dock-tab t-tab" + (view === "hauls" ? " is-active" : "")}
+              data-t-tab-value="hauls"
               aria-current={view === "hauls" ? "page" : undefined}
               onClick={() => {
                 setExpandedId(null);
