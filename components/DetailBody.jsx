@@ -1814,6 +1814,9 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
 // Card-back v2 Fit fold (2026-08-02): one analysis paragraph under the size
 // headline. Facts only — primary measure from the same logic as
 // prescriptionSentence, secondaries from fitRows. No process talk.
+// Kyle 2026-08-02: always aim for two clear sentences (primary + one more
+// from fitRows or the next size up). Prefer real ease numbers over vague
+// "inside tolerance" when the data is there.
 function sizeAnalysisParagraph(verdict, fitRows, units, category) {
   const shown = verdict && (verdict.shown || verdict.rec);
   if (!shown || !shown.size) return "";
@@ -1863,60 +1866,101 @@ function sizeAnalysisParagraph(verdict, fitRows, units, category) {
   if (sitsRight) primary += ", which is where this " + noun + " is meant to sit";
   primary += ".";
 
-  const namedInside = [sitsRight];
-  const secondary = [];
+  // One concrete second sentence from another measure — prefer rows with a
+  // real ease number so the line names a number Kyle can check.
+  let secondary = "";
   for (const r of fitRows || []) {
     if (!r || r.key === measure || r.key === shown.primaryKey) continue;
-    // Only name measures with a real grade (ease or mark). Skip info-only rows.
     if (r.ease == null && r.mark == null) continue;
     if (r.estimated) continue;
     const name = (r.name || r.key || "measure").toLowerCase();
+    const isLengthKey =
+      r.key === "sleeve" || r.key === "length" || r.key === "pantsLength";
     if (r.warn || (r.mark != null && r.warn)) {
       if (r.ease == null || Math.abs(r.ease) < 0.05) {
-        secondary.push("The " + name + " is outside tolerance.");
+        secondary = "The " + name + " is outside tolerance.";
       } else {
-        // Length axes: long/short. Width axes: bigger/smaller — "shoulder
-        // runs long" sounds like garment length (F review of #39).
-        const isLengthKey =
-          r.key === "sleeve" || r.key === "length" || r.key === "pantsLength";
         const amt = formatMeasure(Math.abs(r.ease), units);
-        if (isLengthKey) {
-          secondary.push(
-            "The " +
+        secondary = isLengthKey
+          ? "The " + name + " runs about " + amt + (r.ease > 0 ? " long." : " short.")
+          : "The " +
+            name +
+            " is about " +
+            amt +
+            (r.ease > 0 ? " bigger than yours." : " smaller than yours.");
+      }
+      break;
+    }
+    if (r.ease != null && Math.abs(r.ease) < 0.5) {
+      secondary = "The " + name + " lands on yours exactly.";
+      break;
+    }
+    if (r.ease != null) {
+      const amt = formatMeasure(Math.abs(r.ease), units);
+      secondary = isLengthKey
+        ? "The " + name + " runs about " + amt + (r.ease > 0 ? " long." : " short.")
+        : "The " +
+          name +
+          " is about " +
+          amt +
+          (r.ease > 0 ? " bigger than yours." : " smaller than yours.");
+      break;
+    }
+    if (r.mark != null) {
+      secondary = "The " + name + " is inside tolerance.";
+      break;
+    }
+  }
+
+  // Next size up — same plain facts the old "The next size" stanza used.
+  let nextUp = "";
+  const chart = verdict.chart;
+  if (chart && Array.isArray(chart.rows) && shown.garment != null && shown.primaryKey) {
+    const up = chart.rows
+      .filter((r) => r && r.size && r[shown.primaryKey] != null && r[shown.primaryKey] > shown.garment)
+      .sort((a, b) => a[shown.primaryKey] - b[shown.primaryKey])[0];
+    if (up) {
+      const upName = formatSizeToken(up.size) || up.size;
+      const delta = up[shown.primaryKey] - shown.garment;
+      nextUp =
+        "The " +
+        upName +
+        " is " +
+        formatMeasure(delta, units) +
+        " bigger around the " +
+        measure +
+        ".";
+      if (up.sleeve != null && shown.row && shown.row.sleeve != null) {
+        nextUp +=
+          " Its sleeves are " +
+          formatMeasure(up.sleeve - shown.row.sleeve, units) +
+          " longer too.";
+      } else if (!secondary) {
+        // No sleeve delta and no secondary yet — pull one more fact from
+        // fitRows so the "next size" thought still has two sentences.
+        for (const r of fitRows || []) {
+          if (!r || r.key === measure || r.key === shown.primaryKey) continue;
+          if (r.ease == null || r.estimated) continue;
+          const name = (r.name || r.key || "measure").toLowerCase();
+          const amt = formatMeasure(Math.abs(r.ease), units);
+          const isLengthKey =
+            r.key === "sleeve" || r.key === "length" || r.key === "pantsLength";
+          nextUp += isLengthKey
+            ? " The " + name + " on this size runs about " + amt + (r.ease > 0 ? " long." : " short.")
+            : " The " +
               name +
-              " runs about " +
+              " on this size is about " +
               amt +
-              (r.ease > 0 ? " long." : " short.")
-          );
-        } else {
-          secondary.push(
-            "The " +
-              name +
-              " is about " +
-              amt +
-              (r.ease > 0 ? " bigger than yours." : " smaller than yours.")
-          );
+              (r.ease > 0 ? " bigger than yours." : " smaller than yours.");
+          break;
         }
       }
-      namedInside.push(false);
-    } else if (r.mark != null || r.ease != null) {
-      if (r.ease != null && Math.abs(r.ease) < 0.5) {
-        secondary.push("The " + name + " lands on yours exactly.");
-      } else {
-        secondary.push("The " + name + " is inside tolerance.");
-      }
-      namedInside.push(true);
     }
   }
 
   let text = primary;
-  if (secondary.length) text += " " + secondary.join(" ");
-  if (namedInside.length >= 2 && namedInside.every(Boolean)) {
-    text +=
-      namedInside.length === 2
-        ? " Both are inside tolerance."
-        : " All are inside tolerance.";
-  }
+  if (secondary) text += " " + secondary;
+  if (nextUp) text += " " + nextUp;
   return text;
 }
 
