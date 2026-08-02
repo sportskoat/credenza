@@ -7974,13 +7974,28 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   gap: 10px;
 }
 
-/* Stack when the settings content column is narrow. The floating card is
-   min(920px, 100vw - 48px), so the content pane is ~682px on a wide monitor —
-   a viewport max-width: 900px rule never fires there. */
+/* Stack Tops/Bottoms to one column when the settings content column is
+   narrow. The floating card is min(920px, 100vw - 48px), so the content pane
+   is ~682px on a wide monitor — a viewport max-width: 900px rule never fires
+   there. This does NOT stack the diagram above the fields inside one card:
+   a single-column card is still ~614px, plenty wide for diagram + fields
+   side by side. That stacking is real-phone-only, in the 767px query below. */
 @container cz-settings (max-width: 900px) {
   .cz-sizes-groups {
     grid-template-columns: 1fr;
   }
+  .cz-sizes-fit-table-head,
+  .cz-sizes-fit-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Stack the diagram above the fields — real phone only. The settings dialog
+   itself drops the floating-card style and goes full-bleed under 768px (see
+   "Phone (1d): no rail" above), so at this width the container and the
+   viewport are the same thing. */
+@media (max-width: 767px) {
   .cz-sizes-group-body {
     flex-direction: column;
   }
@@ -7989,11 +8004,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
   .cz-sizes-diagram {
     margin: 0 auto;
-  }
-  .cz-sizes-fit-table-head,
-  .cz-sizes-fit-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
   }
 }
 
