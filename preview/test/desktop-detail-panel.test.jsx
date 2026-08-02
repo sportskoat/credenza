@@ -404,6 +404,62 @@ describe("DesktopDetailPanel (Fix B)", () => {
     window.__setMediaMatches("(min-width: 1024px)", false);
   });
 
+  // Chart tab fit bars (2026-08-02): same tight/true/loose tracks as Fit tab,
+  // driven by the chosen size so marks slide when you pick another row.
+  it("shows measurement bars under the Chart table and updates them when a size is picked", async () => {
+    window.__setMediaMatches("(min-width: 1024px)", true);
+    const user = userEvent.setup();
+    const chartText =
+      "M: chest 116, shoulder 46, length 70, sleeve 60\nL: chest 120, shoulder 48, length 72, sleeve 62\nXL: chest 124, shoulder 50, length 74, sleeve 64";
+    renderPanel(
+      panelItem({
+        sizeNotes: chartText,
+        sizeChartSource: { via: "album-text", at: "2026-07-25T10:00:00.000Z" },
+        category: "shirt",
+      }),
+      {
+        bodyProfile: { chest: 105, shoulder: 45, sleeve: 62 },
+      }
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Chart" }));
+    const bars = await waitFor(() => {
+      const el = document.querySelector(".cz-chart-fitread");
+      expect(el).toBeTruthy();
+      return el;
+    });
+    expect(bars.querySelectorAll(".cz-fitread-track").length).toBeGreaterThan(0);
+    expect(bars.querySelectorAll(".cz-fitread-band").length).toBeGreaterThan(0);
+    expect(bars.querySelector(".cz-fitread-scale")).toBeTruthy();
+    expect(within(bars).getByText("TIGHT")).toBeInTheDocument();
+    expect(within(bars).getByText("TRUE")).toBeInTheDocument();
+    expect(within(bars).getByText("LOOSE")).toBeInTheDocument();
+
+    const marksBefore = [...bars.querySelectorAll(".cz-fitread-mark")].map(
+      (n) => n.style.left
+    );
+    expect(marksBefore.length).toBeGreaterThan(0);
+
+    // Pick a non-recommended size row (last chart row is the largest).
+    const sizeRows = [...document.querySelectorAll("button.cz-chart-row.is-size")];
+    expect(sizeRows.length).toBeGreaterThan(1);
+    const pickRow =
+      sizeRows.find((row) => !row.classList.contains("is-rec") && !row.classList.contains("is-pick")) ||
+      sizeRows[sizeRows.length - 1];
+    await user.click(pickRow);
+
+    const barsAfter = document.querySelector(".cz-chart-fitread");
+    expect(barsAfter).toBeTruthy();
+    const marksAfter = [...barsAfter.querySelectorAll(".cz-fitread-mark")].map(
+      (n) => n.style.left
+    );
+    expect(marksAfter.length).toBe(marksBefore.length);
+    // At least one mark should move when a different size is chosen.
+    expect(marksAfter.some((left, i) => left !== marksBefore[i])).toBe(true);
+
+    window.__setMediaMatches("(min-width: 1024px)", false);
+  });
+
   it("shows empty Chart tab with Pull from listing when there is no chart", async () => {
     window.__setMediaMatches("(min-width: 1024px)", true);
     const user = userEvent.setup();

@@ -18158,6 +18158,11 @@ input.cz-sizing-fix-size {
     gap: 14px;
     min-width: 0;
   }
+  /* Chart-tab fit bars: same FitRead tracks, driven by the chosen size row. */
+  .cz-chart-tab .cz-chart-fitread {
+    margin: 0;
+    padding: 4px 2px 0;
+  }
   .cz-chart-head {
     display: flex;
     align-items: baseline;

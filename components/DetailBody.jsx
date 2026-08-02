@@ -929,6 +929,20 @@ function DesktopChartTab({
     return map;
   }, [cols, profile, item.category]);
 
+  // Bars follow the table's chosen row (synced with Fit tab), not only the
+  // global recommended size — pick another size and the marks slide live.
+  const barSizeKey = String(chosenSize || recSize || "").toUpperCase();
+  const barRows = useMemo(() => {
+    if (!barSizeKey || !hasChart) return [];
+    const map = easeBySize[barSizeKey] || {};
+    const ordered = cols.map(([key]) => map[key]).filter(Boolean);
+    if (ordered.length) return ordered;
+    return Object.values(map);
+  }, [barSizeKey, hasChart, easeBySize, cols]);
+  const barSizeLabel = barSizeKey
+    ? formatSizeToken(barSizeKey) || barSizeKey
+    : "";
+
   const note =
     "Ease is the seller's number minus your body. Green marks the range this cut is drafted for. A dashed band means a number is missing and we are not guessing at one.";
 
@@ -1091,6 +1105,20 @@ function DesktopChartTab({
         })}
       </div>
 
+      {barRows.length ? (
+        <div
+          className="cz-fitread cz-chart-fitread"
+          aria-label={
+            "How " +
+            (barSizeLabel || "this size") +
+            " fits on each measure"
+          }
+        >
+          <FitReadHeads hasChart={true} kicker={barSizeLabel || "SIZE FIT"} />
+          <FitReadMeasureRows rows={barRows} hasChart={true} units={units} />
+        </div>
+      ) : null}
+
       <p className="cz-chart-note">{note}</p>
 
       <ChartActions
@@ -1135,6 +1163,76 @@ function ChartActions({
       </div>
     </div>
   );
+}
+
+// ── Fit-read track + measure rows (shared by Fit tab + Chart tab) ──
+//
+// One tight/true/loose track with green tolerance band and white marker.
+// FitReadTable and DesktopChartTab both render these so the bars stay
+// pixel-identical. Row math still lives in fitReadRows (pure, tested alone).
+function FitReadTrack({ mark, warn, showBand = true }) {
+  return (
+    <span className="cz-fitread-track">
+      {showBand ? <span className="cz-fitread-band" /> : null}
+      {mark != null ? (
+        <span
+          className={"cz-fitread-mark" + (warn ? " is-warn" : "")}
+          style={{ left: mark + "%" }}
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function FitReadHeads({ hasChart, kicker = null, blankLead = false }) {
+  return (
+    <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
+      {blankLead ? <span /> : kicker ? <span className="cz-fitread-kicker">{kicker}</span> : <span />}
+      {hasChart ? (
+        <span className="cz-fitread-scale">
+          <span>TIGHT</span>
+          <span>TRUE</span>
+          <span>LOOSE</span>
+        </span>
+      ) : (
+        <span />
+      )}
+      {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
+          grid never has to fit six letters over a 30px column. */}
+      <span className="cz-fitread-head">
+        <span className="cz-fitread-head-long">THEIRS</span>
+        <span className="cz-fitread-head-short">THRS</span>
+      </span>
+      <span className="cz-fitread-head">
+        <span className="cz-fitread-head-long">YOURS</span>
+        <span className="cz-fitread-head-short">YOU</span>
+      </span>
+      <span className="cz-fitread-head">EASE</span>
+    </div>
+  );
+}
+
+function FitReadMeasureRows({ rows, hasChart, units }) {
+  return rows.map((r) => (
+    <div key={r.key} className="cz-fitread-row">
+      <span className="cz-fitread-name">{r.name}</span>
+      <FitReadTrack mark={r.mark} warn={r.warn} showBand={hasChart} />
+      <span
+        className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
+        title={r.notOnChart ? "The seller's chart has no " + r.name.toLowerCase() : undefined}
+      >
+        {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "n/a" : "—"}
+      </span>
+      <span className="cz-fitread-yours">
+        {r.yours != null
+          ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
+          : "—"}
+      </span>
+      <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
+        {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "—"}
+      </span>
+    </div>
+  ));
 }
 
 // ── Fit read table (split-rail handoff 2026-07-28) ──
@@ -1232,57 +1330,12 @@ function FitReadTable({
           </span>
         </button>
       ) : null}
-      <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
-        {canOpenChart ? <span /> : <span className="cz-fitread-kicker">FIT READ</span>}
-        {hasChart ? (
-          <span className="cz-fitread-scale">
-            <span>TIGHT</span>
-            <span>TRUE</span>
-            <span>LOOSE</span>
-          </span>
-        ) : (
-          <span />
-        )}
-        {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
-            grid never has to fit six letters over a 30px column. */}
-        <span className="cz-fitread-head">
-          <span className="cz-fitread-head-long">THEIRS</span>
-          <span className="cz-fitread-head-short">THRS</span>
-        </span>
-        <span className="cz-fitread-head">
-          <span className="cz-fitread-head-long">YOURS</span>
-          <span className="cz-fitread-head-short">YOU</span>
-        </span>
-        <span className="cz-fitread-head">EASE</span>
-      </div>
-      {rows.map((r) => (
-        <div key={r.key} className="cz-fitread-row">
-          <span className="cz-fitread-name">{r.name}</span>
-          <span className="cz-fitread-track">
-            {hasChart ? <span className="cz-fitread-band" /> : null}
-            {r.mark != null ? (
-              <span
-                className={"cz-fitread-mark" + (r.warn ? " is-warn" : "")}
-                style={{ left: r.mark + "%" }}
-              />
-            ) : null}
-          </span>
-          <span
-            className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
-            title={r.notOnChart ? "The seller's chart has no " + r.name.toLowerCase() : undefined}
-          >
-            {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "n/a" : "—"}
-          </span>
-          <span className="cz-fitread-yours">
-            {r.yours != null
-              ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
-              : "—"}
-          </span>
-          <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
-            {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "—"}
-          </span>
-        </div>
-      ))}
+      <FitReadHeads
+        hasChart={hasChart}
+        kicker={canOpenChart ? null : "FIT READ"}
+        blankLead={canOpenChart}
+      />
+      <FitReadMeasureRows rows={rows} hasChart={hasChart} units={units} />
       {canOpenChart && chartOpen ? (
         <div className="cz-fitread-detail">
           <p className="cz-fitread-detail-help">
