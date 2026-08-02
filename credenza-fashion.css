@@ -4833,32 +4833,42 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* List-row pickers (Status / Haul / Colorway / Weight / Category) expand
-   in place under the row — no floating boxed pop (Kyle item 9). */
+/* List pickers (Status / Haul / Colorway / Weight / Category) — ONE rounded
+   card per picker (Kyle 2026-08-02 NO on PR #71 frames). Collapsed = head
+   only inside the card. Expanded = same card grows; list is content inside
+   the same border. No second body box, no full-bleed hairlines between rows. */
 .cz-cmdbar-list-slot.t-acc {
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card, transparent);
+  overflow: hidden;
 }
 /* Pad the body, never .t-acc-panel-inner — padding on the 0fr child leaves a
-   residual strip when the panel is closed. */
+   residual strip when the panel is closed. Body has NO border/background. */
 .cz-cmdbar-list-acc-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 0 8px 10px;
-  padding: 6px 8px 8px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 12px;
-  background: var(--cz-bg-elevated, var(--cz-card));
+  margin: 0;
+  padding: 0 8px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .cz-cmdbar-list-slot .cz-cmdbar-list-chev.t-acc-chevron {
   color: var(--cz-faint);
 }
 
-/* Settings buying-agent accordion: collapsed head = current agent only. */
+/* Settings buying-agent: same one-container look as the list pickers. */
 .cz-agent-acc {
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card, transparent);
+  overflow: hidden;
 }
 .cz-agent-acc-head {
   display: flex;
@@ -4867,20 +4877,15 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 12px;
-  background: var(--cz-card, transparent);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--cz-ink);
   font-family: var(--cz-sans);
   font-size: 13px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
-}
-.cz-agent-acc[data-open="true"] .cz-agent-acc-head {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  border-bottom-color: transparent;
 }
 .cz-agent-acc-head-label {
   flex: 0 0 auto;
@@ -4901,18 +4906,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-agent-acc-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 0 4px;
+  gap: 2px;
+  /* Pad list body (not panel-inner) — same residual-strip guard as list pickers. */
+  padding: 0 8px 10px;
 }
 .cz-agent-acc-row {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 12px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--cz-sub);
   font-family: var(--cz-sans);
@@ -4922,8 +4928,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   cursor: pointer;
 }
 .cz-agent-acc-row.is-active {
-  border-color: var(--cz-hair-strong, var(--cz-hair));
-  background: var(--cz-card);
+  background: color-mix(in srgb, var(--cz-hover) 85%, transparent);
   color: var(--cz-ink);
   font-weight: 700;
 }
@@ -13484,17 +13489,18 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   border-bottom: 1px solid var(--cz-hair);
 }
 
-/* Mock Details list (Turn 3): chevron rows, label left, value right.
-   Replaces the chip bar only when CommandBar layout="list". */
+/* Mock Details list (Turn 3 → item 9): five separate rounded cards with gap.
+   Each picker is one bordered container (head + in-place body). No outer shell
+   and no hairline dividers between rows (Kyle 2026-08-02 NO on PR #71 frames). */
 .cz-cmdbar.cz-cmdbar-list {
   flex-direction: column;
   align-items: stretch;
   flex-wrap: nowrap;
-  gap: 0;
+  gap: 8px;
   margin-top: 0;
   padding: 0;
-  border: 1px solid var(--cz-hair);
-  border-radius: 14px;
+  border: 0;
+  border-radius: 0;
   overflow: visible;
   background: transparent;
 }
@@ -13502,7 +13508,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: relative;
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid color-mix(in srgb, var(--cz-hair) 80%, transparent);
+  /* Card chrome lives on .t-acc (above). Kill legacy hairline dividers. */
+  border-bottom: 0;
 }
 .cz-cmdbar-list-slot:last-child {
   border-bottom: 0;

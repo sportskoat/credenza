@@ -104,4 +104,46 @@ describe("picker accordion motion (t-acc)", () => {
     // Full always-open list is gone from the Settings block.
     expect(DETAIL_BODY).not.toMatch(/className="cz-desk-agent-list"/);
   });
+
+  // Kyle 2026-08-02 NO on #71 frames: one rounded card per picker, not a
+  // hairline list with a second bordered body box under the open row.
+  it("list pickers are one card per slot (no outer shell, no second body box)", () => {
+    const listShell = FASHION_CSS.match(
+      /\.cz-cmdbar\.cz-cmdbar-list\s*\{[^}]+\}/
+    );
+    expect(listShell, "list shell rule").not.toBeNull();
+    expect(listShell[0]).toMatch(/border:\s*0/);
+    expect(listShell[0]).toMatch(/gap:\s*8px/);
+
+    const slotCard = FASHION_CSS.match(
+      /\.cz-cmdbar-list-slot\.t-acc\s*\{[^}]+\}/
+    );
+    expect(slotCard, "slot card rule").not.toBeNull();
+    expect(slotCard[0]).toMatch(/border:\s*1px solid/);
+    expect(slotCard[0]).toMatch(/border-radius:\s*12px/);
+    expect(slotCard[0]).toMatch(/overflow:\s*hidden/);
+
+    const body = FASHION_CSS.match(/\.cz-cmdbar-list-acc-body\s*\{[^}]+\}/);
+    expect(body, "acc body rule").not.toBeNull();
+    expect(body[0]).toMatch(/border:\s*0/);
+    expect(body[0]).not.toMatch(/border:\s*1px/);
+    expect(body[0]).toMatch(/background:\s*transparent/);
+    expect(body[0]).toMatch(/margin:\s*0/);
+  });
+
+  it("Settings agent accordion is one container (rows inside, no per-row boxes)", () => {
+    const agent = FASHION_CSS.match(/\.cz-agent-acc\s*\{[^}]+\}/);
+    expect(agent, "agent acc rule").not.toBeNull();
+    expect(agent[0]).toMatch(/border:\s*1px solid/);
+    expect(agent[0]).toMatch(/border-radius:\s*12px/);
+    expect(agent[0]).toMatch(/overflow:\s*hidden/);
+
+    const head = FASHION_CSS.match(/\.cz-agent-acc-head\s*\{[^}]+\}/);
+    expect(head, "agent head rule").not.toBeNull();
+    expect(head[0]).toMatch(/border:\s*0/);
+
+    const row = FASHION_CSS.match(/\.cz-agent-acc-row\s*\{[^}]+\}/);
+    expect(row, "agent row rule").not.toBeNull();
+    expect(row[0]).toMatch(/border:\s*0/);
+  });
 });
