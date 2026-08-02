@@ -1786,14 +1786,14 @@ function chipSizes(runValues, anchor) {
 }
 
 // Shell chrome for the pager. The render prop gets the live pager state and
-// returns { actions, overlay }: the buttons go in the top-right span, the
-// overlay (the sheet's ⋯ menu) renders as its sibling because .cz-detail-menu
-// positions absolutely off .cz-detail-hero, not off the span.
-function HeroActionsSlot({ render, photos, photoIdx, resetPager }) {
+// returns { actions, overlay }: the buttons go in a top-right span, the
+// overlay (the sheet's ⋯ menu) renders as its sibling so absolute positioning
+// can anchor to a relative parent (hero or phone header).
+function HeroActionsSlot({ render, photos, photoIdx, resetPager, className = "cz-detail-hero-actions" }) {
   const result = render({ photos, photoIdx, resetPager }) || {};
   return (
     <>
-      {result.actions ? <span className="cz-detail-hero-actions">{result.actions}</span> : null}
+      {result.actions ? <span className={className}>{result.actions}</span> : null}
       {result.overlay || null}
     </>
   );
@@ -2553,41 +2553,15 @@ export default function DetailBody({
     setPhotoIdx(0);
   }, [item.id]);
 
-  // §9 sticky bar. The photo block used to leave a stranded sliver of image
-  // above the title as you scrolled. The bar replaces that sliver: thumb,
-  // title, size · price, close. It only exists where the shell gives us a
-  // close action, which is the phone sheet.
+  // Phone sheet header (Kyle 2026-08-02 layout reset). Always pinned: big
+  // title left + heart / more / close top-right, tabs under, content below.
+  // Exists only where the shell gives us a close action (the phone sheet).
   const heroRef = useRef(null);
   const titleRowRef = useRef(null);
   const scrollRef = useRef(null);
-  const [heroGone, setHeroGone] = useState(false);
   const wantsStickyBar = heroPager && typeof onRequestClose === "function";
   // Desktop two-column panel hands titleTarget a mount node.
   const isDesktopPanel = titleTarget !== undefined;
-  useEffect(() => {
-    if (!wantsStickyBar) return undefined;
-    // Kyle 2026-07-29: the bar used to watch the PHOTO, so between "photo
-    // gone" and "title gone" the sheet printed the item name twice — once in
-    // the bar and once in the big title right under it. Watch the TITLE ROW
-    // instead: the bar only takes the name over once the big one has left.
-    // The hero stays the fallback for a caller with no inline title row.
-    const watched = titleRowRef.current || heroRef.current;
-    const root = scrollRef.current;
-    // jsdom has no IntersectionObserver, and neither does an old iOS. No
-    // observer means no bar — the sheet reads exactly as it did before §9.
-    if (!watched || !root || typeof IntersectionObserver === "undefined") return undefined;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const e = entries[0];
-        if (e) setHeroGone(!e.isIntersecting);
-      },
-      // The bar arrives as the LAST of the watched block leaves, not the
-      // first: a threshold of 0 flips the moment one pixel is gone.
-      { root, threshold: 0 }
-    );
-    io.observe(watched);
-    return () => io.disconnect();
-  }, [wantsStickyBar, item.id]);
 
   // Full-screen album (restored 2026-07-25, Kyle: "the old photos where you
   // could swipe through each photo... it was so good"). A tap on the hero
@@ -3316,55 +3290,91 @@ export default function DetailBody({
 
   return (
     <>
-      {/* Sticky bar (§9). It pins under the drag handle once the photo block
-          has scrolled away, so the sheet always says which item you are in.
-          aria-hidden while it is up: every control on it repeats one that is
-          already in the sheet, so a screen reader gains nothing and a
-          duplicate title is worse than no bar. */}
+      {/* Phone sheet header — always pinned (Kyle 2026-08-02 layout reset).
+          Row 1: big title left + heart / more / close at the far top right.
+          Row 2: Fit / Photos / Details. Content scrolls under this chrome.
+          Exactly one close, always in the header corner — never on the photo. */}
       {wantsStickyBar ? (
-        <div
-          className={"cz-detail-stickybar cz-detail-pane-header" + (heroGone ? " is-up" : "")}
-          aria-hidden={false}
-        >
-          {photos.length ? (
-            <img className="cz-detail-stickybar-thumb" src={photos[0]} alt="" decoding="async" />
-          ) : null}
-          <span className="cz-detail-stickybar-text">
-            <span className="cz-detail-stickybar-title">{view.title || "Saved item"}</span>
-            {stickyMeta ? <span className="cz-detail-stickybar-meta">{stickyMeta}</span> : null}
-          </span>
-          <button
-            type="button"
-            className="cz-detail-stickybar-close"
-            aria-label="Close"
-            onClick={onRequestClose}
-          >
-            <X size={16} strokeWidth={2.4} aria-hidden="true" />
-          </button>
-        </div>
-      ) : null}
-
-      {wantsStickyBar ? (
-        <div className="cz-detail-pane-picker t-tabs" role="tablist" aria-label="Item section">
-          <SlidingTabsPill value={pane} />
-          {[
-            ["fit", "Fit"],
-            ["photos", "Photos · " + photos.length],
-            ["details", "Details"],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={pane === key}
-              className={"t-tab" + (pane === key ? " is-active" : "")}
-              data-t-tab-value={key}
-              onClick={() => setPane(key)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <header className="cz-detail-phone-header">
+          <div className="cz-detail-phone-header-top">
+            <div className="cz-detail-phone-header-titlecol">
+              {editingTitle ? (
+                <input
+                  ref={titleInputRef}
+                  className="cz-detail-title-input cz-detail-phone-header-title-input"
+                  aria-label="Item title"
+                  value={view.title}
+                  onChange={(e) => edit("title", e.target.value)}
+                  onBlur={() => {
+                    setEditingTitle(false);
+                    commitRef.current();
+                  }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="cz-detail-phone-header-title-btn"
+                  onClick={() => setEditingTitle(true)}
+                >
+                  <span className="cz-detail-phone-header-title">
+                    {view.title || "Untitled"}
+                  </span>
+                  {stickyMeta ? (
+                    <span className="cz-detail-phone-header-meta">{stickyMeta}</span>
+                  ) : null}
+                </button>
+              )}
+              {savedFlash ? (
+                <span className="cz-detail-saved cz-detail-phone-header-saved">
+                  <Check size={11} strokeWidth={3} aria-hidden="true" />
+                  Saved
+                </span>
+              ) : null}
+            </div>
+            {renderHeroActions ? (
+              <HeroActionsSlot
+                className="cz-detail-header-actions"
+                render={renderHeroActions}
+                photos={photos}
+                photoIdx={photoIdx}
+                resetPager={resetPager}
+              />
+            ) : (
+              <button
+                type="button"
+                className="cz-detail-header-btn"
+                aria-label="Close"
+                onClick={onRequestClose}
+              >
+                <X size={16} strokeWidth={2.4} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <div className="cz-detail-pane-picker t-tabs" role="tablist" aria-label="Item section">
+            <SlidingTabsPill value={pane} />
+            {[
+              ["fit", "Fit"],
+              ["photos", "Photos · " + photos.length],
+              ["details", "Details"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={pane === key}
+                className={"t-tab" + (pane === key ? " is-active" : "")}
+                data-t-tab-value={key}
+                onClick={() => setPane(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </header>
       ) : null}
 
       <div className={isDesktopPanel ? "cz-fit-shell" : "cz-sheet-shell"}>
@@ -3498,7 +3508,10 @@ export default function DetailBody({
                 ))}
               </span>
             ) : null}
-            {renderHeroActions ? (
+            {/* Phone sheet: heart/more/close live in the pinned header, not on
+                the photo (Kyle 2026-08-02 layout reset). Non-pane layouts still
+                mount chrome on the hero. */}
+            {!wantsStickyBar && renderHeroActions ? (
               <HeroActionsSlot
                 render={renderHeroActions}
                 photos={photos}
@@ -3539,15 +3552,17 @@ export default function DetailBody({
         ) : null}
         </section>
 
-        {/* Title. The text itself is the tap target — there is no Title
-            field and no Save button. Blur commits through the debounce. */}
-        <div className="cz-detail-pane-title">
-        {titleTarget === undefined
-          ? titleBlock
-          : titleTarget === null
-            ? null
-            : createPortal(titleBlock, titleTarget)}
-        </div>
+        {/* Title for non-pane layouts (desktop/tablet). Phone sticky-bar sheets
+            mount the title under the hero above — do not double-mount. */}
+        {!wantsStickyBar ? (
+          <div className="cz-detail-pane-title">
+            {titleTarget === undefined
+              ? titleBlock
+              : titleTarget === null
+                ? null
+                : createPortal(titleBlock, titleTarget)}
+          </div>
+        ) : null}
 
         {/* The bar is inline on the phone sheet and the tablet band. On the
             desktop panel it portals to a full-width slot above both columns

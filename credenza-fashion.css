@@ -13224,18 +13224,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Phone title (split-rail spec :170). The title is the one thing on the sheet
-   that has to win against the photo above it, so it goes up, not down. */
+   that has to win against the photo above it, so it goes up, not down.
+   Kyle 2026-08-02: bigger title, fill the row under the photo (batch item 1). */
 @media (max-width: 767px) {
+  .cz-detail-title-row {
+    margin-top: 12px;
+  }
+
   .cz-detail-title {
-    font-size: 26px;
+    font-size: 30px;
     line-height: 1.06;
     letter-spacing: -0.035em;
   }
 
-  /* A one-line title is 28px tall inside a 44px tap target, so 16px of dead
-     room fell BELOW the text and pushed the whole sheet down (Kyle 2026-07-28:
-     "too much white space between the title and the size"). Centring splits
-     that room evenly, and the target still measures 44px. */
+  /* A one-line title is ~32px tall inside a 44px tap target; centring splits
+     residual room evenly so dead space does not fall only below the text
+     (Kyle 2026-07-28). Target still measures 44px. */
   .cz-detail-title-btn {
     display: flex;
     align-items: center;
@@ -15254,39 +15258,153 @@ input.cz-sizing-fix-size {
 /* Mobile item sheet, three panes. The desktop card back keeps its existing
    layout because every visual rule stays below 768px. */
 @media (max-width: 767px) {
-  .cz-detail-pane-header,
-  .cz-detail-pane-header.is-up {
-    /* Safe-area so the status bar never covers the title or close control. */
-    min-height: calc(50px + env(safe-area-inset-top, 0px));
-    overflow: visible;
-    padding: calc(2px + env(safe-area-inset-top, 0px)) 12px 10px;
-    gap: 11px;
-    border-bottom: 0;
+  /* Phone sheet header — always pinned (Kyle 2026-08-02 layout reset).
+     Row 1: big title left + heart / more / close top-right.
+     Row 2: Fit / Photos / Details.
+     Historical: older rules force-expanded .cz-detail-pane-header with
+     env(safe-area-inset-top). That was correct when the sheet touched the
+     status bar. PR #64 reserved safe-area + 28px ABOVE the sheet, so the
+     header lives inside a surface that already clears the status bar. Do
+     NOT re-add safe-area here — it double-counts into a blank band under
+     the grip. */
+  .cz-detail-phone-header {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 12px 10px;
     background: var(--cz-bg-elevated);
+    border-bottom: 0;
   }
 
-  .cz-detail-pane-header .cz-detail-stickybar-thumb {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
+  .cz-detail-phone-header-top {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 44px;
   }
 
-  .cz-detail-pane-header .cz-detail-stickybar-title {
-    font-size: 15px;
+  .cz-detail-phone-header-titlecol {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cz-detail-phone-header-saved {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+
+  .cz-detail-phone-header-title-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    min-height: 44px;
+    padding: 2px 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: text;
+  }
+
+  .cz-detail-phone-header-title {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--cz-display);
+    font-size: 28px;
     font-weight: 600;
-    letter-spacing: -0.03em;
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+    color: var(--cz-ink);
   }
 
-  .cz-detail-pane-header .cz-detail-stickybar-meta {
+  .cz-detail-phone-header-meta {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--cz-mono);
     font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cz-faint);
   }
 
-  .cz-detail-pane-header .cz-detail-stickybar-close {
+  .cz-detail-phone-header-title-input {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: 4px 0;
+    border: 0;
+    border-bottom: 1px solid var(--cz-ink);
+    border-radius: 0;
+    background: transparent;
+    font-family: var(--cz-display);
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+    color: var(--cz-ink);
+  }
+
+  .cz-detail-header-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .cz-detail-header-actions .cz-detail-hero-btn,
+  .cz-detail-header-actions .cz-detail-hero-fav.cz-favorite-button,
+  .cz-detail-header-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 44px;
     height: 44px;
-    background: var(--cz-chip-fill);
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    filter: none;
+    color: var(--cz-ink);
+    cursor: pointer;
+  }
+
+  .cz-detail-header-actions .cz-detail-hero-btn::after {
+    display: none;
+  }
+
+  .cz-detail-phone-header-top .cz-detail-menu {
+    top: calc(100% + 4px);
+    right: 0;
+  }
+
+  /* Legacy stickybar selectors kept for non-phone / transition tests — always
+     collapsed height rules removed; phone uses .cz-detail-phone-header. */
+  .cz-detail-pane-header,
+  .cz-detail-pane-header.is-up {
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .cz-detail-phone-header .cz-detail-pane-picker {
+    margin: 0;
   }
 
   .cz-detail-pane-picker {
@@ -15337,6 +15455,7 @@ input.cz-sizing-fix-size {
     padding: 0 14px 104px;
   }
 
+  /* Title lives in the pinned phone header — never again under the photo. */
   .cz-detail-scroll.has-panes .cz-detail-pane-title {
     display: none;
   }
