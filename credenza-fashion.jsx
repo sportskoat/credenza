@@ -2203,7 +2203,7 @@ export function easeRoomClause(diffCm, bodyFormatted, roomFormatted) {
       roomFormatted +
       " smaller than your " +
       bodyFormatted +
-      " — it will fit tighter than your body"
+      ", it will fit tighter than your body"
     );
   }
   if (diffCm < 0.5) {

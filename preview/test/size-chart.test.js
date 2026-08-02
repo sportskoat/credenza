@@ -698,7 +698,7 @@ describe("easeRoomClause / meantToSitClause (negative-ease wording)", () => {
   it("pins Kyle's negative shorts case in inches", () => {
     // 80 − 83.8 = −3.8cm ≈ 1.5″
     expect(easeRoomClause(-3.8, "33″", "1.5″")).toBe(
-      "is 1.5″ smaller than your 33″ — it will fit tighter than your body"
+      "is 1.5″ smaller than your 33″, it will fit tighter than your body"
     );
   });
 
