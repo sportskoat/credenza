@@ -2564,17 +2564,24 @@ export default function DetailBody({
   const wantsStickyBar = heroPager && typeof onRequestClose === "function";
   // Desktop two-column panel hands titleTarget a mount node.
   const isDesktopPanel = titleTarget !== undefined;
+  // Photos pane: open state keeps stickybar collapsed (photo-cluster close only).
+  // Fit/Details: photo chrome is hidden, so the bar stays up for title + close.
+  // Scrolled photos (heroGone): bar is up. Kyle 2026-08-02 batch items 1+2.
+  const stickyBarUp = wantsStickyBar && (pane !== "photos" || heroGone);
   useEffect(() => {
     if (!wantsStickyBar) return undefined;
-    // Kyle 2026-07-29: the bar used to watch the PHOTO, so between "photo
-    // gone" and "title gone" the sheet printed the item name twice — once in
-    // the bar and once in the big title right under it. Watch the TITLE ROW
-    // instead: the bar only takes the name over once the big one has left.
-    // The hero stays the fallback for a caller with no inline title row.
-    const watched = titleRowRef.current || heroRef.current;
+    // Photos pane shows the big title under the hero — watch that row so the
+    // bar only takes the name once the big title has left (no double print).
+    // Fit/Details hide the title row (display:none); fall back to the hero so
+    // we do not treat a hidden title as "gone" and force the bar open forever.
+    const watched =
+      pane === "photos"
+        ? titleRowRef.current || heroRef.current
+        : heroRef.current || titleRowRef.current;
     const root = scrollRef.current;
     // jsdom has no IntersectionObserver, and neither does an old iOS. No
-    // observer means no bar — the sheet reads exactly as it did before §9.
+    // observer means heroGone stays false — Fit/Details still raise the bar
+    // via stickyBarUp (pane !== "photos").
     if (!watched || !root || typeof IntersectionObserver === "undefined") return undefined;
     const io = new IntersectionObserver(
       (entries) => {
@@ -2587,7 +2594,7 @@ export default function DetailBody({
     );
     io.observe(watched);
     return () => io.disconnect();
-  }, [wantsStickyBar, item.id]);
+  }, [wantsStickyBar, item.id, pane]);
 
   // Full-screen album (restored 2026-07-25, Kyle: "the old photos where you
   // could swipe through each photo... it was so good"). A tap on the hero
@@ -3316,15 +3323,15 @@ export default function DetailBody({
 
   return (
     <>
-      {/* Sticky bar (§9). It pins under the drag handle once the photo block
-          has scrolled away, so the sheet always says which item you are in.
-          aria-hidden while it is up: every control on it repeats one that is
-          already in the sheet, so a screen reader gains nothing and a
-          duplicate title is worse than no bar. */}
+      {/* Sticky bar (§9). Photos open: height 0 — photo-cluster close (heart /
+          more / ✕) is the only close; big title sits under the hero. Fit /
+          Details (or photos scrolled): .is-up shows title + close in a fixed
+          ~50px row. Collapsed bar stays out of the a11y tree so it does not
+          double the open-state close. */}
       {wantsStickyBar ? (
         <div
-          className={"cz-detail-stickybar cz-detail-pane-header" + (heroGone ? " is-up" : "")}
-          aria-hidden={false}
+          className={"cz-detail-stickybar cz-detail-pane-header" + (stickyBarUp ? " is-up" : "")}
+          aria-hidden={!stickyBarUp}
         >
           {photos.length ? (
             <img className="cz-detail-stickybar-thumb" src={photos[0]} alt="" decoding="async" />
@@ -3337,6 +3344,7 @@ export default function DetailBody({
             type="button"
             className="cz-detail-stickybar-close"
             aria-label="Close"
+            tabIndex={stickyBarUp ? undefined : -1}
             onClick={onRequestClose}
           >
             <X size={16} strokeWidth={2.4} aria-hidden="true" />
@@ -3509,6 +3517,20 @@ export default function DetailBody({
           </div>
         ) : null}
 
+        {/* Phone Photos: big title sits right under the hero (Kyle 2026-08-02
+            batch item 1) so the stickybar can collapse on open. Placed before
+            the photo tail so the title is in view and IntersectionObserver
+            does not treat a below-fold title as "gone". */}
+        {wantsStickyBar ? (
+          <div className="cz-detail-pane-title cz-detail-pane-title-under-hero">
+            {titleTarget === undefined
+              ? titleBlock
+              : titleTarget === null
+                ? null
+                : createPortal(titleBlock, titleTarget)}
+          </div>
+        ) : null}
+
         {/* Photo panel tail (§4). The thumb strip and the two album links are
             "its own row below" the photo, not chrome over it — so they move
             here, directly under the hero, instead of sitting at the bottom of
@@ -3539,15 +3561,17 @@ export default function DetailBody({
         ) : null}
         </section>
 
-        {/* Title. The text itself is the tap target — there is no Title
-            field and no Save button. Blur commits through the debounce. */}
-        <div className="cz-detail-pane-title">
-        {titleTarget === undefined
-          ? titleBlock
-          : titleTarget === null
-            ? null
-            : createPortal(titleBlock, titleTarget)}
-        </div>
+        {/* Title for non-pane layouts (desktop/tablet). Phone sticky-bar sheets
+            mount the title under the hero above — do not double-mount. */}
+        {!wantsStickyBar ? (
+          <div className="cz-detail-pane-title">
+            {titleTarget === undefined
+              ? titleBlock
+              : titleTarget === null
+                ? null
+                : createPortal(titleBlock, titleTarget)}
+          </div>
+        ) : null}
 
         {/* The bar is inline on the phone sheet and the tablet band. On the
             desktop panel it portals to a full-width slot above both columns

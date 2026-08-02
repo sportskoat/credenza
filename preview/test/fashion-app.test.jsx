@@ -1873,19 +1873,23 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
   });
 
   it("the album row sits under the photo strip, not at the bottom of the rail", async () => {
-    // §4: the strip and the links are "its own row below" the photo. §9 puts
-    // them there in the phone order too — photo, strip, links, then title.
+    // §4: the strip and the links are "its own row below" the photo.
+    // Kyle 2026-08-02: phone order is photo → big title → strip/links so the
+    // stickybar can collapse on open (title in view under the hero).
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
-    await openSheet(user);
+    const sheet = await openSheet(user);
+    await user.click(within(sheet).getByRole("tab", { name: /Photos/i }));
 
     const tail = document.querySelector(".cz-detail-photo-tail");
     expect(tail.querySelector(".cz-detail-photos")).not.toBeNull();
     expect(tail.querySelector(".cz-album-links")).not.toBeNull();
-    // The tail precedes the title, so the photo block is one object.
+    // Title sits between hero and tail on Photos.
     const title = document.querySelector(".cz-detail-title-btn");
-    expect(tail.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const hero = document.querySelector(".cz-detail-hero");
+    expect(hero.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(title.compareDocumentPosition(tail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("omits a tile it cannot point anywhere, never an empty one", async () => {
@@ -2100,11 +2104,12 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     expect(document.querySelector(".cz-detail-qc-prompt")).toBeNull();
   });
 
-  it("keeps the mini-header always visible, observer or not", async () => {
-    // Mobile item sheet (2026-07-31, spec 6.1): the old scroll-driven sticky
-    // bar is now the sheet's mini-header — one row, ALWAYS visible, above the
-    // panes. jsdom has no IntersectionObserver, and neither does an old iOS;
-    // the header must not depend on one.
+  it("keeps Fit open with stickybar up; Photos collapses it so photo chrome owns close", async () => {
+    // Kyle 2026-08-02 batch items 1+2: Fit/Details keep the mini-header (title
+    // + close) because photo chrome is hidden. Photos pane collapses the bar
+    // until the under-photo title scrolls away — open Photos uses the
+    // photo-cluster close only (no second X). jsdom has no IntersectionObserver,
+    // so heroGone stays false.
     installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
     const user = userEvent.setup();
     render(<Credenza />);
@@ -2112,11 +2117,10 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
 
     const bar = sheet.querySelector(".cz-detail-stickybar");
     expect(bar).not.toBeNull();
-    // Always visible means never aria-hidden, and its ✕ always takes a tab
-    // stop — it is the sheet's header now, not a duplicate of one.
+    // Default pane is Fit — bar is up for title + close.
+    expect(bar.classList.contains("is-up")).toBe(true);
     expect(bar).toHaveAttribute("aria-hidden", "false");
     expect(bar.querySelector(".cz-detail-stickybar-close")).not.toHaveAttribute("tabindex", "-1");
-    // It says which item you are in.
     expect(bar.querySelector(".cz-detail-stickybar-title").textContent).toBe(
       "Palace x Nike jersey"
     );
@@ -2130,14 +2134,29 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
     // the content it exists to outlive.
     expect(bar.parentElement.querySelector(".cz-detail-scroll")).not.toBeNull();
     expect(bar.closest(".cz-detail-scroll")).toBeNull();
+
+    // Switch to Photos: bar collapses; photo-cluster close is the only X.
+    await user.click(within(sheet).getByRole("tab", { name: /Photos/i }));
+    expect(bar.classList.contains("is-up")).toBe(false);
+    expect(bar).toHaveAttribute("aria-hidden", "true");
+    expect(bar.querySelector(".cz-detail-stickybar-close")).toHaveAttribute("tabindex", "-1");
+    const cluster = sheet.querySelector(".cz-detail-hero-actions");
+    expect(cluster).not.toBeNull();
+    expect(
+      [...cluster.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"))
+    ).toEqual(["Star Palace x Nike jersey", "More actions", "Close"]);
+    // Big title under the photo on Photos pane.
+    const bigTitle = sheet.querySelector(".cz-detail-title");
+    expect(bigTitle).not.toBeNull();
+    expect(bigTitle.textContent).toBe("Palace x Nike jersey");
   });
 
-  it("watches the title row, so the name is never on screen twice", async () => {
-    // Kyle 2026-07-29: the sheet printed the item name twice — once in the
-    // sticky bar and once in the big title right under it. The bar watched
-    // the PHOTO, so it came up while the big title was still on screen.
+  it("watches the under-photo title on Photos so the name is never on screen twice", async () => {
+    // Kyle 2026-07-29 + 2026-08-02: Fit/Details hide the big title, so the
+    // observer falls back to the hero. Photos shows the big title under the
+    // hero — watch THAT row so the bar only takes the name once it leaves.
     // jsdom has no IntersectionObserver, so the test supplies one and asks
-    // the only question that matters: WHICH element does the bar watch?
+    // which element each pane watches.
     const observed = [];
     const roots = [];
     class FakeObserver {
@@ -2156,15 +2175,21 @@ describe("Mobile detail sheet (handoff step 5, 2026-07-25)", () => {
       installShim({ [STORE_KEY]: JSON.stringify([fashionItem()]) });
       const user = userEvent.setup();
       render(<Credenza />);
-      await openSheet(user);
+      const sheet = await openSheet(user);
 
+      // Default Fit pane: title row is display:none — watch the hero fallback.
+      expect(observed.length).toBe(1);
+      expect(observed[0].classList.contains("cz-detail-hero")).toBe(true);
+      expect(roots[0]).not.toBeNull();
+      expect(roots[0].classList.contains("cz-detail-scroll")).toBe(true);
+
+      // Photos pane: watch the under-photo title row (not the hero alone).
+      observed.length = 0;
+      roots.length = 0;
+      await user.click(within(sheet).getByRole("tab", { name: /Photos/i }));
       expect(observed.length).toBe(1);
       expect(observed[0].classList.contains("cz-detail-title-row")).toBe(true);
-      // The photo is the wrong watch: it leaves the screen while the big
-      // title is still there, which is the doubled line Kyle photographed.
       expect(observed[0].classList.contains("cz-detail-hero")).toBe(false);
-      // The scroller stays the root — the sheet scrolls in its own box.
-      expect(roots[0]).not.toBeNull();
       expect(roots[0].classList.contains("cz-detail-scroll")).toBe(true);
     } finally {
       globalThis.IntersectionObserver = previous;

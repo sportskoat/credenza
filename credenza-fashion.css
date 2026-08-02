@@ -13224,18 +13224,22 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 /* Phone title (split-rail spec :170). The title is the one thing on the sheet
-   that has to win against the photo above it, so it goes up, not down. */
+   that has to win against the photo above it, so it goes up, not down.
+   Kyle 2026-08-02: bigger title, fill the row under the photo (batch item 1). */
 @media (max-width: 767px) {
+  .cz-detail-title-row {
+    margin-top: 12px;
+  }
+
   .cz-detail-title {
-    font-size: 26px;
+    font-size: 30px;
     line-height: 1.06;
     letter-spacing: -0.035em;
   }
 
-  /* A one-line title is 28px tall inside a 44px tap target, so 16px of dead
-     room fell BELOW the text and pushed the whole sheet down (Kyle 2026-07-28:
-     "too much white space between the title and the size"). Centring splits
-     that room evenly, and the target still measures 44px. */
+  /* A one-line title is ~32px tall inside a 44px tap target; centring splits
+     residual room evenly so dead space does not fall only below the text
+     (Kyle 2026-07-28). Target still measures 44px. */
   .cz-detail-title-btn {
     display: flex;
     align-items: center;
@@ -15254,15 +15258,32 @@ input.cz-sizing-fix-size {
 /* Mobile item sheet, three panes. The desktop card back keeps its existing
    layout because every visual rule stays below 768px. */
 @media (max-width: 767px) {
-  .cz-detail-pane-header,
-  .cz-detail-pane-header.is-up {
-    /* Safe-area so the status bar never covers the title or close control. */
-    min-height: calc(50px + env(safe-area-inset-top, 0px));
-    overflow: visible;
-    padding: calc(2px + env(safe-area-inset-top, 0px)) 12px 10px;
+  /* Phone stickybar — collapsed until .is-up (Kyle 2026-08-02 batch item 1+2).
+     Historical: this rule used to force BOTH .cz-detail-pane-header AND .is-up
+     open with min-height/padding that re-added env(safe-area-inset-top). That
+     was correct when the sheet touched the status bar. PR #64 reserved
+     safe-area + 28px ABOVE the sheet, so the stickybar lives inside a surface
+     that already clears the status bar. Re-adding safe-area here double-counts
+     and leaves a blank band under the grip, plus a second close button on open
+     (photo-cluster close + stickybar close). Do NOT re-add safe-area on the
+     next status-bar complaint — the sheet top already clears it. Expanded
+     .is-up state is a fixed ~50px row only. */
+  .cz-detail-pane-header {
+    /* Match base .cz-detail-stickybar closed rules: height 0, no paint. */
+    height: 0;
+    min-height: 0;
+    padding: 0 12px;
+    overflow: hidden;
     gap: 11px;
     border-bottom: 0;
     background: var(--cz-bg-elevated);
+  }
+
+  .cz-detail-pane-header.is-up {
+    height: 50px;
+    min-height: 50px;
+    padding: 0 12px;
+    overflow: visible;
   }
 
   .cz-detail-pane-header .cz-detail-stickybar-thumb {
@@ -15337,8 +15358,19 @@ input.cz-sizing-fix-size {
     padding: 0 14px 104px;
   }
 
+  /* Title under the hero only on Photos. Fit/Details hide it — the stickybar
+     carries the name there. The under-hero mount lives inside the photos
+     pane so a Fit/Details active pane also hides it via the pane display
+     rules below. */
   .cz-detail-scroll.has-panes .cz-detail-pane-title {
     display: none;
+  }
+  .cz-detail-scroll.has-panes[data-pane="photos"] .cz-detail-pane-photos .cz-detail-pane-title-under-hero {
+    display: block;
+    margin: 0;
+  }
+  .cz-detail-scroll.has-panes[data-pane="photos"] .cz-detail-pane-title-under-hero .cz-detail-title-row {
+    margin-top: 12px;
   }
 
   .cz-detail-scroll.has-panes > .cz-detail-pane {
