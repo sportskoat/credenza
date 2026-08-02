@@ -19,6 +19,8 @@ const CRAWLER_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.c
 // Product Details body (Kyle 2026-07-25: size charts live here as images —
 // the SKU feed's gallery never carries them, so the chart hunt was blind).
 const WEIDIAN_DESC_API = "https://thor.weidian.com/detail/getDetailDesc/1.0";
+// Item page HTML carries overseas_kmm.user_connection.whats_app for some shops.
+const WEIDIAN_PAGE_HOST = /(^|\.)weidian\.(com|cn)$/i;
 const MAX_DESC_IMAGES = 20;
 // The SKU feed carries the main photo and the variant photos only, so a listing
 // that shows five photos arrived as two (Kyle 2026-07-29, item 7744643744). The
@@ -669,6 +671,53 @@ async function fetchWeidianDescImages(itemId, signal) {
   return bundle.descImages;
 }
 
+/**
+ * WhatsApp from the public item page (not the SKU API).
+ * Pages embed: overseas_kmm.user_connection.whats_app = "+86 …"
+ * Fail open — empty string when fetch or parse fails.
+ */
+async function fetchWeidianWhatsApp(itemId, signal) {
+  try {
+    const pageUrl = `https://weidian.com/item.html?itemID=${itemId}`;
+    const res = await safeFetch(pageUrl, {
+      headers: { "user-agent": UA, accept: "text/html,application/xhtml+xml" },
+      signal,
+      hosts: WEIDIAN_PAGE_HOST,
+    });
+    if (!res.ok) return "";
+    const html = (await readCapped(res, MAX_HTML_BYTES)).toString("utf8");
+    const decoded = String(html)
+      .replace(/&#34;/g, '"')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&");
+    const m =
+      decoded.match(/"whats_app"\s*:\s*"([^"]{6,32})"/i) ||
+      decoded.match(/"whatsapp"\s*:\s*"([^"]{6,32})"/i);
+    if (!m || !m[1]) return "";
+    const raw = String(m[1]).trim();
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length < 8 || digits.length > 15) return "";
+    return raw;
+  } catch {
+    return "";
+  }
+}
+
+/** True when a seller axis title is a size run (keep original over Claude rewrite). */
+function isSizeAxisTitle(title) {
+  return /^(size|sizes?|garment\s*size|size\s*run|clothing\s*size|尺码\d*|尺碼\d*|尺寸|鞋码|码数|長度|长度(?:\s*\(cm\))?|사이즈|サイズ)$/i.test(
+    String(title || "").trim()
+  );
+}
+
+/** True when a seller axis title is a color run. */
+function isColorAxisTitle(title) {
+  return /^(color|colour|colors?|颜色|顏色|颜色分类|顏色分類|カラー|색상|색|款式\/颜色|款式\/顏色)$/i.test(
+    String(title || "").trim()
+  );
+}
+
 // Flattens the Weidian result into the facts we care about. Prices arrive in
 // fen (1/100 CNY). attrList groups carry the variant axes (often size/color);
 // per-value images are the closest thing to a gallery the API exposes.
@@ -850,10 +899,11 @@ async function handle(event) {
     let facts;
     let canonicalUrl;
     if (resolved.marketplace === "weidian") {
-      const [result, fxRates, descBundle] = await Promise.all([
+      const [result, fxRates, descBundle, whatsapp] = await Promise.all([
         fetchWeidianItem(resolved.itemId, controller.signal),
         fetchFxRates(controller.signal),
         fetchWeidianDescBundle(resolved.itemId, controller.signal),
+        fetchWeidianWhatsApp(resolved.itemId, controller.signal),
       ]);
       facts = extractFacts(result);
       // Description photos the gallery never showed (size charts live here).
@@ -864,6 +914,8 @@ async function handle(event) {
       facts.images = galleryWithDescPhotos(facts.images, facts.descImages);
       // Bare Yupoo shops from desc notes (chart-empty multi-model listings).
       facts.sellerYupooLinks = descBundle.sellerYupooLinks || [];
+      // Overseas customer service WhatsApp when the item page lists one.
+      facts.whatsapp = whatsapp || "";
       // stash rate on facts for response builder below
       facts._usdPerCny = fxRates.usdPerCny;
       facts._eurPerCny = fxRates.eurPerCny;
@@ -903,21 +955,34 @@ async function handle(event) {
       }
     }
 
-    const variantGroups = (facts.attrGroups || []).map((group, gi) => ({
-      title:
-        (enriched && enriched.variantGroups && enriched.variantGroups[gi] && enriched.variantGroups[gi].title) ||
-        group.title,
-      values: group.values.map((v, vi) => ({
-        name:
-          (enriched &&
-            enriched.variantGroups &&
-            enriched.variantGroups[gi] &&
-            Array.isArray(enriched.variantGroups[gi].values) &&
-            enriched.variantGroups[gi].values[vi]) ||
-          v.name,
-        img: v.img,
-      })),
-    }));
+    const variantGroups = (facts.attrGroups || []).map((group, gi) => {
+      const originalTitle = group.title || "";
+      const claudeTitle =
+        (enriched &&
+          enriched.variantGroups &&
+          enriched.variantGroups[gi] &&
+          enriched.variantGroups[gi].title) ||
+        "";
+      // Keep original size/color axis titles so pickSizeValuesFromVariants
+      // still matches after Claude rewrites ("Garment size" vs "尺码").
+      const title =
+        isSizeAxisTitle(originalTitle) || isColorAxisTitle(originalTitle)
+          ? originalTitle
+          : claudeTitle || originalTitle;
+      return {
+        title,
+        values: group.values.map((v, vi) => ({
+          name:
+            (enriched &&
+              enriched.variantGroups &&
+              enriched.variantGroups[gi] &&
+              Array.isArray(enriched.variantGroups[gi].values) &&
+              enriched.variantGroups[gi].values[vi]) ||
+            v.name,
+          img: v.img,
+        })),
+      };
+    });
 
     const usdPerCny = facts._usdPerCny != null ? facts._usdPerCny : FX_FALLBACK_USD_PER_CNY;
     const eurPerCny = facts._eurPerCny != null ? facts._eurPerCny : FX_FALLBACK_EUR_PER_CNY;
@@ -943,6 +1008,7 @@ async function handle(event) {
       images: facts.images || [],
       descImages: facts.descImages || [],
       sellerYupooLinks: facts.sellerYupooLinks || [],
+      whatsapp: facts.whatsapp || "",
       variantGroups,
       translated: !!enriched,
     });

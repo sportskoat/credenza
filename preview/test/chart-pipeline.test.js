@@ -57,6 +57,18 @@ describe("rankChartCandidates", () => {
     ]);
     expect(ranked[0].url).toContain("chart.png");
   });
+
+  it("ranks a small early JPG chart above large product album photos", () => {
+    // Repro: photo 1 is 750×625 chart; product shots are ~1600px; paid cap is 3.
+    const ranked = rankChartCandidates([
+      { url: "https://photo.yupoo.com/s/p1/big.jpg", via: "album-photos", width: 750, height: 625 },
+      { url: "https://photo.yupoo.com/s/p2/big.jpg", via: "album-photos", width: 1600, height: 1600 },
+      { url: "https://photo.yupoo.com/s/p3/big.jpg", via: "album-photos", width: 1800, height: 1800 },
+      { url: "https://photo.yupoo.com/s/p4/big.jpg", via: "album-photos", width: 1900, height: 1900 },
+    ]);
+    expect(ranked[0].url).toContain("/p1/");
+    expect(ranked[0].score).toBeGreaterThan(ranked[1].score);
+  });
 });
 
 describe("validateChartResult", () => {

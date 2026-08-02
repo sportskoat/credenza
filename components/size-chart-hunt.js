@@ -31,12 +31,23 @@ const MAX_POOL = 24;
 /**
  * @param {string[]} urls
  * @param {string} via
+ * @param {Record<string, { width?: number, height?: number, alt?: string }>|null} [metaByUrl]
  * @returns {import("./chart-pipeline.js").ChartCandidate[]}
  */
-function asCandidates(urls, via) {
+function asCandidates(urls, via, metaByUrl = null) {
   return (urls || [])
     .filter((src) => typeof src === "string" && (/^https?:\/\//i.test(src) || /^data:image\//i.test(src)))
-    .map((url) => ({ url, via, name: url }));
+    .map((url) => {
+      const meta = metaByUrl && metaByUrl[url] ? metaByUrl[url] : null;
+      return {
+        url,
+        via,
+        name: (meta && meta.alt) || url,
+        width: meta && meta.width ? meta.width : undefined,
+        height: meta && meta.height ? meta.height : undefined,
+        alt: meta && meta.alt ? meta.alt : undefined,
+      };
+    });
 }
 
 /**
@@ -124,13 +135,18 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     const free = acceptText(text, { via: "album-text", photos: 0 });
     if (free) return free;
 
+    const tileMeta = (data && data.tileMeta) || null;
     const freshCharts = ((data && data.chartImages) || []).filter((src) => !knownCharts.includes(src));
-    pool = pool.concat(asCandidates(freshCharts, "chart-photos"));
+    pool = pool.concat(asCandidates(freshCharts, "chart-photos", tileMeta));
     const albumPhotos = (data && data.images) || [];
-    // Prefer the album tail — Yupoo charts often sit at the end — then the head.
-    const tail = albumPhotos.slice(-8);
-    const head = albumPhotos.slice(0, Math.max(0, albumPhotos.length - 8));
-    pool = pool.concat(asCandidates(tail, "album-photos"), asCandidates(head, "album-photos"));
+    // Head first when dims are known: small early JPGs are often the chart.
+    // Still include the tail — many albums still put charts at the end.
+    const head = albumPhotos.slice(0, 8);
+    const tail = albumPhotos.slice(8);
+    pool = pool.concat(
+      asCandidates(head, "album-photos", tileMeta),
+      asCandidates(tail, "album-photos", tileMeta)
+    );
   }
 
   const descPhotos = (item.descImages || []).filter(

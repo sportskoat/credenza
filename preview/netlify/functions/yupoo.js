@@ -281,10 +281,10 @@ function isChartTile(tile, medianEdge) {
   const name = String(tile.alt || tile.url).toLowerCase();
   if (/(size[\s_-]*chart|sizing|measure|尺码|尺寸|规格)/.test(name)) return true;
   const edge = Math.max(tile.width || 0, tile.height || 0);
-  const isPng = /\.png(?:$|\?)/i.test(tile.url);
   if (/screenshot|screen[\s_-]*shot|截图/.test(name)) return true;
-  // A PNG that is much smaller than the album's photos is a pasted table.
-  if (isPng && medianEdge > 0 && edge > 0 && edge < medianEdge * 0.6) return true;
+  // A pasted table is often much smaller than product photos — any format
+  // (JPG charts are common; do not key on PNG-only or aspect ratio).
+  if (medianEdge > 0 && edge > 0 && edge < medianEdge * 0.6) return true;
   return false;
 }
 
@@ -418,10 +418,25 @@ function albumImages(html, baseUrl, jsonLd) {
   }
   const { gallery, charts } = partitionTiles(tiles);
   // Never return an empty gallery because the vetting was too strict.
+  // Guard (F 2026-08-01): if every tile is flagged as a chart, keep photo 1
+  // as the cover. albumImages falls back to `tiles` when gallery is empty.
   const shown = gallery.length ? gallery : tiles;
+  // Tile dims travel with the URLs so the chart hunt can rank small early
+  // JPGs without a second album fetch.
+  const tileMeta = {};
+  for (const t of tiles) {
+    if (t && t.url) {
+      tileMeta[t.url] = {
+        width: t.width || 0,
+        height: t.height || 0,
+        alt: t.alt || "",
+      };
+    }
+  }
   return {
     images: shown.slice(0, MAX_IMAGES).map((t) => t.url),
     chartImages: charts.slice(0, MAX_CHART_IMAGES).map((t) => t.url),
+    tileMeta,
     photoCount: shown.length,
   };
 }

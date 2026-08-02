@@ -8,16 +8,19 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   extractWeightGramsFromText,
+  extractWhatsAppFromText,
   extractYupooLinksFromText,
   isSpamVariantValue,
   isAllowedChartImageHost,
   isListingBoilerplate,
   isSkuLikeTitle,
+  normalizeWhatsAppDigits,
   pickColorwayFromVariants,
   pickSizeRunFromVariants,
   pickSizeValuesFromVariants,
   preferCardTitle,
   shouldReplaceFashionTitle,
+  whatsAppChatUrl,
 } from "../../listing-facts.js";
 import { parseSizeChart } from "../../credenza-fashion.jsx";
 
@@ -91,6 +94,27 @@ describe("variant display (variant-display fixture)", () => {
       else expect(values).toEqual([]);
     });
   }
+
+  it("matches Claude-rewritten garment size axis titles", () => {
+    const groups = [{ title: "Garment size", values: ["S", "M", "L", "XL"] }];
+    expect(pickSizeValuesFromVariants(groups)).toEqual(["S", "M", "L", "XL"]);
+    expect(pickSizeRunFromVariants(groups)).toBe("S–XL");
+  });
+});
+
+describe("WhatsApp contact helpers", () => {
+  it("reads whats_app from entity-encoded Weidian page JSON", () => {
+    const html =
+      "overseas_kmm&#34;:{&#34;user_connection&#34;:{&#34;whats_app&#34;:&#34;+86 13625068160&#34;}}";
+    expect(extractWhatsAppFromText(html)).toBe("+86 13625068160");
+    expect(normalizeWhatsAppDigits("+86 13625068160")).toBe("8613625068160");
+    expect(whatsAppChatUrl("+86 13625068160")).toBe("https://wa.me/8613625068160");
+  });
+
+  it("rejects junk contacts", () => {
+    expect(extractWhatsAppFromText("no contact here")).toBe("");
+    expect(whatsAppChatUrl("hi")).toBe("");
+  });
 });
 
 describe("isListingBoilerplate (boilerplate-filter fixture)", () => {

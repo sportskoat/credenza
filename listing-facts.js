@@ -42,10 +42,11 @@ export function preferCardTitle({ currentTitle = "", resolvedTitle = "", claudeT
 
 // Seller titles vary. Match common Weidian/Taobao axes only.
 // Do not treat bare 款式 / 版本 / 型号 as color or size.
+// Claude may rewrite "尺码" to "Garment size" / "Size run" — keep those matched.
 const COLOR_AXIS =
   /^(color|colour|colors?|颜色|顏色|颜色分类|顏色分類|カラー|색상|색|款式\/颜色|款式\/顏色)$/i;
 const SIZE_AXIS =
-  /^(size|sizes?|尺码\d*|尺寸|鞋码|码数|长度(?:\s*\(cm\))?|사이즈|サイズ)$/i;
+  /^(size|sizes?|garment\s*size|size\s*run|clothing\s*size|尺码\d*|尺碼\d*|尺寸|鞋码|码数|長度|长度(?:\s*\(cm\))?|사이즈|サイズ)$/i;
 
 function firstAxis(groups, re) {
   if (!Array.isArray(groups)) return null;
@@ -238,6 +239,61 @@ export function extractWeightGramsFromText(text) {
     if (n >= 20 && n <= 20000) return n;
   }
   return null;
+}
+
+/**
+ * Normalize a WhatsApp contact to digits for wa.me links.
+ * Accepts "+86 13625068160", "8613625068160", or "wa.me/86…".
+ * @param {string} raw
+ * @returns {string} digits only, or "" when none
+ */
+export function normalizeWhatsAppDigits(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const fromUrl = s.match(/(?:wa\.me|api\.whatsapp\.com\/send\?phone=)\/?(\+?\d[\d\s-]{7,20}\d)/i);
+  const body = fromUrl ? fromUrl[1] : s;
+  const digits = body.replace(/\D/g, "");
+  // E.164-ish: 8–15 digits after stripping noise.
+  if (digits.length < 8 || digits.length > 15) return "";
+  return digits;
+}
+
+/**
+ * Build https://wa.me/<digits> from a contact string, or "" when invalid.
+ * @param {string} raw
+ * @returns {string}
+ */
+export function whatsAppChatUrl(raw) {
+  const digits = normalizeWhatsAppDigits(raw);
+  return digits ? `https://wa.me/${digits}` : "";
+}
+
+/**
+ * Pull a WhatsApp number from Weidian item-page HTML (or free text).
+ * Live pages embed overseas_kmm.user_connection.whats_app as JSON or
+ * HTML-entity-encoded JSON ("&#34;whats_app&#34;:&#34;+86 …&#34;").
+ * @param {string} text
+ * @returns {string} raw contact as found (e.g. "+86 13625068160"), or ""
+ */
+export function extractWhatsAppFromText(text) {
+  const src = String(text || "");
+  if (!src.trim()) return "";
+  const decoded = src
+    .replace(/&#34;/g, '"')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+  const patterns = [
+    /"whats_app"\s*:\s*"([^"]{6,32})"/i,
+    /"whatsapp"\s*:\s*"([^"]{6,32})"/i,
+    /whatsapp\s*[:=：]\s*(\+?\d[\d\s-]{7,20}\d)/i,
+    /wa\.me\/(\+?\d{8,15})/i,
+  ];
+  for (const re of patterns) {
+    const m = decoded.match(re);
+    if (m && m[1] && normalizeWhatsAppDigits(m[1])) return String(m[1]).trim();
+  }
+  return "";
 }
 
 /**
