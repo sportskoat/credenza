@@ -2190,6 +2190,40 @@ export function fitSummarySentence(rec, { runHint = null, units = "cm", detail =
   return first + ". " + tailText.charAt(0).toUpperCase() + tailText.slice(1) + ".";
 }
 
+// Primary measure clause by sign of ease (cm storage). Negative ease is not
+// room (agreedRoom rule, DetailBody; Kyle 2026-08-02 Large shorts case).
+// Threshold ±0.5cm. Positive wording is byte-identical to the pre-fix form.
+// `roomFormatted` is formatMeasure(Math.abs(diff)); `bodyFormatted` is the
+// body number already in display units.
+export function easeRoomClause(diffCm, bodyFormatted, roomFormatted) {
+  if (!(diffCm > -0.5)) {
+    // diff <= -0.5cm: tighter than the body — never "room".
+    return (
+      "is " +
+      roomFormatted +
+      " smaller than your " +
+      bodyFormatted +
+      " — it will fit tighter than your body"
+    );
+  }
+  if (diffCm < 0.5) {
+    // |diff| < 0.5cm: on the body, no room claim and no tight claim.
+    return "sits right at your " + bodyFormatted;
+  }
+  // diff >= +0.5cm: keep the historical positive form.
+  return "gives you " + roomFormatted + " of room over your " + bodyFormatted;
+}
+
+// "meant to sit" only on positive or near-zero ease — never after a "smaller
+// than your body" primary. Plural nouns (pants/shorts) take "these … are".
+export function meantToSitClause(noun, sitsRight, diffCm) {
+  if (!sitsRight || !(diffCm > -0.5)) return "";
+  if (noun === "pants" || noun === "shorts") {
+    return ", which is where these " + noun + " are meant to sit";
+  }
+  return ", which is where this " + noun + " is meant to sit";
+}
+
 // The prescription sentence for the size breakdown (handoff turn 3 §5): 1–2
 // short plain sentences naming the measurement that decided the pick and what
 // the next size down would do. Generated where the chart is parsed — same
@@ -2265,6 +2299,8 @@ export function prescriptionSentence(
   const sitsRight = band
     ? rec.diff >= band[0] - 4 && rec.diff <= band[1] + 4
     : Math.abs(rec.diff - target) <= 4;
+  const easeClause = easeRoomClause(rec.diff, body, room);
+  const sitClause = meantToSitClause(noun, sitsRight, rec.diff);
   // Overridden: the customer tapped a size that is not the one we scored. The
   // numbers below are the tapped row's, so the sentence must own that — "Take
   // the Small" over the Large's measurements is the contradiction Kyle saw.
@@ -2273,11 +2309,15 @@ export function prescriptionSentence(
       ? formatSizeToken(recommended.size) || recommended.size
       : "";
   if (overrideName) {
-    const fitClause = sitsRight
-      ? ", which is where this " + noun + " is meant to sit"
-      : rec.diff < target
-        ? ", closer than this " + noun + " is drafted for"
-        : ", roomier than this " + noun + " is drafted for";
+    // Same sign-aware primary as the Take-the-X form; off-band falls back to
+    // the draft comparison only when ease is positive or near zero.
+    const fitClause =
+      sitClause ||
+      (rec.diff <= -0.5
+        ? ""
+        : rec.diff < target
+          ? ", closer than this " + noun + " is drafted for"
+          : ", roomier than this " + noun + " is drafted for");
     const picked =
       "You have picked the " +
       sizeName +
@@ -2285,10 +2325,8 @@ export function prescriptionSentence(
       garment +
       " " +
       measure +
-      " leaves " +
-      room +
-      " over your " +
-      body +
+      " " +
+      easeClause +
       fitClause +
       ".";
     if (detail === "concise") return picked;
@@ -2301,11 +2339,9 @@ export function prescriptionSentence(
     garment +
     " " +
     measure +
-    " gives you " +
-    room +
-    " of room over your " +
-    body +
-    (sitsRight ? ", which is where this " + noun + " is meant to sit" : "") +
+    " " +
+    easeClause +
+    sitClause +
     ".";
   // CH-14: the Concise pref stops at the pick. Only the explicit opt shortens
   // the sentence — a caller that passes nothing keeps the full two-sentence
@@ -7287,14 +7323,21 @@ function CredenzaApp() {
           });
           const cover = item.image || albumImages[0] || null;
           const enrichedTitle = fashionDisplayTitle(data);
-          const guessedCategory =
-            item.category && CATEGORIES[item.category]
-              ? item.category
-              : guessFashionCategory(
-                  [enrichedTitle, data.title, data.sourceTitle, data.description, data.batch, item.title, item.summary, item.rawText]
-                    .filter(Boolean)
-                    .join(" ")
-                );
+          const albumGuessText = [
+            enrichedTitle,
+            data.title,
+            data.sourceTitle,
+            data.description,
+            data.batch,
+            item.title,
+            item.summary,
+            item.rawText,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          // Category guess from album text only. Do NOT seed from the stale
+          // item snapshot — a manual pick made mid-flight would be ignored.
+          const albumGuessedCategory = guessFashionCategory(albumGuessText);
           const albumPatch = {
             url: item.url && yupooAlbumIdentity(item.url) ? canonicalAlbum : item.url,
             canonicalKey: canonicalKey(classify(canonicalAlbum), canonicalAlbum),
@@ -7321,7 +7364,6 @@ function CredenzaApp() {
             links,
             seller: item.seller || data.seller || data.sellerAccount || "",
             batch: item.batch || data.batch || "",
-            category: guessedCategory || item.category || "",
             price: item.price != null ? item.price : data.priceCny,
             currency: "CNY",
             sourceTitle: data.sourceTitle || item.sourceTitle || "",
@@ -7329,8 +7371,29 @@ function CredenzaApp() {
             sellerAccount: data.sellerAccount || item.sellerAccount || "",
             status: data.buyUrl ? "enriching" : "ready",
           };
-          updateEnrichedItem(item.id, token, albumPatch);
-          const mergedItem = { ...item, ...albumPatch };
+          // CH-07 + F 2026-08-02: hand-picked category is pinned
+          // (categoryManual), like the resolve path. Functional patch so a
+          // Shorts pick made while this album read was in flight is not
+          // clobbered by the stale snapshot's "other".
+          updateEnrichedItem(item.id, token, (x) => ({
+            ...albumPatch,
+            category:
+              x.categoryManual && CATEGORIES[x.category]
+                ? x.category
+                : x.category && CATEGORIES[x.category]
+                  ? x.category
+                  : albumGuessedCategory || x.category || "",
+          }));
+          const mergedItem = {
+            ...item,
+            ...albumPatch,
+            category:
+              item.categoryManual && CATEGORIES[item.category]
+                ? item.category
+                : item.category && CATEGORIES[item.category]
+                  ? item.category
+                  : albumGuessedCategory || item.category || "",
+          };
           const resolvePromise = data.buyUrl
             ? resolveBuyDetails(mergedItem, {
                 token,
@@ -8804,9 +8867,10 @@ function CredenzaApp() {
 
   // Plain shelf surface — also doubles as the open-haul carousel/cards/rows
   // surface when view === "hauls" && activeHaul (branches internally on viewMode).
-  // Only fades when it's standing in for the open-haul carousel inside the
-  // Hauls-tab AnimatePresence above; plain Shelf-tab renders skip animation
-  // entirely (initial={false}) so viewMode/tab switches stay instant.
+  // Fades on every surface swap: Shelf <-> directory, directory <-> open
+  // haul — one AnimatePresence at the render site drives all three (Kyle
+  // 2026-08-02). In-shelf switches (viewMode, filter chips) never remount
+  // the "shelf" key, so those stay instant as before.
   // One carousel renderer, two presentations (Kyle 2026-07-22): the toolbar's
   // carousel view swaps the surface and gets the full list; a grid tap pops
   // just the tapped card up in the overlay layer below — same props, same
@@ -8973,9 +9037,14 @@ function CredenzaApp() {
       role="tabpanel"
       id={view === "hauls" ? "view-panel-hauls" : "view-panel-shelf"}
       aria-labelledby={view === "hauls" ? "view-tab-hauls" : "view-tab-shelf"}
-      initial={openHaulName ? { opacity: 0, scale: 0.98 } : false}
+      // Kyle 2026-08-02: the Shelf/Hauls view switch gets the same motion as
+      // the shelf filters — the surfaces crossfade instead of snapping.
+      // First load still skips it (AnimatePresence initial={false} at the
+      // render site), and in-shelf switches (viewMode, filter chips) never
+      // remount this key, so those stay instant.
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={openHaulName ? { opacity: 0, scale: 0.98 } : undefined}
+      exit={{ opacity: 0, scale: 0.98 }}
       transition={HAUL_SURFACE_TRANSITION}
     >
       {/* Shelf */}
@@ -10462,16 +10531,17 @@ function CredenzaApp() {
               </div>
             ))}
           </div>
-        ) : view === "hauls" ? (
+        ) : (
+          // One swapper for every surface switch (Kyle 2026-08-02): Shelf,
+          // the haul directory, and an open haul crossfade through the same
+          // mode="wait" pair, so the view tabs move like the filter chips.
           <AnimatePresence
             mode="wait"
             initial={false}
             onExitComplete={() => setClosingHaulName(null)}
           >
-            {activeHaul ? shelfSurface : haulDirectorySurface}
+            {view === "hauls" && !activeHaul ? haulDirectorySurface : shelfSurface}
           </AnimatePresence>
-        ) : (
-          shelfSurface
         )}
         </main>
       </div>
