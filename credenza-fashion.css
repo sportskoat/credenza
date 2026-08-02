@@ -15029,9 +15029,14 @@ input.cz-sizing-fix-size {
       transform var(--dur-press) var(--ease-out);
   }
 
+  /* Active label rides the sliding pill, not the button fill. The pill is
+     --cz-seg-on (white on Blackout, ink on Gallery). Ink that matches the
+     sheet (--cz-ink) is light-on-white on Blackout — same fault class as
+     the #49 price bug. Use the segment-on text token so the label always
+     contrasts with the pill surface. */
   .cz-detail-pane-picker button.is-active {
-    background: var(--cz-card-solid);
-    color: var(--cz-ink);
+    background: var(--cz-seg-on);
+    color: var(--cz-seg-on-text);
     box-shadow: var(--shadow-hairline, 0 1px 2px rgba(23, 24, 26, 0.06));
   }
 
@@ -18976,8 +18981,12 @@ input.cz-sizing-fix-size {
   height: auto;
 }
 
-.cz-detail-pane-picker.t-tabs {
-  --tabs-pill-bg: var(--cz-card-solid);
+/* Phone section strip (Fit / Photos / Details): pill + active label share the
+   segment-on pair so the label never fights the pill (mobile item 4). Higher
+   specificity than the generic fashion .t-tabs block so this wins. */
+.cz-app[data-fashion="true"] .cz-detail-pane-picker.t-tabs {
+  --tabs-pill-bg: var(--cz-seg-on);
+  --tabs-text-active: var(--cz-seg-on-text);
 }
 
 .cz-dock-pill.t-tabs {
