@@ -8,6 +8,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const FIT_CSS = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../../credenza-fashion.css"),
+  "utf8"
+);
 
 const { huntMock, fileReadMock } = vi.hoisted(() => ({
   huntMock: vi.fn(),
@@ -78,6 +86,24 @@ describe("fitReadRows", () => {
     expect(chest.ease).toBe(20);
     expect(chest.warn).toBe(true);
     expect(chest.mark).toBeGreaterThan(66);
+  });
+
+  it("keeps an extreme sleeve mark on the bar, not flush on the numbers", () => {
+    // Kyle's oversized jacket case: garment sleeve far longer than saved
+    // wrist length. Uncapped math would pin past 100%; the clamp must leave
+    // room before the THEIRS column (O 2026-08-02).
+    // Mirror the working long-sleeve fixture shape (sleeve 58–60 + arm 68).
+    const chart = parseSizeChart(
+      "M: chest 116, shoulder 46, length 70, sleeve 82\nL: chest 120, shoulder 48, length 72, sleeve 84",
+    );
+    const profile = { chest: 105, sleeve: 61 };
+    const rec = recommendSize(chart, profile, "shirt", null, null, "Oxford shirt");
+    const rows = fitReadRows(chart, rec, profile, "shirt", "Oxford shirt");
+    const sleeve = rows.find((r) => r.key === "sleeve");
+    expect(sleeve, JSON.stringify(rows)).toBeTruthy();
+    expect(sleeve.ease, JSON.stringify(sleeve)).toBeGreaterThan(15);
+    expect(sleeve.warn).toBe(true);
+    expect(sleeve.mark).toBe(90);
   });
 
   it("orders a bottoms chart waist-first and grades 裤长 against the saved length", () => {
@@ -505,5 +531,59 @@ describe("typing a chart by hand", () => {
     await user.click(screen.getByRole("button", { name: "Save this chart" }));
 
     expect(onSaveEdit.mock.calls[0][1].sizeChartText).toBe("36: chest 100\n38: chest 104");
+  });
+});
+
+// F 2026-08-02: number columns must fit CM worst case ("116.5cm", "+23.0cm")
+// without shrinking the 11px mono font. ch units keep columns aligned across
+// rows (max-content would rag short vs long values on separate row grids).
+// After #42 the desktop panel is a 5-col GRID — floors live on that template,
+// not on flex-item min-widths.
+describe("fit-read number column widths (CM legibility)", () => {
+  it("sizes the three number columns with ch floors on desktop and phone", () => {
+    expect(FIT_CSS).toContain(
+      "grid-template-columns: 70px 1fr max(40px, 8ch) max(40px, 8ch) max(54px, 9ch)"
+    );
+    expect(FIT_CSS).toContain(
+      "grid-template-columns: 54px 1fr max(30px, 8ch) max(30px, 8ch) max(40px, 9ch)"
+    );
+    // Old fixed px tracks must not return — they overflowed "116.5cm".
+    expect(FIT_CSS).not.toContain("grid-template-columns: 70px 1fr 40px 40px 54px");
+    expect(FIT_CSS).not.toContain("grid-template-columns: 54px 1fr 30px 30px 40px");
+  });
+
+  it("keeps mono numbers nowrap + tabular at 11px (no font shrink)", () => {
+    const block = FIT_CSS.match(
+      /\.cz-fitread-theirs,\s*\.cz-fitread-yours,\s*\.cz-fitread-ease\s*\{[^}]+\}/
+    );
+    expect(block, "number cell rule missing").toBeTruthy();
+    expect(block[0]).toContain("font-size: 11px");
+    expect(block[0]).toContain("font-variant-numeric: tabular-nums");
+    expect(block[0]).toContain("white-space: nowrap");
+    expect(block[0]).toContain("text-align: right");
+  });
+
+  it("puts ch floors on the post-#42 dpanel 5-col grid (not dead flex floors)", () => {
+    expect(FIT_CSS).toContain(
+      "grid-template-columns: 84px minmax(120px, 1fr) max(48px, 8ch) max(48px, 8ch) max(54px, 9ch)"
+    );
+    // Pre-#42 flex-item floors must stay gone — they are dead on a grid row.
+    expect(FIT_CSS).not.toMatch(
+      /\.cz-dpanel \.cz-fitread-theirs,[\s\S]*?min-width:\s*max\(40px,\s*8ch\)/
+    );
+    expect(FIT_CSS).not.toMatch(
+      /\.cz-dpanel \.cz-fitread-ease\s*\{[^}]*min-width:\s*max\(54px,\s*9ch\)/
+    );
+  });
+
+  it("restores a 44px hit area on quiet chart links without growing the visual", () => {
+    // F 2026-08-02: min-height:0 alone left a ~13px phone tap target.
+    const link = FIT_CSS.match(/\.cz-detail-chart-link\s*\{[^}]+\}/);
+    expect(link, "chart-link rule missing").toBeTruthy();
+    expect(link[0]).toContain("min-height: 0");
+    expect(link[0]).toContain("position: relative");
+    const after = FIT_CSS.match(/\.cz-detail-chart-link::after\s*\{[^}]+\}/);
+    expect(after, "chart-link ::after missing").toBeTruthy();
+    expect(after[0]).toContain("height: 44px");
   });
 });

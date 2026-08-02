@@ -410,11 +410,14 @@ function SizingBlock({
       : []);
 
   // Card-back v2 copy: "Coat · your pick, we'd take the Medium"
+  // Tap equals rec → green "recommended pick" (Kyle / F 2026-08-02). Green
+  // means the app's pick only — see credenza-fashion.css green rule.
+  const agreedWithRec = Boolean(isManual && recSize && !overrodeName);
   const editorialAside = (() => {
     if (!editorial) return aside;
     const type = typeWord || "Piece";
     if (overrodeName) return type + " · your pick, we'd take the " + overrodeName;
-    if (isManual && recSize) return type + " · your pick";
+    if (isManual && recSize) return type + " · recommended pick";
     if (recSize) return type + " · we would take the " + (formatSizeToken(recSize) || recSize);
     if (usualSize) return type + " · your usual size";
     return type;
@@ -422,13 +425,26 @@ function SizingBlock({
   const confidenceLabel = precise || (recSize && chart)
     ? "Verified fit"
     : "Your usual size";
+  const kickerLabel = !isManual
+    ? "AI size"
+    : agreedWithRec
+      ? "Recommended pick"
+      : "Your pick";
 
   return (
     <section className={"cz-sizing" + (isManual ? " is-manual" : "") + (editorial ? " is-editorial" : "")} aria-label="Sizing">
       {editorial ? (
         <div className="cz-fit-result">
           <span className="cz-fit-result-size">{heroLabel || "—"}</span>
-          {editorialAside ? <span className="cz-fit-result-aside">{editorialAside}</span> : null}
+          {editorialAside ? (
+            <span
+              className={
+                "cz-fit-result-aside" + (agreedWithRec ? " is-rec" : "")
+              }
+            >
+              {editorialAside}
+            </span>
+          ) : null}
           <span className="cz-fit-result-trail">
             {onAskPref && item ? (
               <button
@@ -449,7 +465,13 @@ function SizingBlock({
         <>
           <div className="cz-sizing-head">
             <span className="cz-sizing-dot" aria-hidden="true" />
-            <span className="cz-sizing-kicker">{isManual ? "Your pick" : "AI size"}</span>
+            <span
+              className={
+                "cz-sizing-kicker" + (agreedWithRec ? " is-rec" : "")
+              }
+            >
+              {kickerLabel}
+            </span>
             {typeWord ? <span className="cz-sizing-type">{typeWord}</span> : null}
             {provenance ? <span className="cz-sizing-prov">{provenance}</span> : null}
           </div>
@@ -1700,15 +1722,11 @@ function HeroActionsSlot({ render, photos, photoIdx, resetPager }) {
 // the agent LIST. Before this the only way to change agent was Profile →
 // Buying agent, three taps away from the moment the choice matters.
 //
-// The list is the item's own price against every agent, repeated. That
-// repetition IS the message: "Item price is the same everywhere — agents
-// differ on shipping and service fee." A picker that showed four different
-// numbers would be lying about what an agent changes.
+// Agent rows list names only. The item price is the same for every agent, so
+// repeating it on each row added nothing (Kyle 2026-08-02). The note under the
+// list still says agents differ on shipping and service fee, not item price.
 function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
   const [open, setOpen] = useState(false);
-  // The price comes from the item, not from the footer layout: the phone sheet
-  // draws no footer price at all, and the picker still has to show a number.
-  const price = priceLabelShort(item);
   const wrapRef = useRef(null);
   const listRef = useRef(null);
   // No picker without a way to save the choice — the notch would open a list
@@ -1790,8 +1808,6 @@ function BuyNotch({ item, label, url, preferredAgent, onSelectAgent, onOpen }) {
                 >
                   <span className="cz-agent-pop-dot" aria-hidden="true" />
                   <span className="cz-agent-pop-name">{agent.name}</span>
-                  {/* Same number on every row, on purpose. */}
-                  {price ? <span className="cz-agent-pop-price">{price}</span> : null}
                 </button>
               );
             })}
@@ -2417,7 +2433,8 @@ export default function DetailBody({
   // Desktop card-back v2 tabs (Fit · Chart · Photos · Details · Settings).
   // Phase 1: Fit. Phase 2: Chart. Photos / Details / Settings still placeholders.
   const [desktopTab, setDesktopTab] = useState("fit");
-  const [openRead, setOpenRead] = useState(false);
+  // Kyle 2026-08-02: measurement-by-measurement bars open by default.
+  const [openRead, setOpenRead] = useState(true);
   // Phone sheet (mobile item sheet spec §7): a size tap confirms itself with
   // a one-line toast, "Sized Medium", cleared after 1900ms. The app-wide
   // toast region lives under the native dialog's top layer, so the sheet
@@ -2435,7 +2452,8 @@ export default function DetailBody({
   useEffect(() => {
     setPane("fit");
     setDesktopTab("fit");
-    setOpenRead(false);
+    // Re-open bars on each item so the chart is not left hidden.
+    setOpenRead(true);
     setPhotoIdx(0);
   }, [item.id]);
 
@@ -3160,9 +3178,10 @@ export default function DetailBody({
       ? "This pick uses the seller's chart and your saved measurements."
       : "This listing has no seller chart, so this is your saved usual size.");
 
+  // No Photos tab: the left photo strip already shows the album (O 2026-08-02).
+  // Phone sticky bar still has Photos — only the desktop rail drops it.
   const DESKTOP_TABS = [
     ["fit", "Fit"],
-    ["photos", "Photos"],
     ["details", "Details"],
     ["settings", "Settings"],
   ];

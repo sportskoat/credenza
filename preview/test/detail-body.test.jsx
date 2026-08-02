@@ -729,6 +729,57 @@ describe("DetailBody size tap drives the numbers", () => {
     );
     expect(screen.queryByText(/we'd take the/)).toBe(null);
   });
+
+  // Kyle / F 2026-08-02: when the tapped size equals the recommendation,
+  // headline says "recommended pick" in green, not "your pick".
+  it("editorial: tap equal to rec says recommended pick in green", () => {
+    const { container } = render(
+      body(item("tap-rec-agree"), { ...chestOnly(), titleTarget: null })
+    );
+
+    tapSize(container, "Medium");
+    const aside = container.querySelector(".cz-fit-result-aside");
+    expect(aside).not.toBe(null);
+    expect(aside.textContent).toMatch(/recommended pick/i);
+    expect(aside.textContent).not.toMatch(/your pick/i);
+    expect(aside.classList.contains("is-rec")).toBe(true);
+    expect(CSS).toMatch(/\.cz-fit-result-aside\.is-rec\s*\{[^}]*var\(--cz-money\)/s);
+  });
+
+  it("editorial: tap that disagrees keeps your pick, we'd take the X", () => {
+    const { container } = render(
+      body(item("tap-rec-disagree"), { ...chestOnly(), titleTarget: null })
+    );
+
+    tapSize(container, "Large");
+    const aside = container.querySelector(".cz-fit-result-aside");
+    expect(aside).not.toBe(null);
+    expect(aside.textContent).toMatch(/your pick,\s*we'd take the Medium/i);
+    expect(aside.classList.contains("is-rec")).toBe(false);
+  });
+
+  it("phone kicker: Recommended pick in green when tap equals rec", () => {
+    const { container } = render(body(item("tap-kicker-rec"), chestOnly()));
+
+    tapSize(container, "Medium");
+    const kicker = container.querySelector(".cz-sizing-kicker");
+    expect(kicker).not.toBe(null);
+    expect(kicker.textContent).toBe("Recommended pick");
+    expect(kicker.classList.contains("is-rec")).toBe(true);
+    expect(CSS).toMatch(
+      /\.cz-sizing\.is-manual\s+\.cz-sizing-kicker\.is-rec\s*\{[^}]*var\(--cz-money\)/s
+    );
+  });
+
+  it("phone kicker: Your pick when the tap disagrees with rec", () => {
+    const { container } = render(body(item("tap-kicker-dis"), chestOnly()));
+
+    tapSize(container, "Large");
+    const kicker = container.querySelector(".cz-sizing-kicker");
+    expect(kicker).not.toBe(null);
+    expect(kicker.textContent).toBe("Your pick");
+    expect(kicker.classList.contains("is-rec")).toBe(false);
+  });
 });
 
 // SIZE_CHIP_COMPACT_PLAN (2026-07-29): the no-chart chip run prints the
