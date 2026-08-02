@@ -649,7 +649,7 @@ describe("DetailBody footer", () => {
   });
 });
 
-// CH-08 (designs 4d–4g): confidence derives from data completeness.
+// CH-08 (designs 4d–4g) + Phase 1 first-size chooser (2026-08-02).
 describe("DetailBody no-measurements flow", () => {
   const trio = () => ({
     bodyProfile: null,
@@ -657,45 +657,42 @@ describe("DetailBody no-measurements flow", () => {
     onSkipFitPrompt: vi.fn(),
   });
 
-  it("4d: empty profile shows the ask and fabricates no size string", () => {
+  it("Phase 1: empty profile shows the three-way chooser, not a fabricated size", () => {
     const { container } = render(body(item("fit4d"), trio()));
 
-    expect(screen.getByText("Will it fit you?")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add my size" })).toBeInTheDocument();
+    expect(screen.getByText("How should we size you?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Guess/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Measure/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Match with a shirt/i })).toBeDisabled();
     // No sizing verdict renders — no AI pick, no usual, no provenance.
-    expect(container.querySelector(".cz-sizing")).toBe(null);
     expect(container.querySelector(".cz-sizing-nochart")).toBe(null);
     expect(container.querySelector(".cz-fit4-math")).toBe(null);
   });
 
-  it("4f: the ask requests only what the category needs", () => {
+  it("Phase 1 measure: tops ask chest pit-to-pit; bottoms ask waist", () => {
     const shorts = item("fit4f-shorts", { category: "shorts", sizeNotes: "" });
     const first = render(body(shorts, trio()));
-    fireEvent.click(screen.getByRole("button", { name: "Add my size" }));
-    expect(screen.getByLabelText("Waist in cm")).toBeInTheDocument();
-    // Kyle 2026-08-02: shorts write path is Shorts length → shortsLength.
-    expect(screen.getByLabelText("Shorts length in cm")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Trouser length in cm")).toBe(null);
-    expect(screen.queryByLabelText("Chest in cm")).toBe(null);
+    fireEvent.click(screen.getByRole("button", { name: /Measure/i }));
+    expect(screen.getByLabelText(/Waist/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Chest/i)).toBe(null);
     first.unmount();
 
     render(body(item("fit4f-tee"), trio()));
-    fireEvent.click(screen.getByRole("button", { name: "Add my size" }));
-    expect(screen.getByLabelText("Chest in cm")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Waist in cm")).toBe(null);
-    expect(screen.queryByLabelText("Inseam in cm")).toBe(null);
+    fireEvent.click(screen.getByRole("button", { name: /Measure/i }));
+    expect(screen.getByLabelText(/Chest/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Waist/i)).toBe(null);
   });
 
-  it("4f: save converts to storage units and calls onSaveBodyProfile", () => {
+  it("Phase 1 measure: save doubles pit-to-pit chest and calls onSaveBodyProfile", () => {
     const handlers = trio();
     render(body(item("fit4f-save"), handlers));
-    fireEvent.click(screen.getByRole("button", { name: "Add my size" }));
-    fireEvent.change(screen.getByLabelText("Chest in cm"), { target: { value: "96" } });
-    fireEvent.change(screen.getByLabelText("Usual size"), { target: { value: "M" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save & recalculate" }));
+    fireEvent.click(screen.getByRole("button", { name: /Measure/i }));
+    fireEvent.change(screen.getByLabelText(/Chest/i), { target: { value: "48" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(handlers.onSaveBodyProfile).toHaveBeenCalledWith({ chest: 96, usualSize: "M" });
-    expect(screen.queryByText("Your measurements")).toBe(null);
+    expect(handlers.onSaveBodyProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ chest: 96, firstSizeSource: "measure" })
+    );
   });
 
   it("4f: skip with a usual size returns to the rough state, not blank", () => {
