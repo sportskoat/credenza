@@ -114,6 +114,8 @@ describe("picker accordion motion (t-acc)", () => {
     expect(listShell, "list shell rule").not.toBeNull();
     expect(listShell[0]).toMatch(/border:\s*0/);
     expect(listShell[0]).toMatch(/gap:\s*8px/);
+    // Room under Category so the bottom edge is not flush against HISTORY.
+    expect(listShell[0]).toMatch(/margin-bottom:\s*12px/);
 
     const slotCard = FASHION_CSS.match(
       /\.cz-cmdbar-list-slot\.t-acc\s*\{[^}]+\}/
@@ -129,6 +131,12 @@ describe("picker accordion motion (t-acc)", () => {
     expect(body[0]).not.toMatch(/border:\s*1px/);
     expect(body[0]).toMatch(/background:\s*transparent/);
     expect(body[0]).toMatch(/margin:\s*0/);
+
+    // Legacy hairline-list killer must stay gone — it zeroed Category's
+    // bottom edge (same specificity as the t-acc card, later in the file).
+    expect(FASHION_CSS).not.toMatch(
+      /\.cz-cmdbar-list-slot:last-child\s*\{\s*border-bottom:\s*0/
+    );
   });
 
   it("Settings agent accordion is one container (rows inside, no per-row boxes)", () => {

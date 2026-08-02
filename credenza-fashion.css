@@ -13498,6 +13498,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   flex-wrap: nowrap;
   gap: 8px;
   margin-top: 0;
+  /* Space under the last card so its 1px bottom edge is not flush against
+     HISTORY (Kyle 2026-08-02: Category bottom edge vanishing). */
+  margin-bottom: 12px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -13508,11 +13511,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: relative;
   display: flex;
   flex-direction: column;
-  /* Card chrome lives on .t-acc (above). Kill legacy hairline dividers. */
-  border-bottom: 0;
-}
-.cz-cmdbar-list-slot:last-child {
-  border-bottom: 0;
+  /* Card chrome lives on .t-acc. Do NOT zero border-bottom on :last-child —
+     that legacy hairline-list rule ate the Category card's bottom edge
+     (same specificity, later in file; Kyle 2026-08-02). */
 }
 .cz-cmdbar-list-row {
   display: flex;
