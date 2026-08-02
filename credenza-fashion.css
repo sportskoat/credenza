@@ -15044,14 +15044,26 @@ input.cz-sizing-cell.is-custom:focus-visible {
   background: var(--cz-chip-fill);
 }
 
+/* left/width come from inline style (fitReadRows domain map). Fixed 36/66
+   and the phone 26–70 override disagreed with warn math on oversized coats
+   (K 2026-08-02) — do not hardcode band position here. */
 .cz-fitread-band {
   position: absolute;
-  left: 36%;
-  width: 30%;
   top: 0;
   bottom: 0;
   border-radius: 999px;
   background: var(--cz-fit-band);
+}
+
+/* Kyle 2026-08-02: the orange "get away with it" zone — band edge to
+   edge+FIT_READ_SOFT_DELTA on both sides, positioned inline from the same
+   domain map as the band and the mark. Faint wash of the theme's amber so
+   the zone reads without fighting the green band it touches. */
+.cz-fitread-soft {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--cz-warn) 32%, transparent);
 }
 
 .cz-fitread-mark {
@@ -15081,6 +15093,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
   /* Extreme fit (too tight OR too loose): bright red, not dull gold
      (Kyle / O 2026-08-02). Leave --cz-warn gold for other warnings. */
   background: var(--cz-error-text);
+}
+
+.cz-fitread-mark.is-soft {
+  /* Just outside the band, within the soft delta: amber, not red — Kyle
+     2026-08-02: "ehhh you can get away with it". Theme token, no raw hex. */
+  background: var(--cz-warn);
 }
 
 /* Reading state: a 30%-wide sweep loops over each track while the photo read
@@ -15152,6 +15170,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
 .cz-fitread-ease.is-warn {
   /* Extreme fit ease number: same red as the mark tick. */
   color: var(--cz-error-text);
+}
+
+.cz-fitread-ease.is-soft {
+  /* Soft-tier ease number: the text-safe amber (the plain --cz-warn gold
+     measures ~2.6:1, under the 4.5:1 text floor). */
+  color: var(--cz-warn-ink);
 }
 
 .cz-fitread-foot {
@@ -15878,9 +15902,9 @@ input.cz-sizing-fix-size {
     background: var(--cz-track);
   }
 
+  /* Band geometry is inline from data (same domain as the mark). Only paint
+     changes on phone — left/width must not diverge from warn thresholds. */
   .cz-detail-scroll.has-panes .cz-fitread-band {
-    left: 26%;
-    width: 44%;
     background: var(--cz-money);
   }
 
@@ -19359,6 +19383,12 @@ input.cz-sizing-fix-size {
        Use the same red as the mobile mark (O 2026-08-02). */
     background: var(--cz-error-text);
   }
+  .cz-dpanel .cz-fitread-mark.is-soft {
+    /* Three tiers (Kyle 2026-08-02): amber between white and red. The panel
+       is dark in both themes, so the plain gold --cz-warn reads here (the
+       text-safe --cz-warn-ink light value would vanish on this surface). */
+    background: var(--cz-warn);
+  }
   .cz-dpanel .cz-fitread-theirs,
   .cz-dpanel .cz-fitread-yours,
   .cz-dpanel .cz-fitread-ease {
@@ -19372,6 +19402,7 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-fitread-yours { color: var(--cz-sub); }
   .cz-dpanel .cz-fitread-ease { color: var(--cz-money); font-weight: 700; }
   .cz-dpanel .cz-fitread-ease.is-warn { color: var(--cz-error-text); }
+  .cz-dpanel .cz-fitread-ease.is-soft { color: var(--cz-warn); }
   .cz-dpanel .cz-fitread-theirs.is-unknown,
   .cz-dpanel .cz-fitread-footnote {
     color: var(--cz-faint);
@@ -19575,6 +19606,11 @@ input.cz-sizing-fix-size {
   }
   .cz-chart-ease.is-in {
     color: var(--cz-money);
+  }
+  /* Kyle 2026-08-02 three tiers: just-outside ease reads amber in the seller
+     chart too, same flag the fit-read track uses (one source: fitReadRows). */
+  .cz-chart-ease.is-soft {
+    color: var(--cz-warn-ink);
   }
   .cz-chart-ease.is-out,
   .cz-chart-ease.is-miss {

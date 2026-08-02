@@ -1174,6 +1174,7 @@ function SellerChartFold({
                     const read = easeMap[key];
                     const ease = read && read.ease != null ? read.ease : null;
                     const warn = !!(read && read.warn);
+                    const soft = !!(read && read.soft);
                     return (
                       <span key={key} className="cz-chart-cell is-measure">
                         <span className="cz-chart-theirs">
@@ -1182,7 +1183,13 @@ function SellerChartFold({
                         <span
                           className={
                             "cz-chart-ease" +
-                            (ease == null ? " is-miss" : warn ? " is-out" : " is-in")
+                            (ease == null
+                              ? " is-miss"
+                              : warn
+                                ? " is-out"
+                                : soft
+                                  ? " is-soft"
+                                  : " is-in")
                           }
                         >
                           {ease != null
@@ -1207,13 +1214,47 @@ function SellerChartFold({
 // One tight/true/loose track with green tolerance band and white marker.
 // FitReadTable renders these bars; the seller chart fold reuses the size pick only
 // pixel-identical. Row math still lives in fitReadRows (pure, tested alone).
-function FitReadTrack({ mark, warn, showBand = true }) {
+// Band left/width come from the same domain map as the mark (K 2026-08-02) —
+// no fixed 36/66 CSS band; red and green stay in lockstep on every path.
+// Three tiers (Kyle 2026-08-02): faint orange zones flank the band out to
+// FIT_READ_SOFT_DELTA; a mark in a zone reads amber ("get away with it"),
+// only past the zone does it go red.
+function FitReadTrack({
+  mark,
+  warn,
+  soft = false,
+  showBand = true,
+  bandLeft = null,
+  bandWidth = null,
+  softLeft = null,
+  softLeftWidth = null,
+  softRight = null,
+  softRightWidth = null,
+}) {
+  const bandStyle =
+    bandLeft != null && bandWidth != null
+      ? { left: bandLeft + "%", width: bandWidth + "%" }
+      : undefined;
   return (
     <span className="cz-fitread-track">
-      {showBand ? <span className="cz-fitread-band" /> : null}
+      {showBand && softLeft != null && softLeftWidth > 0 ? (
+        <span
+          className="cz-fitread-soft"
+          style={{ left: softLeft + "%", width: softLeftWidth + "%" }}
+        />
+      ) : null}
+      {showBand && softRight != null && softRightWidth > 0 ? (
+        <span
+          className="cz-fitread-soft"
+          style={{ left: softRight + "%", width: softRightWidth + "%" }}
+        />
+      ) : null}
+      {showBand && bandStyle ? <span className="cz-fitread-band" style={bandStyle} /> : null}
       {mark != null ? (
         <span
-          className={"cz-fitread-mark" + (warn ? " is-warn" : "")}
+          className={
+            "cz-fitread-mark" + (warn ? " is-warn" : soft ? " is-soft" : "")
+          }
           style={{ left: mark + "%" }}
         />
       ) : null}
@@ -1253,7 +1294,18 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
   return rows.map((r) => (
     <div key={r.key} className="cz-fitread-row">
       <span className="cz-fitread-name">{r.name}</span>
-      <FitReadTrack mark={r.mark} warn={r.warn} showBand={hasChart} />
+      <FitReadTrack
+        mark={r.mark}
+        warn={r.warn}
+        soft={r.soft}
+        showBand={hasChart}
+        bandLeft={r.bandLeft}
+        bandWidth={r.bandWidth}
+        softLeft={r.softLeft}
+        softLeftWidth={r.softLeftWidth}
+        softRight={r.softRight}
+        softRightWidth={r.softRightWidth}
+      />
       <span
         className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
         title={r.notOnChart ? "The seller's chart has no " + r.name.toLowerCase() : undefined}
@@ -1265,7 +1317,11 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
           ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
           : "-"}
       </span>
-      <span className={"cz-fitread-ease" + (r.warn ? " is-warn" : "")}>
+      <span
+        className={
+          "cz-fitread-ease" + (r.warn ? " is-warn" : r.soft ? " is-soft" : "")
+        }
+      >
         {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "-"}
       </span>
     </div>
@@ -1275,7 +1331,7 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
 // ── Fit read table (split-rail handoff 2026-07-28) ──
 //
 // Per-measurement fit bars under the pick: how far each garment measure sits
-// from the body on a tight↔loose track, with a fixed 36–66% tolerance band.
+// from the body on a tight↔loose track, with a data-driven tolerance band.
 // With no chart the table used to ghost — names in placeholder, YOURS kept, no
 // band and no marks — so the customer saw what a chart would unlock. Round 5
 // point 5.4 tried to hide it; Fable ruled against that on 2026-07-29 and the
@@ -1303,6 +1359,9 @@ function FitReadTable({
 }) {
   const [chartOpen, setChartOpen] = useState(false);
   if (!rows.length) return null;
+  // "Inside tolerance" counts hard failures only: an ORANGE (soft) row is
+  // close enough to wear, so it still counts as inside here — same verdict
+  // the old +4cm slack gave, now shown honestly by the color (K 2026-08-02).
   const insideCount = rows.filter((r) => r.mark != null && !r.warn).length;
   const scoredCount = rows.filter((r) => r.mark != null).length;
   // Copy deck: "All four inside tolerance." — the count is spelled out.
@@ -2061,6 +2120,29 @@ function sizeAnalysisParagraph(verdict, fitRows, units, category, fitPref) {
             " is about " +
             amt +
             (r.ease > 0 ? " bigger than yours." : " smaller than yours.");
+      }
+      break;
+    }
+    // Kyle 2026-08-02: an orange row gets soft wording, not the hard warn —
+    // "ehhh you can get away with it".
+    if (r.soft) {
+      if (r.ease != null && Math.abs(r.ease) >= 0.05) {
+        const amt = formatMeasure(Math.abs(r.ease), units);
+        secondary = isLengthKey
+          ? "The " +
+            name +
+            " runs about " +
+            amt +
+            (r.ease > 0 ? " long. Close enough to wear." : " short. Close enough to wear.")
+          : "The " +
+            name +
+            " is about " +
+            amt +
+            (r.ease > 0
+              ? " bigger than yours. Close enough to wear."
+              : " smaller than yours. Close enough to wear.");
+      } else {
+        secondary = "The " + name + " is just outside the range. Close enough to wear.";
       }
       break;
     }
@@ -4062,7 +4144,7 @@ export default function DetailBody({
                       }
                       onEditMeasures={onOpenSizes ? openProfileSizes : null}
                       onForgetChart={chartIsForgettable ? forgetChart : null}
-                      noteText="Ease is the seller's number minus your body. Green marks the range this cut is drafted for. A dashed band means a number is missing and we are not guessing at one."
+                      noteText="Ease is the seller's number minus your body. Green marks the range this cut is drafted for. Amber is just past it, close enough to wear. Red means a real mismatch. A dashed band means a number is missing and we are not guessing at one."
                     />
                   ) : null}
                 </div>
