@@ -118,10 +118,12 @@ export async function sendMagicLink(email, { fetchImpl, redirectTo } = {}) {
 // OAuth: the caller navigates to this URL. Supabase redirects back to
 // redirectTo with the session in the URL hash, same as the magic link.
 //
-// Sign-in handoff README: three methods only, and no fourth. A magic link
-// makes signing in and signing up the same act, so Google and Apple are the
-// whole OAuth list. Adding a provider here without a button is a defect.
-export const OAUTH_PROVIDERS = ["google", "apple"];
+// Sign-in handoff README: a magic link makes signing in and signing up the
+// same act, so the OAuth list stays short. Google and Discord are live;
+// Apple stays wired but parked (Kyle 2026-08-02: no Apple developer account
+// yet). Kyle 2026-08-03 ordered the Discord button. Adding a provider here
+// without a button is a defect.
+export const OAUTH_PROVIDERS = ["google", "apple", "discord"];
 
 export function oauthAuthUrl(provider, { redirectTo } = {}) {
   if (!OAUTH_PROVIDERS.includes(provider)) {

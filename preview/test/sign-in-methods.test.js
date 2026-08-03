@@ -1,7 +1,8 @@
 // Feature 2 · one door into sign-in.
-// Sign-in handoff README, "2 · Sign-in modal": three methods, and no fourth.
-// Every surface calls signInWith, so no surface can invent a provider that
-// has no button.
+// Sign-in handoff README, "2 · Sign-in modal": every surface calls
+// signInWith, so no surface can invent a provider that has no button.
+// Kyle 2026-08-03: Discord joins Google as a live button; Apple stays
+// wired but parked.
 import { describe, it, expect } from "vitest";
 import {
   AUTH_ENABLED,
@@ -15,8 +16,8 @@ import {
 const HOME = "https://credenzafashion.com";
 
 describe("sign-in methods", () => {
-  it("offers Google and Apple, and nothing else", () => {
-    expect(OAUTH_PROVIDERS).toEqual(["google", "apple"]);
+  it("offers Google, Apple and Discord, and nothing else", () => {
+    expect(OAUTH_PROVIDERS).toEqual(["google", "apple", "discord"]);
   });
 
   it("builds one authorize URL per provider", () => {
@@ -26,7 +27,10 @@ describe("sign-in methods", () => {
     expect(oauthAuthUrl("apple", { redirectTo: HOME })).toContain(
       "/auth/v1/authorize?provider=apple"
     );
-    expect(oauthAuthUrl("apple", { redirectTo: HOME })).toContain(
+    expect(oauthAuthUrl("discord", { redirectTo: HOME })).toContain(
+      "/auth/v1/authorize?provider=discord"
+    );
+    expect(oauthAuthUrl("discord", { redirectTo: HOME })).toContain(
       "redirect_to=" + encodeURIComponent(HOME)
     );
   });
@@ -38,17 +42,17 @@ describe("sign-in methods", () => {
   });
 
   it("refuses a provider that has no button", () => {
-    expect(() => oauthAuthUrl("discord", { redirectTo: HOME })).toThrow(
+    expect(() => oauthAuthUrl("facebook", { redirectTo: HOME })).toThrow(
       "Unknown sign-in method."
     );
-    expect(signInWith("discord", { redirectTo: HOME })).rejects.toThrow(
+    expect(signInWith("facebook", { redirectTo: HOME })).rejects.toThrow(
       "Unknown sign-in method."
     );
   });
 
   it("hands an OAuth caller a redirect instead of navigating for it", async () => {
-    const out = await signInWith("apple", { redirectTo: HOME });
-    expect(out.redirect).toContain("provider=apple");
+    const out = await signInWith("discord", { redirectTo: HOME });
+    expect(out.redirect).toContain("provider=discord");
     expect(out.sent).toBe(undefined);
   });
 

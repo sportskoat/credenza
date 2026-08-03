@@ -20736,6 +20736,14 @@ input.cz-sizing-fix-size {
   gap: 9px;
 }
 
+.cz-signin-oauth-logo {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  flex: none;
+  vertical-align: -3px;
+}
+
 .cz-signin-actions {
   display: flex;
   flex-direction: column;

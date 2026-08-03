@@ -32,12 +32,13 @@ describe("sign-in modal · state A", () => {
   // Kyle 2026-08-02: Apple is parked until Credenza has an Apple developer
   // account. The button led nowhere, so it leaves the sheet. The provider is
   // still wired in auth.js, so bringing it back is one line of JSX.
-  it("offers two ways in and no third", async () => {
+  // Kyle 2026-08-03: Discord joins Google as a live button.
+  it("offers three ways in and no fourth", async () => {
     await open();
     expect(screen.getByRole("button", { name: "Email me a sign-in link." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue with Discord" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /apple/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /discord/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /facebook/i })).toBeNull();
   });
 
@@ -120,6 +121,24 @@ describe("sign-in modal · methods", () => {
     await user.click(screen.getByRole("button", { name: "Continue with Google" }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith("https://example.test/authorize"));
     expect(signIn).toHaveBeenCalledWith("google", { email: "" });
+
+    Object.defineProperty(window, "location", { configurable: true, value: original });
+  });
+
+  it("sends the Discord button through the same door", async () => {
+    const user = userEvent.setup();
+    const signIn = vi.fn().mockResolvedValue({ redirect: "https://example.test/authorize" });
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...original, assign },
+    });
+
+    await open({ signIn });
+    await user.click(screen.getByRole("button", { name: "Continue with Discord" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("https://example.test/authorize"));
+    expect(signIn).toHaveBeenCalledWith("discord", { email: "" });
 
     Object.defineProperty(window, "location", { configurable: true, value: original });
   });
