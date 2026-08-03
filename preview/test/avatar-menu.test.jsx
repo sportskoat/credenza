@@ -99,10 +99,18 @@ describe("AvatarMenu (design 1c)", () => {
 
   it("offers sign-in, not sign-out, when signed out", () => {
     const onOpenSettings = vi.fn();
-    const { container } = renderMenu({ accountSession: null, accountPlan: null, avatarInitials: null, onOpenSettings });
+    const onOpenSignIn = vi.fn();
+    const { container } = renderMenu({
+      accountSession: null,
+      accountPlan: null,
+      avatarInitials: null,
+      onOpenSettings,
+      onOpenSignIn,
+    });
     expect(within(container).queryByText("Sign out")).toBeNull();
     fireEvent.click(within(container).getByText("Sign in"));
-    expect(onOpenSettings).toHaveBeenCalledWith("account");
+    expect(onOpenSignIn).toHaveBeenCalledTimes(1);
+    expect(onOpenSettings).not.toHaveBeenCalled();
   });
 
   it("closes on Escape and on a click outside", () => {
