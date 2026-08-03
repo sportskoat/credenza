@@ -2912,6 +2912,127 @@
   font-weight: 500;
   line-height: 1;
 }
+/* A0 intro strip (onboarding handoff, "A0 · Arrival"). Three numbered lines
+   under the paste bar that say what one pasted link buys. Every value here is
+   lifted from the handoff: 16px radius, 15px/16px padding, 12px gap, a 22px
+   numeral circle. Off-grid numbers are deliberate. */
+.cz-intro-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto 16px;
+  padding: 15px 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  text-align: left;
+  animation: cz-intro-strip-in var(--dur-open) var(--ease-out) both;
+}
+@keyframes cz-intro-strip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.cz-intro-strip-kicker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cz-intro-strip-kicker {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-intro-strip-dismiss {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px -4px -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-faint);
+  cursor: pointer;
+  transition: color var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out);
+}
+.cz-intro-strip-dismiss:hover {
+  color: var(--cz-ink);
+  background: var(--cz-hover);
+}
+.cz-intro-strip-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cz-intro-strip-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cz-intro-strip-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+.cz-intro-strip-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--cz-ink);
+}
+.cz-intro-strip-foot {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+/* Coarse pointer: the dismiss target grows to 44px without moving the kicker
+   row, because the extra size comes out of the negative margin. */
+@media (pointer: coarse) {
+  .cz-intro-strip-dismiss {
+    width: 44px;
+    height: 44px;
+    margin: -11px -14px -11px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-intro-strip {
+    animation: none;
+  }
+  .cz-intro-strip-dismiss {
+    transition: none;
+  }
+}
 /* Onboarding 3B: the first-card hint (onboarding spec, Kyle 2026-07-26).
    In flow under the grid, not floating over it — a tooltip would need a
    dismiss button, and a dismiss button turns one sentence into a dialog.

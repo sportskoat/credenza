@@ -99,6 +99,7 @@ const LimitsSheet = lazy(() => import("./sheets/LimitsSheet.jsx"));
 import DigestDeck from "./components/DigestDeck.jsx";
 import HaulBoard from "./components/HaulBoard.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
+import IntroStrip from "./components/IntroStrip.jsx";
 import { SITE_NAV } from "./components/site-nav.js";
 import { TypeMark } from "./components/CardCover.jsx";
 import PhotoShelfList from "./components/PhotoShelfList.jsx";
@@ -3325,6 +3326,57 @@ export const TOMBSTONE_KEY = "credenza-fashion-tombstones-v1";
 // "You get 3 free full cards." — shown on a visitor's first paste, once per
 // device (Kyle 2026-07-30, rule 3: warn before the wall, never at it).
 export const FREE_NOTE_KEY = "credenza-fashion-free-note-v1";
+// Onboarding README, "State machine": skipped is session-sticky. One skip
+// suppresses both asks on every card for the rest of the session, and a new
+// session clears it. sessionStorage IS that lifetime — a reload keeps the
+// skip, a new tab asks again. We store the skip timestamp under skippedAt,
+// the field name the README's data model uses.
+export const FIT_SKIP_KEY = "credenza-fashion-fit-skipped-at-v1";
+
+// Onboarding README, "A0 · Arrival": dismissal of the intro strip is permanent
+// (onboarding.introDismissed, local). The strip never returns, so this one is
+// localStorage, not sessionStorage.
+export const INTRO_DISMISSED_KEY = "credenza-fashion-intro-dismissed-v1";
+
+/** True when the visitor has dismissed the arrival intro strip for good. */
+export function readIntroDismissed() {
+  try {
+    return !!window.localStorage.getItem(INTRO_DISMISSED_KEY);
+  } catch {
+    // No storage (private mode). Showing the strip is the right failure: it is
+    // three lines and it carries a dismiss button.
+    return false;
+  }
+}
+
+/** Dismiss the arrival intro strip for good. Silent when storage is blocked. */
+export function writeIntroDismissed() {
+  try {
+    window.localStorage.setItem(INTRO_DISMISSED_KEY, "1");
+  } catch {
+    // See readIntroDismissed: the in-memory flag still hides it this page view.
+  }
+}
+
+/** Read the session skip. Returns the ISO stamp, or "" when the asks are live. */
+export function readFitSkippedAt() {
+  try {
+    return window.sessionStorage.getItem(FIT_SKIP_KEY) || "";
+  } catch {
+    // No storage (private mode). The asks stay live for this page view, which
+    // is the honest failure: the visitor can always skip again.
+    return "";
+  }
+}
+
+/** Write the session skip. Silent when storage is blocked. */
+export function writeFitSkippedAt(stamp) {
+  try {
+    window.sessionStorage.setItem(FIT_SKIP_KEY, stamp || new Date().toISOString());
+  } catch {
+    // See readFitSkippedAt: the in-memory flag still holds for this page view.
+  }
+}
 
 // When a host storage shim exists (the extension), it IS the backend — failed
 // reads and writes must surface instead of silently splitting or emptying the shelf.
@@ -6156,8 +6208,19 @@ function CredenzaApp() {
   // synced into the module readers FitSummary uses. Persisted in prefs.
   const [fitSummary, setFitSummary] = useState(true);
   // Session flag: user dismissed the progressive fit prompt on a card.
-  // Not persisted — next session can ask again until a body profile exists.
-  const [fitPromptSkipped, setFitPromptSkipped] = useState(false);
+  // Sticky for the session, so a reload does not re-ask. A new session can ask
+  // again until a body profile exists. See FIT_SKIP_KEY.
+  const [fitPromptSkipped, setFitPromptSkipped] = useState(() => !!readFitSkippedAt());
+  const skipFitPrompt = () => {
+    writeFitSkippedAt(new Date().toISOString());
+    setFitPromptSkipped(true);
+  };
+  // A0 arrival strip. Dismissal is permanent, so the flag starts from storage.
+  const [introDismissed, setIntroDismissed] = useState(() => readIntroDismissed());
+  const dismissIntro = () => {
+    writeIntroDismissed();
+    setIntroDismissed(true);
+  };
   // The first-run intro GATE is gone (onboarding spec, Kyle 2026-07-26): a
   // cold open now lands straight on the hero, because the hero already says
   // what the intro said and the paste field is the only thing to do next.
@@ -9256,7 +9319,7 @@ function CredenzaApp() {
         notify("Sizes updated.");
       }}
       fitPromptSkipped={fitPromptSkipped}
-      onSkipFitPrompt={() => setFitPromptSkipped(true)}
+      onSkipFitPrompt={skipFitPrompt}
       fitPrefs={fitPrefs}
       onSaveFitPref={saveFitPref}
       onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
@@ -9322,7 +9385,7 @@ function CredenzaApp() {
         notify("Sizes updated.");
       }}
       fitPromptSkipped={fitPromptSkipped}
-      onSkipFitPrompt={() => setFitPromptSkipped(true)}
+      onSkipFitPrompt={skipFitPrompt}
       onSaveFitPref={saveFitPref}
       onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
       fitDetail={fitDetail}
@@ -9919,7 +9982,7 @@ function CredenzaApp() {
             notify("Sizes updated.");
           }}
           fitPromptSkipped={fitPromptSkipped}
-          onSkipFitPrompt={() => setFitPromptSkipped(true)}
+          onSkipFitPrompt={skipFitPrompt}
           onSaveFitPref={saveFitPref}
           onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
           fitDetail={fitDetail}
@@ -10128,6 +10191,11 @@ function CredenzaApp() {
                   Stash
                 </button>
               </div>
+              {/* A0 · Arrival (onboarding handoff). Three numbered lines that
+                  say what one pasted link buys. It sits under the paste bar,
+                  not over it, and it never asks for a size — the ask belongs
+                  to the card. Dismissal is permanent. */}
+              {!introDismissed && <IntroStrip onDismiss={dismissIntro} />}
               {/* Hero 2A specimen (hero spec, Kyle 2026-07-26). The empty
                   shelf used to argue for itself in words and then offer two
                   equal-weight links. It now SHOWS one finished card at 55%
