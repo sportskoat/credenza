@@ -407,11 +407,15 @@ describe("Fashion card-back navigation and editing", () => {
 
     await user.click(screen.getByRole("button", { name: /Summer Europe/i }));
     expect(await screen.findByRole("heading", { name: "Summer Europe" })).toBeInTheDocument();
-    // Morph may keep the carousel briefly hidden; wait for the open-haul card.
+    // Kyle 2026-08-02: an open haul shows the board and the grid, never the
+    // carousel, so the open card is a grid card ("Open <title>"), not a rack
+    // card ("Flip <title>"). The surface still fades in, so this waits.
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Flip Summer tee/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Open Summer tee/i })).toBeInTheDocument()
     );
-    expect(screen.queryByRole("button", { name: /Flip Winter jacket/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open Winter jacket/i })).not.toBeInTheDocument();
+    // No carousel under the board.
+    expect(screen.queryByRole("button", { name: /Flip Summer tee/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /All hauls/i }));
     expect(await screen.findByText("Your hauls")).toBeInTheDocument();

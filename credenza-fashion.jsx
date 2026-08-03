@@ -8783,14 +8783,17 @@ function CredenzaApp() {
 
   const openHaul = useCallback((haulKey) => {
     setView("hauls");
-    // Desktop browses a haul in the carousel. The phone keeps its grid — the
-    // rack does not fit a 390px screen, and hijacking viewMode stranded the
-    // customer in a glitching carousel until an app restart (Kyle 2026-07-25).
-    if (!isPhone) setViewMode("carousel");
+    // Kyle 2026-08-02: a haul opens on the board and the grid, never the
+    // carousel. Desktop used to switch viewMode to "carousel" here, which
+    // both stacked a rack under the board and silently changed the Shelf
+    // tab's own view on the way back out. Both surfaces keep their own view
+    // now. (The phone never took this branch: the rack does not fit a 390px
+    // screen, and hijacking viewMode stranded the customer in a glitching
+    // carousel until an app restart, Kyle 2026-07-25.)
     setExpandedId(null);
     setSelectedId(null);
     setActiveHaul(haulKey);
-  }, [isPhone]);
+  }, []);
 
   // The index CTA jumps straight into QC when that is what the haul is asking
   // for. The README calls this the highest-value shortcut in the feature: from
@@ -10044,7 +10047,12 @@ function CredenzaApp() {
             )}
           </div>
         )
-      ) : viewMode === "carousel" ? (
+      ) : viewMode === "carousel" && !openHaulName ? (
+        // Kyle 2026-08-02: an open haul never shows the carousel. The board is
+        // the whole surface there. The view switcher is already hidden inside a
+        // haul, but viewMode carries over from the Shelf tab, so the carousel
+        // appeared under the board without anyone asking for it. The Shelf tab
+        // keeps its carousel; only the open-haul surface drops it.
         <div className="cz-haul-open-stage">{carouselElement}</div>
       ) : (
         <PhotoShelfList
