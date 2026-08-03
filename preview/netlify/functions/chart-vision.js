@@ -224,6 +224,34 @@ const CHART_TOOL = {
   },
 };
 
+/**
+ * Non-secret diagnostic payload attached to vision failures.
+ * @typedef {{
+ *   stage: string,
+ *   status?: number,
+ *   type?: string,
+ *   name?: string,
+ *   message?: string,
+ *   model?: string,
+ *   hosts?: string[],
+ *   requested?: number
+ * }} ChartVisionDiag
+ */
+
+/**
+ * Error + diag, typed for checkJs so `err.diag = …` is not a TS2339.
+ * @param {string} message
+ * @param {string} name
+ * @param {ChartVisionDiag} diag
+ * @returns {Error & { diag: ChartVisionDiag }}
+ */
+function errorWithDiag(message, name, diag) {
+  const err = /** @type {Error & { diag: ChartVisionDiag }} */ (new Error(message));
+  err.name = name;
+  err.diag = diag;
+  return err;
+}
+
 // On failure throws an Error with .diag = { stage, status?, type?, message? }
 // so the handler can both console.error and return a short non-secret diag
 // on the 502 body (needed when Netlify function logs only show status/ms).
@@ -263,10 +291,7 @@ async function readChartWithClaude(apiKey, images, signal) {
     const name = (e && e.name) || "FetchError";
     const message = String((e && e.message) || e).slice(0, 160);
     console.error("[chart-vision] readChartWithClaude fetch threw", { name, message, model: MODEL });
-    const err = new Error(message);
-    err.name = name;
-    err.diag = { stage: "vision", name, message, model: MODEL };
-    throw err;
+    throw errorWithDiag(message, name, { stage: "vision", name, message, model: MODEL });
   }
   if (!res.ok) {
     const bodyText = await res.text().catch(() => "");
@@ -286,16 +311,13 @@ async function readChartWithClaude(apiKey, images, signal) {
       model: MODEL,
       name: "AnthropicHttpError",
     });
-    const err = new Error("anthropic_http_" + res.status);
-    err.name = "AnthropicHttpError";
-    err.diag = {
+    throw errorWithDiag("anthropic_http_" + res.status, "AnthropicHttpError", {
       stage: "vision",
       status: res.status,
       type: type || undefined,
       message: String(apiMessage).slice(0, 120) || undefined,
       model: MODEL,
-    };
-    throw err;
+    });
   }
   const data = await res.json().catch(() => null);
   const toolUse =
@@ -308,10 +330,11 @@ async function readChartWithClaude(apiKey, images, signal) {
       model: MODEL,
       hasContent: !!(data && data.content),
     });
-    const err = new Error("anthropic_no_tool_use");
-    err.name = "NoToolUse";
-    err.diag = { stage: "vision", name: "NoToolUse", model: MODEL };
-    throw err;
+    throw errorWithDiag("anthropic_no_tool_use", "NoToolUse", {
+      stage: "vision",
+      name: "NoToolUse",
+      model: MODEL,
+    });
   }
   return { result: toolUse.input, usage: data && data.usage };
 }
@@ -388,21 +411,26 @@ async function handle(event) {
       });
     }
 
+    /** @type {ChartVisionDiag | null} */
     let visionDiag = null;
-    const chart = await readChartWithClaude(apiKey, images, controller.signal).catch((e) => {
-      visionDiag =
-        (e && e.diag) ||
-        {
-          stage: "vision",
-          name: (e && e.name) || "VisionError",
-          message: String((e && e.message) || e).slice(0, 120),
-        };
-      console.error("[chart-vision] readChartWithClaude catch", {
-        name: visionDiag.name || "VisionError",
-        ...visionDiag,
-      });
-      return null;
-    });
+    const chart = await readChartWithClaude(apiKey, images, controller.signal).catch(
+      /** @param {unknown} e */
+      (e) => {
+        const err = /** @type {{ diag?: ChartVisionDiag, name?: string, message?: string } | null} */ (e);
+        visionDiag =
+          (err && err.diag) ||
+          {
+            stage: "vision",
+            name: (err && err.name) || "VisionError",
+            message: String((err && err.message) || e).slice(0, 120),
+          };
+        console.error("[chart-vision] readChartWithClaude catch", {
+          name: visionDiag.name || "VisionError",
+          ...visionDiag,
+        });
+        return null;
+      },
+    );
     if (!chart) {
       return response(502, {
         error: "Chart read failed",
