@@ -20709,12 +20709,34 @@ input.cz-sizing-fix-size {
 }
 
 /* A phone gets the same content as a bottom sheet. The shared modal rule in
-   credenza.css already caps the height at 88dvh and rounds the top corners;
-   only the control floor is left, and 44px is the smallest target a thumb
-   hits reliably. */
+   credenza.css already caps the height at 88dvh and rounds the top corners.
+
+   Kyle 2026-08-02, with a screenshot: the first page "gets cut off really
+   hard". It kept the full desktop spacing on a 390px screen. State A stacks
+   eight rows at an 18px gap inside 28/26/24 padding; against the 88dvh cap
+   the last two rows fell past the edge, and the sheet scrolls, so it read as
+   cut off. State B stacks five rows, which is why only the first page showed
+   it. The reductions below buy back roughly 60px of height. They apply to a
+   phone only; the desktop card is unchanged.
+
+   The 44px control floor stays: it is the smallest target a thumb hits
+   reliably. */
 @media (max-width: 767px) and (pointer: coarse) {
   .cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-modal {
     border-radius: 18px 18px 0 0;
+  }
+
+  .cz-app[data-fashion="true"] .cz-signin {
+    gap: 13px;
+    padding: 22px 18px 18px;
+  }
+
+  /* 56px of clearance: the 40px close button, its 14px inset, and 2px of
+     air. Same reason .cz-cap-head carries it. Without this a wrapped heading
+     runs under the close button on a narrow screen. */
+  .cz-app[data-fashion="true"] .cz-signin .cz-signin-head {
+    padding-right: 56px;
+    font-size: 20px;
   }
 
   .cz-app[data-fashion="true"] .cz-signin .cz-pill {
