@@ -21677,6 +21677,7 @@ input.cz-sizing-fix-size {
 .cz-hb-value-mono {
   font-family: var(--cz-mono);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .cz-hb-money {
@@ -21734,10 +21735,12 @@ input.cz-sizing-fix-size {
   color: var(--cz-ink);
 }
 
+/* 11.5px, the board's one row step. It was 11px, a size used nowhere else. */
 .cz-hb-count {
   font-family: var(--cz-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-ink);
 }
 
@@ -21840,6 +21843,7 @@ input.cz-sizing-fix-size {
   font-family: var(--cz-mono);
   font-size: 10.5px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-money);
 }
 
@@ -21959,10 +21963,13 @@ input.cz-sizing-fix-size {
   text-overflow: ellipsis;
 }
 
+/* 10.5px, the board's smallest mono step. It was 9.5px, a sixth size. The
+   kicker at .cz-hb-label stays 9px; it prints words, not numbers. */
 .cz-hb-row-weight {
   font-family: var(--cz-mono);
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-faint);
 }
 
@@ -22020,8 +22027,18 @@ input.cz-sizing-fix-size {
   justify-content: space-between;
 }
 
+/* Kyle 2026-08-02: "the numbers on the left look all wonky." Three faults ran
+   together here. A label used the sans face while its own value used the mono
+   face. The panel ran five mono sizes at once. And no rule asked for tabular
+   figures, so a 1 was narrower than a 0 and a column of sums never lined up.
+
+   The panel now runs three mono sizes only: 10.5px for a chip or a rate,
+   11.5px for a row, and 14px for the one chargeable total. Every rule that
+   prints a number sets tabular-nums, the way credenza.css:223 already does. */
 .cz-hb-sum-label {
+  font-family: var(--cz-mono);
   font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-faint);
 }
 
@@ -22029,20 +22046,25 @@ input.cz-sizing-fix-size {
   font-family: var(--cz-mono);
   font-size: 11.5px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-sub);
 }
 
 /* The chargeable row is the answer. Everything above it is the working, so
-   this row is the only one that carries weight. */
+   this row is the only one that carries weight. It reads louder by ink
+   colour and by the size of its value, not by a second typeface. */
 .cz-hb-sum-strong {
-  font-size: 12.5px;
-  font-weight: 650;
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--cz-ink);
 }
 
 .cz-hb-sum-big {
   font-family: var(--cz-mono);
   font-size: 14px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .cz-hb-divisor {
@@ -22062,6 +22084,7 @@ input.cz-sizing-fix-size {
   font-family: var(--cz-mono);
   font-size: 10.5px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition:
     background var(--dur-micro) var(--ease-out),
@@ -22126,14 +22149,18 @@ input.cz-sizing-fix-size {
   font-family: var(--cz-mono);
   font-size: 10.5px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
+/* 11.5px, the same row step the maths panel above it uses. It was 12.5px, a
+   fourth mono size for no reason. */
 .cz-hb-cost {
   min-width: 56px;
   font-family: var(--cz-mono);
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--cz-money);
   text-align: right;
 }

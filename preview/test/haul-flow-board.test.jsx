@@ -251,6 +251,57 @@ describe("the widths the README fixes", () => {
   });
 });
 
+// Design review 2 · change 5.
+// Kyle 2026-08-02: "please update the font of the numbers to be consistent,
+// the numbers on the left look all wonky."
+describe("every number on the board reads as one set of numbers", () => {
+  // A proportional face gives 1 a narrower box than 0. A column of sums then
+  // shifts sideways as the figures change, which is the wobble Kyle saw.
+  const NUMBERS = [
+    ".cz-hb-sum-label",
+    ".cz-hb-sum-value",
+    ".cz-hb-sum-big",
+    ".cz-hb-chip",
+    ".cz-hb-rate",
+    ".cz-hb-cost",
+    ".cz-hb-value-mono",
+    ".cz-hb-row-weight",
+    ".cz-hb-price",
+    ".cz-hb-count",
+  ];
+
+  it.each(NUMBERS)("%s holds every digit in the same width", (selector) => {
+    expect(ruleBody(selector)).toContain("font-variant-numeric: tabular-nums");
+  });
+
+  it.each(NUMBERS)("%s uses the number face", (selector) => {
+    expect(ruleBody(selector)).toContain("font-family: var(--cz-mono)");
+  });
+
+  // A label and its own value sat in two different typefaces. Now they match.
+  it("gives the maths labels the same face as the values beside them", () => {
+    expect(ruleBody(".cz-hb-sum-label")).toContain("font-family: var(--cz-mono)");
+    expect(ruleBody(".cz-hb-sum-strong")).toContain("font-family: var(--cz-mono)");
+  });
+
+  // The panel ran 9.5, 10.5, 11, 11.5, 12.5 and 14 at once. Three steps now:
+  // a chip or rate, a row, and the one chargeable total.
+  it("runs three number sizes, not six", () => {
+    const sizes = new Set();
+    for (const selector of [...NUMBERS, ".cz-hb-sum-strong"]) {
+      const body = ruleBody(selector) || "";
+      const found = body.match(/font-size:\s*([\d.]+)px/);
+      if (found) sizes.add(found[1]);
+    }
+    expect([...sizes].sort()).toEqual(["10.5", "11.5", "14"]);
+  });
+
+  // The kicker prints words, not numbers, so it keeps its own smaller size.
+  it("leaves the uppercase kicker alone", () => {
+    expect(ruleBody(".cz-hb-label")).toContain("font-size: 9px");
+  });
+});
+
 describe("the app renders the board", () => {
   it("mounts it inside the open haul", () => {
     expect(APP).toContain("<HaulFlowBoard");
