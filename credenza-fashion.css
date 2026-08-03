@@ -20430,3 +20430,197 @@ input.cz-sizing-fix-size {
   background: transparent;
   box-shadow: none;
 }
+
+/* ── Sign-in modal (sign-in handoff 2026-08-02, README screen 2) ───────────
+   Its own card, not the limits bottom sheet. Signing in is a decision, so it
+   stays a centred window on every screen except a phone, where the shared
+   modal rule already anchors it to the bottom edge with 18px top corners.
+
+   Every rule here is prefixed with .cz-app[data-fashion="true"] on purpose.
+   The compositing-audit block sets .cz-modal-surface at specificity (0,0,3,0);
+   a bare .cz-modal-surface.cz-signin-modal is only (0,0,2,0) and silently
+   loses the background. Same trap the cz-signin-sheet block above documents. */
+.cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-modal {
+  position: relative;
+  border: 1px solid var(--cz-hair);
+  border-radius: 20px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 24px 64px oklch(0 0 0 / 0.6);
+}
+
+/* The shell draws a bare header for this modal: no title strip, only the
+   close button. Lifting it out of flow lets the body own the full 28/26/24
+   padding, so the brand lockup sits where the design puts it and not 40px
+   below the top edge. */
+.cz-app[data-fashion="true"] .cz-signin-modal .cz-modal-header.is-bare {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+}
+
+.cz-signin {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px 26px 24px;
+}
+
+.cz-signin-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cz-signin-wordmark {
+  font-family: var(--cz-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--cz-ink);
+}
+
+/* 8px below the lockup, not 18px: the heading belongs to the mark above it.
+   The negative margin pulls it out of the column gap rather than fighting it. */
+.cz-signin-head {
+  margin: -10px 0 0;
+  font-family: var(--cz-display);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: var(--cz-ink);
+}
+
+.cz-signin-kicker {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-signin-kicker.is-money {
+  color: var(--cz-money);
+}
+
+/* The kicker is a label for the heading under it, so they sit 8px apart and
+   not a full column gap apart. */
+.cz-signin-kicker + .cz-signin-head {
+  margin-top: -10px;
+}
+
+.cz-signin-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-signin-address {
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  color: var(--cz-ink);
+}
+
+.cz-signin-rule {
+  width: 100%;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--cz-hair);
+}
+
+.cz-signin-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+}
+
+.cz-signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cz-signin-form .cz-field {
+  border-radius: 10px;
+}
+
+/* iOS zooms the page when it focuses an input under 16px. The zoom never
+   comes back on its own, so the person is left on a magnified modal. */
+@media (max-width: 767px) {
+  .cz-signin-form .cz-field {
+    font-size: 16px;
+  }
+}
+
+/* Disabled is the README's exact pair. The shared .cz-pill:disabled rule
+   already carries the 0.56 opacity; this adds the cursor. */
+.cz-app[data-fashion="true"] .cz-signin .cz-pill:disabled {
+  cursor: not-allowed;
+}
+
+.cz-signin-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cz-signin-or-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+.cz-signin-or-word {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+}
+
+.cz-signin-oauth {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.cz-signin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cz-signin-error {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-warn-ink);
+}
+
+.cz-signin-foot {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+}
+
+/* A phone gets the same content as a bottom sheet. The shared modal rule in
+   credenza.css already caps the height at 88dvh and rounds the top corners;
+   only the control floor is left, and 44px is the smallest target a thumb
+   hits reliably. */
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-modal {
+    border-radius: 18px 18px 0 0;
+  }
+
+  .cz-app[data-fashion="true"] .cz-signin .cz-pill {
+    min-height: 44px;
+  }
+}

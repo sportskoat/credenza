@@ -29,6 +29,16 @@ function readCloseMs() {
  * `stacked` on any shell that can hold sub-pages — the stack changes the pages
  * to absolute positioning, so it must be in place BEFORE the first push.
  */
+/*
+ * `bareHeader` (sign-in handoff, screens 1 and 2) drops the titled header
+ * strip and leaves only the close button. Those two modals draw their own
+ * heading inside the body: the cap modal sets it at 24px beside the close
+ * button, and the sign-in modal sets it at 23px UNDER a brand lockup, so
+ * neither fits the shell's one 21px header row.
+ *
+ * The dialog then names itself with aria-label instead of aria-labelledby,
+ * so there is still exactly one accessible name and no second heading.
+ */
 export function ModalShell({
   title,
   onClose,
@@ -39,6 +49,7 @@ export function ModalShell({
   stacked = false,
   subPage = null,
   onBack,
+  bareHeader = false,
 }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
@@ -155,7 +166,8 @@ export function ModalShell({
     <dialog
       ref={dialogRef}
       className={"cz-modal t-modal" + phaseClass}
-      aria-labelledby={titleId}
+      aria-labelledby={bareHeader ? undefined : titleId}
+      aria-label={bareHeader ? title : undefined}
       onCancel={(event) => {
         // A dismissed OS file picker fires a bubbling "cancel" on a nested
         // <input type="file"> (the import sheet has one). Only the dialog's
@@ -177,13 +189,13 @@ export function ModalShell({
     >
       <div className={("cz-modal-surface " + (stacked ? "cz-modal-surface-stacked " : "") + surfaceClassName).trim()}>
         <div
-          className="cz-modal-header"
+          className={"cz-modal-header" + (bareHeader ? " is-bare" : "")}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 12,
-            padding: "14px 16px",
-            borderBottom: "1px solid " + HAIR,
+            padding: bareHeader ? "0" : "14px 16px",
+            borderBottom: bareHeader ? "0" : "1px solid " + HAIR,
           }}
         >
           {onSub && (
@@ -196,12 +208,14 @@ export function ModalShell({
               <span aria-hidden="true">‹</span>
             </button>
           )}
-          <h2
-            id={titleId}
-            style={{ margin: 0, flex: 1, fontFamily: DISPLAY, fontSize: 21, fontWeight: 500, lineHeight: 1.1 }}
-          >
-            {headerTitle}
-          </h2>
+          {!bareHeader && (
+            <h2
+              id={titleId}
+              style={{ margin: 0, flex: 1, fontFamily: DISPLAY, fontSize: 21, fontWeight: 500, lineHeight: 1.1 }}
+            >
+              {headerTitle}
+            </h2>
+          )}
           {trailing}
           <button
             ref={closeRef}
