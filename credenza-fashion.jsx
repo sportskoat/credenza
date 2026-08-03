@@ -31,6 +31,9 @@ import {
   DEFAULT_DOMESTIC_USD,
   DEFAULT_PACKAGING_GRAMS,
   DIVISORS,
+  FIT_OPTIONS,
+  MILESTONES,
+  RECEIVED_INDEX,
   RED_REASONS,
   SHIPPING_LINES,
   firstPendingQcItem,
@@ -121,6 +124,9 @@ const HaulItemDrawer = lazy(() => import("./components/HaulItemDrawer.jsx"));
 // The hand-off review screen (haul handoff, screen 9). Lazy: it only opens
 // once a parcel has something in it.
 const HaulHandoff = lazy(() => import("./components/HaulHandoff.jsx"));
+// The tracking screen (haul handoff, screens 10 and 11). Lazy: it only opens
+// once the parcel is with the agent.
+const HaulTracking = lazy(() => import("./components/HaulTracking.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -540,6 +546,12 @@ export function migrateHaulShip(raw) {
     declared: Number.isFinite(declared) && declared >= 0 ? Math.round(declared * 100) / 100 : 0,
     submitted: raw.submitted === true,
     milestone: Number.isFinite(milestone) ? Math.min(3, Math.max(0, Math.round(milestone))) : 0,
+    // When the person marked each of the four steps. Four slots, one per step,
+    // so a step marked and taken back keeps the date it originally carried.
+    milestoneAt: MILESTONES.map((_, i) => {
+      const value = Array.isArray(raw.milestoneAt) ? raw.milestoneAt[i] : null;
+      return typeof value === "string" ? value : null;
+    }),
     tracking: typeof raw.tracking === "string" ? raw.tracking.slice(0, 64) : "",
   };
 }
@@ -3761,6 +3773,7 @@ function createItem(parsed, rawText, extra) {
     haulStorageDays: null,
     haulOrderNo: "",
     haulStageAt: null,
+    haulFit: null,
     posterStats: null,
     posterUser: "",
     sourceText: "",
@@ -3977,6 +3990,10 @@ export function migrateItem(old) {
         : null,
     haulOrderNo: typeof old.haulOrderNo === "string" ? old.haulOrderNo.slice(0, 64) : "",
     haulStageAt: typeof old.haulStageAt === "string" ? old.haulStageAt : null,
+    // How the size call turned out, once the item is in the person's hands.
+    // This is the one answer that makes the next recommendation better than a
+    // guess, so it has to survive a reload.
+    haulFit: FIT_OPTIONS.includes(old.haulFit) ? old.haulFit : null,
     // A1 poster data (audit 2026-07-24): the Reddit poster's body stats drive
     // the size decision, and the original paste lets a later parser reparse
     // the haul. Both used to vanish on reload.
@@ -5859,6 +5876,10 @@ function CredenzaApp() {
   // It reads the same parcel numbers as the board, so it holds no state of
   // its own beyond being open.
   const [handoffOpen, setHandoffOpen] = useState(false);
+  // Whether the tracking screen is showing (haul handoff, screens 10 and 11).
+  // Every number on it is a projection of the same parcel record, so it holds
+  // no state of its own beyond being open.
+  const [trackingOpen, setTrackingOpen] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   const [search, setSearch] = useState("");
   const [askState, setAskState] = useState({
@@ -8777,6 +8798,12 @@ function CredenzaApp() {
   const openHaulCta = useCallback(
     (haul) => {
       openHaul(haul.name);
+      // A parcel already with the agent is asking one question: where is it?
+      // The board cannot answer that, so the CTA lands on tracking instead.
+      if (haul.ctaTo === "tracking") {
+        setTrackingOpen(true);
+        return;
+      }
       if (!haul.openQc) return;
       const first = firstPendingQcItem(haul.haulItems || []);
       if (first) setQcItemId(first.id);
@@ -8823,6 +8850,19 @@ function CredenzaApp() {
           priceUsd: usd != null ? usd : 0,
         });
       });
+  }, [openHaulName, shelfAll]);
+
+  // How each item in the haul fitted, once it arrived. This is a real answer
+  // from the person's hand, so it is saved on the card, not worked out.
+  const haulFits = useMemo(() => {
+    if (!openHaulName) return {};
+    const map = {};
+    for (const entry of shelfAll) {
+      if (!entry || typeof entry.project !== "string") continue;
+      if (entry.project.trim() !== openHaulName) continue;
+      if (FIT_OPTIONS.includes(entry.haulFit)) map[entry.id] = entry.haulFit;
+    }
+    return map;
   }, [openHaulName, shelfAll]);
 
   // The item open in the drawer. Read out of `haulFlowItems`, so an edit in
@@ -8887,7 +8927,12 @@ function CredenzaApp() {
       if (!openHaulName) return;
       updateHaul(
         openHaulName,
-        (base) => ({ ship: { ...migrateHaulShip(base.ship || {}), ...patch } }),
+        (base) => {
+          const ship = migrateHaulShip(base.ship || {});
+          // A patch that reads the record it edits gets it, so a caller never
+          // has to migrate the record twice to change one slot of an array.
+          return { ship: { ...ship, ...(typeof patch === "function" ? patch(ship) : patch) } };
+        },
         { type: "ship", detail }
       );
     },
@@ -8977,6 +9022,7 @@ function CredenzaApp() {
     // Both of these belong to one haul. Leaving them open over a closed haul
     // shows the person a parcel that is no longer on screen.
     setHandoffOpen(false);
+    setTrackingOpen(false);
     setHaulDrawerId(null);
   }, [activeHaul, reducedMotion]);
 
@@ -10358,11 +10404,66 @@ function CredenzaApp() {
             onSubmit={() => {
               // Marked here only. Credenza never presses send on the agent's
               // site, and the line under the button says so.
-              patchHaulShip({ submitted: true, milestone: 0 }, "submitted");
+              const now = new Date().toISOString();
+              patchHaulShip(
+                (base) => ({
+                  submitted: true,
+                  milestone: 0,
+                  milestoneAt: [now, base.milestoneAt[1], base.milestoneAt[2], base.milestoneAt[3]],
+                }),
+                "submitted"
+              );
               setHandoffOpen(false);
+              // The parcel is now in flight. That is the tracking screen's
+              // question, so the person lands there (README, hand-off table).
+              setTrackingOpen(true);
               notify("Parcel A marked submitted.", {
                 sub: "You still have to press send on your agent's site.",
               });
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* The tracking screen. Nothing here polls a carrier: every step is the
+          person marking what already happened (haul handoff, screens 10, 11). */}
+      {trackingOpen && openHaulName && (
+        <Suspense fallback={null}>
+          <HaulTracking
+            items={haulFlowItems}
+            maths={haulFlowMaths}
+            line={(haulShip && haulShip.line) || "EMS"}
+            domesticUsd={
+              haulShip && haulShip.domesticUsd != null ? haulShip.domesticUsd : DEFAULT_DOMESTIC_USD
+            }
+            milestone={(haulShip && haulShip.milestone) || 0}
+            stamps={(haulShip && haulShip.milestoneAt) || []}
+            fits={haulFits}
+            tracking={(haulShip && haulShip.tracking) || ""}
+            tileFor={haulTileFor}
+            onClose={() => setTrackingOpen(false)}
+            onPickStep={(index) => {
+              const now = new Date().toISOString();
+              patchHaulShip(
+                (base) => ({
+                  milestone: index,
+                  // Only the step just marked takes today's date. A step taken
+                  // back keeps the date it already carried, because it did
+                  // happen on that day.
+                  milestoneAt: base.milestoneAt.map((value, i) =>
+                    i === index && !value ? now : value
+                  ),
+                }),
+                "milestone " + index
+              );
+            }}
+            onSetTracking={(value) => patchHaulShip({ tracking: value }, "tracking")}
+            onSetFit={(id, answer) => {
+              // The same answer again clears it. A wrong tap has to be
+              // undoable with the control that made it.
+              const card = shelfAll.find((entry) => entry && entry.id === id);
+              const next = card && card.haulFit === answer ? null : answer;
+              updateItem(id, { haulFit: next });
             }}
           />
         </Suspense>
@@ -11559,7 +11660,12 @@ function CredenzaApp() {
                   const base = migrateHaulShip(haulShip || {});
                   patchHaulShip({ rates: { ...base.rates, [key]: rate } }, "rate " + key);
                 }}
-                onHandOff={() => setHandoffOpen(true)}
+                onHandOff={() => {
+                  // A submitted parcel has nothing left to review, so the same
+                  // button asks the only open question: where is it?
+                  if (haulShip && haulShip.submitted) setTrackingOpen(true);
+                  else setHandoffOpen(true);
+                }}
               />
             ) : null}
           </div>

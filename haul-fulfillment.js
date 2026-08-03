@@ -868,3 +868,129 @@ export function handoffView({
     declaredWarning: declaredWarning(declared),
   };
 }
+
+/**
+ * The four steps a parcel goes through after it leaves the agent, in order.
+ *
+ * Credenza never polls a carrier. Every one of these is the person's own hand
+ * marking what already happened, so the list is short enough to mark honestly.
+ */
+export const MILESTONES = [
+  { key: "submitted", label: "Submitted to the agent" },
+  { key: "shipped", label: "Shipped" },
+  { key: "customs", label: "Cleared customs" },
+  { key: "received", label: "Received" },
+];
+
+/** The last milestone index. Reaching it opens the fit questions. */
+export const RECEIVED_INDEX = 3;
+
+function shortDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/**
+ * The four milestone rows.
+ *
+ * Every row stays tappable, in both directions. A person who marks "Received"
+ * on the wrong parcel has to be able to take it back, and a step marked early
+ * is a lie the app would otherwise make permanent.
+ */
+export function milestoneRows(milestone = 0, stamps = []) {
+  const current = Math.min(RECEIVED_INDEX, Math.max(0, Math.round(num(milestone))));
+  return MILESTONES.map((entry, i) => ({
+    key: entry.key,
+    label: entry.label,
+    done: i <= current,
+    current: i === current,
+    when: i <= current ? shortDate(Array.isArray(stamps) ? stamps[i] : null) : "",
+  }));
+}
+
+/** The mono line beside the tracking heading: "3 ITEMS · 2.5 KG · EMS". */
+export function trackMeta({ maths = null, line = "EMS" } = {}) {
+  const sums = maths || parcelMaths({ items: [] });
+  return (
+    sums.count + " ITEMS · " + (sums.count ? sums.billedKg.toFixed(1) : "0") + " KG · " +
+    String(line || "EMS").toUpperCase()
+  );
+}
+
+/**
+ * The footnote under the landed total. Before the parcel arrives the number is
+ * still a projection, because duty is charged on arrival and Credenza has no
+ * way to know it. After it arrives the number is the answer to the only
+ * question anyone asks about a haul.
+ */
+export function landedNote(milestone = 0) {
+  return num(milestone) >= RECEIVED_INDEX
+    ? "This is the number to quote when someone asks what the haul cost."
+    : "Final once it clears customs. Duty is not in here.";
+}
+
+/**
+ * What is still at the warehouse while the parcel is in the air. The storage
+ * clock keeps running on those items, so the tracking screen has to say so.
+ */
+export function remainingNote(items = []) {
+  const remaining = items.filter((item) => item && normalizeStage(item.stage) !== "parcel");
+  if (!remaining.length) return "Nothing left. This haul is done.";
+  const days = earliestStorageDays(items);
+  const head = remaining.length === 1 ? "1 item stays behind" : remaining.length + " items stay behind";
+  const clock = days == null ? "" : ", oldest has " + days + " days of free storage left";
+  return head + clock + ". They can go in parcel B.";
+}
+
+/** The three fit answers, in the order the row shows them. */
+export const FIT_OPTIONS = ["tight", "right", "roomy"];
+
+/**
+ * One fit question per packed item. This is the only place the app asks the
+ * person to grade a size call, and the answer is what makes the next
+ * recommendation better than a guess.
+ */
+export function fitRows(items = [], fits = {}) {
+  return items
+    .filter((item) => item && normalizeStage(item.stage) === "parcel" && item.qc !== "red")
+    .map((item) => ({
+      id: item.id,
+      title: item.title || "",
+      sizeLine: [item.size || "", item.order || ""].filter(Boolean).join(" · "),
+      answer: FIT_OPTIONS.includes(fits && fits[item.id]) ? fits[item.id] : null,
+      options: FIT_OPTIONS,
+    }));
+}
+
+/**
+ * Everything the tracking screen shows. One call, so the screen never does
+ * arithmetic of its own.
+ */
+export function trackingView({
+  items = [],
+  maths = null,
+  line = "EMS",
+  domesticUsd = DEFAULT_DOMESTIC_USD,
+  milestone = 0,
+  stamps = [],
+  fits = {},
+} = {}) {
+  const sums = maths || parcelMaths({ items });
+  const step = Math.min(RECEIVED_INDEX, Math.max(0, Math.round(num(milestone))));
+  const international = sums.costs && sums.costs[line] != null ? sums.costs[line] : 0;
+  return {
+    meta: trackMeta({ maths: sums, line }),
+    steps: milestoneRows(step, stamps),
+    received: step >= RECEIVED_INDEX,
+    fits: step >= RECEIVED_INDEX ? fitRows(items, fits) : [],
+    line,
+    goods: money(sums.goodsUsd),
+    domestic: money(domesticUsd),
+    international: money(international),
+    landed: money(landedTotal({ maths: sums, line, domesticUsd })),
+    landedNote: landedNote(step),
+    remainingNote: remainingNote(items),
+  };
+}

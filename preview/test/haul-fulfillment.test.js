@@ -9,7 +9,9 @@ import {
   COST_FLOOR_USD,
   DECLARED_THRESHOLD_USD,
   DEFAULT_PACKAGING_GRAMS,
+  FIT_OPTIONS,
   HAUL_STAGES,
+  MILESTONES,
   RED_REASONS,
   STAGE_LABELS,
   boardColumns,
@@ -18,7 +20,9 @@ import {
   defaultRates,
   earliestStorageDays,
   estimateDelta,
+  RECEIVED_INDEX,
   firstPendingQcItem,
+  fitRows,
   handoffLeftBehind,
   handoffMessage,
   handoffPackedRows,
@@ -28,6 +32,8 @@ import {
   itemCardMeta,
   itemDrawer,
   itemShipGrams,
+  landedNote,
+  milestoneRows,
   needsYouCount,
   landedTotal,
   normalizeStage,
@@ -37,6 +43,7 @@ import {
   pendingQcCount,
   qcProgress,
   qcQueue,
+  remainingNote,
   resetToShelf,
   returnMessage,
   sellerRecord,
@@ -45,6 +52,8 @@ import {
   stageCounts,
   storageLine,
   toHaulItem,
+  trackMeta,
+  trackingView,
   unorderedLinks,
 } from "../../haul-fulfillment.js";
 
@@ -1061,5 +1070,155 @@ describe("the hand-off screen", () => {
     expect(handoffView({ items, line: "EMS", declared: 40 }).instruction).toBe(
       handoffMessage({ items, line: "EMS", declared: 40 })
     );
+  });
+});
+
+// ── Tracking (README screens 10 and 11) ────────────────────────────────────
+describe("the tracking screen", () => {
+  it("offers exactly the four steps the README names, in order", () => {
+    expect(MILESTONES.map((entry) => entry.label)).toEqual([
+      "Submitted to the agent",
+      "Shipped",
+      "Cleared customs",
+      "Received",
+    ]);
+    expect(RECEIVED_INDEX).toBe(3);
+  });
+
+  it("marks every step up to the current one as done", () => {
+    const rows = milestoneRows(1, []);
+    expect(rows.map((row) => row.done)).toEqual([true, true, false, false]);
+    expect(rows.map((row) => row.current)).toEqual([false, true, false, false]);
+  });
+
+  it("lets a step be taken back, because a step marked early is a lie", () => {
+    expect(milestoneRows(3, []).map((row) => row.done)).toEqual([true, true, true, true]);
+    expect(milestoneRows(0, []).map((row) => row.done)).toEqual([true, false, false, false]);
+  });
+
+  it("clamps a milestone outside the four steps", () => {
+    expect(milestoneRows(9, []).map((row) => row.done)).toEqual([true, true, true, true]);
+    expect(milestoneRows(-4, []).map((row) => row.done)).toEqual([true, false, false, false]);
+  });
+
+  it("shows a short date only on a step the person has marked", () => {
+    const rows = milestoneRows(1, ["2026-07-31T00:00:00.000Z", "2026-08-01T00:00:00.000Z", null, null]);
+    expect(rows[0].when).toBeTruthy();
+    expect(rows[1].when).toBeTruthy();
+    expect(rows[2].when).toBe("");
+    expect(rows[3].when).toBe("");
+  });
+
+  it("survives a stamp that is not a date", () => {
+    expect(milestoneRows(1, ["not a date", null, null, null])[0].when).toBe("");
+  });
+
+  it("reads the parcel out in the mono meta line", () => {
+    const items = [
+      item({ id: 1, stage: "parcel", actual: 900, vol: 0 }),
+      item({ id: 2, stage: "parcel", actual: 900, vol: 0 }),
+    ];
+    const maths = parcelMaths({ items });
+    expect(trackMeta({ maths, line: "EMS" })).toBe(
+      "2 ITEMS · " + maths.billedKg.toFixed(1) + " KG · EMS"
+    );
+  });
+
+  it("says nothing about weight when the box is empty", () => {
+    expect(trackMeta({ maths: parcelMaths({ items: [] }), line: "ems" })).toBe("0 ITEMS · 0 KG · EMS");
+  });
+
+  it("keeps the landed number a projection until the box arrives", () => {
+    expect(landedNote(0)).toBe("Final once it clears customs. Duty is not in here.");
+    expect(landedNote(2)).toBe("Final once it clears customs. Duty is not in here.");
+  });
+
+  it("turns the landed number into the answer once the box arrives", () => {
+    expect(landedNote(3)).toBe("This is the number to quote when someone asks what the haul cost.");
+  });
+
+  it("never puts an em dash in a note the person reads", () => {
+    for (const step of [0, 3]) expect(landedNote(step)).not.toContain("—");
+    expect(remainingNote([])).not.toContain("—");
+  });
+
+  it("counts what stays at the warehouse while the parcel flies", () => {
+    const items = [
+      item({ id: 1, stage: "parcel" }),
+      item({ id: 2, stage: "warehouse", storage: 12 }),
+      item({ id: 3, stage: "qcd", storage: 40 }),
+    ];
+    expect(remainingNote(items)).toBe(
+      "2 items stay behind, oldest has 12 days of free storage left. They can go in parcel B."
+    );
+  });
+
+  it("uses the singular for one item left behind", () => {
+    const items = [item({ id: 1, stage: "parcel" }), item({ id: 2, stage: "qcd", storage: 5 })];
+    expect(remainingNote(items)).toContain("1 item stays behind");
+  });
+
+  it("says the haul is done when the box holds everything", () => {
+    expect(remainingNote([item({ id: 1, stage: "parcel" })])).toBe("Nothing left. This haul is done.");
+  });
+
+  it("drops the storage clock when no item left behind has one", () => {
+    const items = [item({ id: 1, stage: "parcel" }), item({ id: 2, stage: "qcd", storage: null })];
+    expect(remainingNote(items)).toBe("1 item stays behind. They can go in parcel B.");
+  });
+
+  it("asks one fit question per packed item", () => {
+    const items = [
+      item({ id: 1, stage: "parcel", title: "Cargo trousers", size: "Large", order: "SB-1" }),
+      item({ id: 2, stage: "warehouse" }),
+    ];
+    const rows = fitRows(items, {});
+    expect(rows).toHaveLength(1);
+    expect(rows[0].sizeLine).toBe("Large · SB-1");
+    expect(rows[0].answer).toBe(null);
+    expect(rows[0].options).toEqual(["tight", "right", "roomy"]);
+    expect(FIT_OPTIONS).toEqual(["tight", "right", "roomy"]);
+  });
+
+  it("never asks how a red-lit item fitted, because it went back", () => {
+    const items = [item({ id: 1, stage: "parcel", qc: "red", reason: "wrong-size" })];
+    expect(fitRows(items, {})).toHaveLength(0);
+  });
+
+  it("keeps a saved answer and ignores one it does not recognise", () => {
+    const items = [item({ id: 1, stage: "parcel" }), item({ id: 2, stage: "parcel" })];
+    const rows = fitRows(items, { 1: "roomy", 2: "enormous" });
+    expect(rows[0].answer).toBe("roomy");
+    expect(rows[1].answer).toBe(null);
+  });
+
+  it("hides the fit questions until the box arrives", () => {
+    const items = [item({ id: 1, stage: "parcel" })];
+    expect(trackingView({ items, milestone: 2 }).fits).toHaveLength(0);
+    expect(trackingView({ items, milestone: 2 }).received).toBe(false);
+    expect(trackingView({ items, milestone: 3 }).fits).toHaveLength(1);
+    expect(trackingView({ items, milestone: 3 }).received).toBe(true);
+  });
+
+  it("adds the goods, the domestic leg and the line into one landed number", () => {
+    const items = [
+      item({ id: 1, stage: "parcel", price: 42, actual: 500, vol: 0 }),
+      item({ id: 2, stage: "parcel", price: 58, actual: 500, vol: 0 }),
+    ];
+    const maths = parcelMaths({ items });
+    const view = trackingView({ items, maths, line: "EMS", domesticUsd: 18.4, milestone: 0 });
+    expect(view.goods).toBe("$100.00");
+    expect(view.domestic).toBe("$18.40");
+    expect(view.landed).toBe(
+      "$" + (100 + 18.4 + costOfLine(defaultRates().EMS, maths.billedKg)).toFixed(2)
+    );
+    expect(view.landed).toBe(
+      "$" + landedTotal({ maths, line: "EMS", domesticUsd: 18.4 }).toFixed(2)
+    );
+  });
+
+  it("works out its own numbers when the screen hands it none", () => {
+    const items = [item({ id: 1, stage: "parcel", price: 42, actual: 500, vol: 0 })];
+    expect(trackingView({ items }).goods).toBe("$42.00");
   });
 });

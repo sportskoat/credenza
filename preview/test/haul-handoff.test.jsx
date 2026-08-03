@@ -297,11 +297,14 @@ describe("the app opens the screen", () => {
   it("loads it only when a haul is open", () => {
     expect(APP).toContain('import("./components/HaulHandoff.jsx")');
     expect(APP).toContain("{handoffOpen && openHaulName && (");
-    expect(APP).toContain("onHandOff={() => setHandoffOpen(true)}");
+    expect(APP).toContain("else setHandoffOpen(true);");
   });
 
   it("marks the parcel submitted here only", () => {
-    expect(APP).toContain('patchHaulShip({ submitted: true, milestone: 0 }, "submitted")');
+    const i = APP.indexOf("submitted: true,");
+    expect(i).toBeGreaterThan(-1);
+    // Marking it sets the parcel to step one and stamps that step's date.
+    expect(APP.slice(i, i + 200)).toContain("milestone: 0,");
     expect(APP).toContain("You still have to press send on your agent's site.");
   });
 

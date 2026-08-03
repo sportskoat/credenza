@@ -319,10 +319,16 @@ export default function HaulFlowBoard({
           <button
             type="button"
             className="cz-hb-cta"
-            disabled={!maths.count}
+            disabled={!maths.count && !(ship && ship.submitted)}
             onClick={() => onHandOff && onHandOff()}
           >
-            {maths.count ? "Review & hand off · " + maths.count : "Nothing in the box yet"}
+            {/* Once the parcel is with the agent there is nothing left to hand
+                off. The only question is where it is (README, screen 12). */}
+            {ship && ship.submitted
+              ? "Track parcel A"
+              : maths.count
+                ? "Review & hand off · " + maths.count
+                : "Nothing in the box yet"}
           </button>
 
           {onAddParcel ? (

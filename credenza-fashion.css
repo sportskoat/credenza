@@ -22879,3 +22879,452 @@ input.cz-sizing-fix-size {
     font-size: 16px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   cz-ht — the tracking screen (haul handoff README, screens 10 and 11).
+
+   Where a haul sits longest. Nothing here polls a carrier, so every step is
+   the person's own hand marking what already happened.
+
+   Every step stays tappable in both directions. A step marked early is a lie
+   the app would otherwise make permanent.
+
+   Reaching "Received" opens the fit questions, which is the only place the app
+   asks how a size call turned out.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-ht {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--cz-bg);
+  overflow-y: auto;
+}
+
+.cz-ht::backdrop {
+  background: oklch(0 0 0 / 0.5);
+}
+
+.cz-ht-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 22px 28px 140px;
+}
+
+.cz-ht-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.cz-ht-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-back:hover {
+  color: var(--cz-ink);
+}
+
+.cz-ht-h1 {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.cz-ht-meta {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+}
+
+.cz-ht-lede {
+  margin: 0 0 26px;
+  max-width: 640px;
+  font-size: 13px;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-ht-cols {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.cz-ht-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cz-ht-right {
+  flex: 0 0 300px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cz-ht-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 18px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+}
+
+.cz-ht-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* The step rows sit tighter than the card gap, so they read as one list. */
+.cz-ht-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: -7px;
+  padding: 11px 10px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-step:hover,
+.cz-ht-step[data-current="true"] {
+  background: var(--cz-accent-bg);
+}
+
+.cz-ht-mark {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--cz-hair-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cz-action-text);
+}
+
+.cz-ht-mark[data-done="true"] {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+}
+
+.cz-ht-steplabel {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--cz-faint);
+}
+
+.cz-ht-steplabel[data-done="true"] {
+  color: var(--cz-ink);
+}
+
+.cz-ht-when {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--cz-faint);
+}
+
+.cz-ht-trackrow {
+  display: flex;
+  gap: 9px;
+  margin-top: 15px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-ht-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cz-ht-input:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 1px;
+}
+
+.cz-ht-track {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-track:hover {
+  border-color: var(--cz-ink);
+}
+
+/* No tracking number means nowhere to go. The link says so instead of opening
+   an empty search. */
+.cz-ht-track[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.cz-ht-fithead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-ht-fitsub {
+  font-size: 12px;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+.cz-ht-fitrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cz-ht-tile {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 42px;
+  border-radius: 7px;
+  background-color: var(--cz-ht-tint, var(--cz-strip-bg));
+  background-size: cover;
+  background-position: center;
+}
+
+.cz-ht-fittext {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cz-ht-fittitle {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cz-ht-fitsize {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cz-faint);
+}
+
+.cz-ht-chips {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 5px;
+}
+
+.cz-ht-chip {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-chip:hover {
+  border-color: var(--cz-ink);
+}
+
+.cz-ht-chip[data-active="true"] {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
+.cz-ht-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cz-bg-elevated) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+
+.cz-ht-sumrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.cz-ht-sumlabel {
+  font-size: 12px;
+  color: var(--cz-faint);
+}
+
+.cz-ht-sumvalue {
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cz-sub);
+}
+
+.cz-ht-rule {
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+.cz-ht-landlabel {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cz-ht-landvalue {
+  font-family: var(--cz-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+
+.cz-ht-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+.cz-ht-remain {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-ht-outline {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-outline:hover {
+  border-color: var(--cz-ink);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-ht-card,
+  .cz-ht-sum {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--cz-card-solid);
+  }
+}
+
+/* A finger is not a mouse pointer. Every control the person taps gets the
+   44px floor. */
+@media (pointer: coarse) {
+  .cz-ht-back,
+  .cz-ht-step,
+  .cz-ht-track,
+  .cz-ht-chip,
+  .cz-ht-outline {
+    min-height: 44px;
+  }
+}
+
+/* The right column is 300px of a 390px phone, so the two columns stack. The
+   tracking field goes to 16px, because iOS zooms the page into any field
+   below that. */
+@media (max-width: 767px) {
+  .cz-ht-page {
+    padding: 18px 16px 120px;
+  }
+
+  .cz-ht-head {
+    flex-wrap: wrap;
+  }
+
+  .cz-ht-cols {
+    flex-direction: column;
+  }
+
+  .cz-ht-right {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .cz-ht-input {
+    font-size: 16px;
+  }
+}

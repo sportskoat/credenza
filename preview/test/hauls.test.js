@@ -102,8 +102,24 @@ describe("migrateHaulShip", () => {
       declared: 45,
       submitted: true,
       milestone: 2,
+      // One slot per step, so a step taken back keeps the date it carried.
+      milestoneAt: [null, null, null, null],
       tracking: "LX123456789CN",
     });
+  });
+
+  it("keeps the date the person marked each step", () => {
+    const ship = migrateHaulShip({ milestone: 1, milestoneAt: ["2026-07-31", "2026-08-01"] });
+    expect(ship.milestoneAt).toEqual(["2026-07-31", "2026-08-01", null, null]);
+  });
+
+  it("throws away a step date that is not a date", () => {
+    expect(migrateHaulShip({ milestoneAt: [12, {}, null, "ok"] }).milestoneAt).toEqual([
+      null,
+      null,
+      null,
+      "ok",
+    ]);
   });
 
   it("falls back to the starting numbers when the panel is empty", () => {
