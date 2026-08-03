@@ -13,6 +13,7 @@ import {
   fetchDescImages,
   fetchYupooImages,
   isChartAuthRequired,
+  isChartCapReached,
   parseSizeChart,
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
@@ -98,6 +99,9 @@ async function tryCandidate(candidate, { signal, referer, shelfItems }) {
   if (signal && signal.aborted) return null;
   // FIX 0: stop the hunt on auth — more candidates will not help.
   if (isChartAuthRequired(chartText)) return { authRequired: true };
+  // FIX 2b: stop on daily cap — more candidates still burn nothing but the
+  // UI must not claim "no chart" for a spent allowance.
+  if (isChartCapReached(chartText)) return { capReached: true };
   const check = validateChartResult(chartText, parseSizeChart);
   if (!check.ok) return null;
 
@@ -193,6 +197,7 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     paid += 1;
     const hit = await tryCandidate(candidate, { signal, referer, shelfItems });
     if (hit && hit.authRequired) return { authRequired: true };
+    if (hit && hit.capReached) return { capReached: true };
     if (hit) return hit;
   }
   return null;

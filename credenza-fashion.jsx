@@ -60,7 +60,7 @@ import {
   deleteAccount as accountDeleteRequest,
   safeErrorMessage,
 } from "./preview/src/account.js";
-import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS } from "./preview/src/usage.js";
+import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS } from "./preview/src/usage.js";
 import { limitStatus, ANON_FREE_CARDS } from "./preview/src/limits.js";
 import { buildShareSnapshot, makeShareCode, expiryFromDays, shareUrl } from "./credenza-share.js";
 import { shareItemCard } from "./credenza-item-share.js";
@@ -4268,12 +4268,47 @@ export function requestChartSignIn() {
   noteSignInRequired();
 }
 
+// FIX 2b (2026-08-03): daily chart-read cap must not look like a bad photo.
+// Same sentinel pattern as FIX 0. Cap-skip never counts as a read.
+export const CHART_CAP_REACHED = Object.freeze({ capReached: true });
+export function isChartCapReached(result) {
+  return !!(result && typeof result === "object" && result.capReached === true);
+}
+// Free plan daily chart reads (must match PLAN_CAPS / server entitlements).
+export function chartCapLimitN(plan = planForLimits) {
+  if (plan && plan.lim && typeof plan.lim.chartVisionPerDay === "number") {
+    return plan.lim.chartVisionPerDay;
+  }
+  return PLAN_CAPS.free.chartVisionPerDay;
+}
+// Honest cap copy with the real N. Free signed-in → upgrade; otherwise sign in.
+export function chartCapCopy(plan = planForLimits) {
+  const n = chartCapLimitN(plan);
+  if (plan && plan.state === "free") {
+    return "You used today's " + n + " free chart reads. Upgrade for more.";
+  }
+  return "You used today's " + n + " free chart reads. Sign in for more.";
+}
+// True when the free signed-in plan is the one that hit the wall (upgrade CTA).
+export function chartCapWantsUpgrade(plan = planForLimits) {
+  return !!(plan && plan.state === "free");
+}
+// Limits sheet (same one the header pill opens) for the free-plan upgrade CTA.
+let limitsOpenHook = null;
+export function setLimitsOpenHook(fn) {
+  limitsOpenHook = typeof fn === "function" ? fn : null;
+}
+export function requestChartLimits() {
+  if (limitsOpenHook) limitsOpenHook();
+}
+
 // Ask the vision function to read a size chart out of album PHOTOS — the
 // common Yupoo case where the chart exists only as a picture (Kyle's "the
 // chart is right there in the photos" report, 2026-07-22). Returns chart text
-// in the same format parseSizeChart reads, CHART_AUTH_REQUIRED on 401/403, or
-// null when nothing was found. `referer` should be the album page URL: the
-// photo CDN rejects requests whose referer is not a yupoo album page.
+// in the same format parseSizeChart reads, CHART_AUTH_REQUIRED on 401/403,
+// CHART_CAP_REACHED on over-cap / 429, or null when nothing was found.
+// `referer` should be the album page URL: the photo CDN rejects requests
+// whose referer is not a yupoo album page.
 // One poster for both chart-vision inputs. `images` are CDN URLs the server
 // fetches through its allowlist; `photos` are inline base64 frames the customer
 // took or picked, which no allowlist can cover because a camera frame has no
@@ -4282,9 +4317,10 @@ export function requestChartSignIn() {
 async function postChartVision({ images, photos, signal, referer }) {
   if (!PREVIEW_SECRET) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
-  // Part 7e: a signed-in FREE user over the daily cap skips the cloud read;
-  // the card keeps whatever local intelligence found (same as offline).
-  if (overFreeLimit(planForLimits, "chartVision")) return null;
+  // Part 7e + FIX 2b: a signed-in FREE user over the daily cap skips the cloud
+  // read and returns a distinct sentinel — never null, so the UI never claims
+  // "could not read that photo" for a spent allowance. Cap-skip does not count.
+  if (overFreeLimit(planForLimits, "chartVision")) return CHART_CAP_REACHED;
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (signal) {
@@ -4321,6 +4357,8 @@ async function postChartVision({ images, photos, signal, referer }) {
         noteSignInRequired();
         return CHART_AUTH_REQUIRED;
       }
+      // FIX 2b: server daily cap (paid-gate 429) is not a bad photo.
+      if (res.status === 429) return CHART_CAP_REACHED;
       return null;
     }
     bumpUsage("chartVision");
@@ -5926,6 +5964,11 @@ function CredenzaApp() {
   //         they were not told about.
   // The sheet NEVER opens on its own — only on a tap or at a real wall.
   const [limitsOpen, setLimitsOpen] = useState(false);
+  // FIX 2b: chart cap UI opens this same sheet (free-plan upgrade CTA).
+  useEffect(() => {
+    setLimitsOpenHook(() => setLimitsOpen(true));
+    return () => setLimitsOpenHook(null);
+  }, []);
   // The daily counters live in localStorage, which never tells React that it
   // changed. Every spent read bumps this, and the pill re-reads.
   const [usageTick, setUsageTick] = useState(0);
