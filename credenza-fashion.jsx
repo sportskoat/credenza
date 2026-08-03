@@ -27,6 +27,7 @@ import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES, normalizeFindStatus } from "./credenza-find-status.js";
 import { downloadHaulCsv } from "./credenza-haul-export.js";
+import { RED_REASONS, normalizeStage, normalizeVerdict } from "./haul-fulfillment.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
   extractWeightGramsFromText,
@@ -3682,6 +3683,17 @@ function createItem(parsed, rawText, extra) {
     qcPhotos: [],
     qcNote: "",
     qcVerdictAt: null,
+    // Haul fulfillment (design/handoffs/haul). These live inside an open haul,
+    // on items already bought. They are not findStatus, which answers one
+    // question on the shelf: did you buy it, or not?
+    haulStage: "toOrder",
+    haulVerdict: null,
+    haulReason: null,
+    haulActualGrams: null,
+    haulVolumeCm3: null,
+    haulStorageDays: null,
+    haulOrderNo: "",
+    haulStageAt: null,
     posterStats: null,
     posterUser: "",
     sourceText: "",
@@ -3711,6 +3723,12 @@ function migrateLinks(old, primaryUrl, rawText) {
 // Upgrades any stored shape (v2 or earlier v3) to the current model. In localOnly
 // mode nothing may sit in "raw" / "enriching" / "failed" — local enrichment makes
 // every item usable immediately.
+// A weighed or measured number a person typed. Zero and below mean "not known
+// yet", so they read back as null rather than as a real measurement.
+function positiveGramsOrNull(value) {
+  return typeof value === "number" && isFinite(value) && value > 0 ? Math.round(value) : null;
+}
+
 export function migrateItem(old) {
   const createdAt = old.createdAt || old.ts || Date.now();
   const rawText = old.rawText != null ? old.rawText : old.text != null ? old.text : old.url || old.title || "";
@@ -3876,6 +3894,22 @@ export function migrateItem(old) {
       : [],
     qcNote: typeof old.qcNote === "string" ? old.qcNote : "",
     qcVerdictAt: typeof old.qcVerdictAt === "string" ? old.qcVerdictAt : null,
+    // Haul fulfillment. The person's hand marking is the only record that
+    // exists, so every one of these has to survive a reload. An item saved
+    // before this feature reads as "not bought yet", which is the truth.
+    haulStage: normalizeStage(old.haulStage),
+    haulVerdict: normalizeVerdict(old.haulVerdict),
+    haulReason: RED_REASONS.some((r) => r.key === old.haulReason) ? old.haulReason : null,
+    haulActualGrams: positiveGramsOrNull(old.haulActualGrams),
+    haulVolumeCm3: positiveGramsOrNull(old.haulVolumeCm3),
+    haulStorageDays:
+      typeof old.haulStorageDays === "number" &&
+      isFinite(old.haulStorageDays) &&
+      old.haulStorageDays >= 0
+        ? Math.round(old.haulStorageDays)
+        : null,
+    haulOrderNo: typeof old.haulOrderNo === "string" ? old.haulOrderNo.slice(0, 64) : "",
+    haulStageAt: typeof old.haulStageAt === "string" ? old.haulStageAt : null,
     // A1 poster data (audit 2026-07-24): the Reddit poster's body stats drive
     // the size decision, and the original paste lets a later parser reparse
     // the haul. Both used to vanish on reload.

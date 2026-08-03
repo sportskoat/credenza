@@ -189,3 +189,81 @@ describe("migrateItem maximal round-trip (plan §11)", () => {
     });
   }
 });
+
+// The haul fulfillment fields (haul handoff README, "State").
+//
+// README: "Three things must survive a reload: item stages (the user's manual
+// marking is the only record that exists), the edited rate table, and parcel
+// submission/milestone state." This covers the first one. Nothing else in the
+// app knows an item reached the warehouse, so a dropped field loses real work.
+describe("migrateItem haul fulfillment fields", () => {
+  const base = {
+    id: "h1",
+    createdAt: 100,
+    rawText: "https://weidian.com/item.html?itemID=1",
+    url: "https://weidian.com/item.html?itemID=1",
+    title: "Cargo trousers",
+  };
+
+  it("keeps every hand-marked haul field across a reload", () => {
+    const migrated = migrateItem({
+      ...base,
+      haulStage: "qcd",
+      haulVerdict: "red",
+      haulReason: "stitching",
+      haulActualGrams: 512,
+      haulVolumeCm3: 3000,
+      haulStorageDays: 61,
+      haulOrderNo: "SB-8827101",
+      haulStageAt: "2026-08-02T00:00:00.000Z",
+    });
+    expect(migrated.haulStage).toBe("qcd");
+    expect(migrated.haulVerdict).toBe("red");
+    expect(migrated.haulReason).toBe("stitching");
+    expect(migrated.haulActualGrams).toBe(512);
+    expect(migrated.haulVolumeCm3).toBe(3000);
+    expect(migrated.haulStorageDays).toBe(61);
+    expect(migrated.haulOrderNo).toBe("SB-8827101");
+    expect(migrated.haulStageAt).toBe("2026-08-02T00:00:00.000Z");
+  });
+
+  it("reads an item saved before this feature as not bought yet", () => {
+    const migrated = migrateItem(base);
+    expect(migrated.haulStage).toBe("toOrder");
+    expect(migrated.haulVerdict).toBeNull();
+    expect(migrated.haulReason).toBeNull();
+    expect(migrated.haulActualGrams).toBeNull();
+    expect(migrated.haulOrderNo).toBe("");
+  });
+
+  it("refuses a stage, a verdict or a reason it does not recognise", () => {
+    // The seven-stage findStatus pipeline is gone. One of its old values must
+    // not sneak back in through a hand-edited backup.
+    const migrated = migrateItem({
+      ...base,
+      haulStage: "shipped",
+      haulVerdict: "amber",
+      haulReason: "smells odd",
+    });
+    expect(migrated.haulStage).toBe("toOrder");
+    expect(migrated.haulVerdict).toBeNull();
+    expect(migrated.haulReason).toBeNull();
+  });
+
+  it("treats a zero or negative weight as not weighed yet", () => {
+    expect(migrateItem({ ...base, haulActualGrams: 0 }).haulActualGrams).toBeNull();
+    expect(migrateItem({ ...base, haulActualGrams: -5 }).haulActualGrams).toBeNull();
+    expect(migrateItem({ ...base, haulActualGrams: "512" }).haulActualGrams).toBeNull();
+  });
+
+  it("keeps a storage clock that has run out", () => {
+    // Zero days left is a real, urgent state. It is not a missing value.
+    expect(migrateItem({ ...base, haulStorageDays: 0 }).haulStorageDays).toBe(0);
+    expect(migrateItem({ ...base, haulStorageDays: -1 }).haulStorageDays).toBeNull();
+  });
+
+  it("caps a very long order number", () => {
+    const migrated = migrateItem({ ...base, haulOrderNo: "S".repeat(200) });
+    expect(migrated.haulOrderNo).toHaveLength(64);
+  });
+});
