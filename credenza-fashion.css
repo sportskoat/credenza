@@ -9678,6 +9678,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
   text-decoration: none;
 }
+/* The README draws the cm/in chips at 32px, but its Definition of Done asks
+   for 44px on a finger. Keep the 32px look; grow the hit area on touch. */
+@media (pointer: coarse) {
+  .cz-first-size-unit-btn,
+  .cz-first-size-link,
+  .cz-first-size-back,
+  .cz-first-size-skip {
+    position: relative;
+  }
+  .cz-first-size-unit-btn::after,
+  .cz-first-size-link::after,
+  .cz-first-size-back::after,
+  .cz-first-size-skip::after {
+    content: "";
+    position: absolute;
+    inset: 50% 0 auto 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}
 .cz-first-size-error,
 .cz-first-size-warn {
   font-size: 12.5px;
