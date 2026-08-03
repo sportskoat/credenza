@@ -41,6 +41,14 @@
   to = "/index.html"
   status = 200
 
+# Pro deep link (sign-in handoff 2026-08-02). /upgrade is an app entrance too:
+# a person can send the address to someone else, and sign-in sends them back
+# to it. Same rule as /settings — serve the app, let the boot effect open Pro.
+[[redirects]]
+  from = "/upgrade"
+  to = "/index.html"
+  status = 200
+
 # Discovery files
 [[headers]]
   for = "/sitemap.xml"

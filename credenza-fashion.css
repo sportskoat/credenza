@@ -20666,3 +20666,430 @@ input.cz-sizing-fix-size {
     min-height: 44px;
   }
 }
+
+/* ── Upgrade route (sign-in handoff 2026-08-02, README screen 3) ───────────
+   Pro's own address, not a settings pane. A native <dialog> for the same
+   reason the settings page is one: it has to paint above an open card, which
+   is also a dialog, and the browser gives a top layer no z-index can beat.
+
+   The measurements below are the README's own. Credenza does not ride a 4px
+   grid: 9, 13, 14, 22, 26, 44 and 50 are all deliberate. Do not round them. */
+.cz-upgrade {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: var(--cz-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+}
+
+.cz-upgrade:focus,
+.cz-upgrade:focus-visible {
+  outline: none;
+}
+
+.cz-upgrade::backdrop {
+  background: oklch(0.16 0.01 260 / 0.5);
+}
+
+/* The bar sits above the ambient background, which paints at z-index 0. */
+.cz-upgrade-bar,
+.cz-upgrade-scroll {
+  position: relative;
+  z-index: 1;
+}
+
+.cz-upgrade-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+  box-sizing: border-box;
+  padding: calc(15px + env(safe-area-inset-top, 0px)) 24px 15px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-upgrade-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-upgrade-back:hover {
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--cz-hair);
+}
+
+/* The wordmark is the only thing set at 0.16em. A heading at this tracking
+   would read as a second logo, because both are Clash. */
+.cz-upgrade-wordmark {
+  font-family: var(--cz-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-bar-title {
+  font-size: 13px;
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-standing {
+  margin-left: auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cz-upgrade-body {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  box-sizing: border-box;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 44px 50px calc(50px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Hero ── */
+.cz-upgrade-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.cz-upgrade-kicker {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+}
+
+.cz-upgrade-head {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.038em;
+  line-height: 1.06;
+  color: var(--cz-ink);
+  text-wrap: balance;
+}
+
+.cz-upgrade-lede {
+  max-width: 520px;
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-upgrade-period {
+  width: 340px;
+  max-width: 100%;
+  margin-top: 8px;
+}
+
+/* ── Plan cards ── */
+.cz-upgrade-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.cz-upgrade-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+}
+
+/* The spacer pushes the button and the footnote onto one shared baseline, so
+   the two cards end level however long the free body runs. */
+.cz-upgrade-spacer {
+  flex: 1;
+}
+
+.cz-upgrade-plan.is-pro {
+  border-color: var(--cz-hair-strong);
+  box-shadow: 0 6px 24px oklch(0 0 0 / 0.45);
+}
+
+.cz-upgrade-plan-flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-flag-money {
+  color: var(--cz-money);
+}
+
+.cz-upgrade-tag {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.cz-upgrade-tag.is-money {
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+}
+
+.cz-upgrade-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.cz-upgrade-amount {
+  font-family: var(--cz-display);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.038em;
+  line-height: 1;
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-unit {
+  font-size: 14px;
+  color: var(--cz-sub);
+}
+
+.cz-upgrade-plan-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-upgrade-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-money);
+}
+
+.cz-upgrade-foot {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+}
+
+/* ── What changes ── */
+.cz-upgrade-table {
+  padding: 22px 24px 8px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+}
+
+.cz-upgrade-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-upgrade-row:last-child {
+  border-bottom: 0;
+}
+
+.cz-upgrade-row-kicker {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+}
+
+.cz-upgrade-row-what {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-upgrade-row-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-row-note {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-col-free,
+.cz-upgrade-col-pro {
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  text-align: right;
+}
+
+.cz-upgrade-col-free {
+  color: var(--cz-sub);
+}
+
+.cz-upgrade-col-pro {
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-row.is-head .cz-upgrade-col-free,
+.cz-upgrade-row.is-head .cz-upgrade-col-pro {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cz-upgrade-row.is-head .cz-upgrade-col-free {
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-closing {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+}
+
+/* ── Reassurance ── */
+.cz-upgrade-reassure {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.cz-upgrade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 22px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+}
+
+.cz-upgrade-card-head {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-card-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* A phone stacks the cards and drops the sub-notes. The table keeps all three
+   columns: two of them are the whole point of the table. */
+@media (max-width: 767px) {
+  .cz-upgrade-bar {
+    gap: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .cz-upgrade-bar-title,
+  .cz-upgrade-divider {
+    display: none;
+  }
+
+  .cz-upgrade-body {
+    gap: 26px;
+    padding: 26px 18px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .cz-upgrade-head {
+    font-size: 28px;
+  }
+
+  .cz-upgrade-plans,
+  .cz-upgrade-reassure {
+    grid-template-columns: 1fr;
+  }
+
+  .cz-upgrade-row {
+    grid-template-columns: 1fr 76px 76px;
+    gap: 10px;
+  }
+
+  .cz-upgrade-row-note {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-upgrade .cz-pill,
+  .cz-upgrade .cz-segment-btn {
+    min-height: 44px;
+  }
+}

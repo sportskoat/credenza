@@ -91,6 +91,9 @@ const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
 // at a wall, never on the first paint.
 const LimitsSheet = lazy(() => import("./sheets/LimitsSheet.jsx"));
 const SignInModal = lazy(() => import("./sheets/SignInModal.jsx"));
+// Pro's own address (sign-in handoff 2026-08-02, README screen 3). Lazy: most
+// visits never reach it, and the table it carries is nine rows of text.
+const UpgradePage = lazy(() => import("./components/UpgradePage.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -5950,6 +5953,20 @@ function CredenzaApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // /upgrade is a real address too (sign-in handoff, screen 3). A visit that
+  // lands here opens Pro straight away and keeps the address. netlify.toml
+  // rewrites the path to index.html, the same way it does for /settings.
+  useEffect(() => {
+    if (!/^\/upgrade\/?$/.test(window.location.pathname)) return;
+    setUpgradeView({ period: "weekly" });
+    upgradeBootRef.current = true;
+    upgradeSeqRef.current = 1;
+    try {
+      window.history.replaceState({ czUpgrade: true, seq: 1 }, "", "/upgrade");
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const accountSendMagicLink = async (email) => {
     await sendMagicLink(email);
   };
@@ -6141,6 +6158,47 @@ function CredenzaApp() {
   const openSignIn = useCallback((intent) => {
     setSignInIntent(intent || { kind: "shelf", returnTo: "/" });
   }, []);
+  // ── The upgrade route (sign-in handoff README, screen 3) ──────────────────
+  //
+  // Pro gets a real address, so a person can send it to someone else and come
+  // back to it after signing in. There is no router in this app: the address
+  // bar is driven by pushState and read back by the popstate listener below,
+  // exactly the way /settings is.
+  //
+  // null = closed. An object = open, carrying the billing period, so a round
+  // trip through the mail app comes back with the same period chosen.
+  const [upgradeView, setUpgradeView] = useState(null);
+  const upgradeSeqRef = useRef(0);
+  const upgradeBootRef = useRef(false);
+  const openUpgrade = useCallback((period) => {
+    setUpgradeView((prev) => {
+      const seq = (prev ? upgradeSeqRef.current : 0) + 1;
+      upgradeSeqRef.current = seq;
+      try {
+        window.history.pushState({ czUpgrade: true, seq }, "", "/upgrade");
+      } catch {}
+      return { period: period || "weekly" };
+    });
+  }, []);
+  const closeUpgrade = useCallback(() => {
+    const seq = upgradeSeqRef.current;
+    const booted = upgradeBootRef.current;
+    upgradeSeqRef.current = 0;
+    upgradeBootRef.current = false;
+    // One click out, the same rule the settings page follows. A visit that
+    // LANDED on /upgrade owns no earlier entry, so going back would leave the
+    // app; that visit rewrites the address instead.
+    if (!booted && seq > 0 && window.history.length > seq) {
+      try {
+        window.history.go(-seq);
+        return;
+      } catch {}
+    }
+    setUpgradeView(null);
+    try {
+      window.history.replaceState(null, "", "/");
+    } catch {}
+  }, []);
   // Rule 3, the other half: the first paste by a signed-out visitor says how
   // many free cards there are. Once per device — a line repeated on every
   // paste is nagging, and nagging drives visitors away.
@@ -6171,6 +6229,20 @@ function CredenzaApp() {
   };
   useEffect(() => {
     const onPop = () => {
+      // /upgrade shares this one listener. Two listeners on popstate would
+      // both fire on every step and fight over which surface is open.
+      if (/^\/upgrade\/?$/.test(window.location.pathname)) {
+        const st = window.history.state;
+        upgradeSeqRef.current = st && st.seq ? st.seq : 1;
+        setUpgradeView((prev) => prev || { period: "weekly" });
+        settingsSeqRef.current = 0;
+        settingsBootRef.current = false;
+        setSettingsView(null);
+        return;
+      }
+      upgradeSeqRef.current = 0;
+      upgradeBootRef.current = false;
+      setUpgradeView(null);
       const m = /^\/settings(?:\/([a-z]+))?\/?$/.exec(window.location.pathname);
       if (!m) {
         settingsSeqRef.current = 0;
@@ -9856,11 +9928,8 @@ function CredenzaApp() {
             }}
             onUpgrade={() => {
               setLimitsOpen(false);
-              // TEMPORARY LANDING. The README routes this to /upgrade, which
-              // is screen 3 of this handoff and is not built yet. Until it
-              // lands, Pro keeps its current home in Settings, so the button
-              // still answers the question it asks.
-              navigateSettings("account");
+              // Pro is a different question, so it gets a different address.
+              openUpgrade();
             }}
             onClose={() => setLimitsOpen(false)}
           />
@@ -9873,6 +9942,32 @@ function CredenzaApp() {
       {signInIntent && (
         <Suspense fallback={null}>
           <SignInModal intent={signInIntent} onClose={() => setSignInIntent(null)} />
+        </Suspense>
+      )}
+
+      {upgradeView && (
+        <Suspense fallback={null}>
+          <UpgradePage
+            signedIn={signedInAccount}
+            isPro={isProPlan}
+            period={upgradeView.period}
+            onStart={(period) => {
+              // Signed out, the button cannot charge anyone. It opens the
+              // sign-in window and records the period, so the trip through
+              // the mail app comes back here with the same plan chosen.
+              if (!signedInAccount) {
+                openSignIn({
+                  kind: "upgrade",
+                  returnTo: "/upgrade",
+                  payload: { period },
+                });
+                return;
+              }
+              // Stripe owns the card number. Credenza never sees one.
+              return accountUpgrade(period);
+            }}
+            onClose={closeUpgrade}
+          />
         </Suspense>
       )}
 
