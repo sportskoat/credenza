@@ -23344,6 +23344,46 @@ input.cz-sizing-fix-size {
   color: var(--cz-faint);
 }
 
+/* Kyle 2026-08-02: "for tracking, can we animate when we get shipment?"
+   A rail runs behind the four marks. Its fill grows to the last ticked step,
+   so a tick reads as progress along a route and not as a checkbox. */
+/* The gap repeats the card's own 11px, so wrapping the rows changes no
+   spacing. The rows still pull themselves 7px closer with their own margin. */
+.cz-ht-steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+/* The rail joins the middle of the first mark to the middle of the last one.
+   A row is 40px tall (11 + 18 + 11), so the first middle is 20px down. The
+   last row pulls the block 7px up, so the last middle is 13px from the
+   bottom. The mark is 18px wide inside 10px of padding, so its middle is 19px
+   across and a 2px rail starts at 18px. */
+.cz-ht-rail {
+  position: absolute;
+  top: 20px;
+  bottom: 13px;
+  left: 18px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--cz-hair-strong);
+  overflow: hidden;
+}
+
+/* This animates a height on purpose. The rail above it is absolutely
+   positioned and clips its own overflow, so the fill is 2px wide and has no
+   sibling and no text to push. A transform would scale the rounded ends. */
+.cz-ht-fill {
+  display: block;
+  width: 100%;
+  height: var(--fill, 0%);
+  border-radius: inherit;
+  background: var(--cz-action-fill);
+  transition: height var(--dur-open) var(--ease-out);
+}
+
 /* The step rows sit tighter than the card gap, so they read as one list. */
 .cz-ht-step {
   display: flex;
@@ -23637,6 +23677,14 @@ input.cz-sizing-fix-size {
   .cz-ht-chip,
   .cz-ht-outline {
     min-height: 44px;
+  }
+
+  /* A taller row moves the marks the rail joins. The row is 44px now, so the
+     first middle is 22px down. The last row still pulls the block 7px up, so
+     the last middle is 15px from the bottom. */
+  .cz-ht-rail {
+    top: 22px;
+    bottom: 15px;
   }
 }
 

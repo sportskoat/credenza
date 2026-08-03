@@ -270,6 +270,58 @@ describe("the tracking screen's styling", () => {
   });
 });
 
+// Design review 2 · change 9.
+// Kyle 2026-08-02: "for tracking, can we animate when we get shipment? can it
+// pull the API for updates?" It animates. It pulls nothing.
+describe("the tracking rail", () => {
+  it("draws one rail behind the four steps", () => {
+    draw();
+    expect(document.querySelectorAll(".cz-ht-rail").length).toBe(1);
+    expect(document.querySelector(".cz-ht-fill")).toBeTruthy();
+  });
+
+  it("hides the rail from a screen reader, because the marks already say it", () => {
+    draw();
+    expect(document.querySelector(".cz-ht-rail").getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("leaves the rail empty while only the first step is ticked", () => {
+    draw({ milestone: 0 });
+    expect(document.querySelector(".cz-ht-fill").getAttribute("style")).toContain("0%");
+  });
+
+  it("grows the fill to the step the parcel has reached", () => {
+    // Four steps, three gaps. Two ticked means one gap of three.
+    draw({ milestone: 1 });
+    expect(document.querySelector(".cz-ht-fill").getAttribute("style")).toContain("33%");
+  });
+
+  it("fills the whole rail once the box arrives", () => {
+    draw({ milestone: 3 });
+    expect(document.querySelector(".cz-ht-fill").getAttribute("style")).toContain("100%");
+  });
+
+  it("moves the fill with a named duration, never a bare number", () => {
+    const body = ruleBody(".cz-ht-fill");
+    expect(body).toMatch(/transition:\s*height var\(--dur-open\) var\(--ease-out\)/);
+    expect(body).not.toMatch(/\b\d+ms/);
+  });
+
+  it("lets the fill jump for a person who asks for less motion", () => {
+    // credenza.css:529-536 already kills every transition for that person.
+    // The rail must add no rule of its own that outranks it.
+    const body = ruleBody(".cz-ht-fill");
+    expect(body).not.toMatch(/!important/);
+  });
+
+  it("still promises that nothing polls the agent", () => {
+    draw({ milestone: 3 });
+    expect(
+      screen.getByText("Tap each step as it happens. Nothing here polls your agent.")
+    ).toBeTruthy();
+  });
+});
+
 describe("the tracking screen inside the app", () => {
   it("loads only when the parcel is on the way", () => {
     expect(APP).toMatch(/lazy\(\(\) => import\("\.\/components\/HaulTracking\.jsx"\)\)/);

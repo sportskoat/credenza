@@ -52,6 +52,16 @@ export default function HaulTracking({
     [items, maths, line, domesticUsd, milestone, stamps, fits]
   );
 
+  // Kyle 2026-08-02: "for tracking, can we animate when we get shipment? can
+  // it pull the API for updates?" It animates. It pulls nothing. The rail
+  // behind the marks fills from the first step to the last ticked one, so a
+  // tick reads as progress and not as a checkbox.
+  const doneCount = view.steps.filter((step) => step.done).length;
+  const railPct =
+    view.steps.length > 1
+      ? Math.max(0, Math.round(((doneCount - 1) / (view.steps.length - 1)) * 100))
+      : 0;
+
   const dialogRef = useRef(null);
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -94,24 +104,31 @@ export default function HaulTracking({
         <div className="cz-ht-cols">
           <div className="cz-ht-left">
             <div className="cz-ht-card">
-              {view.steps.map((step, i) => (
-                <button
-                  type="button"
-                  className="cz-ht-step"
-                  data-current={step.current ? "true" : "false"}
-                  key={step.key}
-                  aria-pressed={step.done}
-                  onClick={() => onPickStep && onPickStep(i)}
-                >
-                  <span className="cz-ht-mark" data-done={step.done ? "true" : "false"}>
-                    {step.done ? <Check aria-hidden="true" size={11} strokeWidth={2.2} /> : null}
-                  </span>
-                  <span className="cz-ht-steplabel" data-done={step.done ? "true" : "false"}>
-                    {step.label}
-                  </span>
-                  <span className="cz-ht-when">{step.when}</span>
-                </button>
-              ))}
+              {/* The rail is decoration. It repeats what the marks already
+                  say, so a screen reader must not read it twice. */}
+              <div className="cz-ht-steps">
+                <span className="cz-ht-rail" aria-hidden="true">
+                  <span className="cz-ht-fill" style={{ "--fill": railPct + "%" }} />
+                </span>
+                {view.steps.map((step, i) => (
+                  <button
+                    type="button"
+                    className="cz-ht-step"
+                    data-current={step.current ? "true" : "false"}
+                    key={step.key}
+                    aria-pressed={step.done}
+                    onClick={() => onPickStep && onPickStep(i)}
+                  >
+                    <span className="cz-ht-mark" data-done={step.done ? "true" : "false"}>
+                      {step.done ? <Check aria-hidden="true" size={11} strokeWidth={2.2} /> : null}
+                    </span>
+                    <span className="cz-ht-steplabel" data-done={step.done ? "true" : "false"}>
+                      {step.label}
+                    </span>
+                    <span className="cz-ht-when">{step.when}</span>
+                  </button>
+                ))}
+              </div>
 
               <div className="cz-ht-trackrow">
                 <input
