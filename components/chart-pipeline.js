@@ -81,8 +81,32 @@ function simpleHash(s) {
  */
 
 /**
+ * Width/height from candidate fields, or from a Weidian-style CDN path
+ * ending in `_WIDTH_HEIGHT` before the extension (e.g. …_1338_1279.jpg).
+ * Shape may rank candidates; it must never exclude them from the pool.
+ * @param {ChartCandidate|null|undefined} candidate
+ * @returns {{ width: number, height: number } | null}
+ */
+export function dimsFromCandidate(candidate) {
+  const fieldW = Number(candidate && candidate.width) || 0;
+  const fieldH = Number(candidate && candidate.height) || 0;
+  if (fieldW > 0 && fieldH > 0) return { width: fieldW, height: fieldH };
+
+  const raw = String((candidate && candidate.url) || "");
+  if (!raw) return null;
+  const path = raw.split("?")[0];
+  const m = /_(\d{2,5})_(\d{2,5})(?:\.[a-z0-9]+)?$/i.exec(path);
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!w || !h) return null;
+  return { width: w, height: h };
+}
+
+/**
  * Score one candidate without any paid model call.
  * Higher is better. Negative means reject.
+ * Shape only ranks — never drops a candidate for being near-square.
  * @param {ChartCandidate} candidate
  * @returns {number}
  */
@@ -107,14 +131,23 @@ export function scoreChartCandidate(candidate) {
   else if (candidate.via === "album-photos") score += 10;
   else if (candidate.via === "gallery-photos") score += 5;
 
-  const w = Number(candidate.width) || 0;
-  const h = Number(candidate.height) || 0;
-  if (w > 0 && h > 0) {
-    const aspect = Math.max(w / h, h / w);
-    // Table screenshots are often wide or near-square, not tall product shots.
-    // Near-square (750×625) still scores — do not require a wide aspect.
-    if (aspect >= 1.05 && aspect <= 2.8) score += 20;
-    else if (aspect > 3.2) score -= 15; // banner strip
+  const dims = dimsFromCandidate(candidate);
+  if (dims) {
+    const { width: w, height: h } = dims;
+    // Use w/h (not max aspect) so exact product squares stay unboosted
+    // while mildly landscape padded tables (common seller charts) rise.
+    const wh = w / h;
+    const aspect = Math.max(wh, h / w);
+
+    // Padded-square band: w/h 1.02–1.35. Pin edges so 1.000 / 1.006 product
+    // shots never swallow the chart at 1.046 (weidian 7503676779 fixture).
+    if (wh >= 1.02 && wh <= 1.35) score += 20;
+    // Classic landscape tables — wider than padded-square, not a banner.
+    else if (wh > 1.35 && wh <= 2.2) score += 20;
+    // Banner / contact strip (WhatsApp CS cards often ~2.3+). Demote so they
+    // do not burn a paid read slot ahead of real tables.
+    if (aspect > 2.2) score -= 25;
+
     const edge = Math.max(w, h);
     // Small edge vs typical product shots (often 1500–2000px) is the main
     // chart signal when the filename is random CDN noise.
