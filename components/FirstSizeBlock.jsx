@@ -28,6 +28,7 @@ import {
   sitLabel,
 } from "./first-size.js";
 import { compactSizeToken, formatMeasure, formatSizeToken } from "../credenza-fashion.jsx";
+import FitLadder from "./FitLadder.jsx";
 
 /** README copy deck, verbatim. Exported so tests pin the strings. */
 export const FIRST_SIZE_COPY = {
@@ -114,6 +115,8 @@ export function firstSizeChipRun(sizeRun) {
  * @param {object} props.item
  * @param {object|null} props.chart - parsed size chart when available
  * @param {string[]} [props.sizeRun] - this listing's own size run, for the A1 chips
+ * @param {object|null} [props.bodyProfile] - saved measures, for the A5 ladder
+ * @param {object|null} [props.fitPref] - saved fit preference, for the A5 ladder
  * @param {"cm"|"in"} props.units
  * @param {(patch: object) => void} props.onSaveBodyProfile
  * @param {(category: string, pref: object) => void} [props.onSaveFitPref]
@@ -124,6 +127,8 @@ export default function FirstSizeBlock({
   item,
   chart,
   sizeRun,
+  bodyProfile,
+  fitPref,
   units: unitsProp = "cm",
   onSaveBodyProfile,
   onSaveFitPref,
@@ -483,76 +488,88 @@ export default function FirstSizeBlock({
   // ── A5 entry · the tape field, reached from the A1 link or the A3 provenance ──
   const fieldLabel = bottoms ? "Waist, at your natural waist" : "Chest, pit to pit, doubled";
   return (
-    <form className="cz-first-size" aria-label="Your size" onSubmit={saveMeasure}>
-      <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.ladderHeadline}</h3>
-      <p className="cz-first-size-copy">
-        {bottoms
-          ? "Type your waist. We save it for every bottoms card."
-          : "Lay a tee that fits you flat. Measure armpit to armpit, double it. That is chest."}
-      </p>
-      <div className="cz-first-size-unit" role="group" aria-label="Units">
-        <button
-          type="button"
-          className={"cz-first-size-unit-btn" + (units === "cm" ? " is-on" : "")}
-          onClick={() => setUnits("cm")}
-        >
-          cm
-        </button>
-        <button
-          type="button"
-          className={"cz-first-size-unit-btn" + (units === "in" ? " is-on" : "")}
-          onClick={() => setUnits("in")}
-        >
-          in
-        </button>
-      </div>
-      <label className="cz-first-size-field">
-        <span className="cz-first-size-field-label">{fieldLabel}</span>
-        <span className="cz-first-size-field-control">
-          <input
-            inputMode="decimal"
-            value={measureDraft}
-            onChange={(e) => {
-              setMeasureDraft(e.target.value.replace(/[^\d.]/g, ""));
+    <>
+      <FitLadder
+        profile={bodyProfile}
+        fitPref={fitPref}
+        category={category}
+        units={units}
+      />
+      <form
+        className="cz-first-size cz-first-size-ladder"
+        aria-label="Your size"
+        onSubmit={saveMeasure}
+      >
+        <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.ladderHeadline}</h3>
+        <p className="cz-first-size-copy">
+          {bottoms
+            ? "Type your waist. We save it for every bottoms card."
+            : "Lay a tee that fits you flat. Measure armpit to armpit, double it. That is chest."}
+        </p>
+        <label className="cz-first-size-field">
+          <span className="cz-first-size-field-label">{fieldLabel}</span>
+          <span className="cz-first-size-field-control">
+            <input
+              inputMode="decimal"
+              value={measureDraft}
+              onChange={(e) => {
+                setMeasureDraft(e.target.value.replace(/[^\d.]/g, ""));
+                setError("");
+              }}
+              placeholder={units === "in" ? (bottoms ? "32" : "21") : bottoms ? "84" : "54"}
+              aria-label={fieldLabel + " in " + units}
+            />
+            <span aria-hidden="true">{units}</span>
+          </span>
+        </label>
+        <div className="cz-first-size-unit-row">
+          <div className="cz-first-size-unit" role="group" aria-label="Units">
+            <button
+              type="button"
+              className={"cz-first-size-unit-btn" + (units === "cm" ? " is-on" : "")}
+              onClick={() => setUnits("cm")}
+            >
+              cm
+            </button>
+            <button
+              type="button"
+              className={"cz-first-size-unit-btn" + (units === "in" ? " is-on" : "")}
+              onClick={() => setUnits("in")}
+            >
+              in
+            </button>
+          </div>
+          <button
+            type="button"
+            className="cz-first-size-link"
+            onClick={() => {
+              if (onOpenMeasureHelp) onOpenMeasureHelp();
+            }}
+          >
+            Show me how
+          </button>
+        </div>
+        {error ? <p className="cz-first-size-error">{error}</p> : null}
+        <div className="cz-first-size-actions">
+          <button type="submit" className="cz-first-size-primary">
+            Save and re-score my cards
+          </button>
+          <button
+            type="button"
+            className="cz-first-size-back"
+            onClick={() => {
+              setStep("ask1");
               setError("");
             }}
-            placeholder={units === "in" ? (bottoms ? "32" : "21") : bottoms ? "84" : "54"}
-            aria-label={fieldLabel + " in " + units}
-          />
-          <span aria-hidden="true">{units}</span>
-        </span>
-      </label>
-      {onOpenMeasureHelp || !bottoms ? (
-        <button
-          type="button"
-          className="cz-first-size-link"
-          onClick={() => {
-            if (onOpenMeasureHelp) onOpenMeasureHelp();
-          }}
-        >
-          Show me how
-        </button>
-      ) : null}
-      {error ? <p className="cz-first-size-error">{error}</p> : null}
-      <div className="cz-first-size-actions">
-        <button type="submit" className="cz-first-size-primary">
-          Save and re-score my cards
-        </button>
-        <button
-          type="button"
-          className="cz-first-size-back"
-          onClick={() => {
-            setStep("ask1");
-            setError("");
-          }}
-        >
-          Back
-        </button>
-      </div>
-      <p className="cz-first-size-promise">
-        Updates every card on your shelf, not just this one. The full tape list still lives in
-        Settings.
-      </p>
-    </form>
+          >
+            Back
+          </button>
+        </div>
+        <p className="cz-first-size-promise">
+          Updates every card on your shelf, not just this one. The full tape list still lives in
+          Settings.
+        </p>
+      </form>
+    </>
   );
 }

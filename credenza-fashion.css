@@ -9540,17 +9540,38 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-bg);
   opacity: 0.7;
 }
+/* A5 bottom panel: the ink border marks the one field that is open now. */
+.cz-first-size-ladder {
+  border: 1px solid var(--cz-ink);
+}
+/* The cm/in pair sits left, the Show me how link right. */
+.cz-first-size-unit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 11px;
+}
+.cz-first-size-unit-row .cz-first-size-link {
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--cz-link);
+}
 .cz-first-size-unit {
   display: inline-flex;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 14%, transparent);
   border-radius: 999px;
   overflow: hidden;
-  margin-bottom: 10px;
+  background: var(--cz-seg);
+  padding: 2px;
+  gap: 2px;
 }
 .cz-first-size-unit-btn {
   border: 0;
+  border-radius: 999px;
   background: transparent;
-  padding: 6px 14px;
+  min-width: 44px;
+  height: 32px;
+  padding: 0 14px;
   font: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -9577,20 +9598,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 8px;
   height: 42px;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 14%, transparent);
+  border: 1px solid var(--cz-hair);
   border-radius: 10px;
   padding: 0 12px;
-  background: var(--cz-bg-elevated, #fff);
+  background: var(--cz-card-solid);
 }
 .cz-first-size-field-control input {
   flex: 1;
   border: 0;
   background: transparent;
   font: inherit;
-  font-size: 15px;
+  /* 16px under 767px, so iOS never zooms the page on focus. */
+  font-size: 16px;
   color: var(--cz-ink);
   outline: none;
   min-width: 0;
+}
+@media (min-width: 768px) {
+  .cz-first-size-field-control input {
+    font-size: 15px;
+  }
 }
 .cz-first-size-primary {
   width: 100%;
@@ -9782,6 +9809,78 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: baseline;
   gap: 12px;
   margin: 4px 0 11px;
+}
+/* A5 top panel: the fit ladder. What is saved, what is next, what waits. */
+.cz-fit-ladder {
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  padding: 13px;
+  margin-bottom: 11px;
+}
+.cz-fit-ladder-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.cz-fit-ladder-eyebrow,
+.cz-fit-ladder-coverage {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-fit-ladder-coverage {
+  color: var(--cz-money);
+}
+.cz-fit-ladder-meter {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  margin-bottom: 11px;
+}
+.cz-fit-ladder-seg {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+.cz-fit-ladder-seg.is-on {
+  background: var(--cz-money);
+}
+.cz-fit-ladder-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.cz-fit-ladder-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cz-fit-ladder-row-k {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cz-ink);
+  min-width: 0;
+}
+.cz-fit-ladder-row-s {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+  flex: none;
+}
+.cz-fit-ladder-row-s.is-saved {
+  color: var(--cz-money);
 }
 .cz-first-size-letter {
   font-family: var(--cz-display);

@@ -4163,13 +4163,16 @@ export default function DetailBody({
             ) : profileNeedsFirstSize(bodyProfile) &&
               onSaveBodyProfile &&
               !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
-              // A1–A4 (onboarding handoff): the two-tap ask replaces the old
+              // A1–A5 (onboarding handoff): the two-tap ask replaces the old
               // dashed empty prompt when the profile has no measures and no
               // usual size. The chips come from this listing's own size run.
+              // The A5 ladder projects its rows from the profile below.
               <FirstSizeBlock
                 item={item}
                 chart={verdict.chart}
                 sizeRun={verdict.runValues}
+                bodyProfile={bodyProfile}
+                fitPref={fitPref}
                 units={measureUnits}
                 onSaveBodyProfile={onSaveBodyProfile}
                 onSaveFitPref={onSaveFitPref}
