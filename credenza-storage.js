@@ -152,6 +152,7 @@ export const CREDENZA_KNOWN_KEYS = [
   "credenza-fashion-session-v1",
   "credenza-fashion-entitlement-v1",
   "credenza-fashion-usage-v1",
+  "credenza-fashion-usage-v2",
   "credenza-fashion-tombstones-v1",
 ];
 

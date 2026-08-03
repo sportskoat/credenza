@@ -320,20 +320,20 @@ describe("the page only sells what is built", () => {
     expect(row("Hauls at once")).toContain("<td>" + cap("pro", "haulsMax") + "</td>");
     expect(row("QC photos an item")).toContain("<td>" + cap("free", "qcPhotosPerItem") + "</td>");
     expect(row("QC photos an item")).toContain("<td>" + cap("pro", "qcPhotosPerItem") + "</td>");
-    expect(row("Ask")).toContain("<td>" + cap("free", "askPerDay") + " a day</td>");
-    expect(row("Ask")).toContain("<td>" + cap("pro", "askPerDay") + " a day</td>");
+    expect(row("Ask")).toContain("<td>" + cap("free", "askTotal") + " total</td>");
+    expect(row("Ask")).toContain("<td>" + cap("pro", "askPerMonth") + " a month</td>");
     expect(row("AI size-chart reads")).toContain(
-      "<td>" + cap("free", "chartVisionPerDay") + " a day</td>"
+      "<td>" + cap("free", "chartVisionTotal") + " total</td>"
     );
     expect(row("AI size-chart reads")).toContain(
-      "<td>" + cap("pro", "chartVisionPerDay") + " a day</td>"
+      "<td>" + cap("pro", "chartVisionPerMonth") + " a month</td>"
     );
     // Link resolves was the one row this test skipped, and it is the row most
     // likely to drift unnoticed: the copy writes 1,000 where the server writes
     // 1000, so a careless eye reads them as different numbers and "fixes" one.
     const comma = (n) => n.toLocaleString("en-US");
-    expect(row("Link resolves")).toContain("<td>" + comma(cap("free", "resolvePerDay")) + " a day</td>");
-    expect(row("Link resolves")).toContain("<td>" + comma(cap("pro", "resolvePerDay")) + " a day</td>");
+    expect(row("Link resolves")).toContain("<td>" + comma(cap("free", "resolveTotal")) + " total</td>");
+    expect(row("Link resolves")).toContain("<td>" + comma(cap("pro", "resolvePerMonth")) + " a month</td>");
   });
 
   it("repeats the same caps in the plan bullet lists", () => {
@@ -356,9 +356,9 @@ describe("the page only sells what is built", () => {
       cap("free", "haulsMax") + " hauls at once",
       cap("pro", "haulsMax") + " hauls at once",
       cap("pro", "qcPhotosPerItem") + " QC photos an item",
-      cap("pro", "chartVisionPerDay") + " AI size-chart reads a day",
-      comma(cap("pro", "resolvePerDay")) + " link resolves a day",
-      cap("pro", "askPerDay") + " Ask questions a day",
+      cap("pro", "chartVisionPerMonth") + " AI size-chart reads a month",
+      comma(cap("pro", "resolvePerMonth")) + " link resolves a month",
+      cap("pro", "askPerMonth") + " Ask questions a month",
     ]) {
       expect(bullets, "no bullet reads " + JSON.stringify(want)).toContain(want);
     }
@@ -424,9 +424,12 @@ describe("the page only sells what is built", () => {
     for (const key of [
       "haulsMax",
       "qcPhotosPerItem",
-      "askPerDay",
-      "chartVisionPerDay",
-      "resolvePerDay",
+      "askTotal",
+      "chartVisionTotal",
+      "resolveTotal",
+      "askPerMonth",
+      "chartVisionPerMonth",
+      "resolvePerMonth",
     ]) {
       expect(known, key + " is not in PLAN_LIMITS").toContain(key);
     }

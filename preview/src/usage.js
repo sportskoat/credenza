@@ -1,15 +1,16 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // usage.js — client-side free-limit counters (Execution-Plan Part 7e)
 //
-// The entitlement snapshot carries per-plan daily caps (lim.askPerDay etc.).
-// The client counts its own paid calls per UTC day in localStorage so a FREE
+// The entitlement snapshot carries fixed Free allowances and monthly Pro caps.
+// The client counts its own successful calls in localStorage so a FREE
 // signed-in user sees the upgrade prompt instead of a server 429. This is
 // soft enforcement only — the server re-checks the real record on every paid
 // request, so clearing localStorage never buys anything (Part 7f makes the
 // server the hard gate).
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const USAGE_KEY = "credenza-fashion-usage-v1";
+// V2 deliberately starts every existing customer with the new allowance.
+export const USAGE_KEY = "credenza-fashion-usage-v2";
 
 // The browser, unless a test hands us a fake one.
 //
@@ -34,15 +35,23 @@ function readUsage(host) {
   }
 }
 
-const DAY_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "UTC" }); // YYYY-MM-DD
-
-export function usageKey(feature, now = Date.now()) {
-  return feature + ":" + DAY_FMT.format(now);
+export function usageAudience(plan, signedIn = false) {
+  if (plan && plan.state === "free") {
+    return "free" + (plan.sub ? ":" + plan.sub : "");
+  }
+  return plan ? "paid" : signedIn ? "free" : "anon";
 }
 
-export function usageToday(feature, { host = defaultHost(), now } = {}) {
-  return readUsage(host)[usageKey(feature, now)] || 0;
+export function usageKey(feature, audience = "anon") {
+  return audience + ":" + feature + ":total";
 }
+
+export function usageTotal(feature, { host = defaultHost(), audience = "anon" } = {}) {
+  return readUsage(host)[usageKey(feature, audience)] || 0;
+}
+
+// Compatibility name for older callers. The value no longer resets each day.
+export const usageToday = usageTotal;
 
 // The header pill reads these counters, and localStorage never tells React it
 // changed. Every bump calls the listeners so the pill re-reads. The list is
@@ -56,16 +65,11 @@ export function onUsageChange(fn) {
   return () => usageListeners.delete(fn);
 }
 
-// Increment today's counter and prune every day that is not today or
-// yesterday (same shape as the server record — small forever).
-export function bumpUsage(feature, { host = defaultHost(), now = Date.now() } = {}) {
+// Increment the permanent allowance counter.
+export function bumpUsage(feature, { host = defaultHost(), audience = "anon" } = {}) {
   if (!host || !host.localStorage) return;
-  const key = usageKey(feature, now);
-  const keep = new Set([key, usageKey(feature, now - 24 * 60 * 60 * 1000)]);
-  const usage = {};
-  for (const [k, v] of Object.entries(readUsage(host))) {
-    if (keep.has(k)) usage[k] = v;
-  }
+  const key = usageKey(feature, audience);
+  const usage = readUsage(host);
   usage[key] = (usage[key] || 0) + 1;
   try {
     host.localStorage.setItem(USAGE_KEY, JSON.stringify(usage));
@@ -87,25 +91,33 @@ export function bumpUsage(feature, { host = defaultHost(), now = Date.now() } = 
 // preview/test/plan-limits.test.js compares the numbers and fails on drift.
 export const PLAN_CAPS = {
   free: {
-    askPerDay: 5,
-    chartVisionPerDay: 2,
-    resolvePerDay: 20,
+    askTotal: 8,
+    chartVisionTotal: 8,
+    resolveTotal: 8,
     qcPhotosPerItem: 4,
     haulsMax: 2,
     sharedLinksMax: 3,
   },
   pro: {
-    askPerDay: 40,
-    chartVisionPerDay: 15,
-    resolvePerDay: 250,
+    askPerMonth: 20,
+    chartVisionPerMonth: 20,
+    resolvePerMonth: 100,
+    qcPhotosPerItem: 12,
+    haulsMax: 100,
+    sharedLinksMax: 100,
+  },
+  owner: {
+    askPerMonth: null,
+    chartVisionPerMonth: null,
+    resolvePerMonth: null,
     qcPhotosPerItem: 12,
     haulsMax: 100,
     sharedLinksMax: 100,
   },
 };
 
-// Only the per-ITEM and per-ACCOUNT caps get their own names. The per-DAY
-// caps are counted, and a signed-out user is counted by the server, not by
+// Only the per-item and per-account caps get their own names. Metered
+// allowances are counted, and a signed-out user is counted by the server, not by
 // us (see overFreeLimit). Both derive from PLAN_CAPS so this file holds one
 // copy of every number.
 export const FREE_LIMITS = {
@@ -126,7 +138,7 @@ export const PRO_LIMITS = {
 // grace user needs no special case here.
 //
 // Signed out means the free cap, NOT unlimited. This is the opposite of
-// overFreeLimit, and on purpose: a daily counter is enforced again by the
+// overFreeLimit, and on purpose: a metered counter is enforced again by the
 // server on every call, so a signed-out user can be left to it. A QC photo and
 // a haul never reach a server, so if the client does not hold the line here,
 // nothing does.
@@ -135,13 +147,13 @@ export function planLimit(plan, key) {
   return typeof cap === "number" && cap > 0 ? cap : FREE_LIMITS[key];
 }
 
-// Is a signed-in FREE user over the daily cap for this feature? plan is the
+// Is a signed-in FREE user over its permanent allowance for this feature?
 // decoded snapshot payload; null/expired plan or a non-free state means "not
 // over" — signed-out users answer to the server rate limits, and Pro/grace
 // users get Pro caps the client never enforces (they are generous).
 export function overFreeLimit(plan, feature, { host, now } = {}) {
   if (!plan || !plan.lim || plan.state !== "free") return false;
-  const cap = plan.lim[feature + "PerDay"];
+  const cap = plan.lim[feature + "Total"];
   if (cap == null) return false;
-  return usageToday(feature, { host, now }) >= cap;
+  return usageTotal(feature, { host, now, audience: usageAudience(plan, true) }) >= cap;
 }

@@ -28,25 +28,51 @@ const GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days past the period end
 // shape is stable now so the record and the client cache agree from day one.
 const PLAN_LIMITS = {
   free: {
-    askPerDay: 5,
-    chartVisionPerDay: 2,
-    resolvePerDay: 20,
+    askTotal: 8,
+    chartVisionTotal: 8,
+    resolveTotal: 8,
     qcPhotosPerItem: 4,
     haulsMax: 2,
   },
-  // Pro caps are sized so one account maxing ALL three costs about $3 a day
-  // (Kyle 2026-07-27): ask 40 × ~$0.020 (sonnet, 25-item shelf) + chart 15 ×
-  // ~$0.015 (haiku vision, ~3 frames) + resolve 250 × ~$0.008 (haiku) ≈ $3.02.
-  // The old row (200/100/1000) could burn ~$9.70 a day against a $5/month
-  // plan. Free stays as it was — generous enough to learn the product on.
+  // Pro usage refreshes each calendar month regardless of billing cadence.
+  // These initial caps are deliberately conservative until real conversion
+  // and model-cost events show which allowance should move.
   pro: {
-    askPerDay: 40,
-    chartVisionPerDay: 15,
-    resolvePerDay: 250,
+    askPerMonth: 20,
+    chartVisionPerMonth: 20,
+    resolvePerMonth: 100,
+    qcPhotosPerItem: 12,
+    haulsMax: 100,
+  },
+  owner: {
+    askPerMonth: null,
+    chartVisionPerMonth: null,
+    resolvePerMonth: null,
     qcPhotosPerItem: 12,
     haulsMax: 100,
   },
 };
+
+function splitList(value) {
+  return String(value || "")
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+// Owner access is configured at deploy time and never inferred from billing.
+// Email and user-id lists are both supported so a future email change cannot
+// accidentally remove the creator's access.
+function isOwnerClaims(claims, env = process.env) {
+  if (!claims) return false;
+  const emails = splitList(env.CREDENZA_OWNER_EMAILS);
+  const ids = splitList(env.CREDENZA_OWNER_USER_IDS);
+  return emails.includes(String(claims.email || "").trim().toLowerCase()) || ids.includes(String(claims.sub || "").toLowerCase());
+}
+
+function withOwner(record, owner) {
+  return owner ? { ...record, owner: true } : record;
+}
 
 // ————— The record ————————————————————————————————————————————————————————————
 
@@ -61,7 +87,7 @@ function newEntitlement(userId, now = Date.now()) {
     currentPeriodEnd: null,
     graceUntil: null,
     limits: PLAN_LIMITS.free,
-    usage: {}, // { "ask:2026-07-24": n, ... } — rolling per-day counters
+    usage: {}, // permanent Free counters and one counter set per calendar month
     lastCheckAt: now,
     stripeCustomerId: null,
     stripeSubscriptionId: null,
@@ -77,6 +103,7 @@ function newEntitlement(userId, now = Date.now()) {
 // the state leaves grace — the caller enforces that per route.
 function effectiveStatus(record, now = Date.now()) {
   if (!record) return "free";
+  if (record.owner === true) return "owner";
   const paying =
     record.billingStatus === "active" ||
     record.billingStatus === "trialing" ||
@@ -92,43 +119,45 @@ function effectiveStatus(record, now = Date.now()) {
 
 function limitsFor(record, now = Date.now()) {
   const state = effectiveStatus(record, now);
+  if (state === "owner") return PLAN_LIMITS.owner;
   return state === "free" ? PLAN_LIMITS.free : PLAN_LIMITS.pro;
 }
 
 // May this account make a paid cloud WRITE right now? Grace reads Pro but
 // stops new cloud writes (task 7).
 function mayWriteCloud(record, now = Date.now()) {
-  return effectiveStatus(record, now) === "pro";
+  const state = effectiveStatus(record, now);
+  return state === "pro" || state === "owner";
 }
 
 // ————— Usage counters ————————————————————————————————————————————————————————
 
-const DAY_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "UTC" }); // YYYY-MM-DD
-
-function usageKey(feature, now = Date.now()) {
-  return feature + ":" + DAY_FMT.format(now);
+function usageKey(record, feature, now = Date.now()) {
+  const state = effectiveStatus(record, now);
+  if (state === "free") return "free-v2:" + feature;
+  const month = new Date(now).toISOString().slice(0, 7);
+  return "month:" + month + ":" + feature;
 }
 
-// Increment a per-day counter and prune days that are not today or yesterday.
+// Increment the permanent Free counter or current calendar-month counter.
 // Returns a NEW record (the caller persists it).
 function recordUsage(record, feature, now = Date.now()) {
-  const key = usageKey(feature, now);
-  const keep = new Set([key, usageKey(feature, now - 24 * 60 * 60 * 1000)]);
-  const usage = {};
-  for (const [k, v] of Object.entries(record.usage || {})) {
-    if (keep.has(k)) usage[k] = v;
-  }
+  if (effectiveStatus(record, now) === "owner") return { ...record, lastCheckAt: now };
+  const key = usageKey(record, feature, now);
+  const usage = { ...(record.usage || {}) };
   usage[key] = (usage[key] || 0) + 1;
   return { ...record, usage, lastCheckAt: now };
 }
 
 function usageToday(record, feature, now = Date.now()) {
-  return (record.usage || {})[usageKey(feature, now)] || 0;
+  return (record.usage || {})[usageKey(record, feature, now)] || 0;
 }
 
 function overLimit(record, feature, now = Date.now()) {
   const limits = limitsFor(record, now);
-  const cap = limits[feature + "PerDay"];
+  const state = effectiveStatus(record, now);
+  if (state === "owner") return false;
+  const cap = limits[feature + (state === "free" ? "Total" : "PerMonth")];
   if (cap == null) return false; // unmetered feature
   return usageToday(record, feature, now) >= cap;
 }
@@ -238,7 +267,7 @@ function signEntitlement(record, secret, now = Date.now(), ttlMs = 24 * 60 * 60 
   const state = effectiveStatus(record, now);
   const payload = {
     sub: record.userId,
-    plan: state === "free" ? "free" : "pro",
+    plan: state === "free" ? "free" : state === "owner" ? "owner" : "pro",
     state,
     lim: limitsFor(record, now),
     exp: now + ttlMs,
@@ -277,6 +306,8 @@ function verifyEntitlement(token, secret, now = Date.now()) {
 module.exports = {
   GRACE_MS,
   PLAN_LIMITS,
+  isOwnerClaims,
+  withOwner,
   newEntitlement,
   effectiveStatus,
   limitsFor,

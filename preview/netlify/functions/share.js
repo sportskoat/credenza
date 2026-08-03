@@ -156,7 +156,10 @@ async function handle(event, context) {
     // write. `mayWriteCloud` is therefore the right test here, not
     // effectiveStatus — a lapsed subscriber keeps their existing links and
     // makes new ones on the free terms.
-    const record = await store.loadEntitlement(claims.sub);
+    const record = ent.withOwner(
+      await store.loadEntitlement(claims.sub),
+      ent.isOwnerClaims(claims, env)
+    );
     const pro = ent.mayWriteCloud(record, Date.now());
     return await handleCreate(event, env, claims, store, pro);
   } finally {

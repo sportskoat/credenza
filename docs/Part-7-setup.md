@@ -92,6 +92,8 @@ Set these on the site (all contexts):
 | `STRIPE_PRICE_MONTHLY` | price id for $5/month |
 | `STRIPE_PRICE_YEARLY` | price id for $39/year |
 | `ENTITLEMENT_SIGNING_SECRET` | any long random string — signs offline snapshots — set 2026-07-24 (generated) |
+| `CREDENZA_OWNER_EMAILS` | comma-separated creator emails that receive permanent Owner access |
+| `CREDENZA_OWNER_USER_IDS` | optional comma-separated account ids that receive permanent Owner access |
 | `VITE_SUPABASE_URL` | same Supabase URL, for the browser bundle — set 2026-07-24 |
 
 ## Build order in code

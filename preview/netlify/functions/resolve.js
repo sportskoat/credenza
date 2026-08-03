@@ -808,7 +808,7 @@ async function enrichWithClaude(apiKey, facts, signal) {
 async function handle(event) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!event || event.httpMethod !== "POST") return response(405, { error: "Method not allowed" });
-  // Part 7f: account (Bearer + per-plan daily cap) or, until REQUIRE_ACCOUNTS
+  // Part 7f: account (Bearer + plan allowance) or, until REQUIRE_ACCOUNTS
   // flips, the anonymous shared key.
   const gate = await paidGate.authorizePaid(event, process.env, "resolve");
   if (!gate.ok) {

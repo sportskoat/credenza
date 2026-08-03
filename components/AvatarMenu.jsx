@@ -44,7 +44,8 @@ export default function AvatarMenu({
   }, [onClose]);
 
   const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
-  const isPro = planState === "pro" || planState === "grace";
+  const isOwner = planState === "owner";
+  const isPro = planState === "pro" || planState === "grace" || planState === "owner";
   const signedIn = !!accountSession;
 
   const go = (fn) => () => {
@@ -64,7 +65,7 @@ export default function AvatarMenu({
           </span>
           <span className="cz-avatar-menu-plan">
             {signedIn
-              ? (isPro ? "Pro" : "Free") + " · saved on this device"
+              ? (isOwner ? "Owner" : isPro ? "Pro" : "Free") + " · saved on this device"
               : "No account. The shelf is yours either way."}
           </span>
         </span>
@@ -72,7 +73,7 @@ export default function AvatarMenu({
 
       {!isPro && (
         <div className="cz-avatar-menu-upsell">
-          <div className="cz-avatar-menu-upsell-title">Pro lifts the daily limits</div>
+          <div className="cz-avatar-menu-upsell-title">Pro adds monthly reads</div>
           <div className="cz-avatar-menu-upsell-note">{PRICING.weeklyTrialNote}</div>
           <button
             type="button"

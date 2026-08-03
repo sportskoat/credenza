@@ -226,7 +226,7 @@ async function handle(event) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!event || event.httpMethod !== "POST") return response(405, { error: "Method not allowed" });
   if (!apiKey) return response(500, { error: "Server not configured: missing ANTHROPIC_API_KEY" });
-  // Part 7f: account (Bearer + per-plan daily cap) or, until REQUIRE_ACCOUNTS
+  // Part 7f: account (Bearer + plan allowance) or, until REQUIRE_ACCOUNTS
   // flips, the anonymous shared key.
   const gate = await paidGate.authorizePaid(event, process.env, "chartVision");
   if (!gate.ok) {

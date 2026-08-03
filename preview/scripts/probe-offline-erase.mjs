@@ -46,6 +46,7 @@ await page.evaluate(() => {
   localStorage.setItem("credenza-fashion-session-v1", "{}");
   localStorage.setItem("credenza-fashion-entitlement-v1", "{}");
   localStorage.setItem("credenza-fashion-usage-v1", "{}");
+  localStorage.setItem("credenza-fashion-usage-v2", "{}");
   localStorage.setItem("credenza-decoy-unrelated", "x"); // not ours — must survive
 });
 const before = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("credenza")).length);

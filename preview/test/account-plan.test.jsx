@@ -80,10 +80,10 @@ describe("Account and plan screen (design 1f)", () => {
     const table = within(container).getByRole("table", { name: "What changes with Pro" });
     // Handoff 2026-08-01: no "Ask questions" row on purpose.
     expect(within(table).queryByText(/Ask questions/i)).toBeNull();
-    expect(within(table).getByText(PLAN_CAPS.free.chartVisionPerDay + " a day")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.pro.chartVisionPerDay + " a day")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.free.resolvePerDay + " a day")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.pro.resolvePerDay + " a day")).toBeTruthy();
+    expect(within(table).getAllByText(PLAN_CAPS.free.chartVisionTotal + " total").length).toBeGreaterThan(0);
+    expect(within(table).getByText(PLAN_CAPS.pro.chartVisionPerMonth + " a month")).toBeTruthy();
+    expect(within(table).getAllByText(PLAN_CAPS.free.resolveTotal + " total").length).toBeGreaterThan(0);
+    expect(within(table).getByText(PLAN_CAPS.pro.resolvePerMonth + " a month")).toBeTruthy();
     expect(within(table).getByText(PLAN_CAPS.free.qcPhotosPerItem + " an item")).toBeTruthy();
     expect(within(table).getByText(PLAN_CAPS.pro.qcPhotosPerItem + " an item")).toBeTruthy();
     expect(within(table).getByText(PLAN_CAPS.free.haulsMax + " at once")).toBeTruthy();

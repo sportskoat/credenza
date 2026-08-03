@@ -41,7 +41,7 @@ describe("AvatarMenu (design 1c)", () => {
   it("sells Pro with the trial note verbatim, and See Pro opens the account section", () => {
     const onOpenSettings = vi.fn();
     const { container } = renderMenu({ onOpenSettings });
-    expect(within(container).getByText("Pro lifts the daily limits")).toBeTruthy();
+    expect(within(container).getByText("Pro adds monthly reads")).toBeTruthy();
     expect(within(container).getByText(PRICING.weeklyTrialNote)).toBeTruthy();
     fireEvent.click(within(container).getByText("See Pro"));
     expect(onOpenSettings).toHaveBeenCalledWith("account");
@@ -49,8 +49,14 @@ describe("AvatarMenu (design 1c)", () => {
 
   it("hides the upsell for a Pro member", () => {
     const { container } = renderMenu({ accountPlan: { state: "pro" } });
-    expect(within(container).queryByText("Pro lifts the daily limits")).toBeNull();
+    expect(within(container).queryByText("Pro adds monthly reads")).toBeNull();
     expect(within(container).getByText("Pro · saved on this device")).toBeTruthy();
+  });
+
+  it("names permanent owner access and hides the upsell", () => {
+    const { container } = renderMenu({ accountPlan: { state: "owner" } });
+    expect(within(container).queryByText("Pro adds monthly reads")).toBeNull();
+    expect(within(container).getByText("Owner · saved on this device")).toBeTruthy();
   });
 
   // Kyle 2026-08-01: Gallery parked — colourway switch is gone; Blackout only.

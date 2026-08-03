@@ -45,11 +45,11 @@ const BILLING = {
 };
 
 // The caps table. Each row's numbers read PLAN_CAPS; the cadence word sits
-// in the cell so "5 a day" reads as one claim. Rows after the metered six
+// in the cell so "8 total" reads as one claim. Rows after the metered six
 // are facts about the product, not caps — they have no server source.
 const CAP_ROWS = [
-  { label: "AI chart reads", note: "One read of one size chart.", free: PLAN_CAPS.free.chartVisionPerDay + " a day", pro: PLAN_CAPS.pro.chartVisionPerDay + " a day" },
-  { label: "Link resolves", note: "One server read of one buy link.", free: PLAN_CAPS.free.resolvePerDay + " a day", pro: PLAN_CAPS.pro.resolvePerDay + " a day" },
+  { label: "AI chart reads", note: "One read of one size chart.", free: PLAN_CAPS.free.chartVisionTotal + " total", pro: PLAN_CAPS.pro.chartVisionPerMonth + " a month" },
+  { label: "Link resolves", note: "One server read of one buy link.", free: PLAN_CAPS.free.resolveTotal + " total", pro: PLAN_CAPS.pro.resolvePerMonth + " a month" },
   { label: "QC photos", note: "Stored on the card.", free: PLAN_CAPS.free.qcPhotosPerItem + " an item", pro: PLAN_CAPS.pro.qcPhotosPerItem + " an item" },
   { label: "Open hauls", note: "Archive a finished one to free a slot.", free: PLAN_CAPS.free.haulsMax + " at once", pro: PLAN_CAPS.pro.haulsMax + " at once" },
   { label: "Shared links", note: "A read-only link to a haul.", free: PLAN_CAPS.free.sharedLinksMax + " live", pro: PLAN_CAPS.pro.sharedLinksMax + " live" },
@@ -94,7 +94,8 @@ export default function AccountPlanSection() {
   };
 
   const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
-  const isPro = planState === "pro" || planState === "grace";
+  const isOwner = planState === "owner";
+  const isPro = planState === "pro" || planState === "grace" || isOwner;
   const signedIn = accountEnabled && !!accountSession;
   const plan = BILLING[billing];
 
@@ -105,9 +106,9 @@ export default function AccountPlanSection() {
       sectionId="account"
       lead={
         signedIn
-          ? "You are on " + (isPro ? "Pro" : "Free") + " as " + (accountSession.user.email || "this account") +
-            ". Nothing on your shelf is locked. Pro raises the daily caps and funds the servers."
-          : "Nothing on your shelf is locked. Pro raises the daily caps and funds the servers."
+          ? "You are on " + (isOwner ? "Owner" : isPro ? "Pro" : "Free") + " as " + (accountSession.user.email || "this account") +
+            ". Nothing on your shelf is locked. Pro adds monthly usage and funds the servers."
+          : "Nothing on your shelf is locked. Pro adds monthly usage and funds the servers."
       }
     >
       {/* Accounts off = SAY so (same rule as the old profile sheet: a build
@@ -204,8 +205,10 @@ export default function AccountPlanSection() {
 
         <div className="cz-account-plan-card is-pro">
           <div className="cz-account-plan-card-top">
-            <span className="cz-account-plan-name">Pro</span>
-            {isPro ? (
+            <span className="cz-account-plan-name">{isOwner ? "Owner" : "Pro"}</span>
+            {isOwner ? (
+              <span className="cz-account-plan-badge">Owner access</span>
+            ) : isPro ? (
               <span className="cz-account-plan-badge">Your plan</span>
             ) : plan.badge ? (
               <span className="cz-account-plan-badge is-money">{plan.badge}</span>
@@ -216,7 +219,9 @@ export default function AccountPlanSection() {
             <span className="cz-account-plan-period">{plan.period}</span>
           </div>
           <div className="cz-account-plan-equiv">{plan.equiv}</div>
-          {isPro ? (
+          {isOwner ? (
+            <div className="cz-account-plan-hint">Permanent full access. No subscription required.</div>
+          ) : isPro ? (
             <Pill
               style={{ width: "100%", minHeight: 44, borderRadius: 13 }}
               disabled={!!busy}
@@ -267,7 +272,7 @@ export default function AccountPlanSection() {
         <div className="cz-account-plan-keeps-title">What Pro does not change</div>
         <p>
           The shelf, the size engine, hauls and your data are free forever.
-          Pro is a cap lift, not a key. Some agent links carry a referral code
+          Pro adds monthly usage after the Free allowance. Some agent links carry a referral code
           that funds the app. It never changes your price.
         </p>
       </div>

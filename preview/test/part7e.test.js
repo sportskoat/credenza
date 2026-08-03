@@ -226,10 +226,10 @@ describe("entitlement cache", () => {
 // ————— free-limit usage counters ———————————————————————————————————————————————
 
 describe("usage counters", () => {
-  const freePlan = { state: "free", lim: { askPerDay: 2 } };
-  const proPlan = { state: "pro", lim: { askPerDay: 200 } };
+  const freePlan = { state: "free", lim: { askTotal: 2 } };
+  const proPlan = { state: "pro", lim: { askPerMonth: 200 } };
 
-  it("counts per UTC day and prunes older days", () => {
+  it("keeps separate permanent counters for guests and Free accounts", () => {
     const host = fakeHost();
     const now = Date.UTC(2026, 6, 25, 12);
     expect(usageToday("ask", { host, now })).toBe(0);
@@ -238,20 +238,17 @@ describe("usage counters", () => {
     bumpUsage("ask", { host, now });
     expect(usageToday("ask", { host, now })).toBe(2);
 
-    // A counter from three days ago is pruned on the next bump.
-    host.localStorage.setItem(USAGE_KEY, JSON.stringify({ "ask:2026-07-20": 9, "ask:2026-07-25": 2 }));
-    bumpUsage("ask", { host, now });
-    const stored = JSON.parse(host.localStorage.getItem(USAGE_KEY));
-    expect(stored["ask:2026-07-20"]).toBeUndefined();
-    expect(stored["ask:2026-07-25"]).toBe(3);
+    bumpUsage("ask", { host, audience: "free" });
+    expect(usageToday("ask", { host, audience: "anon" })).toBe(2);
+    expect(usageToday("ask", { host, audience: "free" })).toBe(1);
   });
 
   it("overFreeLimit fires only for a free plan at its cap", () => {
     const host = fakeHost();
     const now = Date.UTC(2026, 6, 25, 12);
-    bumpUsage("ask", { host, now });
+    bumpUsage("ask", { host, now, audience: "free" });
     expect(overFreeLimit(freePlan, "ask", { host, now })).toBe(false); // 1 of 2
-    bumpUsage("ask", { host, now });
+    bumpUsage("ask", { host, now, audience: "free" });
     expect(overFreeLimit(freePlan, "ask", { host, now })).toBe(true); // 2 of 2
 
     // Pro, no plan (signed out), and unmetered features never block locally.
@@ -362,13 +359,13 @@ describe("no billing failure shows the server's own words", () => {
     );
   });
 
-  it("keeps the daily cap line, which is generated and cannot be listed", async () => {
+  it("keeps the Free allowance line, which is generated and cannot be listed", async () => {
     // paid-gate.js builds this from the feature name, so it is matched on
     // shape. It is the only message that tells a free user why the button
     // stopped working, and it names no vendor and no variable.
-    const capped = async () => okJson({ error: "Daily ask limit reached — upgrade to Pro for more" }, 429);
+    const capped = async () => okJson({ error: "Free ask allowance used — upgrade to Pro for more" }, 429);
     await expect(checkout("tok-1", "monthly", { fetchImpl: capped })).rejects.toThrow(
-      "Daily ask limit reached — upgrade to Pro for more"
+      "Free ask allowance used — upgrade to Pro for more"
     );
   });
 

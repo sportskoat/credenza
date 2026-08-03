@@ -5,7 +5,7 @@
 // Two paths:
 //   1. ACCOUNT: `Authorization: Bearer <supabase token>`. The token is
 //      verified, the entitlement record is loaded (created on first use), and
-//      the per-plan daily cap is enforced against REAL server usage. After a
+//      the plan allowance is enforced against REAL server usage. After a
 //      successful call the caller invokes recordPaidUsage to count it.
 //   2. SHARED KEY: `x-credenza-key` header (the anonymous free-beta path).
 //      This path dies when REQUIRE_ACCOUNTS=true — set it once accounts are
@@ -22,14 +22,7 @@ const anon = require("./anon-allowance.js");
 const limit = require("./limit.js");
 const { storeFromEnv } = require("./entitlement-store.js");
 
-// Seconds until the UTC day rolls over — the Retry-After for a daily cap.
-function secondsToUtcMidnight(now = Date.now()) {
-  const d = new Date(now);
-  d.setUTCHours(24, 0, 0, 0);
-  return Math.max(1, Math.ceil((d.getTime() - now) / 1000));
-}
-
-// feature: "ask" | "resolve" | "chartVision" — matches <feature>PerDay in
+// feature: "ask" | "resolve" | "chartVision" — matches the plan cap in
 // PLAN_LIMITS. Returns { ok, via, claims, record, store } or
 // { ok: false, status, body, retryAfter? }.
 async function authorizePaid(event, env, feature) {
@@ -48,12 +41,17 @@ async function authorizePaid(event, env, feature) {
       record = ent.newEntitlement(claims.sub);
       await store.saveEntitlement(record);
     }
+    record = ent.withOwner(record, ent.isOwnerClaims(claims, env));
     if (ent.overLimit(record, feature)) {
+      const monthly = ent.effectiveStatus(record) !== "free";
       return {
         ok: false,
         status: 429,
-        body: { error: "Daily " + feature + " limit reached — upgrade to Pro for more" },
-        retryAfter: secondsToUtcMidnight(),
+        body: {
+          error: monthly
+            ? "Monthly " + feature + " allowance used — more reads arrive next month"
+            : "Free " + feature + " allowance used — upgrade to Pro for more",
+        },
       };
     }
     return { ok: true, via: "account", claims, record, store };
@@ -68,9 +66,8 @@ async function authorizePaid(event, env, feature) {
   const supplied = event && event.headers && event.headers["x-credenza-key"];
   if (supplied !== secret) return { ok: false, status: 401, body: { error: "Unauthorized" } };
 
-  // REQUIRE_ACCOUNTS=true ends the open anonymous path (Part 7f), but a
-  // visitor who has never signed in still gets the free taste Kyle asked for
-  // on 2026-07-30: three complete cards, then sign in. `code` tells the
+  // REQUIRE_ACCOUNTS=true limits the anonymous path to five complete cards.
+  // `code` tells the
   // browser WHICH refusal this is, so it can show "Sign in to read this link"
   // instead of leaving a blank card behind.
   if (env.REQUIRE_ACCOUNTS === "true") {
@@ -88,7 +85,7 @@ async function authorizePaid(event, env, feature) {
 }
 
 // Count one successful paid call against the account (task 4), or against the
-// signed-out visitor's three free reads. Best-effort: a failed save must not
+// signed-out visitor's five free reads. Best-effort: a failed save must not
 // turn the customer's completed request into an error.
 async function recordPaidUsage(gate, feature) {
   if (!gate) return;
@@ -97,6 +94,7 @@ async function recordPaidUsage(gate, feature) {
     return;
   }
   if (gate.via !== "account") return;
+  if (ent.effectiveStatus(gate.record) === "owner") return;
   try {
     await gate.store.saveEntitlement(ent.recordUsage(gate.record, feature));
   } catch {}

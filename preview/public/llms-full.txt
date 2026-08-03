@@ -69,8 +69,9 @@ your shelf.
 ### Do I need an account to use Credenza?
 
 No. Open the app and start saving items. The shelf works with no account, no
-email, and no card. An account unlocks three things only: Pro, cloud sync
-between devices, and shared links. Everything else runs on the device.
+email, and no card. An account adds eight card reads, eight chart reads, Ask,
+cloud restore, shared links, and the option to buy Pro. Everything else runs
+on the device.
 
 ### Can I share my shelf with other people?
 
@@ -85,7 +86,7 @@ page it served answers 404.
 ### Is my data stored on Credenza servers?
 
 Your shelf lives on your device, and Credenza works with no account at all.
-With an account, four things can reach the server: your plan row and daily
+With an account, four things can reach the server: your plan row and
 usage counts, your synced shelf if you turn sync on, any link you choose to
 share, and your email address for sign-in. Cloud sync is off until you turn it
 on, and row-level security binds the copy to your account id. Body measurements
@@ -120,9 +121,9 @@ $5.99 a month, or $44.99 a year.
 
 Free use remains the default and is not a trial. The free plan holds unlimited
 cards on the shelf, unlimited Buy in your agent, Reddit haul paste, and the
-full parcel planner. Pro raises the limits that cost money to run: 100 AI
-size-chart reads a day instead of 2, 250 link resolves a day instead of 20,
-40 Ask questions a day instead of 5, 12 QC photos an item instead of 4, and
+full parcel planner. Pro raises the limits that cost money to run: 20 AI
+size-chart reads monthly instead of 8 total, 100 link resolves monthly instead of 8 total,
+20 Ask questions monthly instead of 8 total, 12 QC photos an item instead of 4, and
 100 hauls at once instead of 2. See https://credenzafashion.com/pricing/
 
 Credenza does not sell access to a counterfeit product database.

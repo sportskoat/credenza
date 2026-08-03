@@ -63,8 +63,10 @@ describe("plan limits agree with the server", () => {
   // promise the server breaks (LB-35 covers the public pages; this covers
   // the in-app table).
   it("binds every PLAN_CAPS key to the server table, both plans", () => {
-    for (const key of ["askPerDay", "chartVisionPerDay", "resolvePerDay", "qcPhotosPerItem", "haulsMax"]) {
+    for (const key of ["askTotal", "chartVisionTotal", "resolveTotal", "qcPhotosPerItem", "haulsMax"]) {
       expect(PLAN_CAPS.free[key], `free ${key}`).toBe(serverLimit("free", key));
+    }
+    for (const key of ["askPerMonth", "chartVisionPerMonth", "resolvePerMonth", "qcPhotosPerItem", "haulsMax"]) {
       expect(PLAN_CAPS.pro[key], `pro ${key}`).toBe(serverLimit("pro", key));
     }
   });
@@ -219,35 +221,23 @@ describe("the caps are enforced where the writes happen", () => {
     // postChartVision and fetchDescImages: guard clause, then bump. The guard
     // also names a sign-in refusal, so the card can say why it is empty. The
     // early return still stands between the failure and the count.
-    expect(clean).toContain(
-      "    if (!res.ok) {\n" +
-        "      if (await isSignInRefusal(res)) noteSignInRequired();\n" +
-        "      return null;\n" +
-        "    }\n" +
-        "    bumpUsage(\"chartVision\");"
-    );
-    expect(clean).toContain(
-      "    if (!res.ok) {\n" +
-        "      if (await isSignInRefusal(res)) noteSignInRequired();\n" +
-        "      return [];\n" +
-        "    }\n" +
-        "    bumpUsage(\"resolve\");"
-    );
+    expect(clean).toMatch(/if \(!res\.ok\) \{[\s\S]{0,420}?return null;[\s\S]{0,80}?bumpUsage\("chartVision", \{ audience:/);
+    expect(clean).toMatch(/if \(!res\.ok\) \{[\s\S]{0,420}?return \[\];[\s\S]{0,80}?bumpUsage\("resolve", \{ audience:/);
 
     // The importer's resolve: the bump lives inside the res.ok branch.
-    expect(clean).toContain("      if (res.ok) {\n        bumpUsage(\"resolve\");");
+    expect(clean).toContain("      if (res.ok) {\n        bumpUsage(\"resolve\", { audience:");
 
     // Ask counts last of all, after the payload passes shape validation —
     // ask.js records in the same place, after its own validation.
     const askWindow = clean.match(
-      /if \(!valid\) throw new Error\("Cloud Ask returned an invalid response\."\);[\s\S]{0,200}?bumpUsage\("ask"\)/
+      /if \(!valid\) throw new Error\("Cloud Ask returned an invalid response\."\);[\s\S]{0,300}?bumpUsage\("ask"/
     );
     expect(askWindow, "the ask bump no longer follows the validity check").toBeTruthy();
   });
 
   it("never counts before the status check, at any of the four call sites", () => {
     const clean = src.replace(/^\s*\/\/.*$/gm, "");
-    const sites = [...clean.matchAll(/bumpUsage\("(\w+)"\)/g)];
+    const sites = [...clean.matchAll(/bumpUsage\("(\w+)"/g)];
     expect(sites.length, "a bumpUsage call site was added or removed").toBe(4);
 
     for (const site of sites) {
@@ -300,11 +290,11 @@ describe("the public pages quote the limits the server enforces", () => {
   // photos" in the free column and "12 QC photos" in the Pro column, often in
   // the same sentence. What must never appear is a number that is neither.
   const METERED = [
-    { key: "resolvePerDay", nouns: ["link resolves", "resolves"] },
-    { key: "chartVisionPerDay", nouns: ["chart reads", "AI chart reads"] },
-    { key: "askPerDay", nouns: ["questions"] },
-    { key: "qcPhotosPerItem", nouns: ["QC photos"] },
-    { key: "haulsMax", nouns: ["hauls"] },
+    { freeKey: "resolveTotal", proKey: "resolvePerMonth", nouns: ["link resolves", "resolves"] },
+    { freeKey: "chartVisionTotal", proKey: "chartVisionPerMonth", nouns: ["chart reads", "AI chart reads"] },
+    { freeKey: "askTotal", proKey: "askPerMonth", nouns: ["questions"] },
+    { freeKey: "qcPhotosPerItem", proKey: "qcPhotosPerItem", nouns: ["QC photos"] },
+    { freeKey: "haulsMax", proKey: "haulsMax", nouns: ["hauls"] },
   ];
 
   // Tags become a NEWLINE, not a space, and matching is per line. Replacing
@@ -318,9 +308,9 @@ describe("the public pages quote the limits the server enforces", () => {
     // Guard the guard. If a key is renamed in entitlements.js, serverLimit
     // returns null, every allowed-set below becomes {null}, and the rules
     // would fail loudly rather than pass silently — but only if this runs.
-    for (const { key } of METERED) {
-      expect(serverLimit("free", key), `free ${key}`).toBeGreaterThan(0);
-      expect(serverLimit("pro", key), `pro ${key}`).toBeGreaterThan(0);
+    for (const { freeKey, proKey } of METERED) {
+      expect(serverLimit("free", freeKey), `free ${freeKey}`).toBeGreaterThan(0);
+      expect(serverLimit("pro", proKey), `pro ${proKey}`).toBeGreaterThan(0);
     }
   });
 
@@ -330,8 +320,8 @@ describe("the public pages quote the limits the server enforces", () => {
     expect(docs.length, "no public pages were read").toBeGreaterThanOrEqual(18);
   });
 
-  for (const { key, nouns } of METERED) {
-    const allowed = new Set([serverLimit("free", key), serverLimit("pro", key)]);
+  for (const { freeKey, proKey, nouns } of METERED) {
+    const allowed = new Set([serverLimit("free", freeKey), serverLimit("pro", proKey)]);
     for (const noun of nouns) {
       // Digits only. The pages also spell numbers out ("twenty resolves"), and
       // a word list would have to be kept in sync with the prose — a second
@@ -350,7 +340,7 @@ describe("the public pages quote the limits the server enforces", () => {
           for (const n of found) {
             expect(
               allowed.has(n),
-              `${rel} says ${n} ${noun}; the server allows ${[...allowed].join(" or ")} (${key})`
+              `${rel} says ${n} ${noun}; the server allows ${[...allowed].join(" or ")} (${freeKey}/${proKey})`
             ).toBe(true);
           }
         });
@@ -358,11 +348,11 @@ describe("the public pages quote the limits the server enforces", () => {
     }
   }
 
-  it("at least one page states the free daily numbers, so this rule has work", () => {
+  it("at least one page states the free allowance, so this rule has work", () => {
     // Without this, deleting every number from every page would make the loop
     // above generate zero tests and the suite would stay green while the site
     // stopped answering the question people ask most.
-    const free = serverLimit("free", "resolvePerDay");
+    const free = serverLimit("free", "resolveTotal");
     const quoted = docs.filter((p) => new RegExp(free + "\\s+link\\s+resolves", "i").test(strip(p.html)));
     expect(quoted.length, `no page states the ${free} link resolves a free user gets`).toBeGreaterThanOrEqual(1);
   });

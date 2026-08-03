@@ -18,8 +18,8 @@
 // each page under preview/public.
 //
 // Nothing here sends an item title, a marketplace URL, a shelf record, or a
-// body measurement. The only custom event is buy_click, and it carries the
-// agent name and the marketplace name — the two numbers the business runs on.
+// body measurement. Custom events cover anonymous product milestones only:
+// sign-in, allowances, checkout, successful reads, and Buy handoffs.
 (function () {
   "use strict";
 
@@ -129,7 +129,7 @@
 
   if (choice === GRANTED) start();
 
-  // The app calls this on a Buy tap. It stays silent until the visitor accepts.
+  // The app calls this for product milestones. It stays silent until consent.
   window.czTrack = function (name, params) {
     if (!running || typeof name !== "string" || !name) return;
     gtag("event", name, params || {});

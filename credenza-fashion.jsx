@@ -60,7 +60,7 @@ import {
   deleteAccount as accountDeleteRequest,
   safeErrorMessage,
 } from "./preview/src/account.js";
-import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS } from "./preview/src/usage.js";
+import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, usageAudience } from "./preview/src/usage.js";
 import { limitStatus, ANON_FREE_CARDS } from "./preview/src/limits.js";
 import { buildShareSnapshot, makeShareCode, expiryFromDays, shareUrl } from "./credenza-share.js";
 import { shareItemCard } from "./credenza-item-share.js";
@@ -2251,11 +2251,19 @@ function getYouTubeId(url) {
 }
 
 // The signed-in user's decoded entitlement snapshot, mirrored from component
-// state so module-level enrichment (chart-vision) can apply the free daily
-// caps without threading props through every call (Part 7e).
+// state so module-level enrichment (chart-vision) can apply the Free
+// allowance without threading props through every call (Part 7e).
 let planForLimits = null;
 function setPlanForLimits(plan) {
   planForLimits = plan || null;
+}
+
+export function trackProductEvent(name, params = {}) {
+  try {
+    if (typeof window !== "undefined" && typeof window.czTrack === "function") {
+      window.czTrack(name, params);
+    }
+  } catch {}
 }
 
 const TRACKING_PARAM_RE =
@@ -2899,9 +2907,9 @@ const V2_KEY = "credenza-items-v1";
 // Deleted-card gravestones (LB-7). Kept beside the shelf, not inside it, so a
 // .json backup restores cards without also restoring the record of deletions.
 export const TOMBSTONE_KEY = "credenza-fashion-tombstones-v1";
-// "You get 3 free full cards." — shown on a visitor's first paste, once per
-// device (Kyle 2026-07-30, rule 3: warn before the wall, never at it).
-export const FREE_NOTE_KEY = "credenza-fashion-free-note-v1";
+// "You get 5 free full cards." — shown on a visitor's first paste, once per
+// device. V2 shows the changed allowance once to returning visitors too.
+export const FREE_NOTE_KEY = "credenza-fashion-free-note-v2";
 
 // When a host storage shim exists (the extension), it IS the backend — failed
 // reads and writes must surface instead of silently splitting or emptying the shelf.
@@ -3879,7 +3887,7 @@ export async function fetchYupooImages(albumUrl, { signal } = {}) {
 
 // ── "Sign in to read this link" (2026-07-30) ────────────────────────────────
 //
-// A signed-out visitor gets three complete cards. After that every paid
+// A signed-out visitor gets five complete cards. After that every paid
 // function answers 401 with code "sign_in_required". Any OTHER 401 is a real
 // authorization fault — a bad token, a forged call — and must NOT show the
 // sign-in message, so the code is checked and the status alone is not enough.
@@ -3893,6 +3901,17 @@ async function isSignInRefusal(res) {
   }
 }
 
+async function allowanceRefusal(res) {
+  if (!res || res.status !== 429) return null;
+  try {
+    const data = await res.clone().json();
+    const error = String((data && data.error) || "");
+    if (error.startsWith("Free ")) return "free";
+    if (error.startsWith("Monthly ")) return "monthly";
+  } catch {}
+  return null;
+}
+
 // Module-level readers (the chart hunt, the description-photo refetch) run
 // outside React, so they report the refusal through this hook. The component
 // registers it on mount and uses it to stop making blank cards.
@@ -3902,6 +3921,14 @@ export function setSignInRequiredHook(fn) {
 }
 function noteSignInRequired() {
   if (signInRequiredHook) signInRequiredHook();
+}
+
+let allowanceRequiredHook = null;
+export function setAllowanceRequiredHook(fn) {
+  allowanceRequiredHook = typeof fn === "function" ? fn : null;
+}
+function noteAllowanceRequired(kind, feature) {
+  if (allowanceRequiredHook) allowanceRequiredHook(kind, feature);
 }
 
 // Ask the vision function to read a size chart out of album PHOTOS — the
@@ -3918,9 +3945,12 @@ function noteSignInRequired() {
 async function postChartVision({ images, photos, signal, referer }) {
   if (!PREVIEW_SECRET) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
-  // Part 7e: a signed-in FREE user over the daily cap skips the cloud read;
+  // Part 7e: a signed-in Free user over the allowance skips the cloud read;
   // the card keeps whatever local intelligence found (same as offline).
-  if (overFreeLimit(planForLimits, "chartVision")) return null;
+  if (overFreeLimit(planForLimits, "chartVision")) {
+    noteAllowanceRequired("free", "chartVision");
+    return null;
+  }
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (signal) {
@@ -3941,18 +3971,23 @@ async function postChartVision({ images, photos, signal, referer }) {
     });
     // LB-59. Count AFTER the status check, never before it. The server counts a
     // chart read at chart-vision.js:281 — after Anthropic answered, so a 502
-    // "Chart read failed", a 504 timeout, a 413, and the 429 daily cap itself
+    // "Chart read failed", a 504 timeout, a 413, and the 429 plan cap itself
     // all cost the account nothing there. The client counter is the one that
     // BLOCKS (overFreeLimit above returns early on it), so a client that counted
-    // failures gave a free user 2 attempts a day, not 2 reads a day, and burned
+    // failures used to spend attempts instead of successful reads and burned
     // the second one on an outage the user did not cause. Both 200 bodies still
     // count, found:true and found:false alike, because the model was called
     // either way — /guides/what-spends-a-chart-read/ says so in those words.
     if (!res.ok) {
       if (await isSignInRefusal(res)) noteSignInRequired();
+      else {
+        const allowance = await allowanceRefusal(res);
+        if (allowance) noteAllowanceRequired(allowance, "chartVision");
+      }
       return null;
     }
-    bumpUsage("chartVision");
+    bumpUsage("chartVision", { audience: usageAudience(planForLimits) });
+    trackProductEvent("usage_success", { plan: usageAudience(planForLimits), feature: "chart_read" });
     const data = await res.json();
     if (!data || !data.found || typeof data.chartText !== "string") return null;
     return data.chartText.trim() || null;
@@ -4077,7 +4112,10 @@ export async function readChartFromPhotoFiles(files, { signal, referer } = {}) {
 export async function fetchDescImages(item, { signal } = {}) {
   if (!PREVIEW_SECRET) return [];
   if (typeof navigator !== "undefined" && navigator.onLine === false) return [];
-  if (overFreeLimit(planForLimits, "resolve")) return [];
+  if (overFreeLimit(planForLimits, "resolve")) {
+    noteAllowanceRequired("free", "resolve");
+    return [];
+  }
   const buyUrl = resolvableBuyUrl(item);
   if (!buyUrl) return [];
   const controller = new AbortController();
@@ -4100,9 +4138,14 @@ export async function fetchDescImages(item, { signal } = {}) {
     // even try is the worst version of the bug.
     if (!res.ok) {
       if (await isSignInRefusal(res)) noteSignInRequired();
+      else {
+        const allowance = await allowanceRefusal(res);
+        if (allowance) noteAllowanceRequired(allowance, "resolve");
+      }
       return [];
     }
-    bumpUsage("resolve");
+    bumpUsage("resolve", { audience: usageAudience(planForLimits) });
+    trackProductEvent("usage_success", { plan: usageAudience(planForLimits), feature: "card_read" });
     const data = await res.json();
     if (!data || !Array.isArray(data.descImages)) return [];
     return data.descImages.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u));
@@ -5243,11 +5286,11 @@ function CredenzaApp() {
   // when AUTH_ENABLED is false (env missing → no account UI at all).
   const [accountSession, setAccountSession] = useState(null);
   const [accountPlan, setAccountPlan] = useState(null);
-  // The two caps that are NOT daily counters (LB-1, LB-2). A daily counter is
+  // The two caps that are not metered server allowances (LB-1, LB-2). A metered counter is
   // re-checked by the server on every call; these two never reach a server, so
   // the client is the only place they can hold. Signed out reads as free.
   const isProPlan = accountPlan
-    ? accountPlan.state === "pro" || accountPlan.state === "grace"
+    ? accountPlan.state === "pro" || accountPlan.state === "grace" || accountPlan.state === "owner"
     : false;
   const qcPhotoCap = planLimit(accountPlan, "qcPhotosPerItem");
   const haulsCap = planLimit(accountPlan, "haulsMax");
@@ -5275,7 +5318,10 @@ function CredenzaApp() {
       // (?upgrade= without the trailing d), not only upgraded/profile.
       stripUrl();
       const upgraded = params.get("upgraded");
-      if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
+      if (upgraded) {
+        notify("Payment received — Pro turns on in a few seconds.");
+        trackProductEvent("purchase_return", { plan: "pro" });
+      }
       else notify("Checkout cancelled — nothing was charged.");
     }
     if (params.get("profile") || params.get("upgraded")) {
@@ -5306,6 +5352,7 @@ function CredenzaApp() {
           saveSession(fromUrl.session);
           if (!cancelled) {
             setAccountSession(fromUrl.session);
+            trackProductEvent("signup_complete", { method: "account" });
             notify("Signed in" + (fromUrl.session.user.email ? " as " + fromUrl.session.user.email : "") + ".");
           }
           await pullEntitlement(fromUrl.session);
@@ -5356,9 +5403,11 @@ function CredenzaApp() {
   }, []);
 
   const accountSendMagicLink = async (email) => {
+    trackProductEvent("signup_start", { method: "email" });
     await sendMagicLink(email);
   };
   const accountGoogle = () => {
+    trackProductEvent("signup_start", { method: "google" });
     window.location.assign(googleAuthUrl());
   };
   const accountUpgrade = async (price) => {
@@ -5368,6 +5417,7 @@ function CredenzaApp() {
       notify("Your sign-in expired — sign in again first.");
       return;
     }
+    trackProductEvent("checkout_start", { billing: price });
     const url = await accountCheckout(session.accessToken, price);
     window.location.assign(url);
   };
@@ -5416,8 +5466,10 @@ function CredenzaApp() {
     if (!payload) return;
     setAccountPlan(payload);
     notify(
-      payload.state === "pro" || payload.state === "grace"
-        ? "Pro is active on this account."
+      payload.state === "owner"
+        ? "Owner access is active on this account."
+        : payload.state === "pro" || payload.state === "grace"
+          ? "Pro is active on this account."
         : "No paid plan found on this account."
     );
   };
@@ -5462,7 +5514,7 @@ function CredenzaApp() {
   };
   // ── "Sign in to read this link" (Kyle 2026-07-30) ─────────────────────────
   //
-  // A signed-out visitor builds three complete cards. Then the server refuses,
+  // A signed-out visitor builds five complete cards. Then the server refuses,
   // and the old app made a blank card and said nothing — Kyle read that as a
   // broken site. Now the paste box stops making cards, holds the link, and
   // shows ONE notice that stays until the visitor signs in. The notice is not
@@ -5476,6 +5528,7 @@ function CredenzaApp() {
   const askForSignIn = useCallback((heldText = "") => {
     if (heldText) heldLinkRef.current = heldText;
     setSignInRequired(true);
+    trackProductEvent("allowance_reached", { plan: "guest", feature: "card_read" });
     // A refused paid read is a real limit wall. Open the same limits sheet
     // used by the header meter and Ask. Keep the persistent card notice too:
     // it owns the held link and stays until sign-in finishes the stopped work.
@@ -5502,13 +5555,14 @@ function CredenzaApp() {
   // ── One meter, one sheet (Kyle 2026-07-30) ────────────────────────────────
   //
   // Rule 1: a pill in the header always says where this person stands.
-  // Rule 2: the pill, a spent allowance, a daily cap and an ended membership
+  // Rule 2: the pill, a spent allowance, a plan cap and an ended membership
   //         all open the SAME sheet.
   // Rule 3: the last free read turns the pill amber, so nobody meets a wall
   //         they were not told about.
   // The sheet NEVER opens on its own — only on a tap or at a real wall.
   const [limitsOpen, setLimitsOpen] = useState(false);
-  // The daily counters live in localStorage, which never tells React that it
+  const [serverBlockedFeature, setServerBlockedFeature] = useState("");
+  // The allowance counters live in localStorage, which never tells React that it
   // changed. Every spent read bumps this, and the pill re-reads.
   const [usageTick, setUsageTick] = useState(0);
   useEffect(() => onUsageChange(() => setUsageTick((n) => n + 1)), []);
@@ -5522,14 +5576,36 @@ function CredenzaApp() {
             // The server has already refused, so the true count is zero
             // whatever this device's own counter says.
             blocked: signInRequired && !signedInAccount,
+            blockedFeature: serverBlockedFeature,
           })
         : null,
     // usageTick is the whole point of this dependency list: it is what makes
     // the pill re-read localStorage after a read is spent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountPlan, signedInAccount, signInRequired, usageTick],
+    [accountPlan, signedInAccount, signInRequired, serverBlockedFeature, usageTick],
   );
   const openLimits = useCallback(() => setLimitsOpen(true), []);
+  useEffect(() => {
+    setAllowanceRequiredHook((kind, feature) => {
+      const eventFeature = feature === "chartVision" ? "chart_read" : feature === "resolve" ? "card_read" : feature;
+      trackProductEvent("allowance_reached", {
+        plan: kind === "monthly" ? "paid" : "free",
+        feature: eventFeature,
+      });
+      if (kind === "monthly") {
+        notify("Your monthly allowance is used. More reads arrive next month.");
+        return;
+      }
+      setServerBlockedFeature(feature);
+      setLimitsOpen(true);
+    });
+    return () => setAllowanceRequiredHook(null);
+    // `notify` is intentionally read from the current mounted app.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (accountPlan && accountPlan.state !== "free") setServerBlockedFeature("");
+  }, [accountPlan]);
   // Rule 3, the other half: the first paste by a signed-out visitor says how
   // many free cards there are. Once per device — a line repeated on every
   // paste is nagging, and nagging drives visitors away.
@@ -5581,8 +5657,15 @@ function CredenzaApp() {
   // Module-level enrichment (chart-vision) reads the plan through the module
   // mirror — component state stays the one source of truth.
   useEffect(() => {
-    setPlanForLimits(accountPlan);
-  }, [accountPlan]);
+    // Treat a signed-in account as Free while its snapshot loads. This keeps
+    // early successful calls out of the separate guest counter.
+    setPlanForLimits(
+      accountPlan ||
+        (signedInAccount
+          ? { state: "free", lim: {}, sub: accountSession && accountSession.user.id }
+          : null)
+    );
+  }, [accountPlan, accountSession, signedInAccount]);
   // Delete confirmation (KM-02): every delete path (card-back button,
   // Backspace/Delete key) stages the id here first; the dialog shows the card
   // title and offers Keep / Delete. null = nothing staged.
@@ -6232,7 +6315,7 @@ function CredenzaApp() {
   const dispatchStash = (raw, options = {}) => {
     let text = (raw || "").trim();
     if (!text) return { status: "empty" };
-    // Signed out, and the three free reads are gone. Hold the link and make no
+    // Signed out, and the five free reads are gone. Hold the link and make no
     // card: a blank card is the fault this exists to remove. The notice on
     // screen carries the Sign in button, and the link stays in the box.
     if (signInRequired && !accountSession) {
@@ -6241,7 +6324,7 @@ function CredenzaApp() {
       return { status: "signin" };
     }
     // Rule 3: warn before the wall, never at it. The FIRST paste by a visitor
-    // says how many free cards there are, once per device, so the third card
+    // says how many free cards there are, once per device, so the fifth card
     // is never a surprise. It is one line, and it is not a modal.
     noteFreeAllowanceOnce();
     if (options.linksOnly) {
@@ -6957,9 +7040,12 @@ function CredenzaApp() {
   const resolveBuyDetails = async (item, { token = null, signal = null, preserveTitle = false } = {}) => {
     if (!PREVIEW_SECRET) return false;
     if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
-    // Part 7e: signed-in FREE user over the daily resolve cap — skip the
+    // Part 7e: signed-in Free user over the resolve allowance — skip the
     // cloud read, keep the local card (same as offline).
-    if (overFreeLimit(accountPlan, "resolve")) return false;
+    if (overFreeLimit(accountPlan, "resolve")) {
+      noteAllowanceRequired("free", "resolve");
+      return false;
+    }
     const buyUrl = resolvableBuyUrl(item);
     if (!buyUrl) return false;
     updateEnrichedItem(item.id, token, { status: "enriching" });
@@ -6972,6 +7058,7 @@ function CredenzaApp() {
     const timer = setTimeout(() => controller.abort(), 30000);
     let data = null;
     let refused = false;
+    let allowance = null;
     try {
       const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
         method: "POST",
@@ -6981,10 +7068,12 @@ function CredenzaApp() {
       });
       // LB-59. The importer's own resolve call, counted on success only.
       if (res.ok) {
-        bumpUsage("resolve");
+        bumpUsage("resolve", { audience: usageAudience(accountPlan, signedInAccount) });
+        trackProductEvent("usage_success", { plan: usageAudience(accountPlan, signedInAccount), feature: "card_read" });
         data = await res.json();
-      } else if (await isSignInRefusal(res)) {
-        refused = true;
+      } else {
+        allowance = await allowanceRefusal(res);
+        if (!allowance && (await isSignInRefusal(res))) refused = true;
       }
     } catch {
       data = null;
@@ -6997,6 +7086,11 @@ function CredenzaApp() {
       // sitting there empty and looking like a broken site.
       updateEnrichedItem(item.id, token, { status: "ready", needsSignIn: true });
       askForSignIn();
+      return false;
+    }
+    if (allowance) {
+      updateEnrichedItem(item.id, token, { status: "ready" });
+      noteAllowanceRequired(allowance, "resolve");
       return false;
     }
     if (!data || !data.title) {
@@ -7595,7 +7689,7 @@ function CredenzaApp() {
     }
 
     const shelf = serializeAskCandidates(query, shelfAll, { limit: 25 });
-    // Part 7e: a signed-in FREE user over the daily ask cap gets the honest
+    // Part 7e: a signed-in Free user over the Ask allowance gets the honest
     // message instead of a server 429.
     //
     // Kyle 2026-07-30, rule 2: this line no longer carries its own upgrade
@@ -7607,9 +7701,9 @@ function CredenzaApp() {
         query,
         answer: "",
         results: [],
-        error: "That is today's free Ask limit.",
+        error: "That is your Free Ask allowance.",
       });
-      openLimits();
+      noteAllowanceRequired("free", "ask");
       return;
     }
     const controller = new AbortController();
@@ -7638,6 +7732,9 @@ function CredenzaApp() {
       // safeErrorMessage keeps the daily-cap line, which is the one message a
       // free user needs, and replaces the rest by status code.
       if (!res.ok) {
+        const message = String((payload && payload.error) || "");
+        if (message.startsWith("Free ")) noteAllowanceRequired("free", "ask");
+        else if (message.startsWith("Monthly ")) noteAllowanceRequired("monthly", "ask");
         const err = new Error(safeErrorMessage(res.status, payload && payload.error, "Cloud Ask"));
         err.serverError = payload && payload.error;
         throw err;
@@ -7660,8 +7757,9 @@ function CredenzaApp() {
       // validation — so a 429 from Anthropic, a 502, and a malformed answer are
       // all free on the server. The client counts at the same moment, and not
       // one line earlier: this counter is what overFreeLimit blocks on, and a
-      // free user has 5 answers a day, not 5 attempts.
-      bumpUsage("ask");
+      // Free users spend answers, not failed attempts.
+      bumpUsage("ask", { audience: usageAudience(accountPlan, signedInAccount) });
+      trackProductEvent("usage_success", { plan: usageAudience(accountPlan, signedInAccount), feature: "ask" });
 
       setAskState({
         status: "success",
@@ -8914,7 +9012,7 @@ function CredenzaApp() {
       const n = inboxItems.length;
       return n + (n === 1 ? " item" : " items");
     }
-    // Shelf: "4 saved · 3 free cards left". Pro has no meter, so just the count.
+    // Shelf: "4 saved · 5 free cards left". Pro has no meter, so just the count.
     const saved =
       shelfAll.length + (shelfAll.length === 1 ? " saved" : " saved");
     if (limits && limits.kind === "anon") return saved + " · " + limits.label;

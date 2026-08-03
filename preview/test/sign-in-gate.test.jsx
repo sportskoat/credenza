@@ -1,6 +1,6 @@
 // "Sign in to read this link" (Kyle 2026-07-30).
 //
-// A signed-out visitor gets three complete cards. After that every paid
+// A signed-out visitor gets five complete cards. After that every paid
 // function refuses, and the card SAYS why instead of sitting there empty.
 // Three parts, one file:
 //   1. the free-taste counter itself;
@@ -20,13 +20,13 @@ const SHARED = "shared-secret";
 
 // ── 1. The free-taste counter ──────────────────────────────────────────────
 
-describe("the three free reads a signed-out visitor gets", () => {
+describe("the five free reads a signed-out visitor gets", () => {
   beforeEach(() => {
     anon._resetForTest();
   });
 
-  it("allows three link reads, then refuses the fourth", () => {
-    for (let i = 0; i < 3; i++) {
+  it("allows five link reads, then refuses the sixth", () => {
+    for (let i = 0; i < 5; i++) {
       expect(anon.allowAnon("resolve", "1.2.3.4"), "read " + (i + 1)).toBe(true);
       anon.recordAnon("resolve", "1.2.3.4");
     }
@@ -35,7 +35,7 @@ describe("the three free reads a signed-out visitor gets", () => {
   });
 
   it("keeps the chart read on its own count, so a card can finish", () => {
-    for (let i = 0; i < 3; i++) anon.recordAnon("resolve", "1.2.3.4");
+    for (let i = 0; i < 5; i++) anon.recordAnon("resolve", "1.2.3.4");
     expect(anon.allowAnon("chartVision", "1.2.3.4")).toBe(true);
   });
 
@@ -46,21 +46,20 @@ describe("the three free reads a signed-out visitor gets", () => {
   });
 
   it("counts each visitor on their own", () => {
-    for (let i = 0; i < 3; i++) anon.recordAnon("resolve", "1.2.3.4");
+    for (let i = 0; i < 5; i++) anon.recordAnon("resolve", "1.2.3.4");
     expect(anon.allowAnon("resolve", "9.9.9.9")).toBe(true);
   });
 
-  it("starts the count again on the next day", () => {
+  it("does not reset the count on the next day", () => {
     const day1 = Date.parse("2026-07-30T12:00:00Z");
     const day2 = Date.parse("2026-07-31T00:30:00Z");
-    for (let i = 0; i < 3; i++) anon.recordAnon("resolve", "1.2.3.4", day1);
+    for (let i = 0; i < 5; i++) anon.recordAnon("resolve", "1.2.3.4", day1);
     expect(anon.allowAnon("resolve", "1.2.3.4", day1)).toBe(false);
-    expect(anon.allowAnon("resolve", "1.2.3.4", day2)).toBe(true);
+    expect(anon.allowAnon("resolve", "1.2.3.4", day2)).toBe(false);
   });
 
-  it("promises three free link reads, and none for Ask", () => {
-    // The interface says "3 free". These numbers are that promise.
-    expect(anon.ANON_FREE_PER_DAY).toEqual({ resolve: 3, chartVision: 3, ask: 0 });
+  it("promises five free link reads, and none for Ask", () => {
+    expect(anon.ANON_FREE_TOTAL).toEqual({ resolve: 5, chartVision: 5, ask: 0 });
   });
 });
 
@@ -82,8 +81,8 @@ describe("the gate, with accounts required", () => {
     limit._resetForTest();
   });
 
-  it("lets the first three link reads through, then names the refusal", async () => {
-    for (let i = 0; i < 3; i++) {
+  it("lets the first five link reads through, then names the refusal", async () => {
+    for (let i = 0; i < 5; i++) {
       const ok = await gate.authorizePaid(anonPost("5.5.5.5"), env, "resolve");
       expect(ok.ok, "read " + (i + 1)).toBe(true);
       expect(ok.via).toBe("anon-free");
@@ -115,7 +114,7 @@ describe("the gate, with accounts required", () => {
     const ok = await gate.authorizePaid(anonPost("5.5.5.7"), env, "resolve");
     expect(ok.ok).toBe(true);
     // The function threw, so recordPaidUsage never runs.
-    expect(anon.freeLeft("resolve", limit.clientKey(anonPost("5.5.5.7")))).toBe(3);
+    expect(anon.freeLeft("resolve", limit.clientKey(anonPost("5.5.5.7")))).toBe(5);
   });
 });
 

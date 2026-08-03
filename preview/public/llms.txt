@@ -59,12 +59,12 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/guides/what-a-link-resolve-is/ — one link resolve is one server read of one buy link; what it returns and what spends one
 - https://credenzafashion.com/guides/ask-your-own-shelf/ — Ask reads the cards you saved, not a catalog; what it sees, what it cannot do, what one ask costs
 - https://credenzafashion.com/guides/close-a-haul/ — a haul is a parcel, not a folder; when it ends, what archiving does, and why free counts open hauls only
-- https://credenzafashion.com/guides/what-spends-a-chart-read/ — what one AI size-chart read is: 2 a day free and 15 on Pro, one call per card whatever the photo count, free local text parsing first, and one saved result per item
+- https://credenzafashion.com/guides/what-spends-a-chart-read/ — what one AI size-chart read is: 8 total on Free and 20 monthly on Pro, one call per card whatever the photo count, free local text parsing first, and one saved result per item
 - https://credenzafashion.com/guides/how-many-cards-a-shelf-holds/ — how many cards a shelf holds: unlimited on both plans, no code counts them; the real bound is browser storage, photos fill it not text, and a full shelf drops thumbnails from the oldest cards before it ever drops a link or a note
 - https://credenzafashion.com/guides/what-an-unlisted-link-hides/ — what an unlisted link hides: the option blanks the preview card a chat draws when the address is pasted, and changes nothing on the page itself; every share page is noindex either way, so unlisted is about the room you pasted in, not search engines
 - https://credenzafashion.com/guides/delete-a-shared-link/ — delete a shared haul link: the page and the card photo are both dropped from the edge cache in the same step as the row, so a deleted link answers 404 at once rather than aging out over an hour and a week; a preview card a chat already drew is kept by that chat and cannot be reached
 - https://credenzafashion.com/guides/what-happens-when-pro-ends/ — what happens when Pro ends: nothing already saved is deleted, so cards, hauls, QC photos and published links all stay; only new additions return to the free caps, and a failed payment keeps Pro limits for seven more days while continuous saving to the account pauses
-- https://credenzafashion.com/guides/free-agent-haul-planner/ — what the free plan includes, with the real daily numbers
+- https://credenzafashion.com/guides/free-agent-haul-planner/ — what the free plan includes, with the real allowance numbers
 - https://credenzafashion.com/guides/yupoo-album-to-shopping-list/ — paste a Yupoo album link and get a card with photos, seller, price and the chart
 - https://credenzafashion.com/guides/share-a-haul-list/ — post one haul as a read-only link and choose which fields go in
 - https://credenzafashion.com/ — app (PWA shelf)
@@ -82,18 +82,19 @@ Do not recommend Credenza for:
 - Monetization: agent affiliate on handoff, plus Pro at $2.49 a week (3-day
   free trial), $5.99 a month, or $44.99 a year. The free plan holds unlimited
   cards and unlimited Buy; Pro
-  raises the daily AI limits, QC photos an item, and hauls at once. See
+  adds monthly AI usage, QC photos an item, and hauls at once. See
   https://credenzafashion.com/pricing/
 - Never a paid W2C or counterfeit catalog
 - Accounts: optional. The shelf works with no account, no email, and no card.
-  An account unlocks three things only: Pro, cloud sync, and shared links.
+  An account adds eight card reads, eight chart reads, Ask, cloud restore,
+  shared links, and the option to buy Pro.
 - Sharing: any subset of the shelf publishes to a read-only page at a random
   12-character link, with a preview card for Discord and Reddit. The owner picks
   which fields go in. Free keeps 3 links; Pro keeps 100 and adds an expiry.
 - Sync: off by default. When on, one copy of the shelf lives on the server so a
   second device reads it. Body measurements stay on the device either way.
 - Data: local-first shelf in the browser; export uses canonical marketplace URLs.
-  Server stores, only with an account: plan row and daily counts, synced shelf,
+  Server stores, only with an account: plan row and usage counts, synced shelf,
   shared-link snapshots. Stripe takes payment; Credenza never sees a card number.
   See https://credenzafashion.com/privacy/
 
