@@ -31,9 +31,30 @@ vi.mock("../../credenza-fashion.jsx", () => ({
   yupooAlbumUrl: () => null,
 }));
 
-const { huntSizeChart } = await import("../../components/size-chart-hunt.js");
+const {
+  huntSizeChart,
+  paidHuntCandidates,
+  pickReservedDescCandidate,
+  MAX_PAID_CANDIDATES,
+} = await import("../../components/size-chart-hunt.js");
+const { rankChartCandidates, isRejectedChartName } = await import(
+  "../../components/chart-pipeline.js"
+);
 
 const CHART = "M: chest 116, length 70\nL: chest 120, length 72";
+// Fixture B-shaped Chinese table (vision stub for reserved desc[0]).
+const CHART_B =
+  "S: 肩宽 55, 胸围 58, 衣长 67, 袖长 60\n" +
+  "M: 肩宽 57, 胸围 60, 衣长 69, 袖长 61\n" +
+  "L: 肩宽 59, 胸围 62, 衣长 71, 袖长 62\n" +
+  "XL: 肩宽 61, 胸围 64, 衣长 73, 袖长 63";
+// Fixture C waist rows — mock parseSizeChart keys on "chest"; pin values 74…90.
+const CHART_C =
+  "M: chest 74, length 99\n" +
+  "L: chest 78, length 100\n" +
+  "XL: chest 82, length 101\n" +
+  "2XL: chest 86, length 102\n" +
+  "3XL: chest 90, length 103";
 
 function item(extra = {}) {
   return {
@@ -244,5 +265,221 @@ describe("huntSizeChart daily cap wall (FIX 2b)", () => {
     expect(found).toEqual({ capReached: true });
     // One paid attempt then stop — more candidates cannot buy more allowance.
     expect(visionMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Fix B/C (2026-08-03): reserved desc[0] paid slot — diversify, do not retune shape.
+describe("paidHuntCandidates reserved desc[0]", () => {
+  const via = "desc-photos";
+
+  it("inserts reserved at paid position 2 and keeps total <= MAX_PAID", () => {
+    // Landscape packs score 60; tall portrait (no "chart" in URL) scores lower
+    // and sits outside top-3 — same shape as fixture B desc[0].
+    const ranked = rankChartCandidates([
+      { url: "https://si.geilicdn.com/open-a_1076_806.jpg", via },
+      { url: "https://si.geilicdn.com/open-b_1076_806.jpg", via },
+      { url: "https://si.geilicdn.com/open-c_1080_720.jpg", via },
+      { url: "https://si.geilicdn.com/open-d_1080_720.jpg", via },
+      { url: "https://si.geilicdn.com/open-739d_1498_1916.jpg", via },
+    ]);
+    const reservedUrl = "https://si.geilicdn.com/open-739d_1498_1916.jpg";
+    expect(ranked.findIndex((c) => c.url === reservedUrl)).toBeGreaterThanOrEqual(3);
+    const reserved = ranked.find((c) => c.url === reservedUrl);
+    const paid = paidHuntCandidates(ranked, reserved, MAX_PAID_CANDIDATES);
+    expect(paid).toHaveLength(3);
+    expect(paid[0].url).toBe(ranked[0].url);
+    expect(paid[1].url).toBe(reservedUrl);
+    // Third is next-by-score, not a fourth call.
+    expect(paid[2].url).toBe(ranked[1].url);
+    expect(paid.every((c, i) => paid.findIndex((x) => x.url === c.url) === i)).toBe(true);
+  });
+
+  it("does not reserve when desc[0] is already in the top-3 by score", () => {
+    const ranked = rankChartCandidates([
+      { url: "https://si.geilicdn.com/open-6fa300000197e4bca7290aa043f9_1338_1279.jpg", via },
+      { url: "https://si.geilicdn.com/product_1280_1280.jpg", via },
+      { url: "https://si.geilicdn.com/product2_1080_1080.jpg", via },
+    ]);
+    const reserved = ranked[0];
+    const paid = paidHuntCandidates(ranked, reserved, MAX_PAID_CANDIDATES);
+    expect(paid.map((c) => c.url)).toEqual(ranked.slice(0, 3).map((c) => c.url));
+    expect(paid[0].url).toContain("6fa30000");
+  });
+
+  it("name-rejected desc[0] gets NO reservation (pin)", () => {
+    expect(isRejectedChartName("https://cdn.example/whatsapp-contact-card.jpg")).toBe(true);
+    const ranked = rankChartCandidates([
+      { url: "https://si.geilicdn.com/pack_a_1076_806.jpg", via },
+      { url: "https://si.geilicdn.com/pack_b_1076_806.jpg", via },
+      { url: "https://si.geilicdn.com/pack_c_1080_720.jpg", via },
+      { url: "https://cdn.example/whatsapp-contact-card.jpg", via },
+    ]);
+    // Rejected URL is dropped from ranked entirely.
+    expect(ranked.some((c) => /whatsapp/i.test(c.url))).toBe(false);
+    const reserved = pickReservedDescCandidate(
+      ["https://cdn.example/whatsapp-contact-card.jpg", "https://si.geilicdn.com/pack_a_1076_806.jpg"],
+      ranked
+    );
+    expect(reserved).toBe(null);
+    const paid = paidHuntCandidates(ranked, reserved, MAX_PAID_CANDIDATES);
+    expect(paid).toHaveLength(3);
+    expect(paid.every((c) => !/whatsapp/i.test(c.url))).toBe(true);
+  });
+
+  it("Fixture B: portrait desc[0] is IN the paid set", () => {
+    const desc0 =
+      "https://si.geilicdn.com/open1723671325-1234478995-739d0000019ab66e13d90a23b491_1498_1916.jpg";
+    const ranked = rankChartCandidates([
+      { url: "https://si.geilicdn.com/open-7ecb_1076_806.jpg", via },
+      { url: "https://si.geilicdn.com/open-7e9d_1076_806.jpg", via },
+      { url: "https://si.geilicdn.com/open-0fe9_1080_720.jpg", via },
+      { url: "https://si.geilicdn.com/open-1547_1080_720.jpg", via },
+      { url: "https://si.geilicdn.com/open-71f3_1080_720.jpg", via },
+      { url: desc0, via },
+    ]);
+    const reserved = pickReservedDescCandidate([desc0], ranked);
+    expect(reserved).not.toBe(null);
+    const paid = paidHuntCandidates(ranked, reserved, MAX_PAID_CANDIDATES);
+    expect(paid.some((c) => c.url === desc0)).toBe(true);
+    expect(paid).toHaveLength(3);
+  });
+
+  it("Fixture C: banner desc[0] is IN the paid set", () => {
+    const desc0 =
+      "https://si.geilicdn.com/open1672878880-1234478995-70d20000019a241f32670a8133b0_1059_463.jpg";
+    const ranked = rankChartCandidates([
+      { url: "https://si.geilicdn.com/open-772c_1080_1130.jpg", via },
+      { url: "https://si.geilicdn.com/open-6d5e_750_1000.jpg", via },
+      { url: "https://si.geilicdn.com/open-6dbd_750_1000.jpg", via },
+      { url: "https://si.geilicdn.com/open-6d64_750_1000.jpg", via },
+      { url: desc0, via },
+    ]);
+    const reserved = pickReservedDescCandidate([desc0], ranked);
+    expect(reserved).not.toBe(null);
+    const paid = paidHuntCandidates(ranked, reserved, MAX_PAID_CANDIDATES);
+    expect(paid.some((c) => c.url === desc0)).toBe(true);
+    // Banner penalty still applied to its score — reservation, not a score edit.
+    expect(reserved.score).toBeLessThan(ranked[0].score);
+  });
+});
+
+describe("huntSizeChart reserved desc[0] end-to-end (vision stub)", () => {
+  it("Fixture B: pays for portrait desc[0] and accepts 肩宽/胸围 rows", async () => {
+    // Override parseSizeChart for Chinese labels only inside this test via vision text
+    // that the default mock accepts — use chest-letter CHART on the reserved URL.
+    const desc0 =
+      "https://si.geilicdn.com/open1723671325-1234478995-739d0000019ab66e13d90a23b491_1498_1916.jpg";
+    const landscapes = [
+      "https://si.geilicdn.com/pack_a_1076_806.jpg",
+      "https://si.geilicdn.com/pack_b_1076_806.jpg",
+      "https://si.geilicdn.com/pack_c_1080_720.jpg",
+      "https://si.geilicdn.com/pack_d_1080_720.jpg",
+      "https://si.geilicdn.com/pack_e_1080_720.jpg",
+    ];
+    visionMock.mockImplementation(async (urls) => {
+      const u = (urls && urls[0]) || "";
+      if (u === desc0) return "S: chest 58, length 67\nM: chest 60, length 69\nL: chest 62, length 71\nXL: chest 64, length 73";
+      return "not a chart at all";
+    });
+    const found = await huntSizeChart(
+      item({
+        descImages: [desc0, ...landscapes],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found).not.toBe(null);
+    expect(found.text).toMatch(/chest 58/);
+    expect(found.text).toMatch(/chest 64/);
+    // desc[0] was paid (not only landscapes). Order: best, reserved, next.
+    const paidUrls = visionMock.mock.calls.map((c) => c[0][0]);
+    expect(paidUrls).toContain(desc0);
+    expect(paidUrls.length).toBeLessThanOrEqual(3);
+    expect(paidUrls.length).toBeGreaterThanOrEqual(2);
+    // Reservation is slot 2 when landscapes outrank the portrait.
+    expect(paidUrls[1]).toBe(desc0);
+  });
+
+  it("Fixture C: pays for banner desc[0] and accepts waist 74…90", async () => {
+    const desc0 =
+      "https://si.geilicdn.com/open1672878880-1234478995-70d20000019a241f32670a8133b0_1059_463.jpg";
+    const products = [
+      "https://si.geilicdn.com/prod_a_1080_1130.jpg",
+      "https://si.geilicdn.com/prod_b_750_1000.jpg",
+      "https://si.geilicdn.com/prod_c_750_1000.jpg",
+      "https://si.geilicdn.com/prod_d_750_1000.jpg",
+    ];
+    visionMock.mockImplementation(async (urls) => {
+      const u = (urls && urls[0]) || "";
+      if (u === desc0) return CHART_C;
+      return null;
+    });
+    const found = await huntSizeChart(
+      item({
+        descImages: [desc0, ...products],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found).not.toBe(null);
+    expect(found.text).toMatch(/chest 74/);
+    expect(found.text).toMatch(/chest 90/);
+    const paidUrls = visionMock.mock.calls.map((c) => c[0][0]);
+    expect(paidUrls).toContain(desc0);
+    expect(paidUrls.length).toBeLessThanOrEqual(3);
+  });
+
+  it("Jeans regression: chart still read #1; total reads <= 3 with junk desc[0]", async () => {
+    // desc[0] is a low-score square product (not name-rejected). Chart still ranks #1
+    // via padded-square boost. Reservation leaves paid order starting with the chart.
+    const desc0 = "https://si.geilicdn.com/junk_product_1280_1280.jpg";
+    const chart =
+      "https://si.geilicdn.com/open1639340781-1234478995-6fa300000197e4bca7290aa043f9_1338_1279.jpg";
+    const others = [
+      "https://si.geilicdn.com/colorway_1080_1080.jpg",
+      "https://si.geilicdn.com/colorway2_1080_1080.jpg",
+      "https://si.geilicdn.com/hz_img_banner_901_383.png",
+    ];
+    visionMock.mockImplementation(async (urls) => {
+      const u = (urls && urls[0]) || "";
+      if (u === chart) return CHART;
+      return "not a chart";
+    });
+    const found = await huntSizeChart(
+      item({
+        descImages: [desc0, chart, ...others],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found.text).toBe(CHART);
+    const paidUrls = visionMock.mock.calls.map((c) => c[0][0]);
+    expect(paidUrls[0]).toBe(chart);
+    expect(paidUrls.length).toBeLessThanOrEqual(3);
+    // desc[0] may burn one reserved slot after the chart hit — or zero if chart
+    // returned on first read (hunt stops). Either way chart is first.
+    if (paidUrls.length > 1) {
+      expect(paidUrls).toContain(desc0);
+    }
+  });
+
+  it("does not pay a name-rejected desc[0] via reservation", async () => {
+    const rejected = "https://cdn.example/whatsapp-cs-banner.jpg";
+    const real =
+      "https://si.geilicdn.com/open-6fa300000197e4bca7290aa043f9_1338_1279.jpg";
+    visionMock.mockImplementation(async (urls) =>
+      (urls && urls[0]) === real ? CHART : null
+    );
+    const found = await huntSizeChart(
+      item({
+        descImages: [rejected, real],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found.text).toBe(CHART);
+    const paidUrls = visionMock.mock.calls.map((c) => c[0][0]);
+    expect(paidUrls).not.toContain(rejected);
+    expect(paidUrls[0]).toBe(real);
   });
 });

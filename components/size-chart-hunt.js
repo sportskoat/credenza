@@ -20,15 +20,71 @@ import {
 import {
   chartCacheForImageKeys,
   chartImageKey,
+  isRejectedChartName,
   rankChartCandidates,
   rememberChartImage,
   validateChartResult,
 } from "./chart-pipeline.js";
 
 /** Max single-photo paid reads per hunt. Ranking should hit on the first. */
-const MAX_PAID_CANDIDATES = 3;
+export const MAX_PAID_CANDIDATES = 3;
 /** Cap how many gallery/desc photos enter the ranking pool. */
 const MAX_POOL = 24;
+
+/**
+ * Paid read order for one hunt (Fix B/C reserved desc[0], 2026-08-03).
+ *
+ * Shape scores stay exactly as Fix 2a. Diversify the paid set instead:
+ * if the original Product-Details image (desc[0]) is not already in the
+ * top MAX_PAID by rank, insert it at paid position 2. Read order becomes
+ * best-by-score, then desc[0], then next-by-score. Total paid stays <= 3 —
+ * the reservation displaces the third score pick, never adds a fourth call.
+ *
+ * Name-rejected desc[0] (REJECT_NAME) never reserves — ranked already
+ * dropped it, and the pin forbids falling through to desc[1].
+ *
+ * @param {Array<import("./chart-pipeline.js").ChartCandidate & { imageKey?: string, score?: number }>} ranked
+ * @param {import("./chart-pipeline.js").ChartCandidate & { imageKey?: string, score?: number } | null} reserved
+ * @param {number} [maxPaid]
+ * @returns {Array<import("./chart-pipeline.js").ChartCandidate & { imageKey?: string, score?: number }>}
+ */
+export function paidHuntCandidates(ranked, reserved, maxPaid = MAX_PAID_CANDIDATES) {
+  const list = Array.isArray(ranked) ? ranked : [];
+  if (!list.length) return [];
+  if (!reserved || !reserved.url) return list.slice(0, maxPaid);
+  if (isRejectedChartName(reserved)) return list.slice(0, maxPaid);
+
+  const top = list.slice(0, maxPaid);
+  if (top.some((c) => c.url === reserved.url)) return top;
+
+  // Slot 0 = best-by-score, slot 1 = reserved desc[0], then fill by score.
+  /** @type {typeof list} */
+  const out = [];
+  if (list[0]) out.push(list[0]);
+  out.push(reserved);
+  for (const c of list) {
+    if (out.length >= maxPaid) break;
+    if (c.url === reserved.url) continue;
+    if (out.some((x) => x.url === c.url)) continue;
+    out.push(c);
+  }
+  return out.slice(0, maxPaid);
+}
+
+/**
+ * Original desc[0] as a ranked candidate, or null when missing / name-rejected.
+ * @param {string[]} descUrls - original Product-Details order
+ * @param {Array<import("./chart-pipeline.js").ChartCandidate & { imageKey?: string, score?: number }>} rankedAll
+ * @returns {(import("./chart-pipeline.js").ChartCandidate & { imageKey?: string, score?: number }) | null}
+ */
+export function pickReservedDescCandidate(descUrls, rankedAll) {
+  const url = Array.isArray(descUrls) ? descUrls[0] : null;
+  if (!url || typeof url !== "string") return null;
+  // Pin: name-rejected desc[0] gets NO reservation (do not walk to desc[1]).
+  if (isRejectedChartName(url)) return null;
+  const hit = (rankedAll || []).find((c) => c && c.url === url);
+  return hit || null;
+}
 
 /**
  * @param {string[]} urls
@@ -156,7 +212,8 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     );
   }
 
-  const descPhotos = (item.descImages || []).filter(
+  // Original Product-Details order — reserved-read uses desc[0] only.
+  let descPhotos = (item.descImages || []).filter(
     (src) => typeof src === "string" && /^https?:\/\//i.test(src)
   );
   pool = pool.concat(asCandidates(descPhotos, "desc-photos"));
@@ -169,14 +226,16 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     const fresh = (fetched || []).filter(
       (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !localPhotos.includes(src)
     );
+    descPhotos = fresh;
     pool = pool.concat(asCandidates(fresh, "desc-photos"));
   }
 
-  const ranked = rankChartCandidates(pool).slice(0, MAX_POOL);
+  const rankedAll = rankChartCandidates(pool);
+  const ranked = rankedAll.slice(0, MAX_POOL);
   if (!ranked.length) return null;
 
   // Whole-pool image cache check before any paid call.
-  const keys = ranked.map((c) => c.imageKey).filter(Boolean);
+  const keys = rankedAll.map((c) => c.imageKey).filter(Boolean);
   const bulkHit = chartCacheForImageKeys(shelfItems, keys, parseSizeChart);
   if (bulkHit) {
     return {
@@ -189,12 +248,14 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     };
   }
 
+  // Fix B/C: diversify paid set with original desc[0] at slot 2 when needed.
+  // Scores/bands unchanged (Fix 2a). Reservation never raises cost above 3.
+  const reserved = pickReservedDescCandidate(descPhotos, rankedAll);
+  const paidList = paidHuntCandidates(ranked, reserved, MAX_PAID_CANDIDATES);
+
   // One photo per paid read. Stop on the first validated chart.
-  let paid = 0;
-  for (const candidate of ranked) {
+  for (const candidate of paidList) {
     if (signal && signal.aborted) return null;
-    if (paid >= MAX_PAID_CANDIDATES) break;
-    paid += 1;
     const hit = await tryCandidate(candidate, { signal, referer, shelfItems });
     if (hit && hit.authRequired) return { authRequired: true };
     if (hit && hit.capReached) return { capReached: true };
