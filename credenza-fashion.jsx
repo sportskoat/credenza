@@ -472,7 +472,8 @@ export function migrateHaul(raw) {
 
 // Local category guess from free text (Yupoo title/description, review notes).
 // Returns a CATEGORIES key or "" when nothing confident matches.
-function guessFashionCategory(text) {
+// Exported for Fix 3 pins (titleEn + variant re-guess after resolve).
+export function guessFashionCategory(text) {
   const t = String(text || "").toLowerCase();
   if (!t.trim()) return "";
   if (/\b(shoe|shoes|sneaker|sneakers|jordan|dunk|af1|yeezy|boot|boots|slide|slides|sandal|loafer|trainer)\b/.test(t)) return "shoes";
@@ -485,14 +486,97 @@ function guessFashionCategory(text) {
   if (/\b(belt|watch|sunglass|sunglasses|wallet|scarf|glove|gloves|chain|necklace|bracelet)\b/.test(t)) return "accessory";
   if (/\b(tee|t-shirt|tshirt|shirt|shirts|jersey|jerseys|polo|top|crewneck|longsleeve|blouse)\b/.test(t)) return "shirt";
   // Chinese marketplace crumbs that sometimes appear in Yupoo descriptions.
+  // 牛仔裤 / 裤 catch jeans listings when the full original title reaches us
+  // (card UI may truncate; resolve originalTitle still has the 裤 cue).
   if (/鞋|运动鞋|球鞋/.test(t)) return "shoes";
   if (/短裤/.test(t)) return "shorts";
-  if (/裤|牛仔裤/.test(t)) return "pants";
+  if (/裤|牛仔裤|长裤|西裤/.test(t)) return "pants";
   if (/卫衣|外套|棉服|羽绒服|夹克/.test(t)) return "outerwear";
   if (/袜/.test(t)) return "socks";
   if (/帽/.test(t)) return "hat";
   if (/包|背包/.test(t)) return "bag";
   if (/T恤|短袖|长袖|衬衫|球衣|卫衣/.test(t) && !/外套/.test(t)) return "shirt";
+  return "";
+}
+
+// Letter + waist size tokens (S-28, XXL-36). High-precision pants signal from
+// listing variants — no AI. F Fix 3 2026-08-03.
+export const PANTS_SIZE_TOKEN = /^[A-Z]{1,3}-?\d{2}$/i;
+
+/** Flatten variant group values to bare names. */
+export function collectVariantNames(variants) {
+  const names = [];
+  for (const group of variants || []) {
+    const values = group && Array.isArray(group.values) ? group.values : [];
+    for (const value of values) {
+      const name =
+        typeof value === "string" ? value : value && value.name != null ? String(value.name) : "";
+      const trimmed = name.trim();
+      if (trimmed) names.push(trimmed);
+    }
+  }
+  return names;
+}
+
+/**
+ * True when >=2 variant values look like letter-dash-waist size tokens.
+ * Listing-derived, no AI — false on plain S/M/L or color axes.
+ */
+export function inferPantsFromSizeTokens(variants) {
+  let hits = 0;
+  for (const name of collectVariantNames(variants)) {
+    if (PANTS_SIZE_TOKEN.test(name)) hits += 1;
+    if (hits >= 2) return true;
+  }
+  return false;
+}
+
+/**
+ * Client-side category refine after resolve/enrich (Fix 3).
+ * When the server left category empty or "other", try:
+ *  (i) size-token pants inference on variants
+ *  (ii) guessFashionCategory over titleEn + originalTitle + variant names
+ * Never overrides categoryManual or a confident non-other server category.
+ * Never invents pants from non-size variants (no-false-pants pin).
+ *
+ * @param {{
+ *   category?: string,
+ *   categoryManual?: boolean,
+ *   title?: string,
+ *   originalTitle?: string,
+ *   titleEn?: string,
+ *   summary?: string,
+ *   sizeNotes?: string,
+ *   variants?: { title?: string, values?: (string|{name?: string})[] }[],
+ * }} input
+ * @returns {string} a CATEGORIES key or ""
+ */
+export function refineItemCategory(input) {
+  const category = input && input.category ? String(input.category) : "";
+  if (input && input.categoryManual && category && CATEGORIES[category]) return category;
+  if (category && category !== "other" && CATEGORIES[category]) return category;
+
+  // Empty or "other" — client merge only (no enrich-prompt / resolve.js change).
+  const variants = (input && input.variants) || [];
+  if (inferPantsFromSizeTokens(variants)) return "pants";
+
+  const variantText = collectVariantNames(variants).join(" ");
+  const guessed = guessFashionCategory(
+    [
+      input && input.titleEn,
+      input && input.originalTitle,
+      input && input.title,
+      input && input.summary,
+      input && input.sizeNotes,
+      variantText,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  if (guessed && CATEGORIES[guessed]) return guessed;
+
+  // Stay on "other" when Claude said so and nothing local matched.
+  if (category === "other") return "other";
   return "";
 }
 
@@ -7512,12 +7596,23 @@ function CredenzaApp() {
             : x.priceFx,
         // CH-07: a hand-picked category is pinned (categoryManual), like a
         // hand-set price — the resolve never reclassifies it.
-        category: x.categoryManual && CATEGORIES[x.category]
-          ? x.category
-          : CATEGORIES[data.category]
-            ? data.category
-            : x.category ||
-              guessFashionCategory([data.title, data.summary, data.sizeNotes, x.title, x.summary].filter(Boolean).join(" ")),
+        // Fix 3: when server left empty/"other", refine client-side from
+        // size-token variants + titleEn/originalTitle (no resolve.js change).
+        category: refineItemCategory({
+          category:
+            x.categoryManual && CATEGORIES[x.category]
+              ? x.category
+              : CATEGORIES[data.category]
+                ? data.category
+                : x.category || "",
+          categoryManual: x.categoryManual === true,
+          title: nextTitle,
+          titleEn: data.translated ? data.title : "",
+          originalTitle: data.originalTitle || "",
+          summary: data.summary || x.summary,
+          sizeNotes: data.sizeNotes || x.sizeNotes,
+          variants,
+        }),
         variants,
         // First color axis value only when the card has no colorway yet.
         colorway: x.colorway || pickColorwayFromVariants(variants) || "",
