@@ -121,9 +121,9 @@ $5.99 a month, or $44.99 a year.
 
 Free use remains the default and is not a trial. The free plan holds unlimited
 cards on the shelf, unlimited Buy in your agent, Reddit haul paste, and the
-full parcel planner. Pro raises the limits that cost money to run: 20 AI
-size-chart reads monthly instead of 8 total, 100 link resolves monthly instead of 8 total,
-20 Ask questions monthly instead of 8 total, 12 QC photos an item instead of 4, and
+full parcel planner. Pro raises the limits that cost money to run: 50 AI
+size-chart reads monthly instead of 8 total, 250 link resolves monthly instead of 8 total,
+50 Ask questions monthly instead of 8 total, 12 QC photos an item instead of 4, and
 100 hauls at once instead of 2. See https://credenzafashion.com/pricing/
 
 Credenza does not sell access to a counterfeit product database.

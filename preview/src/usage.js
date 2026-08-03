@@ -99,9 +99,9 @@ export const PLAN_CAPS = {
     sharedLinksMax: 3,
   },
   pro: {
-    askPerMonth: 20,
-    chartVisionPerMonth: 20,
-    resolvePerMonth: 100,
+    askPerMonth: 50,
+    chartVisionPerMonth: 50,
+    resolvePerMonth: 250,
     qcPhotosPerItem: 12,
     haulsMax: 100,
     sharedLinksMax: 100,

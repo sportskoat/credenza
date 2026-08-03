@@ -35,12 +35,12 @@ const PLAN_LIMITS = {
     haulsMax: 2,
   },
   // Pro usage refreshes each calendar month regardless of billing cadence.
-  // These initial caps are deliberately conservative until real conversion
-  // and model-cost events show which allowance should move.
+  // These caps leave room against the observed blended model cost. Keep
+  // measuring by route before raising them again.
   pro: {
-    askPerMonth: 20,
-    chartVisionPerMonth: 20,
-    resolvePerMonth: 100,
+    askPerMonth: 50,
+    chartVisionPerMonth: 50,
+    resolvePerMonth: 250,
     qcPhotosPerItem: 12,
     haulsMax: 100,
   },
