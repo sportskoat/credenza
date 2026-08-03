@@ -22434,3 +22434,448 @@ input.cz-sizing-fix-size {
     font-size: 16px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   cz-ho — the hand-off screen (haul handoff README, screen 9).
+
+   The moment the app admits it cannot act for you. Two columns: the box and
+   the instruction on the left, the money and the send button on the right.
+
+   The green-lit "stays behind" row keeps full opacity on purpose. A green-lit
+   item left out of the box costs a second parcel for nothing, so it reads as
+   an action, not as a dimmed leftover.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-ho {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--cz-bg);
+  overflow-y: auto;
+}
+
+.cz-ho::backdrop {
+  background: oklch(0 0 0 / 0.5);
+}
+
+.cz-ho-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 22px 28px 140px;
+}
+
+.cz-ho-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.cz-ho-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ho-back:hover {
+  color: var(--cz-ink);
+}
+
+.cz-ho-h1 {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: var(--cz-ink);
+}
+
+.cz-ho-lede {
+  margin: 0 0 26px;
+  max-width: 640px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-ho-cols {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.cz-ho-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cz-ho-right {
+  flex: 0 0 320px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cz-ho-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 18px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+}
+
+.cz-ho-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-ho-kicker-gap {
+  margin-top: 7px;
+}
+
+.cz-ho-kickrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cz-ho-lang {
+  font-size: 11px;
+  color: var(--cz-faint);
+}
+
+.cz-ho-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-ho-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* Red-lit and unreviewed rows are dimmed. A green-lit one is not: it is the
+   only row on this screen the person can still act on. */
+.cz-ho-row-left {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.cz-ho-row-left[data-dim="true"] {
+  opacity: 0.62;
+}
+
+.cz-ho-tile {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 50px;
+  border-radius: 8px;
+  background-color: var(--cz-ho-tint, var(--cz-strip-bg));
+  background-size: cover;
+  background-position: center;
+}
+
+.cz-ho-rowtext {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cz-ho-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-ho-sub {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--cz-faint);
+}
+
+.cz-ho-sub[data-tone="money"] {
+  color: var(--cz-money);
+}
+
+.cz-ho-sub[data-tone="error"] {
+  color: var(--cz-error-text);
+}
+
+.cz-ho-weight {
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cz-sub);
+}
+
+.cz-ho-price {
+  min-width: 62px;
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cz-money);
+  text-align: right;
+}
+
+.cz-ho-add {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--cz-money);
+  border-radius: 999px;
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.cz-ho-add:hover {
+  opacity: 0.82;
+}
+
+.cz-ho-static {
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.cz-ho-block {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-inset-bg);
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--cz-sub);
+  white-space: pre-wrap;
+}
+
+.cz-ho-outline {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-ho-outline:hover {
+  background: var(--cz-hover);
+}
+
+.cz-ho-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cz-bg-elevated) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+
+.cz-ho-sumrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cz-ho-sumlabel {
+  font-size: 12px;
+  color: var(--cz-faint);
+}
+
+.cz-ho-sumvalue {
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+
+.cz-ho-money {
+  color: var(--cz-money);
+}
+
+.cz-ho-quiet {
+  color: var(--cz-sub);
+}
+
+.cz-ho-rule {
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+.cz-ho-landlabel {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cz-ink);
+}
+
+.cz-ho-landvalue {
+  font-family: var(--cz-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+
+.cz-ho-declared {
+  gap: 8px;
+  padding: 16px;
+}
+
+.cz-ho-decrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cz-ho-declabel {
+  flex: 1;
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-ho-decinput {
+  width: 78px;
+  padding: 6px 9px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* One flat warning, no advice. This is a customs liability boundary. */
+.cz-ho-warn {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-ho-cta {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-family: var(--cz-sans);
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.cz-ho-cta:hover {
+  opacity: 0.88;
+}
+
+/* Credenza never presses send. Do not cut this line. */
+.cz-ho-foot {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-ho-card,
+  .cz-ho-sum {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--cz-card-solid);
+  }
+}
+
+/* A finger is not a mouse pointer. Every control the person taps gets the
+   44px floor. */
+@media (pointer: coarse) {
+  .cz-ho-back,
+  .cz-ho-add,
+  .cz-ho-outline,
+  .cz-ho-cta {
+    min-height: 44px;
+  }
+}
+
+/* The right column is 320px of a 390px phone, so the two columns stack. The
+   declared-value field goes to 16px, because iOS zooms the page into any
+   field below that. */
+@media (max-width: 767px) {
+  .cz-ho-page {
+    padding: 18px 16px 120px;
+  }
+
+  .cz-ho-cols {
+    flex-direction: column;
+  }
+
+  .cz-ho-right {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .cz-ho-decinput {
+    font-size: 16px;
+  }
+}

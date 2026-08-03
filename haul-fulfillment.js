@@ -750,3 +750,121 @@ export function resetToShelf() {
     qcPhotos: [],
   };
 }
+
+/** The line under one packed item on the hand-off screen. */
+export function handoffPackedRows(items = []) {
+  return items
+    .filter((item) => item && normalizeStage(item.stage) === "parcel" && item.qc !== "red")
+    .map((item) => ({
+      id: item.id,
+      title: item.title || "",
+      sub: [item.size || "", item.order || ""].filter(Boolean).join(" · "),
+      weight: grams(itemShipGrams(item)),
+      price: money(item.price),
+    }));
+}
+
+/**
+ * What stays behind, in three honest states.
+ *
+ * The green-lit row is the point of the section. A green-lit item left out of
+ * the box costs a second parcel for nothing, so it keeps full opacity and a
+ * money-green action. The other two rows are dimmed, because the person cannot
+ * act on them today.
+ */
+export function handoffLeftBehind(items = [], { headroomG = 0 } = {}) {
+  return items
+    .filter((item) => {
+      if (!item) return false;
+      const stage = normalizeStage(item.stage);
+      return stage === "qcd" || stage === "warehouse";
+    })
+    .map((item) => {
+      const verdict = normalizeVerdict(item.qc);
+      if (verdict === "red") {
+        return {
+          id: item.id,
+          title: item.title || "",
+          sub: "red-lit · " + (item.reason || "flagged"),
+          tone: "error",
+          dim: true,
+          actionLabel: null,
+          staticLabel: "can't ship",
+        };
+      }
+      if (verdict === "green") {
+        const ship = itemShipGrams(item);
+        return {
+          id: item.id,
+          title: item.title || "",
+          sub:
+            "green-lit · " + grams(ship) + (num(headroomG) >= ship ? " · fits in your headroom" : ""),
+          tone: "money",
+          dim: false,
+          actionLabel: "Add to the box",
+          staticLabel: null,
+        };
+      }
+      return {
+        id: item.id,
+        title: item.title || "",
+        sub: "not reviewed yet · " + num(item.photos) + " photos",
+        tone: "faint",
+        dim: true,
+        actionLabel: null,
+        staticLabel: "stays behind",
+      };
+    });
+}
+
+/**
+ * The threshold most countries charge duty above. It is a fact about customs,
+ * not a target. Credenza states it and stops there.
+ */
+export const DECLARED_THRESHOLD_USD = 45;
+
+/**
+ * The one flat warning under the declared-value field.
+ *
+ * Both branches end the same way on purpose. This is a customs liability
+ * boundary. Credenza states what usually happens and refuses to advise, because
+ * advice here is advice about a customs declaration.
+ */
+export function declaredWarning(declared = 0) {
+  const tail = " Your call, your risk. Credenza does not advise on this.";
+  return num(declared) > DECLARED_THRESHOLD_USD
+    ? "Over " + money(DECLARED_THRESHOLD_USD) + " your country usually charges duty on arrival." + tail
+    : "Under the " +
+        money(DECLARED_THRESHOLD_USD) +
+        " threshold your country usually charges duty at." +
+        tail;
+}
+
+/**
+ * Everything the hand-off screen shows. One call, so the screen never does
+ * arithmetic of its own.
+ */
+export function handoffView({
+  items = [],
+  maths = null,
+  line = "EMS",
+  declared = 0,
+  domesticUsd = DEFAULT_DOMESTIC_USD,
+} = {}) {
+  const sums = maths || parcelMaths({ items });
+  const international = sums.costs && sums.costs[line] != null ? sums.costs[line] : 0;
+  return {
+    packed: handoffPackedRows(items),
+    count: sums.count,
+    leftBehind: handoffLeftBehind(items, { headroomG: sums.headroomG }),
+    instruction: handoffMessage({ items, line, declared }),
+    chargeable: sums.count ? grams(sums.chargeableG) : "",
+    billed: sums.count ? sums.billedKg.toFixed(1) + " kg" : "",
+    line,
+    goods: money(sums.goodsUsd),
+    domestic: money(domesticUsd),
+    international: money(international),
+    landed: money(landedTotal({ maths: sums, line, domesticUsd })),
+    declaredWarning: declaredWarning(declared),
+  };
+}

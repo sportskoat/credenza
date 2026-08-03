@@ -7,17 +7,22 @@ import { describe, expect, it } from "vitest";
 import {
   BOARD_COLUMNS,
   COST_FLOOR_USD,
+  DECLARED_THRESHOLD_USD,
   DEFAULT_PACKAGING_GRAMS,
   HAUL_STAGES,
   RED_REASONS,
   STAGE_LABELS,
   boardColumns,
   costOfLine,
+  declaredWarning,
   defaultRates,
   earliestStorageDays,
   estimateDelta,
   firstPendingQcItem,
+  handoffLeftBehind,
   handoffMessage,
+  handoffPackedRows,
+  handoffView,
   haulCta,
   haulIndexCard,
   itemCardMeta,
@@ -942,5 +947,119 @@ describe("going back to the shelf", () => {
       haulOrderNo: "",
       qcPhotos: [],
     });
+  });
+});
+
+describe("the hand-off screen", () => {
+  it("lists only what is really in the box", () => {
+    // A red-lit item sitting in the parcel is not in the box. The packing
+    // list is what the agent will actually see.
+    const rows = handoffPackedRows([
+      item({ id: 1, stage: "parcel", order: "SB-1", size: "L" }),
+      item({ id: 2, stage: "parcel", qc: "red" }),
+      item({ id: 3, stage: "qcd" }),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(1);
+    expect(rows[0].sub).toBe("L · SB-1");
+    expect(rows[0].weight).toBe("500 g");
+    expect(rows[0].price).toBe("$42.00");
+  });
+
+  it("gives a green-lit leftover full opacity and an action", () => {
+    // This row is the point of the section. A green-lit item left out of the
+    // box costs a second parcel for nothing.
+    const [row] = handoffLeftBehind([item({ id: 9, stage: "qcd", qc: "green", actual: 268 })], {
+      headroomG: 400,
+    });
+    expect(row.dim).toBe(false);
+    expect(row.tone).toBe("money");
+    expect(row.actionLabel).toBe("Add to the box");
+    expect(row.staticLabel).toBe(null);
+    expect(row.sub).toBe("green-lit · 268 g · fits in your headroom");
+  });
+
+  it("drops the headroom promise when it does not fit", () => {
+    const [row] = handoffLeftBehind([item({ stage: "qcd", qc: "green", actual: 268 })], {
+      headroomG: 100,
+    });
+    expect(row.sub).toBe("green-lit · 268 g");
+  });
+
+  it("dims a red-lit item and says it cannot ship", () => {
+    const [row] = handoffLeftBehind([
+      item({ stage: "qcd", qc: "red", reason: "stitching" }),
+    ]);
+    expect(row.dim).toBe(true);
+    expect(row.tone).toBe("error");
+    expect(row.sub).toBe("red-lit · stitching");
+    expect(row.staticLabel).toBe("can't ship");
+    expect(row.actionLabel).toBe(null);
+  });
+
+  it("dims an unreviewed item and counts its photos", () => {
+    const [row] = handoffLeftBehind([item({ stage: "warehouse", qc: null, photos: 12 })]);
+    expect(row.dim).toBe(true);
+    expect(row.tone).toBe("faint");
+    expect(row.sub).toBe("not reviewed yet · 12 photos");
+    expect(row.staticLabel).toBe("stays behind");
+  });
+
+  it("leaves out anything not yet at the warehouse", () => {
+    expect(
+      handoffLeftBehind([item({ stage: "toOrder" }), item({ stage: "ordered" })])
+    ).toHaveLength(0);
+  });
+
+  it("states the duty threshold and refuses to advise", () => {
+    // Both branches end the same way. This is a customs liability boundary.
+    const tail = " Your call, your risk. Credenza does not advise on this.";
+    expect(DECLARED_THRESHOLD_USD).toBe(45);
+    expect(declaredWarning(60)).toBe(
+      "Over $45.00 your country usually charges duty on arrival." + tail
+    );
+    expect(declaredWarning(30)).toBe(
+      "Under the $45.00 threshold your country usually charges duty at." + tail
+    );
+    expect(declaredWarning(45)).toBe(declaredWarning(30));
+  });
+
+  it("never tells the person what to declare", () => {
+    for (const value of [0, 20, 45, 46, 500]) {
+      const text = declaredWarning(value);
+      expect(text).not.toMatch(/declare (less|more|under|below)/i);
+      expect(text).toContain("Credenza does not advise on this.");
+    }
+  });
+
+  it("adds the goods, the domestic leg and the line into one landed number", () => {
+    const items = [
+      item({ id: 1, stage: "parcel", price: 42, actual: 500, vol: 0 }),
+      item({ id: 2, stage: "parcel", price: 58, actual: 500, vol: 0 }),
+    ];
+    const maths = parcelMaths({ items });
+    const view = handoffView({ items, maths, line: "EMS", declared: 40, domesticUsd: 18.4 });
+    expect(view.count).toBe(2);
+    expect(view.goods).toBe("$100.00");
+    expect(view.domestic).toBe("$18.40");
+    expect(view.landed).toBe(
+      "$" + (100 + 18.4 + costOfLine(defaultRates().EMS, maths.billedKg)).toFixed(2)
+    );
+    expect(view.line).toBe("EMS");
+    expect(view.billed).toBe(maths.billedKg.toFixed(1) + " kg");
+  });
+
+  it("shows no weight at all when the box is empty", () => {
+    const view = handoffView({ items: [item({ stage: "qcd" })] });
+    expect(view.count).toBe(0);
+    expect(view.chargeable).toBe("");
+    expect(view.billed).toBe("");
+  });
+
+  it("carries the same instruction the board copies", () => {
+    const items = [item({ id: 1, stage: "parcel", order: "SB-1" })];
+    expect(handoffView({ items, line: "EMS", declared: 40 }).instruction).toBe(
+      handoffMessage({ items, line: "EMS", declared: 40 })
+    );
   });
 });

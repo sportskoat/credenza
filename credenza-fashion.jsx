@@ -34,7 +34,6 @@ import {
   RED_REASONS,
   SHIPPING_LINES,
   firstPendingQcItem,
-  handoffMessage,
   haulIndexCard,
   needsYouCount,
   normalizeStage,
@@ -119,6 +118,9 @@ const QcOverlay = lazy(() => import("./components/QcOverlay.jsx"));
 // The item drawer inside an open haul (haul handoff, screen 8). Lazy for the
 // same reason as QC review: it only opens from the stage board.
 const HaulItemDrawer = lazy(() => import("./components/HaulItemDrawer.jsx"));
+// The hand-off review screen (haul handoff, screen 9). Lazy: it only opens
+// once a parcel has something in it.
+const HaulHandoff = lazy(() => import("./components/HaulHandoff.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -5853,6 +5855,10 @@ function CredenzaApp() {
   // The card open in the haul item drawer, by item id. Same rule as QC review:
   // the drawer is a projection of the item (design/handoffs/haul, screen 8).
   const [haulDrawerId, setHaulDrawerId] = useState(null);
+  // Whether the hand-off review screen is showing (haul handoff, screen 9).
+  // It reads the same parcel numbers as the board, so it holds no state of
+  // its own beyond being open.
+  const [handoffOpen, setHandoffOpen] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   const [search, setSearch] = useState("");
   const [askState, setAskState] = useState({
@@ -8863,6 +8869,19 @@ function CredenzaApp() {
     return (record && record.ship) || null;
   }, [openHaulName, hauls]);
 
+  // The open haul's parcel arithmetic. The board works this out for itself;
+  // the hand-off screen needs the same numbers, so both read one source.
+  const haulFlowMaths = useMemo(
+    () =>
+      parcelMaths({
+        items: haulFlowItems,
+        packagingGrams: haulShip ? haulShip.packagingGrams : undefined,
+        divisor: haulShip ? haulShip.divisor : undefined,
+        rates: haulShip ? haulShip.rates : undefined,
+      }),
+    [haulFlowItems, haulShip]
+  );
+
   const patchHaulShip = useCallback(
     (patch, detail) => {
       if (!openHaulName) return;
@@ -8955,6 +8974,10 @@ function CredenzaApp() {
     setActiveHaul(null);
     setExpandedId(null);
     setSelectedId(null);
+    // Both of these belong to one haul. Leaving them open over a closed haul
+    // shows the person a parcel that is no longer on screen.
+    setHandoffOpen(false);
+    setHaulDrawerId(null);
   }, [activeHaul, reducedMotion]);
 
   // ── Shared hauls (LB-8) ──────────────────────────────────────────────────
@@ -10310,6 +10333,41 @@ function CredenzaApp() {
         </Suspense>
       )}
 
+      {/* The hand-off review screen. It reads the same parcel numbers as the
+          board, so nothing here is stored twice (haul handoff, screen 9). */}
+      {handoffOpen && openHaulName && (
+        <Suspense fallback={null}>
+          <HaulHandoff
+            items={haulFlowItems}
+            maths={haulFlowMaths}
+            line={(haulShip && haulShip.line) || "EMS"}
+            declared={(haulShip && haulShip.declared) || 0}
+            domesticUsd={
+              haulShip && haulShip.domesticUsd != null ? haulShip.domesticUsd : DEFAULT_DOMESTIC_USD
+            }
+            tileFor={haulTileFor}
+            onClose={() => setHandoffOpen(false)}
+            onCopy={(text) =>
+              copyForHaul(text, "Parcel instruction copied. Paste it into your agent's form.")
+            }
+            onAddToParcel={(id) => {
+              updateItem(id, { haulStage: "parcel", haulStageAt: Date.now() });
+              notify("Added to parcel A.");
+            }}
+            onSetDeclared={(value) => patchHaulShip({ declared: value }, "declared " + value)}
+            onSubmit={() => {
+              // Marked here only. Credenza never presses send on the agent's
+              // site, and the line under the button says so.
+              patchHaulShip({ submitted: true, milestone: 0 }, "submitted");
+              setHandoffOpen(false);
+              notify("Parcel A marked submitted.", {
+                sub: "You still have to press send on your agent's site.",
+              });
+            }}
+          />
+        </Suspense>
+      )}
+
       {/* One item, opened from the stage board. It sits under QC review, so
           opening QC from the drawer leaves the drawer behind it and closing
           QC lands the person back on the item (haul handoff, screen 8). */}
@@ -11501,19 +11559,7 @@ function CredenzaApp() {
                   const base = migrateHaulShip(haulShip || {});
                   patchHaulShip({ rates: { ...base.rates, [key]: rate } }, "rate " + key);
                 }}
-                onHandOff={() => {
-                  // The review screen is not built yet. Copying the exact
-                  // instruction is the whole point of that screen, so the
-                  // button does that today rather than nothing.
-                  copyForHaul(
-                    handoffMessage({
-                      items: haulFlowItems,
-                      line: (haulShip && haulShip.line) || "EMS",
-                      declared: (haulShip && haulShip.declared) || 0,
-                    }),
-                    "Parcel instruction copied. Paste it into your agent's form."
-                  );
-                }}
+                onHandOff={() => setHandoffOpen(true)}
               />
             ) : null}
           </div>
