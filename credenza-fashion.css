@@ -11407,33 +11407,87 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: relative;
 }
 
-/* ── Avatar quick menu (Profile Settings design 1c) ────────────────────────
-   The avatar's dropdown: identity, the Pro upsell, the switches that get
-   flipped, and the door into the settings page. 334px, anchored under the
-   avatar on the right. */
+/* ── Avatar quick menu (sign-in handoff 2026-08-02, README screen 5) ───────
+   The avatar's dropdown. The two account decisions come first, as two doors:
+   an account is free, and Pro costs money. Merging them into one row is what
+   the old menu did wrong. The shelf switches follow, under a divider.
+   300px, anchored under the avatar on the right. */
 
 .cz-avatar-menu {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
   z-index: 70;
-  width: 334px;
+  width: 300px;
   max-width: calc(100vw - 24px);
   background: var(--cz-card-solid);
   border: 1px solid var(--cz-hair);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-  padding: 14px;
+  border-radius: 16px;
+  box-shadow: 0 18px 48px oklch(0 0 0 / 0.6);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
-.cz-avatar-menu-identity {
+.cz-avatar-menu-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 6px 12px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-avatar-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.cz-avatar-menu-divider {
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+/* A door is a decision, so it gets two lines: the question on top and what
+   it costs underneath. A one-line row cannot say both. */
+.cz-avatar-menu-door {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-family: var(--cz-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-avatar-menu-door:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-avatar-menu-door-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-avatar-menu-door-sub {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+}
+
+.cz-avatar-menu-door-sub.is-money {
+  color: var(--cz-money);
 }
 
 .cz-avatar-menu-mark {
@@ -11463,69 +11517,29 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
-.cz-avatar-menu-upsell {
-  border: 1px solid var(--cz-hair);
-  border-radius: 13px;
-  background: var(--cz-inset-bg);
-  padding: 13px 14px;
-  margin-bottom: 8px;
-}
-
-.cz-avatar-menu-upsell-title {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--cz-ink);
-}
-
-.cz-avatar-menu-upsell-note {
-  margin-top: 4px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--cz-money);
-}
-
-.cz-avatar-menu-upsell-cta {
-  margin-top: 10px;
-  padding: 7px 14px;
-  border: none;
-  border-radius: 999px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  font-family: var(--cz-sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-
+/* A switch row is one line: the label on the left, where it stands now on
+   the right. Nothing here is a decision, so nothing here needs two lines. */
 .cz-avatar-menu-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   width: 100%;
-  padding: 10px 8px;
+  padding: 10px 12px;
   border: none;
   border-radius: 10px;
   background: transparent;
   font-family: var(--cz-sans);
   text-align: left;
   cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
 }
 .cz-avatar-menu-row:hover {
   background: var(--cz-accent-bg);
 }
 
-.cz-avatar-menu-row.is-control {
-  cursor: default;
-}
-.cz-avatar-menu-row.is-control:hover {
-  background: transparent;
-}
-
 .cz-avatar-menu-label {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--cz-ink);
@@ -11533,15 +11547,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-avatar-menu-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
-  color: var(--cz-sub);
+  color: var(--cz-faint);
 }
 
-/* The colourway control takes the space the value would; keep the segment
-   group compact. */
-.cz-avatar-menu-row.is-control > div[role="radiogroup"] {
-  flex: 0 1 190px;
-  display: flex;
+/* A finger needs 44px. The README's 10px 12px row measures 39px, which is
+   fine under a mouse and too small under a thumb. The padding stays; only
+   the floor moves. */
+@media (pointer: coarse) {
+  .cz-avatar-menu-row,
+  .cz-avatar-menu-door {
+    min-height: 44px;
+  }
 }
 
 /* ─── Currency picker (lane 2, 2026-08-02) ─────────────────────────────────

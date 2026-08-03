@@ -755,8 +755,8 @@ describe("Agent Buy plumbing (A2)", () => {
     // opens from the avatar menu's Agent row.
     await user.click(await screen.findByRole("button", { name: "Profile" }));
     // The card detail has its own "Agent: …" button; the menu row computes
-    // as "AgentSuperbuy ›" (spans join without a space).
-    await user.click(await screen.findByRole("button", { name: /^Agent\S+ ›$/ }));
+    // as "AgentSuperbuy" (spans join without a space).
+    await user.click(await screen.findByRole("button", { name: /^Agent\S+$/ }));
     expect(await screen.findByRole("heading", { name: "Buying agent" })).toBeInTheDocument();
     expect(screen.getByText(/Disclosure:/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Sugargoo/ }));
@@ -2245,7 +2245,7 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
     await user.click(await screen.findByRole("button", { name: "Profile" }));
     expect(screen.queryByRole("radio", { name: "Blackout" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "Gallery" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Agent\S+ ›$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Agent\S+$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Currency/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /All settings/ })).toBeInTheDocument();
   });

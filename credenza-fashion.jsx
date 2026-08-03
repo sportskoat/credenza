@@ -9753,6 +9753,7 @@ function CredenzaApp() {
         <AvatarMenu
           accountSession={accountSession}
           accountPlan={accountPlan}
+          limits={limits}
           avatarInitials={avatarInitials}
           agentLabel={agentBarLabel}
           onOpenAgent={() => {
@@ -9765,6 +9766,8 @@ function CredenzaApp() {
             setCurrencySheetOpen(true);
           }}
           onOpenSettings={(section) => navigateSettings(section)}
+          onSignIn={() => openSignIn({ kind: "shelf", returnTo: "/" })}
+          onOpenUpgrade={() => openUpgrade()}
           onSignOut={accountSignOut}
           onClose={() => setAvatarMenuOpen(false)}
         />

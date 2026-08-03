@@ -3,10 +3,11 @@ import { cleanup, fireEvent, render, within } from "@testing-library/react";
 
 import AvatarMenu from "../../components/AvatarMenu.jsx";
 import { PRICING } from "../../credenza-fashion.jsx";
+import { PLAN_COPY } from "../../components/plans.js";
 
-// The avatar quick menu (Profile Settings design 1c): who you are, the
-// switches you actually flip, and a door into the settings page. The upsell
-// line is the trial note verbatim — it is a legal term.
+// The avatar quick menu — sign-in handoff README, screen 5. Two account doors
+// first, then the shelf switches. The upsell line is the trial note verbatim:
+// it is a legal term, so it is never paraphrased.
 
 afterEach(cleanup);
 
@@ -23,6 +24,8 @@ function renderMenu(extra = {}) {
       pricePrimary="USD"
       onOpenCurrency={noop}
       onOpenSettings={noop}
+      onSignIn={noop}
+      onOpenUpgrade={noop}
       onSignOut={noop}
       onClose={noop}
       {...extra}
@@ -30,29 +33,75 @@ function renderMenu(extra = {}) {
   );
 }
 
-describe("AvatarMenu (design 1c)", () => {
+describe("AvatarMenu · who you are", () => {
   it("shows who you are", () => {
     const { container } = renderMenu();
     expect(within(container).getByText("KY")).toBeTruthy();
     expect(within(container).getByText("kyle@example.com")).toBeTruthy();
-    expect(within(container).getByText("Free · saved on this device")).toBeTruthy();
+    expect(within(container).getByText("Free")).toBeTruthy();
   });
 
-  it("sells Pro with the trial note verbatim, and See Pro opens the account section", () => {
-    const onOpenSettings = vi.fn();
-    const { container } = renderMenu({ onOpenSettings });
-    expect(within(container).getByText("Pro lifts the daily limits")).toBeTruthy();
+  it("names the device when nobody is signed in", () => {
+    const { container } = renderMenu({ accountSession: null, accountPlan: null });
+    expect(within(container).getByText("Saved on this device")).toBeTruthy();
+    expect(within(container).getByText("Signed out")).toBeTruthy();
+  });
+
+  // The counter is a projection of the live limit, never a stored copy. A
+  // stored copy goes stale the moment a card resolves.
+  it("counts today's cards off the live limit", () => {
+    const { container } = renderMenu({
+      accountSession: null,
+      accountPlan: null,
+      limits: { left: 3, cap: 3 },
+    });
+    expect(within(container).getByText("Signed out · 3 of 3 cards today")).toBeTruthy();
+  });
+
+  it("never calls the free plan unlimited", () => {
+    const { container } = renderMenu({ accountSession: null, accountPlan: null });
+    expect(container.textContent).not.toMatch(/unlimited/i);
+  });
+});
+
+describe("AvatarMenu · the two account doors", () => {
+  it("offers sign-in, not sign-out, when signed out", () => {
+    const onSignIn = vi.fn();
+    const { container } = renderMenu({
+      accountSession: null,
+      accountPlan: null,
+      avatarInitials: null,
+      onSignIn,
+    });
+    expect(within(container).queryByText("Sign out")).toBeNull();
+    expect(within(container).getByText(PLAN_COPY.menuFreeSub)).toBeTruthy();
+    fireEvent.click(within(container).getByText("Sign in"));
+    expect(onSignIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the Pro door to the upgrade route, with the trial note verbatim", () => {
+    const onOpenUpgrade = vi.fn();
+    const { container } = renderMenu({ onOpenUpgrade });
     expect(within(container).getByText(PRICING.weeklyTrialNote)).toBeTruthy();
-    fireEvent.click(within(container).getByText("See Pro"));
-    expect(onOpenSettings).toHaveBeenCalledWith("account");
+    fireEvent.click(within(container).getByText("See what Pro changes"));
+    expect(onOpenUpgrade).toHaveBeenCalledTimes(1);
   });
 
-  it("hides the upsell for a Pro member", () => {
+  it("hides the Pro door for a Pro member", () => {
     const { container } = renderMenu({ accountPlan: { state: "pro" } });
-    expect(within(container).queryByText("Pro lifts the daily limits")).toBeNull();
-    expect(within(container).getByText("Pro · saved on this device")).toBeTruthy();
+    expect(within(container).queryByText("See what Pro changes")).toBeNull();
+    expect(within(container).getByText("Pro")).toBeTruthy();
   });
 
+  it("signs out from the first door", () => {
+    const onSignOut = vi.fn();
+    const { container } = renderMenu({ onSignOut });
+    fireEvent.click(within(container).getByText("Sign out"));
+    expect(onSignOut).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AvatarMenu · the shelf switches", () => {
   // Kyle 2026-08-01: Gallery parked — colorway switch is gone; Blackout only.
   it("has no colorway switch", () => {
     const { container } = renderMenu();
@@ -66,8 +115,8 @@ describe("AvatarMenu (design 1c)", () => {
     const onOpenAgent = vi.fn();
     const onOpenCurrency = vi.fn();
     const { container } = renderMenu({ onOpenAgent, onOpenCurrency });
-    expect(within(container).getByText("Sugargoo ›")).toBeTruthy();
-    expect(within(container).getByText("USD ›")).toBeTruthy();
+    expect(within(container).getByText("Sugargoo")).toBeTruthy();
+    expect(within(container).getByText("USD")).toBeTruthy();
     fireEvent.click(within(container).getByText("Agent"));
     expect(onOpenAgent).toHaveBeenCalledTimes(1);
     fireEvent.click(within(container).getByText("Currency"));
@@ -80,7 +129,9 @@ describe("AvatarMenu (design 1c)", () => {
     fireEvent.click(within(container).getByText("All settings"));
     expect(onOpenSettings).toHaveBeenCalledWith();
   });
+});
 
+describe("AvatarMenu · leaving", () => {
   it("closes before it acts", () => {
     const onClose = vi.fn();
     const onOpenSettings = vi.fn();
@@ -88,21 +139,6 @@ describe("AvatarMenu (design 1c)", () => {
     fireEvent.click(within(container).getByText("All settings"));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
-  });
-
-  it("signs out from the last row", () => {
-    const onSignOut = vi.fn();
-    const { container } = renderMenu({ onSignOut });
-    fireEvent.click(within(container).getByText("Sign out"));
-    expect(onSignOut).toHaveBeenCalledTimes(1);
-  });
-
-  it("offers sign-in, not sign-out, when signed out", () => {
-    const onOpenSettings = vi.fn();
-    const { container } = renderMenu({ accountSession: null, accountPlan: null, avatarInitials: null, onOpenSettings });
-    expect(within(container).queryByText("Sign out")).toBeNull();
-    fireEvent.click(within(container).getByText("Sign in"));
-    expect(onOpenSettings).toHaveBeenCalledWith("account");
   });
 
   it("closes on Escape and on a click outside", () => {
