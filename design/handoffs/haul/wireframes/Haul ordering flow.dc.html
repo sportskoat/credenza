@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f0eee9;font-family:'Architects Daughter',system-ui,sans-serif;color:#1a1a1a}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 14px/1.2 'Architects Daughter',system-ui,sans-serif;color:#1a1a1a}
+.dv-intro{max-width:1000px;margin:0 0 26px;font:13px/1.55 'Architects Daughter',system-ui,sans-serif;color:rgba(0,0,0,.6)}
+.dv-opts{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 'Architects Daughter',system-ui,sans-serif;color:rgba(0,0,0,.55)}
+.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}
+.dv-next{margin:26px 0 0;font:12px/1.6 'Architects Daughter',system-ui,sans-serif;color:rgba(0,0,0,.5)}
+a{color:#1d5fd0}a:hover{color:#12408f}
+.stack{display:flex;gap:20px;align-items:flex-start}
+.f{border:1.6px solid #1a1a1a;border-radius:11px 13px 11px 13px;background:#fff;flex:none;overflow:hidden;box-shadow:2px 3px 0 rgba(26,26,26,.09)}
+.fh{display:flex;align-items:center;gap:5px;padding:7px 11px;border-bottom:1.6px solid #1a1a1a;background:#efece6}
+.dot{width:7px;height:7px;border-radius:50%;border:1.2px solid #1a1a1a}
+.ft{font-size:11px;color:#7a766e;margin-left:5px}
+.p{padding:12px 13px;display:flex;flex-direction:column;gap:10px}
+.h1{font-size:17px;font-weight:400;line-height:1.15}
+.h2{font-size:13.5px;line-height:1.2}
+.sm{font-size:11px;color:#7a766e;line-height:1.4}
+.xs{font-size:10px;color:#7a766e;line-height:1.35}
+.row{display:flex;gap:8px;align-items:center}
+.wrap{flex-wrap:wrap}
+.between{justify-content:space-between;align-items:center}
+.col{display:flex;flex-direction:column;gap:8px}
+.box{border:1.4px solid #1a1a1a;border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;gap:7px}
+.dash{border-style:dashed;border-color:#9a968e}
+.tint{background:#f4f2ee}
+.ph{border:1.4px solid #1a1a1a;border-radius:6px;background:repeating-linear-gradient(45deg,#e7e4de 0 7px,#f5f3ef 7px 14px);flex:none}
+.btn{border:1.4px solid #1a1a1a;border-radius:999px;padding:5px 12px;font-size:11.5px;background:#fff;display:inline-flex;align-items:center;gap:6px}
+.btnf{background:#1a1a1a;color:#fff}
+.chip{border:1.2px solid #a9a49b;border-radius:999px;padding:3px 9px;font-size:10.5px;color:#6f6b63}
+.chipon{border-color:#1a1a1a;color:#1a1a1a}
+.hr{height:1.2px;background:rgba(0,0,0,.16)}
+.g{color:#147a3a}.r{color:#e11d48}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#7a766e}
+.rail{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.step{font-size:10.5px;padding:4px 9px;border:1.3px solid #b6b1a8;border-radius:999px;color:#7a766e}
+.on{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.done{border-color:#147a3a;color:#147a3a}
+.field{border:1.3px solid #1a1a1a;border-radius:7px;padding:6px 9px;font-size:11.5px;color:#9a968e;background:#fff}
+.cb{width:13px;height:13px;border:1.4px solid #1a1a1a;border-radius:3px;flex:none}
+.cbon{background:#1a1a1a}
+.notes{flex:none;width:330px;font-size:12.5px;line-height:1.5}
+.notes h4{margin:0 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#7a766e;font-weight:400}
+.notes ul{margin:0 0 14px;padding-left:16px}
+.notes li{margin-bottom:6px}
+.lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#7a766e;font-family:ui-monospace,Menlo,monospace}
+</style></helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Post-haul: order → warehouse → QC → parcel → received</span></div>
+<p class="dv-intro">Five ways to shape the same five stages. Everything is manual — the user taps their own progress, Credenza never touches the agent. <a class="dv-oid" href="#1a">1a</a> is the full spine (six frames, every screen); <a class="dv-oid" href="#1b">1b</a>–<a class="dv-oid" href="#1e">1e</a> are re-framings of the same content, each optimising for a different thing. <a class="dv-oid" href="#1f">1f</a> is the pile of mechanics worth keeping whichever shell wins.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>The rail — a linear five-step flow you enter from the haul. Safest, most legible, most screens.</div>
+<div class="stack">
+
+<div class="f" style="width:380px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">haul detail — entry point</span></div>
+<div class="p">
+<div class="row between"><div class="row"><span class="sm">‹ All hauls</span><span class="h2">winter</span></div><span class="btn">Share</span></div>
+<div class="mono">9 items · haul <span class="g">$412.00</span></div>
+<div class="box tint" style="border-width:1.6px">
+<div class="row between"><div class="col" style="gap:3px"><span class="h2">Ready to order.</span><span class="xs">Nothing ordered yet · est. parcel ~2.1 kg</span></div><span class="btn btnf">Start ordering →</span></div>
+</div>
+<div class="row" style="gap:8px">
+<div class="ph" style="width:78px;height:98px"></div><div class="ph" style="width:78px;height:98px"></div><div class="ph" style="width:78px;height:98px"></div><div class="ph" style="width:78px;height:98px"></div>
+</div>
+<div class="xs">The haul page stays a browsing surface. Ordering is a mode you enter, not a set of chips bolted onto the grid.</div>
+</div></div>
+
+<div class="f" style="width:400px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">1 · order</span></div>
+<div class="p">
+<div class="rail"><span class="step on">1 Order</span><span class="step">2 Warehouse</span><span class="step">3 QC</span><span class="step">4 Parcel</span><span class="step">5 Shipped</span></div>
+<div class="row between"><span class="h1">Put the haul in your agent's cart.</span></div>
+<div class="row"><span class="lbl">agent</span><span class="field" style="color:#1a1a1a">Superbuy ▾</span><span class="xs">Sets the rate table and the referral link.</span></div>
+<div class="box">
+<div class="row between"><span class="h2">All 9 links</span><span class="btn">Copy all</span></div>
+<div class="field" style="height:44px">taobao.com/item… · weidian.com/item… · 1688.com/offer…</div>
+<div class="xs">One block, one paste into the agent's bulk-add box.</div>
+</div>
+<div class="hr"></div>
+<div class="col" style="gap:7px">
+<div class="row"><span class="cb cbon"></span><div class="ph" style="width:26px;height:32px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">ABC1996 washed tee · L</span><span class="xs">order #SB-8827104</span></div><span class="g" style="font-size:11.5px">$27.75</span></div>
+<div class="row"><span class="cb cbon"></span><div class="ph" style="width:26px;height:32px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">Cargo pants · XL</span><span class="xs">order #SB-8827105</span></div><span class="g" style="font-size:11.5px">$41.20</span></div>
+<div class="row"><span class="cb"></span><div class="ph" style="width:26px;height:32px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">Suede boots · 43</span><span class="field" style="padding:3px 7px;font-size:10px">paste order number</span></div><span class="g" style="font-size:11.5px">$88.00</span></div>
+<div class="row"><span class="cb"></span><div class="ph" style="width:26px;height:32px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">Down jacket · L</span><span class="xs r">seller has no stock — move back to shelf?</span></div><span class="g" style="font-size:11.5px">$112.00</span></div>
+</div>
+<div class="hr"></div>
+<div class="row between"><span class="sm">6 of 9 marked ordered</span><span class="mono">goods <span class="g">$412.00</span></span></div>
+<div class="xs">Credenza never takes money. You pay your agent, you mark it here.</div>
+</div></div>
+
+<div class="f" style="width:380px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">2 · warehouse inbox</span></div>
+<div class="p">
+<div class="rail"><span class="step done">1 ✓</span><span class="step on">2 Warehouse</span><span class="step">3 QC</span><span class="step">4 Parcel</span><span class="step">5 Shipped</span></div>
+<span class="h1">4 arrived · 3 on the way · 2 not ordered</span>
+<div class="box tint"><span class="sm" style="color:#1a1a1a">Free storage ends in 62 days for your oldest item.</span><span class="xs">Superbuy holds 90 days free. Countdown starts at first arrival, not at ship.</span></div>
+<div class="lbl">arrived</div>
+<div class="col" style="gap:7px">
+<div class="row"><div class="ph" style="width:28px;height:35px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">ABC1996 washed tee</span><span class="xs">est. 220 g → <span style="color:#1a1a1a">268 g actual</span> · 62 d left</span></div><span class="btn" style="font-size:10.5px">QC →</span></div>
+<div class="row"><div class="ph" style="width:28px;height:35px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">Cargo pants</span><span class="xs">est. 400 g → <span style="color:#1a1a1a">512 g actual</span> · 58 d left</span></div><span class="btn" style="font-size:10.5px">QC →</span></div>
+</div>
+<div class="lbl">in transit to warehouse</div>
+<div class="row"><div class="ph" style="width:28px;height:35px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">Suede boots</span><span class="xs">ordered Jul 28 · usually 3–6 days</span></div><span class="btn" style="font-size:10.5px">Mark arrived</span></div>
+<div class="hr"></div>
+<div class="xs">Actual weights replace your estimates here — this is where the parcel maths stops being a guess.</div>
+</div></div>
+
+<div class="f" style="width:400px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">3 · QC review</span></div>
+<div class="p">
+<div class="rail"><span class="step done">1 ✓</span><span class="step done">2 ✓</span><span class="step on">3 QC</span><span class="step">4 Parcel</span><span class="step">5 Shipped</span></div>
+<div class="row between"><span class="h2">ABC1996 washed tee · L</span><span class="mono">item 2 / 4</span></div>
+<div class="ph" style="height:150px"></div>
+<div class="row" style="gap:5px"><div class="ph" style="width:30px;height:30px"></div><div class="ph" style="width:30px;height:30px;border-width:2.4px"></div><div class="ph" style="width:30px;height:30px"></div><div class="ph" style="width:30px;height:30px"></div><span class="xs">photo 2 / 9 · ← →</span><span class="btn" style="font-size:10.5px;margin-left:auto">+ Upload</span></div>
+<div class="row"><span class="btn" style="border-color:#147a3a;color:#147a3a;flex:1;justify-content:center">Green light  (G)</span><span class="btn" style="border-color:#e11d48;color:#e11d48;flex:1;justify-content:center">Red light  (R)</span></div>
+<div class="box dash">
+<span class="xs">If red — pick a reason, Credenza writes the message:</span>
+<div class="row wrap" style="gap:5px"><span class="chip chipon">stitching</span><span class="chip">print off</span><span class="chip">wrong size</span><span class="chip">stain</span><span class="chip">wrong colour</span><span class="chip">damaged</span></div>
+<div class="field" style="height:34px;font-size:10.5px">Hi — please return item #SB-8827104. The stitching on the left shoulder is coming apart (photo 2). 请退货…</div>
+<div class="row"><span class="btn">Copy for agent · EN + 中文</span><span class="xs">You send it. We just write it.</span></div>
+</div>
+<div class="hr"></div>
+<div class="row between"><span class="sm"><span class="g">3 green</span> · <span class="r">1 red</span> · 0 left</span><span class="btn btnf">Build the parcel →</span></div>
+<div class="xs">Seller memory: this seller is 4 green / 1 red across your shelf.</div>
+</div></div>
+
+<div class="f" style="width:430px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">4 · parcel builder</span></div>
+<div class="p">
+<div class="rail"><span class="step done">1 ✓</span><span class="step done">2 ✓</span><span class="step done">3 ✓</span><span class="step on">4 Parcel</span><span class="step">5 Shipped</span></div>
+<span class="h1">~$34–58 to ship, across 5 lines.</span>
+<div class="row" style="align-items:flex-start;gap:10px">
+<div class="col" style="flex:1;gap:6px">
+<span class="lbl">in the box · 3</span>
+<div class="row"><span class="cb cbon"></span><span class="sm" style="color:#1a1a1a;flex:1">Washed tee</span><span class="mono">268 g</span></div>
+<div class="row"><span class="cb cbon"></span><span class="sm" style="color:#1a1a1a;flex:1">Cargo pants</span><span class="mono">512 g</span></div>
+<div class="row"><span class="cb cbon"></span><span class="sm" style="color:#1a1a1a;flex:1">Suede boots</span><span class="mono">1140 g</span></div>
+<div class="row"><span class="cb"></span><span class="sm" style="flex:1">Knit scarf</span><span class="mono">est. 180 g</span></div>
+<div class="row"><span class="cb"></span><span class="sm r" style="flex:1">Hoodie — red-lit</span><span class="mono">excluded</span></div>
+</div>
+<div class="col" style="width:170px;gap:6px">
+<div class="box" style="gap:5px">
+<div class="row between"><span class="xs">actual</span><span class="mono">1.92 kg</span></div>
+<div class="row between"><span class="xs">+ packaging</span><span class="mono">~140 g</span></div>
+<div class="row between"><span class="xs">volumetric</span><span class="mono">2.60 kg</span></div>
+<div class="hr"></div>
+<div class="row between"><span class="sm" style="color:#1a1a1a">chargeable</span><span class="mono" style="color:#1a1a1a">2.60 kg</span></div>
+<div class="xs">40×30×26 cm ÷ 6000 <span style="text-decoration:underline">edit</span></div>
+</div>
+<div class="row wrap" style="gap:4px"><span class="chip chipon">standard</span><span class="chip">no shoe box −320 g</span><span class="chip">vacuum −0 g</span></div>
+</div>
+</div>
+<div class="box tint"><span class="sm" style="color:#1a1a1a">Leave the boots for the next parcel → 1.46 kg chargeable → <span class="g">saves ~$9</span>.</span><span class="xs">Or add ~400 g free: this line's next break is at 3 kg.</span></div>
+<div class="lbl">lines — rates you last edited Jul 12</div>
+<div class="col" style="gap:5px">
+<div class="row between"><span class="sm" style="color:#1a1a1a">EMS</span><span class="row" style="gap:8px"><span class="field" style="padding:2px 7px;font-size:10px">$13.10/kg</span><span class="xs">7–14 d</span><span class="g" style="font-size:11.5px">~$34</span></span></div>
+<div class="row between"><span class="sm" style="color:#1a1a1a">GD-EUB</span><span class="row" style="gap:8px"><span class="field" style="padding:2px 7px;font-size:10px">$15.40/kg</span><span class="xs">10–20 d</span><span class="g" style="font-size:11.5px">~$40</span></span></div>
+<div class="row between"><span class="sm" style="color:#1a1a1a">DHL</span><span class="row" style="gap:8px"><span class="field" style="padding:2px 7px;font-size:10px">$22.30/kg</span><span class="xs">3–6 d</span><span class="g" style="font-size:11.5px">~$58</span></span></div>
+</div>
+<div class="xs">Agents change these weekly. Credenza stores your numbers and stamps the date — it never pretends to know today's rate.</div>
+<div class="hr"></div>
+<div class="row between"><div class="row"><span class="lbl">declared</span><span class="field" style="width:64px">$40</span></div><span class="xs" style="width:220px">Your call, your risk. Your country taxes over ~$45.</span></div>
+<div class="row between"><span class="sm">2 items stay in storage · 62 d left</span><span class="btn btnf">Copy parcel summary</span></div>
+</div></div>
+
+<div class="f" style="width:360px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">5 · shipped → received</span></div>
+<div class="p">
+<div class="rail"><span class="step done">1 ✓</span><span class="step done">2 ✓</span><span class="step done">3 ✓</span><span class="step done">4 ✓</span><span class="step on">5 Shipped</span></div>
+<span class="h1">Parcel A · 3 items · 2.6 kg · EMS</span>
+<div class="col" style="gap:6px">
+<div class="row"><span class="cb cbon"></span><span class="sm" style="color:#1a1a1a;flex:1">Submitted to agent</span><span class="xs">Jul 29</span></div>
+<div class="row"><span class="cb cbon"></span><span class="sm" style="color:#1a1a1a;flex:1">Shipped</span><span class="xs">Jul 31</span></div>
+<div class="row"><span class="cb"></span><span class="sm" style="flex:1">Cleared customs</span><span class="btn" style="font-size:10.5px">Mark</span></div>
+<div class="row"><span class="cb"></span><span class="sm" style="flex:1">Received</span><span class="btn" style="font-size:10.5px">Mark</span></div>
+</div>
+<div class="row"><span class="field" style="flex:1">LX 8842 1177 3CN</span><span class="btn">Track ↗</span></div>
+<div class="hr"></div>
+<div class="box dash"><span class="h2">When it lands</span><span class="xs">Per item: did the size call hold? Fit answers feed the next recommendation.</span><div class="row wrap" style="gap:5px"><span class="chip">tight</span><span class="chip chipon">right</span><span class="chip">roomy</span></div></div>
+<div class="box tint">
+<div class="row between"><span class="xs">goods</span><span class="mono">$412.00</span></div>
+<div class="row between"><span class="xs">agent domestic</span><span class="mono">$18.40</span></div>
+<div class="row between"><span class="xs">international</span><span class="mono">$34.10</span></div>
+<div class="hr"></div>
+<div class="row between"><span class="sm" style="color:#1a1a1a">landed</span><span class="g">$464.50</span></div>
+<div class="xs">The haul total finally tells the truth.</div>
+</div>
+</div></div>
+
+<div class="notes">
+<h4>What this shape buys you</h4>
+<ul>
+<li>Nobody gets lost — the rail is the whole mental model, and it matches how the money actually moves.</li>
+<li>Each step has one job, so each screen can be dense without being confusing.</li>
+<li>Re-entrant: a haul can sit at step 2 for three weeks. The rail is a save point, not a wizard you must finish.</li>
+</ul>
+<h4>What it costs</h4>
+<ul>
+<li>Five screens to build and maintain.</li>
+<li>Real hauls aren't in lockstep — three items are in QC while two haven't shipped from the seller. A linear rail has to tolerate mixed states, so every step needs a "not everything is here yet" mode.</li>
+<li>Partial parcels mean step 4 and 5 repeat while 1–3 stay done. The rail must loop.</li>
+</ul>
+</div>
+
+</div></div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>The line — one board, stages as columns. Everything visible; mixed states are the default, not an edge case.</div>
+<div class="stack">
+
+<div class="f" style="width:720px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">winter · the line</span></div>
+<div class="p">
+<div class="row between"><span class="h1">winter · 9 items</span><span class="row"><span class="mono">goods <span class="g">$412</span> · ship <span class="g">~$34–58</span></span><span class="btn">Share</span></div></div>
+<div class="row" style="align-items:flex-start;gap:9px">
+<div class="col" style="width:132px;gap:6px"><div class="row between"><span class="lbl">to order</span><span class="mono">2</span></div>
+<div class="box" style="padding:7px;gap:5px"><div class="ph" style="height:52px"></div><span class="xs" style="color:#1a1a1a">Down jacket</span><span class="xs g">$112</span></div>
+<div class="box" style="padding:7px;gap:5px"><div class="ph" style="height:52px"></div><span class="xs" style="color:#1a1a1a">Beanie</span><span class="xs g">$14</span></div>
+<span class="btn" style="justify-content:center;font-size:10.5px">Copy both links</span></div>
+
+<div class="col" style="width:132px;gap:6px"><div class="row between"><span class="lbl">ordered</span><span class="mono">3</span></div>
+<div class="box" style="padding:7px;gap:5px"><div class="ph" style="height:52px"></div><span class="xs" style="color:#1a1a1a">Suede boots</span><span class="xs">#SB-8827106 · 4 d</span></div>
+<div class="box" style="padding:7px;gap:5px"><div class="ph" style="height:52px"></div><span class="xs" style="color:#1a1a1a">Knit scarf</span><span class="xs">#SB-8827107 · 2 d</span></div></div>
+
+<div class="col" style="width:132px;gap:6px"><div class="row between"><span class="lbl">at warehouse</span><span class="mono">2</span></div>
+<div class="box" style="padding:7px;gap:5px"><div class="ph" style="height:52px"></div><span class="xs" style="color:#1a1a1a">Cargo pants</span><span class="xs">512 g · 58 d left</span><span class="btn" style="font-size:10px;justify-content:center">QC 12 photos</span></div></div>
+
+<div class="col" style="width:132px;gap:6px"><div class="row between"><span class="lbl">qc'd</span><span class="mono">2</span></div>
+<div class="box" style="padding:7px;gap:5px"><div class="ph" style="height:52px"></div><span class="xs" style="color:#1a1a1a">Washed tee</span><span class="xs g">green · 268 g</span></div>
+<div class="box" style="padding:7px;gap:5px;border-color:#e11d48"><div class="ph" style="height:52px"></div><span class="xs" style="color:#1a1a1a">Hoodie</span><span class="xs r">red · return sent</span></div></div>
+
+<div class="col" style="width:150px;gap:6px"><div class="row between"><span class="lbl">parcel a</span><span class="mono">1.9 kg</span></div>
+<div class="box dash" style="padding:9px;gap:6px;min-height:150px"><span class="xs">Drag green-lit items here.</span><div class="row between"><span class="xs">chargeable</span><span class="mono">2.60 kg</span></div><div class="row between"><span class="xs">EMS</span><span class="xs g">~$34</span></div><span class="btn btnf" style="justify-content:center;font-size:10.5px">Ship it</span></div>
+<span class="btn dash" style="justify-content:center;font-size:10.5px;color:#7a766e">+ Parcel B</span></div>
+</div>
+<div class="xs">A card moves right when you say it did. Every column header is a count you can scan in one second.</div>
+</div></div>
+
+<div class="f" style="width:300px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">card menu — the only interaction</span></div>
+<div class="p">
+<div class="ph" style="height:96px"></div>
+<span class="h2">Cargo pants · XL</span>
+<div class="col" style="gap:6px">
+<div class="row"><span class="cb cbon"></span><span class="sm">Ordered · Jul 24</span></div>
+<div class="row"><span class="cb cbon"></span><span class="sm">At warehouse · Jul 28</span></div>
+<div class="row"><span class="cb"></span><span class="sm" style="color:#1a1a1a">QC'd</span><span class="btn" style="font-size:10px;margin-left:auto">Review 12 →</span></div>
+<div class="row"><span class="cb"></span><span class="sm">In a parcel</span></div>
+<div class="row"><span class="cb"></span><span class="sm">Received</span></div>
+</div>
+<div class="hr"></div>
+<div class="row between"><span class="xs">weight</span><span class="row"><span class="field" style="padding:2px 7px;font-size:10px;width:52px">512</span><span class="xs">g actual</span></span></div>
+<div class="xs">One tap per stage, in a single popover. No wizard, no page change.</div>
+</div></div>
+
+<div class="notes">
+<h4>Why a board</h4>
+<ul>
+<li>Mixed progress is the normal state of a haul. A board renders it natively; a stepper fights it.</li>
+<li>The parcel is just another column — so partial shipping and Parcel B need no new concept.</li>
+<li>Counts at the top of each column are the whole status summary. No dashboard needed.</li>
+</ul>
+<h4>Watch out</h4>
+<ul>
+<li>QC needs a big photo viewer, so it can't really live in a column — it becomes a modal over the board.</li>
+<li>Drag on desktop is fine; the same board on mobile has to become the tap-menu in the second frame.</li>
+<li>Nine columns of thumbnails at 20+ items gets noisy. Needs a collapse.</li>
+</ul>
+</div>
+
+</div></div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>The manifest — a table. Built for the 25-item haul, bulk actions, and people who already keep a spreadsheet.</div>
+<div class="stack">
+
+<div class="f" style="width:760px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">winter · manifest</span></div>
+<div class="p">
+<div class="row between"><span class="h1">winter · manifest</span><div class="row"><span class="chip chipon">all 9</span><span class="chip">at warehouse 4</span><span class="chip">needs QC 2</span><span class="chip">unpacked 3</span></div></div>
+<div class="row" style="gap:0;padding-bottom:5px;border-bottom:1.4px solid #1a1a1a"><span class="lbl" style="width:22px"></span><span class="lbl" style="flex:1">item</span><span class="lbl" style="width:66px">price</span><span class="lbl" style="width:70px">weight</span><span class="lbl" style="width:86px">stage</span><span class="lbl" style="width:56px">qc</span><span class="lbl" style="width:70px">parcel</span><span class="lbl" style="width:62px">storage</span></div>
+<div class="col" style="gap:0">
+<div class="row" style="padding:6px 0;border-bottom:1.1px solid rgba(0,0,0,.1)"><span class="cb cbon" style="width:13px"></span><span class="sm" style="color:#1a1a1a;flex:1;margin-left:9px">ABC1996 washed tee · L</span><span class="g" style="width:66px;font-size:11px">$27.75</span><span class="mono" style="width:70px">268 g</span><span class="sm" style="width:86px">warehouse</span><span class="g" style="width:56px;font-size:11px">green</span><span class="sm" style="width:70px">A</span><span class="xs" style="width:62px">62 d</span></div>
+<div class="row" style="padding:6px 0;border-bottom:1.1px solid rgba(0,0,0,.1)"><span class="cb cbon" style="width:13px"></span><span class="sm" style="color:#1a1a1a;flex:1;margin-left:9px">Cargo pants · XL</span><span class="g" style="width:66px;font-size:11px">$41.20</span><span class="mono" style="width:70px">512 g</span><span class="sm" style="width:86px">warehouse</span><span class="btn" style="width:56px;font-size:10px;padding:2px 6px">review</span><span class="sm" style="width:70px">—</span><span class="xs" style="width:62px">58 d</span></div>
+<div class="row" style="padding:6px 0;border-bottom:1.1px solid rgba(0,0,0,.1)"><span class="cb cbon" style="width:13px"></span><span class="sm" style="color:#1a1a1a;flex:1;margin-left:9px">Nylon hoodie · L</span><span class="g" style="width:66px;font-size:11px">$63.00</span><span class="mono" style="width:70px">640 g</span><span class="sm" style="width:86px">returning</span><span class="r" style="width:56px;font-size:11px">red</span><span class="sm" style="width:70px">—</span><span class="xs" style="width:62px">—</span></div>
+<div class="row" style="padding:6px 0;border-bottom:1.1px solid rgba(0,0,0,.1)"><span class="cb" style="width:13px"></span><span class="sm" style="color:#1a1a1a;flex:1;margin-left:9px">Suede boots · 43</span><span class="g" style="width:66px;font-size:11px">$88.00</span><span class="mono" style="width:70px">est. 1.1 kg</span><span class="sm" style="width:86px">ordered</span><span class="sm" style="width:56px">—</span><span class="sm" style="width:70px">—</span><span class="xs" style="width:62px">—</span></div>
+<div class="row" style="padding:6px 0;border-bottom:1.1px solid rgba(0,0,0,.1)"><span class="cb" style="width:13px"></span><span class="sm" style="flex:1;margin-left:9px">Down jacket · L</span><span class="g" style="width:66px;font-size:11px">$112.00</span><span class="mono" style="width:70px">est. 900 g</span><span class="sm" style="width:86px">to order</span><span class="sm" style="width:56px">—</span><span class="sm" style="width:70px">—</span><span class="xs" style="width:62px">—</span></div>
+</div>
+<div class="row between" style="padding-top:4px"><span class="sm">3 selected</span><div class="row wrap" style="gap:6px"><span class="btn" style="font-size:10.5px">Mark ordered</span><span class="btn" style="font-size:10.5px">Mark arrived</span><span class="btn" style="font-size:10.5px">Copy links</span><span class="btn btnf" style="font-size:10.5px">Add to parcel A</span></div></div>
+<div class="hr"></div>
+<div class="row wrap" style="gap:14px"><span class="mono">goods <span class="g">$412.00</span></span><span class="mono">in parcel a · 3 · 2.60 kg chargeable</span><span class="mono">ship <span class="g">~$34–58</span></span><span class="mono">landed <span class="g">~$464</span></span></div>
+</div></div>
+
+<div class="notes">
+<h4>Why a table</h4>
+<ul>
+<li>The thing people are actually replacing is a spreadsheet. Beat it at its own game before you get clever.</li>
+<li>Bulk selection makes a 25-item haul survivable: mark eight arrived in one action.</li>
+<li>Every number in one place — price, weight, storage clock, parcel — so the shipping maths is never a separate trip.</li>
+<li>Sortable by weight is genuinely useful: the top three rows are usually 70% of your shipping cost.</li>
+</ul>
+<h4>Watch out</h4>
+<ul>
+<li>It throws away the photos, which are the reason the shelf feels good. Needs a row-hover thumbnail at minimum.</li>
+<li>Reads as admin, not as the hobby. Probably the power view, not the default.</li>
+</ul>
+</div>
+
+</div></div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Pack the box — the parcel is the hero. Weight and cost move as you add items; the rest of the flow is upstream of it.</div>
+<div class="stack">
+
+<div class="f" style="width:620px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">parcel a · packing</span></div>
+<div class="p">
+<div class="row" style="align-items:flex-start;gap:14px">
+<div class="col" style="width:250px;gap:7px">
+<div class="row between"><span class="lbl">at the warehouse · 6</span><span class="xs">sort by weight ▾</span></div>
+<div class="row"><div class="ph" style="width:34px;height:42px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">Suede boots</span><span class="xs g">green · 1140 g</span></div><span class="btn" style="font-size:10px">Add</span></div>
+<div class="row"><div class="ph" style="width:34px;height:42px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">Cargo pants</span><span class="xs g">green · 512 g</span></div><span class="btn" style="font-size:10px">Add</span></div>
+<div class="row"><div class="ph" style="width:34px;height:42px"></div><div class="col" style="gap:2px;flex:1"><span class="sm" style="color:#1a1a1a">Washed tee</span><span class="xs g">green · 268 g</span></div><span class="btn" style="font-size:10px">Add</span></div>
+<div class="row" style="opacity:.5"><div class="ph" style="width:34px;height:42px"></div><div class="col" style="gap:2px;flex:1"><span class="sm">Nylon hoodie</span><span class="xs r">red-lit · can't ship</span></div></div>
+<div class="row" style="opacity:.5"><div class="ph" style="width:34px;height:42px"></div><div class="col" style="gap:2px;flex:1"><span class="sm">Knit scarf</span><span class="xs">not QC'd yet</span></div></div>
+</div>
+<div class="col" style="width:300px;gap:8px">
+<div class="box" style="border-width:1.8px;border-radius:4px;gap:8px;padding:12px">
+<div class="row between"><span class="h2">Parcel A</span><span class="xs">40 × 30 × 26 cm</span></div>
+<div class="row" style="gap:5px"><div class="ph" style="width:44px;height:54px"></div><div class="ph" style="width:44px;height:54px"></div><div class="ph" style="width:44px;height:54px"></div><div class="ph dash" style="width:44px;height:54px;background:none"></div></div>
+<div class="hr"></div>
+<div class="row between"><span class="sm">actual + packaging</span><span class="mono" style="color:#1a1a1a">2.06 kg</span></div>
+<div class="row between"><span class="sm">volumetric ÷ 6000</span><span class="mono" style="color:#1a1a1a">2.60 kg</span></div>
+<div class="row between"><span class="h2">chargeable</span><span class="h2">2.60 kg</span></div>
+<div class="box tint" style="padding:7px"><span class="xs" style="color:#1a1a1a">You're paying for air. Dropping the shoe box takes the volume to 2.0 kg → <span class="g">saves ~$8</span>.</span></div>
+</div>
+<div class="col" style="gap:5px">
+<div class="row between"><span class="sm" style="color:#1a1a1a">EMS · 7–14 d</span><span class="g">~$34</span></div>
+<div class="row between"><span class="sm" style="color:#1a1a1a">GD-EUB · 10–20 d</span><span class="g">~$40</span></div>
+<div class="row between"><span class="sm" style="color:#1a1a1a">DHL · 3–6 d</span><span class="g">~$58</span></div>
+<span class="xs">Your rates, edited Jul 12 · <span style="text-decoration:underline">edit table</span></span>
+</div>
+<div class="row"><span class="btn btnf" style="flex:1;justify-content:center">Copy summary for agent</span></div>
+</div>
+</div>
+<div class="xs">The left column empties as the box fills. When the warehouse column is empty the haul is done — that's the whole progress indicator.</div>
+</div></div>
+
+<div class="f" style="width:290px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">weight breaks</span></div>
+<div class="p">
+<span class="h2">Where the money actually is.</span>
+<div class="box" style="gap:6px">
+<div class="row between"><span class="xs">0 – 0.5 kg</span><span class="mono">$12</span></div>
+<div class="row between"><span class="xs">0.5 – 1 kg</span><span class="mono">$18</span></div>
+<div class="row between"><span class="xs">1 – 2 kg</span><span class="mono">$26</span></div>
+<div class="row between" style="border:1.4px solid #1a1a1a;border-radius:6px;padding:5px 7px"><span class="xs" style="color:#1a1a1a">2 – 3 kg · you</span><span class="mono" style="color:#1a1a1a">$34</span></div>
+<div class="row between"><span class="xs">3 – 4 kg</span><span class="mono">$43</span></div>
+</div>
+<div class="box dash"><span class="xs" style="color:#1a1a1a">You have 400 g of headroom before the next break. Adding the scarf (180 g) costs you nothing.</span></div>
+<div class="box dash"><span class="xs" style="color:#1a1a1a">Two parcels of 1.3 kg cost $52. One of 2.6 kg costs $34. Ship together.</span></div>
+<div class="xs">Nobody else does this maths for the user. It is the single most useful thing this screen can say.</div>
+</div></div>
+
+<div class="notes">
+<h4>Why parcel-first</h4>
+<ul>
+<li>Shipping is the part of the hobby people get wrong and complain about. Making it the hero is a real reason to open the app.</li>
+<li>Volumetric vs actual is invisible until the agent charges you. Showing both, live, is the killer detail.</li>
+<li>Weight breaks turn a calculator into advice — "add 400 g free" and "don't split this" are answers, not numbers.</li>
+</ul>
+<h4>Watch out</h4>
+<ul>
+<li>Needs box dimensions, which the user doesn't know until the agent packs it. Ship a sensible default per item count and let them correct it.</li>
+<li>Assumes the earlier stages happened somewhere. This screen is a destination, not the whole flow — pair it with <a class="dv-oid" href="#1b">1b</a> or <a class="dv-oid" href="#1c">1c</a>.</li>
+</ul>
+</div>
+
+</div></div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>The log — one chronological column. Feels like the haul journal people already post; shareable at the end.</div>
+<div class="stack">
+
+<div class="f" style="width:340px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">winter · log</span></div>
+<div class="p">
+<div class="row between"><span class="h1">winter</span><span class="mono">day 14</span></div>
+<div class="box tint"><div class="row between"><span class="sm" style="color:#1a1a1a">2 items need QC</span><span class="btn" style="font-size:10.5px">Review</span></div></div>
+<div class="col" style="gap:9px">
+<div class="row" style="align-items:flex-start"><span class="mono" style="width:44px;padding-top:2px">jul 31</span><div class="box" style="flex:1;gap:4px"><span class="sm" style="color:#1a1a1a">Parcel A shipped · EMS</span><span class="xs">3 items · 2.6 kg · $34.10 · LX8842…</span></div></div>
+<div class="row" style="align-items:flex-start"><span class="mono" style="width:44px;padding-top:2px">jul 30</span><div class="box" style="flex:1;gap:4px;border-color:#e11d48"><span class="sm" style="color:#1a1a1a">Nylon hoodie red-lit</span><span class="xs">stitching · return request sent</span></div></div>
+<div class="row" style="align-items:flex-start"><span class="mono" style="width:44px;padding-top:2px">jul 30</span><div class="box" style="flex:1;gap:5px"><span class="sm" style="color:#1a1a1a">QC'd 4 items</span><div class="row" style="gap:4px"><div class="ph" style="width:32px;height:40px"></div><div class="ph" style="width:32px;height:40px"></div><div class="ph" style="width:32px;height:40px"></div><div class="ph" style="width:32px;height:40px"></div></div><span class="xs g">3 green · 1 red</span></div></div>
+<div class="row" style="align-items:flex-start"><span class="mono" style="width:44px;padding-top:2px">jul 28</span><div class="box" style="flex:1;gap:4px"><span class="sm" style="color:#1a1a1a">Cargo pants reached the warehouse</span><span class="xs">512 g actual — 112 g over your estimate</span></div></div>
+<div class="row" style="align-items:flex-start"><span class="mono" style="width:44px;padding-top:2px">jul 24</span><div class="box" style="flex:1;gap:4px"><span class="sm" style="color:#1a1a1a">Ordered 6 items via Superbuy</span><span class="xs">$412.00</span></div></div>
+</div>
+<span class="btn dash" style="justify-content:center;color:#7a766e">+ Log something</span>
+</div></div>
+
+<div class="f" style="width:300px">
+<div class="fh"><span class="dot"></span><span class="dot"></span><span class="ft">the receipt — shareable</span></div>
+<div class="p">
+<span class="h1">winter · 9 items · 31 days</span>
+<div class="row" style="gap:5px"><div class="ph" style="width:52px;height:65px"></div><div class="ph" style="width:52px;height:65px"></div><div class="ph" style="width:52px;height:65px"></div><div class="ph" style="width:52px;height:65px"></div><div class="ph" style="width:52px;height:65px"></div></div>
+<div class="box" style="gap:5px">
+<div class="row between"><span class="xs">goods</span><span class="mono">$412.00</span></div>
+<div class="row between"><span class="xs">domestic + shipping</span><span class="mono">$52.50</span></div>
+<div class="row between"><span class="xs">1 returned</span><span class="mono">−$63.00</span></div>
+<div class="hr"></div>
+<div class="row between"><span class="sm" style="color:#1a1a1a">landed</span><span class="g">$401.50</span></div>
+<div class="row between"><span class="xs">green-light rate</span><span class="mono">8 / 9</span></div>
+</div>
+<div class="row"><span class="btn" style="flex:1;justify-content:center">Copy as Reddit table</span></div>
+<div class="xs">The haul post writes itself. This is the growth loop — people already post these by hand.</div>
+</div></div>
+
+<div class="notes">
+<h4>Why a log</h4>
+<ul>
+<li>Cheapest to build: one component, appended to. No board, no table, no stepper.</li>
+<li>Matches the emotional shape of a haul — it's an event over weeks, not a task list.</li>
+<li>Ends in an artefact people want to share, and every shared receipt is a link back.</li>
+</ul>
+<h4>Watch out</h4>
+<ul>
+<li>Terrible at "what do I do next" — needs the pinned action box at the top, which is really a small version of <a class="dv-oid" href="#1b">1b</a>.</li>
+<li>Item state is scattered across entries. Fine at 9 items, unusable at 25.</li>
+<li>Best as a second tab beside a real working view, not as the only view.</li>
+</ul>
+</div>
+
+</div></div>
+
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Mechanics worth keeping whichever shell wins</div>
+<div class="stack">
+<div class="notes" style="width:340px">
+<h4>Ordering</h4>
+<ul>
+<li><b>One paste out, not nine.</b> Copy every link as a single block formatted for your agent's bulk-add. The reverse of the paste bar that got items in.</li>
+<li><b>Agent is a haul-level setting</b>, and it picks the rate table, the referral link and the storage window. Changing agent mid-haul should warn, not silently re-price.</li>
+<li><b>Order numbers are optional but sticky.</b> One field per item; it's the only string that lets a user reconcile with the agent's site later.</li>
+<li><b>Out of stock is a real state.</b> Seller ghosts you constantly. "Unavailable — find a rep" should bounce the item back to the shelf with its W2C intact.</li>
+</ul>
+<h4>Warehouse</h4>
+<ul>
+<li><b>Actual weight overwrites the estimate</b>, and the diff is shown. Users learn to estimate better; you learn per-category weights across all users.</li>
+<li><b>Storage countdown per item, not per haul.</b> The clock starts at that item's arrival. Show the earliest expiry at haul level.</li>
+</ul>
+</div>
+<div class="notes" style="width:340px">
+<h4>QC</h4>
+<ul>
+<li><b>Keyboard-first review.</b> ← → through photos, G / R to decide, auto-advance to the next item. QC 12 items in ninety seconds.</li>
+<li><b>Red light demands a reason.</b> The reason chip is what generates the message and what makes seller stats meaningful later.</li>
+<li><b>Credenza writes the message, the user sends it.</b> EN + 中文, item number pre-filled, the flagged photo referenced. Never automate the send.</li>
+<li><b>QC photos stay attached forever.</b> They become the item's record on the shelf — best receipt in the hobby, and the thing people screenshot.</li>
+<li><b>Seller reputation falls out for free.</b> "This seller: 12 green, 2 red across your shelf." Later, across everyone's.</li>
+</ul>
+</div>
+<div class="notes" style="width:340px">
+<h4>Parcel &amp; after</h4>
+<ul>
+<li><b>Chargeable = max(actual, volumetric).</b> Show both, always. Let the divisor be edited — agents use 5000 and 6000.</li>
+<li><b>Rates are the user's numbers with a date stamp.</b> Never pretend to know today's line prices. "Rates you entered Jul 12."</li>
+<li><b>Advice, not just arithmetic:</b> headroom to the next weight break, cost of splitting, what removing the heaviest item saves, what dropping shoe boxes saves.</li>
+<li><b>A parcel is an object.</b> A haul can have A, B, C. Items not in a parcel are visibly in storage, with the clock running.</li>
+<li><b>Declared value: one field, one flat warning.</b> No advice, no optimisation. State the user's own threshold and stop.</li>
+<li><b>Received closes the loop.</b> Fit answer per item feeds the size recommendation. Landed cost replaces the goods-only total.</li>
+</ul>
+</div>
+</div></div>
+
+</div>
+<p class="dv-next">Try next: "build out <a class="dv-oid" href="#1b">1b</a> with the QC modal from <a class="dv-oid" href="#1a">1a</a>" · "take <a class="dv-oid" href="#1d">1d</a> to hi-fi in Blackout" · "combine <a class="dv-oid" href="#1c">1c</a> and <a class="dv-oid" href="#1d">1d</a> into one screen" · "more ideas for the QC step specifically"</p>
+</section>
+</x-dc>
+</body>
+</html>

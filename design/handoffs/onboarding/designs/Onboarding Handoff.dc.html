@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/elevation.css">
+  <link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/styles.css">
+  <script src="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/_ds_bundle.js"></script>
+  <script src="./doc-page.js"></script>
+  <style>
+    doc-page:not(:defined) { visibility: hidden; }
+    body { margin: 0; font-family: var(--cz-sans); }
+    a { color: var(--cz-link); text-decoration: none; }
+    a:hover { color: var(--cz-ink); }
+  </style>
+</helmet>
+
+<doc-page margin="0.75in">
+
+  <div slot="header" style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:8px;border-bottom:1px solid var(--cz-hair);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">
+    <span>Credenza · design handoff</span>
+    <span>First-run size onboarding</span>
+  </div>
+
+  <div slot="footer" style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:8px;border-top:1px solid var(--cz-hair);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">
+    <span>v1 · 2 Aug 2026</span>
+    <span>Owner: design · build: app team</span>
+  </div>
+
+  <h1 style="margin:0 0 10px;font-family:var(--cz-display);font-size:34px;font-weight:600;letter-spacing:-0.035em;line-height:1.1;color:var(--cz-ink)">First-run size onboarding.</h1>
+  <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:var(--cz-sub)">Two taps on the first card produce a chart-scored size pick. No tape, no keyboard, no account. This is the build spec for that flow, the states around it, and the copy that carries it.</p>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:8px;padding:16px 18px;margin:0 0 22px;border:1px solid var(--cz-ink);border-radius:16px;background:var(--cz-inset-bg)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">The decision</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:14px;line-height:1.6;color:var(--cz-ink)">Ship the <strong style="font-weight:700">two-tap anchor</strong>: usual size, then preferred ease. It is idea 1's interface plus one chip row, and it converts idea 1's disowned guess into real chart math. Idea 2's typed number survives as the "I have a tape" link. Idea 3's three-field panel is the Settings surface it already is, never a first-run gate.</p>
+  </div>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">The problem this solves.</h2>
+  <p style="margin:0 0 12px;font-size:14px;line-height:1.65;color:var(--cz-sub)">A visitor arrives from a Reddit thread, pastes one link, and the card opens with nothing useful in the size block. Every idea on the table traded honesty against a tape measure: one tap gives a pick the product has to disown, one number needs a tape a visitor on the couch does not have, three fields need three of them. The two-tap anchor asks only about things the visitor already knows — what size they buy and how they like clothes to sit — and both answers feed the same chart arithmetic the product already runs.</p>
+
+  <table style="width:100%;border-collapse:collapse;margin:0 0 22px;font-size:12.5px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Approach</th>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Cost to visitor</th>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Pick quality</th>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Verdict</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Idea 1 · one tap</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">1 tap</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Relabel. Chart unread.</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Cheap, but the card apologises for itself.</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Idea 2 · one number</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Tape + keyboard</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Real chart pick.</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Right answer, wrong moment. Keep as a link.</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Idea 3 · three fields</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Tape + 3 fields</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Best available.</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">A form before a first result. Settings only.</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:700">Ship · two-tap anchor</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">2 taps, ~4s</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Chart-scored, anchor self-reported.</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Idea 1's cost, close to idea 2's quality.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">The flow.</h2>
+  <ol style="margin:0 0 8px;padding-left:20px;font-size:14px;line-height:1.65;color:var(--cz-sub)">
+    <li style="margin-bottom:5px"><strong style="color:var(--cz-ink);font-weight:650">Arrival.</strong> Paste bar first, unchanged. A dismissible three-step strip sits beneath it and promises what the flow then asks for: two taps, no tape.</li>
+    <li style="margin-bottom:5px"><strong style="color:var(--cz-ink);font-weight:650">Paste.</strong> Card renders with photos, price, seller and the listing's size run. The size block is the only unresolved region.</li>
+    <li style="margin-bottom:5px"><strong style="color:var(--cz-ink);font-weight:650">Ask 1 of 2 — usual size.</strong> Chip row drawn from the listing's own size run. Labelled "Step 1 of 2" so the second ask is expected, not a nag.</li>
+    <li style="margin-bottom:5px"><strong style="color:var(--cz-ink);font-weight:650">Ask 2 of 2 — preferred ease.</strong> Close / regular / roomy, each showing its cm delta. Copy already quotes the chart ("Your usual M is 100cm on this chart"), so the visitor watches the chart being read.</li>
+    <li style="margin-bottom:5px"><strong style="color:var(--cz-ink);font-weight:650">Pick.</strong> Size, one sentence of reasoning, and three data tiles: anchor, garment, ease. Provenance line names the self-reported anchor and offers the one number that removes the guess.</li>
+    <li><strong style="color:var(--cz-ink);font-weight:650">Upgrade, later.</strong> A four-rung fit ladder reachable from any card. One field per visit, never a form, never Settings as the required path.</li>
+  </ol>
+  <p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:var(--cz-faint)">Both asks are skippable, and a skip is final for that visit. Everything is stored locally; sign-in only syncs what already exists.</p>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">Screens.</h2>
+  <p style="margin:0 0 14px;font-size:14px;line-height:1.65;color:var(--cz-sub)">Ten frames, drawn at 390pt in Blackout and Gallery. A0–A5 are the shipping flow; B1–B4 are the phase-two reference anchor, specced here so the two do not diverge later. Every frame is in the design canvas under the matching id.</p>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--cz-hair);border-radius:14px;background:var(--cz-card-solid)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">A0 · Arrival</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Masthead with Sign in · paste field (52px, 14px radius, 16px placeholder) · dismissible three-step strip · empty 2-up grid with dashed 4:5 placeholders · haul bar. The strip is the only new element: numbered rows 1/2/3, a close affordance, and the promise line "Two taps on the first card is all we ask for. No tape, no account." Dismissal is permanent, stored locally. No sizes ask lives here.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--cz-hair);border-radius:14px;background:var(--cz-card-solid)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">A1 · Ask 1 of 2 · usual size</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Card renders at full height with a 148px photo, title, price, seller, and a "Sizes on listing" line. The size block is an inset panel (14px radius, hairline, inset bg) holding: kicker "Your size" left, "Step 1 of 2" in warn ink right, the question at 19px display, one line of body, the chip row wrapped from the listing's own run, then a footer row with the tape link left and Skip for now right. Chips 44px tall, 54px min width, card-solid fill with hairline. Buy is not shown until a size exists.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--cz-hair);border-radius:14px;background:var(--cz-card-solid)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">A2 · Ask 2 of 2 · preferred ease</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Same panel, photo shrinks to 150px to make room. Kicker becomes "Your size · usual M" — the first answer is visibly held. Three ease chips at 58px tall, each two lines: label at 13px/700 over its cm delta in mono 10px. Selected chip inverts to ink fill. Below: full-width Show my size, then a centred Skip for now. The body line quotes this seller's chart number, which is what makes the second tap feel like progress rather than a second nag.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--cz-hair);border-radius:14px;background:var(--cz-card-solid)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">A3 · The pick</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Panel border goes to 1px solid ink to mark it resolved. Header row: "Your size" left, "Chart pick · usual size + fit" in money right. Body: size at 34px display, beside one sentence of reasoning at 13.5px. Then three equal data tiles — anchor, garment, ease — in mono 13px, ease in money. A hairline separates the provenance line, which names the self-reported anchor and links "Add your chest". BuyButton sits under the panel. Photo drops to 126px.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--cz-hair);border-radius:14px;background:var(--cz-card-solid)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">A4 · Skipped · the honest state</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Panel border becomes dashed, flag reads "No pick yet". Headline "No size pick yet." at 19px display, then the sentence that names the real gap — the chart is read, the visitor is unknown — one full-width Add my size, and the privacy plus no-nag line. Photo returns to full 176px and Buy stays live: skipping costs the visitor nothing except the pick. This frame is identical in the phase-two flow.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 16px;border:1px solid var(--cz-hair);border-radius:14px;background:var(--cz-card-solid)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">A5 · Upgrade path · the fit ladder</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Reached from any provenance link, never from Settings. Top panel: "Your fit · 2 of 4" with a four-segment meter and four rows — usual size SAVED, how you like it SAVED, chest NEXT, waist LATER. Bottom panel (ink border): one Field with the pit-to-pit instruction, a cm/in segmented pair, full-width "Save and re-score my cards", and the line stating it updates every card on the shelf. One field per visit; the full tape list stays in Settings.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 10px;border:1px dashed var(--cz-hair-strong);border-radius:14px;background:var(--cz-footer-bg)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">B1 · Phase two · name a tee you own</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Same panel geometry as A1. Flag reads "Needs you". Two stacked chip rows separated by a hairline: brands (Uniqlo, Nike, Zara, Essentials, Something else) then the size worn in it. "Something else" falls through to A1/A2, so nobody dead-ends. Skip for now centred at the bottom.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 10px;border:1px dashed var(--cz-hair-strong);border-radius:14px;background:var(--cz-footer-bg)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">B2 · Confirm the number</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">The only sheet in the whole flow: 18px top corners, grab handle, headline stating the resolved measurement in plain words, the number itself at 22px mono in a bordered row with unit and Edit, then Use this number / Not now side by side. Footnote credits the published brand measurements and states nothing was sent anywhere. Reuse this surface for the chart-photo read.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 10px;border:1px dashed var(--cz-hair-strong);border-radius:14px;background:var(--cz-footer-bg)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">B3 · Pick from a reference number</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Identical to A3 except the confidence flag reads "Chart pick · chest 108cm", the anchor tile becomes "You · 108cm", and the provenance line reads "From the Uniqlo L you named, not a tape" with a "Measure it properly" link. Photo 120px.</p>
+  </div>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin:0 0 22px;border:1px dashed var(--cz-hair-strong);border-radius:14px;background:var(--cz-footer-bg)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">B4 · Wrong garment class · bottoms</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">A bottoms card with a tops-only profile. Flag "Tops only so far", one sentence explaining why the saved chest does not apply, a numeric waist chip row plus a "Type my waist" chip, and the payoff line. A summary row under the card confirms tops are still scoring. Each garment class asks its own one question, on the card where it matters, in the shape of A1.</p>
+  </div>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">Sizing logic.</h2>
+  <p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:var(--cz-sub)">The anchor resolves to a body chest estimate; ease is the target gap between body and garment. Score every row in the seller's chart and take the smallest error.</p>
+  <pre style="break-inside:avoid;margin:0 0 8px;padding:14px 16px;border:1px solid var(--cz-hair);border-radius:14px;background:var(--cz-inset-bg);font-family:var(--cz-mono);font-size:11.5px;line-height:1.6;color:var(--cz-ink);white-space:pre-wrap">body    = anchorChest(usualSize, chartRow) || referenceTable(brand, size) || typedChest
+target  = body + ease            // close +2cm · regular +6cm · roomy +12cm
+pick    = argmin(|row.chest - target|)  over chart rows
+confid  = typedChest ? "measured" : referenceTable ? "reference" : "self-reported"</pre>
+  <p style="margin:0 0 12px;font-size:13px;line-height:1.6;color:var(--cz-faint)">Ease deltas are tops defaults; bottoms use waist with close +0 / regular +2 / roomy +5. Ease is stored once per garment class and reused on every subsequent card — the second card asks nothing.</p>
+
+  <div style="break-inside:avoid;display:flex;flex-direction:column;gap:8px;padding:16px 18px;margin:0 0 22px;border:1px solid var(--cz-hair);border-radius:16px;background:var(--cz-footer-bg)">
+    <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--cz-faint)">Phase two · reference anchor</span>
+    <p style="margin:0;orphans:3;widows:3;font-size:13.5px;line-height:1.6;color:var(--cz-sub)">Add "or name a tee you own" as a third option on the same block: brand chip plus size chip resolve against a shipped table of published brand measurements, producing a real cm number with zero typing. The number is always shown for confirmation before it is used — the same confirm-and-correct surface the chart-photo read should land in later. No live lookup, no model call.</p>
+  </div>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">States.</h2>
+  <table style="width:100%;border-collapse:collapse;margin:0 0 22px;font-size:12.5px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">State</th>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Trigger</th>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Size block shows</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Ask 1</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Chart present, no anchor</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Size chips from the listing run · step 1 of 2 · tape link · skip</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Ask 2</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Anchor set, no ease</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Ease chips with cm deltas · chart number quoted · skip</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Pick</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Anchor + ease + chart</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Size, reasoning, three tiles, provenance line, Buy</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Skipped</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Either ask dismissed</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">"No size pick yet." · names the real gap · one primary button · no-nag promise</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">No chart</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Seller posted none</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Usual size echoed, labelled "no chart · your usual size". No ease ask.</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Wrong class</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Bottoms, tops-only profile</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">One waist-anchor ask in the same shape as ask 1</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650">Returning</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Profile in local storage</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Pick immediately, no asks. Ladder rung offered once per session at most.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">Copy deck.</h2>
+  <table style="width:100%;border-collapse:collapse;margin:0 0 22px;font-size:12.5px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Slot</th>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--cz-ink);font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">String</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Ask 1 title</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">What size do you usually buy?</td></tr>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Ask 1 body</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">This seller posted a chart. Your usual size tells us where you sit on it.</td></tr>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Ask 2 title</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">How do you like a tee to sit?</td></tr>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Ask 2 body</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Your usual M is 100cm on this chart. This tells us which way to move off it.</td></tr>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Pick reasoning</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">The Large is 104cm here — 6cm over the 98cm this seller's M-wearers sit at, which is the regular fit you picked. The M's 100cm would sit close.</td></tr>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Provenance</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Started from a size you told us, not a measurement. Add your chest to remove the guess.</td></tr>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Skipped</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">No size pick yet. This seller's chart is read and ready. We just don't know anything about you yet — one tap is enough to start.</td></tr>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Privacy</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Signed out · your answers stay on this phone. We won't ask again this visit.</td></tr>
+      <tr><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-ink);font-weight:650;white-space:nowrap">Buttons</td><td style="padding:9px 10px;border-bottom:1px solid var(--cz-hair);color:var(--cz-sub)">Show my size · Skip for now · Add my size · Save and re-score my cards · I have a tape · enter chest</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">Build notes.</h2>
+  <p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:var(--cz-sub)">Profile shape, stored under one local key and synced verbatim on sign-in:</p>
+  <pre style="break-inside:avoid;margin:0 0 14px;padding:14px 16px;border:1px solid var(--cz-hair);border-radius:14px;background:var(--cz-inset-bg);font-family:var(--cz-mono);font-size:11.5px;line-height:1.6;color:var(--cz-ink);white-space:pre-wrap">fit: {
+  unit: "cm",
+  tops:    { usualSize: "M", ease: "regular", chest: null, source: "self" },
+  bottoms: { usualSize: null, ease: null, waist: null, source: null },
+  askedThisSession: ["tops.anchor", "tops.ease"],
+  skippedAt: null
+}</pre>
+  <ul style="margin:0 0 22px;padding-left:20px;font-size:13.5px;line-height:1.65;color:var(--cz-sub)">
+    <li style="margin-bottom:4px">Chips come from the listing's own size run, not a fixed S–XL list. A listing with numeric sizing renders numeric chips.</li>
+    <li style="margin-bottom:4px">Touch floor is 44px on every chip and button in this flow — non-negotiable per the system. Inputs are 16px so iOS does not zoom.</li>
+    <li style="margin-bottom:4px">Confidence never claims more than the source: <em>chart pick · usual size + fit</em>, <em>chart pick · chest 108cm</em>, <em>no chart · your usual size</em>.</li>
+    <li style="margin-bottom:4px">Saving an anchor re-scores every card on the shelf, not just the open one. Say so on the button.</li>
+    <li style="margin-bottom:4px">Ask surfaces are inline in the card's size block. The only sheet in this flow is the reference-number confirmation in phase two.</li>
+    <li>One ask per card at a time; a skip suppresses both asks for the session and writes <code style="font-family:var(--cz-mono);font-size:11.5px">skippedAt</code>.</li>
+  </ul>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">Measurement.</h2>
+  <p style="margin:0 0 22px;font-size:14px;line-height:1.65;color:var(--cz-sub)">Primary metric: share of first-paste sessions that reach a size pick. Secondary: taps to first pick (target 2), skip rate at ask 1 versus ask 2, ladder-rung completion within seven days, and Buy rate on cards with a pick versus without. Idea 1 would win the first metric and lose the last one; watch them together.</p>
+
+  <h2 style="margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">Open questions.</h2>
+  <ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.65;color:var(--cz-sub)">
+    <li style="margin-bottom:4px">Ease defaults per garment class — the +2/+6/+12 deltas are a designer's estimate and need a pass against real chart data.</li>
+    <li style="margin-bottom:4px">Which brands ship in the phase-two reference table, and who owns keeping it current.</li>
+    <li style="margin-bottom:4px">Whether a returning visitor with a stale profile (90+ days) gets a confirm prompt or silence.</li>
+    <li>Whether the chart-photo read reuses the confirmation sheet from phase two, or gets its own surface.</li>
+  </ol>
+
+  <h2 style="break-before:page;margin:0 0 8px;font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-0.035em;color:var(--cz-ink)">Appendix · the frames.</h2>
+  <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:var(--cz-sub)">Captured from the design canvas at 1×. Use the canvas for pixel values; these are for reference in the room.</p>
+
+  <figure style="break-inside:avoid;margin:0 0 18px">
+    <img src="assets/handoff-arrival.png" alt="A0 arrival screen" style="display:block;width:2.4in;max-width:100%;border:1px solid var(--cz-hair);border-radius:10px">
+    <figcaption style="margin-top:6px;font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Fig. 1 · A0 arrival · shared by both directions</figcaption>
+  </figure>
+
+  <figure style="break-inside:avoid;margin:0 0 18px">
+    <img src="assets/handoff-2a.png" alt="A1 to A5, the shipping flow" style="display:block;width:100%;border:1px solid var(--cz-hair);border-radius:10px">
+    <figcaption style="margin-top:6px;font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Fig. 2 · A1–A5 · the two-tap anchor, ship first</figcaption>
+  </figure>
+
+  <figure style="break-inside:avoid;margin:0">
+    <img src="assets/handoff-2b.png" alt="B1 to B4, the reference anchor" style="display:block;width:100%;border:1px solid var(--cz-hair);border-radius:10px">
+    <figcaption style="margin-top:6px;font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cz-faint)">Fig. 3 · B1–B4 · reference anchor, phase two</figcaption>
+  </figure>
+
+</doc-page>
+</x-dc>
+</body>
+</html>

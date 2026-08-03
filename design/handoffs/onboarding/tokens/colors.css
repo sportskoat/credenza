@@ -1,0 +1,151 @@
+/* ── Credenza colour ────────────────────────────────────────────────────────
+   Two colourways, both near-monochrome on purpose: the chrome is grey so the
+   product photography owns the colour story. Money green and heart red are
+   the only hues in the system; album-link blue is the ONE blue allowed on a
+   card. Brand-mark colours are identical in both themes — a mark that
+   re-tints per colourway is not a mark.
+
+   :root      = Gallery (light) — warm-white #F4F4F0 canvas, white cards
+   [data-theme="dark"] = Blackout — true black #000000, neutral #202024 cards
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --cz-bg: #F4F4F0;
+  --cz-bg-elevated: #ffffff;
+  --cz-card: rgba(255, 255, 255, 0.85);
+  --cz-card-solid: #ffffff;
+  --cz-chip-fill: #E6E6DE;
+  --cz-strip-bg: #EAEAE4;
+  --cz-footer-bg: #EFEFE9;
+  --cz-inset-bg: #FAFAF6;
+  --cz-seg: rgba(23, 24, 26, 0.06);
+
+  /* Lines */
+  --cz-hair: #d2d2c9;
+  --cz-hair-strong: rgba(23, 24, 26, 0.18);
+
+  /* Ink ramp */
+  --cz-ink: #17181a;
+  --cz-sub: #4f545b;
+  --cz-faint: #6b7078;
+  --cz-placeholder: #8a9099;
+
+  /* Brand mark — fixed in both themes */
+  --cz-brand-ground: #0f1114;
+  --cz-brand-c: #e9edf2;
+  --cz-brand-rule: #4da3ff;
+
+  /* Action / accent (accent IS ink; the chrome is monochrome) */
+  --cz-accent: #17181a;
+  --cz-accent-bg: rgba(23, 24, 26, 0.08);
+  --cz-accent-deep: #3c3e44;
+  --cz-accent-tint: rgba(20, 122, 58, 0.06);
+  --cz-action-fill: #17181a;
+  --cz-action-text: #F4F4F0;
+  --cz-action-text-divider: rgba(244, 244, 240, 0.22);
+  --cz-action-muted-bg: rgba(23, 24, 26, 0.92);
+  --cz-action-muted-text: #F4F4F0;
+  --cz-focus: #17181a;
+  --cz-favorite: #17181a;
+
+  /* Semantic hues — the only colour in the chrome */
+  --cz-money: #147a3a;
+  --cz-money-bg: rgba(21, 128, 61, 0.09);
+  --cz-money-on-photo: #7ee2a8;
+  --cz-money-bright: #5fd28f;
+  --cz-like: #e11d48;
+  --cz-link: #1d5fd0;
+  --cz-link-on-photo: #cfe0ff;
+  --cz-warn: #C0932a;
+  --cz-warn-ink: #8a6714;
+  --cz-error-bg: rgba(225, 29, 72, 0.10);
+  --cz-error-text: #be123c;
+
+  /* Order-status track tints (bg + text pairs, each ≥ 4.5:1) */
+  --cz-status-bought-bg: oklch(0.93 0.045 250);
+  --cz-status-bought-text: oklch(0.42 0.13 250);
+  --cz-status-shipped-bg: oklch(0.93 0.045 290);
+  --cz-status-shipped-text: oklch(0.42 0.13 290);
+  --cz-status-qc-bg: oklch(0.94 0.06 85);
+  --cz-status-qc-text: oklch(0.45 0.13 70);
+
+  /* Marketplace tile colours (photo fallbacks) */
+  --cz-tile-weidian: rgb(255, 90, 60);
+  --cz-tile-yupoo: rgb(55, 178, 77);
+  --cz-tile-taobao: rgb(255, 80, 0);
+
+  /* Selection + glow */
+  --cz-selection: rgba(23, 24, 26, 0.16);
+  --cz-selection-text: #17181a;
+  --cz-glow: rgba(23, 24, 26, 0.14);
+  --cz-glow-weak: rgba(244, 244, 240, 0.55);
+
+  /* Gradient ramp (Buy sheen, ambient) */
+  --cz-gradient-1: #17181a;
+  --cz-gradient-2: #565a61;
+  --cz-gradient-3: #656a72;
+}
+
+[data-theme="dark"] {
+  --cz-bg: #000000;
+  --cz-bg-elevated: #101012;
+  --cz-card: rgba(32, 32, 36, 0.86);
+  --cz-card-solid: #202024;
+  --cz-chip-fill: rgba(255, 255, 255, 0.10);
+  --cz-strip-bg: #151517;
+  --cz-footer-bg: #0c0c0e;
+  --cz-inset-bg: #26262b;
+  --cz-seg: rgba(255, 255, 255, 0.07);
+
+  --cz-hair: rgba(255, 255, 255, 0.16);
+  --cz-hair-strong: rgba(255, 255, 255, 0.24);
+
+  --cz-ink: #f5f5f7;
+  --cz-sub: #b7bbc2;
+  --cz-faint: #9ea3ab;
+  --cz-placeholder: #8a9099;
+
+  --cz-brand-ground: #0f1114;
+  --cz-brand-c: #e9edf2;
+  --cz-brand-rule: #4da3ff;
+
+  --cz-accent: #f5f5f7;
+  --cz-accent-bg: rgba(245, 245, 247, 0.12);
+  --cz-accent-deep: #ffffff;
+  --cz-accent-tint: rgba(74, 222, 128, 0.10);
+  --cz-action-fill: #f5f5f7;
+  --cz-action-text: #000000;
+  --cz-action-text-divider: rgba(0, 0, 0, 0.18);
+  --cz-action-muted-bg: rgba(245, 245, 247, 0.92);
+  --cz-action-muted-text: #1a1a1d;
+  --cz-focus: #f5f5f7;
+  --cz-favorite: #f5f5f7;
+
+  --cz-money: #4ade80;
+  --cz-money-bg: rgba(74, 222, 128, 0.12);
+  --cz-money-on-photo: #137a3a;
+  --cz-money-bright: #86efac;
+  --cz-like: #f40051;
+  --cz-link: #7fb2ff;
+  --cz-link-on-photo: #cfe0ff;
+  --cz-warn: #d9a83c;
+  --cz-warn-ink: #e8bf63;
+  --cz-error-bg: rgba(244, 63, 94, 0.16);
+  --cz-error-text: #f08a92;
+
+  --cz-status-bought-bg: oklch(0.30 0.06 250);
+  --cz-status-bought-text: oklch(0.84 0.10 250);
+  --cz-status-shipped-bg: oklch(0.30 0.06 290);
+  --cz-status-shipped-text: oklch(0.84 0.10 290);
+  --cz-status-qc-bg: oklch(0.32 0.07 85);
+  --cz-status-qc-text: oklch(0.86 0.11 85);
+
+  --cz-selection: rgba(245, 245, 247, 0.22);
+  --cz-selection-text: #f5f5f7;
+  --cz-glow: rgba(245, 245, 247, 0.30);
+  --cz-glow-weak: rgba(26, 26, 29, 0.55);
+
+  --cz-gradient-1: #1a1a1d;
+  --cz-gradient-2: #3a3a40;
+  --cz-gradient-3: #a3a3ab;
+}
