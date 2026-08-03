@@ -9,8 +9,11 @@ import {
   fetchChartFromPhotos,
   readChartFromPhotoFiles,
   isChartAuthRequired,
+  isChartCapReached,
   CHART_AUTH_REQUIRED,
   CHART_AUTH_COPY,
+  CHART_CAP_REACHED,
+  chartCapCopy,
 } from "../../credenza-fashion.jsx";
 
 const CHART = "M 胸围112 衣长70\nL 胸围116 衣长72";
@@ -137,10 +140,49 @@ describe("chart photo read (handoff turn 9 §3)", () => {
     global.fetch = vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) }));
     const result = await readChartFromPhotoFiles([DATA_URL]);
     expect(isChartAuthRequired(result)).toBe(false);
+    expect(isChartCapReached(result)).toBe(false);
     expect(result).toBeNull();
+  });
+
+  // FIX 2b (2026-08-03): server daily cap is not a bad photo.
+  it("maps 429 from chart-vision to CHART_CAP_REACHED (not null)", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "Daily limit reached" }),
+    }));
+    const result = await readChartFromPhotoFiles([DATA_URL]);
+    expect(isChartCapReached(result)).toBe(true);
+    expect(result).toBe(CHART_CAP_REACHED);
+    expect(isChartAuthRequired(result)).toBe(false);
+    expect(result).not.toBeNull();
+  });
+
+  it("maps 429 on the album path to CHART_CAP_REACHED", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "Daily limit reached" }),
+    }));
+    const result = await fetchChartFromPhotos(["https://img.geilicdn.com/a.jpg"]);
+    expect(isChartCapReached(result)).toBe(true);
   });
 
   it("pins the signed-out customer copy", () => {
     expect(CHART_AUTH_COPY).toBe("You are signed out. Sign in to read charts.");
+  });
+
+  // FIX 2b: cap copy names the real N and never reuses the bad-photo line.
+  it("pins the daily-cap customer copy", () => {
+    expect(chartCapCopy(null)).toMatch(/You used today's \d+ free chart reads/);
+    expect(chartCapCopy(null)).toMatch(/Sign in for more/);
+    expect(chartCapCopy({ state: "free", lim: { chartVisionPerDay: 2 } })).toBe(
+      "You used today's 2 free chart reads. Upgrade for more."
+    );
+    expect(chartCapCopy(null)).not.toMatch(/could not read/i);
+    expect(chartCapCopy(null)).not.toMatch(/No size chart found/i);
+    expect(isChartCapReached(CHART_CAP_REACHED)).toBe(true);
+    expect(isChartCapReached(null)).toBe(false);
+    expect(isChartCapReached(CHART_AUTH_REQUIRED)).toBe(false);
   });
 });

@@ -16,6 +16,9 @@ vi.mock("../../credenza-fashion.jsx", () => ({
   // FIX 0: real helper so auth sentinel from visionMock is recognized.
   isChartAuthRequired: (result) =>
     !!(result && typeof result === "object" && result.authRequired === true),
+  // FIX 2b: real helper so cap sentinel from visionMock is recognized.
+  isChartCapReached: (result) =>
+    !!(result && typeof result === "object" && result.capReached === true),
   parseSizeChart: (text) => {
     if (!text || typeof text !== "string" || !/chest/i.test(text)) return null;
     const rows = [];
@@ -219,6 +222,27 @@ describe("huntSizeChart auth wall (FIX 0)", () => {
     );
     expect(found).toEqual({ authRequired: true });
     // One paid attempt then stop — more candidates cannot fix a signed-out wall.
+    expect(visionMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// FIX 2b (2026-08-03): hunt must surface daily cap, not "No size chart found."
+describe("huntSizeChart daily cap wall (FIX 2b)", () => {
+  it("returns { capReached: true } on first cap sentinel and stops further paid reads", async () => {
+    visionMock.mockResolvedValue({ capReached: true });
+    const found = await huntSizeChart(
+      item({
+        descImages: [
+          "https://si.geilicdn.com/size_chart_a.jpg",
+          "https://si.geilicdn.com/size_chart_b.jpg",
+          "https://si.geilicdn.com/size_chart_c.jpg",
+        ],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found).toEqual({ capReached: true });
+    // One paid attempt then stop — more candidates cannot buy more allowance.
     expect(visionMock).toHaveBeenCalledTimes(1);
   });
 });

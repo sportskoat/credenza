@@ -15,8 +15,12 @@ import {
   fetchChartFromPhotos,
   readChartFromPhotoFiles,
   isChartAuthRequired,
+  isChartCapReached,
   CHART_AUTH_COPY,
+  chartCapCopy,
+  chartCapWantsUpgrade,
   requestChartSignIn,
+  requestChartLimits,
   serializeSizeChart,
   FIT_PREF_AXES,
   fitDisplayPrefs,
@@ -104,8 +108,11 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
   const [hunting, setHunting] = useState(false);
   // FIX 0: hunt hit a 401/403 — show signed-out copy, not "No size chart found."
   const [authBlocked, setAuthBlocked] = useState(false);
+  // FIX 2b: hunt hit daily cap — show cap copy, not "No size chart found."
+  const [capBlocked, setCapBlocked] = useState(false);
   useEffect(() => {
     setAuthBlocked(false);
+    setCapBlocked(false);
   }, [item.id]);
   useEffect(() => {
     if (!enabled) return;
@@ -131,6 +138,11 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
           setAuthBlocked(true);
           return;
         }
+        // FIX 2b: daily cap mid-hunt — distinct state, stop claiming no chart.
+        if (found && found.capReached) {
+          setCapBlocked(true);
+          return;
+        }
         // Older hunts returned bare text; the source tag ships with the text now.
         const text = typeof found === "string" ? found : found && found.text;
         if (text) {
@@ -154,7 +166,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
       setHunting(false);
     };
   }, [enabled, chart, item, onSaveEdit, shelfItems]);
-  return { hunting, authBlocked };
+  return { hunting, authBlocked, capBlocked };
 }
 
 // One source of truth keeps the sizing verdict consistent across each view.
@@ -670,6 +682,8 @@ const EMPTY_CHART_READ = {
   imageHash: "",
   // FIX 0: true when chart-vision returned 401/403 — distinct from a bad photo.
   authRequired: false,
+  // FIX 2b: true when daily cap blocked the read — distinct from a bad photo.
+  capReached: false,
 };
 
 // The columns a hand-typed chart offers, per category. Only labels sellers
@@ -741,6 +755,8 @@ function useCustomerChartRead(item, onSaveEdit) {
     let sawUnparseable = false;
     // FIX 0: any 401/403 from chart-vision — stop and show signed-out state.
     let sawAuth = false;
+    // FIX 2b: daily cap — stop and show cap state (never "could not read").
+    let sawCap = false;
     if (remote.length) {
       // One photo per paid read (low-cost rule 3). Stop on first valid chart.
       for (const url of remote.slice(0, 3)) {
@@ -750,6 +766,10 @@ function useCustomerChartRead(item, onSaveEdit) {
         if (!alive.current) return;
         if (isChartAuthRequired(raw)) {
           sawAuth = true;
+          break;
+        }
+        if (isChartCapReached(raw)) {
+          sawCap = true;
           break;
         }
         if (!raw) continue;
@@ -768,6 +788,8 @@ function useCustomerChartRead(item, onSaveEdit) {
       if (!alive.current) return;
       if (isChartAuthRequired(raw)) {
         sawAuth = true;
+      } else if (isChartCapReached(raw)) {
+        sawCap = true;
       } else if (raw && validateChartResult(raw, parseSizeChart).ok) {
         text = raw;
         if (typeof list[0] === "string" && /^data:image\//i.test(list[0])) {
@@ -797,6 +819,27 @@ function useCustomerChartRead(item, onSaveEdit) {
         thumb,
         error: CHART_AUTH_COPY,
         authRequired: true,
+      });
+      return;
+    }
+    if (sawCap) {
+      // FIX 2b: same typed-preserve rule as auth — cap is not a wipe.
+      const capMsg = chartCapCopy();
+      if (typedPrior) {
+        setState({
+          ...EMPTY_CHART_READ,
+          ...typedPrior,
+          thumb: thumb || "",
+          error: capMsg + " Your typed numbers are still here.",
+          capReached: true,
+        });
+        return;
+      }
+      setState({
+        ...EMPTY_CHART_READ,
+        thumb,
+        error: capMsg,
+        capReached: true,
       });
       return;
     }
@@ -928,6 +971,8 @@ function SizingBlockNoChart({
   // FIX 0: hunt (or prior read) hit chart-vision 401/403. Distinct from the
   // free-card-gate needsSignIn path, which keeps its own finish-card copy.
   chartAuthBlocked = false,
+  // FIX 2b: hunt hit daily chart-read cap. Distinct from auth and from a miss.
+  chartCapBlocked = false,
   // WhatsApp when no validated chart rec (even if variants list S–XL).
   whatsapp = "",
   variantRun = "",
@@ -936,9 +981,11 @@ function SizingBlockNoChart({
   const thumbs = (albumPhotos || []).slice(0, 2);
   const waUrl = whatsAppChatUrl(whatsapp);
   const signedOut = needsSignIn || chartAuthBlocked;
+  // Cap blocks photo reads; still show the album row so the person can see
+  // photos, but the primary path is the honest limit message.
   // Show WhatsApp when the seller listed a contact and we have no chart
   // recommendation (this block only mounts with no validated chart).
-  const showWhatsApp = !!waUrl && !signedOut && !needsClear;
+  const showWhatsApp = !!waUrl && !signedOut && !chartCapBlocked && !needsClear;
 
   return (
     <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
@@ -948,7 +995,13 @@ function SizingBlockNoChart({
             The card says so here, where the chart belongs, so an empty card
             never reads as a broken site (Kyle 2026-07-30). */}
         <span className="cz-sizing-kicker">
-          {signedOut ? "Needs sign-in" : showWhatsApp ? "No size in link" : "No chart"}
+          {chartCapBlocked
+            ? "Daily limit"
+            : signedOut
+              ? "Needs sign-in"
+              : showWhatsApp
+                ? "No size in link"
+                : "No chart"}
         </span>
         {/* Round 5 point 5.1: one notice for a hand pick — "you picked this"
             beside the size word. The "SET BY YOU" label here was a second
@@ -998,7 +1051,9 @@ function SizingBlockNoChart({
           </div>
 
           <p className="cz-sizing-nochart-body">
-            {chartAuthBlocked
+            {chartCapBlocked
+              ? chartCapCopy()
+              : chartAuthBlocked
               ? CHART_AUTH_COPY
               : needsSignIn
               ? "Sign in to finish this card. Credenza then reads the product, the photos, and the size chart."
@@ -1009,7 +1064,17 @@ function SizingBlockNoChart({
                    directly below it. */
                 "No size chart found."}
           </p>
-          {chartAuthBlocked ? (
+          {chartCapBlocked ? (
+            <button
+              type="button"
+              className="cz-sizing-action is-primary"
+              onClick={() =>
+                chartCapWantsUpgrade() ? requestChartLimits() : requestChartSignIn()
+              }
+            >
+              {chartCapWantsUpgrade() ? "See plans" : "Sign in"}
+            </button>
+          ) : chartAuthBlocked ? (
             <button
               type="button"
               className="cz-sizing-action is-primary"
@@ -1022,7 +1087,8 @@ function SizingBlockNoChart({
       )}
 
       {/* A photo read costs the same refused call, so hide the album row until
-          the visitor signs in. */}
+          the visitor signs in. Cap wall still allows the album list — the cap
+          message already explained why a paid read will not run. */}
       {signedOut ? null : needsClear && onClearChart ? (
         <button type="button" className="cz-sizing-albumrow" onClick={onClearChart}>
           <span className="cz-sizing-albumtext">Clear this chart</span>
@@ -1602,6 +1668,8 @@ function SizingBlockReading({
   units,
   typed = false,
   authRequired = false,
+  // FIX 2b: daily cap is not a bad photo — distinct kicker + CTA, no "could not read".
+  capReached = false,
   onUse,
   onRetry,
   onFix,
@@ -1628,10 +1696,12 @@ function SizingBlockReading({
       ? "READING…"
       : authRequired
         ? "SIGNED OUT"
-        : chart
-          ? rows.length + " ROW" + (rows.length === 1 ? "" : "S") + " · " +
-            columns.length + " COLUMN" + (columns.length === 1 ? "" : "S")
-          : "COULD NOT READ";
+        : capReached
+          ? "DAILY LIMIT"
+          : chart
+            ? rows.length + " ROW" + (rows.length === 1 ? "" : "S") + " · " +
+              columns.length + " COLUMN" + (columns.length === 1 ? "" : "S")
+            : "COULD NOT READ";
   const preview = rows.slice(0, 6);
   const key = columns[0] || "chest";
   // A new read replaces the cells, so the editor must close. Watch `reading`,
@@ -1654,9 +1724,11 @@ function SizingBlockReading({
             ? "Type the chart"
             : authRequired
               ? "Needs sign-in"
-              : error
-                ? "No chart"
-                : "Reading chart"}
+              : capReached
+                ? "Daily limit"
+                : error
+                  ? "No chart"
+                  : "Reading chart"}
         </span>
         <span className="cz-sizing-prov">{provenance}</span>
       </div>
@@ -1713,6 +1785,17 @@ function SizingBlockReading({
               Sign in
             </button>
           ) : null}
+          {capReached && !authRequired ? (
+            <button
+              type="button"
+              className="cz-sizing-action is-primary"
+              onClick={() =>
+                chartCapWantsUpgrade() ? requestChartLimits() : requestChartSignIn()
+              }
+            >
+              {chartCapWantsUpgrade() ? "See plans" : "Sign in"}
+            </button>
+          ) : null}
           {chart ? (
             <button type="button" className="cz-sizing-action is-primary" onClick={onUse}>
               {typed ? "Save this chart" : "Use this chart"}
@@ -1724,7 +1807,7 @@ function SizingBlockReading({
             <button type="button" className="cz-sizing-read-retry" onClick={onRetry}>
               Cancel
             </button>
-          ) : authRequired ? null : (
+          ) : authRequired || capReached ? null : (
             <>
               <button
                 type="button"
@@ -3103,7 +3186,11 @@ export default function DetailBody({
     !!bodyProfile &&
     !fitPrefHasChoice(fitPref) &&
     !(fitPref && fitPref.dismissed);
-  const { hunting, authBlocked: huntAuthBlocked } = useChartHunt(
+  const {
+    hunting,
+    authBlocked: huntAuthBlocked,
+    capBlocked: huntCapBlocked,
+  } = useChartHunt(
     item,
     verdict.chart,
     onSaveEdit,
@@ -4025,6 +4112,7 @@ export default function DetailBody({
                     units={measureUnits}
                     typed={chartRead.typed}
                     authRequired={chartRead.authRequired === true}
+                    capReached={chartRead.capReached === true}
                     onUse={chartRead.commit}
                     onRetry={() => {
                       // Failed read → open picker WITHOUT dismiss (Kyle
@@ -4107,6 +4195,7 @@ export default function DetailBody({
                 needsClear={item.sizeChartNeedsClear}
                 needsSignIn={item.needsSignIn === true}
                 chartAuthBlocked={huntAuthBlocked === true}
+                chartCapBlocked={huntCapBlocked === true}
                 whatsapp={item.whatsapp || ""}
                 variantRun={verdict.variantRun || ""}
                 onClearChart={clearBlockedChart}
@@ -4390,6 +4479,7 @@ export default function DetailBody({
                 units={measureUnits}
                 typed={chartRead.typed}
                 authRequired={chartRead.authRequired === true}
+                capReached={chartRead.capReached === true}
                 onUse={chartRead.commit}
                 onRetry={() => {
                   // Kyle 2026-08-02: "Try another photo" must open the picker.

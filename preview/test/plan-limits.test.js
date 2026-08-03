@@ -222,16 +222,19 @@ describe("the caps are enforced where the writes happen", () => {
 
     // postChartVision: guard clause, then bump. Fix 0 maps 401/403 to the
     // CHART_AUTH_REQUIRED sentinel (not null) so the UI can show "signed out"
-    // instead of "no chart". Both early returns still stand between failure
-    // and the count — an auth wall must never burn a customer's quota.
+    // instead of "no chart". FIX 2b maps 429 to CHART_CAP_REACHED the same way.
+    // All early returns still stand between failure and the count — an auth
+    // wall or a spent cap must never burn a customer's quota.
     // (a) success-only counting: bump only after res.ok.
     // (b) auth path: 401/403 returns CHART_AUTH_REQUIRED before bumpUsage.
+    // (c) cap path: 429 returns CHART_CAP_REACHED before bumpUsage.
     expect(clean).toContain(
       "    if (!res.ok) {\n" +
         "      if (res.status === 401 || res.status === 403) {\n" +
         "        noteSignInRequired();\n" +
         "        return CHART_AUTH_REQUIRED;\n" +
         "      }\n" +
+        "      if (res.status === 429) return CHART_CAP_REACHED;\n" +
         "      return null;\n" +
         "    }\n" +
         "    bumpUsage(\"chartVision\");"
@@ -239,14 +242,21 @@ describe("the caps are enforced where the writes happen", () => {
     // Explicit pin: the auth sentinel return appears with no bumpUsage between
     // it and the next statement that would count — order is return-then-bump.
     const chartAuthWindow = clean.match(
-      /if \(res\.status === 401 \|\| res\.status === 403\) \{[\s\S]{0,120}?return CHART_AUTH_REQUIRED;[\s\S]{0,80}?return null;[\s\S]{0,40}?bumpUsage\("chartVision"\)/
+      /if \(res\.status === 401 \|\| res\.status === 403\) \{[\s\S]{0,120}?return CHART_AUTH_REQUIRED;[\s\S]{0,80}?return CHART_CAP_REACHED;[\s\S]{0,40}?return null;[\s\S]{0,40}?bumpUsage\("chartVision"\)/
     );
     expect(
       chartAuthWindow,
-      "chart-vision 401/403 must return CHART_AUTH_REQUIRED before bumpUsage — auth must not burn quota"
+      "chart-vision 401/403/429 must return sentinels before bumpUsage — auth/cap must not burn quota"
     ).toBeTruthy();
     expect(clean).not.toMatch(
       /bumpUsage\("chartVision"\)[\s\S]{0,200}?return CHART_AUTH_REQUIRED/
+    );
+    expect(clean).not.toMatch(
+      /bumpUsage\("chartVision"\)[\s\S]{0,200}?return CHART_CAP_REACHED/
+    );
+    // Client overFreeLimit skip also returns the cap sentinel (never null).
+    expect(clean).toMatch(
+      /if \(overFreeLimit\(planForLimits, "chartVision"\)\) return CHART_CAP_REACHED;/
     );
 
     // fetchDescImages: guard clause with sign-in refusal, then bump.
