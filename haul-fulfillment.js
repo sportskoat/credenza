@@ -597,3 +597,82 @@ export function sellerRecord(items = [], seller = "") {
       " red across your shelf.",
   };
 }
+
+/**
+ * The four stage columns, in order, with the footer action each one offers.
+ * The parcel is not here: it is the destination panel, not a stage column.
+ */
+export const BOARD_COLUMNS = [
+  { key: "toOrder", label: "To order", footer: "Copy all links" },
+  { key: "ordered", label: "Ordered", footer: null },
+  { key: "warehouse", label: "At warehouse", footer: "Review all QC" },
+  { key: "qcd", label: "QC done", footer: null },
+];
+
+/**
+ * What one board card says under its title, and which action it offers.
+ *
+ * `tone` names the colour, it does not carry it: the screen owns the token.
+ * The action is the single next move for that item at that stage. There is
+ * never more than one, because a card with two buttons asks the person to
+ * choose before they have looked at the photo.
+ */
+export function itemCardMeta(item, { storageClock = true } = {}) {
+  if (!item) return null;
+  const stage = normalizeStage(item.stage);
+  const weight = grams(itemShipGrams(item));
+  if (stage === "toOrder") {
+    return { meta: "not ordered · est. " + weight, tone: "faint", action: "Copy link" };
+  }
+  if (stage === "ordered") {
+    const when = item.when ? " · " + item.when : "";
+    return { meta: (item.order || "ordered") + when, tone: "faint", action: "Mark arrived" };
+  }
+  if (stage === "warehouse") {
+    const clock = storageClock && item.storage != null ? " · " + item.storage + " d left" : "";
+    return {
+      meta: weight + " actual" + clock,
+      tone: "faint",
+      action: "Review QC · " + num(item.photos),
+    };
+  }
+  if (stage === "qcd") {
+    const green = normalizeVerdict(item.qc) === "green";
+    return {
+      meta: green ? "green · " + weight : "red · " + (item.reason || "flagged"),
+      tone: green ? "money" : "error",
+      action: green ? "Add to parcel" : "Return message",
+    };
+  }
+  return { meta: weight, tone: "faint", action: null };
+}
+
+/** The board's four columns, filled. A column with no items offers no footer. */
+export function boardColumns(items = [], options = {}) {
+  return BOARD_COLUMNS.map((column) => {
+    const list = items.filter((item) => item && normalizeStage(item.stage) === column.key);
+    return {
+      key: column.key,
+      label: column.label,
+      count: list.length,
+      items: list.map((item) => ({ item, ...itemCardMeta(item, options) })),
+      footerLabel: list.length ? column.footer : null,
+    };
+  });
+}
+
+/**
+ * The storage sentence on the board's summary strip. The agent holds items free
+ * for ninety days from arrival, so the clock the person must watch is the
+ * oldest item still outside a parcel.
+ */
+export function storageLine(items = []) {
+  const days = earliestStorageDays(items);
+  if (days == null) return "Nothing is sitting at the warehouse on a clock.";
+  return (
+    "Free storage ends in " +
+    days +
+    " days on your oldest item at the warehouse. Your agent holds 90 days. " +
+    "The clock starts on arrival, not on ship."
+  );
+}

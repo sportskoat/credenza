@@ -5,10 +5,12 @@
 // formula, not from what the code happens to return.
 import { describe, expect, it } from "vitest";
 import {
+  BOARD_COLUMNS,
   COST_FLOOR_USD,
   DEFAULT_PACKAGING_GRAMS,
   HAUL_STAGES,
   RED_REASONS,
+  boardColumns,
   costOfLine,
   defaultRates,
   earliestStorageDays,
@@ -17,6 +19,7 @@ import {
   handoffMessage,
   haulCta,
   haulIndexCard,
+  itemCardMeta,
   itemShipGrams,
   needsYouCount,
   landedTotal,
@@ -32,6 +35,7 @@ import {
   shipRange,
   stageBar,
   stageCounts,
+  storageLine,
   toHaulItem,
   unorderedLinks,
 } from "../../haul-fulfillment.js";
@@ -732,5 +736,123 @@ describe("the seller's record", () => {
   it("says nothing without a seller or without history", () => {
     expect(sellerRecord(cards, "")).toBe(null);
     expect(sellerRecord(cards, "New Store")).toBe(null);
+  });
+});
+
+describe("the board's columns", () => {
+  it("runs left to right in the order the person works", () => {
+    expect(BOARD_COLUMNS.map((column) => column.key)).toEqual([
+      "toOrder",
+      "ordered",
+      "warehouse",
+      "qcd",
+    ]);
+  });
+
+  it("leaves the parcel out, because the parcel is the destination", () => {
+    expect(BOARD_COLUMNS.some((column) => column.key === "parcel")).toBe(false);
+  });
+
+  it("puts every item in its stage's column", () => {
+    const columns = boardColumns([
+      item({ id: 1, stage: "toOrder" }),
+      item({ id: 2, stage: "warehouse" }),
+      item({ id: 3, stage: "warehouse" }),
+      item({ id: 4, stage: "parcel" }),
+    ]);
+    expect(columns.map((column) => column.count)).toEqual([1, 0, 2, 0]);
+    expect(columns[2].items.map((entry) => entry.item.id)).toEqual([2, 3]);
+  });
+
+  it("hides a column's action when the column is empty", () => {
+    const columns = boardColumns([]);
+    expect(columns.every((column) => column.footerLabel === null)).toBe(true);
+  });
+
+  it("offers the bulk action once a column has something in it", () => {
+    const columns = boardColumns([item({ stage: "toOrder" })]);
+    expect(columns[0].footerLabel).toBe("Copy all links");
+    expect(columns[1].footerLabel).toBe(null);
+  });
+});
+
+describe("one card on the board", () => {
+  it("tells an unordered item what it should weigh", () => {
+    expect(itemCardMeta(item({ stage: "toOrder", actual: null, est: 900 }))).toEqual({
+      meta: "not ordered · est. 900 g",
+      tone: "faint",
+      action: "Copy link",
+    });
+  });
+
+  it("shows the order number and the date once it is ordered", () => {
+    expect(
+      itemCardMeta(item({ stage: "ordered", order: "SB-8827104", when: "4 d ago" }))
+    ).toEqual({ meta: "SB-8827104 · 4 d ago", tone: "faint", action: "Mark arrived" });
+  });
+
+  it("falls back to a plain word when the order number is missing", () => {
+    expect(itemCardMeta(item({ stage: "ordered", order: "", when: "" })).meta).toBe("ordered");
+  });
+
+  it("counts the photos waiting on the warehouse card", () => {
+    expect(itemCardMeta(item({ stage: "warehouse", actual: 512, storage: 58, photos: 12 }))).toEqual(
+      { meta: "512 g actual · 58 d left", tone: "faint", action: "Review QC · 12" }
+    );
+  });
+
+  it("drops the storage clock when the person turns it off", () => {
+    const meta = itemCardMeta(item({ stage: "warehouse", actual: 512, storage: 58 }), {
+      storageClock: false,
+    });
+    expect(meta.meta).toBe("512 g actual");
+  });
+
+  it("offers the parcel to a green-lit item", () => {
+    expect(itemCardMeta(item({ stage: "qcd", qc: "green", actual: 268 }))).toEqual({
+      meta: "green · 268 g",
+      tone: "money",
+      action: "Add to parcel",
+    });
+  });
+
+  it("offers the return message to a red-lit item, and names the fault", () => {
+    expect(itemCardMeta(item({ stage: "qcd", qc: "red", reason: "stitching" }))).toEqual({
+      meta: "red · stitching",
+      tone: "error",
+      action: "Return message",
+    });
+  });
+
+  it("still reads as red when nobody picked a reason", () => {
+    expect(itemCardMeta(item({ stage: "qcd", qc: "red", reason: null })).meta).toBe("red · flagged");
+  });
+
+  it("offers nothing to an item already in the box", () => {
+    expect(itemCardMeta(item({ stage: "parcel", actual: 726 }))).toEqual({
+      meta: "726 g",
+      tone: "faint",
+      action: null,
+    });
+  });
+
+  it("has nothing to say about a missing item", () => {
+    expect(itemCardMeta(null)).toBe(null);
+  });
+});
+
+describe("the storage sentence", () => {
+  it("names the days left on the oldest item at the warehouse", () => {
+    expect(storageLine([item({ stage: "warehouse", storage: 58 }), item({ id: 2, storage: 90 })])).toBe(
+      "Free storage ends in 58 days on your oldest item at the warehouse. " +
+        "Your agent holds 90 days. The clock starts on arrival, not on ship."
+    );
+  });
+
+  it("says the clock is not running when nothing is on one", () => {
+    expect(storageLine([item({ stage: "toOrder", storage: null })])).toBe(
+      "Nothing is sitting at the warehouse on a clock."
+    );
+    expect(storageLine([])).toBe("Nothing is sitting at the warehouse on a clock.");
   });
 });

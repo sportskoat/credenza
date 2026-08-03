@@ -34,13 +34,16 @@ import {
   RED_REASONS,
   SHIPPING_LINES,
   firstPendingQcItem,
+  handoffMessage,
   haulIndexCard,
   needsYouCount,
   normalizeStage,
   normalizeVerdict,
   parcelMaths,
+  returnMessage,
   stageBar,
   toHaulItem,
+  unorderedLinks,
 } from "./haul-fulfillment.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
@@ -120,6 +123,10 @@ const QcOverlay = lazy(() => import("./components/QcOverlay.jsx"));
 // they use are hoisted function declarations.
 import DigestDeck from "./components/DigestDeck.jsx";
 import HaulBoard from "./components/HaulBoard.jsx";
+// The stage board inside an open haul (haul handoff, screens 2, 6 and 7).
+// Static, not lazy: it paints with the haul, so a chunk fetch would show an
+// empty column strip first.
+import HaulFlowBoard from "./components/HaulFlowBoard.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
 import IntroStrip from "./components/IntroStrip.jsx";
 import { SITE_NAV } from "./components/site-nav.js";
@@ -8787,6 +8794,73 @@ function CredenzaApp() {
     };
   }, [qcItemId, shelfAll]);
 
+  // The open haul's cards, in the shape the stage board reads. Built from
+  // `shelfAll`, not from the shelf surface: a search narrows what you browse,
+  // it must never narrow what the parcel weighs.
+  const haulFlowItems = useMemo(() => {
+    if (!openHaulName) return [];
+    return shelfAll
+      .filter(
+        (entry) => entry && typeof entry.project === "string" && entry.project.trim() === openHaulName
+      )
+      .map((entry) => {
+        const usd = itemUsdAmount(entry);
+        return toHaulItem(entry, {
+          estGrams: estimateItemWeightGrams(entry),
+          priceUsd: usd != null ? usd : 0,
+        });
+      });
+  }, [openHaulName, shelfAll]);
+
+  // The cover picture and the platform colour for one board tile. The board
+  // holds no card, so the screen looks the card up for it.
+  const haulTileFor = useCallback(
+    (item) => {
+      const card = shelfAll.find((entry) => entry && entry.id === item.id);
+      if (!card) return { image: null, tint: null };
+      return { image: card.image || null, tint: platformDotFor(card.host || "") };
+    },
+    [shelfAll]
+  );
+
+  // One clipboard path for every haul surface. Same shape as share-api's
+  // copyLink: a blocked clipboard must never throw into the render tree.
+  const copyForHaul = useCallback(
+    async (text, message) => {
+      try {
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+          notify("Copy is blocked in this browser.", { tone: "error" });
+          return;
+        }
+        await navigator.clipboard.writeText(text);
+        notify(message);
+      } catch {
+        notify("Copy is blocked in this browser.", { tone: "error" });
+      }
+    },
+    [notify]
+  );
+
+  // The haul's shipping settings, and one writer for them. Absent means the
+  // person has never touched the parcel panel, so the starting numbers stand.
+  const haulShip = useMemo(() => {
+    if (!openHaulName) return null;
+    const record = hauls.find((h) => h.name === openHaulName);
+    return (record && record.ship) || null;
+  }, [openHaulName, hauls]);
+
+  const patchHaulShip = useCallback(
+    (patch, detail) => {
+      if (!openHaulName) return;
+      updateHaul(
+        openHaulName,
+        (base) => ({ ship: { ...migrateHaulShip(base.ship || {}), ...patch } }),
+        { type: "ship", detail }
+      );
+    },
+    [openHaulName, updateHaul]
+  );
+
   // USD-normalized value for the total-cost reel — single helper so haul
   // directory, chips, and the reel never disagree (CNY falls back to 0.14).
   const totalsItems = useMemo(() => {
@@ -11323,6 +11397,85 @@ function CredenzaApp() {
                 if (next) closeHaul();
               }}
             />
+            {/* The stage board: where every item in this haul actually is,
+                and what the parcel weighs. Mixed progress is the normal
+                state of a haul, so the board renders it instead of a
+                wizard (haul handoff, screens 2, 6 and 7). */}
+            {haulFlowItems.length > 0 ? (
+              <HaulFlowBoard
+                items={haulFlowItems}
+                ship={haulShip}
+                tileFor={haulTileFor}
+                agentName={(preferredAgentInfo && preferredAgentInfo.name) || ""}
+                onOpenItem={(id) => openInCarousel(id)}
+                onItemAction={(item) => {
+                  // One stage offers one move. The board decided which; the
+                  // screen only knows how to carry it out.
+                  if (item.stage === "toOrder") {
+                    copyForHaul(item.url || "", "Link copied.");
+                    return;
+                  }
+                  if (item.stage === "ordered") {
+                    updateItem(item.id, { haulStage: "warehouse", haulStageAt: Date.now() });
+                    notify("Marked as arrived at the warehouse.");
+                    return;
+                  }
+                  if (item.stage === "warehouse") {
+                    setQcItemId(item.id);
+                    return;
+                  }
+                  if (item.stage !== "qcd") return;
+                  if (normalizeVerdict(item.qc) === "green") {
+                    updateItem(item.id, { haulStage: "parcel", haulStageAt: Date.now() });
+                    notify("Added to parcel A.");
+                    return;
+                  }
+                  copyForHaul(
+                    returnMessage({ item, reason: item.reason }),
+                    "Return message copied. You send it to your agent."
+                  );
+                }}
+                onColumnFooter={(key) => {
+                  if (key === "toOrder") {
+                    const links = unorderedLinks(haulFlowItems);
+                    if (!links) {
+                      notify("None of those cards has a link yet.", { tone: "error" });
+                      return;
+                    }
+                    copyForHaul(links, "Every unordered link copied.");
+                    return;
+                  }
+                  if (key !== "warehouse") return;
+                  const first = firstPendingQcItem(haulFlowItems);
+                  if (first) setQcItemId(first.id);
+                }}
+                onRemoveFromParcel={(id) => {
+                  // Back to QC done, not back to the warehouse. The verdict
+                  // still stands; only the packing choice changes.
+                  updateItem(id, { haulStage: "qcd", haulStageAt: Date.now() });
+                  notify("Taken out of parcel A.");
+                }}
+                onSetDivisor={(value) => patchHaulShip({ divisor: value }, "divisor " + value)}
+                onSetLine={(key) => patchHaulShip({ line: key }, "line " + key)}
+                onSetRate={(key, rate) => {
+                  const base = migrateHaulShip(haulShip || {});
+                  patchHaulShip({ rates: { ...base.rates, [key]: rate } }, "rate " + key);
+                }}
+                onHandOff={() => {
+                  // The review screen is not built yet. Copying the exact
+                  // instruction is the whole point of that screen, so the
+                  // button does that today rather than nothing.
+                  copyForHaul(
+                    handoffMessage({
+                      items: haulFlowItems,
+                      line: (haulShip && haulShip.line) || "EMS",
+                      declared: (haulShip && haulShip.declared) || 0,
+                    }),
+                    "Parcel instruction copied. Paste it into your agent's form."
+                  );
+                }}
+              />
+            ) : null}
           </div>
         ) : null}
         </div>{/* /.cz-chrome */}
