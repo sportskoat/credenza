@@ -6122,23 +6122,24 @@ function CredenzaApp() {
   const accountGoogle = () => {
     window.location.assign(googleAuthUrl());
   };
+  // Kyle 2026-08-02: a lost session used to end here in silence, and the Pro
+  // button looked dead. The toast still fires. The throw carries the same
+  // sentence up to whichever screen made the call, so it can print it too.
+  const expiredSession = () => {
+    setAccountSession(null);
+    const message = "Your sign-in expired. Sign in again first.";
+    notify(message);
+    return new Error(message);
+  };
   const accountUpgrade = async (price) => {
     const session = await getValidSession();
-    if (!session) {
-      setAccountSession(null);
-      notify("Your sign-in expired. Sign in again first.");
-      return;
-    }
+    if (!session) throw expiredSession();
     const url = await accountCheckout(session.accessToken, price);
     window.location.assign(url);
   };
   const accountOpenPortal = async () => {
     const session = await getValidSession();
-    if (!session) {
-      setAccountSession(null);
-      notify("Your sign-in expired. Sign in again first.");
-      return;
-    }
+    if (!session) throw expiredSession();
     const url = await accountPortal(session.accessToken);
     window.location.assign(url);
   };

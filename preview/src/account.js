@@ -143,14 +143,17 @@ export async function refreshEntitlement(accessToken, { fetchImpl, host } = {}) 
 // trial). Returns the redirect URL.
 export async function checkout(accessToken, price, { fetchImpl } = {}) {
   const data = await post(CHECKOUT_ENDPOINT, accessToken, { price }, fetchImpl);
-  if (!data || typeof data.url !== "string") throw new Error("Checkout gave no URL");
+  // A 200 with no URL is the server failing quietly. The Pro page prints
+  // whatever reaches it, so it has to be a sentence, not a note to a
+  // developer. Kyle 2026-08-02.
+  if (!data || typeof data.url !== "string") throw new Error(safeErrorMessage(500, null));
   return data.url;
 }
 
 // Stripe Customer Portal (card, cancellation, invoices). Returns the URL.
 export async function openPortal(accessToken, { fetchImpl } = {}) {
   const data = await post(PORTAL_ENDPOINT, accessToken, null, fetchImpl);
-  if (!data || typeof data.url !== "string") throw new Error("Portal gave no URL");
+  if (!data || typeof data.url !== "string") throw new Error(safeErrorMessage(500, null));
   return data.url;
 }
 

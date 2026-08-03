@@ -21002,6 +21002,19 @@ input.cz-sizing-fix-size {
   color: var(--cz-faint);
 }
 
+/* Kyle 2026-08-02: the Pro button used to fail in silence. This line names
+   the reason. Same shape as .cz-share-error, which is the one error surface
+   this app already had. */
+.cz-upgrade-error {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cz-heart, #e11d48) 10%, transparent);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-heart, #e11d48);
+}
+
 /* ── What changes ── */
 .cz-upgrade-table {
   padding: 22px 24px 8px;

@@ -90,6 +90,11 @@ export default function UpgradePage({
     PERIODS[initialPeriod] ? initialPeriod : DEFAULT_PERIOD,
   );
   const [busy, setBusy] = useState(false);
+  // Kyle 2026-08-02: "if you are signed in and click 'start 3 days free' it
+  // does not go to any link". The press below had no catch, so any failure
+  // un-busied the button and left the page silent. A person cannot tell a
+  // dead button from a slow one. Hold the reason and print it.
+  const [error, setError] = useState("");
   const plan = PERIODS[period] || PERIODS[DEFAULT_PERIOD];
 
   useEffect(() => {
@@ -118,9 +123,17 @@ export default function UpgradePage({
 
   const start = async () => {
     if (busy) return;
+    // Clear the last reason on the next press, so a stale line never sits
+    // under a button that is working.
+    setError("");
     setBusy(true);
     try {
       await onStart(period);
+    } catch (err) {
+      // Every message that reaches here has already been through
+      // safeErrorMessage in preview/src/account.js, so it is a sentence a
+      // person can read. The fallback covers a throw with no message at all.
+      setError((err && err.message) || "Something went wrong. Try again.");
     } finally {
       setBusy(false);
     }
@@ -198,6 +211,11 @@ export default function UpgradePage({
               <Pill primary onClick={start} loading={busy} style={{ width: "100%" }}>
                 {plan.trial ? "Start " + PRICING.weeklyTrial : "Upgrade to Pro"}
               </Pill>
+              {error ? (
+                <p className="cz-upgrade-error" role="alert">
+                  {error}
+                </p>
+              ) : null}
               {!signedIn ? (
                 <p className="cz-upgrade-foot">
                   Sign in first. The button opens the sign-in window, then comes straight
