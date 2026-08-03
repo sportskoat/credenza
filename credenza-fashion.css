@@ -22056,3 +22056,381 @@ input.cz-sizing-fix-size {
     font-size: 16px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HaulItemDrawer — haul handoff README, screen 8.
+
+   The right-edge drawer for one item in a haul. 352px, full height, heavy
+   glass over a dimmed board. The board stays visible behind it on purpose:
+   the drawer is a detail view, not a new place.
+
+   Desktop first, like the board it opens from. Below 767px the drawer takes
+   the whole width, because 352px of a 390px phone leaves a useless sliver.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-hd {
+  width: 352px;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.cz-hd::backdrop {
+  background: oklch(0 0 0 / 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-hd::backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .cz-hd-panel {
+    background: var(--cz-bg-elevated);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.cz-hd-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-left: 1px solid var(--cz-hair);
+  background: color-mix(in srgb, var(--cz-bg-elevated) 86%, transparent);
+  backdrop-filter: blur(28px) saturate(125%);
+  -webkit-backdrop-filter: blur(28px) saturate(125%);
+  overflow-y: auto;
+}
+
+.cz-hd-head {
+  display: flex;
+  gap: 12px;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-hd-tile {
+  display: flex;
+  flex: 0 0 62px;
+  align-items: flex-end;
+  width: 62px;
+  height: 78px;
+  padding: 6px;
+  border-radius: 10px;
+  background-color: var(--cz-hd-tint, var(--cz-strip-bg));
+  background-position: center;
+  background-size: cover;
+  overflow: hidden;
+}
+
+.cz-hd-platform {
+  font-family: var(--cz-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--cz-action-text);
+}
+
+.cz-hd-headtext {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cz-hd-title {
+  font-family: var(--cz-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--cz-ink);
+}
+
+.cz-hd-size {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--cz-faint);
+}
+
+.cz-hd-price {
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+
+.cz-hd-close {
+  display: flex;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-close:hover {
+  background: var(--cz-hover);
+}
+
+.cz-hd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-hd-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* One stage row. Every row is live, forwards and back: a parcel gets split and
+   an order gets cancelled, so the person must be able to correct the app. */
+.cz-hd-stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 9px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-faint);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--dur-micro) var(--ease-out),
+    color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-stage:hover {
+  background: var(--cz-hover);
+}
+
+.cz-hd-stage[data-state="done"] {
+  color: var(--cz-sub);
+}
+
+.cz-hd-stage[data-state="current"] {
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+  cursor: default;
+}
+
+.cz-hd-mark {
+  display: flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--cz-hair-strong);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cz-action-text);
+}
+
+.cz-hd-stage[data-state="done"] .cz-hd-mark,
+.cz-hd-stage[data-state="current"] .cz-hd-mark {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+}
+
+.cz-hd-stage-label {
+  flex: 1 1 auto;
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cz-hd-when {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cz-faint);
+}
+
+.cz-hd-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cz-hd-fieldlabel {
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  color: var(--cz-sub);
+}
+
+.cz-hd-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-hd-number {
+  width: 78px;
+  padding: 5px 8px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.cz-hd-unit {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  color: var(--cz-faint);
+}
+
+.cz-hd-text {
+  width: 120px;
+  padding: 5px 8px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.cz-hd-note {
+  margin: 0;
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+.cz-hd-storage {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--cz-accent-bg);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-ink);
+  text-wrap: pretty;
+}
+
+.cz-hd-actions {
+  border-bottom: 0;
+}
+
+.cz-hd-cta {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-cta:hover {
+  opacity: 0.86;
+}
+
+.cz-hd-outline {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-outline:hover {
+  background: var(--cz-hover);
+}
+
+.cz-hd-subtle {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-subtle:hover {
+  color: var(--cz-ink);
+}
+
+/* A finger is not a mouse pointer. Every control the person taps gets the
+   44px floor. */
+@media (pointer: coarse) {
+  .cz-hd-stage,
+  .cz-hd-close,
+  .cz-hd-cta,
+  .cz-hd-outline,
+  .cz-hd-subtle {
+    min-height: 44px;
+  }
+
+  .cz-hd-close {
+    width: 44px;
+  }
+}
+
+/* 352px of a 390px phone leaves a useless sliver of the board behind it, so
+   the drawer takes the whole width instead. The number fields go to 16px,
+   because iOS zooms the page into any field below that. */
+@media (max-width: 767px) {
+  .cz-hd {
+    width: 100%;
+  }
+
+  .cz-hd-number,
+  .cz-hd-text {
+    font-size: 16px;
+  }
+}

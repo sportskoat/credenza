@@ -40,6 +40,7 @@ import {
   normalizeStage,
   normalizeVerdict,
   parcelMaths,
+  resetToShelf,
   returnMessage,
   stageBar,
   toHaulItem,
@@ -115,6 +116,9 @@ const UpgradePage = lazy(() => import("./components/UpgradePage.jsx"));
 // QC review (haul handoff, screens 3 to 5). Lazy: it only opens from inside a
 // haul that has photos waiting, which most sessions never reach.
 const QcOverlay = lazy(() => import("./components/QcOverlay.jsx"));
+// The item drawer inside an open haul (haul handoff, screen 8). Lazy for the
+// same reason as QC review: it only opens from the stage board.
+const HaulItemDrawer = lazy(() => import("./components/HaulItemDrawer.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -5846,6 +5850,9 @@ function CredenzaApp() {
   // overlay is a projection of the item, so this holds the id and nothing else
   // (design/handoffs/haul, screens 3 to 5).
   const [qcItemId, setQcItemId] = useState(null);
+  // The card open in the haul item drawer, by item id. Same rule as QC review:
+  // the drawer is a projection of the item (design/handoffs/haul, screen 8).
+  const [haulDrawerId, setHaulDrawerId] = useState(null);
   const reducedMotion = usePrefersReducedMotion();
   const [search, setSearch] = useState("");
   const [askState, setAskState] = useState({
@@ -8812,6 +8819,13 @@ function CredenzaApp() {
       });
   }, [openHaulName, shelfAll]);
 
+  // The item open in the drawer. Read out of `haulFlowItems`, so an edit in
+  // the drawer repaints the board and the drawer from the same numbers.
+  const haulDrawerItem = useMemo(() => {
+    if (!haulDrawerId) return null;
+    return haulFlowItems.find((entry) => entry && entry.id === haulDrawerId) || null;
+  }, [haulDrawerId, haulFlowItems]);
+
   // The cover picture and the platform colour for one board tile. The board
   // holds no card, so the screen looks the card up for it.
   const haulTileFor = useCallback(
@@ -10296,6 +10310,32 @@ function CredenzaApp() {
         </Suspense>
       )}
 
+      {/* One item, opened from the stage board. It sits under QC review, so
+          opening QC from the drawer leaves the drawer behind it and closing
+          QC lands the person back on the item (haul handoff, screen 8). */}
+      {haulDrawerItem && (
+        <Suspense fallback={null}>
+          <HaulItemDrawer
+            item={haulDrawerItem}
+            face={haulTileFor(haulDrawerItem)}
+            onClose={() => setHaulDrawerId(null)}
+            onPatch={(id, patch) => updateItem(id, patch)}
+            onReviewQc={(id) => setQcItemId(id)}
+            onAddToParcel={(id) => {
+              updateItem(id, { haulStage: "parcel", haulStageAt: Date.now() });
+              notify("Added to parcel A.");
+            }}
+            onBackToShelf={(id) => {
+              // Every fulfillment number goes with it. A stale QC verdict on a
+              // freshly re-ordered item is worse than no verdict.
+              updateItem(id, { ...resetToShelf(), haulStageAt: Date.now() });
+              setHaulDrawerId(null);
+              notify("Back on the shelf.");
+            }}
+          />
+        </Suspense>
+      )}
+
       {/* QC review sits on top of the open haul. Closing it puts the person
           back exactly where they were (haul handoff, screens 3 to 5). */}
       {qcContext && (
@@ -11407,7 +11447,7 @@ function CredenzaApp() {
                 ship={haulShip}
                 tileFor={haulTileFor}
                 agentName={(preferredAgentInfo && preferredAgentInfo.name) || ""}
-                onOpenItem={(id) => openInCarousel(id)}
+                onOpenItem={(id) => setHaulDrawerId(id)}
                 onItemAction={(item) => {
                   // One stage offers one move. The board decided which; the
                   // screen only knows how to carry it out.

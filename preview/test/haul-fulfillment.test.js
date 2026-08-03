@@ -10,6 +10,7 @@ import {
   DEFAULT_PACKAGING_GRAMS,
   HAUL_STAGES,
   RED_REASONS,
+  STAGE_LABELS,
   boardColumns,
   costOfLine,
   defaultRates,
@@ -20,6 +21,7 @@ import {
   haulCta,
   haulIndexCard,
   itemCardMeta,
+  itemDrawer,
   itemShipGrams,
   needsYouCount,
   landedTotal,
@@ -30,6 +32,7 @@ import {
   pendingQcCount,
   qcProgress,
   qcQueue,
+  resetToShelf,
   returnMessage,
   sellerRecord,
   shipRange,
@@ -854,5 +857,90 @@ describe("the storage sentence", () => {
       "Nothing is sitting at the warehouse on a clock."
     );
     expect(storageLine([])).toBe("Nothing is sitting at the warehouse on a clock.");
+  });
+});
+
+describe("the item drawer", () => {
+  it("marks every stage behind the item as done and the one it is on as current", () => {
+    const view = itemDrawer(item({ stage: "warehouse" }));
+    expect(view.stages.map((s) => [s.key, s.done, s.current])).toEqual([
+      ["toOrder", true, false],
+      ["ordered", true, false],
+      ["warehouse", false, true],
+      ["qcd", false, false],
+      ["parcel", false, false],
+    ]);
+  });
+
+  it("keeps the labels the drawer shows, not the board's column labels", () => {
+    expect(STAGE_LABELS.map((s) => s.label)).toEqual([
+      "Not ordered",
+      "Ordered",
+      "At the warehouse",
+      "QC done",
+      "In parcel A",
+    ]);
+  });
+
+  it("shows the estimate until the agent weighs the item", () => {
+    const view = itemDrawer(item({ est: 500, actual: null }));
+    expect(view.weight).toBe(500);
+    expect(view.weighed).toBe(false);
+    expect(view.weightNote).toBe(
+      "Your estimate. It gets overwritten the moment the agent weighs it."
+    );
+  });
+
+  it("shows the real weight and how far off the guess was", () => {
+    const view = itemDrawer(item({ est: 1100, actual: 1140 }));
+    expect(view.weight).toBe(1140);
+    expect(view.weighed).toBe(true);
+    expect(view.weightNote).toBe(
+      "Weighed at the warehouse. Your estimate was 1.10 kg. +40 g out."
+    );
+  });
+
+  it("says the guess was right rather than printing a zero difference", () => {
+    expect(itemDrawer(item({ est: 500, actual: 500 })).weightNote).toBe(
+      "Weighed at the warehouse. Your estimate was right."
+    );
+  });
+
+  it("offers QC review only when photos exist, and reopening once a verdict stands", () => {
+    expect(itemDrawer(item({ photos: 0, qc: null })).qcReady).toBe(false);
+    expect(itemDrawer(item({ photos: 12, qc: null })).qcLabel).toBe("Review QC · 12 photos");
+    expect(itemDrawer(item({ photos: 12, qc: "green" })).qcLabel).toBe("Reopen QC · 12 photos");
+  });
+
+  it("offers the parcel to a green-lit item that is not packed yet", () => {
+    expect(itemDrawer(item({ qc: "green", stage: "qcd" })).canParcel).toBe(true);
+    expect(itemDrawer(item({ qc: "green", stage: "parcel" })).canParcel).toBe(false);
+    expect(itemDrawer(item({ qc: "red", stage: "qcd" })).canParcel).toBe(false);
+  });
+
+  it("hides the storage clock when the caller turns it off", () => {
+    expect(itemDrawer(item({ storage: 58 })).storageNote).toBe("Free storage ends in 58 days.");
+    expect(itemDrawer(item({ storage: 58 }), { storageClock: false }).storageNote).toBe(null);
+    expect(itemDrawer(item({ storage: null })).storageNote).toBe(null);
+  });
+
+  it("has nothing to show for a missing item", () => {
+    expect(itemDrawer(null)).toBe(null);
+  });
+});
+
+describe("going back to the shelf", () => {
+  it("clears every fulfillment number, not just the stage", () => {
+    // A re-ordered item is a new item. A stale QC verdict on a fresh order is
+    // worse than no verdict at all.
+    expect(resetToShelf()).toEqual({
+      haulStage: "toOrder",
+      haulVerdict: null,
+      haulReason: null,
+      haulActualGrams: null,
+      haulStorageDays: null,
+      haulOrderNo: "",
+      qcPhotos: [],
+    });
   });
 });

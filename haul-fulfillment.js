@@ -676,3 +676,77 @@ export function storageLine(items = []) {
     "The clock starts on arrival, not on ship."
   );
 }
+
+/** The five stages with their drawer labels, in order. */
+export const STAGE_LABELS = [
+  { key: "toOrder", label: "Not ordered" },
+  { key: "ordered", label: "Ordered" },
+  { key: "warehouse", label: "At the warehouse" },
+  { key: "qcd", label: "QC done" },
+  { key: "parcel", label: "In parcel A" },
+];
+
+/**
+ * Everything the item drawer shows for one item (README, screen 8).
+ *
+ * Every stage row stays tappable, including the ones already behind the item.
+ * A stage here is a claim about the real world, and the real world corrects
+ * itself: a parcel gets split, an order gets cancelled. A one-way ratchet would
+ * force the person to lie to the app or start the item again.
+ */
+export function itemDrawer(item, { storageClock = true } = {}) {
+  if (!item) return null;
+  const stage = normalizeStage(item.stage);
+  const index = STAGE_LABELS.findIndex((entry) => entry.key === stage);
+  const verdict = normalizeVerdict(item.qc);
+  const delta = estimateDelta(item);
+  return {
+    id: item.id,
+    stage,
+    // The scale wins when it has spoken; before that the drawer shows the guess.
+    weight: item.actual == null ? Math.round(num(item.est)) : Math.round(num(item.actual)),
+    weighed: item.actual != null,
+    // The note under the weight field. It never hides the estimate, because a
+    // person who guesses badly twice wants to know by how much.
+    weightNote:
+      item.actual == null
+        ? "Your estimate. It gets overwritten the moment the agent weighs it."
+        : delta
+          ? "Weighed at the warehouse. " + delta.label
+          : "Weighed at the warehouse. Your estimate was right.",
+    orderNo: item.order || "",
+    storageNote:
+      storageClock && item.storage != null
+        ? "Free storage ends in " + item.storage + " days."
+        : null,
+    // No photos means nothing to review, so the QC action is not offered.
+    qcReady: num(item.photos) > 0,
+    qcLabel:
+      (verdict ? "Reopen QC · " : "Review QC · ") + num(item.photos) + " photos",
+    canParcel: verdict === "green" && stage !== "parcel",
+    stages: STAGE_LABELS.map((entry, i) => ({
+      key: entry.key,
+      label: entry.label,
+      done: i < index,
+      current: i === index,
+      when: i === index ? item.when || null : null,
+    })),
+  };
+}
+
+/**
+ * The patch that puts an item back on the shelf. Every fulfillment number goes
+ * with it: a re-ordered item is a new item, and a stale QC verdict on a fresh
+ * order is worse than no verdict.
+ */
+export function resetToShelf() {
+  return {
+    haulStage: "toOrder",
+    haulVerdict: null,
+    haulReason: null,
+    haulActualGrams: null,
+    haulStorageDays: null,
+    haulOrderNo: "",
+    qcPhotos: [],
+  };
+}
