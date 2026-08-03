@@ -51,9 +51,9 @@ export default function SignInForm({
         <>
           <div className="cz-profile-signin-title">Sign in to Credenza</div>
           <div className="cz-profile-signin-sub">
-            One free account unlocks Pro and keeps your limits in sync across
-            devices. Your shelf stays on this device either way. No password —
-            use Google, or a one-time link to your email.
+            An account keeps your shelf and limits in sync across devices. Your
+            shelf stays on this device either way. No password — use Google, or
+            a one-time link to your email.
           </div>
         </>
       ) : null}

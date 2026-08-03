@@ -128,9 +128,9 @@ export default function AccountPlanSection() {
         <div className="cz-profile-signin">
           <div className="cz-profile-signin-title">Sign in to Credenza</div>
           <div className="cz-profile-signin-sub">
-            Sign in on the dedicated page. One free account unlocks Pro and
-            keeps your limits in sync. Your shelf stays on this device either
-            way.
+            Sign in on the dedicated page. An account keeps your shelf and
+            limits in sync across devices. Your shelf stays on this device
+            either way.
           </div>
           <Pill
             primary

@@ -67,8 +67,8 @@ export default function SignInPage({
         <div className="cz-signin-page-card">
           <h1 className="cz-signin-page-heading">Welcome back</h1>
           <p className="cz-signin-page-lead">
-            Sign in or create a free account. Same screen either way — no
-            password to set.
+            Sign in or create an account. Same screen either way — no password
+            to set.
           </p>
           <SignInForm
             accountEnabled={accountEnabled}
