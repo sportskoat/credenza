@@ -85,6 +85,7 @@ const AgentSheet = lazy(() => import("./sheets/AgentSheet.jsx"));
 const CurrencySheet = lazy(() => import("./sheets/CurrencySheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsPage = lazy(() => import("./settings/SettingsPage.jsx"));
+const SignInPage = lazy(() => import("./settings/SignInPage.jsx"));
 const AvatarMenu = lazy(() => import("./components/AvatarMenu.jsx"));
 const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
 // One sheet for every limit wall (Kyle 2026-07-30). Lazy: it opens on a tap or
@@ -5929,12 +5930,26 @@ function CredenzaApp() {
   // The id of the notice on screen. Sign-in clears THIS notice only, so a
   // later toast the visitor is reading does not disappear under them.
   const signInNoticeRef = useRef("");
+  // Dedicated sign-in page (Kyle 2026-08-03) — not buried in Settings → Account.
+  const [signInOpen, setSignInOpen] = useState(false);
+  const openSignIn = useCallback(() => setSignInOpen(true), []);
+  const closeSignIn = useCallback(() => setSignInOpen(false), []);
+  // ── One meter, one sheet (Kyle 2026-07-30) ────────────────────────────────
+  //
+  // Rule 1: a pill in the header always says where this person stands.
+  // Rule 2: the pill, a spent allowance, a daily cap and an ended membership
+  //         all open the SAME sheet.
+  // Rule 3: the last free read turns the pill amber, so nobody meets a wall
+  //         they were not told about.
+  // The sheet NEVER opens on its own — only on a tap or at a real wall.
+  const [limitsOpen, setLimitsOpen] = useState(false);
   const askForSignIn = useCallback((heldText = "") => {
     if (heldText) heldLinkRef.current = heldText;
     setSignInRequired(true);
     // A refused paid read is a real limit wall. Open the same limits sheet
     // used by the header meter and Ask. Keep the persistent card notice too:
     // it owns the held link and stays until sign-in finishes the stopped work.
+    // "Sign in, free" on that sheet opens the dedicated SignInPage.
     setLimitsOpen(true);
     signInNoticeRef.current = notify("Sign in to read this link.", {
       sub: "Credenza reads the product, the photos, and the size chart for you.",
@@ -5954,16 +5969,6 @@ function CredenzaApp() {
     setSignInRequiredHook(() => askForSignIn());
     return () => setSignInRequiredHook(null);
   }, [askForSignIn]);
-
-  // ── One meter, one sheet (Kyle 2026-07-30) ────────────────────────────────
-  //
-  // Rule 1: a pill in the header always says where this person stands.
-  // Rule 2: the pill, a spent allowance, a daily cap and an ended membership
-  //         all open the SAME sheet.
-  // Rule 3: the last free read turns the pill amber, so nobody meets a wall
-  //         they were not told about.
-  // The sheet NEVER opens on its own — only on a tap or at a real wall.
-  const [limitsOpen, setLimitsOpen] = useState(false);
   // FIX 2b: chart cap UI opens this same sheet (free-plan upgrade CTA).
   useEffect(() => {
     setLimitsOpenHook(() => setLimitsOpen(true));
@@ -7733,6 +7738,7 @@ function CredenzaApp() {
     if (signInRetryRef.current) return;
     signInRetryRef.current = true;
     setSignInRequired(false);
+    setSignInOpen(false);
     if (signInNoticeRef.current && notification && notification.id === signInNoticeRef.current) {
       dismissNotification();
     }
@@ -9521,6 +9527,10 @@ function CredenzaApp() {
             setCurrencySheetOpen(true);
           }}
           onOpenSettings={(section) => navigateSettings(section)}
+          onOpenSignIn={() => {
+            setAvatarMenuOpen(false);
+            openSignIn();
+          }}
           onSignOut={accountSignOut}
           onClose={() => setAvatarMenuOpen(false)}
         />
@@ -9671,7 +9681,7 @@ function CredenzaApp() {
             signedIn={signedInAccount}
             onSignIn={() => {
               setLimitsOpen(false);
-              navigateSettings("account");
+              openSignIn();
             }}
             onUpgrade={() => {
               setLimitsOpen(false);
@@ -9718,6 +9728,17 @@ function CredenzaApp() {
         </ModalShell>
       )}
 
+      {signInOpen && (
+        <Suspense fallback={null}>
+          <SignInPage
+            accountEnabled={AUTH_ENABLED}
+            onMagicLink={accountSendMagicLink}
+            onGoogle={accountGoogle}
+            onClose={closeSignIn}
+          />
+        </Suspense>
+      )}
+
       {settingsView && (
         <Suspense fallback={null}>
         <SettingsPage
@@ -9729,6 +9750,10 @@ function CredenzaApp() {
             accountEnabled: AUTH_ENABLED,
             accountSession,
             accountPlan,
+            onOpenSignIn: () => {
+              closeSettings();
+              openSignIn();
+            },
             onMagicLink: accountSendMagicLink,
             onGoogle: accountGoogle,
             onUpgrade: accountUpgrade,

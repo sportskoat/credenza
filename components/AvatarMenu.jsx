@@ -19,6 +19,7 @@ export default function AvatarMenu({
   pricePrimary,
   onOpenCurrency,
   onOpenSettings,
+  onOpenSignIn,
   onSignOut,
   onClose,
 }) {
@@ -107,7 +108,11 @@ export default function AvatarMenu({
           <span className="cz-avatar-menu-value">This device only</span>
         </button>
       ) : (
-        <button type="button" className="cz-avatar-menu-row" onClick={go(() => onOpenSettings("account"))}>
+        <button
+          type="button"
+          className="cz-avatar-menu-row"
+          onClick={go(() => (onOpenSignIn ? onOpenSignIn() : onOpenSettings("account")))}
+        >
           <span className="cz-avatar-menu-label">Sign in</span>
           <span className="cz-avatar-menu-value">Pro, sync, links ›</span>
         </button>

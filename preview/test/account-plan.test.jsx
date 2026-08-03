@@ -159,15 +159,18 @@ describe("Account and plan screen (design 1f)", () => {
     expect(onDeleteAccount).toHaveBeenCalledTimes(1);
   });
 
-  it("shuts the upgrade button when signed out and shows sign-in instead", () => {
+  it("shuts the upgrade button when signed out and opens the sign-in page", () => {
     const onUpgrade = vi.fn();
-    const { container } = renderSection({ accountSession: null, onUpgrade });
+    const onOpenSignIn = vi.fn();
+    const { container } = renderSection({ accountSession: null, onUpgrade, onOpenSignIn });
     expect(within(container).getByText("Sign in to Credenza")).toBeTruthy();
-    expect(within(container).getByText("Sign in above to upgrade.")).toBeTruthy();
+    expect(within(container).getByText("Sign in to upgrade.")).toBeTruthy();
     const start = within(container).getByText("Start " + PRICING.weeklyTrial).closest("button");
     expect(start.disabled).toBe(true);
     fireEvent.click(start);
     expect(onUpgrade).not.toHaveBeenCalled();
+    fireEvent.click(within(container).getByText("Open sign-in"));
+    expect(onOpenSignIn).toHaveBeenCalledTimes(1);
   });
 
   it("says when accounts are off in this build", () => {

@@ -7167,6 +7167,49 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-card-solid);
 }
 
+/* Dedicated sign-in page (Kyle 2026-08-03). Same shell as settings; body is
+   a single centered card, not a multi-section scroll. Desktop narrows so the
+   form is the focus — not a wide empty settings column. */
+.cz-signin-page-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: auto;
+  padding: 28px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+}
+.cz-signin-page-card {
+  width: 100%;
+  max-width: 400px;
+}
+.cz-signin-page-heading {
+  margin: 0 0 8px;
+  font-family: var(--cz-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--cz-ink);
+}
+.cz-signin-page-lead {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+@media (min-width: 768px) {
+  .cz-signin-page.cz-settings-page {
+    width: min(480px, calc(100vw - 48px));
+    height: auto;
+    max-height: calc(100dvh - 48px);
+    max-width: min(480px, calc(100vw - 48px));
+  }
+  .cz-signin-page-body {
+    padding: 32px 28px 36px;
+  }
+}
+
 /* Mobile item 5: 44px tap floor (house pattern). Visual stays a text row;
    min-height grows the hit box so the control is easy to tap on a phone. */
 .cz-settings-back {

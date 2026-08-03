@@ -3,6 +3,7 @@ import { PRICING, Pill, SegmentedControl } from "../credenza-fashion.jsx";
 import { PLAN_CAPS } from "../preview/src/usage.js";
 import { useSettings } from "./SettingsContext.jsx";
 import SettingsSection from "./SettingsSection.jsx";
+// Sign-in form no longer lives here (Kyle 2026-08-03): dedicated SignInPage.
 
 // Account and plan (design 1f). The old modal sold Pro with two price
 // buttons and no idea what you get. This screen states the caps as numbers,
@@ -63,8 +64,7 @@ export default function AccountPlanSection() {
     accountEnabled,
     accountSession,
     accountPlan,
-    onMagicLink,
-    onGoogle,
+    onOpenSignIn,
     onUpgrade,
     onPortal,
     onSignOut,
@@ -73,10 +73,8 @@ export default function AccountPlanSection() {
   } = useSettings();
 
   const [billing, setBilling] = useState("weekly");
-  const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(""); // "link" | "google" | "upgrade" | "portal" | "restore" | "history" | "signout" | "delete"
+  const [busy, setBusy] = useState(""); // "upgrade" | "portal" | "restore" | "history" | "signout" | "delete"
   const [error, setError] = useState("");
-  const [linkSent, setLinkSent] = useState(false);
   // Delete account is two-tap: the first tap arms it, the second sends it.
   const [deleteArmed, setDeleteArmed] = useState(false);
 
@@ -124,62 +122,23 @@ export default function AccountPlanSection() {
         </div>
       )}
 
-      {/* Signed out: the sign-in card leads. Pro checkout needs a session,
-          so the upgrade button below stays shut until this is done. */}
+      {/* Signed out: open the dedicated sign-in page (Kyle 2026-08-03).
+          Pro checkout still needs a session — upgrade stays shut until then. */}
       {accountEnabled && !accountSession && (
         <div className="cz-profile-signin">
           <div className="cz-profile-signin-title">Sign in to Credenza</div>
           <div className="cz-profile-signin-sub">
-            One account unlocks Pro and keeps your limits in sync. Your shelf stays on this device either way.
+            Sign in on the dedicated page. One free account unlocks Pro and
+            keeps your limits in sync. Your shelf stays on this device either
+            way.
           </div>
-          {linkSent ? (
-            <div className="cz-profile-signin-sent" role="status">
-              Check your email. The link signs you in. It works on this device only.
-            </div>
-          ) : (
-            <>
-              <label className="cz-profile-signin-field">
-                <input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  aria-label="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && /@.+\./.test(email)) {
-                      run("link", async () => {
-                        await onMagicLink(email);
-                        setLinkSent(true);
-                      });
-                    }
-                  }}
-                />
-              </label>
-              <Pill
-                primary
-                style={{ width: "100%", minHeight: 50, borderRadius: 15, marginTop: 10 }}
-                disabled={!!busy || !/@.+\./.test(email)}
-                onClick={() =>
-                  run("link", async () => {
-                    await onMagicLink(email);
-                    setLinkSent(true);
-                  })
-                }
-              >
-                {busy === "link" ? "Sending…" : "Email me a sign-in link"}
-              </Pill>
-              <div className="cz-profile-signin-or" aria-hidden="true">or</div>
-              <Pill
-                style={{ width: "100%", minHeight: 50, borderRadius: 15 }}
-                disabled={!!busy}
-                onClick={() => run("google", onGoogle)}
-              >
-                {busy === "google" ? "Opening Google…" : "Continue with Google"}
-              </Pill>
-            </>
-          )}
-          {error && <div className="cz-profile-signin-error" role="alert">{error}</div>}
+          <Pill
+            primary
+            style={{ width: "100%", minHeight: 50, borderRadius: 15 }}
+            onClick={() => onOpenSignIn && onOpenSignIn()}
+          >
+            Open sign-in
+          </Pill>
         </div>
       )}
 
@@ -240,7 +199,7 @@ export default function AccountPlanSection() {
             </Pill>
           )}
           {!signedIn && accountEnabled ? (
-            <div className="cz-account-plan-hint">Sign in above to upgrade.</div>
+            <div className="cz-account-plan-hint">Sign in to upgrade.</div>
           ) : null}
         </div>
       </div>
