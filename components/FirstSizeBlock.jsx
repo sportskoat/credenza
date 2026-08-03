@@ -6,6 +6,8 @@ import {
   FIRST_SIZE_SIT_OPTIONS,
   FIRST_SIZE_USUAL_CHIPS,
   FIRST_SIZE_USUAL_FIT_PROV,
+  FIRST_SIZE_USUAL_NO_CHART_PROV,
+  chartUsableForGuess,
   guessSizeFromUsual,
   profilePatchFromGuess,
   profilePatchFromMeasure,
@@ -46,7 +48,7 @@ export default function FirstSizeBlock({
   const category = (item && item.category) || "shirt";
   const bottoms = category === "pants" || category === "shorts";
   const title = (item && item.title) || "";
-  const hasChart = !!(chart && Array.isArray(chart.rows) && chart.rows.length >= 2);
+  const hasChart = chartUsableForGuess(chart);
 
   const garmentWord = bottoms ? "pair" : "tee";
 
@@ -59,12 +61,11 @@ export default function FirstSizeBlock({
       title,
     });
     if (out.error) {
+      // no-chart is never an error now — only letter-not-on-chart / score miss.
       setError(
         out.error === "usual-not-on-chart"
           ? "That size is not on this seller’s chart. Try another letter, or measure instead."
-          : out.error === "no-chart"
-            ? "No size chart on this card yet. Measure instead, or wait for a chart read."
-            : "Could not score a pick. Try Measure instead."
+          : "Could not score a pick. Try Measure instead."
       );
       return;
     }
@@ -79,6 +80,7 @@ export default function FirstSizeBlock({
       size: out.rec.size,
       sit: nextSit,
       usual: nextUsual,
+      noChart: !!out.noChart,
     });
     setStep("result");
     setError("");
@@ -136,16 +138,24 @@ export default function FirstSizeBlock({
 
   if (step === "result" && result && !result.measured) {
     const sizeLabel = formatSizeToken(result.size) || result.size;
+    // No-chart Guess → existing YOUR USUAL rail, not chart-anchored usual-fit.
+    const prov = result.noChart ? FIRST_SIZE_USUAL_NO_CHART_PROV : FIRST_SIZE_USUAL_FIT_PROV;
     return (
       <section className="cz-first-size cz-first-size-result" aria-label="Your size">
         <div className="cz-sizing-head">
           <span className="cz-sizing-dot" aria-hidden="true" />
-          <span className="cz-sizing-kicker">{FIRST_SIZE_USUAL_FIT_PROV.kicker}</span>
-          <span className="cz-sizing-prov is-usual-fit">{FIRST_SIZE_USUAL_FIT_PROV.rail}</span>
+          <span className="cz-sizing-kicker">{prov.kicker}</span>
+          <span
+            className={
+              "cz-sizing-prov" + (result.noChart ? " is-usual" : " is-usual-fit")
+            }
+          >
+            {prov.rail}
+          </span>
         </div>
         <div className="cz-first-size-hero">
           <span className="cz-first-size-letter">{sizeLabel}</span>
-          <span className="cz-first-size-body">{FIRST_SIZE_USUAL_FIT_PROV.body}</span>
+          <span className="cz-first-size-body">{prov.body}</span>
         </div>
         <p className="cz-first-size-meta">
           Usual {formatSizeToken(result.usual) || result.usual}
@@ -159,7 +169,7 @@ export default function FirstSizeBlock({
             setError("");
           }}
         >
-          {FIRST_SIZE_USUAL_FIT_PROV.upgrade} for an exact pick
+          {prov.upgrade} for an exact pick
         </button>
       </section>
     );
@@ -186,7 +196,9 @@ export default function FirstSizeBlock({
         <div className="cz-first-size-step">Step 1 of 2</div>
         <h3 className="cz-first-size-title">What size do you usually buy?</h3>
         <p className="cz-first-size-copy">
-          This seller posted a chart. Your usual size tells us where you sit on it.
+          {hasChart
+            ? "This seller posted a chart. Your usual size tells us where you sit on it."
+            : "No seller chart on this listing. Your usual size becomes the pick."}
         </p>
         <div className="cz-first-size-chips" role="group" aria-label="Usual size">
           {FIRST_SIZE_USUAL_CHIPS.map((s) => (
@@ -204,11 +216,6 @@ export default function FirstSizeBlock({
             </button>
           ))}
         </div>
-        {!hasChart ? (
-          <p className="cz-first-size-warn">
-            No chart on this card yet — Guess needs a chart. Measure still works.
-          </p>
-        ) : null}
         {error ? <p className="cz-first-size-error">{error}</p> : null}
         <button type="button" className="cz-first-size-back" onClick={() => setStep("choose")}>
           Back

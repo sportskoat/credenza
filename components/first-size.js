@@ -95,6 +95,18 @@ export const FIRST_SIZE_USUAL_FIT_PROV = {
 };
 
 /**
+ * Provenance when Guess runs on a card with NO seller chart.
+ * Matches the existing usual-size fallback rail (YOUR USUAL) — not the
+ * chart-anchored usual-fit class above. Pin exact wording in tests.
+ */
+export const FIRST_SIZE_USUAL_NO_CHART_PROV = {
+  kicker: "Your usual size",
+  rail: "Your usual size",
+  body: "This listing has no chart. The pick is your usual size.",
+  upgrade: "Add your chest",
+};
+
+/**
  * Find the chart row whose size token matches the usual letter.
  */
 export function chartRowForUsual(chart, usualLetter) {
@@ -162,23 +174,53 @@ export function bodyFromUsualChartSize(chart, usualLetter, category, title = nul
 }
 
 /**
+ * True when a chart has enough rows to anchor a Guess pick.
+ */
+export function chartUsableForGuess(chart) {
+  return !!(chart && Array.isArray(chart.rows) && chart.rows.length >= 2);
+}
+
+/**
  * Run the Guess path: usual letter + sit preference → scored rec.
- * @returns {{ rec, fitPref, body, usualLetter, sit } | { error: string }}
+ * With a chart: chart-anchored recommendSize (usual-fit provenance).
+ * Without a chart: still saves usual + sit; pick is the usual letter itself
+ * (existing YOUR USUAL fallback — no error, no dead end).
+ * @returns {{ rec, fitPref, body, usualLetter, sit, noChart? } | { error: string }}
  */
 export function guessSizeFromUsual({ chart, usualLetter, sit, category, title = null }) {
-  if (!chart) return { error: "no-chart" };
   if (!usualLetter) return { error: "no-usual" };
   const looseness = sitToLooseness(sit, category);
   if (!looseness) return { error: "no-sit" };
 
+  const fitPref = { length: null, looseness, dismissed: false };
+
+  // No seller chart → durable usual + sit, pick = the letter they named.
+  // Never an error: the card shell already promises usual-size fallback.
+  if (!chartUsableForGuess(chart)) {
+    const letter = String(usualLetter).trim();
+    return {
+      rec: { size: letter, missing: false },
+      fitPref,
+      body: {
+        // Not "usual-fit" — that class claims a chart-anchored measure.
+        firstSizeSource: "usual-no-chart",
+        chestFromUsual: false,
+        waistFromUsual: false,
+      },
+      usualLetter: letter,
+      sit,
+      looseness,
+      noChart: true,
+    };
+  }
+
   const body = bodyFromUsualChartSize(chart, usualLetter, category, title);
   if (!body) return { error: "usual-not-on-chart" };
 
-  const fitPref = { length: null, looseness, dismissed: false };
   const rec = recommendSize(chart, body, category, fitPref, null, title, null);
   if (!rec || rec.missing || !rec.size) return { error: "no-rec", body, fitPref };
 
-  return { rec, fitPref, body, usualLetter, sit, looseness };
+  return { rec, fitPref, body, usualLetter, sit, looseness, noChart: false };
 }
 
 /**
