@@ -172,12 +172,14 @@ describe("no stale price survives anywhere on the public site", () => {
 });
 
 describe("the upgrade CTA goes through the app, never straight to Stripe", () => {
-  it("targets the entry parameter that opens Account and plan", () => {
-    // credenza-fashion.jsx reads params.get("profile") on mount and opens the
-    // routed settings page on the account section. That section holds the real
-    // checkout button, which needs the signed-in session a static page does
-    // not have.
-    expect(page).toContain('href="/?profile=1"');
+  it("targets the address that opens the Pro page", () => {
+    // Kyle 2026-08-02: "in the pricing page, start 3 days free should take you
+    // to this page", pointing at the in-app Pro page. The old target was
+    // "/?profile=1", which opened Settings and made the reader hunt for the
+    // plan. /upgrade opens Pro itself. That page holds the real checkout
+    // button, which needs the signed-in session a static page does not have.
+    expect(page).toContain('href="/upgrade"');
+    expect(page).not.toContain('href="/?profile=1"');
   });
 
   it("links no Stripe URL", () => {
@@ -186,10 +188,14 @@ describe("the upgrade CTA goes through the app, never straight to Stripe", () =>
     expect(page).not.toMatch(/stripe\.com|buy\.stripe|checkout\.stripe/i);
   });
 
-  it("keeps the entry parameter the app actually reads", () => {
+  it("keeps the address the app actually reads", () => {
+    // The app opens Pro on arrival at /upgrade, and netlify.toml rewrites the
+    // path to index.html so the visit reaches the app at all. Both halves have
+    // to hold or the CTA lands on a 404.
     const app = read("credenza-fashion.jsx");
-    expect(app).toContain('params.get("profile")');
-    expect(app).toContain('setSettingsView({ section: "account" })');
+    expect(app).toMatch(/\^\\\/upgrade/);
+    expect(app).toContain("setUpgradeView({ period:");
+    expect(read("preview/netlify.toml")).toContain('from = "/upgrade"');
   });
 });
 

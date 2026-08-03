@@ -33,6 +33,16 @@ import { PRICING } from "../../credenza-fashion.jsx";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const PUBLIC = join(ROOT, "preview/public");
 
+// Addresses the app answers itself. Netlify serves index.html for each one and
+// the app's boot effect opens the screen. There is no file under public/ to
+// find, so the broken-link check has to skip them. Derived from netlify.toml so
+// this list cannot drift away from what actually ships.
+const APP_ROUTES = new Set(
+  [...readFileSync(join(ROOT, "preview/netlify.toml"), "utf8").matchAll(
+    /from\s*=\s*"(\/[^"*:]*)"\s*\n\s*to\s*=\s*"\/index\.html"/g
+  )].map((m) => m[1])
+);
+
 function pageFiles(dir = PUBLIC) {
   const out = [];
   for (const name of readdirSync(dir)) {
@@ -242,6 +252,12 @@ describe("links and metadata", () => {
         // "/" is the React app, which Vite builds from preview/index.html.
         // It is not a file under public/, so there is nothing to look up.
         if (href === "/") continue;
+        // An app route is the same case one level in. /upgrade and /settings
+        // have no file on disk either; netlify.toml rewrites them to the app,
+        // and the app's own boot effect opens the right screen. Read the
+        // rewrites rather than hard-coding the list, so a route added there is
+        // covered here the moment it lands.
+        if (APP_ROUTES.has(href)) continue;
         // Only directory-style links name a page. Files (/llms.txt, /og.png)
         // are checked by existence on disk instead.
         if (href.endsWith("/")) {

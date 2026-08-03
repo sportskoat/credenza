@@ -346,10 +346,11 @@ $4.99 × 12 = $59.88, and $59.88 − $39.99 = $19.89, a third off.
   from `docs/free-to-pro-checklist.md`. Rows 10, 11, 13 and 15 are
   omitted under D-3: we do not sell a feature before it ships.
 - Product and FAQPage JSON-LD, so the AI answers can quote the price.
-- The CTA targets `/?profile=1`. `credenza-fashion.jsx` reads
-  `params.get("profile")` on mount and calls `setProfileOpen(true)`. No
-  Stripe URL appears on the static page — a checkout started there would
-  have no account to grant Pro to.
+- The CTA targets `/upgrade`. `credenza-fashion.jsx` opens the Pro page on
+  arrival, and `netlify.toml` rewrites the path to the app. No Stripe URL
+  appears on the static page — a checkout started there would have no
+  account to grant Pro to. (Kyle 2026-08-02 moved this off `/?profile=1`,
+  which opened Settings instead of Pro.)
 - Pricing added to the nav and the footer on all 13 public pages, in the
   D-2 order. `/pricing/` added to `sitemap.xml`, `llms.txt` and
   `llms-full.txt`.
