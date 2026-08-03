@@ -103,9 +103,17 @@ describe("the board's shape", () => {
   it("puts a card in the column its stage names", () => {
     mount({ items: [item({ id: "a", stage: "toOrder" }), item({ id: "b", stage: "parcel" })] });
     const columns = document.querySelectorAll(".cz-hb-track > .cz-hb-col");
-    expect(columns.length).toBe(5);
+    expect(columns.length).toBe(4);
     expect(columns[0].querySelectorAll(".cz-hb-card").length).toBe(1);
-    expect(columns[4].querySelectorAll(".cz-hb-row").length).toBe(1);
+    expect(document.querySelectorAll(".cz-hb-parcel .cz-hb-row").length).toBe(1);
+  });
+
+  // Kyle 2026-08-02: "we can't have the parcel page being cut off." It was the
+  // fifth column of a track wider than the page. It now sits below the track.
+  it("keeps the parcel out of the side-scrolling track", () => {
+    mount();
+    expect(document.querySelector(".cz-hb-track .cz-hb-parcel")).toBe(null);
+    expect(document.querySelector(".cz-hb > .cz-hb-parcel")).toBeTruthy();
   });
 });
 
@@ -200,10 +208,22 @@ describe("the parcel panel", () => {
 });
 
 describe("the widths the README fixes", () => {
-  it("keeps four stage columns at 188px and the parcel at 280px", () => {
+  it("keeps four stage columns at 188px", () => {
     expect(ruleBody(".cz-hb-col")).toContain("188px");
-    expect(ruleBody(".cz-hb-parcel")).toContain("280px");
     expect(ruleBody(".cz-hb-track")).toContain("gap: 10px");
+  });
+
+  // Kyle 2026-08-02: "we can't have the parcel page being cut off." A fixed
+  // width is what cut it off. It takes the page's width and shares it.
+  it("gives the parcel the full width, and lets its panels stack on a phone", () => {
+    expect(ruleBody(".cz-hb-parcel")).toContain("width: 100%");
+    expect(ruleBody(".cz-hb-parcel")).not.toContain("280px");
+    expect(ruleBody(".cz-hb-parcel-grid")).toContain("repeat(auto-fit, minmax(240px, 1fr))");
+  });
+
+  it("leaves room for the rate the person types and the cost beside it", () => {
+    expect(ruleBody(".cz-hb-rate")).toContain("width: 72px");
+    expect(ruleBody(".cz-hb-cost")).toContain("min-width: 56px");
   });
 
   it("rules the parcel's head in ink, not hairline", () => {

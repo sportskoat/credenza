@@ -17,12 +17,16 @@ import {
 
    Mixed progress is the normal state of a haul. One item is still a link, one
    is at the warehouse, one is already packed. A five-step wizard fights that.
-   A board renders it. The parcel is one more column, so a second parcel needs
-   no new idea.
+   A board renders it.
 
-   Column widths are load-bearing: four stage columns at 188px, the parcel
-   panel at 280px, four 10px gaps. Do not widen a column without widening the
-   container.
+   The parcel is the destination, not a fifth stage. It used to ride at the end
+   of the track as a fixed 280px column, and the five columns together were
+   wider than the page, so the box was cut off at the right edge (Kyle
+   2026-08-02). It now sits below the track with the full width, and its three
+   panels share that width.
+
+   The four stage columns are 188px each with 10px gaps. Do not widen one
+   without widening the container.
 
    Every number here is computed on every render. None of it is stored. Cache
    a count and the board and the haul index drift apart.
@@ -188,15 +192,20 @@ export default function HaulFlowBoard({
             ) : null}
           </div>
         ))}
+      </div>
 
-        <div className="cz-hb-col cz-hb-parcel">
-          {/* The parcel's rule is ink, not hairline. It is the destination,
-              and the heavier line says so. */}
-          <div className="cz-hb-col-head cz-hb-col-head-ink">
-            <span className="cz-hb-kicker cz-hb-kicker-ink">Parcel A</span>
-            <span className="cz-hb-count">{maths.count}</span>
-          </div>
+      {/* The parcel sits below the four columns, across the whole page. It is
+          the destination, not a fifth stage, and it is the one place a person
+          checks a number against the agent's own. Nothing here may be cut off. */}
+      <section className="cz-hb-parcel">
+        {/* The parcel's rule is ink, not hairline. It is the destination,
+            and the heavier line says so. */}
+        <div className="cz-hb-col-head cz-hb-col-head-ink">
+          <span className="cz-hb-kicker cz-hb-kicker-ink">Parcel A</span>
+          <span className="cz-hb-count">{maths.count}</span>
+        </div>
 
+        <div className="cz-hb-parcel-grid">
           <div className="cz-hb-panel">
             {maths.inParcel.map((item) => (
               <div className="cz-hb-row" key={item.id}>
@@ -316,28 +325,33 @@ export default function HaulFlowBoard({
             })}
           </div>
 
-          <button
-            type="button"
-            className="cz-hb-cta"
-            disabled={!maths.count && !(ship && ship.submitted)}
-            onClick={() => onHandOff && onHandOff()}
-          >
-            {/* Once the parcel is with the agent there is nothing left to hand
-                off. The only question is where it is (README, screen 12). */}
-            {ship && ship.submitted
-              ? "Track parcel A"
-              : maths.count
-                ? "Review & hand off · " + maths.count
-                : "Nothing in the box yet"}
-          </button>
-
-          {onAddParcel ? (
-            <button type="button" className="cz-hb-foot" onClick={() => onAddParcel()}>
-              + Parcel B
+          {/* The last cell is what the person does next. It is the only cell
+              that is not a number, so it gets its own column rather than
+              hanging off the bottom of the rates. */}
+          <div className="cz-hb-parcel-go">
+            <button
+              type="button"
+              className="cz-hb-cta"
+              disabled={!maths.count && !(ship && ship.submitted)}
+              onClick={() => onHandOff && onHandOff()}
+            >
+              {/* Once the parcel is with the agent there is nothing left to hand
+                  off. The only question is where it is (README, screen 12). */}
+              {ship && ship.submitted
+                ? "Track parcel A"
+                : maths.count
+                  ? "Review & hand off · " + maths.count
+                  : "Nothing in the box yet"}
             </button>
-          ) : null}
+
+            {onAddParcel ? (
+              <button type="button" className="cz-hb-foot" onClick={() => onAddParcel()}>
+                + Parcel B
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

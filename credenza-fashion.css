@@ -21571,13 +21571,17 @@ input.cz-sizing-fix-size {
 /* ═══════════════════════════════════════════════════════════════════════════
    The haul board — haul handoff README, screens 2, 6 and 7.
 
-   Column widths are load-bearing. Four stage columns at 188px, the parcel
-   panel at 280px, four 10px gaps: 1072px inside a 1124px content box. Do not
-   widen a column without widening the container.
+   Column widths are load-bearing. Four stage columns at 188px with 10px gaps:
+   782px inside a 1024px content box. Do not widen a column without widening
+   the container.
 
-   Desktop only, per the README. There is no mobile layout for this board yet.
-   Below 767px the track side-scrolls rather than reflowing, which is the
-   honest failure: it still works, it just is not designed.
+   The parcel used to be a fifth column, fixed at 280px. Five columns came to
+   1072px, which is wider than the page, so the parcel was cut off at the right
+   edge (Kyle 2026-08-02). It now sits below the track with the full width, and
+   its three panels share that width.
+
+   The track keeps its side-scroll as a safety net. The four columns fit the
+   page, so the scroll only appears on a screen narrower than 782px.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .cz-hb {
@@ -21844,11 +21848,33 @@ input.cz-sizing-fix-size {
   color: var(--cz-ink);
 }
 
-/* ── The parcel panel ── */
+/* ── The parcel panel ──
+
+   Full width, below the track. The three panels share the row on a desktop and
+   stack on a phone, so no number is ever cut off. */
 
 .cz-hb-parcel {
-  flex: 0 0 280px;
-  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 240px is the narrowest a rate row reads at: a line name, an editable rate and
+   a cost. Below that the panels stack rather than squeeze. */
+.cz-hb-parcel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+/* The button is the one cell that is not a number. It sits at the top of its
+   column so it lines up with the two panels beside it. */
+.cz-hb-parcel-go {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .cz-hb-panel {
@@ -22054,8 +22080,10 @@ input.cz-sizing-fix-size {
   background: var(--cz-accent-bg);
 }
 
+/* 72px holds a four-figure rate without clipping. The panel is wider now, so
+   there is room for the number the person actually types. */
 .cz-hb-rate {
-  width: 56px;
+  width: 72px;
   padding: 3px 6px;
   border: 1px solid var(--cz-hair);
   border-radius: 8px;
@@ -22068,7 +22096,7 @@ input.cz-sizing-fix-size {
 }
 
 .cz-hb-cost {
-  min-width: 44px;
+  min-width: 56px;
   font-family: var(--cz-mono);
   font-size: 12.5px;
   font-weight: 700;
