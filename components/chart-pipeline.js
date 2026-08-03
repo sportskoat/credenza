@@ -26,6 +26,21 @@ const WEAK_CHART_NAME = /chart|measure|sizing|size|screenshot|screen[\s_-]*shot|
 const REJECT_NAME =
   /superbuy|wegobuy|cssbuy|pandabuy|sugargoo|payment|pay\b|wechat|whatsapp|telegram|agent|tutorial|guide|how[\s_-]*to|logo|contact|qr[\s_-]*code|客服|支付|代购指南/i;
 
+/**
+ * True when a candidate's alt/name/url hits REJECT_NAME (score floor).
+ * Used by the desc[0] reserved paid slot — a whatsapp-named URL never reserves.
+ * @param {ChartCandidate|string|null|undefined} candidateOrName
+ * @returns {boolean}
+ */
+export function isRejectedChartName(candidateOrName) {
+  if (candidateOrName == null) return false;
+  const name =
+    typeof candidateOrName === "string"
+      ? candidateOrName
+      : String(candidateOrName.alt || candidateOrName.name || candidateOrName.url || "");
+  return REJECT_NAME.test(name);
+}
+
 /** Advertisement / spam body text that is not a measurement table. */
 const AD_TEXT =
   /superbuy|wegobuy|cssbuy|pandabuy|sugargoo|join\s+our\s+(discord|telegram)|scan\s+to\s+(pay|add)|微信|加微信|代购/i;
