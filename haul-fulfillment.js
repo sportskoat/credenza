@@ -75,11 +75,33 @@ export const DIVISORS = [5000, 6000];
 /**
  * Shipping lines. Rates are starting points the person edits. Agents change
  * them weekly, so never present one as if Credenza knows today's price.
+ *
+ * Kyle 2026-08-02: "not really sure what these are, can we get tool tips?"
+ * `blurb` is that answer. One sentence each, in plain words. The screen adds
+ * the transit time and the per-kilogram wording from the fields beside it.
  */
 export const SHIPPING_LINES = [
-  { key: "EMS", label: "EMS", rate: 13.1, transit: "7–14 d" },
-  { key: "GD-EUB", label: "GD-EUB", rate: 15.4, transit: "10–20 d" },
-  { key: "DHL", label: "DHL", rate: 22.3, transit: "3–6 d" },
+  {
+    key: "EMS",
+    label: "EMS",
+    rate: 13.1,
+    transit: "7–14 d",
+    blurb: "China Post's own express service, which reaches almost every country.",
+  },
+  {
+    key: "GD-EUB",
+    label: "GD-EUB",
+    rate: 15.4,
+    transit: "10–20 d",
+    blurb: "A cheaper China Post line built for small parcels bought online.",
+  },
+  {
+    key: "DHL",
+    label: "DHL",
+    rate: 22.3,
+    transit: "3–6 d",
+    blurb: "A private courier. It is the fastest line and the most expensive.",
+  },
 ];
 
 /** The starting rate table, one entry per line. */

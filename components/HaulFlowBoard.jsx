@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import {
+  COST_FLOOR_USD,
   DIVISORS,
   SHIPPING_LINES,
   boardColumns,
@@ -11,6 +12,7 @@ import {
   shipRange,
   storageLine,
 } from "../haul-fulfillment.js";
+import InfoBubble from "./InfoBubble.jsx";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    HaulFlowBoard — haul handoff README, screens 2, 6 and 7.
@@ -70,6 +72,11 @@ export default function HaulFlowBoard({
 }) {
   const divisor = ship && ship.divisor ? ship.divisor : 6000;
   const line = ship && ship.line ? ship.line : "EMS";
+
+  // Kyle 2026-08-02: "not really sure what these are, can we get tool tips?"
+  // One line at a time explains itself. Opening a note must not change which
+  // line the person picked, so the button stops the row's click.
+  const [openLine, setOpenLine] = useState(null);
 
   const rates = useMemo(() => {
     const map = {};
@@ -288,41 +295,68 @@ export default function HaulFlowBoard({
             </div>
             {SHIPPING_LINES.map((entry) => {
               const picked = entry.key === line;
+              const noteOpen = openLine === entry.key;
               return (
-                <div
-                  className={"cz-hb-line" + (picked ? " cz-hb-line-on" : "")}
-                  key={entry.key}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={picked}
-                  onClick={() => onSetLine && onSetLine(entry.key)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter" && event.key !== " ") return;
-                    event.preventDefault();
-                    if (onSetLine) onSetLine(entry.key);
-                  }}
-                >
-                  <span className="cz-hb-row-text">
-                    <span className="cz-hb-row-title">{entry.label}</span>
-                    <span className="cz-hb-row-weight">{entry.transit}</span>
-                  </span>
-                  <input
-                    type="number"
-                    step="0.10"
-                    className="cz-hb-rate"
-                    aria-label={"Rate per kg for " + entry.label}
-                    value={rates[entry.key]}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) =>
-                      onSetRate && onSetRate(entry.key, Number(event.target.value))
-                    }
-                  />
-                  <span className="cz-hb-cost">
-                    {maths.count ? money(costOfLine(rates[entry.key], maths.billedKg)) : ""}
-                  </span>
-                </div>
+                <Fragment key={entry.key}>
+                  <div
+                    className={"cz-hb-line" + (picked ? " cz-hb-line-on" : "")}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={picked}
+                    onClick={() => onSetLine && onSetLine(entry.key)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      if (onSetLine) onSetLine(entry.key);
+                    }}
+                  >
+                    <span className="cz-hb-row-text">
+                      <span className="cz-hb-row-title">{entry.label}</span>
+                      <span className="cz-hb-row-weight">{entry.transit}</span>
+                    </span>
+                    {/* The note must not pick the line. The rate box beside it
+                        already stops the row's click; this does the same. */}
+                    <button
+                      type="button"
+                      className="cz-hb-why"
+                      aria-label={"What is " + entry.label + "?"}
+                      aria-expanded={noteOpen}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenLine(noteOpen ? null : entry.key);
+                      }}
+                    >
+                      ?
+                    </button>
+                    <input
+                      type="number"
+                      step="0.10"
+                      className="cz-hb-rate"
+                      aria-label={"Rate per kg for " + entry.label}
+                      value={rates[entry.key]}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) =>
+                        onSetRate && onSetRate(entry.key, Number(event.target.value))
+                      }
+                    />
+                    <span className="cz-hb-cost">
+                      {maths.count ? money(costOfLine(rates[entry.key], maths.billedKg)) : ""}
+                    </span>
+                  </div>
+                  {noteOpen ? (
+                    <InfoBubble title={entry.label} onClose={() => setOpenLine(null)}>
+                      {entry.blurb} It takes {entry.transit.replace(" d", " days")}. The
+                      number you type is US dollars for each kilogram.
+                    </InfoBubble>
+                  ) : null}
+                </Fragment>
               );
             })}
+            {/* The rate is never the whole price. Every agent charges a floor. */}
+            <p className="cz-hb-tip cz-hb-floor">
+              Every line has a floor of {money(COST_FLOOR_USD)}. A very light box
+              still costs that much.
+            </p>
           </div>
 
           {/* The last cell is what the person does next. It is the only cell

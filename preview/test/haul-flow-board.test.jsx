@@ -198,12 +198,74 @@ describe("the parcel panel", () => {
     expect(props.onHandOff).toHaveBeenCalled();
   });
 
+  it("states the floor every line charges, however light the box is", () => {
+    mount({ items: packed });
+    expect(screen.getByText(/floor of \$8\.00/)).toBeTruthy();
+  });
+
   it("hides the second parcel until the caller can carry one", () => {
     mount({ items: packed });
     expect(screen.queryByText("+ Parcel B")).toBe(null);
     cleanup();
     mount({ items: packed, onAddParcel: vi.fn() });
     expect(screen.getByText("+ Parcel B")).toBeTruthy();
+  });
+});
+
+// Design review 2 · change 8.
+// Kyle 2026-08-02: "not really sure what these are, can we get tool tips? is
+// this the extent of every shipping cost?"
+describe("the three lines explain themselves", () => {
+  const packed = [item({ id: "a", stage: "parcel", qc: "green", actual: 900, vol: 4000 })];
+
+  it("offers a note beside every line name", () => {
+    mount({ items: packed });
+    for (const label of ["EMS", "GD-EUB", "DHL"]) {
+      expect(screen.getByLabelText("What is " + label + "?")).toBeTruthy();
+    }
+  });
+
+  it("names the carrier, the days and the per-kilogram price", () => {
+    mount({ items: packed });
+    fireEvent.click(screen.getByLabelText("What is DHL?"));
+    const note = document.querySelector(".cz-info-bubble-body");
+    expect(note).toBeTruthy();
+    expect(note.textContent).toContain("A private courier");
+    expect(note.textContent).toContain("3–6 days");
+    expect(note.textContent).toContain("US dollars for each kilogram");
+  });
+
+  it("keeps the picked line unchanged when the note opens", () => {
+    const props = mount({ items: packed, ship: { line: "EMS" } });
+    fireEvent.click(screen.getByLabelText("What is DHL?"));
+    expect(props.onSetLine).not.toHaveBeenCalled();
+    const chosen = document.querySelectorAll(".cz-hb-line-on");
+    expect(chosen.length).toBe(1);
+    expect(chosen[0].textContent).toContain("EMS");
+  });
+
+  it("shows one note at a time and closes the open one", () => {
+    mount({ items: packed });
+    fireEvent.click(screen.getByLabelText("What is EMS?"));
+    expect(document.querySelectorAll(".cz-info-bubble").length).toBe(1);
+    fireEvent.click(screen.getByLabelText("What is DHL?"));
+    expect(document.querySelectorAll(".cz-info-bubble").length).toBe(1);
+    fireEvent.click(screen.getByLabelText("What is DHL?"));
+    expect(document.querySelectorAll(".cz-info-bubble").length).toBe(0);
+  });
+
+  it("writes no em dash in a note", () => {
+    mount({ items: packed });
+    fireEvent.click(screen.getByLabelText("What is EMS?"));
+    expect(document.body.textContent).not.toContain("—");
+  });
+
+  it("gives the note button a 44px target for a finger", () => {
+    const i = DECLS.indexOf("@media (pointer: coarse) {\n  .cz-hb-action,");
+    expect(i).toBeGreaterThan(-1);
+    const block = DECLS.slice(i, i + 600);
+    expect(block).toContain(".cz-hb-why");
+    expect(block).toContain("min-height: 44px");
   });
 });
 
