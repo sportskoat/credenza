@@ -105,6 +105,7 @@ import HaulBoard from "./components/HaulBoard.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
 import IntroStrip from "./components/IntroStrip.jsx";
 import { SITE_NAV } from "./components/site-nav.js";
+import { takeIntent } from "./components/sign-in-intent.js";
 import { TypeMark } from "./components/CardCover.jsx";
 import PhotoShelfList from "./components/PhotoShelfList.jsx";
 import MorphButton from "./components/MorphButton.jsx";
@@ -7986,11 +7987,38 @@ function CredenzaApp() {
       setItems((list) => list.map((x) => (x.needsSignIn ? { ...x, needsSignIn: false } : x)));
       enrichFashionItems(stranded.map((x) => ({ ...x, needsSignIn: false })));
     }
-    const held = heldLinkRef.current;
+    // ── The return intent (sign-in handoff README, "Interactions") ───────────
+    //
+    // README: "Every entry into the sign-in modal records where it came from
+    // and what the user was trying to do." The modal wrote that down before
+    // it navigated. This is the only place it is read back.
+    //
+    // It has to be read HERE, not in the boot effect, because the three ways
+    // in do not share one entry: a magic link lands on a cold tab, Google
+    // comes back through the URL hash, and a stored session simply resumes.
+    // All three finish by setting accountSession, so all three land here.
+    //
+    // takeIntent clears first. A handler that throws therefore cannot leave
+    // the intent to fire again on every reload.
+    const intent = takeIntent();
+    // The held link is the same card the "card" intent names. Prefer the
+    // in-memory one: a magic link opened on a cold tab has no ref left, and
+    // the intent payload is the copy that survived the round trip.
+    const held = heldLinkRef.current || (intent && intent.kind === "card" && intent.payload ? intent.payload.url : "");
     heldLinkRef.current = "";
     if (held) {
       const result = dispatchStash(held);
       if (result.status === "stashed") beginIndexingJob(result);
+    }
+    if (!intent) return;
+    // "shelf" is the default entry and wants nothing: the person is already
+    // looking at the shelf, and moving them would be the surprise.
+    if (intent.kind === "upgrade") {
+      // Back to Pro with the period they chose, so the trip through the mail
+      // app does not quietly reset weekly to monthly.
+      openUpgrade(intent.payload ? intent.payload.period : undefined);
+    } else if (intent.kind === "settings") {
+      navigateSettings("account");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountSession]);
