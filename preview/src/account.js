@@ -80,6 +80,10 @@ const SERVER_MESSAGES_A_PERSON_SHOULD_SEE = new Set([
   "Cancel your subscription in Manage billing first, then delete the account.",
   "No billing account yet",
   "Sign in to use this feature",
+  // Kyle 2026-08-02: shared links now use this sanitiser too, because the
+  // panel was printing "Server not configured: missing SUPABASE_URL". This
+  // is the one share message written for the person, not for us.
+  "You have reached the maximum number of shares. Delete one first.",
 ]);
 
 // Chosen by what the person can do next, not by what broke. `subject` names
@@ -102,6 +106,11 @@ export function safeErrorMessage(status, serverError, subject = "Billing") {
   // no variable, and it is the one message that tells a free user why the
   // button stopped working, so it passes on shape.
   if (/^Daily \w+ limit reached/.test(text)) return text;
+  // The share cap message carries the number of links a free account keeps,
+  // so it is generated too and cannot be listed literally. It names no vendor
+  // and no variable, and it is the only thing that tells a free person why a
+  // new link was refused. Kyle 2026-08-02.
+  if (/^Free accounts keep \d+ share links/.test(text)) return text;
   if (SERVER_MESSAGES_A_PERSON_SHOULD_SEE.has(text)) return text;
   return messageForStatus(status, subject);
 }

@@ -9,10 +9,18 @@
 // link at all — the server answers 401 — so the caller checks the session
 // before opening the share sheet, and this file does not pretend otherwise.
 //
-// Errors throw with the server's own message. The share sheet prints it. A
-// failed share is a normal condition (offline, over the free cap, expired
-// sign-in), not a crash.
+// A failed share is a normal condition (offline, over the free cap, expired
+// sign-in), not a crash. Errors therefore throw a sentence, and the share
+// sheet prints it.
+//
+// Kyle 2026-08-02: that sentence used to be the server's own words, so the
+// Settings panel showed "Server not configured: missing SUPABASE_URL" to
+// somebody who can do nothing about it. Every message now goes through the
+// same allowlist the billing screen uses. The real text stays on the error
+// object, where a developer looks and a visitor does not.
 // ═══════════════════════════════════════════════════════════════════════════════
+
+import { safeErrorMessage } from "./account.js";
 
 const SHARE_ENDPOINT =
   (import.meta.env && import.meta.env.VITE_SHARE_ENDPOINT) || "/.netlify/functions/share";
@@ -29,7 +37,12 @@ async function call(accessToken, { method, body, query }, fetchImpl) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+  if (!res.ok) {
+    const err = new Error(safeErrorMessage(res.status, data && data.error, "Sharing"));
+    err.serverError = data && data.error;
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
@@ -52,7 +65,10 @@ export async function createShare(accessToken, payload, { fetchImpl } = {}) {
     },
     fetchImpl
   );
-  if (!data || typeof data.url !== "string") throw new Error("The server gave no link");
+  // A 200 with no link would leave the sheet showing an empty box. Read as a
+  // server fault, because that is what it is.
+  if (!data || typeof data.url !== "string")
+    throw new Error(safeErrorMessage(500, null, "Sharing"));
   return data; // { code, url, pro }
 }
 

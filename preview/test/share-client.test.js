@@ -71,10 +71,48 @@ describe("the transport carries the token and nothing else", () => {
     expect(sent.expiresAt).toBe(null);
   });
 
-  it("throws the server's own message, so the sheet can print it", async () => {
-    const { impl } = stubFetch({ ok: false, status: 402, body: { error: "Free accounts keep 3 links." } });
+  it("keeps the cap message, which tells a free person what to do next", async () => {
+    const { impl } = stubFetch({
+      ok: false,
+      status: 409,
+      body: { error: "Free accounts keep 3 share links. Delete one, or upgrade to Pro." },
+    });
     await expect(createShare("tok", { code: "a", doc: {} }, { fetchImpl: impl })).rejects.toThrow(
-      "Free accounts keep 3 links."
+      "Free accounts keep 3 share links. Delete one, or upgrade to Pro."
+    );
+  });
+
+  // Kyle 2026-08-02 saw "Server not configured: missing SUPABASE_URL" in the
+  // Settings panel. It names our environment to somebody who can act on
+  // nothing.
+  it("never repeats the server's own words about our setup", async () => {
+    const { impl } = stubFetch({
+      ok: false,
+      status: 500,
+      body: { error: "Server not configured: missing SUPABASE_URL" },
+    });
+    await expect(
+      createShare("tok", { code: "a", doc: {} }, { fetchImpl: impl })
+    ).rejects.toThrow("Sharing is not answering right now. Try again in a minute.");
+  });
+
+  it("keeps the real text on the error, where a developer looks", async () => {
+    const { impl } = stubFetch({
+      ok: false,
+      status: 500,
+      body: { error: "Server not configured: missing SUPABASE_URL" },
+    });
+    const err = await createShare("tok", { code: "a", doc: {} }, { fetchImpl: impl }).catch(
+      (e) => e
+    );
+    expect(err.serverError).toBe("Server not configured: missing SUPABASE_URL");
+    expect(err.status).toBe(500);
+  });
+
+  it("names an expired sign-in rather than answering Unauthorized", async () => {
+    const { impl } = stubFetch({ ok: false, status: 401, body: { error: "Unauthorized" } });
+    await expect(listShares("tok", { fetchImpl: impl })).rejects.toThrow(
+      "Your sign-in expired. Sign in again first."
     );
   });
 
@@ -83,7 +121,7 @@ describe("the transport carries the token and nothing else", () => {
     // showing an empty link box.
     const { impl } = stubFetch({ body: { code: "abc" } });
     await expect(createShare("tok", { code: "a", doc: {} }, { fetchImpl: impl })).rejects.toThrow(
-      "The server gave no link"
+      "Sharing is not answering right now. Try again in a minute."
     );
   });
 
