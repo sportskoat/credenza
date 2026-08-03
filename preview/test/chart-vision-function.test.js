@@ -99,6 +99,9 @@ describe("chart-vision function", () => {
     global.fetch = vi.fn(async () => ({ ok: false, headers: { get: () => null } }));
     const res = await handler(post());
     expect(res.statusCode).toBe(502);
+    const body = JSON.parse(res.body);
+    expect(body.error).toMatch(/fetch/i);
+    expect(body.diag).toMatchObject({ stage: "fetch" });
   });
 
   it("sends the album page as referer when the client provides one", async () => {
@@ -140,6 +143,62 @@ describe("chart-vision function", () => {
     const res = await handler(post());
     expect(res.statusCode).toBe(200);
     expect(photoHeaders.referer).toBe("https://seller.x.yupoo.com/");
+  });
+
+  it("derives a weidian.com referer for geilicdn images when the client omits one", async () => {
+    const WD = "https://si.geilicdn.com/open-abc_100_100.jpg";
+    let photoHeaders = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      if (url === WD) {
+        photoHeaders = (opts && opts.headers) || {};
+        return {
+          ok: true,
+          headers: { get: () => "image/jpeg" },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        };
+      }
+      return anthropicOk({ found: false, chartText: "" });
+    });
+    const res = await handler(post([WD]));
+    expect(res.statusCode).toBe(200);
+    expect(photoHeaders.referer).toBe("https://weidian.com/");
+  });
+
+  it("502s with vision diag when Anthropic rejects the key", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === IMG) {
+        return {
+          ok: true,
+          headers: { get: () => "image/jpeg" },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        };
+      }
+      return {
+        ok: false,
+        status: 401,
+        text: async () =>
+          JSON.stringify({
+            type: "error",
+            error: { type: "authentication_error", message: "invalid x-api-key" },
+          }),
+      };
+    });
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await handler(post());
+    expect(res.statusCode).toBe(502);
+    const body = JSON.parse(res.body);
+    expect(body.error).toBe("Chart read failed");
+    expect(body.diag).toMatchObject({
+      stage: "vision",
+      status: 401,
+      type: "authentication_error",
+    });
+    expect(errSpy).toHaveBeenCalled();
+    const logged = errSpy.mock.calls.some(
+      (c) => typeof c[0] === "string" && c[0].includes("readChartWithClaude non-ok")
+    );
+    expect(logged).toBe(true);
+    errSpy.mockRestore();
   });
 
   it("rejects non-allowlisted image URLs before any fetch (SSRF lockdown)", async () => {

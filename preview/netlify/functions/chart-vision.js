@@ -124,21 +124,40 @@ function safeReferer(raw) {
   return u.toString();
 }
 
+// Host for log lines only — never log the full image path (query tokens).
+function imageHost(raw) {
+  try {
+    return new URL(raw).hostname.toLowerCase();
+  } catch {
+    return "?";
+  }
+}
+
 // The CDN only checks that the referer LOOKS like a yupoo album page — any
 // *.x.yupoo.com referer passes, even for another seller's photos. When the
 // client did not send the album URL, derive one from the image path:
 // photo.yupoo.com/<seller>/... → https://<seller>.x.yupoo.com/.
+// Weidian geilicdn photos have no path-encoded seller page; use weidian.com
+// when the client omitted referer so CDN-side hotlink checks still pass.
 function fallbackReferer(imageUrls) {
   for (const raw of imageUrls) {
     const m = /^https?:\/\/photo\.yupoo\.com\/([\w-]+)\//i.exec(raw);
     if (m) return "https://" + m[1].toLowerCase() + ".x.yupoo.com/";
+  }
+  for (const raw of imageUrls) {
+    if (/\.geilicdn\.com$/i.test(imageHost(raw)) || imageHost(raw) === "geilicdn.com") {
+      return "https://weidian.com/";
+    }
   }
   return null;
 }
 
 // Returns { base64, mediaType } or null. Every hop of every fetch is
 // re-validated against the CDN allowlist + private-address rejection.
+// Failures must console.error — a silent null is how the 502 storm of
+// 2026-08-03 stayed blind for hours (logOutcome only records status/ms).
 async function fetchImage(url, referer, signal) {
+  const host = imageHost(url);
   try {
     const headers = {
       "user-agent": UA,
@@ -146,13 +165,36 @@ async function fetchImage(url, referer, signal) {
     };
     if (referer) headers.referer = referer;
     const res = await safeFetch(url, { headers, signal, hosts: ALLOWED_IMAGE_HOST, maxRedirects: 3 });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("[chart-vision] fetchImage non-ok", { host, status: res.status, name: "HttpError" });
+      return null;
+    }
     const mediaType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-    if (!/^image\/(jpeg|png|webp|gif)$/.test(mediaType)) return null;
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(mediaType)) {
+      console.error("[chart-vision] fetchImage bad content-type", { host, mediaType, name: "BadContentType" });
+      return null;
+    }
     const buf = await res.arrayBuffer();
-    if (!buf || buf.byteLength === 0 || buf.byteLength > MAX_IMAGE_BYTES) return null;
+    if (!buf || buf.byteLength === 0 || buf.byteLength > MAX_IMAGE_BYTES) {
+      console.error("[chart-vision] fetchImage bad size", {
+        host,
+        bytes: buf ? buf.byteLength : 0,
+        name: "BadSize",
+      });
+      return null;
+    }
     return { base64: Buffer.from(buf).toString("base64"), mediaType };
-  } catch {
+  } catch (e) {
+    // safeFetch throws plain { status, msg } objects, not Error instances.
+    const name = (e && e.name) || (e && e.msg) || "FetchError";
+    const status = e && e.status;
+    const message = (e && (e.message || e.msg)) || String(e);
+    console.error("[chart-vision] fetchImage catch", {
+      host,
+      name,
+      status,
+      message: String(message).slice(0, 160),
+    });
     return null;
   }
 }
@@ -182,43 +224,95 @@ const CHART_TOOL = {
   },
 };
 
+// On failure throws an Error with .diag = { stage, status?, type?, message? }
+// so the handler can both console.error and return a short non-secret diag
+// on the 502 body (needed when Netlify function logs only show status/ms).
 async function readChartWithClaude(apiKey, images, signal) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    signal,
-    body: JSON.stringify({
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      signal,
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 2000,
+        system:
+          "You are looking at photos from a Chinese fashion reseller's album. One or more may be a size chart (尺码表): a table listing garment measurements (胸围 chest, 衣长 length, 肩宽 shoulder, 袖长 sleeve, 腰围 waist, 臀围 hip, 裤长 pants length) for each size. Transcribe ALL measurement columns and ALL size rows exactly as printed — do not convert units, do not invent values, do not round. If the chart labels chest as 半胸, 1/2 chest, half chest, or pit-to-pit, keep that half-chest label (write 半胸) with the printed number — do not double it. If several photos each hold part of a chart, combine the rows. If no photo is a size chart, say so.",
+        messages: [
+          {
+            role: "user",
+            content: [
+              ...images.map((img) => ({
+                type: "image",
+                source: { type: "base64", media_type: img.mediaType, data: img.base64 },
+              })),
+              { type: "text", text: "Find the size chart in these photos and transcribe it." },
+            ],
+          },
+        ],
+        tools: [CHART_TOOL],
+        tool_choice: { type: "tool", name: "return_size_chart" },
+      }),
+    });
+  } catch (e) {
+    const name = (e && e.name) || "FetchError";
+    const message = String((e && e.message) || e).slice(0, 160);
+    console.error("[chart-vision] readChartWithClaude fetch threw", { name, message, model: MODEL });
+    const err = new Error(message);
+    err.name = name;
+    err.diag = { stage: "vision", name, message, model: MODEL };
+    throw err;
+  }
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    let type = "";
+    let apiMessage = "";
+    try {
+      const j = JSON.parse(bodyText);
+      type = (j && j.error && j.error.type) || "";
+      apiMessage = (j && j.error && j.error.message) || "";
+    } catch {
+      /* non-JSON body */
+    }
+    console.error("[chart-vision] readChartWithClaude non-ok", {
+      status: res.status,
+      type,
+      message: String(apiMessage || bodyText).slice(0, 200),
       model: MODEL,
-      max_tokens: 2000,
-      system:
-        "You are looking at photos from a Chinese fashion reseller's album. One or more may be a size chart (尺码表): a table listing garment measurements (胸围 chest, 衣长 length, 肩宽 shoulder, 袖长 sleeve, 腰围 waist, 臀围 hip, 裤长 pants length) for each size. Transcribe ALL measurement columns and ALL size rows exactly as printed — do not convert units, do not invent values, do not round. If the chart labels chest as 半胸, 1/2 chest, half chest, or pit-to-pit, keep that half-chest label (write 半胸) with the printed number — do not double it. If several photos each hold part of a chart, combine the rows. If no photo is a size chart, say so.",
-      messages: [
-        {
-          role: "user",
-          content: [
-            ...images.map((img) => ({
-              type: "image",
-              source: { type: "base64", media_type: img.mediaType, data: img.base64 },
-            })),
-            { type: "text", text: "Find the size chart in these photos and transcribe it." },
-          ],
-        },
-      ],
-      tools: [CHART_TOOL],
-      tool_choice: { type: "tool", name: "return_size_chart" },
-    }),
-  });
-  if (!res.ok) return null;
+      name: "AnthropicHttpError",
+    });
+    const err = new Error("anthropic_http_" + res.status);
+    err.name = "AnthropicHttpError";
+    err.diag = {
+      stage: "vision",
+      status: res.status,
+      type: type || undefined,
+      message: String(apiMessage).slice(0, 120) || undefined,
+      model: MODEL,
+    };
+    throw err;
+  }
   const data = await res.json().catch(() => null);
   const toolUse =
     data &&
     Array.isArray(data.content) &&
     data.content.find((b) => b && b.type === "tool_use" && b.name === "return_size_chart");
-  if (!toolUse || !toolUse.input) return null;
+  if (!toolUse || !toolUse.input) {
+    console.error("[chart-vision] readChartWithClaude missing tool_use", {
+      name: "NoToolUse",
+      model: MODEL,
+      hasContent: !!(data && data.content),
+    });
+    const err = new Error("anthropic_no_tool_use");
+    err.name = "NoToolUse";
+    err.diag = { stage: "vision", name: "NoToolUse", model: MODEL };
+    throw err;
+  }
   return { result: toolUse.input, usage: data && data.usage };
 }
 
@@ -279,10 +373,42 @@ async function handle(event) {
     // Inline frames first: when a customer snapped the chart themselves, that
     // photo is the one they mean, and Claude reads the images in order.
     const images = [...inlinePhotos, ...fetched.filter(Boolean)];
-    if (!images.length) return response(502, { error: "Could not fetch any album photos" });
+    if (!images.length) {
+      const hosts = imageUrls.map(imageHost);
+      console.error("[chart-vision] no images fetched", {
+        name: "FetchAllFailed",
+        hosts,
+        requested: imageUrls.length,
+        inline: inlinePhotos.length,
+        hadReferer: !!referer,
+      });
+      return response(502, {
+        error: "Could not fetch any album photos",
+        diag: { stage: "fetch", hosts, requested: imageUrls.length },
+      });
+    }
 
-    const chart = await readChartWithClaude(apiKey, images, controller.signal).catch(() => null);
-    if (!chart) return response(502, { error: "Chart read failed" });
+    let visionDiag = null;
+    const chart = await readChartWithClaude(apiKey, images, controller.signal).catch((e) => {
+      visionDiag =
+        (e && e.diag) ||
+        {
+          stage: "vision",
+          name: (e && e.name) || "VisionError",
+          message: String((e && e.message) || e).slice(0, 120),
+        };
+      console.error("[chart-vision] readChartWithClaude catch", {
+        name: visionDiag.name || "VisionError",
+        ...visionDiag,
+      });
+      return null;
+    });
+    if (!chart) {
+      return response(502, {
+        error: "Chart read failed",
+        diag: visionDiag || { stage: "vision", name: "EmptyResult" },
+      });
+    }
     await limit.recordUsageShared(ROUTE, MODEL, chart.usage, process.env);
     await paidGate.recordPaidUsage(gate, "chartVision");
     const result = chart.result;
@@ -294,7 +420,18 @@ async function handle(event) {
     return response(200, { found: true, chartText, scanned: images.length });
   } catch (e) {
     if (e && e.name === "AbortError") return response(504, { error: "Timed out" });
-    return response(502, { error: "Chart read failed" });
+    console.error("[chart-vision] handle catch", {
+      name: (e && e.name) || "HandleError",
+      message: String((e && e.message) || e).slice(0, 160),
+    });
+    return response(502, {
+      error: "Chart read failed",
+      diag: {
+        stage: "throw",
+        name: (e && e.name) || "HandleError",
+        message: String((e && e.message) || e).slice(0, 120),
+      },
+    });
   } finally {
     clearTimeout(timer);
     limit.leave(ROUTE);
