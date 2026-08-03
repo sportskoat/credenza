@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/colors.css">
+<link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/typography.css">
+<link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/motion.css">
+<link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/tokens/elevation.css">
+<link rel="stylesheet" href="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/styles.css">
+<script src="_ds/credenza-fashion-design-system-8f020591-9743-45d9-89ba-1aa7d54dd27d/_ds_bundle.js"></script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#131315;color:#f5f5f7;font-family:"Clash Grotesk",ui-sans-serif,system-ui,sans-serif}
+a{color:#7fb2ff;text-decoration:none}
+a:hover{color:#a8caff}
+</style></helmet>
+
+<section id="t2" style="padding:44px 48px 40px;border-bottom:1px solid rgba(255,255,255,.09)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+    <a href="#t2" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;background:#f5f5f7;color:#000">2</a>
+    <span style="font-size:14px;font-weight:650;letter-spacing:-0.01em;color:#f5f5f7">The hauls index — before you go into one</span>
+  </div>
+  <p style="max-width:900px;margin:0 0 30px;font-size:13.5px;line-height:1.6;color:rgba(245,245,247,.6);text-wrap:pretty">Today a haul tile says name, count, total — three facts that never change once the haul is built. Now that a haul has a lifecycle, the index has one job: tell you which haul needs you and why. Same four hauls in each option, in four different states: <em style="font-style:normal;color:#f5f5f7">winter</em> mid-flow, <em style="font-style:normal;color:#f5f5f7">gym</em> with storage running out, <em style="font-style:normal;color:#f5f5f7">casuals</em> delivered, <em style="font-style:normal;color:#f5f5f7">summer</em> not started.</p>
+
+  <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+    <div id="2a" style="flex:none;display:flex;flex-direction:column;gap:12px;width:940px">
+      <div style="display:flex;align-items:baseline;gap:9px">
+        <a href="#2a" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:5px;background:rgba(245,245,247,.12);color:#f5f5f7">2a</a>
+        <span style="font-size:12.5px;color:rgba(245,245,247,.6)">The grid, grown up — keeps today's shape, adds a stage bar and one live line per haul.</span>
+      </div>
+
+      <div data-theme="dark" style="border:1px solid var(--cz-hair);border-radius:22px;background:var(--cz-bg);padding:26px 28px 34px;overflow:hidden">
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.SearchField" hint-size="100%,44px" variant="bar" placeholder="Search your shelf" value="{{ empty }}" on-change="{{ noop }}"></x-import>
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Button" hint-size="110px,44px" variant="primary">+  Stash</x-import>
+        </div>
+        <div style="width:fit-content;margin-bottom:26px">
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.SegmentedControl" hint-size="160px,34px" label="Shelf or hauls" value="{{ tab }}" options="{{ tabOptions }}"></x-import>
+        </div>
+
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px">
+          <h2 style="margin:0;font-family:var(--cz-display);font-size:22px;font-weight:600;letter-spacing:-0.035em">Your hauls</h2>
+          <span style="font-family:var(--cz-mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cz-faint)">2 need you</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--cz-sub);margin-bottom:20px">4 hauls · $726.60 of goods in flight</div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+          <sc-for list="{{ hauls }}" as="h" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:10px;border:1px solid var(--cz-hair);border-radius:16px;background:var(--cz-card-solid);overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.4);cursor:pointer">
+              <div style="position:relative;aspect-ratio:4/5;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:var(--cz-hair)">
+                <sc-for list="{{ h.tiles }}" as="t" hint-placeholder-count="4">
+                  <div style="background:{{ t }}"></div>
+                </sc-for>
+                <div style="position:absolute;left:0;right:0;bottom:0;padding:26px 12px 11px;background:linear-gradient(to top,rgba(0,0,0,.88),transparent);display:flex;flex-direction:column;gap:2px">
+                  <span style="font-family:var(--cz-display);font-size:16px;font-weight:600;letter-spacing:-0.03em;color:#fff">{{ h.name }}</span>
+                  <span style="font-family:var(--cz-mono);font-size:10px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.72)">{{ h.countLine }}</span>
+                </div>
+                <sc-if value="{{ h.flag }}" hint-placeholder-val="{{ true }}">
+                  <span style="position:absolute;top:9px;left:9px;padding:4px 9px;border-radius:999px;font-family:var(--cz-mono);font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:{{ h.flagBg }};color:{{ h.flagInk }}">{{ h.flag }}</span>
+                </sc-if>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:9px;padding:0 12px 13px">
+                <div style="display:flex;gap:2px;height:4px">
+                  <sc-for list="{{ h.segs }}" as="s" hint-placeholder-count="5">
+                    <div style="flex:{{ s.flex }};border-radius:999px;background:{{ s.bg }}"></div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;align-items:flex-start;gap:7px;min-height:32px">
+                  <span style="flex:0 0 auto;width:6px;height:6px;margin-top:5px;border-radius:999px;background:{{ h.dot }}"></span>
+                  <span style="font-size:12px;line-height:1.35;color:{{ h.noteInk }};text-wrap:pretty">{{ h.note }}</span>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <div style="aspect-ratio:4/5;border:1px dashed var(--cz-hair-strong);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--cz-faint)">+</div>
+            <span style="font-size:13px;font-weight:650">Start a haul</span>
+            <span style="font-size:11.5px;color:var(--cz-faint);line-height:1.4">Add from any card's ··· menu</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:20px;font-size:12.5px;line-height:1.55;color:rgba(245,245,247,.62);text-wrap:pretty">
+        <div style="flex:1"><strong style="color:#f5f5f7;font-weight:650">Why</strong> — nothing about the browsing feel changes; the collage still carries the colour. The stage bar is four pixels of chrome that answers "how far along is this" without a word, and the one live line is the only thing you actually read.</div>
+        <div style="flex:1"><strong style="color:#f5f5f7;font-weight:650">Cost</strong> — at four hauls the urgent one is easy to miss because every card looks equally important. It also spends a 4:5 photo on hauls you finished months ago.</div>
+      </div>
+    </div>
+
+    <div id="2b" style="flex:none;display:flex;flex-direction:column;gap:12px;width:940px">
+      <div style="display:flex;align-items:baseline;gap:9px">
+        <a href="#2b" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:5px;background:rgba(245,245,247,.12);color:#f5f5f7">2b</a>
+        <span style="font-size:12.5px;color:rgba(245,245,247,.6)">The ledger — one row per haul, the stage rail spelled out, the next action on the right.</span>
+      </div>
+
+      <div data-theme="dark" style="border:1px solid var(--cz-hair);border-radius:22px;background:var(--cz-bg);padding:26px 28px 30px;overflow:hidden">
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.SearchField" hint-size="100%,44px" variant="bar" placeholder="Search your shelf" value="{{ empty }}" on-change="{{ noop }}"></x-import>
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Button" hint-size="110px,44px" variant="primary">+  Stash</x-import>
+        </div>
+        <div style="width:fit-content;margin-bottom:26px">
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.SegmentedControl" hint-size="160px,34px" label="Shelf or hauls" value="{{ tab }}" options="{{ tabOptions }}"></x-import>
+        </div>
+
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <h2 style="margin:0;font-family:var(--cz-display);font-size:22px;font-weight:600;letter-spacing:-0.035em">Your hauls</h2>
+            <span style="font-size:12.5px;color:var(--cz-sub)">4 hauls · $726.60 of goods · ~$47 of shipping estimated</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Chip" hint-size="auto,30px" active="{{ yes }}" style="{{ filterChip }}">Open · 3</x-import>
+            <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Chip" hint-size="auto,30px" style="{{ filterChip }}">Delivered · 1</x-import>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <sc-for list="{{ hauls }}" as="h" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:18px;padding:14px 16px;border:1px solid {{ h.rowBorder }};border-radius:16px;background:var(--cz-card-solid);cursor:pointer">
+              <div style="flex:0 0 auto;display:flex">
+                <sc-for list="{{ h.stack }}" as="t" hint-placeholder-count="3">
+                  <div style="width:38px;height:48px;border-radius:7px;margin-left:-10px;border:1.5px solid var(--cz-card-solid);background:{{ t }}"></div>
+                </sc-for>
+              </div>
+              <div style="flex:0 0 152px;display:flex;flex-direction:column;gap:3px;min-width:0">
+                <span style="font-family:var(--cz-display);font-size:17px;font-weight:600;letter-spacing:-0.03em">{{ h.name }}</span>
+                <span style="font-family:var(--cz-mono);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cz-faint)">{{ h.countLine }}</span>
+              </div>
+              <div style="flex:1 1 auto;min-width:0;display:flex;gap:14px">
+                <sc-for list="{{ h.rail }}" as="r" hint-placeholder-count="5">
+                  <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                    <span style="font-family:var(--cz-mono);font-size:8.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--cz-faint);white-space:nowrap">{{ r.label }}</span>
+                    <span style="font-family:var(--cz-mono);font-size:14px;font-weight:700;color:{{ r.ink }}">{{ r.n }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex:0 0 108px;display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+                <span style="font-family:var(--cz-mono);font-size:14px;font-weight:700;color:var(--cz-money)">{{ h.money }}</span>
+                <span style="font-family:var(--cz-mono);font-size:9.5px;font-weight:700;color:var(--cz-faint);white-space:nowrap">{{ h.moneySub }}</span>
+              </div>
+              <div style="flex:0 0 auto">
+                <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Button" hint-size="132px,40px" variant="{{ h.ctaVariant }}">{{ h.cta }}</x-import>
+              </div>
+            </div>
+          </sc-for>
+          <button type="button" style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border:1px dashed var(--cz-hair-strong);border-radius:16px;background:transparent;color:var(--cz-sub);font-family:var(--cz-sans);font-size:13px;font-weight:650;cursor:pointer">+  Start a haul</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:20px;font-size:12.5px;line-height:1.55;color:rgba(245,245,247,.62);text-wrap:pretty">
+        <div style="flex:1"><strong style="color:#f5f5f7;font-weight:650">Why</strong> — the rail is the board from the ordering flow, compressed to five numbers. You can see that winter has two items stuck at QC and gym has everything sitting in the warehouse without opening either. The right-hand button is the whole point: one obvious next move per haul.</div>
+        <div style="flex:1"><strong style="color:#f5f5f7;font-weight:650">Cost</strong> — it stops looking like a wardrobe and starts looking like an order manager. The photography shrinks to a 38px stack, which is a real loss for a product whose whole feel is the shelf.</div>
+      </div>
+    </div>
+
+    <div id="2c" style="flex:none;display:flex;flex-direction:column;gap:12px;width:940px">
+      <div style="display:flex;align-items:baseline;gap:9px">
+        <a href="#2c" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:5px;background:rgba(245,245,247,.12);color:#f5f5f7">2c</a>
+        <span style="font-size:12.5px;color:rgba(245,245,247,.6)">Needs you, then everything else — the index leads with the two hauls that are waiting on a decision.</span>
+      </div>
+
+      <div data-theme="dark" style="border:1px solid var(--cz-hair);border-radius:22px;background:var(--cz-bg);padding:26px 28px 34px;overflow:hidden">
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.SearchField" hint-size="100%,44px" variant="bar" placeholder="Search your shelf" value="{{ empty }}" on-change="{{ noop }}"></x-import>
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Button" hint-size="110px,44px" variant="primary">+  Stash</x-import>
+        </div>
+        <div style="width:fit-content;margin-bottom:26px">
+          <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.SegmentedControl" hint-size="160px,34px" label="Shelf or hauls" value="{{ tab }}" options="{{ tabOptions }}"></x-import>
+        </div>
+
+        <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Kicker" hint-size="auto,14px" tone="ink">Needs you · 2</x-import>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 30px">
+          <sc-for list="{{ urgent }}" as="u" hint-placeholder-count="2">
+            <div style="display:flex;gap:14px;padding:15px;border:1px solid {{ u.border }};border-radius:16px;background:var(--cz-card-solid)">
+              <div style="flex:0 0 62px;width:62px;height:78px;border-radius:10px;background:{{ u.tile }}"></div>
+              <div style="flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:7px">
+                <div style="display:flex;align-items:baseline;gap:8px">
+                  <span style="font-family:var(--cz-display);font-size:17px;font-weight:600;letter-spacing:-0.03em">{{ u.name }}</span>
+                  <span style="font-family:var(--cz-mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--cz-faint)">{{ u.countLine }}</span>
+                </div>
+                <span style="font-size:12.5px;line-height:1.45;color:{{ u.ink }};text-wrap:pretty">{{ u.headline }}</span>
+                <span style="font-size:11.5px;line-height:1.4;color:var(--cz-faint);text-wrap:pretty">{{ u.sub }}</span>
+                <div style="margin-top:2px">
+                  <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Button" hint-size="auto,40px" variant="primary">{{ u.cta }}</x-import>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:14px">
+          <h2 style="margin:0;font-family:var(--cz-display);font-size:22px;font-weight:600;letter-spacing:-0.035em">All hauls</h2>
+          <span style="font-family:var(--cz-mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cz-faint)">4 · $726.60</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+          <sc-for list="{{ hauls }}" as="h" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:8px;cursor:pointer">
+              <div style="position:relative;aspect-ratio:4/5;border-radius:14px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:var(--cz-hair);border:1px solid var(--cz-hair)">
+                <sc-for list="{{ h.tiles }}" as="t" hint-placeholder-count="4">
+                  <div style="background:{{ t }}"></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:2px;height:3px">
+                <sc-for list="{{ h.segs }}" as="s" hint-placeholder-count="5">
+                  <div style="flex:{{ s.flex }};border-radius:999px;background:{{ s.bg }}"></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:13.5px;font-weight:650;letter-spacing:-0.01em">{{ h.name }}</span>
+                <span style="font-family:var(--cz-mono);font-size:9.5px;font-weight:700;color:var(--cz-faint)">{{ h.countLine }}</span>
+                <span style="font-size:11px;color:{{ h.noteInk }};line-height:1.35">{{ h.shortNote }}</span>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="aspect-ratio:4/5;border:1px dashed var(--cz-hair-strong);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--cz-faint)">+</div>
+            <span style="font-size:13.5px;font-weight:650">Start a haul</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:20px;font-size:12.5px;line-height:1.55;color:rgba(245,245,247,.62);text-wrap:pretty">
+        <div style="flex:1"><strong style="color:#f5f5f7;font-weight:650">Why</strong> — free storage expiring is the one thing in this hobby that costs real money while you do nothing, so it earns the top of the screen. Everything below stays a wardrobe. The urgent strip is empty most weeks, and when it's empty the page is just the grid.</div>
+        <div style="flex:1"><strong style="color:#f5f5f7;font-weight:650">Cost</strong> — two ways to open the same haul, and a layout that changes shape depending on state. Needs a rule for what counts as urgent, or it becomes a nag bar people learn to skip.</div>
+      </div>
+    </div>
+
+  </div>
+  <p style="margin:30px 0 0;font-size:12.5px;line-height:1.6;color:rgba(245,245,247,.5)">Try next: "build <a href="#2b">2b</a> for real and wire it to the board" · "<a href="#2c">2c</a> but the urgent strip is one row, not two cards" · "put <a href="#2a">2a</a>'s stage bar on <a href="#2b">2b</a>'s rows" · "what does an empty hauls tab look like"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+const T = {
+  taobao: "linear-gradient(150deg,#ff5000,#c33a00)",
+  weidian: "linear-gradient(150deg,#ff5a3c,#c8341f)",
+  yupoo: "linear-gradient(150deg,#37b24d,#1f7a33)",
+  grey: "linear-gradient(150deg,#2c2c31,#17171a)"
+};
+const DATA = [
+  {
+    name: "winter", items: 9, goods: 422.00, tiles: [T.taobao, T.weidian, T.yupoo, T.taobao],
+    counts: { toOrder: 2, ordered: 2, warehouse: 2, qcd: 2, parcel: 1 },
+    flag: "2 at QC", urgency: "attention",
+    note: "2 items are waiting on your green light.",
+    shortNote: "2 waiting on QC",
+    money: "$422.00", moneySub: "~$13–22 ship",
+    cta: "Review QC · 2", ctaVariant: "primary",
+    headline: "Two items have QC photos sitting unreviewed.",
+    sub: "Nothing ships out of parcel A until you green-light them. 57 days of free storage left."
+  },
+  {
+    name: "gym", items: 3, goods: 118.20, tiles: [T.weidian, T.taobao, T.weidian, T.grey],
+    counts: { toOrder: 0, ordered: 0, warehouse: 3, qcd: 0, parcel: 0 },
+    flag: "6 d left", urgency: "urgent",
+    note: "Free storage ends in 6 days on all 3 items.",
+    shortNote: "Storage ends in 6 d",
+    money: "$118.20", moneySub: "~$18 ship",
+    cta: "Build the parcel", ctaVariant: "primary",
+    headline: "Free storage ends in 6 days on all three items.",
+    sub: "After that Superbuy bills daily. Everything has arrived — this haul is one parcel away from done."
+  },
+  {
+    name: "casuals", items: 4, goods: 128.60, tiles: [T.yupoo, T.taobao, T.weidian, T.yupoo],
+    counts: { toOrder: 0, ordered: 0, warehouse: 0, qcd: 0, parcel: 4 },
+    flag: "Delivered", urgency: "done",
+    note: "Delivered Jul 12 · landed $164.20.",
+    shortNote: "Delivered · $164.20 landed",
+    money: "$164.20", moneySub: "landed",
+    cta: "Open", ctaVariant: "outline"
+  },
+  {
+    name: "summer", items: 2, goods: 57.80, tiles: [T.taobao, T.weidian, T.grey, T.grey],
+    counts: { toOrder: 2, ordered: 0, warehouse: 0, qcd: 0, parcel: 0 },
+    flag: null, urgency: "idle",
+    note: "Nothing ordered yet.",
+    shortNote: "Nothing ordered yet",
+    money: "$57.80", moneySub: "goods only",
+    cta: "Start ordering", ctaVariant: "outline"
+  }
+];
+const RAIL = [["toOrder", "To order"], ["ordered", "Ordered"], ["warehouse", "Warehouse"], ["qcd", "QC done"], ["parcel", "Parcel"]];
+const SEG_BG = {
+  toOrder: "var(--cz-hair)",
+  ordered: "var(--cz-faint)",
+  warehouse: "var(--cz-sub)",
+  qcd: "var(--cz-ink)",
+  parcel: "var(--cz-money)"
+};
+const TONE = {
+  urgent: { ink: "var(--cz-error-text)", dot: "var(--cz-error-text)", bg: "var(--cz-error-bg)", border: "var(--cz-error-text)" },
+  attention: { ink: "var(--cz-ink)", dot: "var(--cz-warn)", bg: "var(--cz-chip-fill)", border: "var(--cz-hair-strong)" },
+  done: { ink: "var(--cz-sub)", dot: "var(--cz-money)", bg: "var(--cz-money-bg)", border: "var(--cz-hair)" },
+  idle: { ink: "var(--cz-sub)", dot: "var(--cz-faint)", bg: "var(--cz-chip-fill)", border: "var(--cz-hair)" }
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    const hauls = DATA.map(h => {
+      const tone = TONE[h.urgency];
+      return {
+        name: h.name,
+        countLine: h.items + " items · $" + h.goods.toFixed(2),
+        tiles: h.tiles,
+        stack: h.tiles.slice(0, 3),
+        flag: h.flag,
+        flagBg: h.urgency === "urgent" ? "var(--cz-error-bg)" : h.urgency === "done" ? "var(--cz-money-bg)" : "rgba(0,0,0,.62)",
+        flagInk: h.urgency === "urgent" ? "var(--cz-error-text)" : h.urgency === "done" ? "var(--cz-money)" : "#fff",
+        note: h.note,
+        shortNote: h.shortNote,
+        noteInk: tone.ink,
+        dot: tone.dot,
+        rowBorder: h.urgency === "urgent" ? "var(--cz-error-text)" : "var(--cz-hair)",
+        money: h.money,
+        moneySub: h.moneySub,
+        cta: h.cta,
+        ctaVariant: h.ctaVariant,
+        segs: RAIL.filter(r => h.counts[r[0]] > 0).map(r => ({ flex: h.counts[r[0]], bg: SEG_BG[r[0]] })),
+        rail: RAIL.map(r => ({
+          label: r[1],
+          n: h.counts[r[0]] || "—",
+          ink: h.counts[r[0]] ? "var(--cz-ink)" : "var(--cz-hair-strong)"
+        }))
+      };
+    });
+
+    const urgent = DATA.filter(h => h.urgency === "urgent" || h.urgency === "attention").map(h => ({
+      name: h.name,
+      countLine: h.items + " items",
+      tile: h.tiles[0],
+      headline: h.headline,
+      sub: h.sub,
+      cta: h.cta,
+      ink: TONE[h.urgency].ink,
+      border: h.urgency === "urgent" ? "var(--cz-error-text)" : "var(--cz-hair)"
+    }));
+
+    return {
+      yes: true,
+      empty: "",
+      noop: () => {},
+      tab: "hauls",
+      tabOptions: [{ value: "shelf", label: "Shelf" }, { value: "hauls", label: "Hauls · 4" }],
+      filterChip: { flex: "0 0 auto", padding: "6px 12px", minHeight: 30, border: "1px solid var(--cz-hair)" },
+      hauls,
+      urgent: urgent.sort((a, b) => (a.border === "var(--cz-error-text)" ? -1 : 1))
+    };
+  }
+}
+</script>
+</body>
+</html>

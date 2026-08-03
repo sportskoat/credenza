@@ -134,3 +134,13 @@ Set these on the site (all contexts):
       on Netlify in Terminal only. Prefer `sk_test_` + card `4242…` for a free
       dry run; live key needs a real card. Do **not** set `REQUIRE_ACCOUNTS=true`
       until 7g passes.
+
+## Running locally
+
+`preview/.env` holds the `VITE_` keys only. The unprefixed server keys live in
+Netlify and are never copied to a laptop. The functions therefore have no
+Supabase on a local run.
+
+Shared links fail locally for that reason, and that is expected. The Settings
+panel shows "Sharing is not answering right now. Try again in a minute." The
+server's own words stay in the browser console, on the error object.

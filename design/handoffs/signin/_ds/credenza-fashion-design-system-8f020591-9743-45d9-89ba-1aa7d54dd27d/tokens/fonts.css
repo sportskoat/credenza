@@ -1,0 +1,10 @@
+/* Clash Grotesk Variable — the sans half of the Credenza logo.
+   Shipped in the repo at preview/public/fonts/. Licence: assets/fonts/ClashGrotesk-LICENSE.txt
+   The display serif is Georgia (system), by design: the logo's C is a traced
+   Instrument Serif outline, and body serif falls back to Georgia everywhere. */
+@font-face {
+  font-family: "Clash Grotesk";
+  src: url("../assets/fonts/ClashGrotesk-Variable.woff2") format("woff2-variations");
+  font-weight: 200 700;
+  font-display: swap;
+}

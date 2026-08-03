@@ -2912,6 +2912,127 @@
   font-weight: 500;
   line-height: 1;
 }
+/* A0 intro strip (onboarding handoff, "A0 · Arrival"). Three numbered lines
+   under the paste bar that say what one pasted link buys. Every value here is
+   lifted from the handoff: 16px radius, 15px/16px padding, 12px gap, a 22px
+   numeral circle. Off-grid numbers are deliberate. */
+.cz-intro-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto 16px;
+  padding: 15px 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  text-align: left;
+  animation: cz-intro-strip-in var(--dur-open) var(--ease-out) both;
+}
+@keyframes cz-intro-strip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.cz-intro-strip-kicker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cz-intro-strip-kicker {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-intro-strip-dismiss {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px -4px -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-faint);
+  cursor: pointer;
+  transition: color var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out);
+}
+.cz-intro-strip-dismiss:hover {
+  color: var(--cz-ink);
+  background: var(--cz-hover);
+}
+.cz-intro-strip-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cz-intro-strip-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cz-intro-strip-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+.cz-intro-strip-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--cz-ink);
+}
+.cz-intro-strip-foot {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+/* Coarse pointer: the dismiss target grows to 44px without moving the kicker
+   row, because the extra size comes out of the negative margin. */
+@media (pointer: coarse) {
+  .cz-intro-strip-dismiss {
+    width: 44px;
+    height: 44px;
+    margin: -11px -14px -11px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-intro-strip {
+    animation: none;
+  }
+  .cz-intro-strip-dismiss {
+    transition: none;
+  }
+}
 /* Onboarding 3B: the first-card hint (onboarding spec, Kyle 2026-07-26).
    In flow under the grid, not floating over it — a tooltip would need a
    dismiss button, and a dismiss button turns one sentence into a dialog.
@@ -3714,6 +3835,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-haul-card {
   appearance: none;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -3743,6 +3865,178 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-selected);
 }
 
+/* A haul whose free storage is nearly out wears its border red, so the grid
+   reads at a glance (haul handoff README, "Card anatomy"). */
+.cz-haul-card[data-tone="urgent"] {
+  border-color: var(--cz-error-text);
+}
+
+/* ── Haul fulfillment: flag, stage bar, note ── */
+
+/* The badge names the one thing that matters, over the top-left of the
+   collage. It is absent when there is nothing to say. */
+.cz-haul-flag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  /* Same rule as .cz-haul-card-label: white in BOTH themes. The badge carries
+     its own dark fill, so the theme never decides whether the words read. */
+  color: #fff;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cz-haul-flag[data-tone="urgent"] {
+  background: var(--cz-error-bg);
+  color: var(--cz-error-text);
+}
+
+.cz-haul-flag[data-tone="done"] {
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-haul-flag {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* One segment per occupied stage, each as wide as its share of the items.
+   Progress reads as the bar filling with ink and finally going green. */
+.cz-haul-bar {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+}
+
+.cz-haul-bar-seg {
+  border-radius: 999px;
+  background: var(--cz-hair);
+  transition: flex var(--dur-resize) var(--ease-out);
+}
+
+.cz-haul-bar-seg[data-stage="ordered"] {
+  background: var(--cz-faint);
+}
+.cz-haul-bar-seg[data-stage="warehouse"] {
+  background: var(--cz-sub);
+}
+.cz-haul-bar-seg[data-stage="qcd"] {
+  background: var(--cz-ink);
+}
+.cz-haul-bar-seg[data-stage="parcel"] {
+  background: var(--cz-money);
+}
+
+/* One sentence naming the haul's state. The height is fixed so a two-line
+   note never pushes the button of the card beside it out of line. */
+.cz-haul-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 34px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--cz-ink);
+}
+
+.cz-haul-note-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: var(--cz-faint);
+}
+
+.cz-haul-note[data-tone="urgent"] {
+  color: var(--cz-error-text);
+}
+.cz-haul-note[data-tone="urgent"] .cz-haul-note-dot {
+  background: var(--cz-error-text);
+}
+.cz-haul-note[data-tone="attention"] .cz-haul-note-dot {
+  background: var(--cz-warn);
+}
+.cz-haul-note[data-tone="done"] {
+  color: var(--cz-sub);
+}
+.cz-haul-note[data-tone="done"] .cz-haul-note-dot {
+  background: var(--cz-money);
+}
+.cz-haul-note[data-tone="idle"] {
+  color: var(--cz-faint);
+}
+
+/* The card's one move, full width under the note. */
+.cz-haul-cta {
+  width: 100%;
+  min-height: 40px;
+}
+
+/* A finger needs 44px. The card's own tap area is the collage above it, so
+   only the button needs a floor. */
+@media (pointer: coarse) {
+  .cz-haul-cta {
+    min-height: 44px;
+  }
+}
+
+/* How many hauls are asking for something, at the right of the section head. */
+.cz-hauls-needs-you {
+  margin-left: auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+}
+
+/* Kyle 2026-08-02: "the font looks like it doesn't match". It had no rule at
+   all, so "Archived (1)" fell back to the browser's button face beside a mono
+   "1 NEEDS YOU". Same type as its neighbour above. It is a button, so it also
+   takes a button reset and a pressed state. */
+.cz-hauls-archived-toggle {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hauls-archived-toggle:hover,
+.cz-hauls-archived-toggle[aria-pressed="true"] {
+  color: var(--cz-ink);
+}
+
+/* A finger needs 44px. The words stay 10px; only the tap area grows. */
+@media (pointer: coarse) {
+  .cz-hauls-archived-toggle {
+    min-height: 44px;
+  }
+}
+
 /* KM-07: "Start a haul" ghost tile — quieter than a real haul card. */
 /* The ghost tile is an invitation, not a haul. It has no photo, so a scrim
    over its empty placeholder read as a grey smear and the white words lost
@@ -3767,44 +4061,55 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-haul-card--ghost .cz-haul-card-name {
   white-space: normal;
 }
-.cz-haul-card--ghost .cz-haul-fan-placeholder {
+.cz-haul-card--ghost .cz-haul-mosaic-placeholder {
   color: var(--cz-faint);
 }
 
-/* Stack of clothing cards — separate from the name/price label below. */
-.cz-haul-fan {
+/* ── The haul collage ──
+
+   Kyle 2026-08-02: "I kind of liked it better when the Hauls page didn't have
+   the fanning-out feature... the different colours on this are different
+   articles of clothing." Four squares of clothing, split by a hairline cross.
+   This is the wireframe's collage (Hauls index.dc.html line 59).
+
+   The cross is the 1px gap letting the block's own background through. Two
+   borders would double up on the shared edge; one gap cannot. */
+.cz-haul-mosaic {
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 5;
   max-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-}
-
-/* One-item haul: flat single photo, no fan stack chrome. */
-.cz-haul-fan.is-single .cz-haul-fan-card {
-  inset: 6% 10%;
-  box-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.24),
-    0 1px 4px rgba(0, 0, 0, 0.14);
-}
-
-.cz-haul-fan-card {
-  position: absolute;
-  inset: 8% 12%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  background: var(--cz-hair);
+  border: 1px solid var(--cz-hair);
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: var(--cz-card-solid);
-  box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.28),
-    0 2px 6px rgba(0, 0, 0, 0.18);
-  will-change: transform;
 }
 
-.cz-haul-fan-card img {
+/* One photo fills the frame. Printing the same shirt four times reads as a
+   bug, not as a collage. */
+.cz-haul-mosaic.is-single {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* No photo at all: a dashed edge says "nothing to show yet". A solid edge
+   around an empty box reads as a picture that failed to load. */
+.cz-haul-mosaic.is-empty {
+  border-style: dashed;
+  border-color: var(--cz-hair-strong);
+}
+
+.cz-haul-mosaic-tile {
+  position: relative;
+  overflow: hidden;
+  background: var(--cz-card-solid);
+}
+
+.cz-haul-mosaic-tile img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -3814,15 +4119,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   pointer-events: none;
 }
 
-.cz-haul-fan-card.is-empty {
+.cz-haul-mosaic-tile.is-empty {
   background:
     radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--cz-accent) 18%, transparent), transparent 55%),
     color-mix(in srgb, var(--cz-card-solid) 88%, #120c1c);
-  border-style: dashed;
-  border-color: var(--cz-hair-strong);
 }
 
-.cz-haul-fan-placeholder {
+.cz-haul-mosaic-placeholder {
   width: 100%;
   height: 100%;
   display: grid;
@@ -3832,30 +4135,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
-.cz-haul-fan-more {
-  position: absolute;
-  right: 10%;
-  bottom: 10%;
-  z-index: 20;
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 0.02em;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(11, 11, 13, 0.78);
-  /* White on the dark pill — --cz-ink was black-on-black (Kyle 2026-07-23). */
-  color: #fff;
-  border: 1px solid transparent;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
 /* Kyle 2026-07-29, "match shelf": the haul name reads ON the picture, the way
-   a Shelf card reads. It used to sit in its own pill under the stack, which is
+   a Shelf card reads. It used to sit in its own pill under the block, which is
    the inconsistency he flagged.
-   The label lives INSIDE the front fan card, so the card's overflow:hidden
-   clips the scrim. A label placed outside the stack bled past the front
-   card's slanted edge once the fan opened (measured, probe-haul-title.mjs). */
+   The label lives INSIDE the collage, so the collage's overflow:hidden clips
+   the scrim to the rounded corners. */
 .cz-haul-card-label {
   position: absolute;
   z-index: 2;
@@ -3959,8 +4243,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
-/* Part 5 Tier A haul board: budget, parcel estimate, archive. Same quiet
-   hairline language as the pipeline chips above it. */
+/* Part 5 Tier A haul board: budget bar, parcel weight, archive. Same quiet
+   hairline language as the pipeline chips above it.
+
+   Kyle 2026-08-02: "set budget and estimate parcel buttons: are they needed?"
+   The budget was a link that hid its own number behind a press. It is a bar
+   now. The parcel estimator is gone; the weight bar reads the real items. */
 .cz-haul-board {
   display: flex;
   flex-direction: column;
@@ -3979,7 +4267,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   line-height: 1.3;
 }
 
-.cz-haul-board-stat,
 .cz-haul-board-btn {
   appearance: none;
   display: inline-flex;
@@ -3994,52 +4281,126 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   cursor: pointer;
 }
 
-/* Budget ring: small filled arc next to the Budget text. */
-.cz-haul-board-ring {
-  --fill: 0%;
-  --ring-color: var(--cz-accent);
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
+/* The budget, as a bar. The head carries the words and the numbers; the track
+   below carries the fill. Pressing anywhere opens the editor. */
+.cz-haul-board-budget {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-haul-board-budget-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  line-height: 1.3;
+}
+
+.cz-haul-board-budget-label {
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* Money and percent read as numbers: one face, one digit width. Same rule
+   the .cz-hb-* panel follows. */
+.cz-haul-board-budget-money {
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-ink);
+}
+
+.cz-haul-board-budget-pct {
+  margin-left: auto;
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-faint);
+}
+
+.cz-haul-board-budget-track {
+  display: block;
+  width: 100%;
+  height: 6px;
   border-radius: 999px;
-  background: conic-gradient(
-    var(--ring-color) var(--fill),
-    color-mix(in srgb, var(--cz-hair) 70%, transparent) 0
-  );
-  /* Hollow centre so it reads as a ring, not a pie. */
-  -webkit-mask: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 3px),
-    var(--cz-ink) calc(100% - 2px)
-  );
-  mask: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 3px),
-    var(--cz-ink) calc(100% - 2px)
-  );
+  overflow: hidden;
+  background: color-mix(in srgb, var(--cz-hair) 55%, transparent);
+}
+
+.cz-haul-board-budget-fill {
+  --fill: 0%;
+  --bar-color: var(--cz-accent);
+  display: block;
+  width: var(--fill, 0%);
+  height: 100%;
+  border-radius: 999px;
+  background: var(--bar-color);
+  transition: width var(--dur-resize) var(--ease-out);
 }
 
 /* Spent share 0–69%: accent. 70–99%: warn. 100%+: error. */
-.cz-haul-board-ring--ok {
-  --ring-color: color-mix(in srgb, var(--cz-accent) 100%, var(--cz-warn) 0%);
+.cz-haul-board-budget--ok .cz-haul-board-budget-fill {
+  --bar-color: var(--cz-accent);
 }
-.cz-haul-board-ring--warn {
-  --ring-color: color-mix(in srgb, var(--cz-warn) 100%, var(--cz-accent) 0%);
+.cz-haul-board-budget--warn .cz-haul-board-budget-fill {
+  --bar-color: var(--cz-warn);
 }
-.cz-haul-board-ring--over {
-  --ring-color: color-mix(in srgb, var(--cz-error-text) 100%, var(--cz-warn) 0%);
+.cz-haul-board-budget--over .cz-haul-board-budget-fill {
+  --bar-color: var(--cz-error-text);
+}
+.cz-haul-board-budget--over .cz-haul-board-budget-pct {
+  color: var(--cz-error-text);
 }
 
-/* Parcel text + thin weight bar stacked in one control. */
-.cz-haul-board-stat--with-bar {
+.cz-haul-board-budget:hover .cz-haul-board-budget-money {
+  color: var(--cz-ink);
+}
+
+.cz-haul-board-budget:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* A finger needs 44px. The bar stays 6px; only the tap area grows. */
+@media (pointer: coarse) {
+  .cz-haul-board-budget {
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
+/* Parcel weight, straight from the items. Text above, segmented bar below. */
+.cz-haul-board-weight {
+  display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  white-space: normal;
 }
 
-.cz-haul-board-stat-text {
+.cz-haul-board-weight-text {
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-sub);
   white-space: nowrap;
 }
 
@@ -4084,11 +4445,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-ink);
 }
 
-.cz-haul-board-stat:hover {
-  color: var(--cz-ink);
-}
-
-.cz-haul-board-stat:focus-visible,
 .cz-haul-board-btn:focus-visible {
   outline: 2px solid var(--cz-focus);
   outline-offset: 2px;
@@ -4131,51 +4487,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-haul-board-input:focus-visible {
   outline: 2px solid var(--cz-focus);
   outline-offset: 1px;
-}
-
-.cz-haul-board-dims {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cz-haul-board-dims .cz-haul-board-input {
-  width: 58px;
-}
-
-/* One letter beside each box: L, W, H. */
-.cz-haul-board-dim {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.cz-haul-board-dim-label {
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--cz-faint);
-}
-
-.cz-haul-board-result {
-  font-weight: 700;
-  color: var(--cz-money);
-  white-space: nowrap;
-}
-
-.cz-haul-board-note {
-  flex-basis: 100%;
-  margin: 0;
-  font-size: 11px;
-  color: var(--cz-faint);
-  line-height: 1.4;
-}
-
-.cz-haul-board-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
 }
 
 .cz-haul-board-save {
@@ -6770,6 +7081,24 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-avatar:hover {
   color: var(--cz-ink);
 }
+/* Kyle 2026-08-02: signed out, the entry says "Sign in" instead of drawing a
+   person. The word is wider than a glyph, so the button opens up. The 44px
+   floor stays as a minimum, so a finger still hits it.
+   Four other rules set .cz-avatar width and three of them beat this one; each
+   carries its own --word line below (12127, 12520, 12719, 12728). */
+.cz-avatar--word {
+  width: auto;
+  min-width: 44px;
+  padding-inline: 8px;
+}
+.cz-avatar-word {
+  font-family: var(--cz-display);
+  font-style: italic;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
 /* CH-03: signed in → initials on the action fill instead of the glyph. */
 .cz-avatar-initials {
   display: grid;
@@ -6810,52 +7139,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-profile-signin.is-off .cz-profile-signin-sub {
   margin-bottom: 0;
 }
-/* Part 7e account card: email field, divider, error/sent lines, plan badge. */
-.cz-profile-signin-field input {
-  width: 100%;
-  min-height: 50px;
-  padding: 0 16px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 15px;
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
-  font-size: 16px; /* 16px+ stops iOS focus-zoom (Part 5 a11y). */
-}
-.cz-profile-signin-field input:focus-visible {
-  outline: 2px solid var(--cz-ink);
-  outline-offset: 2px;
-}
-.cz-profile-signin-or {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0;
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-.cz-profile-signin-or::before,
-.cz-profile-signin-or::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--cz-hair);
-}
 .cz-profile-signin-error {
   margin-top: 10px;
   font-size: 13px;
   line-height: 1.45;
   color: #c0392b;
-}
-.cz-profile-signin-sent {
-  padding: 12px 14px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 14px;
-  background: var(--cz-card-solid);
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--cz-ink);
 }
 .cz-profile-plan {
   margin-left: 10px;
@@ -7652,210 +7940,106 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ── Account and plan (design 1f) ────────────────────────────────────────── */
+/* ── Account and plan · standing group (sign-in handoff, screen 4) ──────────
+   The pane reports and links. It holds no form and no price table, so the
+   old two-card / eight-row family is gone. One group, one row per fact.
+   ──────────────────────────────────────────────────────────────────────── */
 
-.cz-account-plan-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.cz-plan-standing {
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.cz-plan-standing-row {
+  display: flex;
+  align-items: center;
   gap: 14px;
-  margin: 18px 0 16px;
+  padding: 16px 18px;
+}
+/* Signed in, the group carries more rows, so they tighten a step. */
+.cz-plan-standing.is-tight .cz-plan-standing-row {
+  padding: 15px 17px;
+}
+.cz-plan-standing-row + .cz-plan-standing-row {
+  border-top: 1px solid var(--cz-hair);
 }
 @media (max-width: 560px) {
-  .cz-account-plan-cards {
-    grid-template-columns: 1fr;
-  }
-}
-
-.cz-account-plan-card {
-  border: 1px solid var(--cz-hair);
-  border-radius: 16px;
-  background: var(--cz-card-solid);
-  padding: 18px 20px 20px;
-}
-.cz-account-plan-card.is-pro {
-  border-color: var(--cz-accent);
-}
-
-.cz-account-plan-card-top {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 12px;
-}
-
-.cz-account-plan-name {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--cz-ink);
-}
-
-.cz-account-plan-badge {
-  font-family: var(--cz-mono);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: var(--cz-inset-bg);
-  color: var(--cz-sub);
-}
-.cz-account-plan-badge.is-money {
-  background: var(--cz-money-bg);
-  color: var(--cz-money);
-}
-
-.cz-account-plan-price {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.cz-account-plan-amount {
-  font-family: var(--cz-mono);
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--cz-ink);
-}
-
-.cz-account-plan-period {
-  font-size: 13px;
-  color: var(--cz-faint);
-}
-
-.cz-account-plan-sub {
-  margin-top: 9px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--cz-sub);
-}
-
-.cz-account-plan-equiv {
-  margin: 9px 0 14px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--cz-money);
-}
-
-.cz-account-plan-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--cz-faint);
-}
-
-.cz-account-plan-table {
-  border: 1px solid var(--cz-hair);
-  border-radius: 16px;
-  background: var(--cz-card-solid);
-  padding: 4px 22px;
-  margin-bottom: 16px;
-}
-
-.cz-account-plan-table-head,
-.cz-account-plan-table-row {
-  display: grid;
-  grid-template-columns: 1fr 110px 110px;
-  gap: 16px;
-  align-items: center;
-  padding: 13px 0;
-}
-@media (max-width: 560px) {
-  .cz-account-plan-table-head,
-  .cz-account-plan-table-row {
-    grid-template-columns: 1fr 76px 76px;
+  .cz-plan-standing-row {
+    align-items: flex-start;
+    flex-direction: column;
     gap: 10px;
   }
 }
 
-.cz-account-plan-table-head {
-  border-bottom: 1px solid var(--cz-hair);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cz-ink);
-  text-align: right;
-}
-.cz-account-plan-table-head .cz-account-plan-table-kicker {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cz-money);
-  text-align: left;
-}
-
-.cz-account-plan-table-row + .cz-account-plan-table-row {
-  border-top: 1px solid var(--cz-hair);
-}
-
-.cz-account-plan-table-what {
+.cz-plan-standing-main {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
 }
 
-.cz-account-plan-table-label {
+.cz-plan-standing-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.01em;
   color: var(--cz-ink);
 }
 
-.cz-account-plan-table-note {
-  font-size: 12px;
-  line-height: 1.4;
+.cz-plan-standing-value {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+.cz-plan-standing-value.is-mono {
+  font-family: var(--cz-mono);
+  letter-spacing: -0.01em;
+}
+
+.cz-plan-standing-action {
+  flex: 0 0 auto;
+}
+
+/* The PRO pill on the plan row. */
+.cz-plan-pro-pill {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+/* The mono flag stands where an action would be, on a row that has none. */
+.cz-plan-flag {
+  flex: 0 0 auto;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
   color: var(--cz-faint);
 }
 
-.cz-account-plan-table-free {
-  font-size: 13px;
-  color: var(--cz-sub);
-  text-align: right;
-}
-.cz-account-plan-table-pro {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cz-ink);
-  text-align: right;
+.cz-plan-standing-note {
+  max-width: 520px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
 }
 
-.cz-account-plan-keeps,
-.cz-account-plan-billing {
-  border: 1px solid var(--cz-hair);
-  border-radius: 16px;
-  background: var(--cz-card-solid);
-  padding: 18px 22px;
-  margin-bottom: 16px;
-}
-.cz-account-plan-keeps p,
-.cz-account-plan-billing p,
-.cz-account-plan-footer p {
-  margin: 8px 0 0;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--cz-sub);
-}
-
-.cz-account-plan-keeps-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cz-money);
-}
-
-.cz-account-plan-billing-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.cz-account-plan-footer {
-  padding-top: 20px;
-  border-top: 1px solid var(--cz-hair);
+/* A finger needs 44px. The rows above are 46px and 44px, so only the
+   buttons inside them need a floor. */
+@media (pointer: coarse) {
+  .cz-plan-standing-action .cz-pill {
+    min-height: 44px;
+  }
 }
 
 /* ── Sizes and measurements v2 ─────────────────────────────────────────────
@@ -9271,25 +9455,29 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 
 /* ── Phase 1 first-size chooser (2026-08-02) ── */
+/* A1–A4 size block: an inset panel inside the card. Handoff geometry —
+   radius 14, padding 13, gap 11. These values are deliberate; do not round. */
 .cz-first-size {
   margin: 12px;
-  padding: 14px 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 12%, transparent);
+  padding: 13px;
+  border: 1px solid var(--cz-hair);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--cz-bg-elevated, #fff) 92%, var(--cz-bg));
+  background: var(--cz-inset-bg);
   box-sizing: border-box;
 }
 .cz-first-size-title {
-  margin: 0 0 6px;
-  font-size: 16px;
-  font-weight: 700;
+  margin: 0 0 11px;
+  font-family: var(--cz-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
   line-height: 1.25;
   color: var(--cz-ink);
 }
 .cz-first-size-copy {
-  margin: 0 0 12px;
-  font-size: 13px;
-  line-height: 1.45;
+  margin: 0 0 11px;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--cz-sub);
 }
 .cz-first-size-step {
@@ -9348,21 +9536,25 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-first-size-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 7px;
+  margin-bottom: 11px;
 }
 .cz-first-size-chip {
-  min-width: 44px;
-  height: 36px;
+  min-width: 54px;
+  height: 44px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 14%, transparent);
-  background: var(--cz-bg-elevated, #fff);
+  border: 1px solid var(--cz-hair);
+  background: var(--cz-card-solid);
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
   color: var(--cz-ink);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.cz-first-size-chip:active {
+  transform: scale(0.96);
 }
 .cz-first-size-chip.is-on {
   background: var(--cz-ink);
@@ -9372,44 +9564,77 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-first-size-sits {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 7px;
+  margin-bottom: 11px;
 }
 .cz-first-size-sit {
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 14%, transparent);
+  min-height: 58px;
+  border: 1px solid var(--cz-hair);
   border-radius: 12px;
-  background: var(--cz-bg-elevated, #fff);
-  padding: 12px 8px;
+  background: var(--cz-card-solid);
+  padding: 10px 8px;
   cursor: pointer;
   font: inherit;
   color: var(--cz-ink);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.cz-first-size-sit:active {
+  transform: scale(0.96);
 }
 .cz-first-size-sit.is-on {
   border-color: var(--cz-ink);
-  background: color-mix(in srgb, var(--cz-ink) 6%, var(--cz-bg-elevated, #fff));
+  background: var(--cz-ink);
+  color: var(--cz-bg);
 }
 .cz-first-size-sit-label {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 .cz-first-size-sit-hint {
   display: block;
-  font-size: 11px;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
   color: var(--cz-faint);
-  margin-top: 2px;
+  margin-top: 3px;
+}
+.cz-first-size-sit.is-on .cz-first-size-sit-hint {
+  color: var(--cz-bg);
+  opacity: 0.7;
+}
+/* A5 bottom panel: the ink border marks the one field that is open now. */
+.cz-first-size-ladder {
+  border: 1px solid var(--cz-ink);
+}
+/* The cm/in pair sits left, the Show me how link right. */
+.cz-first-size-unit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 11px;
+}
+.cz-first-size-unit-row .cz-first-size-link {
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--cz-link);
 }
 .cz-first-size-unit {
   display: inline-flex;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 14%, transparent);
   border-radius: 999px;
   overflow: hidden;
-  margin-bottom: 10px;
+  background: var(--cz-seg);
+  padding: 2px;
+  gap: 2px;
 }
 .cz-first-size-unit-btn {
   border: 0;
+  border-radius: 999px;
   background: transparent;
-  padding: 6px 14px;
+  min-width: 44px;
+  height: 32px;
+  padding: 0 14px;
   font: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -9436,24 +9661,30 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: center;
   gap: 8px;
   height: 42px;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 14%, transparent);
+  border: 1px solid var(--cz-hair);
   border-radius: 10px;
   padding: 0 12px;
-  background: var(--cz-bg-elevated, #fff);
+  background: var(--cz-card-solid);
 }
 .cz-first-size-field-control input {
   flex: 1;
   border: 0;
   background: transparent;
   font: inherit;
-  font-size: 15px;
+  /* 16px under 767px, so iOS never zooms the page on focus. */
+  font-size: 16px;
   color: var(--cz-ink);
   outline: none;
   min-width: 0;
 }
+@media (min-width: 768px) {
+  .cz-first-size-field-control input {
+    font-size: 15px;
+  }
+}
 .cz-first-size-primary {
   width: 100%;
-  height: 44px;
+  min-height: 44px;
   border: 0;
   border-radius: 12px;
   background: var(--cz-action-fill, var(--cz-ink));
@@ -9462,6 +9693,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.cz-first-size-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.cz-first-size-primary:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-first-size-chip,
+  .cz-first-size-sit,
+  .cz-first-size-primary {
+    transition: none;
+  }
+  .cz-first-size-chip:active,
+  .cz-first-size-sit:active,
+  .cz-first-size-primary:active:not(:disabled) {
+    transform: none;
+  }
 }
 .cz-first-size-actions {
   display: flex;
@@ -9490,6 +9741,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
   text-decoration: none;
 }
+/* The README draws the cm/in chips at 32px, but its Definition of Done asks
+   for 44px on a finger. Keep the 32px look; grow the hit area on touch. */
+@media (pointer: coarse) {
+  .cz-first-size-unit-btn,
+  .cz-first-size-link,
+  .cz-first-size-back,
+  .cz-first-size-skip {
+    position: relative;
+  }
+  .cz-first-size-unit-btn::after,
+  .cz-first-size-link::after,
+  .cz-first-size-back::after,
+  .cz-first-size-skip::after {
+    content: "";
+    position: absolute;
+    inset: 50% 0 auto 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}
 .cz-first-size-error,
 .cz-first-size-warn {
   font-size: 12.5px;
@@ -9511,18 +9782,197 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-size: 12.5px;
   color: var(--cz-faint);
 }
+/* A1–A3 header row: YOUR SIZE left, the step or the confidence flag right. */
+.cz-first-size-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 11px;
+}
+.cz-first-size-eyebrow,
+.cz-first-size-flag {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-first-size-flag.is-warn {
+  color: var(--cz-warn-ink);
+}
+.cz-first-size-flag.is-money {
+  font-weight: 800;
+  color: var(--cz-money);
+}
+.cz-first-size-flag.is-usual,
+.cz-first-size-flag.is-none {
+  color: var(--cz-faint);
+}
+/* A3: the panel border marks the pick as resolved. */
+.cz-first-size-result.is-resolved {
+  border-color: var(--cz-ink);
+}
+/* A4: a dashed border says the answer is still missing. */
+.cz-first-size-skipped {
+  border-style: dashed;
+  border-color: var(--cz-hair-strong);
+}
+/* A1 / A2 footer: the tape link left, Skip for now right. */
+.cz-first-size-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.cz-first-size-foot.is-centred {
+  justify-content: center;
+}
+.cz-first-size-foot .cz-first-size-skip {
+  width: auto;
+  margin-top: 0;
+}
+/* A3 data tiles: ANCHOR · GARMENT · EASE. */
+.cz-first-size-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 11px;
+}
+.cz-first-size-tile {
+  border: 1px solid var(--cz-hair);
+  border-radius: 11px;
+  background: var(--cz-card-solid);
+  padding: 9px 10px;
+  min-width: 0;
+}
+.cz-first-size-tile-k {
+  display: block;
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-first-size-tile-v {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+.cz-first-size-tile-v.is-money {
+  color: var(--cz-money);
+}
+/* A3 provenance: one hairline, then where the pick came from. */
+.cz-first-size-prov {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--cz-hair);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+.cz-first-size-prov .cz-first-size-link {
+  padding: 0;
+  font-size: 12px;
+  color: var(--cz-link);
+}
+.cz-first-size-reason {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+}
 .cz-first-size-hero {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  margin: 4px 0 8px;
+  margin: 4px 0 11px;
+}
+/* A5 top panel: the fit ladder. What is saved, what is next, what waits. */
+.cz-fit-ladder {
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  padding: 13px;
+  margin-bottom: 11px;
+}
+.cz-fit-ladder-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.cz-fit-ladder-eyebrow,
+.cz-fit-ladder-coverage {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-fit-ladder-coverage {
+  color: var(--cz-money);
+}
+.cz-fit-ladder-meter {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  margin-bottom: 11px;
+}
+.cz-fit-ladder-seg {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+.cz-fit-ladder-seg.is-on {
+  background: var(--cz-money);
+}
+.cz-fit-ladder-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.cz-fit-ladder-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cz-fit-ladder-row-k {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cz-ink);
+  min-width: 0;
+}
+.cz-fit-ladder-row-s {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+  flex: none;
+}
+.cz-fit-ladder-row-s.is-saved {
+  color: var(--cz-money);
 }
 .cz-first-size-letter {
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-family: var(--cz-display);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
   line-height: 1;
   color: var(--cz-ink);
+  flex: none;
 }
 .cz-first-size-body {
   font-size: 13px;
@@ -11020,33 +11470,87 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: relative;
 }
 
-/* ── Avatar quick menu (Profile Settings design 1c) ────────────────────────
-   The avatar's dropdown: identity, the Pro upsell, the switches that get
-   flipped, and the door into the settings page. 334px, anchored under the
-   avatar on the right. */
+/* ── Avatar quick menu (sign-in handoff 2026-08-02, README screen 5) ───────
+   The avatar's dropdown. The two account decisions come first, as two doors:
+   an account is free, and Pro costs money. Merging them into one row is what
+   the old menu did wrong. The shelf switches follow, under a divider.
+   300px, anchored under the avatar on the right. */
 
 .cz-avatar-menu {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
   z-index: 70;
-  width: 334px;
+  width: 300px;
   max-width: calc(100vw - 24px);
   background: var(--cz-card-solid);
   border: 1px solid var(--cz-hair);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-  padding: 14px;
+  border-radius: 16px;
+  box-shadow: 0 18px 48px oklch(0 0 0 / 0.6);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
-.cz-avatar-menu-identity {
+.cz-avatar-menu-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 6px 12px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-avatar-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.cz-avatar-menu-divider {
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+/* A door is a decision, so it gets two lines: the question on top and what
+   it costs underneath. A one-line row cannot say both. */
+.cz-avatar-menu-door {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-family: var(--cz-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-avatar-menu-door:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-avatar-menu-door-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--cz-ink);
+}
+
+.cz-avatar-menu-door-sub {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+}
+
+.cz-avatar-menu-door-sub.is-money {
+  color: var(--cz-money);
 }
 
 .cz-avatar-menu-mark {
@@ -11076,69 +11580,29 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
-.cz-avatar-menu-upsell {
-  border: 1px solid var(--cz-hair);
-  border-radius: 13px;
-  background: var(--cz-inset-bg);
-  padding: 13px 14px;
-  margin-bottom: 8px;
-}
-
-.cz-avatar-menu-upsell-title {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--cz-ink);
-}
-
-.cz-avatar-menu-upsell-note {
-  margin-top: 4px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--cz-money);
-}
-
-.cz-avatar-menu-upsell-cta {
-  margin-top: 10px;
-  padding: 7px 14px;
-  border: none;
-  border-radius: 999px;
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
-  font-family: var(--cz-sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-
+/* A switch row is one line: the label on the left, where it stands now on
+   the right. Nothing here is a decision, so nothing here needs two lines. */
 .cz-avatar-menu-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   width: 100%;
-  padding: 10px 8px;
+  padding: 10px 12px;
   border: none;
   border-radius: 10px;
   background: transparent;
   font-family: var(--cz-sans);
   text-align: left;
   cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
 }
 .cz-avatar-menu-row:hover {
   background: var(--cz-accent-bg);
 }
 
-.cz-avatar-menu-row.is-control {
-  cursor: default;
-}
-.cz-avatar-menu-row.is-control:hover {
-  background: transparent;
-}
-
 .cz-avatar-menu-label {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--cz-ink);
@@ -11146,15 +11610,21 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-avatar-menu-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
-  color: var(--cz-sub);
+  color: var(--cz-faint);
 }
 
-/* The colourway control takes the space the value would; keep the segment
-   group compact. */
-.cz-avatar-menu-row.is-control > div[role="radiogroup"] {
-  flex: 0 1 190px;
-  display: flex;
+/* A finger needs 44px. The README's 10px 12px row measures 39px, which is
+   fine under a mouse and too small under a thumb. The padding stays; only
+   the floor moves. */
+@media (pointer: coarse) {
+  .cz-avatar-menu-row,
+  .cz-avatar-menu-door {
+    min-height: 44px;
+  }
 }
 
 /* ─── Currency picker (lane 2, 2026-08-02) ─────────────────────────────────
@@ -11477,81 +11947,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-card-solid) !important;
 }
 
-/* ── The sign-in card: its own centered, frosted window (F 2026-08-01) ──────
-   Kyle: "while you are at the sign in, can you center it and make it its
-   own modal." The other limit states (today's cap, a lapsed Pro) stay the
-   bottom sheet above — signing in is a decision, not a quick tool, so it
-   never slides up from the thumb edge. cz-signin-sheet rides alongside
-   cz-limits-sheet (LimitsSheet.jsx passes both when anon), so it keeps every
-   --space-* token and the header type rules above and only overrides the
-   phone-sheet placement and the glass surface. */
-/* .cz-app[data-fashion="true"] .cz-modal-surface (credenza-fashion.css, the
-   compositing-audit block) sets the opaque card background at specificity
-   (0,0,3,0). A bare .cz-modal-surface.cz-signin-sheet is only (0,0,2,0) and
-   silently loses — measured with probe-signin-centered.mjs, which read back
-   the plain card color until this selector matched the prefix too. */
-.cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-sheet {
-  border: 1px solid var(--cz-frost-border);
-  background: var(--cz-frost-fill);
-  /* The frost fill is dark in both app themes (it matches the dock, which
-     stays dark on a light page on purpose). Every .cz-limits-* rule below
-     reads its color from --cz-ink/--cz-sub/--cz-faint/--cz-hair/--cz-seg,
-     which are the light theme's near-black text on white. Redefining those
-     four custom properties here — not touching a single .cz-limits-* rule —
-     recolors the whole sheet for the dark surface, the same tokens the dock
-     already established. Caught by actually looking at the screenshot: the
-     structural probe above passed while the title rendered near-black on a
-     near-black background. --cz-card-solid stays put on purpose: the X
-     close button's white circle is the one deliberate light accent. */
-  --cz-ink: var(--cz-frost-ink);
-  --cz-sub: var(--cz-frost-faint);
-  --cz-faint: var(--cz-frost-faint);
-  --cz-hair: var(--cz-frost-border);
-  --cz-seg: var(--cz-frost-active);
-  /* Redefining --cz-ink above does not, by itself, recolor the title: color
-     is an inherited property computed once at .cz-modal (credenza.css) using
-     the OLD --cz-ink, then just inherited down — the h2 rule sets no color
-     of its own to re-evaluate the new one. This line forces that
-     re-evaluation for the title and anything else here with no explicit
-     color; every rule below that already names its own var(--cz-ink) etc.
-     picks up the redefinition on its own. */
-  color: var(--cz-ink);
-  /* No backdrop-filter here. The 2026-07-27 compositing audit above measured
-     0% visible change from blurring a modal surface — nothing moves behind
-     a scroll-locked dialog, so a blur pays a real per-frame cost for a look
-     the translucent fill already gives for free. The dock and bottom sheets
-     blur because they float over content that is still scrolling; this
-     window opens over its own still scrim, like the audit's dialog case. */
-}
-
-@media (max-width: 767px) and (pointer: coarse) {
-  /* The phone bottom-sheet gate lives on .cz-modal, one level above where
-     surfaceClassName lands, so :has() is the only way to reach it from here.
-     width/max-width must be cancelled too: the phone gate's width:100% is
-     still capped by the inline maxWidth={460} React sets, so on a narrower
-     phone it silently stayed edge-to-edge until this line — measured, not
-     assumed, with the same probe. */
-  .cz-modal:has(.cz-signin-sheet) {
-    width: min(720px, calc(100% - 32px));
-    margin: auto;
-  }
-
-  .cz-signin-sheet {
-    border-radius: 18px;
-  }
-
-  /* Cancels .cz-limits-sheet::before above: same specificity, later in the
-     cascade, and content: none drops the grab bar's box entirely regardless
-     of its other properties. There is nothing to grab — the card no longer
-     anchors to an edge. */
-  .cz-signin-sheet::before {
-    content: none;
-  }
-
-  .cz-signin-sheet .cz-modal-header {
-    padding-top: var(--space-6) !important;
-  }
-}
+/* The signed-out sign-in card used to live here as .cz-signin-sheet: the
+   limits sheet wearing a frosted surface and a re-centred phone gate
+   (F 2026-08-01). The sign-in handoff replaced it 2026-08-02 with two real
+   screens of its own — .cz-cap-modal and .cz-signin-modal, both at the foot
+   of this file. The class is gone from every component, so the rules are
+   gone too rather than sitting here waiting to confuse a later reader. */
 
 .cz-limits {
   display: flex;
@@ -11793,6 +12194,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     position: relative;
     width: 36px;
     height: 36px;
+  }
+
+  /* Signed out the entry carries a word, not a glyph, so it keeps its own
+     width here too (Kyle 2026-08-02). */
+  .cz-masthead.is-compact .cz-avatar--word {
+    width: auto;
+    padding-inline: 8px;
   }
 
   .cz-masthead.is-compact .cz-avatar::after {
@@ -12191,6 +12599,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     color: var(--cz-sub);
   }
 
+  /* The signed-out word needs its own width here too (Kyle 2026-08-02). */
+  .cz-shelf-band .cz-avatar--word {
+    width: auto;
+    padding-inline: 8px;
+  }
+
   .cz-shelf-band .cz-mast-btn:hover,
   .cz-shelf-band .cz-avatar:hover {
     color: var(--cz-ink);
@@ -12395,6 +12809,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-chip-fill);
   border: 1px solid var(--cz-hair);
   color: var(--cz-ink);
+}
+
+/* The signed-out word needs its own width; the pill grows around it
+   (Kyle 2026-08-02). */
+.cz-masthead-7a .cz-avatar--word {
+  width: auto;
+  padding-inline: 12px;
 }
 
 .cz-masthead-7a .cz-avatar-initials {
@@ -18466,8 +18887,8 @@ input.cz-sizing-fix-size {
 .cz-app[data-theme="rainbow"] .cz-modal,
 .cz-app[data-theme="dark"] .cz-settings-card,
 .cz-app[data-theme="rainbow"] .cz-settings-card,
-.cz-app[data-theme="dark"] .cz-account-plan,
-.cz-app[data-theme="rainbow"] .cz-account-plan,
+.cz-app[data-theme="dark"] .cz-plan-standing,
+.cz-app[data-theme="rainbow"] .cz-plan-standing,
 .cz-app[data-theme="dark"] .cz-sizes-panel,
 .cz-app[data-theme="rainbow"] .cz-sizes-panel,
 .cz-app[data-theme="dark"] .cz-fit-prefs,
@@ -20042,4 +20463,3253 @@ input.cz-sizing-fix-size {
 .cz-dock-pill.t-tabs .cz-dock-tab.is-active {
   background: transparent;
   box-shadow: none;
+}
+
+/* ── Cap modal (sign-in handoff 2026-08-02, README screen 1) ───────────────
+   The signed-out wall. It used to be the limits bottom sheet wearing a
+   different title; now it is its own 520px card, because it asks a different
+   question from the signed-in states and it names no price at all.
+
+   Prefixed with .cz-app[data-fashion="true"] for the same reason the two
+   blocks above are: the compositing-audit rule sets .cz-modal-surface at
+   specificity (0,0,3,0), so a bare .cz-modal-surface.cz-cap-modal loses the
+   background without a word of warning. */
+.cz-app[data-fashion="true"] .cz-modal-surface.cz-cap-modal {
+  position: relative;
+  border: 1px solid var(--cz-hair);
+  border-radius: 20px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 24px 64px oklch(0 0 0 / 0.6);
+}
+
+/* The shell draws a bare header here: no title strip, only the close button.
+   Lifting it out of flow lets the body own the full 26/26/22 padding, so the
+   heading starts at the top edge of the card instead of 40px down. The
+   heading reserves the corner with its own padding-right. */
+.cz-app[data-fashion="true"] .cz-cap-modal .cz-modal-header.is-bare {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  z-index: 2;
+}
+
+.cz-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px 26px 22px;
+}
+
+/* 56px of clearance: the 40px close button, its 13px inset, and 3px of air. */
+.cz-cap-head {
+  margin: 0;
+  padding-right: 56px;
+  font-family: var(--cz-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: var(--cz-ink);
+}
+
+.cz-cap-progress {
+  display: flex;
+  flex-direction: column;
+  /* The flag line sits 9px under the bar. Credenza does not ride a 4px grid. */
+  gap: 9px;
+}
+
+.cz-cap-progress-track {
+  display: flex;
+  gap: 5px;
+}
+
+/* Every segment is filled on this screen: the person is at the wall, not
+   near it. The unfilled rule stays for the day a near-the-wall nudge reuses
+   this bar. */
+.cz-cap-progress-track > span {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+
+.cz-cap-progress-track > span.is-filled {
+  background: var(--cz-ink);
+}
+
+.cz-cap-flag {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-cap-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-cap-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* A phone gets the same card against the bottom edge. The shared modal rule
+   in credenza.css already caps the height and rounds the top corners; only
+   the control floor is left, and 44px is the smallest target a thumb hits
+   reliably. */
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-app[data-fashion="true"] .cz-modal-surface.cz-cap-modal {
+    border-radius: 18px 18px 0 0;
+  }
+
+  .cz-app[data-fashion="true"] .cz-cap .cz-pill {
+    min-height: 44px;
+  }
+}
+
+/* ── Sign-in modal (sign-in handoff 2026-08-02, README screen 2) ───────────
+   Its own card, not the limits bottom sheet. Signing in is a decision, so it
+   stays a centred window on every screen except a phone, where the shared
+   modal rule already anchors it to the bottom edge with 18px top corners.
+
+   Every rule here is prefixed with .cz-app[data-fashion="true"] on purpose.
+   The compositing-audit block sets .cz-modal-surface at specificity (0,0,3,0);
+   a bare .cz-modal-surface.cz-signin-modal is only (0,0,2,0) and silently
+   loses the background. Same trap the cz-signin-sheet block above documents. */
+.cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-modal {
+  position: relative;
+  border: 1px solid var(--cz-hair);
+  border-radius: 20px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 24px 64px oklch(0 0 0 / 0.6);
+}
+
+/* The shell draws a bare header for this modal: no title strip, only the
+   close button. Lifting it out of flow lets the body own the full 28/26/24
+   padding, so the brand lockup sits where the design puts it and not 40px
+   below the top edge. */
+.cz-app[data-fashion="true"] .cz-signin-modal .cz-modal-header.is-bare {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+}
+
+.cz-signin {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px 26px 24px;
+}
+
+.cz-signin-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cz-signin-wordmark {
+  font-family: var(--cz-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--cz-ink);
+}
+
+/* 8px below the lockup, not 18px: the heading belongs to the mark above it.
+   The negative margin pulls it out of the column gap rather than fighting it. */
+.cz-signin-head {
+  margin: -10px 0 0;
+  font-family: var(--cz-display);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: var(--cz-ink);
+}
+
+.cz-signin-kicker {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-signin-kicker.is-money {
+  color: var(--cz-money);
+}
+
+/* The kicker is a label for the heading under it, so they sit 8px apart and
+   not a full column gap apart. */
+.cz-signin-kicker + .cz-signin-head {
+  margin-top: -10px;
+}
+
+.cz-signin-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-signin-address {
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  color: var(--cz-ink);
+}
+
+.cz-signin-rule {
+  width: 100%;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--cz-hair);
+}
+
+.cz-signin-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+}
+
+.cz-signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cz-signin-form .cz-field {
+  border-radius: 10px;
+}
+
+/* iOS zooms the page when it focuses an input under 16px. The zoom never
+   comes back on its own, so the person is left on a magnified modal. */
+@media (max-width: 767px) {
+  .cz-signin-form .cz-field {
+    font-size: 16px;
+  }
+}
+
+/* Disabled is the README's exact pair. The shared .cz-pill:disabled rule
+   already carries the 0.56 opacity; this adds the cursor. */
+.cz-app[data-fashion="true"] .cz-signin .cz-pill:disabled {
+  cursor: not-allowed;
+}
+
+.cz-signin-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cz-signin-or-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+.cz-signin-or-word {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+}
+
+.cz-signin-oauth {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.cz-signin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cz-signin-error {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-warn-ink);
+}
+
+.cz-signin-foot {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+}
+
+/* A phone gets the same content as a bottom sheet. The shared modal rule in
+   credenza.css already caps the height at 88dvh and rounds the top corners.
+
+   Kyle 2026-08-02, with a screenshot: the first page "gets cut off really
+   hard". It kept the full desktop spacing on a 390px screen. State A stacks
+   eight rows at an 18px gap inside 28/26/24 padding; against the 88dvh cap
+   the last two rows fell past the edge, and the sheet scrolls, so it read as
+   cut off. State B stacks five rows, which is why only the first page showed
+   it. The reductions below buy back roughly 60px of height. They apply to a
+   phone only; the desktop card is unchanged.
+
+   The 44px control floor stays: it is the smallest target a thumb hits
+   reliably. */
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-modal {
+    border-radius: 18px 18px 0 0;
+  }
+
+  .cz-app[data-fashion="true"] .cz-signin {
+    gap: 13px;
+    padding: 22px 18px 18px;
+  }
+
+  /* 56px of clearance: the 40px close button, its 14px inset, and 2px of
+     air. Same reason .cz-cap-head carries it. Without this a wrapped heading
+     runs under the close button on a narrow screen. */
+  .cz-app[data-fashion="true"] .cz-signin .cz-signin-head {
+    padding-right: 56px;
+    font-size: 20px;
+  }
+
+  .cz-app[data-fashion="true"] .cz-signin .cz-pill {
+    min-height: 44px;
+  }
+}
+
+/* ── Upgrade route (sign-in handoff 2026-08-02, README screen 3) ───────────
+   Pro's own address, not a settings pane. A native <dialog> for the same
+   reason the settings page is one: it has to paint above an open card, which
+   is also a dialog, and the browser gives a top layer no z-index can beat.
+
+   The measurements below are the README's own. Credenza does not ride a 4px
+   grid: 9, 13, 14, 22, 26, 44 and 50 are all deliberate. Do not round them. */
+.cz-upgrade {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: var(--cz-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+}
+
+.cz-upgrade:focus,
+.cz-upgrade:focus-visible {
+  outline: none;
+}
+
+.cz-upgrade::backdrop {
+  background: oklch(0.16 0.01 260 / 0.5);
+}
+
+/* The bar sits above the ambient background, which paints at z-index 0. */
+.cz-upgrade-bar,
+.cz-upgrade-scroll {
+  position: relative;
+  z-index: 1;
+}
+
+.cz-upgrade-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+  box-sizing: border-box;
+  padding: calc(15px + env(safe-area-inset-top, 0px)) 24px 15px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-upgrade-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-upgrade-back:hover {
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--cz-hair);
+}
+
+/* The wordmark is the only thing set at 0.16em. A heading at this tracking
+   would read as a second logo, because both are Clash. */
+.cz-upgrade-wordmark {
+  font-family: var(--cz-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-bar-title {
+  font-size: 13px;
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-standing {
+  margin-left: auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cz-upgrade-body {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  box-sizing: border-box;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 44px 50px calc(50px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Hero ── */
+.cz-upgrade-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.cz-upgrade-kicker {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+}
+
+.cz-upgrade-head {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.038em;
+  line-height: 1.06;
+  color: var(--cz-ink);
+  text-wrap: balance;
+}
+
+.cz-upgrade-lede {
+  max-width: 520px;
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-upgrade-period {
+  width: 340px;
+  max-width: 100%;
+  margin-top: 8px;
+}
+
+/* ── Plan cards ── */
+.cz-upgrade-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.cz-upgrade-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+}
+
+/* The spacer pushes the button and the footnote onto one shared baseline, so
+   the two cards end level however long the free body runs. */
+.cz-upgrade-spacer {
+  flex: 1;
+}
+
+.cz-upgrade-plan.is-pro {
+  border-color: var(--cz-hair-strong);
+  box-shadow: 0 6px 24px oklch(0 0 0 / 0.45);
+}
+
+.cz-upgrade-plan-flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-flag-money {
+  color: var(--cz-money);
+}
+
+.cz-upgrade-tag {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.cz-upgrade-tag.is-money {
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+}
+
+.cz-upgrade-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.cz-upgrade-amount {
+  font-family: var(--cz-display);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.038em;
+  line-height: 1;
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-unit {
+  font-size: 14px;
+  color: var(--cz-sub);
+}
+
+.cz-upgrade-plan-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-upgrade-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-money);
+}
+
+.cz-upgrade-foot {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+}
+
+/* Kyle 2026-08-02: the Pro button used to fail in silence. This line names
+   the reason. Same shape as .cz-share-error, which is the one error surface
+   this app already had. */
+.cz-upgrade-error {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cz-heart, #e11d48) 10%, transparent);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-heart, #e11d48);
+}
+
+/* ── What changes ── */
+.cz-upgrade-table {
+  padding: 22px 24px 8px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+}
+
+.cz-upgrade-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-upgrade-row:last-child {
+  border-bottom: 0;
+}
+
+.cz-upgrade-row-kicker {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-money);
+}
+
+.cz-upgrade-row-what {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-upgrade-row-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-row-note {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-col-free,
+.cz-upgrade-col-pro {
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  text-align: right;
+}
+
+.cz-upgrade-col-free {
+  color: var(--cz-sub);
+}
+
+.cz-upgrade-col-pro {
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-row.is-head .cz-upgrade-col-free,
+.cz-upgrade-row.is-head .cz-upgrade-col-pro {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cz-upgrade-row.is-head .cz-upgrade-col-free {
+  color: var(--cz-faint);
+}
+
+.cz-upgrade-closing {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
+}
+
+/* ── Reassurance ── */
+.cz-upgrade-reassure {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.cz-upgrade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 22px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+}
+
+.cz-upgrade-card-head {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cz-ink);
+}
+
+.cz-upgrade-card-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* A phone stacks the cards and drops the sub-notes. The table keeps all three
+   columns: two of them are the whole point of the table. */
+@media (max-width: 767px) {
+  .cz-upgrade-bar {
+    gap: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .cz-upgrade-bar-title,
+  .cz-upgrade-divider {
+    display: none;
+  }
+
+  .cz-upgrade-body {
+    gap: 26px;
+    padding: 26px 18px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .cz-upgrade-head {
+    font-size: 28px;
+  }
+
+  .cz-upgrade-plans,
+  .cz-upgrade-reassure {
+    grid-template-columns: 1fr;
+  }
+
+  .cz-upgrade-row {
+    grid-template-columns: 1fr 76px 76px;
+    gap: 10px;
+  }
+
+  .cz-upgrade-row-note {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-upgrade .cz-pill,
+  .cz-upgrade .cz-segment-btn {
+    min-height: 44px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   QC overlay — haul handoff README, screens 3 to 5.
+
+   The screen that has to be fast. Two panes: the photo on the left, the
+   decision on the right. The rail is a fixed 344px so the verdict buttons
+   never move between items, and a person can go item to item without their
+   eye re-finding the target.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-qcr {
+  width: 100%;
+  max-width: 940px;
+  height: min(680px, 88vh);
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  overflow: visible;
+}
+
+.cz-qcr::backdrop {
+  background: oklch(0.16 0.01 260 / 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-qcr::backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.cz-qcr-surface {
+  display: flex;
+  height: 100%;
+  border-radius: 20px;
+  background: var(--cz-card);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  box-shadow: 0 30px 80px oklch(0 0 0 / 0.6);
+  overflow: hidden;
+}
+
+/* ── Left: the photo pane ── */
+
+.cz-qcr-photos {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cz-qcr-stage {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  background: var(--cz-inset-bg);
+  overflow: hidden;
+}
+
+.cz-qcr-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cz-qcr-nophoto {
+  padding: 20px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--cz-sub);
+}
+
+.cz-qcr-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--cz-strip-bg);
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-qcr-thumbs {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.cz-qcr-thumb {
+  flex: none;
+  width: 34px;
+  height: 42px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-qcr-thumb[data-current="true"] {
+  border-color: var(--cz-ink);
+}
+
+.cz-qcr-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cz-qcr-arrow,
+.cz-qcr-close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-qcr-arrow:active:not(:disabled),
+.cz-qcr-close:active {
+  transform: scale(0.96);
+}
+
+.cz-qcr-arrow:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+/* ── Right: the decision rail ── */
+
+.cz-qcr-rail {
+  display: flex;
+  flex: 0 0 344px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-left: 1px solid var(--cz-hair);
+  overflow-y: auto;
+}
+
+.cz-qcr-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cz-qcr-kicker {
+  flex: 1 1 auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-qcr-title {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.cz-qcr-meta {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--cz-faint);
+}
+
+/* The verdict pair. Inactive is a hairline on nothing, so the lit one is the
+   only colour on the rail. */
+.cz-qcr-verdicts {
+  display: flex;
+  gap: 8px;
+}
+
+.cz-qcr-verdict {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1.5px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-qcr-verdict:active {
+  transform: scale(0.96);
+}
+
+.cz-qcr-verdict[data-verdict="green"][aria-pressed="true"] {
+  border-color: var(--cz-money);
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+}
+
+.cz-qcr-verdict[data-verdict="red"][aria-pressed="true"] {
+  border-color: var(--cz-error-text);
+  background: var(--cz-error-bg);
+  color: var(--cz-error-text);
+}
+
+.cz-qcr-key {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.cz-qcr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px;
+  border-radius: 11px;
+}
+
+.cz-qcr-panel[data-verdict="green"] {
+  background: var(--cz-money-bg);
+}
+
+.cz-qcr-panel[data-verdict="red"] {
+  background: var(--cz-error-bg);
+}
+
+.cz-qcr-panel-line {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-ink);
+}
+
+.cz-qcr-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cz-qcr-reason {
+  padding: 5px 9px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 11px;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-qcr-reason:active {
+  transform: scale(0.96);
+}
+
+.cz-qcr-reason[aria-pressed="true"] {
+  border-color: var(--cz-error-text);
+  color: var(--cz-error-text);
+}
+
+/* The message Credenza writes and the person sends. It is quoted text, so it
+   keeps its own line breaks and its own family. */
+.cz-qcr-message {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: var(--cz-inset-bg);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--cz-ink);
+}
+
+.cz-qcr-action {
+  width: 100%;
+  min-height: 40px;
+}
+
+.cz-qcr-posture {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+
+.cz-qcr-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-qcr-tally {
+  flex: 1 1 auto;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--cz-sub);
+}
+
+.cz-qcr-next {
+  padding: 7px 12px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-qcr-next:active {
+  transform: scale(0.96);
+}
+
+/* Seller reputation falls out of QC for free. It is the most valuable
+   byproduct in the feature, so it gets its own line. */
+.cz-qcr-seller {
+  flex: 1 0 100%;
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.cz-qcr-arrow:focus-visible,
+.cz-qcr-close:focus-visible,
+.cz-qcr-thumb:focus-visible,
+.cz-qcr-verdict:focus-visible,
+.cz-qcr-reason:focus-visible,
+.cz-qcr-next:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+/* A finger needs 44px. */
+@media (pointer: coarse) {
+  .cz-qcr-arrow,
+  .cz-qcr-close,
+  .cz-qcr-next,
+  .cz-qcr-reason,
+  .cz-qcr-action {
+    min-height: 44px;
+  }
+
+  .cz-qcr-arrow,
+  .cz-qcr-close {
+    width: 44px;
+  }
+}
+
+/* The phone takes the whole screen: two panes side by side at 344px leave the
+   photo 46px wide. The rail stacks under the photo instead. */
+@media (max-width: 767px) {
+  .cz-qcr {
+    max-width: none;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .cz-qcr-surface {
+    flex-direction: column;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .cz-qcr-rail {
+    flex: 1 1 auto;
+    border-left: 0;
+    border-top: 1px solid var(--cz-hair);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   The haul board — haul handoff README, screens 2, 6 and 7.
+
+   Column widths are load-bearing. Four stage columns at 188px with 10px gaps:
+   782px inside a 1024px content box. Do not widen a column without widening
+   the container.
+
+   The parcel used to be a fifth column, fixed at 280px. Five columns came to
+   1072px, which is wider than the page, so the parcel was cut off at the right
+   edge (Kyle 2026-08-02). It now sits below the track with the full width, and
+   its three panels share that width.
+
+   The track keeps its side-scroll as a safety net. The four columns fit the
+   page, so the scroll only appears on a screen narrower than 782px.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-hb {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.cz-hb-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cz-sub);
+}
+
+/* ── The summary strip ── */
+
+.cz-hb-summary {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-card);
+  overflow: hidden;
+}
+
+.cz-hb-cell {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 16px;
+  border-right: 1px solid var(--cz-hair);
+}
+
+.cz-hb-cell-flex {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  border-right: 0;
+}
+
+.cz-hb-label {
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--cz-faint);
+}
+
+.cz-hb-value {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.cz-hb-value-mono {
+  font-family: var(--cz-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cz-hb-money {
+  color: var(--cz-money);
+}
+
+.cz-hb-storage {
+  font-size: 12.5px;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* ── The columns ── */
+
+.cz-hb-track {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 8px;
+  overflow-x: auto;
+}
+
+.cz-hb-col {
+  display: flex;
+  flex: 0 0 188px;
+  flex-direction: column;
+  gap: 8px;
+  width: 188px;
+}
+
+.cz-hb-col-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 2px 8px;
+  border-bottom: 1px solid var(--cz-hair);
+  white-space: nowrap;
+}
+
+.cz-hb-col-head-ink {
+  border-bottom-color: var(--cz-ink);
+}
+
+.cz-hb-kicker {
+  flex: 1 1 auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-hb-kicker-ink {
+  color: var(--cz-ink);
+}
+
+/* 11.5px, the board's one row step. It was 11px, a size used nowhere else. */
+.cz-hb-count {
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-ink);
+}
+
+/* ── One item card ── */
+
+.cz-hb-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-card);
+  cursor: pointer;
+  transition:
+    transform var(--dur-micro) var(--ease-out),
+    background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hb-card:hover {
+  transform: translateY(-2px);
+  background: var(--cz-inset-bg);
+}
+
+.cz-hb-card:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+.cz-hb-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.cz-hb-tile {
+  display: flex;
+  flex: 0 0 44px;
+  align-items: flex-end;
+  width: 44px;
+  height: 55px;
+  padding: 4px;
+  border-radius: 8px;
+  background-color: var(--cz-hb-tint, var(--cz-strip-bg));
+  background-position: center;
+  background-size: cover;
+  overflow: hidden;
+}
+
+.cz-hb-platform {
+  font-family: var(--cz-display);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--cz-action-text);
+}
+
+.cz-hb-card-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cz-hb-title {
+  display: -webkit-box;
+  font-family: var(--cz-display);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.22;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.cz-hb-meta {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}
+
+.cz-hb-meta-faint {
+  color: var(--cz-faint);
+}
+
+.cz-hb-meta-money {
+  color: var(--cz-money);
+}
+
+.cz-hb-meta-error {
+  color: var(--cz-error-text);
+}
+
+.cz-hb-price {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-money);
+}
+
+.cz-hb-action {
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hb-action:hover {
+  background: var(--cz-accent-bg);
+}
+
+.cz-hb-foot {
+  width: 100%;
+  min-height: 34px;
+  border: 1px dashed var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background var(--dur-micro) var(--ease-out),
+    color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hb-foot:hover {
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+}
+
+/* ── The parcel panel ──
+
+   Full width, below the track. The three panels share the row on a desktop and
+   stack on a phone, so no number is ever cut off. */
+
+.cz-hb-parcel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 240px is the narrowest a rate row reads at: a line name, an editable rate and
+   a cost. Below that the panels stack rather than squeeze. */
+.cz-hb-parcel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+/* The button is the one cell that is not a number. It sits at the top of its
+   column so it lines up with the two panels beside it. */
+.cz-hb-parcel-go {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cz-hb-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 14px;
+  background: var(--cz-bg-elevated);
+}
+
+.cz-hb-panel-lines {
+  gap: 7px;
+  background: var(--cz-card);
+}
+
+.cz-hb-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cz-hb-row-tile {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 38px;
+  border-radius: 6px;
+  background-color: var(--cz-hb-tint, var(--cz-strip-bg));
+  background-position: center;
+  background-size: cover;
+}
+
+.cz-hb-row-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cz-hb-row-title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 10.5px, the board's smallest mono step. It was 9.5px, a sixth size. The
+   kicker at .cz-hb-label stays 9px; it prints words, not numbers. */
+.cz-hb-row-weight {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-faint);
+}
+
+.cz-hb-remove {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-right: -6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hb-remove:hover {
+  background: var(--cz-hover);
+  color: var(--cz-ink);
+}
+
+.cz-hb-empty {
+  margin: 0;
+  padding: 18px 10px;
+  border: 1px dashed var(--cz-hair-strong);
+  border-radius: 11px;
+  font-size: 12px;
+  color: var(--cz-faint);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.cz-hb-em {
+  font-style: normal;
+  color: var(--cz-ink);
+}
+
+.cz-hb-rule {
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+.cz-hb-maths {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cz-hb-sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+/* Kyle 2026-08-02: "the numbers on the left look all wonky." Three faults ran
+   together here. A label used the sans face while its own value used the mono
+   face. The panel ran five mono sizes at once. And no rule asked for tabular
+   figures, so a 1 was narrower than a 0 and a column of sums never lined up.
+
+   The panel now runs three mono sizes only: 10.5px for a chip or a rate,
+   11.5px for a row, and 14px for the one chargeable total. Every rule that
+   prints a number sets tabular-nums, the way credenza.css:223 already does. */
+.cz-hb-sum-label {
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-faint);
+}
+
+.cz-hb-sum-value {
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-sub);
+}
+
+/* The chargeable row is the answer. Everything above it is the working, so
+   this row is the only one that carries weight. It reads louder by ink
+   colour and by the size of its value, not by a second typeface. */
+.cz-hb-sum-strong {
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+
+.cz-hb-sum-big {
+  font-family: var(--cz-mono);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cz-hb-divisor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-hb-chip {
+  min-width: 52px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background var(--dur-micro) var(--ease-out),
+    color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hb-chip-on {
+  border-color: var(--cz-ink);
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+}
+
+.cz-hb-hint {
+  font-size: 10.5px;
+  color: var(--cz-faint);
+}
+
+.cz-hb-tip {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 11px;
+  background: var(--cz-accent-bg);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-ink);
+  text-wrap: pretty;
+}
+
+/* ── The shipping lines ── */
+
+.cz-hb-lines-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.cz-hb-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hb-line-on {
+  border-color: var(--cz-ink);
+  background: var(--cz-accent-bg);
+}
+
+/* Kyle 2026-08-02: "not really sure what these are, can we get tool tips?"
+   A quiet ? beside the line name. It reads as a question, not as a control
+   that changes the price, so it carries no fill until a pointer is over it. */
+.cz-hb-why {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--cz-hair);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-faint);
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hb-why:hover {
+  border-color: var(--cz-ink);
+  color: var(--cz-ink);
+}
+
+.cz-hb-why:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+/* The floor line sits under the three rows. It states a fact about all of
+   them, so it stays quieter than a tip about this parcel. */
+.cz-hb-floor {
+  background: transparent;
+  padding: 2px 0 0;
+  color: var(--cz-faint);
+}
+
+/* 72px holds a four-figure rate without clipping. The panel is wider now, so
+   there is room for the number the person actually types. */
+.cz-hb-rate {
+  width: 72px;
+  padding: 3px 6px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 8px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* 11.5px, the same row step the maths panel above it uses. It was 12.5px, a
+   fourth mono size for no reason. */
+.cz-hb-cost {
+  min-width: 56px;
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-money);
+  text-align: right;
+}
+
+.cz-hb-cta {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.cz-hb-cta:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* A finger is not a mouse pointer. Every control the person taps gets the
+   44px floor, and the number input gets 16px so iOS does not zoom the page. */
+@media (pointer: coarse) {
+  .cz-hb-action,
+  .cz-hb-foot,
+  .cz-hb-chip,
+  .cz-hb-remove,
+  .cz-hb-why,
+  .cz-hb-cta {
+    min-height: 44px;
+  }
+
+  .cz-hb-remove,
+  .cz-hb-why {
+    width: 44px;
+  }
+
+  /* The tap area grows to 44px. The ring must not, or a phone shows a large
+     empty circle. The button drops its own border and ::before draws the
+     20px ring in the middle, so the look is the same on every device. */
+  .cz-hb-why {
+    position: relative;
+    border-color: transparent;
+  }
+
+  .cz-hb-why::before {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--cz-hair);
+    border-radius: 999px;
+  }
+
+  .cz-hb-why:hover::before {
+    border-color: var(--cz-ink);
+  }
+}
+
+@media (max-width: 767px) {
+  .cz-hb-rate {
+    font-size: 16px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HaulItemDrawer — haul handoff README, screen 8.
+
+   The right-edge drawer for one item in a haul. 352px, full height, heavy
+   glass over a dimmed board. The board stays visible behind it on purpose:
+   the drawer is a detail view, not a new place.
+
+   Desktop first, like the board it opens from. Below 767px the drawer takes
+   the whole width, because 352px of a 390px phone leaves a useless sliver.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-hd {
+  width: 352px;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.cz-hd::backdrop {
+  background: oklch(0 0 0 / 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-hd::backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .cz-hd-panel {
+    background: var(--cz-bg-elevated);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.cz-hd-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-left: 1px solid var(--cz-hair);
+  background: color-mix(in srgb, var(--cz-bg-elevated) 86%, transparent);
+  backdrop-filter: blur(28px) saturate(125%);
+  -webkit-backdrop-filter: blur(28px) saturate(125%);
+  overflow-y: auto;
+}
+
+.cz-hd-head {
+  display: flex;
+  gap: 12px;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-hd-tile {
+  display: flex;
+  flex: 0 0 62px;
+  align-items: flex-end;
+  width: 62px;
+  height: 78px;
+  padding: 6px;
+  border-radius: 10px;
+  background-color: var(--cz-hd-tint, var(--cz-strip-bg));
+  background-position: center;
+  background-size: cover;
+  overflow: hidden;
+}
+
+.cz-hd-platform {
+  font-family: var(--cz-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--cz-action-text);
+}
+
+.cz-hd-headtext {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cz-hd-title {
+  font-family: var(--cz-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--cz-ink);
+}
+
+.cz-hd-size {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--cz-faint);
+}
+
+.cz-hd-price {
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+
+.cz-hd-close {
+  display: flex;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-close:hover {
+  background: var(--cz-hover);
+}
+
+.cz-hd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-hd-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* The red-light block. Kyle 2026-08-02: "there's no screen that tells you what
+   the problem with the article of clothing is". It sits directly under the
+   head, above the stage list, because the problem outranks the position.
+
+   It carries the error tint, not a red border. A tinted panel reads as a state
+   of the item. A red outline reads as a form field the person filled in wrong,
+   and the person did nothing wrong here. */
+.cz-hd-red {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 14px 20px 16px;
+  border-bottom: 1px solid var(--cz-hair);
+  background: var(--cz-error-bg);
+}
+
+.cz-hd-red-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-error-text);
+}
+
+.cz-hd-red-text {
+  margin: 0;
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--cz-ink);
+  text-wrap: pretty;
+}
+
+.cz-hd-red-cta {
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-error-text);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-error-text);
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-red-cta:hover {
+  background: var(--cz-hover);
+}
+
+/* One stage row. Every row is live, forwards and back: a parcel gets split and
+   an order gets cancelled, so the person must be able to correct the app. */
+.cz-hd-stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 9px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-faint);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--dur-micro) var(--ease-out),
+    color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-stage:hover {
+  background: var(--cz-hover);
+}
+
+.cz-hd-stage[data-state="done"] {
+  color: var(--cz-sub);
+}
+
+.cz-hd-stage[data-state="current"] {
+  background: var(--cz-accent-bg);
+  color: var(--cz-ink);
+  cursor: default;
+}
+
+.cz-hd-mark {
+  display: flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--cz-hair-strong);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cz-action-text);
+}
+
+.cz-hd-stage[data-state="done"] .cz-hd-mark,
+.cz-hd-stage[data-state="current"] .cz-hd-mark {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+}
+
+.cz-hd-stage-label {
+  flex: 1 1 auto;
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cz-hd-when {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cz-faint);
+}
+
+.cz-hd-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cz-hd-fieldlabel {
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  color: var(--cz-sub);
+}
+
+.cz-hd-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-hd-number {
+  width: 78px;
+  padding: 5px 8px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.cz-hd-unit {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  color: var(--cz-faint);
+}
+
+.cz-hd-text {
+  width: 120px;
+  padding: 5px 8px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* Where the weight came from. Kyle 2026-08-02: "you're making sure that it's not
+   just an estimate. It is just what comes from the warehouse."
+
+   A guess is grey and quiet. A warehouse number is money-toned and carries a
+   tick, because that is the number the shipping cost is built on. The two states
+   read as different at a glance, which is the whole point of the line. */
+.cz-hd-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--cz-faint);
+}
+
+.cz-hd-source[data-weighed="yes"] {
+  color: var(--cz-money);
+}
+
+/* The dot holds the tick's place, so the line does not shift when a weight
+   lands. A layout that jumps reads as a bug, not as an answer. */
+.cz-hd-source-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border-radius: 50%;
+  background: var(--cz-inset-bg);
+  color: var(--cz-money);
+}
+
+.cz-hd-source[data-weighed="yes"] .cz-hd-source-mark {
+  background: var(--cz-money-bg);
+}
+
+.cz-hd-note {
+  margin: 0;
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+.cz-hd-storage {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--cz-accent-bg);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-ink);
+  text-wrap: pretty;
+}
+
+.cz-hd-actions {
+  border-bottom: 0;
+}
+
+.cz-hd-cta {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-cta:hover {
+  opacity: 0.86;
+}
+
+.cz-hd-outline {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-outline:hover {
+  background: var(--cz-hover);
+}
+
+.cz-hd-subtle {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-subtle:hover {
+  color: var(--cz-ink);
+}
+
+/* A finger is not a mouse pointer. Every control the person taps gets the
+   44px floor. */
+@media (pointer: coarse) {
+  .cz-hd-stage,
+  .cz-hd-close,
+  .cz-hd-cta,
+  .cz-hd-outline,
+  .cz-hd-subtle,
+  .cz-hd-red-cta {
+    min-height: 44px;
+  }
+
+  .cz-hd-close {
+    width: 44px;
+  }
+}
+
+/* 352px of a 390px phone leaves a useless sliver of the board behind it, so
+   the drawer takes the whole width instead. The number fields go to 16px,
+   because iOS zooms the page into any field below that. */
+@media (max-width: 767px) {
+  .cz-hd {
+    width: 100%;
+  }
+
+  .cz-hd-number,
+  .cz-hd-text {
+    font-size: 16px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   cz-ho — the hand-off screen (haul handoff README, screen 9).
+
+   The moment the app admits it cannot act for you. Two columns: the box and
+   the instruction on the left, the money and the send button on the right.
+
+   The green-lit "stays behind" row keeps full opacity on purpose. A green-lit
+   item left out of the box costs a second parcel for nothing, so it reads as
+   an action, not as a dimmed leftover.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-ho {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--cz-bg);
+  overflow-y: auto;
+}
+
+.cz-ho::backdrop {
+  background: oklch(0 0 0 / 0.5);
+}
+
+.cz-ho-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 22px 28px 140px;
+}
+
+.cz-ho-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.cz-ho-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ho-back:hover {
+  color: var(--cz-ink);
+}
+
+.cz-ho-h1 {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: var(--cz-ink);
+}
+
+.cz-ho-lede {
+  margin: 0 0 26px;
+  max-width: 640px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-ho-cols {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.cz-ho-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cz-ho-right {
+  flex: 0 0 320px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cz-ho-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 18px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+}
+
+.cz-ho-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-ho-kicker-gap {
+  margin-top: 7px;
+}
+
+.cz-ho-kickrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cz-ho-lang {
+  font-size: 11px;
+  color: var(--cz-faint);
+}
+
+.cz-ho-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--cz-hair);
+}
+
+.cz-ho-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* Red-lit and unreviewed rows are dimmed. A green-lit one is not: it is the
+   only row on this screen the person can still act on. */
+.cz-ho-row-left {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.cz-ho-row-left[data-dim="true"] {
+  opacity: 0.62;
+}
+
+.cz-ho-tile {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 50px;
+  border-radius: 8px;
+  background-color: var(--cz-ho-tint, var(--cz-strip-bg));
+  background-size: cover;
+  background-position: center;
+}
+
+.cz-ho-rowtext {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cz-ho-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--cz-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-ho-sub {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--cz-faint);
+}
+
+.cz-ho-sub[data-tone="money"] {
+  color: var(--cz-money);
+}
+
+.cz-ho-sub[data-tone="error"] {
+  color: var(--cz-error-text);
+}
+
+.cz-ho-weight {
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cz-sub);
+}
+
+.cz-ho-price {
+  min-width: 62px;
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cz-money);
+  text-align: right;
+}
+
+.cz-ho-add {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--cz-money);
+  border-radius: 999px;
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.cz-ho-add:hover {
+  opacity: 0.82;
+}
+
+.cz-ho-static {
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.cz-ho-block {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 12px;
+  background: var(--cz-inset-bg);
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--cz-sub);
+  white-space: pre-wrap;
+}
+
+.cz-ho-outline {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-ho-outline:hover {
+  background: var(--cz-hover);
+}
+
+.cz-ho-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cz-bg-elevated) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+
+.cz-ho-sumrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cz-ho-sumlabel {
+  font-size: 12px;
+  color: var(--cz-faint);
+}
+
+.cz-ho-sumvalue {
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+
+.cz-ho-money {
+  color: var(--cz-money);
+}
+
+.cz-ho-quiet {
+  color: var(--cz-sub);
+}
+
+.cz-ho-rule {
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+.cz-ho-landlabel {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cz-ink);
+}
+
+.cz-ho-landvalue {
+  font-family: var(--cz-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+
+.cz-ho-declared {
+  gap: 8px;
+  padding: 16px;
+}
+
+.cz-ho-decrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cz-ho-declabel {
+  flex: 1;
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-ho-decinput {
+  width: 78px;
+  padding: 6px 9px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* One flat warning, no advice. This is a customs liability boundary. */
+.cz-ho-warn {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-ho-cta {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+  font-family: var(--cz-sans);
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.cz-ho-cta:hover {
+  opacity: 0.88;
+}
+
+/* Credenza never presses send. Do not cut this line. */
+.cz-ho-foot {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-ho-card,
+  .cz-ho-sum {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--cz-card-solid);
+  }
+}
+
+/* A finger is not a mouse pointer. Every control the person taps gets the
+   44px floor. */
+@media (pointer: coarse) {
+  .cz-ho-back,
+  .cz-ho-add,
+  .cz-ho-outline,
+  .cz-ho-cta {
+    min-height: 44px;
+  }
+}
+
+/* The right column is 320px of a 390px phone, so the two columns stack. The
+   declared-value field goes to 16px, because iOS zooms the page into any
+   field below that. */
+@media (max-width: 767px) {
+  .cz-ho-page {
+    padding: 18px 16px 120px;
+  }
+
+  .cz-ho-cols {
+    flex-direction: column;
+  }
+
+  .cz-ho-right {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .cz-ho-decinput {
+    font-size: 16px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   cz-ht — the tracking screen (haul handoff README, screens 10 and 11).
+
+   Where a haul sits longest. Nothing here polls a carrier, so every step is
+   the person's own hand marking what already happened.
+
+   Every step stays tappable in both directions. A step marked early is a lie
+   the app would otherwise make permanent.
+
+   Reaching "Received" opens the fit questions, which is the only place the app
+   asks how a size call turned out.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-ht {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--cz-bg);
+  overflow-y: auto;
+}
+
+.cz-ht::backdrop {
+  background: oklch(0 0 0 / 0.5);
+}
+
+.cz-ht-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 22px 28px 140px;
+}
+
+.cz-ht-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.cz-ht-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-back:hover {
+  color: var(--cz-ink);
+}
+
+.cz-ht-h1 {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.cz-ht-meta {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cz-faint);
+}
+
+.cz-ht-lede {
+  margin: 0 0 26px;
+  max-width: 640px;
+  font-size: 13px;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-ht-cols {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.cz-ht-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cz-ht-right {
+  flex: 0 0 300px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cz-ht-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 18px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+}
+
+.cz-ht-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* Kyle 2026-08-02: "for tracking, can we animate when we get shipment?"
+   A rail runs behind the four marks. Its fill grows to the last ticked step,
+   so a tick reads as progress along a route and not as a checkbox. */
+/* The gap repeats the card's own 11px, so wrapping the rows changes no
+   spacing. The rows still pull themselves 7px closer with their own margin. */
+.cz-ht-steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+/* The rail joins the middle of the first mark to the middle of the last one.
+   A row is 40px tall (11 + 18 + 11), so the first middle is 20px down. The
+   last row pulls the block 7px up, so the last middle is 13px from the
+   bottom. The mark is 18px wide inside 10px of padding, so its middle is 19px
+   across and a 2px rail starts at 18px. */
+.cz-ht-rail {
+  position: absolute;
+  top: 20px;
+  bottom: 13px;
+  left: 18px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--cz-hair-strong);
+  overflow: hidden;
+}
+
+/* This animates a height on purpose. The rail above it is absolutely
+   positioned and clips its own overflow, so the fill is 2px wide and has no
+   sibling and no text to push. A transform would scale the rounded ends. */
+.cz-ht-fill {
+  display: block;
+  width: 100%;
+  height: var(--fill, 0%);
+  border-radius: inherit;
+  background: var(--cz-action-fill);
+  transition: height var(--dur-open) var(--ease-out);
+}
+
+/* The step rows sit tighter than the card gap, so they read as one list. */
+.cz-ht-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: -7px;
+  padding: 11px 10px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-step:hover,
+.cz-ht-step[data-current="true"] {
+  background: var(--cz-accent-bg);
+}
+
+.cz-ht-mark {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--cz-hair-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cz-action-text);
+}
+
+.cz-ht-mark[data-done="true"] {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+}
+
+.cz-ht-steplabel {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--cz-faint);
+}
+
+.cz-ht-steplabel[data-done="true"] {
+  color: var(--cz-ink);
+}
+
+.cz-ht-when {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--cz-faint);
+}
+
+.cz-ht-trackrow {
+  display: flex;
+  gap: 9px;
+  margin-top: 15px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-ht-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: var(--cz-inset-bg);
+  color: var(--cz-ink);
+  font-family: var(--cz-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cz-ht-input:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 1px;
+}
+
+.cz-ht-track {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-track:hover {
+  border-color: var(--cz-ink);
+}
+
+/* No tracking number means nowhere to go. The link says so instead of opening
+   an empty search. */
+.cz-ht-track[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.cz-ht-fithead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-ht-fitsub {
+  font-size: 12px;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+.cz-ht-fitrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cz-ht-tile {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 42px;
+  border-radius: 7px;
+  background-color: var(--cz-ht-tint, var(--cz-strip-bg));
+  background-size: cover;
+  background-position: center;
+}
+
+.cz-ht-fittext {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cz-ht-fittitle {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cz-ht-fitsize {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cz-faint);
+}
+
+.cz-ht-chips {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 5px;
+}
+
+.cz-ht-chip {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-chip:hover {
+  border-color: var(--cz-ink);
+}
+
+.cz-ht-chip[data-active="true"] {
+  border-color: var(--cz-action-fill);
+  background: var(--cz-action-fill);
+  color: var(--cz-action-text);
+}
+
+.cz-ht-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cz-bg-elevated) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+
+.cz-ht-sumrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.cz-ht-sumlabel {
+  font-size: 12px;
+  color: var(--cz-faint);
+}
+
+.cz-ht-sumvalue {
+  font-family: var(--cz-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cz-sub);
+}
+
+.cz-ht-rule {
+  height: 1px;
+  background: var(--cz-hair);
+}
+
+.cz-ht-landlabel {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cz-ht-landvalue {
+  font-family: var(--cz-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cz-money);
+}
+
+.cz-ht-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+  text-wrap: pretty;
+}
+
+.cz-ht-remain {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-ht-outline {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-family: var(--cz-sans);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-ht-outline:hover {
+  border-color: var(--cz-ink);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-ht-card,
+  .cz-ht-sum {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--cz-card-solid);
+  }
+}
+
+/* A finger is not a mouse pointer. Every control the person taps gets the
+   44px floor. */
+@media (pointer: coarse) {
+  .cz-ht-back,
+  .cz-ht-step,
+  .cz-ht-track,
+  .cz-ht-chip,
+  .cz-ht-outline {
+    min-height: 44px;
+  }
+
+  /* A taller row moves the marks the rail joins. The row is 44px now, so the
+     first middle is 22px down. The last row still pulls the block 7px up, so
+     the last middle is 15px from the bottom. */
+  .cz-ht-rail {
+    top: 22px;
+    bottom: 15px;
+  }
+}
+
+/* The right column is 300px of a 390px phone, so the two columns stack. The
+   tracking field goes to 16px, because iOS zooms the page into any field
+   below that. */
+@media (max-width: 767px) {
+  .cz-ht-page {
+    padding: 18px 16px 120px;
+  }
+
+  .cz-ht-head {
+    flex-wrap: wrap;
+  }
+
+  .cz-ht-cols {
+    flex-direction: column;
+  }
+
+  .cz-ht-right {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .cz-ht-input {
+    font-size: 16px;
+  }
 }

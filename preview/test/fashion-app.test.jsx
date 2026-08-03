@@ -407,11 +407,15 @@ describe("Fashion card-back navigation and editing", () => {
 
     await user.click(screen.getByRole("button", { name: /Summer Europe/i }));
     expect(await screen.findByRole("heading", { name: "Summer Europe" })).toBeInTheDocument();
-    // Morph may keep the carousel briefly hidden; wait for the open-haul card.
+    // Kyle 2026-08-02: an open haul shows the board and the grid, never the
+    // carousel, so the open card is a grid card ("Open <title>"), not a rack
+    // card ("Flip <title>"). The surface still fades in, so this waits.
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Flip Summer tee/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Open Summer tee/i })).toBeInTheDocument()
     );
-    expect(screen.queryByRole("button", { name: /Flip Winter jacket/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open Winter jacket/i })).not.toBeInTheDocument();
+    // No carousel under the board.
+    expect(screen.queryByRole("button", { name: /Flip Summer tee/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /All hauls/i }));
     expect(await screen.findByText("Your hauls")).toBeInTheDocument();
@@ -560,7 +564,7 @@ describe("Fashion morph controls and favorites", () => {
       }),
     });
     const { container } = render(<Credenza />);
-    await screen.findByRole("button", { name: "Profile" });
+    await screen.findByRole("button", { name: "Sign in" });
     expect(container.querySelector(".cz-app")).toHaveAttribute("data-theme", "rainbow");
     await waitFor(() => {
       const prefs = JSON.parse(data[PREFS_KEY]);
@@ -753,10 +757,10 @@ describe("Agent Buy plumbing (A2)", () => {
     await screen.findAllByText("Palace x Nike jersey");
     // The bottom bar is gone (mobile handoff step 3), so the Agent sheet
     // opens from the avatar menu's Agent row.
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     // The card detail has its own "Agent: …" button; the menu row computes
-    // as "AgentSuperbuy ›" (spans join without a space).
-    await user.click(await screen.findByRole("button", { name: /^Agent\S+ ›$/ }));
+    // as "AgentSuperbuy" (spans join without a space).
+    await user.click(await screen.findByRole("button", { name: /^Agent\S+$/ }));
     expect(await screen.findByRole("heading", { name: "Buying agent" })).toBeInTheDocument();
     expect(screen.getByText(/Disclosure:/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Sugargoo/ }));
@@ -823,7 +827,7 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     // Import lives in the settings page's Your data section now (Profile
     // Settings design). The cold open lands straight on the hero — the
     // first-run intro gate is gone (2026-07-26).
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -879,7 +883,7 @@ Installed Apps`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -899,7 +903,7 @@ Installed Apps`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -936,7 +940,7 @@ Installed Apps`;
     // Wait for the shelf to hydrate — see the search-field test for why (the
     // first-run intro can flash for one render and detach early grabs).
     await screen.findAllByText("Real card one");
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     await user.click(await screen.findByRole("button", { name: /Your data/ }));
     await user.click(await screen.findByRole("button", { name: /Clear the whole shelf/ }));
@@ -2242,10 +2246,10 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     expect(screen.queryByRole("radio", { name: "Blackout" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "Gallery" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Agent\S+ ›$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Agent\S+$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Currency/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /All settings/ })).toBeInTheDocument();
   });
@@ -2258,10 +2262,10 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/account");
   });
 
@@ -2279,12 +2283,12 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
       // masthead and the frosted dock. Clicking before items land can hit a
       // node that unmounts mid-gesture, so the click is lost.
       await screen.findByRole("heading", { name: "Shelf" });
-      await user.click(await screen.findByRole("button", { name: "Profile" }));
+      await user.click(await screen.findByRole("button", { name: "Sign in" }));
       await user.click(await screen.findByRole("button", { name: /All settings/ }));
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
       // Redesign 2026-08-01: phone stacks every section in one column. No
       // list-then-detail push. URL still names a section for deep links.
-      expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+      expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
       expect(await screen.findByRole("heading", { name: "Sizes and measurements." })).toBeInTheDocument();
       expect(window.location.pathname).toMatch(/^\/settings/);
     } finally {
@@ -2334,7 +2338,7 @@ describe("Settings deep links (CH-12)", () => {
     // page opens on Account and plan and the URL STAYS — it is state, not an
     // entrance.
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/account");
   });
 
@@ -2347,7 +2351,7 @@ describe("Settings deep links (CH-12)", () => {
     window.history.replaceState(null, "", "/?upgraded=1");
     render(<Credenza />);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/account");
     expect(window.location.search, "the ?upgraded flag stays in the address").toBe("");
   });
@@ -2357,7 +2361,7 @@ describe("Settings deep links (CH-12)", () => {
     window.history.replaceState(null, "", "/settings/account");
     render(<Credenza />);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
   });
 
   it("a path outside /settings opens nothing", async () => {

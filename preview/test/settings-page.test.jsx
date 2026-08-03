@@ -20,6 +20,9 @@ const VALUE = {
   accountEnabled: false,
   accountSession: null,
   accountPlan: null,
+  limits: null,
+  onSignIn: noop,
+  onOpenUpgrade: noop,
   onMagicLink: noop,
   onGoogle: noop,
   onUpgrade: noop,
@@ -147,7 +150,7 @@ describe("SettingsPage (one-page redesign)", () => {
       n.textContent.trim()
     );
     expect(heads).toEqual([
-      "Free is the whole app. Pro is more of it.",
+      "You are signed out.",
       "Sizes and measurements.",
       "Shelf defaults.",
       "Your data.",

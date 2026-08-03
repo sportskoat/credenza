@@ -172,12 +172,14 @@ describe("no stale price survives anywhere on the public site", () => {
 });
 
 describe("the upgrade CTA goes through the app, never straight to Stripe", () => {
-  it("targets the entry parameter that opens Account and plan", () => {
-    // credenza-fashion.jsx reads params.get("profile") on mount and opens the
-    // routed settings page on the account section. That section holds the real
-    // checkout button, which needs the signed-in session a static page does
-    // not have.
-    expect(page).toContain('href="/?profile=1"');
+  it("targets the address that opens the Pro page", () => {
+    // Kyle 2026-08-02: "in the pricing page, start 3 days free should take you
+    // to this page", pointing at the in-app Pro page. The old target was
+    // "/?profile=1", which opened Settings and made the reader hunt for the
+    // plan. /upgrade opens Pro itself. That page holds the real checkout
+    // button, which needs the signed-in session a static page does not have.
+    expect(page).toContain('href="/upgrade"');
+    expect(page).not.toContain('href="/?profile=1"');
   });
 
   it("links no Stripe URL", () => {
@@ -186,10 +188,14 @@ describe("the upgrade CTA goes through the app, never straight to Stripe", () =>
     expect(page).not.toMatch(/stripe\.com|buy\.stripe|checkout\.stripe/i);
   });
 
-  it("keeps the entry parameter the app actually reads", () => {
+  it("keeps the address the app actually reads", () => {
+    // The app opens Pro on arrival at /upgrade, and netlify.toml rewrites the
+    // path to index.html so the visit reaches the app at all. Both halves have
+    // to hold or the CTA lands on a 404.
     const app = read("credenza-fashion.jsx");
-    expect(app).toContain('params.get("profile")');
-    expect(app).toContain('setSettingsView({ section: "account" })');
+    expect(app).toMatch(/\^\\\/upgrade/);
+    expect(app).toContain("setUpgradeView({ period:");
+    expect(read("preview/netlify.toml")).toContain('from = "/upgrade"');
   });
 });
 
@@ -320,8 +326,13 @@ describe("the page only sells what is built", () => {
     expect(row("Hauls at once")).toContain("<td>" + cap("pro", "haulsMax") + "</td>");
     expect(row("QC photos an item")).toContain("<td>" + cap("free", "qcPhotosPerItem") + "</td>");
     expect(row("QC photos an item")).toContain("<td>" + cap("pro", "qcPhotosPerItem") + "</td>");
-    expect(row("Ask")).toContain("<td>" + cap("free", "askPerDay") + " a day</td>");
-    expect(row("Ask")).toContain("<td>" + cap("pro", "askPerDay") + " a day</td>");
+    // Kyle 2026-08-02: "take out the ask questions on chart pricing claims
+    // everywhere across the site". The Ask row is gone from the table, so
+    // there is no pair to bind. The cap itself still runs; entitlements.js
+    // and plan-limits.test.js own it now.
+    expect(page, "the Ask row is back on the price table").not.toContain(
+      '<th scope="row">Ask</th>'
+    );
     expect(row("AI size-chart reads")).toContain(
       "<td>" + cap("free", "chartVisionPerDay") + " a day</td>"
     );
@@ -358,9 +369,13 @@ describe("the page only sells what is built", () => {
       cap("pro", "qcPhotosPerItem") + " QC photos an item",
       cap("pro", "chartVisionPerDay") + " AI size-chart reads a day",
       comma(cap("pro", "resolvePerDay")) + " link resolves a day",
-      cap("pro", "askPerDay") + " Ask questions a day",
     ]) {
       expect(bullets, "no bullet reads " + JSON.stringify(want)).toContain(want);
+    }
+    // The Ask bullet left with the Ask row. No bullet sells it and no bullet
+    // prints its daily number.
+    for (const bullet of bullets) {
+      expect(bullet, "a bullet still sells Ask").not.toMatch(/\bAsk\b/);
     }
   });
 

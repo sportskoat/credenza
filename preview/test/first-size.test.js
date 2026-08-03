@@ -82,7 +82,8 @@ describe("usual-fit provenance pin", () => {
 describe("no-chart usual provenance pin", () => {
   it("locks the YOUR USUAL fallback copy (not chart-anchored usual-fit)", () => {
     expect(FIRST_SIZE_USUAL_NO_CHART_PROV.kicker).toBe("Your usual size");
-    expect(FIRST_SIZE_USUAL_NO_CHART_PROV.rail).toBe("Your usual size");
+    // README confidence ladder: the no-chart rail must say so out loud.
+    expect(FIRST_SIZE_USUAL_NO_CHART_PROV.rail).toBe("No chart · your usual size");
     expect(FIRST_SIZE_USUAL_NO_CHART_PROV.body).toBe(
       "This listing has no chart. The pick is your usual size."
     );

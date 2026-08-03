@@ -115,11 +115,51 @@ export async function sendMagicLink(email, { fetchImpl, redirectTo } = {}) {
   return true;
 }
 
-// Google OAuth: the caller navigates to this URL. Supabase redirects back to
+// OAuth: the caller navigates to this URL. Supabase redirects back to
 // redirectTo with the session in the URL hash, same as the magic link.
-export function googleAuthUrl({ redirectTo } = {}) {
+//
+// Sign-in handoff README: three methods only, and no fourth. A magic link
+// makes signing in and signing up the same act, so Google and Apple are the
+// whole OAuth list. Adding a provider here without a button is a defect.
+export const OAUTH_PROVIDERS = ["google", "apple"];
+
+export function oauthAuthUrl(provider, { redirectTo } = {}) {
+  if (!OAUTH_PROVIDERS.includes(provider)) {
+    throw new Error("Unknown sign-in method.");
+  }
   const origin = redirectTo || (typeof window !== "undefined" ? window.location.origin : "");
-  return base() + "/authorize?provider=google&redirect_to=" + encodeURIComponent(origin);
+  return base() + "/authorize?provider=" + provider + "&redirect_to=" + encodeURIComponent(origin);
+}
+
+export function googleAuthUrl(opts = {}) {
+  return oauthAuthUrl("google", opts);
+}
+
+// A build with no Supabase keys still renders the sign-in modal, because
+// hiding it would read as a missing feature rather than a missing key. The
+// buttons answer with this one flat line instead. Credenza's voice: no
+// exclamation mark, no "Oops", no stack trace.
+export const AUTH_MISSING_MESSAGE = "Couldn't connect. Add provider keys in .env.";
+
+/**
+ * The one door into sign-in. Every surface calls this, so no surface can
+ * invent a fourth method.
+ *
+ * @param {"email"|"google"|"apple"} method
+ * @param {object} [opts]
+ * @param {string} [opts.email] - required when method is "email"
+ * @returns {Promise<{sent?: true, redirect?: string}>}
+ */
+export async function signInWith(method, { email, redirectTo, fetchImpl } = {}) {
+  if (!AUTH_ENABLED) throw new Error(AUTH_MISSING_MESSAGE);
+  if (method === "email") {
+    await sendMagicLink(email, { fetchImpl, redirectTo });
+    return { sent: true };
+  }
+  if (OAUTH_PROVIDERS.includes(method)) {
+    return { redirect: oauthAuthUrl(method, { redirectTo }) };
+  }
+  throw new Error("Unknown sign-in method.");
 }
 
 // Parse the redirect landing hash. Returns { session } on success, { error }

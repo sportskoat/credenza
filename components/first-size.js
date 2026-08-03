@@ -101,7 +101,11 @@ export const FIRST_SIZE_USUAL_FIT_PROV = {
  */
 export const FIRST_SIZE_USUAL_NO_CHART_PROV = {
   kicker: "Your usual size",
-  rail: "Your usual size",
+  // Onboarding README, "The sizing algorithm": the confidence label ladder is
+  // chart pick · usual size + fit  →  chart pick · chest 108cm  →
+  // no chart · your usual size. The rail must name the missing chart, so the
+  // label never outruns fit.*.source.
+  rail: "No chart · your usual size",
   body: "This listing has no chart. The pick is your usual size.",
   upgrade: "Add your chest",
 };

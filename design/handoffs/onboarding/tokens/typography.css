@@ -1,0 +1,63 @@
+/* Type tokens. TWO families now, plus mono.
+
+   2026-07-28: the display serif was retired. Georgia's wide, even strokes read
+   as heavy above ~24px — the "fat" problem — and its only job was to stand in
+   for a serif the product never actually shipped. Display is now Clash Grotesk
+   at 600 tracked hard to −0.035em; body is the same family at 500/600 tracked
+   −0.01em. One face, two voices, separated by weight and tracking rather than
+   by family.
+
+   Consequence to respect: the wordmark is ALSO Clash. A page heading and the
+   logo are now the same letterforms, so never set a heading at the wordmark's
+   0.16em tracking — the tracking is what keeps them distinct. */
+:root {
+  --cz-display: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; /* @kind font */
+  --cz-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; /* @kind font */
+  --cz-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; /* @kind font */
+
+  /* Semantic roles */
+  --font-display: var(--cz-display); /* headings, card titles, prices, big numbers */
+  --font-body: var(--cz-sans);       /* body copy, labels, controls */
+  --font-data: var(--cz-mono);       /* IDs, sizes, weights, kickers, status */
+
+  /* Marketing display scale (fluid, serif) */
+  --type-hero: clamp(34px, 5vw, 58px);
+  --type-h2: clamp(26px, 3.4vw, 38px);
+  --type-h3: clamp(24px, 3vw, 32px);
+  --type-lede: clamp(15.5px, 1.3vw, 17.5px);
+
+  /* App scale (fixed px — the shelf is a dense tool, not a page) */
+  --type-hero-app: 37px;      /* empty-shelf hero on phone */
+  --type-title-card: 17px;    /* grid card title, serif */
+  --type-title-dense: 16px;   /* two-line card variant */
+  --type-body: 14px;
+  --type-body-sm: 13px;       /* pills, tabs, most chrome */
+  --type-meta: 12px;          /* captions, totals, field labels */
+  --type-micro: 11px;         /* chips, seller line */
+  --type-kicker: 11px;        /* mono, uppercase, tracked */
+  --type-flag: 10px;          /* status pill */
+
+  /* Weights actually used in the product */
+  --weight-regular: 500; /* @kind other */
+  --weight-medium: 600; /* @kind other */
+  --weight-semibold: 650; /* @kind other */
+  --weight-bold: 700; /* @kind other */
+  --weight-heavy: 750; /* @kind other */
+  --weight-flag: 800; /* @kind other */         /* status pill + wordmark */
+
+  /* Tracking. Display runs TIGHT — a grotesk needs it to read as display. */
+  --track-hero: -0.038em; /* @kind other */
+  --track-display: -0.035em; /* @kind other */
+  --track-title: -0.03em; /* @kind other */
+  --track-tight: -0.01em; /* @kind other */
+  --track-kicker: 0.14em; /* @kind other */
+  --track-flag: 0.08em; /* @kind other */
+  --track-wordmark: 0.16em; /* @kind other */
+  --track-wordmark-kicker: 0.30em; /* @kind other */
+
+  /* Leading */
+  --leading-hero: 1.06; /* @kind other */
+  --leading-title: 1.25; /* @kind other */
+  --leading-body: 1.5; /* @kind other */
+  --leading-lede: 1.6; /* @kind other */
+}

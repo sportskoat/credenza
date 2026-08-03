@@ -188,7 +188,7 @@ sell a feature before it ships.
 
 Pricing is in the nav and the footer on all 13 public pages, in
 `sitemap.xml`, in `llms.txt` and in `llms-full.txt`. The CTA targets
-`/?profile=1`, never Stripe — a checkout started from a static page has no
+`/upgrade`, never Stripe — a checkout started from a static page has no
 account to grant Pro to.
 
 `preview/test/pricing.test.js` pins the price against the `PRICING` export

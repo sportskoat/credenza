@@ -183,33 +183,30 @@ describe("the one limits sheet", () => {
     expect(retry).toContain("beginIndexingJob(result)");
   });
 
-  it("tells a visitor where they stand, and what an account gives", () => {
+  // Sign-in handoff README, screen 1. The signed-out wall left the shared
+  // sheet 2026-08-02 and became its own card. It offers two different doors
+  // now, and it names no price at all: Pro is a separate question on a
+  // separate route.
+  it("tells a visitor where they stand, and offers the free door first", () => {
     const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
-    render(<LimitsSheet status={status} signedIn={false} />);
-    expect(screen.getByRole("heading", { name: "That is your third free card." })).toBeTruthy();
-    expect(screen.getByText("3 of 3 free cards used · resets tomorrow")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sign in, free" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Go Pro: $5.99 a month" })).toBeTruthy();
-    expect(
-      screen.getByText(
-        "A free account raises every daily ceiling and keeps your shelf across your devices. No card, no checkout."
-      )
-    ).toBeTruthy();
-    expect(screen.queryByText(/\$2\.49 a week/)).toBe(null);
-    expect(
-      screen.getByText("$44.99 a year works out to $3.75 a month · cancel any time")
-    ).toBeTruthy();
-    // The caps come from PLAN_CAPS, so the sheet cannot quote a number the
-    // app does not enforce.
-    const table = screen.getByRole("table");
-    expect(table.textContent).toContain(
-      "Cards from a link" + PLAN_CAPS.free.resolvePerDay + PLAN_CAPS.pro.resolvePerDay
-    );
-    expect(table.textContent).toContain(
-      "Size chart reads" +
-        PLAN_CAPS.free.chartVisionPerDay +
-        PLAN_CAPS.pro.chartVisionPerDay
-    );
+    const { container } = render(<LimitsSheet status={status} signedIn={false} />);
+    expect(screen.getByRole("heading", { name: "That is your third card today." })).toBeTruthy();
+    expect(screen.getByText("3 of 3 · Signed out · Resets tomorrow")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in · free" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "See what Pro changes" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Not now" })).toBeTruthy();
+
+    // No price, no cap table, no yearly note: every one of those belongs to
+    // the upgrade route now.
+    expect(container.textContent).not.toMatch(/\$/);
+    expect(screen.queryByRole("table")).toBe(null);
+
+    // The body quotes the caps the server enforces, and never the word
+    // "unlimited" — a free account is a raise, not a removal (Kyle 2026-08-02).
+    const body = container.textContent;
+    expect(body).toContain(String(ANON_FREE_CARDS));
+    expect(body).toContain(String(PLAN_CAPS.free.resolvePerDay));
+    expect(body).not.toMatch(/unlimited/i);
   });
 
   it("promises a signed-in person that a wall never deletes a card", () => {
@@ -250,8 +247,8 @@ describe("the one limits sheet", () => {
         onClose={() => calls.push("close")}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Sign in, free" }));
-    fireEvent.click(screen.getByRole("button", { name: "Go Pro: $5.99 a month" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in · free" }));
+    fireEvent.click(screen.getByRole("button", { name: "See what Pro changes" }));
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(calls).toEqual(["sign-in", "upgrade", "close"]);
   });
@@ -332,9 +329,9 @@ describe("phone headings clear the status bar", () => {
 //
 // Kyle drew the limits wall as a sheet against the bottom edge, with a grab
 // bar. This also lives in the stylesheet, so it is pinned at the source.
-// The sign-in card left this path 2026-08-01 (see the next describe block);
-// this one now covers only the states that still show it — today's free
-// limit and a lapsed Pro.
+// The signed-out wall left this path 2026-08-02 for its own card (see the
+// next describe block); this one now covers only the states that still show
+// it — today's free limit and a lapsed Pro.
 
 describe("the limits wall is a bottom sheet on a phone", () => {
   const phoneStart = CSS.indexOf(
@@ -368,48 +365,44 @@ describe("the limits wall is a bottom sheet on a phone", () => {
   });
 });
 
-// ── The sign-in card: a centered window everywhere (F 2026-08-01) ──────────
+// ── The cap modal: its own card, not the limits sheet (README screen 1) ────
 //
-// Kyle: "while you are at the sign in, can you center it and make it its
-// own modal." Signing in is a decision, not a quick tool, so unlike the
-// limits wall above it never bottom-slides on a phone — cz-signin-sheet
-// overrides the shared bottom-sheet gate back to centered and adds the
-// glass surface.
+// The signed-out wall is 520px of its own, so a later edit cannot quietly
+// fold it back into the bottom sheet. The measurements the design names by
+// number are pinned here; the copy is pinned by the render test above.
 
-describe("the sign-in card is a centered, frosted window on every screen", () => {
-  const signinBase = CSS.slice(
-    CSS.indexOf('.cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-sheet {'),
+describe("the cap modal is its own card", () => {
+  const capBase = CSS.slice(
+    CSS.indexOf('.cz-app[data-fashion="true"] .cz-modal-surface.cz-cap-modal {'),
   );
-  const phoneStart = signinBase.indexOf(
-    "@media (max-width: 767px) and (pointer: coarse) {\n  /* The phone bottom-sheet gate",
-  );
-  const phone = signinBase.slice(phoneStart, signinBase.indexOf("\n}\n", phoneStart));
 
-  it("gives the surface a translucent frost fill, no blur", () => {
-    expect(signinBase).toMatch(/\.cz-modal-surface\.cz-signin-sheet\s*{[\s\S]*?background:\s*var\(--cz-frost-fill\);/);
-    // No backdrop-filter: the 2026-07-27 compositing audit measured 0%
-    // visible change from blurring a static modal surface. A regression
-    // here would silently pay that cost back.
-    const surfaceBlock = signinBase.slice(0, signinBase.indexOf("\n}\n"));
-    // The colon form only matches a real declaration, not this file's own
-    // explanatory comment about why there is none.
-    expect(surfaceBlock).not.toContain("backdrop-filter:");
+  it("carries the app prefix, so the card background survives the cascade", () => {
+    // .cz-app[data-fashion="true"] .cz-modal-surface is (0,0,3,0). A bare
+    // .cz-modal-surface.cz-cap-modal is (0,0,2,0) and silently loses.
+    expect(capBase).toContain('.cz-app[data-fashion="true"] .cz-modal-surface.cz-cap-modal {');
+    const surface = capBase.slice(0, capBase.indexOf("\n}\n"));
+    expect(surface).toMatch(/border-radius:\s*20px;/);
+    expect(surface).toMatch(/background:\s*var\(--cz-card-solid\);/);
   });
 
-  it("re-centers on the phone gate that bottom-anchors every other modal", () => {
-    expect(phoneStart).toBeGreaterThan(-1);
-    expect(phone).toContain(".cz-modal:has(.cz-signin-sheet)");
-    const hasBlock = phone.slice(phone.indexOf(".cz-modal:has(.cz-signin-sheet)"));
-    // margin: auto cancels the shared gate's bottom anchor. width must be
-    // cancelled too, or the phone gate's width:100% stays edge-to-edge under
-    // the inline maxWidth={460} React sets — a real bug this test caught
-    // once already (probe-signin-centered.mjs, phone check).
-    expect(hasBlock).toMatch(/width:\s*min\(720px,\s*calc\(100% - 32px\)\);/);
-    expect(hasBlock).toMatch(/margin:\s*auto;/);
+  it("keeps the design's own spacing, which is not a 4px grid", () => {
+    const body = capBase.slice(capBase.indexOf(".cz-cap {"));
+    expect(body).toMatch(/\.cz-cap\s*{\s*[\s\S]*?gap:\s*18px;\s*padding:\s*26px 26px 22px;/);
+    expect(body).toMatch(/\.cz-cap-progress\s*{[\s\S]*?gap:\s*9px;/);
+    expect(body).toMatch(/\.cz-cap-progress-track\s*{[\s\S]*?gap:\s*5px;/);
+    expect(body).toMatch(/\.cz-cap-actions\s*{[\s\S]*?gap:\s*10px;/);
   });
 
-  it("drops the grab bar and the squared corners the limits wall uses", () => {
-    expect(phone).toMatch(/\.cz-signin-sheet\s*{\s*border-radius:\s*18px;/);
-    expect(phone).toMatch(/\.cz-signin-sheet::before\s*{\s*content:\s*none;/);
+  it("draws the progress bar at 3px with a pill cap", () => {
+    const track = capBase.slice(capBase.indexOf(".cz-cap-progress-track > span {"));
+    expect(track.slice(0, 200)).toMatch(/height:\s*3px;/);
+    expect(track.slice(0, 200)).toMatch(/border-radius:\s*999px;/);
+  });
+
+  it("gives a thumb a 44px control on a phone", () => {
+    const phoneAt = capBase.indexOf("@media (max-width: 767px) and (pointer: coarse) {");
+    expect(phoneAt).toBeGreaterThan(-1);
+    const phone = capBase.slice(phoneAt, capBase.indexOf("\n}\n", phoneAt));
+    expect(phone).toMatch(/min-height:\s*44px;/);
   });
 });

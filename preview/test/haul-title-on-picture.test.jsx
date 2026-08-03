@@ -1,9 +1,10 @@
 // Kyle 2026-07-29: "no consistency of title... make it the same", then
 // "match shelf". On Shelf the item name reads ON the picture. On Hauls the
-// haul name sat in a box UNDER the picture. It now rides inside the FRONT fan
-// card, so the card's own overflow clips the scrim — a label placed outside
-// the stack bled past the front card's slanted edge once the fan opened
-// (measured in WebKit: preview/scripts/probe-haul-title.mjs).
+// haul name sat in a box UNDER the picture. It now rides inside the collage,
+// so the collage's own overflow clips the scrim to the rounded corners.
+//
+// Kyle 2026-08-02 replaced the fanning stack with a 2x2 collage. There is no
+// front card any more, so the label sits on the block itself.
 //
 // jsdom has no layout, so the geometry lives in the probe. These guard the two
 // conclusions a rename or a refactor would quietly undo: WHERE the label is in
@@ -14,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 
-import HaulCoverFan from "../../components/HaulCoverFan.jsx";
+import HaulCoverMosaic from "../../components/HaulCoverMosaic.jsx";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const CSS = readFileSync(join(ROOT, "credenza-fashion.css"), "utf8");
@@ -44,34 +45,47 @@ describe("the haul name reads on the picture", () => {
     </div>
   );
 
-  it("puts the label inside the front card, not beside the stack", () => {
+  it("puts the label inside the collage, not beside it", () => {
     const { container } = render(
-      <HaulCoverFan covers={covers} name="Summer Europe" count={3} label={label} />
+      <HaulCoverMosaic covers={covers} name="Summer Europe" count={3} label={label} />
     );
-    const cards = [...container.querySelectorAll(".cz-haul-fan-card")];
-    expect(cards.length).toBe(3);
+    const block = container.querySelector(".cz-haul-mosaic");
+    expect(block, "the collage never rendered").not.toBeNull();
     const held = container.querySelector(".cz-haul-card-label");
     expect(held, "the label never rendered").not.toBeNull();
-    // zIndex is total - i, so the first card is the front one.
-    expect(cards[0].contains(held), "the label is not inside the FRONT card").toBe(true);
-    // Exactly one copy — a label on every card would print the name three times.
+    // The collage clips the scrim to its rounded corners. A label placed
+    // outside it would spill over the card's padding.
+    expect(block.contains(held), "the label is not inside the collage").toBe(true);
+    // Exactly one copy — a label per tile would print the name four times.
     expect(container.querySelectorAll(".cz-haul-card-label").length).toBe(1);
   });
 
   it("renders no label when the caller passes none", () => {
     const { container } = render(
-      <HaulCoverFan covers={covers} name="Summer Europe" count={3} />
+      <HaulCoverMosaic covers={covers} name="Summer Europe" count={3} />
     );
     expect(container.querySelector(".cz-haul-card-label")).toBeNull();
   });
 
-  it("keeps the front card flat so the name is level", () => {
-    // The fan used to start at -10deg, which tilted the name. Only the cards
-    // BEHIND the front one lean now.
-    const src = readFileSync(join(ROOT, "components/HaulCoverFan.jsx"), "utf8");
-    expect(src, "the fan starts at an angle again — the name tilts with it").not.toMatch(
-      /startAngle/
+  it("keeps every tile square and level, so the name never tilts", () => {
+    // The old stack rotated its cards, which tilted the name with them. The
+    // collage is a plain grid: nothing rotates, nothing animates.
+    const src = readFileSync(join(ROOT, "components/HaulCoverMosaic.jsx"), "utf8");
+    expect(src, "the collage rotates again — the name tilts with it").not.toMatch(/rotate/);
+    expect(src, "the collage animates again — Kyle asked for a still block").not.toMatch(
+      /framer-motion/
     );
+  });
+
+  it("draws the cross with one hairline gap, not two borders", () => {
+    // Two tile borders double up on the shared edge and the cross reads twice
+    // as thick. One gap over the block's own background cannot.
+    const body = ruleBody(".cz-haul-mosaic");
+    expect(body, "the .cz-haul-mosaic rule is gone — re-point this test").not.toBeNull();
+    expect(body).toMatch(/gap:\s*1px/);
+    expect(body).toMatch(/background:\s*var\(--cz-hair\)/);
+    expect(body).toMatch(/grid-template-columns:\s*1fr 1fr/);
+    expect(body).toMatch(/overflow:\s*hidden/);
   });
 
   it("still paints a scrim behind the words", () => {

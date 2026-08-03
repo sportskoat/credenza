@@ -33,6 +33,16 @@ import { PRICING } from "../../credenza-fashion.jsx";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const PUBLIC = join(ROOT, "preview/public");
 
+// Addresses the app answers itself. Netlify serves index.html for each one and
+// the app's boot effect opens the screen. There is no file under public/ to
+// find, so the broken-link check has to skip them. Derived from netlify.toml so
+// this list cannot drift away from what actually ships.
+const APP_ROUTES = new Set(
+  [...readFileSync(join(ROOT, "preview/netlify.toml"), "utf8").matchAll(
+    /from\s*=\s*"(\/[^"*:]*)"\s*\n\s*to\s*=\s*"\/index\.html"/g
+  )].map((m) => m[1])
+);
+
 function pageFiles(dir = PUBLIC) {
   const out = [];
   for (const name of readdirSync(dir)) {
@@ -242,6 +252,12 @@ describe("links and metadata", () => {
         // "/" is the React app, which Vite builds from preview/index.html.
         // It is not a file under public/, so there is nothing to look up.
         if (href === "/") continue;
+        // An app route is the same case one level in. /upgrade and /settings
+        // have no file on disk either; netlify.toml rewrites them to the app,
+        // and the app's own boot effect opens the right screen. Read the
+        // rewrites rather than hard-coding the list, so a route added there is
+        // covered here the moment it lands.
+        if (APP_ROUTES.has(href)) continue;
         // Only directory-style links name a page. Files (/llms.txt, /og.png)
         // are checked by existence on disk instead.
         if (href.endsWith("/")) {
@@ -1872,11 +1888,10 @@ describe("a feature the price table sells is explained somewhere else", () => {
     // any limits list. The first says what the model actually receives — a
     // slice of your own shelf, not a catalog and not the whole shelf. The
     // second says what the counter counts, which is the row's whole subject.
-    {
-      row: "Ask",
-      needs: ["the 25 cards closest to your question", "one press of cloud ask is one ask"],
-      why: "the feature with the widest gap after link resolves had one card explaining it",
-    },
+    // Kyle 2026-08-02 removed the Ask row from the price table. This rule only
+    // covers rows the table sells, so the entry would now fail on its own
+    // guard. The guide that satisfied it is untouched and still explains the
+    // feature; nothing sells it, so nothing has to be explained here.
     // LB-59. Added 2026-07-27. The next census after LB-58 ran the same
     // <main>-stripped count over the rows with no entry here. AI size-chart
     // reads was the thinnest: five sentences on five pages, and all five were
@@ -2467,7 +2482,8 @@ describe("public copy stays clear and consistent", () => {
       ({ rel }) => rel === "guides/what-happens-when-pro-ends/index.html"
     );
     expect(guide.html).toContain("2 a day instead of 15");
-    expect(guide.html).toContain("5 a day instead of 40");
+    // The Ask row left this table with the pricing claim. Kyle 2026-08-02.
+    expect(guide.html).not.toContain("5 a day instead of 40");
     expect(guide.html).not.toMatch(/instead of (100|200)/);
   });
 });

@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
+import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, X } from "lucide-react";
 
 import {
   createStorageBackend,
@@ -27,6 +27,26 @@ import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES, normalizeFindStatus } from "./credenza-find-status.js";
 import { downloadHaulCsv } from "./credenza-haul-export.js";
+import {
+  DEFAULT_DOMESTIC_USD,
+  DEFAULT_PACKAGING_GRAMS,
+  DIVISORS,
+  FIT_OPTIONS,
+  MILESTONES,
+  RECEIVED_INDEX,
+  RED_REASONS,
+  SHIPPING_LINES,
+  firstPendingQcItem,
+  haulIndexCard,
+  needsYouCount,
+  normalizeStage,
+  normalizeVerdict,
+  parcelMaths,
+  resetToShelf,
+  stageBar,
+  toHaulItem,
+  unorderedLinks,
+} from "./haul-fulfillment.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
   extractWeightGramsFromText,
@@ -90,6 +110,22 @@ const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
 // One sheet for every limit wall (Kyle 2026-07-30). Lazy: it opens on a tap or
 // at a wall, never on the first paint.
 const LimitsSheet = lazy(() => import("./sheets/LimitsSheet.jsx"));
+const SignInModal = lazy(() => import("./sheets/SignInModal.jsx"));
+// Pro's own address (sign-in handoff 2026-08-02, README screen 3). Lazy: most
+// visits never reach it, and the table it carries is nine rows of text.
+const UpgradePage = lazy(() => import("./components/UpgradePage.jsx"));
+// QC review (haul handoff, screens 3 to 5). Lazy: it only opens from inside a
+// haul that has photos waiting, which most sessions never reach.
+const QcOverlay = lazy(() => import("./components/QcOverlay.jsx"));
+// The item drawer inside an open haul (haul handoff, screen 8). Lazy for the
+// same reason as QC review: it only opens from the stage board.
+const HaulItemDrawer = lazy(() => import("./components/HaulItemDrawer.jsx"));
+// The hand-off review screen (haul handoff, screen 9). Lazy: it only opens
+// once a parcel has something in it.
+const HaulHandoff = lazy(() => import("./components/HaulHandoff.jsx"));
+// The tracking screen (haul handoff, screens 10 and 11). Lazy: it only opens
+// once the parcel is with the agent.
+const HaulTracking = lazy(() => import("./components/HaulTracking.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -98,12 +134,18 @@ const LimitsSheet = lazy(() => import("./sheets/LimitsSheet.jsx"));
 // they use are hoisted function declarations.
 import DigestDeck from "./components/DigestDeck.jsx";
 import HaulBoard from "./components/HaulBoard.jsx";
+// The stage board inside an open haul (haul handoff, screens 2, 6 and 7).
+// Static, not lazy: it paints with the haul, so a chunk fetch would show an
+// empty column strip first.
+import HaulFlowBoard from "./components/HaulFlowBoard.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
+import IntroStrip from "./components/IntroStrip.jsx";
 import { SITE_NAV } from "./components/site-nav.js";
+import { takeIntent } from "./components/sign-in-intent.js";
 import { TypeMark } from "./components/CardCover.jsx";
 import PhotoShelfList from "./components/PhotoShelfList.jsx";
 import MorphButton from "./components/MorphButton.jsx";
-import HaulCoverFan from "./components/HaulCoverFan.jsx";
+import HaulCoverMosaic from "./components/HaulCoverMosaic.jsx";
 import {
   Caption,
   Field,
@@ -463,10 +505,53 @@ export function migrateHaul(raw) {
             : "none",
         }
       : null,
+    // Haul fulfillment (design/handoffs/haul). The rate table and the parcel's
+    // submission state must survive a reload. The rates are the person's own
+    // numbers, not Credenza's: agents change them weekly.
+    ship: migrateHaulShip(raw.ship),
     history: (Array.isArray(raw.history) ? raw.history : [])
       .filter((e) => e && typeof e === "object" && e.type)
       .slice(-50)
       .map((e) => ({ at: Number(e.at) || Date.now(), type: String(e.type), detail: String(e.detail || "") })),
+  };
+}
+
+// The haul's shipping settings. Absent means "never opened the parcel panel",
+// so every screen falls back to the starting numbers.
+export function migrateHaulShip(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const rates = {};
+  for (const line of SHIPPING_LINES) {
+    const value = raw.rates && Number(raw.rates[line.key]);
+    rates[line.key] = Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : line.rate;
+  }
+  const packaging = Number(raw.packagingGrams);
+  const declared = Number(raw.declared);
+  const domestic = Number(raw.domesticUsd);
+  const milestone = Number(raw.milestone);
+  return {
+    divisor: DIVISORS.includes(Number(raw.divisor)) ? Number(raw.divisor) : 6000,
+    line: SHIPPING_LINES.some((l) => l.key === raw.line) ? raw.line : "EMS",
+    rates,
+    ratesEditedAt: typeof raw.ratesEditedAt === "string" ? raw.ratesEditedAt : null,
+    packagingGrams:
+      Number.isFinite(packaging) && packaging >= 0 && packaging <= 400
+        ? Math.round(packaging / 10) * 10
+        : DEFAULT_PACKAGING_GRAMS,
+    domesticUsd:
+      Number.isFinite(domestic) && domestic >= 0
+        ? Math.round(domestic * 100) / 100
+        : DEFAULT_DOMESTIC_USD,
+    declared: Number.isFinite(declared) && declared >= 0 ? Math.round(declared * 100) / 100 : 0,
+    submitted: raw.submitted === true,
+    milestone: Number.isFinite(milestone) ? Math.min(3, Math.max(0, Math.round(milestone))) : 0,
+    // When the person marked each of the four steps. Four slots, one per step,
+    // so a step marked and taken back keeps the date it originally carried.
+    milestoneAt: MILESTONES.map((_, i) => {
+      const value = Array.isArray(raw.milestoneAt) ? raw.milestoneAt[i] : null;
+      return typeof value === "string" ? value : null;
+    }),
+    tracking: typeof raw.tracking === "string" ? raw.tracking.slice(0, 64) : "",
   };
 }
 
@@ -3325,6 +3410,57 @@ export const TOMBSTONE_KEY = "credenza-fashion-tombstones-v1";
 // "You get 3 free full cards." — shown on a visitor's first paste, once per
 // device (Kyle 2026-07-30, rule 3: warn before the wall, never at it).
 export const FREE_NOTE_KEY = "credenza-fashion-free-note-v1";
+// Onboarding README, "State machine": skipped is session-sticky. One skip
+// suppresses both asks on every card for the rest of the session, and a new
+// session clears it. sessionStorage IS that lifetime — a reload keeps the
+// skip, a new tab asks again. We store the skip timestamp under skippedAt,
+// the field name the README's data model uses.
+export const FIT_SKIP_KEY = "credenza-fashion-fit-skipped-at-v1";
+
+// Onboarding README, "A0 · Arrival": dismissal of the intro strip is permanent
+// (onboarding.introDismissed, local). The strip never returns, so this one is
+// localStorage, not sessionStorage.
+export const INTRO_DISMISSED_KEY = "credenza-fashion-intro-dismissed-v1";
+
+/** True when the visitor has dismissed the arrival intro strip for good. */
+export function readIntroDismissed() {
+  try {
+    return !!window.localStorage.getItem(INTRO_DISMISSED_KEY);
+  } catch {
+    // No storage (private mode). Showing the strip is the right failure: it is
+    // three lines and it carries a dismiss button.
+    return false;
+  }
+}
+
+/** Dismiss the arrival intro strip for good. Silent when storage is blocked. */
+export function writeIntroDismissed() {
+  try {
+    window.localStorage.setItem(INTRO_DISMISSED_KEY, "1");
+  } catch {
+    // See readIntroDismissed: the in-memory flag still hides it this page view.
+  }
+}
+
+/** Read the session skip. Returns the ISO stamp, or "" when the asks are live. */
+export function readFitSkippedAt() {
+  try {
+    return window.sessionStorage.getItem(FIT_SKIP_KEY) || "";
+  } catch {
+    // No storage (private mode). The asks stay live for this page view, which
+    // is the honest failure: the visitor can always skip again.
+    return "";
+  }
+}
+
+/** Write the session skip. Silent when storage is blocked. */
+export function writeFitSkippedAt(stamp) {
+  try {
+    window.sessionStorage.setItem(FIT_SKIP_KEY, stamp || new Date().toISOString());
+  } catch {
+    // See readFitSkippedAt: the in-memory flag still holds for this page view.
+  }
+}
 
 // When a host storage shim exists (the extension), it IS the backend — failed
 // reads and writes must surface instead of silently splitting or emptying the shelf.
@@ -3625,6 +3761,22 @@ function createItem(parsed, rawText, extra) {
     qcPhotos: [],
     qcNote: "",
     qcVerdictAt: null,
+    // Haul fulfillment (design/handoffs/haul). These live inside an open haul,
+    // on items already bought. They are not findStatus, which answers one
+    // question on the shelf: did you buy it, or not?
+    haulStage: "toOrder",
+    haulVerdict: null,
+    haulReason: null,
+    haulActualGrams: null,
+    // When the warehouse weight was entered. Kyle 2026-08-02 wanted the app to
+    // show that a weight is the warehouse's real number, not a guess. The date
+    // is what proves it, so it is saved beside the number.
+    haulWeighedAt: null,
+    haulVolumeCm3: null,
+    haulStorageDays: null,
+    haulOrderNo: "",
+    haulStageAt: null,
+    haulFit: null,
     posterStats: null,
     posterUser: "",
     sourceText: "",
@@ -3654,6 +3806,20 @@ function migrateLinks(old, primaryUrl, rawText) {
 // Upgrades any stored shape (v2 or earlier v3) to the current model. In localOnly
 // mode nothing may sit in "raw" / "enriching" / "failed" — local enrichment makes
 // every item usable immediately.
+// A weighed or measured number a person typed. Zero and below mean "not known
+// yet", so they read back as null rather than as a real measurement.
+function positiveGramsOrNull(value) {
+  return typeof value === "number" && isFinite(value) && value > 0 ? Math.round(value) : null;
+}
+
+// A moment the app recorded. Every writer passes Date.now(), which is a number,
+// but an older save may hold a date string. Keep both, drop anything else.
+function stampOrNull(value) {
+  if (typeof value === "number" && isFinite(value) && value > 0) return value;
+  if (typeof value === "string" && value) return value;
+  return null;
+}
+
 export function migrateItem(old) {
   const createdAt = old.createdAt || old.ts || Date.now();
   const rawText = old.rawText != null ? old.rawText : old.text != null ? old.text : old.url || old.title || "";
@@ -3819,6 +3985,30 @@ export function migrateItem(old) {
       : [],
     qcNote: typeof old.qcNote === "string" ? old.qcNote : "",
     qcVerdictAt: typeof old.qcVerdictAt === "string" ? old.qcVerdictAt : null,
+    // Haul fulfillment. The person's hand marking is the only record that
+    // exists, so every one of these has to survive a reload. An item saved
+    // before this feature reads as "not bought yet", which is the truth.
+    haulStage: normalizeStage(old.haulStage),
+    haulVerdict: normalizeVerdict(old.haulVerdict),
+    haulReason: RED_REASONS.some((r) => r.key === old.haulReason) ? old.haulReason : null,
+    haulActualGrams: positiveGramsOrNull(old.haulActualGrams),
+    haulVolumeCm3: positiveGramsOrNull(old.haulVolumeCm3),
+    haulStorageDays:
+      typeof old.haulStorageDays === "number" &&
+      isFinite(old.haulStorageDays) &&
+      old.haulStorageDays >= 0
+        ? Math.round(old.haulStorageDays)
+        : null,
+    haulOrderNo: typeof old.haulOrderNo === "string" ? old.haulOrderNo.slice(0, 64) : "",
+    // Both dates accept a number or a string. Every writer passes Date.now(),
+    // which is a number. A string-only test dropped the stage date on every
+    // reload, so the app forgot when an item moved (found 2026-08-02).
+    haulStageAt: stampOrNull(old.haulStageAt),
+    haulWeighedAt: stampOrNull(old.haulWeighedAt),
+    // How the size call turned out, once the item is in the person's hands.
+    // This is the one answer that makes the next recommendation better than a
+    // guess, so it has to survive a reload.
+    haulFit: FIT_OPTIONS.includes(old.haulFit) ? old.haulFit : null,
     // A1 poster data (audit 2026-07-24): the Reddit poster's body stats drive
     // the size decision, and the original paste lets a later parser reparse
     // the haul. Both used to vanish on reload.
@@ -5690,6 +5880,21 @@ function CredenzaApp() {
   // (that snap was collapsing the head's height mid-animation — cards "jumped
   // up" as the layout above them disappeared out from under the fade).
   const [closingHaulName, setClosingHaulName] = useState(null);
+  // The card under QC review, by item id. null = the overlay is shut. The
+  // overlay is a projection of the item, so this holds the id and nothing else
+  // (design/handoffs/haul, screens 3 to 5).
+  const [qcItemId, setQcItemId] = useState(null);
+  // The card open in the haul item drawer, by item id. Same rule as QC review:
+  // the drawer is a projection of the item (design/handoffs/haul, screen 8).
+  const [haulDrawerId, setHaulDrawerId] = useState(null);
+  // Whether the hand-off review screen is showing (haul handoff, screen 9).
+  // It reads the same parcel numbers as the board, so it holds no state of
+  // its own beyond being open.
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  // Whether the tracking screen is showing (haul handoff, screens 10 and 11).
+  // Every number on it is a projection of the same parcel record, so it holds
+  // no state of its own beyond being open.
+  const [trackingOpen, setTrackingOpen] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   const [search, setSearch] = useState("");
   const [askState, setAskState] = useState({
@@ -5897,29 +6102,44 @@ function CredenzaApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // /upgrade is a real address too (sign-in handoff, screen 3). A visit that
+  // lands here opens Pro straight away and keeps the address. netlify.toml
+  // rewrites the path to index.html, the same way it does for /settings.
+  useEffect(() => {
+    if (!/^\/upgrade\/?$/.test(window.location.pathname)) return;
+    setUpgradeView({ period: "weekly" });
+    upgradeBootRef.current = true;
+    upgradeSeqRef.current = 1;
+    try {
+      window.history.replaceState({ czUpgrade: true, seq: 1 }, "", "/upgrade");
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const accountSendMagicLink = async (email) => {
     await sendMagicLink(email);
   };
   const accountGoogle = () => {
     window.location.assign(googleAuthUrl());
   };
+  // Kyle 2026-08-02: a lost session used to end here in silence, and the Pro
+  // button looked dead. The toast still fires. The throw carries the same
+  // sentence up to whichever screen made the call, so it can print it too.
+  const expiredSession = () => {
+    setAccountSession(null);
+    const message = "Your sign-in expired. Sign in again first.";
+    notify(message);
+    return new Error(message);
+  };
   const accountUpgrade = async (price) => {
     const session = await getValidSession();
-    if (!session) {
-      setAccountSession(null);
-      notify("Your sign-in expired. Sign in again first.");
-      return;
-    }
+    if (!session) throw expiredSession();
     const url = await accountCheckout(session.accessToken, price);
     window.location.assign(url);
   };
   const accountOpenPortal = async () => {
     const session = await getValidSession();
-    if (!session) {
-      setAccountSession(null);
-      notify("Your sign-in expired. Sign in again first.");
-      return;
-    }
+    if (!session) throw expiredSession();
     const url = await accountPortal(session.accessToken);
     window.location.assign(url);
   };
@@ -6077,6 +6297,58 @@ function CredenzaApp() {
     [accountPlan, signedInAccount, signInRequired, usageTick],
   );
   const openLimits = useCallback(() => setLimitsOpen(true), []);
+  // ── The sign-in modal (sign-in handoff README, screen 2) ──────────────────
+  //
+  // A modal, never a route. It opens from the cap modal, the account menu and
+  // Settings, and it has to come back to wherever it was opened from. The
+  // intent it carries is what makes that possible: Google, Apple and the mail
+  // app all leave the page, so the return address cannot live in React state.
+  // null = closed. An object = open, carrying that return intent.
+  const [signInIntent, setSignInIntent] = useState(null);
+  const openSignIn = useCallback((intent) => {
+    setSignInIntent(intent || { kind: "shelf", returnTo: "/" });
+  }, []);
+  // ── The upgrade route (sign-in handoff README, screen 3) ──────────────────
+  //
+  // Pro gets a real address, so a person can send it to someone else and come
+  // back to it after signing in. There is no router in this app: the address
+  // bar is driven by pushState and read back by the popstate listener below,
+  // exactly the way /settings is.
+  //
+  // null = closed. An object = open, carrying the billing period, so a round
+  // trip through the mail app comes back with the same period chosen.
+  const [upgradeView, setUpgradeView] = useState(null);
+  const upgradeSeqRef = useRef(0);
+  const upgradeBootRef = useRef(false);
+  const openUpgrade = useCallback((period) => {
+    setUpgradeView((prev) => {
+      const seq = (prev ? upgradeSeqRef.current : 0) + 1;
+      upgradeSeqRef.current = seq;
+      try {
+        window.history.pushState({ czUpgrade: true, seq }, "", "/upgrade");
+      } catch {}
+      return { period: period || "weekly" };
+    });
+  }, []);
+  const closeUpgrade = useCallback(() => {
+    const seq = upgradeSeqRef.current;
+    const booted = upgradeBootRef.current;
+    upgradeSeqRef.current = 0;
+    upgradeBootRef.current = false;
+    // One click out, the same rule the settings page follows. A visit that
+    // LANDED on /upgrade owns no earlier entry, so going back would leave the
+    // app; that visit rewrites the address instead.
+    if (!booted && seq > 0 && window.history.length > seq) {
+      try {
+        window.history.go(-seq);
+        return;
+      } catch {}
+    }
+    setUpgradeView(null);
+    try {
+      window.history.replaceState(null, "", "/");
+    } catch {}
+  }, []);
   // Rule 3, the other half: the first paste by a signed-out visitor says how
   // many free cards there are. Once per device — a line repeated on every
   // paste is nagging, and nagging drives visitors away.
@@ -6107,6 +6379,20 @@ function CredenzaApp() {
   };
   useEffect(() => {
     const onPop = () => {
+      // /upgrade shares this one listener. Two listeners on popstate would
+      // both fire on every step and fight over which surface is open.
+      if (/^\/upgrade\/?$/.test(window.location.pathname)) {
+        const st = window.history.state;
+        upgradeSeqRef.current = st && st.seq ? st.seq : 1;
+        setUpgradeView((prev) => prev || { period: "weekly" });
+        settingsSeqRef.current = 0;
+        settingsBootRef.current = false;
+        setSettingsView(null);
+        return;
+      }
+      upgradeSeqRef.current = 0;
+      upgradeBootRef.current = false;
+      setUpgradeView(null);
       const m = /^\/settings(?:\/([a-z]+))?\/?$/.exec(window.location.pathname);
       if (!m) {
         settingsSeqRef.current = 0;
@@ -6156,8 +6442,19 @@ function CredenzaApp() {
   // synced into the module readers FitSummary uses. Persisted in prefs.
   const [fitSummary, setFitSummary] = useState(true);
   // Session flag: user dismissed the progressive fit prompt on a card.
-  // Not persisted — next session can ask again until a body profile exists.
-  const [fitPromptSkipped, setFitPromptSkipped] = useState(false);
+  // Sticky for the session, so a reload does not re-ask. A new session can ask
+  // again until a body profile exists. See FIT_SKIP_KEY.
+  const [fitPromptSkipped, setFitPromptSkipped] = useState(() => !!readFitSkippedAt());
+  const skipFitPrompt = () => {
+    writeFitSkippedAt(new Date().toISOString());
+    setFitPromptSkipped(true);
+  };
+  // A0 arrival strip. Dismissal is permanent, so the flag starts from storage.
+  const [introDismissed, setIntroDismissed] = useState(() => readIntroDismissed());
+  const dismissIntro = () => {
+    writeIntroDismissed();
+    setIntroDismissed(true);
+  };
   // The first-run intro GATE is gone (onboarding spec, Kyle 2026-07-26): a
   // cold open now lands straight on the hero, because the hero already says
   // what the intro said and the paste field is the only thing to do next.
@@ -7075,7 +7372,7 @@ function CredenzaApp() {
     if (!isProPlan) {
       notify("CSV export is a Pro feature.", {
         actionLabel: "See Pro",
-        onAction: () => navigateSettings("account"),
+        onAction: () => openUpgrade(),
       });
       return;
     }
@@ -7254,7 +7551,7 @@ function CredenzaApp() {
           " open hauls on Free. Archive a finished one to start another, or Pro holds " +
           PRO_LIMITS.haulsMax +
           ".",
-      isProPlan ? {} : { actionLabel: "See Pro", onAction: () => navigateSettings("account") }
+      isProPlan ? {} : { actionLabel: "See Pro", onAction: () => openUpgrade() }
     );
     return true;
   };
@@ -7352,9 +7649,7 @@ function CredenzaApp() {
             " QC photos an item on Free. Pro holds " +
             PRO_LIMITS.qcPhotosPerItem +
             ".",
-        isProPlan
-          ? {}
-          : { actionLabel: "See Pro", onAction: () => navigateSettings("account") }
+        isProPlan ? {} : { actionLabel: "See Pro", onAction: () => openUpgrade() }
       );
       return;
     }
@@ -7839,11 +8134,38 @@ function CredenzaApp() {
       setItems((list) => list.map((x) => (x.needsSignIn ? { ...x, needsSignIn: false } : x)));
       enrichFashionItems(stranded.map((x) => ({ ...x, needsSignIn: false })));
     }
-    const held = heldLinkRef.current;
+    // ── The return intent (sign-in handoff README, "Interactions") ───────────
+    //
+    // README: "Every entry into the sign-in modal records where it came from
+    // and what the user was trying to do." The modal wrote that down before
+    // it navigated. This is the only place it is read back.
+    //
+    // It has to be read HERE, not in the boot effect, because the three ways
+    // in do not share one entry: a magic link lands on a cold tab, Google
+    // comes back through the URL hash, and a stored session simply resumes.
+    // All three finish by setting accountSession, so all three land here.
+    //
+    // takeIntent clears first. A handler that throws therefore cannot leave
+    // the intent to fire again on every reload.
+    const intent = takeIntent();
+    // The held link is the same card the "card" intent names. Prefer the
+    // in-memory one: a magic link opened on a cold tab has no ref left, and
+    // the intent payload is the copy that survived the round trip.
+    const held = heldLinkRef.current || (intent && intent.kind === "card" && intent.payload ? intent.payload.url : "");
     heldLinkRef.current = "";
     if (held) {
       const result = dispatchStash(held);
       if (result.status === "stashed") beginIndexingJob(result);
+    }
+    if (!intent) return;
+    // "shelf" is the default entry and wants nothing: the person is already
+    // looking at the shelf, and moving them would be the surprise.
+    if (intent.kind === "upgrade") {
+      // Back to Pro with the period they chose, so the trip through the mail
+      // app does not quietly reset weekly to monthly.
+      openUpgrade(intent.payload ? intent.payload.period : undefined);
+    } else if (intent.kind === "settings") {
+      navigateSettings("account");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountSession]);
@@ -8362,7 +8684,7 @@ function CredenzaApp() {
 
   // Directory cards for the Hauls tab — named hauls only. Items without a
   // project stay on the shelf; they are not a fake "Unsorted" haul.
-  // Collect up to 5 covers so multi-item hauls can render as a fan spread.
+  // Collect up to 4 covers — one per square of the card's 2x2 collage.
   const haulDirectory = useMemo(() => {
     const map = new Map();
     for (const item of shelfAll) {
@@ -8376,8 +8698,10 @@ function CredenzaApp() {
         count: 0,
         value: 0,
         latest: 0,
-        // [{ image, createdAt }] — sorted newest-first for the fan spread.
+        // [{ image, createdAt }] — sorted newest-first for the collage.
         coverItems: [],
+        // Haul-shaped copies of the same cards, for the fulfillment projections.
+        haulItems: [],
       };
       cur.count += 1;
       cur.value += price;
@@ -8385,8 +8709,17 @@ function CredenzaApp() {
       if (item.image) {
         cur.coverItems.push({ image: item.image, createdAt: created });
       }
+      // Haul fulfillment (design/handoffs/haul). The card's flag, note, stage
+      // bar and CTA are all projections of these. Nothing is stored.
+      cur.haulItems.push(
+        toHaulItem(item, { estGrams: estimateItemWeightGrams(item), priceUsd: price })
+      );
       map.set(name, cur);
     }
+    // The shipping settings a person edited, by haul name. A haul that never
+    // opened the parcel panel has none, so the card falls back to the starting
+    // numbers. See migrateHaulShip.
+    const shipByName = new Map(hauls.map((h) => [h.name, h.ship]));
     const dirs = Array.from(map.values()).map((haul) => {
       const seen = new Set();
       const covers = haul.coverItems
@@ -8397,13 +8730,40 @@ function CredenzaApp() {
           seen.add(src);
           return true;
         })
-        .slice(0, 5);
+        .slice(0, 4);
+      const ship = shipByName.get(haul.name) || null;
+      const maths = parcelMaths({
+        items: haul.haulItems,
+        packagingGrams: ship ? ship.packagingGrams : undefined,
+        divisor: ship ? ship.divisor : undefined,
+        rates: ship ? ship.rates : undefined,
+      });
+      const card = haulIndexCard({
+        items: haul.haulItems,
+        submitted: ship ? ship.submitted : false,
+        milestone: ship ? ship.milestone : 0,
+        maths,
+        line: ship ? ship.line : undefined,
+        domesticUsd: ship ? ship.domesticUsd : undefined,
+      });
       return {
         name: haul.name,
         count: haul.count,
         value: haul.value,
         latest: haul.latest,
         covers,
+        // Everything below is derived on every render. None of it is stored.
+        flag: card.flag,
+        note: card.note,
+        tone: card.tone,
+        cta: card.label,
+        ctaVariant: card.variant,
+        ctaTo: card.to,
+        openQc: card.openQc,
+        // The haul-shaped items ride along so the CTA can jump straight to the
+        // first card waiting on a verdict, without rebuilding them.
+        haulItems: haul.haulItems,
+        bar: stageBar(haul.haulItems),
       };
     }).sort((a, b) => {
       if (b.latest !== a.latest) return b.latest - a.latest;
@@ -8416,7 +8776,7 @@ function CredenzaApp() {
       (h) => ({ ...h, archived: archivedNames.has(h.name) })
     );
     const archivedCount = dirs.filter((h) => archivedNames.has(h.name)).length;
-    return { hauls: active, archivedCount };
+    return { hauls: active, archivedCount, needsYou: needsYouCount(active) };
   }, [shelfAll, hauls, showArchivedHauls]);
 
   // Chrome + the shelf surface's item filter key off this, not raw
@@ -8439,14 +8799,164 @@ function CredenzaApp() {
 
   const openHaul = useCallback((haulKey) => {
     setView("hauls");
-    // Desktop browses a haul in the carousel. The phone keeps its grid — the
-    // rack does not fit a 390px screen, and hijacking viewMode stranded the
-    // customer in a glitching carousel until an app restart (Kyle 2026-07-25).
-    if (!isPhone) setViewMode("carousel");
+    // Kyle 2026-08-02: a haul opens on the board and the grid, never the
+    // carousel. Desktop used to switch viewMode to "carousel" here, which
+    // both stacked a rack under the board and silently changed the Shelf
+    // tab's own view on the way back out. Both surfaces keep their own view
+    // now. (The phone never took this branch: the rack does not fit a 390px
+    // screen, and hijacking viewMode stranded the customer in a glitching
+    // carousel until an app restart, Kyle 2026-07-25.)
     setExpandedId(null);
     setSelectedId(null);
     setActiveHaul(haulKey);
-  }, [isPhone]);
+  }, []);
+
+  // The index CTA jumps straight into QC when that is what the haul is asking
+  // for. The README calls this the highest-value shortcut in the feature: from
+  // "2 at QC" on the grid to the first photo, in one press.
+  const openHaulCta = useCallback(
+    (haul) => {
+      openHaul(haul.name);
+      // A parcel already with the agent is asking one question: where is it?
+      // The board cannot answer that, so the CTA lands on tracking instead.
+      if (haul.ctaTo === "tracking") {
+        setTrackingOpen(true);
+        return;
+      }
+      if (!haul.openQc) return;
+      const first = firstPendingQcItem(haul.haulItems || []);
+      if (first) setQcItemId(first.id);
+    },
+    [openHaul]
+  );
+
+  // Everything the QC overlay needs, derived from the open item. The overlay
+  // walks the haul's queue, so it gets the whole haul, not one card.
+  const qcContext = useMemo(() => {
+    if (!qcItemId) return null;
+    const card = shelfAll.find((entry) => entry && entry.id === qcItemId);
+    if (!card) return null;
+    const name = typeof card.project === "string" ? card.project.trim() : "";
+    const peers = name
+      ? shelfAll.filter(
+          (entry) => typeof entry.project === "string" && entry.project.trim() === name
+        )
+      : [card];
+    return {
+      items: peers.map((entry) => {
+        const usd = itemUsdAmount(entry);
+        return toHaulItem(entry, {
+          estGrams: estimateItemWeightGrams(entry),
+          priceUsd: usd != null ? usd : 0,
+        });
+      }),
+    };
+  }, [qcItemId, shelfAll]);
+
+  // The open haul's cards, in the shape the stage board reads. Built from
+  // `shelfAll`, not from the shelf surface: a search narrows what you browse,
+  // it must never narrow what the parcel weighs.
+  const haulFlowItems = useMemo(() => {
+    if (!openHaulName) return [];
+    return shelfAll
+      .filter(
+        (entry) => entry && typeof entry.project === "string" && entry.project.trim() === openHaulName
+      )
+      .map((entry) => {
+        const usd = itemUsdAmount(entry);
+        return toHaulItem(entry, {
+          estGrams: estimateItemWeightGrams(entry),
+          priceUsd: usd != null ? usd : 0,
+        });
+      });
+  }, [openHaulName, shelfAll]);
+
+  // How each item in the haul fitted, once it arrived. This is a real answer
+  // from the person's hand, so it is saved on the card, not worked out.
+  const haulFits = useMemo(() => {
+    if (!openHaulName) return {};
+    const map = {};
+    for (const entry of shelfAll) {
+      if (!entry || typeof entry.project !== "string") continue;
+      if (entry.project.trim() !== openHaulName) continue;
+      if (FIT_OPTIONS.includes(entry.haulFit)) map[entry.id] = entry.haulFit;
+    }
+    return map;
+  }, [openHaulName, shelfAll]);
+
+  // The item open in the drawer. Read out of `haulFlowItems`, so an edit in
+  // the drawer repaints the board and the drawer from the same numbers.
+  const haulDrawerItem = useMemo(() => {
+    if (!haulDrawerId) return null;
+    return haulFlowItems.find((entry) => entry && entry.id === haulDrawerId) || null;
+  }, [haulDrawerId, haulFlowItems]);
+
+  // The cover picture and the platform colour for one board tile. The board
+  // holds no card, so the screen looks the card up for it.
+  const haulTileFor = useCallback(
+    (item) => {
+      const card = shelfAll.find((entry) => entry && entry.id === item.id);
+      if (!card) return { image: null, tint: null };
+      return { image: card.image || null, tint: platformDotFor(card.host || "") };
+    },
+    [shelfAll]
+  );
+
+  // One clipboard path for every haul surface. Same shape as share-api's
+  // copyLink: a blocked clipboard must never throw into the render tree.
+  const copyForHaul = useCallback(
+    async (text, message) => {
+      try {
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+          notify("Copy is blocked in this browser.", { tone: "error" });
+          return;
+        }
+        await navigator.clipboard.writeText(text);
+        notify(message);
+      } catch {
+        notify("Copy is blocked in this browser.", { tone: "error" });
+      }
+    },
+    [notify]
+  );
+
+  // The haul's shipping settings, and one writer for them. Absent means the
+  // person has never touched the parcel panel, so the starting numbers stand.
+  const haulShip = useMemo(() => {
+    if (!openHaulName) return null;
+    const record = hauls.find((h) => h.name === openHaulName);
+    return (record && record.ship) || null;
+  }, [openHaulName, hauls]);
+
+  // The open haul's parcel arithmetic. The board works this out for itself;
+  // the hand-off screen needs the same numbers, so both read one source.
+  const haulFlowMaths = useMemo(
+    () =>
+      parcelMaths({
+        items: haulFlowItems,
+        packagingGrams: haulShip ? haulShip.packagingGrams : undefined,
+        divisor: haulShip ? haulShip.divisor : undefined,
+        rates: haulShip ? haulShip.rates : undefined,
+      }),
+    [haulFlowItems, haulShip]
+  );
+
+  const patchHaulShip = useCallback(
+    (patch, detail) => {
+      if (!openHaulName) return;
+      updateHaul(
+        openHaulName,
+        (base) => {
+          const ship = migrateHaulShip(base.ship || {});
+          // A patch that reads the record it edits gets it, so a caller never
+          // has to migrate the record twice to change one slot of an array.
+          return { ship: { ...ship, ...(typeof patch === "function" ? patch(ship) : patch) } };
+        },
+        { type: "ship", detail }
+      );
+    },
+    [openHaulName, updateHaul]
+  );
 
   // USD-normalized value for the total-cost reel — single helper so haul
   // directory, chips, and the reel never disagree (CNY falls back to 0.14).
@@ -8528,6 +9038,11 @@ function CredenzaApp() {
     setActiveHaul(null);
     setExpandedId(null);
     setSelectedId(null);
+    // Both of these belong to one haul. Leaving them open over a closed haul
+    // shows the person a parcel that is no longer on screen.
+    setHandoffOpen(false);
+    setTrackingOpen(false);
+    setHaulDrawerId(null);
   }, [activeHaul, reducedMotion]);
 
   // ── Shared hauls (LB-8) ──────────────────────────────────────────────────
@@ -9119,6 +9634,13 @@ function CredenzaApp() {
               : "Name hauls from the ⋯ menu on any card"}
           </div>
         </div>
+        {/* How many hauls are asking for something. Silent when none are. The
+            README only prints the plural, so the singular reads "1 needs you". */}
+        {haulDirectory.needsYou > 0 ? (
+          <div className="cz-hauls-needs-you">
+            {haulDirectory.needsYou} {haulDirectory.needsYou === 1 ? "needs" : "need"} you
+          </div>
+        ) : null}
         {haulDirectory.archivedCount > 0 ? (
           <button
             type="button"
@@ -9142,30 +9664,53 @@ function CredenzaApp() {
       ) : (
         <div className="cz-hauls-grid">
           {haulDirectory.hauls.map((haul) => (
-            <button
+            // The whole card opens the haul, and the CTA inside it opens the
+            // same haul at the step it names (haul README, "Index card"). A
+            // button cannot nest inside a button, so the card takes role and
+            // keyboard rather than being one.
+            <div
               key={haul.name}
-              type="button"
+              role="button"
+              tabIndex={0}
               className="cz-haul-card"
               data-haul-name={haul.name}
-              // The label now lives inside the aria-hidden fan, so the button
+              data-tone={haul.tone}
+              // The label now lives inside the aria-hidden fan, so the card
               // states its own name.
               aria-label={
                 haul.name +
                 ", " +
                 haul.count +
                 (haul.count === 1 ? " item" : " items") +
-                (haul.value > 0 ? ", $" + Math.round(haul.value) : "")
+                (haul.value > 0 ? ", $" + Math.round(haul.value) : "") +
+                (haul.note ? ". " + haul.note : "")
               }
               onClick={() => openHaul(haul.name)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                openHaul(haul.name);
+              }}
             >
               {/* Kyle 2026-07-29 ("match shelf"): the haul name reads ON the
                   picture, like a Shelf card — not in a box under it. It rides
-                  inside the front fan card so the card clips the scrim. The
-                  fan is aria-hidden, so the button carries its own name. */}
-              <HaulCoverFan
+                  inside the collage so the collage clips the scrim. The collage
+                  is aria-hidden, so the card carries its own name.
+                  Kyle 2026-08-02: the collage is a 2x2 block of clothes now,
+                  not a stack that fans out on hover. */}
+              <HaulCoverMosaic
                 covers={haul.covers}
                 name={haul.name}
                 count={haul.count}
+                // The badge is absent when the haul has nothing to say. An
+                // always-present badge is noise.
+                badge={
+                  haul.flag ? (
+                    <span className="cz-haul-flag" data-tone={haul.tone}>
+                      {haul.flag}
+                    </span>
+                  ) : null
+                }
                 label={
                   <div className="cz-haul-card-label">
                     <div className="cz-haul-card-name">{haul.name}</div>
@@ -9176,7 +9721,35 @@ function CredenzaApp() {
                   </div>
                 }
               />
-            </button>
+              {haul.bar.length ? (
+                <div className="cz-haul-bar" aria-hidden="true">
+                  {haul.bar.map((seg) => (
+                    <span
+                      key={seg.stage}
+                      className="cz-haul-bar-seg"
+                      data-stage={seg.stage}
+                      style={{ flex: seg.count }}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div className="cz-haul-note" data-tone={haul.tone}>
+                <span className="cz-haul-note-dot" aria-hidden="true" />
+                <span>{haul.note}</span>
+              </div>
+              <Pill
+                primary={haul.ctaVariant === "primary"}
+                className="cz-pill cz-haul-cta"
+                // The CTA sits inside the card, so it must not fire the card
+                // as well (haul README, "Index card").
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openHaulCta(haul);
+                }}
+              >
+                {haul.cta}
+              </Pill>
+            </div>
           ))}
           {/* KM-07: two haul cards sat in a large empty canvas. A dashed
               ghost tile fills the grid and teaches the next action. */}
@@ -9185,9 +9758,9 @@ function CredenzaApp() {
             className="cz-haul-card cz-haul-card--ghost"
             onClick={() => setView("shelf")}
           >
-            <div className="cz-haul-fan is-single">
-              <div className="cz-haul-fan-card is-empty">
-                <div className="cz-haul-fan-placeholder" aria-hidden="true">
+            <div className="cz-haul-mosaic is-single is-empty">
+              <div className="cz-haul-mosaic-tile is-empty">
+                <div className="cz-haul-mosaic-placeholder" aria-hidden="true">
                   ＋
                 </div>
               </div>
@@ -9256,7 +9829,7 @@ function CredenzaApp() {
         notify("Sizes updated.");
       }}
       fitPromptSkipped={fitPromptSkipped}
-      onSkipFitPrompt={() => setFitPromptSkipped(true)}
+      onSkipFitPrompt={skipFitPrompt}
       fitPrefs={fitPrefs}
       onSaveFitPref={saveFitPref}
       onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
@@ -9322,7 +9895,7 @@ function CredenzaApp() {
         notify("Sizes updated.");
       }}
       fitPromptSkipped={fitPromptSkipped}
-      onSkipFitPrompt={() => setFitPromptSkipped(true)}
+      onSkipFitPrompt={skipFitPrompt}
       onSaveFitPref={saveFitPref}
       onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
       fitDetail={fitDetail}
@@ -9492,7 +10065,12 @@ function CredenzaApp() {
             )}
           </div>
         )
-      ) : viewMode === "carousel" ? (
+      ) : viewMode === "carousel" && !openHaulName ? (
+        // Kyle 2026-08-02: an open haul never shows the carousel. The board is
+        // the whole surface there. The view switcher is already hidden inside a
+        // haul, but viewMode carries over from the Shelf tab, so the carousel
+        // appeared under the board without anyone asking for it. The Shelf tab
+        // keeps its carousel; only the open-haul surface drops it.
         <div className="cz-haul-open-stage">{carouselElement}</div>
       ) : (
         <PhotoShelfList
@@ -9584,21 +10162,25 @@ function CredenzaApp() {
         </button>
       )}
       {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
-          top-right entry — initials when signed in, person glyph when
+          top-right entry — initials when signed in, the word "Sign in" when
           out. It drops the quick menu (design 1c); the settings page
-          sits behind the menu's "All settings" row. */}
+          sits behind the menu's "All settings" row.
+          Kyle 2026-08-02: the person glyph said nothing. Signed out, the
+          entry now reads "Sign in" in the display italic. The spoken name
+          follows the visible word: a screen reader that says "Profile" over
+          a button that reads "Sign in" is an accessibility fault. */}
       <button
         type="button"
-        className="cz-avatar"
-        aria-label="Profile"
-        title="Profile"
+        className={"cz-avatar" + (avatarInitials ? "" : " cz-avatar--word")}
+        aria-label={avatarInitials ? "Profile" : "Sign in"}
+        title={avatarInitials ? "Profile" : "Sign in"}
         aria-expanded={avatarMenuOpen}
         onClick={() => setAvatarMenuOpen((v) => !v)}
       >
         {avatarInitials ? (
           <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
         ) : (
-          <User size={isPhone ? 19 : 17} strokeWidth={2.2} aria-hidden="true" />
+          <span className="cz-avatar-word" aria-hidden="true">Sign in</span>
         )}
       </button>
       {avatarMenuOpen && (
@@ -9606,6 +10188,7 @@ function CredenzaApp() {
         <AvatarMenu
           accountSession={accountSession}
           accountPlan={accountPlan}
+          limits={limits}
           avatarInitials={avatarInitials}
           agentLabel={agentBarLabel}
           onOpenAgent={() => {
@@ -9618,6 +10201,8 @@ function CredenzaApp() {
             setCurrencySheetOpen(true);
           }}
           onOpenSettings={(section) => navigateSettings(section)}
+          onSignIn={() => openSignIn({ kind: "shelf", returnTo: "/" })}
+          onOpenUpgrade={() => openUpgrade()}
           onSignOut={accountSignOut}
           onClose={() => setAvatarMenuOpen(false)}
         />
@@ -9760,7 +10345,9 @@ function CredenzaApp() {
       )}
 
       {/* The one limits sheet. Every wall in the app opens THIS, so a person
-          reads the same three answers wherever they met the limit. */}
+          reads the same three answers wherever they met the limit. When they
+          are signed out it draws the cap modal instead, which offers two
+          different doors: free and instant, or Pro on its own route. */}
       {limitsOpen && (
         <Suspense fallback={null}>
           <LimitsSheet
@@ -9768,13 +10355,215 @@ function CredenzaApp() {
             signedIn={signedInAccount}
             onSignIn={() => {
               setLimitsOpen(false);
-              navigateSettings("account");
+              // The held link is what they were reaching for. Signing in
+              // finishes that card, so the intent carries it across the
+              // round trip through the mail app.
+              openSignIn({
+                kind: heldLinkRef.current ? "card" : "shelf",
+                returnTo: "/",
+                payload: heldLinkRef.current ? { url: heldLinkRef.current } : null,
+              });
             }}
             onUpgrade={() => {
               setLimitsOpen(false);
-              navigateSettings("account");
+              // Pro is a different question, so it gets a different address.
+              openUpgrade();
             }}
             onClose={() => setLimitsOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* Sign-in is a modal on top of wherever the person already was. It
+          never replaces the shelf, because coming back to a blank page after
+          signing in reads as losing your work. */}
+      {signInIntent && (
+        <Suspense fallback={null}>
+          <SignInModal intent={signInIntent} onClose={() => setSignInIntent(null)} />
+        </Suspense>
+      )}
+
+      {upgradeView && (
+        <Suspense fallback={null}>
+          <UpgradePage
+            signedIn={signedInAccount}
+            isPro={isProPlan}
+            period={upgradeView.period}
+            onStart={(period) => {
+              // Signed out, the button cannot charge anyone. It opens the
+              // sign-in window and records the period, so the trip through
+              // the mail app comes back here with the same plan chosen.
+              if (!signedInAccount) {
+                openSignIn({
+                  kind: "upgrade",
+                  returnTo: "/upgrade",
+                  payload: { period },
+                });
+                return;
+              }
+              // Stripe owns the card number. Credenza never sees one.
+              return accountUpgrade(period);
+            }}
+            onClose={closeUpgrade}
+          />
+        </Suspense>
+      )}
+
+      {/* The hand-off review screen. It reads the same parcel numbers as the
+          board, so nothing here is stored twice (haul handoff, screen 9). */}
+      {handoffOpen && openHaulName && (
+        <Suspense fallback={null}>
+          <HaulHandoff
+            items={haulFlowItems}
+            maths={haulFlowMaths}
+            line={(haulShip && haulShip.line) || "EMS"}
+            declared={(haulShip && haulShip.declared) || 0}
+            domesticUsd={
+              haulShip && haulShip.domesticUsd != null ? haulShip.domesticUsd : DEFAULT_DOMESTIC_USD
+            }
+            tileFor={haulTileFor}
+            onClose={() => setHandoffOpen(false)}
+            onCopy={(text) =>
+              copyForHaul(text, "Parcel instruction copied. Paste it into your agent's form.")
+            }
+            onAddToParcel={(id) => {
+              updateItem(id, { haulStage: "parcel", haulStageAt: Date.now() });
+              notify("Added to parcel A.");
+            }}
+            onSetDeclared={(value) => patchHaulShip({ declared: value }, "declared " + value)}
+            onSubmit={() => {
+              // Marked here only. Credenza never presses send on the agent's
+              // site, and the line under the button says so.
+              const now = new Date().toISOString();
+              patchHaulShip(
+                (base) => ({
+                  submitted: true,
+                  milestone: 0,
+                  milestoneAt: [now, base.milestoneAt[1], base.milestoneAt[2], base.milestoneAt[3]],
+                }),
+                "submitted"
+              );
+              setHandoffOpen(false);
+              // The parcel is now in flight. That is the tracking screen's
+              // question, so the person lands there (README, hand-off table).
+              setTrackingOpen(true);
+              notify("Parcel A marked submitted.", {
+                sub: "You still have to press send on your agent's site.",
+              });
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* The tracking screen. Nothing here polls a carrier: every step is the
+          person marking what already happened (haul handoff, screens 10, 11). */}
+      {trackingOpen && openHaulName && (
+        <Suspense fallback={null}>
+          <HaulTracking
+            items={haulFlowItems}
+            maths={haulFlowMaths}
+            line={(haulShip && haulShip.line) || "EMS"}
+            domesticUsd={
+              haulShip && haulShip.domesticUsd != null ? haulShip.domesticUsd : DEFAULT_DOMESTIC_USD
+            }
+            milestone={(haulShip && haulShip.milestone) || 0}
+            stamps={(haulShip && haulShip.milestoneAt) || []}
+            fits={haulFits}
+            tracking={(haulShip && haulShip.tracking) || ""}
+            tileFor={haulTileFor}
+            onClose={() => setTrackingOpen(false)}
+            onPickStep={(index) => {
+              const now = new Date().toISOString();
+              patchHaulShip(
+                (base) => ({
+                  milestone: index,
+                  // Only the step just marked takes today's date. A step taken
+                  // back keeps the date it already carried, because it did
+                  // happen on that day.
+                  milestoneAt: base.milestoneAt.map((value, i) =>
+                    i === index && !value ? now : value
+                  ),
+                }),
+                "milestone " + index
+              );
+            }}
+            onSetTracking={(value) => patchHaulShip({ tracking: value }, "tracking")}
+            onSetFit={(id, answer) => {
+              // The same answer again clears it. A wrong tap has to be
+              // undoable with the control that made it.
+              const card = shelfAll.find((entry) => entry && entry.id === id);
+              const next = card && card.haulFit === answer ? null : answer;
+              updateItem(id, { haulFit: next });
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* One item, opened from the stage board. It sits under QC review, so
+          opening QC from the drawer leaves the drawer behind it and closing
+          QC lands the person back on the item (haul handoff, screen 8). */}
+      {haulDrawerItem && (
+        <Suspense fallback={null}>
+          <HaulItemDrawer
+            item={haulDrawerItem}
+            face={haulTileFor(haulDrawerItem)}
+            onClose={() => setHaulDrawerId(null)}
+            onPatch={(id, patch) => updateItem(id, patch)}
+            onReviewQc={(id) => setQcItemId(id)}
+            onAddToParcel={(id) => {
+              updateItem(id, { haulStage: "parcel", haulStageAt: Date.now() });
+              notify("Added to parcel A.");
+            }}
+            onBackToShelf={(id) => {
+              // Every fulfillment number goes with it. A stale QC verdict on a
+              // freshly re-ordered item is worse than no verdict.
+              updateItem(id, { ...resetToShelf(), haulStageAt: Date.now() });
+              setHaulDrawerId(null);
+              notify("Back on the shelf.");
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* QC review sits on top of the open haul. Closing it puts the person
+          back exactly where they were (haul handoff, screens 3 to 5). */}
+      {qcContext && (
+        <Suspense fallback={null}>
+          <QcOverlay
+            items={qcContext.items}
+            itemId={qcItemId}
+            cardFor={(id) => shelfAll.find((entry) => entry && entry.id === id) || null}
+            allCards={shelfAll}
+            onClose={() => setQcItemId(null)}
+            onVerdict={(id, verdict, reason) => {
+              // A verdict is the moment the item leaves the warehouse queue.
+              // Both calls are one stage move, so they write together.
+              updateItem(id, {
+                haulVerdict: verdict,
+                haulReason: reason || null,
+                haulStage: "qcd",
+                haulStageAt: Date.now(),
+              });
+            }}
+            onAddToParcel={(id) => {
+              updateItem(id, { haulStage: "parcel", haulStageAt: Date.now() });
+              notify("Added to parcel A.");
+            }}
+            onOpenItem={(id) => setQcItemId(id)}
+            onCopy={async (text, message) => {
+              // Same shape as share-api's copyLink: a blocked clipboard must
+              // never throw into the render tree.
+              try {
+                if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+                  notify("Copy is blocked in this browser.", { tone: "error" });
+                  return;
+                }
+                await navigator.clipboard.writeText(text);
+                notify(message);
+              } catch {
+                notify("Copy is blocked in this browser.", { tone: "error" });
+              }
+            }}
           />
         </Suspense>
       )}
@@ -9826,6 +10615,13 @@ function CredenzaApp() {
             accountEnabled: AUTH_ENABLED,
             accountSession,
             accountPlan,
+            // The Account and plan pane reports and links (sign-in handoff,
+            // screen 4). It needs the live counter and the two doors: the
+            // sign-in modal and the upgrade route.
+            limits,
+            onSignIn: () =>
+              openSignIn({ kind: "settings", returnTo: "/settings/account" }),
+            onOpenUpgrade: () => openUpgrade(),
             onMagicLink: accountSendMagicLink,
             onGoogle: accountGoogle,
             onUpgrade: accountUpgrade,
@@ -9892,7 +10688,7 @@ function CredenzaApp() {
             onCopy={copyLink}
             onUpgrade={() => {
               setShareHaulName(null);
-              navigateSettings("account");
+              openUpgrade();
             }}
             onClose={() => setShareHaulName(null)}
           />
@@ -9919,7 +10715,7 @@ function CredenzaApp() {
             notify("Sizes updated.");
           }}
           fitPromptSkipped={fitPromptSkipped}
-          onSkipFitPrompt={() => setFitPromptSkipped(true)}
+          onSkipFitPrompt={skipFitPrompt}
           onSaveFitPref={saveFitPref}
           onCycleFitDetail={() => setFitDetail((v) => (v === "detailed" ? "concise" : "detailed"))}
           fitDetail={fitDetail}
@@ -10128,6 +10924,11 @@ function CredenzaApp() {
                   Stash
                 </button>
               </div>
+              {/* A0 · Arrival (onboarding handoff). Three numbered lines that
+                  say what one pasted link buys. It sits under the paste bar,
+                  not over it, and it never asks for a size — the ask belongs
+                  to the card. Dismissal is permanent. */}
+              {!introDismissed && <IntroStrip onDismiss={dismissIntro} />}
               {/* Hero 2A specimen (hero spec, Kyle 2026-07-26). The empty
                   shelf used to argue for itself in words and then offer two
                   equal-weight links. It now SHOWS one finished card at 55%
@@ -10813,18 +11614,110 @@ function CredenzaApp() {
                 hauls that only exist as item.project names so far. */}
             <HaulBoard
               record={hauls.find((h) => h.name === openHaulName) || null}
-              pipeline={haulPipeline}
               totalUsd={listTotalUsd}
               items={totalsItems}
               onUpdate={(patch, historyEntry) => updateHaul(openHaulName, patch, historyEntry)}
               onArchive={() => {
                 const rec = hauls.find((h) => h.name === openHaulName);
                 const next = !(rec && rec.archived);
-                updateHaul(openHaulName, { archived: next }, { type: next ? "archived" : "unarchived" });
+                // Hold the name now. Archiving closes the board, and
+                // openHaulName is empty by the time Undo runs.
+                const name = openHaulName;
+                updateHaul(name, { archived: next }, { type: next ? "archived" : "unarchived" });
                 // Archiving hides the haul from the directory — leave it.
                 if (next) closeHaul();
+                // Kyle 2026-08-02: "archiving a haul should pull up a toast
+                // for undo". Same shape as the stash undo above: an action
+                // tone and three seconds. Undo puts the haul back in the
+                // directory. It does not reopen the board.
+                notify(next ? "Archived · " + name : "Back in your hauls · " + name, {
+                  tone: "action",
+                  actionLabel: "Undo",
+                  onAction: () => {
+                    updateHaul(
+                      name,
+                      { archived: !next },
+                      { type: next ? "unarchived" : "archived" }
+                    );
+                  },
+                  duration: 3000,
+                });
               }}
             />
+            {/* The stage board: where every item in this haul actually is,
+                and what the parcel weighs. Mixed progress is the normal
+                state of a haul, so the board renders it instead of a
+                wizard (haul handoff, screens 2, 6 and 7). */}
+            {haulFlowItems.length > 0 ? (
+              <HaulFlowBoard
+                items={haulFlowItems}
+                ship={haulShip}
+                tileFor={haulTileFor}
+                agentName={(preferredAgentInfo && preferredAgentInfo.name) || ""}
+                onOpenItem={(id) => setHaulDrawerId(id)}
+                onItemAction={(item) => {
+                  // One stage offers one move. The board decided which; the
+                  // screen only knows how to carry it out.
+                  if (item.stage === "toOrder") {
+                    copyForHaul(item.url || "", "Link copied.");
+                    return;
+                  }
+                  if (item.stage === "ordered") {
+                    updateItem(item.id, { haulStage: "warehouse", haulStageAt: Date.now() });
+                    notify("Marked as arrived at the warehouse.");
+                    return;
+                  }
+                  if (item.stage === "warehouse") {
+                    setQcItemId(item.id);
+                    return;
+                  }
+                  if (item.stage !== "qcd") return;
+                  if (normalizeVerdict(item.qc) === "green") {
+                    updateItem(item.id, { haulStage: "parcel", haulStageAt: Date.now() });
+                    notify("Added to parcel A.");
+                    return;
+                  }
+                  // A red light opens QC rather than copying in silence
+                  // (README line 144; Kyle 2026-08-02). The person sees the
+                  // photo, the reason and the message before anything reaches
+                  // the clipboard. A copy with no screen in between hid the
+                  // one question the person had: what is wrong with it.
+                  setQcItemId(item.id);
+                }}
+                onColumnFooter={(key) => {
+                  if (key === "toOrder") {
+                    const links = unorderedLinks(haulFlowItems);
+                    if (!links) {
+                      notify("None of those cards has a link yet.", { tone: "error" });
+                      return;
+                    }
+                    copyForHaul(links, "Every unordered link copied.");
+                    return;
+                  }
+                  if (key !== "warehouse") return;
+                  const first = firstPendingQcItem(haulFlowItems);
+                  if (first) setQcItemId(first.id);
+                }}
+                onRemoveFromParcel={(id) => {
+                  // Back to QC done, not back to the warehouse. The verdict
+                  // still stands; only the packing choice changes.
+                  updateItem(id, { haulStage: "qcd", haulStageAt: Date.now() });
+                  notify("Taken out of parcel A.");
+                }}
+                onSetDivisor={(value) => patchHaulShip({ divisor: value }, "divisor " + value)}
+                onSetLine={(key) => patchHaulShip({ line: key }, "line " + key)}
+                onSetRate={(key, rate) => {
+                  const base = migrateHaulShip(haulShip || {});
+                  patchHaulShip({ rates: { ...base.rates, [key]: rate } }, "rate " + key);
+                }}
+                onHandOff={() => {
+                  // A submitted parcel has nothing left to review, so the same
+                  // button asks the only open question: where is it?
+                  if (haulShip && haulShip.submitted) setTrackingOpen(true);
+                  else setHandoffOpen(true);
+                }}
+              />
+            ) : null}
           </div>
         ) : null}
         </div>{/* /.cz-chrome */}
