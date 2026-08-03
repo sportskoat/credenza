@@ -54,7 +54,7 @@ const CAP_ROWS = [
   { label: "Open hauls", note: "Archive a finished one to free a slot.", free: PLAN_CAPS.free.haulsMax + " at once", pro: PLAN_CAPS.pro.haulsMax + " at once" },
   { label: "Shared links", note: "A read-only link to a haul.", free: PLAN_CAPS.free.sharedLinksMax + " live", pro: PLAN_CAPS.pro.sharedLinksMax + " live" },
   { label: "Export a .csv", note: "For Numbers, Excel or Sheets.", free: "No", pro: "Yes" },
-  { label: "Cards on the shelf", note: "The shelf itself is never capped.", free: "Unlimited", pro: "Unlimited" },
+  { label: "Cards on the shelf", note: "Credenza never drops a card to make room.", free: "Every card", pro: "Every card" },
   { label: ".json backup and restore", note: "Your data leaves whenever you want.", free: "Yes", pro: "Yes" },
 ];
 
