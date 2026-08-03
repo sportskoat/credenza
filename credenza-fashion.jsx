@@ -90,6 +90,7 @@ const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
 // One sheet for every limit wall (Kyle 2026-07-30). Lazy: it opens on a tap or
 // at a wall, never on the first paint.
 const LimitsSheet = lazy(() => import("./sheets/LimitsSheet.jsx"));
+const SignInModal = lazy(() => import("./sheets/SignInModal.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -6129,6 +6130,17 @@ function CredenzaApp() {
     [accountPlan, signedInAccount, signInRequired, usageTick],
   );
   const openLimits = useCallback(() => setLimitsOpen(true), []);
+  // ── The sign-in modal (sign-in handoff README, screen 2) ──────────────────
+  //
+  // A modal, never a route. It opens from the cap modal, the account menu and
+  // Settings, and it has to come back to wherever it was opened from. The
+  // intent it carries is what makes that possible: Google, Apple and the mail
+  // app all leave the page, so the return address cannot live in React state.
+  // null = closed. An object = open, carrying that return intent.
+  const [signInIntent, setSignInIntent] = useState(null);
+  const openSignIn = useCallback((intent) => {
+    setSignInIntent(intent || { kind: "shelf", returnTo: "/" });
+  }, []);
   // Rule 3, the other half: the first paste by a signed-out visitor says how
   // many free cards there are. Once per device — a line repeated on every
   // paste is nagging, and nagging drives visitors away.
@@ -9823,7 +9835,9 @@ function CredenzaApp() {
       )}
 
       {/* The one limits sheet. Every wall in the app opens THIS, so a person
-          reads the same three answers wherever they met the limit. */}
+          reads the same three answers wherever they met the limit. When they
+          are signed out it draws the cap modal instead, which offers two
+          different doors: free and instant, or Pro on its own route. */}
       {limitsOpen && (
         <Suspense fallback={null}>
           <LimitsSheet
@@ -9831,14 +9845,34 @@ function CredenzaApp() {
             signedIn={signedInAccount}
             onSignIn={() => {
               setLimitsOpen(false);
-              navigateSettings("account");
+              // The held link is what they were reaching for. Signing in
+              // finishes that card, so the intent carries it across the
+              // round trip through the mail app.
+              openSignIn({
+                kind: heldLinkRef.current ? "card" : "shelf",
+                returnTo: "/",
+                payload: heldLinkRef.current ? { url: heldLinkRef.current } : null,
+              });
             }}
             onUpgrade={() => {
               setLimitsOpen(false);
+              // TEMPORARY LANDING. The README routes this to /upgrade, which
+              // is screen 3 of this handoff and is not built yet. Until it
+              // lands, Pro keeps its current home in Settings, so the button
+              // still answers the question it asks.
               navigateSettings("account");
             }}
             onClose={() => setLimitsOpen(false)}
           />
+        </Suspense>
+      )}
+
+      {/* Sign-in is a modal on top of wherever the person already was. It
+          never replaces the shelf, because coming back to a blank page after
+          signing in reads as losing your work. */}
+      {signInIntent && (
+        <Suspense fallback={null}>
+          <SignInModal intent={signInIntent} onClose={() => setSignInIntent(null)} />
         </Suspense>
       )}
 

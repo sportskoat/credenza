@@ -11864,81 +11864,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-card-solid) !important;
 }
 
-/* ── The sign-in card: its own centered, frosted window (F 2026-08-01) ──────
-   Kyle: "while you are at the sign in, can you center it and make it its
-   own modal." The other limit states (today's cap, a lapsed Pro) stay the
-   bottom sheet above — signing in is a decision, not a quick tool, so it
-   never slides up from the thumb edge. cz-signin-sheet rides alongside
-   cz-limits-sheet (LimitsSheet.jsx passes both when anon), so it keeps every
-   --space-* token and the header type rules above and only overrides the
-   phone-sheet placement and the glass surface. */
-/* .cz-app[data-fashion="true"] .cz-modal-surface (credenza-fashion.css, the
-   compositing-audit block) sets the opaque card background at specificity
-   (0,0,3,0). A bare .cz-modal-surface.cz-signin-sheet is only (0,0,2,0) and
-   silently loses — measured with probe-signin-centered.mjs, which read back
-   the plain card color until this selector matched the prefix too. */
-.cz-app[data-fashion="true"] .cz-modal-surface.cz-signin-sheet {
-  border: 1px solid var(--cz-frost-border);
-  background: var(--cz-frost-fill);
-  /* The frost fill is dark in both app themes (it matches the dock, which
-     stays dark on a light page on purpose). Every .cz-limits-* rule below
-     reads its color from --cz-ink/--cz-sub/--cz-faint/--cz-hair/--cz-seg,
-     which are the light theme's near-black text on white. Redefining those
-     four custom properties here — not touching a single .cz-limits-* rule —
-     recolors the whole sheet for the dark surface, the same tokens the dock
-     already established. Caught by actually looking at the screenshot: the
-     structural probe above passed while the title rendered near-black on a
-     near-black background. --cz-card-solid stays put on purpose: the X
-     close button's white circle is the one deliberate light accent. */
-  --cz-ink: var(--cz-frost-ink);
-  --cz-sub: var(--cz-frost-faint);
-  --cz-faint: var(--cz-frost-faint);
-  --cz-hair: var(--cz-frost-border);
-  --cz-seg: var(--cz-frost-active);
-  /* Redefining --cz-ink above does not, by itself, recolor the title: color
-     is an inherited property computed once at .cz-modal (credenza.css) using
-     the OLD --cz-ink, then just inherited down — the h2 rule sets no color
-     of its own to re-evaluate the new one. This line forces that
-     re-evaluation for the title and anything else here with no explicit
-     color; every rule below that already names its own var(--cz-ink) etc.
-     picks up the redefinition on its own. */
-  color: var(--cz-ink);
-  /* No backdrop-filter here. The 2026-07-27 compositing audit above measured
-     0% visible change from blurring a modal surface — nothing moves behind
-     a scroll-locked dialog, so a blur pays a real per-frame cost for a look
-     the translucent fill already gives for free. The dock and bottom sheets
-     blur because they float over content that is still scrolling; this
-     window opens over its own still scrim, like the audit's dialog case. */
-}
-
-@media (max-width: 767px) and (pointer: coarse) {
-  /* The phone bottom-sheet gate lives on .cz-modal, one level above where
-     surfaceClassName lands, so :has() is the only way to reach it from here.
-     width/max-width must be cancelled too: the phone gate's width:100% is
-     still capped by the inline maxWidth={460} React sets, so on a narrower
-     phone it silently stayed edge-to-edge until this line — measured, not
-     assumed, with the same probe. */
-  .cz-modal:has(.cz-signin-sheet) {
-    width: min(720px, calc(100% - 32px));
-    margin: auto;
-  }
-
-  .cz-signin-sheet {
-    border-radius: 18px;
-  }
-
-  /* Cancels .cz-limits-sheet::before above: same specificity, later in the
-     cascade, and content: none drops the grab bar's box entirely regardless
-     of its other properties. There is nothing to grab — the card no longer
-     anchors to an edge. */
-  .cz-signin-sheet::before {
-    content: none;
-  }
-
-  .cz-signin-sheet .cz-modal-header {
-    padding-top: var(--space-6) !important;
-  }
-}
+/* The signed-out sign-in card used to live here as .cz-signin-sheet: the
+   limits sheet wearing a frosted surface and a re-centred phone gate
+   (F 2026-08-01). The sign-in handoff replaced it 2026-08-02 with two real
+   screens of its own — .cz-cap-modal and .cz-signin-modal, both at the foot
+   of this file. The class is gone from every component, so the rules are
+   gone too rather than sitting here waiting to confuse a later reader. */
 
 .cz-limits {
   display: flex;
@@ -20429,6 +20360,117 @@ input.cz-sizing-fix-size {
 .cz-dock-pill.t-tabs .cz-dock-tab.is-active {
   background: transparent;
   box-shadow: none;
+}
+
+/* ── Cap modal (sign-in handoff 2026-08-02, README screen 1) ───────────────
+   The signed-out wall. It used to be the limits bottom sheet wearing a
+   different title; now it is its own 520px card, because it asks a different
+   question from the signed-in states and it names no price at all.
+
+   Prefixed with .cz-app[data-fashion="true"] for the same reason the two
+   blocks above are: the compositing-audit rule sets .cz-modal-surface at
+   specificity (0,0,3,0), so a bare .cz-modal-surface.cz-cap-modal loses the
+   background without a word of warning. */
+.cz-app[data-fashion="true"] .cz-modal-surface.cz-cap-modal {
+  position: relative;
+  border: 1px solid var(--cz-hair);
+  border-radius: 20px;
+  background: var(--cz-card-solid);
+  box-shadow: 0 24px 64px oklch(0 0 0 / 0.6);
+}
+
+/* The shell draws a bare header here: no title strip, only the close button.
+   Lifting it out of flow lets the body own the full 26/26/22 padding, so the
+   heading starts at the top edge of the card instead of 40px down. The
+   heading reserves the corner with its own padding-right. */
+.cz-app[data-fashion="true"] .cz-cap-modal .cz-modal-header.is-bare {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  z-index: 2;
+}
+
+.cz-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px 26px 22px;
+}
+
+/* 56px of clearance: the 40px close button, its 13px inset, and 3px of air. */
+.cz-cap-head {
+  margin: 0;
+  padding-right: 56px;
+  font-family: var(--cz-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: var(--cz-ink);
+}
+
+.cz-cap-progress {
+  display: flex;
+  flex-direction: column;
+  /* The flag line sits 9px under the bar. Credenza does not ride a 4px grid. */
+  gap: 9px;
+}
+
+.cz-cap-progress-track {
+  display: flex;
+  gap: 5px;
+}
+
+/* Every segment is filled on this screen: the person is at the wall, not
+   near it. The unfilled rule stays for the day a near-the-wall nudge reuses
+   this bar. */
+.cz-cap-progress-track > span {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--cz-seg);
+}
+
+.cz-cap-progress-track > span.is-filled {
+  background: var(--cz-ink);
+}
+
+.cz-cap-flag {
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-cap-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+.cz-cap-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* A phone gets the same card against the bottom edge. The shared modal rule
+   in credenza.css already caps the height and rounds the top corners; only
+   the control floor is left, and 44px is the smallest target a thumb hits
+   reliably. */
+@media (max-width: 767px) and (pointer: coarse) {
+  .cz-app[data-fashion="true"] .cz-modal-surface.cz-cap-modal {
+    border-radius: 18px 18px 0 0;
+  }
+
+  .cz-app[data-fashion="true"] .cz-cap .cz-pill {
+    min-height: 44px;
+  }
 }
 
 /* ── Sign-in modal (sign-in handoff 2026-08-02, README screen 2) ───────────
