@@ -5,6 +5,7 @@ import {
   chartImageKey,
   clearChartImageCache,
   detectTableDirection,
+  dimsFromCandidate,
   rankChartCandidates,
   rememberChartImage,
   scoreChartCandidate,
@@ -158,5 +159,104 @@ describe("scoreChartCandidate rejects", () => {
         via: "desc-photos",
       })
     ).toBeLessThan(0);
+  });
+});
+
+describe("dimsFromCandidate — CDN path dims (Fix 2a)", () => {
+  it("parses Weidian _W_H from the URL when fields are absent", () => {
+    const d = dimsFromCandidate({
+      url: "https://si.geilicdn.com/open1639340781-1234478995-6fa300000197e4bca7290aa043f9_1338_1279.jpg",
+      via: "desc-photos",
+    });
+    expect(d).toEqual({ width: 1338, height: 1279 });
+  });
+
+  it("prefers explicit width/height over the path", () => {
+    const d = dimsFromCandidate({
+      url: "https://si.geilicdn.com/x_1338_1279.jpg",
+      via: "desc-photos",
+      width: 100,
+      height: 200,
+    });
+    expect(d).toEqual({ width: 100, height: 200 });
+  });
+});
+
+describe("scoreChartCandidate shape ranking (Fix 2a) — rank only, never exclude", () => {
+  const via = "desc-photos";
+
+  // Band edges: exact product squares must NOT get the padded-square boost.
+  // Chart at 1.046 must. Pin the edges so the band cannot drift.
+  it("gives no shape boost at w/h 1.000 and 1.006; boosts 1.046", () => {
+    const square = scoreChartCandidate({
+      url: "https://si.geilicdn.com/product_1280_1280.jpg",
+      via,
+    });
+    const nearSquare = scoreChartCandidate({
+      url: "https://si.geilicdn.com/product_1449_1440.jpg",
+      via,
+    });
+    const chart = scoreChartCandidate({
+      url: "https://si.geilicdn.com/open-6fa300000197e4bca7290aa043f9_1338_1279.jpg",
+      via,
+    });
+    // Same via base (25). Chart gets +20 padded-square; squares do not.
+    expect(chart - square).toBe(20);
+    expect(nearSquare).toBe(square);
+    expect(chart).toBeGreaterThan(square);
+  });
+
+  it("demotes banner strips (aspect >2.2) so WhatsApp CS cards rank below the chart", () => {
+    // Fixture: weidian 7503676779 — chart at index 7 vs WhatsApp banner + product squares.
+    const chartUrl =
+      "https://si.geilicdn.com/open1639340781-1234478995-6fa300000197e4bca7290aa043f9_1338_1279.jpg";
+    const bannerUrl =
+      "https://si.geilicdn.com/hz_img_xxx-unadjust_901_383.png";
+    const productUrl = "https://si.geilicdn.com/colorway_1280_1280.jpg";
+
+    const ranked = rankChartCandidates([
+      { url: bannerUrl, via },
+      { url: productUrl, via },
+      { url: "https://si.geilicdn.com/colorway2_1080_1080.jpg", via },
+      { url: chartUrl, via },
+    ]);
+
+    expect(ranked.some((c) => c.url === chartUrl)).toBe(true);
+    expect(ranked[0].url).toBe(chartUrl);
+    const chartScore = ranked.find((c) => c.url === chartUrl).score;
+    const bannerScore = ranked.find((c) => c.url === bannerUrl).score;
+    expect(bannerScore).toBeLessThan(chartScore);
+    // Paid cap is 3 — chart must sit inside the top-3 over banner + products.
+    const top3 = ranked.slice(0, 3).map((c) => c.url);
+    expect(top3).toContain(chartUrl);
+    expect(top3.indexOf(chartUrl)).toBeLessThan(top3.indexOf(bannerUrl) === -1 ? 99 : top3.indexOf(bannerUrl));
+  });
+
+  it("still ranks classic landscape charts and Yupoo photo-1 small tiles", () => {
+    // Regression: weidian landscape tables + Yupoo early small chart.
+    const landscape = rankChartCandidates([
+      { url: "https://si.geilicdn.com/product_1500_1500.jpg", via },
+      {
+        url: "https://si.geilicdn.com/pcitem-unadjust_861_629.png",
+        via,
+      },
+    ]);
+    expect(landscape[0].url).toContain("861_629");
+
+    const yupoo = rankChartCandidates([
+      { url: "https://photo.yupoo.com/s/p1/big.jpg", via: "album-photos", width: 750, height: 625 },
+      { url: "https://photo.yupoo.com/s/p2/big.jpg", via: "album-photos", width: 1600, height: 1600 },
+      { url: "https://photo.yupoo.com/s/p3/big.jpg", via: "album-photos", width: 1800, height: 1800 },
+    ]);
+    expect(yupoo[0].url).toContain("/p1/");
+  });
+
+  it("keeps near-square candidates in the pool (shape never excludes)", () => {
+    const ranked = rankChartCandidates([
+      { url: "https://si.geilicdn.com/exact_1000_1000.jpg", via },
+      { url: "https://si.geilicdn.com/padded_1338_1279.jpg", via },
+    ]);
+    expect(ranked).toHaveLength(2);
+    expect(ranked.every((c) => c.score >= 0)).toBe(true);
   });
 });
