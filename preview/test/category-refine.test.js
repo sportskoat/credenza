@@ -30,15 +30,26 @@ describe("PANTS_SIZE_TOKEN", () => {
     expect(PANTS_SIZE_TOKEN.test("S-28")).toBe(true);
     expect(PANTS_SIZE_TOKEN.test("XXL-36")).toBe(true);
     expect(PANTS_SIZE_TOKEN.test("M30")).toBe(true);
+    expect(PANTS_SIZE_TOKEN.test("2XL-36")).toBe(true);
     expect(PANTS_SIZE_TOKEN.test("S")).toBe(false);
     expect(PANTS_SIZE_TOKEN.test("Blue")).toBe(false);
-    expect(PANTS_SIZE_TOKEN.test("2XL-36")).toBe(false);
+    // Shoe tokens must not match (F review 2026-08-03).
+    expect(PANTS_SIZE_TOKEN.test("EU42")).toBe(false);
+    expect(PANTS_SIZE_TOKEN.test("EU-40")).toBe(false);
+    expect(PANTS_SIZE_TOKEN.test("US10")).toBe(false);
+    expect(PANTS_SIZE_TOKEN.test("UK09")).toBe(false);
   });
 });
 
 describe("inferPantsFromSizeTokens", () => {
   it("fires on >=2 letter-dash-waist variants", () => {
     expect(inferPantsFromSizeTokens(JEANS_VARIANTS)).toBe(true);
+  });
+
+  it("fires on S-28 / XXL-36 pair", () => {
+    expect(
+      inferPantsFromSizeTokens([{ title: "Size", values: ["S-28", "XXL-36"] }])
+    ).toBe(true);
   });
 
   it("does not fire on a single token or color axes (no-false-pants)", () => {
@@ -49,6 +60,22 @@ describe("inferPantsFromSizeTokens", () => {
     expect(inferPantsFromSizeTokens([{ title: "Size", values: ["S", "M", "L", "XL"] }])).toBe(
       false
     );
+  });
+
+  // Shoe EU/US/UK sizes must not infer pants (opaque title + shoe variants).
+  it("does not fire on shoe size tokens EU42/EU-40/US10/UK09 (no-false-pants)", () => {
+    expect(
+      inferPantsFromSizeTokens([
+        { title: "Size", values: ["EU42", "EU-40", "US10", "UK09"] },
+      ])
+    ).toBe(false);
+    expect(
+      refineItemCategory({
+        category: "other",
+        titleEn: "Mystery drop",
+        variants: [{ title: "Size", values: ["EU42", "EU-40", "US10", "UK09"] }],
+      })
+    ).toBe("other");
   });
 });
 

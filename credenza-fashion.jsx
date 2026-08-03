@@ -501,7 +501,9 @@ export function guessFashionCategory(text) {
 
 // Letter + waist size tokens (S-28, XXL-36). High-precision pants signal from
 // listing variants — no AI. F Fix 3 2026-08-03.
-export const PANTS_SIZE_TOKEN = /^[A-Z]{1,3}-?\d{2}$/i;
+// Alpha restricted to real clothing size letters so shoe tokens (EU42, US10,
+// UK09, EU-40) do not false-positive as pants (F review 2026-08-03).
+export const PANTS_SIZE_TOKEN = /^(?:XS|S|M|L|XL|XXL|XXXL|[2-5]XL)-?\d{2}$/i;
 
 /** Flatten variant group values to bare names. */
 export function collectVariantNames(variants) {
