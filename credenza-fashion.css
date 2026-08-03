@@ -22269,6 +22269,60 @@ input.cz-sizing-fix-size {
   color: var(--cz-faint);
 }
 
+/* The red-light block. Kyle 2026-08-02: "there's no screen that tells you what
+   the problem with the article of clothing is". It sits directly under the
+   head, above the stage list, because the problem outranks the position.
+
+   It carries the error tint, not a red border. A tinted panel reads as a state
+   of the item. A red outline reads as a form field the person filled in wrong,
+   and the person did nothing wrong here. */
+.cz-hd-red {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 14px 20px 16px;
+  border-bottom: 1px solid var(--cz-hair);
+  background: var(--cz-error-bg);
+}
+
+.cz-hd-red-kicker {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-error-text);
+}
+
+.cz-hd-red-text {
+  margin: 0;
+  font-family: var(--cz-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--cz-ink);
+  text-wrap: pretty;
+}
+
+.cz-hd-red-cta {
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--cz-error-text);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-error-text);
+  font-family: var(--cz-sans);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out);
+}
+
+.cz-hd-red-cta:hover {
+  background: var(--cz-hover);
+}
+
 /* One stage row. Every row is live, forwards and back: a parcel gets split and
    an order gets cancelled, so the person must be able to correct the app. */
 .cz-hd-stage {
@@ -22472,7 +22526,8 @@ input.cz-sizing-fix-size {
   .cz-hd-close,
   .cz-hd-cta,
   .cz-hd-outline,
-  .cz-hd-subtle {
+  .cz-hd-subtle,
+  .cz-hd-red-cta {
     min-height: 44px;
   }
 

@@ -201,6 +201,47 @@ describe("the three actions", () => {
   });
 });
 
+// Kyle 2026-08-02: "there's no screen that tells you what the problem with the
+// article of clothing is and what to send or what to copy to the agent". The
+// reason was stored and never shown. These tests hold the screen that shows it.
+describe("the red light names its problem", () => {
+  it("prints the reason as a sentence", () => {
+    mount({ item: item({ qc: "red", stage: "qcd", reason: "stitching" }) });
+    expect(document.querySelector(".cz-hd-red-text").textContent).toBe(
+      "The stitching is coming apart."
+    );
+  });
+
+  it("leads to the return message in one press", () => {
+    const props = mount({ item: item({ qc: "red", stage: "qcd", reason: "stain" }) });
+    fireEvent.click(screen.getByText("Write the return message"));
+    expect(props.onReviewQc).toHaveBeenCalledWith("a");
+  });
+
+  it("says the reason is missing rather than showing an empty box", () => {
+    mount({ item: item({ qc: "red", stage: "qcd", reason: null }) });
+    expect(document.querySelector(".cz-hd-red-text").textContent).toBe(
+      "The reason is not set yet. Open QC to pick it."
+    );
+  });
+
+  it("shows no red block on a green light or on no verdict", () => {
+    mount({ item: item({ qc: "green", stage: "qcd" }) });
+    expect(document.querySelector(".cz-hd-red")).toBe(null);
+
+    cleanup();
+    mount({ item: item({ qc: null, stage: "warehouse" }) });
+    expect(document.querySelector(".cz-hd-red")).toBe(null);
+  });
+
+  it("carries the error tint, not a warning outline", () => {
+    // A tinted panel reads as a state of the item. A red outline reads as a
+    // form field filled in wrong, and the person did nothing wrong.
+    expect(ruleBody(".cz-hd-red")).toContain("background: var(--cz-error-bg)");
+    expect(ruleBody(".cz-hd-red-kicker")).toContain("color: var(--cz-error-text)");
+  });
+});
+
 describe("the shape the README fixes", () => {
   it("holds the drawer at 352px on the right edge", () => {
     const body = ruleBody(".cz-hd");

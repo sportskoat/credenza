@@ -42,6 +42,24 @@ export const RED_REASONS = [
   { key: "damaged", en: "the item arrived damaged", zh: "有破损" },
 ];
 
+/**
+ * The red-light reason as one plain sentence, ready to read on screen.
+ *
+ * Kyle 2026-08-02: "there's not an actual thing to say, 'Hey, this caught red
+ * light because of a mark on the shirt'". The clause here is the same clause
+ * the return message sends, so the screen and the message never disagree.
+ *
+ * An unknown key is echoed back rather than dropped. A stored reason the app
+ * does not recognise is still the person's answer, and hiding it would make
+ * the screen say the question was never answered.
+ */
+export function redReasonText(reason) {
+  if (!reason) return null;
+  const clause = RED_REASONS.find((r) => r.key === reason);
+  const text = clause ? clause.en : String(reason);
+  return text.charAt(0).toUpperCase() + text.slice(1) + ".";
+}
+
 /** Free warehouse storage window in days. Superbuy's number. */
 export const STORAGE_DAYS = 90;
 
@@ -639,7 +657,10 @@ export function itemCardMeta(item, { storageClock = true } = {}) {
   if (stage === "qcd") {
     const green = normalizeVerdict(item.qc) === "green";
     return {
-      meta: green ? "green · " + weight : "red · " + (item.reason || "flagged"),
+      // Kyle 2026-08-02: "flagged" told the person nothing. A red light with
+      // no reason is an unanswered question, so the card says so and the
+      // action opens the screen that answers it.
+      meta: green ? "green · " + weight : "red · " + (item.reason || "reason not set"),
       tone: green ? "money" : "error",
       action: green ? "Add to parcel" : "Return message",
     };
@@ -714,6 +735,12 @@ export function itemDrawer(item, { storageClock = true } = {}) {
         : delta
           ? "Weighed at the warehouse. " + delta.label
           : "Weighed at the warehouse. Your estimate was right.",
+    // Kyle 2026-08-02: a red light never said what was wrong with the item.
+    // The reason is stored; nothing showed it. reasonText is the same sentence
+    // the return message uses, so the screen and the message agree.
+    verdict,
+    reason: verdict === "red" ? item.reason || null : null,
+    reasonText: verdict === "red" ? redReasonText(item.reason) : null,
     orderNo: item.order || "",
     storageNote:
       storageClock && item.storage != null

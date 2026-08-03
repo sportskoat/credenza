@@ -241,4 +241,12 @@ describe("the app renders the board", () => {
     expect(APP).toContain("const haulFlowItems = useMemo");
     expect(APP).toContain("shelfAll");
   });
+
+  // README line 144, and Kyle 2026-08-02: a red-lit item's button opens QC. It
+  // used to copy the return message with no screen in between, which hid the
+  // one question the person had: what is wrong with it.
+  it("opens QC on a red light instead of copying in silence", () => {
+    expect(APP).not.toContain("returnMessage({ item, reason: item.reason })");
+    expect(APP).not.toContain("Return message copied.");
+  });
 });

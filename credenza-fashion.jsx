@@ -43,7 +43,6 @@ import {
   normalizeVerdict,
   parcelMaths,
   resetToShelf,
-  returnMessage,
   stageBar,
   toHaulItem,
   unorderedLinks,
@@ -11641,10 +11640,12 @@ function CredenzaApp() {
                     notify("Added to parcel A.");
                     return;
                   }
-                  copyForHaul(
-                    returnMessage({ item, reason: item.reason }),
-                    "Return message copied. You send it to your agent."
-                  );
+                  // A red light opens QC rather than copying in silence
+                  // (README line 144; Kyle 2026-08-02). The person sees the
+                  // photo, the reason and the message before anything reaches
+                  // the clipboard. A copy with no screen in between hid the
+                  // one question the person had: what is wrong with it.
+                  setQcItemId(item.id);
                 }}
                 onColumnFooter={(key) => {
                   if (key === "toOrder") {

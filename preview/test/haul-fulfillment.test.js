@@ -43,6 +43,7 @@ import {
   pendingQcCount,
   qcProgress,
   qcQueue,
+  redReasonText,
   remainingNote,
   resetToShelf,
   returnMessage,
@@ -841,8 +842,12 @@ describe("one card on the board", () => {
     });
   });
 
-  it("still reads as red when nobody picked a reason", () => {
-    expect(itemCardMeta(item({ stage: "qcd", qc: "red", reason: null })).meta).toBe("red · flagged");
+  // Kyle 2026-08-02: "flagged" answered nothing. A red light with no reason is
+  // an unanswered question, and the card now says which one it is.
+  it("says the reason is missing rather than calling it flagged", () => {
+    expect(itemCardMeta(item({ stage: "qcd", qc: "red", reason: null })).meta).toBe(
+      "red · reason not set"
+    );
   });
 
   it("offers nothing to an item already in the box", () => {
@@ -938,8 +943,48 @@ describe("the item drawer", () => {
     expect(itemDrawer(item({ storage: null })).storageNote).toBe(null);
   });
 
+  // Kyle 2026-08-02: "there's not an actual thing to say, 'Hey, this caught
+  // red light because of a mark on the shirt'". The drawer now carries the
+  // sentence, so a screen can print it.
+  it("names the problem behind a red light in words", () => {
+    const view = itemDrawer(item({ qc: "red", reason: "stitching" }));
+    expect(view.verdict).toBe("red");
+    expect(view.reason).toBe("stitching");
+    expect(view.reasonText).toBe("The stitching is coming apart.");
+  });
+
+  it("carries no reason for a green light", () => {
+    const view = itemDrawer(item({ qc: "green", reason: "stitching" }));
+    expect(view.reason).toBe(null);
+    expect(view.reasonText).toBe(null);
+  });
+
+  it("leaves the sentence empty when nobody picked a reason", () => {
+    const view = itemDrawer(item({ qc: "red", reason: null }));
+    expect(view.verdict).toBe("red");
+    expect(view.reasonText).toBe(null);
+  });
+
   it("has nothing to show for a missing item", () => {
     expect(itemDrawer(null)).toBe(null);
+  });
+});
+
+// A stored reason the app does not recognise is still the person's answer.
+// Dropping it would make the screen say the question was never answered.
+describe("the red-light sentence", () => {
+  it("reads back every listed reason as a sentence", () => {
+    expect(redReasonText("wrong size")).toBe("The size sent is not the size ordered.");
+    expect(redReasonText("stain")).toBe("There is a stain on the fabric.");
+  });
+
+  it("echoes an unknown reason rather than hiding it", () => {
+    expect(redReasonText("smells of smoke")).toBe("Smells of smoke.");
+  });
+
+  it("has nothing to say for no reason", () => {
+    expect(redReasonText(null)).toBe(null);
+    expect(redReasonText("")).toBe(null);
   });
 });
 

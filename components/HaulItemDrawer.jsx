@@ -84,6 +84,26 @@ export default function HaulItemDrawer({
           </button>
         </div>
 
+        {/* Kyle 2026-08-02: a red light said "red" and nothing else. Now the
+            drawer names the problem in words, and one button leads to the
+            message that fixes it. The reason can be missing, and that is a
+            different sentence: an unanswered question, not a silent one. */}
+        {view.verdict === "red" ? (
+          <div className="cz-hd-red" role="group" aria-label="Red light">
+            <span className="cz-hd-red-kicker">Red light</span>
+            <p className="cz-hd-red-text">
+              {view.reasonText || "The reason is not set yet. Open QC to pick it."}
+            </p>
+            <button
+              type="button"
+              className="cz-hd-red-cta"
+              onClick={() => onReviewQc && onReviewQc(view.id)}
+            >
+              Write the return message
+            </button>
+          </div>
+        ) : null}
+
         {/* Where it is. Tapping a row moves the item there, forwards or back. */}
         <div className="cz-hd-section">
           <span className="cz-hd-kicker">Where it is</span>
