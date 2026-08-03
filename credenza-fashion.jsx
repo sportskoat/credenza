@@ -11621,9 +11621,28 @@ function CredenzaApp() {
               onArchive={() => {
                 const rec = hauls.find((h) => h.name === openHaulName);
                 const next = !(rec && rec.archived);
-                updateHaul(openHaulName, { archived: next }, { type: next ? "archived" : "unarchived" });
+                // Hold the name now. Archiving closes the board, and
+                // openHaulName is empty by the time Undo runs.
+                const name = openHaulName;
+                updateHaul(name, { archived: next }, { type: next ? "archived" : "unarchived" });
                 // Archiving hides the haul from the directory — leave it.
                 if (next) closeHaul();
+                // Kyle 2026-08-02: "archiving a haul should pull up a toast
+                // for undo". Same shape as the stash undo above: an action
+                // tone and three seconds. Undo puts the haul back in the
+                // directory. It does not reopen the board.
+                notify(next ? "Archived · " + name : "Back in your hauls · " + name, {
+                  tone: "action",
+                  actionLabel: "Undo",
+                  onAction: () => {
+                    updateHaul(
+                      name,
+                      { archived: !next },
+                      { type: next ? "unarchived" : "archived" }
+                    );
+                  },
+                  duration: 3000,
+                });
               }}
             />
             {/* The stage board: where every item in this haul actually is,

@@ -4006,6 +4006,37 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-sub);
 }
 
+/* Kyle 2026-08-02: "the font looks like it doesn't match". It had no rule at
+   all, so "Archived (1)" fell back to the browser's button face beside a mono
+   "1 NEEDS YOU". Same type as its neighbour above. It is a button, so it also
+   takes a button reset and a pressed state. */
+.cz-hauls-archived-toggle {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.cz-hauls-archived-toggle:hover,
+.cz-hauls-archived-toggle[aria-pressed="true"] {
+  color: var(--cz-ink);
+}
+
+/* A finger needs 44px. The words stay 10px; only the tap area grows. */
+@media (pointer: coarse) {
+  .cz-hauls-archived-toggle {
+    min-height: 44px;
+  }
+}
+
 /* KM-07: "Start a haul" ghost tile — quieter than a real haul card. */
 /* The ghost tile is an invitation, not a haul. It has no photo, so a scrim
    over its empty placeholder read as a grey smear and the white words lost
