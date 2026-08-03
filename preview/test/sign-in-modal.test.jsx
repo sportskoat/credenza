@@ -29,11 +29,14 @@ beforeEach(() => {
 });
 
 describe("sign-in modal · state A", () => {
-  it("offers three ways in and no fourth", async () => {
+  // Kyle 2026-08-02: Apple is parked until Credenza has an Apple developer
+  // account. The button led nowhere, so it leaves the sheet. The provider is
+  // still wired in auth.js, so bringing it back is one line of JSX.
+  it("offers two ways in and no third", async () => {
     await open();
     expect(screen.getByRole("button", { name: "Email me a sign-in link." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue with Apple" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /apple/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /discord/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /facebook/i })).toBeNull();
   });
@@ -113,9 +116,10 @@ describe("sign-in modal · methods", () => {
     });
 
     await open({ signIn });
-    await user.click(screen.getByRole("button", { name: "Continue with Apple" }));
+    // Was Apple; Apple is parked (Kyle 2026-08-02). Google takes the same path.
+    await user.click(screen.getByRole("button", { name: "Continue with Google" }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith("https://example.test/authorize"));
-    expect(signIn).toHaveBeenCalledWith("apple", { email: "" });
+    expect(signIn).toHaveBeenCalledWith("google", { email: "" });
 
     Object.defineProperty(window, "location", { configurable: true, value: original });
   });

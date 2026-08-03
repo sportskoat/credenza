@@ -173,12 +173,12 @@ export default function SignInModal({ onClose, intent = null, signIn = signInWit
               </Pill>
             </form>
             <OrDivider />
+            {/* Kyle 2026-08-02: Apple is parked. Credenza has no Apple
+                developer account yet, so the button led nowhere. The provider
+                stays wired in auth.js, ready to come back. */}
             <div className="cz-signin-oauth">
               <Pill loading={busy === "google"} onClick={() => run("google")} style={{ width: "100%" }}>
                 Continue with Google
-              </Pill>
-              <Pill loading={busy === "apple"} onClick={() => run("apple")} style={{ width: "100%" }}>
-                Continue with Apple
               </Pill>
             </div>
             {error ? <p className="cz-signin-error">{error}</p> : null}

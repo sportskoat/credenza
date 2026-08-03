@@ -7033,6 +7033,24 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-avatar:hover {
   color: var(--cz-ink);
 }
+/* Kyle 2026-08-02: signed out, the entry says "Sign in" instead of drawing a
+   person. The word is wider than a glyph, so the button opens up. The 44px
+   floor stays as a minimum, so a finger still hits it.
+   Four other rules set .cz-avatar width and three of them beat this one; each
+   carries its own --word line below (12127, 12520, 12719, 12728). */
+.cz-avatar--word {
+  width: auto;
+  min-width: 44px;
+  padding-inline: 8px;
+}
+.cz-avatar-word {
+  font-family: var(--cz-display);
+  font-style: italic;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
 /* CH-03: signed in → initials on the action fill instead of the glyph. */
 .cz-avatar-initials {
   display: grid;
@@ -12130,6 +12148,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     height: 36px;
   }
 
+  /* Signed out the entry carries a word, not a glyph, so it keeps its own
+     width here too (Kyle 2026-08-02). */
+  .cz-masthead.is-compact .cz-avatar--word {
+    width: auto;
+    padding-inline: 8px;
+  }
+
   .cz-masthead.is-compact .cz-avatar::after {
     content: "";
     position: absolute;
@@ -12526,6 +12551,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     color: var(--cz-sub);
   }
 
+  /* The signed-out word needs its own width here too (Kyle 2026-08-02). */
+  .cz-shelf-band .cz-avatar--word {
+    width: auto;
+    padding-inline: 8px;
+  }
+
   .cz-shelf-band .cz-mast-btn:hover,
   .cz-shelf-band .cz-avatar:hover {
     color: var(--cz-ink);
@@ -12730,6 +12761,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-chip-fill);
   border: 1px solid var(--cz-hair);
   color: var(--cz-ink);
+}
+
+/* The signed-out word needs its own width; the pill grows around it
+   (Kyle 2026-08-02). */
+.cz-masthead-7a .cz-avatar--word {
+  width: auto;
+  padding-inline: 12px;
 }
 
 .cz-masthead-7a .cz-avatar-initials {

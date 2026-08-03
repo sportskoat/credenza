@@ -564,7 +564,7 @@ describe("Fashion morph controls and favorites", () => {
       }),
     });
     const { container } = render(<Credenza />);
-    await screen.findByRole("button", { name: "Profile" });
+    await screen.findByRole("button", { name: "Sign in" });
     expect(container.querySelector(".cz-app")).toHaveAttribute("data-theme", "rainbow");
     await waitFor(() => {
       const prefs = JSON.parse(data[PREFS_KEY]);
@@ -757,7 +757,7 @@ describe("Agent Buy plumbing (A2)", () => {
     await screen.findAllByText("Palace x Nike jersey");
     // The bottom bar is gone (mobile handoff step 3), so the Agent sheet
     // opens from the avatar menu's Agent row.
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     // The card detail has its own "Agent: …" button; the menu row computes
     // as "AgentSuperbuy" (spans join without a space).
     await user.click(await screen.findByRole("button", { name: /^Agent\S+$/ }));
@@ -827,7 +827,7 @@ Mook hoodie https://weidian.com/item.html?itemID=7299887766`;
     // Import lives in the settings page's Your data section now (Profile
     // Settings design). The cold open lands straight on the hero — the
     // first-run intro gate is gone (2026-07-26).
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -883,7 +883,7 @@ Installed Apps`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -903,7 +903,7 @@ Installed Apps`;
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     await user.click(await screen.findByRole("button", { name: /Your data/ }));
     const box = await screen.findByLabelText(/Paste haul links/);
@@ -940,7 +940,7 @@ Installed Apps`;
     // Wait for the shelf to hydrate — see the search-field test for why (the
     // first-run intro can flash for one render and detach early grabs).
     await screen.findAllByText("Real card one");
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     await user.click(await screen.findByRole("button", { name: /Your data/ }));
     await user.click(await screen.findByRole("button", { name: /Clear the whole shelf/ }));
@@ -2246,7 +2246,7 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     expect(screen.queryByRole("radio", { name: "Blackout" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "Gallery" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Agent\S+$/ })).toBeInTheDocument();
@@ -2262,7 +2262,7 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
     const user = userEvent.setup();
     render(<Credenza />);
 
-    await user.click(await screen.findByRole("button", { name: "Profile" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
@@ -2283,7 +2283,7 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
       // masthead and the frosted dock. Clicking before items land can hit a
       // node that unmounts mid-gesture, so the click is lost.
       await screen.findByRole("heading", { name: "Shelf" });
-      await user.click(await screen.findByRole("button", { name: "Profile" }));
+      await user.click(await screen.findByRole("button", { name: "Sign in" }));
       await user.click(await screen.findByRole("button", { name: /All settings/ }));
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
       // Redesign 2026-08-01: phone stacks every section in one column. No

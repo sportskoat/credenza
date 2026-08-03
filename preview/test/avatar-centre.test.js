@@ -69,3 +69,35 @@ describe("the masthead avatar centres its initials", () => {
     );
   });
 });
+
+// Kyle 2026-08-02: "instead of having a little man when you're signed out,
+// should say 'Sign in'". A word is wider than a glyph, so every rule that
+// pins the avatar to a fixed width has to let go for the word state. Three
+// of those rules beat a bare .cz-avatar--word on specificity, so each one
+// carries its own line. This test fails if any of them is dropped.
+describe("the signed-out avatar makes room for the word", () => {
+  const WORD_RULES = [
+    ".cz-avatar--word",
+    ".cz-masthead.is-compact .cz-avatar--word",
+    ".cz-shelf-band .cz-avatar--word",
+    ".cz-masthead-7a .cz-avatar--word",
+  ];
+
+  it.each(WORD_RULES)("%s lets the button size itself", (selector) => {
+    const body = ruleBody(selector);
+    expect(body, "the " + selector + " rule is gone — the word gets squeezed").not.toBeNull();
+    expect(body).toMatch(/width:\s*auto/);
+    expect(body).toMatch(/padding-inline:\s*\d+px/);
+  });
+
+  it("keeps the 44px finger target on the base rule", () => {
+    expect(ruleBody(".cz-avatar--word")).toMatch(/min-width:\s*44px/);
+  });
+
+  it("sets the word in the display italic", () => {
+    const body = ruleBody(".cz-avatar-word");
+    expect(body, "the .cz-avatar-word rule is gone — re-point this test").not.toBeNull();
+    expect(body).toMatch(/font-family:\s*var\(--cz-display\)/);
+    expect(body).toMatch(/font-style:\s*italic/);
+  });
+});

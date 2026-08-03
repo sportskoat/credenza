@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useState, useEffect, useRef, useMemo, useCall
 import { flushSync } from "react-dom";
 import { AnimatePresence, LazyMotion, m as motion } from "framer-motion";
 import { loadMotionFeatures } from "./components/motion-features.js";
-import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, User, X } from "lucide-react";
+import { Check, ChevronLeft, Heart, Layers, LayoutGrid, Package, Plus, Search, Tag, X } from "lucide-react";
 
 import {
   createStorageBackend,
@@ -10144,21 +10144,25 @@ function CredenzaApp() {
         </button>
       )}
       {/* CH-03: the ⋯ Settings button is gone. The avatar is the one
-          top-right entry — initials when signed in, person glyph when
+          top-right entry — initials when signed in, the word "Sign in" when
           out. It drops the quick menu (design 1c); the settings page
-          sits behind the menu's "All settings" row. */}
+          sits behind the menu's "All settings" row.
+          Kyle 2026-08-02: the person glyph said nothing. Signed out, the
+          entry now reads "Sign in" in the display italic. The spoken name
+          follows the visible word: a screen reader that says "Profile" over
+          a button that reads "Sign in" is an accessibility fault. */}
       <button
         type="button"
-        className="cz-avatar"
-        aria-label="Profile"
-        title="Profile"
+        className={"cz-avatar" + (avatarInitials ? "" : " cz-avatar--word")}
+        aria-label={avatarInitials ? "Profile" : "Sign in"}
+        title={avatarInitials ? "Profile" : "Sign in"}
         aria-expanded={avatarMenuOpen}
         onClick={() => setAvatarMenuOpen((v) => !v)}
       >
         {avatarInitials ? (
           <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
         ) : (
-          <User size={isPhone ? 19 : 17} strokeWidth={2.2} aria-hidden="true" />
+          <span className="cz-avatar-word" aria-hidden="true">Sign in</span>
         )}
       </button>
       {avatarMenuOpen && (
