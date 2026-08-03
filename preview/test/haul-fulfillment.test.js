@@ -16,7 +16,9 @@ import {
   firstPendingQcItem,
   handoffMessage,
   haulCta,
+  haulIndexCard,
   itemShipGrams,
+  needsYouCount,
   landedTotal,
   normalizeStage,
   normalizeVerdict,
@@ -24,7 +26,10 @@ import {
   parcelTips,
   pendingQcCount,
   returnMessage,
+  shipRange,
+  stageBar,
   stageCounts,
+  toHaulItem,
   unorderedLinks,
 } from "../../haul-fulfillment.js";
 
@@ -431,6 +436,222 @@ describe("the estimate delta", () => {
 
   it("says nothing when the guess was right", () => {
     expect(estimateDelta(item({ est: 400, actual: 400 }))).toBeNull();
+  });
+});
+
+// The index card (haul handoff README, "Hauls index" and screen 1).
+//
+// README: "The index is a projection of item and parcel state — never a stored
+// status, and never derived from which screen is showing." Every assertion here
+// feeds only items and parcel state, never a screen name.
+describe("the index card", () => {
+  it("puts the QC shortcut above everything else", () => {
+    const card = haulIndexCard({
+      items: [item({ stage: "warehouse" }), item({ stage: "warehouse" }), item()],
+      submitted: true,
+      milestone: 3,
+    });
+    expect(card.flag).toBe("2 at QC");
+    expect(card.label).toBe("Review QC · 2");
+    expect(card.note).toBe("2 items are waiting on your green light.");
+    expect(card.tone).toBe("attention");
+    expect(card.openQc).toBe(true);
+  });
+
+  it("counts one waiting item in the singular", () => {
+    const card = haulIndexCard({ items: [item({ stage: "warehouse" })] });
+    expect(card.note).toBe("1 item is waiting on your green light.");
+  });
+
+  it("shouts when the free storage is nearly out", () => {
+    const items = [item({ stage: "qcd", storage: 6 }), item({ stage: "qcd", storage: 40 })];
+    const card = haulIndexCard({ items });
+    expect(card.tone).toBe("urgent");
+    expect(card.flag).toBe("6 d left");
+    expect(card.note).toBe("Free storage ends in 6 days on all 2 items.");
+  });
+
+  it("stays quiet about storage when the clock has plenty left", () => {
+    const card = haulIndexCard({ items: [item({ stage: "toOrder", storage: 40 })] });
+    expect(card.tone).toBe("idle");
+    expect(card.flag).toBe(null);
+    expect(card.note).toBe("1 item still to order.");
+  });
+
+  it("ignores the storage clock once the parcel is gone", () => {
+    const items = [item({ stage: "parcel", storage: 2 })];
+    const card = haulIndexCard({ items, submitted: true, maths: parcelMaths({ items }) });
+    expect(card.tone).toBe("attention");
+    expect(card.flag).toBe("In transit");
+  });
+
+  it("names the line and the chargeable weight in transit", () => {
+    const items = [item({ est: 900, vol: 0 })];
+    const card = haulIndexCard({
+      items,
+      submitted: true,
+      line: "DHL",
+      maths: parcelMaths({ items }),
+    });
+    expect(card.label).toBe("Track parcel A");
+    expect(card.to).toBe("tracking");
+    expect(card.note).toBe("Parcel A is with DHL · 1.04 kg.");
+  });
+
+  it("reads the landed total once the parcel arrives", () => {
+    const items = [item({ price: 42, est: 900, vol: 0 })];
+    const maths = parcelMaths({ items });
+    const card = haulIndexCard({ items, submitted: true, milestone: 3, maths });
+    // 42 goods + 18.40 agent + 13.10 x 1.5 kg = 80.05
+    expect(card.note).toBe("Delivered · $80.05 landed.");
+    expect(card.tone).toBe("done");
+    expect(card.label).toBe("Open");
+  });
+
+  it("prices the ready parcel as a range across the lines", () => {
+    const items = [item({ est: 900, vol: 0 })];
+    const maths = parcelMaths({ items });
+    const card = haulIndexCard({ items, maths });
+    expect(card.label).toBe("Review & hand off");
+    expect(card.flag).toBe("1.04 kg");
+    expect(card.note).toBe("Parcel A is ready · ~$20–33 to ship.");
+  });
+
+  it("names the empty box when everything is reviewed", () => {
+    const card = haulIndexCard({ items: [item({ stage: "qcd", storage: 90 })] });
+    expect(card.note).toBe("Everything is reviewed. Nothing in the box yet.");
+    expect(card.tone).toBe("attention");
+  });
+
+  it("asks for the box when items sit at the warehouse without photos", () => {
+    const card = haulIndexCard({ items: [item({ stage: "warehouse", photos: 0, storage: 90 })] });
+    expect(card.label).toBe("Build the parcel");
+    expect(card.note).toBe("1 item is at the warehouse.");
+  });
+
+  it("does not send a person to QC on an item with no photos", () => {
+    const items = [item({ stage: "warehouse", photos: 0, storage: 90 })];
+    expect(haulIndexCard({ items }).openQc).toBe(false);
+  });
+
+  it("counts what is still to order", () => {
+    const card = haulIndexCard({ items: [item({ stage: "toOrder" }), item({ stage: "toOrder" })] });
+    expect(card.label).toBe("Start ordering");
+    expect(card.note).toBe("2 items still to order.");
+    expect(card.tone).toBe("idle");
+    expect(card.flag).toBe(null);
+  });
+
+  it("says nothing about an empty haul", () => {
+    const card = haulIndexCard({ items: [] });
+    expect(card.label).toBe("Open");
+    expect(card.note).toBe("Nothing ordered yet.");
+    expect(card.flag).toBe(null);
+  });
+
+  it("counts the hauls that ask for something", () => {
+    const cards = [{ tone: "attention" }, { tone: "urgent" }, { tone: "done" }, { tone: "idle" }];
+    expect(needsYouCount(cards)).toBe(2);
+    expect(needsYouCount([])).toBe(0);
+  });
+});
+
+// Reading a saved card as a haul item. One tested translation, so no screen
+// invents its own field names.
+describe("reading a saved card", () => {
+  const card = {
+    id: "c1",
+    title: "Cargo trousers",
+    size: "Large",
+    platform: "weidian",
+    url: "https://weidian.com/item.html?itemID=1",
+    weightGrams: 480,
+    qcPhotos: ["a", "b", "c"],
+    haulStage: "warehouse",
+    haulVerdict: "green",
+    haulReason: "stitching",
+    haulActualGrams: 512,
+    haulVolumeCm3: 3000,
+    haulStorageDays: 84,
+    haulOrderNo: "SB-8827101",
+    haulStageAt: "2026-07-30",
+  };
+
+  it("carries every hand-marked field across", () => {
+    expect(toHaulItem(card, { estGrams: 480, priceUsd: 42 })).toEqual({
+      id: "c1",
+      title: "Cargo trousers",
+      size: "Large",
+      price: 42,
+      platform: "weidian",
+      est: 480,
+      actual: 512,
+      vol: 3000,
+      stage: "warehouse",
+      qc: "green",
+      reason: "stitching",
+      photos: 3,
+      storage: 84,
+      order: "SB-8827101",
+      when: "2026-07-30",
+      url: "https://weidian.com/item.html?itemID=1",
+    });
+  });
+
+  it("reads a card saved before this feature as not bought yet", () => {
+    const plain = toHaulItem({ id: "c2", title: "Tee" });
+    expect(plain.stage).toBe("toOrder");
+    expect(plain.qc).toBe(null);
+    expect(plain.actual).toBe(null);
+    expect(plain.storage).toBe(null);
+    expect(plain.photos).toBe(0);
+    expect(plain.price).toBe(0);
+  });
+
+  it("falls back to the card's own weight when no estimate is given", () => {
+    expect(toHaulItem(card).est).toBe(480);
+  });
+
+  it("returns nothing for a missing card", () => {
+    expect(toHaulItem(null)).toBe(null);
+  });
+});
+
+describe("the stage bar", () => {
+  it("draws one segment per occupied stage, in order", () => {
+    const items = [
+      item({ stage: "parcel" }),
+      item({ stage: "toOrder" }),
+      item({ stage: "toOrder" }),
+      item({ stage: "warehouse" }),
+    ];
+    expect(stageBar(items)).toEqual([
+      { stage: "toOrder", count: 2 },
+      { stage: "warehouse", count: 1 },
+      { stage: "parcel", count: 1 },
+    ]);
+  });
+
+  it("draws nothing for an empty haul", () => {
+    expect(stageBar([])).toEqual([]);
+  });
+});
+
+describe("the shipping range", () => {
+  it("spans the cheapest and the dearest line", () => {
+    expect(shipRange(parcelMaths({ items: [item({ est: 900, vol: 0 })] }))).toBe("~$20–33");
+  });
+
+  it("collapses to one number when every line costs the same", () => {
+    const maths = parcelMaths({ items: [item({ est: 100, vol: 0 })] });
+    expect(maths.billedKg).toBe(0.5);
+    // Every line falls to the $8 floor at this weight, so there is no range.
+    expect(shipRange({ ...maths, costs: { EMS: 8, DHL: 8 } })).toBe("~$8");
+    expect(shipRange(maths)).toBe("~$8–11");
+  });
+
+  it("says nothing about an empty box", () => {
+    expect(shipRange(parcelMaths({ items: [] }))).toBe(null);
   });
 });
 

@@ -89,6 +89,36 @@ export function itemShipGrams(item) {
 }
 
 /**
+ * Read a saved card as a haul item. The card carries the person's own field
+ * names; this module speaks the handoff's names. Keep the translation here, in
+ * one tested place, rather than in every screen that needs it.
+ *
+ * `estGrams` and `priceUsd` come from the app's own estimator and currency
+ * conversion, which this module cannot reach without pulling in the world.
+ */
+export function toHaulItem(card, { estGrams = null, priceUsd = null } = {}) {
+  if (!card) return null;
+  return {
+    id: card.id,
+    title: card.title || "",
+    size: card.size || "",
+    price: priceUsd == null ? 0 : num(priceUsd),
+    platform: card.platform || "",
+    est: estGrams == null ? num(card.weightGrams) : num(estGrams),
+    actual: card.haulActualGrams == null ? null : num(card.haulActualGrams),
+    vol: num(card.haulVolumeCm3),
+    stage: normalizeStage(card.haulStage),
+    qc: normalizeVerdict(card.haulVerdict),
+    reason: card.haulReason || null,
+    photos: Array.isArray(card.qcPhotos) ? card.qcPhotos.length : 0,
+    storage: card.haulStorageDays == null ? null : num(card.haulStorageDays),
+    order: card.haulOrderNo || "",
+    when: card.haulStageAt || null,
+    url: card.url || "",
+  };
+}
+
+/**
  * The parcel calculator. The one piece of real domain logic in the feature.
  *
  * A red-lit item can never enter a parcel, so it never reaches these sums.
@@ -206,9 +236,15 @@ export function stageCounts(items = []) {
   return counts;
 }
 
-/** How many items are waiting on the person's green light. */
+/**
+ * How many items are waiting on the person's green light. An item with no QC
+ * photos cannot be reviewed yet, so it does not count. Marking an item arrived
+ * brings its photos with it, so in practice every warehouse item counts.
+ */
 export function pendingQcCount(items = []) {
-  return items.filter((item) => item && normalizeStage(item.stage) === "warehouse").length;
+  return items.filter(
+    (item) => item && normalizeStage(item.stage) === "warehouse" && num(item.photos) > 0
+  ).length;
 }
 
 /**
@@ -284,6 +320,112 @@ export function firstPendingQcItem(items = []) {
 
 function money(value) {
   return "$" + num(value).toFixed(2);
+}
+
+/**
+ * How few days of free storage make the haul urgent. The README shows an urgent
+ * card at 6 days but never names the line. Two weeks is enough warning to order
+ * the rest of the haul, and short enough that the red border still means
+ * something. Change this number and the index changes with it.
+ */
+export const STORAGE_URGENT_DAYS = 14;
+
+/** The cheapest and dearest line, for "~$33–56 to ship". */
+export function shipRange(maths) {
+  if (!maths || !maths.count) return null;
+  const costs = Object.values(maths.costs || {});
+  if (!costs.length) return null;
+  const low = Math.round(Math.min(...costs));
+  const high = Math.round(Math.max(...costs));
+  return low === high ? "~$" + low : "~$" + low + "–" + high;
+}
+
+/**
+ * Everything the index card shows: the flag, the note, the tone and the
+ * recommended move. All of it is a projection of the items and the parcel.
+ * Nothing here is stored. Cache any of it and the board and the index drift.
+ */
+export function haulIndexCard({
+  items = [],
+  submitted = false,
+  milestone = 0,
+  maths = null,
+  line = "EMS",
+  domesticUsd = DEFAULT_DOMESTIC_USD,
+} = {}) {
+  const counts = stageCounts(items);
+  const cta = haulCta({ items, submitted, milestone });
+  const pendingQC = pendingQcCount(items);
+  const waiting = items.filter((item) => item && normalizeStage(item.stage) !== "parcel").length;
+  const storageDays = earliestStorageDays(items);
+  const urgentStorage =
+    !submitted && storageDays != null && storageDays <= STORAGE_URGENT_DAYS && waiting > 0;
+
+  let tone = "idle";
+  let note = "Nothing ordered yet.";
+  if (pendingQC > 0) {
+    tone = "attention";
+    note =
+      pendingQC === 1
+        ? "1 item is waiting on your green light."
+        : pendingQC + " items are waiting on your green light.";
+  } else if (urgentStorage) {
+    tone = "urgent";
+    note =
+      "Free storage ends in " +
+      storageDays +
+      (storageDays === 1 ? " day on " : " days on ") +
+      (waiting === 1 ? "1 item." : "all " + waiting + " items.");
+  } else if (submitted && milestone >= 3) {
+    tone = "done";
+    note = "Delivered · " + money(landedTotal({ maths, line, domesticUsd })) + " landed.";
+  } else if (submitted) {
+    tone = "attention";
+    note = "Parcel A is with " + line + " · " + kg2(maths ? maths.chargeableG : 0) + ".";
+  } else if (counts.parcel > 0) {
+    tone = "attention";
+    const range = shipRange(maths);
+    note = "Parcel A is ready" + (range ? " · " + range + " to ship." : ".");
+  } else if (counts.qcd > 0) {
+    // The README's CTA table has no branch for reviewed-but-unboxed, so the
+    // move stays the table's fallback "Open". The note still says the truth.
+    tone = "attention";
+    note = "Everything is reviewed. Nothing in the box yet.";
+  } else if (counts.warehouse > 0) {
+    tone = "attention";
+    note =
+      counts.warehouse === 1
+        ? "1 item is at the warehouse."
+        : counts.warehouse + " items are at the warehouse.";
+  } else if (counts.toOrder > 0) {
+    note = counts.toOrder === 1 ? "1 item still to order." : counts.toOrder + " items still to order.";
+  }
+
+  // The flag is absent when there is nothing to say. An always-present badge is
+  // noise. The storage clock only claims the badge when no branch above it did.
+  let flag = cta.flag;
+  if (!flag && counts.parcel > 0 && !submitted && maths) flag = kg2(maths.chargeableG);
+  if (!flag && urgentStorage) flag = storageDays + " d left";
+
+  return { ...cta, flag, tone, note, counts, pendingQC, storageDays };
+}
+
+/**
+ * The stage bar: one segment per occupied stage, each as wide as its share of
+ * the items. Progress reads as the bar filling with ink and finally going green.
+ */
+export function stageBar(items = []) {
+  const counts = stageCounts(items);
+  return HAUL_STAGES.filter((stage) => counts[stage] > 0).map((stage) => ({
+    stage,
+    count: counts[stage],
+  }));
+}
+
+/** How many hauls are asking for something. The index header counts these. */
+export function needsYouCount(cards = []) {
+  return cards.filter((card) => card && (card.tone === "attention" || card.tone === "urgent"))
+    .length;
 }
 
 /**

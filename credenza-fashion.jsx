@@ -33,8 +33,13 @@ import {
   DIVISORS,
   RED_REASONS,
   SHIPPING_LINES,
+  haulIndexCard,
+  needsYouCount,
   normalizeStage,
   normalizeVerdict,
+  parcelMaths,
+  stageBar,
+  toHaulItem,
 } from "./haul-fulfillment.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
@@ -8630,6 +8635,8 @@ function CredenzaApp() {
         latest: 0,
         // [{ image, createdAt }] — sorted newest-first for the fan spread.
         coverItems: [],
+        // Haul-shaped copies of the same cards, for the fulfillment projections.
+        haulItems: [],
       };
       cur.count += 1;
       cur.value += price;
@@ -8637,8 +8644,17 @@ function CredenzaApp() {
       if (item.image) {
         cur.coverItems.push({ image: item.image, createdAt: created });
       }
+      // Haul fulfillment (design/handoffs/haul). The card's flag, note, stage
+      // bar and CTA are all projections of these. Nothing is stored.
+      cur.haulItems.push(
+        toHaulItem(item, { estGrams: estimateItemWeightGrams(item), priceUsd: price })
+      );
       map.set(name, cur);
     }
+    // The shipping settings a person edited, by haul name. A haul that never
+    // opened the parcel panel has none, so the card falls back to the starting
+    // numbers. See migrateHaulShip.
+    const shipByName = new Map(hauls.map((h) => [h.name, h.ship]));
     const dirs = Array.from(map.values()).map((haul) => {
       const seen = new Set();
       const covers = haul.coverItems
@@ -8650,12 +8666,36 @@ function CredenzaApp() {
           return true;
         })
         .slice(0, 5);
+      const ship = shipByName.get(haul.name) || null;
+      const maths = parcelMaths({
+        items: haul.haulItems,
+        packagingGrams: ship ? ship.packagingGrams : undefined,
+        divisor: ship ? ship.divisor : undefined,
+        rates: ship ? ship.rates : undefined,
+      });
+      const card = haulIndexCard({
+        items: haul.haulItems,
+        submitted: ship ? ship.submitted : false,
+        milestone: ship ? ship.milestone : 0,
+        maths,
+        line: ship ? ship.line : undefined,
+        domesticUsd: ship ? ship.domesticUsd : undefined,
+      });
       return {
         name: haul.name,
         count: haul.count,
         value: haul.value,
         latest: haul.latest,
         covers,
+        // Everything below is derived on every render. None of it is stored.
+        flag: card.flag,
+        note: card.note,
+        tone: card.tone,
+        cta: card.label,
+        ctaVariant: card.variant,
+        ctaTo: card.to,
+        openQc: card.openQc,
+        bar: stageBar(haul.haulItems),
       };
     }).sort((a, b) => {
       if (b.latest !== a.latest) return b.latest - a.latest;
@@ -8668,7 +8708,7 @@ function CredenzaApp() {
       (h) => ({ ...h, archived: archivedNames.has(h.name) })
     );
     const archivedCount = dirs.filter((h) => archivedNames.has(h.name)).length;
-    return { hauls: active, archivedCount };
+    return { hauls: active, archivedCount, needsYou: needsYouCount(active) };
   }, [shelfAll, hauls, showArchivedHauls]);
 
   // Chrome + the shelf surface's item filter key off this, not raw
@@ -9371,6 +9411,13 @@ function CredenzaApp() {
               : "Name hauls from the ⋯ menu on any card"}
           </div>
         </div>
+        {/* How many hauls are asking for something. Silent when none are. The
+            README only prints the plural, so the singular reads "1 needs you". */}
+        {haulDirectory.needsYou > 0 ? (
+          <div className="cz-hauls-needs-you">
+            {haulDirectory.needsYou} {haulDirectory.needsYou === 1 ? "needs" : "need"} you
+          </div>
+        ) : null}
         {haulDirectory.archivedCount > 0 ? (
           <button
             type="button"
@@ -9394,30 +9441,51 @@ function CredenzaApp() {
       ) : (
         <div className="cz-hauls-grid">
           {haulDirectory.hauls.map((haul) => (
-            <button
+            // The whole card opens the haul, and the CTA inside it opens the
+            // same haul at the step it names (haul README, "Index card"). A
+            // button cannot nest inside a button, so the card takes role and
+            // keyboard rather than being one.
+            <div
               key={haul.name}
-              type="button"
+              role="button"
+              tabIndex={0}
               className="cz-haul-card"
               data-haul-name={haul.name}
-              // The label now lives inside the aria-hidden fan, so the button
+              data-tone={haul.tone}
+              // The label now lives inside the aria-hidden fan, so the card
               // states its own name.
               aria-label={
                 haul.name +
                 ", " +
                 haul.count +
                 (haul.count === 1 ? " item" : " items") +
-                (haul.value > 0 ? ", $" + Math.round(haul.value) : "")
+                (haul.value > 0 ? ", $" + Math.round(haul.value) : "") +
+                (haul.note ? ". " + haul.note : "")
               }
               onClick={() => openHaul(haul.name)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                openHaul(haul.name);
+              }}
             >
               {/* Kyle 2026-07-29 ("match shelf"): the haul name reads ON the
                   picture, like a Shelf card — not in a box under it. It rides
                   inside the front fan card so the card clips the scrim. The
-                  fan is aria-hidden, so the button carries its own name. */}
+                  fan is aria-hidden, so the card carries its own name. */}
               <HaulCoverFan
                 covers={haul.covers}
                 name={haul.name}
                 count={haul.count}
+                // The badge is absent when the haul has nothing to say. An
+                // always-present badge is noise.
+                badge={
+                  haul.flag ? (
+                    <span className="cz-haul-flag" data-tone={haul.tone}>
+                      {haul.flag}
+                    </span>
+                  ) : null
+                }
                 label={
                   <div className="cz-haul-card-label">
                     <div className="cz-haul-card-name">{haul.name}</div>
@@ -9428,7 +9496,35 @@ function CredenzaApp() {
                   </div>
                 }
               />
-            </button>
+              {haul.bar.length ? (
+                <div className="cz-haul-bar" aria-hidden="true">
+                  {haul.bar.map((seg) => (
+                    <span
+                      key={seg.stage}
+                      className="cz-haul-bar-seg"
+                      data-stage={seg.stage}
+                      style={{ flex: seg.count }}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div className="cz-haul-note" data-tone={haul.tone}>
+                <span className="cz-haul-note-dot" aria-hidden="true" />
+                <span>{haul.note}</span>
+              </div>
+              <Pill
+                primary={haul.ctaVariant === "primary"}
+                className="cz-pill cz-haul-cta"
+                // The CTA sits inside the card, so it must not fire the card
+                // as well (haul README, "Index card").
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openHaul(haul.name);
+                }}
+              >
+                {haul.cta}
+              </Pill>
+            </div>
           ))}
           {/* KM-07: two haul cards sat in a large empty canvas. A dashed
               ghost tile fills the grid and teaches the next action. */}

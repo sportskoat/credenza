@@ -3835,6 +3835,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 .cz-haul-card {
   appearance: none;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -3862,6 +3863,147 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-haul-card:active {
   transform: scale(0.99);
   background: var(--cz-selected);
+}
+
+/* A haul whose free storage is nearly out wears its border red, so the grid
+   reads at a glance (haul handoff README, "Card anatomy"). */
+.cz-haul-card[data-tone="urgent"] {
+  border-color: var(--cz-error-text);
+}
+
+/* ── Haul fulfillment: flag, stage bar, note ── */
+
+/* The badge names the one thing that matters, over the top-left of the
+   collage. It is absent when there is nothing to say. */
+.cz-haul-flag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  /* Same rule as .cz-haul-card-label: white in BOTH themes. The badge carries
+     its own dark fill, so the theme never decides whether the words read. */
+  color: #fff;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cz-haul-flag[data-tone="urgent"] {
+  background: var(--cz-error-bg);
+  color: var(--cz-error-text);
+}
+
+.cz-haul-flag[data-tone="done"] {
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-haul-flag {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* One segment per occupied stage, each as wide as its share of the items.
+   Progress reads as the bar filling with ink and finally going green. */
+.cz-haul-bar {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+}
+
+.cz-haul-bar-seg {
+  border-radius: 999px;
+  background: var(--cz-hair);
+  transition: flex var(--dur-resize) var(--ease-out);
+}
+
+.cz-haul-bar-seg[data-stage="ordered"] {
+  background: var(--cz-faint);
+}
+.cz-haul-bar-seg[data-stage="warehouse"] {
+  background: var(--cz-sub);
+}
+.cz-haul-bar-seg[data-stage="qcd"] {
+  background: var(--cz-ink);
+}
+.cz-haul-bar-seg[data-stage="parcel"] {
+  background: var(--cz-money);
+}
+
+/* One sentence naming the haul's state. The height is fixed so a two-line
+   note never pushes the button of the card beside it out of line. */
+.cz-haul-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 34px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--cz-ink);
+}
+
+.cz-haul-note-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: var(--cz-faint);
+}
+
+.cz-haul-note[data-tone="urgent"] {
+  color: var(--cz-error-text);
+}
+.cz-haul-note[data-tone="urgent"] .cz-haul-note-dot {
+  background: var(--cz-error-text);
+}
+.cz-haul-note[data-tone="attention"] .cz-haul-note-dot {
+  background: var(--cz-warn);
+}
+.cz-haul-note[data-tone="done"] {
+  color: var(--cz-sub);
+}
+.cz-haul-note[data-tone="done"] .cz-haul-note-dot {
+  background: var(--cz-money);
+}
+.cz-haul-note[data-tone="idle"] {
+  color: var(--cz-faint);
+}
+
+/* The card's one move, full width under the note. */
+.cz-haul-cta {
+  width: 100%;
+  min-height: 40px;
+}
+
+/* A finger needs 44px. The card's own tap area is the collage above it, so
+   only the button needs a floor. */
+@media (pointer: coarse) {
+  .cz-haul-cta {
+    min-height: 44px;
+  }
+}
+
+/* How many hauls are asking for something, at the right of the section head. */
+.cz-hauls-needs-you {
+  margin-left: auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-sub);
 }
 
 /* KM-07: "Start a haul" ghost tile — quieter than a real haul card. */

@@ -14,7 +14,16 @@ import {
 // overflow clips the scrim — an absolutely-placed label outside the stack
 // bled past the rotated front card's slanted edge. The fan stays aria-hidden,
 // so the caller must name the button itself.
-export default function HaulCoverFan({ covers = [], name = "", count = 0, label = null }) {
+// `badge` rides the top-left of the front card, inside its clip, the same way
+// `label` rides the bottom. Both are optional; a haul with nothing to say
+// passes neither.
+export default function HaulCoverFan({
+  covers = [],
+  name = "",
+  count = 0,
+  label = null,
+  badge = null,
+}) {
   const [hovered, setHovered] = useState(false);
   const reduced = usePrefersReducedMotion();
   const coarse = useCoarsePointer();
@@ -73,6 +82,7 @@ export default function HaulCoverFan({ covers = [], name = "", count = 0, label 
               </div>
             )}
             {/* i === 0 is the front card: zIndex is total - i. */}
+            {i === 0 ? badge : null}
             {i === 0 ? label : null}
           </motion.div>
         );
