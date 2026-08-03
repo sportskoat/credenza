@@ -41,6 +41,8 @@ const {
   recommendSize,
   CHART_AUTH_REQUIRED,
   CHART_AUTH_COPY,
+  CHART_CAP_REACHED,
+  chartCapCopy,
 } = await import("../../credenza-fashion.jsx");
 
 const TOP_TEXT =
@@ -783,6 +785,35 @@ describe("typing a chart by hand", () => {
     expect(within(gridAfter).getByLabelText("Medium chest in cm")).toHaveValue("104");
     // Sign-in path still surfaces (authRequired + honest copy).
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
+  });
+
+  // FIX 2b: cap-failed photo is not "could not read" and keeps typed cells.
+  it("keeps typed numbers after a cap-blocked photo read", async () => {
+    const user = userEvent.setup();
+    const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
+    fileReadMock.mockResolvedValue(CHART_CAP_REACHED);
+
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    const grid = container.querySelector(".cz-sizing-fix.is-typed");
+    await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
+    await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
+
+    const file = new File(["fake"], "chart.jpg", { type: "image/jpeg" });
+    const input = container.querySelector("input.cz-detail-chart-file");
+    await user.upload(input, file);
+
+    const capCopy = chartCapCopy(null);
+    expect(await screen.findByText(new RegExp(capCopy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"))).toBeInTheDocument();
+    expect(screen.getByText(/Your typed numbers are still here/i)).toBeInTheDocument();
+    expect(screen.queryByText(/could not read that photo/i)).toBe(null);
+    const gridAfter = container.querySelector(".cz-sizing-fix.is-typed");
+    expect(gridAfter).not.toBe(null);
+    expect(within(gridAfter).getByLabelText("Small chest in cm")).toHaveValue("100");
+    expect(within(gridAfter).getByLabelText("Medium chest in cm")).toHaveValue("104");
+    // Cap path shows Sign in (signed-out plan) or See plans (free signed-in).
+    expect(
+      screen.getByRole("button", { name: /sign in|see plans/i })
+    ).toBeInTheDocument();
   });
 });
 
