@@ -7223,7 +7223,7 @@ function CredenzaApp() {
     if (!isProPlan) {
       notify("CSV export is a Pro feature.", {
         actionLabel: "See Pro",
-        onAction: () => navigateSettings("account"),
+        onAction: () => openUpgrade(),
       });
       return;
     }
@@ -7402,7 +7402,7 @@ function CredenzaApp() {
           " open hauls on Free. Archive a finished one to start another, or Pro holds " +
           PRO_LIMITS.haulsMax +
           ".",
-      isProPlan ? {} : { actionLabel: "See Pro", onAction: () => navigateSettings("account") }
+      isProPlan ? {} : { actionLabel: "See Pro", onAction: () => openUpgrade() }
     );
     return true;
   };
@@ -7500,9 +7500,7 @@ function CredenzaApp() {
             " QC photos an item on Free. Pro holds " +
             PRO_LIMITS.qcPhotosPerItem +
             ".",
-        isProPlan
-          ? {}
-          : { actionLabel: "See Pro", onAction: () => navigateSettings("account") }
+        isProPlan ? {} : { actionLabel: "See Pro", onAction: () => openUpgrade() }
       );
       return;
     }
@@ -10122,7 +10120,7 @@ function CredenzaApp() {
             onCopy={copyLink}
             onUpgrade={() => {
               setShareHaulName(null);
-              navigateSettings("account");
+              openUpgrade();
             }}
             onClose={() => setShareHaulName(null)}
           />

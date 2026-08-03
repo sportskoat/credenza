@@ -170,17 +170,17 @@ describe("the caps are enforced where the writes happen", () => {
     expect(src).toContain('" open hauls is the limit. Archive a finished one to start another."');
   });
 
-  it("routes every nudge to the Account and plan section, where the upgrade lives", () => {
+  it("routes every nudge to the Pro page, where the prices live", () => {
     // Count the LABEL, not one exact formatting of the call. An earlier version
     // of this test matched a single-line spelling, so a nudge written across
     // two lines passed it without ever being checked. Three today: the QC cap,
     // the haul cap, and the CSV export.
     const labels = src.match(/actionLabel: "See Pro"/g);
     expect(labels).toHaveLength(3);
-    // Each one is followed by the settings navigation, whatever the line breaks.
-    const routed = src.match(
-      /actionLabel: "See Pro",\s*onAction: \(\) => navigateSettings\("account"\),?/g
-    );
+    // Each one opens /upgrade, whatever the line breaks. The prices left the
+    // Settings account section, so a nudge that opened Settings landed the
+    // person on a page with nothing to buy.
+    const routed = src.match(/actionLabel: "See Pro",\s*onAction: \(\) => openUpgrade\(\),?/g);
     expect(routed).toHaveLength(labels.length);
   });
 
