@@ -1,24 +1,119 @@
-// Phase 1 first-size chooser UI (F 2026-08-02).
-// Mounts when the profile is empty. Three ways: Guess / Match (coming soon) /
-// Measure. Skip lands on the Fix-0 honest empty state for this visit.
-import { useState } from "react";
+// A1–A4 · the first-size ask, the pick, and the honest skipped state.
+// Onboarding handoff README, "Screens / views". Copy is verbatim from the
+// README copy deck, with one house-style change: CONTEXT.md bans the em dash
+// in rendered site content, so each README em dash becomes a period or comma.
+//
+// SHIP PATH: A0 → A1 → A2 → A3. The README Definition of Done says "Taps to
+// first pick is exactly 2", so this block opens straight on A1. The old
+// three-way chooser ("How should we size you?") is gone; it cost a third tap
+// and never appeared in the README. Measure stays reachable from the A1 tape
+// link, so no path is lost.
+//
+// EASE HINTS: the README labels its +2 / +6 / +12 deltas "a designer's
+// estimate — validate against real parsed charts before ship" (Open questions
+// 1). The shipped hints are the live CHEST_EASE_BANDS ranges, pinned by
+// test "F HOLD #81", so the chip text can never drift from the engine.
+import { useRef, useState } from "react";
 import {
   FIRST_SIZE_SIT_OPTIONS,
   FIRST_SIZE_USUAL_CHIPS,
   FIRST_SIZE_USUAL_FIT_PROV,
   FIRST_SIZE_USUAL_NO_CHART_PROV,
+  chartRowForUsual,
   chartUsableForGuess,
   guessSizeFromUsual,
+  primaryMeasureKey,
   profilePatchFromGuess,
   profilePatchFromMeasure,
   sitLabel,
 } from "./first-size.js";
-import { formatSizeToken } from "../credenza-fashion.jsx";
+import { compactSizeToken, formatMeasure, formatSizeToken } from "../credenza-fashion.jsx";
+
+/** README copy deck, verbatim. Exported so tests pin the strings. */
+export const FIRST_SIZE_COPY = {
+  eyebrow: "Your size",
+  step1: "Step 1 of 2",
+  step2: "Step 2 of 2",
+  ask1Title: "What size do you usually buy?",
+  ask1Body: "This seller's chart is posted. Your usual size tells us where you sit on it.",
+  ask1BodyNoChart: "No seller chart on this listing. Your usual size becomes the pick.",
+  tapeLink: "I have a tape · enter chest",
+  // Bottoms cards ask for a waist, so the link must not promise a chest.
+  tapeLinkWaist: "I have a tape · enter waist",
+  skip: "Skip for now",
+  ask2Tail: "This tells us which way to move off it.",
+  showMySize: "Show my size",
+  noPickFlag: "No pick yet",
+  skippedTitle: "No size pick yet.",
+  // README em dash rewritten as a period, per CONTEXT.md.
+  skippedBody:
+    "This seller's chart is read and ready. We just don't know anything about you yet. One tap is enough to start.",
+  addMySize: "Add my size",
+  privacy: "Signed out · your answers stay on this phone. We won't ask again this visit.",
+  provTail: "to remove the guess.",
+  ladderHeadline: "One number, one time.",
+};
+
+/** The three A3 tile labels, in README order. */
+export const FIRST_SIZE_TILE_LABELS = ["Anchor", "Garment", "Ease"];
+
+/**
+ * One sentence of reasoning for A3. README example, with the em dash rewritten
+ * as a comma: "The Large is 104cm here, 6cm over the 98cm this seller's
+ * M-wearers sit at, which is the regular fit you picked."
+ */
+export function firstSizePickReasoning({ sizeLabel, usualLetter, garment, body, diff, sit, units }) {
+  if (!sizeLabel || garment == null || body == null || diff == null) return "";
+  const anchor = compactSizeToken(usualLetter) || String(usualLetter || "").toUpperCase();
+  const room = formatMeasure(Math.abs(diff), units);
+  const way = diff < 0 ? "under" : "over";
+  const how = (sitLabel(sit) || "").toLowerCase();
+  return (
+    "The " +
+    sizeLabel +
+    " is " +
+    formatMeasure(garment, units) +
+    " here, " +
+    room +
+    " " +
+    way +
+    " the " +
+    formatMeasure(body, units) +
+    " this seller's " +
+    anchor +
+    "-wearers sit at" +
+    (how ? ", which is the " + how + " fit you picked" : "") +
+    "."
+  );
+}
+
+/** Signed ease string for the A3 EASE tile. */
+export function firstSizeEaseValue(diff, units) {
+  if (diff == null || !isFinite(diff)) return "";
+  return (diff < 0 ? "-" : "+") + formatMeasure(Math.abs(diff), units);
+}
+
+/**
+ * The A1 chip run. README: "Chips come from the listing's own size run, not a
+ * fixed S–XL list. Numeric listings render numeric chips."
+ */
+export function firstSizeChipRun(sizeRun) {
+  const seen = new Set();
+  const out = [];
+  (Array.isArray(sizeRun) ? sizeRun : []).forEach((raw) => {
+    const value = String(raw == null ? "" : raw).trim();
+    if (!value || seen.has(value)) return;
+    seen.add(value);
+    out.push(value);
+  });
+  return out.length ? out : FIRST_SIZE_USUAL_CHIPS;
+}
 
 /**
  * @param {object} props
  * @param {object} props.item
  * @param {object|null} props.chart - parsed size chart when available
+ * @param {string[]} [props.sizeRun] - this listing's own size run, for the A1 chips
  * @param {"cm"|"in"} props.units
  * @param {(patch: object) => void} props.onSaveBodyProfile
  * @param {(category: string, pref: object) => void} [props.onSaveFitPref]
@@ -28,29 +123,32 @@ import { formatSizeToken } from "../credenza-fashion.jsx";
 export default function FirstSizeBlock({
   item,
   chart,
+  sizeRun,
   units: unitsProp = "cm",
   onSaveBodyProfile,
   onSaveFitPref,
   onSkip,
   onOpenMeasureHelp,
-  /** When true, open on the Fix-0 honest skipped state (already skipped this visit). */
+  /** When true, open on the honest skipped state (already skipped this visit). */
   startSkipped = false,
 }) {
-  // choose | guess-size | guess-sit | measure | skipped | result
-  const [step, setStep] = useState(startSkipped ? "skipped" : "choose");
+  // ask1 | ask2 | measure | skipped | result
+  const [step, setStep] = useState(startSkipped ? "skipped" : "ask1");
   const [usual, setUsual] = useState("");
   const [sit, setSit] = useState("");
   const [units, setUnits] = useState(unitsProp === "in" ? "in" : "cm");
   const [measureDraft, setMeasureDraft] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const chipRefs = useRef([]);
 
   const category = (item && item.category) || "shirt";
   const bottoms = category === "pants" || category === "shorts";
   const title = (item && item.title) || "";
   const hasChart = chartUsableForGuess(chart);
-
+  const chips = firstSizeChipRun(sizeRun);
   const garmentWord = bottoms ? "pair" : "tee";
+  const describeId = "cz-fs-" + ((item && item.id) || "card");
 
   const saveGuess = (nextUsual, nextSit) => {
     const out = guessSizeFromUsual({
@@ -61,11 +159,11 @@ export default function FirstSizeBlock({
       title,
     });
     if (out.error) {
-      // no-chart is never an error now — only letter-not-on-chart / score miss.
+      // no-chart is never an error — only letter-not-on-chart / score miss.
       setError(
         out.error === "usual-not-on-chart"
-          ? "That size is not on this seller’s chart. Try another letter, or measure instead."
-          : "Could not score a pick. Try Measure instead."
+          ? "That size is not on this seller’s chart. Try another one, or use a tape."
+          : "Could not score a pick. Enter your chest instead."
       );
       return;
     }
@@ -81,6 +179,9 @@ export default function FirstSizeBlock({
       sit: nextSit,
       usual: nextUsual,
       noChart: !!out.noChart,
+      garment: out.rec.garment == null ? null : out.rec.garment,
+      body: out.rec.body == null ? null : out.rec.body,
+      diff: out.rec.diff == null ? null : out.rec.diff,
     });
     setStep("result");
     setError("");
@@ -110,67 +211,128 @@ export default function FirstSizeBlock({
     setError("");
   };
 
+  /** Arrow keys move focus across a chip row, per the README accessibility note. */
+  const onChipKeyDown = (e, index, total) => {
+    const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+    const back = e.key === "ArrowLeft" || e.key === "ArrowUp";
+    if (!forward && !back) return;
+    e.preventDefault();
+    const next = forward ? (index + 1) % total : (index - 1 + total) % total;
+    const el = chipRefs.current[next];
+    if (el && el.focus) el.focus();
+  };
+
+  const skipButton = onSkip ? (
+    <button
+      type="button"
+      className="cz-first-size-skip"
+      onClick={() => {
+        setStep("skipped");
+        onSkip();
+      }}
+    >
+      {FIRST_SIZE_COPY.skip}
+    </button>
+  ) : null;
+
+  // ── A4 · skipped, the honest state ──
   if (step === "skipped") {
     return (
       <section className="cz-first-size cz-first-size-skipped" aria-label="Your size">
-        <div className="cz-sizing-head">
-          <span className="cz-sizing-dot" aria-hidden="true" />
-          <span className="cz-sizing-kicker">Your size</span>
-          <span className="cz-sizing-prov">No pick yet</span>
+        <div className="cz-first-size-head">
+          <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
+          <span className="cz-first-size-flag is-none">{FIRST_SIZE_COPY.noPickFlag}</span>
         </div>
-        <p className="cz-first-size-honest">
-          <strong>No size pick yet.</strong> Add your size to see which one fits.
-        </p>
-        <p className="cz-first-size-promise">We will not ask again this visit.</p>
+        <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.skippedTitle}</h3>
+        <p className="cz-first-size-copy">{FIRST_SIZE_COPY.skippedBody}</p>
         <button
           type="button"
           className="cz-first-size-primary"
           onClick={() => {
-            setStep("choose");
+            setStep("ask1");
             setError("");
           }}
         >
-          Add my size
+          {FIRST_SIZE_COPY.addMySize}
         </button>
+        <p className="cz-first-size-promise">{FIRST_SIZE_COPY.privacy}</p>
       </section>
     );
   }
 
+  // ── A3 · the pick ──
   if (step === "result" && result && !result.measured) {
     const sizeLabel = formatSizeToken(result.size) || result.size;
     // No-chart Guess → existing YOUR USUAL rail, not chart-anchored usual-fit.
     const prov = result.noChart ? FIRST_SIZE_USUAL_NO_CHART_PROV : FIRST_SIZE_USUAL_FIT_PROV;
+    const anchorValue = "Usual " + (compactSizeToken(result.usual) || result.usual);
+    const showTiles = !result.noChart && result.garment != null && result.diff != null;
+    const reasoning = showTiles
+      ? firstSizePickReasoning({
+          sizeLabel,
+          usualLetter: result.usual,
+          garment: result.garment,
+          body: result.body,
+          diff: result.diff,
+          sit: result.sit,
+          units,
+        })
+      : prov.body;
     return (
-      <section className="cz-first-size cz-first-size-result" aria-label="Your size">
-        <div className="cz-sizing-head">
-          <span className="cz-sizing-dot" aria-hidden="true" />
-          <span className="cz-sizing-kicker">{prov.kicker}</span>
+      <section
+        className={"cz-first-size cz-first-size-result" + (showTiles ? " is-resolved" : "")}
+        aria-label="Your size"
+      >
+        <div className="cz-first-size-head">
+          <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
           <span
-            className={
-              "cz-sizing-prov" + (result.noChart ? " is-usual" : " is-usual-fit")
-            }
+            className={"cz-first-size-flag" + (result.noChart ? " is-usual" : " is-money")}
+            id={describeId + "-flag"}
           >
             {prov.rail}
           </span>
         </div>
         <div className="cz-first-size-hero">
-          <span className="cz-first-size-letter">{sizeLabel}</span>
-          <span className="cz-first-size-body">{prov.body}</span>
+          <span
+            className="cz-first-size-letter"
+            aria-describedby={describeId + "-flag " + describeId + "-prov"}
+          >
+            {sizeLabel}
+          </span>
+          <span className="cz-first-size-reason">{reasoning}</span>
         </div>
-        <p className="cz-first-size-meta">
-          Usual {formatSizeToken(result.usual) || result.usual}
-          {result.sit ? " · " + sitLabel(result.sit) + " fit" : ""}
+        {showTiles ? (
+          <div className="cz-first-size-tiles" aria-label="Fit numbers">
+            <div className="cz-first-size-tile">
+              <span className="cz-first-size-tile-k">{FIRST_SIZE_TILE_LABELS[0]}</span>
+              <span className="cz-first-size-tile-v">{anchorValue}</span>
+            </div>
+            <div className="cz-first-size-tile">
+              <span className="cz-first-size-tile-k">{FIRST_SIZE_TILE_LABELS[1]}</span>
+              <span className="cz-first-size-tile-v">{formatMeasure(result.garment, units)}</span>
+            </div>
+            <div className="cz-first-size-tile">
+              <span className="cz-first-size-tile-k">{FIRST_SIZE_TILE_LABELS[2]}</span>
+              <span className="cz-first-size-tile-v is-money">
+                {firstSizeEaseValue(result.diff, units)}
+              </span>
+            </div>
+          </div>
+        ) : null}
+        <p className="cz-first-size-prov" id={describeId + "-prov"}>
+          {prov.body}{" "}
+          <button
+            type="button"
+            className="cz-first-size-link"
+            onClick={() => {
+              setStep("measure");
+              setError("");
+            }}
+          >
+            {prov.upgrade}
+          </button>{" "}
+          {FIRST_SIZE_COPY.provTail}
         </p>
-        <button
-          type="button"
-          className="cz-first-size-link"
-          onClick={() => {
-            setStep("measure");
-            setError("");
-          }}
-        >
-          {prov.upgrade} for an exact pick
-        </button>
       </section>
     );
   }
@@ -178,38 +340,47 @@ export default function FirstSizeBlock({
   if (step === "result" && result && result.measured) {
     return (
       <section className="cz-first-size cz-first-size-result" aria-label="Your size">
-        <div className="cz-sizing-head">
-          <span className="cz-sizing-dot" aria-hidden="true" />
-          <span className="cz-sizing-kicker">AI size</span>
-          <span className="cz-sizing-prov is-chart">Chart pick · your measure</span>
+        <div className="cz-first-size-head">
+          <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
+          <span className="cz-first-size-flag is-money">Chart pick · your measure</span>
         </div>
-        <p className="cz-first-size-body">
+        <p className="cz-first-size-copy">
           Saved. Every card on your shelf re-scores with this number.
         </p>
       </section>
     );
   }
 
-  if (step === "guess-size") {
+  // ── A1 · ask 1 of 2, usual size ──
+  if (step === "ask1") {
     return (
-      <section className="cz-first-size" aria-label="Guess your size">
-        <div className="cz-first-size-step">Step 1 of 2</div>
-        <h3 className="cz-first-size-title">What size do you usually buy?</h3>
+      <section className="cz-first-size cz-first-size-ask" aria-label="Your size">
+        <div className="cz-first-size-head">
+          <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
+          <span className="cz-first-size-flag is-warn">{FIRST_SIZE_COPY.step1}</span>
+        </div>
+        <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.ask1Title}</h3>
         <p className="cz-first-size-copy">
-          {hasChart
-            ? "This seller posted a chart. Your usual size tells us where you sit on it."
-            : "No seller chart on this listing. Your usual size becomes the pick."}
+          {hasChart ? FIRST_SIZE_COPY.ask1Body : FIRST_SIZE_COPY.ask1BodyNoChart}
         </p>
-        <div className="cz-first-size-chips" role="group" aria-label="Usual size">
-          {FIRST_SIZE_USUAL_CHIPS.map((s) => (
+        <div className="cz-first-size-chips" role="radiogroup" aria-label="Usual size">
+          {chips.map((s, i) => (
             <button
               key={s}
               type="button"
+              role="radio"
+              aria-checked={usual === s}
+              tabIndex={usual === s || (!usual && i === 0) ? 0 : -1}
+              ref={(el) => {
+                chipRefs.current[i] = el;
+              }}
               className={"cz-first-size-chip" + (usual === s ? " is-on" : "")}
+              onKeyDown={(e) => onChipKeyDown(e, i, chips.length)}
               onClick={() => {
                 setUsual(s);
+                setSit("");
                 setError("");
-                setStep("guess-sit");
+                setStep("ask2");
               }}
             >
               {s}
@@ -217,29 +388,65 @@ export default function FirstSizeBlock({
           ))}
         </div>
         {error ? <p className="cz-first-size-error">{error}</p> : null}
-        <button type="button" className="cz-first-size-back" onClick={() => setStep("choose")}>
-          Back
-        </button>
+        <div className="cz-first-size-foot">
+          <button
+            type="button"
+            className="cz-first-size-link"
+            onClick={() => {
+              setStep("measure");
+              setError("");
+            }}
+          >
+            {bottoms ? FIRST_SIZE_COPY.tapeLinkWaist : FIRST_SIZE_COPY.tapeLink}
+          </button>
+          {skipButton}
+        </div>
       </section>
     );
   }
 
-  if (step === "guess-sit") {
+  // ── A2 · ask 2 of 2, preferred ease ──
+  if (step === "ask2") {
+    const anchorLabel = "Usual " + (compactSizeToken(usual) || usual);
+    // The chart number is real: it comes from the row the visitor just tapped.
+    const anchorRow = chartRowForUsual(chart, usual);
+    const anchorKey = primaryMeasureKey(chart, category);
+    const anchorNumber = anchorRow && anchorKey ? anchorRow[anchorKey] : null;
+    const ask2Body =
+      anchorNumber == null
+        ? FIRST_SIZE_COPY.ask2Tail
+        : "Your " +
+          anchorLabel.toLowerCase() +
+          " is " +
+          formatMeasure(Number(anchorNumber), units) +
+          " on this chart. " +
+          FIRST_SIZE_COPY.ask2Tail;
     return (
-      <section className="cz-first-size" aria-label="How it should sit">
-        <div className="cz-first-size-step">Step 2 of 2</div>
-        <h3 className="cz-first-size-title">
-          How do you like a {garmentWord} to sit?
-        </h3>
-        <div className="cz-first-size-sits" role="group" aria-label="Fit preference">
-          {FIRST_SIZE_SIT_OPTIONS.map((opt) => (
+      <section className="cz-first-size cz-first-size-ask" aria-label="Your size">
+        <div className="cz-first-size-head">
+          <span className="cz-first-size-eyebrow">
+            {FIRST_SIZE_COPY.eyebrow} · {anchorLabel}
+          </span>
+          <span className="cz-first-size-flag is-warn">{FIRST_SIZE_COPY.step2}</span>
+        </div>
+        <h3 className="cz-first-size-title">How do you like a {garmentWord} to sit?</h3>
+        <p className="cz-first-size-copy">{ask2Body}</p>
+        <div className="cz-first-size-sits" role="radiogroup" aria-label="Fit preference">
+          {FIRST_SIZE_SIT_OPTIONS.map((opt, i) => (
             <button
               key={opt.value}
               type="button"
+              role="radio"
+              aria-checked={sit === opt.value}
+              tabIndex={sit === opt.value || (!sit && i === 0) ? 0 : -1}
+              ref={(el) => {
+                chipRefs.current[i] = el;
+              }}
               className={"cz-first-size-sit" + (sit === opt.value ? " is-on" : "")}
+              onKeyDown={(e) => onChipKeyDown(e, i, FIRST_SIZE_SIT_OPTIONS.length)}
               onClick={() => {
                 setSit(opt.value);
-                saveGuess(usual, opt.value);
+                setError("");
               }}
             >
               <span className="cz-first-size-sit-label">{opt.label}</span>
@@ -248,136 +455,104 @@ export default function FirstSizeBlock({
           ))}
         </div>
         {error ? <p className="cz-first-size-error">{error}</p> : null}
-        <button type="button" className="cz-first-size-back" onClick={() => setStep("guess-size")}>
-          Back
+        <button
+          type="button"
+          className="cz-first-size-primary"
+          disabled={!sit}
+          onClick={() => saveGuess(usual, sit)}
+        >
+          {FIRST_SIZE_COPY.showMySize}
         </button>
+        <div className="cz-first-size-foot is-centred">
+          <button
+            type="button"
+            className="cz-first-size-back"
+            onClick={() => {
+              setStep("ask1");
+              setError("");
+            }}
+          >
+            Back
+          </button>
+          {skipButton}
+        </div>
       </section>
     );
   }
 
-  if (step === "measure") {
-    const fieldLabel = bottoms ? "Waist" : "Chest (pit to pit)";
-    return (
-      <form className="cz-first-size" aria-label="Measure once" onSubmit={saveMeasure}>
-        <h3 className="cz-first-size-title">One number, one time.</h3>
-        <p className="cz-first-size-copy">
-          {bottoms
-            ? "Type your waist. We save it for every bottoms card."
-            : "Measure armpit to armpit on a shirt that fits, then we double it for full chest."}
-        </p>
-        <div className="cz-first-size-unit" role="group" aria-label="Units">
-          <button
-            type="button"
-            className={"cz-first-size-unit-btn" + (units === "cm" ? " is-on" : "")}
-            onClick={() => setUnits("cm")}
-          >
-            cm
-          </button>
-          <button
-            type="button"
-            className={"cz-first-size-unit-btn" + (units === "in" ? " is-on" : "")}
-            onClick={() => setUnits("in")}
-          >
-            in
-          </button>
-        </div>
-        <label className="cz-first-size-field">
-          <span className="cz-first-size-field-label">{fieldLabel}</span>
-          <span className="cz-first-size-field-control">
-            <input
-              inputMode="decimal"
-              value={measureDraft}
-              onChange={(e) => {
-                setMeasureDraft(e.target.value.replace(/[^\d.]/g, ""));
-                setError("");
-              }}
-              placeholder={units === "in" ? (bottoms ? "32" : "21") : bottoms ? "84" : "54"}
-              aria-label={fieldLabel + " in " + units}
-            />
-            <span aria-hidden="true">{units}</span>
-          </span>
-        </label>
-        {onOpenMeasureHelp || !bottoms ? (
-          <button
-            type="button"
-            className="cz-first-size-link"
-            onClick={() => {
-              if (onOpenMeasureHelp) onOpenMeasureHelp();
-            }}
-          >
-            Show me how
-          </button>
-        ) : null}
-        {error ? <p className="cz-first-size-error">{error}</p> : null}
-        <div className="cz-first-size-actions">
-          <button type="submit" className="cz-first-size-primary">
-            Save
-          </button>
-          <button type="button" className="cz-first-size-back" onClick={() => setStep("choose")}>
-            Back
-          </button>
-        </div>
-      </form>
-    );
-  }
-
-  // Default: chooser
+  // ── A5 entry · the tape field, reached from the A1 link or the A3 provenance ──
+  const fieldLabel = bottoms ? "Waist, at your natural waist" : "Chest, pit to pit, doubled";
   return (
-    <section className="cz-first-size cz-first-size-choose" aria-label="How should we size you">
-      <h3 className="cz-first-size-title">How should we size you?</h3>
-      <p className="cz-first-size-copy">Pick one. You can change it later.</p>
-      <div className="cz-first-size-ways">
+    <form className="cz-first-size" aria-label="Your size" onSubmit={saveMeasure}>
+      <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.ladderHeadline}</h3>
+      <p className="cz-first-size-copy">
+        {bottoms
+          ? "Type your waist. We save it for every bottoms card."
+          : "Lay a tee that fits you flat. Measure armpit to armpit, double it. That is chest."}
+      </p>
+      <div className="cz-first-size-unit" role="group" aria-label="Units">
         <button
           type="button"
-          className="cz-first-size-way"
-          onClick={() => {
-            setStep("guess-size");
-            setError("");
-          }}
+          className={"cz-first-size-unit-btn" + (units === "cm" ? " is-on" : "")}
+          onClick={() => setUnits("cm")}
         >
-          <span className="cz-first-size-way-title">Guess</span>
-          <span className="cz-first-size-way-copy">Your usual size, then how you like it to sit. Two taps.</span>
+          cm
         </button>
         <button
           type="button"
-          className="cz-first-size-way is-disabled"
-          disabled
-          title="Coming soon — brand list is being built"
-          aria-disabled="true"
+          className={"cz-first-size-unit-btn" + (units === "in" ? " is-on" : "")}
+          onClick={() => setUnits("in")}
         >
-          <span className="cz-first-size-way-title">
-            Match with a shirt <span className="cz-first-size-soon">Soon</span>
-          </span>
-          <span className="cz-first-size-way-copy">
-            Name a brand shirt that fits you, like a Uniqlo L.
-          </span>
-        </button>
-        <button
-          type="button"
-          className="cz-first-size-way"
-          onClick={() => {
-            setStep("measure");
-            setError("");
-          }}
-        >
-          <span className="cz-first-size-way-title">Measure</span>
-          <span className="cz-first-size-way-copy">
-            {bottoms ? "One waist number." : "One chest number — pit to pit, we double it."}
-          </span>
+          in
         </button>
       </div>
-      {onSkip ? (
+      <label className="cz-first-size-field">
+        <span className="cz-first-size-field-label">{fieldLabel}</span>
+        <span className="cz-first-size-field-control">
+          <input
+            inputMode="decimal"
+            value={measureDraft}
+            onChange={(e) => {
+              setMeasureDraft(e.target.value.replace(/[^\d.]/g, ""));
+              setError("");
+            }}
+            placeholder={units === "in" ? (bottoms ? "32" : "21") : bottoms ? "84" : "54"}
+            aria-label={fieldLabel + " in " + units}
+          />
+          <span aria-hidden="true">{units}</span>
+        </span>
+      </label>
+      {onOpenMeasureHelp || !bottoms ? (
         <button
           type="button"
-          className="cz-first-size-skip"
+          className="cz-first-size-link"
           onClick={() => {
-            setStep("skipped");
-            onSkip();
+            if (onOpenMeasureHelp) onOpenMeasureHelp();
           }}
         >
-          Skip for now
+          Show me how
         </button>
       ) : null}
-    </section>
+      {error ? <p className="cz-first-size-error">{error}</p> : null}
+      <div className="cz-first-size-actions">
+        <button type="submit" className="cz-first-size-primary">
+          Save and re-score my cards
+        </button>
+        <button
+          type="button"
+          className="cz-first-size-back"
+          onClick={() => {
+            setStep("ask1");
+            setError("");
+          }}
+        >
+          Back
+        </button>
+      </div>
+      <p className="cz-first-size-promise">
+        Updates every card on your shelf, not just this one. The full tape list still lives in
+        Settings.
+      </p>
+    </form>
   );
 }

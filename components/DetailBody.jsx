@@ -4163,13 +4163,13 @@ export default function DetailBody({
             ) : profileNeedsFirstSize(bodyProfile) &&
               onSaveBodyProfile &&
               !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
-              // Phase 1 (2026-08-02): three-way first-size chooser replaces
-              // the old dashed empty prompt when the profile has no measures
-              // and no usual size. Match-with-shirt is visible but disabled
-              // until Phase 2 brand data lands.
+              // A1–A4 (onboarding handoff): the two-tap ask replaces the old
+              // dashed empty prompt when the profile has no measures and no
+              // usual size. The chips come from this listing's own size run.
               <FirstSizeBlock
                 item={item}
                 chart={verdict.chart}
+                sizeRun={verdict.runValues}
                 units={measureUnits}
                 onSaveBodyProfile={onSaveBodyProfile}
                 onSaveFitPref={onSaveFitPref}

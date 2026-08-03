@@ -649,7 +649,10 @@ describe("DetailBody footer", () => {
   });
 });
 
-// CH-08 (designs 4d–4g) + Phase 1 first-size chooser (2026-08-02).
+// CH-08 (designs 4d–4g) + the A1 first-size ask (onboarding handoff).
+// The old three-way chooser is gone: the README ship path is A0 → A1 → A2 → A3
+// and its Definition of Done caps the first pick at two taps. A cold card now
+// opens on the ask. The tape field stays reachable from the A1 link.
 describe("DetailBody no-measurements flow", () => {
   const trio = () => ({
     bodyProfile: null,
@@ -657,38 +660,39 @@ describe("DetailBody no-measurements flow", () => {
     onSkipFitPrompt: vi.fn(),
   });
 
-  it("Phase 1: empty profile shows the three-way chooser, not a fabricated size", () => {
+  it("A1: empty profile opens on the ask, not on a fabricated size", () => {
     const { container } = render(body(item("fit4d"), trio()));
 
-    expect(screen.getByText("How should we size you?")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Guess/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Measure/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Match with a shirt/i })).toBeDisabled();
+    expect(screen.getByText("What size do you usually buy?")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
+    // The chooser cost a third tap and never appeared in the README.
+    expect(screen.queryByText("How should we size you?")).toBe(null);
+    expect(screen.queryByRole("button", { name: /Match with a shirt/i })).toBe(null);
     // No sizing verdict renders — no AI pick, no usual, no provenance.
     expect(container.querySelector(".cz-sizing-nochart")).toBe(null);
     expect(container.querySelector(".cz-fit4-math")).toBe(null);
   });
 
-  it("Phase 1 measure: tops ask chest pit-to-pit; bottoms ask waist", () => {
+  it("A5 tape: tops ask chest pit-to-pit; bottoms ask waist", () => {
     const shorts = item("fit4f-shorts", { category: "shorts", sizeNotes: "" });
     const first = render(body(shorts, trio()));
-    fireEvent.click(screen.getByRole("button", { name: /Measure/i }));
+    fireEvent.click(screen.getByRole("button", { name: /I have a tape/i }));
     expect(screen.getByLabelText(/Waist/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Chest/i)).toBe(null);
     first.unmount();
 
     render(body(item("fit4f-tee"), trio()));
-    fireEvent.click(screen.getByRole("button", { name: /Measure/i }));
+    fireEvent.click(screen.getByRole("button", { name: /I have a tape/i }));
     expect(screen.getByLabelText(/Chest/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Waist/i)).toBe(null);
   });
 
-  it("Phase 1 measure: save doubles pit-to-pit chest and calls onSaveBodyProfile", () => {
+  it("A5 tape: save doubles pit-to-pit chest and calls onSaveBodyProfile", () => {
     const handlers = trio();
     render(body(item("fit4f-save"), handlers));
-    fireEvent.click(screen.getByRole("button", { name: /Measure/i }));
+    fireEvent.click(screen.getByRole("button", { name: /I have a tape/i }));
     fireEvent.change(screen.getByLabelText(/Chest/i), { target: { value: "48" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: /Save and re-score my cards/i }));
 
     expect(handlers.onSaveBodyProfile).toHaveBeenCalledWith(
       expect.objectContaining({ chest: 96, firstSizeSource: "measure" })

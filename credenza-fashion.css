@@ -9392,25 +9392,29 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 
 
 /* ── Phase 1 first-size chooser (2026-08-02) ── */
+/* A1–A4 size block: an inset panel inside the card. Handoff geometry —
+   radius 14, padding 13, gap 11. These values are deliberate; do not round. */
 .cz-first-size {
   margin: 12px;
-  padding: 14px 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 12%, transparent);
+  padding: 13px;
+  border: 1px solid var(--cz-hair);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--cz-bg-elevated, #fff) 92%, var(--cz-bg));
+  background: var(--cz-inset-bg);
   box-sizing: border-box;
 }
 .cz-first-size-title {
-  margin: 0 0 6px;
-  font-size: 16px;
-  font-weight: 700;
+  margin: 0 0 11px;
+  font-family: var(--cz-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
   line-height: 1.25;
   color: var(--cz-ink);
 }
 .cz-first-size-copy {
-  margin: 0 0 12px;
-  font-size: 13px;
-  line-height: 1.45;
+  margin: 0 0 11px;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--cz-sub);
 }
 .cz-first-size-step {
@@ -9469,21 +9473,25 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-first-size-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 7px;
+  margin-bottom: 11px;
 }
 .cz-first-size-chip {
-  min-width: 44px;
-  height: 36px;
+  min-width: 54px;
+  height: 44px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 14%, transparent);
-  background: var(--cz-bg-elevated, #fff);
+  border: 1px solid var(--cz-hair);
+  background: var(--cz-card-solid);
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
   color: var(--cz-ink);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.cz-first-size-chip:active {
+  transform: scale(0.96);
 }
 .cz-first-size-chip.is-on {
   background: var(--cz-ink);
@@ -9493,32 +9501,44 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-first-size-sits {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 7px;
+  margin-bottom: 11px;
 }
 .cz-first-size-sit {
-  border: 1px solid color-mix(in srgb, var(--cz-ink) 14%, transparent);
+  min-height: 58px;
+  border: 1px solid var(--cz-hair);
   border-radius: 12px;
-  background: var(--cz-bg-elevated, #fff);
-  padding: 12px 8px;
+  background: var(--cz-card-solid);
+  padding: 10px 8px;
   cursor: pointer;
   font: inherit;
   color: var(--cz-ink);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.cz-first-size-sit:active {
+  transform: scale(0.96);
 }
 .cz-first-size-sit.is-on {
   border-color: var(--cz-ink);
-  background: color-mix(in srgb, var(--cz-ink) 6%, var(--cz-bg-elevated, #fff));
+  background: var(--cz-ink);
+  color: var(--cz-bg);
 }
 .cz-first-size-sit-label {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 .cz-first-size-sit-hint {
   display: block;
-  font-size: 11px;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
   color: var(--cz-faint);
-  margin-top: 2px;
+  margin-top: 3px;
+}
+.cz-first-size-sit.is-on .cz-first-size-sit-hint {
+  color: var(--cz-bg);
+  opacity: 0.7;
 }
 .cz-first-size-unit {
   display: inline-flex;
@@ -9574,7 +9594,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 .cz-first-size-primary {
   width: 100%;
-  height: 44px;
+  min-height: 44px;
   border: 0;
   border-radius: 12px;
   background: var(--cz-action-fill, var(--cz-ink));
@@ -9583,6 +9603,26 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.cz-first-size-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.cz-first-size-primary:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-first-size-chip,
+  .cz-first-size-sit,
+  .cz-first-size-primary {
+    transition: none;
+  }
+  .cz-first-size-chip:active,
+  .cz-first-size-sit:active,
+  .cz-first-size-primary:active:not(:disabled) {
+    transform: none;
+  }
 }
 .cz-first-size-actions {
   display: flex;
@@ -9632,18 +9672,125 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-size: 12.5px;
   color: var(--cz-faint);
 }
+/* A1–A3 header row: YOUR SIZE left, the step or the confidence flag right. */
+.cz-first-size-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 11px;
+}
+.cz-first-size-eyebrow,
+.cz-first-size-flag {
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-first-size-flag.is-warn {
+  color: var(--cz-warn-ink);
+}
+.cz-first-size-flag.is-money {
+  font-weight: 800;
+  color: var(--cz-money);
+}
+.cz-first-size-flag.is-usual,
+.cz-first-size-flag.is-none {
+  color: var(--cz-faint);
+}
+/* A3: the panel border marks the pick as resolved. */
+.cz-first-size-result.is-resolved {
+  border-color: var(--cz-ink);
+}
+/* A4: a dashed border says the answer is still missing. */
+.cz-first-size-skipped {
+  border-style: dashed;
+  border-color: var(--cz-hair-strong);
+}
+/* A1 / A2 footer: the tape link left, Skip for now right. */
+.cz-first-size-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.cz-first-size-foot.is-centred {
+  justify-content: center;
+}
+.cz-first-size-foot .cz-first-size-skip {
+  width: auto;
+  margin-top: 0;
+}
+/* A3 data tiles: ANCHOR · GARMENT · EASE. */
+.cz-first-size-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 11px;
+}
+.cz-first-size-tile {
+  border: 1px solid var(--cz-hair);
+  border-radius: 11px;
+  background: var(--cz-card-solid);
+  padding: 9px 10px;
+  min-width: 0;
+}
+.cz-first-size-tile-k {
+  display: block;
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+.cz-first-size-tile-v {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--cz-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cz-ink);
+}
+.cz-first-size-tile-v.is-money {
+  color: var(--cz-money);
+}
+/* A3 provenance: one hairline, then where the pick came from. */
+.cz-first-size-prov {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--cz-hair);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+.cz-first-size-prov .cz-first-size-link {
+  padding: 0;
+  font-size: 12px;
+  color: var(--cz-link);
+}
+.cz-first-size-reason {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+}
 .cz-first-size-hero {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  margin: 4px 0 8px;
+  margin: 4px 0 11px;
 }
 .cz-first-size-letter {
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-family: var(--cz-display);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
   line-height: 1;
   color: var(--cz-ink);
+  flex: none;
 }
 .cz-first-size-body {
   font-size: 13px;
