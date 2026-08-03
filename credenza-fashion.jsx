@@ -27,7 +27,15 @@ import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
 import { FIND_STATUSES, normalizeFindStatus } from "./credenza-find-status.js";
 import { downloadHaulCsv } from "./credenza-haul-export.js";
-import { RED_REASONS, normalizeStage, normalizeVerdict } from "./haul-fulfillment.js";
+import {
+  DEFAULT_DOMESTIC_USD,
+  DEFAULT_PACKAGING_GRAMS,
+  DIVISORS,
+  RED_REASONS,
+  SHIPPING_LINES,
+  normalizeStage,
+  normalizeVerdict,
+} from "./haul-fulfillment.js";
 import { markActivation, monitoredFetch } from "./monitor.js";
 import {
   extractWeightGramsFromText,
@@ -470,10 +478,47 @@ export function migrateHaul(raw) {
             : "none",
         }
       : null,
+    // Haul fulfillment (design/handoffs/haul). The rate table and the parcel's
+    // submission state must survive a reload. The rates are the person's own
+    // numbers, not Credenza's: agents change them weekly.
+    ship: migrateHaulShip(raw.ship),
     history: (Array.isArray(raw.history) ? raw.history : [])
       .filter((e) => e && typeof e === "object" && e.type)
       .slice(-50)
       .map((e) => ({ at: Number(e.at) || Date.now(), type: String(e.type), detail: String(e.detail || "") })),
+  };
+}
+
+// The haul's shipping settings. Absent means "never opened the parcel panel",
+// so every screen falls back to the starting numbers.
+export function migrateHaulShip(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const rates = {};
+  for (const line of SHIPPING_LINES) {
+    const value = raw.rates && Number(raw.rates[line.key]);
+    rates[line.key] = Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : line.rate;
+  }
+  const packaging = Number(raw.packagingGrams);
+  const declared = Number(raw.declared);
+  const domestic = Number(raw.domesticUsd);
+  const milestone = Number(raw.milestone);
+  return {
+    divisor: DIVISORS.includes(Number(raw.divisor)) ? Number(raw.divisor) : 6000,
+    line: SHIPPING_LINES.some((l) => l.key === raw.line) ? raw.line : "EMS",
+    rates,
+    ratesEditedAt: typeof raw.ratesEditedAt === "string" ? raw.ratesEditedAt : null,
+    packagingGrams:
+      Number.isFinite(packaging) && packaging >= 0 && packaging <= 400
+        ? Math.round(packaging / 10) * 10
+        : DEFAULT_PACKAGING_GRAMS,
+    domesticUsd:
+      Number.isFinite(domestic) && domestic >= 0
+        ? Math.round(domestic * 100) / 100
+        : DEFAULT_DOMESTIC_USD,
+    declared: Number.isFinite(declared) && declared >= 0 ? Math.round(declared * 100) / 100 : 0,
+    submitted: raw.submitted === true,
+    milestone: Number.isFinite(milestone) ? Math.min(3, Math.max(0, Math.round(milestone))) : 0,
+    tracking: typeof raw.tracking === "string" ? raw.tracking.slice(0, 64) : "",
   };
 }
 
