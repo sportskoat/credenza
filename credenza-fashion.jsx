@@ -10021,6 +10021,13 @@ function CredenzaApp() {
             accountEnabled: AUTH_ENABLED,
             accountSession,
             accountPlan,
+            // The Account and plan pane reports and links (sign-in handoff,
+            // screen 4). It needs the live counter and the two doors: the
+            // sign-in modal and the upgrade route.
+            limits,
+            onSignIn: () =>
+              openSignIn({ kind: "settings", returnTo: "/settings/account" }),
+            onOpenUpgrade: () => openUpgrade(),
             onMagicLink: accountSendMagicLink,
             onGoogle: accountGoogle,
             onUpgrade: accountUpgrade,

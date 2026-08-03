@@ -1,15 +1,21 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 
 import SettingsContext from "../../settings/SettingsContext.jsx";
 import AccountPlanSection from "../../settings/AccountPlanSection.jsx";
-import { PRICING } from "../../credenza-fashion.jsx";
+import { PLAN_COPY } from "../../components/plans.js";
 import { PLAN_CAPS } from "../src/usage.js";
 
-// Account and plan (Profile Settings design 1f). The screen sells Pro with
-// real numbers, so the tests bind every number to its source: prices to the
-// PRICING export, caps to PLAN_CAPS (which plan-limits.test.js binds to the
-// server). A literal price or cap in the component fails here.
+// Account and plan — sign-in handoff README, screen 4.
+//
+// The rule this whole file guards: "Report where the user stands and provide
+// the door. No form, no price table." The pane used to hold an email field,
+// a Google button, a billing switch, two price cards and a caps table. Every
+// one of those now belongs to another surface, so a test here asserts their
+// absence as hard as it asserts what stayed.
+//
+// Numbers are bound, never typed: counters read PLAN_CAPS, and copy reads
+// PLAN_COPY. A literal cap in the component fails here.
 
 afterEach(cleanup);
 
@@ -20,9 +26,9 @@ function renderSection(extra = {}) {
     accountEnabled: true,
     accountSession: { user: { email: "kyle@example.com" } },
     accountPlan: { state: "free" },
-    onMagicLink: noop,
-    onGoogle: noop,
-    onUpgrade: noop,
+    limits: { kind: "free", left: 18, cap: 20 },
+    onSignIn: noop,
+    onOpenUpgrade: noop,
     onPortal: noop,
     onSignOut: noop,
     onDeleteAccount: noop,
@@ -36,118 +42,120 @@ function renderSection(extra = {}) {
   );
 }
 
-describe("Account and plan screen (design 1f)", () => {
-  it("states the pitch and the signed-in identity", () => {
-    const { container } = renderSection();
-    expect(within(container).getByText("Free is the whole app. Pro is more of it.")).toBeTruthy();
-    expect(within(container).getByText(/You are on Free as kyle@example\.com/)).toBeTruthy();
-    expect(within(container).getByText(/Nothing on your shelf is locked/)).toBeTruthy();
+const SIGNED_OUT = {
+  accountSession: null,
+  accountPlan: null,
+  limits: { kind: "anon", left: 1, cap: 3 },
+};
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
+describe("Account and plan · no form, no price table", () => {
+  it("holds no email field and no provider button", () => {
+    const { container } = renderSection(SIGNED_OUT);
+    expect(container.querySelector("input")).toBeNull();
+    expect(within(container).queryByText("Continue with Google")).toBeNull();
+    expect(within(container).queryByText("Email me a sign-in link")).toBeNull();
   });
 
-  it("marks Free as the current plan on a free account", () => {
+  it("holds no billing switch and no price", () => {
     const { container } = renderSection();
-    const freeCard = within(container).getByText("Free", { selector: ".cz-account-plan-name" })
-      .closest(".cz-account-plan-card");
-    expect(within(freeCard).getByText("Your plan")).toBeTruthy();
-    expect(within(freeCard).getByText("$0")).toBeTruthy();
-    expect(within(freeCard).getByText(/No card, no trial clock/)).toBeTruthy();
+    expect(within(container).queryByText("Weekly")).toBeNull();
+    expect(within(container).queryByText("Monthly")).toBeNull();
+    expect(within(container).queryByText("Yearly")).toBeNull();
+    expect(container.textContent).not.toMatch(/\$2\.49|\$5\.99|\$44\.99/);
   });
 
-  it("defaults to weekly and shows the trial terms next to the start button", () => {
+  it("holds no caps table", () => {
     const { container } = renderSection();
-    // FTC negative-option: free days + after-trial price + cadence, adjacent
-    // to the button that starts the trial.
-    expect(within(container).getByText("Start " + PRICING.weeklyTrial)).toBeTruthy();
-    expect(within(container).getByText(PRICING.weeklyTrialNote + ".")).toBeTruthy();
-    expect(within(container).getByText(PRICING.weekly)).toBeTruthy();
-    expect(within(container).getByText(PRICING.weeklyTrial)).toBeTruthy(); // the badge
+    expect(within(container).queryByRole("table")).toBeNull();
+    expect(within(container).queryByText("AI chart reads")).toBeNull();
+    expect(within(container).queryByText("QC photos")).toBeNull();
   });
 
-  it("updates the price, badge and equivalent when billing switches", () => {
-    const { container } = renderSection();
-    fireEvent.click(within(container).getByText("Yearly"));
-    expect(within(container).getByText(PRICING.yearly)).toBeTruthy();
-    expect(within(container).getByText(PRICING.yearlySaving)).toBeTruthy();
-    expect(within(container).getByText(PRICING.yearlyPerMonth + ", billed yearly.")).toBeTruthy();
+  it("never calls any tier unlimited", () => {
+    const { container } = renderSection(SIGNED_OUT);
+    expect(container.textContent).not.toMatch(/unlimited/i);
+  });
+});
 
-    fireEvent.click(within(container).getByText("Monthly"));
-    expect(within(container).getByText(PRICING.monthly)).toBeTruthy();
-    expect(within(container).getByText("Billed monthly. Cancel any time.")).toBeTruthy();
+describe("Account and plan · signed out", () => {
+  it("says where you stand and links to both doors", () => {
+    const { container } = renderSection(SIGNED_OUT);
+    expect(within(container).getByText("You are signed out.")).toBeTruthy();
+    expect(within(container).getByText(PLAN_COPY.settingsSignedOutBody)).toBeTruthy();
+    expect(within(container).getByText("Signed out · this device only")).toBeTruthy();
+    expect(within(container).getByText("Free · $0 · no card, no trial clock")).toBeTruthy();
   });
 
-  it("prints the caps table from PLAN_CAPS, not from the design's mock numbers", () => {
-    const { container } = renderSection();
-    const table = within(container).getByRole("table", { name: "What changes with Pro" });
-    // Handoff 2026-08-01: no "Ask questions" row on purpose.
-    expect(within(table).queryByText(/Ask questions/i)).toBeNull();
-    expect(within(table).getByText(PLAN_CAPS.free.chartVisionPerDay + " a day")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.pro.chartVisionPerDay + " a day")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.free.resolvePerDay + " a day")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.pro.resolvePerDay + " a day")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.free.qcPhotosPerItem + " an item")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.pro.qcPhotosPerItem + " an item")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.free.haulsMax + " at once")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.pro.haulsMax + " at once")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.free.sharedLinksMax + " live")).toBeTruthy();
-    expect(within(table).getByText(PLAN_CAPS.pro.sharedLinksMax + " live")).toBeTruthy();
-    // The design doc's illustrative numbers were wrong. None of them belong
-    // on this screen.
-    expect(within(table).queryByText(/200/)).toBeNull();
+  it("opens the sign-in modal from the account row", () => {
+    const onSignIn = vi.fn();
+    const { container } = renderSection({ ...SIGNED_OUT, onSignIn });
+    fireEvent.click(within(container).getByText("Sign in"));
+    expect(onSignIn).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the facts that are not caps", () => {
-    const { container } = renderSection();
-    expect(within(container).getByText("Export a .csv")).toBeTruthy();
-    expect(within(container).getByText("Cards on the shelf")).toBeTruthy();
-    expect(within(container).getByText(".json backup and restore")).toBeTruthy();
+  it("opens the upgrade route from the plan row", () => {
+    const onOpenUpgrade = vi.fn();
+    const { container } = renderSection({ ...SIGNED_OUT, onOpenUpgrade });
+    fireEvent.click(within(container).getByText("See what Pro changes"));
+    expect(onOpenUpgrade).toHaveBeenCalledTimes(1);
   });
 
-  it("discloses the referral money inline", () => {
+  // The counter is a projection of the live limit, never a stored copy. A
+  // stored copy goes stale the moment a card resolves.
+  it("counts today off the live limit and flags it local", () => {
+    const { container } = renderSection(SIGNED_OUT);
+    expect(within(container).getByText("2 of 3 cards · resets at midnight")).toBeTruthy();
+    expect(within(container).getByText("LOCAL")).toBeTruthy();
+  });
+
+  it("carries the closing note", () => {
+    const { container } = renderSection(SIGNED_OUT);
+    expect(within(container).getByText(/both moved to their own surface/)).toBeTruthy();
+  });
+
+  it("offers no sign-out and no delete when nobody is signed in", () => {
+    const { container } = renderSection(SIGNED_OUT);
+    expect(within(container).queryByText("Sign out")).toBeNull();
+    expect(within(container).queryByText("Delete account")).toBeNull();
+  });
+});
+
+describe("Account and plan · signed in on Free", () => {
+  it("shows the address and the upgrade door", () => {
     const { container } = renderSection();
-    expect(within(container).getByText("What Pro does not change")).toBeTruthy();
+    expect(within(container).getByText("Signed in. You are on Free.")).toBeTruthy();
+    expect(within(container).getByText("kyle@example.com")).toBeTruthy();
+    expect(within(container).getByText("Free · $0")).toBeTruthy();
+    expect(within(container).getByText("See what Pro changes")).toBeTruthy();
+  });
+
+  it("counts today against the free caps", () => {
+    const { container } = renderSection();
     expect(
       within(container).getByText(
-        /Some agent links carry a referral code that funds the app\. It never changes your price\./
+        "0 of " + PLAN_CAPS.free.chartVisionPerDay + " chart reads · 0 of " +
+          PLAN_CAPS.free.resolvePerDay + " cards"
       )
     ).toBeTruthy();
+    expect(within(container).getByText("FREE CAPS")).toBeTruthy();
   });
 
-  it("states the cancel and refund terms", () => {
-    const { container } = renderSection();
-    expect(
-      within(container).getByText(/Cancel any time from this page\. Refund within 14 days/)
-    ).toBeTruthy();
-    expect(within(container).getByText("Restore purchase")).toBeTruthy();
-    expect(within(container).getByText("Billing history")).toBeTruthy();
+  it("signs out", () => {
+    const onSignOut = vi.fn();
+    const { container } = renderSection({ onSignOut });
+    fireEvent.click(within(container).getByText("Sign out"));
+    expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
-  it("calls restore purchase and billing history handlers", async () => {
+  it("restores a purchase made on another device", () => {
     const onRestorePurchase = vi.fn();
-    const onPortal = vi.fn();
-    const { container } = renderSection({ onRestorePurchase, onPortal });
+    const { container } = renderSection({ onRestorePurchase });
     fireEvent.click(within(container).getByText("Restore purchase"));
     expect(onRestorePurchase).toHaveBeenCalledTimes(1);
-    // run() holds the busy flag until the handler settles; the next button
-    // stays disabled until then.
-    await waitFor(() =>
-      expect(within(container).getByText("Billing history").closest("button").disabled).toBe(false)
-    );
-    fireEvent.click(within(container).getByText("Billing history"));
-    expect(onPortal).toHaveBeenCalledTimes(1);
-  });
-
-  it("upgrades with the selected billing period", () => {
-    const onUpgrade = vi.fn();
-    const { container } = renderSection({ onUpgrade });
-    fireEvent.click(within(container).getByText("Start " + PRICING.weeklyTrial));
-    expect(onUpgrade).toHaveBeenCalledWith("weekly");
-  });
-
-  it("shows Manage billing, not upgrade copy, to a Pro member", () => {
-    const { container } = renderSection({ accountPlan: { state: "pro" } });
-    expect(within(container).getByText("Manage billing")).toBeTruthy();
-    expect(within(container).queryByText(/Start 3 days free/)).toBeNull();
-    expect(within(container).getByText(/You are on Pro as kyle@example\.com/)).toBeTruthy();
   });
 
   it("arms delete account on the first tap and deletes on the second", () => {
@@ -155,23 +163,68 @@ describe("Account and plan screen (design 1f)", () => {
     const { container } = renderSection({ onDeleteAccount });
     fireEvent.click(within(container).getByText("Delete account"));
     expect(onDeleteAccount).not.toHaveBeenCalled();
+    expect(within(container).getByText("No undo. Your shelf stays on this device.")).toBeTruthy();
     fireEvent.click(within(container).getByText("Tap again to delete your account"));
     expect(onDeleteAccount).toHaveBeenCalledTimes(1);
   });
+});
 
-  it("shuts the upgrade button when signed out and shows sign-in instead", () => {
-    const onUpgrade = vi.fn();
-    const { container } = renderSection({ accountSession: null, onUpgrade });
-    expect(within(container).getByText("Sign in to Credenza")).toBeTruthy();
-    expect(within(container).getByText("Sign in above to upgrade.")).toBeTruthy();
-    const start = within(container).getByText("Start " + PRICING.weeklyTrial).closest("button");
-    expect(start.disabled).toBe(true);
-    fireEvent.click(start);
-    expect(onUpgrade).not.toHaveBeenCalled();
+describe("Account and plan · signed in on Pro", () => {
+  const PRO = { accountPlan: { state: "pro" }, limits: null };
+
+  it("says Pro is on and drops the upgrade door", () => {
+    const { container } = renderSection(PRO);
+    expect(within(container).getByText("Signed in. Pro is on.")).toBeTruthy();
+    expect(within(container).getByText("PRO")).toBeTruthy();
+    expect(within(container).queryByText("See what Pro changes")).toBeNull();
   });
 
+  // limitStatus() returns null for a Pro member, so the Pro counter cannot
+  // read `limits`. It reads the live usage against PLAN_CAPS.pro instead.
+  it("counts today against the pro caps with no limits object", () => {
+    const { container } = renderSection(PRO);
+    expect(
+      within(container).getByText(
+        "0 of " + PLAN_CAPS.pro.chartVisionPerDay + " chart reads · 0 of " +
+          PLAN_CAPS.pro.resolvePerDay + " cards"
+      )
+    ).toBeTruthy();
+    expect(within(container).getByText("PRO CAPS")).toBeTruthy();
+  });
+
+  it("opens the Stripe portal and says who holds the card number", () => {
+    const onPortal = vi.fn();
+    const { container } = renderSection({ ...PRO, onPortal });
+    fireEvent.click(within(container).getByText("Manage billing"));
+    expect(onPortal).toHaveBeenCalledTimes(1);
+    expect(within(container).getByText(/Credenza never sees your card number/)).toBeTruthy();
+  });
+
+  // No renewal date and no device count reach this device. The signed
+  // entitlement carries { sub, plan, state, lim, exp, graceUntil } and
+  // nothing else, so neither row can be drawn without inventing a number.
+  it("invents no renewal date and no device count", () => {
+    const { container } = renderSection(PRO);
+    expect(container.textContent).not.toMatch(/renews/i);
+    expect(within(container).queryByText("Devices")).toBeNull();
+  });
+
+  it("says when a payment did not go through", () => {
+    const { container } = renderSection({ accountPlan: { state: "grace" }, limits: null });
+    expect(within(container).getByText("Pro · a payment did not go through")).toBeTruthy();
+  });
+});
+
+describe("Account and plan · accounts off", () => {
   it("says when accounts are off in this build", () => {
-    const { container } = renderSection({ accountEnabled: false, accountSession: null });
+    const { container } = renderSection({
+      accountEnabled: false,
+      accountSession: null,
+      accountPlan: null,
+      limits: null,
+    });
     expect(within(container).getByText("Accounts are off in this build")).toBeTruthy();
+    expect(within(container).queryByText("Sign in")).toBeNull();
+    expect(within(container).queryByText("See what Pro changes")).toBeNull();
   });
 });

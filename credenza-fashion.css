@@ -6931,52 +6931,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-profile-signin.is-off .cz-profile-signin-sub {
   margin-bottom: 0;
 }
-/* Part 7e account card: email field, divider, error/sent lines, plan badge. */
-.cz-profile-signin-field input {
-  width: 100%;
-  min-height: 50px;
-  padding: 0 16px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 15px;
-  background: var(--cz-card-solid);
-  color: var(--cz-ink);
-  font-size: 16px; /* 16px+ stops iOS focus-zoom (Part 5 a11y). */
-}
-.cz-profile-signin-field input:focus-visible {
-  outline: 2px solid var(--cz-ink);
-  outline-offset: 2px;
-}
-.cz-profile-signin-or {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0;
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--cz-faint);
-}
-.cz-profile-signin-or::before,
-.cz-profile-signin-or::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--cz-hair);
-}
 .cz-profile-signin-error {
   margin-top: 10px;
   font-size: 13px;
   line-height: 1.45;
   color: #c0392b;
-}
-.cz-profile-signin-sent {
-  padding: 12px 14px;
-  border: 1px solid var(--cz-hair);
-  border-radius: 14px;
-  background: var(--cz-card-solid);
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--cz-ink);
 }
 .cz-profile-plan {
   margin-left: 10px;
@@ -7773,210 +7732,106 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
-/* ── Account and plan (design 1f) ────────────────────────────────────────── */
+/* ── Account and plan · standing group (sign-in handoff, screen 4) ──────────
+   The pane reports and links. It holds no form and no price table, so the
+   old two-card / eight-row family is gone. One group, one row per fact.
+   ──────────────────────────────────────────────────────────────────────── */
 
-.cz-account-plan-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.cz-plan-standing {
+  border: 1px solid var(--cz-hair);
+  border-radius: 16px;
+  background: var(--cz-card-solid);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.cz-plan-standing-row {
+  display: flex;
+  align-items: center;
   gap: 14px;
-  margin: 18px 0 16px;
+  padding: 16px 18px;
+}
+/* Signed in, the group carries more rows, so they tighten a step. */
+.cz-plan-standing.is-tight .cz-plan-standing-row {
+  padding: 15px 17px;
+}
+.cz-plan-standing-row + .cz-plan-standing-row {
+  border-top: 1px solid var(--cz-hair);
 }
 @media (max-width: 560px) {
-  .cz-account-plan-cards {
-    grid-template-columns: 1fr;
-  }
-}
-
-.cz-account-plan-card {
-  border: 1px solid var(--cz-hair);
-  border-radius: 16px;
-  background: var(--cz-card-solid);
-  padding: 18px 20px 20px;
-}
-.cz-account-plan-card.is-pro {
-  border-color: var(--cz-accent);
-}
-
-.cz-account-plan-card-top {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 12px;
-}
-
-.cz-account-plan-name {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--cz-ink);
-}
-
-.cz-account-plan-badge {
-  font-family: var(--cz-mono);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: var(--cz-inset-bg);
-  color: var(--cz-sub);
-}
-.cz-account-plan-badge.is-money {
-  background: var(--cz-money-bg);
-  color: var(--cz-money);
-}
-
-.cz-account-plan-price {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.cz-account-plan-amount {
-  font-family: var(--cz-mono);
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--cz-ink);
-}
-
-.cz-account-plan-period {
-  font-size: 13px;
-  color: var(--cz-faint);
-}
-
-.cz-account-plan-sub {
-  margin-top: 9px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--cz-sub);
-}
-
-.cz-account-plan-equiv {
-  margin: 9px 0 14px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--cz-money);
-}
-
-.cz-account-plan-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--cz-faint);
-}
-
-.cz-account-plan-table {
-  border: 1px solid var(--cz-hair);
-  border-radius: 16px;
-  background: var(--cz-card-solid);
-  padding: 4px 22px;
-  margin-bottom: 16px;
-}
-
-.cz-account-plan-table-head,
-.cz-account-plan-table-row {
-  display: grid;
-  grid-template-columns: 1fr 110px 110px;
-  gap: 16px;
-  align-items: center;
-  padding: 13px 0;
-}
-@media (max-width: 560px) {
-  .cz-account-plan-table-head,
-  .cz-account-plan-table-row {
-    grid-template-columns: 1fr 76px 76px;
+  .cz-plan-standing-row {
+    align-items: flex-start;
+    flex-direction: column;
     gap: 10px;
   }
 }
 
-.cz-account-plan-table-head {
-  border-bottom: 1px solid var(--cz-hair);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cz-ink);
-  text-align: right;
-}
-.cz-account-plan-table-head .cz-account-plan-table-kicker {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cz-money);
-  text-align: left;
-}
-
-.cz-account-plan-table-row + .cz-account-plan-table-row {
-  border-top: 1px solid var(--cz-hair);
-}
-
-.cz-account-plan-table-what {
+.cz-plan-standing-main {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
 }
 
-.cz-account-plan-table-label {
+.cz-plan-standing-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.01em;
   color: var(--cz-ink);
 }
 
-.cz-account-plan-table-note {
-  font-size: 12px;
-  line-height: 1.4;
+.cz-plan-standing-value {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+.cz-plan-standing-value.is-mono {
+  font-family: var(--cz-mono);
+  letter-spacing: -0.01em;
+}
+
+.cz-plan-standing-action {
+  flex: 0 0 auto;
+}
+
+/* The PRO pill on the plan row. */
+.cz-plan-pro-pill {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+/* The mono flag stands where an action would be, on a row that has none. */
+.cz-plan-flag {
+  flex: 0 0 auto;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
   color: var(--cz-faint);
 }
 
-.cz-account-plan-table-free {
-  font-size: 13px;
-  color: var(--cz-sub);
-  text-align: right;
-}
-.cz-account-plan-table-pro {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cz-ink);
-  text-align: right;
+.cz-plan-standing-note {
+  max-width: 520px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cz-faint);
 }
 
-.cz-account-plan-keeps,
-.cz-account-plan-billing {
-  border: 1px solid var(--cz-hair);
-  border-radius: 16px;
-  background: var(--cz-card-solid);
-  padding: 18px 22px;
-  margin-bottom: 16px;
-}
-.cz-account-plan-keeps p,
-.cz-account-plan-billing p,
-.cz-account-plan-footer p {
-  margin: 8px 0 0;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--cz-sub);
-}
-
-.cz-account-plan-keeps-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cz-money);
-}
-
-.cz-account-plan-billing-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.cz-account-plan-footer {
-  padding-top: 20px;
-  border-top: 1px solid var(--cz-hair);
+/* A finger needs 44px. The rows above are 46px and 44px, so only the
+   buttons inside them need a floor. */
+@media (pointer: coarse) {
+  .cz-plan-standing-action .cz-pill {
+    min-height: 44px;
+  }
 }
 
 /* ── Sizes and measurements v2 ─────────────────────────────────────────────
@@ -18804,8 +18659,8 @@ input.cz-sizing-fix-size {
 .cz-app[data-theme="rainbow"] .cz-modal,
 .cz-app[data-theme="dark"] .cz-settings-card,
 .cz-app[data-theme="rainbow"] .cz-settings-card,
-.cz-app[data-theme="dark"] .cz-account-plan,
-.cz-app[data-theme="rainbow"] .cz-account-plan,
+.cz-app[data-theme="dark"] .cz-plan-standing,
+.cz-app[data-theme="rainbow"] .cz-plan-standing,
 .cz-app[data-theme="dark"] .cz-sizes-panel,
 .cz-app[data-theme="rainbow"] .cz-sizes-panel,
 .cz-app[data-theme="dark"] .cz-fit-prefs,

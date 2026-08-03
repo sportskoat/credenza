@@ -1,82 +1,76 @@
 import { useState } from "react";
-import { PRICING, Pill, SegmentedControl } from "../credenza-fashion.jsx";
-import { PLAN_CAPS } from "../preview/src/usage.js";
+import { Pill } from "../credenza-fashion.jsx";
+import { PLAN_CAPS, usageToday } from "../preview/src/usage.js";
+import { PLAN_COPY } from "../components/plans.js";
 import { useSettings } from "./SettingsContext.jsx";
 import SettingsSection from "./SettingsSection.jsx";
 
-// Account and plan (design 1f). The old modal sold Pro with two price
-// buttons and no idea what you get. This screen states the caps as numbers,
-// says out loud what Pro does not change, and discloses the referral money
-// inline. Switching billing updates the price.
+// ═══════════════════════════════════════════════════════════════════════════
+// Account and plan — sign-in handoff README, screen 4.
 //
-// Every number on this screen is bound:
-//   - Prices come from PRICING (never a literal).
-//   - Caps come from PLAN_CAPS, which plan-limits.test.js binds to the
-//     server tables. The design doc's own table numbers were illustrative
-//     and wrong; do not copy them here.
+// "Report where the user stands and provide the door. No form, no price
+// table." The old pane held both: an email field with a Google button, a
+// billing switch, two price cards and an eight-row caps table. All of that
+// now lives on two surfaces of its own — the sign-in modal (screen 2) and
+// the /upgrade route (screen 3). This pane only reports and links.
+//
+// Every number is a projection, never a stored copy:
+//   - The signed-out counter reads `limits`, which the app re-computes on
+//     every spent read.
+//   - The signed-in counters read usageToday() against PLAN_CAPS at render.
+//     limitStatus() returns null for a Pro member, so Pro cannot use it.
+//
+// README deviations, for the morning report:
+//   1. The README's 4a body says an account "makes the shelf unlimited".
+//      The Kyle 2026-08-02 ruling forbids the word: a free account gets 20
+//      cards a day, not a blank cheque. PLAN_COPY.settingsSignedOutBody is
+//      the corrected sentence and this pane uses it.
+//   2. The README's 4a Today row says "0 of 2 chart reads" for a signed-out
+//      person. 2 is the signed-in free cap; a signed-out device has its own
+//      allowance. The row prints the card counter only.
+//   3. "renews 9 Aug" and the whole "2 devices · kept in step" row are
+//      dropped. The signed entitlement the browser holds carries only
+//      { sub, plan, state, lim, exp, graceUntil }. Neither the renewal date
+//      nor a device count reaches this device, and a made-up date next to a
+//      price is a false statement to someone who is paying.
+//   4. Two rows the README does not draw survive here, because no other
+//      surface offers them: "Restore purchase" and "Delete account".
+// ═══════════════════════════════════════════════════════════════════════════
 
-const BILLING_OPTIONS = [
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-  { value: "yearly", label: "Yearly" },
-];
-
-const BILLING = {
-  weekly: {
-    price: PRICING.weekly,
-    period: "a week",
-    badge: PRICING.weeklyTrial,
-    // FTC negative-option: the free days, the after-trial price, and the
-    // cancel path sit next to the button that starts the trial.
-    equiv: PRICING.weeklyTrialNote + ".",
-  },
-  monthly: {
-    price: PRICING.monthly,
-    period: "a month",
-    badge: "",
-    equiv: "Billed monthly. Cancel any time.",
-  },
-  yearly: {
-    price: PRICING.yearly,
-    period: "a year",
-    badge: PRICING.yearlySaving,
-    equiv: PRICING.yearlyPerMonth + ", billed yearly.",
-  },
-};
-
-// The caps table. Each row's numbers read PLAN_CAPS; the cadence word sits
-// in the cell so "5 a day" reads as one claim. Rows after the metered six
-// are facts about the product, not caps — they have no server source.
-const CAP_ROWS = [
-  { label: "AI chart reads", note: "One read of one size chart.", free: PLAN_CAPS.free.chartVisionPerDay + " a day", pro: PLAN_CAPS.pro.chartVisionPerDay + " a day" },
-  { label: "Link resolves", note: "One server read of one buy link.", free: PLAN_CAPS.free.resolvePerDay + " a day", pro: PLAN_CAPS.pro.resolvePerDay + " a day" },
-  { label: "QC photos", note: "Stored on the card.", free: PLAN_CAPS.free.qcPhotosPerItem + " an item", pro: PLAN_CAPS.pro.qcPhotosPerItem + " an item" },
-  { label: "Open hauls", note: "Archive a finished one to free a slot.", free: PLAN_CAPS.free.haulsMax + " at once", pro: PLAN_CAPS.pro.haulsMax + " at once" },
-  { label: "Shared links", note: "A read-only link to a haul.", free: PLAN_CAPS.free.sharedLinksMax + " live", pro: PLAN_CAPS.pro.sharedLinksMax + " live" },
-  { label: "Export a .csv", note: "For Numbers, Excel or Sheets.", free: "No", pro: "Yes" },
-  { label: "Cards on the shelf", note: "Credenza never drops a card to make room.", free: "Every card", pro: "Every card" },
-  { label: ".json backup and restore", note: "Your data leaves whenever you want.", free: "Yes", pro: "Yes" },
-];
+// One row of the standing group. The action sits on the right; the flag is
+// the mono chip that stands in for an action on a row that has none.
+function StandingRow({ title, value, mono, pill, action, flag }) {
+  return (
+    <div className="cz-plan-standing-row">
+      <div className="cz-plan-standing-main">
+        <div className="cz-plan-standing-title">
+          {title}
+          {pill ? <span className="cz-plan-pro-pill">{pill}</span> : null}
+        </div>
+        <div className={"cz-plan-standing-value" + (mono ? " is-mono" : "")}>{value}</div>
+      </div>
+      {action ? <div className="cz-plan-standing-action">{action}</div> : null}
+      {flag ? <span className="cz-plan-flag">{flag}</span> : null}
+    </div>
+  );
+}
 
 export default function AccountPlanSection() {
   const {
     accountEnabled,
     accountSession,
     accountPlan,
-    onMagicLink,
-    onGoogle,
-    onUpgrade,
+    limits,
+    onSignIn,
+    onOpenUpgrade,
     onPortal,
     onSignOut,
     onDeleteAccount,
     onRestorePurchase,
   } = useSettings();
 
-  const [billing, setBilling] = useState("weekly");
-  const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(""); // "link" | "google" | "upgrade" | "portal" | "restore" | "history" | "signout" | "delete"
+  const [busy, setBusy] = useState(""); // "portal" | "restore" | "signout" | "delete"
   const [error, setError] = useState("");
-  const [linkSent, setLinkSent] = useState(false);
   // Delete account is two-tap: the first tap arms it, the second sends it.
   const [deleteArmed, setDeleteArmed] = useState(false);
 
@@ -96,19 +90,37 @@ export default function AccountPlanSection() {
   const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
   const isPro = planState === "pro" || planState === "grace";
   const signedIn = accountEnabled && !!accountSession;
-  const plan = BILLING[billing];
+  const email = (signedIn && accountSession.user && accountSession.user.email) || "";
+
+  // The Today line. Read at render, so a card resolved a second ago already
+  // shows here. usageTick in the app re-renders this tree on every spend.
+  const caps = isPro ? PLAN_CAPS.pro : PLAN_CAPS.free;
+  const todaySignedIn =
+    usageToday("chartVision") + " of " + caps.chartVisionPerDay + " chart reads · " +
+    usageToday("resolve") + " of " + caps.resolvePerDay + " cards";
+  const todaySignedOut = limits
+    ? limits.cap - limits.left + " of " + limits.cap + " cards · resets at midnight"
+    : "Counted on this device · resets at midnight";
+
+  const heading = !signedIn
+    ? "You are signed out."
+    : isPro
+      ? "Signed in. Pro is on."
+      : "Signed in. You are on Free.";
+
+  const body = signedIn
+    ? isPro
+      ? "Pro is on for this account. Your daily counters are raised and your shelf comes back on a new phone."
+      : "Your account is free. It holds " + PLAN_CAPS.free.resolvePerDay +
+        " cards a day and brings the shelf back if the phone goes."
+    : PLAN_COPY.settingsSignedOutBody;
 
   return (
     <SettingsSection
       kicker="ACCOUNT AND PLAN"
-      title="Free is the whole app. Pro is more of it."
+      title={heading}
       sectionId="account"
-      lead={
-        signedIn
-          ? "You are on " + (isPro ? "Pro" : "Free") + " as " + (accountSession.user.email || "this account") +
-            ". Nothing on your shelf is locked. Pro raises the daily caps and funds the servers."
-          : "Nothing on your shelf is locked. Pro raises the daily caps and funds the servers."
-      }
+      lead={body}
     >
       {/* Accounts off = SAY so (same rule as the old profile sheet: a build
           with no Supabase keys must not silently lose the account UI). */}
@@ -124,217 +136,124 @@ export default function AccountPlanSection() {
         </div>
       )}
 
-      {/* Signed out: the sign-in card leads. Pro checkout needs a session,
-          so the upgrade button below stays shut until this is done. */}
-      {accountEnabled && !accountSession && (
-        <div className="cz-profile-signin">
-          <div className="cz-profile-signin-title">Sign in to Credenza</div>
-          <div className="cz-profile-signin-sub">
-            One account unlocks Pro and keeps your limits in sync. Your shelf stays on this device either way.
-          </div>
-          {linkSent ? (
-            <div className="cz-profile-signin-sent" role="status">
-              Check your email. The link signs you in. It works on this device only.
-            </div>
+      {accountEnabled && (
+        <div className={"cz-plan-standing" + (signedIn ? " is-tight" : "")}>
+          {signedIn ? (
+            <StandingRow
+              title="Account"
+              value={email || "Signed in"}
+              mono={!!email}
+              action={
+                <Pill subtle disabled={!!busy} onClick={() => run("signout", onSignOut)}>
+                  {busy === "signout" ? "Signing out…" : "Sign out"}
+                </Pill>
+              }
+            />
           ) : (
-            <>
-              <label className="cz-profile-signin-field">
-                <input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  aria-label="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && /@.+\./.test(email)) {
-                      run("link", async () => {
-                        await onMagicLink(email);
-                        setLinkSent(true);
-                      });
-                    }
-                  }}
-                />
-              </label>
-              <Pill
-                primary
-                style={{ width: "100%", minHeight: 50, borderRadius: 15, marginTop: 10 }}
-                disabled={!!busy || !/@.+\./.test(email)}
-                onClick={() =>
-                  run("link", async () => {
-                    await onMagicLink(email);
-                    setLinkSent(true);
-                  })
-                }
-              >
-                {busy === "link" ? "Sending…" : "Email me a sign-in link"}
-              </Pill>
-              <div className="cz-profile-signin-or" aria-hidden="true">or</div>
-              <Pill
-                style={{ width: "100%", minHeight: 50, borderRadius: 15 }}
-                disabled={!!busy}
-                onClick={() => run("google", onGoogle)}
-              >
-                {busy === "google" ? "Opening Google…" : "Continue with Google"}
-              </Pill>
-            </>
+            <StandingRow
+              title="Account"
+              value="Signed out · this device only"
+              action={
+                <Pill primary onClick={() => onSignIn()}>
+                  Sign in
+                </Pill>
+              }
+            />
           )}
-          {error && <div className="cz-profile-signin-error" role="alert">{error}</div>}
+
+          {/* A Pro member has nothing left to buy, so the upgrade door goes
+              and the billing door takes its place. */}
+          {isPro ? (
+            <StandingRow
+              title="Plan"
+              pill="PRO"
+              value={
+                planState === "grace"
+                  ? "Pro · a payment did not go through"
+                  : "Pro · billed through Stripe · cancel any time"
+              }
+              action={
+                <Pill disabled={!!busy} onClick={() => run("portal", onPortal)}>
+                  {busy === "portal" ? "Opening…" : "Manage billing"}
+                </Pill>
+              }
+            />
+          ) : (
+            <StandingRow
+              title="Plan"
+              value={
+                signedIn ? "Free · $0" : "Free · $0 · no card, no trial clock"
+              }
+              action={
+                <Pill onClick={() => onOpenUpgrade()}>See what Pro changes</Pill>
+              }
+            />
+          )}
+
+          <StandingRow
+            title="Today"
+            value={signedIn ? todaySignedIn : todaySignedOut}
+            flag={!signedIn ? "LOCAL" : isPro ? "PRO CAPS" : "FREE CAPS"}
+          />
+
+          {/* Not in the README. It stays because a person who paid on another
+              device has no other way to make this one notice. */}
+          {signedIn && !isPro && (
+            <StandingRow
+              title="Purchases"
+              value="Paid already on another device?"
+              action={
+                <Pill subtle disabled={!!busy} onClick={() => run("restore", onRestorePurchase)}>
+                  {busy === "restore" ? "Checking…" : "Restore purchase"}
+                </Pill>
+              }
+            />
+          )}
+
+          {/* Not in the README either. Deleting the account is the only door
+              that no other pane holds. Your data holds the local erase. */}
+          {signedIn && (
+            <StandingRow
+              title="Delete your account"
+              value={
+                deleteArmed
+                  ? "No undo. Your shelf stays on this device."
+                  : "Removes the sync copy, not the local one."
+              }
+              action={
+                <Pill
+                  subtle
+                  disabled={!!busy}
+                  onClick={() => {
+                    if (!deleteArmed) {
+                      setDeleteArmed(true);
+                      setError("");
+                      return;
+                    }
+                    run("delete", onDeleteAccount);
+                  }}
+                >
+                  {busy === "delete"
+                    ? "Deleting…"
+                    : deleteArmed
+                      ? "Tap again to delete your account"
+                      : "Delete account"}
+                </Pill>
+              }
+            />
+          )}
         </div>
       )}
 
-      <SegmentedControl
-        label="Billing"
-        value={billing}
-        onChange={(v) => setBilling(v || "weekly")}
-        options={BILLING_OPTIONS}
-      />
+      {error && <div className="cz-profile-signin-error" role="alert">{error}</div>}
 
-      <div className="cz-account-plan-cards">
-        <div className="cz-account-plan-card">
-          <div className="cz-account-plan-card-top">
-            <span className="cz-account-plan-name">Free</span>
-            {!isPro ? <span className="cz-account-plan-badge">Your plan</span> : null}
-          </div>
-          <div className="cz-account-plan-price">
-            <span className="cz-account-plan-amount">$0</span>
-          </div>
-          <div className="cz-account-plan-sub">No card, no trial clock. Stays free.</div>
-        </div>
-
-        <div className="cz-account-plan-card is-pro">
-          <div className="cz-account-plan-card-top">
-            <span className="cz-account-plan-name">Pro</span>
-            {isPro ? (
-              <span className="cz-account-plan-badge">Your plan</span>
-            ) : plan.badge ? (
-              <span className="cz-account-plan-badge is-money">{plan.badge}</span>
-            ) : null}
-          </div>
-          <div className="cz-account-plan-price">
-            <span className="cz-account-plan-amount">{plan.price}</span>
-            <span className="cz-account-plan-period">{plan.period}</span>
-          </div>
-          <div className="cz-account-plan-equiv">{plan.equiv}</div>
-          {isPro ? (
-            <Pill
-              style={{ width: "100%", minHeight: 44, borderRadius: 13 }}
-              disabled={!!busy}
-              onClick={() => run("portal", onPortal)}
-            >
-              {busy === "portal" ? "Opening…" : "Manage billing"}
-            </Pill>
-          ) : (
-            <Pill
-              primary
-              style={{ width: "100%", minHeight: 44, borderRadius: 13 }}
-              disabled={!!busy || !signedIn}
-              title={!signedIn ? "Sign in first to upgrade." : undefined}
-              onClick={() => run("upgrade", () => onUpgrade(billing))}
-            >
-              {busy === "upgrade"
-                ? "Opening…"
-                : billing === "weekly"
-                  ? "Start " + PRICING.weeklyTrial
-                  : "Upgrade to Pro"}
-            </Pill>
-          )}
-          {!signedIn && accountEnabled ? (
-            <div className="cz-account-plan-hint">Sign in above to upgrade.</div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="cz-account-plan-table" role="table" aria-label="What changes with Pro">
-        <div className="cz-account-plan-table-head" role="row">
-          <span className="cz-account-plan-table-kicker" role="columnheader">What changes</span>
-          <span role="columnheader">Free</span>
-          <span role="columnheader">Pro</span>
-        </div>
-        {CAP_ROWS.map((r) => (
-          <div className="cz-account-plan-table-row" role="row" key={r.label}>
-            <span className="cz-account-plan-table-what" role="cell">
-              <span className="cz-account-plan-table-label">{r.label}</span>
-              <span className="cz-account-plan-table-note">{r.note}</span>
-            </span>
-            <span className="cz-account-plan-table-free" role="cell">{r.free}</span>
-            <span className="cz-account-plan-table-pro" role="cell">{r.pro}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="cz-account-plan-keeps">
-        <div className="cz-account-plan-keeps-title">What Pro does not change</div>
-        <p>
-          The shelf, the size engine, hauls and your data are free forever.
-          Pro is a cap lift, not a key. Some agent links carry a referral code
-          that funds the app. It never changes your price.
+      {accountEnabled && (
+        <p className="cz-plan-standing-note">
+          {isPro && signedIn
+            ? "Manage billing opens the Stripe portal. Credenza never sees your card number."
+            : "Two rows and a counter. The sign-in form and the price table used to sit here; both moved to their own surface and this page links to them."}
         </p>
-      </div>
-
-      <div className="cz-account-plan-billing">
-        <div className="cz-account-plan-keeps-title">Billing</div>
-        <p>
-          Cancel any time from this page. Refund within 14 days, no email
-          needed. Downgrading keeps every card you saved.
-        </p>
-        <div className="cz-account-plan-billing-actions">
-          <Pill
-            subtle
-            disabled={!!busy || !signedIn}
-            onClick={() => run("restore", onRestorePurchase)}
-          >
-            {busy === "restore" ? "Checking…" : "Restore purchase"}
-          </Pill>
-          <Pill
-            subtle
-            disabled={!!busy || !signedIn}
-            onClick={() => run("history", onPortal)}
-          >
-            {busy === "history" ? "Opening…" : "Billing history"}
-          </Pill>
-        </div>
-      </div>
-
-      {signedIn ? (
-        <div className="cz-account-plan-footer">
-          <p>
-            Sign out leaves your shelf on this device. Deleting the account
-            removes the sync copy, not the local one.
-          </p>
-          <div className="cz-account-plan-billing-actions">
-            <Pill
-              subtle
-              disabled={!!busy}
-              onClick={() => run("signout", onSignOut)}
-            >
-              {busy === "signout" ? "Signing out…" : "Sign out"}
-            </Pill>
-            <Pill
-              subtle
-              disabled={!!busy}
-              onClick={() => {
-                if (!deleteArmed) {
-                  setDeleteArmed(true);
-                  setError("");
-                  return;
-                }
-                run("delete", onDeleteAccount);
-              }}
-            >
-              {busy === "delete"
-                ? "Deleting…"
-                : deleteArmed
-                  ? "Tap again to delete your account"
-                  : "Delete account"}
-            </Pill>
-          </div>
-          {deleteArmed ? (
-            <p className="cz-account-plan-hint">No undo. Your shelf stays on this device.</p>
-          ) : null}
-          {error && <div className="cz-profile-signin-error" role="alert">{error}</div>}
-        </div>
-      ) : null}
+      )}
     </SettingsSection>
   );
 }

@@ -2261,7 +2261,7 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
     await user.click(await screen.findByRole("button", { name: "Profile" }));
     await user.click(await screen.findByRole("button", { name: /All settings/ }));
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/account");
   });
 
@@ -2284,7 +2284,7 @@ describe("Avatar quick menu and settings page (Profile Settings design)", () => 
       expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
       // Redesign 2026-08-01: phone stacks every section in one column. No
       // list-then-detail push. URL still names a section for deep links.
-      expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+      expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
       expect(await screen.findByRole("heading", { name: "Sizes and measurements." })).toBeInTheDocument();
       expect(window.location.pathname).toMatch(/^\/settings/);
     } finally {
@@ -2334,7 +2334,7 @@ describe("Settings deep links (CH-12)", () => {
     // page opens on Account and plan and the URL STAYS — it is state, not an
     // entrance.
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/account");
   });
 
@@ -2347,7 +2347,7 @@ describe("Settings deep links (CH-12)", () => {
     window.history.replaceState(null, "", "/?upgraded=1");
     render(<Credenza />);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/settings/account");
     expect(window.location.search, "the ?upgraded flag stays in the address").toBe("");
   });
@@ -2357,7 +2357,7 @@ describe("Settings deep links (CH-12)", () => {
     window.history.replaceState(null, "", "/settings/account");
     render(<Credenza />);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(await screen.findByText("Free is the whole app. Pro is more of it.")).toBeInTheDocument();
+    expect(await screen.findByText("You are signed out.")).toBeInTheDocument();
   });
 
   it("a path outside /settings opens nothing", async () => {
