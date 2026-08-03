@@ -596,6 +596,7 @@ describe("reading a saved card", () => {
     haulVerdict: "green",
     haulReason: "stitching",
     haulActualGrams: 512,
+    haulWeighedAt: "2026-08-01",
     haulVolumeCm3: 3000,
     haulStorageDays: 84,
     haulOrderNo: "SB-8827101",
@@ -611,6 +612,7 @@ describe("reading a saved card", () => {
       platform: "weidian",
       est: 480,
       actual: 512,
+      weighedAt: "2026-08-01",
       vol: 3000,
       stage: "warehouse",
       qc: "green",
@@ -618,7 +620,9 @@ describe("reading a saved card", () => {
       photos: 3,
       storage: 84,
       order: "SB-8827101",
-      when: "2026-07-30",
+      // Saved as a moment, read as a day. The card has room for a day.
+      // The day itself moves with the reader's clock, so only the shape is fixed.
+      when: expect.stringMatching(/^\w{3} \d{1,2}$/),
       url: "https://weidian.com/item.html?itemID=1",
     });
   });
@@ -628,6 +632,7 @@ describe("reading a saved card", () => {
     expect(plain.stage).toBe("toOrder");
     expect(plain.qc).toBe(null);
     expect(plain.actual).toBe(null);
+    expect(plain.weighedAt).toBe(null);
     expect(plain.storage).toBe(null);
     expect(plain.photos).toBe(0);
     expect(plain.price).toBe(0);
@@ -815,7 +820,7 @@ describe("one card on the board", () => {
 
   it("counts the photos waiting on the warehouse card", () => {
     expect(itemCardMeta(item({ stage: "warehouse", actual: 512, storage: 58, photos: 12 }))).toEqual(
-      { meta: "512 g actual · 58 d left", tone: "faint", action: "Review QC · 12" }
+      { meta: "512 g weighed · 58 d left", tone: "faint", action: "Review QC · 12" }
     );
   });
 
@@ -823,7 +828,14 @@ describe("one card on the board", () => {
     const meta = itemCardMeta(item({ stage: "warehouse", actual: 512, storage: 58 }), {
       storageClock: false,
     });
-    expect(meta.meta).toBe("512 g actual");
+    expect(meta.meta).toBe("512 g weighed");
+  });
+
+  // Kyle 2026-08-02: "you're making sure that it's not just an estimate." The
+  // card used to call the person's own guess "actual", which was a lie.
+  it("calls a card still carrying a guess an estimate", () => {
+    const meta = itemCardMeta(item({ stage: "warehouse", actual: null, est: 480, storage: 58 }));
+    expect(meta.meta).toBe("480 g est. · 58 d left");
   });
 
   it("offers the parcel to a green-lit item", () => {
@@ -923,6 +935,27 @@ describe("the item drawer", () => {
     expect(itemDrawer(item({ est: 500, actual: 500 })).weightNote).toBe(
       "Weighed at the warehouse. Your estimate was right."
     );
+  });
+
+  // Kyle 2026-08-02: "you're making sure that it's not just an estimate. It is
+  // just what comes from the warehouse." The label names the source beside the
+  // number, so a guess and a warehouse number never look alike.
+  it("calls an unweighed number an estimate", () => {
+    const view = itemDrawer(item({ est: 500, actual: null }));
+    expect(view.weightSource).toEqual({ weighed: false, label: "Estimate. Not weighed yet." });
+  });
+
+  it("names the warehouse scale and the day it weighed the item", () => {
+    const view = itemDrawer(item({ est: 500, actual: 512, weighedAt: "2026-08-02T10:00:00Z" }));
+    expect(view.weightSource.weighed).toBe(true);
+    expect(view.weightSource.label).toMatch(/^Warehouse scale · /);
+  });
+
+  // An older save holds the number without the stamp. Calling that a guess
+  // would be a lie, so the source stands and only the date drops.
+  it("still names the scale when no date was saved with the weight", () => {
+    const view = itemDrawer(item({ est: 500, actual: 512, weighedAt: null }));
+    expect(view.weightSource).toEqual({ weighed: true, label: "Warehouse scale" });
   });
 
   it("offers QC review only when photos exist, and reopening once a verdict stands", () => {

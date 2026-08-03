@@ -3768,6 +3768,10 @@ function createItem(parsed, rawText, extra) {
     haulVerdict: null,
     haulReason: null,
     haulActualGrams: null,
+    // When the warehouse weight was entered. Kyle 2026-08-02 wanted the app to
+    // show that a weight is the warehouse's real number, not a guess. The date
+    // is what proves it, so it is saved beside the number.
+    haulWeighedAt: null,
     haulVolumeCm3: null,
     haulStorageDays: null,
     haulOrderNo: "",
@@ -3806,6 +3810,14 @@ function migrateLinks(old, primaryUrl, rawText) {
 // yet", so they read back as null rather than as a real measurement.
 function positiveGramsOrNull(value) {
   return typeof value === "number" && isFinite(value) && value > 0 ? Math.round(value) : null;
+}
+
+// A moment the app recorded. Every writer passes Date.now(), which is a number,
+// but an older save may hold a date string. Keep both, drop anything else.
+function stampOrNull(value) {
+  if (typeof value === "number" && isFinite(value) && value > 0) return value;
+  if (typeof value === "string" && value) return value;
+  return null;
 }
 
 export function migrateItem(old) {
@@ -3988,7 +4000,11 @@ export function migrateItem(old) {
         ? Math.round(old.haulStorageDays)
         : null,
     haulOrderNo: typeof old.haulOrderNo === "string" ? old.haulOrderNo.slice(0, 64) : "",
-    haulStageAt: typeof old.haulStageAt === "string" ? old.haulStageAt : null,
+    // Both dates accept a number or a string. Every writer passes Date.now(),
+    // which is a number. A string-only test dropped the stage date on every
+    // reload, so the app forgot when an item moved (found 2026-08-02).
+    haulStageAt: stampOrNull(old.haulStageAt),
+    haulWeighedAt: stampOrNull(old.haulWeighedAt),
     // How the size call turned out, once the item is in the person's hands.
     // This is the one answer that makes the next recommendation better than a
     // guess, so it has to survive a reload.

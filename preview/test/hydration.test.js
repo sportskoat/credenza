@@ -227,6 +227,25 @@ describe("migrateItem haul fulfillment fields", () => {
     expect(migrated.haulStageAt).toBe("2026-08-02T00:00:00.000Z");
   });
 
+  // Found 2026-08-02. Every writer saves a moment as a number, and the reload
+  // kept only text. So the app forgot when an item moved, every single reload.
+  it("keeps a date saved as a number, not only one saved as text", () => {
+    const migrated = migrateItem({
+      ...base,
+      haulActualGrams: 512,
+      haulStageAt: 1754092800000,
+      haulWeighedAt: 1754179200000,
+    });
+    expect(migrated.haulStageAt).toBe(1754092800000);
+    expect(migrated.haulWeighedAt).toBe(1754179200000);
+  });
+
+  it("throws away a date that is not a date", () => {
+    expect(migrateItem({ ...base, haulWeighedAt: 0 }).haulWeighedAt).toBeNull();
+    expect(migrateItem({ ...base, haulWeighedAt: {} }).haulWeighedAt).toBeNull();
+    expect(migrateItem({ ...base, haulWeighedAt: undefined }).haulWeighedAt).toBeNull();
+  });
+
   it("reads an item saved before this feature as not bought yet", () => {
     const migrated = migrateItem(base);
     expect(migrated.haulStage).toBe("toOrder");

@@ -147,16 +147,23 @@ describe("moving the item", () => {
 });
 
 describe("the numbers the person supplies", () => {
-  it("saves a typed weight in grams", () => {
+  it("saves a typed weight in grams, and the day it landed", () => {
     const props = mount();
     fireEvent.change(document.querySelector(".cz-hd-number"), { target: { value: "512" } });
-    expect(props.onPatch).toHaveBeenCalledWith("a", { haulActualGrams: 512 });
+    const patch = props.onPatch.mock.calls[0][1];
+    expect(patch.haulActualGrams).toBe(512);
+    expect(typeof patch.haulWeighedAt).toBe("number");
   });
 
+  // A date left behind on an emptied field would claim the warehouse weighed
+  // something the app no longer holds.
   it("treats a cleared weight as no weight, not as zero grams", () => {
     const props = mount();
     fireEvent.change(document.querySelector(".cz-hd-number"), { target: { value: "" } });
-    expect(props.onPatch).toHaveBeenCalledWith("a", { haulActualGrams: null });
+    expect(props.onPatch).toHaveBeenCalledWith("a", {
+      haulActualGrams: null,
+      haulWeighedAt: null,
+    });
   });
 
   it("saves the agent's order number", () => {
@@ -239,6 +246,43 @@ describe("the red light names its problem", () => {
     // form field filled in wrong, and the person did nothing wrong.
     expect(ruleBody(".cz-hd-red")).toContain("background: var(--cz-error-bg)");
     expect(ruleBody(".cz-hd-red-kicker")).toContain("color: var(--cz-error-text)");
+  });
+});
+
+// Kyle 2026-08-02: "you're making sure that it's not just an estimate. It is
+// just what comes from the warehouse." The line beside the weight says which of
+// the two the number is.
+describe("the weight says where it came from", () => {
+  it("calls an unweighed number an estimate", () => {
+    mount({ item: item({ est: 500, actual: null }) });
+    const source = document.querySelector(".cz-hd-source");
+    expect(source.textContent).toBe("Estimate. Not weighed yet.");
+    expect(source.dataset.weighed).toBe("no");
+  });
+
+  it("names the warehouse scale once the agent weighs it", () => {
+    mount({ item: item({ est: 500, actual: 512, weighedAt: "2026-08-02T10:00:00Z" }) });
+    const source = document.querySelector(".cz-hd-source");
+    expect(source.textContent).toMatch(/^Warehouse scale · /);
+    expect(source.dataset.weighed).toBe("yes");
+  });
+
+  it("keeps the person's own estimate on screen underneath", () => {
+    // The label answers "where did this come from". The note answers "how far
+    // off was I". Kyle asked for the first without losing the second.
+    mount({ item: item({ est: 1100, actual: 1140, weighedAt: "2026-08-02T10:00:00Z" }) });
+    expect(document.querySelector(".cz-hd-note").textContent).toContain("Your estimate was 1.10 kg");
+  });
+
+  it("colours a warehouse number as money and a guess as grey", () => {
+    expect(ruleBody(".cz-hd-source")).toContain("color: var(--cz-faint)");
+    expect(ruleBody('.cz-hd-source[data-weighed="yes"]')).toContain("color: var(--cz-money)");
+  });
+
+  it("holds the tick's place so the line does not jump when a weight lands", () => {
+    const body = ruleBody(".cz-hd-source-mark");
+    expect(body).toContain("width: 13px");
+    expect(body).toContain("flex: 0 0 13px");
   });
 });
 

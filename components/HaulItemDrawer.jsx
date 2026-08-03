@@ -147,14 +147,28 @@ export default function HaulItemDrawer({
                 onChange={(event) => {
                   if (!onPatch) return;
                   const next = Number(event.target.value);
+                  const real = Number.isFinite(next) && next > 0;
+                  // The date is stamped with the number and cleared with it.
+                  // A date left behind on an emptied field would claim the
+                  // warehouse weighed something the app no longer holds.
                   onPatch(view.id, {
-                    haulActualGrams: Number.isFinite(next) && next > 0 ? Math.round(next) : null,
+                    haulActualGrams: real ? Math.round(next) : null,
+                    haulWeighedAt: real ? Date.now() : null,
                   });
                 }}
               />
               <span className="cz-hd-unit">g</span>
             </span>
           </div>
+          {/* Kyle 2026-08-02: "you're making sure that it's not just an estimate.
+              It is just what comes from the warehouse." The chip names the source
+              of the number beside the number, so the two cannot be confused. */}
+          <p className="cz-hd-source" data-weighed={view.weightSource.weighed ? "yes" : "no"}>
+            <span className="cz-hd-source-mark" aria-hidden="true">
+              {view.weightSource.weighed ? <Check size={11} strokeWidth={2.6} /> : null}
+            </span>
+            {view.weightSource.label}
+          </p>
           <p className="cz-hd-note">{view.weightNote}</p>
 
           <div className="cz-hd-row">

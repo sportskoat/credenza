@@ -22440,6 +22440,46 @@ input.cz-sizing-fix-size {
   text-align: right;
 }
 
+/* Where the weight came from. Kyle 2026-08-02: "you're making sure that it's not
+   just an estimate. It is just what comes from the warehouse."
+
+   A guess is grey and quiet. A warehouse number is money-toned and carries a
+   tick, because that is the number the shipping cost is built on. The two states
+   read as different at a glance, which is the whole point of the line. */
+.cz-hd-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--cz-faint);
+}
+
+.cz-hd-source[data-weighed="yes"] {
+  color: var(--cz-money);
+}
+
+/* The dot holds the tick's place, so the line does not shift when a weight
+   lands. A layout that jumps reads as a bug, not as an answer. */
+.cz-hd-source-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border-radius: 50%;
+  background: var(--cz-inset-bg);
+  color: var(--cz-money);
+}
+
+.cz-hd-source[data-weighed="yes"] .cz-hd-source-mark {
+  background: var(--cz-money-bg);
+}
+
 .cz-hd-note {
   margin: 0;
   font-family: var(--cz-sans);

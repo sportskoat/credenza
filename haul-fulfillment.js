@@ -124,6 +124,9 @@ export function toHaulItem(card, { estGrams = null, priceUsd = null } = {}) {
     platform: card.platform || "",
     est: estGrams == null ? num(card.weightGrams) : num(estGrams),
     actual: card.haulActualGrams == null ? null : num(card.haulActualGrams),
+    // When the warehouse number arrived. Kyle 2026-08-02 wanted the screen to
+    // prove a weight is the warehouse's number, not a guess. The date proves it.
+    weighedAt: card.haulWeighedAt || null,
     vol: num(card.haulVolumeCm3),
     stage: normalizeStage(card.haulStage),
     qc: normalizeVerdict(card.haulVerdict),
@@ -131,7 +134,9 @@ export function toHaulItem(card, { estGrams = null, priceUsd = null } = {}) {
     photos: Array.isArray(card.qcPhotos) ? card.qcPhotos.length : 0,
     storage: card.haulStorageDays == null ? null : num(card.haulStorageDays),
     order: card.haulOrderNo || "",
-    when: card.haulStageAt || null,
+    // The stamp is saved as a moment in time and read as a day. Passing the raw
+    // stamp through printed a bare number on the ordered card (found 2026-08-02).
+    when: shortDate(card.haulStageAt) || null,
     url: card.url || "",
   };
 }
@@ -648,8 +653,11 @@ export function itemCardMeta(item, { storageClock = true } = {}) {
   }
   if (stage === "warehouse") {
     const clock = storageClock && item.storage != null ? " · " + item.storage + " d left" : "";
+    // Kyle 2026-08-02 wanted to know a weight came from the warehouse scale.
+    // "actual" claimed that for every card, including the ones still carrying
+    // the person's guess. The column now says which of the two it is showing.
     return {
-      meta: weight + " actual" + clock,
+      meta: weight + (item.actual == null ? " est." : " weighed") + clock,
       tone: "faint",
       action: "Review QC · " + num(item.photos),
     };
@@ -735,6 +743,21 @@ export function itemDrawer(item, { storageClock = true } = {}) {
         : delta
           ? "Weighed at the warehouse. " + delta.label
           : "Weighed at the warehouse. Your estimate was right.",
+    // Kyle 2026-08-02: "you're making sure that it's not just an estimate. It is
+    // just what comes from the warehouse." The label names the source of the
+    // number beside the number itself, so the two can never be confused.
+    //
+    // A weight with no date still reads as weighed. An older save holds the
+    // number without the stamp, and calling that a guess would be a lie.
+    weightSource: {
+      weighed: item.actual != null,
+      label:
+        item.actual == null
+          ? "Estimate. Not weighed yet."
+          : shortDate(item.weighedAt)
+            ? "Warehouse scale · " + shortDate(item.weighedAt)
+            : "Warehouse scale",
+    },
     // Kyle 2026-08-02: a red light never said what was wrong with the item.
     // The reason is stored; nothing showed it. reasonText is the same sentence
     // the return message uses, so the screen and the message agree.
