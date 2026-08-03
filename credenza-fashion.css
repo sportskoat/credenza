@@ -4243,8 +4243,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
-/* Part 5 Tier A haul board: budget, parcel estimate, archive. Same quiet
-   hairline language as the pipeline chips above it. */
+/* Part 5 Tier A haul board: budget bar, parcel weight, archive. Same quiet
+   hairline language as the pipeline chips above it.
+
+   Kyle 2026-08-02: "set budget and estimate parcel buttons: are they needed?"
+   The budget was a link that hid its own number behind a press. It is a bar
+   now. The parcel estimator is gone; the weight bar reads the real items. */
 .cz-haul-board {
   display: flex;
   flex-direction: column;
@@ -4263,7 +4267,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   line-height: 1.3;
 }
 
-.cz-haul-board-stat,
 .cz-haul-board-btn {
   appearance: none;
   display: inline-flex;
@@ -4278,52 +4281,126 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   cursor: pointer;
 }
 
-/* Budget ring: small filled arc next to the Budget text. */
-.cz-haul-board-ring {
-  --fill: 0%;
-  --ring-color: var(--cz-accent);
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
+/* The budget, as a bar. The head carries the words and the numbers; the track
+   below carries the fill. Pressing anywhere opens the editor. */
+.cz-haul-board-budget {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-sub);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-haul-board-budget-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  line-height: 1.3;
+}
+
+.cz-haul-board-budget-label {
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* Money and percent read as numbers: one face, one digit width. Same rule
+   the .cz-hb-* panel follows. */
+.cz-haul-board-budget-money {
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-ink);
+}
+
+.cz-haul-board-budget-pct {
+  margin-left: auto;
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-faint);
+}
+
+.cz-haul-board-budget-track {
+  display: block;
+  width: 100%;
+  height: 6px;
   border-radius: 999px;
-  background: conic-gradient(
-    var(--ring-color) var(--fill),
-    color-mix(in srgb, var(--cz-hair) 70%, transparent) 0
-  );
-  /* Hollow centre so it reads as a ring, not a pie. */
-  -webkit-mask: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 3px),
-    var(--cz-ink) calc(100% - 2px)
-  );
-  mask: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 3px),
-    var(--cz-ink) calc(100% - 2px)
-  );
+  overflow: hidden;
+  background: color-mix(in srgb, var(--cz-hair) 55%, transparent);
+}
+
+.cz-haul-board-budget-fill {
+  --fill: 0%;
+  --bar-color: var(--cz-accent);
+  display: block;
+  width: var(--fill, 0%);
+  height: 100%;
+  border-radius: 999px;
+  background: var(--bar-color);
+  transition: width var(--dur-resize) var(--ease-out);
 }
 
 /* Spent share 0–69%: accent. 70–99%: warn. 100%+: error. */
-.cz-haul-board-ring--ok {
-  --ring-color: color-mix(in srgb, var(--cz-accent) 100%, var(--cz-warn) 0%);
+.cz-haul-board-budget--ok .cz-haul-board-budget-fill {
+  --bar-color: var(--cz-accent);
 }
-.cz-haul-board-ring--warn {
-  --ring-color: color-mix(in srgb, var(--cz-warn) 100%, var(--cz-accent) 0%);
+.cz-haul-board-budget--warn .cz-haul-board-budget-fill {
+  --bar-color: var(--cz-warn);
 }
-.cz-haul-board-ring--over {
-  --ring-color: color-mix(in srgb, var(--cz-error-text) 100%, var(--cz-warn) 0%);
+.cz-haul-board-budget--over .cz-haul-board-budget-fill {
+  --bar-color: var(--cz-error-text);
+}
+.cz-haul-board-budget--over .cz-haul-board-budget-pct {
+  color: var(--cz-error-text);
 }
 
-/* Parcel text + thin weight bar stacked in one control. */
-.cz-haul-board-stat--with-bar {
+.cz-haul-board-budget:hover .cz-haul-board-budget-money {
+  color: var(--cz-ink);
+}
+
+.cz-haul-board-budget:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* A finger needs 44px. The bar stays 6px; only the tap area grows. */
+@media (pointer: coarse) {
+  .cz-haul-board-budget {
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
+/* Parcel weight, straight from the items. Text above, segmented bar below. */
+.cz-haul-board-weight {
+  display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  white-space: normal;
 }
 
-.cz-haul-board-stat-text {
+.cz-haul-board-weight-text {
+  font-family: var(--cz-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cz-sub);
   white-space: nowrap;
 }
 
@@ -4368,11 +4445,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-ink);
 }
 
-.cz-haul-board-stat:hover {
-  color: var(--cz-ink);
-}
-
-.cz-haul-board-stat:focus-visible,
 .cz-haul-board-btn:focus-visible {
   outline: 2px solid var(--cz-focus);
   outline-offset: 2px;
@@ -4415,51 +4487,6 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-haul-board-input:focus-visible {
   outline: 2px solid var(--cz-focus);
   outline-offset: 1px;
-}
-
-.cz-haul-board-dims {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cz-haul-board-dims .cz-haul-board-input {
-  width: 58px;
-}
-
-/* One letter beside each box: L, W, H. */
-.cz-haul-board-dim {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.cz-haul-board-dim-label {
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--cz-faint);
-}
-
-.cz-haul-board-result {
-  font-weight: 700;
-  color: var(--cz-money);
-  white-space: nowrap;
-}
-
-.cz-haul-board-note {
-  flex-basis: 100%;
-  margin: 0;
-  font-size: 11px;
-  color: var(--cz-faint);
-  line-height: 1.4;
-}
-
-.cz-haul-board-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
 }
 
 .cz-haul-board-save {

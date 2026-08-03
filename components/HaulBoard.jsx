@@ -1,18 +1,22 @@
 import { useState } from "react";
 import {
-  PACKAGING_OPTIONS,
-  chargeableWeightGrams,
   formatMoney,
   formatWeightGrams,
   itemWeightGrams,
 } from "../credenza-fashion.jsx";
 
-// The open haul's money + parcel panel (Execution Plan Part 5, Tier A):
-// budget with a spent line, parcel editor with chargeable weight, and
-// Archive. Everything writes through onUpdate with a history entry.
+// The open haul's money + weight panel (Execution Plan Part 5, Tier A):
+// a budget bar with a spent line, the parcel weight the real items add up to,
+// and Archive. Everything writes through onUpdate with a history entry.
+//
+// Kyle 2026-08-02: "set budget and estimate parcel buttons: are they needed?
+// should we sunset these?" The parcel estimator is gone. It asked a person for
+// a weight and a box size, then answered a question the board already answers
+// from the items themselves — and the two answers disagreed. The same goods
+// read 4.8 kg in the estimator and 1.6 kg on the board. One answer is enough,
+// and the item weights are the honest one.
 export default function HaulBoard({
   record,
-  pipeline,
   totalUsd,
   onUpdate,
   onArchive,
@@ -20,50 +24,35 @@ export default function HaulBoard({
 }) {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetDraft, setBudgetDraft] = useState("");
-  const [parcelOpen, setParcelOpen] = useState(false);
-  const [parcelDraft, setParcelDraft] = useState(null);
 
   const budget = record && typeof record.budget === "number" ? record.budget : null;
   const currency = record && record.currency === "CNY" ? "CNY" : "USD";
-  const parcel = record && record.parcel ? record.parcel : null;
   const archived = record && record.archived === true;
   const spent = Math.round((totalUsd || 0) * 100) / 100;
 
-  // Same percent the Budget text shows. Cap fill at a full circle only.
+  // Same percent the Budget text shows. Cap the fill at a full bar only.
   const spentPct =
     budget != null && budget > 0
       ? Math.min(999, Math.round((spent / budget) * 100))
       : 0;
-  const ringFillPct = Math.min(100, spentPct);
+  const fillPct = Math.min(100, spentPct);
   // Breakpoints 0 / 70 / 100: accent → warn → error.
-  const ringTone =
-    spentPct >= 100 ? "over" : spentPct >= 70 ? "warn" : "ok";
+  const spendTone = spentPct >= 100 ? "over" : spentPct >= 70 ? "warn" : "ok";
 
-  const savedChargeable = parcel
-    ? chargeableWeightGrams({
-        actualGrams: parcel.weightGrams,
-        dims: parcel.dims,
-        packaging: parcel.packaging,
-      })
-    : null;
-  const draftChargeable = parcelDraft
-    ? chargeableWeightGrams({
-        actualGrams: Number(parcelDraft.weight),
-        dims: { l: Number(parcelDraft.l), w: Number(parcelDraft.w), h: Number(parcelDraft.h) },
-        packaging: parcelDraft.packaging,
-      })
-    : null;
-
-  // Parcel weight bar: only items with a known positive weight.
-  const weightSegs = (() => {
+  // Parcel weight: only items with a known positive weight. One bar segment
+  // each. This needs no saved parcel record — it reads the items.
+  const weighed = (() => {
     const list = Array.isArray(items) ? items : [];
-    const weighed = list
+    const grams = list
       .map((item) => itemWeightGrams(item))
       .filter((g) => Number.isFinite(g) && g > 0);
-    if (weighed.length === 0) return [];
-    const sum = weighed.reduce((a, g) => a + g, 0);
-    if (!(sum > 0)) return [];
-    return weighed.map((g) => (g / sum) * 100);
+    const sum = grams.reduce((a, g) => a + g, 0);
+    if (!(sum > 0)) return { segs: [], total: 0, count: 0 };
+    return {
+      segs: grams.map((g) => (g / sum) * 100),
+      total: sum,
+      count: grams.length,
+    };
   })();
 
   const openBudget = () => {
@@ -80,98 +69,69 @@ export default function HaulBoard({
     setBudgetOpen(false);
   };
 
-  const openParcel = () => {
-    setParcelDraft({
-      weight:
-        parcel && parcel.weightGrams
-          ? String(parcel.weightGrams)
-          : pipeline && pipeline.weightGrams
-            ? String(pipeline.weightGrams)
-            : "",
-      l: parcel && parcel.dims && parcel.dims.l ? String(parcel.dims.l) : "",
-      w: parcel && parcel.dims && parcel.dims.w ? String(parcel.dims.w) : "",
-      h: parcel && parcel.dims && parcel.dims.h ? String(parcel.dims.h) : "",
-      packaging: (parcel && parcel.packaging) || "standard",
-    });
-    setParcelOpen(true);
-  };
-  const saveParcel = () => {
-    const w = Number(parcelDraft.weight);
-    const dims = {
-      l: Number(parcelDraft.l) || null,
-      w: Number(parcelDraft.w) || null,
-      h: Number(parcelDraft.h) || null,
-    };
-    const hasDims = dims.l && dims.w && dims.h;
-    const next =
-      (Number.isFinite(w) && w > 0) || hasDims
-        ? {
-            weightGrams: Number.isFinite(w) && w > 0 ? Math.round(w) : null,
-            dims: hasDims ? dims : null,
-            packaging: parcelDraft.packaging,
-          }
-        : null;
-    onUpdate(
-      { parcel: next },
-      { type: "parcel", detail: next ? "estimate saved" : "cleared" }
-    );
-    setParcelOpen(false);
-  };
-
   return (
     <div className="cz-haul-board" aria-label="Haul board">
-      <div className="cz-haul-board-row">
-        {budget != null ? (
-          <button type="button" className="cz-haul-board-stat" onClick={openBudget}>
+      {/* The budget is a bar now, not a hidden link. A person reads the spend
+          without pressing anything. Pressing it still opens the editor. */}
+      {budget != null ? (
+        <button
+          type="button"
+          className={"cz-haul-board-budget cz-haul-board-budget--" + spendTone}
+          onClick={openBudget}
+        >
+          <span className="cz-haul-board-budget-head">
+            <span className="cz-haul-board-budget-label">Budget</span>
+            <span className="cz-haul-board-budget-money">
+              {formatMoney(spent, "USD")} of {formatMoney(budget, currency)}
+            </span>
+            {budget > 0 ? (
+              <span className="cz-haul-board-budget-pct">{spentPct}%</span>
+            ) : null}
+          </span>
+          <span
+            className="cz-haul-board-budget-track"
+            role="img"
+            aria-label={spentPct + "% of budget spent"}
+          >
             <span
-              className={"cz-haul-board-ring cz-haul-board-ring--" + ringTone}
-              role="img"
-              aria-label={spentPct + "% of budget spent"}
-              style={{ "--fill": ringFillPct + "%" }}
+              className="cz-haul-board-budget-fill"
+              style={{ "--fill": fillPct + "%" }}
             />
-            Budget {formatMoney(budget, currency)} · spent {formatMoney(spent, "USD")}
-            {budget > 0 ? " (" + spentPct + "%)" : ""}
-          </button>
-        ) : (
+          </span>
+        </button>
+      ) : (
+        <div className="cz-haul-board-row">
           <button type="button" className="cz-haul-board-btn" onClick={openBudget}>
             Set a budget
           </button>
-        )}
-        {savedChargeable != null ? (
-          <button
-            type="button"
-            className={
-              "cz-haul-board-stat" +
-              (weightSegs.length > 0 ? " cz-haul-board-stat--with-bar" : "")
-            }
-            onClick={openParcel}
+        </div>
+      )}
+
+      {/* The parcel weight, straight from the items. No estimator, no box
+          size, no packaging guess. One segment for each weighed item. */}
+      {weighed.count > 0 ? (
+        <div className="cz-haul-board-weight">
+          <span className="cz-haul-board-weight-text">
+            Parcel {formatWeightGrams(weighed.total)} from {weighed.count}{" "}
+            {weighed.count === 1 ? "item" : "items"}
+          </span>
+          <span
+            className="cz-haul-board-weight-bar"
+            role="img"
+            aria-label={"Parcel weight breakdown, " + weighed.count + " items"}
           >
-            <span className="cz-haul-board-stat-text">
-              Parcel {formatWeightGrams(savedChargeable)} chargeable
-            </span>
-            {weightSegs.length > 0 ? (
+            {weighed.segs.map((pct, i) => (
               <span
-                className="cz-haul-board-weight-bar"
-                role="img"
-                aria-label={
-                  "Parcel weight breakdown, " + weightSegs.length + " items"
-                }
-              >
-                {weightSegs.map((pct, i) => (
-                  <span
-                    key={i}
-                    className="cz-haul-board-weight-seg"
-                    style={{ "--seg-w": pct + "%" }}
-                  />
-                ))}
-              </span>
-            ) : null}
-          </button>
-        ) : (
-          <button type="button" className="cz-haul-board-btn" onClick={openParcel}>
-            Estimate the parcel
-          </button>
-        )}
+                key={i}
+                className="cz-haul-board-weight-seg"
+                style={{ "--seg-w": pct + "%" }}
+              />
+            ))}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="cz-haul-board-row">
         <button
           type="button"
           className="cz-haul-board-btn cz-haul-board-archive"
@@ -206,80 +166,6 @@ export default function HaulBoard({
           <button type="button" className="cz-haul-board-btn" onClick={() => setBudgetOpen(false)}>
             Cancel
           </button>
-        </div>
-      ) : null}
-
-      {parcelOpen && parcelDraft ? (
-        <div className="cz-haul-board-editor cz-haul-board-parcel" role="group" aria-label="Parcel estimate">
-          <label className="cz-haul-board-label" htmlFor="cz-haul-parcel-weight">
-            Weight (g)
-          </label>
-          <input
-            id="cz-haul-parcel-weight"
-            className="cz-haul-board-input"
-            type="number"
-            min="0"
-            step="10"
-            inputMode="numeric"
-            value={parcelDraft.weight}
-            onChange={(e) => setParcelDraft({ ...parcelDraft, weight: e.target.value })}
-          />
-          <span className="cz-haul-board-label" id="cz-haul-parcel-dims-label">
-            Box size (cm)
-          </span>
-          <div className="cz-haul-board-dims" role="group" aria-labelledby="cz-haul-parcel-dims-label">
-            {/* Each box names itself — three bare number fields read as a bug
-                (Kyle 2026-07-25: "three boxes. Not really sure what those are
-                for"). The aria-label keeps the full name for screen readers. */}
-            {["l", "w", "h"].map((axis) => (
-              <label key={axis} className="cz-haul-board-dim">
-                <span className="cz-haul-board-dim-label" aria-hidden="true">
-                  {axis.toUpperCase()}
-                </span>
-                <input
-                  className="cz-haul-board-input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  inputMode="numeric"
-                  aria-label={axis === "l" ? "Length (cm)" : axis === "w" ? "Width (cm)" : "Height (cm)"}
-                  value={parcelDraft[axis]}
-                  onChange={(e) => setParcelDraft({ ...parcelDraft, [axis]: e.target.value })}
-                />
-              </label>
-            ))}
-          </div>
-          <label className="cz-haul-board-label" htmlFor="cz-haul-parcel-pack">
-            Packaging
-          </label>
-          <select
-            id="cz-haul-parcel-pack"
-            className="cz-haul-board-input"
-            value={parcelDraft.packaging}
-            onChange={(e) => setParcelDraft({ ...parcelDraft, packaging: e.target.value })}
-          >
-            {PACKAGING_OPTIONS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-          {draftChargeable != null ? (
-            <span className="cz-haul-board-result">
-              Chargeable {formatWeightGrams(draftChargeable)}
-            </span>
-          ) : null}
-          <p className="cz-haul-board-note">
-            Estimate only. The buying agent weighs and measures the final parcel.
-          </p>
-          <div className="cz-haul-board-actions">
-            <button type="button" className="cz-haul-board-save" onClick={saveParcel}>
-              Save
-            </button>
-            <button type="button" className="cz-haul-board-btn" onClick={() => setParcelOpen(false)}>
-              Cancel
-            </button>
-          </div>
         </div>
       ) : null}
     </div>
