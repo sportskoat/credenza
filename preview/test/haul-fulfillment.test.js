@@ -25,7 +25,10 @@ import {
   parcelMaths,
   parcelTips,
   pendingQcCount,
+  qcProgress,
+  qcQueue,
   returnMessage,
+  sellerRecord,
   shipRange,
   stageBar,
   stageCounts,
@@ -658,3 +661,76 @@ describe("the shipping range", () => {
 function returnText(over = {}) {
   return returnMessage({ item: item(), photoIndex: 0, reason: "stitching", ...over });
 }
+
+describe("the QC queue", () => {
+  it("holds only the items still waiting on a verdict", () => {
+    const queue = qcQueue([
+      item({ id: 1, stage: "warehouse", qc: null }),
+      item({ id: 2, stage: "warehouse", qc: "green" }),
+      item({ id: 3, stage: "warehouse", qc: null, photos: 0 }),
+      item({ id: 4, stage: "ordered", qc: null }),
+      item({ id: 5, stage: "warehouse", qc: null }),
+    ]);
+    expect(queue.map((entry) => entry.id)).toEqual([1, 5]);
+  });
+
+  it("keeps shelf order, so the next item is never a surprise", () => {
+    const queue = qcQueue([
+      item({ id: 9, stage: "warehouse", qc: null }),
+      item({ id: 2, stage: "warehouse", qc: null }),
+    ]);
+    expect(queue.map((entry) => entry.id)).toEqual([9, 2]);
+  });
+
+  it("is empty for a haul with nothing at the warehouse", () => {
+    expect(qcQueue([])).toEqual([]);
+    expect(qcQueue([item({ stage: "parcel" })])).toEqual([]);
+  });
+});
+
+describe("the QC counter", () => {
+  it("counts what is ruled and what is still to rule", () => {
+    expect(
+      qcProgress([
+        item({ id: 1, stage: "qcd", qc: "green" }),
+        item({ id: 2, stage: "qcd", qc: "red" }),
+        item({ id: 3, stage: "warehouse", qc: null }),
+      ])
+    ).toEqual({ green: 1, red: 1, done: 2, total: 3 });
+  });
+
+  it("reads zero of zero for an empty haul", () => {
+    expect(qcProgress([])).toEqual({ green: 0, red: 0, done: 0, total: 0 });
+  });
+
+  it("leaves an item with no photos out of the total", () => {
+    // Nobody can rule on a photo that never arrived, so it is not "to do".
+    expect(qcProgress([item({ stage: "warehouse", qc: null, photos: 0 })]).total).toBe(0);
+  });
+});
+
+describe("the seller's record", () => {
+  const cards = [
+    { seller: "Wu Store", haulVerdict: "green" },
+    { seller: "wu store ", haulVerdict: "red" },
+    { seller: "Wu Store", haulVerdict: null },
+    { seller: "Other Store", haulVerdict: "green" },
+  ];
+
+  it("groups verdicts by seller, ignoring case and spaces", () => {
+    expect(sellerRecord(cards, "WU STORE")).toEqual({
+      green: 1,
+      red: 1,
+      label: "This seller: 1 green, 1 red across your shelf.",
+    });
+  });
+
+  it("reads a haul-shaped item too", () => {
+    expect(sellerRecord([{ seller: "Wu Store", qc: "green" }], "Wu Store").green).toBe(1);
+  });
+
+  it("says nothing without a seller or without history", () => {
+    expect(sellerRecord(cards, "")).toBe(null);
+    expect(sellerRecord(cards, "New Store")).toBe(null);
+  });
+});

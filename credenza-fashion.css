@@ -21110,3 +21110,400 @@ input.cz-sizing-fix-size {
     min-height: 44px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   QC overlay — haul handoff README, screens 3 to 5.
+
+   The screen that has to be fast. Two panes: the photo on the left, the
+   decision on the right. The rail is a fixed 344px so the verdict buttons
+   never move between items, and a person can go item to item without their
+   eye re-finding the target.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cz-qcr {
+  width: 100%;
+  max-width: 940px;
+  height: min(680px, 88vh);
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  overflow: visible;
+}
+
+.cz-qcr::backdrop {
+  background: oklch(0.16 0.01 260 / 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cz-qcr::backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.cz-qcr-surface {
+  display: flex;
+  height: 100%;
+  border-radius: 20px;
+  background: var(--cz-card);
+  border: 1px solid var(--cz-card-border, var(--cz-hair));
+  box-shadow: 0 30px 80px oklch(0 0 0 / 0.6);
+  overflow: hidden;
+}
+
+/* ── Left: the photo pane ── */
+
+.cz-qcr-photos {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cz-qcr-stage {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  background: var(--cz-inset-bg);
+  overflow: hidden;
+}
+
+.cz-qcr-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cz-qcr-nophoto {
+  padding: 20px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--cz-sub);
+}
+
+.cz-qcr-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--cz-strip-bg);
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-qcr-thumbs {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.cz-qcr-thumb {
+  flex: none;
+  width: 34px;
+  height: 42px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+.cz-qcr-thumb[data-current="true"] {
+  border-color: var(--cz-ink);
+}
+
+.cz-qcr-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cz-qcr-arrow,
+.cz-qcr-close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-sub);
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-qcr-arrow:active:not(:disabled),
+.cz-qcr-close:active {
+  transform: scale(0.96);
+}
+
+.cz-qcr-arrow:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+/* ── Right: the decision rail ── */
+
+.cz-qcr-rail {
+  display: flex;
+  flex: 0 0 344px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-left: 1px solid var(--cz-hair);
+  overflow-y: auto;
+}
+
+.cz-qcr-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cz-qcr-kicker {
+  flex: 1 1 auto;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.cz-qcr-title {
+  margin: 0;
+  font-family: var(--cz-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.cz-qcr-meta {
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--cz-faint);
+}
+
+/* The verdict pair. Inactive is a hairline on nothing, so the lit one is the
+   only colour on the rail. */
+.cz-qcr-verdicts {
+  display: flex;
+  gap: 8px;
+}
+
+.cz-qcr-verdict {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1.5px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-qcr-verdict:active {
+  transform: scale(0.96);
+}
+
+.cz-qcr-verdict[data-verdict="green"][aria-pressed="true"] {
+  border-color: var(--cz-money);
+  background: var(--cz-money-bg);
+  color: var(--cz-money);
+}
+
+.cz-qcr-verdict[data-verdict="red"][aria-pressed="true"] {
+  border-color: var(--cz-error-text);
+  background: var(--cz-error-bg);
+  color: var(--cz-error-text);
+}
+
+.cz-qcr-key {
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.cz-qcr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px;
+  border-radius: 11px;
+}
+
+.cz-qcr-panel[data-verdict="green"] {
+  background: var(--cz-money-bg);
+}
+
+.cz-qcr-panel[data-verdict="red"] {
+  background: var(--cz-error-bg);
+}
+
+.cz-qcr-panel-line {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cz-ink);
+}
+
+.cz-qcr-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cz-qcr-reason {
+  padding: 5px 9px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 11px;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-qcr-reason:active {
+  transform: scale(0.96);
+}
+
+.cz-qcr-reason[aria-pressed="true"] {
+  border-color: var(--cz-error-text);
+  color: var(--cz-error-text);
+}
+
+/* The message Credenza writes and the person sends. It is quoted text, so it
+   keeps its own line breaks and its own family. */
+.cz-qcr-message {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: var(--cz-inset-bg);
+  font-family: var(--cz-sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--cz-ink);
+}
+
+.cz-qcr-action {
+  width: 100%;
+  min-height: 40px;
+}
+
+.cz-qcr-posture {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-faint);
+}
+
+.cz-qcr-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--cz-hair);
+}
+
+.cz-qcr-tally {
+  flex: 1 1 auto;
+  font-family: var(--cz-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--cz-sub);
+}
+
+.cz-qcr-next {
+  padding: 7px 12px;
+  border: 1px solid var(--cz-hair-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cz-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cz-qcr-next:active {
+  transform: scale(0.96);
+}
+
+/* Seller reputation falls out of QC for free. It is the most valuable
+   byproduct in the feature, so it gets its own line. */
+.cz-qcr-seller {
+  flex: 1 0 100%;
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.cz-qcr-arrow:focus-visible,
+.cz-qcr-close:focus-visible,
+.cz-qcr-thumb:focus-visible,
+.cz-qcr-verdict:focus-visible,
+.cz-qcr-reason:focus-visible,
+.cz-qcr-next:focus-visible {
+  outline: 2px solid var(--cz-focus);
+  outline-offset: 2px;
+}
+
+/* A finger needs 44px. */
+@media (pointer: coarse) {
+  .cz-qcr-arrow,
+  .cz-qcr-close,
+  .cz-qcr-next,
+  .cz-qcr-reason,
+  .cz-qcr-action {
+    min-height: 44px;
+  }
+
+  .cz-qcr-arrow,
+  .cz-qcr-close {
+    width: 44px;
+  }
+}
+
+/* The phone takes the whole screen: two panes side by side at 344px leave the
+   photo 46px wide. The rail stacks under the photo instead. */
+@media (max-width: 767px) {
+  .cz-qcr {
+    max-width: none;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .cz-qcr-surface {
+    flex-direction: column;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .cz-qcr-rail {
+    flex: 1 1 auto;
+    border-left: 0;
+    border-top: 1px solid var(--cz-hair);
+  }
+}

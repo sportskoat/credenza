@@ -33,6 +33,7 @@ import {
   DIVISORS,
   RED_REASONS,
   SHIPPING_LINES,
+  firstPendingQcItem,
   haulIndexCard,
   needsYouCount,
   normalizeStage,
@@ -108,6 +109,9 @@ const SignInModal = lazy(() => import("./sheets/SignInModal.jsx"));
 // Pro's own address (sign-in handoff 2026-08-02, README screen 3). Lazy: most
 // visits never reach it, and the table it carries is nine rows of text.
 const UpgradePage = lazy(() => import("./components/UpgradePage.jsx"));
+// QC review (haul handoff, screens 3 to 5). Lazy: it only opens from inside a
+// haul that has photos waiting, which most sessions never reach.
+const QcOverlay = lazy(() => import("./components/QcOverlay.jsx"));
 
 
 // Always-rendered components split out of this file (2026-07-25). Static, not
@@ -5831,6 +5835,10 @@ function CredenzaApp() {
   // (that snap was collapsing the head's height mid-animation — cards "jumped
   // up" as the layout above them disappeared out from under the fade).
   const [closingHaulName, setClosingHaulName] = useState(null);
+  // The card under QC review, by item id. null = the overlay is shut. The
+  // overlay is a projection of the item, so this holds the id and nothing else
+  // (design/handoffs/haul, screens 3 to 5).
+  const [qcItemId, setQcItemId] = useState(null);
   const reducedMotion = usePrefersReducedMotion();
   const [search, setSearch] = useState("");
   const [askState, setAskState] = useState({
@@ -8695,6 +8703,9 @@ function CredenzaApp() {
         ctaVariant: card.variant,
         ctaTo: card.to,
         openQc: card.openQc,
+        // The haul-shaped items ride along so the CTA can jump straight to the
+        // first card waiting on a verdict, without rebuilding them.
+        haulItems: haul.haulItems,
         bar: stageBar(haul.haulItems),
       };
     }).sort((a, b) => {
@@ -8739,6 +8750,42 @@ function CredenzaApp() {
     setSelectedId(null);
     setActiveHaul(haulKey);
   }, [isPhone]);
+
+  // The index CTA jumps straight into QC when that is what the haul is asking
+  // for. The README calls this the highest-value shortcut in the feature: from
+  // "2 at QC" on the grid to the first photo, in one press.
+  const openHaulCta = useCallback(
+    (haul) => {
+      openHaul(haul.name);
+      if (!haul.openQc) return;
+      const first = firstPendingQcItem(haul.haulItems || []);
+      if (first) setQcItemId(first.id);
+    },
+    [openHaul]
+  );
+
+  // Everything the QC overlay needs, derived from the open item. The overlay
+  // walks the haul's queue, so it gets the whole haul, not one card.
+  const qcContext = useMemo(() => {
+    if (!qcItemId) return null;
+    const card = shelfAll.find((entry) => entry && entry.id === qcItemId);
+    if (!card) return null;
+    const name = typeof card.project === "string" ? card.project.trim() : "";
+    const peers = name
+      ? shelfAll.filter(
+          (entry) => typeof entry.project === "string" && entry.project.trim() === name
+        )
+      : [card];
+    return {
+      items: peers.map((entry) => {
+        const usd = itemUsdAmount(entry);
+        return toHaulItem(entry, {
+          estGrams: estimateItemWeightGrams(entry),
+          priceUsd: usd != null ? usd : 0,
+        });
+      }),
+    };
+  }, [qcItemId, shelfAll]);
 
   // USD-normalized value for the total-cost reel — single helper so haul
   // directory, chips, and the reel never disagree (CNY falls back to 0.14).
@@ -9519,7 +9566,7 @@ function CredenzaApp() {
                 // as well (haul README, "Index card").
                 onClick={(e) => {
                   e.stopPropagation();
-                  openHaul(haul.name);
+                  openHaulCta(haul);
                 }}
               >
                 {haul.cta}
@@ -10171,6 +10218,49 @@ function CredenzaApp() {
               return accountUpgrade(period);
             }}
             onClose={closeUpgrade}
+          />
+        </Suspense>
+      )}
+
+      {/* QC review sits on top of the open haul. Closing it puts the person
+          back exactly where they were (haul handoff, screens 3 to 5). */}
+      {qcContext && (
+        <Suspense fallback={null}>
+          <QcOverlay
+            items={qcContext.items}
+            itemId={qcItemId}
+            cardFor={(id) => shelfAll.find((entry) => entry && entry.id === id) || null}
+            allCards={shelfAll}
+            onClose={() => setQcItemId(null)}
+            onVerdict={(id, verdict, reason) => {
+              // A verdict is the moment the item leaves the warehouse queue.
+              // Both calls are one stage move, so they write together.
+              updateItem(id, {
+                haulVerdict: verdict,
+                haulReason: reason || null,
+                haulStage: "qcd",
+                haulStageAt: Date.now(),
+              });
+            }}
+            onAddToParcel={(id) => {
+              updateItem(id, { haulStage: "parcel", haulStageAt: Date.now() });
+              notify("Added to parcel A.");
+            }}
+            onOpenItem={(id) => setQcItemId(id)}
+            onCopy={async (text, message) => {
+              // Same shape as share-api's copyLink: a blocked clipboard must
+              // never throw into the render tree.
+              try {
+                if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+                  notify("Copy is blocked in this browser.", { tone: "error" });
+                  return;
+                }
+                await navigator.clipboard.writeText(text);
+                notify(message);
+              } catch {
+                notify("Copy is blocked in this browser.", { tone: "error" });
+              }
+            }}
           />
         </Suspense>
       )}

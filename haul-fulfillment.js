@@ -527,3 +527,73 @@ export function estimateDelta(item) {
       " g out.",
   };
 }
+
+/**
+ * The QC queue for one haul: every item still waiting on a verdict, in shelf
+ * order. The overlay walks this list, so "Next item →" and the counter agree
+ * by construction.
+ */
+export function qcQueue(items = []) {
+  return items.filter(
+    (item) =>
+      item &&
+      normalizeStage(item.stage) === "warehouse" &&
+      num(item.photos) > 0 &&
+      // A ruled item is not waiting, whatever its stage says. Stage and verdict
+      // are written together, but the queue must not double-count an item for
+      // the frame between the two.
+      normalizeVerdict(item.qc) == null
+  );
+}
+
+/**
+ * The running verdict tally for the overlay footer, over the whole haul.
+ * `done` counts every item the person has already ruled on, so the counter
+ * reads "QC review · 3 of 5 done" without a second pass.
+ */
+export function qcProgress(items = []) {
+  let green = 0;
+  let red = 0;
+  for (const item of items) {
+    if (!item) continue;
+    if (item.qc === "green") green += 1;
+    else if (item.qc === "red") red += 1;
+  }
+  const done = green + red;
+  return { green, red, done, total: done + qcQueue(items).length };
+}
+
+/**
+ * Seller reputation, free. QC verdicts are already per-item; grouping them by
+ * seller costs nothing and is the most valuable byproduct in the feature.
+ *
+ * `items` here is the whole shelf, not one haul: a seller's record follows the
+ * person across every haul they have ever run.
+ */
+export function sellerRecord(items = [], seller = "") {
+  const key = String(seller || "").trim().toLowerCase();
+  if (!key) return null;
+  let green = 0;
+  let red = 0;
+  for (const item of items) {
+    if (!item) continue;
+    if (String(item.seller || "").trim().toLowerCase() !== key) continue;
+    // Saved cards name the verdict `haulVerdict`; haul-shaped copies name it
+    // `qc`. The seller only exists on the card, so the card shape is the one
+    // that arrives here in practice. Read both, so neither caller is wrong.
+    const verdict = normalizeVerdict(item.haulVerdict == null ? item.qc : item.haulVerdict);
+    if (verdict === "green") green += 1;
+    else if (verdict === "red") red += 1;
+  }
+  if (green + red === 0) return null;
+  return {
+    green,
+    red,
+    label:
+      "This seller: " +
+      green +
+      " green, " +
+      red +
+      " red across your shelf.",
+  };
+}
