@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 
-import HaulCoverFan from "../../components/HaulCoverFan.jsx";
+import HaulCoverMosaic from "../../components/HaulCoverMosaic.jsx";
 import { haulIndexCard, needsYouCount, stageBar } from "../../haul-fulfillment.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -48,25 +48,74 @@ function item(over = {}) {
   };
 }
 
-describe("the flag badge rides the front cover", () => {
-  it("sits inside the front card, where the label sits", () => {
+describe("the flag badge rides the collage", () => {
+  it("sits inside the collage, where the label sits", () => {
     const badge = <span className="cz-haul-flag">2 at QC</span>;
     const { container } = render(
-      <HaulCoverFan covers={["a.jpg", "b.jpg"]} name="Gym" count={2} badge={badge} />
+      <HaulCoverMosaic covers={["a.jpg", "b.jpg"]} name="Gym" count={2} badge={badge} />
     );
-    const cards = [...container.querySelectorAll(".cz-haul-fan-card")];
+    const block = container.querySelector(".cz-haul-mosaic");
     const held = container.querySelector(".cz-haul-flag");
     expect(held, "the badge never rendered").not.toBeNull();
-    // zIndex is total - i, so the first card is the front one.
-    expect(cards[0].contains(held), "the badge is not inside the FRONT card").toBe(true);
-    // One copy only. A badge on every card would print the flag twice.
+    // The collage clips the badge to its rounded corners. Outside it, the
+    // badge would hang over the card's padding.
+    expect(block.contains(held), "the badge is not inside the collage").toBe(true);
+    // One copy only. A badge per tile would print the flag four times.
     expect(container.querySelectorAll(".cz-haul-flag").length).toBe(1);
   });
 
   it("renders nothing when the haul has nothing to say", () => {
     // An always-present badge is noise, so a quiet haul passes no badge.
-    const { container } = render(<HaulCoverFan covers={["a.jpg"]} name="Summer" count={1} />);
+    const { container } = render(<HaulCoverMosaic covers={["a.jpg"]} name="Summer" count={1} />);
     expect(container.querySelector(".cz-haul-flag")).toBeNull();
+  });
+});
+
+// Kyle 2026-08-02: "I kind of liked it better when the Hauls page didn't have
+// the fanning-out feature." Four squares of clothing, never a hole.
+describe("the collage fills every square", () => {
+  it("draws four tiles from four covers", () => {
+    const { container } = render(
+      <HaulCoverMosaic covers={["a.jpg", "b.jpg", "c.jpg", "d.jpg"]} name="Gym" count={4} />
+    );
+    expect(container.querySelectorAll(".cz-haul-mosaic-tile").length).toBe(4);
+    expect(container.querySelector(".cz-haul-mosaic").className).not.toContain("is-single");
+  });
+
+  it("repeats two covers to fill the four squares", () => {
+    // A blank quarter reads as a picture that failed to load, not as a haul
+    // with two items.
+    const { container } = render(
+      <HaulCoverMosaic covers={["a.jpg", "b.jpg"]} name="Gym" count={2} />
+    );
+    const srcs = [...container.querySelectorAll(".cz-haul-mosaic-tile img")].map((i) =>
+      i.getAttribute("src")
+    );
+    expect(srcs).toEqual(["a.jpg", "b.jpg", "a.jpg", "b.jpg"]);
+  });
+
+  it("lets one cover fill the whole block", () => {
+    // The same shirt printed four times reads as a bug.
+    const { container } = render(<HaulCoverMosaic covers={["a.jpg"]} name="Gym" count={1} />);
+    expect(container.querySelectorAll(".cz-haul-mosaic-tile").length).toBe(1);
+    expect(container.querySelector(".cz-haul-mosaic").className).toContain("is-single");
+  });
+
+  it("falls back to the haul's first letter when there is no photo", () => {
+    const { container } = render(<HaulCoverMosaic covers={[]} name="Summer" count={0} />);
+    expect(container.querySelector(".cz-haul-mosaic-placeholder").textContent).toBe("S");
+    expect(container.querySelector(".cz-haul-mosaic").className).toContain("is-empty");
+  });
+
+  it("never spreads more than four covers", () => {
+    const { container } = render(
+      <HaulCoverMosaic
+        covers={["a.jpg", "b.jpg", "c.jpg", "d.jpg", "e.jpg"]}
+        name="Gym"
+        count={5}
+      />
+    );
+    expect(container.querySelectorAll(".cz-haul-mosaic-tile").length).toBe(4);
   });
 });
 

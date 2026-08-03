@@ -4030,44 +4030,55 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-haul-card--ghost .cz-haul-card-name {
   white-space: normal;
 }
-.cz-haul-card--ghost .cz-haul-fan-placeholder {
+.cz-haul-card--ghost .cz-haul-mosaic-placeholder {
   color: var(--cz-faint);
 }
 
-/* Stack of clothing cards — separate from the name/price label below. */
-.cz-haul-fan {
+/* ── The haul collage ──
+
+   Kyle 2026-08-02: "I kind of liked it better when the Hauls page didn't have
+   the fanning-out feature... the different colours on this are different
+   articles of clothing." Four squares of clothing, split by a hairline cross.
+   This is the wireframe's collage (Hauls index.dc.html line 59).
+
+   The cross is the 1px gap letting the block's own background through. Two
+   borders would double up on the shared edge; one gap cannot. */
+.cz-haul-mosaic {
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 5;
   max-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-}
-
-/* One-item haul: flat single photo, no fan stack chrome. */
-.cz-haul-fan.is-single .cz-haul-fan-card {
-  inset: 6% 10%;
-  box-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.24),
-    0 1px 4px rgba(0, 0, 0, 0.14);
-}
-
-.cz-haul-fan-card {
-  position: absolute;
-  inset: 8% 12%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  background: var(--cz-hair);
+  border: 1px solid var(--cz-hair);
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: var(--cz-card-solid);
-  box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.28),
-    0 2px 6px rgba(0, 0, 0, 0.18);
-  will-change: transform;
 }
 
-.cz-haul-fan-card img {
+/* One photo fills the frame. Printing the same shirt four times reads as a
+   bug, not as a collage. */
+.cz-haul-mosaic.is-single {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* No photo at all: a dashed edge says "nothing to show yet". A solid edge
+   around an empty box reads as a picture that failed to load. */
+.cz-haul-mosaic.is-empty {
+  border-style: dashed;
+  border-color: var(--cz-hair-strong);
+}
+
+.cz-haul-mosaic-tile {
+  position: relative;
+  overflow: hidden;
+  background: var(--cz-card-solid);
+}
+
+.cz-haul-mosaic-tile img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -4077,15 +4088,13 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   pointer-events: none;
 }
 
-.cz-haul-fan-card.is-empty {
+.cz-haul-mosaic-tile.is-empty {
   background:
     radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--cz-accent) 18%, transparent), transparent 55%),
     color-mix(in srgb, var(--cz-card-solid) 88%, #120c1c);
-  border-style: dashed;
-  border-color: var(--cz-hair-strong);
 }
 
-.cz-haul-fan-placeholder {
+.cz-haul-mosaic-placeholder {
   width: 100%;
   height: 100%;
   display: grid;
@@ -4095,30 +4104,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
-.cz-haul-fan-more {
-  position: absolute;
-  right: 10%;
-  bottom: 10%;
-  z-index: 20;
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 0.02em;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(11, 11, 13, 0.78);
-  /* White on the dark pill — --cz-ink was black-on-black (Kyle 2026-07-23). */
-  color: #fff;
-  border: 1px solid transparent;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
 /* Kyle 2026-07-29, "match shelf": the haul name reads ON the picture, the way
-   a Shelf card reads. It used to sit in its own pill under the stack, which is
+   a Shelf card reads. It used to sit in its own pill under the block, which is
    the inconsistency he flagged.
-   The label lives INSIDE the front fan card, so the card's overflow:hidden
-   clips the scrim. A label placed outside the stack bled past the front
-   card's slanted edge once the fan opened (measured, probe-haul-title.mjs). */
+   The label lives INSIDE the collage, so the collage's overflow:hidden clips
+   the scrim to the rounded corners. */
 .cz-haul-card-label {
   position: absolute;
   z-index: 2;

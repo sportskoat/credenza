@@ -145,7 +145,7 @@ import { takeIntent } from "./components/sign-in-intent.js";
 import { TypeMark } from "./components/CardCover.jsx";
 import PhotoShelfList from "./components/PhotoShelfList.jsx";
 import MorphButton from "./components/MorphButton.jsx";
-import HaulCoverFan from "./components/HaulCoverFan.jsx";
+import HaulCoverMosaic from "./components/HaulCoverMosaic.jsx";
 import {
   Caption,
   Field,
@@ -8683,7 +8683,7 @@ function CredenzaApp() {
 
   // Directory cards for the Hauls tab — named hauls only. Items without a
   // project stay on the shelf; they are not a fake "Unsorted" haul.
-  // Collect up to 5 covers so multi-item hauls can render as a fan spread.
+  // Collect up to 4 covers — one per square of the card's 2x2 collage.
   const haulDirectory = useMemo(() => {
     const map = new Map();
     for (const item of shelfAll) {
@@ -8697,7 +8697,7 @@ function CredenzaApp() {
         count: 0,
         value: 0,
         latest: 0,
-        // [{ image, createdAt }] — sorted newest-first for the fan spread.
+        // [{ image, createdAt }] — sorted newest-first for the collage.
         coverItems: [],
         // Haul-shaped copies of the same cards, for the fulfillment projections.
         haulItems: [],
@@ -8729,7 +8729,7 @@ function CredenzaApp() {
           seen.add(src);
           return true;
         })
-        .slice(0, 5);
+        .slice(0, 4);
       const ship = shipByName.get(haul.name) || null;
       const maths = parcelMaths({
         items: haul.haulItems,
@@ -9693,9 +9693,11 @@ function CredenzaApp() {
             >
               {/* Kyle 2026-07-29 ("match shelf"): the haul name reads ON the
                   picture, like a Shelf card — not in a box under it. It rides
-                  inside the front fan card so the card clips the scrim. The
-                  fan is aria-hidden, so the card carries its own name. */}
-              <HaulCoverFan
+                  inside the collage so the collage clips the scrim. The collage
+                  is aria-hidden, so the card carries its own name.
+                  Kyle 2026-08-02: the collage is a 2x2 block of clothes now,
+                  not a stack that fans out on hover. */}
+              <HaulCoverMosaic
                 covers={haul.covers}
                 name={haul.name}
                 count={haul.count}
@@ -9755,9 +9757,9 @@ function CredenzaApp() {
             className="cz-haul-card cz-haul-card--ghost"
             onClick={() => setView("shelf")}
           >
-            <div className="cz-haul-fan is-single">
-              <div className="cz-haul-fan-card is-empty">
-                <div className="cz-haul-fan-placeholder" aria-hidden="true">
+            <div className="cz-haul-mosaic is-single is-empty">
+              <div className="cz-haul-mosaic-tile is-empty">
+                <div className="cz-haul-mosaic-placeholder" aria-hidden="true">
                   ＋
                 </div>
               </div>
