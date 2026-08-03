@@ -99,12 +99,9 @@ export const PLAN_ROWS = [
     free: perDay(PLAN_CAPS.free.chartVisionPerDay),
     pro: perDay(PLAN_CAPS.pro.chartVisionPerDay),
   },
-  {
-    label: "Ask questions about your shelf",
-    note: "",
-    free: perDay(PLAN_CAPS.free.askPerDay),
-    pro: perDay(PLAN_CAPS.pro.askPerDay),
-  },
+  // Kyle 2026-08-02: "take out the ask questions on chart pricing claims
+  // everywhere across the site". The Ask feature and its caps stay live. No
+  // page sells it and no page prints a daily number, so no row appears here.
   {
     label: "Hauls at once",
     note: "Archiving a shipped haul frees a slot.",

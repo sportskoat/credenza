@@ -30,7 +30,8 @@ import { ANON_FREE_CARDS, limitStandingLine } from "../preview/src/limits.js";
 const ROWS = [
   { key: "resolvePerDay", label: "Cards from a link" },
   { key: "chartVisionPerDay", label: "Size chart reads" },
-  { key: "askPerDay", label: "Questions about your shelf" },
+  // Kyle 2026-08-02: no page prints a daily Ask number. The cap still runs and
+  // the meter below still names it when a person reaches the wall.
 ];
 
 function CapTable() {

@@ -49,10 +49,13 @@ describe("plan spine · numbers", () => {
     expect(PLAN_COPY.settingsSignedOutBody).toContain(anon);
   });
 
-  it("keeps one row per meter and lists nine of them", () => {
-    expect(PLAN_ROWS).toHaveLength(9);
+  it("keeps one row per meter and lists eight of them", () => {
+    // Kyle 2026-08-02 removed the Ask row: nine became eight. The Ask cap is
+    // still enforced. The plan table no longer sells it.
+    expect(PLAN_ROWS).toHaveLength(8);
     const labels = PLAN_ROWS.map((r) => r.label);
-    expect(new Set(labels).size).toBe(9);
+    expect(new Set(labels).size).toBe(8);
+    expect(labels).not.toContain("Ask questions about your shelf");
     // The README's "Link resolves" row repeated the cards number under a
     // second name. One meter, one row.
     expect(labels).not.toContain("Link resolves");
