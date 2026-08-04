@@ -4358,6 +4358,27 @@ export default function DetailBody({
                 units={measureUnits}
                 onSaveBodyProfile={onSaveBodyProfile}
                 onSaveFitPref={onSaveFitPref}
+                /* Lane D (2026-08-04): this block REPLACES the sizing block,
+                   so its "No seller chart on this listing" line was the only
+                   copy a capped visitor ever saw — blaming the seller for our
+                   limit while the header pill named the real reason. When a
+                   block flag is set, the reason line rides above the chips
+                   instead. Same precedence as SizingBlockNoChart. */
+                blockReason={
+                  verdict.chart || hunting
+                    ? ""
+                    : huntCapBlocked === true
+                      ? chartCapCopy()
+                      : chartNeedsCards(item)
+                        ? chartCardsCapCopy()
+                        : huntAuthBlocked === true
+                          ? CHART_AUTH_COPY
+                          : item.needsSignIn === true
+                            ? "Sign in to finish this card. Credenza then reads the product, the photos, and the size chart."
+                            : huntOutBlocked === true
+                              ? CHART_HUNT_UNAVAILABLE_COPY
+                              : ""
+                }
                 startSkipped={!!fitPromptSkipped}
                 onSkip={
                   fitPromptSkipped
