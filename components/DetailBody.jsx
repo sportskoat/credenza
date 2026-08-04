@@ -458,6 +458,9 @@ function SizingBlock({
   // Kyle 2026-07-29: the fifth box rides at the right of the cell run, on the
   // same line as the sizes it overrides. Null when the caller has no box.
   customBox = null,
+  // Item D (D1/D5): seller size chip row lives inside this card, not as a
+  // sibling below the Fit shell. Null when the parent hides it (measure ask).
+  sellerSizes = null,
   // Card-back v2 Fit tab: quieter result line + size cards (layout only).
   editorial = false,
   // Desktop Fit fold (2026-08-02): one analysis paragraph under the size
@@ -706,6 +709,7 @@ function SizingBlock({
           {customBox}
         </div>
       ) : null}
+      {sellerSizes}
     </section>
   );
 }
@@ -1103,6 +1107,12 @@ function SizingBlockNoChart({
   // WhatsApp when no validated chart rec (even if variants list S–XL).
   whatsapp = "",
   variantRun = "",
+  // Item D (D4): open the existing typed-chart editor without leaving the card.
+  // Desktop CSS hides .cz-detail-chart-actions under .cz-dpanel, so this route
+  // must live inside the no-chart card itself.
+  onTypeChart = null,
+  // Item D (D1/D5): seller size chips stack inside this card.
+  sellerSizes = null,
 }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const waUrl = whatsAppChatUrl(whatsapp);
@@ -1250,6 +1260,22 @@ function SizingBlockNoChart({
               Sign in
             </button>
           ) : null}
+          {/* Item D (D4): always offer hand-entry on the real miss path. Cap /
+              auth / cards walls keep their primary CTA only — typing does not
+              burn a paid read, but those walls already name the real stop. */}
+          {onTypeChart &&
+          !signedOut &&
+          !chartCapBlocked &&
+          !chartCardsBlocked &&
+          !needsClear ? (
+            <button
+              type="button"
+              className="cz-sizing-type-chart"
+              onClick={onTypeChart}
+            >
+              Type the chart
+            </button>
+          ) : null}
         </>
       )}
 
@@ -1265,6 +1291,7 @@ function SizingBlockNoChart({
           <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
         </button>
       ) : null}
+      {sellerSizes}
     </section>
   );
 }
@@ -2191,6 +2218,9 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
 
   return (
     <div className="cz-detail-size-editor">
+      {/* Item D (D1): quiet caps kicker — same face as .cz-sizing-kicker
+          ("YOUR SIZE" / "AI SIZE"). Names the orphan chip row. */}
+      <span className="cz-sizing-kicker cz-detail-size-kicker">SELLER SIZES</span>
       {/* 2026-07-28 — one place for size. The heading said "Item size" and
           repeated the recommendation in words; the ringed chip already says
           it. The custom field was a second full-width bar holding the same
@@ -4349,6 +4379,7 @@ export default function DetailBody({
               // dashed empty prompt when the profile has no measures and no
               // usual size. The chips come from this listing's own size run.
               // The A5 ladder projects its rows from the profile below.
+              // Item D (D1/D5): seller size chips render inside FirstSizeBlock.
               <FirstSizeBlock
                 item={item}
                 chart={verdict.chart}
@@ -4367,6 +4398,18 @@ export default function DetailBody({
                       }
                 }
                 onOpenMeasureHelp={onOpenSizes || null}
+                sellerSizes={
+                  <SizeChoiceEditor
+                    chosenSize={chosenSize}
+                    recommendedSize={verdict.recSize || verdict.usualSize}
+                    runValues={verdict.runValues}
+                    choicesHidden={sizeCells.length > 0}
+                    customSize={customSize}
+                    onCustomChange={setCustomSize}
+                    onCommit={commitCustomSize}
+                    onPick={pickItemSize}
+                  />
+                }
               />
             ) : !verdict.chart && !hunting ? (
               <SizingBlockNoChart
@@ -4384,6 +4427,19 @@ export default function DetailBody({
                 whatsapp={item.whatsapp || ""}
                 variantRun={verdict.variantRun || ""}
                 onClearChart={clearBlockedChart}
+                onTypeChart={() => chartRead.startTyping(item.category)}
+                sellerSizes={
+                  <SizeChoiceEditor
+                    chosenSize={chosenSize}
+                    recommendedSize={verdict.recSize || verdict.usualSize}
+                    runValues={verdict.runValues}
+                    choicesHidden={sizeCells.length > 0}
+                    customSize={customSize}
+                    onCustomChange={setCustomSize}
+                    onCommit={commitCustomSize}
+                    onPick={pickItemSize}
+                  />
+                }
               />
             ) : (
               <SizingBlock
@@ -4416,28 +4472,20 @@ export default function DetailBody({
                     placeholder={isDesktopPanel ? "Other / Type it" : "Other"}
                   />
                 }
+                sellerSizes={
+                  <SizeChoiceEditor
+                    chosenSize={chosenSize}
+                    recommendedSize={verdict.recSize || verdict.usualSize}
+                    runValues={verdict.runValues}
+                    choicesHidden={sizeCells.length > 0}
+                    customSize={customSize}
+                    onCustomChange={setCustomSize}
+                    onCommit={commitCustomSize}
+                    onPick={pickItemSize}
+                  />
+                }
               />
             )}
-
-            {/* Round 4 point 1 (2026-07-29): one place for size. The override
-                chips moved out of the right rail to sit with the big size
-                word — visible with no tap, in the chart and no-chart states
-                alike. Hidden only while the measure ask owns the section.
-                Round 5 point 5.1: when the chart cells above already pick,
-                the plain chip row here would repeat them — so it hides and
-                only the odd-size field stays. */}
-            {!askingMeasures ? (
-              <SizeChoiceEditor
-                chosenSize={chosenSize}
-                recommendedSize={verdict.recSize || verdict.usualSize}
-                runValues={verdict.runValues}
-                choicesHidden={sizeCells.length > 0}
-                customSize={customSize}
-                onCustomChange={setCustomSize}
-                onCommit={commitCustomSize}
-                onPick={pickItemSize}
-              />
-            ) : null}
 
             {!askingMeasures &&
             (askingPref || (needsPrefAsk && !prefAskClosed)) &&
@@ -4609,14 +4657,23 @@ export default function DetailBody({
                   seller sometimes prints the numbers in the listing text. Four
                   sizes by four columns is about twenty seconds of typing.
                   Kyle 2026-08-03 put typing first. Typing always works. A photo
-                  read can still come back with nothing. */}
-              <button
-                type="button"
-                className="cz-detail-chart-upload"
-                onClick={() => chartRead.startTyping(item.category)}
-              >
-                Type the chart
-              </button>
+                  read can still come back with nothing.
+                  Item D (D4): when the no-chart Fit card is up, Type the chart
+                  already sits inside SizingBlockNoChart (desktop hides this
+                  whole actions row under .cz-dpanel). Skip the duplicate so
+                  mobile does not show the same label twice. */}
+              {verdict.chart || hunting || askingMeasures ||
+              (profileNeedsFirstSize(bodyProfile) &&
+                onSaveBodyProfile &&
+                !SIZE_PICK_SKIP_CATEGORIES.has(item.category)) ? (
+                <button
+                  type="button"
+                  className="cz-detail-chart-upload"
+                  onClick={() => chartRead.startTyping(item.category)}
+                >
+                  Type the chart
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="cz-detail-chart-upload"
