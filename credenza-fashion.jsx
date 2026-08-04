@@ -82,7 +82,7 @@ import {
   deleteAccount as accountDeleteRequest,
   safeErrorMessage,
 } from "./preview/src/account.js";
-import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS, usageAudience } from "./preview/src/usage.js";
+import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS, usageAudience, usageTotal } from "./preview/src/usage.js";
 import { limitStatus, ANON_FREE_CARDS } from "./preview/src/limits.js";
 import {
   buildHaulShareSnapshot,
@@ -6640,14 +6640,23 @@ function CredenzaApp() {
   // The id of the notice on screen. Sign-in clears THIS notice only, so a
   // later toast the visitor is reading does not disappear under them.
   const signInNoticeRef = useRef("");
+  // A2 (2026-08-04): dismissing the limits sheet stays dismissed for the rest
+  // of the enrichment run that opened it. Without the mute, every refused
+  // card after the fifth re-fired setLimitsOpen and the sheet sprang back
+  // ~1.5s after "Not now" — on a 25-card haul the visitor could dismiss it
+  // forever. runImport resets the mute when a new run starts; the run's
+  // finally clears it when the queue drains.
+  const limitsRunMutedRef = useRef(false);
+  const enrichRunDepthRef = useRef(0);
   const askForSignIn = useCallback((heldText = "") => {
     if (heldText) heldLinkRef.current = heldText;
     setSignInRequired(true);
     trackProductEvent("allowance_reached", { plan: "guest", feature: "card_read" });
     // A refused paid read is a real limit wall. Open the same limits sheet
-    // used by the header meter and Ask. Keep the persistent card notice too:
-    // it owns the held link and stays until sign-in finishes the stopped work.
-    setLimitsOpen(true);
+    // used by the header meter and Ask — unless the visitor already closed it
+    // during this run (A2). Keep the persistent card notice either way: it
+    // owns the held link and stays until sign-in finishes the stopped work.
+    if (!limitsRunMutedRef.current) setLimitsOpen(true);
     signInNoticeRef.current = notify("Sign in to read this link.", {
       sub: "Credenza reads the product, the photos, and the size chart for you.",
       persistent: true,
@@ -6717,7 +6726,9 @@ function CredenzaApp() {
         return;
       }
       setServerBlockedFeature(feature);
-      setLimitsOpen(true);
+      // Same spring-back guard as askForSignIn (A2): a signed-in Free user who
+      // closed the sheet mid-run is not asked again for the rest of the run.
+      if (!limitsRunMutedRef.current) setLimitsOpen(true);
     });
     return () => setAllowanceRequiredHook(null);
     // `notify` is intentionally read from the current mounted app.
@@ -7859,12 +7870,50 @@ function CredenzaApp() {
       tone: persistent ? "error" : "info",
     });
 
+  // Remaining free card reads for THIS visitor, or null when uncapped
+  // (Pro/owner, or accounts off). The anon promise is ANON_FREE_CARDS; the
+  // signed-in Free cap is PLAN_CAPS.free.resolveTotal — both mirror the
+  // server (limits.js / entitlements.js own the numbers).
+  const freeCardsLeft = () => {
+    if (!AUTH_ENABLED) return null;
+    const state = accountPlan && accountPlan.state;
+    if (state === "pro" || state === "grace" || state === "owner") return null;
+    if (!signedInAccount) {
+      return Math.max(0, ANON_FREE_CARDS - usageTotal("resolve", { audience: "anon" }));
+    }
+    const cap = PLAN_CAPS.free && PLAN_CAPS.free.resolveTotal;
+    if (typeof cap !== "number" || cap <= 0) return null;
+    return Math.max(0, cap - usageTotal("resolve", { audience: usageAudience(accountPlan, true) }));
+  };
+
   const runImport = (text, opts = {}) => {
     const { candidates, provider } = parseImport(text, opts);
     const { fresh, dupes, duplicates } = buildImportItems(candidates, items, provider);
     if (fresh.length) applyUpdate((list) => [...fresh, ...list]);
     if (fresh.length) markActivation(storageBackend, "import");
-    if (fresh.length || duplicates.length) enrichFashionItems([...fresh, ...duplicates]);
+    // A1 (2026-08-04): the paste is bigger than the visitor's remaining free
+    // allowance → say so ONCE, up front, before enrichment walks the queue.
+    // Without the line the wall at card M+1 arrived as a surprise on every
+    // big haul. Pro/owner have no cap and never see it. The toast slot is
+    // single, so the line rides as the sub of the import summary below —
+    // a standalone toast here would be replaced by that summary in the same
+    // tick and never read.
+    const queue = [...fresh, ...duplicates];
+    const left = queue.length ? freeCardsLeft() : null;
+    const headsUp =
+      left != null && queue.length > left
+        ? "This post has " + queue.length + " items. You can do " + left + " free."
+        : null;
+    if (queue.length) {
+      // A2: a new paste is a new run — the visitor's earlier "Not now" was
+      // answered for THAT run, not this one.
+      limitsRunMutedRef.current = false;
+      enrichRunDepthRef.current += 1;
+      Promise.resolve(enrichFashionItems(queue)).finally(() => {
+        enrichRunDepthRef.current = Math.max(0, enrichRunDepthRef.current - 1);
+        if (enrichRunDepthRef.current === 0) limitsRunMutedRef.current = false;
+      });
+    }
     setImportOpen(false);
     if (fresh.length === 0) {
       flashImportResult(
@@ -7883,6 +7932,7 @@ function CredenzaApp() {
         notify(
           "Imported " + fresh.length + " things" + from + ".",
           {
+            sub: headsUp,
             actionLabel: "Undo import",
             onAction: () =>
               applyUpdate((list) => list.filter((x) => !freshIds.has(x.id))),
@@ -7891,7 +7941,7 @@ function CredenzaApp() {
         );
         return;
       }
-      flashImportResult(
+      notify(
         "Imported " +
           fresh.length +
           " " +
@@ -7900,7 +7950,8 @@ function CredenzaApp() {
           "." +
           (dupes > 0
             ? " " + dupes + " " + (dupes === 1 ? "was" : "were") + " already on the shelf."
-            : "")
+            : ""),
+        { sub: headsUp, duration: 5000 }
       );
     }
   };
@@ -11447,7 +11498,13 @@ function CredenzaApp() {
               // Pro is a different question, so it gets a different address.
               openUpgrade();
             }}
-            onClose={() => setLimitsOpen(false)}
+            onClose={() => {
+              // A2: closing the sheet while an enrichment run is still walking
+              // its queue mutes the wall for the rest of that run — "Not now"
+              // is an answer, not a snooze button.
+              if (enrichRunDepthRef.current > 0) limitsRunMutedRef.current = true;
+              setLimitsOpen(false);
+            }}
           />
         </Suspense>
       )}
