@@ -76,7 +76,12 @@ import {
   whatsAppChatUrl,
 } from "../listing-facts.js";
 import FirstSizeBlock from "./FirstSizeBlock.jsx";
-import { isUsualFitSource, profileNeedsFirstSize } from "./first-size.js";
+import {
+  isUsualFitSource,
+  isBrandMatchSource,
+  isDerivedBodySource,
+  profileNeedsFirstSize,
+} from "./first-size.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
 // to be consistent — like the mobile back"). The phone DetailSheet and the
@@ -470,32 +475,40 @@ function SizingBlock({
   onAskPref = null,
   // Phase 1 Guess path: pick came from usual size + sit, not a real measure.
   usualFitSource = false,
+  // Phase 2 Match: chest from a named brand tee range + ease — not a tape.
+  brandMatchSource = false,
+  // Derived body (usual-fit or brand-match or future inferred sources).
+  derivedBodySource = false,
 }) {
   const isManual = !!chosenSize;
   const heroSize = chosenSize || recSize || usualSize || "";
   const heroLabel = formatSizeToken(heroSize) || heroSize;
 
   // Split-rail: the sheen marks a pick that came off a real chart. A manual
-  // pick, a best guess, and a read in flight all render still.
-  // Usual-fit is chart-anchored but not a measured body — no sheen.
-  const sheen = precise && !isManual && !hunting && !usualFitSource;
+  // pick, a best guess, and a derived (not measured) body all render still.
+  const sheen =
+    precise && !isManual && !hunting && !derivedBodySource && !usualFitSource && !brandMatchSource;
 
   // Provenance, right-aligned in the header. Mono, uppercase, and short —
   // the phone gets the trimmed form via CSS, not a second string. Round 5
   // point 5.1: "SET BY YOU" is gone — the aside beside the size word is the
   // one place a hand pick names itself.
   // Phase 1 usual-fit: exact rail wording from FIRST_SIZE_USUAL_FIT_PROV.
+  // Phase 2 brand-match: "CHART PICK · BRAND TEE" (F 2026-08-04) — provenance
+  // not value. TEE is tops-only while Match is !bottoms; revisit if bottoms open.
   const provenance = hunting
     ? "READING CHART"
-    : usualFitSource && recSize && !isManual
-      ? "CHART PICK · USUAL SIZE + FIT"
-      : precise
-        ? "SELLER'S CHART"
-        : recSize
-          ? "BEST GUESS"
-          : isManual
-            ? ""
-            : "YOUR USUAL";
+    : brandMatchSource && recSize && !isManual
+      ? "CHART PICK · BRAND TEE"
+      : usualFitSource && recSize && !isManual
+        ? "CHART PICK · USUAL SIZE + FIT"
+        : precise
+          ? "SELLER'S CHART"
+          : recSize
+            ? "BEST GUESS"
+            : isManual
+              ? ""
+              : "YOUR USUAL";
 
   // "your usual is L too" — only worth saying when the AI pick and the
   // customer's usual size agree. Silent otherwise; a disagreement is the
@@ -551,9 +564,13 @@ function SizingBlock({
     if (usualSize) return type + " · your usual size";
     return type;
   })();
-  const confidenceLabel = precise || (recSize && chart)
-    ? "Verified fit"
-    : "Your usual size";
+  // Derived body numbers must not claim "Verified fit" (F ticket 2026-08-04).
+  const confidenceLabel =
+    precise || (recSize && chart)
+      ? derivedBodySource || usualFitSource || brandMatchSource
+        ? "Estimated fit"
+        : "Verified fit"
+      : "Your usual size";
   // Phase 1 usual-fit keeps the AI size kicker with the new provenance rail
   // (F: "AI SIZE / CHART PICK · USUAL SIZE + FIT") — not a bare "your usual".
   const kickerLabel = !isManual
@@ -4493,6 +4510,8 @@ export default function DetailBody({
                 fitPref={fitPref}
                 onAskPref={onSaveFitPref ? () => setAskingPref(true) : null}
                 usualFitSource={isUsualFitSource(bodyProfile)}
+                brandMatchSource={isBrandMatchSource(bodyProfile)}
+                derivedBodySource={isDerivedBodySource(bodyProfile)}
                 customBox={
                   <CustomSizeBox
                     className="cz-sizing-cell is-custom"

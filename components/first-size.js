@@ -324,6 +324,22 @@ export function isBrandMatchSource(profile) {
 }
 
 /**
+ * True when the deciding body number was inferred, not tape-measured.
+ * usual-fit and brand-match are known derived sources. Any other non-empty
+ * firstSizeSource that is not "measure" also counts as derived so a future
+ * source fails safe toward honesty (not "Verified fit") until listed.
+ * Missing firstSizeSource stays false so legacy measured profiles keep the
+ * verified treatment.
+ */
+export function isDerivedBodySource(profile) {
+  const s = profile && profile.firstSizeSource;
+  if (!s || s === "measure") return false;
+  if (s === "usual-fit" || s === "brand-match") return true;
+  // Fail-safe: unrecognised source → derived (F pin 4).
+  return true;
+}
+
+/**
  * Map sit value → label used in fit pref UI (Slim / Regular / Oversized).
  */
 export function loosenessLabelForSit(sit, category) {

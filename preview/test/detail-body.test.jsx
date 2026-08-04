@@ -1133,3 +1133,81 @@ describe("DetailBody compact size chips (no chart)", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 });
+
+// Match Phase 2 rail + derived-body honesty (F 2026-08-04 review of #95).
+describe("DetailBody derived-body rail and confidence", () => {
+  const charted = (id) => item(id); // default item has sizeNotes chart
+
+  it("brand-match profile: rail is CHART PICK · BRAND TEE, sheen off, not SELLER'S CHART", () => {
+    const { container } = render(
+      body(charted("bm-rail"), {
+        bodyProfile: {
+          chest: 99.6,
+          firstSizeSource: "brand-match",
+          brandMatchBrand: "Nike",
+          brandMatchSize: "S",
+        },
+        onSaveBodyProfile: vi.fn(),
+      })
+    );
+    expect(screen.getByText("CHART PICK · BRAND TEE")).toBeInTheDocument();
+    expect(screen.queryByText("SELLER'S CHART")).not.toBeInTheDocument();
+    expect(container.querySelector(".cz-sizing-sheen")).toBe(null);
+  });
+
+  it("usual-fit profile: keeps CHART PICK · USUAL SIZE + FIT rail, sheen off", () => {
+    const { container } = render(
+      body(charted("uf-rail"), {
+        bodyProfile: {
+          chest: 96,
+          firstSizeSource: "usual-fit",
+          chestFromUsual: true,
+        },
+        onSaveBodyProfile: vi.fn(),
+      })
+    );
+    expect(screen.getByText("CHART PICK · USUAL SIZE + FIT")).toBeInTheDocument();
+    expect(container.querySelector(".cz-sizing-sheen")).toBe(null);
+  });
+
+  it("measure profile desktop: confidence is Verified fit", () => {
+    render(
+      body(charted("meas-conf"), {
+        bodyProfile: { chest: 96, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null, // desktop editorial path shows the badge
+      })
+    );
+    expect(screen.getByText("Verified fit")).toBeInTheDocument();
+  });
+
+  it("brand-match profile desktop: confidence is Estimated fit, not Verified fit", () => {
+    render(
+      body(charted("bm-conf"), {
+        bodyProfile: {
+          chest: 99.6,
+          firstSizeSource: "brand-match",
+          brandMatchBrand: "Nike",
+          brandMatchSize: "S",
+        },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    expect(screen.getByText("Estimated fit")).toBeInTheDocument();
+    expect(screen.queryByText("Verified fit")).not.toBeInTheDocument();
+  });
+
+  it("usual-fit profile desktop: confidence is Estimated fit, not Verified fit", () => {
+    render(
+      body(charted("uf-conf"), {
+        bodyProfile: { chest: 96, firstSizeSource: "usual-fit" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    expect(screen.getByText("Estimated fit")).toBeInTheDocument();
+    expect(screen.queryByText("Verified fit")).not.toBeInTheDocument();
+  });
+});
+
