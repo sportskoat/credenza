@@ -19,10 +19,12 @@ import { PLAN_COPY } from "./plans.js";
 //
 // Kyle 2026-08-01: Gallery colourway is parked. Blackout is the only look.
 //
-// Kyle 2026-08-04: the menu portals to document.body and uses position:fixed
-// under the avatar. Absolute under the masthead clipped on phone; fixed
-// still inside a transformed masthead clipped on desktop. The portal leaves
-// every header clip and transform behind.
+// Kyle 2026-08-04: the menu uses position:fixed under the avatar and portals
+// OUT of the masthead (masthead enter animation keeps transform: translateY(0)
+// via fill-mode:both, which traps fixed descendants). Portal target is .cz-app,
+// not document.body: theme tokens (incl. --cz-card-solid) live as inline style
+// on .cz-app only. Body had no tokens → transparent card, shelf text bleeding
+// through (Kyle 2026-08-04 "what happened to the sign in card").
 
 const MENU_GAP = 10;
 const MENU_EDGE = 12;
@@ -74,7 +76,7 @@ export default function AvatarMenu({
   const rootRef = useRef(null);
 
   // Pin the card under the avatar and keep every edge on screen (Kyle 2026-08-04).
-  // Lives on document.body via portal so masthead transforms cannot trap fixed.
+  // Portaled out of the masthead so its persistent transform cannot trap fixed.
   useLayoutEffect(() => {
     const menu = rootRef.current;
     const toggle = document.querySelector("[data-cz-avatar-toggle]");
@@ -217,8 +219,11 @@ export default function AvatarMenu({
     </div>
   );
 
-  // Portal out of the masthead so header overflow/transform cannot clip or
-  // re-base position:fixed. SSR-safe: no document → render in place.
+  // Portal out of the masthead so its transform cannot re-base position:fixed,
+  // but stay INSIDE .cz-app so --cz-card-solid / --cz-ink / etc. still resolve
+  // (they are set as inline style on .cz-app, not on body). Fall back to body
+  // only when the app root is missing (tests, early paint).
   if (typeof document === "undefined") return node;
-  return createPortal(node, document.body);
+  const host = document.querySelector(".cz-app") || document.body;
+  return createPortal(node, host);
 }

@@ -9,8 +9,8 @@ import { PLAN_COPY } from "../../components/plans.js";
 // first, then the shelf switches. The upsell line is the trial note verbatim:
 // it is a legal term, so it is never paraphrased.
 //
-// Kyle 2026-08-04: the menu portals to document.body. Query the menu there,
-// not the React render root.
+// Kyle 2026-08-04: the menu portals to .cz-app (or body if no app root).
+// Query the menu in the document, not the React render root.
 
 afterEach(cleanup);
 
@@ -37,7 +37,7 @@ function renderMenu(extra = {}) {
 }
 
 function menuRoot() {
-  return document.body.querySelector(".cz-avatar-menu");
+  return document.querySelector(".cz-avatar-menu");
 }
 
 describe("AvatarMenu · who you are", () => {
@@ -186,7 +186,7 @@ describe("AvatarMenu · leaving", () => {
 
   // Kyle 2026-08-04: phone was clipping the left side of the sign-in menu.
   // Fixed placement under the avatar must keep the left edge on screen.
-  // The menu portals to document.body so look there, not in the render root.
+  // The menu portals out of the masthead; look for it in the document.
   it("keeps the menu fully on a narrow phone screen", () => {
     const toggle = document.createElement("button");
     toggle.setAttribute("data-cz-avatar-toggle", "");
@@ -213,8 +213,36 @@ describe("AvatarMenu · leaving", () => {
     expect(left + width).toBeLessThanOrEqual(375 - 12);
     expect(menu.style.position).toBe("fixed");
     // Portaled out of the React tree so header overflow cannot clip it.
+    // Host is .cz-app when present (theme tokens), else body.
     expect(menu.parentElement).toBe(document.body);
     toggle.remove();
+  });
+
+  // Regression (Kyle 2026-08-04): body had no --cz-card-solid, so the card
+  // painted transparent over the shelf. Host must be .cz-app when it exists.
+  it("portals into .cz-app so theme tokens reach the card", () => {
+    const app = document.createElement("div");
+    app.className = "cz-app";
+    app.style.setProperty("--cz-card-solid", "#0d0d10");
+    document.body.appendChild(app);
+    const toggle = document.createElement("button");
+    toggle.setAttribute("data-cz-avatar-toggle", "");
+    Object.defineProperty(toggle, "getBoundingClientRect", {
+      value: () => ({
+        top: 24,
+        bottom: 60,
+        left: 300,
+        right: 340,
+        width: 40,
+        height: 36,
+      }),
+    });
+    app.appendChild(toggle);
+    renderMenu();
+    const menu = menuRoot();
+    expect(menu).toBeTruthy();
+    expect(menu.parentElement).toBe(app);
+    app.remove();
   });
 
   // Desktop avatar sits at the right of a wide window. The menu's right edge
