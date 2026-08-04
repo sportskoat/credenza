@@ -75,9 +75,12 @@ function weidianItemId(raw) {
   }
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
   if (!/(^|\.)weidian\.(com|cn)$/.test(host)) return null;
+  // Length sanity: every working Weidian item id in the corpus is 10+ digits.
+  // A shorter id used to classify fine and then resolve to nothing — the 422
+  // below now says honestly that the link is not resolvable (2026-08-04 audit).
   const id = u.searchParams.get("itemID") || u.searchParams.get("itemId") || u.searchParams.get("item_id");
-  if (id && /^\d{5,}$/.test(id)) return id;
-  const pathMatch = u.pathname.match(/\/item\/(\d{5,})/);
+  if (id && /^\d{10,}$/.test(id)) return id;
+  const pathMatch = u.pathname.match(/\/item\/(\d{10,})/);
   return pathMatch ? pathMatch[1] : null;
 }
 

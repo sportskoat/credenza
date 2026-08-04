@@ -2902,6 +2902,10 @@ function hostOf(raw) {
 
 // Weidian item ID when the URL is a resolvable product page, else null. Mirrors
 // the server-side check in resolve.js so the client never wastes a call.
+// Every working Weidian item id in the corpus is 10+ digits; a shorter one
+// classifies fine but resolves to nothing, and the paste produces a silent
+// dead card (2026-08-04 audit). Treat it as not-a-buy-link so the card gets
+// the honest "couldn't read that link" failure instead.
 function weidianItemId(raw) {
   let u;
   try {
@@ -2912,8 +2916,8 @@ function weidianItemId(raw) {
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
   if (!/(^|\.)weidian\.(com|cn)$/.test(host)) return null;
   const id = u.searchParams.get("itemID") || u.searchParams.get("itemId") || u.searchParams.get("item_id");
-  if (id && /^\d{5,}$/.test(id)) return id;
-  const pathMatch = u.pathname.match(/\/item\/(\d{5,})/);
+  if (id && /^\d{10,}$/.test(id)) return id;
+  const pathMatch = u.pathname.match(/\/item\/(\d{10,})/);
   return pathMatch ? pathMatch[1] : null;
 }
 
@@ -4345,7 +4349,9 @@ export function parseImport(text, opts = {}) {
   }
   for (const lineRaw of importLines) {
     const isBullet = /^\s*(?:[-*•❯›]|\d+[.)])\s+\S/.test(lineRaw);
-    const line = lineRaw.replace(/^[\s\-*•>”"]*(?:\d+[.)])?\s*/, "").trim();
+    // (?!\d): "8.5/10" is a rating, not list item "8." — the strip used to
+    // eat the whole number and save "5/10".
+    const line = lineRaw.replace(/^[\s\-*•>”"]*(?:\d+[.)](?!\d)\s*)?/, "").trim();
     if (!line || line.length < 3) continue;
     // extractUrls, not a local regex: trims trailing punctuation, repairs
     // space-broken hosts, deobfuscates Reddit markup, dedupes (audit fix 1+2).
@@ -4367,6 +4373,19 @@ export function parseImport(text, opts = {}) {
     if (parsed.url) push(parsed, line, label.length > 2 ? label : "");
   }
   return { candidates, provider: "paste" };
+}
+
+// Notes cap at `max` chars for storage, but the cut lands on the last word
+// boundary inside the window — a mid-word slice reads as a parser bug. Falls
+// back to the hard cut when the window holds no usable boundary (one giant
+// word), and never cuts so early that most of the budget goes unused.
+export function clipNote(note, max = 500) {
+  const text = String(note || "");
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const boundary = cut.match(/\s+\S*$/);
+  const end = boundary && boundary.index > max * 0.5 ? boundary.index : max;
+  return cut.slice(0, end).trimEnd();
 }
 
 // Splits candidates into fresh items and duplicates already on the shelf. Local
@@ -4408,9 +4427,11 @@ function buildImportItems(candidates, existing, source) {
     if (typeof c.weightGrams === "number" && c.weightGrams > 0) {
       extra.weightGrams = Math.round(c.weightGrams);
     }
-    // Keep free-text notes; hard cap remains for storage, but structured fields
-    // above already hold fit/size so a 500-char cut is less harmful.
-    if (c.note) extra.note = c.note.slice(0, 500);
+    // Keep free-text notes; the hard cap remains for storage, but the cut
+    // lands on a word boundary instead of mid-word (DECISION 2026-08-04:
+    // keep the 500 cap — overridable — only the cut point moves). Structured
+    // fields above already hold fit/size so a 500-char cut is less harmful.
+    if (c.note) extra.note = clipNote(c.note);
     // A1: haul pastes carry poster stats (v1: on each batch item; A3 haul
     // objects will hoist these) and the source thread for provenance.
     if (c.posterStats) extra.posterStats = c.posterStats;

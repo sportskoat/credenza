@@ -712,6 +712,8 @@ They are fine for the price, just size down.`,
     expect(haul.items[3].label).toMatch(/ElderlyDogs/i);
     // Batch haul title must not stamp onto every card.
     expect(haul.items.every((i) => !/25KG|Germany/i.test(i.label || ""))).toBe(true);
-    expect(haul.stats.weightKg).toBe(20);
+    // "20KG with Fansbuy" is the PARCEL weight in review chatter, not the
+    // poster's body weight. Body-anchored stats (2026-08-04) refuse it.
+    expect(haul.stats.weightKg).toBeUndefined();
   });
 });
