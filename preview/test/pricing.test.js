@@ -367,7 +367,7 @@ describe("the page only sells what is built", () => {
       cap("free", "haulsMax") + " hauls at once",
       cap("pro", "haulsMax") + " hauls at once",
       cap("pro", "qcPhotosPerItem") + " QC photos an item",
-      cap("pro", "chartVisionPerMonth") + " Size chart reads a month",
+      cap("pro", "chartVisionPerMonth") + " size chart reads a month",
       comma(cap("pro", "resolvePerMonth")) + " link reads a month",
     ]) {
       expect(bullets, "no bullet reads " + JSON.stringify(want)).toContain(want);

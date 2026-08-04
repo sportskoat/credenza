@@ -1865,13 +1865,13 @@ describe("a feature the price table sells is explained somewhere else", () => {
     // /guides/free-agent-haul-planner/ gives the rate. The price table sold
     // 20 a day against 1,000 a day for a unit the site never defined.
     //
-    // Both phrases are the mechanism. "Link resolve" itself would pass on any
+    // Both phrases are the mechanism. "Link read" itself would pass on any
     // of those five limits lists. "Midnight UTC" would pass on the free-plan
     // guide, which already says it. These two say what the unit IS and what
     // the counter counts, so only a page that defines it can satisfy them.
     {
       row: "Link reads",
-      needs: ["one link in, one resolve spent", "counts server reads, not items"],
+      needs: ["one link in, one read spent", "counts server reads, not items"],
       why: "the row with the widest free/Pro gap on the table was the one unit the site never defined",
     },
     // LB-57. Added 2026-07-27. Fourth census, same method as LB-55: strip the
