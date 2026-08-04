@@ -13,7 +13,7 @@
 // estimate — validate against real parsed charts before ship" (Open questions
 // 1). The shipped hints are the live CHEST_EASE_BANDS ranges, pinned by
 // test "F HOLD #81", so the chip text can never drift from the engine.
-import { useRef, useState } from "react";
+import { Children, cloneElement, Fragment, useRef, useState } from "react";
 import {
   FIRST_SIZE_SIT_OPTIONS,
   FIRST_SIZE_USUAL_CHIPS,
@@ -115,6 +115,40 @@ export function firstSizeChipRun(sizeRun) {
 }
 
 /**
+ * Item D (D1/D5): tuck the seller size chip row inside the first-size card so
+ * it does not float as a sibling under the Fit shell. Walks section / form /
+ * fragment trees only — never invents a new outer shell.
+ */
+function withSellerSizes(node, sellerSizes) {
+  if (!sellerSizes || node == null || typeof node !== "object") return node;
+  if (node.type === "section" || node.type === "form") {
+    return cloneElement(
+      node,
+      null,
+      ...Children.toArray(node.props.children),
+      sellerSizes
+    );
+  }
+  if (node.type === Fragment) {
+    const kids = Children.toArray(node.props.children);
+    if (!kids.length) return <>{sellerSizes}</>;
+    const last = kids[kids.length - 1];
+    return cloneElement(
+      node,
+      null,
+      ...kids.slice(0, -1),
+      withSellerSizes(last, sellerSizes)
+    );
+  }
+  return (
+    <>
+      {node}
+      {sellerSizes}
+    </>
+  );
+}
+
+/**
  * @param {object} props
  * @param {object} props.item
  * @param {object|null} props.chart - parsed size chart when available
@@ -126,6 +160,7 @@ export function firstSizeChipRun(sizeRun) {
  * @param {(category: string, pref: object) => void} [props.onSaveFitPref]
  * @param {() => void} [props.onSkip]
  * @param {() => void} [props.onOpenMeasureHelp]
+ * @param {import("react").ReactNode} [props.sellerSizes] - Item D seller chip row
  */
 export default function FirstSizeBlock({
   item,
@@ -140,6 +175,8 @@ export default function FirstSizeBlock({
   onOpenMeasureHelp,
   /** When true, open on the honest skipped state (already skipped this visit). */
   startSkipped = false,
+  /** Item D: seller size chips inside this card (not a sibling below it). */
+  sellerSizes = null,
 }) {
   // ask1 | ask2 | measure | skipped | result
   const [step, setStep] = useState(startSkipped ? "skipped" : "ask1");
@@ -252,7 +289,7 @@ export default function FirstSizeBlock({
 
   // ── A4 · skipped, the honest state ──
   if (step === "skipped") {
-    return (
+    return withSellerSizes(
       <section className="cz-first-size cz-first-size-skipped" aria-label="Your size">
         <div className="cz-first-size-head">
           <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
@@ -273,8 +310,9 @@ export default function FirstSizeBlock({
           {FIRST_SIZE_COPY.addMySize}
         </button>
         <p className="cz-first-size-promise">{FIRST_SIZE_COPY.privacy}</p>
-      </section>
-    );
+      </section>,
+    sellerSizes
+  );
   }
 
   // ── A3 · the pick ──
@@ -295,7 +333,7 @@ export default function FirstSizeBlock({
           units,
         })
       : prov.body;
-    return (
+    return withSellerSizes(
       <section
         className={"cz-first-size cz-first-size-result" + (showTiles ? " is-resolved" : "")}
         aria-label="Your size"
@@ -350,12 +388,13 @@ export default function FirstSizeBlock({
           </button>{" "}
           {FIRST_SIZE_COPY.provTail}
         </p>
-      </section>
-    );
+      </section>,
+    sellerSizes
+  );
   }
 
   if (step === "result" && result && result.measured) {
-    return (
+    return withSellerSizes(
       <section className="cz-first-size cz-first-size-result" aria-label="Your size">
         <div className="cz-first-size-head">
           <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
@@ -364,13 +403,14 @@ export default function FirstSizeBlock({
         <p className="cz-first-size-copy">
           Saved. Every card on your shelf re-scores with this number.
         </p>
-      </section>
-    );
+      </section>,
+    sellerSizes
+  );
   }
 
   // ── A1 · ask 1 of 2, usual size ──
   if (step === "ask1") {
-    return (
+    return withSellerSizes(
       <section className="cz-first-size cz-first-size-ask" aria-label="Your size">
         <div className="cz-first-size-head">
           <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
@@ -418,8 +458,9 @@ export default function FirstSizeBlock({
           </button>
           {skipButton}
         </div>
-      </section>
-    );
+      </section>,
+    sellerSizes
+  );
   }
 
   // ── A2 · ask 2 of 2, preferred ease ──
@@ -438,7 +479,7 @@ export default function FirstSizeBlock({
           formatMeasure(Number(anchorNumber), units) +
           " on this chart. " +
           FIRST_SIZE_COPY.ask2Tail;
-    return (
+    return withSellerSizes(
       <section className="cz-first-size cz-first-size-ask" aria-label="Your size">
         <div className="cz-first-size-head">
           <span className="cz-first-size-eyebrow">
@@ -510,13 +551,14 @@ export default function FirstSizeBlock({
           </button>
           {skipButton}
         </div>
-      </section>
-    );
+      </section>,
+    sellerSizes
+  );
   }
 
   // ── A5 entry · the tape field, reached from the A1 link or the A3 provenance ──
   const fieldLabel = bottoms ? "Waist, at your natural waist" : "Chest, pit to pit, doubled";
-  return (
+  return withSellerSizes(
     <>
       <FitLadder
         profile={bodyProfile}
@@ -599,6 +641,7 @@ export default function FirstSizeBlock({
           Settings.
         </p>
       </form>
-    </>
+    </>,
+    sellerSizes
   );
 }
