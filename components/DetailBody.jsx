@@ -76,7 +76,12 @@ import {
   whatsAppChatUrl,
 } from "../listing-facts.js";
 import FirstSizeBlock from "./FirstSizeBlock.jsx";
-import { isUsualFitSource, profileNeedsFirstSize } from "./first-size.js";
+import {
+  isUsualFitSource,
+  isBrandMatchSource,
+  isDerivedBodySource,
+  profileNeedsFirstSize,
+} from "./first-size.js";
 
 // The ONE detail body for an item (Kyle 2026-07-25: "all backs of cards need
 // to be consistent — like the mobile back"). The phone DetailSheet and the
@@ -470,32 +475,40 @@ function SizingBlock({
   onAskPref = null,
   // Phase 1 Guess path: pick came from usual size + sit, not a real measure.
   usualFitSource = false,
+  // Phase 2 Match: chest from a named brand tee range + ease — not a tape.
+  brandMatchSource = false,
+  // Derived body (usual-fit or brand-match or future inferred sources).
+  derivedBodySource = false,
 }) {
   const isManual = !!chosenSize;
   const heroSize = chosenSize || recSize || usualSize || "";
   const heroLabel = formatSizeToken(heroSize) || heroSize;
 
   // Split-rail: the sheen marks a pick that came off a real chart. A manual
-  // pick, a best guess, and a read in flight all render still.
-  // Usual-fit is chart-anchored but not a measured body — no sheen.
-  const sheen = precise && !isManual && !hunting && !usualFitSource;
+  // pick, a best guess, and a derived (not measured) body all render still.
+  const sheen =
+    precise && !isManual && !hunting && !derivedBodySource && !usualFitSource && !brandMatchSource;
 
   // Provenance, right-aligned in the header. Mono, uppercase, and short —
   // the phone gets the trimmed form via CSS, not a second string. Round 5
   // point 5.1: "SET BY YOU" is gone — the aside beside the size word is the
   // one place a hand pick names itself.
   // Phase 1 usual-fit: exact rail wording from FIRST_SIZE_USUAL_FIT_PROV.
+  // Phase 2 brand-match: "CHART PICK · BRAND TEE" (F 2026-08-04) — provenance
+  // not value. TEE is tops-only while Match is !bottoms; revisit if bottoms open.
   const provenance = hunting
     ? "READING CHART"
-    : usualFitSource && recSize && !isManual
-      ? "CHART PICK · USUAL SIZE + FIT"
-      : precise
-        ? "SELLER'S CHART"
-        : recSize
-          ? "BEST GUESS"
-          : isManual
-            ? ""
-            : "YOUR USUAL";
+    : brandMatchSource && recSize && !isManual
+      ? "CHART PICK · BRAND TEE"
+      : usualFitSource && recSize && !isManual
+        ? "CHART PICK · USUAL SIZE + FIT"
+        : precise
+          ? "SELLER'S CHART"
+          : recSize
+            ? "BEST GUESS"
+            : isManual
+              ? ""
+              : "YOUR USUAL";
 
   // "your usual is L too" — only worth saying when the AI pick and the
   // customer's usual size agree. Silent otherwise; a disagreement is the
@@ -551,9 +564,13 @@ function SizingBlock({
     if (usualSize) return type + " · your usual size";
     return type;
   })();
-  const confidenceLabel = precise || (recSize && chart)
-    ? "Verified fit"
-    : "Your usual size";
+  // Derived body numbers must not claim "Verified fit" (F ticket 2026-08-04).
+  const confidenceLabel =
+    precise || (recSize && chart)
+      ? derivedBodySource || usualFitSource || brandMatchSource
+        ? "Estimated fit"
+        : "Verified fit"
+      : "Your usual size";
   // Phase 1 usual-fit keeps the AI size kicker with the new provenance rail
   // (F: "AI SIZE / CHART PICK · USUAL SIZE + FIT") — not a bare "your usual".
   const kickerLabel = !isManual
@@ -2942,6 +2959,10 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
   if (verdict.precise && rec && rec.body != null && rec.garment != null) {
     const diff = rec.diff != null ? rec.diff : rec.garment - rec.body;
     const easeStr = (diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(diff), units);
+    // Derived body (usual-fit / brand-match) must not claim "Precise fit"
+    // (F retraction 2026-08-04 — fifth surface; same wording as confidenceLabel).
+    const derivedBody = isDerivedBodySource(bodyProfile);
+    const precisionBadge = derivedBody ? "Estimated fit" : "Precise fit";
     // 5c — the preference payoff. baseWord only exists when taste actually
     // shifted the letter size; tags surface any saved axis, shift or not.
     const sizeWord = formatSizeToken(rec.size) || rec.size;
@@ -2964,9 +2985,9 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
       <div className="cz-fit4">
         <div className="cz-fit4-head">
           <span className="cz-fit4-kicker">Fit confidence</span>
-          <span className="cz-fit4-badge is-precise">
+          <span className={"cz-fit4-badge " + (derivedBody ? "is-rough" : "is-precise")}>
             <span className="cz-fit4-badge-dot" aria-hidden="true" />
-            Precise fit
+            {precisionBadge}
           </span>
         </div>
         {baseWord ? (
@@ -3863,10 +3884,18 @@ export default function DetailBody({
   const mobileChosenWord = formatSizeToken(chosenSize) || chosenSize;
   const mobileOutsideCount = fitRows.filter((row) => row.warn).length;
   const mobileFitKicker = verdict.chart ? "We recommend" : "No seller chart";
+  // Derived body must not claim "Precise fit" on the phone line either
+  // (F retraction 2026-08-04 — frame 4 / mobileConfidence; was chart-only).
+  // One shared flag for text + is-rough class so they cannot drift (F 2026-08-04).
+  const mobileDerivedBody = isDerivedBodySource(bodyProfile);
+  const mobileEstimated =
+    verdict.chart && !mobileOutsideCount && mobileDerivedBody;
   const mobileConfidence = verdict.chart
     ? mobileOutsideCount
       ? "Roomy for this cut"
-      : "Precise fit"
+      : mobileEstimated
+        ? "Estimated fit"
+        : "Precise fit"
     : "Says when it doesn't know";
   const mobileVerdict = verdict.chart
     ? !mobileRecommendedWord
@@ -3918,11 +3947,20 @@ export default function DetailBody({
     }
   };
 
+  // Phone confidence colour matches Fit4 honesty tone (Kyle 2026-08-04).
+  // is-rough / is-precise both read mobileEstimated — same binding as the text.
+  // Parent is-warn still wins for "Roomy for this cut" (see CSS).
+  const mobileConfidenceClass =
+    !verdict.chart || mobileOutsideCount
+      ? "cz-mobile-fit-confidence"
+      : mobileEstimated
+        ? "cz-mobile-fit-confidence is-rough"
+        : "cz-mobile-fit-confidence is-precise";
   const mobileFitIntro = (
     <div className={"cz-mobile-fit-intro" + (mobileOutsideCount ? " is-warn" : "")}>
       <div className="cz-mobile-fit-kicker-row">
         <span className="cz-mobile-fit-kicker">{mobileFitKicker}</span>
-        <span className="cz-mobile-fit-confidence">
+        <span className={mobileConfidenceClass}>
           <span className="cz-mobile-fit-confidence-dot" aria-hidden="true" />
           {mobileConfidence}
         </span>
@@ -4493,6 +4531,8 @@ export default function DetailBody({
                 fitPref={fitPref}
                 onAskPref={onSaveFitPref ? () => setAskingPref(true) : null}
                 usualFitSource={isUsualFitSource(bodyProfile)}
+                brandMatchSource={isBrandMatchSource(bodyProfile)}
+                derivedBodySource={isDerivedBodySource(bodyProfile)}
                 customBox={
                   <CustomSizeBox
                     className="cz-sizing-cell is-custom"

@@ -13,6 +13,9 @@ import {
   profilePatchFromGuess,
   profilePatchFromMeasure,
   sitToLooseness,
+  isUsualFitSource,
+  isBrandMatchSource,
+  isDerivedBodySource,
 } from "../../components/first-size.js";
 
 const TOP_CHART = parseSizeChart(
@@ -246,5 +249,27 @@ describe("no server metering in this flow", () => {
     expect(ui).not.toMatch(/bumpUsage/);
     expect(src).not.toMatch(/monitoredFetch|chart-vision|authorizePaid/);
     expect(ui).not.toMatch(/monitoredFetch|chart-vision/);
+  });
+});
+
+describe("isDerivedBodySource", () => {
+  it("measure is not derived", () => {
+    expect(isDerivedBodySource({ firstSizeSource: "measure", chest: 96 })).toBe(false);
+  });
+
+  it("missing source is not derived (legacy measured profiles)", () => {
+    expect(isDerivedBodySource({ chest: 96 })).toBe(false);
+    expect(isDerivedBodySource(null)).toBe(false);
+  });
+
+  it("usual-fit and brand-match are derived", () => {
+    expect(isDerivedBodySource({ firstSizeSource: "usual-fit" })).toBe(true);
+    expect(isDerivedBodySource({ firstSizeSource: "brand-match" })).toBe(true);
+    expect(isUsualFitSource({ firstSizeSource: "usual-fit" })).toBe(true);
+    expect(isBrandMatchSource({ firstSizeSource: "brand-match" })).toBe(true);
+  });
+
+  it("unrecognised source fails safe as derived (F pin 4)", () => {
+    expect(isDerivedBodySource({ firstSizeSource: "future-inferred" })).toBe(true);
   });
 });

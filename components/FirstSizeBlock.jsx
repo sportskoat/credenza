@@ -19,6 +19,7 @@ import {
   FIRST_SIZE_USUAL_CHIPS,
   FIRST_SIZE_USUAL_FIT_PROV,
   FIRST_SIZE_USUAL_NO_CHART_PROV,
+  brandMatchProvenance,
   chartRowForUsual,
   chartUsableForGuess,
   guessSizeFromUsual,
@@ -27,7 +28,23 @@ import {
   profilePatchFromMeasure,
   sitLabel,
 } from "./first-size.js";
-import { compactSizeToken, formatMeasure, formatSizeToken } from "../credenza-fashion.jsx";
+import {
+  MATCH_OTHER,
+  brandMatchConfirmBody,
+  brandMatchConfirmFoot,
+  brandMatchConfirmHeadline,
+  brandMatchFitCaveat,
+  matchBrandChips,
+  matchSizesForBrand,
+  profilePatchFromBrandMatch,
+  resolveBrandMatch,
+} from "./brand-match.js";
+import {
+  compactSizeToken,
+  formatMeasure,
+  formatSizeToken,
+  recommendSize,
+} from "../credenza-fashion.jsx";
 import FitLadder from "./FitLadder.jsx";
 
 /** README copy deck, verbatim. Exported so tests pin the strings. */
@@ -41,6 +58,15 @@ export const FIRST_SIZE_COPY = {
   tapeLink: "I have a tape · enter chest",
   // Bottoms cards ask for a waist, so the link must not promise a chest.
   tapeLinkWaist: "I have a tape · enter waist",
+  // Phase 2 Match entry (design B1). Tops only — brand table is tees.
+  matchLink: "Name a brand tee that fits",
+  matchTitle: "Name a tee that fits you.",
+  matchBody:
+    "We know what these measure, so we can read this seller's chart against it. No tape.",
+  matchSizeLabel: "Then the size you wear in it",
+  matchConfirmUse: "Use this number",
+  matchConfirmNotNow: "Not now",
+  matchConfirmEdit: "Edit",
   skip: "Skip for now",
   ask2Tail: "This tells us which way to move off it.",
   showMySize: "Show my size",
@@ -145,7 +171,7 @@ export default function FirstSizeBlock({
   /** When true, open on the honest skipped state (already skipped this visit). */
   startSkipped = false,
 }) {
-  // ask1 | ask2 | measure | skipped | result
+  // ask1 | ask2 | measure | match | match-confirm | skipped | result
   const [step, setStep] = useState(startSkipped ? "skipped" : "ask1");
   const [usual, setUsual] = useState("");
   const [sit, setSit] = useState("");
@@ -153,6 +179,12 @@ export default function FirstSizeBlock({
   const [measureDraft, setMeasureDraft] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  // Phase 2 Match state
+  const [matchBrand, setMatchBrand] = useState(null);
+  const [matchSize, setMatchSize] = useState("");
+  const [matchResolved, setMatchResolved] = useState(null);
+  const [matchChestDraft, setMatchChestDraft] = useState("");
+  const [matchEditing, setMatchEditing] = useState(false);
   const chipRefs = useRef([]);
 
   const category = (item && item.category) || "shirt";
@@ -162,6 +194,8 @@ export default function FirstSizeBlock({
   const chips = firstSizeChipRun(sizeRun);
   const garmentWord = bottoms ? "pair" : "tee";
   const describeId = "cz-fs-" + ((item && item.id) || "card");
+  const brandChips = matchBrandChips();
+  const matchSizeChips = matchBrand ? matchSizesForBrand(matchBrand.key) : [];
 
   const saveGuess = (nextUsual, nextSit) => {
     const out = guessSizeFromUsual({
@@ -230,6 +264,43 @@ export default function FirstSizeBlock({
     setError("");
   };
 
+  /** Phase 2: confirm the brand-derived chest and re-score this card. */
+  const saveBrandMatch = (chestOverride = null) => {
+    if (!matchResolved) return;
+    const patch = profilePatchFromBrandMatch(matchResolved, chestOverride);
+    if (!patch) {
+      setError("Enter a number greater than zero.");
+      return;
+    }
+    if (onSaveBodyProfile) onSaveBodyProfile(patch);
+    // Score this seller chart against the new chest, when a chart is present.
+    let rec = null;
+    if (hasChart) {
+      rec = recommendSize(chart, patch, category, fitPref || null, null, title, null);
+    }
+    const prov = brandMatchProvenance({
+      brandLabel: matchResolved.brandLabel,
+      size: matchResolved.size,
+      chest: patch.chest,
+    });
+    setResult({
+      size: rec && rec.size && !rec.missing ? rec.size : null,
+      brandMatch: true,
+      brandLabel: matchResolved.brandLabel,
+      brandSize: matchResolved.size,
+      chest: patch.chest,
+      garment: rec && rec.garment != null ? rec.garment : null,
+      body: rec && rec.body != null ? rec.body : patch.chest,
+      diff: rec && rec.diff != null ? rec.diff : null,
+      noChart: !hasChart || !rec || rec.missing,
+      prov,
+      fitCaveat: brandMatchFitCaveat(matchResolved),
+    });
+    setStep("result");
+    setError("");
+    setMatchEditing(false);
+  };
+
   /** Arrow keys move focus across a chip row, per the README accessibility note. */
   const onChipKeyDown = (e, index, total) => {
     const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
@@ -283,24 +354,57 @@ export default function FirstSizeBlock({
     );
   }
 
-  // ── A3 · the pick ──
+  // ── A3 · the pick (Guess or brand Match) ──
   if (step === "result" && result && !result.measured) {
-    const sizeLabel = formatSizeToken(result.size) || result.size;
+    const isBrand = !!result.brandMatch;
+    const sizeLabel = result.size
+      ? formatSizeToken(result.size) || result.size
+      : isBrand
+        ? formatMeasure(result.chest, units)
+        : "";
     // No-chart Guess → existing YOUR USUAL rail, not chart-anchored usual-fit.
-    const prov = result.noChart ? FIRST_SIZE_USUAL_NO_CHART_PROV : FIRST_SIZE_USUAL_FIT_PROV;
-    const anchorValue = "Usual " + (compactSizeToken(result.usual) || result.usual);
-    const showTiles = !result.noChart && result.garment != null && result.diff != null;
-    const reasoning = showTiles
-      ? firstSizePickReasoning({
-          sizeLabel,
-          usualLetter: result.usual,
-          garment: result.garment,
-          body: result.body,
-          diff: result.diff,
-          sit: result.sit,
-          units,
+    // Brand Match → design B3 rail "Chart pick · chest Ncm".
+    const prov = isBrand
+      ? result.prov ||
+        brandMatchProvenance({
+          brandLabel: result.brandLabel,
+          size: result.brandSize,
+          chest: result.chest,
         })
+      : result.noChart
+        ? FIRST_SIZE_USUAL_NO_CHART_PROV
+        : FIRST_SIZE_USUAL_FIT_PROV;
+    const anchorValue = isBrand
+      ? formatMeasure(result.chest, units)
+      : "Usual " + (compactSizeToken(result.usual) || result.usual);
+    const showTiles =
+      !result.noChart && result.garment != null && result.diff != null && !!result.size;
+    const reasoning = showTiles
+      ? isBrand
+        ? "The " +
+          sizeLabel +
+          " is " +
+          formatMeasure(result.garment, units) +
+          " here against the " +
+          formatMeasure(result.chest, units) +
+          " from your " +
+          result.brandLabel +
+          " " +
+          result.brandSize +
+          "."
+        : firstSizePickReasoning({
+            sizeLabel,
+            usualLetter: result.usual,
+            garment: result.garment,
+            body: result.body,
+            diff: result.diff,
+            sit: result.sit,
+            units,
+          })
       : prov.body;
+    const provTail = isBrand
+      ? prov.provTail || FIRST_SIZE_COPY.provTail
+      : FIRST_SIZE_COPY.provTail;
     return (
       <section
         className={"cz-first-size cz-first-size-result" + (showTiles ? " is-resolved" : "")}
@@ -309,7 +413,7 @@ export default function FirstSizeBlock({
         <div className="cz-first-size-head">
           <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
           <span
-            className={"cz-first-size-flag" + (result.noChart ? " is-usual" : " is-money")}
+            className={"cz-first-size-flag" + (result.noChart && !isBrand ? " is-usual" : " is-money")}
             id={describeId + "-flag"}
           >
             {prov.rail}
@@ -320,14 +424,14 @@ export default function FirstSizeBlock({
             className="cz-first-size-letter"
             aria-describedby={describeId + "-flag " + describeId + "-prov"}
           >
-            {sizeLabel}
+            {sizeLabel || "—"}
           </span>
           <span className="cz-first-size-reason">{reasoning}</span>
         </div>
         {showTiles ? (
           <div className="cz-first-size-tiles" aria-label="Fit numbers">
             <div className="cz-first-size-tile">
-              <span className="cz-first-size-tile-k">{FIRST_SIZE_TILE_LABELS[0]}</span>
+              <span className="cz-first-size-tile-k">{isBrand ? "You" : FIRST_SIZE_TILE_LABELS[0]}</span>
               <span className="cz-first-size-tile-v">{anchorValue}</span>
             </div>
             <div className="cz-first-size-tile">
@@ -342,6 +446,9 @@ export default function FirstSizeBlock({
             </div>
           </div>
         ) : null}
+        {result.fitCaveat ? (
+          <p className="cz-first-size-caveat">{result.fitCaveat}</p>
+        ) : null}
         <p className="cz-first-size-prov" id={describeId + "-prov"}>
           {prov.body}{" "}
           <button
@@ -354,7 +461,7 @@ export default function FirstSizeBlock({
           >
             {prov.upgrade}
           </button>{" "}
-          {FIRST_SIZE_COPY.provTail}
+          {provTail}
         </p>
       </section>
     );
@@ -370,6 +477,183 @@ export default function FirstSizeBlock({
         <p className="cz-first-size-copy">
           Saved. Every card on your shelf re-scores with this number.
         </p>
+      </section>
+    );
+  }
+
+  // ── B1 · Phase 2 Match · name a brand tee ──
+  if (step === "match" && !bottoms) {
+    return (
+      <section className="cz-first-size cz-first-size-ask cz-first-size-match" aria-label="Your size">
+        <div className="cz-first-size-head">
+          <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
+          <span className="cz-first-size-flag is-warn">Needs you</span>
+        </div>
+        <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.matchTitle}</h3>
+        <p className="cz-first-size-copy">{FIRST_SIZE_COPY.matchBody}</p>
+        <div className="cz-first-size-chips" role="radiogroup" aria-label="Brand">
+          {brandChips.map((b, i) => (
+            <button
+              key={b.key}
+              type="button"
+              role="radio"
+              aria-checked={matchBrand && matchBrand.key === b.key}
+              tabIndex={
+                (matchBrand && matchBrand.key === b.key) || (!matchBrand && i === 0) ? 0 : -1
+              }
+              ref={(el) => {
+                chipRefs.current[i] = el;
+              }}
+              className={
+                "cz-first-size-chip cz-first-size-brand" +
+                (matchBrand && matchBrand.key === b.key ? " is-on" : "")
+              }
+              onKeyDown={(e) => onChipKeyDown(e, i, brandChips.length)}
+              onClick={() => {
+                if (b.key === MATCH_OTHER.key) {
+                  // Something else → Guess path (design B1).
+                  setMatchBrand(null);
+                  setMatchSize("");
+                  setMatchResolved(null);
+                  setStep("ask1");
+                  setError("");
+                  return;
+                }
+                setMatchBrand(b);
+                setMatchSize("");
+                setMatchResolved(null);
+                setError("");
+              }}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+        {matchBrand && matchBrand.key !== MATCH_OTHER.key ? (
+          <>
+            <p className="cz-first-size-size-label">{FIRST_SIZE_COPY.matchSizeLabel}</p>
+            <div className="cz-first-size-chips" role="radiogroup" aria-label="Brand size">
+              {matchSizeChips.map((s, i) => (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={matchSize === s}
+                  tabIndex={matchSize === s || (!matchSize && i === 0) ? 0 : -1}
+                  className={"cz-first-size-chip" + (matchSize === s ? " is-on" : "")}
+                  onClick={() => {
+                    const resolved = resolveBrandMatch(matchBrand.key, s);
+                    if (resolved.error) {
+                      setError("That size is not in our brand list yet. Try another.");
+                      return;
+                    }
+                    setMatchSize(s);
+                    setMatchResolved(resolved);
+                    setMatchChestDraft(String(resolved.profileChest));
+                    setMatchEditing(false);
+                    setStep("match-confirm");
+                    setError("");
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
+        {error ? <p className="cz-first-size-error">{error}</p> : null}
+        <div className="cz-first-size-foot is-centred">
+          <button
+            type="button"
+            className="cz-first-size-back"
+            onClick={() => {
+              setStep("ask1");
+              setError("");
+            }}
+          >
+            Back
+          </button>
+          {skipButton}
+        </div>
+      </section>
+    );
+  }
+
+  // ── B2 · Phase 2 Match · confirm the estimate ──
+  if (step === "match-confirm" && matchResolved) {
+    const draftNum = Number(matchChestDraft);
+    const displayChest = isFinite(draftNum) && draftNum > 0 ? draftNum : matchResolved.profileChest;
+    const caveat = brandMatchFitCaveat(matchResolved);
+    return (
+      <section
+        className="cz-first-size cz-first-size-ask cz-first-size-match-confirm"
+        aria-label="Confirm chest"
+      >
+        <div className="cz-first-size-head">
+          <span className="cz-first-size-eyebrow">{FIRST_SIZE_COPY.eyebrow}</span>
+          <span className="cz-first-size-flag is-warn">Confirm</span>
+        </div>
+        <h3 className="cz-first-size-title">
+          {brandMatchConfirmHeadline(matchResolved, displayChest)}
+        </h3>
+        <p className="cz-first-size-copy">{brandMatchConfirmBody()}</p>
+        <div className="cz-first-size-confirm-row">
+          {matchEditing ? (
+            <label className="cz-first-size-field cz-first-size-confirm-edit">
+              <span className="cz-first-size-field-label">Chest, full circumference</span>
+              <span className="cz-first-size-field-control">
+                <input
+                  inputMode="decimal"
+                  value={matchChestDraft}
+                  onChange={(e) => {
+                    setMatchChestDraft(e.target.value.replace(/[^\d.]/g, ""));
+                    setError("");
+                  }}
+                  aria-label="Chest in centimetres"
+                />
+                <span aria-hidden="true">cm</span>
+              </span>
+            </label>
+          ) : (
+            <>
+              <span className="cz-first-size-confirm-num">{formatMeasure(displayChest, "cm")}</span>
+              <span className="cz-first-size-confirm-unit">CM · CHEST</span>
+              <button
+                type="button"
+                className="cz-first-size-link"
+                onClick={() => setMatchEditing(true)}
+              >
+                {FIRST_SIZE_COPY.matchConfirmEdit}
+              </button>
+            </>
+          )}
+        </div>
+        {caveat ? <p className="cz-first-size-caveat">{caveat}</p> : null}
+        {error ? <p className="cz-first-size-error">{error}</p> : null}
+        <div className="cz-first-size-confirm-actions">
+          <button
+            type="button"
+            className="cz-first-size-primary"
+            onClick={() => {
+              const n = Number(matchChestDraft);
+              saveBrandMatch(isFinite(n) && n > 0 ? n : null);
+            }}
+          >
+            {FIRST_SIZE_COPY.matchConfirmUse}
+          </button>
+          <button
+            type="button"
+            className="cz-first-size-back"
+            onClick={() => {
+              setStep("match");
+              setMatchEditing(false);
+              setError("");
+            }}
+          >
+            {FIRST_SIZE_COPY.matchConfirmNotNow}
+          </button>
+        </div>
+        <p className="cz-first-size-promise">{brandMatchConfirmFoot(matchResolved)}</p>
       </section>
     );
   }
@@ -415,16 +699,33 @@ export default function FirstSizeBlock({
         </div>
         {error ? <p className="cz-first-size-error">{error}</p> : null}
         <div className="cz-first-size-foot">
-          <button
-            type="button"
-            className="cz-first-size-link"
-            onClick={() => {
-              setStep("measure");
-              setError("");
-            }}
-          >
-            {bottoms ? FIRST_SIZE_COPY.tapeLinkWaist : FIRST_SIZE_COPY.tapeLink}
-          </button>
+          <div className="cz-first-size-foot-links">
+            <button
+              type="button"
+              className="cz-first-size-link"
+              onClick={() => {
+                setStep("measure");
+                setError("");
+              }}
+            >
+              {bottoms ? FIRST_SIZE_COPY.tapeLinkWaist : FIRST_SIZE_COPY.tapeLink}
+            </button>
+            {!bottoms ? (
+              <button
+                type="button"
+                className="cz-first-size-link"
+                onClick={() => {
+                  setMatchBrand(null);
+                  setMatchSize("");
+                  setMatchResolved(null);
+                  setStep("match");
+                  setError("");
+                }}
+              >
+                {FIRST_SIZE_COPY.matchLink}
+              </button>
+            ) : null}
+          </div>
           {skipButton}
         </div>
       </section>

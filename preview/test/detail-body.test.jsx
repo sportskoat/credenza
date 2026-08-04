@@ -1133,3 +1133,239 @@ describe("DetailBody compact size chips (no chart)", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 });
+
+// Match Phase 2 rail + derived-body honesty (F 2026-08-04 review of #95).
+describe("DetailBody derived-body rail and confidence", () => {
+  const charted = (id) => item(id); // default item has sizeNotes chart
+
+  it("brand-match profile: rail is CHART PICK · BRAND TEE, sheen off, not SELLER'S CHART", () => {
+    const { container } = render(
+      body(charted("bm-rail"), {
+        bodyProfile: {
+          chest: 99.6,
+          firstSizeSource: "brand-match",
+          brandMatchBrand: "Nike",
+          brandMatchSize: "S",
+        },
+        onSaveBodyProfile: vi.fn(),
+      })
+    );
+    expect(screen.getByText("CHART PICK · BRAND TEE")).toBeInTheDocument();
+    expect(screen.queryByText("SELLER'S CHART")).not.toBeInTheDocument();
+    expect(container.querySelector(".cz-sizing-sheen")).toBe(null);
+  });
+
+  it("usual-fit profile: keeps CHART PICK · USUAL SIZE + FIT rail, sheen off", () => {
+    const { container } = render(
+      body(charted("uf-rail"), {
+        bodyProfile: {
+          chest: 96,
+          firstSizeSource: "usual-fit",
+          chestFromUsual: true,
+        },
+        onSaveBodyProfile: vi.fn(),
+      })
+    );
+    expect(screen.getByText("CHART PICK · USUAL SIZE + FIT")).toBeInTheDocument();
+    expect(container.querySelector(".cz-sizing-sheen")).toBe(null);
+  });
+
+  // Snug chart: body ~96–100 sits inside tolerance so phone confidence can
+  // reach the Precise/Estimated leaf (default CHART_TEXT is roomy and always
+  // lands on "Roomy for this cut" first).
+  const SNUG_CHART =
+    "M: chest 100, length 70\nL: chest 104, length 72\nXL: chest 108, length 74";
+  const snug = (id) =>
+    item(id, { sizeNotes: SNUG_CHART });
+
+  it("measure profile desktop: confidence is Verified fit", () => {
+    const { container } = render(
+      body(charted("meas-conf"), {
+        bodyProfile: { chest: 96, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null, // desktop editorial path shows the badge
+      })
+    );
+    const badge = container.querySelector(".cz-fit-result-badge");
+    expect(badge, "editorial confidence badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Verified fit/);
+  });
+
+  it("brand-match profile desktop: confidence is Estimated fit, not Verified fit", () => {
+    const { container } = render(
+      body(charted("bm-conf"), {
+        bodyProfile: {
+          chest: 99.6,
+          firstSizeSource: "brand-match",
+          brandMatchBrand: "Nike",
+          brandMatchSize: "S",
+        },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    // Editorial badge only — Fit4 strip also says Estimated fit after the
+    // five-surface gate, so getByText would match twice.
+    const badge = container.querySelector(".cz-fit-result-badge");
+    expect(badge, "editorial confidence badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Estimated fit/);
+    expect(badge.textContent).not.toMatch(/Verified fit/);
+  });
+
+  it("usual-fit profile desktop: confidence is Estimated fit, not Verified fit", () => {
+    const { container } = render(
+      body(charted("uf-conf"), {
+        bodyProfile: { chest: 96, firstSizeSource: "usual-fit" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    const badge = container.querySelector(".cz-fit-result-badge");
+    expect(badge, "editorial confidence badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Estimated fit/);
+    expect(badge.textContent).not.toMatch(/Verified fit/);
+  });
+
+  // F retraction 2026-08-04: frame 4 / mobileConfidence was chart-only.
+  // Every prior confidence pin was desktop; phone must pin the same matrix.
+  const phone = (id, bodyProfile) =>
+    body(snug(id), {
+      bodyProfile,
+      onSaveBodyProfile: vi.fn(),
+      heroPager: true,
+      onRequestClose: vi.fn(),
+    });
+
+  it("measure profile phone: mobile confidence is Precise fit + is-precise", () => {
+    const { container } = render(
+      phone("meas-phone", { chest: 96, firstSizeSource: "measure" })
+    );
+    const conf = container.querySelector(".cz-mobile-fit-confidence");
+    expect(conf, "phone confidence line").not.toBeNull();
+    expect(conf.textContent).toMatch(/Precise fit/);
+    expect(conf.textContent).not.toMatch(/Estimated fit/);
+    expect(conf.classList.contains("is-precise")).toBe(true);
+    expect(conf.classList.contains("is-rough")).toBe(false);
+  });
+
+  it("brand-match profile phone: mobile confidence is Estimated fit + is-rough", () => {
+    const { container } = render(
+      phone("bm-phone", {
+        chest: 99.6,
+        firstSizeSource: "brand-match",
+        brandMatchBrand: "Nike",
+        brandMatchSize: "S",
+      })
+    );
+    const conf = container.querySelector(".cz-mobile-fit-confidence");
+    expect(conf, "phone confidence line").not.toBeNull();
+    expect(conf.textContent).toMatch(/Estimated fit/);
+    expect(conf.textContent).not.toMatch(/Precise fit/);
+    // Kyle 2026-08-04: soften phone colour to match Fit4 is-rough.
+    expect(conf.classList.contains("is-rough")).toBe(true);
+    expect(conf.classList.contains("is-precise")).toBe(false);
+  });
+
+  it("usual-fit profile phone: mobile confidence is Estimated fit + is-rough", () => {
+    const { container } = render(
+      phone("uf-phone", { chest: 96, firstSizeSource: "usual-fit" })
+    );
+    const conf = container.querySelector(".cz-mobile-fit-confidence");
+    expect(conf, "phone confidence line").not.toBeNull();
+    expect(conf.textContent).toMatch(/Estimated fit/);
+    expect(conf.textContent).not.toMatch(/Precise fit/);
+    expect(conf.classList.contains("is-rough")).toBe(true);
+    expect(conf.classList.contains("is-precise")).toBe(false);
+  });
+
+  // Leaf gate: roominess is about garment ease, not body provenance.
+  // Derived body + out-of-tolerance measure still says Roomy, not Estimated.
+  it("brand-match phone with roomy chart: still Roomy for this cut, not Estimated fit", () => {
+    const { container } = render(
+      body(charted("bm-roomy-phone"), {
+        bodyProfile: {
+          chest: 99.6,
+          firstSizeSource: "brand-match",
+          brandMatchBrand: "Nike",
+          brandMatchSize: "S",
+        },
+        onSaveBodyProfile: vi.fn(),
+        heroPager: true,
+        onRequestClose: vi.fn(),
+      })
+    );
+    const conf = container.querySelector(".cz-mobile-fit-confidence");
+    expect(conf, "phone confidence line").not.toBeNull();
+    expect(conf.textContent).toMatch(/Roomy for this cut/);
+    expect(conf.textContent).not.toMatch(/Estimated fit/);
+    expect(conf.textContent).not.toMatch(/Precise fit/);
+    // Tone classes off — parent is-warn owns the colour.
+    expect(conf.classList.contains("is-rough")).toBe(false);
+    expect(conf.classList.contains("is-precise")).toBe(false);
+  });
+
+  // Both surfaces use design tokens — --cz-warn (not raw hex) + --cz-money (F).
+  it("phone confidence is-rough / is-precise colours match Fit4 badge tokens", () => {
+    expect(CSS).toMatch(
+      /\.cz-mobile-fit-confidence\.is-rough\s*\{[^}]*color:\s*var\(--cz-warn\);/s
+    );
+    expect(CSS).toMatch(
+      /\.cz-mobile-fit-confidence\.is-precise\s*\{[^}]*color:\s*var\(--cz-money\);/s
+    );
+    expect(CSS).toMatch(
+      /\.cz-fit4-badge\.is-rough\s*\{[^}]*color:\s*var\(--cz-warn\);/s
+    );
+    expect(CSS).toMatch(
+      /\.cz-fit4-badge\.is-precise\s*\{[^}]*color:\s*var\(--cz-money\);/s
+    );
+  });
+
+  // Fit4 strip badge — hardcoded "Precise fit" at :2986 before this fix.
+  // Matrix: measure keeps Precise; derived sources say Estimated + is-rough.
+  it("measure profile: Fit4 badge is Precise fit", () => {
+    const { container } = render(
+      body(charted("meas-fit4"), {
+        bodyProfile: { chest: 96, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+      })
+    );
+    const badge = container.querySelector(".cz-fit4-badge");
+    expect(badge, "Fit4 badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Precise fit/);
+    expect(badge.classList.contains("is-precise")).toBe(true);
+  });
+
+  it("brand-match profile: Fit4 badge is Estimated fit, not Precise fit", () => {
+    const { container } = render(
+      body(charted("bm-fit4"), {
+        bodyProfile: {
+          chest: 99.6,
+          firstSizeSource: "brand-match",
+          brandMatchBrand: "Nike",
+          brandMatchSize: "S",
+        },
+        onSaveBodyProfile: vi.fn(),
+      })
+    );
+    const badge = container.querySelector(".cz-fit4-badge");
+    expect(badge, "Fit4 badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Estimated fit/);
+    expect(badge.textContent).not.toMatch(/Precise fit/);
+    expect(badge.classList.contains("is-rough")).toBe(true);
+  });
+
+  it("usual-fit profile: Fit4 badge is Estimated fit, not Precise fit", () => {
+    const { container } = render(
+      body(charted("uf-fit4"), {
+        bodyProfile: { chest: 96, firstSizeSource: "usual-fit" },
+        onSaveBodyProfile: vi.fn(),
+      })
+    );
+    const badge = container.querySelector(".cz-fit4-badge");
+    expect(badge, "Fit4 badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Estimated fit/);
+    expect(badge.textContent).not.toMatch(/Precise fit/);
+    expect(badge.classList.contains("is-rough")).toBe(true);
+  });
+});
+
