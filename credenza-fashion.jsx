@@ -161,6 +161,8 @@ import {
   headerFor,
   isSettled,
   parseLinkMeta,
+  platformTile,
+  rowStageLabel,
   stageProgress,
   visibleRows,
 } from "./components/indexing.js";
@@ -7032,6 +7034,7 @@ function CredenzaApp() {
                   attempts: j.attempts + 1,
                   failReason: null,
                   sawEnriching: false,
+                  bornTitle: item.title || "",
                   startedAt: Date.now(),
                   doneAt: 0,
                   progress: 0.02,
@@ -7059,6 +7062,7 @@ function CredenzaApp() {
           sawEnriching: false,
           shown: false,
           slowTail: false,
+          bornTitle: item.title || "",
           createdAt: Date.now(),
           startedAt: Date.now(),
           doneAt: 0,
@@ -9065,14 +9069,14 @@ function CredenzaApp() {
           continue;
         }
         changed = true;
-        if (!online && gainedNothing(item)) {
+        if (!online && gainedNothing(item, job.bornTitle)) {
           // Offline is not a failure. The row parks at queued and the
           // reconnect effect below re-reads the link when the network returns.
           next.push({ ...job, state: "queued", sawEnriching: false });
           continue;
         }
         const fill = Math.min(job.thumbs.length, job.photoTotal || 8);
-        if (gainedNothing(item)) {
+        if (gainedNothing(item, job.bornTitle)) {
           next.push({
             ...job,
             state: "failed",
@@ -9116,6 +9120,7 @@ function CredenzaApp() {
           sawEnriching: false,
           shown: false,
           slowTail: false,
+          bornTitle: item.title || "",
           createdAt: Date.now(),
           startedAt: Date.now(),
           doneAt: 0,
@@ -9193,8 +9198,12 @@ function CredenzaApp() {
     const parked = indexJobs.filter((j) => j.state === "queued" && !j.sawEnriching);
     if (!parked.length) return;
     const retryable = parked
-      .map((j) => items.find((x) => x.id === j.id))
-      .filter((x) => x && x.status === "ready" && !x.needsSignIn && gainedNothing(x));
+      .map((j) => ({ job: j, item: items.find((x) => x.id === j.id) }))
+      .filter(
+        ({ job, item }) =>
+          item && item.status === "ready" && !item.needsSignIn && gainedNothing(item, job.bornTitle)
+      )
+      .map(({ item }) => item);
     if (retryable.length) enrichFashionItems(retryable);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online]);
@@ -9224,6 +9233,20 @@ function CredenzaApp() {
   }, []);
 
   const indexShownRows = useMemo(() => indexJobs.filter((j) => j.shown), [indexJobs]);
+  // The paste bar carries the lead job (indexing handoff, direction 1b: "the
+  // paste bar carries it"). While a job is live the desktop search field
+  // swaps to the platform tile, the pasted URL, the stage label and the green
+  // wash + bar; the Stash button dims and goes inert. Once everything has
+  // indexed, the field holds INDEXED until the strip's own exit clears the
+  // jobs. When only failures remain the field goes back to search — failure
+  // copy and Retry live in the strip, not the field.
+  const indexFieldJob = useMemo(() => {
+    if (!indexShownRows.length) return null;
+    const live = indexShownRows.find((j) => !isSettled(j));
+    if (live) return live;
+    if (indexShownRows.some((j) => j.state === "failed")) return null;
+    return indexShownRows[indexShownRows.length - 1];
+  }, [indexShownRows]);
   const indexHeader = useMemo(() => headerFor(indexShownRows), [indexShownRows]);
   // Over 6 links the strip caps at 4 visible rows and the header carries the
   // total; completed rows leave the visible set so the next queued link takes
@@ -12057,7 +12080,55 @@ function CredenzaApp() {
             {/* STEPS-HANDOFF item 6: an open haul shows no search field.
                 The ＋ Stash button stays — stashing mid-haul is normal. */}
             {!openHaulName && (
-            <label className="cz-desk-search-shell">
+            <label className={"cz-desk-search-shell" + (indexFieldJob ? " is-indexing" : "")}>
+              {indexFieldJob ? (
+                // Indexing handoff 1b: the paste bar carries the job. The
+                // field keeps its own resting size (a taller field would
+                // move everything below it, which the design forbids); only
+                // the contents change. The wash and the bar pin to the shell
+                // itself so they bleed to the field's own edges, and they
+                // read the same progress the strip row reads, so the two
+                // never disagree.
+                <>
+                <span
+                  className="cz-desk-index-wash"
+                  style={{ width: Math.round(indexFieldJob.progress * 100) + "%" }}
+                  aria-hidden="true"
+                />
+                <div className="cz-desk-index" role="status" aria-live="polite">
+                  {(() => {
+                    const tile = platformTile(indexFieldJob.platform);
+                    return (
+                      <span
+                        className="cz-desk-index-tile"
+                        style={{ background: tile.color }}
+                        aria-hidden="true"
+                      >
+                        {tile.letter}
+                      </span>
+                    );
+                  })()}
+                  <span className="cz-desk-index-url">{indexFieldJob.url}</span>
+                  <span
+                    className={
+                      "cz-desk-index-stage" +
+                      (indexFieldJob.state === "indexed" ? " is-done" : "")
+                    }
+                  >
+                    {rowStageLabel(indexFieldJob, {
+                      offline: !online,
+                      slowTail: indexFieldJob.slowTail,
+                    })}
+                  </span>
+                </div>
+                <span
+                  className="cz-desk-index-bar"
+                  style={{ width: Math.round(indexFieldJob.progress * 100) + "%" }}
+                  aria-hidden="true"
+                />
+                </>
+              ) : (
+              <>
               <Search className="cz-desk-search-leading" aria-hidden="true" size={16} strokeWidth={2.2} />
               <input
                 ref={deskSearchRef}
@@ -12093,12 +12164,14 @@ function CredenzaApp() {
                 // event, search is ambient — they never share one control.)
                 placeholder="Search your shelf"
               />
+              </>
+              )}
             </label>
             )}
             <button
               type="button"
-              className="cz-desk-stash-btn"
-              disabled={interactionLocked}
+              className={"cz-desk-stash-btn" + (indexFieldJob ? " is-inert" : "")}
+              disabled={interactionLocked || !!indexFieldJob}
               onClick={() => setCaptureSheetOpen(true)}
               aria-label="Stash a link or note"
               title="Stash a link or note"

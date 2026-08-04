@@ -203,11 +203,18 @@ export function visibleRows(rows, cap = 4) {
 // gained no photo, no title and no price is the failed state; a card that
 // gained some of it is "thin", which the spec renders exactly like indexed —
 // the card carries the gap, not the strip.
-export function gainedNothing(item) {
+//
+// bornTitle is the title the card was stashed with. The stash names a bare
+// link from its URL ("Weidian item 1050…"), so a non-URL title alone proves
+// nothing: a dead read keeps the placeholder and must still count as a
+// failure. Only a title the page itself supplied — different from the one
+// the card was born with — is a gain.
+export function gainedNothing(item, bornTitle) {
   if (!item) return true;
   const hasPhoto = !!(item.image || (item.gallery || []).length);
   const hasPrice = item.price != null;
-  const hasTitle = !!(item.title && !/^https?:\/\//.test(item.title));
+  const titled = !!(item.title && !/^https?:\/\//.test(item.title));
+  const hasTitle = titled && item.title !== (bornTitle || "");
   return !hasPhoto && !hasPrice && !hasTitle;
 }
 

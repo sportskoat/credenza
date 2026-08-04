@@ -7289,6 +7289,107 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   outline-offset: 2px;
 }
 
+/* Indexing handoff 1b: the paste bar carries the job. While a link indexes,
+   the desktop field swaps the search input for the platform tile, the pasted
+   URL, the stage label and the green wash + bar. The field keeps its resting
+   size: a taller field would move everything below it, and the design says
+   nothing below the strip moves for the whole 2–8 seconds. */
+.cz-desk-search-shell.is-indexing {
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+}
+
+.cz-desk-index {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.cz-desk-index-wash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  background: rgba(74, 222, 128, 0.07);
+  /* The handoff's 250ms on the house curve — those are exactly the tokens. */
+  transition: width var(--dur-open) var(--ease-out);
+  pointer-events: none;
+}
+
+.cz-desk-index-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--cz-money);
+  transition: width var(--dur-open) var(--ease-out);
+  pointer-events: none;
+}
+
+.cz-desk-index-tile {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--cz-display);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.cz-desk-index-url {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--cz-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The stage label rides in a fixed 104px slot (handoff) so a digit change in
+   "PULLING PHOTOS · 3 / 8" cannot resize anything beside it. */
+.cz-desk-index-stage {
+  flex: none;
+  width: 104px;
+  text-align: right;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--cz-sub);
+}
+
+.cz-desk-index-stage.is-done {
+  color: var(--cz-money);
+}
+
+/* Stash is inert while a job runs (handoff): dimmed, never removed, so the
+   bar's layout does not move. */
+.cz-desk-stash-btn.is-inert {
+  opacity: 0.56;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-desk-index-wash,
+  .cz-desk-index-bar {
+    transition: none !important;
+  }
+}
+
 /* Clipboard fast-path banner (6a): dark strip under the bar, one tap stashes. */
 .cz-desk-clip-wrap {
   display: none;

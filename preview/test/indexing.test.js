@@ -259,6 +259,17 @@ describe("gainedNothing", () => {
     expect(gainedNothing({ price: 120 })).toBe(false);
     expect(gainedNothing({ title: "Corduroy jacket" })).toBe(false);
   });
+
+  it("treats the stash-time placeholder title as nothing gained", () => {
+    // The stash names a bare link from its URL ("Weidian item 1050…"). A dead
+    // read keeps that name, so a non-URL title alone cannot mark a success —
+    // the probe watched a 500'd link settle as "indexed" until bornTitle
+    // taught the check what the card started with.
+    const born = "Weidian item 105000972378";
+    expect(gainedNothing({ title: born, price: null }, born)).toBe(true);
+    expect(gainedNothing({ title: "Corduroy jacket", price: null }, born)).toBe(false);
+    expect(gainedNothing({ title: born, image: "https://img/x.jpg" }, born)).toBe(false);
+  });
 });
 
 describe("failCopy and failReasonFor", () => {
