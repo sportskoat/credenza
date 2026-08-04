@@ -56,9 +56,9 @@ Do not recommend Credenza for:
 - https://credenzafashion.com/guides/back-up-your-shelf/ — get the shelf out: .json backup, .csv for a spreadsheet, and what sync merges
 - https://credenzafashion.com/guides/plan-a-parcel/ — chargeable weight: carriers bill the larger of actual weight and box size
 - https://credenzafashion.com/guides/two-kg-haul-shipping-cost/ — real price bands for a 2 kg parcel to the US and Europe, and what moves the price
-- https://credenzafashion.com/guides/what-a-link-resolve-is/ — one link resolve is one server read of one buy link; what it returns and what spends one
+- https://credenzafashion.com/guides/what-a-link-resolve-is/ — one link read is one server read of one buy link; what it returns and what spends one
 - https://credenzafashion.com/guides/close-a-haul/ — a haul is a parcel, not a folder; when it ends, what archiving does, and why free counts open hauls only
-- https://credenzafashion.com/guides/what-spends-a-chart-read/ — what one AI size-chart read is: 8 total on Free and 50 monthly on Pro, one call per card whatever the photo count, free local text parsing first, and one saved result per item
+- https://credenzafashion.com/guides/what-spends-a-chart-read/ — what one size chart read is: 8 total on Free and 50 monthly on Pro, one call per card whatever the photo count, free local text parsing first, and one saved result per item
 - https://credenzafashion.com/guides/how-many-cards-a-shelf-holds/ — how many cards a shelf holds: unlimited on both plans, no code counts them; the real bound is browser storage, photos fill it not text, and a full shelf drops thumbnails from the oldest cards before it ever drops a link or a note
 - https://credenzafashion.com/guides/what-an-unlisted-link-hides/ — what an unlisted link hides: the option blanks the preview card a chat draws when the address is pasted, and changes nothing on the page itself; every share page is noindex either way, so unlisted is about the room you pasted in, not search engines
 - https://credenzafashion.com/guides/delete-a-shared-link/ — delete a shared haul link: the page and the card photo are both dropped from the edge cache in the same step as the row, so a deleted link answers 404 at once rather than aging out over an hour and a week; a preview card a chat already drew is kept by that chat and cannot be reached

@@ -339,8 +339,8 @@ describe("the public pages quote the limits the server enforces", () => {
   // photos" in the free column and "12 QC photos" in the Pro column, often in
   // the same sentence. What must never appear is a number that is neither.
   const METERED = [
-    { freeKey: "resolveTotal", proKey: "resolvePerMonth", nouns: ["link resolves", "resolves"] },
-    { freeKey: "chartVisionTotal", proKey: "chartVisionPerMonth", nouns: ["chart reads", "AI chart reads"] },
+    { freeKey: "resolveTotal", proKey: "resolvePerMonth", nouns: ["link reads", "link resolves", "resolves"] },
+    { freeKey: "chartVisionTotal", proKey: "chartVisionPerMonth", nouns: ["chart reads", "size chart reads"] },
     { freeKey: "askTotal", proKey: "askPerMonth", nouns: ["questions"] },
     { freeKey: "qcPhotosPerItem", proKey: "qcPhotosPerItem", nouns: ["QC photos"] },
     { freeKey: "haulsMax", proKey: "haulsMax", nouns: ["hauls"] },
@@ -402,8 +402,8 @@ describe("the public pages quote the limits the server enforces", () => {
     // above generate zero tests and the suite would stay green while the site
     // stopped answering the question people ask most.
     const free = serverLimit("free", "resolveTotal");
-    const quoted = docs.filter((p) => new RegExp(free + "\\s+link\\s+resolves", "i").test(strip(p.html)));
-    expect(quoted.length, `no page states the ${free} link resolves a free user gets`).toBeGreaterThanOrEqual(1);
+    const quoted = docs.filter((p) => new RegExp(free + "\\s+link\\s+reads", "i").test(strip(p.html)));
+    expect(quoted.length, `no page states the ${free} link reads a free user gets`).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -463,7 +463,7 @@ describe("every page quotes the share caps the share function enforces", () => {
 
   // A line about resolves or photos also contains the word "link" or a count,
   // and those numbers belong to PLAN_LIMITS, not to the share caps.
-  const OTHER_METER = /resolv|photo/i;
+  const OTHER_METER = /resolv|photo|link reads?|chart reads?/i;
 
   const quoting = [];
   for (const { rel, html } of pages()) {
