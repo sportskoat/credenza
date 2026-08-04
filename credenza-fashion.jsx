@@ -85,10 +85,8 @@ import {
 import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS, usageAudience } from "./preview/src/usage.js";
 import { limitStatus, ANON_FREE_CARDS } from "./preview/src/limits.js";
 import {
-  buildShareSnapshot,
   buildHaulShareSnapshot,
   makeShareCode,
-  expiryFromDays,
   shareUrl,
 } from "./credenza-share.js";
 import { shareItemCard } from "./credenza-item-share.js";
@@ -114,8 +112,9 @@ const CurrencySheet = lazy(() => import("./sheets/CurrencySheet.jsx"));
 const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsPage = lazy(() => import("./settings/SettingsPage.jsx"));
 const AvatarMenu = lazy(() => import("./components/AvatarMenu.jsx"));
-const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
 // Haul sharing redesign: review capture + share sheet (handoff 2b · ii–v).
+// The one share sheet — v1 ShareSheet.jsx stays on disk unmounted as
+// reference, the way HaulFlowBoard does.
 const HaulReviewSheet = lazy(() => import("./sheets/HaulReviewSheet.jsx"));
 const HaulShareSheet = lazy(() => import("./sheets/HaulShareSheet.jsx"));
 // One sheet for every limit wall (Kyle 2026-07-30). Lazy: it opens on a tap or
@@ -9973,33 +9972,6 @@ function CredenzaApp() {
 
   // Build, post, answer with the URL. Throws with the server's message so the
   // sheet can print it — an over-cap or offline share is a normal outcome.
-  // Legacy v1 shelf share (ShareSheet.jsx). Kept for non-received hauls that
-  // still open the old sheet through the menu.
-  const createHaulShare = useCallback(
-    async (options) => {
-      const session = await getValidSession();
-      if (!session) {
-        setAccountSession(null);
-        throw new Error("Your sign-in expired. Sign in again first.");
-      }
-      const now = Date.now();
-      const doc = buildShareSnapshot(shareItemsFor(shareHaulName), {
-        fields: options.fields,
-        title: shareHaulName,
-        now,
-      });
-      const result = await createShare(session.accessToken, {
-        code: makeShareCode(),
-        doc,
-        unlisted: options.unlisted,
-        hideFooter: options.hideFooter,
-        expiresAt: expiryFromDays(options.expiryDays, now),
-      });
-      return result.url;
-    },
-    [shareHaulName, shareItemsFor]
-  );
-
   // Fully received hauls use the v2 haul share document (buildHaulShareSnapshot).
   const haulIsFullyReceived = useMemo(() => {
     if (!openHaulName || !haulShip) return false;
@@ -11720,9 +11692,12 @@ function CredenzaApp() {
         </Suspense>
       )}
 
-      {/* Share a haul. Fully received hauls open the v2 redesign sheet; other
-          hauls keep the LB-8 shelf share. The app owns the network call. */}
-      {shareHaulName && haulIsFullyReceived && (
+      {/* Share a haul. Every haul opens the v2 redesign sheet — Kyle
+          2026-08-04 found Share in the ⋯ menu of an in-flight haul and the
+          old sheet answered. One door, one page: a haul still on the way
+          simply has no received date or reviews yet, and the shared page
+          hides what it does not have. The app owns the network call. */}
+      {shareHaulName && (
         <Suspense fallback={null}>
           <HaulShareSheet
             haulName={shareHaulName}
@@ -11732,23 +11707,6 @@ function CredenzaApp() {
             onBuildDoc={buildHaulShareDoc}
             onCreate={createHaulShareV2}
             onCopy={copyLink}
-            onClose={() => setShareHaulName(null)}
-          />
-        </Suspense>
-      )}
-      {shareHaulName && !haulIsFullyReceived && (
-        <Suspense fallback={null}>
-          <ShareSheet
-            haulName={shareHaulName}
-            itemCount={shareHaulItems.length}
-            isPro={isProPlan}
-            signedIn={AUTH_ENABLED && !!accountSession}
-            onCreate={createHaulShare}
-            onCopy={copyLink}
-            onUpgrade={() => {
-              setShareHaulName(null);
-              openUpgrade();
-            }}
             onClose={() => setShareHaulName(null)}
           />
         </Suspense>

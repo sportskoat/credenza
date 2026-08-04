@@ -179,14 +179,15 @@ describe("the app shares the haul, not the view", () => {
   it("re-reads the session before every create", () => {
     // A share is a cloud write. An expired token must produce a sentence, not
     // a 401 the sheet has to translate.
-    expect(app).toMatch(/const createHaulShare = useCallback\(\s*async \(options\) => \{\s*\n\s*const session = await getValidSession\(\);/);
+    expect(app).toMatch(/const createHaulShareV2 = useCallback\(\s*async \(options\) => \{\s*\n\s*const session = await getValidSession\(\);/);
     expect(app).toContain("Your sign-in expired");
   });
 
-  it("stamps one `now` into both the document and the expiry", () => {
-    // Two Date.now() calls would let a 1-day link expire a millisecond early
-    // or late relative to its own snapshot. One reading, used twice.
-    expect(app).toMatch(/const now = Date\.now\(\);[\s\S]{0,900}?expiresAt: expiryFromDays\(options\.expiryDays, now\)/);
+  it("never expires a shared haul page", () => {
+    // A review page is meant to outlive the haul — a Reddit comment with the
+    // link should work next year. The v1 sheet's expiry picker died with it.
+    const create = app.slice(app.indexOf("const createHaulShareV2"));
+    expect(create.slice(0, 700)).toContain("expiresAt: null");
   });
 
   it("offers Share only on a haul that has cards", () => {
@@ -200,14 +201,15 @@ describe("the app shares the haul, not the view", () => {
     expect(app).toContain("onClose={() => setShareHaulName(null)}");
   });
 
-  it("lazy-loads the sheet like every other sheet", () => {
-    expect(app).toContain('const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));');
-    // The haul sharing redesign (2026-08) added a second sheet: fully received
-    // hauls open HaulShareSheet, other hauls keep ShareSheet. Both mount the
-    // same lazy way — behind Suspense, on the haul name.
+  it("lazy-loads the one share sheet, on the haul name", () => {
+    // Kyle 2026-08-04: the ⋯ menu's Share on an in-flight haul opened the old
+    // v1 sheet while the redesign waited for a fully received haul. One door,
+    // one page — every haul opens HaulShareSheet now. ShareSheet.jsx stays on
+    // disk unmounted (its own tests below still pin it), so the app must not
+    // import it.
+    expect(app).not.toContain('lazy(() => import("./sheets/ShareSheet.jsx"))');
     expect(app).toContain('const HaulShareSheet = lazy(() => import("./sheets/HaulShareSheet.jsx"));');
-    expect(app).toMatch(/\{shareHaulName && haulIsFullyReceived && \(\s*\n\s*<Suspense fallback=\{null\}>/);
-    expect(app).toMatch(/\{shareHaulName && !haulIsFullyReceived && \(\s*\n\s*<Suspense fallback=\{null\}>/);
+    expect(app).toMatch(/\{shareHaulName && \(\s*\n\s*<Suspense fallback=\{null\}>\s*\n\s*<HaulShareSheet/);
   });
 });
 
