@@ -12,8 +12,11 @@
 // runs the same fixtures through both and fails when they drift.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Keep in step with SHARE_DOC_VERSION in credenza-share.js.
-const SHARE_DOC_VERSION = 1;
+// Keep in step with SHARE_DOC_VERSION in credenza-share.js: the NEWEST
+// document version. SHARE_DOC_VERSIONS lists every version the reader still
+// accepts — v1 shelf shares keep rendering on their frozen copy.
+const SHARE_DOC_VERSION = 2;
+const SHARE_DOC_VERSIONS = [1, 2];
 const CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 const SHARE_CODE_LENGTH = 12;
 const CODE_RE = new RegExp("^[" + CODE_ALPHABET + "]{" + SHARE_CODE_LENGTH + "}$");
@@ -35,7 +38,7 @@ function parseShareSnapshot(raw) {
     }
   }
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
-  if (doc.v !== SHARE_DOC_VERSION) return null;
+  if (!SHARE_DOC_VERSIONS.includes(doc.v)) return null;
   if (!Array.isArray(doc.items)) return null;
   return doc;
 }
@@ -49,6 +52,7 @@ function isExpired(share, now) {
 
 module.exports = {
   SHARE_DOC_VERSION,
+  SHARE_DOC_VERSIONS,
   SHARE_CODE_LENGTH,
   CODE_ALPHABET,
   isShareCode,

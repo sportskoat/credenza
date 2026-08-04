@@ -13,7 +13,17 @@
 // snapshot, the price reaches the page.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const SHARE_DOC_VERSION = 1;
+import { fabricSignal } from "./haul-fit-share.js";
+
+export const SHARE_DOC_VERSION = 2;
+
+// Every version the reader still accepts. Version 1 is the shelf share below;
+// old links keep their frozen copy and the old renderer (AGENT-NOTES answer
+// 4: a layout change needs a new link, the old link never rewrites itself).
+export const SHARE_DOC_VERSIONS = Object.freeze([1, 2]);
+
+// The shelf share format is frozen at v1. New haul shares build v2 documents.
+const SHELF_DOC_VERSION = 1;
 
 // What the sharer can turn on. Photos and titles are not in this list: they
 // are the share. A card with no photo and no title is not worth a link.
@@ -164,7 +174,7 @@ export function buildShareSnapshot(items, options = {}) {
   }
 
   const doc = {
-    v: SHARE_DOC_VERSION,
+    v: SHELF_DOC_VERSION,
     title: text(options.title, 80) || "A Credenza haul",
     // The total is a summary of the shared cards, not of the haul. Sending
     // "12 items" on a page showing 6 tells the reader the page is wrong.
@@ -194,7 +204,7 @@ export function parseShareSnapshot(raw) {
     }
   }
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
-  if (doc.v !== SHARE_DOC_VERSION) return null;
+  if (!SHARE_DOC_VERSIONS.includes(doc.v)) return null;
   if (!Array.isArray(doc.items)) return null;
   return doc;
 }
@@ -222,4 +232,263 @@ export function expiryFromDays(days, now) {
 
 export function shareUrl(code, origin = "https://credenzafashion.com") {
   return String(origin).replace(/\/+$/, "") + "/s/" + code;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Haul share documents (v2) — the shared haul page, Review and Receipt.
+// Spec: the haul sharing handoff README + AGENT-NOTES.
+//
+// The same freezing rule as v1, plus the missing-data rule: a stat the old
+// haul does not have is ABSENT from the document, never blank, zero, or
+// "undefined". The shared page hides every absent cell.
+//
+// Link routing is money (docs/Monetization.md): storeUrl and albumUrl are the
+// RAW store links for the W2C button and the Reddit export; buyUrl is the
+// agent link WITH the affiliate code for the Buy button. The two never mix.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// The six include chips on the share sheet, in sheet order.
+export const HAUL_SHARE_INCLUDES = ["prices", "w2c", "fit", "sellers", "qc", "weights"];
+
+// Defaults: the first four on, QC photos and weights off (README §4).
+export const DEFAULT_HAUL_INCLUDES = Object.freeze({
+  prices: true,
+  w2c: true,
+  fit: true,
+  sellers: true,
+  qc: false,
+  weights: false,
+});
+
+export const HAUL_SHARE_LAYOUTS = ["review", "receipt", "both"];
+
+function normalizeIncludes(raw) {
+  const includes = { ...DEFAULT_HAUL_INCLUDES };
+  if (raw && typeof raw === "object") {
+    for (const key of HAUL_SHARE_INCLUDES) includes[key] = raw[key] === true;
+  }
+  return includes;
+}
+
+const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+
+function countWord(n) {
+  return n >= 1 && n <= 12 ? NUMBER_WORDS[n] : String(n);
+}
+
+// The intro line under the masthead: "Six pieces through Superbuy. Sizes are
+// read against my own measurements: 98cm chest, 79cm waist, 178cm." Each
+// measurement appears only when the author saved it.
+function buildIntro(count, agent, profile) {
+  const first = countWord(count) + (count === 1 ? " piece" : " pieces") + (agent ? " through " + agent : "") + ".";
+  const parts = [];
+  if (profile) {
+    const chest = Number(profile.chest);
+    const waist = Number(profile.waist);
+    const height = Number(profile.height);
+    if (Number.isFinite(chest) && chest > 0) parts.push(Math.round(chest) + "cm chest");
+    if (Number.isFinite(waist) && waist > 0) parts.push(Math.round(waist) + "cm waist");
+    if (Number.isFinite(height) && height > 0) parts.push(Math.round(height) + "cm");
+  }
+  const sentence = !parts.length ? first : first + " Sizes are read against my own measurements: " + parts.join(", ") + ".";
+  // Sentence case: "Six pieces …", "One piece …".
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
+function round2(value) {
+  return Math.round(value * 100) / 100;
+}
+
+// One haul item, reduced to what the include chips allow. `review` is the
+// author's capture for the item: { note, rebuy, rating, photos } — every
+// field optional, and unset fields stay ABSENT, never empty strings.
+function haulShareItem(item, includes, helpers) {
+  if (!item || typeof item !== "object") return null;
+  const title = text(item.title, 140);
+  const listingPhotos = (Array.isArray(item.photos) ? item.photos : [])
+    .map(safeImage)
+    .filter(Boolean)
+    .slice(0, 12);
+  const cover = safeImage(item.image) || listingPhotos[0] || null;
+  if (!title && !cover) return null;
+
+  const card = { title };
+  if (cover) card.image = cover;
+  if (listingPhotos.length) card.photos = listingPhotos;
+
+  const size = text(item.size, 24);
+  if (size) card.size = size;
+  const platform = text(item.platform, 24);
+  if (platform) card.platform = platform;
+
+  // W2C links: raw store URL + Yupoo album, and the affiliate Buy link.
+  if (includes.w2c) {
+    const storeUrl = safeUrl(item.url);
+    if (storeUrl) card.storeUrl = storeUrl;
+    const albumUrl = safeUrl(item.albumUrl);
+    if (albumUrl) card.albumUrl = albumUrl;
+    const buyUrl = helpers.buyUrlFor ? safeUrl(helpers.buyUrlFor(item)) : null;
+    if (buyUrl) card.buyUrl = buyUrl;
+  }
+
+  if (includes.prices) {
+    const usd = Number(item.priceUsd);
+    if (Number.isFinite(usd) && usd > 0) card.priceUsd = round2(usd);
+  }
+  if (includes.sellers) {
+    const seller = text(item.seller, 80);
+    if (seller) card.seller = seller;
+  }
+  if (includes.weights) {
+    const grams = Number(item.weightGrams);
+    if (Number.isFinite(grams) && grams > 0) {
+      card.weightGrams = Math.round(grams);
+      const fabric = fabricSignal(grams, helpers.weightKeyFor ? helpers.weightKeyFor(item) : null);
+      if (fabric) card.fabric = fabric;
+    }
+  }
+  if (includes.qc) {
+    const qcPhotos = (Array.isArray(item.qcPhotos) ? item.qcPhotos : [])
+      .map(safeImage)
+      .filter(Boolean)
+      .slice(0, 8);
+    if (qcPhotos.length) card.qcPhotos = qcPhotos;
+  }
+
+  // Fit notes: the fit block, the reviewer's note, the rebuy flag, the rating.
+  if (includes.fit) {
+    const fit = helpers.fitFor ? helpers.fitFor(item) : null;
+    if (fit && typeof fit === "object") {
+      const clean = {};
+      for (const key of ["translation", "short", "roomLine", "advice", "source"]) {
+        const value = text(fit[key], 160);
+        if (value) clean[key] = value;
+      }
+      if (Object.keys(clean).length) card.fit = clean;
+    }
+    const review = item.review && typeof item.review === "object" ? item.review : null;
+    if (review) {
+      const note = text(review.note, 600);
+      if (note) card.note = note;
+      if (review.rebuy === true || review.rebuy === false) card.rebuy = review.rebuy;
+      const rating = Number(review.rating);
+      if (Number.isFinite(rating) && rating >= 1 && rating <= 10) card.rating = Math.round(rating);
+      const ownPhotos = (Array.isArray(review.photos) ? review.photos : [])
+        .map(safeImage)
+        .filter(Boolean)
+        .slice(0, 8);
+      if (ownPhotos.length) card.ownPhotos = ownPhotos;
+    }
+  }
+  return card;
+}
+
+// Over the byte cap, inline (data:) photos go oldest-first, own photos and
+// QC photos before listing photos: the listing shots are the share.
+function fitHaulToBudget(doc, maxBytes) {
+  let size = JSON.stringify(doc).length;
+  if (size <= maxBytes) return doc;
+  const items = doc.items.map((card) => ({ ...card }));
+  const dropInline = (key) => {
+    for (let i = items.length - 1; i >= 0 && size > maxBytes; i--) {
+      const list = items[i][key];
+      if (!Array.isArray(list)) continue;
+      const kept = list.filter((url) => typeof url === "string" && !url.startsWith("data:image/"));
+      if (kept.length !== list.length) {
+        items[i] = { ...items[i], [key]: kept };
+        if (!kept.length) delete items[i][key];
+        size = JSON.stringify({ ...doc, items }).length;
+      }
+    }
+  };
+  dropInline("ownPhotos");
+  dropInline("qcPhotos");
+  dropInline("photos");
+  for (let i = items.length - 1; i >= 0 && size > maxBytes; i--) {
+    if (typeof items[i].image === "string" && items[i].image.startsWith("data:image/")) {
+      items[i] = { ...items[i], image: null };
+      size = JSON.stringify({ ...doc, items }).length;
+    }
+  }
+  return { ...doc, items };
+}
+
+/**
+ * The frozen v2 document for one fully received haul.
+ *
+ * @param {Array} items haul item cards; `review` rides each item
+ * @param {object} options
+ * @param {object} [options.includes] the six chips (defaults: first four on)
+ * @param {string} [options.layout] "review" | "receipt" | "both" (default both)
+ * @param {string} [options.agent] agent display name, eg "Superbuy"
+ * @param {object} [options.ship] { line, costUsd, chargeableG, domesticUsd }
+ * @param {string} [options.orderedAt] ISO date the parcel was submitted
+ * @param {string} [options.receivedAt] ISO date the parcel arrived
+ * @param {object} [options.profile] author measurements in cm
+ * @param {function} [options.buyUrlFor] item → agent link with affiliate code
+ * @param {function} [options.fitFor] item → buildSharedFit output
+ * @param {function} [options.weightKeyFor] item → weight class key, eg "tee"
+ */
+export function buildHaulShareSnapshot(items, options = {}) {
+  const includes = normalizeIncludes(options.includes);
+  const now = Number(options.now) || 0;
+  const list = Array.isArray(items) ? items : [];
+  const layout = HAUL_SHARE_LAYOUTS.includes(options.layout) ? options.layout : "both";
+  const agent = text(options.agent, 40);
+  const helpers = {
+    buyUrlFor: typeof options.buyUrlFor === "function" ? options.buyUrlFor : null,
+    fitFor: typeof options.fitFor === "function" ? options.fitFor : null,
+    weightKeyFor: typeof options.weightKeyFor === "function" ? options.weightKeyFor : null,
+  };
+
+  const cards = [];
+  for (const item of list) {
+    const card = haulShareItem(item, includes, helpers);
+    if (card) cards.push(card);
+    if (cards.length >= SHARE_MAX_ITEMS) break;
+  }
+
+  const doc = {
+    v: SHARE_DOC_VERSION,
+    title: text(options.title, 80) || "A Credenza haul",
+    count: cards.length,
+    truncated: list.length > cards.length,
+    layout,
+    includes,
+    intro: buildIntro(cards.length, agent || null, options.profile || null),
+    items: cards,
+    createdAt: now,
+  };
+  if (agent) doc.agent = agent;
+
+  // Haul stats, each present only when the haul actually carries the value.
+  const orderedAt = text(options.orderedAt, 40);
+  const receivedAt = text(options.receivedAt, 40);
+  if (orderedAt) doc.orderedAt = orderedAt;
+  if (receivedAt) doc.receivedAt = receivedAt;
+
+  const ship = options.ship && typeof options.ship === "object" ? options.ship : null;
+  if (includes.prices) {
+    const goodsUsd = cards.reduce((sum, card) => sum + (card.priceUsd || 0), 0);
+    if (goodsUsd > 0) doc.goodsUsd = round2(goodsUsd);
+    if (ship) {
+      const costUsd = Number(ship.costUsd);
+      if (Number.isFinite(costUsd) && costUsd > 0) {
+        doc.shipUsd = round2(costUsd);
+        const line = text(ship.line, 40);
+        if (line) doc.shipLine = line;
+      }
+      const domesticUsd = Number(ship.domesticUsd);
+      // Landed only when every part is known. A landed total that silently
+      // skips the shipping leg is a wrong number, not a smaller one.
+      if (goodsUsd > 0 && Number.isFinite(costUsd) && costUsd > 0) {
+        doc.landedUsd = round2(goodsUsd + (Number.isFinite(domesticUsd) ? domesticUsd : 0) + costUsd);
+      }
+    }
+  }
+  if (includes.weights && ship) {
+    const chargeableG = Number(ship.chargeableG);
+    if (Number.isFinite(chargeableG) && chargeableG > 0) doc.chargeableG = Math.round(chargeableG);
+  }
+  return fitHaulToBudget(doc, Number(options.maxBytes) || SHARE_MAX_BYTES);
 }

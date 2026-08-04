@@ -18,6 +18,14 @@ describe("the two share modules agree", () => {
     expect(cjs.SHARE_DOC_VERSION).toBe(esm.SHARE_DOC_VERSION);
   });
 
+  it("reads the same set of document versions", () => {
+    // v2 is the newest; v1 shelf shares must keep parsing on both sides or
+    // every link shared before the haul redesign starts answering 404.
+    expect([...cjs.SHARE_DOC_VERSIONS].sort()).toEqual([...esm.SHARE_DOC_VERSIONS].sort());
+    expect(esm.SHARE_DOC_VERSIONS).toContain(1);
+    expect(esm.SHARE_DOC_VERSIONS).toContain(esm.SHARE_DOC_VERSION);
+  });
+
   it("uses one code alphabet and length", () => {
     expect(cjs.SHARE_CODE_LENGTH).toBe(esm.SHARE_CODE_LENGTH);
     // Round-trip: a code the browser makes must pass the server's check.
@@ -35,6 +43,11 @@ describe("the two share modules agree", () => {
     const good = esm.buildShareSnapshot([{ title: "Coat", image: "https://x.test/a.jpg" }], { now: 1 });
     expect(cjs.parseShareSnapshot(good)).not.toBe(null);
     expect(esm.parseShareSnapshot(good)).not.toBe(null);
+
+    const haul = esm.buildHaulShareSnapshot([{ title: "Tee", image: "https://x.test/b.jpg" }], { now: 1 });
+    expect(haul.v).toBe(2);
+    expect(cjs.parseShareSnapshot(haul)).not.toBe(null);
+    expect(esm.parseShareSnapshot(haul)).not.toBe(null);
 
     for (const bad of [null, undefined, "", "not json", 0, [], [1], {}, { v: 1 }, { v: 99, items: [] }]) {
       expect(cjs.parseShareSnapshot(bad)).toBe(null);
