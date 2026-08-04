@@ -121,6 +121,10 @@ export default function AccountPlanSection() {
   // live usage against PLAN_CAPS.pro instead of `limits`.
   const caps = isPro ? PLAN_CAPS.pro : PLAN_CAPS.free;
   const audience = usageAudience(accountPlan, signedIn);
+  // Kyle 2026-08-04: the owner saw "0 of 50 chart reads · PRO CAPS" and read
+  // it as a wall. An owner has no counters at all — say so, in the row's own
+  // words, and never print a cap against this plan.
+  const todayOwner = "Open · no caps, nothing is counted";
   const todaySignedIn = isPro
     ? usageTotal("chartVision", { audience }) + " of " + caps.chartVisionPerMonth + " chart reads · " +
       usageTotal("resolve", { audience }) + " of " + caps.resolvePerMonth + " cards this month"
@@ -221,9 +225,7 @@ export default function AccountPlanSection() {
           ) : (
             <StandingRow
               title="Plan"
-              value={
-                signedIn ? "Free · $0" : "Free · $0 · no card, no trial clock"
-              }
+              value="Free · $0"
               action={
                 <Pill onClick={() => onOpenUpgrade()}>See what Pro changes</Pill>
               }
@@ -232,8 +234,8 @@ export default function AccountPlanSection() {
 
           <StandingRow
             title="Allowance"
-            value={signedIn ? todaySignedIn : todaySignedOut}
-            flag={!signedIn ? "LOCAL" : isPro ? "PRO CAPS" : "FREE CAPS"}
+            value={signedIn ? (isOwner ? todayOwner : todaySignedIn) : todaySignedOut}
+            flag={!signedIn ? "LOCAL" : isOwner ? "OWNER" : isPro ? "PRO CAPS" : "FREE CAPS"}
           />
 
           {/* Not in the README. It stays because a person who paid on another

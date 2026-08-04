@@ -73,8 +73,8 @@ export const PLAN_COPY = {
     PLAN_CAPS.free.chartVisionTotal +
     " chart reads, and the allowance never resets. Credenza keeps a spare copy of your shelf, so a lost phone costs you nothing.",
   // 3 · Free plan card body, on the upgrade route.
+  // Kyle 2026-08-04: drop "No card. No trial clock." from every plan surface.
   freeCardBody:
-    "No card. No trial clock. " +
     PLAN_CAPS.free.resolveTotal +
     " more cards and " +
     PLAN_CAPS.free.chartVisionTotal +

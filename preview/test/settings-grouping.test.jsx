@@ -130,26 +130,47 @@ describe("Sizes and measurements redesign (settings page)", () => {
     expect(container.querySelectorAll(".cz-sizes-tape")).toHaveLength(9);
   });
 
-  it("defaults to garment mode labels (pit to pit, not chest)", () => {
+  // Kyle 2026-08-04: garment mode is parked. Body labels are the only set.
+  it("defaults to body mode labels (chest, not pit to pit)", () => {
     const { container } = renderMeasure();
-    expect(measureInput(container, "Pit to pit")).toBeTruthy();
-    expect(within(container).getByText("WHICH TOP")).toBeTruthy();
-    expect(within(container).getByRole("radio", { name: "Your body" })).toBeTruthy();
+    expect(measureInput(container, "Chest")).toBeTruthy();
+    expect(within(container).queryByText("WHICH TOP")).toBeNull();
+    expect(within(container).queryByRole("radio", { name: "Your body" })).toBeNull();
+    expect(within(container).queryByRole("radio", { name: "A garment that fits" })).toBeNull();
   });
 
-  it("keeps body and garment values on separate drafts when the mode switches", async () => {
+  // Kyle 2026-08-04 parked the garment switch "for now" — the numbers people
+  // already saved must survive every later save, or the switch can never
+  // come back without data loss.
+  it("keeps saved garment numbers in the payload with the switch gone", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
-    const { container } = renderMeasure({ units: "cm" });
-    const pit = measureInput(container, "Pit to pit");
-    await user.clear(pit);
-    await user.type(pit, "54");
-    await user.click(within(container).getByRole("radio", { name: "Your body" }));
-    expect(measureInput(container, "Chest").value).toBe("");
-    await user.click(within(container).getByRole("radio", { name: "A garment that fits" }));
-    expect(measureInput(container, "Pit to pit").value).toBe("54");
+    const onSave = vi.fn();
+    const { container } = render(
+      <BodyProfileSheet
+        value={{ chest: 100, garment: { chest: 54 }, garmentTop: "Uniqlo U tee · L" }}
+        units="cm"
+        onSave={onSave}
+        onChangeUnits={noop}
+        onClose={noop}
+        embedded
+      />
+    );
+    const chest = measureInput(container, "Chest");
+    await user.clear(chest);
+    await user.type(chest, "104");
+    await waitFor(
+      () => {
+        expect(onSave).toHaveBeenCalled();
+        const saved = onSave.mock.calls[onSave.mock.calls.length - 1][0];
+        expect(saved.chest).toBe(104);
+        expect(saved.garment).toEqual({ chest: 54 });
+        expect(saved.garmentTop).toBe("Uniqlo U tee · L");
+      },
+      { timeout: 1500 }
+    );
   });
 
-  it("auto-saves garment under its own object and does not wipe body keys", async () => {
+  it("auto-saves body measures and keeps usual sizes", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
     const onSave = vi.fn();
     const { container } = render(
@@ -162,16 +183,15 @@ describe("Sizes and measurements redesign (settings page)", () => {
         embedded
       />
     );
-    const pit = measureInput(container, "Pit to pit");
-    await user.clear(pit);
-    await user.type(pit, "54");
+    const chest = measureInput(container, "Chest");
+    await user.clear(chest);
+    await user.type(chest, "104");
     await waitFor(
       () => {
         expect(onSave).toHaveBeenCalled();
         const saved = onSave.mock.calls[onSave.mock.calls.length - 1][0];
-        expect(saved.chest).toBe(100);
-        expect(saved.garment).toEqual({ chest: 54 });
-        expect(saved.measureMode).toBe("garment");
+        expect(saved.chest).toBe(104);
+        expect(saved.measureMode).toBe("body");
         expect(saved.usualTops).toBe("L");
       },
       { timeout: 1500 }
@@ -189,16 +209,17 @@ describe("Sizes and measurements redesign (settings page)", () => {
         embedded
       />
     );
-    // Garment mode is default: only garment.chest is filled → 1 OF 9.
+    // Body mode only: height/weight sit in the usual strip, chest is the one
+    // filled measure field → 1 OF 9.
     expect(within(container).getByText("1 OF 9")).toBeTruthy();
   });
 
   it("active field row gets the is-active class", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
     const { container } = renderMeasure();
-    const pit = measureInput(container, "Pit to pit");
-    await user.click(pit);
-    expect(pit.closest(".cz-sizes-row").classList.contains("is-active")).toBe(true);
+    const chest = measureInput(container, "Chest");
+    await user.click(chest);
+    expect(chest.closest(".cz-sizes-row").classList.contains("is-active")).toBe(true);
   });
 
   // Mobile item D (2026-08-02): focus may change paint only — never height,
@@ -207,20 +228,20 @@ describe("Sizes and measurements redesign (settings page)", () => {
   it("active and inactive measurement rows share the same offsetHeight", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
     const { container } = renderMeasure();
-    const pit = measureInput(container, "Pit to pit");
-    const shoulder = measureInput(container, "Shoulder seam");
-    const pitRow = pit.closest(".cz-sizes-row");
+    const chest = measureInput(container, "Chest");
+    const shoulder = measureInput(container, "Shoulder");
+    const chestRow = chest.closest(".cz-sizes-row");
     const shoulderRow = shoulder.closest(".cz-sizes-row");
     // Idle heights equal before any focus.
-    expect(pitRow.offsetHeight).toBe(shoulderRow.offsetHeight);
-    await user.click(pit);
-    expect(pitRow.classList.contains("is-active")).toBe(true);
+    expect(chestRow.offsetHeight).toBe(shoulderRow.offsetHeight);
+    await user.click(chest);
+    expect(chestRow.classList.contains("is-active")).toBe(true);
     expect(shoulderRow.classList.contains("is-active")).toBe(false);
-    expect(pitRow.offsetHeight).toBe(shoulderRow.offsetHeight);
+    expect(chestRow.offsetHeight).toBe(shoulderRow.offsetHeight);
     await user.click(shoulder);
     expect(shoulderRow.classList.contains("is-active")).toBe(true);
-    expect(pitRow.classList.contains("is-active")).toBe(false);
-    expect(pitRow.offsetHeight).toBe(shoulderRow.offsetHeight);
+    expect(chestRow.classList.contains("is-active")).toBe(false);
+    expect(chestRow.offsetHeight).toBe(shoulderRow.offsetHeight);
   });
 
   it("pins paint-only active styles for .cz-sizes-row (no layout delta)", () => {
@@ -270,7 +291,9 @@ describe("Sizes and measurements redesign (settings page)", () => {
     expect(src).toMatch(/holdListScroll/);
   });
 
-  it("shows the other source as a mono hint when both sets have a value", () => {
+  // Garment mode is parked. Cross-source hints stay off so the body sheet
+  // does not show a half-built second set of numbers.
+  it("does not show a garment cross-source hint while garment mode is parked", () => {
     const { container } = render(
       <BodyProfileSheet
         value={{ chest: 40.5, garment: { chest: 21 } }}
@@ -281,18 +304,13 @@ describe("Sizes and measurements redesign (settings page)", () => {
         embedded
       />
     );
-    // Default garment mode: body value shows as a mono "body …" hint.
-    // Every row always mounts .cz-sizes-row-also (empty when no hint) so the
-    // fixed grid columns stay aligned — find the one with content.
     const also = [...container.querySelectorAll(".cz-sizes-row-also")].find(
       (el) => el.textContent.trim().length > 0
     );
-    expect(also).toBeTruthy();
-    expect(also.textContent).toMatch(/^body\s+\d/);
+    expect(also).toBeUndefined();
   });
 
-  it("moves legacy body and garment sleeve values into their matching rows", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
+  it("moves a legacy body sleeve value into the long-sleeve row", () => {
     const { container } = renderMeasure({
       units: "cm",
       value: {
@@ -303,8 +321,5 @@ describe("Sizes and measurements redesign (settings page)", () => {
     });
     expect(measureInput(container, "Short sleeve").value).toBe("");
     expect(measureInput(container, "Long sleeve").value).toBe("62");
-    await user.click(within(container).getByRole("radio", { name: "A garment that fits" }));
-    expect(measureInput(container, "Short sleeve").value).toBe("24");
-    expect(measureInput(container, "Long sleeve").value).toBe("");
   });
 });

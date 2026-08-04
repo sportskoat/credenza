@@ -155,4 +155,17 @@ describe("AvatarMenu · leaving", () => {
     fireEvent.mouseDown(document.body);
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  // The profile button toggles the menu. Outside mousedown must not race that
+  // click, or one tap closes then re-opens.
+  it("does not close on mousedown of the profile toggle", () => {
+    const onClose = vi.fn();
+    renderMenu({ onClose });
+    const toggle = document.createElement("button");
+    toggle.setAttribute("data-cz-avatar-toggle", "");
+    document.body.appendChild(toggle);
+    fireEvent.mouseDown(toggle);
+    expect(onClose).not.toHaveBeenCalled();
+    toggle.remove();
+  });
 });

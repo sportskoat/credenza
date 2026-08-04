@@ -339,6 +339,9 @@ button {
   overflow: auto;
   overscroll-behavior: contain;
   background: var(--cz-card);
+  /* Kyle 2026-08-04: every pop-up modal is rounded. Fashion theme reasserts
+     --radius-card; phone bottom sheets override to sheet tops only. */
+  border-radius: 16px;
   box-shadow:
     0 24px 64px oklch(0 0 0 / 0.24),
     0 4px 14px oklch(0 0 0 / 0.12);

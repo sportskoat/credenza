@@ -2188,6 +2188,8 @@ describe("the public site shares one look and one header", () => {
   // Kyle 2026-08-02: footer sat left under a centred reading column. The
   // line is centred, and article pages pin it to --max so it sits under the
   // copy. Landing keeps the full shell for .site-foot.
+  // Kyle 2026-08-04: CTA was left of centre (inline-block + margin:auto does
+  // not centre). The end stack — CTA, related, footer — is one centred column.
   it("centres the public page footer under the reading column", () => {
     const footRule = cssRules(SITE_CSS).find((r) => selectorOf(r) === "footer");
     expect(footRule, "site.css has no footer rule").toBeTruthy();
@@ -2202,6 +2204,25 @@ describe("the public site shares one look and one header", () => {
     expect(articleFoot, "article footer no longer pins to the reading column").toBeTruthy();
     expect(tidy(articleFoot), "article footer is not pinned to --max").toMatch(
       /max-width:\s*var\(--max\)/
+    );
+  });
+
+  it("centres the Open Credenza CTA and the related links with the footer", () => {
+    const ctaRule = cssRules(SITE_CSS).find((r) => selectorOf(r) === ".cta");
+    expect(ctaRule, "site.css has no .cta rule").toBeTruthy();
+    const cta = tidy(ctaRule);
+    // table + margin auto shrink-wraps and centres; inline-block never did.
+    expect(cta, "CTA is not a shrink-wrap block that can centre").toMatch(
+      /display:\s*table/
+    );
+    expect(cta, "CTA is not horizontally centred").toMatch(
+      /margin:\s*[^;]*auto/
+    );
+    const relatedRule = cssRules(SITE_CSS).find((r) => selectorOf(r) === ".related");
+    expect(relatedRule, "site.css has no .related rule").toBeTruthy();
+    const related = tidy(relatedRule);
+    expect(related, "related links are not centred").toMatch(
+      /justify-content:\s*center|text-align:\s*center/
     );
   });
 

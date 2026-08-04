@@ -87,7 +87,8 @@ describe("Account and plan · signed out", () => {
     expect(within(container).getByText("You are signed out.")).toBeTruthy();
     expect(within(container).getByText(PLAN_COPY.settingsSignedOutBody)).toBeTruthy();
     expect(within(container).getByText("Signed out · this device only")).toBeTruthy();
-    expect(within(container).getByText("Free · $0 · no card, no trial clock")).toBeTruthy();
+    expect(within(container).getByText("Free · $0")).toBeTruthy();
+    expect(container.textContent).not.toMatch(/no card|no trial clock/i);
   });
 
   it("opens the sign-in modal from the account row", () => {
@@ -220,10 +221,22 @@ describe("Account and plan · owner", () => {
   it("names permanent owner access and offers no billing door", () => {
     const { container } = renderSection({ accountPlan: { state: "owner" }, limits: null });
     expect(within(container).getByText("Signed in. Owner access is on.")).toBeTruthy();
-    expect(within(container).getByText("OWNER")).toBeTruthy();
+    // The plan pill and the Allowance flag both read OWNER.
+    expect(within(container).getAllByText("OWNER").length).toBe(2);
     expect(within(container).getByText("Owner · permanent full access")).toBeTruthy();
     expect(within(container).queryByText("Manage billing")).toBeNull();
     expect(within(container).queryByText("See what Pro changes")).toBeNull();
+  });
+
+  // Kyle 2026-08-04, looking at his own OWNER plan: the Allowance row read
+  // "0 of 50 chart reads · PRO CAPS" and he read it as a wall. An owner has
+  // no counters at all. The row says so and never prints a cap against him.
+  it("prints no cap against the owner allowance", () => {
+    const { container } = renderSection({ accountPlan: { state: "owner" }, limits: null });
+    expect(within(container).getByText("Open · no caps, nothing is counted")).toBeTruthy();
+    expect(within(container).queryByText(/of \d+ chart reads/)).toBeNull();
+    expect(within(container).queryByText("PRO CAPS")).toBeNull();
+    expect(within(container).queryByText("FREE CAPS")).toBeNull();
   });
 });
 

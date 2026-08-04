@@ -266,11 +266,12 @@ export default function BodyProfileSheet({
   const dirty = useRef(false);
   const saveTimer = useRef(null);
 
-  const [mode, setMode] = useState(() =>
-    value && (value.measureMode === "body" || value.measureMode === "garment")
-      ? value.measureMode
-      : "garment"
-  );
+  // Kyle 2026-08-04: "take out a garmet that fits for now. since it doesnt
+  // do anything." The source switch is out; the sheet measures the body only.
+  // The garment draft, its storage keys, and its buildPayload path all stay —
+  // numbers people already saved are untouched, and the switch can come back
+  // by restoring the options row in the measurements header.
+  const mode = "body";
   const [bodyDraft, setBodyDraft] = useState(() => {
     const d = draftFromStorage(value, units);
     d.height = measureFromStorage(value && value.height, units, "length");
@@ -287,7 +288,6 @@ export default function BodyProfileSheet({
   const [saved, setSaved] = useState(false);
 
   const draft = mode === "garment" ? garmentDraft : bodyDraft;
-  const otherDraft = mode === "garment" ? bodyDraft : garmentDraft;
   const labels = LABELS[mode];
   const how = HOW[mode];
   const unitShort = units === "in" ? "IN" : "CM";
@@ -422,23 +422,9 @@ export default function BodyProfileSheet({
     scheduleSave({ bodyDraft: nextBody, garmentDraft: nextGarment, units: next });
   };
 
-  const switchMode = (next) => {
-    if (next === mode) return;
-    setMode(next);
-    scheduleSave({ mode: next });
-  };
-
   const saveManual = () => {
     persist({ bodyDraft, garmentDraft, usual, garmentTop, garmentBottom, mode, units });
     if (!embedded) onClose();
-  };
-
-  const otherHint = (key) => {
-    const raw = otherDraft[key];
-    const nVal = parseFloat(raw);
-    if (!isFinite(nVal) || nVal <= 0) return "";
-    const tag = mode === "body" ? "garment" : "body";
-    return tag + " " + formatHint(nVal);
   };
 
   const bindRef = (key) => (el) => {
@@ -448,7 +434,9 @@ export default function BodyProfileSheet({
   const fieldRow = (key) => {
     const group = TOPS.indexOf(key) >= 0 ? "tops" : "bot";
     const isActive = active[group] === key;
-    const hint = otherHint(key);
+    // Cross-source hints ("garment 21") left with the garment switch
+    // (Kyle 2026-08-04). The empty lane stays so the grid columns hold.
+    const hint = "";
     return (
       <label
         key={key}
@@ -546,96 +534,98 @@ export default function BodyProfileSheet({
     );
   };
 
-  const modeBlurb =
-    (mode === "garment"
-      ? "A piece you already own that fits the way you want, measured flat."
-      : "You, with a tape measure.") +
-    " Both sets stay saved. The switch never erases the other one.";
+  const modeBlurb = "You, with a tape measure.";
 
   const body = (
     <div className={"cz-sizes" + (embedded ? " is-embedded" : "")}>
-      {/* Usual sizes strip */}
+      {/* Usual sizes strip — two fixed rows so chips never collapse mid-row
+          (Kyle 2026-08-04). Clothing sizes on top; height/weight below. */}
       <div className="cz-sizes-usual-strip">
-        <span className="cz-sizes-usual-kicker">USUAL SIZES</span>
-        <label className="cz-sizes-usual-pill">
-          <span>Tops</span>
-          <input
-            className="cz-sizes-usual-input is-text"
-            value={usual.usualTops}
-            onChange={(e) => {
-              const v = e.target.value;
-              setUsual((u) => {
-                const next = { ...u, usualTops: v };
-                scheduleSave({ usual: next });
-                return next;
-              });
-            }}
-            placeholder="-"
-            aria-label="Usual tops size"
-          />
-        </label>
-        <label className="cz-sizes-usual-pill">
-          <span>Bottoms</span>
-          <input
-            className="cz-sizes-usual-input is-text"
-            value={usual.usualBottoms}
-            onChange={(e) => {
-              const v = e.target.value;
-              setUsual((u) => {
-                const next = { ...u, usualBottoms: v };
-                scheduleSave({ usual: next });
-                return next;
-              });
-            }}
-            placeholder="-"
-            aria-label="Usual bottoms size"
-          />
-        </label>
-        <label className="cz-sizes-usual-pill">
-          <span>Shoes</span>
-          <input
-            className="cz-sizes-usual-input is-text"
-            value={usual.usualShoes}
-            onChange={(e) => {
-              const v = e.target.value;
-              setUsual((u) => {
-                const next = { ...u, usualShoes: v };
-                scheduleSave({ usual: next });
-                return next;
-              });
-            }}
-            placeholder="-"
-            aria-label="Usual shoes size"
-          />
-        </label>
-        <label className="cz-sizes-usual-pill">
-          <span>Height</span>
-          <input
-            className="cz-sizes-usual-input"
-            inputMode="decimal"
-            value={bodyDraft.height || ""}
-            onChange={(e) => setBodyMeta("height", e.target.value)}
-            placeholder="-"
-            aria-label="Height"
-          />
-          <em>{unitShort}</em>
-        </label>
-        <label className="cz-sizes-usual-pill">
-          <span>Weight</span>
-          <input
-            className="cz-sizes-usual-input is-weight"
-            inputMode="decimal"
-            value={bodyDraft.weight || ""}
-            onChange={(e) => setBodyMeta("weight", e.target.value)}
-            placeholder="-"
-            aria-label="Weight"
-          />
-          <em>{weightUnit}</em>
-        </label>
-        <p className="cz-sizes-usual-note">
-          Height and weight only feed the ~ estimate when a chart exists and your measurements
-          don&apos;t.
-        </p>
+        <div className="cz-sizes-usual-row">
+          <span className="cz-sizes-usual-kicker">USUAL SIZES</span>
+          <label className="cz-sizes-usual-pill">
+            <span>Tops</span>
+            <input
+              className="cz-sizes-usual-input is-text"
+              value={usual.usualTops}
+              onChange={(e) => {
+                const v = e.target.value;
+                setUsual((u) => {
+                  const next = { ...u, usualTops: v };
+                  scheduleSave({ usual: next });
+                  return next;
+                });
+              }}
+              placeholder="-"
+              aria-label="Usual tops size"
+            />
+          </label>
+          <label className="cz-sizes-usual-pill">
+            <span>Bottoms</span>
+            <input
+              className="cz-sizes-usual-input is-text"
+              value={usual.usualBottoms}
+              onChange={(e) => {
+                const v = e.target.value;
+                setUsual((u) => {
+                  const next = { ...u, usualBottoms: v };
+                  scheduleSave({ usual: next });
+                  return next;
+                });
+              }}
+              placeholder="-"
+              aria-label="Usual bottoms size"
+            />
+          </label>
+          <label className="cz-sizes-usual-pill">
+            <span>Shoes</span>
+            <input
+              className="cz-sizes-usual-input is-text"
+              value={usual.usualShoes}
+              onChange={(e) => {
+                const v = e.target.value;
+                setUsual((u) => {
+                  const next = { ...u, usualShoes: v };
+                  scheduleSave({ usual: next });
+                  return next;
+                });
+              }}
+              placeholder="-"
+              aria-label="Usual shoes size"
+            />
+          </label>
+        </div>
+        <div className="cz-sizes-usual-row">
+          <span className="cz-sizes-usual-kicker" aria-hidden="true" />
+          <label className="cz-sizes-usual-pill">
+            <span>Height</span>
+            <input
+              className="cz-sizes-usual-input is-height"
+              inputMode="decimal"
+              value={bodyDraft.height || ""}
+              onChange={(e) => setBodyMeta("height", e.target.value)}
+              placeholder="-"
+              aria-label="Height"
+            />
+            <em>{unitShort}</em>
+          </label>
+          <label className="cz-sizes-usual-pill">
+            <span>Weight</span>
+            <input
+              className="cz-sizes-usual-input is-weight"
+              inputMode="decimal"
+              value={bodyDraft.weight || ""}
+              onChange={(e) => setBodyMeta("weight", e.target.value)}
+              placeholder="-"
+              aria-label="Weight"
+            />
+            <em>{weightUnit}</em>
+          </label>
+          <p className="cz-sizes-usual-note">
+            Height and weight only feed the ~ estimate when a chart exists and your measurements
+            don&apos;t.
+          </p>
+        </div>
       </div>
 
       {/* Measurements header */}
@@ -647,15 +637,7 @@ export default function BodyProfileSheet({
           </span>
         </div>
         <div className="cz-sizes-meas-controls">
-          <SegmentedControl
-            label="Measurement source"
-            value={mode}
-            onChange={switchMode}
-            options={[
-              { value: "body", label: "Your body" },
-              { value: "garment", label: "A garment that fits" },
-            ]}
-          />
+          {/* Kyle 2026-08-04: garment mode is parked. Units stay. */}
           <SegmentedControl
             label="Units"
             value={units}
@@ -668,15 +650,13 @@ export default function BodyProfileSheet({
         </div>
       </div>
       <p className="cz-sizes-mode-help">{modeBlurb}</p>
-      {mode === "body" ? (
-        <p className="cz-sizes-mode-help cz-sizes-body-help">
-          These numbers come from your body, not from a size label. Use a soft tape measure over
-          bare skin or light clothing, not a bulky sweater. Waist and hip are your body&apos;s
-          real size around, not the number on your usual pants. Chest is the fullest part around
-          your body, not your usual shirt size. Trouser length here is waist to ankle down the
-          outside of your leg, not your usual inseam label.
-        </p>
-      ) : null}
+      <p className="cz-sizes-mode-help cz-sizes-body-help">
+        These numbers come from your body, not from a size label. Use a soft tape measure over
+        bare skin or light clothing, not a bulky sweater. Waist and hip are your body&apos;s
+        real size around, not the number on your usual pants. Chest is the fullest part around
+        your body, not your usual shirt size. Trouser length here is waist to ankle down the
+        outside of your leg, not your usual inseam label.
+      </p>
 
       <div className="cz-sizes-groups">{groupCard("tops")}
         {groupCard("bot")}

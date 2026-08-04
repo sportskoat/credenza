@@ -422,10 +422,9 @@ describe("Fashion card-back navigation and editing", () => {
   });
 
   it("swaps Shelf and Hauls both ways through the animated view switch", async () => {
-    // Kyle 2026-08-02: the Shelf/Hauls switch must move like the filter
-    // chips — one AnimatePresence swapper drives both directions. The round
-    // trip pins the swap itself; framer-motion still tweens in jsdom, so
-    // mode="wait" timing is exercised here too.
+    // Kyle 2026-08-04: Shelf/Hauls crossfades with mode="sync" so the page
+    // never blanks. One AnimatePresence swapper drives both directions.
+    // The round trip pins the swap itself.
     installShim({
       [STORE_KEY]: JSON.stringify([
         fashionItem({

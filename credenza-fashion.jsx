@@ -152,7 +152,6 @@ import HaulTitleMenu from "./components/HaulTitleMenu.jsx";
 // empty column strip first.
 import HaulSteps from "./components/HaulSteps.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
-import IntroStrip from "./components/IntroStrip.jsx";
 import IndexingStrip from "./components/IndexingStrip.jsx";
 import {
   advanceProgress,
@@ -6935,12 +6934,8 @@ function CredenzaApp() {
     writeFitSkippedAt(new Date().toISOString());
     setFitPromptSkipped(true);
   };
-  // A0 arrival strip. Dismissal is permanent, so the flag starts from storage.
-  const [introDismissed, setIntroDismissed] = useState(() => readIntroDismissed());
-  const dismissIntro = () => {
-    writeIntroDismissed();
-    setIntroDismissed(true);
-  };
+  // A0 arrival strip removed (Kyle 2026-08-04): the tip card under the paste
+  // bar is gone. Helpers stay for existing storage keys and unit tests.
   // The first-run intro GATE is gone (onboarding spec, Kyle 2026-07-26): a
   // cold open now lands straight on the hero, because the hero already says
   // what the intro said and the paste field is the only thing to do next.
@@ -9188,32 +9183,68 @@ function CredenzaApp() {
   }, [indexJobs.length]);
 
   const indexExitArmedRef = useRef(false);
+  const indexExitTimersRef = useRef(null);
   useEffect(() => {
-    if (!indexJobs.length) {
+    const cancelExit = () => {
+      const timers = indexExitTimersRef.current;
+      if (timers) {
+        window.clearTimeout(timers.fade);
+        window.clearTimeout(timers.clear);
+        indexExitTimersRef.current = null;
+      }
       indexExitArmedRef.current = false;
+    };
+    if (!indexJobs.length) {
+      cancelExit();
       setIndexExiting(false);
       return;
     }
-    if (!indexJobs.every(isSettled)) return;
+    // A fresh paste or a retry disarms a pending exit: the strip has work
+    // again. Without this a link stashed inside the 750ms exit window would
+    // be swept away with the finished rows.
+    if (!indexJobs.every(isSettled)) {
+      cancelExit();
+      return;
+    }
     // When failures are present the strip does not auto-dismiss: it stays
     // until each one is retried or dismissed.
-    if (indexJobs.some((j) => j.state === "failed")) return;
+    if (indexJobs.some((j) => j.state === "failed")) {
+      cancelExit();
+      return;
+    }
+    if (indexExitArmedRef.current) return;
     // Let the completion sweep finish on screen first: the bar glides to
     // full over ~900ms, and a strip that leaves mid-sweep reads as a jump.
     if (!indexJobs.every((j) => (j.progress || 0) >= 0.985)) return;
-    if (indexExitArmedRef.current) return;
     indexExitArmedRef.current = true;
     const fade = window.setTimeout(() => setIndexExiting(true), 500);
     const clear = window.setTimeout(() => {
-      setIndexJobs([]);
+      // Keep only live rows: a link pasted inside the exit window survives.
+      setIndexJobs((jobs) => jobs.filter((j) => !isSettled(j)));
       setIndexExiting(false);
       indexExitArmedRef.current = false;
+      indexExitTimersRef.current = null;
     }, 750);
-    return () => {
-      window.clearTimeout(fade);
-      window.clearTimeout(clear);
-    };
+    indexExitTimersRef.current = { fade, clear };
+    // No cleanup on purpose. The completion sweep ticks every 100ms and each
+    // tick re-runs this effect; a cleanup would cancel the exit this run
+    // just armed, and the armed flag then blocked every later try — the
+    // strip stayed on screen with INDEXED forever (Kyle 2026-08-04:
+    // "indexign stays on even when done indexing"). The disarm paths above
+    // cancel the timers explicitly instead.
   }, [indexJobs]);
+
+  // Unmount only: never fire a stray setState from a pending exit timer.
+  useEffect(() => {
+    const timers = indexExitTimersRef;
+    return () => {
+      if (timers.current) {
+        window.clearTimeout(timers.current.fade);
+        window.clearTimeout(timers.current.clear);
+        timers.current = null;
+      }
+    };
+  }, []);
 
   // Reconnect: rows parked at queued while offline re-read their links.
   useEffect(() => {
@@ -10568,39 +10599,25 @@ function CredenzaApp() {
     };
   }, [carouselOverlay]);
 
-  // §11: a card tap opens the detail through the photo morph. The card hands up
-  // its photo node; that node carries the shared view-transition-name for the
-  // one frame the browser needs to snapshot it, then gives it back.
+  // Kyle 2026-08-04: grid → detail must feel like carousel → detail. That path
+  // is the t-modal (scale 0.96 → 1). The photo morph was a second entrance and
+  // read as the “sucky” grid open, so the grid no longer starts a morph.
   //
-  // flushSync is required, not defensive. startViewTransition captures the "new"
-  // frame as soon as its callback returns, and React's default batching would
-  // still be holding the state update at that moment — the browser would
-  // snapshot the unchanged DOM and animate nothing.
-  const openWithMorph = (id, nodes) => {
-    // A morph only runs when the browser can do one. The detail surface's own
-    // entrance and the morph are two answers to the same question, so the
-    // surface stands down for exactly the opens the morph handles.
-    const morphing =
-      !reducedMotion && supportsViewTransition() && !!(nodes && nodes.photo);
-    runPhotoMorph({
-      source: nodes,
-      reduced: reducedMotion,
-      update: () => {
-        // The morph flag is set INSIDE this flush, with the open itself. Setting
-        // it before startViewTransition looks equivalent and is not: React
-        // commits it while no detail surface is mounted yet, the cleanup effect
-        // below sees an id with no surface, and clears the flag again before the
-        // panel ever reads it. The panel then mounts unnamed, the browser finds
-        // no "new" snapshot to pair with the card photo, and the morph silently
-        // degrades to a cross-fade — verified by probe-turn9-morph.mjs, which
-        // reported old(cz-morph-photo) with no matching new().
-        flushSync(() => {
-          setMorphOpenId(morphing ? id : null);
-          if (isPhone) setDetailSheetId(id);
-          else openInCarousel(id);
-        });
-      },
-    });
+  // Wide desktop rack opens DesktopDetailPanel via expandedId. Grid and narrow
+  // use the same panel through the solo overlay (openInCarousel). Phone keeps
+  // the bottom DetailSheet. nodes is accepted so PhotoShelfList does not change.
+  const openWithMorph = (id, _nodes) => {
+    setMorphOpenId(null);
+    if (isPhone) {
+      setDetailSheetId(id);
+      return;
+    }
+    if (isWideDetail) {
+      setSelectedId(id);
+      setExpandedId(id);
+      return;
+    }
+    openInCarousel(id);
   };
 
   const localStatus = (() => {
@@ -10636,17 +10653,24 @@ function CredenzaApp() {
   // AnimatePresence swap against `shelfSurface` below. Declarative crossfade:
   // mode="wait" so the directory and the open-haul carousel are never both
   // mounted/interactive at once (see docs/carousel-canonical-state.md).
-  const HAUL_SURFACE_TRANSITION = { duration: reducedMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] };
+  // Kyle 2026-08-04: Shelf ↔ Hauls used mode="wait" (exit, blank, enter). That
+  // made the page go empty for a beat. Crossfade both layers so one surface
+  // is always on screen. Opacity only — no layout thrash.
+  const HAUL_SURFACE_TRANSITION = {
+    duration: reducedMotion ? 0 : 0.28,
+    ease: [0.22, 1, 0.36, 1],
+  };
   const haulDirectorySurface = (
     <motion.section
       key="directory"
+      data-cz-surface="directory"
       role="tabpanel"
       id="view-panel-hauls"
       aria-labelledby="view-tab-hauls"
       className="cz-hauls-panel"
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.98 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={HAUL_SURFACE_TRANSITION}
     >
       <div className="cz-section-head" style={{ justifyContent: "space-between", gap: 12 }}>
@@ -10960,11 +10984,13 @@ function CredenzaApp() {
   // stricter test clears the flag in the gap between setting it and the surface
   // mounting, which is the whole window the morph needs it in. A different card
   // opening overwrites the flag in its own flush, so the loose test is enough.
+  // morphOpenId is retired for open entrances (Kyle 2026-08-04) but kept so a
+  // stale flag cannot pin a panel in morph mode forever.
   useEffect(() => {
     if (!morphOpenId) return;
-    if (detailSheetId || carouselOverlay) return;
+    if (detailSheetId || carouselOverlay || expandedId) return;
     setMorphOpenId(null);
-  }, [morphOpenId, detailSheetId, carouselOverlay]);
+  }, [morphOpenId, detailSheetId, carouselOverlay, expandedId]);
 
   // The sheet closes itself when its card leaves the shelf (Undo expiry, a
   // filter change, a delete), so a stale id can never render an empty sheet.
@@ -10975,17 +11001,16 @@ function CredenzaApp() {
   const shelfSurface = (
     <motion.section
       key={openHaulName ? "haul:" + openHaulName : "shelf"}
+      data-cz-surface={openHaulName ? "haul" : "shelf"}
       role="tabpanel"
       id={view === "hauls" ? "view-panel-hauls" : "view-panel-shelf"}
       aria-labelledby={view === "hauls" ? "view-tab-hauls" : "view-tab-shelf"}
-      // Kyle 2026-08-02: the Shelf/Hauls view switch gets the same motion as
-      // the shelf filters — the surfaces crossfade instead of snapping.
-      // First load still skips it (AnimatePresence initial={false} at the
-      // render site), and in-shelf switches (viewMode, filter chips) never
-      // remount this key, so those stay instant.
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.98 }}
+      // Kyle 2026-08-04: soft crossfade only (no scale shrink). First load
+      // still skips enter (AnimatePresence initial={false}). In-shelf
+      // switches (viewMode, filter chips) never remount this key.
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={HAUL_SURFACE_TRANSITION}
     >
       {/* Shelf */}
@@ -11030,19 +11055,8 @@ function CredenzaApp() {
         // Brand-new empty shelf is sold by the 7a hero above the tabs.
         // This branch only covers filtered empty (search / starred / open haul).
         items.length === 0 ? null : (
-          <div
-            style={{
-              background: CARD,
-              border: "1px solid " + HAIR,
-              borderRadius: 0,
-              padding: "40px 24px",
-              textAlign: "center",
-              color: SUB,
-              fontSize: 13.5,
-              lineHeight: 1.65,
-            }}
-          >
-            <div style={{ fontFamily: DISPLAY, fontSize: 21, color: INK, marginBottom: 7 }}>
+          <div className="cz-empty-panel" role="status">
+            <div className="cz-empty-panel-title">
               {/* A filter that hides everything must never read as loss. The
                   handoff copy says so plainly: the cards are still there. */}
               {q
@@ -11053,7 +11067,7 @@ function CredenzaApp() {
                     ? "This haul is empty."
                     : "Nothing on the shelf yet."}
             </div>
-            <div className="cz-copy-pretty" style={{ marginBottom: 14 }}>
+            <div className="cz-copy-pretty cz-empty-panel-copy">
               {q
                 // CO-06: audit copy fix — "projects" removed from search help.
                 ? "Search includes titles, notes, raw links, and paired Photos or Buy URLs."
@@ -11199,6 +11213,7 @@ function CredenzaApp() {
       <button
         type="button"
         className={"cz-avatar" + (avatarInitials ? "" : " cz-avatar--word")}
+        data-cz-avatar-toggle=""
         aria-label={avatarInitials ? "Profile" : "Sign in"}
         title={avatarInitials ? "Profile" : "Sign in"}
         aria-expanded={avatarMenuOpen}
@@ -11315,7 +11330,6 @@ function CredenzaApp() {
             const a = getAgent(id);
             if (a && !a.retired) setPreferredAgent(a.id);
           }}
-          storageBackend={storageBackend}
           onClose={() => {
             setAgentSheetOpen(false);
             if (agentReturnToMenuRef.current) {
@@ -11980,11 +11994,7 @@ function CredenzaApp() {
                   Stash
                 </button>
               </div>
-              {/* A0 · Arrival (onboarding handoff). Three numbered lines that
-                  say what one pasted link buys. It sits under the paste bar,
-                  not over it, and it never asks for a size — the ask belongs
-                  to the card. Dismissal is permanent. */}
-              {!introDismissed && <IntroStrip onDismiss={dismissIntro} />}
+              {/* A0 · Arrival tip card removed (Kyle 2026-08-04). */}
               {/* Hero 2A specimen (hero spec, Kyle 2026-07-26). The empty
                   shelf used to argue for itself in words and then offer two
                   equal-weight links. It now SHOWS one finished card at 55%
@@ -12279,12 +12289,12 @@ function CredenzaApp() {
         {(askState.status === "success" || askState.status === "error") && (
           <div
             role={askState.status === "error" ? "alert" : "status"}
+            className="cz-empty-panel"
             style={{
               marginTop: 8,
-              background: CARD,
-              border: "1px solid " + (askState.status === "error" ? BLUE : HAIR),
-              borderRadius: 0,
               padding: "12px 14px",
+              textAlign: "left",
+              borderColor: askState.status === "error" ? BLUE : undefined,
             }}
           >
             <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
@@ -12848,11 +12858,10 @@ function CredenzaApp() {
             {inboxItems.map((item) => (
               <div
                 key={item.id}
+                className="cz-empty-panel"
                 style={{
-                  background: CARD,
-                  border: "1px solid " + HAIR,
-                  borderRadius: 0,
                   padding: "12px 16px",
+                  textAlign: "left",
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
@@ -12883,16 +12892,18 @@ function CredenzaApp() {
             ))}
           </div>
         ) : (
-          // One swapper for every surface switch (Kyle 2026-08-02): Shelf,
-          // the haul directory, and an open haul crossfade through the same
-          // mode="wait" pair, so the view tabs move like the filter chips.
-          <AnimatePresence
-            mode="wait"
-            initial={false}
-            onExitComplete={() => setClosingHaulName(null)}
-          >
-            {view === "hauls" && !activeHaul ? haulDirectorySurface : shelfSurface}
-          </AnimatePresence>
+          // One swapper for every surface switch (Kyle 2026-08-04): Shelf,
+          // the haul directory, and an open haul. mode="sync" keeps both
+          // layers for the crossfade so the page never goes blank mid-switch.
+          <div className="cz-surface-swap">
+            <AnimatePresence
+              mode="sync"
+              initial={false}
+              onExitComplete={() => setClosingHaulName(null)}
+            >
+              {view === "hauls" && !activeHaul ? haulDirectorySurface : shelfSurface}
+            </AnimatePresence>
+          </div>
         )}
         </main>
       </div>

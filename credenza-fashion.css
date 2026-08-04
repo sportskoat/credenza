@@ -10,6 +10,14 @@
   --z-sheet: 80;
   --z-gallery: 100;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* Shared radii (Kyle 2026-08-04). Empty panels, modals, sheets. */
+  --radius-pill: 999px;
+  --radius-field: 10px;
+  --radius-row: 11px;
+  --radius-card-tight: 14px;
+  --radius-card: 16px;
+  --radius-sheet: 18px;
+  --radius-panel: 20px;
   /* t-resize (transitions.dev): card size tweens (Kyle 2026-07-25). */
   --resize-dur: var(--dur-resize);
   --resize-ease: var(--ease-out);
@@ -834,15 +842,14 @@
   border-radius: 16px;
 }
 
-/* Kyle 2026-08-01: stash / agent / other sheets use the same 16px card
-   corner as the shelf cards (desktop). Phone bottom-sheet gate keeps
-   18px 18px 0 0 from credenza.css. */
+/* Kyle 2026-08-01 / 2026-08-04: every pop-up modal uses the shared card
+   corner. Phone bottom-sheet gate keeps rounded top + square bottom. */
 .cz-app[data-fashion="true"] .cz-modal-surface {
-  border-radius: 16px;
+  border-radius: var(--radius-card, 16px);
 }
 @media (max-width: 767px) and (pointer: coarse) {
   .cz-app[data-fashion="true"] .cz-modal-surface {
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--radius-sheet, 18px) var(--radius-sheet, 18px) 0 0;
   }
 }
 
@@ -3818,7 +3825,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   justify-items: start;
   padding: 28px 20px;
   border: 1px solid var(--cz-hair);
-  border-radius: 20px;
+  border-radius: var(--radius-panel, 20px);
   background: var(--cz-card-solid);
 }
 
@@ -8489,32 +8496,45 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding-top: 0;
 }
 
-/* ── Sizes redesign 2026-08-01 (handoff §3) ─────────────────────────────── */
+/* ── Sizes redesign 2026-08-01 (handoff §3) ───────────────────────────────
+   Kyle 2026-08-04: two fixed rows. A single flex-wrap dumped height/weight
+   and the note onto a broken second line. Each row is now its own flex line
+   so the chips stay in order. */
 
 .cz-sizes-usual-strip {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 11px 14px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
   margin-bottom: 18px;
   border: 1px solid var(--cz-hair);
   border-radius: 14px;
 }
 
+.cz-sizes-usual-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
 .cz-sizes-usual-kicker {
+  flex: 0 0 78px;
   width: 78px;
   font-family: var(--cz-mono);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.14em;
   color: var(--cz-faint);
+  white-space: nowrap;
 }
 
 .cz-sizes-usual-pill {
   display: inline-flex;
   align-items: baseline;
   gap: 7px;
+  flex: 0 0 auto;
   padding: 5px 10px;
   border-radius: 9px;
   background: var(--cz-inset-bg);
@@ -8523,10 +8543,12 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   font-weight: 500;
   color: var(--cz-faint);
   cursor: text;
+  white-space: nowrap;
 }
 
 .cz-sizes-usual-input {
   width: 32px;
+  min-width: 0;
   border: 0;
   background: transparent;
   color: var(--cz-ink);
@@ -8539,8 +8561,11 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 .cz-sizes-usual-input.is-text {
   width: 28px;
 }
+.cz-sizes-usual-input.is-height {
+  width: 40px;
+}
 .cz-sizes-usual-input.is-weight {
-  width: 38px;
+  width: 52px;
 }
 .cz-sizes-usual-input:focus {
   outline: none;
@@ -8555,14 +8580,25 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
 }
 
 .cz-sizes-usual-note {
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   font-family: var(--cz-sans);
   font-size: 11.5px;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.35;
   color: var(--cz-faint);
+}
+
+/* Narrow settings pane: note drops under the pills, still one clean block. */
+@media (max-width: 640px) {
+  .cz-sizes-usual-row {
+    flex-wrap: wrap;
+  }
+  .cz-sizes-usual-note {
+    flex: 1 1 100%;
+    padding-left: 78px;
+  }
 }
 
 .cz-sizes-meas-head {
@@ -12126,6 +12162,91 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   }
 }
 
+/* ─── Buying agent picker (Kyle 2026-08-04) ────────────────────────────────
+   One card, no body scroll. Dense rows; two columns from 520px so 13 agents
+   fit under the header without a scrollbar on a normal phone or desktop. */
+.cz-app[data-fashion="true"] .cz-modal-surface.cz-agent-sheet-surface {
+  overflow: hidden;
+}
+.cz-agent-sheet {
+  padding: 14px 16px 16px;
+}
+.cz-agent-kicker {
+  margin-bottom: 8px;
+}
+.cz-agent-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+.cz-agent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--cz-hair);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cz-sub);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.cz-agent-row.is-active {
+  background: var(--cz-card);
+  border-color: var(--cz-hair-strong);
+  color: var(--cz-ink);
+  font-weight: 700;
+}
+.cz-agent-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cz-agent-row-check,
+.cz-agent-row-check-slot {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+}
+.cz-agent-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--cz-sub);
+}
+.cz-agent-legal {
+  margin-top: 8px;
+}
+@media (min-width: 520px) {
+  .cz-agent-list {
+    grid-template-columns: 1fr 1fr;
+  }
+  .cz-agent-row[data-span="full"],
+  .cz-agent-list > .cz-agent-row:last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 519px) {
+  .cz-agent-sheet {
+    padding: 12px 14px 14px;
+  }
+  .cz-agent-row {
+    min-height: 32px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+  }
+  .cz-agent-note,
+  .cz-agent-stats {
+    font-size: 11px;
+  }
+}
+
 /* ─── Currency picker (lane 2, 2026-08-02) ─────────────────────────────────
    Same row recipe as the agent sheet: one list, active mark, quiet sample.
    ModalShell already handles phone bottom-sheet vs desktop dialog. */
@@ -12380,10 +12501,63 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   --space-9: 22px;
   --radius-pill: 999px;
   --radius-field: 10px;
+  --radius-row: 11px;
   --radius-card-tight: 14px;
+  --radius-card: 16px;
+  --radius-sheet: 18px;
+  --radius-panel: 20px;
   --type-body-sm: 13px;
   --type-meta: 12px;
   --type-kicker: 11px;
+}
+
+/* Shared empty / “nothing here” panels (Kyle 2026-08-04).
+   Same rounded box for shelf filters, hauls directory, inbox rows, and any
+   other in-page empty card. Pop-up modals keep --radius-card via
+   .cz-modal-surface; bottom sheets on phone keep --radius-sheet tops. */
+.cz-empty-panel {
+  background: var(--cz-card-solid, var(--cz-card));
+  border: 1px solid var(--cz-hair);
+  border-radius: var(--radius-panel, 20px);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--cz-sub);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.cz-empty-panel-title {
+  font-family: var(--cz-display, Georgia, "Times New Roman", serif);
+  font-size: 21px;
+  line-height: 1.2;
+  color: var(--cz-ink);
+  margin-bottom: 7px;
+}
+.cz-empty-panel-copy {
+  margin: 0 0 14px;
+  max-width: 42ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* Shelf ↔ Hauls crossfade host. Incoming and outgoing share the same slot
+   so the page never blanks (mode="sync"). Only opacity is animated. */
+.cz-surface-swap {
+  position: relative;
+  width: 100%;
+}
+.cz-surface-swap > [data-cz-surface] {
+  width: 100%;
+}
+/* While two surfaces share the host (exit + enter), pin the outgoing one
+   so it does not push the page taller. Framer still owns opacity. */
+.cz-surface-swap > [data-cz-surface][style*="opacity"] + [data-cz-surface],
+.cz-surface-swap > [data-cz-surface]:not(:only-child) {
+  /* first child (outgoing during exit) is absolute; last keeps flow height */
+}
+.cz-surface-swap > [data-cz-surface]:first-child:not(:only-child) {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  pointer-events: none;
 }
 
 /* Kyle drew this card as a bottom sheet with a grab bar (2026-07-31: "no make

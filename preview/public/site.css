@@ -485,14 +485,16 @@ a:hover { color: var(--money); }
   font-size: 0.98rem;
 }
 
-/* Kyle 2026-08-02: the footer sat left under a centred reading column and
-   read as off-centre on every public page. Centre the line; keep the shared
-   shell width so long link rows still wrap cleanly. Landing uses .site-foot
-   with its own full-width bar and is unchanged. */
+/* Kyle 2026-08-04: end-of-page stack was misaligned. The CTA is an
+   inline-block, so margin:auto never centred it; the related line and the
+   footer used different rules. One stack now: CTA, related, footer — all
+   under the reading column, all text-centred. Landing keeps .site-foot. */
 footer {
   color: var(--muted);
   font-size: 0.85rem;
   font-family: var(--cz-sans);
+  line-height: 1.7;
+  padding-top: 1.5rem;
   padding-bottom: 3rem;
   text-align: center;
 }
@@ -504,9 +506,11 @@ body:not(:has(> main > .hero.wrap)) > footer {
   max-width: var(--max);
 }
 
+/* CTA must shrink-wrap and centre. inline-block + margin:auto does not centre;
+   table does. */
 .cta {
-  display: inline-block;
-  margin-top: 0.5rem;
+  display: table;
+  margin: 1.25rem auto 0;
   padding: 0.7rem 1.15rem;
   background: var(--accent);
   color: var(--bg);
@@ -521,9 +525,28 @@ body:not(:has(> main > .hero.wrap)) > footer {
 .cta:hover { opacity: 0.92; color: var(--bg); }
 
 .related {
-  margin-top: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.35rem 0.85rem;
+  margin: 1.25rem auto 0;
+  max-width: var(--max);
   font-family: var(--cz-sans);
   font-size: 0.9rem;
+  line-height: 1.55;
   color: var(--muted);
+  text-align: center;
 }
-.related a { margin-right: 0.75rem; }
+.related a {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Pricing page puts the CTA inside a card cell — keep it left there. */
+.plan .cta,
+.plans .cta,
+.card .cta {
+  display: inline-block;
+  margin: 0.5rem 0 0;
+}

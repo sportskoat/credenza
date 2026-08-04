@@ -36,9 +36,15 @@ export default function AvatarMenu({
   const rootRef = useRef(null);
 
   // Click outside or Escape closes, same contract as every other overlay.
+  // The profile button is special: its own click toggles open/closed. If this
+  // listener closes on mousedown, the button's click then re-opens the menu.
+  // Skip the toggle button so one tap closes and stays closed.
   useEffect(() => {
     const onDown = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) onClose();
+      if (!rootRef.current) return;
+      if (rootRef.current.contains(e.target)) return;
+      if (e.target.closest?.("[data-cz-avatar-toggle]")) return;
+      onClose();
     };
     const onKey = (e) => {
       if (e.key === "Escape") {
