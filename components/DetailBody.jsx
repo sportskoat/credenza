@@ -2959,6 +2959,10 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
   if (verdict.precise && rec && rec.body != null && rec.garment != null) {
     const diff = rec.diff != null ? rec.diff : rec.garment - rec.body;
     const easeStr = (diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(diff), units);
+    // Derived body (usual-fit / brand-match) must not claim "Precise fit"
+    // (F retraction 2026-08-04 — fifth surface; same wording as confidenceLabel).
+    const derivedBody = isDerivedBodySource(bodyProfile);
+    const precisionBadge = derivedBody ? "Estimated fit" : "Precise fit";
     // 5c — the preference payoff. baseWord only exists when taste actually
     // shifted the letter size; tags surface any saved axis, shift or not.
     const sizeWord = formatSizeToken(rec.size) || rec.size;
@@ -2981,9 +2985,9 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
       <div className="cz-fit4">
         <div className="cz-fit4-head">
           <span className="cz-fit4-kicker">Fit confidence</span>
-          <span className="cz-fit4-badge is-precise">
+          <span className={"cz-fit4-badge " + (derivedBody ? "is-rough" : "is-precise")}>
             <span className="cz-fit4-badge-dot" aria-hidden="true" />
-            Precise fit
+            {precisionBadge}
           </span>
         </div>
         {baseWord ? (
@@ -3880,10 +3884,15 @@ export default function DetailBody({
   const mobileChosenWord = formatSizeToken(chosenSize) || chosenSize;
   const mobileOutsideCount = fitRows.filter((row) => row.warn).length;
   const mobileFitKicker = verdict.chart ? "We recommend" : "No seller chart";
+  // Derived body must not claim "Precise fit" on the phone line either
+  // (F retraction 2026-08-04 — frame 4 / mobileConfidence; was chart-only).
+  const mobileDerivedBody = isDerivedBodySource(bodyProfile);
   const mobileConfidence = verdict.chart
     ? mobileOutsideCount
       ? "Roomy for this cut"
-      : "Precise fit"
+      : mobileDerivedBody
+        ? "Estimated fit"
+        : "Precise fit"
     : "Says when it doesn't know";
   const mobileVerdict = verdict.chart
     ? !mobileRecommendedWord
