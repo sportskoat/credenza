@@ -3886,11 +3886,14 @@ export default function DetailBody({
   const mobileFitKicker = verdict.chart ? "We recommend" : "No seller chart";
   // Derived body must not claim "Precise fit" on the phone line either
   // (F retraction 2026-08-04 — frame 4 / mobileConfidence; was chart-only).
+  // One shared flag for text + is-rough class so they cannot drift (F 2026-08-04).
   const mobileDerivedBody = isDerivedBodySource(bodyProfile);
+  const mobileEstimated =
+    verdict.chart && !mobileOutsideCount && mobileDerivedBody;
   const mobileConfidence = verdict.chart
     ? mobileOutsideCount
       ? "Roomy for this cut"
-      : mobileDerivedBody
+      : mobileEstimated
         ? "Estimated fit"
         : "Precise fit"
     : "Says when it doesn't know";
@@ -3944,11 +3947,20 @@ export default function DetailBody({
     }
   };
 
+  // Phone confidence colour matches Fit4 honesty tone (Kyle 2026-08-04).
+  // is-rough / is-precise both read mobileEstimated — same binding as the text.
+  // Parent is-warn still wins for "Roomy for this cut" (see CSS).
+  const mobileConfidenceClass =
+    !verdict.chart || mobileOutsideCount
+      ? "cz-mobile-fit-confidence"
+      : mobileEstimated
+        ? "cz-mobile-fit-confidence is-rough"
+        : "cz-mobile-fit-confidence is-precise";
   const mobileFitIntro = (
     <div className={"cz-mobile-fit-intro" + (mobileOutsideCount ? " is-warn" : "")}>
       <div className="cz-mobile-fit-kicker-row">
         <span className="cz-mobile-fit-kicker">{mobileFitKicker}</span>
-        <span className="cz-mobile-fit-confidence">
+        <span className={mobileConfidenceClass}>
           <span className="cz-mobile-fit-confidence-dot" aria-hidden="true" />
           {mobileConfidence}
         </span>

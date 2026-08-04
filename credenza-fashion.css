@@ -10653,7 +10653,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   white-space: nowrap;
 }
 .cz-fit4-badge.is-rough {
-  color: #c48a1a;
+  color: var(--cz-warn);
 }
 .cz-fit4-badge.is-precise {
   color: var(--cz-money);
@@ -17146,6 +17146,16 @@ input.cz-sizing-fix-size {
     white-space: nowrap;
   }
 
+  /* Parallel to .cz-fit4-badge.is-rough / is-precise (Kyle 2026-08-04).
+     Use --cz-warn token — do not copy the old raw #c48a1a hex (F). */
+  .cz-mobile-fit-confidence.is-precise {
+    color: var(--cz-money);
+  }
+
+  .cz-mobile-fit-confidence.is-rough {
+    color: var(--cz-warn);
+  }
+
   .cz-mobile-fit-confidence-dot {
     width: 6px;
     height: 6px;
@@ -17153,6 +17163,7 @@ input.cz-sizing-fix-size {
     background: currentColor;
   }
 
+  /* Roomy / out-of-tolerance still wins over precise/rough tone. */
   .cz-mobile-fit-intro.is-warn .cz-mobile-fit-confidence {
     color: var(--cz-warn-ink);
   }

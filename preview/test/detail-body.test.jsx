@@ -1236,7 +1236,7 @@ describe("DetailBody derived-body rail and confidence", () => {
       onRequestClose: vi.fn(),
     });
 
-  it("measure profile phone: mobile confidence is Precise fit", () => {
+  it("measure profile phone: mobile confidence is Precise fit + is-precise", () => {
     const { container } = render(
       phone("meas-phone", { chest: 96, firstSizeSource: "measure" })
     );
@@ -1244,9 +1244,11 @@ describe("DetailBody derived-body rail and confidence", () => {
     expect(conf, "phone confidence line").not.toBeNull();
     expect(conf.textContent).toMatch(/Precise fit/);
     expect(conf.textContent).not.toMatch(/Estimated fit/);
+    expect(conf.classList.contains("is-precise")).toBe(true);
+    expect(conf.classList.contains("is-rough")).toBe(false);
   });
 
-  it("brand-match profile phone: mobile confidence is Estimated fit, not Precise fit", () => {
+  it("brand-match profile phone: mobile confidence is Estimated fit + is-rough", () => {
     const { container } = render(
       phone("bm-phone", {
         chest: 99.6,
@@ -1259,9 +1261,12 @@ describe("DetailBody derived-body rail and confidence", () => {
     expect(conf, "phone confidence line").not.toBeNull();
     expect(conf.textContent).toMatch(/Estimated fit/);
     expect(conf.textContent).not.toMatch(/Precise fit/);
+    // Kyle 2026-08-04: soften phone colour to match Fit4 is-rough.
+    expect(conf.classList.contains("is-rough")).toBe(true);
+    expect(conf.classList.contains("is-precise")).toBe(false);
   });
 
-  it("usual-fit profile phone: mobile confidence is Estimated fit, not Precise fit", () => {
+  it("usual-fit profile phone: mobile confidence is Estimated fit + is-rough", () => {
     const { container } = render(
       phone("uf-phone", { chest: 96, firstSizeSource: "usual-fit" })
     );
@@ -1269,6 +1274,8 @@ describe("DetailBody derived-body rail and confidence", () => {
     expect(conf, "phone confidence line").not.toBeNull();
     expect(conf.textContent).toMatch(/Estimated fit/);
     expect(conf.textContent).not.toMatch(/Precise fit/);
+    expect(conf.classList.contains("is-rough")).toBe(true);
+    expect(conf.classList.contains("is-precise")).toBe(false);
   });
 
   // Leaf gate: roominess is about garment ease, not body provenance.
@@ -1292,6 +1299,25 @@ describe("DetailBody derived-body rail and confidence", () => {
     expect(conf.textContent).toMatch(/Roomy for this cut/);
     expect(conf.textContent).not.toMatch(/Estimated fit/);
     expect(conf.textContent).not.toMatch(/Precise fit/);
+    // Tone classes off — parent is-warn owns the colour.
+    expect(conf.classList.contains("is-rough")).toBe(false);
+    expect(conf.classList.contains("is-precise")).toBe(false);
+  });
+
+  // Both surfaces use design tokens — --cz-warn (not raw hex) + --cz-money (F).
+  it("phone confidence is-rough / is-precise colours match Fit4 badge tokens", () => {
+    expect(CSS).toMatch(
+      /\.cz-mobile-fit-confidence\.is-rough\s*\{[^}]*color:\s*var\(--cz-warn\);/s
+    );
+    expect(CSS).toMatch(
+      /\.cz-mobile-fit-confidence\.is-precise\s*\{[^}]*color:\s*var\(--cz-money\);/s
+    );
+    expect(CSS).toMatch(
+      /\.cz-fit4-badge\.is-rough\s*\{[^}]*color:\s*var\(--cz-warn\);/s
+    );
+    expect(CSS).toMatch(
+      /\.cz-fit4-badge\.is-precise\s*\{[^}]*color:\s*var\(--cz-money\);/s
+    );
   });
 
   // Fit4 strip badge — hardcoded "Precise fit" at :2986 before this fix.
