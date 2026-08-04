@@ -5,7 +5,7 @@
 // always feels like a surprise or a defect." Four rules came out of that:
 //
 //   1. One counter, always visible. A pill in the header says where you stand.
-//   2. One sheet for every wall. The pill, a spent allowance, a daily cap and a
+//   2. One sheet for every wall. The pill, a spent allowance, a plan cap and a
 //      lapsed membership all open the SAME sheet.
 //   3. Warn before the wall, never at it. The last free read turns the pill
 //      amber.
@@ -16,15 +16,15 @@
 // PLAN_CAPS in usage.js, so no cap is written twice.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { PLAN_CAPS, usageToday } from "./usage.js";
+import { PLAN_CAPS, usageAudience, usageTotal } from "./usage.js";
 
-// The free taste a signed-out visitor gets. This MUST match ANON_FREE_PER_DAY
+// The free taste a signed-out visitor gets. This MUST match ANON_FREE_TOTAL
 // in preview/netlify/functions/lib/anon-allowance.js — the server is the real
 // gate, and this number is only the promise the interface makes.
 // preview/test/limits-meter.test.js compares the two and fails on drift.
-export const ANON_FREE_CARDS = 3;
+export const ANON_FREE_CARDS = 5;
 
-// The three daily counters, in the order a person meets them. `noun` is what
+// The three permanent Free counters, in the order a person meets them. `noun` is what
 // the pill and the sheet call one unit of the thing.
 export const METERS = [
   { feature: "chartVision", noun: "chart read", plural: "chart reads" },
@@ -33,7 +33,7 @@ export const METERS = [
 ];
 
 function countLeft(cap, feature, opts) {
-  return Math.max(0, cap - usageToday(feature, opts));
+  return Math.max(0, cap - usageTotal(feature, opts));
 }
 
 function words(left, noun, plural) {
@@ -60,15 +60,15 @@ export function proHasEnded(plan, now = Date.now()) {
   return typeof plan.graceUntil === "number" && plan.graceUntil > 0 && plan.graceUntil <= now;
 }
 
-export function limitStatus({ plan, signedIn = false, blocked = false, host, now } = {}) {
+export function limitStatus({ plan, signedIn = false, blocked = false, blockedFeature = "", host, now } = {}) {
   const state = plan && plan.state ? plan.state : null;
-  if (state === "pro" || state === "grace") return null;
+  if (state === "pro" || state === "grace" || state === "owner") return null;
 
   // Signed out. One meter only — the complete card — because a card is the
   // whole of what a visitor can do before sign-in.
   if (!signedIn) {
     const cap = ANON_FREE_CARDS;
-    const left = blocked ? 0 : countLeft(cap, "resolve", { host, now });
+    const left = blocked ? 0 : countLeft(cap, "resolve", { host, now, audience: "anon" });
     return {
       kind: "anon",
       feature: "resolve",
@@ -88,9 +88,12 @@ export function limitStatus({ plan, signedIn = false, blocked = false, host, now
   const caps = PLAN_CAPS.free;
   let worst = null;
   for (const meter of METERS) {
-    const cap = caps[meter.feature + "PerDay"];
+    const cap = caps[meter.feature + "Total"];
     if (typeof cap !== "number" || cap <= 0) continue;
-    const left = countLeft(cap, meter.feature, { host, now });
+    const left =
+      blockedFeature === meter.feature
+        ? 0
+        : countLeft(cap, meter.feature, { host, now, audience: usageAudience(plan, true) });
     if (!worst || left < worst.left) worst = { ...meter, cap, left };
   }
   if (!worst) return null;
@@ -104,8 +107,8 @@ export function limitStatus({ plan, signedIn = false, blocked = false, host, now
     tone: worst.left === 0 ? "wall" : worst.left === 1 ? "warn" : "ok",
     label:
       worst.left === 0
-        ? "No " + worst.plural + " left today"
-        : words(worst.left, worst.noun, worst.plural) + " left today",
+        ? "No free " + worst.plural + " left"
+        : words(worst.left, worst.noun, worst.plural) + " left",
   };
 }
 
@@ -115,5 +118,5 @@ export function limitStandingLine(status) {
   if (status.kind === "anon") {
     return status.used + " of " + status.cap + " free cards used.";
   }
-  return status.used + " of " + status.cap + " " + (status.cap === 1 ? status.noun : status.noun + "s") + " used today.";
+  return status.used + " of " + status.cap + " free " + (status.cap === 1 ? status.noun : status.noun + "s") + " used.";
 }

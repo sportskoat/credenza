@@ -165,10 +165,16 @@ export default function FirstSizeBlock({
     });
     if (out.error) {
       // no-chart is never an error — only letter-not-on-chart / score miss.
+      //
+      // Kyle 2026-08-03 audit, finding 6: both sentences send a person to the
+      // tape field, and this step held only "Back" and "Skip". The field is on
+      // another step, so the message named a place with no way to reach it.
+      // The button below the message opens it. The second sentence also said
+      // "chest" on a card that asks for a waist; it now names the real field.
       setError(
         out.error === "usual-not-on-chart"
           ? "That size is not on this seller’s chart. Try another one, or use a tape."
-          : "Could not score a pick. Enter your chest instead."
+          : "Could not score a pick. Enter your " + (bottoms ? "waist" : "chest") + " instead."
       );
       return;
     }
@@ -459,7 +465,24 @@ export default function FirstSizeBlock({
             </button>
           ))}
         </div>
-        {error ? <p className="cz-first-size-error">{error}</p> : null}
+        {error ? (
+          <>
+            <p className="cz-first-size-error">{error}</p>
+            {/* Finding 6: the message above names the tape field. This opens
+                it. It appears only with the message, because with no failure
+                the step-1 link is the right place to offer a tape. */}
+            <button
+              type="button"
+              className="cz-first-size-link cz-first-size-error-link"
+              onClick={() => {
+                setStep("measure");
+                setError("");
+              }}
+            >
+              {bottoms ? FIRST_SIZE_COPY.tapeLinkWaist : FIRST_SIZE_COPY.tapeLink}
+            </button>
+          </>
+        ) : null}
         <button
           type="button"
           className="cz-first-size-primary"

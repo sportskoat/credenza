@@ -105,10 +105,11 @@ describe("Account and plan · signed out", () => {
   });
 
   // The counter is a projection of the live limit, never a stored copy. A
-  // stored copy goes stale the moment a card resolves.
-  it("counts today off the live limit and flags it local", () => {
+  // stored copy goes stale the moment a card resolves. The allowance never
+  // resets: the five free cards are all a signed-out device gets.
+  it("counts the allowance off the live limit and flags it local", () => {
     const { container } = renderSection(SIGNED_OUT);
-    expect(within(container).getByText("2 of 3 cards · resets at midnight")).toBeTruthy();
+    expect(within(container).getByText("2 of 3 cards · they never reset")).toBeTruthy();
     expect(within(container).getByText("LOCAL")).toBeTruthy();
   });
 
@@ -133,12 +134,12 @@ describe("Account and plan · signed in on Free", () => {
     expect(within(container).getByText("See what Pro changes")).toBeTruthy();
   });
 
-  it("counts today against the free caps", () => {
+  it("counts the lifetime allowance against the free caps", () => {
     const { container } = renderSection();
     expect(
       within(container).getByText(
-        "0 of " + PLAN_CAPS.free.chartVisionPerDay + " chart reads · 0 of " +
-          PLAN_CAPS.free.resolvePerDay + " cards"
+        "0 of " + PLAN_CAPS.free.chartVisionTotal + " chart reads · 0 of " +
+          PLAN_CAPS.free.resolveTotal + " cards · they never reset"
       )
     ).toBeTruthy();
     expect(within(container).getByText("FREE CAPS")).toBeTruthy();
@@ -181,12 +182,12 @@ describe("Account and plan · signed in on Pro", () => {
 
   // limitStatus() returns null for a Pro member, so the Pro counter cannot
   // read `limits`. It reads the live usage against PLAN_CAPS.pro instead.
-  it("counts today against the pro caps with no limits object", () => {
+  it("counts the monthly allowance against the pro caps with no limits object", () => {
     const { container } = renderSection(PRO);
     expect(
       within(container).getByText(
-        "0 of " + PLAN_CAPS.pro.chartVisionPerDay + " chart reads · 0 of " +
-          PLAN_CAPS.pro.resolvePerDay + " cards"
+        "0 of " + PLAN_CAPS.pro.chartVisionPerMonth + " chart reads · 0 of " +
+          PLAN_CAPS.pro.resolvePerMonth + " cards this month"
       )
     ).toBeTruthy();
     expect(within(container).getByText("PRO CAPS")).toBeTruthy();
@@ -212,6 +213,17 @@ describe("Account and plan · signed in on Pro", () => {
   it("says when a payment did not go through", () => {
     const { container } = renderSection({ accountPlan: { state: "grace" }, limits: null });
     expect(within(container).getByText("Pro · a payment did not go through")).toBeTruthy();
+  });
+});
+
+describe("Account and plan · owner", () => {
+  it("names permanent owner access and offers no billing door", () => {
+    const { container } = renderSection({ accountPlan: { state: "owner" }, limits: null });
+    expect(within(container).getByText("Signed in. Owner access is on.")).toBeTruthy();
+    expect(within(container).getByText("OWNER")).toBeTruthy();
+    expect(within(container).getByText("Owner · permanent full access")).toBeTruthy();
+    expect(within(container).queryByText("Manage billing")).toBeNull();
+    expect(within(container).queryByText("See what Pro changes")).toBeNull();
   });
 });
 

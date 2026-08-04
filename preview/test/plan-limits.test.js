@@ -63,8 +63,10 @@ describe("plan limits agree with the server", () => {
   // promise the server breaks (LB-35 covers the public pages; this covers
   // the in-app table).
   it("binds every PLAN_CAPS key to the server table, both plans", () => {
-    for (const key of ["askPerDay", "chartVisionPerDay", "resolvePerDay", "qcPhotosPerItem", "haulsMax"]) {
+    for (const key of ["askTotal", "chartVisionTotal", "resolveTotal", "qcPhotosPerItem", "haulsMax"]) {
       expect(PLAN_CAPS.free[key], `free ${key}`).toBe(serverLimit("free", key));
+    }
+    for (const key of ["askPerMonth", "chartVisionPerMonth", "resolvePerMonth", "qcPhotosPerItem", "haulsMax"]) {
       expect(PLAN_CAPS.pro[key], `pro ${key}`).toBe(serverLimit("pro", key));
     }
   });
@@ -228,6 +230,9 @@ describe("the caps are enforced where the writes happen", () => {
     // (a) success-only counting: bump only after res.ok.
     // (b) auth path: 401/403 returns CHART_AUTH_REQUIRED before bumpUsage.
     // (c) cap path: 429 returns CHART_CAP_REACHED before bumpUsage.
+    // (d) FIX 2c: every other failed status is the server, not the photo, so it
+    // returns CHART_UNAVAILABLE. It is still a return, so it still stands
+    // between the failure and the count. A 502 or a 504 burns no quota.
     expect(clean).toContain(
       "    if (!res.ok) {\n" +
         "      if (res.status === 401 || res.status === 403) {\n" +
@@ -235,53 +240,53 @@ describe("the caps are enforced where the writes happen", () => {
         "        return CHART_AUTH_REQUIRED;\n" +
         "      }\n" +
         "      if (res.status === 429) return CHART_CAP_REACHED;\n" +
-        "      return null;\n" +
+        "      return CHART_UNAVAILABLE;\n" +
         "    }\n" +
-        "    bumpUsage(\"chartVision\");"
+        "    bumpUsage(\"chartVision\", { audience: usageAudience(planForLimits) });"
     );
     // Explicit pin: the auth sentinel return appears with no bumpUsage between
     // it and the next statement that would count — order is return-then-bump.
     const chartAuthWindow = clean.match(
-      /if \(res\.status === 401 \|\| res\.status === 403\) \{[\s\S]{0,120}?return CHART_AUTH_REQUIRED;[\s\S]{0,80}?return CHART_CAP_REACHED;[\s\S]{0,40}?return null;[\s\S]{0,40}?bumpUsage\("chartVision"\)/
+      /if \(res\.status === 401 \|\| res\.status === 403\) \{[\s\S]{0,120}?return CHART_AUTH_REQUIRED;[\s\S]{0,80}?return CHART_CAP_REACHED;[\s\S]{0,60}?return CHART_UNAVAILABLE;[\s\S]{0,80}?bumpUsage\("chartVision", \{ audience:/
     );
     expect(
       chartAuthWindow,
       "chart-vision 401/403/429 must return sentinels before bumpUsage — auth/cap must not burn quota"
     ).toBeTruthy();
     expect(clean).not.toMatch(
-      /bumpUsage\("chartVision"\)[\s\S]{0,200}?return CHART_AUTH_REQUIRED/
+      /bumpUsage\("chartVision", \{ audience:[\s\S]{0,200}?return CHART_AUTH_REQUIRED/
     );
     expect(clean).not.toMatch(
-      /bumpUsage\("chartVision"\)[\s\S]{0,200}?return CHART_CAP_REACHED/
+      /bumpUsage\("chartVision", \{ audience:[\s\S]{0,200}?return CHART_CAP_REACHED/
+    );
+    // FIX 2c: same rule for the server-fault sentinel. A failed status must
+    // never count first and answer afterwards.
+    expect(clean).not.toMatch(
+      /bumpUsage\("chartVision", \{ audience:[\s\S]{0,200}?return CHART_UNAVAILABLE;\n {4}\}/
     );
     // Client overFreeLimit skip also returns the cap sentinel (never null).
     expect(clean).toMatch(
       /if \(overFreeLimit\(planForLimits, "chartVision"\)\) return CHART_CAP_REACHED;/
     );
 
-    // fetchDescImages: guard clause with sign-in refusal, then bump.
-    expect(clean).toContain(
-      "    if (!res.ok) {\n" +
-        "      if (await isSignInRefusal(res)) noteSignInRequired();\n" +
-        "      return [];\n" +
-        "    }\n" +
-        "    bumpUsage(\"resolve\");"
-    );
+    // fetchDescImages: guard clause with sign-in and allowance refusals, then
+    // bump. The early return still stands between the failure and the count.
+    expect(clean).toMatch(/if \(!res\.ok\) \{[\s\S]{0,420}?return \[\];[\s\S]{0,120}?bumpUsage\("resolve", \{ audience:/);
 
     // The importer's resolve: the bump lives inside the res.ok branch.
-    expect(clean).toContain("      if (res.ok) {\n        bumpUsage(\"resolve\");");
+    expect(clean).toContain("      if (res.ok) {\n        bumpUsage(\"resolve\", { audience:");
 
     // Ask counts last of all, after the payload passes shape validation —
     // ask.js records in the same place, after its own validation.
     const askWindow = clean.match(
-      /if \(!valid\) throw new Error\("Cloud Ask returned an invalid response\."\);[\s\S]{0,200}?bumpUsage\("ask"\)/
+      /if \(!valid\) throw new Error\("Cloud Ask returned an invalid response\."\);[\s\S]{0,300}?bumpUsage\("ask"/
     );
     expect(askWindow, "the ask bump no longer follows the validity check").toBeTruthy();
   });
 
   it("never counts before the status check, at any of the four call sites", () => {
     const clean = src.replace(/^\s*\/\/.*$/gm, "");
-    const sites = [...clean.matchAll(/bumpUsage\("(\w+)"\)/g)];
+    const sites = [...clean.matchAll(/bumpUsage\("(\w+)"/g)];
     expect(sites.length, "a bumpUsage call site was added or removed").toBe(4);
 
     for (const site of sites) {
@@ -334,11 +339,11 @@ describe("the public pages quote the limits the server enforces", () => {
   // photos" in the free column and "12 QC photos" in the Pro column, often in
   // the same sentence. What must never appear is a number that is neither.
   const METERED = [
-    { key: "resolvePerDay", nouns: ["link resolves", "resolves"] },
-    { key: "chartVisionPerDay", nouns: ["chart reads", "AI chart reads"] },
-    { key: "askPerDay", nouns: ["questions"] },
-    { key: "qcPhotosPerItem", nouns: ["QC photos"] },
-    { key: "haulsMax", nouns: ["hauls"] },
+    { freeKey: "resolveTotal", proKey: "resolvePerMonth", nouns: ["link resolves", "resolves"] },
+    { freeKey: "chartVisionTotal", proKey: "chartVisionPerMonth", nouns: ["chart reads", "AI chart reads"] },
+    { freeKey: "askTotal", proKey: "askPerMonth", nouns: ["questions"] },
+    { freeKey: "qcPhotosPerItem", proKey: "qcPhotosPerItem", nouns: ["QC photos"] },
+    { freeKey: "haulsMax", proKey: "haulsMax", nouns: ["hauls"] },
   ];
 
   // Tags become a NEWLINE, not a space, and matching is per line. Replacing
@@ -352,9 +357,9 @@ describe("the public pages quote the limits the server enforces", () => {
     // Guard the guard. If a key is renamed in entitlements.js, serverLimit
     // returns null, every allowed-set below becomes {null}, and the rules
     // would fail loudly rather than pass silently — but only if this runs.
-    for (const { key } of METERED) {
-      expect(serverLimit("free", key), `free ${key}`).toBeGreaterThan(0);
-      expect(serverLimit("pro", key), `pro ${key}`).toBeGreaterThan(0);
+    for (const { freeKey, proKey } of METERED) {
+      expect(serverLimit("free", freeKey), `free ${freeKey}`).toBeGreaterThan(0);
+      expect(serverLimit("pro", proKey), `pro ${proKey}`).toBeGreaterThan(0);
     }
   });
 
@@ -364,8 +369,8 @@ describe("the public pages quote the limits the server enforces", () => {
     expect(docs.length, "no public pages were read").toBeGreaterThanOrEqual(18);
   });
 
-  for (const { key, nouns } of METERED) {
-    const allowed = new Set([serverLimit("free", key), serverLimit("pro", key)]);
+  for (const { freeKey, proKey, nouns } of METERED) {
+    const allowed = new Set([serverLimit("free", freeKey), serverLimit("pro", proKey)]);
     for (const noun of nouns) {
       // Digits only. The pages also spell numbers out ("twenty resolves"), and
       // a word list would have to be kept in sync with the prose — a second
@@ -384,7 +389,7 @@ describe("the public pages quote the limits the server enforces", () => {
           for (const n of found) {
             expect(
               allowed.has(n),
-              `${rel} says ${n} ${noun}; the server allows ${[...allowed].join(" or ")} (${key})`
+              `${rel} says ${n} ${noun}; the server allows ${[...allowed].join(" or ")} (${freeKey}/${proKey})`
             ).toBe(true);
           }
         });
@@ -392,11 +397,11 @@ describe("the public pages quote the limits the server enforces", () => {
     }
   }
 
-  it("at least one page states the free daily numbers, so this rule has work", () => {
+  it("at least one page states the free allowance, so this rule has work", () => {
     // Without this, deleting every number from every page would make the loop
     // above generate zero tests and the suite would stay green while the site
     // stopped answering the question people ask most.
-    const free = serverLimit("free", "resolvePerDay");
+    const free = serverLimit("free", "resolveTotal");
     const quoted = docs.filter((p) => new RegExp(free + "\\s+link\\s+resolves", "i").test(strip(p.html)));
     expect(quoted.length, `no page states the ${free} link resolves a free user gets`).toBeGreaterThanOrEqual(1);
   });

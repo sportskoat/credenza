@@ -190,7 +190,9 @@ describe("the app shares the haul, not the view", () => {
   });
 
   it("offers Share only on a haul that has cards", () => {
-    expect(app).toMatch(/totalsItems\.length > 0 && \(\s*\n\s*<button[\s\S]{0,200}?cz-haul-share/);
+    // STEPS-HANDOFF item 4: Share moved into the title-row ⋯ menu. The gate
+    // is the same one the visible button had — no cards, no Share.
+    expect(app).toContain("canShare={totalsItems.length > 0}");
   });
 
   it("opens the sheet on a named haul, and closes it by clearing the name", () => {

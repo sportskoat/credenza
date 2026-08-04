@@ -348,10 +348,10 @@ describe("DesktopDetailPanel (Fix B)", () => {
       expect(settings).toBeTruthy();
       // Mock Settings top: wear prefs + measurements, then chart / remove.
       expect(within(settings).getByText(/How do you wear/i)).toBeInTheDocument();
-      // Clean: no checkmark until a chip changes (Kyle 2026-08-02).
-      expect(within(settings).queryByRole("button", { name: /Save preference/i })).toBeNull();
+      // Kyle 2026-08-03: Save is always there. It does not wait for a change.
+      expect(within(settings).getByRole("button", { name: /^Save$/ })).toBeInTheDocument();
       await user.click(within(settings).getByRole("radio", { name: "Oversized" }));
-      expect(within(settings).getByRole("button", { name: /Save preference/i })).toBeInTheDocument();
+      expect(within(settings).getByRole("button", { name: /^Save$/ })).toBeInTheDocument();
       // "Not sure yet" is first-ask only — not on the Settings placement.
       expect(within(settings).queryByRole("button", { name: /Not sure yet/i })).toBeNull();
       expect(within(settings).getByText("Your measurements")).toBeInTheDocument();
@@ -405,7 +405,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(css).not.toMatch(/@keyframes\s+cz-rec-pulse/);
   });
 
-  it("shows Notes always and Settings checkmark only when dirty", async () => {
+  it("shows Notes always and a Settings Save button at all times", async () => {
     const user = userEvent.setup();
     const mm = window.matchMedia;
     window.matchMedia = (q) => ({
@@ -433,9 +433,9 @@ describe("DesktopDetailPanel (Fix B)", () => {
       await user.click(screen.getByRole("tab", { name: "Settings" }));
       const settings = document.querySelector(".cz-desk-tab-settings");
       expect(within(settings).queryByRole("button", { name: /Not sure yet/i })).toBeNull();
-      expect(within(settings).queryByRole("button", { name: /Save preference/i })).toBeNull();
+      expect(within(settings).getByRole("button", { name: /^Save$/ })).toBeInTheDocument();
       await user.click(within(settings).getByRole("radio", { name: "Oversized" }));
-      expect(within(settings).getByRole("button", { name: /Save preference/i })).toBeInTheDocument();
+      expect(within(settings).getByRole("button", { name: /^Save$/ })).toBeInTheDocument();
     } finally {
       window.matchMedia = mm;
     }

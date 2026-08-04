@@ -49,13 +49,13 @@ describe("AvatarMenu · who you are", () => {
 
   // The counter is a projection of the live limit, never a stored copy. A
   // stored copy goes stale the moment a card resolves.
-  it("counts today's cards off the live limit", () => {
+  it("counts the free cards off the live limit", () => {
     const { container } = renderMenu({
       accountSession: null,
       accountPlan: null,
-      limits: { left: 3, cap: 3 },
+      limits: { left: 3, cap: 5 },
     });
-    expect(within(container).getByText("Signed out · 3 of 3 cards today")).toBeTruthy();
+    expect(within(container).getByText("Signed out · 3 of 5 free cards")).toBeTruthy();
   });
 
   it("never calls the free plan unlimited", () => {
@@ -91,6 +91,12 @@ describe("AvatarMenu · the two account doors", () => {
     const { container } = renderMenu({ accountPlan: { state: "pro" } });
     expect(within(container).queryByText("See what Pro changes")).toBeNull();
     expect(within(container).getByText("Pro")).toBeTruthy();
+  });
+
+  it("names permanent owner access and hides the Pro door", () => {
+    const { container } = renderMenu({ accountPlan: { state: "owner" } });
+    expect(within(container).queryByText("See what Pro changes")).toBeNull();
+    expect(within(container).getByText("Owner")).toBeTruthy();
   });
 
   it("signs out from the first door", () => {

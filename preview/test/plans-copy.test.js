@@ -25,8 +25,8 @@ const everyString = [
 describe("plan spine · numbers", () => {
   it("reads every cap from the server-bound tables, not from a literal", () => {
     expect(TIERS.anon.cards).toBe(ANON_FREE_CARDS);
-    expect(TIERS.free.cards).toBe(PLAN_CAPS.free.resolvePerDay);
-    expect(TIERS.pro.cards).toBe(PLAN_CAPS.pro.resolvePerDay);
+    expect(TIERS.free.cards).toBe(PLAN_CAPS.free.resolveTotal);
+    expect(TIERS.pro.cards).toBe(PLAN_CAPS.pro.resolvePerMonth);
   });
 
   it("gives a free account more cards than a signed-out device", () => {
@@ -35,7 +35,7 @@ describe("plan spine · numbers", () => {
   });
 
   it("prints the free card number on all four surfaces that mention it", () => {
-    const free = String(PLAN_CAPS.free.resolvePerDay);
+    const free = String(PLAN_CAPS.free.resolveTotal);
     expect(PLAN_COPY.capBody).toContain(free);
     expect(PLAN_COPY.signInBody).toContain(free);
     expect(PLAN_COPY.freeCardBody).toContain(free);
@@ -63,8 +63,8 @@ describe("plan spine · numbers", () => {
 
   it("matches every table number to the server caps", () => {
     const byLabel = Object.fromEntries(PLAN_ROWS.map((r) => [r.label, r]));
-    expect(byLabel["AI size-chart reads"].free).toBe(PLAN_CAPS.free.chartVisionPerDay + " a day");
-    expect(byLabel["AI size-chart reads"].pro).toBe(PLAN_CAPS.pro.chartVisionPerDay + " a day");
+    expect(byLabel["AI size-chart reads"].free).toBe(PLAN_CAPS.free.chartVisionTotal + " total");
+    expect(byLabel["AI size-chart reads"].pro).toBe(PLAN_CAPS.pro.chartVisionPerMonth + " a month");
     expect(byLabel["Hauls at once"].pro).toBe(String(PLAN_CAPS.pro.haulsMax));
     expect(byLabel["QC photos an item"].free).toBe(String(PLAN_CAPS.free.qcPhotosPerItem));
     expect(byLabel["Shared haul links"].pro).toBe(String(PLAN_CAPS.pro.sharedLinksMax));

@@ -2223,7 +2223,10 @@ describe("Phone haul board (Kyle 2026-07-25)", () => {
     // not top tabs.
     await user.click(await screen.findByRole("button", { name: /Hauls/ }));
     await user.click(await screen.findByRole("button", { name: /summer/ }));
-    await waitFor(() => expect(container.querySelector(".cz-haul-board")).not.toBeNull());
+    // The open haul is the steps page now (STEPS-HANDOFF item 2); its stack
+    // is the "haul is open" signal. The legacy .cz-haul-board strip is gone
+    // (item 4).
+    await waitFor(() => expect(container.querySelector(".cz-steps-stack")).not.toBeNull());
     expect(screen.queryByRole("listbox", { name: "Card carousel" })).toBeNull();
 
     // Back to the Shelf: still the grid, not the rack.

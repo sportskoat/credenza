@@ -32,10 +32,12 @@ function ruleBody(selector) {
 }
 
 // The whole onArchive handler, from its name to the closing of the board.
+// The end marker is the steps-page mount — HaulSteps replaced HaulFlowBoard
+// there (STEPS-HANDOFF item 2), and the handler still sits just above it.
 function archiveHandler() {
   const start = APP.indexOf("onArchive={() => {");
   if (start === -1) return "";
-  const end = APP.indexOf("<HaulFlowBoard", start);
+  const end = APP.indexOf("<HaulSteps", start);
   return end === -1 ? APP.slice(start) : APP.slice(start, end);
 }
 

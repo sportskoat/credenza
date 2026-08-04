@@ -346,7 +346,7 @@ describe("the app opens the drawer", () => {
   it("renders the drawer from the board's item tap", () => {
     expect(APP).toContain("<HaulItemDrawer");
     expect(APP).toContain('import("./components/HaulItemDrawer.jsx")');
-    expect(APP).toContain("onOpenItem={(id) => setHaulDrawerId(id)}");
+    expect(APP).toContain("onOpenItem={(id) => openHaulDrawer(id)}");
   });
 
   it("clears every fulfillment number when the item goes back to the shelf", () => {

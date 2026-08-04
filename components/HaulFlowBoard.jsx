@@ -66,9 +66,9 @@ export default function HaulFlowBoard({
   // (lineKey, rate)
   onSetRate,
   onHandOff,
-  // Absent means this build has one parcel. A button that cannot work is
-  // worse than no button, so the caller decides whether it appears.
-  onAddParcel = null,
+  // STEPS-HANDOFF item 7: the second parcel is gone. One box per haul is the
+  // model; the data still keeps parcels an array, so a future shape can carry
+  // more without a migration.
 }) {
   const divisor = ship && ship.divisor ? ship.divisor : 6000;
   const line = ship && ship.line ? ship.line : "EMS";
@@ -378,11 +378,8 @@ export default function HaulFlowBoard({
                   : "Nothing in the box yet"}
             </button>
 
-            {onAddParcel ? (
-              <button type="button" className="cz-hb-foot" onClick={() => onAddParcel()}>
-                + Parcel B
-              </button>
-            ) : null}
+            {/* STEPS-HANDOFF item 7: no "+ Parcel B" control here, and the
+                new rail renders none either. One box per haul. */}
           </div>
         </div>
       </section>

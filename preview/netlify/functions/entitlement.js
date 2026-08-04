@@ -51,9 +51,10 @@ async function handle(event) {
       record = ent.newEntitlement(claims.sub);
       await store.saveEntitlement(record);
     }
+    const visible = ent.withOwner(record, ent.isOwnerClaims(claims, env));
     return response(200, {
-      snapshot: ent.signEntitlement(record, env.ENTITLEMENT_SIGNING_SECRET),
-      state: ent.effectiveStatus(record),
+      snapshot: ent.signEntitlement(visible, env.ENTITLEMENT_SIGNING_SECRET),
+      state: ent.effectiveStatus(visible),
     });
   } finally {
     limit.leave(ROUTE);

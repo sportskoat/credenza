@@ -203,12 +203,14 @@ describe("the parcel panel", () => {
     expect(screen.getByText(/floor of \$8\.00/)).toBeTruthy();
   });
 
-  it("hides the second parcel until the caller can carry one", () => {
+  it("renders no second-parcel control, whatever the caller passes", () => {
+    // STEPS-HANDOFF item 7: one box per haul. The onAddParcel prop is gone,
+    // so a caller that still passes it gets no button.
     mount({ items: packed });
     expect(screen.queryByText("+ Parcel B")).toBe(null);
     cleanup();
     mount({ items: packed, onAddParcel: vi.fn() });
-    expect(screen.getByText("+ Parcel B")).toBeTruthy();
+    expect(screen.queryByText("+ Parcel B")).toBe(null);
   });
 });
 
@@ -364,10 +366,13 @@ describe("every number on the board reads as one set of numbers", () => {
   });
 });
 
-describe("the app renders the board", () => {
+describe("the app renders the steps page", () => {
+  // STEPS-HANDOFF item 2: HaulSteps replaced the column board at the mount.
+  // HaulFlowBoard.jsx stays on disk (and keeps its own tests above) as
+  // reference; the app itself mounts the steps page.
   it("mounts it inside the open haul", () => {
-    expect(APP).toContain("<HaulFlowBoard");
-    expect(APP).toContain('import HaulFlowBoard from "./components/HaulFlowBoard.jsx"');
+    expect(APP).toContain("<HaulSteps");
+    expect(APP).toContain('import HaulSteps from "./components/HaulSteps.jsx"');
   });
 
   it("builds the board's items from the whole haul, not the search results", () => {

@@ -1,4 +1,4 @@
-import { sellerStoreUrl, yupooAlbumUrl } from "../credenza-fashion.jsx";
+import { sellerStoreUrl, yupooAlbumUrl, yupooAnyUrl } from "../credenza-fashion.jsx";
 
 // Seller name as a hyperlink when we can open anything useful: the store
 // homepage first (Yupoo), else the listing URL (Weidian/Taobao/etc). Plain
@@ -74,6 +74,15 @@ export function albumLinkTarget(item, { tight = false } = {}) {
   const yupoo = yupooAlbumUrl(item);
   if (yupoo) {
     return { href: yupoo, label: (tight ? "Album" : "View album") + count, name: tight ? "Album" : "View album", photos };
+  }
+  // Kyle 2026-08-03: a saved Yupoo link is often the seller's front page, not
+  // this item's album. That page is still worth opening, so the link stays. It
+  // says what it opens: the seller's photos, not this item's album. No count —
+  // the number would describe our copy, not that page.
+  const store = yupooAnyUrl(item);
+  if (store) {
+    const name = tight ? "Seller" : "Seller photos";
+    return { href: store, label: name, name, photos: 0 };
   }
   const name = item.url ? albumHostName(item.url) : null;
   if (!name) return null;

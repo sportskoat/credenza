@@ -178,7 +178,7 @@ describe("DetailBody detail facts", () => {
       })
     );
 
-    expect(screen.getByRole("button", { name: "Input sizing chart manually" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Type the chart" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Type the numbers" })).toBeNull();
     expect(CSS).toContain("grid-template-columns: 76px 1fr 52px");
     expect(CSS).toContain(
@@ -748,15 +748,27 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
     // The sizing verdict stays visible behind the ask.
     expect(container.querySelector(".cz-sizing")).not.toBe(null);
 
-    // Clean state: no save control until a chip changes (Kyle 2026-08-02).
-    expect(screen.queryByRole("button", { name: "Save preference" })).toBeNull();
+    // Kyle 2026-08-03: "there is no sign here that lets you save … You can't
+    // get out of it". Save is always there now. It does not wait for a change.
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Oversized" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(handlers.onSaveFitPref).toHaveBeenCalledWith("shirt", {
       length: null,
       looseness: "oversized",
       dismissed: false,
     });
+  });
+
+  // Kyle 2026-08-03: "You can't get out of it." The X leaves and saves nothing.
+  it("5b: the X closes the fit question and saves nothing", () => {
+    const handlers = prefHandlers();
+    const { container } = render(body(item("fit5b-close"), handlers));
+
+    expect(screen.getByText("How do you wear shirts?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(handlers.onSaveFitPref).not.toHaveBeenCalled();
+    expect(container.querySelector(".cz-fit-pref-ask")).toBe(null);
   });
 
   it("5b: Not sure yet dismisses without saving a choice", () => {
@@ -838,9 +850,7 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
   });
 
   it("desktop: no saved choice invites set with the same control", () => {
-    const handlers = prefHandlers({
-      shirt: { length: null, looseness: null, dismissed: true },
-    });
+    const handlers = prefHandlers();
     const { container } = render(
       body(item("fit-pref-toggle-empty"), { ...handlers, titleTarget: null })
     );
@@ -848,6 +858,70 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
     const prefBtn = container.querySelector(".cz-fit-result-pref");
     expect(prefBtn).not.toBe(null);
     expect(prefBtn.textContent).toBe("Set your fit preference");
+  });
+
+  // Kyle 2026-08-03: "If you click Not Sure Yet, now it says 'Set your fit
+  // preferences'". The app looked like it forgot the answer. It did not.
+  it("desktop: says the preference is not set after 'Not sure yet'", () => {
+    const handlers = prefHandlers({
+      shirt: { length: null, looseness: null, dismissed: true },
+    });
+    const { container } = render(
+      body(item("fit-pref-toggle-dismissed"), { ...handlers, titleTarget: null })
+    );
+
+    const prefBtn = container.querySelector(".cz-fit-result-pref");
+    expect(prefBtn).not.toBe(null);
+    expect(prefBtn.textContent).toBe("Fit preference: not set");
+  });
+
+  // Kyle 2026-08-03: "set your fit preferences does not take you anywhere".
+  // Credenza only holds fit questions for four categories. On any other
+  // category the ask panel renders nothing, so the button led to a blank.
+  // The button now appears only where a question exists.
+  it("desktop: shows the pref control only on a category with a fit question", () => {
+    const handlers = prefHandlers();
+    const withCategory = (id, category) =>
+      render(body(item(id, { category }), { ...handlers, titleTarget: null }));
+
+    for (const category of ["shirt", "pants", "shorts", "outerwear"]) {
+      const { container, unmount } = withCategory("fit-pref-" + category, category);
+      expect(container.querySelector(".cz-fit-result-pref")).not.toBe(null);
+      unmount();
+    }
+
+    for (const category of ["shoes", "accessory", "socks", "bag", "hat", "other"]) {
+      const { container, unmount } = withCategory("fit-pref-" + category, category);
+      expect(container.querySelector(".cz-fit-result-pref")).toBe(null);
+      unmount();
+    }
+  });
+
+  // The panel opens below the size cells. On a tall card it opened off screen,
+  // so the press looked dead. It now brings itself into view.
+  it("desktop: scrolls the fit ask into view when it opens", () => {
+    const scrollIntoView = vi.fn();
+    const proto = window.HTMLElement.prototype;
+    const had = Object.prototype.hasOwnProperty.call(proto, "scrollIntoView");
+    const prior = proto.scrollIntoView;
+    proto.scrollIntoView = scrollIntoView;
+    try {
+      const handlers = prefHandlers({
+        shirt: { length: null, looseness: "regular", dismissed: false },
+      });
+      const { container } = render(
+        body(item("fit-pref-reveal"), { ...handlers, titleTarget: null })
+      );
+      expect(container.querySelector(".cz-fit-pref-ask")).toBe(null);
+      scrollIntoView.mockClear();
+
+      fireEvent.click(container.querySelector(".cz-fit-result-pref"));
+      expect(container.querySelector(".cz-fit-pref-ask")).not.toBe(null);
+      expect(scrollIntoView).toHaveBeenCalled();
+    } finally {
+      if (had) proto.scrollIntoView = prior;
+      else delete proto.scrollIntoView;
+    }
   });
 
   it("phone: no pref control beside the result badge", () => {

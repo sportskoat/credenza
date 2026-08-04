@@ -1262,9 +1262,6 @@ describe("every page tells a machine what kind of page it is", () => {
     // day free, 1,000 on Pro) and says what spends one. Article, like the
     // other two explainers above.
     "guides/what-a-link-resolve-is/index.html": "Article",
-    // A procedure, unlike the explainer above it: type the question, press the
-    // button, read the answer against the cards, fix the card if it misses.
-    "guides/ask-your-own-shelf/index.html": "HowTo",
     // LB-58. A procedure with an order that matters: the parcel estimate has
     // to be saved before the haul leaves the tab, and the cards have to leave
     // Want before the parcel is real.
@@ -2481,7 +2478,8 @@ describe("public copy stays clear and consistent", () => {
     const guide = DOCS.find(
       ({ rel }) => rel === "guides/what-happens-when-pro-ends/index.html"
     );
-    expect(guide.html).toContain("2 a day instead of 15");
+    expect(guide.html).toContain("8 total instead of 50 monthly");
+    expect(guide.html).toContain("8 total instead of 250 monthly");
     // The Ask row left this table with the pricing claim. Kyle 2026-08-02.
     expect(guide.html).not.toContain("5 a day instead of 40");
     expect(guide.html).not.toMatch(/instead of (100|200)/);

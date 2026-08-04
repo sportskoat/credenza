@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ANON_FREE_CARDS, limitStandingLine, limitStatus, proHasEnded } from "../src/limits.js";
-import { PLAN_CAPS, USAGE_KEY, bumpUsage, onUsageChange, usageToday } from "../src/usage.js";
+import { PLAN_CAPS, USAGE_KEY, bumpUsage, onUsageChange, usageKey, usageToday } from "../src/usage.js";
 import LimitsSheet from "../../sheets/LimitsSheet.jsx";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -37,10 +37,9 @@ function fakeHost(seed = {}) {
   };
 }
 
-function withUsed(counts, now = Date.UTC(2026, 6, 30, 12)) {
-  const day = new Date(now).toISOString().slice(0, 10);
+function withUsed(counts, audience = "anon") {
   const usage = {};
-  for (const [feature, n] of Object.entries(counts)) usage[feature + ":" + day] = n;
+  for (const [feature, n] of Object.entries(counts)) usage[usageKey(feature, audience)] = n;
   return fakeHost({ [USAGE_KEY]: JSON.stringify(usage) });
 }
 
@@ -51,7 +50,7 @@ const NOW = Date.UTC(2026, 6, 30, 12);
 describe("the free-card promise", () => {
   it("matches the number the server actually allows", () => {
     const src = readFileSync(join(ROOT, "preview/netlify/functions/lib/anon-allowance.js"), "utf8");
-    const block = src.slice(src.indexOf("const ANON_FREE_PER_DAY"));
+    const block = src.slice(src.indexOf("const ANON_FREE_TOTAL"));
     const served = Number(block.match(/resolve:\s*(\d+)/)[1]);
     expect(served).toBe(ANON_FREE_CARDS);
   });
@@ -62,19 +61,19 @@ describe("the free-card promise", () => {
 describe("the counter pill, signed out", () => {
   it("counts down the free cards", () => {
     const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 1 }), now: NOW });
-    expect(status.label).toBe("2 free cards left");
+    expect(status.label).toBe("4 free cards left");
     expect(status.tone).toBe("ok");
-    expect(status.left).toBe(2);
+    expect(status.left).toBe(4);
   });
 
   it("turns amber on the last free card, and says so in words", () => {
-    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 2 }), now: NOW });
+    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 4 }), now: NOW });
     expect(status.label).toBe("Last free card");
     expect(status.tone).toBe("warn");
   });
 
   it("reads empty once the allowance is spent", () => {
-    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
+    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 5 }), now: NOW });
     expect(status.label).toBe("No free cards left");
     expect(status.tone).toBe("wall");
   });
@@ -104,23 +103,24 @@ describe("the counter pill, signed in on the free plan", () => {
   it("shows the read that runs out first", () => {
     // Chart reads are the scarcest free allowance, so they are the wall this
     // person actually meets.
-    const status = limitStatus({ plan, signedIn: true, host: withUsed({ chartVision: 1 }), now: NOW });
+    const status = limitStatus({ plan, signedIn: true, host: withUsed({ chartVision: 7 }, "free"), now: NOW });
     expect(status.feature).toBe("chartVision");
-    expect(status.label).toBe("1 chart read left today");
+    expect(status.label).toBe("1 chart read left");
     expect(status.tone).toBe("warn");
   });
 
   it("moves to another meter when that one runs out first", () => {
-    const host = withUsed({ resolve: PLAN_CAPS.free.resolvePerDay });
+    const host = withUsed({ resolve: PLAN_CAPS.free.resolveTotal }, "free");
     const status = limitStatus({ plan, signedIn: true, host, now: NOW });
     expect(status.feature).toBe("resolve");
-    expect(status.label).toBe("No cards left today");
+    expect(status.label).toBe("No free cards left");
     expect(status.tone).toBe("wall");
   });
 
   it("gives a Pro member no meter at all", () => {
     expect(limitStatus({ plan: { state: "pro", lim: PLAN_CAPS.pro }, signedIn: true })).toBe(null);
     expect(limitStatus({ plan: { state: "grace", lim: PLAN_CAPS.pro }, signedIn: true })).toBe(null);
+    expect(limitStatus({ plan: { state: "owner", lim: PLAN_CAPS.owner }, signedIn: true })).toBe(null);
   });
 });
 
@@ -140,7 +140,7 @@ describe("an ended membership", () => {
 
 // ── The counters themselves ────────────────────────────────────────────────
 
-describe("the daily counters", () => {
+describe("the permanent counters", () => {
   it("counts a spent read without being handed a browser", () => {
     // Every caller in the app omits `host`. The counters were dead while this
     // default was missing, and the pill would have read "3 free cards left"
@@ -164,7 +164,7 @@ describe("the daily counters", () => {
 // ── Rule 2 and rule 4: the sheet ───────────────────────────────────────────
 
 describe("the one limits sheet", () => {
-  it("opens for the refused fourth card and keeps the held-link retry", () => {
+  it("opens for the refused sixth card and keeps the held-link retry", () => {
     const wallStart = APP.indexOf("const askForSignIn = useCallback");
     const wallEnd = APP.indexOf("// The chart hunt", wallStart);
     expect(wallStart).toBeGreaterThan(-1);
@@ -188,10 +188,10 @@ describe("the one limits sheet", () => {
   // now, and it names no price at all: Pro is a separate question on a
   // separate route.
   it("tells a visitor where they stand, and offers the free door first", () => {
-    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
+    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 5 }), now: NOW });
     const { container } = render(<LimitsSheet status={status} signedIn={false} />);
-    expect(screen.getByRole("heading", { name: "That is your third card today." })).toBeTruthy();
-    expect(screen.getByText("3 of 3 · Signed out · Resets tomorrow")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "That is your fifth free card." })).toBeTruthy();
+    expect(screen.getByText("5 of 5 · Signed out")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign in · free" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "See what Pro changes" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Not now" })).toBeTruthy();
@@ -205,7 +205,7 @@ describe("the one limits sheet", () => {
     // "unlimited" — a free account is a raise, not a removal (Kyle 2026-08-02).
     const body = container.textContent;
     expect(body).toContain(String(ANON_FREE_CARDS));
-    expect(body).toContain(String(PLAN_CAPS.free.resolvePerDay));
+    expect(body).toContain(String(PLAN_CAPS.free.resolveTotal));
     expect(body).not.toMatch(/unlimited/i);
   });
 
@@ -218,26 +218,26 @@ describe("the one limits sheet", () => {
     // No sign-in block: this person is already signed in.
     expect(screen.queryByText(/Sign in, free/)).toBe(null);
     expect(screen.getByRole("button", { name: "Resume Pro: $5.99 a month" })).toBeTruthy();
-    expect(screen.getByText(/resets tomorrow/)).toBeTruthy();
+    expect(screen.queryByText(/resets tomorrow/i)).toBe(null);
   });
 
-  it("shows a signed-in free account its daily meter without a sign-in button", () => {
+  it("shows a signed-in free account its permanent meter without a sign-in button", () => {
     const plan = { state: "free", lim: PLAN_CAPS.free };
     const status = limitStatus({
       plan,
       signedIn: true,
-      host: withUsed({ chartVision: 1 }),
+      host: withUsed({ chartVision: 7 }, "free"),
       now: NOW,
     });
     render(<LimitsSheet status={status} signedIn />);
-    expect(screen.getByText("1 of 2 chart reads used · resets tomorrow")).toBeTruthy();
+    expect(screen.getByText("7 of 8 chart reads used")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Sign in, free" })).toBe(null);
     expect(screen.getByRole("button", { name: "Go Pro: $5.99 a month" })).toBeTruthy();
   });
 
   it("keeps the sign-in, upgrade, and dismiss actions connected", () => {
     const calls = [];
-    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 3 }), now: NOW });
+    const status = limitStatus({ signedIn: false, host: withUsed({ resolve: 5 }), now: NOW });
     render(
       <LimitsSheet
         status={status}
@@ -255,8 +255,8 @@ describe("the one limits sheet", () => {
 
   it("reads the standing line in whole numbers", () => {
     const plan = { state: "free", lim: PLAN_CAPS.free };
-    const status = limitStatus({ plan, signedIn: true, host: withUsed({ chartVision: 1 }), now: NOW });
-    expect(limitStandingLine(status)).toBe("1 of 2 chart reads used today.");
+    const status = limitStatus({ plan, signedIn: true, host: withUsed({ chartVision: 7 }, "free"), now: NOW });
+    expect(limitStandingLine(status)).toBe("7 of 8 free chart reads used.");
   });
 });
 

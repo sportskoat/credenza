@@ -5,6 +5,8 @@ const require = createRequire(import.meta.url);
 const {
   GRACE_MS,
   PLAN_LIMITS,
+  isOwnerClaims,
+  withOwner,
   newEntitlement,
   effectiveStatus,
   limitsFor,
@@ -168,27 +170,52 @@ describe("repeat billing messages (gate, task 5)", () => {
 });
 
 describe("usage counters + limits (task 4)", () => {
-  it("counts per day, prunes old days, and enforces the plan cap", () => {
+  it("keeps a permanent Free allowance and resets Pro usage each calendar month", () => {
     let r = newEntitlement("u1", T0);
-    for (let i = 0; i < PLAN_LIMITS.free.askPerDay; i++) r = recordUsage(r, "ask", T0);
-    expect(usageToday(r, "ask", T0)).toBe(5);
+    for (let i = 0; i < PLAN_LIMITS.free.askTotal; i++) r = recordUsage(r, "ask", T0);
+    expect(usageToday(r, "ask", T0)).toBe(8);
     expect(overLimit(r, "ask", T0)).toBe(true);
+    expect(usageKey(r, "ask", T0)).toBe("free-v2:ask");
 
-    // Pro lifts the cap.
+    // Starting Pro opens this calendar month's counter regardless of billing cadence.
     const periodEnd = (T0 + 30 * DAY) / 1000;
     r = applyStripeEvent(r, subscription("active", periodEnd), T0);
     expect(overLimit(r, "ask", T0)).toBe(false);
+    expect(usageKey(r, "ask", T0)).toBe("month:" + new Date(T0).toISOString().slice(0, 7) + ":ask");
+    for (let i = 0; i < PLAN_LIMITS.pro.askPerMonth; i++) r = recordUsage(r, "ask", T0);
+    expect(overLimit(r, "ask", T0)).toBe(true);
 
-    // Two days later the counter resets (new key) and old keys are pruned.
-    r = recordUsage(r, "ask", T0 + 2 * DAY);
-    expect(usageToday(r, "ask", T0 + 2 * DAY)).toBe(1);
-    expect(Object.keys(r.usage)).toHaveLength(1); // only today — nothing was used yesterday
-    expect(usageKey("ask", T0)).toMatch(/^ask:\d{4}-\d{2}-\d{2}$/);
+    // A new calendar month resets usage without erasing the audit trail.
+    const nextEnd = (T0 + 60 * DAY) / 1000;
+    r = applyStripeEvent(r, subscription("active", nextEnd), T0 + 30 * DAY);
+    expect(usageToday(r, "ask", T0 + 31 * DAY)).toBe(0);
+    expect(overLimit(r, "ask", T0 + 31 * DAY)).toBe(false);
   });
 
   it("unmetered features never report over the limit", () => {
     const r = newEntitlement("u1", T0);
     expect(overLimit(r, "nonsense", T0)).toBe(false);
+  });
+});
+
+describe("owner access", () => {
+  it("matches configured email or user id without case sensitivity", () => {
+    const env = { CREDENZA_OWNER_EMAILS: "creator@example.com", CREDENZA_OWNER_USER_IDS: "USER-1" };
+    expect(isOwnerClaims({ email: "Creator@Example.com" }, env)).toBe(true);
+    expect(isOwnerClaims({ sub: "user-1" }, env)).toBe(true);
+    expect(isOwnerClaims({ email: "customer@example.com", sub: "user-2" }, env)).toBe(false);
+  });
+
+  it("gives the owner permanent access without consuming usage", () => {
+    let r = withOwner(newEntitlement("owner-1", T0), true);
+    expect(effectiveStatus(r, T0)).toBe("owner");
+    expect(limitsFor(r, T0)).toEqual(PLAN_LIMITS.owner);
+    expect(mayWriteCloud(r, T0)).toBe(true);
+    r = recordUsage(r, "ask", T0);
+    expect(r.usage).toEqual({});
+    expect(overLimit(r, "ask", T0)).toBe(false);
+    const payload = verifyEntitlement(signEntitlement(r, "owner-secret", T0), "owner-secret", T0);
+    expect(payload).toMatchObject({ plan: "owner", state: "owner", lim: PLAN_LIMITS.owner });
   });
 });
 

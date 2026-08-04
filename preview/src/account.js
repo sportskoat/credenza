@@ -101,11 +101,10 @@ function messageForStatus(status, subject) {
 // that has to make the same decision.
 export function safeErrorMessage(status, serverError, subject = "Billing") {
   const text = typeof serverError === "string" ? serverError.trim() : "";
-  // A daily-cap message is generated ("Daily ask limit reached — upgrade to
-  // Pro for more"), so it cannot be listed literally. It names no vendor and
+  // A Free-allowance message is generated, so it cannot be listed literally. It names no vendor and
   // no variable, and it is the one message that tells a free user why the
   // button stopped working, so it passes on shape.
-  if (/^Daily \w+ limit reached/.test(text)) return text;
+  if (/^(?:Free|Monthly) \w+ allowance used/.test(text)) return text;
   // The share cap message carries the number of links a free account keeps,
   // so it is generated too and cannot be listed literally. It names no vendor
   // and no variable, and it is the only thing that tells a free person why a

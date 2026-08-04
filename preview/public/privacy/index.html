@@ -13,6 +13,9 @@
     />
     <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#050506" media="(prefers-color-scheme: dark)" />
+    <!-- Google asks for /favicon.ico first. With no such file it showed a grey
+         globe and never read the PNG below (Kyle 2026-08-03). -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="canonical" href="https://credenzafashion.com/privacy/" />
     <meta property="og:title" content="Credenza Privacy Notice" />
@@ -118,7 +121,7 @@
       <p>
         Your shelf lives on your device. Credenza works with no account at all. If you make
         an account, four optional features can store data on our servers: your plan, your
-        synced shelf, your shared links, and your daily usage counters. Each one is listed
+        synced shelf, your shared links, and your usage counters. Each one is listed
         below. Everything else stays on the device, and the server functions keep no content.
       </p>
       <p>
@@ -157,8 +160,8 @@
         <li>Your plan and billing status, and the date the paid period ends.</li>
         <li>Your Stripe customer and subscription identifiers, so a renewal finds you.</li>
         <li>
-          Daily usage counters per feature: how many size-chart reads and link resolves
-          you used today. These are counts, never the content of a request.
+          Usage counters per feature, including permanent Free allowances and monthly Pro
+          allowances. These are counts, never the content of a request.
         </li>
       </ul>
 
@@ -216,7 +219,6 @@
         <li>Link enrichment: the one marketplace or album URL you asked about.</li>
         <li>Size-chart scan: the album photo URLs you asked to scan.</li>
         <li>Reddit import: the one post URL you asked to read.</li>
-        <li>Ask: your question and a compact summary of up to 25 shelf items you chose to search.</li>
         <li>
           Image relay: the album photo URL, because Yupoo refuses a direct browser request.
           Credenza relays 6 photos an album by default and caches them; the rest open at the
@@ -231,7 +233,7 @@
 
       <h2>What Anthropic processes</h2>
       <p>
-        Ask, the size-chart scan, and listing translation send the request content to the
+        The size-chart scan and listing translation send the request content to the
         Anthropic API to produce an answer. Anthropic processes this data under its own
         privacy policy and retention terms. Credenza sends no body measurements and no
         click log to Anthropic.
@@ -245,10 +247,11 @@
       </p>
       <p>
         Accepting records the page addresses you open on this site, the page that sent you
-        here, your country and city, your browser and device type, and each Buy tap with the
-        shopping agent and the marketplace you opened. Google Analytics removes part of your
-        IP address before it stores anything. Google processes this data under its own
-        privacy policy.
+        here, your country and city, your browser and device type, sign-in and checkout steps,
+        successful card and chart actions, allowance walls, and each Buy tap with the
+        shopping agent and marketplace you opened. Google Analytics removes part of your IP
+        address before it stores anything. Google processes this data under its own privacy
+        policy.
       </p>
       <p>
         Credenza never sends your shelf, your item titles, your marketplace links, your
@@ -297,7 +300,7 @@
         <li><strong>Netlify</strong>: hosting and the server functions.</li>
         <li><strong>Supabase</strong>: accounts, the synced shelf, shared links, and plan rows.</li>
         <li><strong>Stripe</strong>: payment, receipts, and the customer portal.</li>
-        <li><strong>Anthropic</strong>: Ask, the size-chart scan, and listing translation.</li>
+        <li><strong>Anthropic</strong>: the size-chart scan and listing translation.</li>
         <li><strong>Google Analytics</strong>: counting visits, after you accept it.</li>
       </ul>
       <p>

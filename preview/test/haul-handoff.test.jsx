@@ -297,7 +297,7 @@ describe("the app opens the screen", () => {
   it("loads it only when a haul is open", () => {
     expect(APP).toContain('import("./components/HaulHandoff.jsx")');
     expect(APP).toContain("{handoffOpen && openHaulName && (");
-    expect(APP).toContain("else setHandoffOpen(true);");
+    expect(APP).toContain("openHandoff();");
   });
 
   it("marks the parcel submitted here only", () => {
@@ -310,6 +310,6 @@ describe("the app opens the screen", () => {
 
   it("closes it when the haul closes", () => {
     const i = APP.indexOf("const closeHaul = useCallback");
-    expect(APP.slice(i, i + 700)).toContain("setHandoffOpen(false)");
+    expect(APP.slice(i, i + 1400)).toContain("setHandoffOpen(false)");
   });
 });

@@ -138,7 +138,7 @@ describe("FitBlock chart hunt", () => {
     // visible with no tap (Kyle 2026-07-29).
     expect(within(section).getByLabelText("Custom item size")).toBeInTheDocument();
     expect(
-      screen.getByText("No size chart found.")
+      screen.getByText("No chart for this one yet.")
     ).toBeInTheDocument();
     expect(huntMock).toHaveBeenCalledTimes(1);
   });

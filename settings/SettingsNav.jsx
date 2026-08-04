@@ -16,7 +16,8 @@ export const SETTINGS_SECTIONS = [
 export default function SettingsNav({ active, onSelect }) {
   const { accountSession, accountPlan, agentLabel, pricePrimary } = useSettings();
   const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
-  const isPro = planState === "pro" || planState === "grace";
+  const isOwner = planState === "owner";
+  const isPro = planState === "pro" || planState === "grace" || planState === "owner";
   const email = accountSession && accountSession.user ? accountSession.user.email : "";
   const initial = email ? email.charAt(0).toUpperCase() : "?";
 
@@ -48,7 +49,7 @@ export default function SettingsNav({ active, onSelect }) {
           {initial}
         </span>
         <span className="cz-settings-nav-email">{email || "Signed out"}</span>
-        {isPro ? <span className="cz-settings-nav-pro">PRO</span> : null}
+        {isPro ? <span className="cz-settings-nav-pro">{isOwner ? "OWNER" : "PRO"}</span> : null}
       </button>
     </nav>
   );

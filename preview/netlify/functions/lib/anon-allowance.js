@@ -1,15 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // anon-allowance.js — the free taste a signed-out visitor gets
 //
-// Kyle 2026-07-30: "3 free links". A visitor who has never signed in may build
-// THREE complete cards. A complete card needs the link read (resolve) and the
+// A visitor who has never signed in may build five complete cards. A complete
+// card needs the link read (resolve) and the
 // size chart read (chart-vision), because a card without a chart is the blank
 // card this whole change exists to remove. Ask stays behind sign-in.
 //
 // WHERE THE COUNT LIVES. In the warm function instance, keyed by client IP and
-// UTC day — the same place the per-minute windows live. That is deliberately
+// feature — the same place the per-minute windows live. That is deliberately
 // NOT a hard total: Netlify runs several instances, so a determined visitor can
-// get more than three. The hard money guard is the site-wide daily ceiling in
+// get more than five. The hard money guard is the site-wide daily ceiling in
 // limit.js, which every one of these calls still passes through. This counter
 // is here to make the NORMAL case correct and cheap, not to stop an attacker.
 //
@@ -17,21 +17,16 @@
 // logOutcome hashes its key, so no visitor address sits in memory.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Per signed-out visitor, per UTC day. Keep these in step with the copy in
-// credenza-fashion.jsx ("3 free" is a promise the interface makes).
-const ANON_FREE_PER_DAY = {
-  resolve: 3,
-  chartVision: 3,
+// Per signed-out visitor. Keep these in step with the interface promise.
+const ANON_FREE_TOTAL = {
+  resolve: 5,
+  chartVision: 5,
   ask: 0,
 };
 
 const MAX_KEYS = 5000;
 
-const counts = new Map(); // `${day}|${hash}|${feature}` → n
-
-function utcToday(now = Date.now()) {
-  return new Date(now).toISOString().slice(0, 10);
-}
+const counts = new Map(); // `${hash}|${feature}` → n for this warm instance
 
 function hashKey(value) {
   let hash = 5381;
@@ -40,29 +35,25 @@ function hashKey(value) {
   return hash.toString(16);
 }
 
-function slotKey(feature, clientKey, now) {
-  return utcToday(now) + "|" + hashKey(clientKey) + "|" + feature;
+function slotKey(feature, clientKey) {
+  return hashKey(clientKey) + "|" + feature;
 }
 
-// Drop every slot from an earlier day once the map grows. A day boundary makes
-// the old keys dead weight; nothing else ever needs removing.
-function sweep(now) {
+// Bound warm-instance memory. The site-wide cost ceiling remains the hard guard.
+function sweep() {
   if (counts.size <= MAX_KEYS) return;
-  const today = utcToday(now);
-  for (const key of counts.keys()) {
-    if (!key.startsWith(today + "|")) counts.delete(key);
-  }
+  counts.clear();
 }
 
 function freeCap(feature) {
-  return ANON_FREE_PER_DAY[feature] || 0;
+  return ANON_FREE_TOTAL[feature] || 0;
 }
 
-// How many free calls this visitor has left for one feature today.
-function freeLeft(feature, clientKey, now = Date.now()) {
+// How many free calls this visitor has left for one feature.
+function freeLeft(feature, clientKey, _now = Date.now()) {
   const cap = freeCap(feature);
   if (!cap) return 0;
-  return Math.max(0, cap - (counts.get(slotKey(feature, clientKey, now)) || 0));
+  return Math.max(0, cap - (counts.get(slotKey(feature, clientKey)) || 0));
 }
 
 // May this signed-out visitor make one more call?
@@ -71,12 +62,12 @@ function allowAnon(feature, clientKey, now = Date.now()) {
 }
 
 // Count one SUCCESSFUL free call. Failed calls are never counted, so a link
-// the server cannot read does not cost the visitor one of their three.
-function recordAnon(feature, clientKey, now = Date.now()) {
+// the server cannot read does not cost the visitor one of their five.
+function recordAnon(feature, clientKey, _now = Date.now()) {
   const cap = freeCap(feature);
   if (!cap) return;
-  sweep(now);
-  const key = slotKey(feature, clientKey, now);
+  sweep();
+  const key = slotKey(feature, clientKey);
   counts.set(key, (counts.get(key) || 0) + 1);
 }
 
@@ -84,4 +75,4 @@ function _resetForTest() {
   counts.clear();
 }
 
-module.exports = { ANON_FREE_PER_DAY, allowAnon, freeLeft, recordAnon, _resetForTest };
+module.exports = { ANON_FREE_TOTAL, allowAnon, freeLeft, recordAnon, _resetForTest };

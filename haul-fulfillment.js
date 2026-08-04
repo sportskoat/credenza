@@ -73,6 +73,66 @@ export const DEFAULT_PACKAGING_GRAMS = 140;
 export const DIVISORS = [5000, 6000];
 
 /**
+ * Volumetric defaults in cm³ (STEPS-HANDOFF § Volumetric defaults).
+ *
+ * Agents bill the bigger of actual weight and box size. An item with no
+ * measured size still takes up room, so the volumetric row needs a number
+ * even then — the estimate keeps the row alive so the calculator can teach
+ * ("you are paying for air"). A stored L×W×H (haulVolumeCm3, set in the item
+ * drawer) always wins and drops the est. flag.
+ *
+ * Never fall back to zero: an unknown item gets the fallback, so the row
+ * never reads 0 g for a categorised item.
+ *
+ * Categories are the app's CATEGORIES keys. Hoodies and knits classify as
+ * outerwear there, so the hoodie row fires on a title sniff inside
+ * outerwear. The no-box shoe row has no data source — a person records a
+ * de-boxed pair with the drawer's L×W×H field.
+ */
+export const VOL_DEFAULTS = {
+  outerwear: 8000,
+  hoodieKnit: 5000,
+  shirt: 1500,
+  pants: 3000,
+  shoesBoxed: 9500,
+  shoesNoBox: 6000,
+  accessory: 800,
+  fallback: 2500,
+};
+
+const HOODIE_KNIT_RE = /\b(hoodie|hoody|knit|knitwear|sweater|sweatshirt|cardigan|jumper|crewneck)\b/i;
+
+/**
+ * The item's volume in cm³ and whether it is an estimate.
+ *
+ * @param {{haulVolumeCm3?: number|null, category?: string, title?: string}} item
+ * @returns {{cm3: number, estimated: boolean}}
+ */
+export function volumeFor(item) {
+  const stored = num(item && item.haulVolumeCm3);
+  if (stored > 0) return { cm3: stored, estimated: false };
+  const category = item && item.category ? String(item.category) : "";
+  let cm3;
+  if (category === "outerwear") {
+    cm3 = HOODIE_KNIT_RE.test(item && item.title ? item.title : "")
+      ? VOL_DEFAULTS.hoodieKnit
+      : VOL_DEFAULTS.outerwear;
+  } else if (category === "shirt") {
+    cm3 = VOL_DEFAULTS.shirt;
+  } else if (category === "pants" || category === "shorts") {
+    cm3 = VOL_DEFAULTS.pants;
+  } else if (category === "shoes") {
+    cm3 = VOL_DEFAULTS.shoesBoxed;
+  } else if (category === "accessory" || category === "socks" || category === "hat") {
+    cm3 = VOL_DEFAULTS.accessory;
+  } else {
+    // Bag, other, and anything uncategorised. Never zero.
+    cm3 = VOL_DEFAULTS.fallback;
+  }
+  return { cm3, estimated: true };
+}
+
+/**
  * Shipping lines. Rates are starting points the person edits. Agents change
  * them weekly, so never present one as if Credenza knows today's price.
  *
@@ -149,7 +209,10 @@ export function toHaulItem(card, { estGrams = null, priceUsd = null } = {}) {
     // When the warehouse number arrived. Kyle 2026-08-02 wanted the screen to
     // prove a weight is the warehouse's number, not a guess. The date proves it.
     weighedAt: card.haulWeighedAt || null,
-    vol: num(card.haulVolumeCm3),
+    // A stored L×W×H wins; otherwise the category default keeps the
+    // volumetric row alive, flagged as the estimate it is. Never zero.
+    vol: volumeFor(card).cm3,
+    volEstimated: volumeFor(card).estimated,
     stage: normalizeStage(card.haulStage),
     qc: normalizeVerdict(card.haulVerdict),
     reason: card.haulReason || null,

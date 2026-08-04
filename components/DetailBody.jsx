@@ -16,9 +16,16 @@ import {
   readChartFromPhotoFiles,
   isChartAuthRequired,
   isChartCapReached,
+  isChartUnavailable,
+  isChartOffline,
   CHART_AUTH_COPY,
+  CHART_UNAVAILABLE_COPY,
+  CHART_OFFLINE_COPY,
+  CHART_HUNT_UNAVAILABLE_COPY,
   chartCapCopy,
   chartCapWantsUpgrade,
+  chartCardsCapCopy,
+  chartNeedsCards,
   requestChartSignIn,
   requestChartLimits,
   serializeSizeChart,
@@ -31,9 +38,7 @@ import {
   compactSizeToken,
   formatSizeToken,
   itemPhotoList,
-  sizingAlbumReadCandidates,
   DETAIL_PHOTO_CAP,
-  yupooAlbumUrl,
   linkButtons,
   measureFromStorage,
   measureToStorage,
@@ -106,13 +111,17 @@ const focusOnMount = (el) => {
 //
 function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null) {
   const [hunting, setHunting] = useState(false);
-  // FIX 0: hunt hit a 401/403 — show signed-out copy, not "No size chart found."
+  // FIX 0: hunt hit a 401/403 — show signed-out copy, not "No chart for this one yet."
   const [authBlocked, setAuthBlocked] = useState(false);
-  // FIX 2b: hunt hit daily cap — show cap copy, not "No size chart found."
+  // FIX 2b: hunt hit daily cap — show cap copy, not "No chart for this one yet."
   const [capBlocked, setCapBlocked] = useState(false);
+  // FIX 2c: hunt could not reach the reader — show "not answering", not
+  // "No chart for this one yet." A server that is down proves nothing about the item.
+  const [outBlocked, setOutBlocked] = useState(false);
   useEffect(() => {
     setAuthBlocked(false);
     setCapBlocked(false);
+    setOutBlocked(false);
   }, [item.id]);
   useEffect(() => {
     if (!enabled) return;
@@ -143,6 +152,15 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
           setCapBlocked(true);
           return;
         }
+        // FIX 2c: reader unreachable mid-hunt — say so, and stop. The item
+        // stays on the tried list, so leaving the card and coming back does
+        // not start a second paid search (Kyle 2026-08-03: "if you wait around
+        // long enough, switch on and off, go to different tabs, and come
+        // back"). A page reload still gives a fresh try; the list is memory.
+        if (found && found.unavailable) {
+          setOutBlocked(true);
+          return;
+        }
         // Older hunts returned bare text; the source tag ships with the text now.
         const text = typeof found === "string" ? found : found && found.text;
         if (text) {
@@ -166,7 +184,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
       setHunting(false);
     };
   }, [enabled, chart, item, onSaveEdit, shelfItems]);
-  return { hunting, authBlocked, capBlocked };
+  return { hunting, authBlocked, capBlocked, outBlocked };
 }
 
 // One source of truth keeps the sizing verdict consistent across each view.
@@ -533,7 +551,12 @@ function SizingBlock({
             </span>
           ) : null}
           <span className="cz-fit-result-trail">
-            {onAskPref && item ? (
+            {/* Kyle 2026-08-03: "set your fit preferences does not take you
+                anywhere". Credenza only knows fit questions for four
+                categories. On a category with none, FitPrefAsk renders
+                nothing, so the button led to a blank. Show the button only
+                where a question exists. */}
+            {onAskPref && item && FIT_PREF_AXES[item.category] ? (
               <button
                 type="button"
                 className="cz-fit-result-pref"
@@ -684,6 +707,13 @@ const EMPTY_CHART_READ = {
   authRequired: false,
   // FIX 2b: true when daily cap blocked the read — distinct from a bad photo.
   capReached: false,
+  // FIX 2c: true when the reader could not be reached at all — a slow server,
+  // a timeout, or no internet. Distinct from a bad photo, because the photo
+  // was never looked at.
+  unavailable: false,
+  // Kyle 2026-08-03: true when the read already wrote itself to the card, so
+  // "Not this one" knows it must take the chart back off again.
+  autoSaved: false,
 };
 
 // The columns a hand-typed chart offers, per category. Only labels sellers
@@ -738,8 +768,14 @@ function useCustomerChartRead(item, onSaveEdit) {
     };
   }
 
+  // FIX 2c: a read that failed because the reader was unreachable deserves a
+  // plain "Try again" on the SAME photos. Opening the file picker is the wrong
+  // answer there — the customer picked nothing wrong.
+  const lastRead = useRef(null);
+
   const read = async (sources, { thumb = "", referer = "" } = {}) => {
     const list = Array.isArray(sources) ? sources : [sources];
+    lastRead.current = { list, thumb, referer };
     // Capture BEFORE wiping into "reading" — typed numbers must survive a miss.
     const typedPrior = snapshotTypedWork(stateRef.current);
     setState({ ...EMPTY_CHART_READ, reading: true, thumb, count: list.length });
@@ -757,6 +793,10 @@ function useCustomerChartRead(item, onSaveEdit) {
     let sawAuth = false;
     // FIX 2b: daily cap — stop and show cap state (never "could not read").
     let sawCap = false;
+    // FIX 2c: the reader was not reachable — a server fault, a timeout, or no
+    // internet. Not a photo fault, so it must not read "could not read".
+    let sawUnavailable = false;
+    let sawOffline = false;
     if (remote.length) {
       // One photo per paid read (low-cost rule 3). Stop on first valid chart.
       for (const url of remote.slice(0, 3)) {
@@ -771,6 +811,17 @@ function useCustomerChartRead(item, onSaveEdit) {
         if (isChartCapReached(raw)) {
           sawCap = true;
           break;
+        }
+        // FIX 2c: the reader was not reachable for THIS photo. Try the next
+        // one — a second photo may still get through — but remember it, so a
+        // total failure never blames a photo nobody looked at.
+        if (isChartUnavailable(raw)) {
+          sawUnavailable = true;
+          if (isChartOffline(raw)) {
+            sawOffline = true;
+            break;
+          }
+          continue;
         }
         if (!raw) continue;
         if (validateChartResult(raw, parseSizeChart).ok) {
@@ -790,6 +841,9 @@ function useCustomerChartRead(item, onSaveEdit) {
         sawAuth = true;
       } else if (isChartCapReached(raw)) {
         sawCap = true;
+      } else if (isChartUnavailable(raw)) {
+        sawUnavailable = true;
+        sawOffline = isChartOffline(raw);
       } else if (raw && validateChartResult(raw, parseSizeChart).ok) {
         text = raw;
         if (typeof list[0] === "string" && /^data:image\//i.test(list[0])) {
@@ -843,6 +897,29 @@ function useCustomerChartRead(item, onSaveEdit) {
       });
       return;
     }
+    // FIX 2c: the reader never answered. Say that. A photo the reader never
+    // looked at cannot be a bad photo. If ANY photo did come back and simply
+    // held no sizes, that is the more useful thing to say, so it wins.
+    if (sawUnavailable && !text && !sawUnparseable) {
+      const outMsg = sawOffline ? CHART_OFFLINE_COPY : CHART_UNAVAILABLE_COPY;
+      if (typedPrior) {
+        setState({
+          ...EMPTY_CHART_READ,
+          ...typedPrior,
+          thumb: thumb || "",
+          error: outMsg + " Your typed numbers are still here.",
+          unavailable: true,
+        });
+        return;
+      }
+      setState({
+        ...EMPTY_CHART_READ,
+        thumb,
+        error: outMsg,
+        unavailable: true,
+      });
+      return;
+    }
     const check = text ? validateChartResult(text, parseSizeChart) : { ok: false };
     if (!check.ok) {
       const photoError = sawUnparseable
@@ -866,7 +943,24 @@ function useCustomerChartRead(item, onSaveEdit) {
       });
       return;
     }
-    setState({ ...EMPTY_CHART_READ, chart: check.chart, text, thumb, imageHash });
+    // Kyle 2026-08-03: "it shouldn't have to REREAD." A read costs a daily
+    // credit, so throwing the answer away when the card closes charges the
+    // customer twice for one chart. The silent hunt has always saved itself
+    // (see useChartHunt). Now the customer-run read saves itself too, the
+    // moment it succeeds. The preview below still shows, and "Use this chart"
+    // still commits any correction the customer types over the top.
+    onSaveEdit(item.id, {
+      sizeChartText: text,
+      sizeChartNeedsClear: false,
+      sizeChartSource: {
+        via: "customer-photo",
+        photos: list.length,
+        at: new Date().toISOString(),
+        ...(imageHash ? { imageHash } : {}),
+        ...(item.seller ? { seller: String(item.seller).slice(0, 60) } : {}),
+      },
+    });
+    setState({ ...EMPTY_CHART_READ, chart: check.chart, text, thumb, imageHash, autoSaved: true });
   };
 
   // Kyle 2026-07-30: "let you type the chart numbers by hand in twenty
@@ -926,7 +1020,18 @@ function useCustomerChartRead(item, onSaveEdit) {
     setState(EMPTY_CHART_READ);
   };
 
-  const dismiss = () => setState(EMPTY_CHART_READ);
+  // "Not this one" rejects the read. A read that saved itself must therefore
+  // un-save itself, or a rejected chart would stay on the card.
+  const dismiss = () => {
+    if (stateRef.current.autoSaved) {
+      onSaveEdit(item.id, {
+        sizeChartText: "",
+        sizeChartSource: null,
+        sizeChartNeedsClear: false,
+      });
+    }
+    setState(EMPTY_CHART_READ);
+  };
 
   // A corrected cell rewrites the staged chart. It does NOT re-parse: a
   // half-typed "1" is under the parser's 20cm floor, so a round trip per
@@ -936,35 +1041,22 @@ function useCustomerChartRead(item, onSaveEdit) {
     setState((prev) => ({ ...prev, chart: nextChart, dirty: true, error: "" }));
   };
 
-  return { ...state, read, commit, dismiss, fix, startTyping };
+  // FIX 2c: repeat the last read with the same photos. Used only by the
+  // "Try again" button on the not-answering state.
+  const retryLast = () => {
+    const last = lastRead.current;
+    if (!last) return;
+    read(last.list, { thumb: last.thumb, referer: last.referer });
+  };
+
+  return { ...state, read, commit, dismiss, fix, startTyping, retryLast };
 }
 
 // The no-chart state keeps the usual size visible but unverified.
 // The Size panel owns the single chart upload action.
-// Round 4 point 7: a failed album thumb draws a plain dark tile, never the
-// browser's broken-image mark. Per photo URL, so one bad photo does not hide
-// the good ones.
-function AlbumThumb({ src }) {
-  const [bad, setBad] = useState(false);
-  return bad ? (
-    <span className="cz-sizing-albumthumb cz-photo-tile-missing" aria-hidden="true" />
-  ) : (
-    <img
-      className="cz-sizing-albumthumb"
-      src={src}
-      alt=""
-      loading="lazy"
-      onError={() => setBad(true)}
-    />
-  );
-}
-
 function SizingBlockNoChart({
   usualSize,
   isManual = false,
-  albumPhotos,
-  albumCount,
-  onOpenAlbum,
   needsClear = false,
   onClearChart,
   needsSignIn = false,
@@ -973,19 +1065,33 @@ function SizingBlockNoChart({
   chartAuthBlocked = false,
   // FIX 2b: hunt hit daily chart-read cap. Distinct from auth and from a miss.
   chartCapBlocked = false,
+  // Kyle 2026-08-03: the chart is in the seller's product details, and the
+  // day's cards are spent, so Credenza cannot fetch it. Name the real reason.
+  chartCardsBlocked = false,
+  // FIX 2c: the hunt could not reach the reader. The item may well have a
+  // chart; nobody got to look. "No chart for this one yet." would be a claim we
+  // cannot make.
+  chartOutBlocked = false,
   // WhatsApp when no validated chart rec (even if variants list S–XL).
   whatsapp = "",
   variantRun = "",
 }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
-  const thumbs = (albumPhotos || []).slice(0, 2);
   const waUrl = whatsAppChatUrl(whatsapp);
   const signedOut = needsSignIn || chartAuthBlocked;
   // Cap blocks photo reads; still show the album row so the person can see
   // photos, but the primary path is the honest limit message.
   // Show WhatsApp when the seller listed a contact and we have no chart
   // recommendation (this block only mounts with no validated chart).
-  const showWhatsApp = !!waUrl && !signedOut && !chartCapBlocked && !needsClear;
+  // FIX 2c: a reader we could not reach proves nothing about this item, so the
+  // "ask the seller" path is premature. Offer the retry first.
+  const showWhatsApp =
+    !!waUrl &&
+    !signedOut &&
+    !chartCapBlocked &&
+    !chartCardsBlocked &&
+    !chartOutBlocked &&
+    !needsClear;
 
   return (
     <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
@@ -995,13 +1101,15 @@ function SizingBlockNoChart({
             The card says so here, where the chart belongs, so an empty card
             never reads as a broken site (Kyle 2026-07-30). */}
         <span className="cz-sizing-kicker">
-          {chartCapBlocked
+          {chartCapBlocked || chartCardsBlocked
             ? "Daily limit"
             : signedOut
               ? "Needs sign-in"
-              : showWhatsApp
-                ? "No size in link"
-                : "No chart"}
+              : chartOutBlocked
+                ? "Not answering"
+                : showWhatsApp
+                  ? "No size in link"
+                  : "No chart"}
         </span>
         {/* Round 5 point 5.1: one notice for a hand pick — "you picked this"
             beside the size word. The "SET BY YOU" label here was a second
@@ -1053,18 +1161,49 @@ function SizingBlockNoChart({
           <p className="cz-sizing-nochart-body">
             {chartCapBlocked
               ? chartCapCopy()
+              : chartCardsBlocked
+              ? chartCardsCapCopy()
               : chartAuthBlocked
               ? CHART_AUTH_COPY
               : needsSignIn
               ? "Sign in to finish this card. Credenza then reads the product, the photos, and the size chart."
               : needsClear
               ? "This saved chart came from another item. It is hidden. Clear it before reading this item's photos."
+              : chartOutBlocked
+              ? /* FIX 2c: nobody read anything, so claim nothing about the item.
+                   The hunt runs on its own, with no photo the customer picked,
+                   so this wording keeps the customer out of it. */
+                CHART_HUNT_UNAVAILABLE_COPY
               : /* Kyle 2026-07-30: keep this state short. Two lines, then the
                    buttons. The old copy explained the upload button that sits
-                   directly below it. */
-                "No size chart found."}
+                   directly below it.
+                   Kyle 2026-08-03: "there needs to be something here, or else
+                   it's just a blank screen." The sentence now says the chart is
+                   missing for now, not that the item has none. */
+                "No chart for this one yet."}
           </p>
-          {chartCapBlocked ? (
+          {/* Kyle 2026-08-03: the pane read as empty. This line says, in words,
+              which size the card is holding. The big letter above is the same
+              fact, but a letter on its own answers nothing. */}
+          {heroLabel ? (
+            <p className="cz-sizing-picked">
+              {isManual ? `You picked ${heroLabel}.` : `Your usual size is ${heroLabel}.`}
+            </p>
+          ) : null}
+          {/* Kyle 2026-08-03: "it should pull up a modal." The cards wall only
+              ever reaches a signed-in customer on the free plan — chartNeedsCards
+              reads the free daily count, and a signed-out person has none. So
+              that wall always offers the plans sheet. The chart-read wall still
+              asks a signed-out person to sign in. */}
+          {chartCardsBlocked ? (
+            <button
+              type="button"
+              className="cz-sizing-action is-primary"
+              onClick={() => requestChartLimits()}
+            >
+              See plans
+            </button>
+          ) : chartCapBlocked ? (
             <button
               type="button"
               className="cz-sizing-action is-primary"
@@ -1086,27 +1225,15 @@ function SizingBlockNoChart({
         </>
       )}
 
-      {/* A photo read costs the same refused call, so hide the album row until
-          the visitor signs in. Cap wall still allows the album list — the cap
-          message already explained why a paid read will not run. */}
-      {signedOut ? null : needsClear && onClearChart ? (
+      {/* Kyle 2026-08-03: "if it doesnt catch it the first time it never does,
+          take it out." The row that offered to read the album photos is gone.
+          Each press spent a paid call and a daily card for an answer that was
+          never there. The automatic read still runs once, on its own.
+          "Clear this chart" stays. It costs nothing and it is the only way out
+          of a chart that belongs to another item. */}
+      {signedOut || chartCardsBlocked ? null : needsClear && onClearChart ? (
         <button type="button" className="cz-sizing-albumrow" onClick={onClearChart}>
           <span className="cz-sizing-albumtext">Clear this chart</span>
-          <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      ) : albumCount ? (
-        <button type="button" className="cz-sizing-albumrow" onClick={onOpenAlbum}>
-          <span className="cz-sizing-albumthumbs" aria-hidden="true">
-            {thumbs.map((src, i) => (
-              <AlbumThumb key={src + i} src={src} />
-            ))}
-          </span>
-          <span className="cz-sizing-albumtext">
-            {/* Command-bar handoff §7.5 / §14 (2026-07-29): the final copy is
-                "Read the N album photos". Round 5.2 had briefly renamed this to
-                "seller photos", which no longer matches the spec's copy deck. */}
-            Read the {albumCount} album photo{albumCount === 1 ? "" : "s"}
-          </span>
           <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
         </button>
       ) : null}
@@ -1161,7 +1288,6 @@ function SellerChartFold({
   onUpload,
   onEnterManual,
   onForgetChart,
-  onPullListing,
 }) {
   // Kyle 2026-08-02 item 4: seller chart shown by default (photo 7 SHOW
   // control was the complaint that it started closed). Hide toggle remains.
@@ -1278,11 +1404,8 @@ function SellerChartFold({
                   Forget
                 </button>
               ) : null}
-              {!chartIsForgettable && onPullListing ? (
-                <button type="button" className="cz-detail-chart-link" onClick={onPullListing}>
-                  Pull from listing
-                </button>
-              ) : null}
+              {/* Kyle 2026-08-03: the listing pull is gone. It re-read photos
+                  the automatic read had already looked at, for a paid call. */}
             </span>
           </div>
 
@@ -1670,8 +1793,13 @@ function SizingBlockReading({
   authRequired = false,
   // FIX 2b: daily cap is not a bad photo — distinct kicker + CTA, no "could not read".
   capReached = false,
+  // FIX 2c: the reader was never reached — a slow server, a timeout, or no
+  // internet. The photo was never looked at, so "No chart" would be a lie.
+  unavailable = false,
   onUse,
   onRetry,
+  // FIX 2c: repeat the SAME read. Only the not-answering state offers it.
+  onRetrySame,
   onFix,
 }) {
   // "Fix a number" (spec §3): the vision read gets a digit wrong often enough
@@ -1698,10 +1826,12 @@ function SizingBlockReading({
         ? "SIGNED OUT"
         : capReached
           ? "DAILY LIMIT"
-          : chart
-            ? rows.length + " ROW" + (rows.length === 1 ? "" : "S") + " · " +
-              columns.length + " COLUMN" + (columns.length === 1 ? "" : "S")
-            : "COULD NOT READ";
+          : unavailable
+            ? "NOT ANSWERING"
+            : chart
+              ? rows.length + " ROW" + (rows.length === 1 ? "" : "S") + " · " +
+                columns.length + " COLUMN" + (columns.length === 1 ? "" : "S")
+              : "COULD NOT READ";
   const preview = rows.slice(0, 6);
   const key = columns[0] || "chest";
   // A new read replaces the cells, so the editor must close. Watch `reading`,
@@ -1726,9 +1856,11 @@ function SizingBlockReading({
               ? "Needs sign-in"
               : capReached
                 ? "Daily limit"
-                : error
-                  ? "No chart"
-                  : "Reading chart"}
+                : unavailable
+                  ? "Not answering"
+                  : error
+                    ? "No chart"
+                    : "Reading chart"}
         </span>
         <span className="cz-sizing-prov">{provenance}</span>
       </div>
@@ -1796,6 +1928,17 @@ function SizingBlockReading({
               {chartCapWantsUpgrade() ? "See plans" : "Sign in"}
             </button>
           ) : null}
+          {/* FIX 2c: the reader was not reachable. The photos are fine, so the
+              offer is the same read again — never the file picker. */}
+          {unavailable && !authRequired && !capReached ? (
+            <button
+              type="button"
+              className="cz-sizing-action is-primary"
+              onClick={onRetrySame || onRetry}
+            >
+              Try again
+            </button>
+          ) : null}
           {chart ? (
             <button type="button" className="cz-sizing-action is-primary" onClick={onUse}>
               {typed ? "Save this chart" : "Use this chart"}
@@ -1807,7 +1950,14 @@ function SizingBlockReading({
             <button type="button" className="cz-sizing-read-retry" onClick={onRetry}>
               Cancel
             </button>
-          ) : authRequired || capReached ? null : (
+          ) : authRequired || capReached ? null : unavailable ? (
+            /* FIX 2c: "Try again" above is the answer that fits. A different
+               photo is still offered, but it is the second choice now, not the
+               first — the first photo was never the problem. */
+            <button type="button" className="cz-sizing-read-retry" onClick={onRetry}>
+              Try another photo
+            </button>
+          ) : (
             <>
               <button
                 type="button"
@@ -2483,6 +2633,11 @@ function sizeAnalysisParagraph(verdict, fitRows, units, category, fitPref) {
 // Desktop result row only: one short word left of Verified fit. Prefer
 // looseness (e.g. "Regular"); fall back to length; empty pref invites a set.
 function fitPrefToggleLabel(item, fitPref) {
+  // Kyle 2026-08-03: pressing "Not sure yet" put the first-time wording back,
+  // as if nothing happened. Say the app heard the answer instead.
+  if (fitPref && fitPref.dismissed && !fitPrefHasChoice(fitPref)) {
+    return "Fit preference: not set";
+  }
   if (!fitPref || !fitPrefHasChoice(fitPref)) return "Set your fit preference";
   if (fitPref.looseness) {
     const word = fitPrefLabel(item.category, "looseness", fitPref.looseness);
@@ -2609,17 +2764,26 @@ function FitMeasureAsk({ item, bodyProfile, units, hasUsual, onSave, onClose, on
 // Owns its draft; mounts fresh each time, so it prefills from the live pref.
 // showSkip: first-ask flow on Fit keeps "Not sure yet". Settings placement
 // (mock Turn 3) is chips only — nothing to skip on a Settings tab.
-// Kyle 2026-08-02: change a chip → classic checkmark save appears top-right.
-// Clean state shows no save control (same rule on Settings and first-ask).
-function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true }) {
+// Kyle 2026-08-03: "when you click on Regular, there is no sign here that lets
+// you save … You can't get out of it". The panel now always shows a full-width
+// Save button and a Close X. The X closes and saves nothing.
+function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true, revealOnOpen = false }) {
   const catAxes = FIT_PREF_AXES[item.category];
   const baseline = {
     length: (fitPref && fitPref.length) || null,
     looseness: (fitPref && fitPref.looseness) || null,
   };
   const [draft, setDraft] = useState(baseline);
-  const dirty =
-    draft.length !== baseline.length || draft.looseness !== baseline.looseness;
+  // Kyle 2026-08-03: the button "does not take you anywhere". It does open
+  // this panel, but the panel sits below the size cells, so on a tall card
+  // it opens off screen and the press looks dead. Bring it into view.
+  const askRef = useRef(null);
+  useEffect(() => {
+    if (!revealOnOpen) return;
+    const el = askRef.current;
+    if (!el || !el.scrollIntoView) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [revealOnOpen]);
   const catTitle = CATEGORIES[item.category]
     ? CATEGORIES[item.category].label.toLowerCase()
     : "this item";
@@ -2633,19 +2797,17 @@ function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true }) {
     onDone();
   };
   return (
-    <div className="cz-fit-pref-ask">
+    <div className="cz-fit-pref-ask" ref={askRef}>
       <div className="cz-fit-pref-ask-head">
         <div className="cz-fit-pref-ask-title">How do you wear {catTitle}?</div>
-        {dirty ? (
-          <button
-            type="button"
-            className="cz-fit-pref-ask-check"
-            aria-label="Save preference"
-            onClick={commit}
-          >
-            <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="cz-fit-pref-ask-close"
+          aria-label="Close"
+          onClick={onDone}
+        >
+          <X size={18} strokeWidth={2.2} aria-hidden="true" />
+        </button>
       </div>
       <p className="cz-fit-pref-ask-copy">
         Sets your default for all {catTitle}. Change any time in Settings.
@@ -2662,6 +2824,9 @@ function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true }) {
         value={draft.looseness}
         onChange={(v) => setDraft((d) => ({ ...d, looseness: v }))}
       />
+      <button type="button" className="cz-fit-pref-ask-save" onClick={commit}>
+        Save
+      </button>
       {showSkip ? (
         <button
           type="button"
@@ -3175,9 +3340,18 @@ export default function DetailBody({
   // CH-09 (5b): the taste ask. Auto once per category when a chart-based rec
   // exists and the customer never answered; Edit on the pref bar reopens it.
   const [askingPref, setAskingPref] = useState(false);
+  // Kyle 2026-08-03: "You can't get out of it." The X has to beat the automatic
+  // ask too, or the panel opens again the moment it closes. This lasts for the
+  // card. Leaving the card and coming back asks once more.
+  const [prefAskClosed, setPrefAskClosed] = useState(false);
+  const closePrefAsk = () => {
+    setAskingPref(false);
+    setPrefAskClosed(true);
+  };
   useEffect(() => {
     setAskingMeasures(false);
     setAskingPref(false);
+    setPrefAskClosed(false);
   }, [item.id]);
   const needsPrefAsk =
     !!FIT_PREF_AXES[item.category] &&
@@ -3190,6 +3364,8 @@ export default function DetailBody({
     hunting,
     authBlocked: huntAuthBlocked,
     capBlocked: huntCapBlocked,
+    // FIX 2c: the hunt could not reach the reader at all.
+    outBlocked: huntOutBlocked,
   } = useChartHunt(
     item,
     verdict.chart,
@@ -3220,18 +3396,6 @@ export default function DetailBody({
     if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
     chartPhotoUrlRef.current = "";
   }, []);
-  const sizingAlbumPhotos = useMemo(
-    // Fix 1 (2026-08-02): chartImages first, then product photos. The button
-    // exists to read a size chart; holding charts out of the gallery must not
-    // also hide them from this paid list. Cap + http(s) only.
-    () => sizingAlbumReadCandidates(item, DETAIL_PHOTO_CAP),
-    [item]
-  );
-  // Yupoo chart tiles need the album as referer (CDN 567 without it).
-  const albumReadReferer = useMemo(
-    () => yupooAlbumUrl(item) || item.url || undefined,
-    [item]
-  );
 
   const recSize = computeRecommendedSize(item, bodyProfile, fitPrefs);
   useEffect(() => {
@@ -4079,20 +4243,8 @@ export default function DetailBody({
                   >
                     Enter chart by hand
                   </button>
-                  {sizingAlbumPhotos.length ? (
-                    <button
-                      type="button"
-                      className="cz-desk-setting-btn"
-                      onClick={() =>
-                        chartRead.read(sizingAlbumPhotos.slice(0, 3), {
-                          thumb: sizingAlbumPhotos[0] || "",
-                          referer: albumReadReferer,
-                        })
-                      }
-                    >
-                      Re-read album photos
-                    </button>
-                  ) : null}
+                  {/* Kyle 2026-08-03: the album re-read button is gone. It spent
+                      a paid call on photos the first read already looked at. */}
                   {chartIsForgettable ? (
                     <button
                       type="button"
@@ -4113,7 +4265,9 @@ export default function DetailBody({
                     typed={chartRead.typed}
                     authRequired={chartRead.authRequired === true}
                     capReached={chartRead.capReached === true}
+                    unavailable={chartRead.unavailable === true}
                     onUse={chartRead.commit}
+                    onRetrySame={chartRead.retryLast}
                     onRetry={() => {
                       // Failed read → open picker WITHOUT dismiss (Kyle
                       // 2026-08-02 item 8). dismiss() unmounted the prompt
@@ -4193,21 +4347,15 @@ export default function DetailBody({
                    the customer had just chosen by hand. The word is the same;
                    where it came from is not. */
                 isManual={!!chosenSize}
-                albumPhotos={sizingAlbumPhotos}
-                albumCount={sizingAlbumPhotos.length}
                 needsClear={item.sizeChartNeedsClear}
                 needsSignIn={item.needsSignIn === true}
                 chartAuthBlocked={huntAuthBlocked === true}
                 chartCapBlocked={huntCapBlocked === true}
+                chartCardsBlocked={chartNeedsCards(item)}
+                chartOutBlocked={huntOutBlocked === true}
                 whatsapp={item.whatsapp || ""}
                 variantRun={verdict.variantRun || ""}
                 onClearChart={clearBlockedChart}
-                onOpenAlbum={() => {
-                  chartRead.read(sizingAlbumPhotos.slice(0, 3), {
-                    thumb: sizingAlbumPhotos[0] || "",
-                    referer: albumReadReferer,
-                  });
-                }}
               />
             ) : (
               <SizingBlock
@@ -4263,14 +4411,17 @@ export default function DetailBody({
               />
             ) : null}
 
-            {!askingMeasures && (askingPref || needsPrefAsk) && onSaveFitPref ? (
+            {!askingMeasures &&
+            (askingPref || (needsPrefAsk && !prefAskClosed)) &&
+            onSaveFitPref ? (
               // 5b — the taste ask sits in the confidence-strip slot. The
               // sizing block above stays, so the card is never blocked.
               <FitPrefAsk
                 item={item}
                 fitPref={fitPref}
                 onSaveFitPref={onSaveFitPref}
-                onDone={() => setAskingPref(false)}
+                onDone={closePrefAsk}
+                revealOnOpen={askingPref}
               />
             ) : !askingMeasures &&
               !noChart &&
@@ -4422,36 +4573,29 @@ export default function DetailBody({
                 onUpload={() => chartInputRef.current?.click()}
                 onEnterManual={() => chartRead.startTyping(item.category)}
                 onForgetChart={forgetChart}
-                onPullListing={
-                  sizingAlbumPhotos.length
-                    ? () =>
-                        chartRead.read(sizingAlbumPhotos.slice(0, 3), {
-                          thumb: sizingAlbumPhotos[0] || "",
-                          referer: albumReadReferer,
-                        })
-                    : null
-                }
               />
             ) : null}
 
             <div className="cz-detail-chart-actions">
+              {/* Kyle 2026-07-30: a chart photo is not always readable, and a
+                  seller sometimes prints the numbers in the listing text. Four
+                  sizes by four columns is about twenty seconds of typing.
+                  Kyle 2026-08-03 put typing first. Typing always works. A photo
+                  read can still come back with nothing. */}
+              <button
+                type="button"
+                className="cz-detail-chart-upload"
+                onClick={() => chartRead.startTyping(item.category)}
+              >
+                Type the chart
+              </button>
               <button
                 type="button"
                 className="cz-detail-chart-upload"
                 onClick={() => chartInputRef.current?.click()}
               >
                 <Upload size={16} strokeWidth={2} aria-hidden="true" />
-                Upload chart photo
-              </button>
-              {/* Kyle 2026-07-30: a chart photo is not always readable, and a
-                  seller sometimes prints the numbers in the listing text. Four
-                  sizes by four columns is about twenty seconds of typing. */}
-              <button
-                type="button"
-                className="cz-detail-chart-upload"
-                onClick={() => chartRead.startTyping(item.category)}
-              >
-                Input sizing chart manually
+                Add a chart photo
               </button>
               {wantsStickyBar && onOpenSizes ? (
                 <button
@@ -4483,7 +4627,9 @@ export default function DetailBody({
                 typed={chartRead.typed}
                 authRequired={chartRead.authRequired === true}
                 capReached={chartRead.capReached === true}
+                unavailable={chartRead.unavailable === true}
                 onUse={chartRead.commit}
+                onRetrySame={chartRead.retryLast}
                 onRetry={() => {
                   // Kyle 2026-08-02: "Try another photo" must open the picker.
                   // Item 8: do NOT dismiss first — cancel of the OS picker

@@ -18,7 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, "..", ".verify-shots");
 mkdirSync(outDir, { recursive: true });
 
-const USAGE_KEY = "credenza-fashion-usage-v1";
+const USAGE_KEY = "credenza-fashion-usage-v2";
 const PREFS = {
   viewMode: "cards",
   sortMode: "recent",
@@ -32,8 +32,6 @@ const PREFS = {
   fitPrefs: {},
 };
 
-const today = new Date().toISOString().slice(0, 10);
-
 async function openApp(browser, { used }) {
   const context = await browser.newContext({ viewport: { width: 402, height: 874 } });
   await context.addInitScript(
@@ -44,7 +42,7 @@ async function openApp(browser, { used }) {
     {
       prefsJson: JSON.stringify(PREFS),
       usageKey: USAGE_KEY,
-      usageJson: used ? JSON.stringify({ ["resolve:" + today]: used }) : "",
+      usageJson: used ? JSON.stringify({ "anon:resolve:total": used }) : "",
     },
   );
   const page = await context.newPage();
@@ -70,7 +68,7 @@ async function readPill(page) {
 const browser = await chromium.launch();
 const report = {};
 
-// A fresh visitor. Three cards left, quiet tone, and NO sheet on load.
+// A fresh visitor. Five cards left, quiet tone, and NO sheet on load.
 {
   const { context, page } = await openApp(browser, { used: 0 });
   report.fresh = await readPill(page);
@@ -79,9 +77,9 @@ const report = {};
   await context.close();
 }
 
-// Two cards spent. The last free card, amber.
+// Four cards spent. The last free card, amber.
 {
-  const { context, page } = await openApp(browser, { used: 2 });
+  const { context, page } = await openApp(browser, { used: 4 });
   report.lastCard = await readPill(page);
   await page.screenshot({ path: join(outDir, "limit-pill-last.png") });
 

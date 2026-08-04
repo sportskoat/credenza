@@ -13,6 +13,9 @@ import {
   CHART_AUTH_REQUIRED,
   CHART_AUTH_COPY,
   CHART_CAP_REACHED,
+  CHART_UNAVAILABLE,
+  isChartOffline,
+  isChartUnavailable,
   chartCapCopy,
 } from "../../credenza-fashion.jsx";
 
@@ -86,15 +89,19 @@ describe("chart photo read (handoff turn 9 §3)", () => {
     expect(await readChartFromPhotoFiles([DATA_URL])).toBeNull();
   });
 
-  it("returns null when the function fails, and does not throw", async () => {
+  // FIX 2c (Kyle 2026-08-03): this used to expect null, and null made the UI
+  // print "I could not read that photo." A 502 and a dropped connection are
+  // both the server, not the photo, so they answer with the unavailable
+  // sentinel now. The rule that matters is unchanged: never reject.
+  it("returns the unavailable sentinel when the function fails, and does not throw", async () => {
     global.fetch = vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) }));
-    await expect(readChartFromPhotoFiles([DATA_URL])).resolves.toBeNull();
+    await expect(readChartFromPhotoFiles([DATA_URL])).resolves.toBe(CHART_UNAVAILABLE);
     global.fetch = vi.fn(async () => {
       throw new Error("offline");
     });
     // A bad frame or a dropped connection is a normal outcome here. The caller
     // shows a retry, so this must never reject.
-    await expect(readChartFromPhotoFiles([DATA_URL])).resolves.toBeNull();
+    await expect(readChartFromPhotoFiles([DATA_URL])).resolves.toBe(CHART_UNAVAILABLE);
   });
 
   it("still posts album URLs down the images door", async () => {
@@ -136,12 +143,17 @@ describe("chart photo read (handoff turn 9 §3)", () => {
     expect(isChartAuthRequired(result)).toBe(true);
   });
 
-  it("does not treat 502 as auth — still null so the photo-retry copy shows", async () => {
+  // FIX 2c: a 502 is its own wall. It is not the auth wall, not the cap wall,
+  // and not a bad photo. Each of the three stays distinct.
+  it("treats 502 as the server, not as auth and not as a bad photo", async () => {
     global.fetch = vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) }));
     const result = await readChartFromPhotoFiles([DATA_URL]);
     expect(isChartAuthRequired(result)).toBe(false);
     expect(isChartCapReached(result)).toBe(false);
-    expect(result).toBeNull();
+    expect(isChartUnavailable(result)).toBe(true);
+    // Offline is a narrower case, and this is not it.
+    expect(isChartOffline(result)).toBe(false);
+    expect(result).not.toBeNull();
   });
 
   // FIX 2b (2026-08-03): server daily cap is not a bad photo.
@@ -173,14 +185,16 @@ describe("chart photo read (handoff turn 9 §3)", () => {
   });
 
   // FIX 2b: cap copy names the real N and never reuses the bad-photo line.
-  it("pins the daily-cap customer copy", () => {
-    expect(chartCapCopy(null)).toMatch(/You used today's \d+ free chart reads/);
+  // The free allowance is lifetime, so the copy never says "today".
+  it("pins the allowance-cap customer copy", () => {
+    expect(chartCapCopy(null)).toMatch(/You used your \d+ free chart reads/);
     expect(chartCapCopy(null)).toMatch(/Sign in for more/);
-    expect(chartCapCopy({ state: "free", lim: { chartVisionPerDay: 2 } })).toBe(
-      "You used today's 2 free chart reads. Upgrade for more."
+    expect(chartCapCopy({ state: "free", lim: { chartVisionTotal: 8 } })).toBe(
+      "You used your 8 free chart reads. Upgrade for more."
     );
+    expect(chartCapCopy(null)).not.toMatch(/today/i);
     expect(chartCapCopy(null)).not.toMatch(/could not read/i);
-    expect(chartCapCopy(null)).not.toMatch(/No size chart found/i);
+    expect(chartCapCopy(null)).not.toMatch(/No chart for this one yet/i);
     expect(isChartCapReached(CHART_CAP_REACHED)).toBe(true);
     expect(isChartCapReached(null)).toBe(false);
     expect(isChartCapReached(CHART_AUTH_REQUIRED)).toBe(false);

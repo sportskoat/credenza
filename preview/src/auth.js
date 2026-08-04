@@ -183,6 +183,27 @@ export function sessionFromUrl(url = typeof window !== "undefined" ? window.loca
   return session ? { session } : { error: "Sign-in link was incomplete. Request a new one." };
 }
 
+// Kyle 2026-08-03 audit, finding 2: the landing screen printed Supabase's own
+// words at the visitor — "Sign-in failed: unable to exchange external code".
+// Same rule as safeErrorMessage in account.js: a person reads a sentence that
+// names what to do next. The raw text still reaches the console.
+//
+// The two link faults are the ones worth naming apart, because the answer is
+// different: an expired link needs a NEW link, and everything else is worth
+// one more try with the same address.
+export function signInErrorMessage(raw) {
+  const text = typeof raw === "string" ? raw.trim() : "";
+  // Our own sentence, written for a person already. It passes through.
+  if (text === "Sign-in link was incomplete. Request a new one.") return text;
+  if (/expired|otp_expired|invalid or has expired/i.test(text)) {
+    return "That sign-in link has expired. Ask for a new one.";
+  }
+  if (/access_denied|cancel/i.test(text)) {
+    return "That sign-in was cancelled. Try again when you are ready.";
+  }
+  return "Credenza could not finish that sign-in. Try again.";
+}
+
 export async function refreshSession(session, { fetchImpl } = {}) {
   const data = await authPost(
     "/token?grant_type=refresh_token",

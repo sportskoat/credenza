@@ -538,11 +538,11 @@ describe("FitReadTable in the detail body", () => {
     expect(await screen.findByText("No chart")).toBeInTheDocument();
 
     expect(container.querySelector(".cz-fitread")).toBe(null);
-    expect(screen.getByText("No size chart found.")).toBeInTheDocument();
+    expect(screen.getByText("No chart for this one yet.")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Upload chart photo" })
+      screen.getByRole("button", { name: "Add a chart photo" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Input sizing chart manually" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Type the chart" })).toBeInTheDocument();
   });
 
   it("stays out of skip categories", () => {
@@ -655,7 +655,7 @@ describe("typing a chart by hand", () => {
     const onSaveEdit = vi.fn();
     const { container } = renderBody(fitItem(), { onSaveEdit });
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     expect(grid).not.toBe(null);
     // Four size rows, four top columns, every measurement box empty.
@@ -678,7 +678,7 @@ describe("typing a chart by hand", () => {
     const onSaveEdit = vi.fn();
     renderBody(fitItem(), { onSaveEdit });
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     await user.click(screen.getByRole("button", { name: "Save this chart" }));
     expect(onSaveEdit).not.toHaveBeenCalled();
     expect(
@@ -691,7 +691,7 @@ describe("typing a chart by hand", () => {
     const onSaveEdit = vi.fn();
     const { container } = renderBody(fitItem(), { onSaveEdit });
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     const firstName = within(grid).getByLabelText("Size name, row 1");
     await user.clear(firstName);
@@ -713,7 +713,7 @@ describe("typing a chart by hand", () => {
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
     fileReadMock.mockResolvedValue(null);
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
     await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
@@ -736,11 +736,11 @@ describe("typing a chart by hand", () => {
     const user = userEvent.setup();
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     let grid = container.querySelector(".cz-sizing-fix.is-typed");
     await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     grid = container.querySelector(".cz-sizing-fix.is-typed");
     expect(grid).not.toBe(null);
     expect(within(grid).getByLabelText("Small chest in cm")).toHaveValue("100");
@@ -750,7 +750,7 @@ describe("typing a chart by hand", () => {
     const user = userEvent.setup();
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     await user.type(
       within(container.querySelector(".cz-sizing-fix.is-typed")).getByLabelText(
         "Small chest in cm"
@@ -768,7 +768,7 @@ describe("typing a chart by hand", () => {
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
     fileReadMock.mockResolvedValue(CHART_AUTH_REQUIRED);
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
     await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
@@ -793,7 +793,7 @@ describe("typing a chart by hand", () => {
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
     fileReadMock.mockResolvedValue(CHART_CAP_REACHED);
 
-    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
+    await user.click(screen.getByRole("button", { name: "Type the chart" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
     await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");

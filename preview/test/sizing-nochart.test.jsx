@@ -104,10 +104,10 @@ describe("§3 no-chart state", () => {
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     expect(screen.queryByText("FELL BACK TO YOUR USUAL")).toBeNull();
     expect(
-      screen.getByText("No size chart found.")
+      screen.getByText("No chart for this one yet.")
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Upload chart photo" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Add a chart photo" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add a chart photo" })).toHaveLength(1);
     expect(document.querySelector(".cz-sizing-nochart")).not.toBe(null);
   });
 
@@ -124,12 +124,41 @@ describe("§3 no-chart state", () => {
     expect(value.className).not.toContain("t-shimmer");
   });
 
+  // Kyle 2026-08-03: "We got a big Fit section where there's nothing to do."
+  // A lone letter above a missing-chart sentence answered nothing. The pane now
+  // names the size in words, right under that sentence.
+  it("names the size it is holding, in words", async () => {
+    renderBody(chartless({ variants: [{ title: "Size", values: ["S", "M", "L"] }] }), {
+      bodyProfile: { height: "183", weight: "75", chest: "99", usualTops: "L" },
+    });
+
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    // The line repeats the big word above it, so both say "Large", not "L".
+    expect(screen.getByText("Your usual size is Large.")).toBeInTheDocument();
+  });
+
+  it("says the customer picked the size when the customer picked it", async () => {
+    renderBody(
+      chartless({
+        size: "L",
+        variants: [{ title: "Size", values: ["S", "M", "L"] }],
+      }),
+      { bodyProfile: { height: "183", weight: "75", chest: "99", usualTops: "M" } }
+    );
+
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    expect(screen.getByText("You picked Large.")).toBeInTheDocument();
+    expect(screen.queryByText(/Your usual size is/)).toBe(null);
+  });
+
   it("says so plainly when there is no usual size to fall back on", async () => {
     renderBody(chartless(), { bodyProfile: {} });
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     expect(screen.getByText("no usual size saved")).toBeInTheDocument();
     expect(document.querySelector(".cz-sizing-value.is-empty")).not.toBe(null);
+    // With no size to name, the pane prints no size line at all.
+    expect(document.querySelector(".cz-sizing-picked")).toBe(null);
   });
 
   it("keeps item and profile sizing in the Size and fit section", async () => {
@@ -150,49 +179,42 @@ describe("§3 no-chart state", () => {
     expect(screen.queryByRole("button", { name: "Edit my measurements" })).toBe(null);
     expect(onOpenSizes).not.toHaveBeenCalled();
     // The two ways to get a chart are what this state offers instead.
-    expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Input sizing chart manually" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add a chart photo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Type the chart" })).toBeInTheDocument();
   });
 
-  it("offers the item's own album photos as a shortcut", async () => {
+  // Kyle 2026-08-03: "if it doesnt catch it the first time it never does, take
+  // it out." No button offers to read the album photos again, on any card.
+  it("offers no album read, whatever photos the item holds", async () => {
     renderBody(
       chartless({ gallery: ["https://si.geilicdn.com/a.jpg", "https://si.geilicdn.com/b.jpg"] })
     );
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    // Three photos: the cover plus the two gallery frames.
-    expect(screen.getByText("Read the 3 album photos")).toBeInTheDocument();
-    expect(document.querySelectorAll(".cz-sizing-albumthumb").length).toBe(2);
+    expect(screen.queryByText(/Read the \d+ album photos?/)).toBe(null);
+    expect(document.querySelector(".cz-sizing-albumrow")).toBe(null);
   });
 
-  // Fix 1 (2026-08-02): chart tiles held out of the gallery must still lead
-  // the manual album-read list — otherwise the button can never reach them.
-  it("puts chartImages first in the album-read candidates", async () => {
-    const chart = "https://photo.yupoo.com/seller/chart1/big.jpg";
-    const product = "https://si.geilicdn.com/product.jpg";
+  it("offers no album read for a held-out chart tile either", async () => {
     renderBody(
       chartless({
-        image: product,
+        image: "https://si.geilicdn.com/product.jpg",
         gallery: [],
-        chartImages: [chart],
+        chartImages: ["https://photo.yupoo.com/seller/chart1/big.jpg"],
       })
     );
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    // Cover + chart tile = 2 remote candidates.
-    expect(screen.getByText("Read the 2 album photos")).toBeInTheDocument();
-  });
-
-  it("hides the album row when the item has no remote photos", async () => {
-    renderBody(chartless({ image: "" }));
-
-    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    expect(screen.queryByText(/Read the \d+ album photos?/)).toBe(null);
     expect(document.querySelector(".cz-sizing-albumrow")).toBe(null);
   });
 });
 
 describe("§3 read and confirm", () => {
-  it("stages a read chart instead of committing it", async () => {
+  // Kyle 2026-08-03: "it shouldn't have to REREAD." A read spends a daily
+  // credit, so the answer lands on the card the moment it succeeds. The
+  // preview still opens, so a correction is still possible.
+  it("saves a read chart at once, and still shows the preview", async () => {
     fileReadMock.mockResolvedValue(CHART_TEXT);
     const user = userEvent.setup();
     const { onSaveEdit } = renderBody(chartless());
@@ -204,8 +226,17 @@ describe("§3 read and confirm", () => {
     // The read-back names what it found, and counts it.
     expect(await screen.findByText("3 ROWS · 2 COLUMNS")).toBeInTheDocument();
     expect(screen.getByText("I found chest and length for 3 sizes.")).toBeInTheDocument();
-    // Nothing lands until the customer says so.
-    expect(onSaveEdit).not.toHaveBeenCalled();
+    // The paid answer is on the card before the customer touches anything.
+    expect(onSaveEdit).toHaveBeenCalledWith(expect.any(String), {
+      sizeChartText: CHART_TEXT,
+      sizeChartNeedsClear: false,
+      sizeChartSource: {
+        via: "customer-photo",
+        photos: 1,
+        at: expect.any(String),
+        seller: "replux",
+      },
+    });
     expect(screen.getByRole("button", { name: "Use this chart" })).toBeInTheDocument();
   });
 
@@ -341,8 +372,8 @@ describe("§3 read and confirm", () => {
     await user.type(large, "118");
     await user.click(screen.getByRole("button", { name: "Use this chart" }));
 
-    // The correction lands as item chart text, and every render re-parses it.
-    const patch = onSaveEdit.mock.calls[0][1];
+    // Call 0 is the auto-save of the raw read. The correction is the last one.
+    const patch = onSaveEdit.mock.calls[onSaveEdit.mock.calls.length - 1][1];
     expect(patch.sizeChartText).toContain("L: chest 118");
     expect(patch.sizeChartText).not.toContain("chest 120");
     expect(patch.sizeChartText).toContain("M: chest 116");
@@ -397,7 +428,7 @@ describe("§3 read and confirm", () => {
     expect(large.value).toBe("12");
   });
 
-  it("returns to the ask on Not this one, without saving", async () => {
+  it("takes the auto-saved chart back off the card on Not this one", async () => {
     fileReadMock.mockResolvedValue(CHART_TEXT);
     const user = userEvent.setup();
     const { onSaveEdit } = renderBody(chartless());
@@ -409,9 +440,14 @@ describe("§3 read and confirm", () => {
     // Back at the ask: the upload button returns, nothing was saved. This
     // fixture saves no usual size, so the fallback line stays empty (Oom
     // review 2026-07-29).
-    expect(await screen.findByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Add a chart photo" })).toBeInTheDocument();
     expect(screen.queryByText("FELL BACK TO YOUR USUAL")).toBeNull();
-    expect(onSaveEdit).not.toHaveBeenCalled();
+    // The read saved itself, so rejecting it must clear the card again.
+    expect(onSaveEdit).toHaveBeenLastCalledWith(expect.any(String), {
+      sizeChartText: "",
+      sizeChartSource: null,
+      sizeChartNeedsClear: false,
+    });
     await waitFor(() => expect(revokeObjectUrlMock).toHaveBeenCalledWith("blob:thumb"));
   });
 
@@ -428,50 +464,10 @@ describe("§3 read and confirm", () => {
     expect(revokeObjectUrlMock).toHaveBeenCalledWith("blob:thumb");
   });
 
-  it("sends album photos down the URL door, never inline", async () => {
-    urlReadMock.mockResolvedValue(CHART_TEXT);
-    const user = userEvent.setup();
-    renderBody(chartless({ gallery: ["https://si.geilicdn.com/a.jpg"] }));
-
-    await screen.findByText("No chart");
-    await user.click(screen.getByRole("button", { name: /Read the 2 album photos/ }));
-
-    await screen.findByText("Use this chart");
-    // Low-cost rule: one photo per paid read, not a batch of album URLs.
-    expect(urlReadMock).toHaveBeenCalledTimes(1);
-    expect(urlReadMock.mock.calls[0][0]).toEqual(["https://si.geilicdn.com/img-1.jpg"]);
-    expect(fileReadMock).not.toHaveBeenCalled();
-  });
-
-  // Fix 1 pin: when chartImages exist, the first paid read is the chart tile,
-  // not a product photo. Product photos stay available as later candidates.
-  it("pays for a chartImage before product photos on album read", async () => {
-    const chart = "https://photo.yupoo.com/seller/chart1/big.jpg";
-    urlReadMock.mockResolvedValue(CHART_TEXT);
-    const user = userEvent.setup();
-    renderBody(
-      chartless({
-        image: "https://si.geilicdn.com/img-1.jpg",
-        gallery: ["https://si.geilicdn.com/a.jpg"],
-        chartImages: [chart],
-        url: "https://seller.x.yupoo.com/albums/246991495?uid=1",
-      })
-    );
-
-    await screen.findByText("No chart");
-    await user.click(screen.getByRole("button", { name: /Read the 3 album photos/ }));
-
-    await screen.findByText("Use this chart");
-    expect(urlReadMock).toHaveBeenCalledTimes(1);
-    expect(urlReadMock.mock.calls[0][0]).toEqual([chart]);
-    // Album referer so Yupoo CDN does not 567.
-    expect(urlReadMock.mock.calls[0][1]).toEqual(
-      expect.objectContaining({
-        referer: "https://seller.x.yupoo.com/albums/246991495?uid=1",
-      })
-    );
-    expect(fileReadMock).not.toHaveBeenCalled();
-  });
+  // Kyle 2026-08-03: "if it doesnt catch it the first time it never does, take
+  // it out." Two cases used to press the album row and pin how the paid read
+  // picked its photo. The row is gone, so the cases went with it. The automatic
+  // hunt still covers the same paid path in size-chart-hunt.test.js.
 
   it("sends a camera frame inline, never as a URL", async () => {
     fileReadMock.mockResolvedValue(CHART_TEXT);

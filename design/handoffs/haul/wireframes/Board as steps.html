@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Board as steps — direction mock</title>
+<style>
+  :root{
+    --bg:#000; --card:#202024; --card-glass:rgba(32,32,36,.82);
+    --hair:rgba(255,255,255,.16); --hair-strong:rgba(255,255,255,.26);
+    --ink:#f4f4f5; --sub:#a1a1aa; --faint:#63636b;
+    --money:#4ade80; --money-bg:rgba(74,222,128,.12);
+    --error:#f40051; --error-bg:rgba(244,0,81,.12);
+    --accent-bg:rgba(255,255,255,.06); --inset:rgba(255,255,255,.04);
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--ink);font:500 13px/1.4 -apple-system,"Helvetica Neue",sans-serif;letter-spacing:-0.01em}
+  .wrap{max-width:1400px;margin:0 auto;padding:20px 28px 140px}
+  .kick{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  h1{font-size:30px;font-weight:600;letter-spacing:-0.035em;line-height:1.05;margin:6px 0 4px}
+  .sub{font-size:13px;color:var(--sub);margin-bottom:20px}
+  .strip{display:flex;border:1px solid var(--hair);border-radius:14px;background:var(--card-glass);overflow:hidden;margin-bottom:26px}
+  .cell{padding:12px 16px;border-right:1px solid var(--hair);display:flex;flex-direction:column;gap:3px}
+  .cell:last-child{border-right:0;flex:1;justify-content:center}
+  .cell .l{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+  .cell .v{font-family:var(--mono);font-size:13.5px;font-weight:700}
+  .money{color:var(--money)}
+  .cols{display:flex;gap:20px;align-items:flex-start}
+  .steps{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:12px;max-width:820px}
+
+  .step{border:1px solid var(--hair);border-radius:14px;background:var(--card-glass);overflow:hidden}
+  .step.now{border-color:var(--hair-strong)}
+  .step.dim{opacity:.62}
+  .head{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}
+  .num{flex:0 0 26px;width:26px;height:26px;border-radius:8px;border:1.5px solid var(--hair-strong);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700}
+  .num.done{background:var(--money-bg);border-color:var(--money);color:var(--money)}
+  .num.now{background:var(--ink);border-color:var(--ink);color:#000}
+  .head .t{font-size:15px;font-weight:600;letter-spacing:-0.03em}
+  .head .s{font-size:12px;color:var(--sub);margin-left:auto;text-align:right}
+  .head .s.warn{color:var(--ink)}
+  .head .s.ok{color:var(--money)}
+  .body{border-top:1px solid var(--hair);padding:6px 16px 12px}
+  .row{display:flex;align-items:center;gap:12px;min-height:52px;border-bottom:1px solid var(--hair)}
+  .row:last-child{border-bottom:0}
+  .tile{flex:0 0 34px;width:34px;height:42px;border-radius:7px;display:flex;align-items:flex-end;padding:3px;font-size:7px;font-weight:600;color:rgba(255,255,255,.92)}
+  .tb{background:linear-gradient(150deg,#ff5000,#c33a00)}
+  .wd{background:linear-gradient(150deg,#ff5a3c,#c8341f)}
+  .yp{background:linear-gradient(150deg,#37b24d,#1f7a33)}
+  .row .n{font-size:12.5px;font-weight:600;letter-spacing:-0.03em}
+  .row .m{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--faint);margin-top:3px}
+  .row .m.ok{color:var(--money)} .row .m.bad{color:var(--error)}
+  .pill{margin-left:auto;flex:0 0 auto;min-height:30px;padding:0 14px;border:1px solid var(--hair-strong);border-radius:999px;background:none;color:var(--ink);font:650 11.5px/1 inherit;letter-spacing:-0.01em;cursor:pointer}
+  .pill.loud{background:var(--ink);border-color:var(--ink);color:#000}
+  .foot{width:100%;min-height:34px;margin-top:10px;border:1px dashed var(--hair-strong);border-radius:999px;background:none;color:var(--sub);font:650 11.5px/1 inherit;cursor:pointer}
+  .hint{font-size:11.5px;color:var(--faint);padding:10px 16px;border-top:1px solid var(--hair)}
+
+  .parcel{flex:0 0 300px;position:sticky;top:20px;display:flex;flex-direction:column;gap:8px}
+  .pcard{border:1px solid var(--hair);border-radius:14px;background:var(--card-glass);padding:14px}
+  .pcard .ph{display:flex;align-items:baseline;gap:6px;border-bottom:1px solid var(--ink);padding-bottom:8px;margin-bottom:10px}
+  .prow{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);padding:4px 0}
+  .prow b{font-family:var(--mono);font-size:12px;color:var(--ink)}
+  .prow.big{font-size:12.5px;font-weight:650;color:var(--ink)}
+  .prow.big b{font-size:14px}
+  .go{width:100%;min-height:44px;margin-top:10px;border:0;border-radius:16px;background:var(--ink);color:#000;font:700 13px/1 inherit;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kick" style="margin-bottom:2px">9 items · haul</div>
+  <h1>winter</h1>
+  <div class="sub">Five steps, top to bottom. A step never locks — go back any time.</div>
+
+  <div class="strip">
+    <div class="cell"><span class="l">Agent</span><span style="font-size:13.5px;font-weight:650">Superbuy</span></div>
+    <div class="cell"><span class="l">Goods</span><span class="v money">$422.00</span></div>
+    <div class="cell"><span class="l">Chargeable</span><span class="v">866 g</span></div>
+    <div class="cell"><span class="l">Ship est.</span><span class="v money">~$13–22</span></div>
+    <div class="cell"><span style="font-size:12.5px;color:var(--sub)">Free storage ends in 57 days on your oldest item at the warehouse.</span></div>
+  </div>
+
+  <div class="cols">
+    <div class="steps">
+
+      <div class="step now">
+        <div class="head"><span class="num now">1</span><span class="t">Order it</span><span class="s warn">2 left to order</span></div>
+        <div class="body">
+          <div class="row"><div class="tile wd">Weidian</div><div><div class="n">Goose down puffer jacket</div><div class="m">NOT ORDERED · EST. 900 G · $112.00</div></div><button class="pill">Copy link</button></div>
+          <div class="row"><div class="tile yp">Yupoo</div><div><div class="n">Wool ribbed beanie</div><div class="m">NOT ORDERED · EST. 90 G · $14.00</div></div><button class="pill">Copy link</button></div>
+          <button class="foot">Copy all links for your agent</button>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">2</span><span class="t">Wait for arrival</span><span class="s">2 on the way · mark them when they land</span></div>
+        <div class="body">
+          <div class="row"><div class="tile tb">Taobao</div><div><div class="n">Suede chelsea boots</div><div class="m">SB-8827104 · ORDERED 4 D AGO · $88.00</div></div><button class="pill">Mark arrived</button></div>
+          <div class="row"><div class="tile wd">Weidian</div><div><div class="n">Ribbed knit scarf</div><div class="m">SB-8827105 · ORDERED 2 D AGO · $14.40</div></div><button class="pill">Mark arrived</button></div>
+        </div>
+      </div>
+
+      <div class="step now">
+        <div class="head"><span class="num now">3</span><span class="t">Check the photos</span><span class="s warn">2 waiting on your green light</span></div>
+        <div class="body">
+          <div class="row"><div class="tile wd">Weidian</div><div><div class="n">Wide-leg washed cargo pants</div><div class="m">512 G ACTUAL · 58 D LEFT · $41.20</div></div><button class="pill loud">Review QC · 12</button></div>
+          <div class="row"><div class="tile tb">Taobao</div><div><div class="n">Heavyweight tee · 2-pack</div><div class="m">505 G ACTUAL · 60 D LEFT · $22.00</div></div><button class="pill loud">Review QC · 7</button></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">4</span><span class="t">Pack the box</span><span class="s">1 ready to pack · 1 can’t ship</span></div>
+        <div class="body">
+          <div class="row"><div class="tile tb">Taobao</div><div><div class="n">ABC1996 Letter Print Vintage Washed Shirt</div><div class="m ok">GREEN · 268 G · $27.75</div></div><button class="pill">Add to parcel</button></div>
+          <div class="row" style="opacity:.62"><div class="tile yp">Yupoo</div><div><div class="n">Nylon shell hooded jacket</div><div class="m bad">RED · STITCHING · CAN’T SHIP</div></div><button class="pill">Return message</button></div>
+        </div>
+      </div>
+
+      <div class="step dim">
+        <div class="head"><span class="num">5</span><span class="t">Hand it off</span><span class="s">Opens when the box has something in it</span></div>
+        <div class="hint">Credenza writes the parcel instruction. You send it — Credenza never touches your agent.</div>
+      </div>
+
+    </div>
+
+    <div class="parcel">
+      <div class="pcard">
+        <div class="ph"><span class="kick" style="color:var(--ink)">Parcel A</span><span style="margin-left:auto" class="kick">1</span></div>
+        <div class="row" style="min-height:44px"><div class="tile wd">Weidian</div><div><div class="n">Selvedge washed denim</div><div class="m">726 G</div></div></div>
+        <div style="border-top:1px solid var(--hair);margin-top:10px;padding-top:8px">
+          <div class="prow"><span>actual + packaging</span><b>866 g</b></div>
+          <div class="prow"><span>volumetric ÷ 6000</span><b>826 g</b></div>
+          <div class="prow big"><span>chargeable</span><b>866 g</b></div>
+          <div class="prow"><span>billed at</span><b>1.0 kg</b></div>
+        </div>
+        <button class="go">Review &amp; hand off · 1</button>
+      </div>
+      <div class="pcard" style="font-size:11.5px;line-height:1.45;color:var(--sub);background:var(--accent-bg)">Billed at 1.0 kg — 134 g of headroom. Your lightest green-lit item (268 g) does not fit.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

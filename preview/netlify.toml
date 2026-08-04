@@ -49,6 +49,24 @@
   to = "/index.html"
   status = 200
 
+# Haul pages (STEPS-HANDOFF item 1, 2026-08-03). /hauls, /hauls/<slug> and
+# /parcels/<id> are app entrances: serve the app and let the boot effect open
+# the haul (or the parcel's tracking screen). Same rule as /settings.
+[[redirects]]
+  from = "/hauls/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/hauls"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/parcels/*"
+  to = "/index.html"
+  status = 200
+
 # Discovery files
 [[headers]]
   for = "/sitemap.xml"
@@ -93,6 +111,14 @@
   for = "/og.png"
   [headers.values]
     Content-Type = "image/png"
+    Cache-Control = "public, max-age=86400"
+
+# Google asks for this file by name before it reads any icon tag. Netlify
+# guesses the wrong type for .ico, and a wrong type makes Google drop it.
+[[headers]]
+  for = "/favicon.ico"
+  [headers.values]
+    Content-Type = "image/x-icon"
     Cache-Control = "public, max-age=86400"
 
 # Caching. Netlify's default is max-age=0,must-revalidate on every file, so the

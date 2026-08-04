@@ -48,6 +48,10 @@ export default function QcOverlay({
   // (id) — the overlay asks the parent to open the next item.
   onOpenItem,
   onCopy,
+  // (id, files) — pasted or dropped photos. The parent runs every file
+  // through the qcPhotos gate (HTTPS/data-URL, plan cap), so the overlay
+  // never validates on its own.
+  onAddPhotos,
 }) {
   const queue = useMemo(() => qcQueue(items), [items]);
   const item = useMemo(
@@ -70,6 +74,24 @@ export default function QcOverlay({
   const verdict = item ? item.qc : null;
   const reason = (item && item.reason) || RED_REASONS[0].key;
 
+  // STEPS-HANDOFF item 8: no verdict without a photo. Never let a person
+  // red-light what they have not seen — the buttons and the G/R keys both
+  // stay inert until the pane holds at least one picture.
+  const canVerdict = photos.length > 0;
+
+  // Pasted and dropped photos land through one intake, so the empty-state
+  // drop target, a drop on a populated stage, and a bare ⌘V all behave the
+  // same. Non-images never reach the gate.
+  const takeFiles = useCallback(
+    (fileList) => {
+      if (!item || !onAddPhotos || !fileList) return;
+      const files = [...fileList].filter((file) => file && /^image\//.test(file.type));
+      if (files.length) onAddPhotos(item.id, files);
+    },
+    [item, onAddPhotos]
+  );
+  const [dragOver, setDragOver] = useState(false);
+
   const step = useCallback(
     (delta) => {
       if (photos.length < 2) return;
@@ -80,10 +102,10 @@ export default function QcOverlay({
 
   const rule = useCallback(
     (next) => {
-      if (!item || !onVerdict) return;
+      if (!item || !onVerdict || !canVerdict) return;
       onVerdict(item.id, next, next === "red" ? reason : null);
     },
-    [item, onVerdict, reason]
+    [item, onVerdict, reason, canVerdict]
   );
 
   // The queue minus the item on screen. "Next item →" goes to the first of
@@ -140,6 +162,20 @@ export default function QcOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, rule, step]);
 
+  // Paste lands at the window, like the keyboard: a person with agent photos
+  // on the clipboard should not have to aim at the drop target. A paste meant
+  // for a field stays with the field.
+  useEffect(() => {
+    const onPaste = (event) => {
+      const tag = event.target && event.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const files = event.clipboardData && event.clipboardData.files;
+      if (files && files.length) takeFiles(files);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [takeFiles]);
+
   const progress = useMemo(() => qcProgress(items), [items]);
   const seller = useMemo(
     () => sellerRecord(allCards, card && card.seller),
@@ -166,7 +202,19 @@ export default function QcOverlay({
     >
       <div className="cz-qcr-surface">
         <div className="cz-qcr-photos">
-          <div className="cz-qcr-stage">
+          <div
+            className={"cz-qcr-stage" + (dragOver ? " is-dragover" : "")}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragOver(false);
+              takeFiles(event.dataTransfer && event.dataTransfer.files);
+            }}
+          >
             {photos.length ? (
               <img
                 className="cz-qcr-photo"
@@ -174,8 +222,15 @@ export default function QcOverlay({
                 alt={"QC photo " + (photoIndex + 1) + " of " + photos.length}
               />
             ) : (
-              <div className="cz-qcr-nophoto">
-                No QC photos yet. Ask your agent for them.
+              /* STEPS-HANDOFF item 8, § QC takeover deltas. Kyle banned em
+                 dashes in rendered copy (2026-08-02), so the handoff's "—
+                 up to 12" is its own sentence here. The words are the
+                 handoff's. */
+              <div className="cz-qcr-drop">
+                <span className="cz-qcr-drop-title">
+                  Your agent's QC photos live on their site.
+                </span>
+                <span className="cz-qcr-drop-sub">Paste or drop them here. Up to 12.</span>
               </div>
             )}
           </div>
@@ -242,6 +297,7 @@ export default function QcOverlay({
               className="cz-qcr-verdict"
               data-verdict="green"
               aria-pressed={verdict === "green"}
+              disabled={!canVerdict}
               onClick={() => rule("green")}
             >
               <Check aria-hidden="true" size={15} strokeWidth={2.2} />
@@ -253,6 +309,7 @@ export default function QcOverlay({
               className="cz-qcr-verdict"
               data-verdict="red"
               aria-pressed={verdict === "red"}
+              disabled={!canVerdict}
               onClick={() => rule("red")}
             >
               <X aria-hidden="true" size={15} strokeWidth={2.2} />

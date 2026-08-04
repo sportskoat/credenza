@@ -35,4 +35,21 @@ describe("albumLinkTarget photo count", () => {
       "Album · 37 photos"
     );
   });
+
+  // Kyle 2026-08-03: the saved Yupoo link was the seller's whole shop, not this
+  // shirt's album. The link still opens, because that page is worth seeing. It
+  // no longer claims to be this item's album, and it carries no count: the
+  // number describes our copy of the item, not the shop.
+  it("names the seller's own page for what it is", () => {
+    const shop = {
+      url: "https://weidian.com/item.html?itemID=7799763843",
+      links: [{ url: "https://mook-official.x.yupoo.com/", role: "photos", label: "Yupoo" }],
+      gallery: ["a", "b", "c"],
+      albumPhotoCount: 37,
+    };
+    expect(albumLinkTarget(shop).label).toBe("Seller photos");
+    expect(albumLinkTarget(shop).photos).toBe(0);
+    expect(albumLinkTarget(shop).href).toBe("https://mook-official.x.yupoo.com/");
+    expect(albumLinkTarget(shop, { tight: true }).label).toBe("Seller");
+  });
 });

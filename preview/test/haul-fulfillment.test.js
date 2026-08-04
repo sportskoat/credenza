@@ -39,6 +39,7 @@ import {
   normalizeStage,
   normalizeVerdict,
   parcelMaths,
+  volumeFor,
   parcelTips,
   pendingQcCount,
   qcProgress,
@@ -614,6 +615,8 @@ describe("reading a saved card", () => {
       actual: 512,
       weighedAt: "2026-08-01",
       vol: 3000,
+      // A stored L×W×H is a measurement, not a guess.
+      volEstimated: false,
       stage: "warehouse",
       qc: "green",
       reason: "stitching",
@@ -644,6 +647,59 @@ describe("reading a saved card", () => {
 
   it("returns nothing for a missing card", () => {
     expect(toHaulItem(null)).toBe(null);
+  });
+});
+
+// STEPS-HANDOFF § Volumetric defaults: agents bill the bigger of weight and
+// box size, so the volumetric row needs a number even before the person
+// measures anything. A stored size wins and drops the est. flag; an unknown
+// item gets the fallback — never zero.
+describe("volumetric defaults", () => {
+  it("lets a stored size win and calls it measured", () => {
+    expect(volumeFor({ haulVolumeCm3: 12600, category: "shirt" })).toEqual({
+      cm3: 12600,
+      estimated: false,
+    });
+  });
+
+  it("maps every category to its default, flagged as an estimate", () => {
+    expect(volumeFor({ category: "outerwear", title: "Wool coat" })).toEqual({ cm3: 8000, estimated: true });
+    expect(volumeFor({ category: "shirt", title: "Oxford" })).toEqual({ cm3: 1500, estimated: true });
+    expect(volumeFor({ category: "pants", title: "Jeans" })).toEqual({ cm3: 3000, estimated: true });
+    expect(volumeFor({ category: "shorts", title: "Mesh shorts" })).toEqual({ cm3: 3000, estimated: true });
+    expect(volumeFor({ category: "shoes", title: "AF1" })).toEqual({ cm3: 9500, estimated: true });
+    expect(volumeFor({ category: "accessory", title: "Belt" })).toEqual({ cm3: 800, estimated: true });
+    expect(volumeFor({ category: "socks", title: "3-pack" })).toEqual({ cm3: 800, estimated: true });
+    expect(volumeFor({ category: "hat", title: "Beanie" })).toEqual({ cm3: 800, estimated: true });
+  });
+
+  it("reads a hoodie as knit, not as a puffer — both classify as outerwear", () => {
+    expect(volumeFor({ category: "outerwear", title: "Vintage hoodie" }).cm3).toBe(5000);
+    expect(volumeFor({ category: "outerwear", title: "Down puffer" }).cm3).toBe(8000);
+  });
+
+  it("never falls back to zero", () => {
+    expect(volumeFor({ category: "bag", title: "Backpack" })).toEqual({ cm3: 2500, estimated: true });
+    expect(volumeFor({ category: "other" })).toEqual({ cm3: 2500, estimated: true });
+    expect(volumeFor({})).toEqual({ cm3: 2500, estimated: true });
+    expect(volumeFor(null)).toEqual({ cm3: 2500, estimated: true });
+  });
+
+  it("keeps the volumetric row alive in the parcel maths", () => {
+    // Before the defaults a parcel with no measured sizes read 0 g on the
+    // volumetric row. Now the estimate feeds the same formula.
+    const maths = parcelMaths({
+      items: [item({ id: 1, est: 500, vol: 8000, volEstimated: true })],
+      divisor: 6000,
+    });
+    expect(maths.volCm3).toBe(Math.round(8000 * 1.18));
+    expect(maths.volG).toBeGreaterThan(0);
+  });
+
+  it("carries the estimate flag through the item mapper", () => {
+    const mapped = toHaulItem({ id: "c3", title: "Vintage hoodie", category: "outerwear" });
+    expect(mapped.vol).toBe(5000);
+    expect(mapped.volEstimated).toBe(true);
   });
 });
 

@@ -25,7 +25,7 @@ import {
 } from "./agents.js";
 import { parseRedditHaul, deobfuscateUrls } from "./reddit-haul.js";
 import { fashionGateStatus } from "./fashion-gate.js";
-import { FIND_STATUSES, normalizeFindStatus } from "./credenza-find-status.js";
+import { normalizeFindStatus } from "./credenza-find-status.js";
 import { downloadHaulCsv } from "./credenza-haul-export.js";
 import {
   DEFAULT_DOMESTIC_USD,
@@ -59,7 +59,6 @@ import {
   CATEGORY_TO_WEIGHT_KEY,
   estimateItemWeightGrams,
   estimateHaulWeightGrams,
-  isBulkyItem,
 } from "./weight-estimate.js";
 import {
   AUTH_ENABLED,
@@ -70,6 +69,7 @@ import {
   getValidSession,
   signOut as authSignOut,
   authHeaders,
+  signInErrorMessage,
 } from "./preview/src/auth.js";
 import {
   loadCachedEntitlement,
@@ -80,7 +80,7 @@ import {
   deleteAccount as accountDeleteRequest,
   safeErrorMessage,
 } from "./preview/src/account.js";
-import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS } from "./preview/src/usage.js";
+import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS, usageAudience } from "./preview/src/usage.js";
 import { limitStatus, ANON_FREE_CARDS } from "./preview/src/limits.js";
 import { buildShareSnapshot, makeShareCode, expiryFromDays, shareUrl } from "./credenza-share.js";
 import { shareItemCard } from "./credenza-item-share.js";
@@ -133,13 +133,26 @@ const HaulTracking = lazy(() => import("./components/HaulTracking.jsx"));
 // a waterfall. The circular import back into this file is safe — the helpers
 // they use are hoisted function declarations.
 import DigestDeck from "./components/DigestDeck.jsx";
-import HaulBoard from "./components/HaulBoard.jsx";
+// The title-row ⋯ menu inside an open haul (STEPS-HANDOFF item 4). HaulBoard
+// and its on-page strip are gone; the file stays on disk as reference and
+// keeps its own tests.
+import HaulTitleMenu from "./components/HaulTitleMenu.jsx";
 // The stage board inside an open haul (haul handoff, screens 2, 6 and 7).
 // Static, not lazy: it paints with the haul, so a chunk fetch would show an
 // empty column strip first.
-import HaulFlowBoard from "./components/HaulFlowBoard.jsx";
+import HaulSteps from "./components/HaulSteps.jsx";
 import HeroStagger from "./components/HeroStagger.jsx";
 import IntroStrip from "./components/IntroStrip.jsx";
+import IndexingStrip from "./components/IndexingStrip.jsx";
+import {
+  failReasonFor,
+  gainedNothing,
+  headerFor,
+  isSettled,
+  parseLinkMeta,
+  stageProgress,
+  visibleRows,
+} from "./components/indexing.js";
 import { SITE_NAV } from "./components/site-nav.js";
 import { takeIntent } from "./components/sign-in-intent.js";
 import { TypeMark } from "./components/CardCover.jsx";
@@ -284,6 +297,13 @@ const PALETTES = {
     "--cz-strip-bg": "#EAEAE4",
     "--cz-footer-bg": "#EFEFE9",
     "--cz-inset-bg": "#FAFAF6",
+    /* Marketplace tile colours (indexing strip + photo fallbacks). Flat colour
+       plus a letter, never a logo. Values from the design system tokens; 1688
+       rides the weidian tile rather than adding a fourth warm hue. */
+    "--cz-tile-weidian": "rgb(255, 90, 60)",
+    "--cz-tile-yupoo": "rgb(55, 178, 77)",
+    "--cz-tile-taobao": "rgb(255, 80, 0)",
+    "--cz-tile-1688": "rgb(255, 90, 60)",
   },
   // Blackout dark: Kimi-feel near-black field (#050506), card #0d0d10,
   // white tints only. Money green + heart red are the only hue.
@@ -369,6 +389,11 @@ const PALETTES = {
     "--cz-strip-bg": "#0a0a0c",
     "--cz-footer-bg": "#08080a",
     "--cz-inset-bg": "#141418",
+    // Marketplace tiles — same values as Gallery (see the light palette note).
+    "--cz-tile-weidian": "rgb(255, 90, 60)",
+    "--cz-tile-yupoo": "rgb(55, 178, 77)",
+    "--cz-tile-taobao": "rgb(255, 80, 0)",
+    "--cz-tile-1688": "rgb(255, 90, 60)",
   },
 };
 
@@ -2759,11 +2784,19 @@ function getYouTubeId(url) {
 }
 
 // The signed-in user's decoded entitlement snapshot, mirrored from component
-// state so module-level enrichment (chart-vision) can apply the free daily
-// caps without threading props through every call (Part 7e).
+// state so module-level enrichment (chart-vision) can apply the Free
+// allowance without threading props through every call (Part 7e).
 let planForLimits = null;
 function setPlanForLimits(plan) {
   planForLimits = plan || null;
+}
+
+export function trackProductEvent(name, params = {}) {
+  try {
+    if (typeof window !== "undefined" && typeof window.czTrack === "function") {
+      window.czTrack(name, params);
+    }
+  } catch {}
 }
 
 const TRACKING_PARAM_RE =
@@ -2974,24 +3007,59 @@ export function resolvableBuyUrl(item) {
   return null;
 }
 
+// True for a Yupoo address of any shape: an album, a seller's front page, a
+// search result. Says nothing about which one.
+export function isYupooUrl(raw) {
+  try {
+    const host = new URL(raw).hostname.replace(/^www\./, "").toLowerCase();
+    return /(^|\.)yupoo\.com$/.test(host);
+  } catch {
+    return false;
+  }
+}
+
+// Kyle 2026-08-03, Yupoo seller mook-official: "it's not pulling that album for
+// that shirt. It's just pulling the actual seller's profile and not the album."
+// A seller's front page holds every item the seller sells. Reading it for one
+// shirt's size chart finds nothing, then blames the photo. So an address only
+// counts as an album when it names one: /albums/<number>. ensureYupooAlbumUid
+// tests for that exact path already; this reuses the test, it does not write a
+// second one.
+export function isYupooAlbumUrl(raw) {
+  if (!isYupooUrl(raw)) return false;
+  try {
+    return /\/albums\/\d+/i.test(new URL(raw).pathname);
+  } catch {
+    return false;
+  }
+}
+
 // First Yupoo album URL on an item: the primary URL or any paired link tagged
 // as photos. Used to populate the photo-orbit animation.
 export function yupooAlbumUrl(item) {
-  function isYupoo(raw) {
-    try {
-      const host = new URL(raw).hostname.replace(/^www\./, "").toLowerCase();
-      return /(^|\.)yupoo\.com$/.test(host);
-    } catch {
-      return false;
-    }
-  }
-  if (item.url && isYupoo(item.url)) return ensureYupooAlbumUid(item.url);
+  if (!item) return null;
+  if (item.url && isYupooAlbumUrl(item.url)) return ensureYupooAlbumUid(item.url);
   for (const l of item.links || []) {
-    if (l && l.url && isYupoo(l.url)) return ensureYupooAlbumUid(l.url);
+    if (l && l.url && isYupooAlbumUrl(l.url)) return ensureYupooAlbumUid(l.url);
   }
   // Resolve can attach bare shop hosts from Weidian desc notes.
   for (const raw of item.sellerYupooLinks || []) {
-    if (typeof raw === "string" && isYupoo(raw)) return ensureYupooAlbumUid(raw);
+    if (typeof raw === "string" && isYupooAlbumUrl(raw)) return ensureYupooAlbumUid(raw);
+  }
+  return null;
+}
+
+// First Yupoo address of any shape on an item, album or not. The store link and
+// the card link both need this: a seller's front page is still worth opening,
+// it is only worth nothing to the chart reader.
+export function yupooAnyUrl(item) {
+  if (!item) return null;
+  if (item.url && isYupooUrl(item.url)) return ensureYupooAlbumUid(item.url);
+  for (const l of item.links || []) {
+    if (l && l.url && isYupooUrl(l.url)) return ensureYupooAlbumUid(l.url);
+  }
+  for (const raw of item.sellerYupooLinks || []) {
+    if (typeof raw === "string" && isYupooUrl(raw)) return ensureYupooAlbumUid(raw);
   }
   return null;
 }
@@ -3256,7 +3324,9 @@ export async function runPool(list, worker, concurrency = 3) {
 export function sellerStoreUrl(item) {  if (!item) return null;
   const account = String(item.sellerAccount || "").trim();
   if (account) return "https://" + account + ".x.yupoo.com/";
-  const album = yupooAlbumUrl(item);
+  // Any Yupoo address gives the store: this takes the host and drops the path.
+  // A seller's own front page is the most direct answer of all.
+  const album = yupooAnyUrl(item);
   if (album) {
     try {
       const u = new URL(album);
@@ -3407,9 +3477,9 @@ const V2_KEY = "credenza-items-v1";
 // Deleted-card gravestones (LB-7). Kept beside the shelf, not inside it, so a
 // .json backup restores cards without also restoring the record of deletions.
 export const TOMBSTONE_KEY = "credenza-fashion-tombstones-v1";
-// "You get 3 free full cards." — shown on a visitor's first paste, once per
-// device (Kyle 2026-07-30, rule 3: warn before the wall, never at it).
-export const FREE_NOTE_KEY = "credenza-fashion-free-note-v1";
+// "You get 5 free full cards." — shown on a visitor's first paste, once per
+// device. V2 shows the changed allowance once to returning visitors too.
+export const FREE_NOTE_KEY = "credenza-fashion-free-note-v2";
 // Onboarding README, "State machine": skipped is session-sticky. One skip
 // suppresses both asks on every card for the rest of the session, and a new
 // session clears it. sessionStorage IS that lifetime — a reload keeps the
@@ -4506,7 +4576,7 @@ export async function fetchYupooImages(albumUrl, { signal } = {}) {
 
 // ── "Sign in to read this link" (2026-07-30) ────────────────────────────────
 //
-// A signed-out visitor gets three complete cards. After that every paid
+// A signed-out visitor gets five complete cards. After that every paid
 // function answers 401 with code "sign_in_required". Any OTHER 401 is a real
 // authorization fault — a bad token, a forged call — and must NOT show the
 // sign-in message, so the code is checked and the status alone is not enough.
@@ -4520,6 +4590,17 @@ async function isSignInRefusal(res) {
   }
 }
 
+async function allowanceRefusal(res) {
+  if (!res || res.status !== 429) return null;
+  try {
+    const data = await res.clone().json();
+    const error = String((data && data.error) || "");
+    if (error.startsWith("Free ")) return "free";
+    if (error.startsWith("Monthly ")) return "monthly";
+  } catch {}
+  return null;
+}
+
 // Module-level readers (the chart hunt, the description-photo refetch) run
 // outside React, so they report the refusal through this hook. The component
 // registers it on mount and uses it to stop making blank cards.
@@ -4529,6 +4610,14 @@ export function setSignInRequiredHook(fn) {
 }
 function noteSignInRequired() {
   if (signInRequiredHook) signInRequiredHook();
+}
+
+let allowanceRequiredHook = null;
+export function setAllowanceRequiredHook(fn) {
+  allowanceRequiredHook = typeof fn === "function" ? fn : null;
+}
+function noteAllowanceRequired(kind, feature) {
+  if (allowanceRequiredHook) allowanceRequiredHook(kind, feature);
 }
 
 // FIX 0 (2026-08-02): chart-vision 401/403 must not look like "no chart".
@@ -4544,31 +4633,86 @@ export function requestChartSignIn() {
   noteSignInRequired();
 }
 
-// FIX 2b (2026-08-03): daily chart-read cap must not look like a bad photo.
-// Same sentinel pattern as FIX 0. Cap-skip never counts as a read.
+// FIX 2b (2026-08-03): a spent chart-read allowance must not look like a bad
+// photo. Same sentinel pattern as FIX 0. Cap-skip never counts as a read.
 export const CHART_CAP_REACHED = Object.freeze({ capReached: true });
 export function isChartCapReached(result) {
   return !!(result && typeof result === "object" && result.capReached === true);
 }
-// Free plan daily chart reads (must match PLAN_CAPS / server entitlements).
+// Kyle 2026-08-03: a slow server, a timeout, or no internet still printed
+// "I could not read that photo." That blames the customer's photo for a
+// failure the photo did not cause. Same sentinel pattern as FIX 0 and FIX 2b.
+// A failure to REACH the reader is never a failure to READ.
+export const CHART_UNAVAILABLE = Object.freeze({ unavailable: true });
+export const CHART_OFFLINE = Object.freeze({ unavailable: true, offline: true });
+export function isChartUnavailable(result) {
+  return !!(result && typeof result === "object" && result.unavailable === true);
+}
+export function isChartOffline(result) {
+  return isChartUnavailable(result) && result.offline === true;
+}
+export const CHART_UNAVAILABLE_COPY =
+  "Credenza could not reach the chart reader. Your photo is fine. Try again in a minute.";
+export const CHART_OFFLINE_COPY =
+  "Your device is offline. Connect to the internet, then read this photo again.";
+// The silent hunt has no customer photo behind it, so it cannot say "your
+// photo is fine". It says the same thing about the item instead: unknown.
+export const CHART_HUNT_UNAVAILABLE_COPY =
+  "Credenza could not reach the chart reader. This item may still have a chart. Try again in a minute.";
+
+// Free plan lifetime chart reads (must match PLAN_CAPS / server entitlements).
 export function chartCapLimitN(plan = planForLimits) {
-  if (plan && plan.lim && typeof plan.lim.chartVisionPerDay === "number") {
-    return plan.lim.chartVisionPerDay;
+  if (plan && plan.lim && typeof plan.lim.chartVisionTotal === "number") {
+    return plan.lim.chartVisionTotal;
   }
-  return PLAN_CAPS.free.chartVisionPerDay;
+  return PLAN_CAPS.free.chartVisionTotal;
 }
 // Honest cap copy with the real N. Free signed-in → upgrade; otherwise sign in.
 export function chartCapCopy(plan = planForLimits) {
   const n = chartCapLimitN(plan);
   if (plan && plan.state === "free") {
-    return "You used today's " + n + " free chart reads. Upgrade for more.";
+    return "You used your " + n + " free chart reads. Upgrade for more.";
   }
-  return "You used today's " + n + " free chart reads. Sign in for more.";
+  return "You used your " + n + " free chart reads. Sign in for more.";
 }
 // True when the free signed-in plan is the one that hit the wall (upgrade CTA).
 export function chartCapWantsUpgrade(plan = planForLimits) {
   return !!(plan && plan.state === "free");
 }
+
+// Kyle 2026-08-03, Weidian item 7796666481: "why didn't this get pulled in.
+// is because im out of free cards? if so we need to delegate the reason that
+// this was not pulled in BECAUSE the customer is out of cards".
+//
+// Yes. On Weidian the size chart lives in the Product Details feed. Fetching
+// that feed costs one card. fetchDescImages returns nothing once the free
+// cards are spent, so the chart never becomes a read candidate. The read then
+// pays for three product shots, finds no table, and blames the photo.
+//
+// These two say the real reason instead. The card credit and the chart read
+// are separate counts, so this needs its own sentence.
+export function chartCardsCapCopy(plan = planForLimits) {
+  const n =
+    plan && plan.lim && typeof plan.lim.resolveTotal === "number"
+      ? plan.lim.resolveTotal
+      : PLAN_CAPS.free.resolveTotal;
+  const head = "This chart sits in the seller's product details. Reading it costs one card. ";
+  if (plan && plan.state === "free") {
+    return head + "You used your " + n + " free cards. Upgrade for more.";
+  }
+  return head + "You used your " + n + " free cards. Sign in for more.";
+}
+// True when the chart is out of reach only because the cards ran out: the card
+// holds no chart photo and no product-details photo, the link is still
+// resolvable, and the free card count is spent.
+export function chartNeedsCards(item, plan = planForLimits) {
+  if (!item) return false;
+  const has = (list) => Array.isArray(list) && list.length > 0;
+  if (has(item.descImages) || has(item.chartImages)) return false;
+  if (!resolvableBuyUrl(item)) return false;
+  return overFreeLimit(plan, "resolve");
+}
+
 // Limits sheet (same one the header pill opens) for the free-plan upgrade CTA.
 let limitsOpenHook = null;
 export function setLimitsOpenHook(fn) {
@@ -4591,9 +4735,12 @@ export function requestChartLimits() {
 // URL. Handoff turn 9 §3: "the same parser endpoint as a clipboard paste — one
 // ingest path, image or text". Two exported wrappers keep the call sites plain.
 async function postChartVision({ images, photos, signal, referer }) {
-  if (!PREVIEW_SECRET) return null;
-  if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
-  // Part 7e + FIX 2b: a signed-in FREE user over the daily cap skips the cloud
+  // FIX 2c: a reader we cannot REACH is not a photo we cannot READ. Both of
+  // these mean the request never left the device, so they answer with the
+  // unavailable sentinel and the UI keeps the customer's photo out of it.
+  if (!PREVIEW_SECRET) return CHART_UNAVAILABLE;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return CHART_OFFLINE;
+  // Part 7e + FIX 2b: a signed-in FREE user over the allowance skips the cloud
   // read and returns a distinct sentinel — never null, so the UI never claims
   // "could not read that photo" for a spent allowance. Cap-skip does not count.
   if (overFreeLimit(planForLimits, "chartVision")) return CHART_CAP_REACHED;
@@ -4617,10 +4764,10 @@ async function postChartVision({ images, photos, signal, referer }) {
     });
     // LB-59. Count AFTER the status check, never before it. The server counts a
     // chart read at chart-vision.js:281 — after Anthropic answered, so a 502
-    // "Chart read failed", a 504 timeout, a 413, and the 429 daily cap itself
+    // "Chart read failed", a 504 timeout, a 413, and the 429 plan cap itself
     // all cost the account nothing there. The client counter is the one that
     // BLOCKS (overFreeLimit above returns early on it), so a client that counted
-    // failures gave a free user 2 attempts a day, not 2 reads a day, and burned
+    // failures used to spend attempts instead of successful reads and burned
     // the second one on an outage the user did not cause. Both 200 bodies still
     // count, found:true and found:false alike, because the model was called
     // either way — /guides/what-spends-a-chart-read/ says so in those words.
@@ -4633,16 +4780,21 @@ async function postChartVision({ images, photos, signal, referer }) {
         noteSignInRequired();
         return CHART_AUTH_REQUIRED;
       }
-      // FIX 2b: server daily cap (paid-gate 429) is not a bad photo.
+      // FIX 2b: server plan cap (paid-gate 429) is not a bad photo.
       if (res.status === 429) return CHART_CAP_REACHED;
-      return null;
+      // FIX 2c: everything left here is the server failing, not the photo —
+      // a 502 "Chart read failed", a 504 timeout, a 413 too-large frame.
+      return CHART_UNAVAILABLE;
     }
-    bumpUsage("chartVision");
+    bumpUsage("chartVision", { audience: usageAudience(planForLimits) });
+    trackProductEvent("usage_success", { plan: usageAudience(planForLimits), feature: "chart_read" });
     const data = await res.json();
+    // The ONE honest "this photo has no table in it". Only this path is null.
     if (!data || !data.found || typeof data.chartText !== "string") return null;
     return data.chartText.trim() || null;
   } catch {
-    return null;
+    // FIX 2c: a network throw or the 30s timeout above. The photo is fine.
+    return CHART_UNAVAILABLE;
   } finally {
     clearTimeout(timer);
     if (signal) signal.removeEventListener("abort", abort);
@@ -4762,7 +4914,10 @@ export async function readChartFromPhotoFiles(files, { signal, referer } = {}) {
 export async function fetchDescImages(item, { signal } = {}) {
   if (!PREVIEW_SECRET) return [];
   if (typeof navigator !== "undefined" && navigator.onLine === false) return [];
-  if (overFreeLimit(planForLimits, "resolve")) return [];
+  if (overFreeLimit(planForLimits, "resolve")) {
+    noteAllowanceRequired("free", "resolve");
+    return [];
+  }
   const buyUrl = resolvableBuyUrl(item);
   if (!buyUrl) return [];
   const controller = new AbortController();
@@ -4785,9 +4940,14 @@ export async function fetchDescImages(item, { signal } = {}) {
     // even try is the worst version of the bug.
     if (!res.ok) {
       if (await isSignInRefusal(res)) noteSignInRequired();
+      else {
+        const allowance = await allowanceRefusal(res);
+        if (allowance) noteAllowanceRequired(allowance, "resolve");
+      }
       return [];
     }
-    bumpUsage("resolve");
+    bumpUsage("resolve", { audience: usageAudience(planForLimits) });
+    trackProductEvent("usage_success", { plan: usageAudience(planForLimits), feature: "card_read" });
     const data = await res.json();
     if (!data || !Array.isArray(data.descImages)) return [];
     return data.descImages.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u));
@@ -4906,6 +5066,9 @@ export const EASE = "cubic-bezier(0.2, 0.6, 0.2, 1)";
 const KEYFRAMES = `
 *, *::before, *::after { box-sizing: border-box; }
 .cz-shell { max-width: 1080px; margin: 0 auto; padding: 28px 28px 0; }
+/* The open haul is the one page allowed past 1080px (STEPS-HANDOFF item 3).
+   The modifier rule lives in credenza-fashion.css beside the data-fashion
+   shell rule it must outrank; the .cz-shell base rule itself never changes. */
 @media (max-width: 480px) { .cz-shell { padding: 16px 14px 0; } }
 /* Kyle 2026-07-27: "The top is a little bland." The masthead had no edge. A
    mark, a link row and an avatar floated on the bare canvas, so the page began
@@ -4920,6 +5083,10 @@ const KEYFRAMES = `
    horizontal room, which is why the kicker now SURVIVES the compact phone
    masthead instead of being dropped when the shelf fills. */
 .cz-brand { display: inline-flex; align-items: center; gap: 12px; margin: 0; color: var(--cz-ink); font-size: 19px; font-weight: 800; letter-spacing: .16em; }
+/* The lockup is a link (Kyle 2026-08-03). Inherit the lockup's look — no
+   underline, no link blue — and keep the mark and the words on one flex row.
+   The radius only shapes the keyboard focus ring. */
+.cz-brand-link { display: inline-flex; align-items: center; gap: 12px; color: inherit; letter-spacing: inherit; text-decoration: none; border-radius: 8px; }
 .cz-brand-name { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1; }
 /* 19px, up from 16 (Kyle 2026-07-27: "The top is a little bland"). At 16 the
    wordmark measured smaller than the shelf's own section heading, so the page
@@ -5304,6 +5471,49 @@ export function sizingAlbumReadCandidates(item, max = DETAIL_PHOTO_CAP) {
   const seen = new Set();
   const out = [];
   for (const src of [...charts, ...product]) {
+    if (seen.has(src)) continue;
+    seen.add(src);
+    out.push(src);
+    if (max != null && out.length >= max) break;
+  }
+  return out;
+}
+
+// A CDN path that ends in _WIDTH_HEIGHT before the extension gives the shape
+// without a download (…-unadjust_1080_776.jpg). A size table is wider than it
+// is tall; a product shot is square or taller. Same 1.25 rule resolve.js uses
+// to hold tables out of the gallery. Unknown shape is never a reject.
+function looksChartShaped(url) {
+  const m = /_(\d{2,5})_(\d{2,5})(?:\.[a-z0-9]+)?$/i.exec(String(url || "").split("?")[0]);
+  if (!m) return false;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!w || !h) return false;
+  return w / h > 1.25;
+}
+
+// Kyle 2026-08-03, Weidian item 7796666481: "why didn't this get pulled in".
+// The size chart was in plain sight on the listing, and the read still failed.
+//
+// On Weidian the chart lives in the Product Details feed, not the gallery.
+// resolve.js holds every table-shaped photo OUT of the gallery on purpose, so
+// the chart reaches the card only as descImages. sizingAlbumReadCandidates
+// never looked there, so pressing "Read the N album photos" paid for three
+// product shots and then told the customer the photo was unreadable.
+//
+// This is the paid read order: known chart tiles, then Product Details with
+// the table-shaped ones first, then product photos. The album row keeps its
+// own list for the thumbs and the count, so the visible photo count still
+// matches the swipe gallery.
+export function sizingChartReadCandidates(item, max = DETAIL_PHOTO_CAP) {
+  const remote = (src) => typeof src === "string" && /^https?:\/\//i.test(src);
+  const charts = (Array.isArray(item && item.chartImages) ? item.chartImages : []).filter(remote);
+  const desc = (Array.isArray(item && item.descImages) ? item.descImages : []).filter(remote);
+  const shaped = desc.filter(looksChartShaped);
+  const rest = desc.filter((src) => !looksChartShaped(src));
+  const seen = new Set();
+  const out = [];
+  for (const src of [...charts, ...shaped, ...rest, ...sizingAlbumReadCandidates(item, max)]) {
     if (seen.has(src)) continue;
     seen.add(src);
     out.push(src);
@@ -5844,6 +6054,42 @@ export const BODY_MEASURE_GROUPS = [
 // Size facts live inside SizeRecommendation now — no second "Sizes" bubble.
 
 
+// ── Haul routes (STEPS-HANDOFF item 1, 2026-08-03) ──────────────────────────
+// Kebab-case the haul name for the address bar. The slug is derived, never
+// stored: the name on the cards stays the one truth.
+const haulSlugBase = (name) =>
+  String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+// Two hauls can kebab-case to the same slug ("Winter" and "winter!"). Assign
+// slugs in sorted order and suffix the later ones (winter, winter-2), so the
+// map built from the same names is always the same map.
+const haulSlugMap = (names) => {
+  const map = new Map();
+  const sorted = [...new Set(names.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  for (const name of sorted) {
+    const base = haulSlugBase(name) || "haul";
+    let slug = base;
+    let n = 2;
+    while (map.has(slug)) {
+      slug = base + "-" + n;
+      n += 1;
+    }
+    map.set(slug, name);
+  }
+  return map;
+};
+// Reverse lookup for pushes: the slug a haul name currently owns.
+const haulSlugForName = (name, slugMap) => {
+  for (const [slug, mapped] of slugMap) if (mapped === name) return slug;
+  return haulSlugBase(name) || "haul";
+};
+// A parcel id is the haul slug plus the parcel letter: winter-a. Only parcel
+// A exists today; the shape leaves room (STEPS-HANDOFF decision 7).
+const PARCEL_ID_RE = /^([a-z0-9-]+)-([a-z])$/;
+
 // ═══════════════════════════════════════════════════════════════════════════════════
 // ═══ MAIN APP ═══
 // ═══════════════════════════════════════════════════════════════════════════════════
@@ -5895,6 +6141,27 @@ function CredenzaApp() {
   // Every number on it is a projection of the same parcel record, so it holds
   // no state of its own beyond being open.
   const [trackingOpen, setTrackingOpen] = useState(false);
+  // Haul routing (STEPS-HANDOFF item 1). haulOverlaySeqRef counts the overlay
+  // entries pushed on top of /hauls/<slug> (drawer, QC, hand-off), so Back
+  // peels them one at a time. haulBootRef/parcelBootRef mark a visit that
+  // LANDED on the address — it owns no earlier entry, so closing rewrites
+  // the address instead of going back (same rule as settingsBootRef).
+  // haulRouteRef mirrors the live values for the one popstate listener, whose
+  // effect closure would otherwise read stale state.
+  const haulOverlaySeqRef = useRef(0);
+  const haulBootRef = useRef(false);
+  const parcelBootRef = useRef(false);
+  const haulBootRanRef = useRef(false);
+  const haulRouteRef = useRef({
+    activeHaul: null,
+    haulDrawerId: null,
+    qcItemId: null,
+    handoffOpen: false,
+    trackingOpen: false,
+    view: "shelf",
+    reducedMotion: true,
+    slugMap: new Map(),
+  });
   const reducedMotion = usePrefersReducedMotion();
   const [search, setSearch] = useState("");
   const [askState, setAskState] = useState({
@@ -5990,11 +6257,11 @@ function CredenzaApp() {
   // when AUTH_ENABLED is false (env missing → no account UI at all).
   const [accountSession, setAccountSession] = useState(null);
   const [accountPlan, setAccountPlan] = useState(null);
-  // The two caps that are NOT daily counters (LB-1, LB-2). A daily counter is
+  // The two caps that are not metered server allowances (LB-1, LB-2). A metered counter is
   // re-checked by the server on every call; these two never reach a server, so
   // the client is the only place they can hold. Signed out reads as free.
   const isProPlan = accountPlan
-    ? accountPlan.state === "pro" || accountPlan.state === "grace"
+    ? accountPlan.state === "pro" || accountPlan.state === "grace" || accountPlan.state === "owner"
     : false;
   const qcPhotoCap = planLimit(accountPlan, "qcPhotosPerItem");
   const haulsCap = planLimit(accountPlan, "haulsMax");
@@ -6022,7 +6289,10 @@ function CredenzaApp() {
       // (?upgrade= without the trailing d), not only upgraded/profile.
       stripUrl();
       const upgraded = params.get("upgraded");
-      if (upgraded) notify("Payment received. Pro turns on in a few seconds.");
+      if (upgraded) {
+        notify("Payment received. Pro turns on in a few seconds.");
+        trackProductEvent("purchase_return", { plan: "pro" });
+      }
       else notify("Checkout cancelled. Nothing was charged.");
     }
     if (params.get("profile") || params.get("upgraded")) {
@@ -6048,11 +6318,22 @@ function CredenzaApp() {
       if (fromUrl) {
         stripUrl();
         if (fromUrl.error) {
-          notify("Sign-in failed: " + fromUrl.error);
+          // Kyle 2026-08-03 audit, finding 2: this printed the server's own
+          // words and offered no button. Now it reads a sentence, and the
+          // sign-in box is one tap away. The raw text stays in the console.
+          if (typeof console !== "undefined" && console.warn) {
+            console.warn("[auth] sign-in link failed:", fromUrl.error);
+          }
+          notify(signInErrorMessage(fromUrl.error), {
+            tone: "error",
+            actionLabel: "Sign in",
+            onAction: () => openSignIn({ kind: "shelf", returnTo: "/" }),
+          });
         } else {
           saveSession(fromUrl.session);
           if (!cancelled) {
             setAccountSession(fromUrl.session);
+            trackProductEvent("signup_complete", { method: "account" });
             notify("Signed in" + (fromUrl.session.user.email ? " as " + fromUrl.session.user.email : "") + ".");
           }
           await pullEntitlement(fromUrl.session);
@@ -6116,30 +6397,107 @@ function CredenzaApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Haul deep links (STEPS-HANDOFF item 1). /hauls, /hauls/<slug> and
+  // /parcels/<id> are real addresses: a reload on one reopens that screen.
+  // The slug resolves to a haul name only after storage loads — the names
+  // live on the cards — so this waits for `loaded` and runs once.
+  useEffect(() => {
+    if (!loaded || haulBootRanRef.current) return;
+    haulBootRanRef.current = true;
+    const path = window.location.pathname;
+    const haulM = /^\/hauls(?:\/([^/]+))?\/?$/.exec(path);
+    const parcelM = haulM ? null : /^\/parcels\/([a-z0-9-]+)\/?$/.exec(path);
+    if (!haulM && !parcelM) return;
+    haulBootRef.current = true;
+    setView("hauls");
+    const slugMap = haulRouteRef.current.slugMap;
+    const parcelSlug = parcelM ? (PARCEL_ID_RE.exec(parcelM[1]) || [])[1] || null : null;
+    const slug = haulM ? haulM[1] || null : parcelSlug;
+    if (!slug) {
+      // The index, or a parcel id with no letter suffix (not a parcel anyone
+      // made): land on the hauls index.
+      try {
+        window.history.replaceState({ czHaul: "index", boot: true }, "", "/hauls");
+      } catch {}
+      return;
+    }
+    const name = slugMap.get(slug);
+    if (!name) {
+      // The haul is gone (deleted or renamed): land on the index.
+      try {
+        window.history.replaceState({ czHaul: "index", boot: true }, "", "/hauls");
+      } catch {}
+      return;
+    }
+    setActiveHaul(name);
+    if (parcelM) {
+      parcelBootRef.current = true;
+      setTrackingOpen(true);
+    }
+    // STEPS-HANDOFF item 9: ?qc=first opens the takeover on the first
+    // unreviewed warehouse item that HAS photos — a deep link never lands on
+    // the empty state, only the in-app CTA does that. The address keeps the
+    // param, so the link can be shared again from the open takeover.
+    const wantsQc =
+      !parcelM && new URLSearchParams(window.location.search).get("qc") === "first";
+    if (wantsQc) {
+      const firstQc = shelfAll
+        .filter(
+          (entry) =>
+            entry && typeof entry.project === "string" && entry.project.trim() === name
+        )
+        .find(
+          (entry) =>
+            entry.haulStage === "warehouse" &&
+            !entry.haulVerdict &&
+            Array.isArray(entry.qcPhotos) &&
+            entry.qcPhotos.filter(Boolean).length > 0
+        );
+      if (firstQc) setQcItemId(firstQc.id);
+    }
+    try {
+      const url = parcelM
+        ? "/parcels/" + parcelM[1]
+        : "/hauls/" + slug + (wantsQc ? "?qc=first" : "");
+      window.history.replaceState({ czHaul: slug, boot: true }, "", url);
+    } catch {}
+  }, [loaded]);
+
   const accountSendMagicLink = async (email) => {
+    trackProductEvent("signup_start", { method: "email" });
     await sendMagicLink(email);
   };
   const accountGoogle = () => {
+    trackProductEvent("signup_start", { method: "google" });
     window.location.assign(googleAuthUrl());
   };
   // Kyle 2026-08-02: a lost session used to end here in silence, and the Pro
   // button looked dead. The toast still fires. The throw carries the same
   // sentence up to whichever screen made the call, so it can print it too.
-  const expiredSession = () => {
+  //
+  // Kyle 2026-08-03 audit, finding 3: the sentence told a person to sign in
+  // again and gave them nothing to press. The button on the toast opens the
+  // sign-in box, and it returns them to the screen they were already on.
+  const expiredSession = (returnTo = "/") => {
     setAccountSession(null);
     const message = "Your sign-in expired. Sign in again first.";
-    notify(message);
+    notify(message, {
+      tone: "error",
+      actionLabel: "Sign in",
+      onAction: () => openSignIn({ kind: "shelf", returnTo }),
+    });
     return new Error(message);
   };
   const accountUpgrade = async (price) => {
     const session = await getValidSession();
-    if (!session) throw expiredSession();
+    if (!session) throw expiredSession("/upgrade");
+    trackProductEvent("checkout_start", { billing: price });
     const url = await accountCheckout(session.accessToken, price);
     window.location.assign(url);
   };
   const accountOpenPortal = async () => {
     const session = await getValidSession();
-    if (!session) throw expiredSession();
+    if (!session) throw expiredSession("/settings/account");
     const url = await accountPortal(session.accessToken);
     window.location.assign(url);
   };
@@ -6153,9 +6511,8 @@ function CredenzaApp() {
   const accountDelete = async () => {
     const session = await getValidSession();
     if (!session) {
-      setAccountSession(null);
-      notify("Your sign-in expired. Sign in again first.");
-      return;
+      // Finding 3, second site: same sentence, so it gets the same button.
+      throw expiredSession("/settings/account");
     }
     await accountDeleteRequest(session.accessToken);
     await authSignOut(session); // local clear; the server user is already gone
@@ -6178,8 +6535,10 @@ function CredenzaApp() {
     if (!payload) return;
     setAccountPlan(payload);
     notify(
-      payload.state === "pro" || payload.state === "grace"
-        ? "Pro is active on this account."
+      payload.state === "owner"
+        ? "Owner access is active on this account."
+        : payload.state === "pro" || payload.state === "grace"
+          ? "Pro is active on this account."
         : "No paid plan found on this account."
     );
   };
@@ -6224,7 +6583,7 @@ function CredenzaApp() {
   };
   // ── "Sign in to read this link" (Kyle 2026-07-30) ─────────────────────────
   //
-  // A signed-out visitor builds three complete cards. Then the server refuses,
+  // A signed-out visitor builds five complete cards. Then the server refuses,
   // and the old app made a blank card and said nothing — Kyle read that as a
   // broken site. Now the paste box stops making cards, holds the link, and
   // shows ONE notice that stays until the visitor signs in. The notice is not
@@ -6238,6 +6597,7 @@ function CredenzaApp() {
   const askForSignIn = useCallback((heldText = "") => {
     if (heldText) heldLinkRef.current = heldText;
     setSignInRequired(true);
+    trackProductEvent("allowance_reached", { plan: "guest", feature: "card_read" });
     // A refused paid read is a real limit wall. Open the same limits sheet
     // used by the header meter and Ask. Keep the persistent card notice too:
     // it owns the held link and stays until sign-in finishes the stopped work.
@@ -6264,18 +6624,19 @@ function CredenzaApp() {
   // ── One meter, one sheet (Kyle 2026-07-30) ────────────────────────────────
   //
   // Rule 1: a pill in the header always says where this person stands.
-  // Rule 2: the pill, a spent allowance, a daily cap and an ended membership
+  // Rule 2: the pill, a spent allowance, a plan cap and an ended membership
   //         all open the SAME sheet.
   // Rule 3: the last free read turns the pill amber, so nobody meets a wall
   //         they were not told about.
   // The sheet NEVER opens on its own — only on a tap or at a real wall.
   const [limitsOpen, setLimitsOpen] = useState(false);
+  const [serverBlockedFeature, setServerBlockedFeature] = useState("");
   // FIX 2b: chart cap UI opens this same sheet (free-plan upgrade CTA).
   useEffect(() => {
     setLimitsOpenHook(() => setLimitsOpen(true));
     return () => setLimitsOpenHook(null);
   }, []);
-  // The daily counters live in localStorage, which never tells React that it
+  // The allowance counters live in localStorage, which never tells React that it
   // changed. Every spent read bumps this, and the pill re-reads.
   const [usageTick, setUsageTick] = useState(0);
   useEffect(() => onUsageChange(() => setUsageTick((n) => n + 1)), []);
@@ -6289,14 +6650,36 @@ function CredenzaApp() {
             // The server has already refused, so the true count is zero
             // whatever this device's own counter says.
             blocked: signInRequired && !signedInAccount,
+            blockedFeature: serverBlockedFeature,
           })
         : null,
     // usageTick is the whole point of this dependency list: it is what makes
     // the pill re-read localStorage after a read is spent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountPlan, signedInAccount, signInRequired, usageTick],
+    [accountPlan, signedInAccount, signInRequired, serverBlockedFeature, usageTick],
   );
   const openLimits = useCallback(() => setLimitsOpen(true), []);
+  useEffect(() => {
+    setAllowanceRequiredHook((kind, feature) => {
+      const eventFeature = feature === "chartVision" ? "chart_read" : feature === "resolve" ? "card_read" : feature;
+      trackProductEvent("allowance_reached", {
+        plan: kind === "monthly" ? "paid" : "free",
+        feature: eventFeature,
+      });
+      if (kind === "monthly") {
+        notify("Your monthly allowance is used. More reads arrive next month.");
+        return;
+      }
+      setServerBlockedFeature(feature);
+      setLimitsOpen(true);
+    });
+    return () => setAllowanceRequiredHook(null);
+    // `notify` is intentionally read from the current mounted app.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (accountPlan && accountPlan.state !== "free") setServerBlockedFeature("");
+  }, [accountPlan]);
   // ── The sign-in modal (sign-in handoff README, screen 2) ──────────────────
   //
   // A modal, never a route. It opens from the cap modal, the account menu and
@@ -6393,6 +6776,88 @@ function CredenzaApp() {
       upgradeSeqRef.current = 0;
       upgradeBootRef.current = false;
       setUpgradeView(null);
+      // Haul pages (STEPS-HANDOFF item 1). Back peels an open overlay first —
+      // drawer, then QC, then the hand-off sheet — and only then navigates
+      // (the handoff's back-button rule). Overlays push entries on top of the
+      // haul address, so a peel lands on the same URL with one flag fewer.
+      const haulM = /^\/hauls(?:\/([^/]+))?\/?$/.exec(window.location.pathname);
+      const parcelM = haulM ? null : /^\/parcels\/([a-z0-9-]+)\/?$/.exec(window.location.pathname);
+      if (haulM || parcelM) {
+        settingsSeqRef.current = 0;
+        settingsBootRef.current = false;
+        setSettingsView(null);
+        const st = window.history.state;
+        const cur = haulRouteRef.current;
+        // Peel the topmost overlay. QC can sit over the drawer, so the open
+        // order lives in a stack — closing "the drawer first" would pull it
+        // out from under an open QC screen.
+        const stack = haulOverlayStackRef.current;
+        const top = stack[stack.length - 1];
+        if (top) {
+          stack.pop();
+          haulOverlaySeqRef.current = st && st.czHaulOverlay ? st.czHaulOverlay : 0;
+          stack.length = Math.min(stack.length, haulOverlaySeqRef.current);
+          if (top.kind === "drawer") setHaulDrawerId(null);
+          else if (top.kind === "qc") setQcItemId(null);
+          else setHandoffOpen(false);
+          return;
+        }
+        haulOverlaySeqRef.current = 0;
+        setView("hauls");
+        const slug = haulM
+          ? haulM[1] || null
+          : (PARCEL_ID_RE.exec(parcelM[1]) || [])[1] || null;
+        if (!slug) {
+          // The index: no haul under the address any more.
+          if (cur.activeHaul) {
+            if (!cur.reducedMotion) setClosingHaulName(cur.activeHaul);
+            setActiveHaul(null);
+          }
+          setHandoffOpen(false);
+          setTrackingOpen(false);
+          setHaulDrawerId(null);
+          return;
+        }
+        const name = cur.slugMap.get(slug);
+        if (!name) {
+          // The haul is gone (deleted or renamed): land on the index.
+          if (cur.activeHaul) {
+            if (!cur.reducedMotion) setClosingHaulName(cur.activeHaul);
+            setActiveHaul(null);
+          }
+          setTrackingOpen(false);
+          try {
+            window.history.replaceState({ czHaul: "index" }, "", "/hauls");
+          } catch {}
+          return;
+        }
+        if (cur.activeHaul !== name) {
+          setActiveHaul(name);
+          setExpandedId(null);
+          setSelectedId(null);
+        }
+        setHaulDrawerId(null);
+        setHandoffOpen(false);
+        setTrackingOpen(!!parcelM);
+        return;
+      }
+      // Back out of the haul pages entirely (to the shelf). Settings stays
+      // out of this: the settings sheet can sit over a haul, and popping to
+      // a /settings entry must not close the haul under it.
+      if (!/^\/settings(?:\/|$)/.test(window.location.pathname)) {
+        const cur = haulRouteRef.current;
+        if (cur.view === "hauls" || cur.activeHaul || cur.trackingOpen) {
+          if (cur.activeHaul && !cur.reducedMotion) setClosingHaulName(cur.activeHaul);
+          setActiveHaul(null);
+          setHandoffOpen(false);
+          setTrackingOpen(false);
+          setHaulDrawerId(null);
+          haulOverlaySeqRef.current = 0;
+          haulOverlayStackRef.current = [];
+          const st = window.history.state;
+          setView(st && st.czView === "inbox" ? "inbox" : "shelf");
+        }
+      }
       const m = /^\/settings(?:\/([a-z]+))?\/?$/.exec(window.location.pathname);
       if (!m) {
         settingsSeqRef.current = 0;
@@ -6414,8 +6879,15 @@ function CredenzaApp() {
   // Module-level enrichment (chart-vision) reads the plan through the module
   // mirror — component state stays the one source of truth.
   useEffect(() => {
-    setPlanForLimits(accountPlan);
-  }, [accountPlan]);
+    // Treat a signed-in account as Free while its snapshot loads. This keeps
+    // early successful calls out of the separate guest counter.
+    setPlanForLimits(
+      accountPlan ||
+        (signedInAccount
+          ? { state: "free", lim: {}, sub: accountSession && accountSession.user.id }
+          : null)
+    );
+  }, [accountPlan, accountSession, signedInAccount]);
   // Delete confirmation (KM-02): every delete path (card-back button,
   // Backspace/Delete key) stages the id here first; the dialog shows the card
   // title and offers Keep / Delete. null = nothing staged.
@@ -6521,8 +6993,66 @@ function CredenzaApp() {
     }, 80);
     return () => window.clearTimeout(id);
   }, [viewMode]);
-  // Indexing chips next to the Inbox tab while a newly stashed item enriches.
-  const [indexingJobs, setIndexingJobs] = useState([]);
+  // Indexing strip (handoff: design_handoff_indexing_strip, 3a). One link
+  // record per enriching item, in paste order; components/indexing.js owns
+  // the pure transitions and copy. The records derive from the shelf items,
+  // so a batch import gets one row per link with no extra wiring.
+  const [indexJobs, setIndexJobs] = useState([]);
+  const [indexExiting, setIndexExiting] = useState(false);
+  // Every enrichment of any item flows through enrichFashionItem, which calls
+  // this first — so the row paints on the same frame as the paste. A settled
+  // row that gets re-enriched (a duplicate paste, the strip's own Retry) goes
+  // back to fetching and counts the attempt.
+  const registerIndexJob = useCallback((item) => {
+    if (!item || !item.id) return;
+    const url = item.url || (item.links && item.links.albumUrl) || "";
+    if (!url) return; // a pasted note with no link never gets a row
+    setIndexJobs((jobs) => {
+      const existing = jobs.find((j) => j.id === item.id);
+      if (existing) {
+        if (existing.state === "indexed" || existing.state === "failed") {
+          return jobs.map((j) =>
+            j.id === item.id
+              ? {
+                  ...j,
+                  state: "fetching",
+                  attempts: j.attempts + 1,
+                  failReason: null,
+                  sawEnriching: false,
+                  startedAt: Date.now(),
+                  doneAt: 0,
+                  progress: 0.02,
+                }
+              : j
+          );
+        }
+        return jobs;
+      }
+      const meta = parseLinkMeta(url);
+      return [
+        ...jobs,
+        {
+          id: item.id,
+          url,
+          platform: meta.platform,
+          label: meta.label,
+          state: "queued",
+          thumbs: [],
+          revealed: 0,
+          photoTotal: 0,
+          progress: 0.02,
+          attempts: 0,
+          failReason: null,
+          sawEnriching: false,
+          shown: false,
+          slowTail: false,
+          createdAt: Date.now(),
+          startedAt: Date.now(),
+          doneAt: 0,
+        },
+      ];
+    });
+  }, []);
   const { notification, notify, dismiss: dismissNotification, pause: pauseNotification, resume: resumeNotification } = useNotification();
   const online = useOnlineStatus();
   const undoBatchRef = useRef([]);
@@ -7007,25 +7537,12 @@ function CredenzaApp() {
 
   const beginIndexingJob = useCallback((result) => {
     if (!result || result.status !== "stashed" || !result.id) return;
-    const id = result.id;
     // A fresh stash lands in the Inbox while it enriches. Take the customer
     // to it — otherwise the Shelf tab says "Nothing on the shelf yet" right
     // after they stashed something (2026-07-25 mobile audit). The effect that
-    // watches inboxItems snaps back to Shelf when indexing finishes.
+    // watches inboxItems snaps back to Shelf when indexing finishes. The strip
+    // row itself comes from the driver below, which reads the shelf items.
     setView("inbox");
-    setIndexingJobs((jobs) => {
-      const without = jobs.filter((j) => j.id !== id);
-      return [
-        ...without,
-        {
-          id,
-          title: result.title || "New item",
-          progress: 12,
-          phase: "indexing",
-          startedAt: Date.now(),
-        },
-      ].slice(-4);
-    });
   }, []);
 
   // Haul mode: a lone Reddit post link is read server-side and its text goes
@@ -7076,7 +7593,7 @@ function CredenzaApp() {
   const dispatchStash = (raw, options = {}) => {
     let text = (raw || "").trim();
     if (!text) return { status: "empty" };
-    // Signed out, and the three free reads are gone. Hold the link and make no
+    // Signed out, and the five free reads are gone. Hold the link and make no
     // card: a blank card is the fault this exists to remove. The notice on
     // screen carries the Sign in button, and the link stays in the box.
     if (signInRequired && !accountSession) {
@@ -7085,7 +7602,7 @@ function CredenzaApp() {
       return { status: "signin" };
     }
     // Rule 3: warn before the wall, never at it. The FIRST paste by a visitor
-    // says how many free cards there are, once per device, so the third card
+    // says how many free cards there are, once per device, so the fifth card
     // is never a surprise. It is one line, and it is not a modal.
     noteFreeAllowanceOnce();
     if (options.linksOnly) {
@@ -7140,7 +7657,7 @@ function CredenzaApp() {
       onAction: () => {
         applyUpdate((list) => list.filter((x) => x.id !== id));
         markDeleted(id);
-        setIndexingJobs((jobs) => jobs.filter((j) => j.id !== id));
+        setIndexJobs((jobs) => jobs.filter((j) => j.id !== id));
       },
       duration: 3000,
     });
@@ -7799,9 +8316,12 @@ function CredenzaApp() {
   const resolveBuyDetails = async (item, { token = null, signal = null, preserveTitle = false } = {}) => {
     if (!PREVIEW_SECRET) return false;
     if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
-    // Part 7e: signed-in FREE user over the daily resolve cap — skip the
+    // Part 7e: signed-in Free user over the resolve allowance — skip the
     // cloud read, keep the local card (same as offline).
-    if (overFreeLimit(accountPlan, "resolve")) return false;
+    if (overFreeLimit(accountPlan, "resolve")) {
+      noteAllowanceRequired("free", "resolve");
+      return false;
+    }
     const buyUrl = resolvableBuyUrl(item);
     if (!buyUrl) return false;
     updateEnrichedItem(item.id, token, { status: "enriching" });
@@ -7814,6 +8334,7 @@ function CredenzaApp() {
     const timer = setTimeout(() => controller.abort(), 30000);
     let data = null;
     let refused = false;
+    let allowance = null;
     try {
       const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
         method: "POST",
@@ -7823,10 +8344,12 @@ function CredenzaApp() {
       });
       // LB-59. The importer's own resolve call, counted on success only.
       if (res.ok) {
-        bumpUsage("resolve");
+        bumpUsage("resolve", { audience: usageAudience(accountPlan, signedInAccount) });
+        trackProductEvent("usage_success", { plan: usageAudience(accountPlan, signedInAccount), feature: "card_read" });
         data = await res.json();
-      } else if (await isSignInRefusal(res)) {
-        refused = true;
+      } else {
+        allowance = await allowanceRefusal(res);
+        if (!allowance && (await isSignInRefusal(res))) refused = true;
       }
     } catch {
       data = null;
@@ -7839,6 +8362,11 @@ function CredenzaApp() {
       // sitting there empty and looking like a broken site.
       updateEnrichedItem(item.id, token, { status: "ready", needsSignIn: true });
       askForSignIn();
+      return false;
+    }
+    if (allowance) {
+      updateEnrichedItem(item.id, token, { status: "ready" });
+      noteAllowanceRequired(allowance, "resolve");
       return false;
     }
     if (!data || !data.title) {
@@ -7937,6 +8465,7 @@ function CredenzaApp() {
 
   const enrichFashionItem = async (item) => {
     if (!item || !item.id) return false;
+    registerIndexJob(item);
     const previous = enrichmentControllersRef.current.get(item.id);
     if (previous) previous.abort();
     const controller = new AbortController();
@@ -8446,57 +8975,254 @@ function CredenzaApp() {
   );
   const shelfAll = useMemo(() => items.filter((x) => x.status === "ready"), [items]);
 
-  // Drive indexing chips: advance while enriching, complete when ready, drop after a beat.
+  // ————— Indexing strip driver (handoff 3a) ————————————————————————————————
+  // The records derive from the shelf items: a card in "enriching" holds a
+  // live row, a card that lands "ready" settles its row. Three effects, one
+  // job store:
+  //   A (on items change): catch-all rows for enriching items with no record
+  //     (a reload mid-job comes back at the stage it reached), stage from
+  //     the item's own fields, settle rows, drop rows for deleted items.
+  //   B (250ms tick): reveal photos one at a time, move the bar forward,
+  //     raise the slow-tail flag, unhide rows that outlive the cache-hit
+  //     window.
+  //   C (exit): a fully settled, failure-free job holds INDEXED for 600ms,
+  //     then the whole strip fades out over 250ms. Rows never leave one by
+  //     one, and a job with failures never auto-dismisses.
+  // The bar only interpolates forward: progress clamps against its last value.
   useEffect(() => {
-    if (!indexingJobs.length) return;
-    const tick = window.setInterval(() => {
-      setIndexingJobs((jobs) => {
-        if (!jobs.length) return jobs;
-        let changed = false;
-        const next = [];
-        for (const job of jobs) {
-          const item = items.find((x) => x.id === job.id);
-          if (!item) {
-            changed = true;
-            continue;
+    setIndexJobs((jobs) => {
+      let changed = false;
+      const next = [];
+      const seen = new Set();
+      for (const job of jobs) {
+        const item = items.find((x) => x.id === job.id);
+        if (!item) {
+          changed = true;
+          continue;
+        }
+        seen.add(item.id);
+        if (job.state === "indexed" || job.state === "failed") {
+          next.push(job);
+          continue;
+        }
+        if (item.status === "enriching") {
+          const photos = [];
+          for (const src of [item.image, ...(item.gallery || [])]) {
+            if (src && !photos.includes(src)) photos.push(src);
           }
-          if (job.phase === "done") {
-            // Keep done chips briefly so the check is readable.
-            if (Date.now() - (job.doneAt || 0) > 1600) {
-              changed = true;
-              continue;
-            }
-            next.push(job);
-            continue;
-          }
-          const ready = item.status === "ready";
-          const failed = item.status === "failed";
-          if (ready || failed) {
+          let total =
+            item.albumPhotoCount > 0 ? Math.min(8, item.albumPhotoCount) : 8;
+          if (photos.length > total) total = Math.min(8, photos.length);
+          const state =
+            photos.length === 0
+              ? "fetching"
+              : photos.length >= total
+                ? "sizing"
+                : "photos";
+          if (
+            !job.sawEnriching ||
+            job.state !== state ||
+            job.photoTotal !== total ||
+            job.thumbs.length !== photos.length
+          ) {
             changed = true;
             next.push({
               ...job,
-              title: item.title || job.title,
-              progress: 100,
-              phase: "done",
-              doneAt: Date.now(),
+              state,
+              thumbs: photos,
+              photoTotal: total,
+              sawEnriching: true,
             });
-            continue;
-          }
-          // Soft progress while still enriching — never quite finishes until ready.
-          const elapsed = Date.now() - (job.startedAt || Date.now());
-          const soft = Math.min(88, 12 + elapsed / 90);
-          if (soft > job.progress + 0.5) {
-            changed = true;
-            next.push({ ...job, progress: soft, title: item.title || job.title });
           } else {
             next.push(job);
           }
+          continue;
         }
+        // The item is out of "enriching". A card the pool has not started yet
+        // is still queued — it was born "ready" (bare) and never flinched.
+        if (!job.sawEnriching) {
+          next.push(job);
+          continue;
+        }
+        // A sign-in refusal is not a dead link: the card says why, and the
+        // row parks until the sign-in retry re-reads it.
+        if (item.needsSignIn) {
+          next.push(job.state === "queued" ? job : { ...job, state: "queued" });
+          changed = changed || job.state !== "queued";
+          continue;
+        }
+        changed = true;
+        if (!online && gainedNothing(item)) {
+          // Offline is not a failure. The row parks at queued and the
+          // reconnect effect below re-reads the link when the network returns.
+          next.push({ ...job, state: "queued", sawEnriching: false });
+          continue;
+        }
+        const fill = Math.min(job.thumbs.length, job.photoTotal || 8);
+        if (gainedNothing(item)) {
+          next.push({
+            ...job,
+            state: "failed",
+            failReason: failReasonFor(item),
+            revealed: fill,
+            progress: 1,
+            shown: true,
+            doneAt: Date.now(),
+          });
+        } else {
+          next.push({
+            ...job,
+            state: "indexed",
+            revealed: fill,
+            progress: 1,
+            shown: true,
+            doneAt: Date.now(),
+          });
+        }
+      }
+      // Catch-all: an enriching item with no record (a reload mid-job, the
+      // extension queue) gets a row at the stage its fields already show.
+      for (const item of items) {
+        if (item.status !== "enriching" || seen.has(item.id)) continue;
+        if (next.some((j) => j.id === item.id)) continue;
+        const url = item.url || (item.links && item.links.albumUrl) || "";
+        if (!url) continue;
+        const meta = parseLinkMeta(url);
+        next.push({
+          id: item.id,
+          url,
+          platform: meta.platform,
+          label: meta.label,
+          state: "fetching",
+          thumbs: [],
+          revealed: 0,
+          photoTotal: 0,
+          progress: 0.02,
+          attempts: 0,
+          failReason: null,
+          sawEnriching: false,
+          shown: false,
+          slowTail: false,
+          createdAt: Date.now(),
+          startedAt: Date.now(),
+          doneAt: 0,
+        });
+        changed = true;
+      }
+      return changed ? next : jobs;
+    });
+  }, [items, online]);
+
+  useEffect(() => {
+    if (!indexJobs.length) return;
+    const tick = window.setInterval(() => {
+      setIndexJobs((jobs) => {
+        if (!jobs.length) return jobs;
+        const now = Date.now();
+        let changed = false;
+        const next = jobs.map((job) => {
+          if (job.state === "indexed" || job.state === "failed") return job;
+          let { revealed } = job;
+          // One photo per tick — a resolve that lands all eight at once still
+          // fills left to right, never in a single frame.
+          if (revealed < job.thumbs.length) {
+            revealed += 1;
+            changed = true;
+          }
+          const target = stageProgress({ ...job, revealed, photoTotal: job.photoTotal || 8 });
+          const progress = Math.max(job.progress, target);
+          if (progress !== job.progress) changed = true;
+          const slowTail = job.state === "photos" && now - job.startedAt > 15000;
+          if (slowTail !== !!job.slowTail) changed = true;
+          // Under 400ms the whole job can resolve with no strip at all (the
+          // cache-hit path); a row only becomes visible past that window.
+          const shown = job.shown || now - job.createdAt >= 400;
+          if (shown !== job.shown) changed = true;
+          if (!changed) return job;
+          return { ...job, revealed, progress, slowTail, shown };
+        });
         return changed ? next : jobs;
       });
-    }, 120);
+    }, 250);
     return () => window.clearInterval(tick);
-  }, [indexingJobs.length, items]);
+  }, [indexJobs.length]);
+
+  const indexExitArmedRef = useRef(false);
+  useEffect(() => {
+    if (!indexJobs.length) {
+      indexExitArmedRef.current = false;
+      setIndexExiting(false);
+      return;
+    }
+    if (!indexJobs.every(isSettled)) return;
+    // When failures are present the strip does not auto-dismiss: it stays
+    // until each one is retried or dismissed.
+    if (indexJobs.some((j) => j.state === "failed")) return;
+    if (indexExitArmedRef.current) return;
+    indexExitArmedRef.current = true;
+    const lastDone = Math.max(...indexJobs.map((j) => j.doneAt || 0));
+    const hold = Math.max(0, 600 - (Date.now() - lastDone));
+    const fade = window.setTimeout(() => setIndexExiting(true), hold);
+    const clear = window.setTimeout(() => {
+      setIndexJobs([]);
+      setIndexExiting(false);
+      indexExitArmedRef.current = false;
+    }, hold + 250);
+    return () => {
+      window.clearTimeout(fade);
+      window.clearTimeout(clear);
+    };
+  }, [indexJobs]);
+
+  // Reconnect: rows parked at queued while offline re-read their links.
+  useEffect(() => {
+    if (!online) return;
+    const parked = indexJobs.filter((j) => j.state === "queued" && !j.sawEnriching);
+    if (!parked.length) return;
+    const retryable = parked
+      .map((j) => items.find((x) => x.id === j.id))
+      .filter((x) => x && x.status === "ready" && !x.needsSignIn && gainedNothing(x));
+    if (retryable.length) enrichFashionItems(retryable);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online]);
+
+  const retryIndexJob = useCallback((id) => {
+    const item = (shelfStateRef.current.items || []).find((x) => x.id === id);
+    if (!item) return;
+    // enrichFashionItem re-registers the row: back to fetching, attempts++.
+    enrichFashionItem(item);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Dismiss keeps the URL: the bare link card stays on the shelf for the
+  // person to fill in by hand. Only the row leaves.
+  const dismissIndexJob = useCallback((id) => {
+    setIndexJobs((jobs) => jobs.filter((j) => j.id !== id));
+  }, []);
+
+  const cancelIndexJob = useCallback((id) => {
+    const controller = enrichmentControllersRef.current.get(id);
+    if (controller) controller.abort();
+    // An aborted enrich never writes "ready" itself (the catch skips aborted
+    // tokens), so the card does not spin in the Inbox forever.
+    updateItem(id, { status: "ready" });
+    setIndexJobs((jobs) => jobs.filter((j) => j.id !== id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const indexShownRows = useMemo(() => indexJobs.filter((j) => j.shown), [indexJobs]);
+  const indexHeader = useMemo(() => headerFor(indexShownRows), [indexShownRows]);
+  // Over 6 links the strip caps at 4 visible rows and the header carries the
+  // total; completed rows leave the visible set so the next queued link takes
+  // the slot.
+  const indexVisibleRows = useMemo(
+    () => visibleRows(indexShownRows, indexShownRows.length > 6 ? 4 : indexShownRows.length || 4),
+    [indexShownRows]
+  );
+  const indexLead = useMemo(
+    () => indexVisibleRows.find((j) => !isSettled(j)) || indexVisibleRows[0] || null,
+    [indexVisibleRows]
+  );
 
   const runCloudAsk = async () => {
     const query = search.trim();
@@ -8513,7 +9239,7 @@ function CredenzaApp() {
     }
 
     const shelf = serializeAskCandidates(query, shelfAll, { limit: 25 });
-    // Part 7e: a signed-in FREE user over the daily ask cap gets the honest
+    // Part 7e: a signed-in Free user over the Ask allowance gets the honest
     // message instead of a server 429.
     //
     // Kyle 2026-07-30, rule 2: this line no longer carries its own upgrade
@@ -8525,9 +9251,9 @@ function CredenzaApp() {
         query,
         answer: "",
         results: [],
-        error: "That is today's free Ask limit.",
+        error: "That is your Free Ask allowance.",
       });
-      openLimits();
+      noteAllowanceRequired("free", "ask");
       return;
     }
     const controller = new AbortController();
@@ -8556,6 +9282,9 @@ function CredenzaApp() {
       // safeErrorMessage keeps the daily-cap line, which is the one message a
       // free user needs, and replaces the rest by status code.
       if (!res.ok) {
+        const message = String((payload && payload.error) || "");
+        if (message.startsWith("Free ")) noteAllowanceRequired("free", "ask");
+        else if (message.startsWith("Monthly ")) noteAllowanceRequired("monthly", "ask");
         const err = new Error(safeErrorMessage(res.status, payload && payload.error, "Cloud Ask"));
         err.serverError = payload && payload.error;
         throw err;
@@ -8578,8 +9307,9 @@ function CredenzaApp() {
       // validation — so a 429 from Anthropic, a 502, and a malformed answer are
       // all free on the server. The client counts at the same moment, and not
       // one line earlier: this counter is what overFreeLimit blocks on, and a
-      // free user has 5 answers a day, not 5 attempts.
-      bumpUsage("ask");
+      // Free users spend answers, not failed attempts.
+      bumpUsage("ask", { audience: usageAudience(accountPlan, signedInAccount) });
+      trackProductEvent("usage_success", { plan: usageAudience(accountPlan, signedInAccount), feature: "ask" });
 
       setAskState({
         status: "success",
@@ -8797,6 +9527,93 @@ function CredenzaApp() {
   }, [openHaulName, shelfItems, visible]);
   listItemsRef.current = listItems;
 
+  // The slug map for haul addresses: every name the address bar could mean,
+  // from the haul records and the cards' project tags. Derived, never stored.
+  const haulRouteSlugMap = useMemo(
+    () =>
+      haulSlugMap([
+        ...hauls.map((h) => (h && typeof h.name === "string" ? h.name : "")),
+        ...shelfAll.map((entry) =>
+          entry && typeof entry.project === "string" ? entry.project.trim() : ""
+        ),
+      ]),
+    [hauls, shelfAll]
+  );
+  // Sync during render, not in an effect — the popstate listener reads this
+  // ref, and an effect would hand it one-render-old state (the pricePrimary
+  // mirror above hit the same wall, Kyle 2026-07-28).
+  haulRouteRef.current = {
+    activeHaul,
+    haulDrawerId,
+    qcItemId,
+    handoffOpen,
+    trackingOpen,
+    view,
+    reducedMotion,
+    slugMap: haulRouteSlugMap,
+  };
+
+  // Haul addresses (STEPS-HANDOFF item 1): the same pushState pattern as
+  // /settings (navigateSettings above). Every haul screen is a real entry;
+  // the one popstate listener reads it back.
+  const pushHaulRoute = (url, state) => {
+    try {
+      window.history.pushState(state, "", url);
+    } catch {}
+  };
+  const parcelRouteFor = (haulName) => "/parcels/" + haulSlugForName(haulName, haulRouteSlugMap) + "-a";
+  // Overlays (drawer, QC, hand-off) are not routed — they push an entry on
+  // top of the haul address, so Back peels them before it navigates. The
+  // stack remembers the open order: QC can sit over the drawer, and the
+  // topmost one must close first or Back would pull the drawer out from
+  // under an open QC screen.
+  const haulOverlayStackRef = useRef([]);
+  const pushHaulOverlay = (kind, url) => {
+    haulOverlaySeqRef.current += 1;
+    haulOverlayStackRef.current.push({ kind });
+    try {
+      // An empty url keeps the address the haul already owns. The QC deep
+      // link (item 9) passes one, so the takeover is a shareable address.
+      window.history.pushState({ czHaulOverlay: haulOverlaySeqRef.current }, "", url || "");
+    } catch {}
+  };
+  const openHaulDrawer = (id) => {
+    pushHaulOverlay("drawer");
+    setHaulDrawerId(id);
+  };
+  const openQcReview = (id) => {
+    pushHaulOverlay("qc");
+    setQcItemId(id);
+  };
+  const openHandoff = () => {
+    pushHaulOverlay("handoff");
+    setHandoffOpen(true);
+  };
+  // Closing an overlay by hand walks the same path Back would: pop the
+  // overlay entry and let the popstate listener clear the state. Without an
+  // entry to pop (a visit that landed with the overlay open), clear directly.
+  const closeHaulOverlay = (clear) => {
+    if (haulOverlaySeqRef.current > 0) {
+      try {
+        window.history.back();
+        return;
+      } catch {}
+    }
+    clear();
+  };
+  // Item 9: closing QC also drops ?qc=first. An in-app takeover rides an
+  // overlay entry whose Back walk reveals the plain haul address by itself;
+  // a takeover the visit LANDED on owns no entry, so the address is
+  // rewritten instead (the same rule as closeHaul).
+  const closeQc = () => {
+    const landed = haulOverlaySeqRef.current === 0;
+    closeHaulOverlay(() => setQcItemId(null));
+    if (landed && window.location.search) {
+      try {
+        window.history.replaceState(window.history.state, "", window.location.pathname);
+      } catch {}
+    }
+  };
   const openHaul = useCallback((haulKey) => {
     setView("hauls");
     // Kyle 2026-08-02: a haul opens on the board and the grid, never the
@@ -8809,6 +9626,8 @@ function CredenzaApp() {
     setExpandedId(null);
     setSelectedId(null);
     setActiveHaul(haulKey);
+    const slug = haulSlugForName(haulKey, haulRouteRef.current.slugMap);
+    pushHaulRoute("/hauls/" + slug, { czHaul: slug });
   }, []);
 
   // The index CTA jumps straight into QC when that is what the haul is asking
@@ -8820,13 +9639,25 @@ function CredenzaApp() {
       // A parcel already with the agent is asking one question: where is it?
       // The board cannot answer that, so the CTA lands on tracking instead.
       if (haul.ctaTo === "tracking") {
+        pushHaulRoute(parcelRouteFor(haul.name), { czParcel: true });
         setTrackingOpen(true);
         return;
       }
       if (!haul.openQc) return;
       const first = firstPendingQcItem(haul.haulItems || []);
-      if (first) setQcItemId(first.id);
+      if (first) {
+        // STEPS-HANDOFF item 9: the takeover owns a real address while it is
+        // open. The overlay entry carries /hauls/<slug>?qc=first, so closing
+        // by hand or by Back both land on the plain haul address — the param
+        // cannot outlive the takeover.
+        const slug = haulSlugForName(haul.name, haulRouteRef.current.slugMap);
+        pushHaulOverlay("qc", "/hauls/" + slug + "?qc=first");
+        setQcItemId(first.id);
+      }
     },
+    // openQcReview and parcelRouteFor read the route refs, which are always
+    // current — listing them would only re-make the callback every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [openHaul]
   );
 
@@ -8904,17 +9735,24 @@ function CredenzaApp() {
 
   // One clipboard path for every haul surface. Same shape as share-api's
   // copyLink: a blocked clipboard must never throw into the render tree.
+  //
+  // Kyle 2026-08-03 audit, finding 4: "Copy is blocked in this browser." was
+  // the whole message. It named no other way to get the text, and the toast
+  // held no button. A blocked clipboard is common — an old browser, a page
+  // that is not on HTTPS, or a permission a person already refused. The text
+  // now opens in a panel so they can select it and copy it by hand.
+  const [copyFallbackText, setCopyFallbackText] = useState(null);
   const copyForHaul = useCallback(
     async (text, message) => {
       try {
         if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
-          notify("Copy is blocked in this browser.", { tone: "error" });
+          setCopyFallbackText(text || "");
           return;
         }
         await navigator.clipboard.writeText(text);
         notify(message);
       } catch {
-        notify("Copy is blocked in this browser.", { tone: "error" });
+        setCopyFallbackText(text || "");
       }
     },
     [notify]
@@ -8977,43 +9815,10 @@ function CredenzaApp() {
     () => sumItemsIn(totalsItems, pricePrimary, { excludeReturned: !!openHaulName }),
     [totalsItems, openHaulName, pricePrimary]
   );
-  // Haul board still wants a USD figure for its own meter.
-  const listTotalUsd = useMemo(
-    () => sumItemsUsd(totalsItems, { excludeReturned: !!openHaulName }),
-    [totalsItems, openHaulName]
-  );
-  // Haul board: how many cards are bought, how many are not, and the rough
-  // ship weight. Computed over the whole haul (totalsItems), so search inside
-  // the haul narrows the cards but never the board.
-  const haulPipeline = useMemo(() => {
-    if (!openHaulName) return null;
-    const counts = {};
-    for (const it of totalsItems) {
-      const s = normalizeFindStatus(it.findStatus);
-      counts[s] = (counts[s] || 0) + 1;
-    }
-    const weightSum = haulWeightGrams(totalsItems);
-    // Bulky hint (PLANS/BULKY_ITEM_WARNING_PLAN.md): one short line next to
-    // the weight chip when any card in the haul bills by box size. Every card
-    // counts — the shelf no longer holds returned items (same rule as
-    // haulWeightGrams). A saved parcel box size hides the hint: the real
-    // chargeable-weight math answers the question then.
-    const haulRec = hauls.find((h) => h.name === openHaulName) || null;
-    const dims = haulRec && haulRec.parcel && haulRec.parcel.dims;
-    const hasBoxSize = Boolean(
-      dims && [dims.l, dims.w, dims.h].every((n) => Number(n) > 0)
-    );
-    const bulkyHint = !hasBoxSize && totalsItems.some((it) => isBulkyItem(it));
-    return {
-      counts,
-      readyToShip: counts.bought || 0,
-      weightLabel: weightSum != null ? formatWeightGrams(weightSum) : "",
-      weightGrams: weightSum,
-      bulkyHint,
-    };
-  }, [openHaulName, totalsItems, hauls]);
-  // Design 7a dropped the phone weight/money summary pill. Haul weight still
-  // comes from haulPipeline inside an open haul. Desktop totals stay below.
+  // Design 7a dropped the phone weight/money summary pill. Haul weight now
+  // lives only in the strip, the rail maths, and the item rows (STEPS-HANDOFF
+  // § The one weight story; the legacy header that read haulPipeline is gone).
+  // Desktop totals stay below.
   // Same context for the count chip — one consistent spot next to the total.
   // Starred filter MUST show through here. Keep the label short on mobile so
   // "N starred of M saved" + TOTAL SHELF COST + heart don't pile up.
@@ -9033,17 +9838,64 @@ function CredenzaApp() {
 
   const closeHaul = useCallback(() => {
     if (!activeHaul) return;
-    // Reduced motion skips the fade entirely, so there's nothing to bridge.
-    if (!reducedMotion) setClosingHaulName(activeHaul);
-    setActiveHaul(null);
-    setExpandedId(null);
-    setSelectedId(null);
-    // Both of these belong to one haul. Leaving them open over a closed haul
-    // shows the person a parcel that is no longer on screen.
-    setHandoffOpen(false);
-    setTrackingOpen(false);
-    setHaulDrawerId(null);
+    // The address leads (STEPS-HANDOFF item 1). A haul that was opened in-app
+    // owns history entries, so "All hauls" walks back to the /hauls entry and
+    // the popstate listener runs the fade and clears the state. A visit that
+    // LANDED on /hauls/<slug> owns no earlier entry — going back would leave
+    // the app — so it rewrites the address instead (same rule as settings).
+    if (haulBootRef.current) {
+      haulBootRef.current = false;
+      parcelBootRef.current = false;
+      if (!reducedMotion) setClosingHaulName(activeHaul);
+      setActiveHaul(null);
+      setExpandedId(null);
+      setSelectedId(null);
+      // Both of these belong to one haul. Leaving them open over a closed haul
+      // shows the person a parcel that is no longer on screen.
+      setHandoffOpen(false);
+      setTrackingOpen(false);
+      setHaulDrawerId(null);
+      haulOverlaySeqRef.current = 0;
+      haulOverlayStackRef.current = [];
+      try {
+        window.history.replaceState({ czHaul: "index" }, "", "/hauls");
+      } catch {}
+      return;
+    }
+    try {
+      window.history.back();
+    } catch {
+      // No history to walk (should not happen): clear by hand.
+      if (!reducedMotion) setClosingHaulName(activeHaul);
+      setActiveHaul(null);
+      setExpandedId(null);
+      setSelectedId(null);
+      setHandoffOpen(false);
+      setTrackingOpen(false);
+      setHaulDrawerId(null);
+      haulOverlaySeqRef.current = 0;
+      haulOverlayStackRef.current = [];
+    }
   }, [activeHaul, reducedMotion]);
+
+  // Tracking sits at /parcels/<id>. Closing walks back to the haul's entry;
+  // a visit that LANDED on the parcel rewrites the address to the haul page.
+  const closeTracking = () => {
+    if (parcelBootRef.current) {
+      parcelBootRef.current = false;
+      setTrackingOpen(false);
+      try {
+        const slug = haulSlugForName(activeHaul, haulRouteRef.current.slugMap);
+        window.history.replaceState({ czHaul: slug }, "", "/hauls/" + slug);
+      } catch {}
+      return;
+    }
+    try {
+      window.history.back();
+    } catch {
+      setTrackingOpen(false);
+    }
+  };
 
   // ── Shared hauls (LB-8) ──────────────────────────────────────────────────
   // The cards a share covers: the whole haul, never the search-narrowed view.
@@ -10119,7 +10971,7 @@ function CredenzaApp() {
       const n = inboxItems.length;
       return n + (n === 1 ? " item" : " items");
     }
-    // Shelf: "4 saved · 3 free cards left". Pro has no meter, so just the count.
+    // Shelf: "4 saved · 5 free cards left". Pro has no meter, so just the count.
     const saved =
       shelfAll.length + (shelfAll.length === 1 ? " saved" : " saved");
     if (limits && limits.kind === "anon") return saved + " · " + limits.label;
@@ -10148,8 +11000,10 @@ function CredenzaApp() {
         </button>
       )}
       {/* Design 7b: the phone magnifier opens the search sheet, not an
-          inline field. Desktop keeps its permanent search in the top bar. */}
-      {phoneShelfChrome && (
+          inline field. Desktop keeps its permanent search in the top bar.
+          STEPS-HANDOFF item 6: an open haul keeps the bar quiet — no search
+          entry until the person is back on the shelf or the directory. */}
+      {phoneShelfChrome && !openHaulName && (
         <button
           type="button"
           className={"cz-mast-btn" + (searchOpen ? " is-active" : "")}
@@ -10444,8 +11298,19 @@ function CredenzaApp() {
                 "submitted"
               );
               setHandoffOpen(false);
+              // The hand-off's overlay entry is spent: drop it from the peel
+              // stack so Back from the parcel lands on the haul, not on a
+              // sheet that already submitted.
+              const submittedStack = haulOverlayStackRef.current;
+              if (submittedStack[submittedStack.length - 1]?.kind === "handoff") {
+                submittedStack.pop();
+                haulOverlaySeqRef.current = submittedStack.length;
+              }
               // The parcel is now in flight. That is the tracking screen's
               // question, so the person lands there (README, hand-off table).
+              // Tracking is the parcel's own address (STEPS-HANDOFF item 1):
+              // the route outlives the haul and a notification can link to it.
+              pushHaulRoute(parcelRouteFor(openHaulName), { czParcel: true });
               setTrackingOpen(true);
               notify("Parcel A marked submitted.", {
                 sub: "You still have to press send on your agent's site.",
@@ -10471,7 +11336,7 @@ function CredenzaApp() {
             fits={haulFits}
             tracking={(haulShip && haulShip.tracking) || ""}
             tileFor={haulTileFor}
-            onClose={() => setTrackingOpen(false)}
+            onClose={closeTracking}
             onPickStep={(index) => {
               const now = new Date().toISOString();
               patchHaulShip(
@@ -10507,9 +11372,9 @@ function CredenzaApp() {
           <HaulItemDrawer
             item={haulDrawerItem}
             face={haulTileFor(haulDrawerItem)}
-            onClose={() => setHaulDrawerId(null)}
+            onClose={() => closeHaulOverlay(() => setHaulDrawerId(null))}
             onPatch={(id, patch) => updateItem(id, patch)}
-            onReviewQc={(id) => setQcItemId(id)}
+            onReviewQc={(id) => openQcReview(id)}
             onAddToParcel={(id) => {
               updateItem(id, { haulStage: "parcel", haulStageAt: Date.now() });
               notify("Added to parcel A.");
@@ -10518,7 +11383,7 @@ function CredenzaApp() {
               // Every fulfillment number goes with it. A stale QC verdict on a
               // freshly re-ordered item is worse than no verdict.
               updateItem(id, { ...resetToShelf(), haulStageAt: Date.now() });
-              setHaulDrawerId(null);
+              closeHaulOverlay(() => setHaulDrawerId(null));
               notify("Back on the shelf.");
             }}
           />
@@ -10534,7 +11399,7 @@ function CredenzaApp() {
             itemId={qcItemId}
             cardFor={(id) => shelfAll.find((entry) => entry && entry.id === id) || null}
             allCards={shelfAll}
-            onClose={() => setQcItemId(null)}
+            onClose={closeQc}
             onVerdict={(id, verdict, reason) => {
               // A verdict is the moment the item leaves the warehouse queue.
               // Both calls are one stage move, so they write together.
@@ -10550,20 +11415,15 @@ function CredenzaApp() {
               notify("Added to parcel A.");
             }}
             onOpenItem={(id) => setQcItemId(id)}
-            onCopy={async (text, message) => {
-              // Same shape as share-api's copyLink: a blocked clipboard must
-              // never throw into the render tree.
-              try {
-                if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
-                  notify("Copy is blocked in this browser.", { tone: "error" });
-                  return;
-                }
-                await navigator.clipboard.writeText(text);
-                notify(message);
-              } catch {
-                notify("Copy is blocked in this browser.", { tone: "error" });
-              }
+            // STEPS-HANDOFF item 8: paste/drop in the takeover. attachQcImage
+            // owns the gate (HTTPS/data-URL, plan cap, compress) and answers
+            // at the cap, so the overlay just hands the files over.
+            onAddPhotos={(id, files) => {
+              for (const file of files || []) attachQcImage(id, file);
             }}
+            // Finding 4: this was a second copy of copyForHaul, word for word.
+            // One clipboard path means one blocked-clipboard answer.
+            onCopy={copyForHaul}
           />
         </Suspense>
       )}
@@ -10814,7 +11674,12 @@ function CredenzaApp() {
           )
         : null}
 
-      <div className="cz-shell">
+      {/* STEPS-HANDOFF item 3: an open haul is the one sanctioned exception
+          to the 1080px shell — cz-haul-wide lifts the cap to 1400px so the
+          steps and the rail are not ~40% void on a wide monitor. The
+          .cz-shell rule itself is untouched; the modifier only applies
+          while a haul is open. */}
+      <div className={"cz-shell" + (openHaulName ? " cz-haul-wide" : "")}>
         {/* Chrome column: centered + max-width'd on desktop (Kyle 2026-07-22 —
             full-bleed capture/search/tabs on a wide monitor read as sprawl).
             The carousel/grid panels below stay full-width. */}
@@ -10845,11 +11710,16 @@ function CredenzaApp() {
         ) : (
         <header className="cz-masthead">
           <h1 className="cz-brand">
-            <BrandMark size={isPhone && items.length > 0 ? 30 : 34} />
-            <span className="cz-brand-name">
-              <span className="cz-brand-word">CREDENZA</span>
-              <span className="cz-brand-sub">Fashion</span>
-            </span>
+            {/* Kyle 2026-08-03: the lockup is the home button — and home is
+                the shelf, not the marketing page. It used to link to
+                /landing/; Kyle: "it should take you to your shelf." */}
+            <a className="cz-brand-link" href="/" aria-label="Your shelf">
+              <BrandMark size={isPhone && items.length > 0 ? 30 : 34} />
+              <span className="cz-brand-name">
+                <span className="cz-brand-word">CREDENZA</span>
+                <span className="cz-brand-sub">Fashion</span>
+              </span>
+            </a>
           </h1>
           {/* Site navigation. The masthead used to be a brand mark, a wide
               empty middle, and one avatar (Kyle 2026-07-27, with a screenshot
@@ -11003,6 +11873,9 @@ function CredenzaApp() {
             shared review sheet. */}
         {items.length > 0 && (
           <div className="cz-desk-capture">
+            {/* STEPS-HANDOFF item 6: an open haul shows no search field.
+                The ＋ Stash button stays — stashing mid-haul is normal. */}
+            {!openHaulName && (
             <label className="cz-desk-search-shell">
               <Search className="cz-desk-search-leading" aria-hidden="true" size={16} strokeWidth={2.2} />
               <input
@@ -11040,6 +11913,7 @@ function CredenzaApp() {
                 placeholder="Search your shelf"
               />
             </label>
+            )}
             <button
               type="button"
               className="cz-desk-stash-btn"
@@ -11087,7 +11961,7 @@ function CredenzaApp() {
             no longer opens on a phone. Kept as a legacy surface for any
             non-phone path that still wants an inline field under the chrome.
             Desktop uses .cz-desk-capture above; CSS hides this row ≥768px. */}
-        {!firstRunIntro && items.length > 0 && !isPhone && (
+        {!firstRunIntro && items.length > 0 && !isPhone && !openHaulName && (
         <div className="cz-search-row">
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- shell-padding mousedown only focuses the input; the input itself owns keyboard interaction (CO-29) */}
           <div
@@ -11279,10 +12153,13 @@ function CredenzaApp() {
         {/* Shelf / Hauls / Inbox tabs. Desktop: top tab row as before.
             Design 7a phone: tabs move to the frosted bottom dock — this row
             stays for desktop only. The filter strip still rides the phone
-            under the title masthead as a glyph segmented control. */}
+            under the title masthead as a glyph segmented control.
+            STEPS-HANDOFF item 6: an open haul hides the row — the "‹ All
+            hauls" link on the page is the way out, and the phone dock keeps
+            its own Shelf/Hauls buttons. */}
         {items.length > 0 && (
         <div className={"cz-shelf-band" + (phoneShelfChrome ? " is-phone-7a" : "")}>
-        {!phoneShelfChrome && (
+        {!phoneShelfChrome && !openHaulName && (
         <div className="cz-view-tabs-row">
           <div
             role="tablist"
@@ -11310,13 +12187,26 @@ function CredenzaApp() {
                   // Leaving any surface always returns cards face-up.
                   setExpandedId(null);
                   if (key === "hauls") {
-                    setView("hauls");
-                    // Return to the directory when re-entering Hauls from another tab.
-                    if (view !== "hauls") setActiveHaul(null);
+                    if (view !== "hauls") {
+                      setView("hauls");
+                      // Return to the directory when re-entering Hauls from another tab.
+                      setActiveHaul(null);
+                      pushHaulRoute("/hauls", { czView: "hauls", czHaul: "index" });
+                    }
                   } else {
-                    setView(key);
-                    // Leaving Hauls entirely — drop open haul so Shelf is clean.
-                    if (view === "hauls") setActiveHaul(null);
+                    if (view === "hauls") {
+                      // Leaving Hauls entirely — drop open haul so Shelf is clean.
+                      setActiveHaul(null);
+                      setHandoffOpen(false);
+                      setTrackingOpen(false);
+                      setHaulDrawerId(null);
+                      haulOverlaySeqRef.current = 0;
+                      haulOverlayStackRef.current = [];
+                    }
+                    if (key !== view) {
+                      setView(key);
+                      pushHaulRoute("/", { czView: key });
+                    }
                   }
                 }}
               >
@@ -11327,36 +12217,17 @@ function CredenzaApp() {
               </button>
             ))}
           </div>
-          {indexingJobs.length > 0 && (
-            <div className="cz-index-chip-row" aria-live="polite">
-              {indexingJobs.map((job) => (
-                <div
-                  key={job.id}
-                  className={"cz-index-chip" + (job.phase === "done" ? " is-done" : "")}
-                  title={job.title}
-                >
-                  <span className="cz-index-chip-icon" aria-hidden="true">
-                    {job.phase === "done" ? (
-                      <Check size={12} strokeWidth={2.6} />
-                    ) : (
-                      <span className="cz-index-chip-dot" />
-                    )}
-                  </span>
-                  <span className="cz-index-chip-label">
-                    {job.phase === "done" ? "Indexed" : "Indexing"}
-                  </span>
-                  <span className="cz-index-chip-bar" aria-hidden="true">
-                    <span
-                      className="cz-index-chip-fill"
-                      style={{
-                        transform:
-                          "scaleX(" + Math.max(6, Math.min(100, job.progress)) / 100 + ")",
-                      }}
-                    />
-                  </span>
-                </div>
-              ))}
-            </div>
+          {indexVisibleRows.length > 0 && (
+            <IndexingStrip
+              header={indexHeader}
+              rows={indexVisibleRows}
+              lead={indexLead}
+              exiting={indexExiting}
+              offline={!online}
+              onRetry={retryIndexJob}
+              onDismiss={dismissIndexJob}
+              onCancel={cancelIndexJob}
+            />
           )}
           {/* Kyle 2026-08-01: filters on the RIGHT of Shelf/Hauls, same size. */}
           {toolbarActive && !openHaulName && view === "shelf" && (
@@ -11476,29 +12347,20 @@ function CredenzaApp() {
           </div>
         )}
 
-        {/* Phone indexing chip — the desk tabs row no longer mounts on
-            phone 7a, so the chip rides the band alone when a card indexes. */}
-        {phoneShelfChrome && indexingJobs.length > 0 && (
-          <div className="cz-index-chip-row is-phone-7a" aria-live="polite">
-            {indexingJobs.map((job) => (
-              <div
-                key={job.id}
-                className={"cz-index-chip" + (job.phase === "done" ? " is-done" : "")}
-                title={job.title}
-              >
-                <span className="cz-index-chip-icon" aria-hidden="true">
-                  {job.phase === "done" ? (
-                    <Check size={12} strokeWidth={2.6} />
-                  ) : (
-                    <span className="cz-index-chip-dot" />
-                  )}
-                </span>
-                <span className="cz-index-chip-label">
-                  {job.phase === "done" ? "Indexed" : "Indexing"}
-                </span>
-              </div>
-            ))}
-          </div>
+        {/* Phone indexing strip — the desk tabs row no longer mounts on
+            phone 7a, so the strip rides the band alone when a card indexes. */}
+        {phoneShelfChrome && indexVisibleRows.length > 0 && (
+          <IndexingStrip
+            header={indexHeader}
+            rows={indexVisibleRows}
+            lead={indexLead}
+            phone
+            exiting={indexExiting}
+            offline={!online}
+            onRetry={retryIndexJob}
+            onDismiss={dismissIndexJob}
+            onCancel={cancelIndexJob}
+          />
         )}
 
         {/* Phone filter strip stays under the masthead (Design 7a). Desktop
@@ -11569,92 +12431,59 @@ function CredenzaApp() {
                 All hauls
               </button>
               <h2 className="cz-haul-open-title">{openHaulName}</h2>
-              {/* LB-8. The action sits beside the title, not in the board
-                  below it: sharing is something you do to this haul, and the
-                  title is what a reader of the link will see at the top of
-                  the page. Hidden when the haul is empty — a link to nothing
-                  is not worth offering. */}
-              {totalsItems.length > 0 && (
-                <button
-                  type="button"
-                  className="cz-haul-share"
-                  onClick={() => setShareHaulName(openHaulName)}
-                >
-                  Share
-                </button>
-              )}
+              {/* STEPS-HANDOFF item 4: the legacy header is gone — the
+                  counts line, the weight bar, the budget bar and the visible
+                  Share/Archive buttons. The steps page and the strip replaced
+                  the numbers; the three remaining actions live in the ⋯ menu
+                  on the title row. Share is still offered only on a haul that
+                  has cards (was LB-8). The archive closure is the one the
+                  strip used — close plus undo toast, unchanged. */}
+              <HaulTitleMenu
+                record={hauls.find((h) => h.name === openHaulName) || null}
+                canShare={totalsItems.length > 0}
+                onShare={() => setShareHaulName(openHaulName)}
+                onUpdate={(patch, historyEntry) => updateHaul(openHaulName, patch, historyEntry)}
+                onArchive={() => {
+                  const rec = hauls.find((h) => h.name === openHaulName);
+                  const next = !(rec && rec.archived);
+                  // Hold the name now. Archiving closes the board, and
+                  // openHaulName is empty by the time Undo runs.
+                  const name = openHaulName;
+                  updateHaul(name, { archived: next }, { type: next ? "archived" : "unarchived" });
+                  // Archiving hides the haul from the directory — leave it.
+                  if (next) closeHaul();
+                  // Kyle 2026-08-02: "archiving a haul should pull up a toast
+                  // for undo". Same shape as the stash undo above: an action
+                  // tone and three seconds. Undo puts the haul back in the
+                  // directory. It does not reopen the board.
+                  notify(next ? "Archived · " + name : "Back in your hauls · " + name, {
+                    tone: "action",
+                    actionLabel: "Undo",
+                    onAction: () => {
+                      updateHaul(
+                        name,
+                        { archived: !next },
+                        { type: next ? "unarchived" : "archived" }
+                      );
+                    },
+                    duration: 3000,
+                  });
+                }}
+              />
             </div>
-            {/* Haul board: how many cards are bought, how many are not, and
-                the rough parcel weight. Covers the whole haul, not the
-                search-narrowed cards. The old "Ready to ship" chip is gone —
-                it now repeats the Bought count word for word. */}
-            {haulPipeline && totalsItems.length > 0 ? (
-              <div className="cz-haul-open-stats" aria-label="Haul pipeline">
-                {FIND_STATUSES.map((s) =>
-                  haulPipeline.counts[s] ? (
-                    <span key={s} className={"cz-haul-stat cz-haul-stat-" + s}>
-                      {FIND_STATUS_LABELS[s]} {haulPipeline.counts[s]}
-                    </span>
-                  ) : null
-                )}
-                {haulPipeline.weightLabel ? (
-                  <span className="cz-haul-stat cz-haul-stat-weight">
-                    {haulPipeline.weightLabel}
-                  </span>
-                ) : null}
-                {haulPipeline.bulkyHint ? (
-                  <span className="cz-haul-stat cz-haul-stat-bulky">
-                    Big and light — may bill above its weight.
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-            {/* Part 5 Tier A: budget, parcel estimate, archive. The record is
-                find-or-create on first save, so the board also works for
-                hauls that only exist as item.project names so far. */}
-            <HaulBoard
-              record={hauls.find((h) => h.name === openHaulName) || null}
-              totalUsd={listTotalUsd}
-              items={totalsItems}
-              onUpdate={(patch, historyEntry) => updateHaul(openHaulName, patch, historyEntry)}
-              onArchive={() => {
-                const rec = hauls.find((h) => h.name === openHaulName);
-                const next = !(rec && rec.archived);
-                // Hold the name now. Archiving closes the board, and
-                // openHaulName is empty by the time Undo runs.
-                const name = openHaulName;
-                updateHaul(name, { archived: next }, { type: next ? "archived" : "unarchived" });
-                // Archiving hides the haul from the directory — leave it.
-                if (next) closeHaul();
-                // Kyle 2026-08-02: "archiving a haul should pull up a toast
-                // for undo". Same shape as the stash undo above: an action
-                // tone and three seconds. Undo puts the haul back in the
-                // directory. It does not reopen the board.
-                notify(next ? "Archived · " + name : "Back in your hauls · " + name, {
-                  tone: "action",
-                  actionLabel: "Undo",
-                  onAction: () => {
-                    updateHaul(
-                      name,
-                      { archived: !next },
-                      { type: next ? "unarchived" : "archived" }
-                    );
-                  },
-                  duration: 3000,
-                });
-              }}
-            />
-            {/* The stage board: where every item in this haul actually is,
-                and what the parcel weighs. Mixed progress is the normal
-                state of a haul, so the board renders it instead of a
-                wizard (haul handoff, screens 2, 6 and 7). */}
-            {haulFlowItems.length > 0 ? (
-              <HaulFlowBoard
+            {/* The steps page: the haul as five vertical steps beside the
+                sticky parcel rail (STEPS-HANDOFF item 2). Same props the
+                column board took — the stage→action dispatch in onItemAction
+                is unchanged. HaulFlowBoard.jsx stays on disk as reference.
+                The board hid itself on an empty haul; the steps page must
+                not — its step 1 carries the empty state ("Nothing in this
+                haul yet"), which is the only direction an empty haul has. */}
+            <HaulSteps
                 items={haulFlowItems}
                 ship={haulShip}
                 tileFor={haulTileFor}
                 agentName={(preferredAgentInfo && preferredAgentInfo.name) || ""}
-                onOpenItem={(id) => setHaulDrawerId(id)}
+                onOpenItem={(id) => openHaulDrawer(id)}
                 onItemAction={(item) => {
                   // One stage offers one move. The board decided which; the
                   // screen only knows how to carry it out.
@@ -11668,7 +12497,7 @@ function CredenzaApp() {
                     return;
                   }
                   if (item.stage === "warehouse") {
-                    setQcItemId(item.id);
+                    openQcReview(item.id);
                     return;
                   }
                   if (item.stage !== "qcd") return;
@@ -11682,7 +12511,7 @@ function CredenzaApp() {
                   // photo, the reason and the message before anything reaches
                   // the clipboard. A copy with no screen in between hid the
                   // one question the person had: what is wrong with it.
-                  setQcItemId(item.id);
+                  openQcReview(item.id);
                 }}
                 onColumnFooter={(key) => {
                   if (key === "toOrder") {
@@ -11696,7 +12525,7 @@ function CredenzaApp() {
                   }
                   if (key !== "warehouse") return;
                   const first = firstPendingQcItem(haulFlowItems);
-                  if (first) setQcItemId(first.id);
+                  if (first) openQcReview(first.id);
                 }}
                 onRemoveFromParcel={(id) => {
                   // Back to QC done, not back to the warehouse. The verdict
@@ -11713,11 +12542,14 @@ function CredenzaApp() {
                 onHandOff={() => {
                   // A submitted parcel has nothing left to review, so the same
                   // button asks the only open question: where is it?
-                  if (haulShip && haulShip.submitted) setTrackingOpen(true);
-                  else setHandoffOpen(true);
+                  if (haulShip && haulShip.submitted) {
+                    pushHaulRoute(parcelRouteFor(openHaulName), { czParcel: true });
+                    setTrackingOpen(true);
+                  } else {
+                    openHandoff();
+                  }
                 }}
               />
-            ) : null}
           </div>
         ) : null}
         </div>{/* /.cz-chrome */}
@@ -11781,6 +12613,34 @@ function CredenzaApp() {
         )}
         </main>
       </div>
+
+      {/* Finding 4: a blocked clipboard used to be a dead end. The text a
+          person asked for opens here instead, ready to select by hand. */}
+      {copyFallbackText !== null && (
+        <ModalShell
+          title="Copy this by hand"
+          onClose={() => setCopyFallbackText(null)}
+          maxWidth={520}
+        >
+          <div className="cz-copyfall">
+            <p className="cz-copyfall-note">
+              This browser did not let Credenza reach your clipboard. Select the
+              text below and copy it yourself.
+            </p>
+            <textarea
+              className="cz-copyfall-box"
+              readOnly
+              rows={7}
+              value={copyFallbackText}
+              aria-label="The text to copy"
+              onFocus={(event) => event.target.select()}
+            />
+            <div className="cz-copyfall-foot">
+              <Pill onClick={() => setCopyFallbackText(null)}>Done</Pill>
+            </div>
+          </div>
+        </ModalShell>
+      )}
 
       {notification && (
         <div className="cz-toast-region" aria-live="polite">
@@ -11855,8 +12715,19 @@ function CredenzaApp() {
               aria-current={view === "shelf" || view === "inbox" ? "page" : undefined}
               onClick={() => {
                 setExpandedId(null);
-                setView("shelf");
-                if (view === "hauls") setActiveHaul(null);
+                if (view === "hauls") {
+                  setActiveHaul(null);
+                  setHandoffOpen(false);
+                  setTrackingOpen(false);
+                  setHaulDrawerId(null);
+                  haulOverlaySeqRef.current = 0;
+                  haulOverlayStackRef.current = [];
+                  setView("shelf");
+                  pushHaulRoute("/", { czView: "shelf" });
+                } else if (view !== "shelf") {
+                  setView("shelf");
+                  pushHaulRoute("/", { czView: "shelf" });
+                }
               }}
             >
               <Layers size={20} strokeWidth={2.2} aria-hidden="true" />
@@ -11879,8 +12750,11 @@ function CredenzaApp() {
               aria-current={view === "hauls" ? "page" : undefined}
               onClick={() => {
                 setExpandedId(null);
-                setView("hauls");
-                if (view !== "hauls") setActiveHaul(null);
+                if (view !== "hauls") {
+                  setView("hauls");
+                  setActiveHaul(null);
+                  pushHaulRoute("/hauls", { czView: "hauls", czHaul: "index" });
+                }
               }}
             >
               {/* Box icon, not Layers — Shelf already uses the stack so the
@@ -11905,8 +12779,18 @@ function CredenzaApp() {
               }
               onClick={() => {
                 setExpandedId(null);
-                setView("inbox");
-                if (view === "hauls") setActiveHaul(null);
+                if (view === "hauls") {
+                  setActiveHaul(null);
+                  setHandoffOpen(false);
+                  setTrackingOpen(false);
+                  setHaulDrawerId(null);
+                  haulOverlaySeqRef.current = 0;
+                  haulOverlayStackRef.current = [];
+                }
+                if (view !== "inbox") {
+                  setView("inbox");
+                  pushHaulRoute("/", { czView: "inbox" });
+                }
               }}
             >
               Inbox · {inboxItems.length}

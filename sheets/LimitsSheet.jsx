@@ -8,11 +8,11 @@ import { ANON_FREE_CARDS, limitStandingLine } from "../preview/src/limits.js";
 // LimitsSheet — ONE sheet for every limit in the app (Kyle 2026-07-30)
 //
 // Before this, each limit had its own words in its own corner: a toast for the
-// spent free cards, a red line in the Ask box for the daily cap, a settings
+// spent free cards, a red line in the Ask box for its allowance, a settings
 // screen for a lapsed membership. Three walls, three vocabularies, and every
 // one of them read as a defect.
 //
-// Now the header pill, a spent allowance, a daily cap and an ended membership
+// Now the header pill, a spent allowance, a plan cap and an ended membership
 // all open this sheet, and it always answers the same three questions in the
 // same order:
 //
@@ -25,13 +25,13 @@ import { ANON_FREE_CARDS, limitStandingLine } from "../preview/src/limits.js";
 // person actually reaches a wall.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// One row per daily read, in the order a person meets them. The numbers come
+// One row per metered action, in the order a person meets them. The numbers come
 // from PLAN_CAPS, so the sheet can never quote a cap the app does not enforce.
 const ROWS = [
-  { key: "resolvePerDay", label: "Cards from a link" },
-  { key: "chartVisionPerDay", label: "Size chart reads" },
-  // Kyle 2026-08-02: no page prints a daily Ask number. The cap still runs and
-  // the meter below still names it when a person reaches the wall.
+  { freeKey: "resolveTotal", proKey: "resolvePerMonth", label: "Cards from a link" },
+  { freeKey: "chartVisionTotal", proKey: "chartVisionPerMonth", label: "Size chart reads" },
+  // Kyle 2026-08-02: no page prints an Ask number. The cap still runs and the
+  // meter still names it when a person reaches the wall.
 ];
 
 function CapTable() {
@@ -39,7 +39,7 @@ function CapTable() {
     <table className="cz-limits-caps">
       <thead>
         <tr>
-          <th scope="col">Per day</th>
+          <th scope="col">Allowance</th>
           <th scope="col">Free</th>
           <th scope="col" className="cz-limits-pro-cell">
             Pro
@@ -48,10 +48,10 @@ function CapTable() {
       </thead>
       <tbody>
         {ROWS.map((row) => (
-          <tr key={row.key}>
+          <tr key={row.label}>
             <th scope="row">{row.label}</th>
-            <td>{PLAN_CAPS.free[row.key]}</td>
-            <td className="cz-limits-pro-cell">{PLAN_CAPS.pro[row.key]}</td>
+            <td>{PLAN_CAPS.free[row.freeKey]} total</td>
+            <td className="cz-limits-pro-cell">{PLAN_CAPS.pro[row.proKey]} monthly</td>
           </tr>
         ))}
       </tbody>
@@ -93,7 +93,7 @@ function UsageMeter({ status }) {
         ))}
       </div>
       <p className="cz-limits-meter-caption">
-        {used} of {status.cap} {meterWords(status)} used · resets tomorrow
+        {used} of {status.cap} {meterWords(status)} used
       </p>
     </div>
   );
@@ -138,7 +138,7 @@ function CapProgress({ status }) {
       {/* Every number here is read off the status, so the line can never
           promise a count the gate does not enforce. */}
       <p className="cz-cap-flag">
-        {used} of {status.cap} · Signed out · Resets tomorrow
+        {used} of {status.cap} · Signed out
       </p>
     </div>
   );
@@ -186,8 +186,8 @@ export default function LimitsSheet({ status, signedIn = false, onSignIn, onUpgr
     ? "Your Pro ended."
     : status && status.tone === "wall"
       ? anon
-        ? "That is your third card today."
-        : "That is today's free limit."
+        ? "That is your fifth free card."
+        : "That is your Free allowance."
       : "Your free allowance.";
 
   if (anon) {
@@ -213,13 +213,6 @@ export default function LimitsSheet({ status, signedIn = false, onSignIn, onUpgr
           <p className="cz-limits-body">
             Every card you already made stays on your shelf and stays readable. Only a new read
             needs Pro. Resume for {PRICING.monthly} a month.
-          </p>
-        )}
-
-        {anon && (
-          <p className="cz-limits-body">
-            A free account raises every daily ceiling and keeps your shelf across your devices. No
-            card, no checkout.
           </p>
         )}
 

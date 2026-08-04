@@ -33,6 +33,12 @@
   Content-Type: image/png
   Cache-Control: public, max-age=86400
 
+# Google asks for this file by name before it reads any icon tag. Netlify
+# guesses the wrong type for .ico, and a wrong type makes Google drop it.
+/favicon.ico
+  Content-Type: image/x-icon
+  Cache-Control: public, max-age=86400
+
 # Content-hashed build output. The hash in the filename changes whenever the
 # bytes change, so a stale copy is impossible and a year is safe. Without this
 # Netlify serves max-age=0,must-revalidate and every repeat visitor re-fetches

@@ -61,7 +61,7 @@ async function handle(event) {
     return response(405, { error: "Method not allowed" });
   }
 
-  // Part 7f: account (Bearer + per-plan daily cap) or, until REQUIRE_ACCOUNTS
+  // Part 7f: account (Bearer + plan allowance) or, until REQUIRE_ACCOUNTS
   // flips, the anonymous shared key.
   const gate = await paidGate.authorizePaid(event, process.env, "ask");
   if (!gate.ok) {

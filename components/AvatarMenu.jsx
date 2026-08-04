@@ -55,7 +55,8 @@ export default function AvatarMenu({
   }, [onClose]);
 
   const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
-  const isPro = planState === "pro" || planState === "grace";
+  const isOwner = planState === "owner";
+  const isPro = planState === "pro" || planState === "grace" || planState === "owner";
   const signedIn = !!accountSession;
 
   const go = (fn) => () => {
@@ -65,9 +66,11 @@ export default function AvatarMenu({
 
   // The line under the name is a projection of the live counter, never a
   // stored copy of it. A stored copy goes stale the moment a card resolves.
+  // The counter shows while signed out — the only state with one meter. The
+  // plan word names Owner first, because owner access never expires.
   const standing = [
-    signedIn ? (isPro ? "Pro" : "Free") : "Signed out",
-    limits ? limits.left + " of " + limits.cap + " cards today" : null,
+    signedIn ? (isOwner ? "Owner" : isPro ? "Pro" : "Free") : "Signed out",
+    !signedIn && limits ? limits.left + " of " + limits.cap + " free cards" : null,
   ]
     .filter(Boolean)
     .join(" · ");

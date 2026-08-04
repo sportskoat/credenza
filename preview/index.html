@@ -30,6 +30,12 @@
     />
     <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Kyle 2026-08-03: Google showed a grey globe beside every search result.
+         It asks for /favicon.ico first and the site had none, so it gave up
+         before reading the PNG below. The .ico holds the same mark at 16, 32
+         and 48px. Google needs a square of at least 48px, so it takes that
+         one. Keep the .ico line first: it is the one Google looks for. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-180.png" />
     <link rel="preload" href="/fonts/ClashGrotesk-Variable.woff2" as="font" type="font/woff2" crossorigin />
@@ -49,6 +55,13 @@
           "@type": "Offer",
           "price": "0",
           "priceCurrency": "USD"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Credenza Fashion",
+          "url": "https://credenzafashion.com/",
+          "logo": "https://credenzafashion.com/icon-512.png",
+          "email": "support@credenzafashion.com"
         }
       }
     </script>

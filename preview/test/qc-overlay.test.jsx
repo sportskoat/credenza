@@ -60,6 +60,7 @@ function mount(over = {}) {
     onAddToParcel: vi.fn(),
     onOpenItem: vi.fn(),
     onCopy: vi.fn(),
+    onAddPhotos: vi.fn(),
     ...over.props,
   };
   const view = render(<QcOverlay {...props} />);
@@ -82,12 +83,88 @@ describe("QC overlay · the screen", () => {
     expect(thumbs[1].hasAttribute("data-current")).toBe(false);
   });
 
-  it("says so plainly when the agent has sent no photos", () => {
+  it("offers a dashed drop target when the agent has sent no photos", () => {
+    // STEPS-HANDOFF item 8: the takeover still opens on a photoless item, and
+    // the pane says what to do. No em dash — Kyle banned them in rendered copy.
     mount({ cards: [card({ qcPhotos: [] })], itemId: "a" });
-    expect(document.querySelector(".cz-qcr-nophoto").textContent).toBe(
-      "No QC photos yet. Ask your agent for them."
-    );
+    const drop = document.querySelector(".cz-qcr-drop");
+    expect(drop.textContent).toContain("Your agent's QC photos live on their site.");
+    expect(drop.textContent).toContain("Paste or drop them here. Up to 12.");
+    expect(drop.textContent).not.toContain("—");
     expect(document.querySelectorAll(".cz-qcr-arrow")[0].disabled).toBe(true);
+  });
+});
+
+describe("QC overlay · no photo, no verdict (item 8)", () => {
+  it("disables both verdict buttons until a photo exists", () => {
+    mount({ cards: [card({ qcPhotos: [] })], itemId: "a" });
+    const buttons = document.querySelectorAll(".cz-qcr-verdict");
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0].disabled).toBe(true);
+    expect(buttons[1].disabled).toBe(true);
+  });
+
+  it("keeps the G and R keys inert until a photo exists", () => {
+    const { props } = mount({ cards: [card({ qcPhotos: [] })], itemId: "a" });
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "r" });
+    expect(props.onVerdict).not.toHaveBeenCalled();
+  });
+
+  it("dims a disabled verdict to the handoff's .56", () => {
+    expect(ruleBody(".cz-qcr-verdict:disabled")).toContain("opacity: 0.56");
+  });
+
+  it("takes photos by paste, bound at the window", () => {
+    const { props } = mount({ cards: [card({ qcPhotos: [] })], itemId: "a" });
+    const file = new File(["x"], "qc.png", { type: "image/png" });
+    fireEvent.paste(window, { clipboardData: { files: [file] } });
+    expect(props.onAddPhotos).toHaveBeenCalledWith("a", [file]);
+  });
+
+  it("takes photos by drop on the stage, and ignores non-images", () => {
+    const { props } = mount({ cards: [card({ qcPhotos: [] })], itemId: "a" });
+    const image = new File(["x"], "qc.png", { type: "image/png" });
+    const text = new File(["x"], "note.txt", { type: "text/plain" });
+    fireEvent.drop(document.querySelector(".cz-qcr-stage"), {
+      dataTransfer: { files: [image, text] },
+    });
+    expect(props.onAddPhotos).toHaveBeenCalledWith("a", [image]);
+  });
+
+  it("leaves a paste meant for a field with the field", () => {
+    const { props } = mount({ cards: [card({ qcPhotos: [] })], itemId: "a" });
+    const field = document.createElement("input");
+    document.body.appendChild(field);
+    const file = new File(["x"], "qc.png", { type: "image/png" });
+    fireEvent.paste(field, { clipboardData: { files: [file] } });
+    expect(props.onAddPhotos).not.toHaveBeenCalled();
+    field.remove();
+  });
+
+  it("hands every pasted file to the app's own gate", () => {
+    // The app mount must route onAddPhotos through attachQcImage, where the
+    // HTTPS/data-URL gate, the plan cap, and the compress all live.
+    const i = APP.indexOf("onAddPhotos={(id, files)");
+    expect(i).toBeGreaterThan(-1);
+    expect(APP.slice(i, i + 300)).toContain("attachQcImage(id, file)");
+  });
+});
+
+describe("QC overlay · the takeover (item 8)", () => {
+  it("fills the viewport instead of floating at 940px", () => {
+    const body = ruleBody(".cz-qcr");
+    expect(body).toContain("max-width: 100%");
+    expect(body).toContain("max-height: 100%");
+    expect(body).not.toContain("940px");
+  });
+
+  it("keeps the 344px rail and folds it under the photos on a narrow screen", () => {
+    expect(ruleBody(".cz-qcr-rail")).toContain("flex: 0 0 344px");
+    const i = DECLS.indexOf(".cz-qcr-drop-sub");
+    const narrow = DECLS.indexOf("@media (max-width: 700px)", i);
+    expect(narrow).toBeGreaterThan(-1);
+    expect(DECLS.slice(narrow, narrow + 400)).toContain("flex-direction: column");
   });
 });
 
@@ -253,12 +330,32 @@ describe("QC overlay · the app wiring", () => {
   });
 
   it("never lets a blocked clipboard throw", () => {
-    const i = APP.indexOf("onCopy={async (text, message) => {");
+    // Kyle 2026-08-03 audit, finding 4: this used to be its own copy of the
+    // clipboard block, word for word. It now shares copyForHaul, so a blocked
+    // clipboard gets the same answer here as everywhere else: the text opens
+    // in a panel a person can select by hand.
+    expect(APP).toContain("onCopy={copyForHaul}");
+    const i = APP.indexOf("const copyForHaul = useCallback(");
     expect(i).toBeGreaterThan(-1);
-    const body = APP.slice(i, i + 900);
+    const body = APP.slice(i, i + 700);
     expect(body).toContain("try {");
     expect(body).toContain("} catch {");
-    expect(body).toContain("Copy is blocked in this browser.");
+    expect(body).toContain("setCopyFallbackText(text");
+  });
+
+  it("opens the takeover on a real address from the index CTA (item 9)", () => {
+    expect(APP).toContain('pushHaulOverlay("qc", "/hauls/" + slug + "?qc=first")');
+  });
+
+  it("resolves ?qc=first on load to the first photographed unreviewed item", () => {
+    expect(APP).toContain('URLSearchParams(window.location.search).get("qc") === "first"');
+    expect(APP).toContain('entry.haulStage === "warehouse"');
+    expect(APP).toContain("entry.qcPhotos.filter(Boolean).length > 0");
+  });
+
+  it("drops the param when the takeover closes on a landed visit", () => {
+    expect(APP).toContain("const closeQc = () => {");
+    expect(APP).toContain("onClose={closeQc}");
   });
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { itemDrawer } from "../haul-fulfillment.js";
 
@@ -35,6 +35,23 @@ export default function HaulItemDrawer({
   onBackToShelf,
 }) {
   const view = useMemo(() => itemDrawer(item), [item]);
+
+  // STEPS-HANDOFF item 5: the box size. Three small fields, centimetres.
+  // Only the product is stored (haulVolumeCm3 = L × W × H) — the factors are
+  // entry fields, so they start empty even when a volume is already saved.
+  const [dims, setDims] = useState({ l: "", w: "", h: "" });
+  const setDim = (key) => (event) => {
+    const next = { ...dims, [key]: event.target.value };
+    setDims(next);
+    if (!onPatch) return;
+    const l = Number(next.l);
+    const w = Number(next.w);
+    const h = Number(next.h);
+    // All three or nothing. A half-typed size must not overwrite a real one.
+    if (l > 0 && w > 0 && h > 0) {
+      onPatch(view.id, { haulVolumeCm3: Math.round(l * w * h) });
+    }
+  };
 
   const dialogRef = useRef(null);
   useEffect(() => {
@@ -170,6 +187,42 @@ export default function HaulItemDrawer({
             {view.weightSource.label}
           </p>
           <p className="cz-hd-note">{view.weightNote}</p>
+
+          {/* Box size (STEPS-HANDOFF item 5). The agent bills the bigger of
+              weight and size, so the size earns a field beside the weight.
+              A saved size wins over the category estimate everywhere, and
+              the rail drops its "est." flag for this item. */}
+          <div className="cz-hd-row">
+            <span className="cz-hd-fieldlabel" id="cz-hd-dims-label">
+              Box size
+            </span>
+            <span className="cz-hd-dims" role="group" aria-labelledby="cz-hd-dims-label">
+              {[
+                ["l", "Length"],
+                ["w", "Width"],
+                ["h", "Height"],
+              ].map(([key, label]) => (
+                <input
+                  key={key}
+                  className="cz-hd-number cz-hd-dim"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="decimal"
+                  placeholder={key.toUpperCase()}
+                  aria-label={label + " in centimetres"}
+                  value={dims[key]}
+                  onChange={setDim(key)}
+                />
+              ))}
+              <span className="cz-hd-unit">cm</span>
+            </span>
+          </div>
+          <p className="cz-hd-note">
+            {item.volEstimated
+              ? "No size on file — the parcel maths uses the category estimate for now."
+              : "Size on file: " + Math.round(item.vol).toLocaleString() + " cm³. Enter a new L × W × H to replace it."}
+          </p>
 
           <div className="cz-hd-row">
             <label className="cz-hd-fieldlabel" htmlFor="cz-hd-order">

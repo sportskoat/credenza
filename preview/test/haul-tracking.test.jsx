@@ -330,7 +330,7 @@ describe("the tracking screen inside the app", () => {
 
   it("closes with the haul it belongs to", () => {
     const i = APP.indexOf("const closeHaul = useCallback(");
-    expect(APP.slice(i, i + 600)).toContain("setTrackingOpen(false)");
+    expect(APP.slice(i, i + 1400)).toContain("setTrackingOpen(false)");
   });
 
   it("saves the fit answer on the card, so a reload keeps it", () => {

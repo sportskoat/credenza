@@ -19,6 +19,10 @@ vi.mock("../../credenza-fashion.jsx", () => ({
   // FIX 2b: real helper so cap sentinel from visionMock is recognized.
   isChartCapReached: (result) =>
     !!(result && typeof result === "object" && result.capReached === true),
+  // FIX 2c: real helper so a server fault from visionMock is recognized. A
+  // reader we cannot reach is not a photo that holds no chart.
+  isChartUnavailable: (result) =>
+    !!(result && typeof result === "object" && result.unavailable === true),
   parseSizeChart: (text) => {
     if (!text || typeof text !== "string" || !/chest/i.test(text)) return null;
     const rows = [];
@@ -226,7 +230,7 @@ describe("huntSizeChart rejects low-confidence model text", () => {
   });
 });
 
-// FIX 0 (2026-08-02): hunt must surface auth, not "No size chart found."
+// FIX 0 (2026-08-02): hunt must surface auth, not "No chart for this one yet."
 describe("huntSizeChart auth wall (FIX 0)", () => {
   it("returns { authRequired: true } on first 401/403 and stops further paid reads", async () => {
     visionMock.mockResolvedValue({ authRequired: true });
@@ -247,7 +251,7 @@ describe("huntSizeChart auth wall (FIX 0)", () => {
   });
 });
 
-// FIX 2b (2026-08-03): hunt must surface daily cap, not "No size chart found."
+// FIX 2b (2026-08-03): hunt must surface daily cap, not "No chart for this one yet."
 describe("huntSizeChart daily cap wall (FIX 2b)", () => {
   it("returns { capReached: true } on first cap sentinel and stops further paid reads", async () => {
     visionMock.mockResolvedValue({ capReached: true });

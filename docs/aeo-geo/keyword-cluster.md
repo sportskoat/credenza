@@ -88,7 +88,6 @@ built twice.
 | **Plan a parcel / chargeable weight** | **volumetric weight (~4k)** | `/guides/plan-a-parcel/` |
 | **Back up / export the shelf** | — | `/guides/back-up-your-shelf/` |
 | **What a link resolve is** | **taobao link to english (~2k)** | `/guides/what-a-link-resolve-is/` |
-| **Ask your own shelf** | **organize reps collection (~1k)** | `/guides/ask-your-own-shelf/` |
 | **Close a haul / archive a haul** | **how to close a haul (~200)** | `/guides/close-a-haul/` |
 | **What spends an AI chart read** | **read a size chart from a photo (~500)** | `/guides/what-spends-a-chart-read/` |
 | **How many cards a shelf holds** | **browser storage limit shopping list (~300)** | `/guides/how-many-cards-a-shelf-holds/` |

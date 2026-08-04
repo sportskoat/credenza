@@ -54,7 +54,7 @@ describe("sign-in modal · state A", () => {
 
   it("promises the free cap the server actually gives", async () => {
     const { container } = await open();
-    expect(container.textContent).toContain(String(PLAN_CAPS.free.resolvePerDay));
+    expect(container.textContent).toContain(String(PLAN_CAPS.free.resolveTotal));
     expect(container.textContent).not.toMatch(/unlimited/i);
   });
 

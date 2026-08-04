@@ -14,6 +14,7 @@ import {
   fetchYupooImages,
   isChartAuthRequired,
   isChartCapReached,
+  isChartUnavailable,
   parseSizeChart,
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
@@ -158,6 +159,9 @@ async function tryCandidate(candidate, { signal, referer, shelfItems }) {
   // FIX 2b: stop on daily cap — more candidates still burn nothing but the
   // UI must not claim "no chart" for a spent allowance.
   if (isChartCapReached(chartText)) return { capReached: true };
+  // FIX 2c: the reader was not reachable. More candidates will hit the same
+  // wall, and the UI must not claim "no size chart" for a server that is down.
+  if (isChartUnavailable(chartText)) return { unavailable: true };
   const check = validateChartResult(chartText, parseSizeChart);
   if (!check.ok) return null;
 
@@ -259,6 +263,7 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     const hit = await tryCandidate(candidate, { signal, referer, shelfItems });
     if (hit && hit.authRequired) return { authRequired: true };
     if (hit && hit.capReached) return { capReached: true };
+    if (hit && hit.unavailable) return { unavailable: true };
     if (hit) return hit;
   }
   return null;

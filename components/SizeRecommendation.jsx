@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { X } from "lucide-react";
 import {
   CATEGORIES,
   FIT_PREF_AXES,
@@ -289,34 +289,21 @@ export default function SizeRecommendation({
     const catTitle = CATEGORIES[item.category]
       ? CATEGORIES[item.category].label.toLowerCase()
       : "this item";
-    const prefBaseline = {
-      length: (fitPref && fitPref.length) || null,
-      looseness: (fitPref && fitPref.looseness) || null,
-    };
-    const prefDirty =
-      prefDraft.length !== prefBaseline.length ||
-      prefDraft.looseness !== prefBaseline.looseness;
+    // Kyle 2026-08-03: "when you click on Regular, there is no sign here that
+    // lets you save … You can't get out of it". This is the second copy of the
+    // panel. It gets the same always-visible Save and the same Close X.
     return (
       <div className="cz-fit-pref-ask">
         <div className="cz-fit-pref-ask-head">
           <div className="cz-fit-pref-ask-title">How do you wear {catTitle}?</div>
-          {prefDirty ? (
-            <button
-              type="button"
-              className="cz-fit-pref-ask-check"
-              aria-label="Save preference"
-              onClick={() => {
-                onSaveFitPref(item.category, {
-                  length: prefDraft.length,
-                  looseness: prefDraft.looseness,
-                  dismissed: false,
-                });
-                setAskingPref(false);
-              }}
-            >
-              <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="cz-fit-pref-ask-close"
+            aria-label="Close"
+            onClick={() => setAskingPref(false)}
+          >
+            <X size={18} strokeWidth={2.2} aria-hidden="true" />
+          </button>
         </div>
         <p className="cz-fit-pref-ask-copy">
           Sets your default for all {catTitle}. Change any time in Settings.
@@ -333,6 +320,20 @@ export default function SizeRecommendation({
           value={prefDraft.looseness}
           onChange={(v) => setPrefDraft((d) => ({ ...d, looseness: v }))}
         />
+        <button
+          type="button"
+          className="cz-fit-pref-ask-save"
+          onClick={() => {
+            onSaveFitPref(item.category, {
+              length: prefDraft.length,
+              looseness: prefDraft.looseness,
+              dismissed: false,
+            });
+            setAskingPref(false);
+          }}
+        >
+          Save
+        </button>
         <button
           type="button"
           className="cz-fit-prompt-skip"

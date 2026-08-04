@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pill } from "../credenza-fashion.jsx";
-import { PLAN_CAPS, usageToday } from "../preview/src/usage.js";
+import { PLAN_CAPS, usageTotal, usageAudience } from "../preview/src/usage.js";
 import { PLAN_COPY } from "../components/plans.js";
 import { useSettings } from "./SettingsContext.jsx";
 import SettingsSection from "./SettingsSection.jsx";
@@ -22,12 +22,13 @@ import SettingsSection from "./SettingsSection.jsx";
 //
 // README deviations, for the morning report:
 //   1. The README's 4a body says an account "makes the shelf unlimited".
-//      The Kyle 2026-08-02 ruling forbids the word: a free account gets 20
-//      cards a day, not a blank cheque. PLAN_COPY.settingsSignedOutBody is
-//      the corrected sentence and this pane uses it.
-//   2. The README's 4a Today row says "0 of 2 chart reads" for a signed-out
-//      person. 2 is the signed-in free cap; a signed-out device has its own
-//      allowance. The row prints the card counter only.
+//      The Kyle 2026-08-02 ruling forbids the word: a free account adds 8
+//      cards and 8 chart reads, and the allowance never resets.
+//      PLAN_COPY.settingsSignedOutBody is the corrected sentence and this
+//      pane uses it.
+//   2. The README's 4a Allowance row says "0 of 2 chart reads" for a
+//      signed-out person. 2 was the signed-in free cap; a signed-out device
+//      has its own allowance. The row prints the card counter only.
 //   3. "renews 9 Aug" and the whole "2 devices · kept in step" row are
 //      dropped. The signed entitlement the browser holds carries only
 //      { sub, plan, state, lim, exp, graceUntil }. Neither the renewal date
@@ -39,9 +40,15 @@ import SettingsSection from "./SettingsSection.jsx";
 
 // One row of the standing group. The action sits on the right; the flag is
 // the mono chip that stands in for an action on a row that has none.
-function StandingRow({ title, value, mono, pill, action, flag }) {
+//
+// Kyle 2026-08-03 audit, finding 5: the failure line used to sit at the foot
+// of the whole pane, after every row. Sign out failed and the red words
+// appeared beside "Delete account", which is a frightening place to read them.
+// A row now carries its own failure, so the message sits under the button that
+// caused it and under no other.
+function StandingRow({ title, value, mono, pill, action, flag, error }) {
   return (
-    <div className="cz-plan-standing-row">
+    <div className={"cz-plan-standing-row" + (error ? " has-error" : "")}>
       <div className="cz-plan-standing-main">
         <div className="cz-plan-standing-title">
           {title}
@@ -51,6 +58,11 @@ function StandingRow({ title, value, mono, pill, action, flag }) {
       </div>
       {action ? <div className="cz-plan-standing-action">{action}</div> : null}
       {flag ? <span className="cz-plan-flag">{flag}</span> : null}
+      {error ? (
+        <div className="cz-plan-standing-error" role="alert">
+          {error}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -70,49 +82,72 @@ export default function AccountPlanSection() {
   } = useSettings();
 
   const [busy, setBusy] = useState(""); // "portal" | "restore" | "signout" | "delete"
-  const [error, setError] = useState("");
+  // Finding 5: the message travels with the key of the button that raised it.
+  // run() already knows the key, so the pairing costs nothing and it is the
+  // only way a row can tell its own failure from another row's.
+  const [failure, setFailure] = useState(null); // { key, message } | null
   // Delete account is two-tap: the first tap arms it, the second sends it.
   const [deleteArmed, setDeleteArmed] = useState(false);
+
+  // Read the message for one row. Every other row reads null and prints nothing.
+  const errorFor = (key) => (failure && failure.key === key ? failure.message : "");
 
   const run = async (key, fn) => {
     if (busy) return;
     setBusy(key);
-    setError("");
+    setFailure(null);
     try {
       await fn();
     } catch (err) {
-      setError(err && err.message ? String(err.message) : "Something went wrong. Try again.");
+      setFailure({
+        key,
+        message: err && err.message ? String(err.message) : "Something went wrong. Try again.",
+      });
     } finally {
       setBusy("");
     }
   };
 
   const planState = accountPlan && accountPlan.state ? accountPlan.state : "free";
-  const isPro = planState === "pro" || planState === "grace";
+  const isOwner = planState === "owner";
+  const isPro = planState === "pro" || planState === "grace" || isOwner;
   const signedIn = accountEnabled && !!accountSession;
   const email = (signedIn && accountSession.user && accountSession.user.email) || "";
 
-  // The Today line. Read at render, so a card resolved a second ago already
-  // shows here. usageTick in the app re-renders this tree on every spend.
+  // The Allowance line. Read at render, so a card resolved a second ago
+  // already shows here. usageTick in the app re-renders this tree on every
+  // spend. Free counters are lifetime and never reset; Pro counters are
+  // monthly. limitStatus() returns null for a Pro member, so Pro reads the
+  // live usage against PLAN_CAPS.pro instead of `limits`.
   const caps = isPro ? PLAN_CAPS.pro : PLAN_CAPS.free;
-  const todaySignedIn =
-    usageToday("chartVision") + " of " + caps.chartVisionPerDay + " chart reads · " +
-    usageToday("resolve") + " of " + caps.resolvePerDay + " cards";
+  const audience = usageAudience(accountPlan, signedIn);
+  const todaySignedIn = isPro
+    ? usageTotal("chartVision", { audience }) + " of " + caps.chartVisionPerMonth + " chart reads · " +
+      usageTotal("resolve", { audience }) + " of " + caps.resolvePerMonth + " cards this month"
+    : usageTotal("chartVision", { audience }) + " of " + caps.chartVisionTotal + " chart reads · " +
+      usageTotal("resolve", { audience }) + " of " + caps.resolveTotal + " cards · they never reset";
   const todaySignedOut = limits
-    ? limits.cap - limits.left + " of " + limits.cap + " cards · resets at midnight"
-    : "Counted on this device · resets at midnight";
+    ? limits.cap - limits.left + " of " + limits.cap + " cards · they never reset"
+    : "Counted on this device · the allowance never resets";
 
   const heading = !signedIn
     ? "You are signed out."
-    : isPro
-      ? "Signed in. Pro is on."
-      : "Signed in. You are on Free.";
+    : isOwner
+      ? "Signed in. Owner access is on."
+      : isPro
+        ? "Signed in. Pro is on."
+        : "Signed in. You are on Free.";
 
   const body = signedIn
-    ? isPro
-      ? "Pro is on for this account. Your daily counters are raised and your shelf comes back on a new phone."
-      : "Your account is free. It holds " + PLAN_CAPS.free.resolvePerDay +
-        " cards a day and brings the shelf back if the phone goes."
+    ? // Kyle 2026-08-03: one promise about the shelf, in one voice. The old
+      // "on a new phone" wording is gone from every plan surface.
+      isOwner
+      ? "Owner access never expires. Every counter is open and Credenza keeps a spare copy of your shelf."
+      : isPro
+        ? "Pro is on for this account. Your monthly counters are raised and Credenza keeps a spare copy of your shelf."
+        : "Your account is free. It adds " + PLAN_CAPS.free.resolveTotal +
+          " cards and " + PLAN_CAPS.free.chartVisionTotal +
+          " chart reads, and the allowance never resets."
     : PLAN_COPY.settingsSignedOutBody;
 
   return (
@@ -148,6 +183,7 @@ export default function AccountPlanSection() {
                   {busy === "signout" ? "Signing out…" : "Sign out"}
                 </Pill>
               }
+              error={errorFor("signout")}
             />
           ) : (
             <StandingRow
@@ -162,8 +198,11 @@ export default function AccountPlanSection() {
           )}
 
           {/* A Pro member has nothing left to buy, so the upgrade door goes
-              and the billing door takes its place. */}
-          {isPro ? (
+              and the billing door takes its place. An owner has no billing
+              at all: the access is permanent and no subscription exists. */}
+          {isOwner ? (
+            <StandingRow title="Plan" pill="OWNER" value="Owner · permanent full access" />
+          ) : isPro ? (
             <StandingRow
               title="Plan"
               pill="PRO"
@@ -177,6 +216,7 @@ export default function AccountPlanSection() {
                   {busy === "portal" ? "Opening…" : "Manage billing"}
                 </Pill>
               }
+              error={errorFor("portal")}
             />
           ) : (
             <StandingRow
@@ -191,7 +231,7 @@ export default function AccountPlanSection() {
           )}
 
           <StandingRow
-            title="Today"
+            title="Allowance"
             value={signedIn ? todaySignedIn : todaySignedOut}
             flag={!signedIn ? "LOCAL" : isPro ? "PRO CAPS" : "FREE CAPS"}
           />
@@ -207,6 +247,7 @@ export default function AccountPlanSection() {
                   {busy === "restore" ? "Checking…" : "Restore purchase"}
                 </Pill>
               }
+              error={errorFor("restore")}
             />
           )}
 
@@ -227,7 +268,7 @@ export default function AccountPlanSection() {
                   onClick={() => {
                     if (!deleteArmed) {
                       setDeleteArmed(true);
-                      setError("");
+                      setFailure(null);
                       return;
                     }
                     run("delete", onDeleteAccount);
@@ -240,16 +281,19 @@ export default function AccountPlanSection() {
                       : "Delete account"}
                 </Pill>
               }
+              error={errorFor("delete")}
             />
           )}
         </div>
       )}
 
-      {error && <div className="cz-profile-signin-error" role="alert">{error}</div>}
+      {/* Finding 5: the failure line used to render here, at the foot of the
+          pane and after every row. It now renders inside the row that raised
+          it, so a person reads it under the button they pressed. */}
 
       {accountEnabled && (
         <p className="cz-plan-standing-note">
-          {isPro && signedIn
+          {isPro && !isOwner && signedIn
             ? "Manage billing opens the Stripe portal. Credenza never sees your card number."
             : "Two rows and a counter. The sign-in form and the price table used to sit here; both moved to their own surface and this page links to them."}
         </p>
