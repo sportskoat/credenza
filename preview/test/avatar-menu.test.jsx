@@ -168,4 +168,34 @@ describe("AvatarMenu · leaving", () => {
     expect(onClose).not.toHaveBeenCalled();
     toggle.remove();
   });
+
+  // Kyle 2026-08-04: phone was clipping the left side of the sign-in menu.
+  // Fixed placement under the avatar must keep the left edge on screen.
+  it("keeps the menu fully on a narrow phone screen", () => {
+    const toggle = document.createElement("button");
+    toggle.setAttribute("data-cz-avatar-toggle", "");
+    Object.defineProperty(toggle, "getBoundingClientRect", {
+      value: () => ({
+        top: 48,
+        bottom: 84,
+        left: 320,
+        right: 360,
+        width: 40,
+        height: 36,
+      }),
+    });
+    document.body.appendChild(toggle);
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 812 });
+
+    const { container } = renderMenu({ accountSession: null, accountPlan: null });
+    const menu = container.querySelector(".cz-avatar-menu");
+    expect(menu).toBeTruthy();
+    const left = parseFloat(menu.style.left || "0");
+    const width = parseFloat(menu.style.width || "0");
+    expect(left).toBeGreaterThanOrEqual(12);
+    expect(left + width).toBeLessThanOrEqual(375 - 12);
+    expect(menu.style.position).toBe("fixed");
+    toggle.remove();
+  });
 });

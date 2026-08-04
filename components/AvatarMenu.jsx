@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { PRICING } from "../credenza-fashion.jsx";
 import { PLAN_COPY } from "./plans.js";
@@ -17,6 +17,38 @@ import { PLAN_COPY } from "./plans.js";
 // line is the trial note. It is a legal term, so it is never paraphrased.
 //
 // Kyle 2026-08-01: Gallery colourway is parked. Blackout is the only look.
+//
+// Kyle 2026-08-04: the menu is fixed to the viewport under the avatar so a
+// phone never clips the left side. Absolute + right:0 under a wide header
+// row was hanging half the card off the screen.
+
+const MENU_GAP = 10;
+const MENU_EDGE = 12;
+const MENU_WIDTH = 300;
+
+function placeMenu(menu, toggle) {
+  if (!menu || !toggle || typeof window === "undefined") return;
+  const r = toggle.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const width = Math.min(MENU_WIDTH, vw - MENU_EDGE * 2);
+  // Prefer the right edge of the avatar; pull right if the left would clip.
+  let left = r.right - width;
+  if (left < MENU_EDGE) left = MENU_EDGE;
+  if (left + width > vw - MENU_EDGE) left = Math.max(MENU_EDGE, vw - MENU_EDGE - width);
+  let top = r.bottom + MENU_GAP;
+  // If the card would hang past the bottom, open above the avatar instead.
+  const approxHeight = menu.offsetHeight || 320;
+  if (top + approxHeight > vh - MENU_EDGE && r.top - MENU_GAP - approxHeight > MENU_EDGE) {
+    top = Math.max(MENU_EDGE, r.top - MENU_GAP - approxHeight);
+  }
+  menu.style.position = "fixed";
+  menu.style.top = Math.round(top) + "px";
+  menu.style.left = Math.round(left) + "px";
+  menu.style.right = "auto";
+  menu.style.width = Math.round(width) + "px";
+  menu.style.maxWidth = "none";
+}
 
 export default function AvatarMenu({
   accountSession,
@@ -34,6 +66,23 @@ export default function AvatarMenu({
   onClose,
 }) {
   const rootRef = useRef(null);
+
+  // Pin the card under the avatar and keep every edge on screen (Kyle 2026-08-04).
+  useLayoutEffect(() => {
+    const menu = rootRef.current;
+    const toggle = document.querySelector("[data-cz-avatar-toggle]");
+    const place = () => placeMenu(menu, toggle);
+    place();
+    // Second pass after paint so offsetHeight is real if the first pass used the fallback.
+    const raf = requestAnimationFrame(place);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, []);
 
   // Click outside or Escape closes, same contract as every other overlay.
   // The profile button is special: its own click toggles open/closed. If this

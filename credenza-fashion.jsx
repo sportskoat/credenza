@@ -4791,8 +4791,20 @@ async function postChartVision({ images, photos, signal, referer }) {
         noteSignInRequired();
         return CHART_AUTH_REQUIRED;
       }
-      // FIX 2b: server plan cap (paid-gate 429) is not a bad photo.
-      if (res.status === 429) return CHART_CAP_REACHED;
+      // FIX 2b: server plan cap (paid-gate 429) is not a bad photo. A
+      // concurrency "Busy" 429 carries busy:true and is the opposite: a free,
+      // retryable moment — the limiter stopped the request before the meter
+      // (Kyle 2026-08-04: one Busy used to end the whole hunt).
+      if (res.status === 429) {
+        let busy = false;
+        try {
+          const errBody = await res.json();
+          busy = !!(errBody && errBody.busy === true);
+        } catch {
+          busy = false;
+        }
+        return busy ? CHART_UNAVAILABLE : CHART_CAP_REACHED;
+      }
       // FIX 2c: everything left here is the server failing, not the photo —
       // a 502 "Chart read failed", a 504 timeout, a 413 too-large frame.
       return CHART_UNAVAILABLE;
@@ -11209,47 +11221,51 @@ function CredenzaApp() {
           Kyle 2026-08-02: the person glyph said nothing. Signed out, the
           entry now reads "Sign in" in the display italic. The spoken name
           follows the visible word: a screen reader that says "Profile" over
-          a button that reads "Sign in" is an accessibility fault. */}
-      <button
-        type="button"
-        className={"cz-avatar" + (avatarInitials ? "" : " cz-avatar--word")}
-        data-cz-avatar-toggle=""
-        aria-label={avatarInitials ? "Profile" : "Sign in"}
-        title={avatarInitials ? "Profile" : "Sign in"}
-        aria-expanded={avatarMenuOpen}
-        onClick={() => setAvatarMenuOpen((v) => !v)}
-      >
-        {avatarInitials ? (
-          <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
-        ) : (
-          <span className="cz-avatar-word" aria-hidden="true">Sign in</span>
+          a button that reads "Sign in" is an accessibility fault.
+          Kyle 2026-08-04: wrap avatar + menu so the menu can measure the
+          toggle and sit fully on screen (phone was clipping the left). */}
+      <div className="cz-avatar-anchor">
+        <button
+          type="button"
+          className={"cz-avatar" + (avatarInitials ? "" : " cz-avatar--word")}
+          data-cz-avatar-toggle=""
+          aria-label={avatarInitials ? "Profile" : "Sign in"}
+          title={avatarInitials ? "Profile" : "Sign in"}
+          aria-expanded={avatarMenuOpen}
+          onClick={() => setAvatarMenuOpen((v) => !v)}
+        >
+          {avatarInitials ? (
+            <span className="cz-avatar-initials" aria-hidden="true">{avatarInitials}</span>
+          ) : (
+            <span className="cz-avatar-word" aria-hidden="true">Sign in</span>
+          )}
+        </button>
+        {avatarMenuOpen && (
+          <Suspense fallback={null}>
+            <AvatarMenu
+              accountSession={accountSession}
+              accountPlan={accountPlan}
+              limits={limits}
+              avatarInitials={avatarInitials}
+              agentLabel={agentBarLabel}
+              onOpenAgent={() => {
+                agentReturnToMenuRef.current = true;
+                setAgentSheetOpen(true);
+              }}
+              pricePrimary={pricePrimary}
+              onOpenCurrency={() => {
+                currencyReturnToMenuRef.current = true;
+                setCurrencySheetOpen(true);
+              }}
+              onOpenSettings={(section) => navigateSettings(section)}
+              onSignIn={() => openSignIn({ kind: "shelf", returnTo: "/" })}
+              onOpenUpgrade={() => openUpgrade()}
+              onSignOut={accountSignOut}
+              onClose={() => setAvatarMenuOpen(false)}
+            />
+          </Suspense>
         )}
-      </button>
-      {avatarMenuOpen && (
-        <Suspense fallback={null}>
-        <AvatarMenu
-          accountSession={accountSession}
-          accountPlan={accountPlan}
-          limits={limits}
-          avatarInitials={avatarInitials}
-          agentLabel={agentBarLabel}
-          onOpenAgent={() => {
-            agentReturnToMenuRef.current = true;
-            setAgentSheetOpen(true);
-          }}
-          pricePrimary={pricePrimary}
-          onOpenCurrency={() => {
-            currencyReturnToMenuRef.current = true;
-            setCurrencySheetOpen(true);
-          }}
-          onOpenSettings={(section) => navigateSettings(section)}
-          onSignIn={() => openSignIn({ kind: "shelf", returnTo: "/" })}
-          onOpenUpgrade={() => openUpgrade()}
-          onSignOut={accountSignOut}
-          onClose={() => setAvatarMenuOpen(false)}
-        />
-        </Suspense>
-      )}
+      </div>
     </div>
   );
 

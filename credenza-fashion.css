@@ -12005,26 +12005,39 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   position: relative;
 }
 
+/* Holds the profile button + its menu so the menu can measure the toggle. */
+.cz-avatar-anchor {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+}
+
 /* ── Avatar quick menu (sign-in handoff 2026-08-02, README screen 5) ───────
    The avatar's dropdown. The two account decisions come first, as two doors:
    an account is free, and Pro costs money. Merging them into one row is what
    the old menu did wrong. The shelf switches follow, under a divider.
-   300px, anchored under the avatar on the right. */
+   Kyle 2026-08-04: JS places this with position:fixed under the avatar so a
+   phone never clips the left side. The absolute fallback below still anchors
+   to the right for the first paint before layout runs. */
 
 .cz-avatar-menu {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  z-index: 70;
-  width: 300px;
+  left: auto;
+  z-index: var(--z-overlay, 70);
+  width: min(300px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   background: var(--cz-card-solid);
   border: 1px solid var(--cz-hair);
-  border-radius: 16px;
+  border-radius: var(--radius-card, 16px);
   box-shadow: 0 18px 48px oklch(0 0 0 / 0.6);
   padding: 0;
   display: flex;
   flex-direction: column;
+  /* Fixed placement writes top/left/width inline; keep box-sizing honest. */
+  box-sizing: border-box;
 }
 
 .cz-avatar-menu-head {
