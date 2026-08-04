@@ -126,6 +126,9 @@ export function firstSizeChipRun(sizeRun) {
  * @param {(category: string, pref: object) => void} [props.onSaveFitPref]
  * @param {() => void} [props.onSkip]
  * @param {() => void} [props.onOpenMeasureHelp]
+ * @param {string} [props.blockReason] - when the chart is missing because of
+ *   OUR limit (cap/auth/outage), the honest reason line that replaces the
+ *   "No seller chart" sentence above the chips (Lane D, 2026-08-04).
  */
 export default function FirstSizeBlock({
   item,
@@ -138,6 +141,7 @@ export default function FirstSizeBlock({
   onSaveFitPref,
   onSkip,
   onOpenMeasureHelp,
+  blockReason = "",
   /** When true, open on the honest skipped state (already skipped this visit). */
   startSkipped = false,
 }) {
@@ -260,7 +264,9 @@ export default function FirstSizeBlock({
         </div>
         <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.skippedTitle}</h3>
         <p className="cz-first-size-copy">
-          {hasChart ? FIRST_SIZE_COPY.skippedBody : FIRST_SIZE_COPY.skippedBodyNoChart}
+          {hasChart
+            ? FIRST_SIZE_COPY.skippedBody
+            : blockReason || FIRST_SIZE_COPY.skippedBodyNoChart}
         </p>
         <button
           type="button"
@@ -377,8 +383,11 @@ export default function FirstSizeBlock({
           <span className="cz-first-size-flag is-warn">{FIRST_SIZE_COPY.step1}</span>
         </div>
         <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.ask1Title}</h3>
+        {/* The reason line replaces the "No seller chart" sentence when the
+            chart is missing because of our own limit — the chips stay the
+            primary action either way. */}
         <p className="cz-first-size-copy">
-          {hasChart ? FIRST_SIZE_COPY.ask1Body : FIRST_SIZE_COPY.ask1BodyNoChart}
+          {hasChart ? FIRST_SIZE_COPY.ask1Body : blockReason || FIRST_SIZE_COPY.ask1BodyNoChart}
         </p>
         <div className="cz-first-size-chips" role="radiogroup" aria-label="Usual size">
           {chips.map((s, i) => (

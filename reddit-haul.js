@@ -78,6 +78,19 @@ function normalizeSizeToken(raw) {
   return s.slice(0, 16);
 }
 
+// The size declared in the item's own header — "YSL Vintage Polo (160¥) Size
+// S", "Chrome Hearts Shorts (138¥) Top Size L". Review-style hauls carry the
+// poster's size HERE, not in the review text, so a note-only read captured
+// posterSize on 2 of 13 review items and guessed wrong on another
+// (2026-08-04 fixture). \bsize\b cannot hit "Oversized".
+function sizeFromLabel(label) {
+  if (!label) return "";
+  const m = /\bsize\s+((?:eu|us|uk)\s*\d{1,2}(?:[.,]\d+)?|x{0,3}[sml]|xxl|\d{1,2}(?:[.,]\d+)?)\b/i.exec(
+    label
+  );
+  return m ? normalizeSizeToken(m[1]) : "";
+}
+
 // Pull posterSize / sizeNotes / weightGrams out of free-text notes so import
 // can land structured fields (edge: notes hard-sliced at 500 chars drop fit).
 // Does not invent data — only clear size/weight tokens and short fit phrases.
@@ -95,8 +108,12 @@ export function structureItemFields(item) {
   if (!note) return out;
 
   // Explicit meta keys first: "Taille : M", "Size: EU 43.5", "Pointure : 43"
+  // The \b after the token is load-bearing: without it "pick a bigger size /
+  // Size up" reads as "size S" (the S of "Size"), the card stores the wrong
+  // posterSize, and the tidy-note pass cuts "size S" out of the sentence
+  // (2026-08-04 fixture: Reaven Jorts, header says Size M, card stored "S").
   const sizeKeyRe =
-    /(?:^|[.\s])(?:taille|pointure|size|shoe\s*size|fit\s*size)\s*[:：]?\s*(eu\s*)?(\d{1,2}(?:[.,]\d+)?|x{0,3}[sml]|xxl)(?:\s*(eu|us|uk))?/gi;
+    /(?:^|[.\s])(?:taille|pointure|size|shoe\s*size|fit\s*size)\s*[:：]?\s*(eu\s*)?(\d{1,2}(?:[.,]\d+)?|x{0,3}[sml]|xxl)\b(?:\s*(eu|us|uk))?/gi;
   let m;
   const sizeHits = [];
   while ((m = sizeKeyRe.exec(note)) !== null) {
@@ -213,7 +230,7 @@ export function structureItemFields(item) {
     if (out.posterSize) {
       oneLine = oneLine
         .replace(
-          /(?:^|\s)(?:taille|pointure|size)\s*[:：]?\s*(?:eu\s*)?(?:\d{1,2}(?:[.,]\d+)?|x{0,3}[sml]|xxl)(?:\s*(?:eu|us|uk))?\s*/i,
+          /(?:^|\s)(?:taille|pointure|size)\s*[:：]?\s*(?:eu\s*)?(?:\d{1,2}(?:[.,]\d+)?|x{0,3}[sml]|xxl)\b(?:\s*(?:eu|us|uk))?\s*/i,
           " "
         )
         .replace(/\s{2,}/g, " ")
@@ -265,7 +282,14 @@ export function repairTelLinkedItemIds(text) {
 
 export function deobfuscateUrls(text) {
   if (!text || typeof text !== "string" || text.indexOf("http") === -1) return text;
-  return text.replace(/https?:\/ ?\S*(?: \S+){0,8}/g, (candidate) => {
+  // A scheme with one slash ("https:/lris888.x.yupoo.com/") is a broken paste,
+  // never prose — the URL matcher below wants "//", and without the repair the
+  // link vanishes and its whole review block glues onto the previous card
+  // (2026-08-04 fixture: the Tom Ford glasses review merged into the Chrome
+  // Hearts necklace note). A slash followed by a space is the space-broken
+  // obfuscation the token joiner below already owns, so leave that one alone.
+  const repaired = text.replace(/\b(https?:)\/(?![/\s])/gi, "$1//");
+  return repaired.replace(/https?:\/ ?\S*(?: \S+){0,8}/g, (candidate) => {
     if (!/\s/.test(candidate)) return candidate; // already one solid token
     const tokens = candidate.split(/\s+/);
     let url = tokens[0];
@@ -301,22 +325,62 @@ export function deobfuscateUrls(text) {
 
 // ————— Poster stats ————————————————————————————————————————————————————————————
 
+// A height/weight number only counts next to body-context words ("stats",
+// "height", "weight", "tall", "build", "usually") or paired with its
+// counterpart on the same line ("178cm 75kg", "5'9, 160lbs", "178 x 76").
+// Without the anchor the first measurement-shaped digit string in the post
+// wins, and that is how a card ended up with the belt's "110 cm" as the
+// poster's height and a parcel's "12KG waiting to be shipped" as their weight
+// (2026-08-04 fixture; same failure class as "10KG haul review" titles).
+const BODY_CONTEXT_RE = /\b(stats?|height|weight|tall|build|usual(?:ly)?|frame)\b/i;
+// A line that is ONLY a stats label ("Stats:", "My stats -") anchors the line
+// that follows it.
+const BARE_STATS_LABEL_RE = /^\s*(?:my\s+)?(?:stats?|build|measurements)\s*[:：-]?\s*$/i;
+
 function parseStats(text) {
   const stats = {};
+  let prevBareLabel = false;
+  for (const line of text.split("\n")) {
+    const anchored = BODY_CONTEXT_RE.test(line) || prevBareLabel;
+    prevBareLabel = BARE_STATS_LABEL_RE.test(line);
+    const cm = /(\d{3})\s?cm\b/i.exec(line);
+    const kg = /(\d{2,3}(?:\.\d+)?)\s?kg\b/i.exec(line);
+    const lbs = /(\d{2,3})\s?(?:lbs?|pounds?)\b/i.exec(line);
+    const feet = /\b(\d)'(\d{1,2})\b/.exec(line);
+    // "178 x 76" — an adjacent height x weight pairing is body context itself.
+    const pair = /\b(\d{3})\s?[x×]\s?(\d{2,3}(?:\.\d+)?)\b/.exec(line);
+    // A body height is 130-220cm (4'3"-7'3"). Outside that band the number is
+    // a belt length, a sleeve, a parcel — never the poster.
+    const plausibleHeight = (cmValue) => cmValue >= 130 && cmValue <= 220;
+    if (stats.heightCm == null) {
+      if (pair && plausibleHeight(parseInt(pair[1], 10))) {
+        stats.heightCm = parseInt(pair[1], 10);
+      } else if (cm && plausibleHeight(parseInt(cm[1], 10)) && (anchored || kg || lbs || feet)) {
+        stats.heightCm = parseInt(cm[1], 10);
+      } else if (
+        feet &&
+        parseInt(feet[1], 10) >= 4 &&
+        parseInt(feet[1], 10) <= 7 &&
+        (anchored || kg || lbs || cm)
+      ) {
+        stats.heightCm = Math.round((parseInt(feet[1], 10) * 12 + parseInt(feet[2], 10)) * 2.54);
+      }
+    }
+    if (stats.weightKg == null) {
+      if (pair) {
+        stats.weightKg = parseFloat(pair[2]);
+      } else if (kg && (anchored || cm || feet)) {
+        stats.weightKg = parseFloat(kg[1]);
+      } else if (lbs && (anchored || cm || feet)) {
+        stats.weightKg = Math.round(parseInt(lbs[1], 10) * 0.4536 * 10) / 10;
+      }
+    }
+    if (!stats.usualSize && anchored) {
+      const size = /\b(?:usual\s+|tshirt\s+|shirt\s+)?size[:\s-]*(x{0,2}[sml]|x{0,2}l|\d{2})\b/i.exec(line);
+      if (size) stats.usualSize = size[1].toUpperCase();
+    }
+  }
   let m;
-  if ((m = /(\d{3})\s?cm\b/i.exec(text))) {
-    stats.heightCm = parseInt(m[1], 10);
-  } else if ((m = /\b(\d)'(\d{1,2})\b/.exec(text))) {
-    stats.heightCm = Math.round((parseInt(m[1], 10) * 12 + parseInt(m[2], 10)) * 2.54);
-  }
-  if ((m = /(\d{2,3}(?:\.\d+)?)\s?kg\b/i.exec(text))) {
-    stats.weightKg = parseFloat(m[1]);
-  } else if ((m = /(\d{2,3})\s?(?:lbs?|pounds?)\b/i.exec(text))) {
-    stats.weightKg = Math.round(parseInt(m[1], 10) * 0.4536 * 10) / 10;
-  }
-  if ((m = /\b(?:usual\s+|tshirt\s+|shirt\s+)?size[:\s-]*(x{0,2}[sml]|x{0,2}l|\d{2})\b/i.exec(text))) {
-    stats.usualSize = m[1].toUpperCase();
-  }
   if ((m = /\bagent[:\s-]*([a-z]+)/i.exec(text))) {
     const name = m[1].toLowerCase();
     if (KNOWN_AGENTS.includes(name)) stats.agent = name;
@@ -426,6 +490,23 @@ function pruneRedundantYupooRoots(items) {
 // Horizontal-rule lines (OPs separate items with "⸻", "---", "***") — they
 // never carry content but DO mark an item-block boundary. Single "⸻" counts.
 const SEPARATOR_RE = /^[\s\-–—*_=⸻―]+$/u;
+
+// A price parenthetical — "(160¥)", "(58$ + 13$)" — is the mark of an item
+// header in review-style hauls. Combined with headerSplit it spots a NEW
+// item's header sitting in the note buffer: that block has no link of its
+// own, so its review is orphaned and must be dropped, never glued onto the
+// previous card's note (2026-08-04 fixture: the link-less "Ralph Lauren
+// Striped Polo (160¥) Size S" review merged into the Plaid Polo card).
+const ORPHAN_PRICE_RE = /\(\s*[\d.,]+\s*[¥￥$€][^)]*\)/;
+
+// All-caps instruction lines are the poster talking to a reader or a tool,
+// never review prose ("DO THESE COMMENTS GET PASTED IN RIGHT… MAKE NO
+// CHANGES" — the closing instructions of the 2026-08-04 fixture, which used
+// to glue onto the last card's note).
+function isShoutyInstruction(line) {
+  const letters = line.replace(/[^a-zA-Z]/g, "");
+  return letters.length >= 20 && letters === letters.toUpperCase();
+}
 
 // "(Size M)", "(EU42.5, TOP Batch)", "(US 9)" — a size/batch parenthetical is
 // the strongest signal that a text line is an item header, not review chatter.
@@ -606,8 +687,24 @@ function extractItems(text) {
 
   const flushPendingToNote = () => {
     if (lastItem && pending.length) {
-      const snippet = pending.join(" ");
-      lastItem.note = lastItem.note ? lastItem.note + " " + snippet : snippet;
+      // A buffered line that is clearly a NEW item's header (price
+      // parenthetical + header shape) begins an orphaned, link-less review
+      // block. Nothing from that line on belongs to the previous card — drop
+      // it instead of merging a whole second review into its note.
+      let orphanIdx = -1;
+      for (let i = 0; i < pending.length; i++) {
+        if (!ORPHAN_PRICE_RE.test(pending[i])) continue;
+        const orphan = headerSplit(pending[i], { atBoundary: false, nearestToUrl: false });
+        if (orphan && orphan.label.length > 2) {
+          orphanIdx = i;
+          break;
+        }
+      }
+      const kept = orphanIdx === -1 ? pending : pending.slice(0, orphanIdx);
+      if (kept.length) {
+        const snippet = kept.join(" ");
+        lastItem.note = lastItem.note ? lastItem.note + " " + snippet : snippet;
+      }
     } else if (!lastItem && pending.length) {
       leadingChatter = leadingChatter.concat(pending);
     }
@@ -651,9 +748,10 @@ function extractItems(text) {
     // Trim terminal punctuation the same way the app's extractUrls does: a
     // pasted "…itemID=123," kept the comma, the id regex failed, and the card
     // never resolved nor deduped (parser audit 2026-07-27, fix 1 — the Reddit
-    // path had the same bug as the messy-lines path).
+    // path had the same bug as the messy-lines path). "*" joins the trim set
+    // for bold-wrapped bare links ("**https://x.yupoo.com/**").
     const urls = (joined.match(URL_RE) || [])
-      .map((u) => u.replace(/[),.;:!?'"\]]+$/, ""))
+      .map((u) => u.replace(/[*),.;:!?'"\]]+$/, ""))
       .filter((u) => !(agentOf(u) && AGENT_SIGNUP_RE.test(u)));
     const shoppable = urls.filter(shoppableOf);
 
@@ -665,10 +763,17 @@ function extractItems(text) {
         boundary = true;
         continue;
       }
-      const stripped = line.replace(/^[\s\-*•>”"`]*(?:\d+[.)])?\s*/, "").trim();
+      // The list-marker strip must not eat a decimal: "8.5/10" is a rating,
+      // not list item "8." — without the (?!\d) guard the saved note read
+      // "5/10" (2026-08-04 fixture: every decimal star score corrupted).
+      const stripped = line.replace(/^[\s\-*•>”"`]*(?:\d+[.)](?!\d))?\s*/, "").trim();
       if (!stripped || stripped.length < 4) continue;
       if (isStatsLine(stripped)) continue;
       if (/^(stats?|build|haul|review|w2c|qc|finds?)\b\s*[:：-]?\s*$/i.test(stripped)) continue;
+      // Poster's closing instructions (all-caps) and bare @mention tails are
+      // meta commentary — they glue onto the last card's note otherwise.
+      if (isShoutyInstruction(stripped)) continue;
+      if (/^(@[\w-]+\s*)+$/.test(stripped)) continue;
       // 600 chars: QC reviews run long (corpus Gats post: 380), page chrome
       // comes in many short lines instead of one long one.
       if (stripped.length <= 600) {
@@ -700,9 +805,14 @@ function extractItems(text) {
     }
     if (!label) {
       label = cleanLabel(
-        joined.replace(URL_RE, " ").replace(/^[\s\-*•>”"`]*(?:\d+[.)])?\s*/, "")
+        joined.replace(URL_RE, " ").replace(/^[\s\-*•>”"`]*(?:\d+[.)](?!\d))?\s*/, "")
       );
     }
+    // "Purchase Link: <url>" — cleanLabel strips the "Link:" key and leaves
+    // the bare action word, so a 25-card haul came out titled "Purchase"
+    // (2026-08-04 audit). A lone action word is no label: clear it and let the
+    // buffered header above the link name the item.
+    if (/^(purchase|buy|order|cop|get|shop)(\s+(link|here|now))?\.?$/i.test(label)) label = "";
 
     // No inline label → the buffered text above is probably this item's header
     // ("Name (Size M) - review…" on the line above the W2C link). Walk the
@@ -921,7 +1031,9 @@ export function parseRedditHaul(text, opts = {}) {
       it.category = guessCategory(it.note.slice(0, 120));
     }
     const structured = structureItemFields(it);
-    it.posterSize = structured.posterSize;
+    // The header's declared size wins over anything guessed from review
+    // chatter: the header is the poster stating what they bought.
+    it.posterSize = sizeFromLabel(it.label) || structured.posterSize;
     it.sizeNotes = structured.sizeNotes;
     it.weightGrams = structured.weightGrams;
     it.note = structured.note;

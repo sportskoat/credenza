@@ -91,6 +91,28 @@ describe("A1 · ask 1 of 2", () => {
     expect(screen.getByText(FIRST_SIZE_COPY.ask1BodyNoChart)).toBeInTheDocument();
   });
 
+  // Lane D (2026-08-04): this block REPLACES the sizing block, so its "No
+  // seller chart" line was the only copy a capped visitor saw — blaming the
+  // seller for our limit. A blockReason rides above the chips instead.
+  it("shows the real reason above the chips when the cap, not the seller, hid the chart", () => {
+    mount({ chart: null, blockReason: "Your 5 free cards are used. Sign in for more." });
+    expect(screen.getByText("Your 5 free cards are used. Sign in for more.")).toBeInTheDocument();
+    expect(screen.queryByText(FIRST_SIZE_COPY.ask1BodyNoChart)).toBeNull();
+    // The chips stay the primary action.
+    expect(screen.getByRole("radiogroup", { name: /Usual size/i })).toBeInTheDocument();
+  });
+
+  it("shows the reason on the honest skipped state too", () => {
+    mount({ chart: null, startSkipped: true, blockReason: "Daily chart reads are used." });
+    expect(screen.getByText("Daily chart reads are used.")).toBeInTheDocument();
+    expect(screen.queryByText(FIRST_SIZE_COPY.skippedBodyNoChart)).toBeNull();
+  });
+
+  it("keeps the seller-chart sentence when a chart parsed, reason or not", () => {
+    mount({ blockReason: "Daily chart reads are used." });
+    expect(screen.getByText(FIRST_SIZE_COPY.ask1Body)).toBeInTheDocument();
+  });
+
   it("builds its chips from the listing's own size run", () => {
     mount({ sizeRun: ["46", "48", "50", "52"] });
     expect(screen.getByRole("radio", { name: "48" })).toBeInTheDocument();

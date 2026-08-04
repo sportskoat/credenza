@@ -82,7 +82,7 @@ import {
   deleteAccount as accountDeleteRequest,
   safeErrorMessage,
 } from "./preview/src/account.js";
-import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS, usageAudience } from "./preview/src/usage.js";
+import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS, usageAudience, usageTotal } from "./preview/src/usage.js";
 import { limitStatus, ANON_FREE_CARDS } from "./preview/src/limits.js";
 import {
   buildHaulShareSnapshot,
@@ -2902,6 +2902,10 @@ function hostOf(raw) {
 
 // Weidian item ID when the URL is a resolvable product page, else null. Mirrors
 // the server-side check in resolve.js so the client never wastes a call.
+// Every working Weidian item id in the corpus is 10+ digits; a shorter one
+// classifies fine but resolves to nothing, and the paste produces a silent
+// dead card (2026-08-04 audit). Treat it as not-a-buy-link so the card gets
+// the honest "couldn't read that link" failure instead.
 function weidianItemId(raw) {
   let u;
   try {
@@ -2912,8 +2916,8 @@ function weidianItemId(raw) {
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
   if (!/(^|\.)weidian\.(com|cn)$/.test(host)) return null;
   const id = u.searchParams.get("itemID") || u.searchParams.get("itemId") || u.searchParams.get("item_id");
-  if (id && /^\d{5,}$/.test(id)) return id;
-  const pathMatch = u.pathname.match(/\/item\/(\d{5,})/);
+  if (id && /^\d{10,}$/.test(id)) return id;
+  const pathMatch = u.pathname.match(/\/item\/(\d{10,})/);
   return pathMatch ? pathMatch[1] : null;
 }
 
@@ -4345,7 +4349,9 @@ export function parseImport(text, opts = {}) {
   }
   for (const lineRaw of importLines) {
     const isBullet = /^\s*(?:[-*•❯›]|\d+[.)])\s+\S/.test(lineRaw);
-    const line = lineRaw.replace(/^[\s\-*•>”"]*(?:\d+[.)])?\s*/, "").trim();
+    // (?!\d): "8.5/10" is a rating, not list item "8." — the strip used to
+    // eat the whole number and save "5/10".
+    const line = lineRaw.replace(/^[\s\-*•>”"]*(?:\d+[.)](?!\d)\s*)?/, "").trim();
     if (!line || line.length < 3) continue;
     // extractUrls, not a local regex: trims trailing punctuation, repairs
     // space-broken hosts, deobfuscates Reddit markup, dedupes (audit fix 1+2).
@@ -4367,6 +4373,19 @@ export function parseImport(text, opts = {}) {
     if (parsed.url) push(parsed, line, label.length > 2 ? label : "");
   }
   return { candidates, provider: "paste" };
+}
+
+// Notes cap at `max` chars for storage, but the cut lands on the last word
+// boundary inside the window — a mid-word slice reads as a parser bug. Falls
+// back to the hard cut when the window holds no usable boundary (one giant
+// word), and never cuts so early that most of the budget goes unused.
+export function clipNote(note, max = 500) {
+  const text = String(note || "");
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const boundary = cut.match(/\s+\S*$/);
+  const end = boundary && boundary.index > max * 0.5 ? boundary.index : max;
+  return cut.slice(0, end).trimEnd();
 }
 
 // Splits candidates into fresh items and duplicates already on the shelf. Local
@@ -4408,9 +4427,11 @@ function buildImportItems(candidates, existing, source) {
     if (typeof c.weightGrams === "number" && c.weightGrams > 0) {
       extra.weightGrams = Math.round(c.weightGrams);
     }
-    // Keep free-text notes; hard cap remains for storage, but structured fields
-    // above already hold fit/size so a 500-char cut is less harmful.
-    if (c.note) extra.note = c.note.slice(0, 500);
+    // Keep free-text notes; the hard cap remains for storage, but the cut
+    // lands on a word boundary instead of mid-word (DECISION 2026-08-04:
+    // keep the 500 cap — overridable — only the cut point moves). Structured
+    // fields above already hold fit/size so a 500-char cut is less harmful.
+    if (c.note) extra.note = clipNote(c.note);
     // A1: haul pastes carry poster stats (v1: on each batch item; A3 haul
     // objects will hoist these) and the source thread for provenance.
     if (c.posterStats) extra.posterStats = c.posterStats;
@@ -4556,7 +4577,10 @@ function mergeFashionLinks(item, { albumUrl, buyUrl } = {}) {
 }
 
 // Fetch structured Yupoo album data through the same-origin Netlify function.
-export async function fetchYupooImages(albumUrl, { signal } = {}) {
+// onFailCode (2026-08-04): a 422 carries a `code` naming the paste mistake
+// (shop root, category page) — the failure body used to be thrown away and
+// the card sat blank. Optional; the return contract is unchanged.
+export async function fetchYupooImages(albumUrl, { signal, onFailCode } = {}) {
   if (!PREVIEW_SECRET) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
   const controller = new AbortController();
@@ -4573,7 +4597,10 @@ export async function fetchYupooImages(albumUrl, { signal } = {}) {
       body: JSON.stringify({ url: albumUrl }),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (onFailCode) onFailCode(await linkFailCode(res));
+      return null;
+    }
     const data = await res.json();
     if (!data || !Array.isArray(data.images)) return null;
     return data;
@@ -4610,6 +4637,31 @@ async function allowanceRefusal(res) {
     if (error.startsWith("Monthly ")) return "monthly";
   } catch {}
   return null;
+}
+
+// The 422 from resolve/yupoo carries a machine-readable `code` naming WHICH
+// kind of link failed (same convention as sign_in_required above). The card
+// stores it as item.failCode so DetailBody can say "that is a shop front
+// page" instead of sitting blank (2026-08-04 audit: six dead links, four
+// causes, one useless generic message). Unknown/absent codes stay "" — the
+// UI keeps its old fallback line for those.
+const LINK_FAIL_CODES = new Set([
+  "shop-front",
+  "agent-short",
+  "yupoo-category",
+  "yupoo-shop-root",
+  "link-cut-off",
+  "short-link-dead",
+]);
+async function linkFailCode(res) {
+  if (!res || res.status !== 422) return "";
+  try {
+    const data = await res.clone().json();
+    const code = data && data.code;
+    return LINK_FAIL_CODES.has(code) ? code : "";
+  } catch {
+    return "";
+  }
 }
 
 // Module-level readers (the chart hunt, the description-photo refetch) run
@@ -6619,14 +6671,23 @@ function CredenzaApp() {
   // The id of the notice on screen. Sign-in clears THIS notice only, so a
   // later toast the visitor is reading does not disappear under them.
   const signInNoticeRef = useRef("");
+  // A2 (2026-08-04): dismissing the limits sheet stays dismissed for the rest
+  // of the enrichment run that opened it. Without the mute, every refused
+  // card after the fifth re-fired setLimitsOpen and the sheet sprang back
+  // ~1.5s after "Not now" — on a 25-card haul the visitor could dismiss it
+  // forever. runImport resets the mute when a new run starts; the run's
+  // finally clears it when the queue drains.
+  const limitsRunMutedRef = useRef(false);
+  const enrichRunDepthRef = useRef(0);
   const askForSignIn = useCallback((heldText = "") => {
     if (heldText) heldLinkRef.current = heldText;
     setSignInRequired(true);
     trackProductEvent("allowance_reached", { plan: "guest", feature: "card_read" });
     // A refused paid read is a real limit wall. Open the same limits sheet
-    // used by the header meter and Ask. Keep the persistent card notice too:
-    // it owns the held link and stays until sign-in finishes the stopped work.
-    setLimitsOpen(true);
+    // used by the header meter and Ask — unless the visitor already closed it
+    // during this run (A2). Keep the persistent card notice either way: it
+    // owns the held link and stays until sign-in finishes the stopped work.
+    if (!limitsRunMutedRef.current) setLimitsOpen(true);
     signInNoticeRef.current = notify("Sign in to read this link.", {
       sub: "Credenza reads the product, the photos, and the size chart for you.",
       persistent: true,
@@ -6696,7 +6757,9 @@ function CredenzaApp() {
         return;
       }
       setServerBlockedFeature(feature);
-      setLimitsOpen(true);
+      // Same spring-back guard as askForSignIn (A2): a signed-in Free user who
+      // closed the sheet mid-run is not asked again for the rest of the run.
+      if (!limitsRunMutedRef.current) setLimitsOpen(true);
     });
     return () => setAllowanceRequiredHook(null);
     // `notify` is intentionally read from the current mounted app.
@@ -7838,12 +7901,50 @@ function CredenzaApp() {
       tone: persistent ? "error" : "info",
     });
 
+  // Remaining free card reads for THIS visitor, or null when uncapped
+  // (Pro/owner, or accounts off). The anon promise is ANON_FREE_CARDS; the
+  // signed-in Free cap is PLAN_CAPS.free.resolveTotal — both mirror the
+  // server (limits.js / entitlements.js own the numbers).
+  const freeCardsLeft = () => {
+    if (!AUTH_ENABLED) return null;
+    const state = accountPlan && accountPlan.state;
+    if (state === "pro" || state === "grace" || state === "owner") return null;
+    if (!signedInAccount) {
+      return Math.max(0, ANON_FREE_CARDS - usageTotal("resolve", { audience: "anon" }));
+    }
+    const cap = PLAN_CAPS.free && PLAN_CAPS.free.resolveTotal;
+    if (typeof cap !== "number" || cap <= 0) return null;
+    return Math.max(0, cap - usageTotal("resolve", { audience: usageAudience(accountPlan, true) }));
+  };
+
   const runImport = (text, opts = {}) => {
     const { candidates, provider } = parseImport(text, opts);
     const { fresh, dupes, duplicates } = buildImportItems(candidates, items, provider);
     if (fresh.length) applyUpdate((list) => [...fresh, ...list]);
     if (fresh.length) markActivation(storageBackend, "import");
-    if (fresh.length || duplicates.length) enrichFashionItems([...fresh, ...duplicates]);
+    // A1 (2026-08-04): the paste is bigger than the visitor's remaining free
+    // allowance → say so ONCE, up front, before enrichment walks the queue.
+    // Without the line the wall at card M+1 arrived as a surprise on every
+    // big haul. Pro/owner have no cap and never see it. The toast slot is
+    // single, so the line rides as the sub of the import summary below —
+    // a standalone toast here would be replaced by that summary in the same
+    // tick and never read.
+    const queue = [...fresh, ...duplicates];
+    const left = queue.length ? freeCardsLeft() : null;
+    const headsUp =
+      left != null && queue.length > left
+        ? "This post has " + queue.length + " items. You can do " + left + " free."
+        : null;
+    if (queue.length) {
+      // A2: a new paste is a new run — the visitor's earlier "Not now" was
+      // answered for THAT run, not this one.
+      limitsRunMutedRef.current = false;
+      enrichRunDepthRef.current += 1;
+      Promise.resolve(enrichFashionItems(queue)).finally(() => {
+        enrichRunDepthRef.current = Math.max(0, enrichRunDepthRef.current - 1);
+        if (enrichRunDepthRef.current === 0) limitsRunMutedRef.current = false;
+      });
+    }
     setImportOpen(false);
     if (fresh.length === 0) {
       flashImportResult(
@@ -7862,6 +7963,7 @@ function CredenzaApp() {
         notify(
           "Imported " + fresh.length + " things" + from + ".",
           {
+            sub: headsUp,
             actionLabel: "Undo import",
             onAction: () =>
               applyUpdate((list) => list.filter((x) => !freshIds.has(x.id))),
@@ -7870,7 +7972,7 @@ function CredenzaApp() {
         );
         return;
       }
-      flashImportResult(
+      notify(
         "Imported " +
           fresh.length +
           " " +
@@ -7879,7 +7981,8 @@ function CredenzaApp() {
           "." +
           (dupes > 0
             ? " " + dupes + " " + (dupes === 1 ? "was" : "were") + " already on the shelf."
-            : "")
+            : ""),
+        { sub: headsUp, duration: 5000 }
       );
     }
   };
@@ -8358,6 +8461,7 @@ function CredenzaApp() {
     let data = null;
     let refused = false;
     let allowance = null;
+    let failCode = "";
     try {
       const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
         method: "POST",
@@ -8373,6 +8477,9 @@ function CredenzaApp() {
       } else {
         allowance = await allowanceRefusal(res);
         if (!allowance && (await isSignInRefusal(res))) refused = true;
+        // A 422 names WHICH kind of link failed (shop front, agent short,
+        // cut-off, dead short link) — keep it so the card can say so.
+        if (!allowance && !refused) failCode = await linkFailCode(res);
       }
     } catch {
       data = null;
@@ -8383,7 +8490,7 @@ function CredenzaApp() {
     if (refused) {
       // No title, no price, no chart — and now the card SAYS why, instead of
       // sitting there empty and looking like a broken site.
-      updateEnrichedItem(item.id, token, { status: "ready", needsSignIn: true });
+      updateEnrichedItem(item.id, token, { status: "ready", needsSignIn: true, failCode: "" });
       askForSignIn();
       return false;
     }
@@ -8393,7 +8500,10 @@ function CredenzaApp() {
       return false;
     }
     if (!data || !data.title) {
-      updateEnrichedItem(item.id, token, { status: "ready" });
+      updateEnrichedItem(item.id, token, {
+        status: "ready",
+        ...(failCode ? { failCode } : {}),
+      });
       return false;
     }
     const remoteImages = mergeFashionImages(
@@ -8428,6 +8538,9 @@ function CredenzaApp() {
         null;
       return {
         status: "ready",
+        // A successful read clears any link-failure reason a previous attempt
+        // stored — the card filled, so the warning is stale.
+        failCode: "",
         title: nextTitle,
         summary: data.summary || x.summary,
         // A hand-set price is pinned (priceManual): the resolve refreshes
@@ -8500,8 +8613,21 @@ function CredenzaApp() {
       const albumUrl = yupooAlbumUrl(item);
       if (albumUrl) {
         updateEnrichedItem(item.id, token, { status: "enriching" });
-        const data = await fetchYupooImages(albumUrl, { signal: controller.signal });
+        let albumFailCode = "";
+        const data = await fetchYupooImages(albumUrl, {
+          signal: controller.signal,
+          onFailCode: (code) => {
+            albumFailCode = code;
+          },
+        });
         if (controller.signal.aborted || enrichmentTokensRef.current.get(item.id) !== token) return false;
+        if (!data && albumFailCode) {
+          // The pasted Yupoo link is a shop page or a category, never one
+          // album. Name the mistake on the card instead of falling through to
+          // a blank ready state (2026-08-04 audit).
+          updateEnrichedItem(item.id, token, { status: "ready", failCode: albumFailCode });
+          return false;
+        }
         if (data) {
           // RELAY_MAX: every image in this list gets relayed below, one
           // function invocation each, so the cap on the list IS the cost cap.
@@ -8531,6 +8657,8 @@ function CredenzaApp() {
           const albumPatch = {
             url: item.url && yupooAlbumIdentity(item.url) ? canonicalAlbum : item.url,
             canonicalKey: canonicalKey(classify(canonicalAlbum), canonicalAlbum),
+            // The album read succeeded — clear any earlier link-failure reason.
+            failCode: "",
             title:
               enrichedTitle && shouldReplaceFashionTitle(item.title, item.url)
                 ? enrichedTitle
@@ -11426,7 +11554,13 @@ function CredenzaApp() {
               // Pro is a different question, so it gets a different address.
               openUpgrade();
             }}
-            onClose={() => setLimitsOpen(false)}
+            onClose={() => {
+              // A2: closing the sheet while an enrichment run is still walking
+              // its queue mutes the wall for the rest of that run — "Not now"
+              // is an answer, not a snooze button.
+              if (enrichRunDepthRef.current > 0) limitsRunMutedRef.current = true;
+              setLimitsOpen(false);
+            }}
           />
         </Suspense>
       )}

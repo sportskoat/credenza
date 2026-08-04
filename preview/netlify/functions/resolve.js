@@ -75,9 +75,12 @@ function weidianItemId(raw) {
   }
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
   if (!/(^|\.)weidian\.(com|cn)$/.test(host)) return null;
+  // Length sanity: every working Weidian item id in the corpus is 10+ digits.
+  // A shorter id used to classify fine and then resolve to nothing — the 422
+  // below now says honestly that the link is not resolvable (2026-08-04 audit).
   const id = u.searchParams.get("itemID") || u.searchParams.get("itemId") || u.searchParams.get("item_id");
-  if (id && /^\d{5,}$/.test(id)) return id;
-  const pathMatch = u.pathname.match(/\/item\/(\d{5,})/);
+  if (id && /^\d{10,}$/.test(id)) return id;
+  const pathMatch = u.pathname.match(/\/item\/(\d{10,})/);
   return pathMatch ? pathMatch[1] : null;
 }
 
@@ -125,6 +128,10 @@ function ali1688ItemId(raw) {
   return null;
 }
 
+// Agent hosts we recognize for inbound unwrap (wider than outbound registry).
+// Hoisted 2026-08-04: the 422 failure code switch below reuses it.
+const AGENT_HOST_RE = /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|fansbuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy|usfans)\.[a-z.]{2,}$/i;
+
 /**
  * Unwrap agent front URLs to a marketplace buy target.
  * Mirrors agents.js unwrapAgentUrl for the Netlify CommonJS side (agents.js
@@ -139,11 +146,7 @@ function unwrapAgentBuyLink(raw) {
     return null;
   }
   const host = u.hostname.replace(/^www\./, "").toLowerCase();
-  // Agent hosts we recognize for inbound unwrap (wider than outbound registry).
-  const isAgent = /(^|\.)(superbuy|youshop10|sugargoo|cssbuy|kakobuy|fansbuy|hoobuy|cnfans|mulebuy|acbuy|oopbuy|basetao|wegobuy|pandabuy|allchinabuy|joyabuy|joyagoo|mycnbox|gtbuy|hipobuy|usfans)\.[a-z.]{2,}$/i.test(
-    host
-  );
-  if (!isAgent) return null;
+  if (!AGENT_HOST_RE.test(host)) return null;
 
   // Embedded ?url= / productLink (Superbuy family, Fansbuy with url param).
   for (const key of ["url", "productLink", "product_url", "productUrl", "link"]) {
@@ -223,6 +226,34 @@ function classifyBuyLink(raw) {
   const direct = classifyBuyLinkDirect(raw);
   if (direct) return direct;
   return unwrapAgentBuyLink(raw);
+}
+
+// One 422 string covered every reject shape, so the card could not say WHY a
+// link failed (2026-08-04 audit, six dead links / four causes in one paste).
+// The `code` field names the cause — same convention as paid-gate's
+// sign_in_required — and the client stores it as item.failCode for the UI.
+// Falls back to "not-a-buy-link" so unknown shapes keep the old behavior.
+function buyLinkFailCode(raw) {
+  let u;
+  try {
+    u = new URL(String(raw || "").trim());
+  } catch {
+    // "e.t b.cn" — a link the paste split in half will not even parse.
+    return "link-cut-off";
+  }
+  const host = u.hostname.replace(/^www\./, "").toLowerCase();
+  if (/(^|\.)weidian\.(com|cn)$/.test(host)) {
+    // An itemID that failed the 10-digit sanity check is a truncated ITEM
+    // link (corpus: itemID=77615274, 8 digits), not a storefront.
+    const id =
+      u.searchParams.get("itemID") || u.searchParams.get("itemId") || u.searchParams.get("item_id");
+    if (id && /^\d+$/.test(id)) return "link-cut-off";
+    return "shop-front";
+  }
+  if (AGENT_HOST_RE.test(host)) return "agent-short";
+  // A host with no dot or a one-letter tail ("e.t") is a link cut mid-paste.
+  if (!host.includes(".") || /\.[a-z]$/i.test(host)) return "link-cut-off";
+  return "not-a-buy-link";
 }
 
 // Short links carry no item id: m.tb.cn/h.xxx is THE Taobao mobile share
@@ -923,7 +954,9 @@ async function handle(event) {
 
   const classified = classifyBuyLink(url);
   const needsRedirect = !classified && taobaoShortHost(url);
-  if (!classified && !needsRedirect) return response(422, { error: "Not a resolvable buy link" });
+  if (!classified && !needsRedirect) {
+    return response(422, { error: "Not a resolvable buy link", code: buyLinkFailCode(url) });
+  }
 
   // The site-wide spend ceiling, shared across every Netlify instance. It runs
   // before enter() so a blocked call never takes a concurrency slot.
@@ -942,7 +975,11 @@ async function handle(event) {
     // classify the landing URL. Runs behind the rate limiter — it costs an
     // outbound fetch before any id exists.
     const resolved = classified || (await classifyViaRedirect(url, controller.signal));
-    if (!resolved) return response(422, { error: "Not a resolvable buy link" });
+    // The chase itself failed: the short link is dead or wrong, and no amount
+    // of re-pasting THIS link fixes it — a distinct case from never classifying.
+    if (!resolved) {
+      return response(422, { error: "Not a resolvable buy link", code: "short-link-dead" });
+    }
     let facts;
     let canonicalUrl;
     if (resolved.marketplace === "weidian") {
@@ -1090,6 +1127,7 @@ exports._test = {
   taobaoFamilyItemId,
   ali1688ItemId,
   classifyBuyLink,
+  buyLinkFailCode,
   unwrapAgentBuyLink,
   taobaoShortHost,
   classifyViaRedirect,
