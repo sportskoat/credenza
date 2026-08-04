@@ -7,7 +7,12 @@ import {
 } from "../../credenza-fashion.jsx";
 
 const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
-vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
+vi.mock("../../components/size-chart-hunt.js", async () => {
+  const actual = await vi.importActual("../../components/size-chart-hunt.js");
+  // Keep the real fingerprint + version: the hook reads them to skip a
+  // stamped miss. Only the hunt itself is stubbed.
+  return { ...actual, huntSizeChart: huntMock };
+});
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
 
 const CHART_TEXT = "M: chest 116, length 70\nL: chest 120, length 72";
@@ -158,6 +163,8 @@ describe("item-only chart reads", () => {
       expect(onSaveEdit).toHaveBeenCalledWith("own-read", {
         sizeChartText: CHART_TEXT,
         sizeChartNeedsClear: false,
+        // A find clears any old no-find stamp (Kyle 2026-08-04).
+        sizeChartHunt: null,
         sizeChartSource: {
           via: "desc-photos",
           photos: 3,
@@ -184,7 +191,11 @@ describe("item-only chart reads", () => {
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
     expect(huntMock).toHaveBeenCalledTimes(1);
-    expect(onSaveEdit).not.toHaveBeenCalled();
+    // No borrowed chart lands on the target. The one allowed save is the
+    // no-find stamp itself (Kyle 2026-08-04) — it carries no chart text.
+    expect(
+      onSaveEdit.mock.calls.filter(([, patch]) => patch && patch.sizeChartText)
+    ).toHaveLength(0);
   });
 
   it("does not repeat a completed empty read after a remount", async () => {

@@ -385,7 +385,13 @@ async function handle(event) {
   }
   const blocked = limit.enter(ROUTE, limit.clientKey(event));
   if (blocked) {
-    return response(blocked.status, { error: blocked.msg }, { "retry-after": String(blocked.retryAfter) });
+    // busy rides along on the concurrency refusal so the client can tell a
+    // retryable moment from a real plan cap.
+    return response(
+      blocked.status,
+      { error: blocked.msg, ...(blocked.busy ? { busy: true } : {}) },
+      { "retry-after": String(blocked.retryAfter) }
+    );
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);

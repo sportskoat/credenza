@@ -560,11 +560,15 @@ async function fetchWeidianItem(itemId, signal) {
   return data.result;
 }
 
-// Seller description photos live in item_detail.desc_content. Two shapes:
+// Seller description photos live in item_detail.desc_content. Three shapes:
 //   type 2  — single photo block with .url (most apparel shops)
 //   type 13 — album block itemDetailImgAlbum.albumImgList[].thumbnail
 //             (common on multi-model shoe shops; was dropped before 2026-07-26)
-// Folded boilerplate (type 10000, e.g. 购前说明) stays out.
+//   type 10000 — the folded tail of the page. One long stacked strip (.url)
+//             under a label (.text, e.g. 购前说明). Sellers put their whole
+//             lower page in this strip, size tables included — Kyle 2026-08-04,
+//             weidian 7636215363: every chart sat in one folded 2250x4929 PNG
+//             and the pool never saw it ("WHY IS THIS SO INCONSISTENT").
 // Pure: blocks -> ordered, deduped https photo URLs. Any failure is silent.
 function pushDescUrl(urls, raw) {
   if (typeof raw !== "string" || !raw) return;
@@ -577,8 +581,8 @@ function descImageUrls(descContent) {
   const blocks = Array.isArray(descContent) ? descContent : [];
   const urls = [];
   for (const block of blocks) {
-    if (!block || block.type === 10000) continue;
-    if (block.type === 2) {
+    if (!block) continue;
+    if (block.type === 2 || block.type === 10000) {
       pushDescUrl(urls, block.url);
       continue;
     }

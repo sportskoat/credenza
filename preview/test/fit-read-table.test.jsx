@@ -22,7 +22,12 @@ const { huntMock, fileReadMock } = vi.hoisted(() => ({
   huntMock: vi.fn(),
   fileReadMock: vi.fn(),
 }));
-vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
+vi.mock("../../components/size-chart-hunt.js", async () => {
+  const actual = await vi.importActual("../../components/size-chart-hunt.js");
+  // Keep the real fingerprint + version: the hook reads them to skip a
+  // stamped miss. Only the hunt itself is stubbed.
+  return { ...actual, huntSizeChart: huntMock };
+});
 // The upload door is mocked so a test can hold a photo read open and watch
 // the table's reading state; everything else in the module stays real.
 vi.mock("../../credenza-fashion.jsx", async () => {

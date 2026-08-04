@@ -6,7 +6,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
-vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
+vi.mock("../../components/size-chart-hunt.js", async () => {
+  const actual = await vi.importActual("../../components/size-chart-hunt.js");
+  // Keep the real fingerprint + version: the hook reads them to skip a
+  // stamped miss. Only the hunt itself is stubbed.
+  return { ...actual, huntSizeChart: huntMock };
+});
 
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");

@@ -180,6 +180,32 @@ describe("chart photo read (handoff turn 9 §3)", () => {
     expect(isChartCapReached(result)).toBe(true);
   });
 
+  // Kyle 2026-08-04: "WHY IS THIS SO INCONSISTENT." The concurrency limiter's
+  // 429 is a Busy, not a spent allowance. The body carries busy: true so the
+  // client retries for free instead of telling the customer the cap is gone.
+  it("maps a 429 with busy:true to CHART_UNAVAILABLE, never the cap", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "Busy. Try again in a moment", busy: true }),
+    }));
+    const result = await fetchChartFromPhotos(["https://img.geilicdn.com/a.jpg"]);
+    expect(result).toBe(CHART_UNAVAILABLE);
+    expect(isChartUnavailable(result)).toBe(true);
+    expect(isChartCapReached(result)).toBe(false);
+  });
+
+  it("maps a 429 with busy:true on the inline path to CHART_UNAVAILABLE", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "Busy. Try again in a moment", busy: true }),
+    }));
+    const result = await readChartFromPhotoFiles([DATA_URL]);
+    expect(result).toBe(CHART_UNAVAILABLE);
+    expect(isChartCapReached(result)).toBe(false);
+  });
+
   it("pins the signed-out customer copy", () => {
     expect(CHART_AUTH_COPY).toBe("You are signed out. Sign in to read charts.");
   });

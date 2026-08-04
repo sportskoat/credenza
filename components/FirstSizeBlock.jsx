@@ -49,6 +49,10 @@ export const FIRST_SIZE_COPY = {
   // README em dash rewritten as a period, per CONTEXT.md.
   skippedBody:
     "This seller's chart is read and ready. We just don't know anything about you yet. One tap is enough to start.",
+  // Kyle 2026-08-04: the skipped state claimed "chart is read and ready" on
+  // listings with NO chart at all. Same split as ask1: no chart, no claim.
+  skippedBodyNoChart:
+    "No seller chart on this listing yet. Your usual size still becomes the pick.",
   addMySize: "Add my size",
   privacy: "Signed out · your answers stay on this phone. We won't ask again this visit.",
   provTail: "to remove the guess.",
@@ -255,7 +259,9 @@ export default function FirstSizeBlock({
           <span className="cz-first-size-flag is-none">{FIRST_SIZE_COPY.noPickFlag}</span>
         </div>
         <h3 className="cz-first-size-title">{FIRST_SIZE_COPY.skippedTitle}</h3>
-        <p className="cz-first-size-copy">{FIRST_SIZE_COPY.skippedBody}</p>
+        <p className="cz-first-size-copy">
+          {hasChart ? FIRST_SIZE_COPY.skippedBody : FIRST_SIZE_COPY.skippedBodyNoChart}
+        </p>
         <button
           type="button"
           className="cz-first-size-primary"

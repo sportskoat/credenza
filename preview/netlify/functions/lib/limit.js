@@ -127,7 +127,10 @@ function enter(route, key) {
     return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached. Try again tomorrow" };
   }
   if ((inflight.get(route) || 0) >= cfg.maxConcurrent) {
-    return { status: 429, retryAfter: 5, msg: "Busy. Try again in a moment" };
+    // busy: the client may retry in a moment. This is a concurrency slot,
+    // not an allowance — never let it read as a plan cap (Kyle 2026-08-04:
+    // one Busy ate a whole chart hunt).
+    return { status: 429, retryAfter: 5, msg: "Busy. Try again in a moment", busy: true };
   }
   sweep(ipWindows);
   const ip = hitWindow(ipWindows, route + "|" + key, cfg.perIpPerMin);

@@ -17,7 +17,12 @@ const { huntMock, needsCardsMock, limitsOpenMock } = vi.hoisted(() => ({
   limitsOpenMock: vi.fn(),
 }));
 
-vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
+vi.mock("../../components/size-chart-hunt.js", async () => {
+  const actual = await vi.importActual("../../components/size-chart-hunt.js");
+  // Keep the real fingerprint + version: the hook reads them to skip a
+  // stamped miss. Only the hunt itself is stubbed.
+  return { ...actual, huntSizeChart: huntMock };
+});
 
 vi.mock("../../credenza-fashion.jsx", async () => {
   const real = await vi.importActual("../../credenza-fashion.jsx");

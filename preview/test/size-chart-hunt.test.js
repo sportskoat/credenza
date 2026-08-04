@@ -39,6 +39,7 @@ const {
   huntSizeChart,
   paidHuntCandidates,
   pickReservedDescCandidate,
+  chartHuntFingerprint,
   MAX_PAID_CANDIDATES,
 } = await import("../../components/size-chart-hunt.js");
 const { rankChartCandidates, isRejectedChartName } = await import(
@@ -81,6 +82,36 @@ beforeEach(() => {
 
 afterEach(() => {
   clearChartImageCache();
+});
+
+describe("chartHuntFingerprint (Kyle 2026-08-04)", () => {
+  // The stamp that stops a reload from re-spending chart reads. It must hold
+  // still while the photos hold still, and move the moment one changes.
+  it("holds still for the same item", () => {
+    expect(chartHuntFingerprint(item())).toBe(chartHuntFingerprint(item()));
+  });
+
+  it("moves when any photo pool changes", () => {
+    const base = item();
+    const pools = [
+      { image: "https://si.geilicdn.com/new-cover.jpg" },
+      { gallery: ["https://si.geilicdn.com/gallery-2.jpg", "https://si.geilicdn.com/gallery-3.jpg"] },
+      { chartImages: ["https://si.geilicdn.com/chart.jpg"] },
+      { descImages: ["https://si.geilicdn.com/desc-1.jpg"] },
+    ];
+    for (const extra of pools) {
+      expect(chartHuntFingerprint(item(extra))).not.toBe(chartHuntFingerprint(base));
+    }
+  });
+
+  it("ignores non-http photos and missing fields", () => {
+    const withJunk = item({
+      gallery: ["data:image/png;base64,xxx", null, "https://si.geilicdn.com/gallery-2.jpg"],
+    });
+    expect(chartHuntFingerprint(withJunk)).toBe(chartHuntFingerprint(item()));
+    expect(chartHuntFingerprint(null)).toBe("");
+    expect(chartHuntFingerprint({})).toBe(chartHuntFingerprint({ id: "x" }));
+  });
 });
 
 describe("huntSizeChart single-candidate ranking", () => {
@@ -206,10 +237,38 @@ describe("huntSizeChart description re-fetch", () => {
     expect(visionMock.mock.calls.every((c) => c[0].length === 1)).toBe(true);
   });
 
-  it("never re-fetches when the card already carries description photos", async () => {
+  it("never re-fetches when the pool already holds a confident candidate", async () => {
     visionMock.mockResolvedValue(null);
-    await huntSizeChart(item({ descImages: ["https://si.geilicdn.com/d-0.jpg"], gallery: [], image: null }));
+    await huntSizeChart(item({ descImages: ["https://si.geilicdn.com/size_chart.jpg"], gallery: [], image: null }));
     expect(descMock).not.toHaveBeenCalled();
+  });
+
+  // Kyle 2026-08-04: "WHY IS THIS SO INCONSISTENT." Cards saved before
+  // resolve learned the folded-tail strips hold the page without its chart
+  // carrier. A weak pool (no name or shape signal) earns one re-resolve.
+  it("re-fetches once when the stored pool scores weak, and reads the fresh strip", async () => {
+    descMock.mockResolvedValue([
+      "https://si.geilicdn.com/d-0.jpg",
+      "https://si.geilicdn.com/img-unadjust_2250_4929.png",
+    ]);
+    visionMock.mockImplementation(async (urls) =>
+      (urls || []).includes("https://si.geilicdn.com/img-unadjust_2250_4929.png") ? CHART : null
+    );
+    const found = await huntSizeChart(
+      item({ descImages: ["https://si.geilicdn.com/d-0.jpg"], gallery: [], image: null })
+    );
+    expect(descMock).toHaveBeenCalledTimes(1);
+    expect(found.text).toBe(CHART);
+  });
+
+  it("does not re-fetch twice when the re-fetch adds nothing new", async () => {
+    visionMock.mockResolvedValue(null);
+    descMock.mockResolvedValue(["https://si.geilicdn.com/d-0.jpg"]);
+    const found = await huntSizeChart(
+      item({ descImages: ["https://si.geilicdn.com/d-0.jpg"], gallery: [], image: null })
+    );
+    expect(descMock).toHaveBeenCalledTimes(1);
+    expect(found).toBe(null);
   });
 
   it("stays null when the fetch returns nothing", async () => {
@@ -486,4 +545,40 @@ describe("huntSizeChart reserved desc[0] end-to-end (vision stub)", () => {
     expect(paidUrls).not.toContain(rejected);
     expect(paidUrls[0]).toBe(real);
   });
+});
+
+describe("the busy retry (Kyle 2026-08-04)", () => {
+  // The concurrency limiter answered 429 Busy and the whole hunt died one
+  // moment before the chart. One retry per hunt, on the same candidate.
+  // The wait is a real 2s — the retry must breathe so the slot can free up.
+  it("retries one Busy and lands the chart on the second try", async () => {
+    visionMock
+      .mockResolvedValueOnce({ unavailable: true })
+      .mockResolvedValueOnce(CHART);
+    const found = await huntSizeChart(
+      item({
+        descImages: ["https://si.geilicdn.com/size_chart_busy.jpg"],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found.text).toBe(CHART);
+    expect(visionMock).toHaveBeenCalledTimes(2);
+    // Same candidate both times — the retry does not skip down the list.
+    expect(visionMock.mock.calls[0][0]).toEqual(visionMock.mock.calls[1][0]);
+  }, 15000);
+
+  it("retries at most once per hunt, then reports unavailable", async () => {
+    visionMock.mockResolvedValue({ unavailable: true });
+    const found = await huntSizeChart(
+      item({
+        descImages: ["https://si.geilicdn.com/size_chart_busy2.jpg"],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found).toEqual({ unavailable: true });
+    // First read + one retry. The remaining paid candidates stay unspent.
+    expect(visionMock).toHaveBeenCalledTimes(2);
+  }, 15000);
 });

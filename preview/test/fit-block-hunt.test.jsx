@@ -13,10 +13,16 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 
 const { huntMock } = vi.hoisted(() => ({ huntMock: vi.fn() }));
 
-vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
+vi.mock("../../components/size-chart-hunt.js", async () => {
+  // Keep the real fingerprint: the hook reads it to skip a stamped miss, and
+  // the tests below compute stamps with it. Only the hunt itself is stubbed.
+  const actual = await vi.importActual("../../components/size-chart-hunt.js");
+  return { ...actual, huntSizeChart: huntMock };
+});
 
 // Import AFTER the mock registration so DetailBody binds the stub.
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
+const { chartHuntFingerprint, CHART_HUNT_VERSION } = await import("../../components/size-chart-hunt.js");
 
 const CHART_TEXT = "M: chest 116, length 70\nL: chest 120, length 72\nXL: chest 124, length 74";
 
@@ -72,12 +78,98 @@ describe("FitBlock chart hunt", () => {
     resolveHunt({ text: CHART_TEXT, source: { via: "desc-photos", photos: 10 } });
 
     // The found chart writes into its own item field through the normal path.
+    // A find also clears any old no-find stamp (Kyle 2026-08-04).
     await waitFor(() => expect(onSaveEdit).toHaveBeenCalledWith("hunt-a", {
       sizeChartText: CHART_TEXT,
       sizeChartNeedsClear: false,
+      sizeChartHunt: null,
       sizeChartSource: { via: "desc-photos", photos: 10, at: expect.any(String) },
     }));
     expect(huntMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Kyle 2026-08-04: "we can't charge for repopulating the chart!" A finished
+  // hunt that found nothing used to leave no trace, so every page reload
+  // hunted again and spent up to three more paid reads per chart-less item.
+  it("stamps a finished miss on the item so a reload never re-hunts", async () => {
+    huntMock.mockResolvedValue(null);
+    const item = noChartItem("hunt-miss");
+    const onSaveEdit = vi.fn();
+    renderBody(item, { onSaveEdit });
+
+    await waitFor(() =>
+      expect(onSaveEdit).toHaveBeenCalledWith("hunt-miss", {
+        sizeChartHunt: {
+          at: expect.any(String),
+          fp: chartHuntFingerprint(item),
+          v: CHART_HUNT_VERSION,
+        },
+      })
+    );
+    expect(huntMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("never hunts an item whose stamp matches its photos", async () => {
+    huntMock.mockResolvedValue(null);
+    const base = noChartItem("hunt-stamped");
+    const item = {
+      ...base,
+      sizeChartHunt: {
+        at: "2026-08-04T00:00:00.000Z",
+        fp: chartHuntFingerprint(base),
+        v: CHART_HUNT_VERSION,
+      },
+    };
+    renderBody(item);
+
+    // The empty state shows at once; no "looking", no paid read.
+    expect(await screen.findByText("No chart for this one yet.")).toBeInTheDocument();
+    expect(huntMock).not.toHaveBeenCalled();
+  });
+
+  // Kyle 2026-08-04: v1 stamps predate the folded-strip read. The photos did
+  // not change — the pipeline did. A stale version must earn one fresh hunt,
+  // or every item stamped before the fix keeps hiding its chart forever.
+  it("hunts once more when the stamp predates the current pipeline", async () => {
+    huntMock.mockResolvedValue(null);
+    const base = noChartItem("hunt-oldver");
+    const item = {
+      ...base,
+      sizeChartHunt: {
+        at: "2026-08-04T00:00:00.000Z",
+        fp: chartHuntFingerprint(base),
+        v: 1,
+      },
+    };
+    renderBody(item);
+
+    await waitFor(() => expect(huntMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("hunts once more when new photos change the stamp", async () => {
+    huntMock.mockResolvedValue(null);
+    const base = noChartItem("hunt-stale");
+    const item = {
+      ...base,
+      sizeChartHunt: { at: "2026-08-04T00:00:00.000Z", fp: "stale-print" },
+    };
+    renderBody(item);
+
+    await waitFor(() => expect(huntMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("never stamps a blocked hunt — the retry stays free", async () => {
+    huntMock.mockResolvedValue({ capReached: true });
+    const item = noChartItem("hunt-blocked");
+    const onSaveEdit = vi.fn();
+    renderBody(item, { onSaveEdit });
+
+    await waitFor(() => expect(huntMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(screen.queryByText("No chart for this one yet.")).not.toBeInTheDocument();
+    });
+    const stamps = onSaveEdit.mock.calls.filter(([, patch]) => patch && patch.sizeChartHunt);
+    expect(stamps).toHaveLength(0);
   });
 
   it("shows the recommendation once the item carries the hunted chart", async () => {

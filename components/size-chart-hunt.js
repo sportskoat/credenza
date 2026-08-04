@@ -31,6 +31,41 @@ import {
 export const MAX_PAID_CANDIDATES = 3;
 /** Cap how many gallery/desc photos enter the ranking pool. */
 const MAX_POOL = 24;
+// Below this score nothing in the pool looks like a chart. The stored desc
+// list may predate a resolve improvement (the folded-tail read landed
+// 2026-08-04), so a weak pool earns one re-resolve before the paid reads.
+const WEAK_POOL_SCORE = 50;
+
+// Kyle 2026-08-04: "we can't charge for repopulating the chart!" A finished
+// hunt that found nothing left no trace, so every page reload ran it again —
+// up to MAX_PAID_CANDIDATES paid reads per reload for every chart-less item.
+// The caller now stamps the item with sizeChartHunt { at, fp, v } and skips the
+// hunt while this fingerprint matches. The print covers every pool the hunt
+// reads (cover, gallery, known charts, Product Details, album), so a new
+// photo changes it and earns exactly one fresh hunt.
+//
+// The version moves when the PIPELINE gets smarter with the same photos:
+// v1 stamped misses whose folded-tail strips the pool could not see yet
+// (typed-10000 desc blocks, tall-strip scoring, the busy retry — all landed
+// 2026-08-04). A v1 stamp on a chart-carrying item would hide the chart
+// forever, so a stale version earns one fresh hunt too.
+export const CHART_HUNT_VERSION = 2;
+export function chartHuntFingerprint(item) {
+  if (!item || typeof item !== "object") return "";
+  const http = (list) =>
+    (Array.isArray(list) ? list : []).filter(
+      (src) => typeof src === "string" && /^https?:\/\//i.test(src)
+    );
+  const cover =
+    typeof item.image === "string" && /^https?:\/\//i.test(item.image) ? item.image : "";
+  return [
+    cover,
+    ...http(item.gallery),
+    ...http(item.chartImages),
+    ...http(item.descImages),
+    yupooAlbumUrl(item) || "",
+  ].join("\n");
+}
 
 /**
  * Paid read order for one hunt (Fix B/C reserved desc[0], 2026-08-03).
@@ -129,6 +164,19 @@ function acceptText(text, source) {
   };
 }
 
+// Abort-aware pause for the busy retry.
+function wait(ms, signal) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, ms);
+    function done() {
+      if (signal) signal.removeEventListener("abort", done);
+      clearTimeout(timer);
+      resolve();
+    }
+    if (signal) signal.addEventListener("abort", done, { once: true });
+  });
+}
+
 /**
  * Try one candidate: image-key cache first, then one paid vision read.
  * @returns {Promise<{ text: string, source: object } | null>}
@@ -224,9 +272,11 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
   pool = pool.concat(asCandidates(localPhotos, "gallery-photos"));
 
   // Last resort: fetch Product Details when the card never stored them.
+  let descFetched = false;
   if (!descPhotos.length && fetchDescImages) {
     const fetched = await fetchDescImages(item, { signal });
     if (signal && signal.aborted) return null;
+    descFetched = true;
     const fresh = (fetched || []).filter(
       (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !localPhotos.includes(src)
     );
@@ -234,7 +284,28 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     pool = pool.concat(asCandidates(fresh, "desc-photos"));
   }
 
-  const rankedAll = rankChartCandidates(pool);
+  let rankedAll = rankChartCandidates(pool);
+  // Weak pool: nothing scored like a chart. The stored desc list can predate
+  // a resolve improvement — resolve learned the folded-tail strips (type
+  // 10000) on 2026-08-04, and cards saved before that hold the page without
+  // its chart carrier. One re-resolve per hunt puts the real strip into the
+  // pool; the no-find stamp keeps the whole thing once per item
+  // (Kyle 2026-08-04: "WHY IS THIS SO INCONSISTENT").
+  if (!descFetched && fetchDescImages && rankedAll.length && (rankedAll[0].score || 0) < WEAK_POOL_SCORE) {
+    const fetched = await fetchDescImages(item, { signal });
+    if (signal && signal.aborted) return null;
+    const inPool = new Set(pool.map((c) => c.url));
+    const fresh = (fetched || []).filter(
+      (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !inPool.has(src)
+    );
+    if (fresh.length) {
+      // Append, never prepend: the reserved read keys on the ORIGINAL desc[0].
+      descPhotos = descPhotos.concat(fresh);
+      pool = pool.concat(asCandidates(fresh, "desc-photos"));
+      rankedAll = rankChartCandidates(pool);
+    }
+  }
+
   const ranked = rankedAll.slice(0, MAX_POOL);
   if (!ranked.length) return null;
 
@@ -258,9 +329,20 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
   const paidList = paidHuntCandidates(ranked, reserved, MAX_PAID_CANDIDATES);
 
   // One photo per paid read. Stop on the first validated chart.
+  let busyRetried = false;
   for (const candidate of paidList) {
     if (signal && signal.aborted) return null;
-    const hit = await tryCandidate(candidate, { signal, referer, shelfItems });
+    let hit = await tryCandidate(candidate, { signal, referer, shelfItems });
+    // A transient unavailable (the concurrency limiter's Busy, a 502, a
+    // timeout) ended hunts that were one moment away from a chart — Kyle
+    // 2026-08-04: "WHY IS THIS SO INCONSISTENT." Retry once per hunt. The
+    // retry costs nothing: a refused request never reaches the meter.
+    if (hit && hit.unavailable && !busyRetried) {
+      busyRetried = true;
+      await wait(2000, signal);
+      if (signal && signal.aborted) return null;
+      hit = await tryCandidate(candidate, { signal, referer, shelfItems });
+    }
     if (hit && hit.authRequired) return { authRequired: true };
     if (hit && hit.capReached) return { capReached: true };
     if (hit && hit.unavailable) return { unavailable: true };

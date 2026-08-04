@@ -230,8 +230,11 @@ describe("descImageUrls (Weidian Product Details photos)", () => {
       { type: 1, text: "not a photo" },
       { type: 2, url: "javascript:alert(1)" },
     ]);
+    // The type-10000 folded strip rides in page order (Kyle 2026-08-04: the
+    // fold is where the long chart strip lives).
     expect(urls).toEqual([
       "https://si.geilicdn.com/a_467_207.jpg",
+      "https://si.geilicdn.com/folded.png",
       "https://si.geilicdn.com/b_800_800.jpg",
     ]);
   });
@@ -258,6 +261,7 @@ describe("descImageUrls (Weidian Product Details photos)", () => {
       "https://si.geilicdn.com/chart_1.jpg",
       "https://si.geilicdn.com/chart_2.jpg",
       "https://si.geilicdn.com/full.jpg",
+      "https://si.geilicdn.com/legal.png",
     ]);
   });
 

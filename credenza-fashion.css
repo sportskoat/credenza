@@ -12539,7 +12539,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   line-height: 1.65;
 }
 .cz-empty-panel-title {
-  font-family: var(--cz-display, Georgia, "Times New Roman", serif);
+  font-family: var(--cz-display);
   font-size: 21px;
   line-height: 1.2;
   color: var(--cz-ink);

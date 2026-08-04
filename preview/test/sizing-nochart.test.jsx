@@ -22,7 +22,12 @@ const { huntMock, urlReadMock, fileReadMock, createObjectUrlMock, revokeObjectUr
   revokeObjectUrlMock: vi.fn(),
 }));
 
-vi.mock("../../components/size-chart-hunt.js", () => ({ huntSizeChart: huntMock }));
+vi.mock("../../components/size-chart-hunt.js", async () => {
+  const actual = await vi.importActual("../../components/size-chart-hunt.js");
+  // Keep the real fingerprint + version: the hook reads them to skip a
+  // stamped miss. Only the hunt itself is stubbed.
+  return { ...actual, huntSizeChart: huntMock };
+});
 
 // Spy on the two vision doors without losing the rest of the module: the
 // sizing block reads a dozen other exports from it.
@@ -293,7 +298,11 @@ describe("§3 read and confirm", () => {
     expect(await screen.findByText("COULD NOT READ")).toBeInTheDocument();
     expect(screen.getByText(/whole table in frame/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try another photo" })).toBeInTheDocument();
-    expect(onSaveEdit).not.toHaveBeenCalled();
+    // The failed photo read saves nothing. The one allowed save is the silent
+    // hunt's no-find stamp (Kyle 2026-08-04) — it carries no chart text.
+    expect(
+      onSaveEdit.mock.calls.filter(([, patch]) => patch && !patch.sizeChartHunt)
+    ).toHaveLength(0);
   });
 
   it("Try another photo re-opens the file picker after a failed read", async () => {

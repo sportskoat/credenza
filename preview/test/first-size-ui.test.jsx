@@ -251,6 +251,16 @@ describe("A4 · skipped", () => {
     expect(screen.queryByText(/no size available/i)).toBeNull();
     expect(screen.getByText(/chart is read and ready/i)).toBeInTheDocument();
   });
+
+  // Kyle 2026-08-04: the skipped state said "chart is read and ready" on a
+  // listing with NO chart. The copy must follow the same split as ask1.
+  it("never claims a chart is ready when the listing has none", async () => {
+    const user = userEvent.setup();
+    mount({ chart: null, onSkip: vi.fn() });
+    await user.click(screen.getByRole("button", { name: FIRST_SIZE_COPY.skip }));
+    expect(screen.queryByText(/chart is read and ready/i)).toBeNull();
+    expect(screen.getByText(FIRST_SIZE_COPY.skippedBodyNoChart)).toBeInTheDocument();
+  });
 });
 
 describe("the tape path", () => {

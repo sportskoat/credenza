@@ -65,7 +65,7 @@ import {
 } from "../credenza-fashion.jsx";
 import { normalizeFindStatus } from "../credenza-find-status.js";
 import { fitMeasureFieldsFor, FitPrefAxis } from "./SizeRecommendation.jsx";
-import { huntSizeChart } from "./size-chart-hunt.js";
+import { huntSizeChart, chartHuntFingerprint, CHART_HUNT_VERSION } from "./size-chart-hunt.js";
 import { chartImageKey, rememberChartImage, validateChartResult } from "./chart-pipeline.js";
 import { AlbumLinksRow, SellerLink } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
@@ -90,6 +90,8 @@ const SAVED_HOLD_MS = 1400;
 
 // One chart hunt per item per session — the vision read costs money, and a
 // "no chart found" answer is stable enough for a session (2026-07-25).
+// Across reloads the sizeChartHunt stamp on the item carries the same answer
+// (Kyle 2026-08-04: a reload must never re-spend the reads).
 const chartHuntTried = new Set();
 
 // The tap that opened the editor is the focus intent, so the input takes
@@ -127,6 +129,20 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
     if (!enabled) return;
     if (chart || SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return;
     if (chartHuntTried.has(item.id)) return;
+    // Kyle 2026-08-04: a finished hunt that found nothing stamps the item.
+    // While the stamp matches the photos the hunt would read, skip — a page
+    // reload must never re-spend the reads. New photos change the print and
+    // earn one fresh hunt. The stamp rides the item into cloud sync.
+    // The version moves when the pipeline gets smarter on the SAME photos:
+    // a stamp from before the folded-strip read would hide a real chart
+    // forever, so a stale version earns one fresh hunt too.
+    const fp = chartHuntFingerprint(item);
+    if (
+      item.sizeChartHunt &&
+      item.sizeChartHunt.fp === fp &&
+      item.sizeChartHunt.v === CHART_HUNT_VERSION
+    )
+      return;
     let cancelled = false;
     const controller = new AbortController();
     setHunting(true);
@@ -167,9 +183,21 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
           onSaveEdit(item.id, {
             sizeChartText: text,
             sizeChartNeedsClear: false,
+            // A find clears any old no-find stamp. If the chart is later
+            // cleared by hand, nothing blocks a fresh hunt.
+            sizeChartHunt: null,
             ...(found && found.source
               ? { sizeChartSource: { ...found.source, at: new Date().toISOString() } }
               : {}),
+          });
+        } else {
+          // Kyle 2026-08-04: "we can't charge for repopulating the chart!"
+          // Stamp the miss on the item itself, so a page reload reads the
+          // stamp and skips the hunt instead of spending up to three more
+          // paid reads. The stamp syncs to the cloud with the item. The
+          // blocked outcomes above never stamp — a retry there is wanted.
+          onSaveEdit(item.id, {
+            sizeChartHunt: { at: new Date().toISOString(), fp, v: CHART_HUNT_VERSION },
           });
         }
       } finally {

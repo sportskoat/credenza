@@ -152,16 +152,22 @@ export function scoreChartCandidate(candidate) {
     // Use w/h (not max aspect) so exact product squares stay unboosted
     // while mildly landscape padded tables (common seller charts) rise.
     const wh = w / h;
-    const aspect = Math.max(wh, h / w);
 
     // Padded-square band: w/h 1.02–1.35. Pin edges so 1.000 / 1.006 product
     // shots never swallow the chart at 1.046 (weidian 7503676779 fixture).
     if (wh >= 1.02 && wh <= 1.35) score += 20;
     // Classic landscape tables — wider than padded-square, not a banner.
     else if (wh > 1.35 && wh <= 2.2) score += 20;
-    // Banner / contact strip (WhatsApp CS cards often ~2.3+). Demote so they
-    // do not burn a paid read slot ahead of real tables.
-    if (aspect > 2.2) score -= 25;
+    // Wide banner / contact strip (WhatsApp CS cards often ~2.3+ wide).
+    // Demote so they do not burn a paid read slot ahead of real tables.
+    if (wh > 2.2) score -= 25;
+    // Tall stacked strip: the seller folded the whole lower page — size
+    // tables included — into one long PNG (weidian type-10000 blocks). The
+    // demote used to be symmetric, so the single best chart carrier on the
+    // page scored below zero and left the pool (Kyle 2026-08-04, weidian
+    // 7636215363: a 2250x4929 strip holding three size charts). Boost the
+    // strip into the paid set instead.
+    if (h / w >= 2 && h >= 1800) score += 30;
 
     const edge = Math.max(w, h);
     // Small edge vs typical product shots (often 1500–2000px) is the main

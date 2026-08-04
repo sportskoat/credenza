@@ -89,6 +89,47 @@ describe("the driver keeps the bar honest (Kyle 2026-08-04)", () => {
 });
 
 
+describe("the strip leaves when the job is done (Kyle 2026-08-04)", () => {
+  // Kyle: "indexign stays on even when done indexing." The exit effect armed
+  // its fade/clear timers and returned a cleanup that cancelled them. The
+  // completion sweep ticks every 100ms, each tick re-ran the effect, the
+  // cleanup cancelled the pending exit, and the armed flag blocked every
+  // later try — the strip stayed on screen with INDEXED forever.
+  const exitEffect = () => {
+    const at = APP.indexOf("const indexExitTimersRef = useRef(null);");
+    expect(at, "the exit timer ref is gone").toBeGreaterThan(-1);
+    return APP.slice(at, APP.indexOf("// Unmount only:", at));
+  };
+
+  it("arms the exit with no cleanup that could cancel it", () => {
+    const body = exitEffect();
+    expect(body).not.toMatch(/return \(\) => \{/);
+    expect(body).toContain("indexExitTimersRef.current = { fade, clear };");
+  });
+
+  it("cancels a pending exit only on a real disarm: empty, live, or failed", () => {
+    const body = exitEffect();
+    const cancels = body.match(/cancelExit\(\);/g) || [];
+    // One inside cancelExit's own definition is not a call site; the three
+    // disarm paths are: no jobs, a live row, a failed row.
+    expect(cancels.length).toBe(3);
+    expect(body.indexOf("cancelExit();")).toBeGreaterThan(body.indexOf("if (!indexJobs.length)"));
+  });
+
+  it("keeps a link pasted inside the exit window", () => {
+    // The clear used to empty the whole map; a fresh paste in the 750ms
+    // window vanished with the finished rows. Only settled rows leave.
+    const body = exitEffect();
+    expect(body).toContain("jobs.filter((j) => !isSettled(j))");
+  });
+
+  it("clears the timers on unmount", () => {
+    const at = APP.indexOf("// Unmount only: never fire a stray setState from a pending exit timer.");
+    expect(at, "the unmount guard is gone").toBeGreaterThan(-1);
+  });
+});
+
+
 describe("the field treatment matches the handoff values", () => {
   it("lays the green wash at the handoff's strength", () => {
     expect(ruleBody(".cz-desk-index-wash")).toMatch(/background:\s*rgba\(74, 222, 128, 0\.07\)/);
