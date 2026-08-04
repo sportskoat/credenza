@@ -82,11 +82,33 @@ const state = await page.evaluate(() => {
 record("stage label reads FETCHING LINK", state.stage === "FETCHING LINK", "stage=" + state.stage);
 record("platform tile carries the W", state.tile === "W", "tile=" + state.tile);
 record("the pasted URL sits in the field", state.url === LINK, "url=" + state.url);
-record("the green wash is filling", state.wash !== null && state.wash > 0 && state.wash <= 20, "wash=" + state.wash + "%");
+record("the green wash is filling", state.wash !== null && state.wash > 3 && state.wash <= 30, "wash=" + state.wash + "%");
 record("the 2px bar matches the wash", state.bar === state.wash, "bar=" + state.bar + "% vs wash=" + state.wash + "%");
 record("Stash is inert at 0.56", state.stashDisabled === true && state.stashOpacity === "0.56",
   "disabled=" + state.stashDisabled + " opacity=" + state.stashOpacity);
 record("the search input is out of the field", state.inputGone === true, "inputGone=" + state.inputGone);
+
+// Kyle 2026-08-04: "one consistent animation — it jumps from 1/3 of the way
+// there all the way to end." Sample the bar every 100ms: a glide moves a
+// little almost every sample and never goes backward; a stepper holds one
+// value for whole seconds.
+const samples = [];
+for (let i = 0; i < 14; i++) {
+  samples.push(
+    await page.evaluate(() => {
+      const el = document.querySelector(".cz-desk-index-bar");
+      return el ? el.getBoundingClientRect().width : -1;
+    })
+  );
+  await page.waitForTimeout(100);
+}
+const distinct = new Set(samples.map((w) => Math.round(w))).size;
+const monotonic = samples.every((w, i) => i === 0 || w >= samples[i - 1] - 0.5);
+record(
+  "the bar glides — new position nearly every 100ms, never backward",
+  distinct >= 8 && monotonic,
+  distinct + " distinct positions over 1.4s, monotonic=" + monotonic
+);
 
 await page.screenshot({ path: ".verify-shots/index-field-fetching.png" });
 const bar = await page.locator(".cz-desk-capture").boundingBox();

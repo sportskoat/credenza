@@ -78,12 +78,12 @@ describe("the field treatment matches the handoff values", () => {
     expect(bar).toMatch(/background:\s*var\(--cz-money\)/);
   });
 
-  it("moves both on the house curve, on the motion tokens", () => {
-    // The handoff says 250ms on cubic-bezier(0.23, 1, 0.32, 1). Those exact
-    // values are the --dur-open and --ease-out tokens, and the house rule is
-    // that durations ride tokens, never bare literals.
+  it("smooths every 100ms tick into one continuous glide", () => {
+    // The driver writes a new width every 100ms. A 120ms linear tween spans
+    // the gap between ticks; anything longer lags behind the driver and the
+    // bar steps — the jump Kyle saw.
     for (const body of [ruleBody(".cz-desk-index-wash"), ruleBody(".cz-desk-index-bar")]) {
-      expect(body).toMatch(/transition:\s*width var\(--dur-open\) var\(--ease-out\)/);
+      expect(body).toMatch(/transition:\s*width var\(--dur-press\) linear/);
     }
   });
 

@@ -6756,6 +6756,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   display: block;
   height: 2px;
   background: var(--cz-money);
+  /* Same glide as the paste bar: the driver writes a new width every
+     100ms and a 120ms linear tween spans the gap between ticks. */
+  transition: width var(--dur-press) linear;
 }
 
 .cz-index-row.is-failed .cz-index-fill {
@@ -7317,8 +7320,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   bottom: 0;
   z-index: 0;
   background: rgba(74, 222, 128, 0.07);
-  /* The handoff's 250ms on the house curve — those are exactly the tokens. */
-  transition: width var(--dur-open) var(--ease-out);
+  /* The driver writes a new width every 100ms; a 120ms linear tween spans
+     the gap between ticks, so the bar glides continuously instead of
+     stepping (Kyle 2026-08-04: "one consistent animation"). */
+  transition: width var(--dur-press) linear;
   pointer-events: none;
 }
 
@@ -7328,7 +7333,7 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   bottom: 0;
   height: 2px;
   background: var(--cz-money);
-  transition: width var(--dur-open) var(--ease-out);
+  transition: width var(--dur-press) linear;
   pointer-events: none;
 }
 

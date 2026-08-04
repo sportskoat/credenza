@@ -156,6 +156,7 @@ import HeroStagger from "./components/HeroStagger.jsx";
 import IntroStrip from "./components/IntroStrip.jsx";
 import IndexingStrip from "./components/IndexingStrip.jsx";
 import {
+  advanceProgress,
   failReasonFor,
   gainedNothing,
   headerFor,
@@ -163,7 +164,6 @@ import {
   parseLinkMeta,
   platformTile,
   rowStageLabel,
-  stageProgress,
   visibleRows,
 } from "./components/indexing.js";
 import { SITE_NAV } from "./components/site-nav.js";
@@ -9076,13 +9076,15 @@ function CredenzaApp() {
           continue;
         }
         const fill = Math.min(job.thumbs.length, job.photoTotal || 8);
+        // Neither settle writes progress: the 100ms tick glides the bar to
+        // full from wherever it stands. A raw progress: 1 here was the jump
+        // Kyle saw — a third of the bar to the end in one frame.
         if (gainedNothing(item, job.bornTitle)) {
           next.push({
             ...job,
             state: "failed",
             failReason: failReasonFor(item),
             revealed: fill,
-            progress: 1,
             shown: true,
             doneAt: Date.now(),
           });
@@ -9091,7 +9093,6 @@ function CredenzaApp() {
             ...job,
             state: "indexed",
             revealed: fill,
-            progress: 1,
             shown: true,
             doneAt: Date.now(),
           });
@@ -9133,22 +9134,28 @@ function CredenzaApp() {
 
   useEffect(() => {
     if (!indexJobs.length) return;
+    // 100ms tick. The bar eases on every tick (advanceProgress), which is
+    // what makes the motion read as one continuous glide instead of steps —
+    // Kyle 2026-08-04: "the green bar should be one consistent animation."
+    // Photo reveals keep their own 250ms cadence inside the tick, so the
+    // left-to-right cascade pace the design set does not change. Settled
+    // jobs stay in the map so the completion sweep plays out on screen.
     const tick = window.setInterval(() => {
       setIndexJobs((jobs) => {
         if (!jobs.length) return jobs;
         const now = Date.now();
-        let changed = false;
+        let anyChanged = false;
         const next = jobs.map((job) => {
-          if (job.state === "indexed" || job.state === "failed") return job;
-          let { revealed } = job;
-          // One photo per tick — a resolve that lands all eight at once still
-          // fills left to right, never in a single frame.
-          if (revealed < job.thumbs.length) {
+          let changed = false;
+          let { revealed, lastRevealAt } = job;
+          // One photo per 250ms — a resolve that lands all eight at once
+          // still fills left to right, never in a single frame.
+          if (revealed < job.thumbs.length && now - (lastRevealAt || 0) >= 250) {
             revealed += 1;
+            lastRevealAt = now;
             changed = true;
           }
-          const target = stageProgress({ ...job, revealed, photoTotal: job.photoTotal || 8 });
-          const progress = Math.max(job.progress, target);
+          const progress = advanceProgress({ ...job, revealed, photoTotal: job.photoTotal || 8 });
           if (progress !== job.progress) changed = true;
           const slowTail = job.state === "photos" && now - job.startedAt > 15000;
           if (slowTail !== !!job.slowTail) changed = true;
@@ -9157,11 +9164,12 @@ function CredenzaApp() {
           const shown = job.shown || now - job.createdAt >= 400;
           if (shown !== job.shown) changed = true;
           if (!changed) return job;
-          return { ...job, revealed, progress, slowTail, shown };
+          anyChanged = true;
+          return { ...job, revealed, lastRevealAt, progress, slowTail, shown };
         });
-        return changed ? next : jobs;
+        return anyChanged ? next : jobs;
       });
-    }, 250);
+    }, 100);
     return () => window.clearInterval(tick);
   }, [indexJobs.length]);
 
@@ -9176,16 +9184,17 @@ function CredenzaApp() {
     // When failures are present the strip does not auto-dismiss: it stays
     // until each one is retried or dismissed.
     if (indexJobs.some((j) => j.state === "failed")) return;
+    // Let the completion sweep finish on screen first: the bar glides to
+    // full over ~900ms, and a strip that leaves mid-sweep reads as a jump.
+    if (!indexJobs.every((j) => (j.progress || 0) >= 0.985)) return;
     if (indexExitArmedRef.current) return;
     indexExitArmedRef.current = true;
-    const lastDone = Math.max(...indexJobs.map((j) => j.doneAt || 0));
-    const hold = Math.max(0, 600 - (Date.now() - lastDone));
-    const fade = window.setTimeout(() => setIndexExiting(true), hold);
+    const fade = window.setTimeout(() => setIndexExiting(true), 500);
     const clear = window.setTimeout(() => {
       setIndexJobs([]);
       setIndexExiting(false);
       indexExitArmedRef.current = false;
-    }, hold + 250);
+    }, 750);
     return () => {
       window.clearTimeout(fade);
       window.clearTimeout(clear);

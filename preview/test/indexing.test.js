@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   FAIL_COPY,
+  advanceProgress,
   failCopy,
   failReasonFor,
   gainedNothing,
@@ -133,6 +134,49 @@ describe("stageProgress", () => {
   it("ends full on indexed and failed", () => {
     expect(stageProgress({ state: "indexed" })).toBe(1);
     expect(stageProgress({ state: "failed" })).toBe(1);
+  });
+});
+
+// advanceProgress is the bar's motion (Kyle 2026-08-04: "one consistent
+// animation — it jumps from 1/3 of the way there all the way to end"). The
+// driver calls it every 100ms; these pin the glide.
+describe("advanceProgress", () => {
+  it("eases toward the stage target instead of stepping to it", () => {
+    const next = advanceProgress({ state: "fetching", progress: 0.02 });
+    expect(next).toBeGreaterThan(0.02);
+    expect(next).toBeLessThan(0.16);
+  });
+
+  it("keeps creeping when the bar has caught up with reality", () => {
+    // A slow read must never leave the bar parked.
+    const next = advanceProgress({ state: "fetching", progress: 0.16 });
+    expect(next).toBeCloseTo(0.166);
+  });
+
+  it("never outruns the stage the link is actually in", () => {
+    let job = { state: "fetching", progress: 0.02 };
+    for (let i = 0; i < 500; i++) job = { ...job, progress: advanceProgress(job) };
+    expect(job.progress).toBeLessThanOrEqual(0.28);
+    expect(job.progress).toBeGreaterThan(0.27); // it did keep moving
+  });
+
+  it("never rewinds, even when a stale event lowers the target", () => {
+    expect(
+      advanceProgress({ state: "photos", revealed: 0, photoTotal: 8, progress: 0.5 })
+    ).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it("sweeps to full on completion — no teleport", () => {
+    const first = advanceProgress({ state: "indexed", progress: 0.3 });
+    expect(first).toBeGreaterThan(0.3);
+    expect(first).toBeLessThan(1);
+    let job = { state: "indexed", progress: 0.3 };
+    for (let i = 0; i < 200; i++) job = { ...job, progress: advanceProgress(job) };
+    expect(job.progress).toBe(1);
+  });
+
+  it("sits still once full, so the driver stops re-rendering", () => {
+    expect(advanceProgress({ state: "indexed", progress: 1 })).toBe(1);
   });
 });
 

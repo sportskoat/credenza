@@ -136,6 +136,39 @@ export function stageProgress(rec) {
   }
 }
 
+// How far the bar may go inside each state. The bar eases toward the stage
+// target and keeps creeping while it waits, but it never outruns the stage
+// the link is actually in — only a genuine completion reaches 1. Kyle
+// 2026-08-04: "the green bar should be one consistent animation, it jumps
+// from 1/3 of the way there all the way to end." The jump was the settle
+// frame writing progress: 1 outright; the bar now glides everywhere.
+const BAR_CEILING = { queued: 0.05, fetching: 0.28, photos: 0.78, sizing: 0.92 };
+
+// One tick of the bar. The driver calls this every 100ms.
+//  - live:    ease a fifth of the way to the stage target; when the bar has
+//             caught up with reality, creep toward the ceiling so it never
+//             stalls mid-stage (a slow read still moves)
+//  - settled: a faster, confident sweep to full — no teleport
+// The bar only moves forward: a stale event cannot rewind it.
+export function advanceProgress(rec) {
+  if (!rec) return 0;
+  const current = rec.progress || 0;
+  const settled = isSettled(rec);
+  const ceiling = BAR_CEILING[rec.state];
+  const target = settled ? 1 : Math.min(stageProgress(rec), ceiling == null ? 1 : ceiling);
+  let next = current + (target - current) * (settled ? 0.45 : 0.22);
+  // Caught up with reality: creep toward the ceiling so a slow read never
+  // parks the bar mid-stage. The ceiling is the guard — the bar may fill a
+  // stage, never leave it.
+  if (!settled && ceiling != null && current >= target - 0.004 && current < ceiling) {
+    next = Math.max(next, current + 0.006);
+  }
+  // The ease is asymptotic; without the snap the bar would park at 0.999.
+  if (settled && next > 0.995) next = 1;
+  next = Math.min(next, settled ? 1 : ceiling == null ? 1 : Math.max(ceiling, target));
+  return Math.max(current, Math.round(next * 1000) / 1000);
+}
+
 export function isSettled(rec) {
   return rec.state === "indexed" || rec.state === "failed";
 }
