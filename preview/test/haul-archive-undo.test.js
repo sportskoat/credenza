@@ -31,13 +31,16 @@ function ruleBody(selector) {
   return DECLS.slice(open + 1, close);
 }
 
-// The whole onArchive handler, from its name to the closing of the board.
-// The end marker is the steps-page mount — HaulSteps replaced HaulFlowBoard
-// there (STEPS-HANDOFF item 2), and the handler still sits just above it.
+// The whole onArchive handler, from its name to the end of the toast call.
+// The slice used to run to the steps-page mount. The haul sharing redesign
+// (2026-08) put a second HaulTitleMenu beside the first — same handler shape,
+// one per header layout — so that span now covers code the assertions never
+// meant to read. The toast call is the handler's last act; ending there keeps
+// every assertion on the code it was written for.
 function archiveHandler() {
   const start = APP.indexOf("onArchive={() => {");
   if (start === -1) return "";
-  const end = APP.indexOf("<HaulSteps", start);
+  const end = APP.indexOf("duration: 3000,", start);
   return end === -1 ? APP.slice(start) : APP.slice(start, end);
 }
 

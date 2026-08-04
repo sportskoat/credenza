@@ -300,7 +300,7 @@ function round2(value) {
 }
 
 // One haul item, reduced to what the include chips allow. `review` is the
-// author's capture for the item: { note, rebuy, rating, photos } — every
+// author's capture for the item: { note, rebuy, rating, run, photos } — every
 // field optional, and unset fields stay ABSENT, never empty strings.
 function haulShareItem(item, includes, helpers) {
   if (!item || typeof item !== "object") return null;
@@ -373,6 +373,11 @@ function haulShareItem(item, includes, helpers) {
       if (review.rebuy === true || review.rebuy === false) card.rebuy = review.rebuy;
       const rating = Number(review.rating);
       if (Number.isFinite(rating) && rating >= 1 && rating <= 10) card.rating = Math.round(rating);
+      // How the piece ran on the author: "small" | "true" | "large", only
+      // when the author answered. Anything else is dropped.
+      if (review.run === "small" || review.run === "true" || review.run === "large") {
+        card.run = review.run;
+      }
       const ownPhotos = (Array.isArray(review.photos) ? review.photos : [])
         .map(safeImage)
         .filter(Boolean)

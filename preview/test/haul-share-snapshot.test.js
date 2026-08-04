@@ -181,6 +181,14 @@ describe("the review capture fields", () => {
     expect(build({}, [{ ...ITEM, review: { rating: 11 } }]).items[0].rating).toBeUndefined();
     expect(build({}, [{ ...ITEM, review: { rating: 0 } }]).items[0].rating).toBeUndefined();
   });
+
+  it("carries the run answer and drops anything else", () => {
+    expect(build({}, [{ ...ITEM, review: { run: "small" } }]).items[0].run).toBe("small");
+    expect(build({}, [{ ...ITEM, review: { run: "true" } }]).items[0].run).toBe("true");
+    expect(build({}, [{ ...ITEM, review: { run: "large" } }]).items[0].run).toBe("large");
+    expect(build({}, [{ ...ITEM, review: { run: "huge" } }]).items[0].run).toBeUndefined();
+    expect(build({}, [{ ...ITEM, review: {} }]).items[0].run).toBeUndefined();
+  });
 });
 
 describe("the intro line", () => {

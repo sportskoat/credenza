@@ -59,7 +59,9 @@ import {
   CATEGORY_TO_WEIGHT_KEY,
   estimateItemWeightGrams,
   estimateHaulWeightGrams,
+  refineWeightKeyFromText,
 } from "./weight-estimate.js";
+import { buildSharedFit } from "./haul-fit-share.js";
 import {
   AUTH_ENABLED,
   saveSession,
@@ -82,7 +84,13 @@ import {
 } from "./preview/src/account.js";
 import { overFreeLimit, bumpUsage, planLimit, onUsageChange, PRO_LIMITS, PLAN_CAPS, usageAudience } from "./preview/src/usage.js";
 import { limitStatus, ANON_FREE_CARDS } from "./preview/src/limits.js";
-import { buildShareSnapshot, makeShareCode, expiryFromDays, shareUrl } from "./credenza-share.js";
+import {
+  buildShareSnapshot,
+  buildHaulShareSnapshot,
+  makeShareCode,
+  expiryFromDays,
+  shareUrl,
+} from "./credenza-share.js";
 import { shareItemCard } from "./credenza-item-share.js";
 import { createShare, listShares, deleteShare, copyLink } from "./preview/src/share-api.js";
 import { SYNC_READY, pullShelf, createShelfPusher, deleteRemoteShelf } from "./preview/src/sync.js";
@@ -107,6 +115,9 @@ const ImportSheet = lazy(() => import("./sheets/ImportSheet.jsx"));
 const SettingsPage = lazy(() => import("./settings/SettingsPage.jsx"));
 const AvatarMenu = lazy(() => import("./components/AvatarMenu.jsx"));
 const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));
+// Haul sharing redesign: review capture + share sheet (handoff 2b · ii–v).
+const HaulReviewSheet = lazy(() => import("./sheets/HaulReviewSheet.jsx"));
+const HaulShareSheet = lazy(() => import("./sheets/HaulShareSheet.jsx"));
 // One sheet for every limit wall (Kyle 2026-07-30). Lazy: it opens on a tap or
 // at a wall, never on the first paint.
 const LimitsSheet = lazy(() => import("./sheets/LimitsSheet.jsx"));
@@ -6252,6 +6263,8 @@ function CredenzaApp() {
   // LB-8: the share sheet, open on one named haul. A string, not a boolean —
   // the sheet needs to know WHICH haul, and the name is the haul's identity.
   const [shareHaulName, setShareHaulName] = useState(null);
+  // Haul sharing redesign: review capture sheet for a fully received haul.
+  const [reviewHaulName, setReviewHaulName] = useState(null);
   // Account (Part 7e): the Supabase session on this device + the decoded
   // entitlement snapshot (plan badge, limits). Both null when signed out or
   // when AUTH_ENABLED is false (env missing → no account UI at all).
@@ -9928,6 +9941,8 @@ function CredenzaApp() {
 
   // Build, post, answer with the URL. Throws with the server's message so the
   // sheet can print it — an over-cap or offline share is a normal outcome.
+  // Legacy v1 shelf share (ShareSheet.jsx). Kept for non-received hauls that
+  // still open the old sheet through the menu.
   const createHaulShare = useCallback(
     async (options) => {
       const session = await getValidSession();
@@ -9951,6 +9966,145 @@ function CredenzaApp() {
       return result.url;
     },
     [shareHaulName, shareItemsFor]
+  );
+
+  // Fully received hauls use the v2 haul share document (buildHaulShareSnapshot).
+  const haulIsFullyReceived = useMemo(() => {
+    if (!openHaulName || !haulShip) return false;
+    if (haulShip.submitted !== true) return false;
+    const step = Number(haulShip.milestone);
+    return Number.isFinite(step) && step >= RECEIVED_INDEX;
+  }, [openHaulName, haulShip]);
+
+  const buildHaulShareDoc = useCallback(
+    (options = {}) => {
+      const name = shareHaulName || openHaulName;
+      // Normalize shelf cards into the fields the v2 snapshot expects.
+      const list = shareItemsFor(name).map((item) => {
+        const gallery = Array.isArray(item.gallery) ? item.gallery : [];
+        const photos = Array.isArray(item.photos) && item.photos.length
+          ? item.photos
+          : [item.image, ...gallery].filter(Boolean);
+        return {
+          ...item,
+          photos,
+          albumUrl:
+            item.albumUrl ||
+            (Array.isArray(item.links)
+              ? (item.links.find((l) => l && l.role === "photos") || {}).url
+              : null),
+          seller: item.seller || item.shop || "",
+        };
+      });
+      const record = hauls.find((h) => h.name === name) || null;
+      const ship = record && record.ship ? migrateHaulShip(record.ship) : null;
+      const maths = parcelMaths({
+        items: list.map((item) =>
+          toHaulItem(item, {
+            estGrams: item.weightGrams,
+            priceUsd: itemUsdAmount(item),
+          })
+        ),
+        packagingGrams: ship ? ship.packagingGrams : undefined,
+        divisor: ship ? ship.divisor : undefined,
+        rates: ship ? ship.rates : undefined,
+      });
+      const line = ship && ship.line ? ship.line : "EMS";
+      const costUsd =
+        maths && maths.costs && maths.costs[line] != null ? maths.costs[line] : null;
+      const shipOpts =
+        ship && Number.isFinite(Number(costUsd)) && Number(costUsd) > 0
+          ? {
+              line,
+              costUsd: Number(costUsd),
+              chargeableG: maths.chargeableG,
+              domesticUsd: ship.domesticUsd,
+            }
+          : ship
+            ? {
+                line: ship.line || undefined,
+                chargeableG: maths.chargeableG,
+                domesticUsd: ship.domesticUsd,
+              }
+            : null;
+      const orderedAt =
+        ship && Array.isArray(ship.milestoneAt) && ship.milestoneAt[0]
+          ? ship.milestoneAt[0]
+          : null;
+      const receivedAt =
+        ship && Array.isArray(ship.milestoneAt) && ship.milestoneAt[RECEIVED_INDEX]
+          ? ship.milestoneAt[RECEIVED_INDEX]
+          : null;
+      const agentName =
+        (preferredAgentInfo && preferredAgentInfo.name) ||
+        (getAgent(preferredAgent) || {}).name ||
+        null;
+      return buildHaulShareSnapshot(list, {
+        includes: options.includes,
+        layout: options.layout || "both",
+        title: name,
+        now: Date.now(),
+        agent: agentName,
+        ship: shipOpts,
+        orderedAt,
+        receivedAt,
+        profile: bodyProfile,
+        buyUrlFor: (item) => {
+          const url = item && (item.url || item.storeUrl);
+          if (!url) return null;
+          const result = buildAgentUrl(preferredAgent, url);
+          return result && result.url ? result.url : null;
+        },
+        fitFor: (item) => {
+          const chart = parseSizeChart(sizeChartTextFor(item));
+          const recommended = computeRecommendedSize(item, bodyProfile, fitPrefs);
+          return buildSharedFit({
+            category: item.category,
+            sizeBought: item.size,
+            chart,
+            profile: bodyProfile,
+            recommendedSize: recommended,
+          });
+        },
+        weightKeyFor: (item) =>
+          refineWeightKeyFromText(
+            [item && item.title, item && item.summary, item && item.note]
+              .filter(Boolean)
+              .join(" "),
+            item && item.category
+          ),
+      });
+    },
+    [
+      shareHaulName,
+      openHaulName,
+      shareItemsFor,
+      hauls,
+      preferredAgent,
+      preferredAgentInfo,
+      bodyProfile,
+      fitPrefs,
+    ]
+  );
+
+  const createHaulShareV2 = useCallback(
+    async (options) => {
+      const session = await getValidSession();
+      if (!session) {
+        setAccountSession(null);
+        throw new Error("Your sign-in expired. Sign in again first.");
+      }
+      const doc = options.doc || buildHaulShareDoc(options);
+      const result = await createShare(session.accessToken, {
+        code: makeShareCode(),
+        doc,
+        unlisted: false,
+        hideFooter: false,
+        expiresAt: null,
+      });
+      return result.url;
+    },
+    [buildHaulShareDoc]
   );
 
   // Profile → Shared links. The list comes from the server, because a link
@@ -11534,10 +11688,23 @@ function CredenzaApp() {
         </Suspense>
       )}
 
-      {/* Share a haul (LB-8). One sheet, opened on one named haul. It holds
-          the draft toggles; the app owns the network call, because the sheet
-          must never see a token. */}
-      {shareHaulName && (
+      {/* Share a haul. Fully received hauls open the v2 redesign sheet; other
+          hauls keep the LB-8 shelf share. The app owns the network call. */}
+      {shareHaulName && haulIsFullyReceived && (
+        <Suspense fallback={null}>
+          <HaulShareSheet
+            haulName={shareHaulName}
+            items={shareHaulItems}
+            previewDoc={buildHaulShareDoc({ includes: undefined, layout: "both" })}
+            signedIn={AUTH_ENABLED && !!accountSession}
+            onBuildDoc={buildHaulShareDoc}
+            onCreate={createHaulShareV2}
+            onCopy={copyLink}
+            onClose={() => setShareHaulName(null)}
+          />
+        </Suspense>
+      )}
+      {shareHaulName && !haulIsFullyReceived && (
         <Suspense fallback={null}>
           <ShareSheet
             haulName={shareHaulName}
@@ -11551,6 +11718,20 @@ function CredenzaApp() {
               openUpgrade();
             }}
             onClose={() => setShareHaulName(null)}
+          />
+        </Suspense>
+      )}
+
+      {/* Per-item review capture for a fully received haul (handoff 2b · ii). */}
+      {reviewHaulName && (
+        <Suspense fallback={null}>
+          <HaulReviewSheet
+            items={shareItemsFor(reviewHaulName)}
+            bodyProfile={bodyProfile}
+            fitPrefs={fitPrefs}
+            onSaveItem={(id, patch) => updateItem(id, patch)}
+            onCompressPhoto={compressImageBlob}
+            onClose={() => setReviewHaulName(null)}
           />
         </Suspense>
       )}
@@ -12433,46 +12614,90 @@ function CredenzaApp() {
                 <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.2} />
                 All hauls
               </button>
-              <h2 className="cz-haul-open-title">{openHaulName}</h2>
-              {/* STEPS-HANDOFF item 4: the legacy header is gone — the
-                  counts line, the weight bar, the budget bar and the visible
-                  Share/Archive buttons. The steps page and the strip replaced
-                  the numbers; the three remaining actions live in the ⋯ menu
-                  on the title row. Share is still offered only on a haul that
-                  has cards (was LB-8). The archive closure is the one the
-                  strip used — close plus undo toast, unchanged. */}
-              <HaulTitleMenu
-                record={hauls.find((h) => h.name === openHaulName) || null}
-                canShare={totalsItems.length > 0}
-                onShare={() => setShareHaulName(openHaulName)}
-                onUpdate={(patch, historyEntry) => updateHaul(openHaulName, patch, historyEntry)}
-                onArchive={() => {
-                  const rec = hauls.find((h) => h.name === openHaulName);
-                  const next = !(rec && rec.archived);
-                  // Hold the name now. Archiving closes the board, and
-                  // openHaulName is empty by the time Undo runs.
-                  const name = openHaulName;
-                  updateHaul(name, { archived: next }, { type: next ? "archived" : "unarchived" });
-                  // Archiving hides the haul from the directory — leave it.
-                  if (next) closeHaul();
-                  // Kyle 2026-08-02: "archiving a haul should pull up a toast
-                  // for undo". Same shape as the stash undo above: an action
-                  // tone and three seconds. Undo puts the haul back in the
-                  // directory. It does not reopen the board.
-                  notify(next ? "Archived · " + name : "Back in your hauls · " + name, {
-                    tone: "action",
-                    actionLabel: "Undo",
-                    onAction: () => {
-                      updateHaul(
-                        name,
-                        { archived: !next },
-                        { type: next ? "unarchived" : "archived" }
-                      );
-                    },
-                    duration: 3000,
-                  });
-                }}
-              />
+              <div className="cz-haul-open-title-block">
+                <h2 className="cz-haul-open-title">{openHaulName}</h2>
+                {haulIsFullyReceived ? (
+                  <div className="cz-kicker cz-haul-open-kicker">
+                    RECEIVED · {totalsItems.length}{" "}
+                    {totalsItems.length === 1 ? "ITEM" : "ITEMS"}
+                  </div>
+                ) : null}
+              </div>
+              {/* Fully received: primary review, Share pill, ⋯ keeps budget +
+                  archive (share is no longer a menu item). Other hauls keep the
+                  existing menu-only Share path (LB-8). */}
+              {haulIsFullyReceived ? (
+                <div className="cz-haul-open-actions">
+                  <Pill primary onClick={() => setReviewHaulName(openHaulName)}>
+                    Write the review
+                  </Pill>
+                  <Pill
+                    onClick={() => setShareHaulName(openHaulName)}
+                    disabled={totalsItems.length === 0}
+                  >
+                    Share
+                  </Pill>
+                  <HaulTitleMenu
+                    record={hauls.find((h) => h.name === openHaulName) || null}
+                    canShare={false}
+                    onShare={() => setShareHaulName(openHaulName)}
+                    onUpdate={(patch, historyEntry) =>
+                      updateHaul(openHaulName, patch, historyEntry)
+                    }
+                    onArchive={() => {
+                      const rec = hauls.find((h) => h.name === openHaulName);
+                      const next = !(rec && rec.archived);
+                      const name = openHaulName;
+                      updateHaul(name, { archived: next }, {
+                        type: next ? "archived" : "unarchived",
+                      });
+                      if (next) closeHaul();
+                      notify(next ? "Archived · " + name : "Back in your hauls · " + name, {
+                        tone: "action",
+                        actionLabel: "Undo",
+                        onAction: () => {
+                          updateHaul(
+                            name,
+                            { archived: !next },
+                            { type: next ? "unarchived" : "archived" }
+                          );
+                        },
+                        duration: 3000,
+                      });
+                    }}
+                  />
+                </div>
+              ) : (
+                <HaulTitleMenu
+                  record={hauls.find((h) => h.name === openHaulName) || null}
+                  canShare={totalsItems.length > 0}
+                  onShare={() => setShareHaulName(openHaulName)}
+                  onUpdate={(patch, historyEntry) =>
+                    updateHaul(openHaulName, patch, historyEntry)
+                  }
+                  onArchive={() => {
+                    const rec = hauls.find((h) => h.name === openHaulName);
+                    const next = !(rec && rec.archived);
+                    const name = openHaulName;
+                    updateHaul(name, { archived: next }, {
+                      type: next ? "archived" : "unarchived",
+                    });
+                    if (next) closeHaul();
+                    notify(next ? "Archived · " + name : "Back in your hauls · " + name, {
+                      tone: "action",
+                      actionLabel: "Undo",
+                      onAction: () => {
+                        updateHaul(
+                          name,
+                          { archived: !next },
+                          { type: next ? "unarchived" : "archived" }
+                        );
+                      },
+                      duration: 3000,
+                    });
+                  }}
+                />
+              )}
             </div>
             {/* The steps page: the haul as five vertical steps beside the
                 sticky parcel rail (STEPS-HANDOFF item 2). Same props the

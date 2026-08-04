@@ -202,7 +202,12 @@ describe("the app shares the haul, not the view", () => {
 
   it("lazy-loads the sheet like every other sheet", () => {
     expect(app).toContain('const ShareSheet = lazy(() => import("./sheets/ShareSheet.jsx"));');
-    expect(app).toMatch(/\{shareHaulName && \(\s*\n\s*<Suspense fallback=\{null\}>/);
+    // The haul sharing redesign (2026-08) added a second sheet: fully received
+    // hauls open HaulShareSheet, other hauls keep ShareSheet. Both mount the
+    // same lazy way — behind Suspense, on the haul name.
+    expect(app).toContain('const HaulShareSheet = lazy(() => import("./sheets/HaulShareSheet.jsx"));');
+    expect(app).toMatch(/\{shareHaulName && haulIsFullyReceived && \(\s*\n\s*<Suspense fallback=\{null\}>/);
+    expect(app).toMatch(/\{shareHaulName && !haulIsFullyReceived && \(\s*\n\s*<Suspense fallback=\{null\}>/);
   });
 });
 
