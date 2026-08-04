@@ -12017,9 +12017,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    The avatar's dropdown. The two account decisions come first, as two doors:
    an account is free, and Pro costs money. Merging them into one row is what
    the old menu did wrong. The shelf switches follow, under a divider.
-   Kyle 2026-08-04: portals to document.body; JS sets fixed top/left/width
-   under the avatar. CSS only paints the card — no absolute anchor, so a
-   transformed masthead cannot trap or clip it. */
+   Kyle 2026-08-04: portals to .cz-app (theme tokens live there); JS sets
+   fixed top/left/width under the avatar. CSS only paints the card — no
+   absolute anchor, so a transformed masthead cannot trap or clip it. */
 
 .cz-avatar-menu {
   position: fixed;
@@ -12029,8 +12029,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   z-index: var(--z-sheet, 80);
   width: min(300px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
-  background: var(--cz-card-solid);
-  border: 1px solid var(--cz-hair);
+  /* Fallbacks: menu can briefly paint outside the token host; never transparent. */
+  background: var(--cz-card-solid, #0d0d10);
+  color: var(--cz-ink, #fafafa);
+  border: 1px solid var(--cz-hair, rgba(255, 255, 255, 0.1));
   border-radius: var(--radius-card, 16px);
   box-shadow: 0 18px 48px oklch(0 0 0 / 0.6);
   padding: 0;
