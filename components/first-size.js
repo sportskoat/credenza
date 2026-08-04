@@ -1,5 +1,6 @@
 // Phase 1 first-size chooser (F build program 2026-08-02).
-// Pure helpers: Guess / Measure / skip. Match-with-shirt is Phase 2.
+// Pure helpers: Guess / Measure / skip. Match-with-shirt is Phase 2
+// (components/brand-match.js + FirstSizeBlock match steps).
 //
 // EASE MAPPING (Close / Regular / Roomy → existing fit machinery, ONE domain):
 // Design 2a labeled targets +2 / +6 / +12 cm. Those numbers were illustrative.
@@ -109,6 +110,36 @@ export const FIRST_SIZE_USUAL_NO_CHART_PROV = {
   body: "This listing has no chart. The pick is your usual size.",
   upgrade: "Add your chest",
 };
+
+/**
+ * Provenance when Match names a brand tee (Phase 2 design B3).
+ * Rail is dynamic: "Chart pick · chest {n}cm". Body names the brand + size.
+ */
+export const FIRST_SIZE_BRAND_MATCH_PROV = {
+  kicker: "AI size",
+  upgrade: "Measure it properly",
+  provTail: "to lock it in.",
+};
+
+/**
+ * Build brand-match provenance strings for the result rail.
+ * @param {{ brandLabel: string, size: string, chest: number }} opts
+ */
+export function brandMatchProvenance({ brandLabel, size, chest }) {
+  const n = Math.round(Number(chest));
+  const rail = isFinite(n) ? "Chart pick · chest " + n + "cm" : "Chart pick · brand tee";
+  const named =
+    brandLabel && size
+      ? "From the " + brandLabel + " " + size + " you named, not a tape."
+      : "From the brand tee you named, not a tape.";
+  return {
+    kicker: FIRST_SIZE_BRAND_MATCH_PROV.kicker,
+    rail,
+    body: named,
+    upgrade: FIRST_SIZE_BRAND_MATCH_PROV.upgrade,
+    provTail: FIRST_SIZE_BRAND_MATCH_PROV.provTail,
+  };
+}
 
 /**
  * Find the chart row whose size token matches the usual letter.
@@ -283,6 +314,13 @@ export function profilePatchFromMeasure({ category, displayValue, units }) {
  */
 export function isUsualFitSource(profile) {
   return !!(profile && profile.firstSizeSource === "usual-fit");
+}
+
+/**
+ * Whether the profile chest came from a named brand tee (Phase 2 Match).
+ */
+export function isBrandMatchSource(profile) {
+  return !!(profile && profile.firstSizeSource === "brand-match");
 }
 
 /**
