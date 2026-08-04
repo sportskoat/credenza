@@ -4577,7 +4577,10 @@ function mergeFashionLinks(item, { albumUrl, buyUrl } = {}) {
 }
 
 // Fetch structured Yupoo album data through the same-origin Netlify function.
-export async function fetchYupooImages(albumUrl, { signal } = {}) {
+// onFailCode (2026-08-04): a 422 carries a `code` naming the paste mistake
+// (shop root, category page) — the failure body used to be thrown away and
+// the card sat blank. Optional; the return contract is unchanged.
+export async function fetchYupooImages(albumUrl, { signal, onFailCode } = {}) {
   if (!PREVIEW_SECRET) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
   const controller = new AbortController();
@@ -4594,7 +4597,10 @@ export async function fetchYupooImages(albumUrl, { signal } = {}) {
       body: JSON.stringify({ url: albumUrl }),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (onFailCode) onFailCode(await linkFailCode(res));
+      return null;
+    }
     const data = await res.json();
     if (!data || !Array.isArray(data.images)) return null;
     return data;
@@ -4631,6 +4637,31 @@ async function allowanceRefusal(res) {
     if (error.startsWith("Monthly ")) return "monthly";
   } catch {}
   return null;
+}
+
+// The 422 from resolve/yupoo carries a machine-readable `code` naming WHICH
+// kind of link failed (same convention as sign_in_required above). The card
+// stores it as item.failCode so DetailBody can say "that is a shop front
+// page" instead of sitting blank (2026-08-04 audit: six dead links, four
+// causes, one useless generic message). Unknown/absent codes stay "" — the
+// UI keeps its old fallback line for those.
+const LINK_FAIL_CODES = new Set([
+  "shop-front",
+  "agent-short",
+  "yupoo-category",
+  "yupoo-shop-root",
+  "link-cut-off",
+  "short-link-dead",
+]);
+async function linkFailCode(res) {
+  if (!res || res.status !== 422) return "";
+  try {
+    const data = await res.clone().json();
+    const code = data && data.code;
+    return LINK_FAIL_CODES.has(code) ? code : "";
+  } catch {
+    return "";
+  }
 }
 
 // Module-level readers (the chart hunt, the description-photo refetch) run
@@ -8430,6 +8461,7 @@ function CredenzaApp() {
     let data = null;
     let refused = false;
     let allowance = null;
+    let failCode = "";
     try {
       const res = await monitoredFetch(storageBackend, "resolve", RESOLVE_ENDPOINT, {
         method: "POST",
@@ -8445,6 +8477,9 @@ function CredenzaApp() {
       } else {
         allowance = await allowanceRefusal(res);
         if (!allowance && (await isSignInRefusal(res))) refused = true;
+        // A 422 names WHICH kind of link failed (shop front, agent short,
+        // cut-off, dead short link) — keep it so the card can say so.
+        if (!allowance && !refused) failCode = await linkFailCode(res);
       }
     } catch {
       data = null;
@@ -8455,7 +8490,7 @@ function CredenzaApp() {
     if (refused) {
       // No title, no price, no chart — and now the card SAYS why, instead of
       // sitting there empty and looking like a broken site.
-      updateEnrichedItem(item.id, token, { status: "ready", needsSignIn: true });
+      updateEnrichedItem(item.id, token, { status: "ready", needsSignIn: true, failCode: "" });
       askForSignIn();
       return false;
     }
@@ -8465,7 +8500,10 @@ function CredenzaApp() {
       return false;
     }
     if (!data || !data.title) {
-      updateEnrichedItem(item.id, token, { status: "ready" });
+      updateEnrichedItem(item.id, token, {
+        status: "ready",
+        ...(failCode ? { failCode } : {}),
+      });
       return false;
     }
     const remoteImages = mergeFashionImages(
@@ -8500,6 +8538,9 @@ function CredenzaApp() {
         null;
       return {
         status: "ready",
+        // A successful read clears any link-failure reason a previous attempt
+        // stored — the card filled, so the warning is stale.
+        failCode: "",
         title: nextTitle,
         summary: data.summary || x.summary,
         // A hand-set price is pinned (priceManual): the resolve refreshes
@@ -8572,8 +8613,21 @@ function CredenzaApp() {
       const albumUrl = yupooAlbumUrl(item);
       if (albumUrl) {
         updateEnrichedItem(item.id, token, { status: "enriching" });
-        const data = await fetchYupooImages(albumUrl, { signal: controller.signal });
+        let albumFailCode = "";
+        const data = await fetchYupooImages(albumUrl, {
+          signal: controller.signal,
+          onFailCode: (code) => {
+            albumFailCode = code;
+          },
+        });
         if (controller.signal.aborted || enrichmentTokensRef.current.get(item.id) !== token) return false;
+        if (!data && albumFailCode) {
+          // The pasted Yupoo link is a shop page or a category, never one
+          // album. Name the mistake on the card instead of falling through to
+          // a blank ready state (2026-08-04 audit).
+          updateEnrichedItem(item.id, token, { status: "ready", failCode: albumFailCode });
+          return false;
+        }
         if (data) {
           // RELAY_MAX: every image in this list gets relayed below, one
           // function invocation each, so the cap on the list IS the cost cap.
@@ -8603,6 +8657,8 @@ function CredenzaApp() {
           const albumPatch = {
             url: item.url && yupooAlbumIdentity(item.url) ? canonicalAlbum : item.url,
             canonicalKey: canonicalKey(classify(canonicalAlbum), canonicalAlbum),
+            // The album read succeeded — clear any earlier link-failure reason.
+            failCode: "",
             title:
               enrichedTitle && shouldReplaceFashionTitle(item.title, item.url)
                 ? enrichedTitle

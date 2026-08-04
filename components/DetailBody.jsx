@@ -1082,6 +1082,45 @@ function useCustomerChartRead(item, onSaveEdit) {
 
 // The no-chart state keeps the usual size visible but unverified.
 // The Size panel owns the single chart upload action.
+// 2026-08-04 link-failure copy: the resolve/yupoo 422 `code`, stored on the
+// item as failCode, names WHICH paste mistake happened. One line per code;
+// anything unknown falls through to the old generic line below.
+const LINK_FAIL_COPY = {
+  "shop-front":
+    "That's a shop's front page, not one item. Open the shop and copy a single item's link.",
+  "agent-short": "Agent short links can't be opened here. Paste the seller's own link instead.",
+  "yupoo-category":
+    "That's a Yupoo shop page, not one album. Open the album for the item you want.",
+  "yupoo-shop-root":
+    "That's a Yupoo shop page, not one album. Open the album for the item you want.",
+  "link-cut-off": "That link looks cut off. Copy it again from the post.",
+  "short-link-dead": "That short link no longer opens. Ask the poster for the seller's link.",
+};
+
+// Tier 2/3 partial-info signal (F, measured on the 52-link corpus 2026-08-04):
+// the shared 购前说明 legal-notice image rides descImages on every Weidian
+// listing since fcc03fb, so it is filtered out before counting real photos.
+//   real photos 0 + a size axis  -> "no-measurements": sizes listed, no chart.
+//   real photos 0 + no size axis -> "bare": a name and a price only (Taobao
+//     by construction — the copy names Taobao, so the signal requires one).
+const WEIDIAN_POLICY_IMG = "img-791300000199cc14effd0a2102c5-unadjust_2250_4929.png";
+export function listingInfoOf(item) {
+  if (!item) return "";
+  const realDesc = (Array.isArray(item.descImages) ? item.descImages : []).filter(
+    (u) => !String(u).includes(WEIDIAN_POLICY_IMG)
+  );
+  if (realDesc.length > 0) return "";
+  const hasSizeAxis = (Array.isArray(item.variants) ? item.variants : []).some((g) =>
+    /尺码|尺寸|size/i.test((g && g.title) || "")
+  );
+  if (hasSizeAxis) return "no-measurements";
+  const urls = [item.url, ...(Array.isArray(item.links) ? item.links : []).map((l) => l && l.url)]
+    .filter(Boolean)
+    .join(" ");
+  if (/taobao|tmall/i.test(urls)) return "bare";
+  return "";
+}
+
 function SizingBlockNoChart({
   usualSize,
   isManual = false,
@@ -1103,6 +1142,10 @@ function SizingBlockNoChart({
   // WhatsApp when no validated chart rec (even if variants list S–XL).
   whatsapp = "",
   variantRun = "",
+  // 2026-08-04: WHY the link failed (LINK_FAIL_COPY key from item.failCode),
+  // and what a successful-but-thin listing actually carries (listingInfoOf).
+  failCode = "",
+  listingInfo = "",
 }) {
   const heroLabel = formatSizeToken(usualSize) || usualSize || "";
   const waUrl = whatsAppChatUrl(whatsapp);
@@ -1137,7 +1180,11 @@ function SizingBlockNoChart({
                 ? "Not answering"
                 : showWhatsApp
                   ? "No size in link"
-                  : "No chart"}
+                  : /* 2026-08-04: the kicker stays "No chart" for every cause —
+                       the sentence below now names the cause (link-failure
+                       code, tier 2/3 thin listing). Four pinned tests read
+                       this exact label. */
+                    "No chart"}
         </span>
         {/* Round 5 point 5.1: one notice for a hand pick — "you picked this"
             beside the size word. The "SET BY YOU" label here was a second
@@ -1202,13 +1249,26 @@ function SizingBlockNoChart({
                    The hunt runs on its own, with no photo the customer picked,
                    so this wording keeps the customer out of it. */
                 CHART_HUNT_UNAVAILABLE_COPY
-              : /* Kyle 2026-07-30: keep this state short. Two lines, then the
-                   buttons. The old copy explained the upload button that sits
-                   directly below it.
-                   Kyle 2026-08-03: "there needs to be something here, or else
-                   it's just a blank screen." The sentence now says the chart is
-                   missing for now, not that the item has none. */
-                "No chart for this one yet."}
+              : failCode && LINK_FAIL_COPY[failCode]
+                ? /* 2026-08-04: name the paste mistake — the link itself can
+                     never become a card, so say what to paste instead. */
+                  LINK_FAIL_COPY[failCode]
+                : listingInfo === "no-measurements"
+                  ? /* Tier 2 (F, 2026-08-04): the app KNOWS the size run but the
+                       seller posted no chart — say so instead of sitting blank
+                       and reading as broken. Exact wording per F/O. No seller-
+                       contact promise here: the WhatsApp branch above only
+                       renders when a number actually exists. */
+                    "This seller posted no measurements. Pick a size yourself — I cannot recommend one."
+                  : listingInfo === "bare"
+                    ? "Taobao links carry a name and price only. Find this item on Weidian for sizes."
+                    : /* Kyle 2026-07-30: keep this state short. Two lines, then the
+                         buttons. The old copy explained the upload button that sits
+                         directly below it.
+                         Kyle 2026-08-03: "there needs to be something here, or else
+                         it's just a blank screen." The sentence now says the chart is
+                         missing for now, not that the item has none. */
+                      "No chart for this one yet."}
           </p>
           {/* Kyle 2026-08-03: the pane read as empty. This line says, in words,
               which size the card is holding. The big letter above is the same
@@ -4377,7 +4437,9 @@ export default function DetailBody({
                             ? "Sign in to finish this card. Credenza then reads the product, the photos, and the size chart."
                             : huntOutBlocked === true
                               ? CHART_HUNT_UNAVAILABLE_COPY
-                              : ""
+                              : item.failCode && LINK_FAIL_COPY[item.failCode]
+                                ? LINK_FAIL_COPY[item.failCode]
+                                : ""
                 }
                 startSkipped={!!fitPromptSkipped}
                 onSkip={
@@ -4404,6 +4466,10 @@ export default function DetailBody({
                 chartOutBlocked={huntOutBlocked === true}
                 whatsapp={item.whatsapp || ""}
                 variantRun={verdict.variantRun || ""}
+                /* 2026-08-04: why the link failed (six codes), or what a
+                   thin-but-successful listing really carries (tier 2/3). */
+                failCode={item.failCode || ""}
+                listingInfo={listingInfoOf(item)}
                 onClearChart={clearBlockedChart}
               />
             ) : (

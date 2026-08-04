@@ -48,6 +48,23 @@ function cleanEscapedUrl(value) {
     .trim();
 }
 
+// A pasted Yupoo link that is not one album fails two different ways with one
+// string: a /categories/ page is a shop SECTION, a bare host is a shop ROOT.
+// The `code` field lets the card say which (2026-08-04 audit), same
+// convention as resolve.js's buyLinkFailCode.
+function yupooFailCode(raw) {
+  let url;
+  try {
+    url = new URL(String(raw || "").trim());
+  } catch {
+    return "link-cut-off";
+  }
+  const host = url.hostname.replace(/^www\./, "").toLowerCase();
+  if (!/(^|\.)yupoo\.com$/.test(host)) return "not-a-buy-link";
+  if (/\/categories\//i.test(url.pathname)) return "yupoo-category";
+  return "yupoo-shop-root";
+}
+
 function parseAlbumUrl(raw) {
   if (!raw || typeof raw !== "string" || raw.length > 2048) return null;
   let url;
@@ -456,7 +473,12 @@ async function handle(event) {
     return response(400, { error: "Invalid JSON body" });
   }
   const album = parseAlbumUrl(input && typeof input.url === "string" ? input.url : "");
-  if (!album) return response(422, { error: "Not a Yupoo album URL" });
+  if (!album) {
+    return response(422, {
+      error: "Not a Yupoo album URL",
+      code: yupooFailCode(input && typeof input.url === "string" ? input.url : ""),
+    });
+  }
 
   const blocked = limit.enter(ROUTE, limit.clientKey(event));
   if (blocked) {
@@ -501,6 +523,7 @@ exports.handler = async (event) => {
 
 exports._test = {
   parseAlbumUrl,
+  yupooFailCode,
   parseJsonLd,
   canonicalBuyUrl,
   extractImageUrls,
