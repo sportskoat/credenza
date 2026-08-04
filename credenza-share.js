@@ -305,9 +305,17 @@ function round2(value) {
 function haulShareItem(item, includes, helpers) {
   if (!item || typeof item !== "object") return null;
   const title = text(item.title, 140);
+  // A size chart is not a photo of the item. Keep charts out of the shared
+  // page's cover and slideshow (Kyle 2026-08-04: "no images of sizing charts
+  // in the slideshow"). share-page.js also filters at render time for docs
+  // frozen before this rule.
+  const charts = new Set(
+    (Array.isArray(item.chartImages) ? item.chartImages : []).map(safeImage).filter(Boolean)
+  );
   const listingPhotos = (Array.isArray(item.photos) ? item.photos : [])
     .map(safeImage)
     .filter(Boolean)
+    .filter((src) => !charts.has(src))
     .slice(0, 12);
   const cover = safeImage(item.image) || listingPhotos[0] || null;
   if (!title && !cover) return null;

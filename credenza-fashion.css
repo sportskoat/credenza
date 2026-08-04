@@ -20240,6 +20240,11 @@ input.cz-sizing-fix-size {
     padding: 0;
     border: 0;
     background: transparent;
+    /* The min-width:1024 .cz-sizing rule adds a green underline + glow for
+       the desktop card back. The panel strips the card fill but the shadow
+       survived, and it painted an ugly green box behind bare text (Kyle
+       2026-08-04: "fix ugly formatted green box"). */
+    box-shadow: none;
   }
   .cz-dpanel .cz-sizing-head {
     display: none;
@@ -25046,7 +25051,12 @@ button.cz-steps-head {
   border-radius: 20px;
 }
 
-.cz-app[data-fashion="true"] .cz-haul-share {
+/* The sheet's content column. This used to be bare `.cz-haul-share`, which is
+   ALSO the old header Share pill (radius 999px, hover fill, :active scale) —
+   on the sheet those painted a giant arch and scaled the whole sheet on every
+   tap. The pill rules stay below for the header button; the sheet body gets
+   its own name (Kyle 2026-08-04). */
+.cz-app[data-fashion="true"] .cz-haul-share-body {
   display: flex;
   flex-direction: column;
   gap: 16px;

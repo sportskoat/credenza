@@ -9154,14 +9154,29 @@ function CredenzaApp() {
             lastRevealAt = now;
             changed = true;
           }
-          const progress = advanceProgress({ ...job, revealed, photoTotal: job.photoTotal || 8 });
-          if (progress !== job.progress) changed = true;
-          const slowTail = job.state === "photos" && now - job.startedAt > 15000;
-          if (slowTail !== !!job.slowTail) changed = true;
+          // Past the photo stage the photo count is done. Without this snap
+          // the header read "3 OF 8 PHOTOS" next to a SIZING row, which made
+          // the sizing tail feel endless (Kyle 2026-08-04: "it doesn't stop
+          // indexing").
+          const totalPhotos = job.photoTotal || 0;
+          const pastPhotos = job.state === "sizing" || isSettled(job);
+          if (pastPhotos && revealed < totalPhotos) {
+            revealed = totalPhotos;
+            changed = true;
+          }
           // Under 400ms the whole job can resolve with no strip at all (the
           // cache-hit path); a row only becomes visible past that window.
           const shown = job.shown || now - job.createdAt >= 400;
           if (shown !== job.shown) changed = true;
+          // The bar starts at 0. Do not ease progress while the row is still
+          // invisible — otherwise the first painted frame lands partway down
+          // the track (Kyle 2026-08-04: "it starts about 1/4 of the way in").
+          const progress = shown
+            ? advanceProgress({ ...job, revealed, photoTotal: job.photoTotal || 8 })
+            : job.progress || 0;
+          if (progress !== job.progress) changed = true;
+          const slowTail = job.state === "photos" && now - job.startedAt > 15000;
+          if (slowTail !== !!job.slowTail) changed = true;
           if (!changed) return job;
           anyChanged = true;
           return { ...job, revealed, lastRevealAt, progress, slowTail, shown };

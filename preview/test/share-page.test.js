@@ -265,3 +265,79 @@ describe("helpers stay strict", () => {
     expect(safeSrc("https://img.test/a.jpg")).toBe("https://img.test/a.jpg");
   });
 });
+
+// Kyle 2026-08-04, on the live "winter" link. These pin the four fixes that
+// make a FROZEN doc render right, so they run against pageHtml, not the doc
+// builder.
+describe("frozen docs render clean (Kyle 2026-08-04)", () => {
+  it("gives a yupoo album store link the uid it needs to load", () => {
+    const html = pageHtml(
+      v2Full({}, { platform: "yupoo", storeUrl: "https://beverly-luxury.x.yupoo.com/albums/244759120" })
+    );
+    expect(html).toContain("https://beverly-luxury.x.yupoo.com/albums/244759120?uid=1");
+  });
+
+  it("keeps an existing uid and leaves non-yupoo links alone", () => {
+    const withUid = pageHtml(
+      v2Full({}, { platform: "yupoo", storeUrl: "https://shop.x.yupoo.com/albums/123?uid=2" })
+    );
+    expect(withUid).toContain("albums/123?uid=2");
+    expect(withUid).not.toContain("uid=1");
+    const weidian = pageHtml(v2Full());
+    expect(weidian).toContain('href="https://weidian.com/item.html?itemID=1050009723785"');
+  });
+
+  it("reads the market from the store URL when the doc has no platform", () => {
+    const html = pageHtml(
+      v2Full({}, { platform: undefined, storeUrl: "https://beverly-luxury.x.yupoo.com/albums/244759120" })
+    );
+    expect(html).toContain("Store · Yupoo");
+    expect(html).not.toContain("Store · Store");
+  });
+
+  it("says bare Store when the market is unknown", () => {
+    const html = pageHtml(
+      v2Full({}, { platform: undefined, storeUrl: "https://example.com/shop/1" })
+    );
+    expect(html).toContain(">Store</a>");
+    expect(html).not.toContain("Store · Store");
+  });
+
+  it("shortens the No agent buy label so the pill cannot overflow", () => {
+    const html = pageHtml(v2Full({ agent: "No agent — open marketplace directly" }));
+    expect(html).toContain(">Buy direct</a>");
+    expect(html).not.toContain("Buy via No agent");
+  });
+
+  it("says Buy when the doc names no agent", () => {
+    const html = pageHtml(v2Full({ agent: undefined }));
+    expect(html).toContain(">Buy</a>");
+  });
+
+  it("keeps sizing charts out of the cover marquee and the slideshow", () => {
+    const chart = "https://img.test/chart_1040_720.jpg";
+    const html = pageHtml(
+      v2Full({}, { photos: ["https://img.test/a.jpg", chart], chartImages: [chart] })
+    );
+    expect(html).toContain("https://img.test/a.jpg");
+    expect(html).not.toContain("chart_1040_720");
+  });
+
+  it("flags a table-shaped CDN URL as a chart even without chartImages", () => {
+    // Frozen docs predate chartImages. The shape rule (…_W_H, wider than
+    // tall) is the same one resolve.js uses on the shelf gallery.
+    const chart = "https://img.test/sizing_1040_720.png";
+    const html = pageHtml(v2Full({}, { photos: ["https://img.test/a.jpg", chart] }));
+    expect(html).not.toContain("sizing_1040_720");
+    // A portrait or square photo is NOT a chart.
+    const keep = pageHtml(v2Full({}, { photos: ["https://img.test/tall_720_1040.jpg"] }));
+    expect(keep).toContain("tall_720_1040");
+  });
+
+  it("keeps the item's own image when every photo reads as a chart", () => {
+    const html = pageHtml(
+      v2Full({}, { image: "https://img.test/only_1200_700.jpg", photos: [], ownPhotos: [] })
+    );
+    expect(html).toContain("only_1200_700");
+  });
+});

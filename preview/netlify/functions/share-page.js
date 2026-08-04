@@ -282,7 +282,8 @@ button{font:inherit;color:inherit}
 .cz-cover{position:relative;height:320px;background:var(--cz-inset-bg);overflow:hidden}
 .cz-cover-clip{position:absolute;inset:0;overflow:hidden}
 .cz-marquee{display:flex;gap:8px;height:100%;width:max-content;padding:0 4px;animation:cz-marquee linear infinite}
-.cz-marquee:hover{animation-play-state:paused}
+/* No hover pause (Kyle 2026-08-04): the cover is ambience, not a control.
+   Stopping it under the reader's cursor read as a stalled page. */
 .cz-tile{flex:none;height:100%;aspect-ratio:4/5;background-color:var(--cz-inset-bg);background-size:cover;background-position:center}
 @keyframes cz-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion:reduce){.cz-marquee{animation:none!important}}
@@ -358,7 +359,7 @@ button{font:inherit;color:inherit}
 .cz-qc-grid .t{aspect-ratio:1;border-radius:8px;background-size:cover;background-position:center;background-color:var(--cz-inset-bg)}
 .cz-actions{display:flex;flex-direction:column;gap:8px}
 .cz-btns{display:flex;align-items:center;gap:8px}
-.cz-btn{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 16px;border-radius:999px;border:1px solid var(--cz-hair);background:var(--cz-card-solid);text-decoration:none;font-size:13px;font-weight:650;letter-spacing:-.01em;flex:1;white-space:nowrap}
+.cz-btn{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 16px;border-radius:999px;border:1px solid var(--cz-hair);background:var(--cz-card-solid);text-decoration:none;font-size:13px;font-weight:650;letter-spacing:-.01em;flex:1;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .cz-buy{background:var(--cz-action-fill);color:var(--cz-action-text);border-color:transparent}
 .cz-rebuy{font-family:var(--cz-mono);font-size:10px;font-weight:700;letter-spacing:.08em}
 .cz-rebuy.yes{color:var(--cz-money)}
@@ -506,13 +507,40 @@ function collectCoverPhotos(items) {
     if (Array.isArray(item.ownPhotos)) candidates.push(...item.ownPhotos);
     for (const raw of candidates) {
       const src = safeSrc(raw);
-      if (!src || seen.has(src)) continue;
+      if (!src || seen.has(src) || isChartPhoto(item, src)) continue;
       seen.add(src);
       out.push(src);
       if (out.length >= 12) return out;
     }
+    // Never blank the cover because the vetting was too strict: if every
+    // candidate read as a chart, keep the item's own image (the yupoo.js
+    // guard does the same for the shelf gallery).
+    if (item.image && !candidates.some((raw) => {
+      const src = safeSrc(raw);
+      return src && seen.has(src);
+    })) {
+      const cover = safeSrc(item.image);
+      if (cover && !seen.has(cover)) {
+        seen.add(cover);
+        out.push(cover);
+      }
+    }
   }
   return out;
+}
+
+// A size chart is not a cover photo (Kyle 2026-08-04: "no images of sizing
+// charts in the slideshow"). Two tells, no AI: the doc marked it as a chart,
+// or the CDN URL carries table-shaped dims (…_W_H, wider than tall — the same
+// 1.25 rule resolve.js uses to hold tables out of the shelf gallery). The
+// shape tell catches docs frozen before the doc builder marked charts.
+function isChartPhoto(item, src) {
+  if (Array.isArray(item.chartImages) && item.chartImages.includes(src)) return true;
+  const m = /_(\d{2,5})_(\d{2,5})(?:\.[a-z0-9]+)?$/i.exec(String(src || "").split("?")[0]);
+  if (!m) return false;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  return !!w && !!h && w / h > 1.25;
 }
 
 function itemFrames(item) {
@@ -520,13 +548,19 @@ function itemFrames(item) {
   const seen = new Set();
   const push = (raw) => {
     const src = safeSrc(raw);
-    if (!src || seen.has(src)) return;
+    if (!src || seen.has(src) || isChartPhoto(item, src)) return;
     seen.add(src);
     frames.push(src);
   };
   if (item && item.image) push(item.image);
   if (item && Array.isArray(item.photos)) item.photos.forEach(push);
   if (item && Array.isArray(item.ownPhotos)) item.ownPhotos.forEach(push);
+  // Never blank the show because the vetting was too strict: if every frame
+  // read as a chart, keep the first candidate so the item still has a face.
+  if (!frames.length && item && item.image) {
+    const cover = safeSrc(item.image);
+    if (cover) frames.push(cover);
+  }
   return frames;
 }
 
@@ -582,16 +616,55 @@ function fitBlock(fit, noteClass, run) {
   return `<div class="cz-fit${noteClass ? " " + noteClass : ""}">${parts.join("")}</div>`;
 }
 
+// A yupoo album page 404s without a uid query (see ensureYupooAlbumUid in the
+// app). Shared docs are frozen, so fix the link here at render time: any doc,
+// old or new, gets a working album link (Kyle 2026-08-04: "store store takes
+// you to bad link").
+function ensureYupooUid(href) {
+  try {
+    const u = new URL(href);
+    if (!/(^|\.)yupoo\.com$/i.test(u.hostname)) return href;
+    if (!/\/albums\/\d+/i.test(u.pathname)) return href;
+    if (!u.searchParams.get("uid")) u.searchParams.set("uid", "1");
+    return u.toString();
+  } catch {
+    return href;
+  }
+}
+
+// Old docs often lack item.platform. Read the market from the store URL so
+// the button says "Store · Yupoo" instead of the broken "Store · Store"
+// (Kyle 2026-08-04). Returns "" when the market is unknown.
+function platformFromUrl(href) {
+  try {
+    const host = new URL(href).hostname.toLowerCase();
+    if (/(^|\.)yupoo\.com$/.test(host)) return "yupoo";
+    if (/(^|\.)weidian\.com$/.test(host)) return "weidian";
+    if (/(^|\.)taobao\.com$/.test(host)) return "taobao";
+    if (/(^|\.)tmall\.com$/.test(host)) return "taobao";
+    if (/(^|\.)1688\.com$/.test(host)) return "1688";
+    return "";
+  } catch {
+    return "";
+  }
+}
+
 function actionButtons(item, agentName) {
   const store = safeHref(item.storeUrl);
   const buy = safeHref(item.buyUrl);
   if (!store && !buy) return "";
-  const agent = agentName ? escapeHtml(agentName) : "Superbuy";
+  const platform = item.platform || (store ? platformFromUrl(store) : "");
   const storeBtn = store
-    ? `<a class="cz-btn" href="${escapeHtml(store)}" rel="nofollow noopener" target="_blank">Store · ${escapeHtml(platformLabel(item.platform))}</a>`
+    ? `<a class="cz-btn" href="${escapeHtml(ensureYupooUid(store))}" rel="nofollow noopener" target="_blank">${platform ? `Store · ${escapeHtml(platformLabel(platform))}` : "Store"}</a>`
     : "";
+  // The "No agent" choice must not read "Buy via No agent — open marketplace
+  // directly" (Kyle 2026-08-04: the text overflowed the pill). Keep it short.
+  let buyLabel = "Buy";
+  if (agentName) {
+    buyLabel = /^no agent/i.test(agentName) ? "Buy direct" : `Buy via ${escapeHtml(agentName)}`;
+  }
   const buyBtn = buy
-    ? `<a class="cz-btn cz-buy" href="${escapeHtml(buy)}" rel="nofollow noopener" target="_blank">Buy via ${agent}</a>`
+    ? `<a class="cz-btn cz-buy" href="${escapeHtml(buy)}" rel="nofollow noopener" target="_blank">${buyLabel}</a>`
     : "";
   return `<div class="cz-btns">${storeBtn}${buyBtn}</div>`;
 }

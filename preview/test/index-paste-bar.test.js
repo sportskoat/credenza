@@ -66,6 +66,29 @@ describe("the desktop field carries the lead job", () => {
   });
 });
 
+describe("the driver keeps the bar honest (Kyle 2026-08-04)", () => {
+  // Kyle: "the indexing still starts about 1/4 of the way in" and "the strip
+  // shows SIZING while the counter still reads 3 OF 8 PHOTOS."
+  it("does not ease progress before the row is on screen", () => {
+    // The 400ms show gate let the bar fill to ~a quarter before the first
+    // painted frame. Progress only advances once shown is true, so the wash
+    // and the strip always mount at 0.
+    const tick = APP.slice(APP.indexOf("const tick = window.setInterval"), APP.indexOf("}, 100);"));
+    expect(tick).toMatch(/const progress = shown\s*\?\s*advanceProgress/);
+    expect(tick).toContain(": job.progress || 0");
+  });
+
+  it("snaps the photo count to done once the link is past the photo stage", () => {
+    // headerFor sums revealed/photoTotal. While the state machine sat in
+    // sizing with reveals still dripping, the header read "3 OF 8 PHOTOS"
+    // next to a SIZING row — the tail felt endless.
+    const tick = APP.slice(APP.indexOf("const tick = window.setInterval"), APP.indexOf("}, 100);"));
+    expect(tick).toContain('const pastPhotos = job.state === "sizing" || isSettled(job);');
+    expect(tick).toMatch(/if \(pastPhotos && revealed < totalPhotos\) \{\s*revealed = totalPhotos;/);
+  });
+});
+
+
 describe("the field treatment matches the handoff values", () => {
   it("lays the green wash at the handoff's strength", () => {
     expect(ruleBody(".cz-desk-index-wash")).toMatch(/background:\s*rgba\(74, 222, 128, 0\.07\)/);

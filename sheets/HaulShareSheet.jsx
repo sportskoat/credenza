@@ -376,7 +376,12 @@ export default function HaulShareSheet({
       maxWidth={560}
       surfaceClassName="cz-haul-share-sheet"
     >
-      <div className="cz-haul-share">
+      {/* cz-haul-share-body, NOT cz-haul-share: the bare name belongs to the
+          old header Share pill (radius 999px + a hover fill + an :active
+          scale). On the sheet wrapper those paint a giant arch and shrink the
+          whole sheet on every tap (Kyle 2026-08-04: "weird share screen",
+          "tapping should not do an animation"). */}
+      <div className="cz-haul-share-body">
         {!signedIn ? (
           <div className="cz-haul-share-note">
             <div className="cz-haul-share-note-title">Sign in to share</div>

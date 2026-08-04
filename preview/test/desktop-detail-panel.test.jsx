@@ -405,6 +405,20 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(css).not.toMatch(/@keyframes\s+cz-rec-pulse/);
   });
 
+  it("strips the card-back green shadow off the panel sizing block (Kyle 2026-08-04)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
+    const css = readFileSync(join(root, "credenza-fashion.css"), "utf8");
+    // The min-width:1024 .cz-sizing rule adds a green underline + glow for
+    // the desktop card back. The panel reset must kill it too — it painted an
+    // ugly green box behind the bare "No chart for this one yet." sentence.
+    expect(css).toMatch(
+      /\.cz-dpanel\s+\.cz-sizing\s*\{[^}]*box-shadow:\s*none/s
+    );
+  });
+
   it("shows Notes always and a Settings Save button at all times", async () => {
     const user = userEvent.setup();
     const mm = window.matchMedia;
