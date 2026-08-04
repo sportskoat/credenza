@@ -621,11 +621,13 @@ export default function BodyProfileSheet({
             />
             <em>{weightUnit}</em>
           </label>
-          <p className="cz-sizes-usual-note">
-            Height and weight only feed the ~ estimate when a chart exists and your measurements
-            don&apos;t.
-          </p>
         </div>
+        {/* Own row under the chips. Beside Height/Weight it squeezed to one
+            word per line in the settings pane (Kyle 2026-08-04). */}
+        <p className="cz-sizes-usual-note">
+          Height and weight only feed the ~ estimate when a chart exists and your measurements
+          don&apos;t.
+        </p>
       </div>
 
       {/* Measurements header */}

@@ -8579,25 +8579,23 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   color: var(--cz-faint);
 }
 
+/* Full-width under Height/Weight — never beside the pills (Kyle 2026-08-04).
+   Side-by-side left a one-word column in the settings pane. */
 .cz-sizes-usual-note {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
+  margin: 2px 0 0;
+  padding-left: 86px;
+  max-width: 42em;
   font-family: var(--cz-sans);
   font-size: 11.5px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--cz-faint);
 }
 
-/* Narrow settings pane: note drops under the pills, still one clean block. */
+/* Phone / narrow: align the note with the chip start (kicker is gone from flow). */
 @media (max-width: 640px) {
-  .cz-sizes-usual-row {
-    flex-wrap: wrap;
-  }
   .cz-sizes-usual-note {
-    flex: 1 1 100%;
-    padding-left: 78px;
+    padding-left: 0;
   }
 }
 
