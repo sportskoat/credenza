@@ -12159,6 +12159,21 @@ function CredenzaApp() {
             its own Shelf/Hauls buttons. */}
         {items.length > 0 && (
         <div className={"cz-shelf-band" + (phoneShelfChrome ? " is-phone-7a" : "")}>
+        {/* Handoff 3a: the strip is a full-width band BETWEEN the paste bar
+            and the tabs, not a peer inside the tabs row. Mounted here it can
+            never overlap Shelf/Hauls or the filters. */}
+        {!phoneShelfChrome && !openHaulName && indexVisibleRows.length > 0 && (
+          <IndexingStrip
+            header={indexHeader}
+            rows={indexVisibleRows}
+            lead={indexLead}
+            exiting={indexExiting}
+            offline={!online}
+            onRetry={retryIndexJob}
+            onDismiss={dismissIndexJob}
+            onCancel={cancelIndexJob}
+          />
+        )}
         {!phoneShelfChrome && !openHaulName && (
         <div className="cz-view-tabs-row">
           <div
@@ -12217,18 +12232,6 @@ function CredenzaApp() {
               </button>
             ))}
           </div>
-          {indexVisibleRows.length > 0 && (
-            <IndexingStrip
-              header={indexHeader}
-              rows={indexVisibleRows}
-              lead={indexLead}
-              exiting={indexExiting}
-              offline={!online}
-              onRetry={retryIndexJob}
-              onDismiss={dismissIndexJob}
-              onCancel={cancelIndexJob}
-            />
-          )}
           {/* Kyle 2026-08-01: filters on the RIGHT of Shelf/Hauls, same size. */}
           {toolbarActive && !openHaulName && view === "shelf" && (
             <div

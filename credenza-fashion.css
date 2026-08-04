@@ -12627,14 +12627,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
     align-items: flex-end;
     gap: 8px;
     margin-bottom: 14px;
-    /* While a card indexes, tabs + the strip overflow 390px and crush
-       into each other — let the strip wrap to its own line. */
     flex-wrap: wrap;
     row-gap: 8px;
-  }
-
-  .cz-view-tabs-row .cz-index-strip {
-    flex: 1 1 100%;
   }
 
   /* The tabs no longer own the full width — let the totals have their share. */
