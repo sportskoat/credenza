@@ -24,12 +24,13 @@ Claude holds, among others:
 - `preview/public/site.css`, `preview/public/pricing/index.html`
 - matching tests under `preview/test/`
 
-Latest in this pass (still uncommitted / not shipped):
+Latest in this pass (not shipped — only Kyle deploys):
 
 1. Empty “nothing here” boxes share rounded corners with haul empty state.
 2. Every pop-up modal uses the same rounded corner rule.
 3. Shelf ↔ Hauls fades across; the page no longer goes blank mid-switch.
 4. Grid card → detail uses the same open motion as carousel → detail.
+5. Profile menu sits fully on screen on phone and desktop (portal to body).
 
 Safe work for this tab while Claude is on the pass:
 

@@ -12017,16 +12017,16 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
    The avatar's dropdown. The two account decisions come first, as two doors:
    an account is free, and Pro costs money. Merging them into one row is what
    the old menu did wrong. The shelf switches follow, under a divider.
-   Kyle 2026-08-04: JS places this with position:fixed under the avatar so a
-   phone never clips the left side. The absolute fallback below still anchors
-   to the right for the first paint before layout runs. */
+   Kyle 2026-08-04: portals to document.body; JS sets fixed top/left/width
+   under the avatar. CSS only paints the card — no absolute anchor, so a
+   transformed masthead cannot trap or clip it. */
 
 .cz-avatar-menu {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  left: auto;
-  z-index: var(--z-overlay, 70);
+  position: fixed;
+  /* Placeholder until placeMenu writes real coords (first paint). */
+  top: 0;
+  left: 0;
+  z-index: var(--z-sheet, 80);
   width: min(300px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   background: var(--cz-card-solid);
@@ -12036,8 +12036,8 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding: 0;
   display: flex;
   flex-direction: column;
-  /* Fixed placement writes top/left/width inline; keep box-sizing honest. */
   box-sizing: border-box;
+  overflow: visible;
 }
 
 .cz-avatar-menu-head {

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ChevronRight } from "lucide-react";
 import { PRICING } from "../credenza-fashion.jsx";
 import { PLAN_COPY } from "./plans.js";
@@ -18,9 +19,10 @@ import { PLAN_COPY } from "./plans.js";
 //
 // Kyle 2026-08-01: Gallery colourway is parked. Blackout is the only look.
 //
-// Kyle 2026-08-04: the menu is fixed to the viewport under the avatar so a
-// phone never clips the left side. Absolute + right:0 under a wide header
-// row was hanging half the card off the screen.
+// Kyle 2026-08-04: the menu portals to document.body and uses position:fixed
+// under the avatar. Absolute under the masthead clipped on phone; fixed
+// still inside a transformed masthead clipped on desktop. The portal leaves
+// every header clip and transform behind.
 
 const MENU_GAP = 10;
 const MENU_EDGE = 12;
@@ -29,9 +31,11 @@ const MENU_WIDTH = 300;
 function placeMenu(menu, toggle) {
   if (!menu || !toggle || typeof window === "undefined") return;
   const r = toggle.getBoundingClientRect();
+  // A zero box means the toggle is not laid out yet — try again next frame.
+  if (r.width === 0 && r.height === 0) return;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const width = Math.min(MENU_WIDTH, vw - MENU_EDGE * 2);
+  const width = Math.min(MENU_WIDTH, Math.max(0, vw - MENU_EDGE * 2));
   // Prefer the right edge of the avatar; pull right if the left would clip.
   let left = r.right - width;
   if (left < MENU_EDGE) left = MENU_EDGE;
@@ -46,8 +50,10 @@ function placeMenu(menu, toggle) {
   menu.style.top = Math.round(top) + "px";
   menu.style.left = Math.round(left) + "px";
   menu.style.right = "auto";
+  menu.style.bottom = "auto";
   menu.style.width = Math.round(width) + "px";
   menu.style.maxWidth = "none";
+  menu.style.zIndex = "80";
 }
 
 export default function AvatarMenu({
@@ -68,6 +74,7 @@ export default function AvatarMenu({
   const rootRef = useRef(null);
 
   // Pin the card under the avatar and keep every edge on screen (Kyle 2026-08-04).
+  // Lives on document.body via portal so masthead transforms cannot trap fixed.
   useLayoutEffect(() => {
     const menu = rootRef.current;
     const toggle = document.querySelector("[data-cz-avatar-toggle]");
@@ -130,7 +137,7 @@ export default function AvatarMenu({
     .filter(Boolean)
     .join(" · ");
 
-  return (
+  const node = (
     <div className="cz-avatar-menu" role="menu" aria-label="Profile menu" ref={rootRef}>
       <div className="cz-avatar-menu-head">
         <span className="cz-avatar cz-avatar-menu-mark" aria-hidden="true">
@@ -209,4 +216,9 @@ export default function AvatarMenu({
       </div>
     </div>
   );
+
+  // Portal out of the masthead so header overflow/transform cannot clip or
+  // re-base position:fixed. SSR-safe: no document → render in place.
+  if (typeof document === "undefined") return node;
+  return createPortal(node, document.body);
 }
