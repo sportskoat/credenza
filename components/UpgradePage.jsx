@@ -158,7 +158,7 @@ export default function UpgradePage({
         <div className="cz-upgrade-body">
           <section className="cz-upgrade-hero">
             <p className="cz-upgrade-kicker">Pro</p>
-            <h1 className="cz-upgrade-head">Free is the whole app. Pro is more of it.</h1>
+            <h1 className="cz-upgrade-head">Free has limits. Pro raises them.</h1>
             <p className="cz-upgrade-lede">
               Nothing on your shelf is locked. Pro raises the daily counters on the three
               things that call a paid model, and funds the servers.

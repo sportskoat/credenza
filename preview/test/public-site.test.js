@@ -1859,7 +1859,7 @@ describe("a feature the price table sells is explained somewhere else", () => {
     // LB-55. Added 2026-07-27. A third census, this time with chrome stripped
     // so nav and footer links could not inflate the count, and reading the
     // actual sentence behind every mention. "Link options" looked thin at 5
-    // but is genuinely explained on /guides/share-a-haul-list/. "Link resolves"
+    // but is genuinely explained on /guides/share-a-haul-list/. "Link reads"
     // was thin at 5 AND every one of the five was a number inside a limits
     // list: /how/, /faq/ and /privacy/ name it beside Ask and chart reads;
     // /guides/free-agent-haul-planner/ gives the rate. The price table sold
@@ -1870,7 +1870,7 @@ describe("a feature the price table sells is explained somewhere else", () => {
     // guide, which already says it. These two say what the unit IS and what
     // the counter counts, so only a page that defines it can satisfy them.
     {
-      row: "Link resolves",
+      row: "Link reads",
       needs: ["one link in, one resolve spent", "counts server reads, not items"],
       why: "the row with the widest free/Pro gap on the table was the one unit the site never defined",
     },
@@ -1902,7 +1902,7 @@ describe("a feature the price table sells is explained somewhere else", () => {
     // small. The second protects correctness: one seller can list garments
     // with different charts, so a saved result must stay on its item.
     {
-      row: "AI size-chart reads",
+      row: "Size chart reads",
       needs: ["the unit is the call, not the image", "never uses it for another garment"],
       why: "the page must explain both the cost unit and the item-only chart rule",
     },

@@ -95,16 +95,16 @@ export const PLAN_COPY = {
 /**
  * The nine "what changes" rows.
  *
- * README deviation, for the morning report: the README lists both "Cards from
- * a link" and "Link resolves". Those are one meter in this codebase, so the
- * second row would print the same number twice under two names. The duplicate
- * is replaced with "Cards on the shelf", which is the one thing that really
- * has no ceiling: the shelf is local, and Credenza never drops a card to make
- * room.
+ * README deviation, for the morning report: the README listed both "Cards from
+ * a link" and "Link resolves". Those are one meter. Kyle 2026-08-03 locked the
+ * name to "Link reads" so it never collides with saved cards. "Cards on the
+ * shelf" stays as the local shelf row (no ceiling).
  */
 export const PLAN_ROWS = [
   {
-    label: "Cards from a link",
+    // Kyle 2026-08-03: one name for the resolve meter — "Link reads".
+    // "Cards" is reserved for the saved-card count so the two never collide.
+    label: "Link reads",
     note: "Signed out you get " + ANON_FREE_CARDS + " free cards.",
     free: PLAN_CAPS.free.resolveTotal + " total",
     pro: PLAN_CAPS.pro.resolvePerMonth + " a month",
@@ -116,7 +116,8 @@ export const PLAN_ROWS = [
     pro: "Every card",
   },
   {
-    label: "AI size-chart reads",
+    // Kyle 2026-08-03: "Size chart reads" everywhere — drop the "AI" prefix.
+    label: "Size chart reads",
     note: "One read of one size chart.",
     free: PLAN_CAPS.free.chartVisionTotal + " total",
     pro: PLAN_CAPS.pro.chartVisionPerMonth + " a month",

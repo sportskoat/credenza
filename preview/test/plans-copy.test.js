@@ -63,8 +63,8 @@ describe("plan spine · numbers", () => {
 
   it("matches every table number to the server caps", () => {
     const byLabel = Object.fromEntries(PLAN_ROWS.map((r) => [r.label, r]));
-    expect(byLabel["AI size-chart reads"].free).toBe(PLAN_CAPS.free.chartVisionTotal + " total");
-    expect(byLabel["AI size-chart reads"].pro).toBe(PLAN_CAPS.pro.chartVisionPerMonth + " a month");
+    expect(byLabel["Size chart reads"].free).toBe(PLAN_CAPS.free.chartVisionTotal + " total");
+    expect(byLabel["Size chart reads"].pro).toBe(PLAN_CAPS.pro.chartVisionPerMonth + " a month");
     expect(byLabel["Hauls at once"].pro).toBe(String(PLAN_CAPS.pro.haulsMax));
     expect(byLabel["QC photos an item"].free).toBe(String(PLAN_CAPS.free.qcPhotosPerItem));
     expect(byLabel["Shared haul links"].pro).toBe(String(PLAN_CAPS.pro.sharedLinksMax));

@@ -192,7 +192,7 @@ describe("the one limits sheet", () => {
     const { container } = render(<LimitsSheet status={status} signedIn={false} />);
     expect(screen.getByRole("heading", { name: "That is your fifth free card." })).toBeTruthy();
     expect(screen.getByText("5 of 5 · Signed out")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sign in · free" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "See what Pro changes" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Not now" })).toBeTruthy();
 
@@ -247,7 +247,7 @@ describe("the one limits sheet", () => {
         onClose={() => calls.push("close")}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Sign in · free" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     fireEvent.click(screen.getByRole("button", { name: "See what Pro changes" }));
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(calls).toEqual(["sign-in", "upgrade", "close"]);

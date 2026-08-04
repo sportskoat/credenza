@@ -28,7 +28,7 @@ import { ANON_FREE_CARDS, limitStandingLine } from "../preview/src/limits.js";
 // One row per metered action, in the order a person meets them. The numbers come
 // from PLAN_CAPS, so the sheet can never quote a cap the app does not enforce.
 const ROWS = [
-  { freeKey: "resolveTotal", proKey: "resolvePerMonth", label: "Cards from a link" },
+  { freeKey: "resolveTotal", proKey: "resolvePerMonth", label: "Link reads" },
   { freeKey: "chartVisionTotal", proKey: "chartVisionPerMonth", label: "Size chart reads" },
   // Kyle 2026-08-02: no page prints an Ask number. The cap still runs and the
   // meter still names it when a person reaches the wall.
@@ -64,7 +64,7 @@ function meterWords(status) {
   if (status.kind === "anon") return "free cards";
   if (status.feature === "chartVision") return "chart reads";
   if (status.feature === "ask") return "questions";
-  return "cards from a link";
+  return "link reads";
 }
 
 function UsageMeter({ status }) {
@@ -104,7 +104,7 @@ function UsageMeter({ status }) {
 // The signed-out wall is its own screen now. It answers one question — why did
 // the shelf stop — and then offers TWO different doors, not one door twice.
 //
-// Before this, "Sign in, free" and "Go Pro" both landed on the same settings
+// Before this, "Sign in" and "Go Pro" both landed on the same settings
 // page, so the choice the modal offered was not a real choice. The primary is
 // free and instant. The secondary is honest about being a separate question,
 // and it leaves for its own route.
@@ -162,7 +162,7 @@ function CapModal({ status, title, onSignIn, onUpgrade, onClose }) {
         <p className="cz-cap-body">{PLAN_COPY.capBody}</p>
         <div className="cz-cap-actions">
           <Pill primary onClick={onSignIn} style={{ width: "100%" }}>
-            Sign in · free
+            Sign in
           </Pill>
           <Pill onClick={onUpgrade} style={{ width: "100%" }}>
             See what Pro changes
@@ -221,7 +221,7 @@ export default function LimitsSheet({ status, signedIn = false, onSignIn, onUpgr
         <div className="cz-limits-actions">
           {anon && (
             <button type="button" className="cz-limits-action is-primary" onClick={onSignIn}>
-              Sign in, free
+              Sign in
             </button>
           )}
           <button type="button" className="cz-limits-action" onClick={onUpgrade}>

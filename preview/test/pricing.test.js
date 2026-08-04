@@ -333,18 +333,18 @@ describe("the page only sells what is built", () => {
     expect(page, "the Ask row is back on the price table").not.toContain(
       '<th scope="row">Ask</th>'
     );
-    expect(row("AI size-chart reads")).toContain(
+    expect(row("Size chart reads")).toContain(
       "<td>" + cap("free", "chartVisionTotal") + " total</td>"
     );
-    expect(row("AI size-chart reads")).toContain(
+    expect(row("Size chart reads")).toContain(
       "<td>" + cap("pro", "chartVisionPerMonth") + " a month</td>"
     );
-    // Link resolves was the one row this test skipped, and it is the row most
+    // Link reads was the one row this test skipped, and it is the row most
     // likely to drift unnoticed: the copy writes 1,000 where the server writes
     // 1000, so a careless eye reads them as different numbers and "fixes" one.
     const comma = (n) => n.toLocaleString("en-US");
-    expect(row("Link resolves")).toContain("<td>" + comma(cap("free", "resolveTotal")) + " total</td>");
-    expect(row("Link resolves")).toContain("<td>" + comma(cap("pro", "resolvePerMonth")) + " a month</td>");
+    expect(row("Link reads")).toContain("<td>" + comma(cap("free", "resolveTotal")) + " total</td>");
+    expect(row("Link reads")).toContain("<td>" + comma(cap("pro", "resolvePerMonth")) + " a month</td>");
   });
 
   it("repeats the same caps in the plan bullet lists", () => {
@@ -367,8 +367,8 @@ describe("the page only sells what is built", () => {
       cap("free", "haulsMax") + " hauls at once",
       cap("pro", "haulsMax") + " hauls at once",
       cap("pro", "qcPhotosPerItem") + " QC photos an item",
-      cap("pro", "chartVisionPerMonth") + " AI size-chart reads a month",
-      comma(cap("pro", "resolvePerMonth")) + " link resolves a month",
+      cap("pro", "chartVisionPerMonth") + " Size chart reads a month",
+      comma(cap("pro", "resolvePerMonth")) + " link reads a month",
     ]) {
       expect(bullets, "no bullet reads " + JSON.stringify(want)).toContain(want);
     }
