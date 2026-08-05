@@ -650,3 +650,58 @@ describe("the yupoo album pool (#38)", () => {
     ]);
   });
 });
+
+// #39 (Kyle 2026-08-04): "ok now tell me why this one didnt pull" — item
+// 7804652156 was saved hours before the server stopped storing the Weidian
+// 购前说明 legal notice. Its stored desc list held the notice at [0] with the
+// real chart one slot deeper. The notice is a 2250x4929 tall strip, so the
+// shape scorer liked it, the reserved read took it, and the miss stamped
+// "no chart" over a chart the reader could have read in one call.
+describe("the Weidian legal notice never reaches a paid read (#39)", () => {
+  const NOTICE =
+    "https://si.geilicdn.com/img-791300000199cc14effd0a2102c5-unadjust_2250_4929.png";
+  const CHART_IMG = "https://si.geilicdn.com/img-realchart_1920_826.jpg";
+  const PRODUCTS = [
+    "https://si.geilicdn.com/prod_a_1920_1279.jpg",
+    "https://si.geilicdn.com/prod_b_1920_1280.jpg",
+  ];
+
+  function expectNoticeNeverRead(paidUrls) {
+    expect(paidUrls.some((u) => u.includes("unadjust_2250_4929"))).toBe(false);
+  }
+
+  it("skips the stored notice and reads the chart that sat behind it", async () => {
+    visionMock.mockImplementation(async (urls) => {
+      const u = (urls && urls[0]) || "";
+      if (u === CHART_IMG) return CHART;
+      return "not a chart at all";
+    });
+    const found = await huntSizeChart(
+      item({
+        descImages: [NOTICE, CHART_IMG, ...PRODUCTS],
+        gallery: [],
+        image: null,
+      })
+    );
+    expect(found).not.toBe(null);
+    expect(found.text).toBe(CHART);
+    const paidUrls = visionMock.mock.calls.map((c) => c[0][0]);
+    expectNoticeNeverRead(paidUrls);
+    // With the notice gone the chart IS desc[0], so the reserved slot pays it.
+    expect(paidUrls).toContain(CHART_IMG);
+    expect(paidUrls.length).toBeLessThanOrEqual(3);
+  });
+
+  it("drops the notice from a freshly fetched desc list too", async () => {
+    descMock.mockResolvedValue([NOTICE, CHART_IMG, ...PRODUCTS]);
+    visionMock.mockImplementation(async (urls) => {
+      const u = (urls && urls[0]) || "";
+      if (u === CHART_IMG) return CHART;
+      return "not a chart at all";
+    });
+    const found = await huntSizeChart(item({ gallery: [], image: null }));
+    expect(found).not.toBe(null);
+    expect(found.text).toBe(CHART);
+    expectNoticeNeverRead(visionMock.mock.calls.map((c) => c[0][0]));
+  });
+});

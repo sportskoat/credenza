@@ -22,6 +22,19 @@ const STRONG_CHART_NAME =
 /** Weaker chart signals in a path. */
 const WEAK_CHART_NAME = /chart|measure|sizing|size|screenshot|screen[\s_-]*shot|截图|规格/i;
 
+// The Weidian 购前说明 legal notice rides every listing's desc_content as one
+// exact CDN file. The server stopped storing it on 2026-08-04, and the
+// Details tab hides it — but a card saved before that date still holds it,
+// and it is a 2250x4929 tall strip: the shape scorer reads it as chart-like.
+// The hunt used to spend a paid read on it and stamp "no chart" over the
+// real chart that sat one slot deeper (Kyle 2026-08-05: "ok now tell me why
+// this one didnt pull", item 7804652156). It holds no measurements. Never
+// let it into the paid pool.
+const WEIDIAN_POLICY_IMG = "img-791300000199cc14effd0a2102c5-unadjust_2250_4929.png";
+export function isWeidianPolicyImg(url) {
+  return typeof url === "string" && url.includes(WEIDIAN_POLICY_IMG);
+}
+
 /** Reject payment guides, agent ads, and contact cards. */
 const REJECT_NAME =
   /superbuy|wegobuy|cssbuy|pandabuy|sugargoo|payment|pay\b|wechat|whatsapp|telegram|agent|tutorial|guide|how[\s_-]*to|logo|contact|qr[\s_-]*code|客服|支付|代购指南/i;

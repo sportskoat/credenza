@@ -69,7 +69,7 @@ import {
 import { normalizeFindStatus } from "../credenza-find-status.js";
 import { fitMeasureFieldsFor, FitPrefAxis } from "./SizeRecommendation.jsx";
 import { huntSizeChart, chartHuntFingerprint, CHART_HUNT_VERSION } from "./size-chart-hunt.js";
-import { chartImageKey, rememberChartImage, validateChartResult } from "./chart-pipeline.js";
+import { chartImageKey, isWeidianPolicyImg, rememberChartImage, validateChartResult } from "./chart-pipeline.js";
 import { AlbumLinksRow, SellerLink } from "./CardMetaLinks.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import SlidingTabsPill from "./SlidingTabsPill.jsx";
@@ -1162,11 +1162,12 @@ const LINK_FAIL_COPY = {
 //   real photos 0 + a size axis  -> "no-measurements": sizes listed, no chart.
 //   real photos 0 + no size axis -> "bare": a name and a price only (Taobao
 //     by construction — the copy names Taobao, so the signal requires one).
-const WEIDIAN_POLICY_IMG = "img-791300000199cc14effd0a2102c5-unadjust_2250_4929.png";
+// The constant lives in chart-pipeline.js: the hunt filters the same photo
+// out of the paid pool (#39), so both layers share the one string.
 export function listingInfoOf(item) {
   if (!item) return "";
   const realDesc = (Array.isArray(item.descImages) ? item.descImages : []).filter(
-    (u) => !String(u).includes(WEIDIAN_POLICY_IMG)
+    (u) => !isWeidianPolicyImg(String(u))
   );
   if (realDesc.length > 0) return "";
   const hasSizeAxis = (Array.isArray(item.variants) ? item.variants : []).some((g) =>

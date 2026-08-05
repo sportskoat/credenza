@@ -24,6 +24,7 @@ import {
   chartCacheForImageKeys,
   chartImageKey,
   isRejectedChartName,
+  isWeidianPolicyImg,
   rankChartCandidates,
   rememberChartImage,
   validateChartResult,
@@ -56,6 +57,11 @@ const WEAK_POOL_SCORE = 50;
 // 2026-08-05 — an album item stamped "no chart" while its chart photo sat in
 // chartImages the whole time). The hunt now refuses to stamp without the
 // album, and every v2 stamp earns one fresh hunt.
+// A v2 stamp could also be poisoned by the Weidian legal notice: cards saved
+// before 2026-08-04 store it in descImages, and it took the reserved paid
+// read while the real chart waited one slot deeper (#39, item 7804652156).
+// The notice never enters the pool now, and every v2 stamp earns one fresh
+// hunt — so this item unsticks on its next open after the deploy.
 export const CHART_HUNT_VERSION = 3;
 export function chartHuntFingerprint(item) {
   if (!item || typeof item !== "object") return "";
@@ -283,8 +289,10 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
   }
 
   // Original Product-Details order — reserved-read uses desc[0] only.
+  // The Weidian legal notice never enters: cards saved before 2026-08-04
+  // still store it, and it used to take the reserved read (#39).
   let descPhotos = (item.descImages || []).filter(
-    (src) => typeof src === "string" && /^https?:\/\//i.test(src)
+    (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !isWeidianPolicyImg(src)
   );
   pool = pool.concat(asCandidates(descPhotos, "desc-photos"));
   pool = pool.concat(asCandidates(localPhotos, "gallery-photos"));
@@ -296,7 +304,7 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     if (signal && signal.aborted) return null;
     descFetched = true;
     const fresh = (fetched || []).filter(
-      (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !localPhotos.includes(src)
+      (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !localPhotos.includes(src) && !isWeidianPolicyImg(src)
     );
     descPhotos = fresh;
     pool = pool.concat(asCandidates(fresh, "desc-photos"));
@@ -314,7 +322,7 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     if (signal && signal.aborted) return null;
     const inPool = new Set(pool.map((c) => c.url));
     const fresh = (fetched || []).filter(
-      (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !inPool.has(src)
+      (src) => typeof src === "string" && /^https?:\/\//i.test(src) && !inPool.has(src) && !isWeidianPolicyImg(src)
     );
     if (fresh.length) {
       // Append, never prepend: the reserved read keys on the ORIGINAL desc[0].
