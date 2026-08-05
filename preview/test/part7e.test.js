@@ -216,6 +216,87 @@ describe("getValidSession", () => {
     expect(session).toBeNull();
     expect(loadSession(host)).toBeNull();
   });
+
+  // 2026-08-05: Supabase rotates refresh tokens. Two contexts that share
+  // localStorage can both present the old token; the winner stores a new
+  // pair, the loser gets 400. The loser must re-read storage and adopt the
+  // winner's session — not clearSession and sign the whole device out.
+  it("rotation loser adopts the session another context already stored (400)", async () => {
+    const host = fakeHost();
+    saveSession({ accessToken: "old", refreshToken: "r1", expiresAt: Date.now() - 1000, user: {} }, host);
+    const winner = {
+      accessToken: "from-A",
+      refreshToken: "r2",
+      expiresAt: Date.now() + 3600e3,
+      user: { id: "user-1", email: "u@example.com" },
+    };
+    const fetchImpl = async () => {
+      // Sibling context already rotated and wrote the new pair.
+      saveSession(winner, host);
+      return okJson({ msg: "Refresh token is not valid", error_code: "validation_failed" }, 400);
+    };
+    const session = await getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(session).not.toBeNull();
+    expect(session.refreshToken).toBe("r2");
+    expect(session.accessToken).toBe("from-A");
+    // Device storage still holds the winner — we did not clearSession.
+    expect(loadSession(host).refreshToken).toBe("r2");
+  });
+
+  it("still signs out when a 400 lands and storage still holds our same token", async () => {
+    const host = fakeHost();
+    saveSession({ accessToken: "old", refreshToken: "r1", expiresAt: Date.now() - 1000, user: {} }, host);
+    const fetchImpl = async () =>
+      okJson({ msg: "Refresh token is not valid", error_code: "validation_failed" }, 400);
+    const session = await getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(session).toBeNull();
+    expect(loadSession(host)).toBeNull();
+  });
+
+  it("returns null when another context already cleared storage on rejection", async () => {
+    const host = fakeHost();
+    saveSession({ accessToken: "old", refreshToken: "r1", expiresAt: Date.now() - 1000, user: {} }, host);
+    const fetchImpl = async () => {
+      clearSession(host);
+      return okJson({ error: "invalid_grant" }, 400);
+    };
+    const session = await getValidSession({ fetchImpl, host, retryDelayMs: 0 });
+    expect(session).toBeNull();
+    expect(loadSession(host)).toBeNull();
+  });
+
+  // Abort has no .status → refreshWasRejected is false → transient path.
+  // A timeout that signed people out would be worse than the bug we are fixing.
+  it("treats an authPost abort/timeout as transient and keeps the stored session", async () => {
+    const host = fakeHost();
+    saveSession({ accessToken: "old", refreshToken: "r1", expiresAt: Date.now() - 1000, user: {} }, host);
+    let calls = 0;
+    const fetchImpl = async (_url, init) =>
+      new Promise((_resolve, reject) => {
+        calls += 1;
+        const abort = () => {
+          const err = new Error("The operation was aborted");
+          err.name = "AbortError";
+          // No .status — permanent classification must not fire.
+          reject(err);
+        };
+        if (init.signal && init.signal.aborted) {
+          abort();
+          return;
+        }
+        if (init.signal) init.signal.addEventListener("abort", abort, { once: true });
+      });
+    const session = await getValidSession({
+      fetchImpl,
+      host,
+      retryDelayMs: 0,
+      timeoutMs: 20,
+    });
+    expect(calls).toBe(2); // attempt + one retry, both abort
+    expect(session).not.toBeNull();
+    expect(session.accessToken).toBe("old");
+    expect(loadSession(host).accessToken).toBe("old");
+  });
 });
 
 describe("signOut", () => {

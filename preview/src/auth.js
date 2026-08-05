@@ -80,27 +80,40 @@ function sessionFromTokens(data) {
 
 // ————— REST calls ——————————————————————————————————————————————————————————————
 
-async function authPost(path, body, { fetchImpl, token } = {}) {
+// Match yupoo / photo-relay: a hung auth call must not hang the app forever.
+// Exported so tests can shrink it. An abort has NO .status — refreshWasRejected
+// treats it as transient, so a timeout never reaches clearSession.
+export const AUTH_POST_TIMEOUT_MS = 15_000;
+
+async function authPost(path, body, { fetchImpl, token, timeoutMs = AUTH_POST_TIMEOUT_MS } = {}) {
   const call = fetchImpl || fetch;
-  const res = await call(base() + path, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      "content-type": "application/json",
-      ...(token ? { authorization: "Bearer " + token } : {}),
-    },
-    body: body ? JSON.stringify(body) : "",
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = data.error_description || data.error || data.msg || "HTTP " + res.status;
-    const err = new Error(msg);
-    // getValidSession only signs the device out when Supabase REJECTS the
-    // refresh token. A 500 or a dropped connection must keep the session.
-    err.status = res.status;
-    throw err;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await call(base() + path, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        "content-type": "application/json",
+        ...(token ? { authorization: "Bearer " + token } : {}),
+      },
+      body: body ? JSON.stringify(body) : "",
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.error_description || data.error || data.msg || "HTTP " + res.status;
+      const err = new Error(msg);
+      // getValidSession only signs the device out when Supabase REJECTS the
+      // refresh token. A 500 or a dropped connection must keep the session.
+      // Do NOT attach a status to AbortError — that path must stay transient.
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
   }
-  return data;
 }
 
 // Email a sign-in link. The link lands back on the app with the session in
@@ -204,11 +217,11 @@ export function signInErrorMessage(raw) {
   return "Credenza could not finish that sign-in. Try again.";
 }
 
-export async function refreshSession(session, { fetchImpl } = {}) {
+export async function refreshSession(session, { fetchImpl, timeoutMs } = {}) {
   const data = await authPost(
     "/token?grant_type=refresh_token",
     { refresh_token: session.refreshToken },
-    { fetchImpl }
+    { fetchImpl, timeoutMs }
   );
   return sessionFromTokens(data);
 }
@@ -256,29 +269,46 @@ async function attemptRefresh(session, opts) {
 // the STORED token rather than no token at all: the refresh fires 60s early,
 // so that token is usually still good, and the worst case (the server 401s)
 // is no worse than today.
-export async function getValidSession({ fetchImpl, host, retryDelayMs = REFRESH_RETRY_DELAY_MS } = {}) {
+//
+// Rotation loser (2026-08-05): Supabase kills the old refresh token the moment
+// a new pair is issued. Two tabs that share one device storage can both present
+// the old token; the winner stores a new pair, the loser gets 400. Before this
+// re-read, the loser called clearSession and signed the whole device out —
+// including the winner's good session. On permanent rejection we re-load:
+// another context rotated → adopt its stored session; token still ours (or
+// storage empty) → clear, same as today.
+export async function getValidSession({
+  fetchImpl,
+  host,
+  retryDelayMs = REFRESH_RETRY_DELAY_MS,
+  timeoutMs = AUTH_POST_TIMEOUT_MS,
+} = {}) {
   const session = loadSession(host);
   if (!session) return null;
   if (session.expiresAt - 60 * 1000 > Date.now()) return session;
   if (!inFlightRefresh) {
     inFlightRefresh = (async () => {
       try {
-        let result = await attemptRefresh(session, { fetchImpl });
+        let result = await attemptRefresh(session, { fetchImpl, timeoutMs });
         if (result.session) {
           saveSession(result.session, host);
           return result.session;
         }
         if (result.rejected) {
+          const current = loadSession(host);
+          if (current && current.refreshToken !== session.refreshToken) return current;
           clearSession(host);
           return null;
         }
         await sleep(retryDelayMs);
-        result = await attemptRefresh(session, { fetchImpl });
+        result = await attemptRefresh(session, { fetchImpl, timeoutMs });
         if (result.session) {
           saveSession(result.session, host);
           return result.session;
         }
         if (result.rejected) {
+          const current = loadSession(host);
+          if (current && current.refreshToken !== session.refreshToken) return current;
           clearSession(host);
           return null;
         }
