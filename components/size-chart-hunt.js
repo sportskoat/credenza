@@ -51,7 +51,12 @@ const WEAK_POOL_SCORE = 50;
 // (typed-10000 desc blocks, tall-strip scoring, the busy retry — all landed
 // 2026-08-04). A v1 stamp on a chart-carrying item would hide the chart
 // forever, so a stale version earns one fresh hunt too.
-export const CHART_HUNT_VERSION = 2;
+// v2 stamps could be written by a hunt that never saw the album: a failed
+// yupoo fetch used to degrade the pool and still stamp a miss (#38, Kyle
+// 2026-08-05 — an album item stamped "no chart" while its chart photo sat in
+// chartImages the whole time). The hunt now refuses to stamp without the
+// album, and every v2 stamp earns one fresh hunt.
+export const CHART_HUNT_VERSION = 3;
 export function chartHuntFingerprint(item) {
   if (!item || typeof item !== "object") return "";
   const http = (list) =>
@@ -253,6 +258,12 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
   if (album) {
     const data = await fetchYupooImages(album, { signal });
     if (signal && signal.aborted) return null;
+    // #38 (Kyle 2026-08-05): the album is the best chart source — its
+    // chartImages never reach the gallery ("charts hidden", 2026-07-26), so a
+    // hunt without the album pool can stamp a miss over an unread chart. A
+    // failed fetch proves nothing about the item. Say the reader could not be
+    // reached and stamp nothing; the next open earns a fresh try.
+    if (!data) return { unavailable: true };
     const text = [data && data.description, data && data.sizeNotes].filter(Boolean).join("\n");
     const free = acceptText(text, { via: "album-text", photos: 0 });
     if (free) return free;

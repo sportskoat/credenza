@@ -3,10 +3,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { clearChartImageCache, rememberChartImage } from "../../components/chart-pipeline.js";
 
-const { visionMock, yupooMock, descMock } = vi.hoisted(() => ({
+const { visionMock, yupooMock, descMock, albumUrlMock } = vi.hoisted(() => ({
   visionMock: vi.fn(),
   yupooMock: vi.fn(),
   descMock: vi.fn(),
+  albumUrlMock: vi.fn(),
 }));
 
 vi.mock("../../credenza-fashion.jsx", () => ({
@@ -37,7 +38,7 @@ vi.mock("../../credenza-fashion.jsx", () => ({
     }
     return rows.length >= 2 ? { rows } : null;
   },
-  yupooAlbumUrl: () => null,
+  yupooAlbumUrl: albumUrlMock,
 }));
 
 const {
@@ -81,6 +82,8 @@ beforeEach(() => {
   visionMock.mockReset();
   yupooMock.mockReset();
   descMock.mockReset();
+  albumUrlMock.mockReset();
+  albumUrlMock.mockReturnValue(null);
   descMock.mockResolvedValue([]);
   clearChartImageCache();
 });
@@ -586,4 +589,64 @@ describe("the busy retry (Kyle 2026-08-04)", () => {
     // First read + one retry. The remaining paid candidates stay unspent.
     expect(visionMock).toHaveBeenCalledTimes(2);
   }, 15000);
+});
+
+// #38 (Kyle 2026-08-05): an album item stamped "no chart" while its chart sat
+// in the album's chartImages the whole time. The gallery never carries those
+// photos ("charts hidden", 2026-07-26), so a hunt that ran without the album
+// pool could not see the chart — and stamped the miss anyway. Two rules now:
+// a failed album fetch stamps nothing, and a good fetch reads the chart
+// photo first.
+describe("the yupoo album pool (#38)", () => {
+  const ALBUM = "https://mook-official.x.yupoo.com/albums/244505824?uid=1";
+
+  function albumItem() {
+    return item({
+      url: ALBUM,
+      // The gallery holds only the display photos — the chart is NOT among
+      // them, exactly as the yupoo function returns this album live.
+      image: "https://photo.yupoo.com/mook-official/be8ed72a88/40a270f6.jpg",
+      gallery: ["https://photo.yupoo.com/mook-official/3f9d3b562b/b719d912.jpg"],
+    });
+  }
+
+  it("stamps nothing when the album fetch fails — the reader could not be reached", async () => {
+    albumUrlMock.mockReturnValue(ALBUM);
+    yupooMock.mockResolvedValue(null);
+    const found = await huntSizeChart(albumItem());
+    // Unavailable, never a miss: a miss would stamp the item and hide the
+    // chart until the next pipeline version.
+    expect(found).toEqual({ unavailable: true });
+    // And no paid read fires on a pool that lacks the album.
+    expect(visionMock).not.toHaveBeenCalled();
+  });
+
+  it("reads the album's chart photo first, before any gallery photo", async () => {
+    albumUrlMock.mockReturnValue(ALBUM);
+    yupooMock.mockResolvedValue({
+      images: [
+        "https://photo.yupoo.com/mook-official/be8ed72a88/40a270f6.jpg",
+        "https://photo.yupoo.com/mook-official/3f9d3b562b/b719d912.jpg",
+      ],
+      chartImages: ["https://photo.yupoo.com/mook-official/6afd5593dc/fe41e2e0.png"],
+      tileMeta: {
+        "https://photo.yupoo.com/mook-official/6afd5593dc/fe41e2e0.png": {
+          width: 411,
+          height: 514,
+          alt: "screenshot_2026-07-02_15-55-00.png",
+        },
+      },
+      description: "",
+      sizeNotes: "",
+    });
+    visionMock.mockResolvedValue(CHART);
+    const found = await huntSizeChart(albumItem());
+    expect(found && found.text).toBe(CHART);
+    expect(found.source.via).toBe("chart-photos");
+    // One paid read, on the chart photo — the gallery photos never burn a call.
+    expect(visionMock).toHaveBeenCalledTimes(1);
+    expect(visionMock.mock.calls[0][0]).toEqual([
+      "https://photo.yupoo.com/mook-official/6afd5593dc/fe41e2e0.png",
+    ]);
+  });
 });
