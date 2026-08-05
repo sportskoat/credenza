@@ -281,6 +281,24 @@ describe("descImageUrls (Weidian Product Details photos)", () => {
     ]);
   });
 
+  it("drops the shared 购前说明 legal-notice photo, keeps other type-10000 strips", () => {
+    const urls = descImageUrls([
+      {
+        type: 10000,
+        text: "购前说明",
+        url: "https://si.geilicdn.com/img-791300000199cc14effd0a2102c5-unadjust_2250_4929.png",
+      },
+      { type: 10000, text: "尺码表", url: "https://si.geilicdn.com/real-folded.png" },
+      { type: 2, url: "https://si.geilicdn.com/chart_800_600.png" },
+    ]);
+    // The boilerplate skip is exact-file only — a different folded strip or
+    // any other photo must still reach the pool.
+    expect(urls).toEqual([
+      "https://si.geilicdn.com/real-folded.png",
+      "https://si.geilicdn.com/chart_800_600.png",
+    ]);
+  });
+
   it("caps at 20 and tolerates garbage input", () => {
     const many = Array.from({ length: 30 }, (_, i) => ({ type: 2, url: `https://si.geilicdn.com/${i}.jpg` }));
     expect(descImageUrls(many)).toHaveLength(20);

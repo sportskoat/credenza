@@ -600,11 +600,21 @@ async function fetchWeidianItem(itemId, signal) {
 //             lower page in this strip, size tables included — Kyle 2026-08-04,
 //             weidian 7636215363: every chart sat in one folded 2250x4929 PNG
 //             and the pool never saw it ("WHY IS THIS SO INCONSISTENT").
+// The shared 购前说明 (pre-purchase legal notice) photo every Weidian shop
+// attaches — plain legal text, never a chart, never product-specific. Reading
+// it costs a paid vision call for zero signal (F, measured 2026-08-04), and
+// its presence on every listing also stale-zeroed the tier-2 descImages
+// count. Dropped at the source so the pool matches the client-side filter
+// (DetailBody WEIDIAN_POLICY_IMG). Exact-file skip only: other type-10000
+// folded strips are real content (charts live there) and must survive.
+const WEIDIAN_POLICY_IMG = "img-791300000199cc14effd0a2102c5-unadjust_2250_4929.png";
+
 // Pure: blocks -> ordered, deduped https photo URLs. Any failure is silent.
 function pushDescUrl(urls, raw) {
   if (typeof raw !== "string" || !raw) return;
   const clean = raw.split("?")[0].replace(/\.webp$/i, "");
   if (!/^https:\/\//i.test(clean)) return;
+  if (clean.includes(WEIDIAN_POLICY_IMG)) return;
   if (!urls.includes(clean)) urls.push(clean);
 }
 
