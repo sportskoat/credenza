@@ -480,6 +480,28 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(onRemovePhoto).toHaveBeenCalledWith("dp-1", "https://si.geilicdn.com/img-2.jpg");
   });
 
+  // #38 (Kyle 2026-08-05): "you should just put it on the album where it says
+  // album." The web album link used to live only in the Details tab, so on the
+  // Fit tab it read as missing. It now sits beside the ALBUM caption: the
+  // caption pages our copy, the link opens the seller's album.
+  it("puts the web album link beside the album caption", async () => {
+    renderPanel(
+      panelItem({
+        url: "https://mook-official.x.yupoo.com/albums/244505824?uid=1",
+        seller: "mook-official",
+      })
+    );
+    const meta = document.querySelector(".cz-dpanel-left .cz-dpanel-meta");
+    expect(meta).not.toBeNull();
+    const link = meta.querySelector("a.cz-album-link");
+    expect(link).not.toBeNull();
+    expect(link.getAttribute("href")).toContain("mook-official.x.yupoo.com/albums/244505824");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.textContent).toContain("View album");
+    // The caption button still pages our copy — two actions, side by side.
+    expect(meta.querySelector("button.cz-dpanel-meta-album")).not.toBeNull();
+  });
+
   it("keeps the full-width Buy footer when no footer price is passed", () => {
     render(
       <DesktopDetailPanel

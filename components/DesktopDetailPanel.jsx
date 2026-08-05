@@ -14,6 +14,7 @@ import {
   yupooAlbumUrl,
 } from "../credenza-fashion.jsx";
 import { normalizeFindStatus } from "../credenza-find-status.js";
+import { AlbumLink } from "./CardMetaLinks.jsx";
 import DetailBody from "./DetailBody.jsx";
 import { CoverPlaceholder } from "./CardCover.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
@@ -699,6 +700,11 @@ export default function DesktopDetailPanel({
                 {item.image && photos[0] === item.image ? "COVER SET" : ""}
               </span>
             </button>
+            {/* #38 (Kyle 2026-08-05): the album on the web was only reachable
+                from the Details tab, so on the Fit tab it read as missing.
+                The underlined link lives beside the album caption now — the
+                button above pages our copy, this opens the seller's album. */}
+            <AlbumLink item={item} className="cz-album-link cz-dpanel-album-link" />
           </div>
         </div>
 
