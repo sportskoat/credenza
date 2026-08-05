@@ -230,7 +230,9 @@ describe("the silent hunt cannot reach the reader", () => {
 
   // Kyle 2026-08-03: "if you wait around long enough, switch on and off, go to
   // different tabs, and come back." Every return started a new paid search.
-  it("starts no second search when the card opens again", async () => {
+  // #31e (Kyle 2026-08-04): the reopen must ALSO keep the true reason. The
+  // tried-list stops the second search; the session map restores the wall.
+  it("starts no second search when the card opens again, and keeps the reason", async () => {
     huntMock.mockResolvedValue({ unavailable: true });
     const item = chartless();
     renderBody(item);
@@ -240,7 +242,28 @@ describe("the silent hunt cannot reach the reader", () => {
 
     cleanup();
     renderBody(item);
-    await waitFor(() => expect(screen.getByText("No chart")).toBeInTheDocument());
+    // The honest wall comes back — never the generic "No chart" claim, which
+    // says something about the item that nobody checked.
+    expect(await screen.findByText("Not answering")).toBeInTheDocument();
+    expect(screen.getByText(CHART_HUNT_UNAVAILABLE_COPY)).toBeInTheDocument();
+    expect(screen.queryByText("No chart for this one yet.")).toBe(null);
+    expect(huntMock.mock.calls.length).toBe(callsAfterFirst);
+  });
+
+  // #31e: same rule for a traffic guard. The reopen says Busy again instead
+  // of forgetting, and still spends nothing.
+  it("keeps the Busy wall on a reopen, with no second search", async () => {
+    huntMock.mockResolvedValue({ rateLimited: true });
+    const item = chartless();
+    renderBody(item);
+    expect(await screen.findByText("Busy")).toBeInTheDocument();
+    const callsAfterFirst = huntMock.mock.calls.length;
+
+    cleanup();
+    renderBody(item);
+    expect(await screen.findByText("Busy")).toBeInTheDocument();
+    expect(screen.getByText(CHART_RATE_LIMITED_COPY)).toBeInTheDocument();
+    expect(screen.queryByText("No chart for this one yet.")).toBe(null);
     expect(huntMock.mock.calls.length).toBe(callsAfterFirst);
   });
 

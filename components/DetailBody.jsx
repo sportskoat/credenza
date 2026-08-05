@@ -102,6 +102,15 @@ const SAVED_HOLD_MS = 1400;
 // (Kyle 2026-08-04: a reload must never re-spend the reads).
 const chartHuntTried = new Set();
 
+// #31e (Kyle 2026-08-04): WHICH guard stopped the hunt, per item, for the
+// session. chartHuntTried stops a second paid search when the card reopens,
+// but the reason lived in component state — the reopen forgot it and printed
+// "No chart for this one yet.", a claim the hunt never made. The map survives
+// the remount, so the wall keeps its true reason. It stays memory on purpose:
+// a page reload still retries the hunt, because a traffic guard may have
+// lifted. The persistent sizeChartHunt stamp stays for true misses only.
+const chartHuntBlocked = new Map();
+
 // The tap that opened the editor is the focus intent, so the input takes
 // focus when it mounts. A callback ref does this without autoFocus, which
 // eslint-plugin-jsx-a11y forbids.
@@ -122,23 +131,28 @@ const focusOnMount = (el) => {
 function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null) {
   const [hunting, setHunting] = useState(false);
   // FIX 0: hunt hit a 401/403 — show signed-out copy, not "No chart for this one yet."
-  const [authBlocked, setAuthBlocked] = useState(false);
+  // Each flag opens from the session map, so a remount restores the wall the
+  // last finished hunt met (#31e) instead of forgetting it.
+  const [authBlocked, setAuthBlocked] = useState(() => chartHuntBlocked.get(item.id) === "auth");
   // FIX 2b: hunt hit daily cap — show cap copy, not "No chart for this one yet."
-  const [capBlocked, setCapBlocked] = useState(false);
+  const [capBlocked, setCapBlocked] = useState(() => chartHuntBlocked.get(item.id) === "cap");
   // FIX 2c: hunt could not reach the reader — show "not answering", not
   // "No chart for this one yet." A server that is down proves nothing about the item.
-  const [outBlocked, setOutBlocked] = useState(false);
+  const [outBlocked, setOutBlocked] = useState(() => chartHuntBlocked.get(item.id) === "out");
   // #31 (Kyle 2026-08-04): the per-minute traffic window and the site-wide
   // daily cost guard are their own walls. Neither is the plan cap, and
   // neither may print the plan-cap sentence.
-  const [rateBlocked, setRateBlocked] = useState(false);
-  const [offBlocked, setOffBlocked] = useState(false);
+  const [rateBlocked, setRateBlocked] = useState(() => chartHuntBlocked.get(item.id) === "rate");
+  const [offBlocked, setOffBlocked] = useState(() => chartHuntBlocked.get(item.id) === "off");
   useEffect(() => {
-    setAuthBlocked(false);
-    setCapBlocked(false);
-    setOutBlocked(false);
-    setRateBlocked(false);
-    setOffBlocked(false);
+    // #31e: restore (not blank) the reason on a remount — the map holds what
+    // the last finished hunt met, so the wall stays honest on a reopen.
+    const reason = chartHuntBlocked.get(item.id);
+    setAuthBlocked(reason === "auth");
+    setCapBlocked(reason === "cap");
+    setOutBlocked(reason === "out");
+    setRateBlocked(reason === "rate");
+    setOffBlocked(reason === "off");
   }, [item.id]);
   useEffect(() => {
     if (!enabled) return;
@@ -174,21 +188,27 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
         // (Kyle 2026-07-25, chart visible in gallery while fit block spun).
         chartHuntTried.add(item.id);
         // FIX 0: auth wall mid-hunt — distinct state, stop claiming no chart.
+        // Each blocked outcome also writes the session map, so a remount
+        // restores this wall (#31e) instead of the generic no-chart sentence.
         if (found && found.authRequired) {
+          chartHuntBlocked.set(item.id, "auth");
           setAuthBlocked(true);
           return;
         }
         // FIX 2b: daily cap mid-hunt — distinct state, stop claiming no chart.
         if (found && found.capReached) {
+          chartHuntBlocked.set(item.id, "cap");
           setCapBlocked(true);
           return;
         }
         // #31: the traffic guards mid-hunt — their own states, same rule.
         if (found && found.rateLimited) {
+          chartHuntBlocked.set(item.id, "rate");
           setRateBlocked(true);
           return;
         }
         if (found && found.readerOff) {
+          chartHuntBlocked.set(item.id, "off");
           setOffBlocked(true);
           return;
         }
@@ -198,11 +218,14 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
         // long enough, switch on and off, go to different tabs, and come
         // back"). A page reload still gives a fresh try; the list is memory.
         if (found && found.unavailable) {
+          chartHuntBlocked.set(item.id, "out");
           setOutBlocked(true);
           return;
         }
         // Older hunts returned bare text; the source tag ships with the text now.
         const text = typeof found === "string" ? found : found && found.text;
+        // A completed hunt clears any older blocked reason for this item.
+        chartHuntBlocked.delete(item.id);
         if (text) {
           onSaveEdit(item.id, {
             sizeChartText: text,
@@ -1310,7 +1333,7 @@ function SizingBlockNoChart({
                        and reading as broken. Exact wording per F/O. No seller-
                        contact promise here: the WhatsApp branch above only
                        renders when a number actually exists. */
-                    "This seller posted no measurements. Pick a size yourself — I cannot recommend one."
+                    "This seller posted no measurements. Pick a size yourself. I cannot recommend one."
                   : listingInfo === "bare"
                     ? "Taobao links carry a name and price only. Find this item on Weidian for sizes."
                     : /* Kyle 2026-07-30: keep this state short. Two lines, then the
@@ -3470,6 +3493,7 @@ export default function DetailBody({
   );
   const forgetChart = () => {
     chartHuntTried.delete(item.id);
+    chartHuntBlocked.delete(item.id);
     onSaveEdit(
       item.id,
       item.sizeChartText
@@ -3479,6 +3503,7 @@ export default function DetailBody({
   };
   const clearBlockedChart = () => {
     chartHuntTried.delete(item.id);
+    chartHuntBlocked.delete(item.id);
     onSaveEdit(item.id, {
       sizeChartText: "",
       sizeChartSource: null,
