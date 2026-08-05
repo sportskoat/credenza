@@ -184,6 +184,35 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     return Number(total) || 0;
   }
 
+  // ── Shared chart cache (#40, Kyle 2026-08-05) ─────────────────────────────
+  // docs/sql/2026-08-05-chart-cache.sql. One paid chart read now serves every
+  // later reader of the SAME chart photo. The key is the photo fingerprint —
+  // never the album and never the link, because one yupoo album holds many
+  // items and one item arrives through many link shapes.
+
+  // The saved chart for one photo fingerprint, or null when nobody has paid
+  // for this photo yet.
+  async function loadChartText(imageKey) {
+    const res = await req(
+      "/chart_cache?image_key=eq." + encodeURIComponent(imageKey) + "&select=chart_text&limit=1"
+    );
+    const rows = await res.json();
+    return Array.isArray(rows) && rows.length && rows[0] && typeof rows[0].chart_text === "string"
+      ? rows[0].chart_text
+      : null;
+  }
+
+  // Save one paid read. merge-duplicates makes a second writer harmless: two
+  // readers who miss in the same second both pay and both write, and the row
+  // ends up with one of two identical chart texts.
+  async function saveChartText(imageKey, chartText) {
+    await req("/chart_cache", {
+      method: "POST",
+      headers: { prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ image_key: imageKey, chart_text: chartText }),
+    });
+  }
+
   async function isEventProcessed(eventId) {
     const res = await req("/processed_events?event_id=eq." + encodeURIComponent(eventId) + "&select=event_id");
     const rows = await res.json();
@@ -216,6 +245,8 @@ function makeStore({ url, serviceKey, fetchImpl = null }) {
     deleteSharesForUser,
     loadDailySpend,
     addDailySpend,
+    loadChartText,
+    saveChartText,
     isEventProcessed,
     markEventProcessed,
   };

@@ -38,6 +38,8 @@ describe("chart-vision function", () => {
     delete process.env.CREDENZA_SEARCH_SECRET;
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.CREDENZA_DAILY_COST_CAP_USD;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     guard._setLookupForTest(null);
     limit._resetForTest();
     vi.restoreAllMocks();
@@ -399,5 +401,146 @@ describe("chart-vision function", () => {
     const huge = "A".repeat(limit.ROUTES["chart-vision"].bodyBytes + 10);
     const res = await handler(postPhotos([{ data: huge, mediaType: "image/png" }]));
     expect(res.statusCode).toBe(413);
+  });
+});
+
+// #40 (Kyle 2026-08-05): "IF ONE PERSON HAS LOOKED AT THIS SPECIFIC LINK AND
+// GOT THE CHART, WHY ARE WE WASTING ANOTHER AI CHART READ?" The shared chart
+// cache answers a repeat read of the same photo for free, and banks every
+// paid read for the next person.
+describe("the shared chart cache (#40)", () => {
+  const SUPA = "https://supabase.test";
+  const CACHED_TEXT = "S 衣长71 胸围110\nM 衣长73 胸围114\nL 衣长75 胸围118";
+  // Local copies: the originals are scoped inside the §3 describe above.
+  const PNG_1PX_LOCAL =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==";
+
+  function postLocalPhotos(photos) {
+    return {
+      httpMethod: "POST",
+      headers: { "x-credenza-key": SECRET },
+      body: JSON.stringify({ photos }),
+    };
+  }
+
+  // This describe is a sibling of the main one, so it sets up its own world.
+  beforeEach(() => {
+    process.env.CREDENZA_SEARCH_SECRET = SECRET;
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    guard._setLookupForTest(async () => [{ address: "93.184.216.34" }]);
+    limit._resetForTest();
+  });
+
+  afterEach(() => {
+    delete process.env.CREDENZA_SEARCH_SECRET;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    guard._setLookupForTest(null);
+    limit._resetForTest();
+    vi.restoreAllMocks();
+  });
+
+  function withStore() {
+    process.env.SUPABASE_URL = SUPA;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-test";
+  }
+
+  // One fetch router for all four doors the handler can knock on: the cache
+  // read, the cache write, the photo CDN, and Anthropic.
+  function mockFetchOver({ cacheRows, cacheGetOk = true, onCacheWrite }) {
+    const calls = [];
+    global.fetch = vi.fn(async (url, opts) => {
+      calls.push({ url, method: (opts && opts.method) || "GET" });
+      if (String(url).startsWith(SUPA + "/rest/v1/chart_cache")) {
+        if ((opts && opts.method) === "POST") {
+          if (onCacheWrite) onCacheWrite(JSON.parse(opts.body));
+          return { ok: true, status: 201, json: async () => ({}) };
+        }
+        if (!cacheGetOk) return { ok: false, status: 500, json: async () => ({}) };
+        return { ok: true, json: async () => cacheRows };
+      }
+      if (url === IMG) {
+        return {
+          ok: true,
+          headers: { get: () => "image/jpeg" },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        };
+      }
+      return anthropicOk({ found: true, chartText: CACHED_TEXT, note: "" });
+    });
+    return calls;
+  }
+
+  it("answers a repeat read from the cache — no photo fetch, no Anthropic call", async () => {
+    withStore();
+    const calls = mockFetchOver({ cacheRows: [{ chart_text: CACHED_TEXT }] });
+    const res = await handler(post());
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.found).toBe(true);
+    expect(body.chartText).toBe(CACHED_TEXT);
+    expect(body.cached).toBe(true);
+    expect(calls.some((c) => c.url === IMG)).toBe(false);
+    expect(calls.some((c) => String(c.url).includes("api.anthropic.com"))).toBe(false);
+  });
+
+  it("banks a paid read so the next reader pays nothing", async () => {
+    withStore();
+    let written = null;
+    mockFetchOver({ cacheRows: [], onCacheWrite: (row) => (written = row) });
+    const res = await handler(post());
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).cached).toBeUndefined();
+    // The key names the PHOTO — never the album, never the link.
+    expect(written).not.toBe(null);
+    expect(written.image_key).toBe("yupoo:seller/abc123");
+    expect(written.chart_text).toBe(CACHED_TEXT);
+  });
+
+  it("never looks up or banks a customer's own camera frame", async () => {
+    withStore();
+    const calls = mockFetchOver({ cacheRows: [{ chart_text: CACHED_TEXT }] });
+    const res = await handler(postLocalPhotos([{ data: PNG_1PX_LOCAL, mediaType: "image/png" }]));
+    expect(res.statusCode).toBe(200);
+    // The daily-spend counters talk to Supabase on every paid call — that is
+    // their job. The pin is narrower: the CHART CACHE never sees a camera
+    // frame, not for a lookup and not for a write.
+    expect(calls.some((c) => String(c.url).startsWith(SUPA + "/rest/v1/chart_cache"))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes("api.anthropic.com"))).toBe(true);
+  });
+
+  it("a broken cache never costs a read: it pays and answers anyway", async () => {
+    withStore();
+    mockFetchOver({ cacheRows: [], cacheGetOk: false });
+    const res = await handler(post());
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).found).toBe(true);
+  });
+
+  it("does not bank a photo the reader found no chart in", async () => {
+    withStore();
+    let written = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      if (String(url).startsWith(SUPA + "/rest/v1/chart_cache")) {
+        if ((opts && opts.method) === "POST") {
+          written = JSON.parse(opts.body);
+          return { ok: true, status: 201, json: async () => ({}) };
+        }
+        return { ok: true, json: async () => [] };
+      }
+      if (url === IMG) {
+        return {
+          ok: true,
+          headers: { get: () => "image/jpeg" },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        };
+      }
+      return anthropicOk({ found: false, chartText: "" });
+    });
+    const res = await handler(post());
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).found).toBe(false);
+    expect(written).toBe(null);
   });
 });

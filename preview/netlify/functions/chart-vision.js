@@ -20,6 +20,65 @@
 const { safeFetch } = require("./lib/guard.js");
 const limit = require("./lib/limit.js");
 const paidGate = require("./lib/paid-gate.js");
+const { chartImageKey } = require("./lib/chart-image-key.js");
+
+// ── Shared chart cache (#40, Kyle 2026-08-05) ───────────────────────────────
+// "IF ONE PERSON HAS LOOKED AT THIS SPECIFIC LINK AND GOT THE CHART, WHY ARE
+// WE WASTING ANOTHER AI CHART READ?" One paid read of a chart photo now
+// serves every later reader, on every device. The key is the photo
+// fingerprint, NEVER the album and never the link: a yupoo album holds many
+// items ("sometimes Yupoo albums have multiple different items of clothing"),
+// and one item arrives through many link shapes, so neither can name a chart.
+// Only single-photo URL reads use the cache: that is the hunt's shape, it
+// names exactly one photo, and a multi-photo batch cannot say which photo
+// held the chart. A customer's own inline camera frame is never cached —
+// it is theirs, and it has no CDN identity.
+//
+// Every path fails OPEN: no Supabase, a slow store, or a write failure must
+// never cost the customer a read that would otherwise succeed. The worst
+// case of a cache fault is yesterday's behaviour — pay for the read.
+
+function chartStore(env) {
+  if (!env || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    // Lazy, like limit.js: local dev and most of the test suite never load it.
+    const { storeFromEnv } = require("./lib/entitlement-store.js");
+    return storeFromEnv(env);
+  } catch {
+    return null;
+  }
+}
+
+// The saved chart for this photo, or null. Never throws.
+async function chartCacheLoad(env, url) {
+  const store = chartStore(env);
+  if (!store) return null;
+  const key = chartImageKey(url);
+  if (!key) return null;
+  try {
+    return await store.loadChartText(key);
+  } catch (e) {
+    console.error("[chart-vision] chart cache load failed", {
+      name: (e && e.name) || "CacheLoadError",
+    });
+    return null;
+  }
+}
+
+// Save one paid read for every later reader. Never throws.
+async function chartCacheSave(env, url, chartText) {
+  const store = chartStore(env);
+  if (!store) return;
+  const key = chartImageKey(url);
+  if (!key) return;
+  try {
+    await store.saveChartText(key, chartText);
+  } catch (e) {
+    console.error("[chart-vision] chart cache save failed", {
+      name: (e && e.name) || "CacheSaveError",
+    });
+  }
+}
 
 const ROUTE = "chart-vision";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -377,6 +436,21 @@ async function handle(event) {
   }
   const referer = safeReferer(input && input.referer) || fallbackReferer(imageUrls);
 
+  // #40: the shared chart cache answers BEFORE the daily ceiling and the rate
+  // windows. Those guards exist to bound Anthropic spend, and a cached answer
+  // spends nothing — a chart someone already paid for stays available even
+  // when the reader is throttled or capped (Kyle 2026-08-05: a rate window
+  // walled off a chart we could have handed over free). The plan allowance
+  // above still applies: a cache hit is a chart read for the customer, it is
+  // just free for US. Single-photo URL reads only — see the header above.
+  if (imageUrls.length === 1 && !inlinePhotos.length) {
+    const cached = await chartCacheLoad(process.env, imageUrls[0]);
+    if (cached) {
+      await paidGate.recordPaidUsage(gate, "chartVision");
+      return response(200, { found: true, chartText: cached, scanned: 0, cached: true });
+    }
+  }
+
   // The site-wide spend ceiling, shared across every Netlify instance. It runs
   // before enter() so a blocked call never takes a concurrency slot.
   const capped = await limit.checkDailyCap(ROUTE, process.env);
@@ -456,6 +530,13 @@ async function handle(event) {
     }
     const chartText =
       result.chartText.trim() + (result.note && result.note.trim() ? "\n" + result.note.trim() : "");
+    // #40: bank this paid read so the next reader of the same photo pays
+    // nothing. Single-photo URL reads only — a batch cannot name the photo
+    // that held the chart. Awaited like the spend write: the response is
+    // already earned, and a failed save only costs the NEXT reader a read.
+    if (imageUrls.length === 1 && !inlinePhotos.length) {
+      await chartCacheSave(process.env, imageUrls[0], chartText);
+    }
     return response(200, { found: true, chartText, scanned: images.length });
   } catch (e) {
     if (e && e.name === "AbortError") return response(504, { error: "Timed out" });
