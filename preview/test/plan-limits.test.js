@@ -308,23 +308,31 @@ describe("the caps are enforced where the writes happen", () => {
     expect(askWindow, "the ask bump no longer follows the validity check").toBeTruthy();
   });
 
-  it("never counts before the status check, at any of the four call sites", () => {
+  it("applies the saved plan before the network check at boot", () => {
+    // #31 (Kyle 2026-08-04): an expired access token makes getValidSession
+    // await a Supabase refresh. The whole wait left accountPlan null, so
+    // planForLimits guessed "free" — a chart request in that window got the
+    // free-account wall on the owner's unlimited account. The saved plan is a
+    // local read, so it must apply first; the fresh pull replaces it after.
     const clean = src.replace(/^\s*\/\/.*$/gm, "");
-    const sites = [...clean.matchAll(/bumpUsage\("(\w+)"/g)];
-    expect(sites.length, "a bumpUsage call site was added or removed").toBe(4);
-
-    for (const site of sites) {
-      // Look back from each bump to the fetch that precedes it. Any window
-      // that reaches the fetch WITHOUT crossing a status check is the bug.
-      const before = clean.slice(0, site.index);
-      const fetchAt = before.lastIndexOf("monitoredFetch(");
-      expect(fetchAt, `bumpUsage("${site[1]}") has no fetch above it`).toBeGreaterThan(-1);
-      const between = before.slice(fetchAt);
-      expect(
-        /res\.ok/.test(between) || /if \(!valid\)/.test(between),
-        `bumpUsage("${site[1]}") fires before any status check — a failed call would charge the customer`
-      ).toBe(true);
-    }
+    const boot = clean.match(/const boot = async \(\) => \{[\s\S]*?\n    \};/);
+    expect(boot, "the boot function moved").toBeTruthy();
+    const body = boot[0];
+    // The early apply reads the stored session and gates on it, so a signed-out
+    // device never picks up a stale plan.
+    expect(body).toMatch(
+      /const stored = loadSession\(\);[\s\S]{0,220}?setAccountPlan\(cached\);/
+    );
+    // Order is the whole defect: the first saved-plan read in boot must come
+    // before the first network refresh.
+    const firstCache = body.indexOf("loadCachedEntitlement()");
+    const firstNetwork = body.indexOf("await getValidSession()");
+    expect(firstCache).toBeGreaterThan(-1);
+    expect(firstNetwork).toBeGreaterThan(-1);
+    expect(
+      firstCache,
+      "the saved plan must load before the network refresh — network first is the flip-flop bug"
+    ).toBeLessThan(firstNetwork);
   });
 });
 

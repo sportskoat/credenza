@@ -69,6 +69,7 @@ import {
   sendMagicLink,
   googleAuthUrl,
   getValidSession,
+  loadSession,
   signOut as authSignOut,
   authHeaders,
   signInErrorMessage,
@@ -6468,12 +6469,27 @@ function CredenzaApp() {
         }
         return;
       }
+      // #31 (Kyle 2026-08-04): read the saved plan BEFORE the network. An
+      // expired access token makes getValidSession await a Supabase refresh,
+      // and the whole wait left accountPlan null — planForLimits then guessed
+      // "free", so a chart request in that window got the free-account wall
+      // on the owner's unlimited account. The cache is local and
+      // expiry-checked, and sign-out clears it, so it is safe to apply first.
+      // The fresh pull below still replaces it moments later.
+      const stored = loadSession();
+      if (stored) {
+        const cached = loadCachedEntitlement();
+        if (cached && (!cached.sub || cached.sub === stored.user.id)) setAccountPlan(cached);
+      }
       const session = await getValidSession();
       if (cancelled) return;
       setAccountSession(session);
       if (!session) return;
-      const cached = loadCachedEntitlement();
-      if (cached) setAccountPlan(cached);
+      if (!stored) {
+        // Another tab signed in during the wait — same local read as above.
+        const cached = loadCachedEntitlement();
+        if (cached) setAccountPlan(cached);
+      }
       await pullEntitlement(session);
       if (upgradedRetryRef.current) return; // one delayed retry per boot
       if (params.get("upgraded")) {
