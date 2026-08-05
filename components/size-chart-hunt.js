@@ -14,6 +14,8 @@ import {
   fetchYupooImages,
   isChartAuthRequired,
   isChartCapReached,
+  isChartRateLimited,
+  isChartReaderOff,
   isChartUnavailable,
   parseSizeChart,
   yupooAlbumUrl,
@@ -207,6 +209,11 @@ async function tryCandidate(candidate, { signal, referer, shelfItems }) {
   // FIX 2b: stop on daily cap — more candidates still burn nothing but the
   // UI must not claim "no chart" for a spent allowance.
   if (isChartCapReached(chartText)) return { capReached: true };
+  // Kyle 2026-08-04 #31: the traffic guards are their own outcomes. Neither
+  // says anything about the plan, and neither earns another candidate — the
+  // next read hits the same window.
+  if (isChartRateLimited(chartText)) return { rateLimited: true };
+  if (isChartReaderOff(chartText)) return { readerOff: true };
   // FIX 2c: the reader was not reachable. More candidates will hit the same
   // wall, and the UI must not claim "no size chart" for a server that is down.
   if (isChartUnavailable(chartText)) return { unavailable: true };
@@ -345,6 +352,8 @@ export async function huntSizeChart(item, { signal, shelfItems } = {}) {
     }
     if (hit && hit.authRequired) return { authRequired: true };
     if (hit && hit.capReached) return { capReached: true };
+    if (hit && hit.rateLimited) return { rateLimited: true };
+    if (hit && hit.readerOff) return { readerOff: true };
     if (hit && hit.unavailable) return { unavailable: true };
     if (hit) return hit;
   }

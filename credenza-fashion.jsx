@@ -4691,9 +4691,19 @@ export const CHART_AUTH_COPY = "You are signed out. Sign in to read charts.";
 export function isChartAuthRequired(result) {
   return !!(result && typeof result === "object" && result.authRequired === true);
 }
-// Chart UI sign-in button rides the same wall as the free-card gate.
+// Chart UI sign-in button must open the sign-in window itself.
+// #31d (Kyle 2026-08-04): it used to ride the import wall's hook, which opens
+// the plans sheet — "when you click sign in, it takes you to the pro versus
+// free modal. Why are you taking me there if I just need to sign in?" The app
+// registers openSignIn here on mount. The import wall keeps its own hook:
+// there the plans sheet is deliberate (Rule 2: every limit wall, one sheet).
+let chartSignInHook = null;
+export function setChartSignInHook(fn) {
+  chartSignInHook = typeof fn === "function" ? fn : null;
+}
 export function requestChartSignIn() {
-  noteSignInRequired();
+  if (chartSignInHook) chartSignInHook();
+  else noteSignInRequired();
 }
 
 // FIX 2b (2026-08-03): a spent chart-read allowance must not look like a bad
@@ -4714,6 +4724,23 @@ export function isChartUnavailable(result) {
 export function isChartOffline(result) {
   return isChartUnavailable(result) && result.offline === true;
 }
+// Kyle 2026-08-04: a 429 is not always a plan cap. The server's traffic
+// guards (the per-minute window and the site-wide daily cost ceiling) carry
+// their own codes now, and each gets its own sentence. Before this, every
+// one of them printed "You used your 8 free chart reads" — the owner read
+// that on an unlimited account while the plan was never the problem.
+export const CHART_RATE_LIMITED = Object.freeze({ rateLimited: true });
+export function isChartRateLimited(result) {
+  return !!(result && typeof result === "object" && result.rateLimited === true);
+}
+export const CHART_READER_OFF = Object.freeze({ readerOff: true });
+export function isChartReaderOff(result) {
+  return !!(result && typeof result === "object" && result.readerOff === true);
+}
+export const CHART_RATE_LIMITED_COPY =
+  "A lot of chart reads are happening at once. Wait one minute, then open this card again.";
+export const CHART_READER_OFF_COPY =
+  "The chart reader reached today's limit. It comes back tomorrow.";
 export const CHART_UNAVAILABLE_COPY =
   "Credenza could not reach the chart reader. Your photo is fine. Try again in a minute.";
 export const CHART_OFFLINE_COPY =
@@ -4730,17 +4757,33 @@ export function chartCapLimitN(plan = planForLimits) {
   }
   return PLAN_CAPS.free.chartVisionTotal;
 }
-// Honest cap copy with the real N. Free signed-in → upgrade; otherwise sign in.
+// Honest cap copy with the real N. Free signed-in → upgrade; guest → sign in.
+// Kyle 2026-08-04 #31: the old fallback printed "Sign in for more" to EVERY
+// non-free plan — the owner read that on his unlimited account. A paying
+// customer gets the monthly sentence; the owner never reaches this wall (the
+// server skips his cap), so anything left is a guest.
 export function chartCapCopy(plan = planForLimits) {
   const n = chartCapLimitN(plan);
   if (plan && plan.state === "free") {
     return "You used your " + n + " free chart reads. Upgrade for more.";
+  }
+  if (plan && (plan.state === "pro" || plan.state === "grace")) {
+    return "You used your monthly chart reads. More arrive next month.";
+  }
+  if (plan) {
+    // Signed in, not free, not paying: owner. The server never caps him, so
+    // this wall is a leftover from before the codes. Say nothing false.
+    return CHART_HUNT_UNAVAILABLE_COPY;
   }
   return "You used your " + n + " free chart reads. Sign in for more.";
 }
 // True when the free signed-in plan is the one that hit the wall (upgrade CTA).
 export function chartCapWantsUpgrade(plan = planForLimits) {
   return !!(plan && plan.state === "free");
+}
+// True when a guest hit the wall — the only state whose CTA is sign-in.
+export function chartCapWantsSignIn(plan = planForLimits) {
+  return !plan;
 }
 
 // Kyle 2026-08-03, Weidian item 7796666481: "why didn't this get pulled in.
@@ -4847,15 +4890,23 @@ async function postChartVision({ images, photos, signal, referer }) {
       // concurrency "Busy" 429 carries busy:true and is the opposite: a free,
       // retryable moment — the limiter stopped the request before the meter
       // (Kyle 2026-08-04: one Busy used to end the whole hunt).
+      // Kyle 2026-08-04 #31: the limiter's other 429s carry `code` —
+      // rate_limited (per-minute window) and daily_ceiling (site-wide spend
+      // guard) are NOT the plan cap, and must never print the plan-cap
+      // sentence. An unknown or missing code keeps the old plan-cap reading:
+      // that is the only 429 a function without codes can send.
       if (res.status === 429) {
-        let busy = false;
+        let code = "";
         try {
           const errBody = await res.json();
-          busy = !!(errBody && errBody.busy === true);
+          if (errBody && errBody.busy === true) return CHART_UNAVAILABLE;
+          code = String((errBody && errBody.code) || "");
         } catch {
-          busy = false;
+          code = "";
         }
-        return busy ? CHART_UNAVAILABLE : CHART_CAP_REACHED;
+        if (code === "rate_limited") return CHART_RATE_LIMITED;
+        if (code === "daily_ceiling") return CHART_READER_OFF;
+        return CHART_CAP_REACHED;
       }
       // FIX 2c: everything left here is the server failing, not the photo —
       // a 502 "Chart read failed", a 504 timeout, a 413 too-large frame.
@@ -6779,6 +6830,13 @@ function CredenzaApp() {
   const openSignIn = useCallback((intent) => {
     setSignInIntent(intent || { kind: "shelf", returnTo: "/" });
   }, []);
+  // #31d (Kyle 2026-08-04): the chart wall's "Sign in" button opens THIS
+  // window — not the plans sheet it used to open by riding the import wall's
+  // hook.
+  useEffect(() => {
+    setChartSignInHook(() => openSignIn({ kind: "shelf", returnTo: "/" }));
+    return () => setChartSignInHook(null);
+  }, [openSignIn]);
   // ── The upgrade route (sign-in handoff README, screen 3) ──────────────────
   //
   // Pro gets a real address, so a person can send it to someone else and come

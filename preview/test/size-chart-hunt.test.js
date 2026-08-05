@@ -23,6 +23,11 @@ vi.mock("../../credenza-fashion.jsx", () => ({
   // reader we cannot reach is not a photo that holds no chart.
   isChartUnavailable: (result) =>
     !!(result && typeof result === "object" && result.unavailable === true),
+  // #31: real helpers so the traffic-guard sentinels are recognized.
+  isChartRateLimited: (result) =>
+    !!(result && typeof result === "object" && result.rateLimited === true),
+  isChartReaderOff: (result) =>
+    !!(result && typeof result === "object" && result.readerOff === true),
   parseSizeChart: (text) => {
     if (!text || typeof text !== "string" || !/chest/i.test(text)) return null;
     const rows = [];

@@ -227,11 +227,14 @@ describe("the caps are enforced where the writes happen", () => {
     // instead of "no chart". FIX 2b maps 429 to CHART_CAP_REACHED the same way.
     // Kyle 2026-08-04: a 429 with busy:true is the concurrency limiter, not a
     // spent allowance, so it maps to CHART_UNAVAILABLE and the hunt retries
-    // for free. All early returns still stand between failure and the count —
-    // an auth wall or a spent cap must never burn a customer's quota.
+    // for free. #31 (same day): the limiter's other 429s carry `code` —
+    // rate_limited and daily_ceiling get their own sentinels, and only an
+    // unknown code falls through to the plan-cap reading. All early returns
+    // still stand between failure and the count — an auth wall or a spent cap
+    // must never burn a customer's quota.
     // (a) success-only counting: bump only after res.ok.
     // (b) auth path: 401/403 returns CHART_AUTH_REQUIRED before bumpUsage.
-    // (c) cap path: 429 without busy returns CHART_CAP_REACHED before bumpUsage.
+    // (c) cap path: 429 without busy returns a sentinel before bumpUsage.
     // (d) FIX 2c: every other failed status is the server, not the photo, so it
     // returns CHART_UNAVAILABLE. It is still a return, so it still stands
     // between the failure and the count. A 502 or a 504 burns no quota.
@@ -242,14 +245,17 @@ describe("the caps are enforced where the writes happen", () => {
         "        return CHART_AUTH_REQUIRED;\n" +
         "      }\n" +
         "      if (res.status === 429) {\n" +
-        "        let busy = false;\n" +
+        "        let code = \"\";\n" +
         "        try {\n" +
         "          const errBody = await res.json();\n" +
-        "          busy = !!(errBody && errBody.busy === true);\n" +
+        "          if (errBody && errBody.busy === true) return CHART_UNAVAILABLE;\n" +
+        "          code = String((errBody && errBody.code) || \"\");\n" +
         "        } catch {\n" +
-        "          busy = false;\n" +
+        "          code = \"\";\n" +
         "        }\n" +
-        "        return busy ? CHART_UNAVAILABLE : CHART_CAP_REACHED;\n" +
+        "        if (code === \"rate_limited\") return CHART_RATE_LIMITED;\n" +
+        "        if (code === \"daily_ceiling\") return CHART_READER_OFF;\n" +
+        "        return CHART_CAP_REACHED;\n" +
         "      }\n" +
         "      return CHART_UNAVAILABLE;\n" +
         "    }\n" +
@@ -258,7 +264,7 @@ describe("the caps are enforced where the writes happen", () => {
     // Explicit pin: the auth sentinel return appears with no bumpUsage between
     // it and the next statement that would count — order is return-then-bump.
     const chartAuthWindow = clean.match(
-      /if \(res\.status === 401 \|\| res\.status === 403\) \{[\s\S]{0,120}?return CHART_AUTH_REQUIRED;[\s\S]{0,300}?return busy \? CHART_UNAVAILABLE : CHART_CAP_REACHED;[\s\S]{0,60}?return CHART_UNAVAILABLE;[\s\S]{0,80}?bumpUsage\("chartVision", \{ audience:/
+      /if \(res\.status === 401 \|\| res\.status === 403\) \{[\s\S]{0,120}?return CHART_AUTH_REQUIRED;[\s\S]{0,600}?return CHART_CAP_REACHED;[\s\S]{0,60}?return CHART_UNAVAILABLE;[\s\S]{0,80}?bumpUsage\("chartVision", \{ audience:/
     );
     expect(
       chartAuthWindow,
@@ -269,6 +275,13 @@ describe("the caps are enforced where the writes happen", () => {
     );
     expect(clean).not.toMatch(
       /bumpUsage\("chartVision", \{ audience:[\s\S]{0,200}?return CHART_CAP_REACHED/
+    );
+    // #31: same rule for the two traffic-guard sentinels.
+    expect(clean).not.toMatch(
+      /bumpUsage\("chartVision", \{ audience:[\s\S]{0,200}?return CHART_RATE_LIMITED/
+    );
+    expect(clean).not.toMatch(
+      /bumpUsage\("chartVision", \{ audience:[\s\S]{0,200}?return CHART_READER_OFF/
     );
     // FIX 2c: same rule for the server-fault sentinel. A failed status must
     // never count first and answer afterwards.

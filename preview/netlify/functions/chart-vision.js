@@ -381,15 +381,20 @@ async function handle(event) {
   // before enter() so a blocked call never takes a concurrency slot.
   const capped = await limit.checkDailyCap(ROUTE, process.env);
   if (capped) {
-    return response(capped.status, { error: capped.msg }, { "retry-after": String(capped.retryAfter) });
+    return response(
+      capped.status,
+      { error: capped.msg, ...(capped.code ? { code: capped.code } : {}) },
+      { "retry-after": String(capped.retryAfter) }
+    );
   }
   const blocked = limit.enter(ROUTE, limit.clientKey(event));
   if (blocked) {
     // busy rides along on the concurrency refusal so the client can tell a
-    // retryable moment from a real plan cap.
+    // retryable moment from a real plan cap. `code` names every other cause
+    // (rate window, daily ceiling) so the client shows the true reason.
     return response(
       blocked.status,
-      { error: blocked.msg, ...(blocked.busy ? { busy: true } : {}) },
+      { error: blocked.msg, ...(blocked.busy ? { busy: true } : {}), ...(blocked.code ? { code: blocked.code } : {}) },
       { "retry-after": String(blocked.retryAfter) }
     );
   }

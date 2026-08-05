@@ -21,8 +21,13 @@ vi.mock("../../components/size-chart-hunt.js", async () => {
 });
 
 const { default: DetailBody } = await import("../../components/DetailBody.jsx");
-const { CHART_OFFLINE_COPY, CHART_UNAVAILABLE_COPY, CHART_HUNT_UNAVAILABLE_COPY } =
-  await import("../../credenza-fashion.jsx");
+const {
+  CHART_OFFLINE_COPY,
+  CHART_UNAVAILABLE_COPY,
+  CHART_HUNT_UNAVAILABLE_COPY,
+  CHART_RATE_LIMITED_COPY,
+  CHART_READER_OFF_COPY,
+} = await import("../../credenza-fashion.jsx");
 
 const PHOTOS = ["https://si.geilicdn.com/img-2.jpg", "https://si.geilicdn.com/img-3.jpg"];
 
@@ -195,6 +200,31 @@ describe("the silent hunt cannot reach the reader", () => {
 
     expect(await screen.findByText("Not answering")).toBeInTheDocument();
     expect(screen.getByText(CHART_HUNT_UNAVAILABLE_COPY)).toBeInTheDocument();
+    expect(screen.queryByText("No chart for this one yet.")).toBe(null);
+  });
+
+  // #31 (Kyle 2026-08-04): a rate-window 429 used to print "You used your 8
+  // free chart reads" — on the owner's unlimited account. The wall now says
+  // Busy and tells the person to wait one minute.
+  it("says Busy, never the plan-cap sentence, on a rate window", async () => {
+    huntMock.mockResolvedValue({ rateLimited: true });
+    renderBody(chartless());
+
+    expect(await screen.findByText("Busy")).toBeInTheDocument();
+    expect(screen.getByText(CHART_RATE_LIMITED_COPY)).toBeInTheDocument();
+    expect(screen.queryByText(/free chart reads/)).toBe(null);
+    expect(screen.queryByText("No chart for this one yet.")).toBe(null);
+  });
+
+  // #31: the site-wide daily cost guard is its own wall, with its own
+  // instruction — come back tomorrow. Never the plan-cap sentence.
+  it("says Back tomorrow, never the plan-cap sentence, on the daily guard", async () => {
+    huntMock.mockResolvedValue({ readerOff: true });
+    renderBody(chartless());
+
+    expect(await screen.findByText("Back tomorrow")).toBeInTheDocument();
+    expect(screen.getByText(CHART_READER_OFF_COPY)).toBeInTheDocument();
+    expect(screen.queryByText(/free chart reads/)).toBe(null);
     expect(screen.queryByText("No chart for this one yet.")).toBe(null);
   });
 

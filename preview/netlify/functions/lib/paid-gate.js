@@ -51,6 +51,10 @@ async function authorizePaid(event, env, feature) {
           error: monthly
             ? "Monthly " + feature + " allowance used. More reads arrive next month."
             : "Free " + feature + " allowance used. Upgrade to Pro for more.",
+          // The client keys its copy on this code (Kyle 2026-08-04: a bare 429
+          // used to read as "8 free chart reads" for every cause).
+          code: "plan_cap",
+          monthly,
         },
       };
     }

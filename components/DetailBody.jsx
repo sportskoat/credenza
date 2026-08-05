@@ -22,8 +22,11 @@ import {
   CHART_UNAVAILABLE_COPY,
   CHART_OFFLINE_COPY,
   CHART_HUNT_UNAVAILABLE_COPY,
+  CHART_RATE_LIMITED_COPY,
+  CHART_READER_OFF_COPY,
   chartCapCopy,
   chartCapWantsUpgrade,
+  chartCapWantsSignIn,
   chartCardsCapCopy,
   chartNeedsCards,
   requestChartSignIn,
@@ -125,10 +128,17 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
   // FIX 2c: hunt could not reach the reader — show "not answering", not
   // "No chart for this one yet." A server that is down proves nothing about the item.
   const [outBlocked, setOutBlocked] = useState(false);
+  // #31 (Kyle 2026-08-04): the per-minute traffic window and the site-wide
+  // daily cost guard are their own walls. Neither is the plan cap, and
+  // neither may print the plan-cap sentence.
+  const [rateBlocked, setRateBlocked] = useState(false);
+  const [offBlocked, setOffBlocked] = useState(false);
   useEffect(() => {
     setAuthBlocked(false);
     setCapBlocked(false);
     setOutBlocked(false);
+    setRateBlocked(false);
+    setOffBlocked(false);
   }, [item.id]);
   useEffect(() => {
     if (!enabled) return;
@@ -171,6 +181,15 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
         // FIX 2b: daily cap mid-hunt — distinct state, stop claiming no chart.
         if (found && found.capReached) {
           setCapBlocked(true);
+          return;
+        }
+        // #31: the traffic guards mid-hunt — their own states, same rule.
+        if (found && found.rateLimited) {
+          setRateBlocked(true);
+          return;
+        }
+        if (found && found.readerOff) {
+          setOffBlocked(true);
           return;
         }
         // FIX 2c: reader unreachable mid-hunt — say so, and stop. The item
@@ -217,7 +236,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
       setHunting(false);
     };
   }, [enabled, chart, item, onSaveEdit, shelfItems]);
-  return { hunting, authBlocked, capBlocked, outBlocked };
+  return { hunting, authBlocked, capBlocked, outBlocked, rateBlocked, offBlocked };
 }
 
 // One source of truth keeps the sizing verdict consistent across each view.
@@ -1156,6 +1175,11 @@ function SizingBlockNoChart({
   // chart; nobody got to look. "No chart for this one yet." would be a claim we
   // cannot make.
   chartOutBlocked = false,
+  // #31 (Kyle 2026-08-04): the per-minute traffic window stopped the read.
+  // Not the plan, not the item — wait a minute.
+  chartRateBlocked = false,
+  // #31: the site-wide daily cost guard stopped the read. Back tomorrow.
+  chartOffBlocked = false,
   // WhatsApp when no validated chart rec (even if variants list S–XL).
   whatsapp = "",
   variantRun = "",
@@ -1179,6 +1203,8 @@ function SizingBlockNoChart({
     !chartCapBlocked &&
     !chartCardsBlocked &&
     !chartOutBlocked &&
+    !chartRateBlocked &&
+    !chartOffBlocked &&
     !needsClear;
 
   return (
@@ -1195,13 +1221,17 @@ function SizingBlockNoChart({
               ? "Needs sign-in"
               : chartOutBlocked
                 ? "Not answering"
-                : showWhatsApp
-                  ? "No size in link"
-                  : /* 2026-08-04: the kicker stays "No chart" for every cause —
-                       the sentence below now names the cause (link-failure
-                       code, tier 2/3 thin listing). Four pinned tests read
-                       this exact label. */
-                    "No chart"}
+                : chartRateBlocked
+                  ? "Busy"
+                  : chartOffBlocked
+                    ? "Back tomorrow"
+                    : showWhatsApp
+                      ? "No size in link"
+                      : /* 2026-08-04: the kicker stays "No chart" for every cause —
+                           the sentence below now names the cause (link-failure
+                           code, tier 2/3 thin listing). Four pinned tests read
+                           this exact label. */
+                        "No chart"}
         </span>
         {/* Round 5 point 5.1: one notice for a hand pick — "you picked this"
             beside the size word. The "SET BY YOU" label here was a second
@@ -1257,6 +1287,10 @@ function SizingBlockNoChart({
               ? chartCardsCapCopy()
               : chartAuthBlocked
               ? CHART_AUTH_COPY
+              : chartRateBlocked
+              ? CHART_RATE_LIMITED_COPY
+              : chartOffBlocked
+              ? CHART_READER_OFF_COPY
               : needsSignIn
               ? "Sign in to finish this card. Credenza then reads the product, the photos, and the size chart."
               : needsClear
@@ -1299,7 +1333,11 @@ function SizingBlockNoChart({
               ever reaches a signed-in customer on the free plan — chartNeedsCards
               reads the free daily count, and a signed-out person has none. So
               that wall always offers the plans sheet. The chart-read wall still
-              asks a signed-out person to sign in. */}
+              asks a signed-out person to sign in.
+              #31 (2026-08-04): the button does what its label says. "Sign in"
+              opens the sign-in window (requestChartSignIn), never the plans
+              sheet. A paying customer at the monthly cap gets no button — the
+              copy already says the reads renew. */}
           {chartCardsBlocked ? (
             <button
               type="button"
@@ -1309,15 +1347,23 @@ function SizingBlockNoChart({
               See plans
             </button>
           ) : chartCapBlocked ? (
-            <button
-              type="button"
-              className="cz-sizing-action is-primary"
-              onClick={() =>
-                chartCapWantsUpgrade() ? requestChartLimits() : requestChartSignIn()
-              }
-            >
-              {chartCapWantsUpgrade() ? "See plans" : "Sign in"}
-            </button>
+            chartCapWantsUpgrade() ? (
+              <button
+                type="button"
+                className="cz-sizing-action is-primary"
+                onClick={() => requestChartLimits()}
+              >
+                See plans
+              </button>
+            ) : chartCapWantsSignIn() ? (
+              <button
+                type="button"
+                className="cz-sizing-action is-primary"
+                onClick={() => requestChartSignIn()}
+              >
+                Sign in
+              </button>
+            ) : null
           ) : chartAuthBlocked ? (
             <button
               type="button"
@@ -3475,6 +3521,9 @@ export default function DetailBody({
     capBlocked: huntCapBlocked,
     // FIX 2c: the hunt could not reach the reader at all.
     outBlocked: huntOutBlocked,
+    // #31: the traffic guards are their own walls.
+    rateBlocked: huntRateBlocked,
+    offBlocked: huntOffBlocked,
   } = useChartHunt(
     item,
     verdict.chart,
@@ -4502,6 +4551,8 @@ export default function DetailBody({
                 chartCapBlocked={huntCapBlocked === true}
                 chartCardsBlocked={chartNeedsCards(item)}
                 chartOutBlocked={huntOutBlocked === true}
+                chartRateBlocked={huntRateBlocked === true}
+                chartOffBlocked={huntOffBlocked === true}
                 whatsapp={item.whatsapp || ""}
                 variantRun={verdict.variantRun || ""}
                 /* 2026-08-04: why the link failed (six codes), or what a

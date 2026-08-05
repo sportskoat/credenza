@@ -118,25 +118,28 @@ function bodyTooLarge(event, route) {
   return typeof body === "string" && Buffer.byteLength(body) > cap;
 }
 
-// Returns null on entry, or { status: 429, retryAfter, msg } when a limit
-// stops the request. On entry the caller MUST pair with leave(route).
+// Returns null on entry, or { status: 429, retryAfter, msg, code } when a
+// limit stops the request. On entry the caller MUST pair with leave(route).
+// `code` is the machine-readable reason the client maps to honest copy
+// (Kyle 2026-08-04: every 429 used to print "8 free chart reads", whatever
+// the real cause). Codes: daily_ceiling | busy | rate_limited.
 function enter(route, key) {
   const cfg = ROUTES[route];
   if (!cfg) return null;
   if (cfg.paid && rollDaily().costUsd >= dailyCapUsd()) {
-    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached. Try again tomorrow" };
+    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached. Try again tomorrow", code: "daily_ceiling" };
   }
   if ((inflight.get(route) || 0) >= cfg.maxConcurrent) {
     // busy: the client may retry in a moment. This is a concurrency slot,
     // not an allowance — never let it read as a plan cap (Kyle 2026-08-04:
     // one Busy ate a whole chart hunt).
-    return { status: 429, retryAfter: 5, msg: "Busy. Try again in a moment", busy: true };
+    return { status: 429, retryAfter: 5, msg: "Busy. Try again in a moment", busy: true, code: "busy" };
   }
   sweep(ipWindows);
   const ip = hitWindow(ipWindows, route + "|" + key, cfg.perIpPerMin);
-  if (ip.over) return { status: 429, retryAfter: ip.retryAfter, msg: "Too many requests. Slow down" };
+  if (ip.over) return { status: 429, retryAfter: ip.retryAfter, msg: "Too many requests. Slow down", code: "rate_limited" };
   const rt = hitWindow(routeWindows, route, cfg.routePerMin);
-  if (rt.over) return { status: 429, retryAfter: rt.retryAfter, msg: "Too many requests. Try again shortly" };
+  if (rt.over) return { status: 429, retryAfter: rt.retryAfter, msg: "Too many requests. Try again shortly", code: "rate_limited" };
   inflight.set(route, (inflight.get(route) || 0) + 1);
   return null;
 }
@@ -219,7 +222,7 @@ async function sharedSpendUsd(env) {
 }
 
 // The paid-route gate. Call this BEFORE enter(). Returns null to proceed, or
-// the same { status, retryAfter, msg } shape enter() uses.
+// the same { status, retryAfter, msg, code } shape enter() uses.
 //
 // enter() still applies the memory ceiling on its own. That stays as the
 // backstop for the case where Supabase is unreachable.
@@ -229,7 +232,7 @@ async function checkDailyCap(route, env) {
   const total = await sharedSpendUsd(env);
   if (total === null) return null;
   if (total >= dailyCapUsd()) {
-    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached. Try again tomorrow" };
+    return { status: 429, retryAfter: 3600, msg: "Daily cost ceiling reached. Try again tomorrow", code: "daily_ceiling" };
   }
   return null;
 }

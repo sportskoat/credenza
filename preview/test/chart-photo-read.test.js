@@ -10,9 +10,14 @@ import {
   readChartFromPhotoFiles,
   isChartAuthRequired,
   isChartCapReached,
+  isChartRateLimited,
+  isChartReaderOff,
   CHART_AUTH_REQUIRED,
   CHART_AUTH_COPY,
   CHART_CAP_REACHED,
+  CHART_HUNT_UNAVAILABLE_COPY,
+  CHART_RATE_LIMITED,
+  CHART_READER_OFF,
   CHART_UNAVAILABLE,
   isChartOffline,
   isChartUnavailable,
@@ -206,6 +211,47 @@ describe("chart photo read (handoff turn 9 §3)", () => {
     expect(isChartCapReached(result)).toBe(false);
   });
 
+  // #31 (Kyle 2026-08-04): the limiter's other 429s carry `code`, and each
+  // maps to its own sentinel — never the plan-cap reading that told the owner
+  // "You used your 8 free chart reads" on his unlimited account.
+  it("maps a 429 with code rate_limited to CHART_RATE_LIMITED, never the cap", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "Too many requests. Slow down", code: "rate_limited" }),
+    }));
+    const result = await fetchChartFromPhotos(["https://img.geilicdn.com/a.jpg"]);
+    expect(result).toBe(CHART_RATE_LIMITED);
+    expect(isChartRateLimited(result)).toBe(true);
+    expect(isChartCapReached(result)).toBe(false);
+    expect(isChartReaderOff(result)).toBe(false);
+  });
+
+  it("maps a 429 with code daily_ceiling to CHART_READER_OFF, never the cap", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "Daily cost ceiling reached. Try again tomorrow", code: "daily_ceiling" }),
+    }));
+    const result = await fetchChartFromPhotos(["https://img.geilicdn.com/a.jpg"]);
+    expect(result).toBe(CHART_READER_OFF);
+    expect(isChartReaderOff(result)).toBe(true);
+    expect(isChartCapReached(result)).toBe(false);
+    expect(isChartRateLimited(result)).toBe(false);
+  });
+
+  it("maps a 429 with code plan_cap to CHART_CAP_REACHED", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "Free chartVision allowance used. Upgrade to Pro for more.", code: "plan_cap" }),
+    }));
+    const result = await fetchChartFromPhotos(["https://img.geilicdn.com/a.jpg"]);
+    expect(result).toBe(CHART_CAP_REACHED);
+    expect(isChartRateLimited(result)).toBe(false);
+    expect(isChartReaderOff(result)).toBe(false);
+  });
+
   it("pins the signed-out customer copy", () => {
     expect(CHART_AUTH_COPY).toBe("You are signed out. Sign in to read charts.");
   });
@@ -224,5 +270,23 @@ describe("chart photo read (handoff turn 9 §3)", () => {
     expect(isChartCapReached(CHART_CAP_REACHED)).toBe(true);
     expect(isChartCapReached(null)).toBe(false);
     expect(isChartCapReached(CHART_AUTH_REQUIRED)).toBe(false);
+  });
+
+  // #31 (Kyle 2026-08-04): the old fallback told EVERY non-free plan to
+  // "Sign in for more" — the owner read that on his unlimited account.
+  // A paying customer gets the monthly sentence; the owner gets the honest
+  // "not answering" sentence (the server never caps him, so this wall is a
+  // leftover, never a plan claim).
+  it("never tells a signed-in non-free plan to sign in", () => {
+    expect(chartCapCopy({ state: "pro", lim: {} })).toBe(
+      "You used your monthly chart reads. More arrive next month."
+    );
+    expect(chartCapCopy({ state: "grace", lim: {} })).toBe(
+      "You used your monthly chart reads. More arrive next month."
+    );
+    const ownerCopy = chartCapCopy({ state: "owner", lim: {} });
+    expect(ownerCopy).not.toMatch(/sign in/i);
+    expect(ownerCopy).not.toMatch(/free chart reads/i);
+    expect(ownerCopy).toBe(CHART_HUNT_UNAVAILABLE_COPY);
   });
 });
