@@ -31,3 +31,6 @@ preview/.env.bak.*
 
 # Downloaded production bundle copies (debug artifacts)
 preview/.live-entry.js
+
+# Chart-harvest machine state (daily JSONL logs + checked-items ledger)
+logs/

@@ -75,6 +75,62 @@ files ever disagree, this file wins.
 
 ---
 
+## 2026-08-06 — chartlib: one shared chart-harvest pipeline (scripts only; committed same day on Kyle's OK)
+
+A Kimi lane rewrote the chart-harvest scripts. Four files changed:
+`scripts/chartlib.py` (new), `scripts/w2clinks-chart-pull.py`,
+`scripts/reddit-chart-pull.py`, `docs/Chart-Pull-Handoff.md`.
+Kyle approved the commit on 2026-08-06, after the review fixes below.
+Not deployed: the site does not read these files, so a deploy changes
+nothing on credenzafashion.com.
+
+- `chartlib.py` is the one pipeline. Both jobs are thin drivers over it.
+- Every link is classified (ported from `preview/netlify/functions/resolve.js`):
+  direct Weidian/Taobao/Tmall/1688, plus agent unwrap for superbuy, fansbuy,
+  mulebuy, hoobuy, oopbuy, usfans, cnfans, joyagoo, and the rest of the
+  known agent hosts. Agent-wrapped Weidian links are no longer dropped.
+- Candidate ranking now matches `components/chart-pipeline.js`: the Weidian
+  legal-notice image never enters the pool; both CDN prefixes match; padded
+  squares, landscapes, and tall strips rank above plain squares.
+- Taobao/tmall/1688 items log `skip_marketplace` and are counted, not
+  harvested (anti-bot walls, 0% chart rate on mirrors). Short links log
+  `skip_short_link`. Unknown links log `skip_unclassified` with the URL.
+  `skip_no_weidian_id` is gone.
+- The launchd flags on w2clinks (`--categories`, `--per-cat`, `--max-images`)
+  are unchanged. Item keys keep the `w2clinks:wd_<id>` form; the ledger and
+  cache rows still match.
+- The 6 gotchas in `docs/Chart-Pull-Handoff.md` are preserved.
+- Verification was network-free: `--selftest` 16/16 PASS; all three files
+  parse; the reddit driver imports cleanly. No Grok tokens spent.
+
+Same day, later: a two-agent review found five gaps. All five are fixed
+(plus two new agent hosts). Still UNCOMMITTED. The fixes:
+
+1. The reddit driver's `item_key()` now decodes the link first
+   (`chartlib.classify_buy_link`) and keys on `marketplace:item_id`.
+   Two items behind the same agent host no longer share one key.
+2. A skipped link (`skip_marketplace`, `skip_short_link`,
+   `skip_unclassified`) never enters the checked-items ledger. A future
+   taobao harvester gets a fresh chance at those items.
+3. Every harvest also ledgers the canonical alias `weidian:{id}`, and
+   `_ensure_seen()` derives that alias from old `wd_{id}` keys. The same
+   item from two sources harvests once.
+4. `chart_image` maps through `path_urls` (downloads that succeeded), so a
+   skipped photo can no longer shift the numbering onto the wrong URL.
+5. One failed Grok call logs `grok_call_failed` and moves to the next
+   photo; the top photo gets one retry on error. The item only reports
+   `vision_failed` when every photo fails.
+6. lovegobuy and hubbuycn joined `AGENT_HOST_RE` in chartlib.py only.
+   `preview/netlify/functions/resolve.js` is untouched (out of scope).
+
+Verification, network-free: `--selftest` 18/18 PASS (two new fixtures);
+both drivers compile; unit probes for the key builder (6/6), the skip
+paths (nothing ledgered), cross-source dedupe (dup_skip fires), and the
+Grok fallback (3 cases). Ledger on disk still 33 keys; cache still 96
+rows. No Grok tokens spent.
+
+---
+
 ## ACTIVE NOW — 2026-08-04 (read this before you edit)
 
 **Claude (this tab) owns a Kyle bug-fix pass. Uncommitted. Not deployed.**
@@ -121,7 +177,7 @@ docs work, or ask Kyle before you touch the list below.
 
 ---
 
-**Last updated:** 2026-08-04 (**SHIPPED** deploy `6a727b81b6d49118cf4fd716` — avatar menu portal + backlog on main. See ACTIVE NOW above.) Prior 2026-07-27 (**SHARED BODY SCROLL LOCK + MODALSHELL SIMPLIFIED — pushed, NOT deployed.** New `components/useBodyScrollLock.js`: one module-scope, reference-counted body scroll lock replaces every modal's private save/restore effect; ModalShell and DetailSheet use it. ModalShell's sub-page stack lost all measurement — no `useLayoutEffect`, no `ResizeObserver`, no measured height, no max-width tween; the active page sits in normal flow and sizes the stack. Focused gate 19 tests / 2 files. The commit also carries other lanes' uncommitted work per Rule A — see the 2026-07-27 section below.) Prior: **ROUTING + HEADER + SAMPLE SHELF — `5928358`, pushed, NOT deployed.** Three faults Kyle reported in one message, all fixed: every public address served the app instead of its page (dev server only; production was fine) — `preview/vite.config.js` now resolves the folder before the SPA fallback and binds `127.0.0.1` instead of IPv6 loopback; the masthead nav sat 54.9px right of centre — an equal `flex: 1 1 0` on both outer children puts it at 0.0px, measured by `preview/scripts/probe-masthead-center.mjs`; the 18-card sample shelf is deleted, generator and all, plus a silent one-time purge for devices that already hold the cards. Five new routing tests, five mutation probes all caught. 977 internal links checked, zero dead. Gate 2,114 tests / 66 files. **Two rules for every agent: LB-65 a 200 is not a page — probe the `<title>`, and a rule a comment can satisfy is not a rule; LB-66 deleting a generator does not clear data it already wrote.** See the 2026-07-27 section below. Prior: **BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
+**Last updated:** 2026-08-06 (chartlib shared chart-harvest pipeline — four script/doc files, UNCOMMITTED per lane order. See the 2026-08-06 section.) Prior 2026-08-04 (**SHIPPED** deploy `6a727b81b6d49118cf4fd716` — avatar menu portal + backlog on main. See ACTIVE NOW above.) Prior 2026-07-27 (**SHARED BODY SCROLL LOCK + MODALSHELL SIMPLIFIED — pushed, NOT deployed.** New `components/useBodyScrollLock.js`: one module-scope, reference-counted body scroll lock replaces every modal's private save/restore effect; ModalShell and DetailSheet use it. ModalShell's sub-page stack lost all measurement — no `useLayoutEffect`, no `ResizeObserver`, no measured height, no max-width tween; the active page sits in normal flow and sizes the stack. Focused gate 19 tests / 2 files. The commit also carries other lanes' uncommitted work per Rule A — see the 2026-07-27 section below.) Prior: **ROUTING + HEADER + SAMPLE SHELF — `5928358`, pushed, NOT deployed.** Three faults Kyle reported in one message, all fixed: every public address served the app instead of its page (dev server only; production was fine) — `preview/vite.config.js` now resolves the folder before the SPA fallback and binds `127.0.0.1` instead of IPv6 loopback; the masthead nav sat 54.9px right of centre — an equal `flex: 1 1 0` on both outer children puts it at 0.0px, measured by `preview/scripts/probe-masthead-center.mjs`; the 18-card sample shelf is deleted, generator and all, plus a silent one-time purge for devices that already hold the cards. Five new routing tests, five mutation probes all caught. 977 internal links checked, zero dead. Gate 2,114 tests / 66 files. **Two rules for every agent: LB-65 a 200 is not a page — probe the `<title>`, and a rule a comment can satisfy is not a rule; LB-66 deleting a generator does not clear data it already wrote.** See the 2026-07-27 section below. Prior: **BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).
