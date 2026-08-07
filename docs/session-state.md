@@ -80,9 +80,11 @@ files ever disagree, this file wins.
 A Kimi lane rewrote the chart-harvest scripts. Four files changed:
 `scripts/chartlib.py` (new), `scripts/w2clinks-chart-pull.py`,
 `scripts/reddit-chart-pull.py`, `docs/Chart-Pull-Handoff.md`.
-Kyle approved the commit on 2026-08-06, after the review fixes below.
-Not deployed: the site does not read these files, so a deploy changes
-nothing on credenzafashion.com.
+Kyle approved the commit and the deploy on 2026-08-06, after the review
+fixes below. Commit `56ceefa`, pushed to main. Deploy
+`6a752a1d08117a99693538cc` is live on credenzafashion.com. The harvest
+scripts run on Kyle's Mac, not on the site; the deploy carried the
+already-committed main branch (last shipped 2026-08-04).
 
 - `chartlib.py` is the one pipeline. Both jobs are thin drivers over it.
 - Every link is classified (ported from `preview/netlify/functions/resolve.js`):
