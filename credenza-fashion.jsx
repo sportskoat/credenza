@@ -4416,6 +4416,11 @@ function CredenzaApp() {
   const haulsCap = planLimit(accountPlan, "haulsMax");
   // One delayed entitlement retry per boot after a Stripe return (webhook lag).
   const upgradedRetryRef = useRef(false);
+  // Kyle 2026-07-30: "billing worked! but there's no confirmation page that it
+  // takes you to after you get pro." Paying used to drop you back on the shelf
+  // behind one grey toast, which is not a receipt. True after a Stripe return
+  // with ?upgraded=1; Account and plan opens and leads with the confirmation.
+  const [upgradeWelcome, setUpgradeWelcome] = useState(false);
   // Account boot (Part 7e). Three entry shapes:
   //   1. Return from a magic link / Google: the session rides the URL hash.
   //      Store it, strip the hash, fetch the entitlement snapshot.
@@ -4456,22 +4461,33 @@ function CredenzaApp() {
         return;
       }
       const params = new URLSearchParams(window.location.search);
-      if (params.get("upgraded") || params.get("upgrade")) {
-        const upgraded = params.get("upgraded");
-        stripUrl();
-        if (upgraded) notify("Payment received — Pro turns on in a few seconds.");
-        else notify("Checkout cancelled — nothing was charged.");
-      }
-      // Return from the Stripe Customer Portal: land on Account and plan,
-      // where billing lives (portal.js builds this return URL).
-      if (params.get("profile")) {
-        stripUrl();
+      // Land on Account and plan, where billing lives. Shared by the two
+      // returns that have something to say about a plan.
+      const openAccountPlan = () => {
         setSettingsView({ section: "account" });
         settingsBootRef.current = true;
         settingsSeqRef.current = 1;
         try {
           window.history.replaceState({ czSettings: "account", seq: 1 }, "", "/settings/account");
         } catch {}
+      };
+      if (params.get("upgraded") || params.get("upgrade")) {
+        const upgraded = params.get("upgraded");
+        stripUrl();
+        if (upgraded) {
+          // The confirmation is the screen, not a toast — a toast that fades
+          // in four seconds is what Kyle came back to and did not count as a
+          // receipt. The card at the top of Account and plan says the payment
+          // landed, and turns from "turning on" to "on" by itself when the
+          // delayed refresh below lands the new snapshot.
+          setUpgradeWelcome(true);
+          openAccountPlan();
+        } else notify("Checkout cancelled — nothing was charged.");
+      }
+      // Return from the Stripe Customer Portal (portal.js builds this URL).
+      if (params.get("profile")) {
+        stripUrl();
+        openAccountPlan();
       }
       const session = await getValidSession();
       if (cancelled) return;
