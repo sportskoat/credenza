@@ -95,8 +95,13 @@ main { padding-top: 0.25rem; }
   align-items: center;
   row-gap: 0.8rem;
   column-gap: 1rem;
-  padding-bottom: 0.85rem;
-  margin-bottom: 1.6rem;
+  /* The app's own masthead numbers, to the pixel (credenza-fashion.jsx:3466):
+     14px under the row, 18px under the hairline. Kyle 2026-07-30: "create the
+     identical page that I have right now for these other pages. I don't want
+     there to be any difference." So every value in this header block is copied
+     from the app, not chosen again here. */
+  padding-bottom: 14px;
+  margin-bottom: 18px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -105,7 +110,7 @@ main { padding-top: 0.25rem; }
   grid-column: 1;
   display: inline-flex;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   margin: 0;
   color: inherit;
   text-decoration: none;
@@ -114,27 +119,32 @@ main { padding-top: 0.25rem; }
 }
 .brand:hover { color: inherit; opacity: 0.9; }
 
-.mark { display: block; flex: 0 0 auto; }
+/* 34px, the app's .cz-brand-mark. The <svg> carries width="30" height="30" as
+   its own attributes on 9 pages; a CSS length beats a presentation attribute,
+   so this one rule resizes all of them without touching the markup. */
+.mark { display: block; flex: 0 0 auto; width: 34px; height: 34px; }
 
 .brand-name {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  gap: 4px;
   line-height: 1;
 }
 
+/* 19px and 10.5px are the app's .cz-brand-word and .cz-brand-sub. The public
+   pages used 13.5px and 8.5px, which read as a different, smaller product. */
 .wordmark {
-  font-size: 13.5px;
+  font-size: 19px;
   font-weight: 800;
   letter-spacing: 0.16em;
   line-height: 1;
 }
 
 .kicker {
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.30em;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
   line-height: 1;
   color: var(--muted);
@@ -146,21 +156,36 @@ main { padding-top: 0.25rem; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1.15rem;
-  margin: 0;
+  /* The app's link row is a run of pills with 2px between them; the space is
+     the link's own padding. A word gap of 1.15rem plus no padding is what made
+     the public row read as a sentence instead of as navigation. */
+  gap: 2px;
+  /* A pill carries 11px of its own left padding, so on the narrow layout —
+     where the links hold their own row under the mark — the first word would
+     start 11px right of the mark's left edge. Pull the row back by exactly
+     that padding so the two left edges line up. The wide layout centres the
+     row instead, and resets this. */
+  margin: 0 0 0 -11px;
   font-family: var(--cz-sans);
-  font-size: 0.9rem;
-  font-weight: 500;
 }
 
 /* No underline in the header. The app's masthead has none, and a row of ten
    underlined words reads as a paragraph, not as navigation. */
 .nav a {
+  padding: 7px 11px;
+  border-radius: 999px;
   color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   text-decoration: none;
+  white-space: nowrap;
 }
-.nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.nav a:hover {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+}
+.nav a[aria-current="page"] { color: var(--ink); }
 
 .nav-open {
   grid-row: 1;
@@ -181,7 +206,8 @@ main { padding-top: 0.25rem; }
 /* On a phone the six links wrap to two lines of three. That is fine; what is
    not fine is them touching, so the row gap grows a little. */
 @media (max-width: 640px) {
-  .nav { font-size: 0.875rem; gap: 0.55rem 0.95rem; }
+  .nav { gap: 2px 0; margin-left: -9px; }
+  .nav a { padding: 7px 9px; }
 }
 
 /* One row on a wide screen (Kyle 2026-07-30): mark left, links centred, the
