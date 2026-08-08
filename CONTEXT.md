@@ -11,6 +11,19 @@ as history but do not update it.
 detached worktree: 104 files / 3181 tests pass, typecheck clean, lint 0
 errors / 40 pre-existing warnings, `npx vite build` clean.
 
+**Updated 2026-08-07** with the #41 chart-hunt abort loop (§1, §3.1, §5,
+§9) and the chart work Kyle has approved but nobody has started (§4).
+Gate on the working tree at that update: 147 files / 4096 tests pass,
+typecheck clean, lint 0 errors / 61 warnings, `npm run build` clean. That
+working tree carries uncommitted work from several agents, so the numbers
+describe the tree, not a commit. **Not deployed — only Kyle ships.**
+
+**Updated 2026-08-08** by the Kimi session with the size-chart redesign
+program. Full spec: `docs/size-chart-redesign-spec.md` (uncommitted). It
+holds every owner ruling, the locked bar geometry, the locked tolerance
+bands, the no-chart Fit tab design, and the six-step build order. Summary
+entry in §4 below. Nothing is built yet.
+
 ## 0. What this is
 
 Credenza: an agent-haul planner for Chinese shopping-agent buyers
@@ -116,6 +129,38 @@ in `components/size-chart-hunt.js`)**
   surfaced the actual cause: **the Anthropic API key has hit its
   account-level usage ceiling until 2026-09-01** — a billing/quota issue,
   not a code defect. See §3.
+- **The hunt cancelled its own read, ~1×/second (#41, 2026-08-07,
+  `components/DetailBody.jsx` `useChartHunt`).** A Yupoo album card never
+  filled its FIT READ table. Every stage was healthy in isolation — the
+  live `/yupoo` call, the chart photo, `rankChartCandidates` (score 88),
+  the live `/chart-vision` read (`found: true`), and `parseSizeChart`.
+  The hunt effect simply restarted before any read could finish: 21 read
+  attempts in 30s against a `MAX_PAID_CANDIDATES` of 3, none completed.
+  **Cause: three effect dependencies were rebuilt on every parent render**
+  — `onSaveEdit` is a plain arrow in the App (`credenza-fashion.jsx:8275`,
+  no `useCallback`), `item` comes from a fresh `items.find(...)`
+  (`:11211`, not memoized), and `shelfItems` is the whole `items` array.
+  The indexing ticker (`:9351`, a 100ms `setInterval`) re-renders the App
+  ~10×/s, so the effect tore down and re-ran constantly, and its cleanup
+  called `controller.abort()` on the read in flight each time. It hit
+  album hunts hardest because that branch is the slowest — it can chase a
+  Yupoo album's `buyUrl` to Weidian via `fetchDescImages` — so it lost
+  every race. **Fix: hold `item`, `onSaveEdit` and `shelfItems` in refs;
+  depend only on `[enabled, hasChart, itemId, huntFp, huntStamp]`** —
+  scalars that change when the item really changes. `hasChart` is a
+  boolean because `verdict.chart` is a fresh `parseSizeChart` object each
+  render. **Do not re-add those three to the dependency list.** The
+  `chartHuntTried.add()` claim deliberately stays AFTER the await
+  (2026-07-25 rule): an aborted hunt must not strand the card on "Looking
+  for the seller's size chart…" forever. Moving the claim earlier is not
+  a substitute for stable dependencies — with an unstable list, the
+  cleanup releases the claim and the next re-run takes it again, and the
+  loop survives. Pinned by `preview/test/chart-hunt-restart.test.jsx`,
+  which re-renders the card 10× and asserts one hunt and an unaborted
+  signal; reverting the dependency list makes it fail 11-calls-vs-1.
+  **Lesson for this file: an effect that spends money must not depend on
+  anything the parent rebuilds per render.** Audit before adding a
+  dependency to any paid-read effect.
 
 **Settings / measurements (`sheets/BodyProfileSheet.jsx`, shipped
 2026-08-01 in the Settings redesign, `47e3596`)**
@@ -213,7 +258,10 @@ on first load; in-shelf switches never remount and stay instant.
    it does not reset until **2026-09-01**. This is a billing issue on
    Kyle's Anthropic account, not a code defect — do not spend time
    debugging chart-read failures as a code problem without first
-   confirming this ceiling has lifted.
+   confirming this ceiling has lifted. **Second reason to check before
+   debugging:** until 2026-08-07 the hunt aborted its own reads on a loop
+   (#41, §1). If you are reading an older report of "chart reads never
+   finish", that was the cause and it is fixed.
 2. Two pre-existing test flakes, both documented, both pass in isolation:
    `fashion-app.test.jsx` "Desktop sizing destination" (order-dependent),
    and one `toast-chrome` flake. Neither is new; don't chase them as
@@ -242,6 +290,32 @@ on first load; in-shelf switches never remount and stay instant.
    review, not this week's engineering work.
 
 ## 4. Half-finished work, exact state
+
+- **Size-chart redesign program** (2026-08-08, Kimi session, spec at
+  `docs/size-chart-redesign-spec.md`, uncommitted). Approved by Kyle
+  across two days of debate with five model lanes. Locked rulings that
+  override earlier notes in this file: green stays for the recommended
+  size, motion stays (shimmer and bar entry animation), one tap saves a
+  size and the last tap wins (verified in the live app with Playwright:
+  the tap persists `item.size` across reload, no confirm step, and Kyle
+  ruled this stays). The six-step build order, nothing started: (1) new
+  garment-centered ease bars per the mockup Kyle approved
+  (`~/Desktop/ease-bar-mockup.html`) plus locked tolerance bands, (2)
+  loading states that hide the size section behind honest status lines,
+  (3) the no-chart Fit tab for sized categories (both size systems on
+  every chip, e.g. "EU 43 · US 10", chips must cover the buyer's usual
+  size, helper line "Pick a size. It's saved on this card for when you
+  order.", the two chart-entry actions from Settings) plus a one-line
+  no-sizes treatment for accessories like keychains and wallets, (4)
+  photo fallback so a found chart photo always shows even when the parse
+  fails, (5) cheap vision pre-check so one paid read almost always hits,
+  (6) deferred items in the spec. The size does NOT go to the buying
+  agent; Kyle rejected clipboard and per-agent link ideas on 2026-08-08,
+  so helper copy must never claim otherwise. Note the overlap with the
+  contact-sheet and cache-miss entries below: those are pipeline-side
+  approved work, this program is display-side plus the pre-check; the
+  pre-check (step 5) and the contact sheet solve the same ranking
+  problem, so build one, not both, and ask Kyle which.
 
 - **Garment-mode measurements not wired to sizing** (§1 above). Scoped
   direction if resumed: ask what kind of reference garment it is
@@ -273,6 +347,41 @@ on first load; in-shelf switches never remount and stay instant.
   status unconfirmed as of this writing.
 - **Stronger false-chart detection** — research only, no design or code
   started.
+- **Shared chart cache banks hits but not misses** (Kyle approved the fix
+  2026-08-07, not started). `preview/netlify/functions/chart-vision.js`
+  saves a found chart against the photo fingerprint
+  (`lib/chart-image-key.js`), so the whole customer base reads any given
+  photo once — that part works. But the `!result.found` branch (~line 528)
+  returns `{found: false}` **without writing anything**, so every customer
+  who opens the same chartless photo pays for the same negative answer
+  again. Kyle's decision, in his words: "Remember it, but re-check after a
+  while" — bank the miss, share it with everyone, expire it after some
+  months (a seller can add a chart later). Touches `chart-vision.js`,
+  `lib/entitlement-store.js` (`loadChartText`/`saveChartText`), and needs
+  a schema change alongside `docs/sql/2026-08-05-chart-cache.sql`. Note
+  the per-item `sizeChartHunt` stamp is a *different* mechanism — that one
+  is per-customer and already works; this is the cross-customer gap.
+- **Contact sheet for chart location** (Kyle's idea, approved in
+  principle, ordered after the cache work). Today the hunt pays to read up
+  to 3 full-resolution photos one at a time, hoping one holds the chart.
+  Instead: build one low-resolution numbered grid of all candidates, ask a
+  cheap model which number is the chart, then read that one original at
+  full resolution. Published names for this are **localize-then-crop** and
+  **Set-of-Mark prompting**. Kyle's framing: "if you screenshot the entire
+  page you'd know where the chart is instead of looking at every single
+  photo." Note what two independent model lanes rejected in the same
+  debate: **full-page browser screenshots as the default** (they shrink
+  chart text below readable size, do not beat Taobao's bot wall, add
+  browser startup cost per import, and full-page pixels defeat the shared
+  cache, which keys on a stable photo URL). The contact sheet keeps the
+  idea without those costs, because it still ends by reading an original.
+- **Source coverage is the real chart weakness, not ranking.** Both model
+  lanes in the 2026-08-07 debate reached this independently. Confirmed
+  gaps, each verified in code: `reddit.js` returns text only — no images
+  and no comments, where chart screenshots usually live; Taobao
+  description photos stay unreachable server-side (every mtop gateway
+  answers RGV587 anti-bot, `resolve.js:322`). Prefer widening sources over
+  further tuning `scoreChartCandidate`.
 - **GA4 custom dimensions** (agent, marketplace) and a decision on
   rotating the exposed GA4 key ("replace or later") — both waiting on
   Kyle, not blocked on engineering.
@@ -313,6 +422,20 @@ on first load; in-shelf switches never remount and stay instant.
 - **Treating "0 files uploaded" from `netlify deploy` as an error.** It
   means the asset already exists in Netlify's CDN store from an earlier
   deploy of the same commit — production still points at the new deploy.
+- **"Fixing" the `useChartHunt` dependency list to satisfy
+  `react-hooks/exhaustive-deps`.** Adding `item`, `onSaveEdit`, or
+  `shelfItems` back restores the #41 abort loop exactly (§1). The rule is
+  `warn`, not `error`, in `eslint.config.js`, and it does not currently
+  flag this hook. The refs are the mechanism that keeps those values
+  fresh. If you must satisfy the rule instead, the correct fix is
+  upstream: `useCallback` on `saveEdit` (`credenza-fashion.jsx:8275`) and
+  `useMemo` on `detailItem` (`:11211`) — not a wider dependency list.
+- **Blaming the seller, the host, or the reader when a chart never
+  arrives, before checking for a restart loop.** During #41 every stage
+  tested healthy in isolation and the card still showed nothing. The
+  cheap first check is the abort pattern in the browser console: a
+  repeating `REQ` / `ABORT cancelled` pair about once a second means the
+  effect is restarting, not that the read is failing.
 
 ## 6. Naming & workflow conventions
 
@@ -396,6 +519,17 @@ detail:
 
 ## 9. Where to look for more
 
+- `docs/Chart-Pull-Handoff.md` — the daily size-chart harvest (w2clinks feed
+  → headless Chrome → Grok vision → `data/seller-charts.json`). Read before
+  touching `scripts/w2clinks-chart-pull.py`, `scripts/reddit-chart-pull.py`,
+  or the launchd job `com.kyle.chartpull`. Contains the Grok envelope gotcha
+  and the Reddit API denial status.
+- `preview/test/chart-hunt-restart.test.jsx` — the regression guard for
+  #41 (§1). It renders a chartless Yupoo card, re-renders it 10× the way
+  the App does (fresh `item`, fresh `onSaveEdit`, fresh `shelfItems`), and
+  asserts exactly one hunt with an unaborted signal. If you change
+  `useChartHunt`, this file is the fastest proof you did not reintroduce
+  the abort loop. Verified to fail on the old code (11 hunts vs 1).
 - `docs/session-state.md` — the OLD living checkpoint, stops 2026-07-27,
   keep as history.
 - `docs/carousel-canonical-state.md`, `docs/carousel-session-summary.md`

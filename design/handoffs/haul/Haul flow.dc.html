@@ -98,7 +98,7 @@ input:focus-visible,button:focus-visible,[role="button"]:focus-visible{outline:2
 </sc-if>
 
 <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ false }}">
-<main style="max-width:1180px;margin:0 auto;padding:20px 28px 140px">
+<main style="max-width:1400px;margin:0 auto;padding:20px 28px 140px">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
     <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Kicker" hint-size="auto,14px">9 items · haul</x-import>
     <span style="font-family:var(--cz-mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--cz-money)">{{ goodsTotal }}</span>
@@ -137,7 +137,14 @@ input:focus-visible,button:focus-visible,[role="button"]:focus-visible{outline:2
 
   <div style="display:flex;align-items:flex-start;gap:10px;overflow-x:auto;padding-bottom:8px">
     <sc-for list="{{ columns }}" as="col" hint-placeholder-count="4">
-      <div style="flex:0 0 188px;width:188px;display:flex;flex-direction:column;gap:8px">
+      <sc-if value="{{ col.spine }}" hint-placeholder-val="{{ false }}">
+        <div role="button" tabindex="0" onClick="{{ col.onToggle }}" title="Show this empty stage" style="flex:0 0 44px;width:44px;align-self:stretch;min-height:280px;display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px 0;border:1px dashed var(--cz-hair-strong);border-radius:12px;background:transparent;cursor:pointer;transition:background 140ms cubic-bezier(.23,1,.32,1)" style-hover="background:var(--cz-accent-bg)">
+          <span style="font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cz-faint);writing-mode:vertical-rl;line-height:1">{{ col.label }}</span>
+          <span style="font-family:var(--cz-mono);font-size:11px;font-weight:700;color:var(--cz-faint)">0</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ col.full }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1 1 188px;min-width:188px;display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;align-items:baseline;gap:6px;padding:0 2px 8px;border-bottom:1px solid var(--cz-hair);white-space:nowrap">
           <x-import component-from-global-scope="CredenzaFashionDesignSystem_8f0205.Kicker" hint-size="auto,13px" size="{{ ten }}">{{ col.label }}</x-import>
           <span style="flex:1"></span>
@@ -163,7 +170,11 @@ input:focus-visible,button:focus-visible,[role="button"]:focus-visible{outline:2
         <sc-if value="{{ col.footerLabel }}" hint-placeholder-val="{{ true }}">
           <button type="button" onClick="{{ col.onFooter }}" style="width:100%;min-height:34px;border:1px dashed var(--cz-hair-strong);border-radius:999px;background:transparent;color:var(--cz-sub);font-family:var(--cz-sans);font-size:11.5px;font-weight:650;cursor:pointer" style-hover="color:var(--cz-ink);background:var(--cz-accent-bg)">{{ col.footerLabel }}</button>
         </sc-if>
+        <sc-if value="{{ col.emptyCopy }}" hint-placeholder-val="{{ false }}">
+          <div role="button" tabindex="0" onClick="{{ col.onToggle }}" title="Fold this empty stage away" style="border:1px dashed var(--cz-hair-strong);border-radius:11px;padding:14px 12px;font-size:11.5px;line-height:1.45;color:var(--cz-faint);cursor:pointer;transition:background 140ms cubic-bezier(.23,1,.32,1)" style-hover="background:var(--cz-accent-bg)">{{ col.emptyCopy }}</div>
+        </sc-if>
       </div>
+      </sc-if>
     </sc-for>
 
     <div style="flex:0 0 280px;width:280px;display:flex;flex-direction:column;gap:8px">
@@ -573,6 +584,7 @@ class Component extends DCLogic {
     submitted: false,
     tracking: "",
     fit: {},
+    openCols: {},
     toast: null
   };
 
@@ -683,15 +695,23 @@ class Component extends DCLogic {
       return base;
     };
 
-    const col = (key, label, footerLabel, onFooter) => {
+    const col = (key, label, footerLabel, onFooter, emptyCopy) => {
       const list = items.filter(i => i.stage === key);
-      return { key, label, count: list.length, items: list.map(mk), footerLabel: list.length ? footerLabel : null, onFooter };
+      // An empty stage folds to a 44px spine so occupied stages get the room.
+      const spine = list.length === 0 && !S.openCols[key];
+      return {
+        key, label, count: list.length, items: list.map(mk),
+        footerLabel: list.length ? footerLabel : null, onFooter,
+        spine, full: !spine,
+        emptyCopy: list.length === 0 && !spine ? emptyCopy : null,
+        onToggle: () => this.setState(s => ({ openCols: { ...s.openCols, [key]: !s.openCols[key] } }))
+      };
     };
     const columns = [
-      col("toOrder", "To order", "Copy all links", () => this.copy(items.filter(i => i.stage === "toOrder").map(i => "https://weidian.com/item.html?itemID=" + (7739000000 + i.id)).join("\n"), "All links copied — paste into your agent's bulk add")),
-      col("ordered", "Ordered", null, null),
-      col("warehouse", "At warehouse", "Review all QC", () => { const f = items.find(i => i.stage === "warehouse"); if (f) this.setState({ qcId: f.id, photo: 0 }); }),
-      col("qcd", "QC done", null, null)
+      col("toOrder", "To order", "Copy all links", () => this.copy(items.filter(i => i.stage === "toOrder").map(i => "https://weidian.com/item.html?itemID=" + (7739000000 + i.id)).join("\n"), "All links copied — paste into your agent's bulk add"), "Nothing left to order."),
+      col("ordered", "Ordered", null, null, "Nothing on its way to the warehouse."),
+      col("warehouse", "At warehouse", "Review all QC", () => { const f = items.find(i => i.stage === "warehouse"); if (f) this.setState({ qcId: f.id, photo: 0 }); }, "Nothing at the warehouse yet."),
+      col("qcd", "QC done", null, null, "Nothing reviewed yet.")
     ];
 
     const lineRows = Object.keys(S.rates).map(n => ({

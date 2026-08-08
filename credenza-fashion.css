@@ -16365,15 +16365,72 @@ input.cz-sizing-cell.is-custom:focus-visible {
   margin-top: 13px;
 }
 
+/* Redesign 2026-08-08 (Kyle's approved mockup): each row is a head line
+   (name · garment/you numbers) above a taller track. The garment number pins
+   the center; the "YOU" line marks the body number. No more column grid. */
 .cz-fitread-row {
-  display: grid;
-  /* ch sized to CM worst case ("116.5cm", "+23.0cm"). Floor keeps short
-     values (e.g. "46cm") from collapsing. */
-  grid-template-columns: 70px 1fr max(40px, 8ch) max(40px, 8ch) max(54px, 9ch);
-  gap: 10px;
-  align-items: center;
-  padding: 7px 0;
+  padding: 10px 0;
   border-top: 1px solid var(--cz-hair);
+}
+
+.cz-fitread-rowhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cz-fitread-nums {
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--cz-faint);
+}
+
+.cz-fitread-nums b {
+  font-weight: 500;
+  color: var(--cz-ink);
+}
+
+/* The room number carries the tier color: green inside the band, amber in
+   the soft zone, red past it (same rule as the YOU line). */
+.cz-fitread-diff {
+  font-weight: 600;
+  color: var(--cz-money);
+}
+
+.cz-fitread-diff.is-warn {
+  color: var(--cz-error-text);
+}
+
+.cz-fitread-diff.is-soft {
+  /* Text-safe amber (the plain --cz-warn gold measures under the 4.5:1 text
+     floor on light surfaces). */
+  color: var(--cz-warn-ink);
+}
+
+.cz-fitread-unknown {
+  color: var(--cz-hair-strong);
+}
+
+/* One plain sentence when a row can never grade (missing number, no seam). */
+.cz-fitread-note {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cz-placeholder);
+}
+
+/* Locked legend (2026-08-08 spec): what the bar, line, and colors mean. */
+.cz-fitread-legend {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--cz-placeholder);
+  text-wrap: pretty;
 }
 
 .cz-fitread-heads {
@@ -16383,8 +16440,6 @@ input.cz-sizing-cell.is-custom:focus-visible {
 
 /* One mono voice for every fit-read label (Kyle 2026-07-31 font consistency). */
 .cz-fitread-kicker,
-.cz-fitread-scale,
-.cz-fitread-head,
 .cz-fitread-toggle-hint {
   font-family: var(--cz-mono);
   font-size: 10px;
@@ -16396,17 +16451,6 @@ input.cz-sizing-cell.is-custom:focus-visible {
 
 .cz-fitread-kicker {
   letter-spacing: 0.12em;
-}
-
-.cz-fitread-scale {
-  display: flex;
-  justify-content: space-between;
-  color: var(--cz-placeholder);
-}
-
-.cz-fitread-head {
-  color: var(--cz-placeholder);
-  text-align: right;
 }
 
 /* Tap the FIT READ header to open the full seller chart and ease detail. */
@@ -16460,10 +16504,6 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-ink);
 }
 
-.cz-fitread-head-short {
-  display: none;
-}
-
 .cz-fitread-name {
   font-family: var(--cz-mono);
   font-size: 11px;
@@ -16476,74 +16516,163 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-placeholder);
 }
 
-/* The marker overflows the 5px track by design (2×13px at top -4px), so the
-   track itself must NOT clip — the band inside carries its own radius. */
+/* The track is taller now (2026-08-08): the garment number tags above the
+   rail, the "YOU" value tags below it. The rail, not the track, carries the
+   6px pill so the tags never clip. */
 .cz-fitread-track {
   position: relative;
-  height: 5px;
+  display: block;
+  height: 54px;
+  margin-top: 2px;
+}
+
+.cz-fitread-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 24px;
+  height: 6px;
   border-radius: 999px;
   background: var(--cz-chip-fill);
 }
 
-/* left/width come from inline style (fitReadRows domain map). Fixed 36/66
-   and the phone 26–70 override disagreed with warn math on oversized coats
-   (K 2026-08-02) — do not hardcode band position here. */
+/* left/width come from inline style (fitReadRows ruler). The band is the
+   BODY range this cut fits; the garment number pins 50% on every row. */
 .cz-fitread-band {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 22px;
+  height: 10px;
   border-radius: 999px;
   background: var(--cz-fit-band);
+  transform-origin: center;
+  animation: cz-fitread-grow var(--dur-open) var(--ease-out) both;
 }
 
-/* Kyle 2026-08-02: the orange "get away with it" zone — band edge to
-   edge+FIT_READ_SOFT_DELTA on both sides, positioned inline from the same
-   domain map as the band and the mark. Faint wash of the theme's amber so
-   the zone reads without fighting the green band it touches. */
+/* Dashed = no verdict (locked legend): a number is missing or estimated and
+   we are not guessing at one. */
+.cz-fitread-band.is-dashed {
+  background: transparent;
+  border: 1px dashed var(--cz-hair-strong);
+}
+
+/* The amber "get away with it" zones flank the band out to the per-measure
+   soft delta, positioned inline from the same ruler as the band and the
+   YOU line, so the three colors never disagree. */
 .cz-fitread-soft {
+  position: absolute;
+  top: 23px;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cz-warn) 32%, transparent);
+  transform-origin: center;
+  animation: cz-fitread-grow var(--dur-open) var(--ease-out) both;
+}
+
+@keyframes cz-fitread-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes cz-fitread-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The garment: a quiet tick at the center (50%, set inline) plus its real
+   number tagged above the rail. */
+.cz-fitread-garment {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: color-mix(in srgb, var(--cz-warn) 32%, transparent);
+  animation: cz-fitread-fade var(--dur-open) var(--ease-out) both;
 }
 
-.cz-fitread-mark {
+.cz-fitread-garment-tick {
   position: absolute;
-  top: -4px;
-  /* Kyle 2026-07-30: "more color on the actual chart" — the mark widens a
-     step so the green (inside) and amber (outside) read at a glance. */
-  width: 3px;
-  height: 13px;
-  border-radius: 1.5px;
-  background: var(--cz-money);
-  /* Center the tick on its percent so the right edge at 90% still sits on
-     the bar, not into the number column (O 2026-08-02). */
+  top: 17px;
+  left: 0;
+  width: 2px;
+  height: 20px;
   transform: translateX(-50%);
-  /* Kyle 2026-07-31: "make the sizing graph move smoothly when you click a
-     new size." The mark slides to the new numbers instead of jumping. */
+  background: var(--cz-hair-strong);
+}
+
+.cz-fitread-garment-tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateX(-50%);
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--cz-ink);
+}
+
+/* The customer: a solid line with "YOU · n" tagged below the rail. Ink, not
+   green — green is reserved for money and the recommended size. Tier colors
+   ride the same tokens the old mark used. The line slides when the customer
+   taps a new size (Kyle 2026-07-31: smooth, not a jump). */
+.cz-fitread-you {
+  position: absolute;
+  top: 13px;
+  width: 3px;
+  height: 28px;
+  border-radius: 1.5px;
+  background: var(--cz-ink);
+  transform: translateX(-50%);
   transition: left var(--dur-open) var(--ease-out), background-color var(--dur-open) var(--ease-out);
+  animation: cz-fitread-fade var(--dur-open) var(--ease-out) both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cz-fitread-mark {
-    transition: none;
-  }
+.cz-fitread-you-tag {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--cz-ink);
 }
 
-.cz-fitread-mark.is-warn {
+/* An estimated body number (torso from height) shows but stays quiet: the
+   line fades back so it never reads as a verdict. */
+.cz-fitread-you.is-est {
+  opacity: 0.55;
+}
+
+.cz-fitread-you.is-warn {
   /* Extreme fit (too tight OR too loose): bright red, not dull gold
      (Kyle / O 2026-08-02). Leave --cz-warn gold for other warnings. */
   background: var(--cz-error-text);
 }
 
-.cz-fitread-mark.is-soft {
+.cz-fitread-you.is-soft {
   /* Just outside the band, within the soft delta: amber, not red — Kyle
      2026-08-02: "ehhh you can get away with it". Theme token, no raw hex. */
   background: var(--cz-warn);
 }
 
-/* Reading state: a 30%-wide sweep loops over each track while the photo read
-   is in flight. The band/marks are gone (no chart yet), so the tracks are
+@media (prefers-reduced-motion: reduce) {
+  .cz-fitread-you {
+    transition: none;
+  }
+
+  .cz-fitread-band,
+  .cz-fitread-soft,
+  .cz-fitread-garment,
+  .cz-fitread-you {
+    animation: none;
+  }
+}
+
+/* Reading state: a 30%-wide sweep loops over each rail while the photo read
+   is in flight. The band/lines are gone (no chart yet), so the rails are
    the only place motion can say "working". */
 .cz-fitread.is-reading .cz-fitread-track {
   overflow: hidden;
@@ -16552,8 +16681,8 @@ input.cz-sizing-cell.is-custom:focus-visible {
 .cz-fitread.is-reading .cz-fitread-track::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 24px;
+  height: 6px;
   left: -30%;
   width: 30%;
   /* The spec literal rgba(23,24,26,0.22) IS ink at 22% in the light theme.
@@ -16578,45 +16707,6 @@ input.cz-sizing-cell.is-custom:focus-visible {
     animation-duration: 0.01ms;
     animation-iteration-count: 1;
   }
-}
-
-.cz-fitread-theirs,
-.cz-fitread-yours,
-.cz-fitread-ease {
-  font-family: var(--cz-mono);
-  font-size: 11px;
-  font-weight: 500;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.cz-fitread-theirs {
-  color: var(--cz-ink);
-}
-
-.cz-fitread-theirs.is-unknown {
-  color: var(--cz-hair-strong);
-}
-
-.cz-fitread-yours {
-  color: var(--cz-placeholder);
-}
-
-.cz-fitread-ease {
-  font-weight: 600;
-  color: var(--cz-money);
-}
-
-.cz-fitread-ease.is-warn {
-  /* Extreme fit ease number: same red as the mark tick. */
-  color: var(--cz-error-text);
-}
-
-.cz-fitread-ease.is-soft {
-  /* Soft-tier ease number: the text-safe amber (the plain --cz-warn gold
-     measures ~2.6:1, under the 4.5:1 text floor). */
-  color: var(--cz-warn-ink);
 }
 
 .cz-fitread-foot {
@@ -16647,38 +16737,15 @@ input.cz-sizing-cell.is-custom:focus-visible {
   cursor: pointer;
 }
 
-/* Phone: name + floors narrow (54 / track / 30 / 30 / 40, gap 8, rows 8px 0).
-   Number columns keep the same 8ch/9ch CM worst-case width. Mono stays 11px. */
+/* Phone: same stacked row, tighter padding. Mono numbers stay 11px so the
+   garment and body values never shrink below legibility (F 2026-08-02). */
 @media (max-width: 480px) {
   .cz-fitread-row {
-    grid-template-columns: 54px 1fr max(30px, 8ch) max(30px, 8ch) max(40px, 9ch);
-    gap: 8px;
     padding: 8px 0;
   }
 
   .cz-fitread-heads {
     padding: 0 0 5px;
-  }
-
-  .cz-fitread-theirs,
-  .cz-fitread-yours,
-  .cz-fitread-ease {
-    font-size: 11px;
-  }
-
-  .cz-fitread-head-long {
-    display: none;
-  }
-
-  .cz-fitread-head-short {
-    display: inline;
-  }
-
-  /* Spec :171 drops TRUE from the scale on a phone. The track is 1fr here, so
-     three labels crowd the middle one against its neighbours. TIGHT and LOOSE
-     still name both ends, and the band already marks true. */
-  .cz-fitread-scale > span:nth-child(2) {
-    display: none;
   }
 }
 
@@ -20804,63 +20871,56 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-fitread-kicker {
     color: var(--cz-faint);
   }
-  /* Keep five cells (name · scale · theirs · yours · ease) on a real grid so
-     the heads never run together as one word (Kyle 2026-08-02 squish). The
-     old flex + gap: 8px 0 zeroed column gap and crushed LARGETIGHTTRUE…
-     Number columns use the same ch floors as the base grid so "116.5cm"
-     stays legible (F 2026-08-02). */
+  /* 2026-08-08 redesign: rows are stacked (head above track), so the old
+     five-cell grid override is gone. The panel surface is dark in both
+     themes, so the light-theme tokens need these flips. */
   .cz-dpanel .cz-fitread-row {
     min-height: 44px;
-    display: grid;
-    grid-template-columns: 84px minmax(120px, 1fr) max(48px, 8ch) max(48px, 8ch) max(54px, 9ch);
-    gap: 8px 12px;
-    align-items: center;
   }
   .cz-dpanel .cz-fitread-name {
     color: var(--cz-sub);
     font-size: 12.5px;
   }
-  .cz-dpanel .cz-fitread-track {
-    min-width: 0;
-    height: 5px;
-    border-radius: 999px;
+  .cz-dpanel .cz-fitread-nums {
+    font-size: 12px;
+    color: var(--cz-faint);
+  }
+  .cz-dpanel .cz-fitread-nums b {
+    color: #ffffff;
+  }
+  .cz-dpanel .cz-fitread-diff { color: var(--cz-money); font-weight: 700; }
+  .cz-dpanel .cz-fitread-diff.is-warn { color: var(--cz-error-text); }
+  .cz-dpanel .cz-fitread-diff.is-soft { color: var(--cz-warn); }
+  .cz-dpanel .cz-fitread-unknown,
+  .cz-dpanel .cz-fitread-note {
+    color: var(--cz-faint);
+  }
+  .cz-dpanel .cz-fitread-rail {
     background: var(--cz-track);
   }
   .cz-dpanel .cz-fitread-band {
     background: rgba(74, 222, 128, 0.34);
   }
-  .cz-dpanel .cz-fitread-mark {
-    width: 2px;
+  .cz-dpanel .cz-fitread-garment-tick {
+    background: var(--cz-faint);
+  }
+  .cz-dpanel .cz-fitread-garment-tag,
+  .cz-dpanel .cz-fitread-you-tag {
+    color: #ffffff;
+  }
+  .cz-dpanel .cz-fitread-you {
     background: #ffffff;
     border: 0;
-    border-radius: 0;
   }
-  .cz-dpanel .cz-fitread-mark.is-warn {
-    /* Desktop panel used plain white for extreme marks — no warning color.
-       Use the same red as the mobile mark (O 2026-08-02). */
+  .cz-dpanel .cz-fitread-you.is-warn {
     background: var(--cz-error-text);
   }
-  .cz-dpanel .cz-fitread-mark.is-soft {
-    /* Three tiers (Kyle 2026-08-02): amber between white and red. The panel
-       is dark in both themes, so the plain gold --cz-warn reads here (the
-       text-safe --cz-warn-ink light value would vanish on this surface). */
+  .cz-dpanel .cz-fitread-you.is-soft {
+    /* The panel is dark in both themes, so the plain gold --cz-warn reads
+       here (the text-safe --cz-warn-ink light value would vanish). */
     background: var(--cz-warn);
   }
-  .cz-dpanel .cz-fitread-theirs,
-  .cz-dpanel .cz-fitread-yours,
-  .cz-dpanel .cz-fitread-ease {
-    font-family: var(--cz-mono);
-    font-size: 12px;
-    text-align: right;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .cz-dpanel .cz-fitread-theirs { color: #ffffff; }
-  .cz-dpanel .cz-fitread-yours { color: var(--cz-sub); }
-  .cz-dpanel .cz-fitread-ease { color: var(--cz-money); font-weight: 700; }
-  .cz-dpanel .cz-fitread-ease.is-warn { color: var(--cz-error-text); }
-  .cz-dpanel .cz-fitread-ease.is-soft { color: var(--cz-warn); }
-  .cz-dpanel .cz-fitread-theirs.is-unknown,
+  .cz-dpanel .cz-fitread-legend,
   .cz-dpanel .cz-fitread-footnote {
     color: var(--cz-faint);
   }

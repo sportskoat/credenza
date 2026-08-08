@@ -133,6 +133,41 @@ rows. No Grok tokens spent.
 
 ---
 
+## 2026-08-08 — haul-section debate position (analysis only; no code changed)
+
+A Kimi lane answered a six-question review of the haul section. The task
+edited, created, and deleted nothing. The position, for the record:
+
+1. Health score for a first-time casual visitor: **30/100**. Five steps,
+   twelve numbers, and empty checkboxes; the parcel instruction hides in
+   step 5.
+2. Biggest reason Kyle never opens it: **duplicate work with no payoff**.
+   The real job happens in the shopping agent; the section only asks for the
+   same facts a second time.
+3. Decision: **CUT the manual order/arrival checkoffs.** Capture paths:
+   pasted order/status page is the only one worth building (later; same
+   no-network parse as reddit-haul.js). Forwarded agent email is fragile —
+   skip. Browser extension costs most and breaks on agent layout changes —
+   skip.
+4. Parcel rail defaults: show **chargeable weight + cheapest line price**
+   only. Actual weight, packaging grams, volumetric weight, the divisor
+   switch, the other two lines, billed-at details, and the half-full tip
+   hide behind one tap.
+5. Reddit plays ranked **b > c > a**: (b) import popular hauls, add sizing,
+   post a sized comment; (c) the share link + OG image is the outreach unit
+   inside that comment; (a) share-page polish only matters after a click.
+   Better play added: answer sizing questions in finds/QC threads with no
+   link; link only when asked.
+6. Build-first (~1 week of agent work): **the sized-comment exporter** —
+   paste a public Reddit haul, parse with the existing Reddit import, add
+   the fit statements and room bands the share page already computes, one
+   button copies ready Reddit markdown (no link by default; a second button
+   adds the share link for threads that allow it).
+
+Open: Kyle has NOT approved any of these decisions. No build started.
+
+---
+
 ## ACTIVE NOW — 2026-08-04 (read this before you edit)
 
 **Claude (this tab) owns a Kyle bug-fix pass. Uncommitted. Not deployed.**
@@ -179,7 +214,7 @@ docs work, or ask Kyle before you touch the list below.
 
 ---
 
-**Last updated:** 2026-08-06 (chartlib shared chart-harvest pipeline — four script/doc files, UNCOMMITTED per lane order. See the 2026-08-06 section.) Prior 2026-08-04 (**SHIPPED** deploy `6a727b81b6d49118cf4fd716` — avatar menu portal + backlog on main. See ACTIVE NOW above.) Prior 2026-07-27 (**SHARED BODY SCROLL LOCK + MODALSHELL SIMPLIFIED — pushed, NOT deployed.** New `components/useBodyScrollLock.js`: one module-scope, reference-counted body scroll lock replaces every modal's private save/restore effect; ModalShell and DetailSheet use it. ModalShell's sub-page stack lost all measurement — no `useLayoutEffect`, no `ResizeObserver`, no measured height, no max-width tween; the active page sits in normal flow and sizes the stack. Focused gate 19 tests / 2 files. The commit also carries other lanes' uncommitted work per Rule A — see the 2026-07-27 section below.) Prior: **ROUTING + HEADER + SAMPLE SHELF — `5928358`, pushed, NOT deployed.** Three faults Kyle reported in one message, all fixed: every public address served the app instead of its page (dev server only; production was fine) — `preview/vite.config.js` now resolves the folder before the SPA fallback and binds `127.0.0.1` instead of IPv6 loopback; the masthead nav sat 54.9px right of centre — an equal `flex: 1 1 0` on both outer children puts it at 0.0px, measured by `preview/scripts/probe-masthead-center.mjs`; the 18-card sample shelf is deleted, generator and all, plus a silent one-time purge for devices that already hold the cards. Five new routing tests, five mutation probes all caught. 977 internal links checked, zero dead. Gate 2,114 tests / 66 files. **Two rules for every agent: LB-65 a 200 is not a page — probe the `<title>`, and a rule a comment can satisfy is not a rule; LB-66 deleting a generator does not clear data it already wrote.** See the 2026-07-27 section below. Prior: **BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
+**Last updated:** 2026-08-08 (haul-section debate position recorded — analysis only, no code changed; see the 2026-08-08 section.) Prior 2026-08-06 (chartlib shared chart-harvest pipeline — four script/doc files, UNCOMMITTED per lane order. See the 2026-08-06 section.) Prior 2026-08-04 (**SHIPPED** deploy `6a727b81b6d49118cf4fd716` — avatar menu portal + backlog on main. See ACTIVE NOW above.) Prior 2026-07-27 (**SHARED BODY SCROLL LOCK + MODALSHELL SIMPLIFIED — pushed, NOT deployed.** New `components/useBodyScrollLock.js`: one module-scope, reference-counted body scroll lock replaces every modal's private save/restore effect; ModalShell and DetailSheet use it. ModalShell's sub-page stack lost all measurement — no `useLayoutEffect`, no `ResizeObserver`, no measured height, no max-width tween; the active page sits in normal flow and sizes the stack. Focused gate 19 tests / 2 files. The commit also carries other lanes' uncommitted work per Rule A — see the 2026-07-27 section below.) Prior: **ROUTING + HEADER + SAMPLE SHELF — `5928358`, pushed, NOT deployed.** Three faults Kyle reported in one message, all fixed: every public address served the app instead of its page (dev server only; production was fine) — `preview/vite.config.js` now resolves the folder before the SPA fallback and binds `127.0.0.1` instead of IPv6 loopback; the masthead nav sat 54.9px right of centre — an equal `flex: 1 1 0` on both outer children puts it at 0.0px, measured by `preview/scripts/probe-masthead-center.mjs`; the 18-card sample shelf is deleted, generator and all, plus a silent one-time purge for devices that already hold the cards. Five new routing tests, five mutation probes all caught. 977 internal links checked, zero dead. Gate 2,114 tests / 66 files. **Two rules for every agent: LB-65 a 200 is not a page — probe the `<title>`, and a rule a comment can satisfy is not a rule; LB-66 deleting a generator does not clear data it already wrote.** See the 2026-07-27 section below. Prior: **BRANCH `worktree-fansbuy-links-no-flip` MERGED INTO `main`.** Kyle: work must never strand on a branch, and one deploy must carry everything. That branch held 10 commits and 7,191 insertions across 72 files. It is now in `main`: six mobile fixes (shimmer doubling, card price clipping, Weidian description size chart, stuck gallery close buttons, smeared money counter, status tag to top left), album photos (honest count, 40-photo extraction, charts held out of the gallery, thumb-strip glitch), modal-stack scrollbars hidden, the settings modal stack, the Fansbuy link fix and the retired carousel flip. Tag `pre-fansbuy-merge-20260726` marks `main` before the merge. **NOT deployed — Kyle ships.** Prior: HERO 2A + ONBOARDING 3B + SIGN-IN FIX — DEPLOYED, deploy `6a66b2bc5602a0684c001b9c`. Prior: CUSTOMER WALKTHROUGH AUDIT FIXES. Prior: HANDOFF TURN 4 — card-cap raise + two-column panel, live and verified.)
 **Branch:** `main` (fast-forwarded to the work branch; `mobile-fix-loop` merged 2026-07-25)
 **Production:** https://credenzafashion.com — **LIVE at `ebfb59b` (2026-07-25, deploy `6a65a2d4e173815517647bfb`): turn 4 COMPLETE — Fix A (desktop card cap min(72vw,560)xmin(86vh,820) rack, 0.85 overlay mirror; the cap lived in CSS, not the JS cardSize) + Fix B (two-column no-flip DesktopDetailPanel at >=1024px: contain-fit stage with counter/favourite/always-visible arrows/arrow keys/thumb strip + album tile left, shared DetailBody with pinned price+Buy footer right; grid-tap renders the panel directly, rack tap opens it above the rack which never flips; flip cue hidden >=1024px; stage tap opens the swipe gallery; generic thumb-hover z-index fix keeps the chrome on top). Badge fix: only an ESTIMATED deciding measurement hedges the verdict. 640 tests; gallery probe green (desktop panel + phone sheet); live screenshots verified.** Previous: `d109a2a` card-front redesign (deploy `6a65923338fa3dbb68a29676`).
 **DEPLOY BLOCKER — CLEARED (2026-07-25 ~09:05Z).** Credits added; everything committed deployed in one shot (see Production line).

@@ -1945,14 +1945,14 @@ export function recommendSize(
 // One row per measurement on the PICKED chart row: name, theirs (garment cm),
 // yours (body cm), signed ease, a mark on the tight↔loose track, and a
 // three-tier verdict on the ease (Kyle 2026-08-02): GREEN inside the drafted
-// band, ORANGE ("soft") within FIT_READ_SOFT_DELTA of the nearer edge —
-// "ehhh you can get away with it" — RED ("warn") only past that.
-//
-// Track domain is per-garment, per-row (K 2026-08-02): the padded range covers
-// the drafted ideal±span AND every size's ease for that measure, mapped to
-// [4%, 96%]. Oversized coats no longer pin every size at the same cap — the
-// mark always moves between sizes. The green band and both orange zones are
-// drawn from the same map as the mark, so the three colors never disagree.
+// Ruler, redesign 2026-08-08 (Kyle's approved mockup, spec
+// docs/size-chart-redesign-spec.md): the GARMENT number pins the center of
+// every bar, the "YOU" line marks the customer's body number, and the green
+// band is the BODY range this cut fits. ORANGE ("soft") zones flank the band
+// out to the per-measurement soft delta — "ehhh you can get away with it" —
+// RED ("warn") only past that. The old ease ruler (tight↔loose, per-row
+// private domain) went away: Kyle's read was "the bars are lopsided and do
+// not depict the garment's true size".
 //
 // Rows come from the parsed chart, not a hard-coded list ("drive them from
 // the parsed chart"). Order is worn-garment order per the spec: tops
@@ -1979,49 +1979,32 @@ const FIT_READ_EASE = {
   waist: { ideal: 2, span: 3 },
   hip: { ideal: 2, span: 4 },
   // Trouser / shorts length. Ideal 0: the length the customer saves IS the
-  // length they want, and both numbers are waistband to hem. 3cm each way
-  // still wears as the length asked for.
-  pantsLength: { ideal: 0, span: 3 },
+  // length they want, and both numbers are waistband to hem. Locked bands
+  // (Kyle 2026-08-08, after fit research): length is the most forgiving
+  // measure, so the green span widened 3 to 5.
+  pantsLength: { ideal: 0, span: 5 },
   // Ideal 0: the Shirt length a customer saves IS where the hem should sit, so
-  // a garment that matches it needs no ease at all. 3cm each way still reads
-  // as the length asked for; past that it wears cropped or long.
+  // a garment that matches it needs no ease at all. Locked bands (Kyle
+  // 2026-08-08): green span widened 3 to 5, same as trouser length.
   // A length the app GUESSED from height carries no target — see fitReadRows.
-  length: { ideal: 0, span: 3 },
+  length: { ideal: 0, span: 5 },
 };
-// Track percent range the domain maps into. Edges leave a hair of bar so the
-// mark never kisses the THEIRS column or the name (O 2026-08-02).
-const FIT_READ_TRACK_LO = 4;
-const FIT_READ_TRACK_HI = 96;
 
-// Kyle 2026-08-02: "within a certain delta it should be like an orange to
-// say 'ehhh you can get away with it'." Ease outside the drafted band but
-// within this delta of the nearer edge reads ORANGE (soft); only past it
-// does the row go RED (warn). Same 4cm the chest pick slack allows
-// (CHEST_BAND_SLACK) — display and pick now agree on the tolerated zone.
-const FIT_READ_SOFT_DELTA = 4;
-
-// Map an ease (cm) onto the track given a padded domain. Linear; clamp is a
-// safety net only for absurd values outside the padded domain.
-function mapEaseToTrack(ease, domainLo, domainHi) {
-  if (!(domainHi > domainLo)) return (FIT_READ_TRACK_LO + FIT_READ_TRACK_HI) / 2;
-  const t = (ease - domainLo) / (domainHi - domainLo);
-  const pct = FIT_READ_TRACK_LO + t * (FIT_READ_TRACK_HI - FIT_READ_TRACK_LO);
-  return Math.max(FIT_READ_TRACK_LO, Math.min(FIT_READ_TRACK_HI, pct));
-}
-
-// Per-row domain: drafted ideal±span and every size's ease for this measure,
-// plus ~10% margin so the extreme size never pins the cap.
-function fitReadDomain(ideal, span, sizeEases) {
-  let minEase = ideal - span;
-  let maxEase = ideal + span;
-  for (const e of sizeEases) {
-    if (e < minEase) minEase = e;
-    if (e > maxEase) maxEase = e;
-  }
-  const range = maxEase - minEase;
-  const margin = range > 0 ? range * 0.1 : Math.max(span, 1) * 0.1;
-  return { lo: minEase - margin, hi: maxEase + margin };
-}
+// Locked soft (amber) deltas per measurement (Kyle 2026-08-08, fit research:
+// docs/size-chart-redesign-spec.md). The extra freedom lives in AMBER, never
+// in green. Chest stays 4 so display still agrees with the pick's
+// CHEST_BAND_SLACK. Shoulder widened 4 to 6. Both lengths widened 4 to 8.
+const FIT_READ_SOFT_DELTA = {
+  chest: 4,
+  shoulder: 6,
+  sleeve: 4,
+  waist: 4,
+  hip: 4,
+  pantsLength: 8,
+  length: 8,
+};
+const fitReadSoftDelta = (key) =>
+  FIT_READ_SOFT_DELTA[key] != null ? FIT_READ_SOFT_DELTA[key] : 4;
 
 export function fitReadRows(chart, rec, profile, category, title = null) {
   const picked = rec && rec.row ? rec.row : null;
@@ -2098,11 +2081,9 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     // warning. Only a length the customer measured earns a verdict.
     const graded = !infoOnly && !estimated;
     // The chest row reads against the garment's own band when the engine named
-    // one. Ideal = the band's middle, span = its half-width. The green band
-    // draws the literal drafted range (K 2026-08-02: the band must match the
-    // range the footnote claims); the +4cm the pick tolerates now shows as
-    // the orange zone instead of hiding inside the band. Pick math still
-    // uses CHEST_BAND_SLACK elsewhere — same constant, now on display too.
+    // one. Ideal = the band's middle, span = its half-width. The band target
+    // exists even when the row is not graded (estimated or info only): the
+    // band is a property of the garment, so it can draw dashed.
     const bandTarget =
       key === "chest" && easeBand
         ? {
@@ -2110,7 +2091,7 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
             span: (easeBand[1] - easeBand[0]) / 2,
           }
         : null;
-    const target = graded ? bandTarget || FIT_READ_EASE[key] || null : null;
+    const target = theirs != null ? bandTarget || FIT_READ_EASE[key] || null : null;
     const ease = graded && theirs != null && yours != null ? theirs - yours : null;
     let mark = null;
     let warn = false;
@@ -2121,37 +2102,69 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     let softLeftWidth = null;
     let softRight = null;
     let softRightWidth = null;
-    if (ease != null && target) {
-      // Ease of every chart size for this measure (same body). Domain covers
-      // drafted ideal±span and all those eases so every size stays on-track.
-      const sizeEases = [];
-      for (const row of chartRows) {
-        const g = row[key];
-        if (g != null && isFinite(Number(g))) sizeEases.push(Number(g) - yours);
-      }
-      const domain = fitReadDomain(target.ideal, target.span, sizeEases);
+    if (theirs != null && target) {
+      // Ruler, redesign 2026-08-08 (Kyle's approved mockup, spec
+      // docs/size-chart-redesign-spec.md): the GARMENT number pins the center
+      // (50%) of every row. The green band is the BODY range this cut fits
+      // (garment minus the drafted ease range). The mark is the customer's
+      // body number (the "YOU" line). Inside the band = fits, amber zone just
+      // past it, red past the zone. Tier rule unchanged: read from the ease
+      // VALUE so clamped pixels can never flip a color.
+      const softDelta = fitReadSoftDelta(key);
       const draftedLo = target.ideal - target.span;
       const draftedHi = target.ideal + target.span;
-      bandLeft = mapEaseToTrack(draftedLo, domain.lo, domain.hi);
-      const bandRight = mapEaseToTrack(draftedHi, domain.lo, domain.hi);
+      // Half the track must cover the soft-zone edges AND the gap between the
+      // body number and EVERY size on the chart (not just the pick), or the
+      // line would pin at one spot when the customer taps between sizes.
+      // 10% air keeps the extreme value off the track edge.
+      let need = Math.max(draftedHi + softDelta, Math.abs(softDelta - draftedLo));
+      if (yours != null) {
+        for (const row of chartRows) {
+          const g = row[key];
+          if (g != null && isFinite(Number(g))) {
+            need = Math.max(need, Math.abs(yours - Number(g)));
+          }
+        }
+      }
+      const half = need > 0 ? need * 1.1 : Math.max(target.span + softDelta, 1);
+      const pct = (v) => {
+        const p = 50 + ((v - theirs) / half) * 50;
+        return Math.max(2, Math.min(98, p));
+      };
+      // Band in body units: a body fits when garment minus body sits inside
+      // the drafted ease range, so the fit range is theirs-draftedHi ..
+      // theirs-draftedLo.
+      bandLeft = pct(theirs - draftedHi);
+      const bandRight = pct(theirs - draftedLo);
       bandWidth = bandRight - bandLeft;
-      // Orange zones: band edge to edge+FIT_READ_SOFT_DELTA, both sides, from
-      // the SAME map as the band and the mark — the three colors can never
-      // disagree. Clamp at the track edge just shortens the visible zone.
-      softLeft = mapEaseToTrack(draftedLo - FIT_READ_SOFT_DELTA, domain.lo, domain.hi);
+      softLeft = pct(theirs - draftedHi - softDelta);
       softLeftWidth = Math.max(0, bandLeft - softLeft);
       softRight = bandRight;
-      softRightWidth = Math.max(
-        0,
-        mapEaseToTrack(draftedHi + FIT_READ_SOFT_DELTA, domain.lo, domain.hi) - bandRight
-      );
-      mark = mapEaseToTrack(ease, domain.lo, domain.hi);
-      // Tier from the ease VALUE, not the mapped mark, so clamping can never
-      // flip a color. At the band edge exactly: green. Up to edge+delta:
-      // orange. Past edge+delta: red.
-      const beyond = Math.max(ease - draftedHi, draftedLo - ease);
-      warn = beyond > FIT_READ_SOFT_DELTA;
-      soft = !warn && beyond > 0;
+      softRightWidth = Math.max(0, pct(theirs - draftedLo + softDelta) - bandRight);
+      if (ease != null) {
+        mark = pct(yours);
+        const beyond = Math.max(ease - draftedHi, draftedLo - ease);
+        warn = beyond > softDelta;
+        soft = !warn && beyond > 0;
+      }
+    }
+    // Dashed = no verdict (locked legend, 2026-08-08): the body number is
+    // missing, estimated, or the row is info only. The band still draws when
+    // the garment number exists; the "YOU" line only draws on a real number.
+    const dashed = !(graded && yours != null);
+    // One plain sentence when the row can never grade. Rendered content, so
+    // no em dashes (site rule). Estimated rows stay silent here; the footnote
+    // already names the height estimate.
+    let note = null;
+    if (noShoulderSeam && key === "shoulder") {
+      note = "A drop or raglan shoulder has no seam to compare. Info only.";
+    } else if (shortSleeve && key === "sleeve" && infoOnly) {
+      note = "A short sleeve has no fit verdict. Info only.";
+    } else if (!infoOnly && !estimated && yours == null && theirs != null) {
+      note =
+        "Save your " +
+        (FIT_READ_LABELS[key] || key).toLowerCase() +
+        " under Edit my measurements to get a fit verdict.";
     }
     rows.push({
       key,
@@ -2165,6 +2178,8 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       mark,
       warn,
       soft,
+      dashed,
+      note,
       bandLeft,
       bandWidth,
       softLeft,

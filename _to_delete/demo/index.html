@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- The page follows the colour picked in the app. Blocking on purpose:
+         a deferred read runs after the first paint and the colour jumps. -->
+    <script src="/theme.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>See a haul on the shelf · Credenza Fashion</title>
+    <meta
+      name="description"
+      content="A sample haul, already on the shelf. Six links become six cards with the price, the size pick, the status and the parcel weight. No account needed."
+    />
+    <meta name="theme-color" content="#f4f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="canonical" href="https://credenzafashion.com/demo/" />
+    <meta property="og:title" content="Six pasted links. One shelf." />
+    <meta
+      property="og:description"
+      content="A sample haul, already on the shelf. See the price, the size pick, the status and the parcel weight before you sign up for anything."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://credenzafashion.com/demo/" />
+    <meta property="og:site_name" content="Credenza Fashion" />
+    <meta property="og:image" content="https://credenzafashion.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Credenza Fashion — a sample haul on the shelf" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Six pasted links. One shelf." />
+    <meta
+      name="twitter:description"
+      content="A sample haul, already on the shelf. See the price, the size pick, the status and the parcel weight before you sign up for anything."
+    />
+    <meta name="twitter:image" content="https://credenzafashion.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Credenza Fashion",
+            "item": "https://credenzafashion.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "See a haul on the shelf",
+            "item": "https://credenzafashion.com/demo/"
+          }
+        ]
+      }
+    </script>
+    <link rel="stylesheet" href="/site.css" />
+    <script src="/analytics.js"></script>
+    <style>
+      /* Page-specific only. Everything shared lives in /site.css. */
+
+      /* The demo needs more room than the 40rem reading column, because a
+         shelf is a grid and a one-column grid is not a shelf. Only the two
+         wide blocks break out; every paragraph stays in the reading column. */
+      .wide {
+        --band: min(1024px, 100vw - 2.5rem);
+        width: var(--band);
+        margin-left: calc(50% - var(--band) / 2);
+        margin-right: 0;
+      }
+
+      /* ── The paste, before anything reads it ────────────────────────── */
+      .paste {
+        font-family: var(--cz-mono);
+        font-size: 0.82rem;
+        line-height: 1.75;
+        white-space: pre-wrap;
+        word-break: break-all;
+        color: var(--muted);
+        background: var(--card);
+        border: 1px solid var(--line);
+        padding: 1rem 1.1rem;
+        margin: 0;
+      }
+
+      .turn {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        margin: 1.4rem 0;
+        font-family: var(--cz-sans);
+        font-size: 0.85rem;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+      }
+      .turn::before,
+      .turn::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--line);
+      }
+
+      /* ── The haul head, copied in shape from the app's open haul ────── */
+      .haul-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.5rem 1.4rem;
+        padding-bottom: 0.85rem;
+        margin-bottom: 1.1rem;
+        border-bottom: 1px solid var(--line);
+        font-family: var(--cz-sans);
+      }
+      .haul-name {
+        font-family: var(--cz-display);
+        font-size: 1.35rem;
+      }
+      .stat {
+        font-size: 0.82rem;
+        color: var(--muted);
+        letter-spacing: 0.01em;
+      }
+      .stat b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .stat.money b { color: var(--money); }
+
+      /* ── The shelf ──────────────────────────────────────────────────── */
+      .shelf {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.9rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      @media (max-width: 900px) { .shelf { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 640px)  { .shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+      .item {
+        background: var(--card);
+        border: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        /* Two layers, not one. A single blur reads as a sticker. */
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(0, 0, 0, 0.4);
+      }
+      :root:not([data-theme="dark"]) .item {
+        box-shadow: 0 1px 2px rgba(23, 24, 26, 0.09), 0 8px 20px rgba(23, 24, 26, 0.07);
+      }
+
+      .shot { position: relative; display: block; }
+      .shot img { display: block; width: 100%; height: auto; }
+
+      .pill {
+        position: absolute;
+        left: 8px;
+        bottom: 8px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.72);
+        color: #ffffff;
+        font-family: var(--cz-sans);
+        font-size: 0.74rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+      .pill .usd { opacity: 0.62; font-weight: 500; }
+
+      .body { padding: 0.7rem 0.75rem 0.8rem; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+
+      .name {
+        font-family: var(--cz-sans);
+        font-size: 0.88rem;
+        font-weight: 600;
+        line-height: 1.3;
+        /* Two lines, always reserved, so every price row in a row lines up. */
+        min-height: calc(2 * 1.3em);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin: 0;
+      }
+
+      .meta {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-family: var(--cz-sans);
+        font-size: 0.74rem;
+        color: var(--muted);
+      }
+      /* One neutral dot for every source. Per-platform colours were removed
+         from the product on purpose; this page must not bring them back. */
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--muted);
+        opacity: 0.6;
+        flex: 0 0 auto;
+      }
+
+      .size {
+        font-family: var(--cz-sans);
+        font-size: 0.74rem;
+        color: var(--muted);
+        border-top: 1px solid var(--line);
+        padding-top: 0.4rem;
+        margin-top: auto;
+      }
+      .size b { color: var(--ink); font-weight: 600; }
+
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+
+      .chip {
+        font-family: var(--cz-sans);
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 3px 7px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .chip.on { color: var(--money); border-color: var(--money); }
+
+      .buy {
+        font-family: var(--cz-sans);
+        font-size: 0.74rem;
+        font-weight: 600;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      /* ── The opened card ────────────────────────────────────────────── */
+      .back {
+        background: var(--card);
+        border: 1px solid var(--line);
+        padding: 1.1rem 1.2rem;
+      }
+      .back h3 { margin-bottom: 0.15rem; }
+      .back .sub {
+        font-family: var(--cz-sans);
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin: 0 0 0.9rem;
+      }
+      .fit {
+        border: 1px solid var(--line);
+        padding: 0.8rem 0.9rem;
+        margin: 0 0 0.9rem;
+      }
+      .fit .verdict {
+        font-family: var(--cz-display);
+        font-size: 1.3rem;
+        line-height: 1.2;
+        margin: 0 0 0.3rem;
+      }
+      .fit .why { font-family: var(--cz-sans); font-size: 0.8rem; color: var(--muted); margin: 0; }
+      .kv {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.3rem 1rem;
+        font-family: var(--cz-sans);
+        font-size: 0.8rem;
+        margin: 0 0 0.9rem;
+      }
+      .kv dt { color: var(--muted); }
+      .kv dd { margin: 0; }
+      .buy-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.7rem;
+        border-top: 1px solid var(--line);
+        padding-top: 0.85rem;
+        font-family: var(--cz-sans);
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .buy-btn {
+        display: inline-block;
+        padding: 0.55rem 1rem;
+        background: var(--accent);
+        color: var(--bg);
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        white-space: nowrap;
+      }
+
+      .drawn {
+        font-family: var(--cz-sans);
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="site-head">
+        <a class="brand" href="/landing/">
+          <svg class="mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true" focusable="false">
+            <rect width="40" height="40" rx="12.4" fill="#0f1114"/>
+            <path fill="#e9edf2" d="M21.30 27.80Q19.21 27.80 17.64 26.50Q16.07 25.20 15.21 22.84Q14.34 20.48 14.34 17.26Q14.34 14.15 15.29 11.81Q16.24 9.48 17.84 8.20Q19.43 6.91 21.39 6.91Q22.54 6.91 23.42 7.12Q24.30 7.33 24.98 7.67Q25.32 7.87 25.32 8.27L25.40 12.56Q25.40 13.04 25.06 13.04Q24.75 13.04 24.67 12.68L24.38 11.63Q23.79 9.43 23.01 8.58Q22.23 7.73 21.16 7.73Q19.18 7.73 17.87 10.17Q16.55 12.62 16.55 17.26Q16.55 20.42 17.21 22.60Q17.88 24.78 18.94 25.88Q20.00 26.98 21.19 26.98Q22.46 26.98 23.24 26.19Q24.02 25.40 24.55 23.14L24.89 21.75Q24.98 21.33 25.34 21.39Q25.66 21.44 25.66 21.87L25.54 26.45Q25.54 26.84 25.17 27.04Q24.50 27.38 23.58 27.59Q22.66 27.80 21.30 27.80Z"/>
+            <rect x="11.03" y="29.66" width="17.93" height="2.76" rx="1.38" fill="#4da3ff"/>
+          </svg>
+          <span class="brand-name">
+            <span class="wordmark">CREDENZA</span>
+            <span class="kicker">Fashion</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Site">
+          <a href="/how/">How it works</a>
+          <a href="/guides/">Guides</a>
+          <a href="/pricing/">Pricing</a>
+          <a href="/faq/">FAQ</a>
+          <a href="/support/">Support</a>
+          <a href="/contact/">Contact</a>
+        </nav>
+        <a class="nav-open" href="/" aria-label="Open app" title="Open app"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
+      </div>
+      <h1>Six pasted links. One shelf.</h1>
+      <p class="lede">
+        This is a sample haul, already made. Nothing to sign up for and nothing
+        to paste. Scroll it, then go make your own.
+      </p>
+    </header>
+
+    <main>
+      <h2>What you have now</h2>
+      <p>
+        A haul starts as somebody else's comment, or your own notes, or thirty
+        open tabs. It looks like this.
+      </p>
+
+      <pre class="paste">1. mesh training jersey ¥168 https://weidian.com/item.html?itemID=7800400500
+2. nylon track shorts – 198 rmb  weidian.com/item.html?itemID=7784846752
+floral soccer jersey ¥278 (runs small!!) https://weidian.com/item.html?itemID=7777988733
+six-panel cap https://item.taobao.com/item.htm?id=655102338841  98
+patch jacket — yupoo album https://sunrise-apparel.x.yupoo.com/albums/244505824
+suede low top 215 https://item.taobao.com/item.htm?id=712004551903</pre>
+
+      <p class="turn">Paste it once</p>
+
+      <section class="wide" aria-label="The sample haul on the shelf">
+        <div class="haul-head">
+          <span class="haul-name">Summer haul</span>
+          <span class="stat"><b>6</b> items</span>
+          <span class="stat money">Haul <b>¥1,216</b> · about <b>$169</b></span>
+          <span class="stat">Ready to ship <b>2</b></span>
+          <span class="stat">About <b>2.4 kg</b></span>
+        </div>
+
+        <ul class="shelf">
+          <li class="item">
+            <span class="shot">
+              <img src="/img/demo/jersey.svg" alt="Drawing of a short-sleeved mesh training jersey" width="264" height="264" loading="lazy" decoding="async" />
+              <span class="pill">¥168 <span class="usd">$23</span></span>
+            </span>
+            <div class="body">
+              <p class="name">Mesh training jersey, black</p>
+              <p class="meta"><span class="dot"></span>Weidian · sunrise-apparel</p>
+              <p class="size">Your size: <b>L</b> · chart chest 112&nbsp;cm</p>
+              <p class="row"><span class="chip on">Bought</span><span class="buy">Buy ↗</span></p>
+            </div>
+          </li>
+
+          <li class="item">
+            <span class="shot">
+              <img src="/img/demo/shorts.svg" alt="Drawing of nylon track shorts" width="264" height="264" loading="lazy" decoding="async" />
+              <span class="pill">¥198 <span class="usd">$27</span></span>
+            </span>
+            <div class="body">
+              <p class="name">Nylon track shorts, black</p>
+              <p class="meta"><span class="dot"></span>Weidian · sunrise-apparel</p>
+              <p class="size">Your size: <b>L</b> · waist 84&nbsp;cm</p>
+              <p class="row"><span class="chip on">Bought</span><span class="buy">Buy ↗</span></p>
+            </div>
+          </li>
+
+          <li class="item">
+            <span class="shot">
+              <img src="/img/demo/rugby.svg" alt="Drawing of a striped rugby shirt" width="264" height="264" loading="lazy" decoding="async" />
+              <span class="pill">¥278 <span class="usd">$39</span></span>
+            </span>
+            <div class="body">
+              <p class="name">Striped soccer jersey</p>
+              <p class="meta"><span class="dot"></span>Weidian · sunrise-apparel</p>
+              <p class="size">Your size: <b>XL</b> · runs small</p>
+              <p class="row"><span class="chip">In warehouse</span><span class="buy">Buy ↗</span></p>
+            </div>
+          </li>
+
+          <li class="item">
+            <span class="shot">
+              <img src="/img/demo/jacket.svg" alt="Drawing of a lightweight jacket with patches" width="264" height="264" loading="lazy" decoding="async" />
+              <span class="pill">¥259 <span class="usd">$36</span></span>
+            </span>
+            <div class="body">
+              <p class="name">Lightweight patch jacket</p>
+              <p class="meta"><span class="dot"></span>Yupoo · sunrise-apparel</p>
+              <p class="size">Your size: <b>L</b> · no chart on file</p>
+              <p class="row"><span class="chip">Want</span><span class="buy">Buy ↗</span></p>
+            </div>
+          </li>
+
+          <li class="item">
+            <span class="shot">
+              <img src="/img/demo/cap.svg" alt="Drawing of a six-panel cap" width="264" height="264" loading="lazy" decoding="async" />
+              <span class="pill">¥98 <span class="usd">$14</span></span>
+            </span>
+            <div class="body">
+              <p class="name">Six-panel cap, washed</p>
+              <p class="meta"><span class="dot"></span>Taobao · eastgate-store</p>
+              <p class="size">Your size: <b>One size</b></p>
+              <p class="row"><span class="chip">Want</span><span class="buy">Buy ↗</span></p>
+            </div>
+          </li>
+
+          <li class="item">
+            <span class="shot">
+              <img src="/img/demo/sneaker.svg" alt="Drawing of a suede low-top sneaker" width="264" height="264" loading="lazy" decoding="async" />
+              <span class="pill">¥215 <span class="usd">$30</span></span>
+            </span>
+            <div class="body">
+              <p class="name">Suede low-top sneaker</p>
+              <p class="meta"><span class="dot"></span>Taobao · eastgate-store</p>
+              <p class="size">Your size: <b>43</b> · true to size</p>
+              <p class="row"><span class="chip">Shipped</span><span class="buy">Buy ↗</span></p>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <h2>Turn one card over</h2>
+      <p>
+        Every card has a back. The size pick, the seller's own numbers, the QC
+        photos and the Buy button all live there, on the item they belong to.
+      </p>
+
+      <section class="back" aria-label="The back of one card">
+        <h3>Striped soccer jersey</h3>
+        <p class="sub">Weidian · sunrise-apparel · ¥278, about $39</p>
+
+        <div class="fit">
+          <p class="verdict">Your size: XL</p>
+          <p class="why">
+            The seller's chart puts L at 108&nbsp;cm across the chest. You
+            measure 104&nbsp;cm, and a jersey wants about 12&nbsp;cm of room.
+            The listing also says 版型偏小 — it runs small. So the pick moves
+            up one.
+          </p>
+        </div>
+
+        <dl class="kv">
+          <dt>Status</dt><dd>In warehouse</dd>
+          <dt>QC photos</dt><dd>4 saved, judged good light</dd>
+          <dt>Weight</dt><dd>~280 g</dd>
+          <dt>Your note</dt><dd>Purple was sold out. Flowers look better anyway.</dd>
+        </dl>
+
+        <p class="buy-row">
+          <span class="buy-btn">Buy in Kakobuy</span>
+          <span>Your agent, your link. Credenza takes no money and never checks out.</span>
+        </p>
+      </section>
+
+      <h2>Then the parcel</h2>
+      <p>
+        Two of the six are paid for and sitting in the warehouse. Credenza adds
+        up what they weigh before you submit the parcel, so the shipping quote
+        is not a surprise. This haul is about 2.4&nbsp;kg.
+      </p>
+
+      <p class="note">
+        Credenza is a decision layer, not a marketplace and not a shopping
+        agent. You still pay Superbuy, Sugargoo, Kakobuy, or whichever agent you
+        use. Your shelf lives in your own browser.
+      </p>
+
+      <a class="cta" href="/">Open Credenza</a>
+      <p class="drawn">
+        Free, and no account is needed to start. Read
+        <a href="/how/">how it works</a> or the
+        <a href="/pricing/">pricing</a>.
+      </p>
+
+      <p class="drawn">
+        The garments above are drawings, and the sellers and prices are made up
+        for this page. The layout, the size maths and the parcel estimate are
+        the real ones.
+      </p>
+
+      <p class="related">
+        <a href="/guides/organize-agent-haul/">Organize a haul without a spreadsheet</a>
+        <a href="/guides/weidian-size-chart/">Read a Weidian size chart</a>
+        <a href="/guides/estimate-haul-weight/">Estimate haul weight</a>
+      </p>
+    </main>
+
+    <footer>
+      Credenza Fashion · agent haul planner.
+      <a href="/landing/">About</a> ·
+      <a href="/how/">How</a> ·
+      <a href="/guides/">Guides</a> ·
+      <a href="/pricing/">Pricing</a> ·
+      <a href="/faq/">FAQ</a> ·
+      <a href="/support/">Support</a> ·
+      <a href="/contact/">Contact</a> ·
+      <a href="/privacy/">Privacy</a> ·
+      <a href="/terms/">Terms</a> ·
+      <a href="/llms.txt">llms.txt</a>
+    </footer>
+  </body>
+</html>

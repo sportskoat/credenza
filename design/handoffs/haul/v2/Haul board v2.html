@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credenza — haul board v2</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@600,700&display=swap" rel="stylesheet">
+<style>
+/* Credenza Blackout tokens (mirror of tokens/colors.css [data-theme="dark"]) */
+:root{
+  --cz-bg:#050506; --cz-bg-elevated:#0d0d10; --cz-card:rgba(13,13,16,.92);
+  --cz-card-solid:#0d0d10; --cz-inset-bg:#141418; --cz-seg:rgba(255,255,255,.04);
+  --cz-hover:rgba(255,255,255,.04); --cz-selected:rgba(255,255,255,.07);
+  --cz-hair:rgba(255,255,255,.10); --cz-hair-strong:rgba(255,255,255,.15);
+  --cz-ink:#fafafa; --cz-sub:#c8c8d0; --cz-faint:#a3a3ab; --cz-placeholder:#9a9aa3;
+  --cz-accent:#f5f5f7; --cz-accent-bg:rgba(245,245,247,.12);
+  --cz-action-fill:#f5f5f7; --cz-action-text:#000;
+  --cz-money:#4ade80; --cz-money-bg:rgba(74,222,128,.12);
+  --cz-like:#f40051; --cz-error-text:#f08a92; --cz-error-bg:rgba(244,63,94,.16);
+  --cz-link:#7fb2ff; --cz-warn:#d9a83c;
+  --cz-display:"Clash Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --cz-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --cz-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  --ease:cubic-bezier(.23,1,.32,1);
+  --elev:inset 0 1px 0 rgba(255,255,255,.06),0 10px 28px rgba(0,0,0,.42);
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--cz-bg);color:var(--cz-ink);font-family:var(--cz-sans);font-size:14px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+.kick{font-family:var(--cz-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cz-faint);white-space:nowrap}
+.num{font-family:var(--cz-mono);font-weight:700}
+.money{color:var(--cz-money)}
+.card{background:var(--cz-card);border:1px solid var(--cz-hair);box-shadow:var(--elev);backdrop-filter:blur(16px) saturate(125%);-webkit-backdrop-filter:blur(16px) saturate(125%)}
+
+/* Buttons — primary solid, outline hairline, subtle ghost (the fixed hierarchy) */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:0 14px;border-radius:999px;font-size:12.5px;font-weight:650;border:1px solid transparent;transition:background 140ms var(--ease),color 140ms var(--ease),transform 120ms var(--ease)}
+.btn:active{transform:scale(.96)}
+.btn-p{background:var(--cz-action-fill);color:var(--cz-action-text)}
+.btn-o{background:transparent;color:var(--cz-ink);border-color:var(--cz-hair-strong)}
+.btn-o:hover{background:var(--cz-accent-bg)}
+.btn-s{background:transparent;color:var(--cz-sub)}
+.btn-s:hover{color:var(--cz-ink);background:var(--cz-hover)}
+.btn-green{border-color:var(--cz-money);color:var(--cz-money);background:var(--cz-money-bg)}
+.btn-red{border-color:var(--cz-like);color:var(--cz-error-text);background:var(--cz-error-bg)}
+
+/* ── Chrome: stripped. Back link, haul name, Share. No search, no tabs. ── */
+.chrome{max-width:1400px;margin:0 auto;padding:20px 28px 0;display:flex;align-items:baseline;gap:14px}
+.chrome a{color:var(--cz-sub);text-decoration:none;font-size:13px;display:inline-flex;align-items:center;gap:5px}
+.chrome a:hover{color:var(--cz-ink)}
+.chrome h1{font-family:var(--cz-display);font-size:30px;font-weight:600;letter-spacing:-.035em;line-height:1.05}
+.sub{font-size:13px;color:var(--cz-sub);max-width:1400px;margin:6px auto 0;padding:0 28px}
+
+/* ── Summary strip: the ONLY weight story on the page ── */
+.strip{max-width:1400px;margin:18px auto 0;padding:0 28px}
+.strip-in{display:flex;align-items:stretch;border:1px solid var(--cz-hair);border-radius:14px;overflow:hidden}
+.cell{flex:0 0 auto;display:flex;flex-direction:column;gap:3px;padding:12px 16px;border-right:1px solid var(--cz-hair)}
+.cell:last-child{border-right:0}
+.cell .v{font-size:13.5px;font-weight:650}
+.cell .n{font-family:var(--cz-mono);font-size:13.5px;font-weight:700}
+.cell.grow{flex:1 1 auto;justify-content:center;min-width:0}
+.cell.grow span{font-size:12.5px;color:var(--cz-sub)}
+
+/* ── Board ── */
+.board{max-width:1400px;margin:22px auto 0;padding:0 28px 120px;display:flex;gap:10px;align-items:flex-start}
+.col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:8px}
+.col-h{display:flex;align-items:baseline;gap:6px;padding:0 2px 8px;border-bottom:1px solid var(--cz-hair)}
+.col-h .c{margin-left:auto;font-family:var(--cz-mono);font-size:11px;font-weight:700;color:var(--cz-ink)}
+.col.dest .col-h{border-bottom-color:var(--cz-ink)}
+
+/* Item card */
+.item{display:flex;flex-direction:column;gap:8px;padding:9px;border:1px solid var(--cz-hair);border-radius:12px;background:var(--cz-card);box-shadow:var(--elev);cursor:pointer;transition:transform 140ms var(--ease),background 140ms var(--ease)}
+.item:hover{transform:translateY(-2px);background:var(--cz-inset-bg)}
+.item .top{display:flex;gap:9px;align-items:flex-start}
+.tile{flex:0 0 44px;width:44px;height:55px;border-radius:8px;display:flex;align-items:flex-end;padding:4px;overflow:hidden}
+.tile span{font-family:var(--cz-display);font-size:8px;font-weight:600;letter-spacing:-.02em;color:rgba(255,255,255,.92);line-height:1}
+.item .t{font-family:var(--cz-display);font-size:12.5px;font-weight:600;letter-spacing:-.03em;line-height:1.22;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item .m1{font-family:var(--cz-mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--cz-faint);line-height:1.3}
+.item .m2{font-family:var(--cz-mono);font-size:10.5px;font-weight:700;color:var(--cz-money)}
+.item.red{border-color:rgba(244,0,81,.45)}
+.item .act{width:100%;min-height:30px;border-radius:999px;font-size:11.5px;font-weight:650}
+
+/* Empty stage: dashed, one line of copy, keeps board geometry */
+.empty{border:1px dashed var(--cz-hair-strong);border-radius:12px;min-height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;text-align:center}
+.empty .h{font-size:12px;font-weight:650;color:var(--cz-sub)}
+.empty .d{font-size:11px;line-height:1.45;color:var(--cz-faint);text-wrap:pretty}
+
+/* ── Parcel column: the destination, 280px, sticky ── */
+.parcel{flex:0 0 280px;width:280px;position:sticky;top:20px;display:flex;flex-direction:column;gap:8px}
+.pcard{display:flex;flex-direction:column;gap:9px;padding:11px;border:1px solid var(--cz-hair);border-radius:14px;background:color-mix(in srgb,var(--cz-bg-elevated) 82%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.prow{display:flex;align-items:center;gap:9px}
+.prow .pt{flex:0 0 30px;width:30px;height:38px;border-radius:6px}
+.prow .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.prow .nm b{font-size:12px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .nm span{font-family:var(--cz-mono);font-size:9.5px;font-weight:700;color:var(--cz-faint)}
+.prow .x{flex:0 0 auto;width:28px;height:28px;border-radius:999px;border:0;background:transparent;color:var(--cz-faint);font-size:13px;display:grid;place-items:center}
+.prow .x:hover{background:var(--cz-hover);color:var(--cz-ink)}
+.hr{height:1px;background:var(--cz-hair)}
+.math{display:flex;flex-direction:column;gap:5px}
+.math .r{display:flex;justify-content:space-between;align-items:baseline}
+.math .l{font-size:11.5px;color:var(--cz-faint)}
+.math .v{font-family:var(--cz-mono);font-size:11.5px;font-weight:700;color:var(--cz-sub)}
+.math .big .l{font-size:12.5px;font-weight:650;color:var(--cz-ink)}
+.math .big .v{font-size:14px;color:var(--cz-ink)}
+.src{font-size:10.5px;color:var(--cz-faint)}
+.src u{text-decoration-color:var(--cz-hair-strong);text-underline-offset:2px}
+.tip{padding:9px 10px;border-radius:11px;background:var(--cz-accent-bg);font-size:11.5px;line-height:1.45;text-wrap:pretty}
+.tip b{color:var(--cz-money);font-weight:650}
+.lines{display:flex;flex-direction:column;gap:7px;padding:11px;border-radius:14px}
+.lines .lh{display:flex;justify-content:space-between;align-items:baseline}
+.lines .lh span:last-child{font-size:10.5px;color:var(--cz-faint)}
+.line{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--cz-hair);border-radius:11px;cursor:pointer;transition:border-color 140ms var(--ease)}
+.line.on{border-color:var(--cz-ink);background:var(--cz-selected)}
+.line .li{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.line .li b{font-size:12px;font-weight:650}
+.line .li span{font-family:var(--cz-mono);font-size:9.5px;font-weight:700;color:var(--cz-faint)}
+.line .cost{font-family:var(--cz-mono);font-size:12.5px;font-weight:700;color:var(--cz-money);min-width:44px;text-align:right}
+.ship{width:100%;min-height:42px;border-radius:14px;border:0;background:var(--cz-action-fill);color:var(--cz-action-text);font-size:13px;font-weight:700}
+.addb{width:100%;min-height:34px;border:1px dashed var(--cz-hair-strong);border-radius:999px;background:transparent;color:var(--cz-sub);font-size:11.5px;font-weight:650}
+.addb:hover{color:var(--cz-ink);background:var(--cz-accent-bg)}
+
+/* ── Overlays ── */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity 250ms var(--ease);z-index:40}
+.scrim.on{opacity:1;pointer-events:auto}
+
+/* Item drawer — 352px right */
+.drawer{position:fixed;top:0;right:0;bottom:0;width:352px;background:var(--cz-bg-elevated);border-left:1px solid var(--cz-hair);z-index:50;transform:translateX(100%);transition:transform 250ms var(--ease);display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.drawer .dh{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--cz-hair)}
+.drawer .dh b{font-family:var(--cz-display);font-size:15px;font-weight:600;letter-spacing:-.02em;flex:1}
+.drawer .body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.drawer .foot{padding:12px 16px;border-top:1px solid var(--cz-hair);display:flex;flex-direction:column;gap:6px}
+.dphoto{height:180px;border-radius:12px;display:flex;align-items:flex-end;padding:10px}
+.dphoto span{font-family:var(--cz-display);font-size:11px;font-weight:600;color:rgba(255,255,255,.92)}
+.stages{display:flex;flex-direction:column;gap:2px}
+.stage{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:11px;font-size:13px;color:var(--cz-faint)}
+.stage.done{color:var(--cz-sub)}
+.stage.now{color:var(--cz-ink);background:var(--cz-selected);font-weight:650}
+.stage .dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--cz-hair-strong);flex:0 0 auto}
+.stage.done .dot{background:var(--cz-money);border-color:var(--cz-money)}
+.stage .when{margin-left:auto;font-family:var(--cz-mono);font-size:9.5px;font-weight:700}
+.fact{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--cz-hair);border-radius:11px}
+.fact .l{font-size:11.5px;color:var(--cz-faint)}
+.fact .v{font-family:var(--cz-mono);font-size:11.5px;font-weight:700}
+.field{width:100%;padding:7px 10px;border:1px solid var(--cz-hair);border-radius:10px;background:var(--cz-inset-bg);color:var(--cz-ink);font-family:var(--cz-mono);font-size:11.5px;font-weight:700}
+.xbtn{width:32px;height:32px;border-radius:999px;border:0;background:transparent;color:var(--cz-sub);font-size:15px;display:grid;place-items:center;flex:0 0 auto}
+.xbtn:hover{background:var(--cz-hover);color:var(--cz-ink)}
+
+/* QC takeover — full screen */
+.qc{position:fixed;inset:0;background:#000;z-index:60;display:none;flex-direction:column}
+.qc.on{display:flex}
+.qc .qh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--cz-hair)}
+.qc .qh .t{font-family:var(--cz-display);font-size:15px;font-weight:600;letter-spacing:-.02em}
+.qc .qh .pos{font-family:var(--cz-mono);font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--cz-faint)}
+.qc .qm{flex:1;display:flex;min-height:0}
+.qc .photo{flex:1;display:grid;place-items:center;padding:26px;position:relative}
+.qc .photo .big{width:min(56vh,480px);aspect-ratio:4/5;border-radius:14px;display:flex;align-items:flex-end;padding:14px}
+.qc .photo .big span{font-family:var(--cz-mono);font-size:10px;font-weight:700;color:rgba(255,255,255,.85)}
+.qc .nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:999px;border:1px solid var(--cz-hair-strong);background:rgba(13,13,16,.8);color:var(--cz-ink);font-size:17px}
+.qc .nav:hover{background:var(--cz-inset-bg)}
+.qc .rail{flex:0 0 344px;border-left:1px solid var(--cz-hair);padding:18px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;background:var(--cz-bg-elevated)}
+.thumbs{display:flex;gap:5px;flex-wrap:wrap}
+.th{width:38px;height:38px;border-radius:7px;border:1px solid var(--cz-hair)}
+.th.on{border-color:var(--cz-ink);border-width:2px}
+.gr{display:flex;gap:8px}
+.gr .btn{flex:1;min-height:44px;font-size:13px}
+.reasons{display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:5px 11px;border-radius:999px;border:1px solid var(--cz-hair-strong);background:transparent;color:var(--cz-sub);font-size:11px;font-weight:650}
+.chip.on{border-color:var(--cz-ink);color:var(--cz-ink);background:var(--cz-selected)}
+.msg{padding:10px 11px;border:1px dashed var(--cz-hair-strong);border-radius:11px;font-size:11.5px;line-height:1.5;color:var(--cz-sub)}
+.keys{font-size:10.5px;color:var(--cz-faint)}
+kbd{font-family:var(--cz-mono);font-size:9.5px;border:1px solid var(--cz-hair-strong);border-radius:5px;padding:1px 5px;color:var(--cz-sub)}
+
+/* Hand-off sheet — centered modal */
+.sheet{position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.98);width:560px;max-width:calc(100vw - 40px);max-height:calc(100vh - 80px);overflow-y:auto;background:var(--cz-bg-elevated);border:1px solid var(--cz-hair);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.6);z-index:55;opacity:0;pointer-events:none;transition:opacity 250ms var(--ease),transform 250ms var(--ease);padding:22px}
+.sheet.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.sheet h2{font-family:var(--cz-display);font-size:21px;font-weight:600;letter-spacing:-.03em;margin-bottom:5px}
+.sheet .lede{font-size:13px;color:var(--cz-sub);line-height:1.5;margin-bottom:16px;text-wrap:pretty}
+.srow{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--cz-hair)}
+.srow .pt{flex:0 0 34px;width:34px;height:42px;border-radius:7px}
+.srow .nm{flex:1;min-width:0}
+.srow .nm b{font-size:12.5px;font-weight:650;display:block}
+.srow .nm span{font-family:var(--cz-mono);font-size:9.5px;font-weight:700;color:var(--cz-faint)}
+.summary{margin:14px 0;padding:12px;border:1px solid var(--cz-hair);border-radius:12px;background:var(--cz-inset-bg);font-family:var(--cz-mono);font-size:11px;line-height:1.7;color:var(--cz-sub);white-space:pre-wrap}
+
+/* Parcel page (/parcels/A) */
+.page{display:none}
+.page.on{display:block}
+.tl{display:flex;flex-direction:column;gap:0;max-width:560px}
+.tstep{display:flex;gap:13px;padding:13px 0;border-bottom:1px solid var(--cz-hair);align-items:center}
+.tstep .dot{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--cz-hair-strong);flex:0 0 auto}
+.tstep.done .dot{background:var(--cz-money);border-color:var(--cz-money)}
+.tstep b{font-size:13.5px;font-weight:650;flex:1}
+.tstep.done b{color:var(--cz-ink)}
+.tstep:not(.done) b{color:var(--cz-faint)}
+.tstep .d{font-family:var(--cz-mono);font-size:10px;font-weight:700;color:var(--cz-faint)}
+.landed{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:14px;max-width:560px}
+.fitrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--cz-hair);font-size:12.5px}
+.fitrow .nm{flex:1}
+
+.toast{position:fixed;bottom:26px;left:50%;transform:translate(-50%,16px);background:var(--cz-ink);color:var(--cz-bg);font-size:12.5px;font-weight:650;padding:9px 16px;border-radius:999px;opacity:0;transition:all 250ms var(--ease);z-index:80;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* Marketplace tiles (photo stubs) */
+.t-tao{background:linear-gradient(135deg,#ff5000,#ff8a3c)}
+.t-wd{background:linear-gradient(135deg,#ff5a3c,#c22e12)}
+.t-yp{background:linear-gradient(135deg,#37b24d,#1d7a30)}
+.t-1688{background:linear-gradient(135deg,#ff7a00,#d94f00)}
+.t-weidian{background:linear-gradient(135deg,#e8542f,#a82e10)}
+
+.viewtag{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:90;display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--cz-bg-elevated);border:1px solid var(--cz-hair)}
+.viewtag button{border:0;background:transparent;color:var(--cz-faint);font-size:11px;font-weight:650;padding:5px 12px;border-radius:999px}
+.viewtag button.on{background:var(--cz-selected);color:var(--cz-ink)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- Mock navigation only. Not part of the design. -->
+<div class="viewtag">
+  <button class="on" data-view="board">/hauls/winter</button>
+  <button data-view="parcel">/parcels/A</button>
+</div>
+
+<!-- ═══════════ VIEW 1 · THE BOARD ═══════════ -->
+<div class="page on" id="v-board">
+
+<header class="chrome">
+  <a href="#">‹ All hauls</a>
+  <h1>winter</h1>
+  <span class="kick">6 items · day 14</span>
+  <span style="flex:1"></span>
+  <button class="btn btn-o">Share</button>
+</header>
+<p class="sub">Every stage below is yours to mark. Credenza never touches your agent.</p>
+
+<!-- One weight story: the strip reports the parcel only. No item-count totals here. -->
+<div class="strip"><div class="strip-in card">
+  <div class="cell"><span class="kick">Agent</span><span class="v">Superbuy</span></div>
+  <div class="cell"><span class="kick">Goods</span><span class="n money">$355.95</span></div>
+  <div class="cell"><span class="kick">Parcel A · chargeable</span><span class="n">2.5 kg</span></div>
+  <div class="cell"><span class="kick">Ship est.</span><span class="n money">~$33–56</span></div>
+  <div class="cell grow"><span>Earliest storage clock: <b style="color:var(--cz-warn);font-weight:650">41 days</b> on the down jacket.</span></div>
+</div></div>
+
+<main class="board">
+
+  <!-- TO ORDER — empty: dashed spine, one line of copy, geometry holds -->
+  <section class="col">
+    <div class="col-h"><span class="kick">To order</span><span class="c">0</span></div>
+    <div class="empty">
+      <span class="h">Nothing left to order.</span>
+      <span class="d">Add shelf items from any card's ··· menu.</span>
+    </div>
+  </section>
+
+  <!-- ORDERED — empty -->
+  <section class="col">
+    <div class="col-h"><span class="kick">Ordered</span><span class="c">0</span></div>
+    <div class="empty">
+      <span class="h">Nothing on the way.</span>
+      <span class="d">Mark an item ordered after you pay your agent.</span>
+    </div>
+  </section>
+
+  <!-- WAREHOUSE -->
+  <section class="col">
+    <div class="col-h"><span class="kick">At warehouse</span><span class="c">2</span></div>
+    <div class="item" data-drawer="cargo">
+      <div class="top">
+        <div class="tile t-tao"><span>TAOBAO</span></div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+          <span class="t">Cargo pants · XL</span>
+          <span class="m1">512 G ACTUAL · 38 D LEFT</span>
+          <span class="m2">$41.20</span>
+        </div>
+      </div>
+      <button class="btn btn-o act" data-qc>Review QC · 12</button>
+    </div>
+    <div class="item" data-drawer="jacket">
+      <div class="top">
+        <div class="tile t-yp"><span>YUPOO</span></div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+          <span class="t">Down jacket · L</span>
+          <span class="m1">910 G ACTUAL · 41 D LEFT</span>
+          <span class="m2">$112.00</span>
+        </div>
+      </div>
+      <button class="btn btn-o act" data-qc>Review QC · 8</button>
+    </div>
+  </section>
+
+  <!-- QC'D -->
+  <section class="col">
+    <div class="col-h"><span class="kick">QC'd</span><span class="c">2</span></div>
+    <div class="item" data-drawer="tee">
+      <div class="top">
+        <div class="tile t-weidian"><span>WEIDIAN</span></div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+          <span class="t">ABC1996 washed tee · L</span>
+          <span class="m1" style="color:var(--cz-money)">GREEN · 268 G</span>
+          <span class="m2">$27.75</span>
+        </div>
+      </div>
+      <button class="btn btn-p act">Add to parcel</button>
+    </div>
+    <div class="item red" data-drawer="hoodie">
+      <div class="top">
+        <div class="tile t-1688"><span>1688</span></div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+          <span class="t">Nylon hoodie · L</span>
+          <span class="m1" style="color:var(--cz-error-text)">RED · RETURN SENT</span>
+          <span class="m2">$63.00</span>
+        </div>
+      </div>
+      <button class="btn btn-s act">View return message</button>
+    </div>
+  </section>
+
+  <!-- PARCEL A — the fifth column, sticky -->
+  <aside class="parcel">
+    <div class="col-h" style="border-bottom:1px solid var(--cz-ink);display:flex;align-items:baseline;padding:0 2px 8px">
+      <span class="kick" style="color:var(--cz-ink)">Parcel A</span>
+      <span class="c" style="margin-left:auto;font-family:var(--cz-mono);font-size:11px;font-weight:700">2 · 2.5 kg</span>
+    </div>
+
+    <div class="pcard">
+      <div class="prow">
+        <div class="pt t-wd"></div>
+        <div class="nm"><b>Suede boots · 43</b><span>1140 G ACTUAL</span></div>
+        <button class="x" title="Remove">×</button>
+      </div>
+      <div class="prow">
+        <div class="pt t-yp"></div>
+        <div class="nm"><b>Knit scarf</b><span>180 G ACTUAL</span></div>
+        <button class="x" title="Remove">×</button>
+      </div>
+      <div class="hr"></div>
+      <div class="math">
+        <div class="r"><span class="l">actual + packaging</span><span class="v">1.46 kg</span></div>
+        <div class="r"><span class="l">volumetric ÷ 6000</span><span class="v">2.48 kg</span></div>
+        <div class="r big"><span class="l">chargeable</span><span class="v">2.48 kg</span></div>
+        <div class="r"><span class="l">billed at</span><span class="v">2.5 kg</span></div>
+      </div>
+      <span class="src">Volume from category defaults: boots 12 000 cm³ · scarf 1 500 cm³. <u>Edit</u></span>
+      <div class="tip">You pay for air. The box bills at 2.5 kg but holds 1.5 kg of goods. No shoe boxes closes most of the gap → <b>saves ~$8</b>.</div>
+    </div>
+
+    <div class="lines card">
+      <div class="lh"><span class="kick">Lines</span><span>your rates · edited Jul 12</span></div>
+      <div class="line on"><div class="li"><b>EMS</b><span>7–14 DAYS</span></div><span class="cost">~$33</span></div>
+      <div class="line"><div class="li"><b>GD-EUB</b><span>10–20 DAYS</span></div><span class="cost">~$38</span></div>
+      <div class="line"><div class="li"><b>DHL</b><span>3–6 DAYS</span></div><span class="cost">~$56</span></div>
+    </div>
+
+    <button class="ship" id="open-handoff">Hand parcel A to your agent</button>
+    <button class="addb">+ Parcel B</button>
+  </aside>
+</main>
+</div>
+
+<!-- ═══════════ VIEW 2 · /parcels/A ═══════════ -->
+<div class="page" id="v-parcel">
+<header class="chrome">
+  <a href="#" data-view="board">‹ winter</a>
+  <h1>Parcel A</h1>
+  <span class="kick">2 items · EMS · handed off Jul 29</span>
+  <span style="flex:1"></span>
+  <button class="btn btn-o">Share</button>
+</header>
+<p class="sub">You track it on your agent's site. Mark the steps here as they happen.</p>
+
+<main style="max-width:1400px;margin:26px auto 0;padding:0 28px 120px;display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap">
+  <div style="flex:1 1 420px;min-width:320px">
+    <div class="card" style="border-radius:14px;padding:16px 18px;margin-bottom:14px">
+      <div class="tl">
+        <div class="tstep done"><span class="dot"></span><b>Submitted to agent</b><span class="d">JUL 29</span></div>
+        <div class="tstep done"><span class="dot"></span><b>Shipped</b><span class="d">JUL 31</span></div>
+        <div class="tstep"><span class="dot"></span><b>Cleared customs</b><button class="btn btn-o" style="min-height:28px;font-size:11px">Mark</button></div>
+        <div class="tstep" style="border-bottom:0"><span class="dot"></span><b>Received</b><button class="btn btn-o" style="min-height:28px;font-size:11px">Mark</button></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;max-width:560px">
+      <input class="field" style="flex:1" value="LX 8842 1177 3CN" readonly>
+      <button class="btn btn-o">Track ↗</button>
+    </div>
+  </div>
+
+  <div style="flex:1 1 340px;min-width:300px;display:flex;flex-direction:column;gap:14px">
+    <div class="card landed">
+      <div class="math">
+        <div class="r"><span class="l">goods</span><span class="v">$112.00</span></div>
+        <div class="r"><span class="l">agent domestic</span><span class="v">$6.10</span></div>
+        <div class="r"><span class="l">international · EMS</span><span class="v">$33.00</span></div>
+      </div>
+      <div class="hr" style="margin:6px 0"></div>
+      <div class="math"><div class="r big"><span class="l">landed</span><span class="v money">$151.10</span></div></div>
+      <span class="src">The parcel total finally tells the truth.</span>
+    </div>
+    <div class="card" style="border-radius:14px;padding:14px 16px">
+      <span class="kick">When it lands · fit check</span>
+      <div class="fitrow"><span class="nm">Suede boots · 43</span><button class="chip">tight</button><button class="chip on">right</button><button class="chip">roomy</button></div>
+      <div class="fitrow" style="border-bottom:0"><span class="nm">Knit scarf</span><button class="chip">tight</button><button class="chip on">right</button><button class="chip">roomy</button></div>
+      <p class="src" style="margin-top:8px">Fit answers feed the next size recommendation.</p>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- ═══════════ OVERLAY 1 · ITEM DRAWER ═══════════ -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer">
+  <div class="dh"><b id="d-title">Cargo pants · XL</b><button class="xbtn" data-close>×</button></div>
+  <div class="body">
+    <div class="dphoto t-tao"><span>TAOBAO</span></div>
+    <div class="stages">
+      <div class="stage done"><span class="dot"></span>Ordered<span class="when">JUL 24</span></div>
+      <div class="stage done"><span class="dot"></span>At warehouse<span class="when">JUL 28</span></div>
+      <div class="stage now"><span class="dot" style="border-color:var(--cz-ink)"></span>QC'd<button class="btn btn-o" style="margin-left:auto;min-height:28px;font-size:11px" data-qc>Review 12 →</button></div>
+      <div class="stage"><span class="dot"></span>In a parcel</div>
+      <div class="stage"><span class="dot"></span>Received</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <div class="fact"><span class="l">weight</span><span style="display:flex;gap:6px;align-items:center"><input class="field" style="width:64px;text-align:right" value="512"><span class="v" style="color:var(--cz-faint)">g actual</span></span></div>
+      <div class="fact"><span class="l">volume</span><span style="display:flex;gap:6px;align-items:center"><span class="v">3 000 cm³</span><span class="l">pants default · <u>edit</u></span></span></div>
+      <div class="fact"><span class="l">order #</span><input class="field" style="width:130px;text-align:right" value="SB-8827105"></div>
+      <div class="fact"><span class="l">price</span><span class="v money">$41.20</span></div>
+    </div>
+  </div>
+  <div class="foot">
+    <button class="btn btn-p" style="width:100%">Mark QC'd</button>
+    <button class="btn btn-o" style="width:100%" data-qc>Review QC · 12</button>
+    <button class="btn btn-s" style="width:100%">Move back to the shelf</button>
+  </div>
+</aside>
+
+<!-- ═══════════ OVERLAY 2 · QC TAKEOVER ═══════════ -->
+<div class="qc" id="qcview">
+  <div class="qh">
+    <button class="xbtn" data-close>×</button>
+    <span class="t">Cargo pants · XL</span>
+    <span class="pos">ITEM 1 OF 2 · PHOTO 3 / 12</span>
+    <span style="flex:1"></span>
+    <span class="keys"><kbd>←</kbd> <kbd>→</kbd> photos · <kbd>G</kbd> green · <kbd>R</kbd> red · <kbd>esc</kbd> done</span>
+  </div>
+  <div class="qm">
+    <div class="photo">
+      <button class="nav" style="left:22px">‹</button>
+      <div class="big t-tao"><span>QC PHOTO 3 / 12 · STUB</span></div>
+      <button class="nav" style="right:22px">›</button>
+    </div>
+    <div class="rail">
+      <div class="thumbs">
+        <div class="th t-tao"></div><div class="th t-tao"></div><div class="th t-tao on"></div><div class="th t-tao"></div>
+        <div class="th t-tao"></div><div class="th t-tao"></div><div class="th t-tao"></div><div class="th t-tao"></div>
+        <div class="th t-tao"></div><div class="th t-tao"></div><div class="th t-tao"></div><div class="th t-tao"></div>
+      </div>
+      <div class="gr">
+        <button class="btn btn-green">Green light · G</button>
+        <button class="btn btn-red">Red light · R</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="kick" style="white-space:normal;line-height:1.5">If red — pick a reason. Credenza writes the message.</span>
+        <div class="reasons">
+          <button class="chip on">stitching</button><button class="chip">print off</button><button class="chip">wrong size</button>
+          <button class="chip">stain</button><button class="chip">wrong colour</button><button class="chip">damaged</button>
+        </div>
+        <div class="msg">Hi — please return item #SB-8827105. The stitching on the left pocket is coming apart (photo 3). 请退货,谢谢。</div>
+        <button class="btn btn-o" style="align-self:flex-start">Copy for agent · EN + 中文</button>
+        <span class="keys">You send it. Credenza never touches your agent.</span>
+      </div>
+      <div class="hr"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="keys">This seller: 4 green · 1 red on your shelf.</span>
+        <button class="btn btn-p" style="min-height:36px" data-close>Next item →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ OVERLAY 3 · HAND-OFF SHEET ═══════════ -->
+<div class="sheet" id="handoff">
+  <h2>Hand parcel A to your agent</h2>
+  <p class="lede">Credenza can't submit this for you. Copy the summary below into your agent's parcel form, then mark it handed off.</p>
+  <div class="srow"><div class="pt t-wd"></div><div class="nm"><b>Suede boots · 43</b><span>GREEN · 1140 G</span></div><span class="num" style="color:var(--cz-sub);font-size:12px">$88.00</span></div>
+  <div class="srow" style="border-bottom:0"><div class="pt t-yp"></div><div class="nm"><b>Knit scarf</b><span>GREEN · 180 G</span></div><span class="num" style="color:var(--cz-sub);font-size:12px">$24.00</span></div>
+  <div class="summary">PARCEL A — 2 items
+Suede boots · 43 · $88.00 · 1140 g
+Knit scarf · $24.00 · 180 g
+Chargeable 2.5 kg (volumetric) · EMS · ~$33
+Declared value: $40 · no shoe boxes</div>
+  <div style="display:flex;gap:8px;margin-top:6px">
+    <button class="btn btn-o" style="flex:1" id="copy-summary">Copy summary</button>
+    <button class="btn btn-p" style="flex:1" id="mark-handoff">Mark handed off</button>
+  </div>
+  <button class="btn btn-s" style="width:100%;margin-top:6px" data-close>Not yet</button>
+</div>
+
+<div class="toast" id="toast">Copied.</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const scrim=$('#scrim'),drawer=$('#drawer'),qc=$('#qcview'),sheet=$('#handoff'),toast=$('#toast');
+function closeAll(){scrim.classList.remove('on');drawer.classList.remove('on');qc.classList.remove('on');sheet.classList.remove('on')}
+function openDrawer(){closeAll();scrim.classList.add('on');drawer.classList.add('on')}
+function openQC(e){e&&e.stopPropagation();closeAll();qc.classList.add('on')}
+function openSheet(e){e&&e.stopPropagation();closeAll();scrim.classList.add('on');sheet.classList.add('on')}
+$$('[data-drawer]').forEach(el=>el.addEventListener('click',openDrawer));
+$$('[data-qc]').forEach(el=>el.addEventListener('click',openQC));
+$('#open-handoff').addEventListener('click',openSheet);
+$$('[data-close]').forEach(el=>el.addEventListener('click',closeAll));
+scrim.addEventListener('click',closeAll);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
+$$('.viewtag button').forEach(b=>b.addEventListener('click',()=>{
+  $$('.viewtag button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  $('#v-board').classList.toggle('on',b.dataset.view==='board');
+  $('#v-parcel').classList.toggle('on',b.dataset.view==='parcel');closeAll();
+}));
+$$('a[data-view]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();$(`.viewtag button[data-view="${a.dataset.view}"]`).click()}));
+$$('.line').forEach(l=>l.addEventListener('click',()=>{$$('.line').forEach(x=>x.classList.remove('on'));l.classList.add('on')}));
+$$('.reasons .chip,.fitrow .chip').forEach(c=>c.addEventListener('click',()=>{
+  [...c.parentElement.children].forEach(x=>x.classList&&x.classList.remove('on'));c.classList.add('on');
+}));
+let tt;function showToast(){toast.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove('on'),1600)}
+$('#copy-summary').addEventListener('click',showToast);
+$('#mark-handoff').addEventListener('click',()=>{closeAll();$(`.viewtag button[data-view="parcel"]`).click();showToast()});
+if(location.hash==='#qc')openQC();if(location.hash==='#drawer')openDrawer();if(location.hash==='#handoff')openSheet();
+if(location.hash==='#parcel')$(`.viewtag button[data-view="parcel"]`).click();
+</script>
+</body>
+</html>

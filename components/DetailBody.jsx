@@ -109,7 +109,35 @@ const chartHuntTried = new Set();
 // the remount, so the wall keeps its true reason. It stays memory on purpose:
 // a page reload still retries the hunt, because a traffic guard may have
 // lifted. The persistent sizeChartHunt stamp stays for true misses only.
+//
+// Each value is { reason, at } — `at` is when the wall went up.
 const chartHuntBlocked = new Map();
+
+// Kyle 2026-08-06: the busy wall felt permanent. Its own words say "wait one
+// minute, then open this card again", but the tried-list refused the retry
+// until a page reload. A wall that promises a minute must honour the minute.
+// Only the two walls whose copy makes that promise expire: the traffic window
+// (CHART_RATE_LIMITED_COPY) and the unreachable reader (CHART_HUNT_UNAVAILABLE_
+// COPY). "off" says it comes back tomorrow, and "cap" and "auth" both wait on
+// the person, so all three stay for the session. A reopen inside the minute
+// still spends nothing — it shows the same wall.
+const EXPIRING_BLOCKS = new Set(["rate", "out"]);
+const BLOCK_RETRY_MS = 60 * 1000;
+
+/** True when a wall promised a retry and the minute has passed. */
+function blockExpired(id, now = Date.now()) {
+  const entry = chartHuntBlocked.get(id);
+  if (!entry || !EXPIRING_BLOCKS.has(entry.reason)) return false;
+  return now - entry.at >= BLOCK_RETRY_MS;
+}
+
+// The reason a wall carries, or undefined. An expired wall reads as no wall,
+// so the reopen shows the spinner and the fresh answer, not the old sentence.
+function blockedReason(id) {
+  if (blockExpired(id)) return undefined;
+  const entry = chartHuntBlocked.get(id);
+  return entry && entry.reason;
+}
 
 // The tap that opened the editor is the focus intent, so the input takes
 // focus when it mounts. A callback ref does this without autoFocus, which
@@ -133,21 +161,56 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
   // FIX 0: hunt hit a 401/403 — show signed-out copy, not "No chart for this one yet."
   // Each flag opens from the session map, so a remount restores the wall the
   // last finished hunt met (#31e) instead of forgetting it.
-  const [authBlocked, setAuthBlocked] = useState(() => chartHuntBlocked.get(item.id) === "auth");
+  const [authBlocked, setAuthBlocked] = useState(() => blockedReason(item.id) === "auth");
   // FIX 2b: hunt hit daily cap — show cap copy, not "No chart for this one yet."
-  const [capBlocked, setCapBlocked] = useState(() => chartHuntBlocked.get(item.id) === "cap");
+  const [capBlocked, setCapBlocked] = useState(() => blockedReason(item.id) === "cap");
   // FIX 2c: hunt could not reach the reader — show "not answering", not
   // "No chart for this one yet." A server that is down proves nothing about the item.
-  const [outBlocked, setOutBlocked] = useState(() => chartHuntBlocked.get(item.id) === "out");
+  const [outBlocked, setOutBlocked] = useState(() => blockedReason(item.id) === "out");
   // #31 (Kyle 2026-08-04): the per-minute traffic window and the site-wide
   // daily cost guard are their own walls. Neither is the plan cap, and
   // neither may print the plan-cap sentence.
-  const [rateBlocked, setRateBlocked] = useState(() => chartHuntBlocked.get(item.id) === "rate");
-  const [offBlocked, setOffBlocked] = useState(() => chartHuntBlocked.get(item.id) === "off");
+  const [rateBlocked, setRateBlocked] = useState(() => blockedReason(item.id) === "rate");
+  const [offBlocked, setOffBlocked] = useState(() => blockedReason(item.id) === "off");
+  // #41 (Kyle 2026-08-07): the hunt effect must re-run when the ITEM changes,
+  // and at no other time. Three of its inputs are rebuilt on every parent
+  // render — `onSaveEdit` is a plain arrow in the App, `item` comes from a
+  // fresh `items.find(...)`, and `shelfItems` is the whole items array. The
+  // indexing bar re-renders the App about ten times a second, so the effect
+  // tore down and restarted roughly once a second. Each restart aborted the
+  // read in flight, and the claim that stops a second search was only taken
+  // by a FINISHED read, so nothing ever claimed the item. A live Yupoo album
+  // measured 21 read attempts in 30 seconds against a limit of 3, and finished
+  // none: the album branch is the slowest hunt, so it lost every race.
+  //
+  // Holding these three in refs keeps the effect reading the newest values
+  // without listing them as dependencies. The hunt itself needs one snapshot,
+  // taken when it starts; a later render of the same item has nothing new to
+  // give it. So the dependency list carries only what genuinely restarts a
+  // hunt: a different item, a chart arriving, and the enabled switch.
+  const saveEditRef = useRef(onSaveEdit);
+  const shelfItemsRef = useRef(shelfItems);
+  const itemRef = useRef(item);
+  saveEditRef.current = onSaveEdit;
+  shelfItemsRef.current = shelfItems;
+  itemRef.current = item;
+  // The stamp and the photo list are the only parts of `item` that decide
+  // whether a hunt runs. Both are strings, so the effect compares them by
+  // value and a rebuilt-but-identical item no longer counts as a change.
+  const itemId = item.id;
+  // The effect only asks WHETHER a chart exists. The parsed chart itself is a
+  // new object on every render, so depending on it would restart the hunt as
+  // often as `item` does. A boolean changes once: when the chart arrives.
+  const hasChart = !!chart;
+  const huntFp = chartHuntFingerprint(item);
+  const huntStamp =
+    item.sizeChartHunt && item.sizeChartHunt.v === CHART_HUNT_VERSION
+      ? String(item.sizeChartHunt.fp || "")
+      : "";
   useEffect(() => {
     // #31e: restore (not blank) the reason on a remount — the map holds what
     // the last finished hunt met, so the wall stays honest on a reopen.
-    const reason = chartHuntBlocked.get(item.id);
+    const reason = blockedReason(item.id);
     setAuthBlocked(reason === "auth");
     setCapBlocked(reason === "cap");
     setOutBlocked(reason === "out");
@@ -156,8 +219,15 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
   }, [item.id]);
   useEffect(() => {
     if (!enabled) return;
-    if (chart || SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return;
-    if (chartHuntTried.has(item.id)) return;
+    if (hasChart || SIZE_PICK_SKIP_CATEGORIES.has(itemRef.current.category)) return;
+    // A wall that promised a retry, whose minute has passed, earns one fresh
+    // hunt without a page reload (Kyle 2026-08-06). Clearing both entries here
+    // means the guard below reads the same state a first visit would.
+    if (blockExpired(itemId)) {
+      chartHuntTried.delete(itemId);
+      chartHuntBlocked.delete(itemId);
+    }
+    if (chartHuntTried.has(itemId)) return;
     // Kyle 2026-08-04: a finished hunt that found nothing stamps the item.
     // While the stamp matches the photos the hunt would read, skip — a page
     // reload must never re-spend the reads. New photos change the print and
@@ -165,50 +235,44 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
     // The version moves when the pipeline gets smarter on the SAME photos:
     // a stamp from before the folded-strip read would hide a real chart
     // forever, so a stale version earns one fresh hunt too.
-    const fp = chartHuntFingerprint(item);
-    if (
-      item.sizeChartHunt &&
-      item.sizeChartHunt.fp === fp &&
-      item.sizeChartHunt.v === CHART_HUNT_VERSION
-    )
-      return;
+    const fp = huntFp;
+    if (huntStamp && huntStamp === fp) return;
     let cancelled = false;
     const controller = new AbortController();
     setHunting(true);
     (async () => {
       try {
-        const found = await huntSizeChart(item, {
+        const found = await huntSizeChart(itemRef.current, {
           signal: controller.signal,
-          shelfItems,
+          shelfItems: shelfItemsRef.current,
         });
         if (cancelled) return;
-        // Mark tried only after a completed (non-aborted) hunt so React
-        // Strict Mode / panel remounts can retry instead of sticking on
-        // "Looking for the seller's size chart…" forever
-        // (Kyle 2026-07-25, chart visible in gallery while fit block spun).
-        chartHuntTried.add(item.id);
+        // Claim AFTER the answer arrives, never before (2026-07-25). An
+        // aborted hunt must not stick the card on "Looking for the seller's
+        // size chart…" forever, so only a finished hunt spends the one try.
+        chartHuntTried.add(itemId);
         // FIX 0: auth wall mid-hunt — distinct state, stop claiming no chart.
         // Each blocked outcome also writes the session map, so a remount
         // restores this wall (#31e) instead of the generic no-chart sentence.
         if (found && found.authRequired) {
-          chartHuntBlocked.set(item.id, "auth");
+          chartHuntBlocked.set(itemId, { reason: "auth", at: Date.now() });
           setAuthBlocked(true);
           return;
         }
         // FIX 2b: daily cap mid-hunt — distinct state, stop claiming no chart.
         if (found && found.capReached) {
-          chartHuntBlocked.set(item.id, "cap");
+          chartHuntBlocked.set(itemId, { reason: "cap", at: Date.now() });
           setCapBlocked(true);
           return;
         }
         // #31: the traffic guards mid-hunt — their own states, same rule.
         if (found && found.rateLimited) {
-          chartHuntBlocked.set(item.id, "rate");
+          chartHuntBlocked.set(itemId, { reason: "rate", at: Date.now() });
           setRateBlocked(true);
           return;
         }
         if (found && found.readerOff) {
-          chartHuntBlocked.set(item.id, "off");
+          chartHuntBlocked.set(itemId, { reason: "off", at: Date.now() });
           setOffBlocked(true);
           return;
         }
@@ -218,16 +282,16 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
         // long enough, switch on and off, go to different tabs, and come
         // back"). A page reload still gives a fresh try; the list is memory.
         if (found && found.unavailable) {
-          chartHuntBlocked.set(item.id, "out");
+          chartHuntBlocked.set(itemId, { reason: "out", at: Date.now() });
           setOutBlocked(true);
           return;
         }
         // Older hunts returned bare text; the source tag ships with the text now.
         const text = typeof found === "string" ? found : found && found.text;
         // A completed hunt clears any older blocked reason for this item.
-        chartHuntBlocked.delete(item.id);
+        chartHuntBlocked.delete(itemId);
         if (text) {
-          onSaveEdit(item.id, {
+          saveEditRef.current(itemId, {
             sizeChartText: text,
             sizeChartNeedsClear: false,
             // A find clears any old no-find stamp. If the chart is later
@@ -243,7 +307,7 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
           // stamp and skips the hunt instead of spending up to three more
           // paid reads. The stamp syncs to the cloud with the item. The
           // blocked outcomes above never stamp — a retry there is wanted.
-          onSaveEdit(item.id, {
+          saveEditRef.current(itemId, {
             sizeChartHunt: { at: new Date().toISOString(), fp, v: CHART_HUNT_VERSION },
           });
         }
@@ -258,7 +322,10 @@ function useChartHunt(item, chart, onSaveEdit, enabled = true, shelfItems = null
       // after an abort; the next mount will start a fresh hunt if not tried.
       setHunting(false);
     };
-  }, [enabled, chart, item, onSaveEdit, shelfItems]);
+    // #41: `item`, `onSaveEdit` and `shelfItems` are read from refs on purpose
+    // — see the note above the refs. Listing them here restarts the hunt on
+    // every parent render and cancels the read in flight every time.
+  }, [enabled, hasChart, itemId, huntFp, huntStamp]);
   return { hunting, authBlocked, capBlocked, outBlocked, rateBlocked, offBlocked };
 }
 
@@ -1689,18 +1756,22 @@ function SellerChartFold({
 
 // ── Fit-read track + measure rows (shared by Fit tab + Chart tab) ──
 //
-// One tight/true/loose track with green tolerance band and white marker.
-// FitReadTable renders these bars; the seller chart fold reuses the size pick only
-// pixel-identical. Row math still lives in fitReadRows (pure, tested alone).
-// Band left/width come from the same domain map as the mark (K 2026-08-02) —
-// no fixed 36/66 CSS band; red and green stay in lockstep on every path.
-// Three tiers (Kyle 2026-08-02): faint orange zones flank the band out to
-// FIT_READ_SOFT_DELTA; a mark in a zone reads amber ("get away with it"),
-// only past the zone does it go red.
+// Redesign 2026-08-08 (Kyle's approved mockup, spec
+// docs/size-chart-redesign-spec.md): the GARMENT number sits at the center of
+// every bar with its value tagged above; the "YOU" line marks the customer's
+// body number with its value tagged below. The green band is the body range
+// this cut fits; amber zones flank it; a mark in a zone reads amber ("get
+// away with it"), only past the zone does it go red. Dashed band = no
+// verdict (missing or estimated number). Row math lives in fitReadRows
+// (pure, tested alone). The old tight↔loose ease ruler is gone.
 function FitReadTrack({
+  theirs,
+  yours,
+  estimated = false,
   mark,
   warn,
   soft = false,
+  dashed = false,
   showBand = true,
   bandLeft = null,
   bandWidth = null,
@@ -1708,6 +1779,7 @@ function FitReadTrack({
   softLeftWidth = null,
   softRight = null,
   softRightWidth = null,
+  units,
 }) {
   const bandStyle =
     bandLeft != null && bandWidth != null
@@ -1715,6 +1787,7 @@ function FitReadTrack({
       : undefined;
   return (
     <span className="cz-fitread-track">
+      <span className="cz-fitread-rail" />
       {showBand && softLeft != null && softLeftWidth > 0 ? (
         <span
           className="cz-fitread-soft"
@@ -1727,43 +1800,41 @@ function FitReadTrack({
           style={{ left: softRight + "%", width: softRightWidth + "%" }}
         />
       ) : null}
-      {showBand && bandStyle ? <span className="cz-fitread-band" style={bandStyle} /> : null}
-      {mark != null ? (
+      {showBand && bandStyle ? (
+        <span
+          className={"cz-fitread-band" + (dashed ? " is-dashed" : "")}
+          style={bandStyle}
+        />
+      ) : null}
+      {theirs != null ? (
+        <span className="cz-fitread-garment">
+          <span className="cz-fitread-garment-tick" />
+          <span className="cz-fitread-garment-tag">{formatMeasure(theirs, units)}</span>
+        </span>
+      ) : null}
+      {mark != null && yours != null ? (
         <span
           className={
-            "cz-fitread-mark" + (warn ? " is-warn" : soft ? " is-soft" : "")
+            "cz-fitread-you" +
+            (warn ? " is-warn" : soft ? " is-soft" : "") +
+            (estimated ? " is-est" : "")
           }
           style={{ left: mark + "%" }}
-        />
+        >
+          <span className="cz-fitread-you-tag">
+            {"YOU · " + (estimated ? "~" : "") + formatMeasure(yours, units)}
+          </span>
+        </span>
       ) : null}
     </span>
   );
 }
 
-function FitReadHeads({ hasChart, kicker = null, blankLead = false }) {
+function FitReadHeads({ kicker = null }) {
+  if (!kicker) return null;
   return (
     <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
-      {blankLead ? <span /> : kicker ? <span className="cz-fitread-kicker">{kicker}</span> : <span />}
-      {hasChart ? (
-        <span className="cz-fitread-scale">
-          <span>TIGHT</span>
-          <span>TRUE</span>
-          <span>LOOSE</span>
-        </span>
-      ) : (
-        <span />
-      )}
-      {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
-          grid never has to fit six letters over a 30px column. */}
-      <span className="cz-fitread-head">
-        <span className="cz-fitread-head-long">THEIRS</span>
-        <span className="cz-fitread-head-short">THRS</span>
-      </span>
-      <span className="cz-fitread-head">
-        <span className="cz-fitread-head-long">YOURS</span>
-        <span className="cz-fitread-head-short">YOU</span>
-      </span>
-      <span className="cz-fitread-head">EASE</span>
+      <span className="cz-fitread-kicker">{kicker}</span>
     </div>
   );
 }
@@ -1771,11 +1842,48 @@ function FitReadHeads({ hasChart, kicker = null, blankLead = false }) {
 function FitReadMeasureRows({ rows, hasChart, units }) {
   return rows.map((r) => (
     <div key={r.key} className="cz-fitread-row">
-      <span className="cz-fitread-name">{r.name}</span>
+      <div className="cz-fitread-rowhead">
+        <span className="cz-fitread-name">{r.name}</span>
+        <span className="cz-fitread-nums">
+          {r.theirs != null ? (
+            <>
+              {"garment "}
+              <b>{formatMeasure(r.theirs, units)}</b>
+              {" · you "}
+              {r.yours != null
+                ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
+                : "–"}
+              {r.ease != null ? (
+                <>
+                  {" · "}
+                  <span
+                    className={
+                      "cz-fitread-diff" +
+                      (r.warn ? " is-warn" : r.soft ? " is-soft" : "")
+                    }
+                  >
+                    {(r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) + " room"}
+                  </span>
+                </>
+              ) : null}
+            </>
+          ) : r.notOnChart ? (
+            <span className="cz-fitread-unknown">not on the seller's chart</span>
+          ) : r.yours != null ? (
+            <>{"you " + (r.estimated ? "~" : "") + formatMeasure(r.yours, units)}</>
+          ) : (
+            <span className="cz-fitread-unknown">–</span>
+          )}
+        </span>
+      </div>
       <FitReadTrack
+        theirs={r.theirs}
+        yours={r.yours}
+        estimated={r.estimated}
         mark={r.mark}
         warn={r.warn}
         soft={r.soft}
+        dashed={r.dashed}
         showBand={hasChart}
         bandLeft={r.bandLeft}
         bandWidth={r.bandWidth}
@@ -1783,25 +1891,9 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
         softLeftWidth={r.softLeftWidth}
         softRight={r.softRight}
         softRightWidth={r.softRightWidth}
+        units={units}
       />
-      <span
-        className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
-        title={r.notOnChart ? "The seller's chart has no " + r.name.toLowerCase() : undefined}
-      >
-        {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "n/a" : "-"}
-      </span>
-      <span className="cz-fitread-yours">
-        {r.yours != null
-          ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
-          : "-"}
-      </span>
-      <span
-        className={
-          "cz-fitread-ease" + (r.warn ? " is-warn" : r.soft ? " is-soft" : "")
-        }
-      >
-        {r.ease != null ? (r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) : "-"}
-      </span>
+      {r.note ? <div className="cz-fitread-note">{r.note}</div> : null}
     </div>
   ));
 }
@@ -1904,12 +1996,16 @@ function FitReadTable({
           </span>
         </button>
       ) : null}
-      <FitReadHeads
-        hasChart={hasChart}
-        kicker={canOpenChart ? null : "FIT READ"}
-        blankLead={canOpenChart}
-      />
+      <FitReadHeads kicker={canOpenChart ? null : "FIT READ"} />
       <FitReadMeasureRows rows={rows} hasChart={hasChart} units={units} />
+      {hasChart ? (
+        <p className="cz-fitread-legend">
+          The center of the bar is the garment's size. The line is your body.
+          Green is the body range this cut fits. Amber is just past it, close
+          enough to wear. A dashed band means a number is missing and we are
+          not guessing at one.
+        </p>
+      ) : null}
       {canOpenChart && chartOpen ? (
         <div className="cz-fitread-detail">
           <p className="cz-fitread-detail-help">
@@ -4766,7 +4862,6 @@ export default function DetailBody({
                       }
                       onEditMeasures={onOpenSizes ? openProfileSizes : null}
                       onForgetChart={chartIsForgettable ? forgetChart : null}
-                      noteText="Ease is the seller's number minus your body. Green marks the range this cut is drafted for. Amber is just past it, close enough to wear. Red means a real mismatch. A dashed band means a number is missing and we are not guessing at one."
                     />
                   ) : null}
                 </div>

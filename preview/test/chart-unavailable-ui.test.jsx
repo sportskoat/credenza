@@ -267,6 +267,54 @@ describe("the silent hunt cannot reach the reader", () => {
     expect(huntMock.mock.calls.length).toBe(callsAfterFirst);
   });
 
+  // Kyle 2026-08-06: "none of my chart reads work." The Busy wall says "wait
+  // one minute, then open this card again", but the reopen was refused until a
+  // page reload, so the wall looked permanent. A wall that promises a minute
+  // must honour the minute.
+  it("retries the Busy wall after one minute, and finds the chart", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      huntMock.mockResolvedValue({ rateLimited: true });
+      const item = chartless();
+      renderBody(item);
+      expect(await screen.findByText("Busy")).toBeInTheDocument();
+      const callsAfterFirst = huntMock.mock.calls.length;
+
+      // The window has lifted, and the reader now answers.
+      huntMock.mockResolvedValue({ text: "胸围 104" });
+      vi.advanceTimersByTime(61 * 1000);
+      cleanup();
+      renderBody(item);
+
+      await waitFor(() => expect(huntMock.mock.calls.length).toBeGreaterThan(callsAfterFirst));
+      expect(screen.queryByText(CHART_RATE_LIMITED_COPY)).toBe(null);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The daily guard says it comes back tomorrow, so one minute changes nothing.
+  // A second search there would spend against a ceiling that is already met.
+  it("keeps the Back tomorrow wall after a minute, with no second search", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      huntMock.mockResolvedValue({ readerOff: true });
+      const item = chartless();
+      renderBody(item);
+      expect(await screen.findByText("Back tomorrow")).toBeInTheDocument();
+      const callsAfterFirst = huntMock.mock.calls.length;
+
+      vi.advanceTimersByTime(61 * 1000);
+      cleanup();
+      renderBody(item);
+
+      expect(await screen.findByText("Back tomorrow")).toBeInTheDocument();
+      expect(huntMock.mock.calls.length).toBe(callsAfterFirst);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps saying 'No chart for this one yet.' when the hunt really found none", async () => {
     huntMock.mockResolvedValue(null);
     renderBody(chartless());

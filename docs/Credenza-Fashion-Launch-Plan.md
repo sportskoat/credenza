@@ -46,14 +46,14 @@ Haul buyers organize purchases in spreadsheets, notes apps, and scattered bookma
 
 ### Phase 0 — Pre-launch foundations (Weeks -4 to 0)
 
-| ID | Milestone | Deliverable | Success criteria |
-|----|-----------|-------------|------------------|
-| M0.1 | Shareable shelf links | Public, view-only shelf URL anyone can open | A shared shelf link renders for a logged-out visitor; view count tracked |
-| M0.2 | Homepage "aha" upgrade | Demo GIF/loop of Yupoo link → clean card, or sample shelf embedded on landing page | Visitor can see the product working without signing up |
-| M0.3 | Pain-point copy | Landing page names the spreadsheet/bookmark chaos explicitly | Copy passes the "5-second test" with 5 target users |
-| M0.4 | Pricing transparency | Pricing/free-tier info visible pre-signup | No surprise paywall complaints in beta feedback |
-| M0.5 | Analytics instrumented | Events: visit, signup, first stash, share, return visit | Dashboard live; North Star measurable |
-| M0.6 | Launch assets | Product Hunt page draft, demo GIF, 3 social posts, creator outreach template | All assets reviewed and ready |
+| ID   | Milestone              | Deliverable                                                                        | Success criteria                                                         |
+| ---- | ---------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| M0.1 | Shareable shelf links  | Public, view-only shelf URL anyone can open                                        | A shared shelf link renders for a logged-out visitor; view count tracked |
+| M0.2 | Homepage "aha" upgrade | Demo GIF/loop of Yupoo link → clean card, or sample shelf embedded on landing page | Visitor can see the product working without signing up                   |
+| M0.3 | Pain-point copy        | Landing page names the spreadsheet/bookmark chaos explicitly                       | Copy passes the "5-second test" with 5 target users                      |
+| M0.4 | Pricing transparency   | Pricing/free-tier info visible pre-signup                                          | No surprise paywall complaints in beta feedback                          |
+| M0.5 | Analytics instrumented | Events: visit, signup, first stash, share, return visit                            | Dashboard live; North Star measurable                                    |
+| M0.6 | Launch assets          | Product Hunt page draft, demo GIF, 3 social posts, creator outreach template       | All assets reviewed and ready                                            |
 
 ### Phase 1 — Soft launch & feedback (Weeks 1–2)
 

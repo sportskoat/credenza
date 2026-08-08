@@ -29,7 +29,12 @@ const ROUTES = {
   // wrapper, is the real worst case. 2.5MB holds it with room; the per-photo
   // and per-count caps inside chart-vision.js are the tighter limits, and the
   // client compresses each frame to about 24KB before it ever posts.
-  "chart-vision": { paid: true, perIpPerMin: 10, routePerMin: 60, maxConcurrent: 3, bodyBytes: 2560 * 1024 },
+  // Kyle 2026-08-06: one card spends up to MAX_PAID_CANDIDATES (3) reads, so a
+  // 10/min ceiling walled the shopper after three cards and printed "a lot of
+  // chart reads are happening at once" on the fourth. 40 carries about thirteen
+  // cards a minute, which is a normal browse. Spend is still bounded by the
+  // per-account plan cap and by CREDENZA_DAILY_COST_CAP_USD above this window.
+  "chart-vision": { paid: true, perIpPerMin: 40, routePerMin: 60, maxConcurrent: 3, bodyBytes: 2560 * 1024 },
   ask: { paid: true, perIpPerMin: 20, routePerMin: 120, maxConcurrent: 4, bodyBytes: 64 * 1024 },
   resolve: { paid: true, perIpPerMin: 20, routePerMin: 120, maxConcurrent: 4, bodyBytes: 8 * 1024 },
   yupoo: { paid: false, perIpPerMin: 30, routePerMin: 180, maxConcurrent: 8, bodyBytes: 8 * 1024 },
