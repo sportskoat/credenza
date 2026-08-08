@@ -2137,11 +2137,13 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       bandLeft = pct(theirs - draftedHi);
       const bandRight = pct(theirs - draftedLo);
       bandWidth = bandRight - bandLeft;
-      softLeft = pct(theirs - draftedHi - softDelta);
-      softLeftWidth = Math.max(0, bandLeft - softLeft);
-      softRight = bandRight;
-      softRightWidth = Math.max(0, pct(theirs - draftedLo + softDelta) - bandRight);
       if (ease != null) {
+        // Amber zones belong to a verdict: they draw only on a row that has
+        // one (solid band). A dashed row shows the band and nothing more.
+        softLeft = pct(theirs - draftedHi - softDelta);
+        softLeftWidth = Math.max(0, bandLeft - softLeft);
+        softRight = bandRight;
+        softRightWidth = Math.max(0, pct(theirs - draftedLo + softDelta) - bandRight);
         mark = pct(yours);
         const beyond = Math.max(ease - draftedHi, draftedLo - ease);
         warn = beyond > softDelta;

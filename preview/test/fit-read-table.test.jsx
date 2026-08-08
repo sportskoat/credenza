@@ -85,13 +85,17 @@ describe("fitReadRows", () => {
     expect(chest.yours).toBe(108);
     expect(chest.ease).toBe(8);
     expect(chest.warn).toBe(false);
-    // Ideal ease lands at band center; +8 is right of knit ideal 7.5.
+    // Redesign 2026-08-08: the band is the BODY range this cut fits
+    // (116 − 10 .. 116 − 5 = 106..111) and the mark is the body number.
+    // Body 108 sits inside the range, so the mark lands inside the band.
     expect(chest.bandLeft).toBeGreaterThan(0);
     expect(chest.bandWidth).toBeGreaterThan(0);
     const bandCenter = chest.bandLeft + chest.bandWidth / 2;
     expect(chest.mark).toBeGreaterThan(chest.bandLeft);
     expect(chest.mark).toBeLessThan(chest.bandLeft + chest.bandWidth);
-    expect(chest.mark).toBeGreaterThan(bandCenter);
+    // Ease +8 is above the knit ideal 7.5, so the body number sits LEFT of
+    // the band center on the body ruler (mirror of the old ease ruler).
+    expect(chest.mark).toBeLessThan(bandCenter);
 
     // Body length has no body-side field: information, never a verdict.
     const length = rows[1];
@@ -110,8 +114,9 @@ describe("fitReadRows", () => {
     const chest = rows.find((r) => r.key === "chest");
     expect(chest.ease).toBe(20);
     expect(chest.warn).toBe(true);
-    // Warn edges === band edges (same domain map).
-    expect(chest.mark).toBeGreaterThan(chest.bandLeft + chest.bandWidth);
+    // The body number (96) sits below the fit range (106..111): LEFT of the
+    // band on the body ruler.
+    expect(chest.mark).toBeLessThan(chest.bandLeft);
   });
 
   it("keeps an extreme sleeve mark on the bar, not flush on the numbers", () => {
@@ -135,8 +140,10 @@ describe("fitReadRows", () => {
   });
 
   it("moves the mark between sizes on an oversized coat (Kyle red-line pin)", () => {
-    // Every size is oversized on sleeve (> +5"); fixed 6–90 clamp used to pin
-    // all of them at 90 so the line sat still. Domain must keep marks distinct.
+    // Every size is oversized on sleeve (> +5"); a per-size private scale
+    // would pin the YOU line at one spot. The ruler covers every size on the
+    // chart, so the line visibly slides with the size pick. On the body
+    // ruler a BIGGER garment pushes the body number further LEFT.
     const chart = parseSizeChart(
       "S: chest 124, shoulder 50, length 74, sleeve 80\n" +
         "M: chest 128, shoulder 52, length 76, sleeve 82\n" +
@@ -153,17 +160,17 @@ describe("fitReadRows", () => {
       );
       expect(sleeve, size).toBeTruthy();
       expect(sleeve.ease).toBeGreaterThan(12); // > ~5"
-      expect(sleeve.mark).toBeGreaterThanOrEqual(4);
-      expect(sleeve.mark).toBeLessThanOrEqual(96);
+      expect(sleeve.mark).toBeGreaterThanOrEqual(2);
+      expect(sleeve.mark).toBeLessThanOrEqual(98);
       // None at the absolute cap.
-      expect(sleeve.mark).toBeLessThan(96);
+      expect(sleeve.mark).toBeLessThan(98);
       marks[size] = sleeve.mark;
     }
     // S and L must differ — the line visibly slides with the size pick.
     expect(marks.S).not.toBe(marks.L);
-    expect(marks.S).toBeLessThan(marks.M);
-    expect(marks.M).toBeLessThan(marks.L);
-    expect(marks.L).toBeLessThan(marks.XL);
+    expect(marks.S).toBeGreaterThan(marks.M);
+    expect(marks.M).toBeGreaterThan(marks.L);
+    expect(marks.L).toBeGreaterThan(marks.XL);
   });
 
   it("keeps band, orange zones, and tier flags on one map (three tiers)", () => {
@@ -424,22 +431,32 @@ describe("FitReadTable in the detail body", () => {
 
     const scoped = within(table);
     expect(scoped.getByText("FIT READ")).toBeInTheDocument();
-    expect(scoped.getByText("THEIRS")).toBeInTheDocument();
-    expect(scoped.getByText("YOURS")).toBeInTheDocument();
-    expect(scoped.getByText("EASE")).toBeInTheDocument();
-    expect(scoped.getByText("TIGHT")).toBeInTheDocument();
+    // Redesign 2026-08-08: no TIGHT/TRUE/LOOSE scale and no column heads.
+    // The row head reads "garment X · you Y · +Z room"; the locked legend
+    // under the rows says what the bar, line, and colors mean.
+    expect(scoped.queryByText("THEIRS")).toBe(null);
+    expect(scoped.queryByText("TIGHT")).toBe(null);
+    expect(
+      scoped.getByText(/The center of the bar is the garment's size/)
+    ).toBeInTheDocument();
 
     // The picked row is M: chest 116 vs 108 = +8, shoulder 46 vs 45 = +1.
-    expect(scoped.getByText("116cm")).toBeInTheDocument();
-    expect(scoped.getByText("108cm")).toBeInTheDocument();
-    expect(scoped.getByText("+8cm")).toBeInTheDocument();
-    expect(scoped.getByText("+1cm")).toBeInTheDocument();
+    // The garment number shows twice per row: the head and the bar tag.
+    expect(scoped.getAllByText("116cm").length).toBe(2);
+    expect(scoped.getAllByText("108cm").length).toBeGreaterThan(0);
+    expect(scoped.getByText("+8cm room")).toBeInTheDocument();
+    expect(scoped.getByText("+1cm room")).toBeInTheDocument();
 
-    // Band only on graded rows (chest + shoulder). Estimated body length has no band.
-    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(2);
-    expect(table.querySelectorAll(".cz-fitread-mark").length).toBe(2);
-    expect(table.querySelectorAll(".cz-fitread-mark.is-warn").length).toBe(0);
-    // Band geometry is inline from the domain map, not fixed CSS left/width.
+    // Bands on every row with a garment number: chest + shoulder solid,
+    // estimated body length DASHED (no verdict on a guessed number).
+    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(3);
+    expect(table.querySelectorAll(".cz-fitread-band.is-dashed").length).toBe(1);
+    // YOU lines only on graded rows (chest + shoulder). The estimated row
+    // has no line and no amber zones.
+    expect(table.querySelectorAll(".cz-fitread-you").length).toBe(2);
+    expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(4);
+    // Band geometry is inline from the ruler, not fixed CSS left/width.
     const band = table.querySelector(".cz-fitread-band");
     expect(band.style.left).toMatch(/%$/);
     expect(band.style.width).toMatch(/%$/);
@@ -462,10 +479,10 @@ describe("FitReadTable in the detail body", () => {
     });
     const table = container.querySelector(".cz-fitread");
     expect(table).not.toBe(null);
-    expect(table.querySelectorAll(".cz-fitread-mark.is-soft").length).toBe(1);
-    expect(table.querySelectorAll(".cz-fitread-mark.is-warn").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-ease.is-soft").length).toBe(1);
-    // Both graded rows (chest, shoulder) draw both flank zones from the map.
+    expect(table.querySelectorAll(".cz-fitread-you.is-soft").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-diff.is-soft").length).toBe(1);
+    // Both graded rows (chest, shoulder) draw both flank zones from the ruler.
     expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(4);
     // An orange row still counts as inside for the verdict line — the old
     // +4 slack's verdict, now shown honestly by the color.
@@ -482,9 +499,9 @@ describe("FitReadTable in the detail body", () => {
       bodyProfile: { chest: 101, shoulder: 45, height: 180, weight: 75 },
     });
     const table = container.querySelector(".cz-fitread");
-    expect(table.querySelectorAll(".cz-fitread-mark.is-warn").length).toBe(1);
-    expect(table.querySelectorAll(".cz-fitread-mark.is-soft").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-ease.is-warn").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-you.is-soft").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-diff.is-warn").length).toBe(1);
   });
 
   it("opens the full seller chart when FIT READ is tapped (Kyle 2026-07-31)", async () => {
