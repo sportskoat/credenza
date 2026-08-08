@@ -151,7 +151,7 @@ describe("§3 no-chart state", () => {
     expect(onOpenSizes).not.toHaveBeenCalled();
     // The two ways to get a chart are what this state offers instead.
     expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Type the numbers" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Input sizing chart manually" })).toBeInTheDocument();
   });
 
   it("offers the item's own album photos as a shortcut", async () => {

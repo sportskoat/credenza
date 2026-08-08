@@ -8,7 +8,7 @@
 // rows for a different reason, which is not what this probe is about.)
 // Shot 1: the FIT READ table. The shoulder row reads "n/a" and the footnote
 // names the column the seller does not print.
-// Shot 2: the hand-typing grid, opened by "Type the numbers", with the size
+// Shot 2: the hand-typing grid, opened by "Input sizing chart manually", with the size
 // names and the four top columns ready to fill.
 import { chromium, devices } from "playwright";
 import { mkdirSync } from "node:fs";
@@ -103,7 +103,7 @@ const rows = await page.locator(".cz-fitread-row").allTextContents();
 const footnote = await page.locator(".cz-fitread-footnote").first().textContent();
 await page.locator(".cz-fitread").first().screenshot({ path: join(outDir, "typed-1-missing-column.png") });
 
-await page.getByRole("button", { name: "Type the numbers" }).click({ force: true });
+await page.getByRole("button", { name: "Input sizing chart manually" }).click({ force: true });
 await page.waitForTimeout(700);
 await page.evaluate(() => {
   const el = document.querySelector(".cz-sizing-fix");

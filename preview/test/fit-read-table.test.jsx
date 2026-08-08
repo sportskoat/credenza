@@ -318,7 +318,7 @@ describe("FitReadTable in the detail body", () => {
     expect(
       screen.getByRole("button", { name: "Upload chart photo" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Type the numbers" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Input sizing chart manually" })).toBeInTheDocument();
   });
 
   it("stays out of skip categories", () => {
@@ -431,7 +431,7 @@ describe("typing a chart by hand", () => {
     const onSaveEdit = vi.fn();
     const { container } = renderBody(fitItem(), { onSaveEdit });
 
-    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     expect(grid).not.toBe(null);
     // Four size rows, four top columns, every measurement box empty.
@@ -454,7 +454,7 @@ describe("typing a chart by hand", () => {
     const onSaveEdit = vi.fn();
     renderBody(fitItem(), { onSaveEdit });
 
-    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
     await user.click(screen.getByRole("button", { name: "Save this chart" }));
     expect(onSaveEdit).not.toHaveBeenCalled();
     expect(
@@ -467,7 +467,7 @@ describe("typing a chart by hand", () => {
     const onSaveEdit = vi.fn();
     const { container } = renderBody(fitItem(), { onSaveEdit });
 
-    await user.click(screen.getByRole("button", { name: "Type the numbers" }));
+    await user.click(screen.getByRole("button", { name: "Input sizing chart manually" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     const firstName = within(grid).getByLabelText("Size name, row 1");
     await user.clear(firstName);

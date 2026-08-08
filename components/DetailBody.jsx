@@ -43,6 +43,7 @@ import {
   usualSizeForItem,
   useWriteThroughDraft,
   usePrefersReducedMotion,
+  useIsPhone,
   SIZE_PICK_SKIP_CATEGORIES,
 } from "../credenza-fashion.jsx";
 import { normalizeFindStatus } from "../credenza-find-status.js";
@@ -703,7 +704,10 @@ function SizingBlockNoChart({
 // the no-chart state (see `noChart` in DetailBody). `hasChart={false}` still
 // ghosts, because a read in flight has no chart yet and keeps the table.
 // Row math lives in fitReadRows (pure, tested on its own).
-function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart }) {
+// `lean` is the phone shape (section 6.3 point 5): three columns, not five.
+// Five columns do not fit 402px, so THEIRS and YOURS drop out and the bar plus
+// the ease number carry the answer. Off the phone the table is unchanged.
+function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeasures, onForgetChart, lean = false }) {
   if (!rows.length) return null;
   const insideCount = rows.filter((r) => r.mark != null && !r.warn).length;
   const scoredCount = rows.filter((r) => r.mark != null).length;
@@ -744,7 +748,10 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
   return (
     <div
       className={
-        "cz-fitread" + (hasChart ? "" : " is-ghost") + (reading ? " is-reading" : "")
+        "cz-fitread" +
+        (hasChart ? "" : " is-ghost") +
+        (reading ? " is-reading" : "") +
+        (lean ? " is-lean" : "")
       }
     >
       <div className="cz-fitread-row cz-fitread-heads" aria-hidden="true">
@@ -759,15 +766,20 @@ function FitReadTable({ rows, hasChart, units, reading, readingCount, onEditMeas
           <span />
         )}
         {/* Phone heads shorten to THRS / YOU (spec) — a CSS toggle, so the
-            grid never has to fit six letters over a 30px column. */}
-        <span className="cz-fitread-head">
-          <span className="cz-fitread-head-long">THEIRS</span>
-          <span className="cz-fitread-head-short">THRS</span>
-        </span>
-        <span className="cz-fitread-head">
-          <span className="cz-fitread-head-long">YOURS</span>
-          <span className="cz-fitread-head-short">YOU</span>
-        </span>
+            grid never has to fit six letters over a 30px column. The lean
+            shape drops both columns instead. */}
+        {lean ? null : (
+          <>
+            <span className="cz-fitread-head">
+              <span className="cz-fitread-head-long">THEIRS</span>
+              <span className="cz-fitread-head-short">THRS</span>
+            </span>
+            <span className="cz-fitread-head">
+              <span className="cz-fitread-head-long">YOURS</span>
+              <span className="cz-fitread-head-short">YOU</span>
+            </span>
+          </>
+        )}
         <span className="cz-fitread-head">EASE</span>
       </div>
       {rows.map((r) => (
@@ -1698,6 +1710,25 @@ export default function DetailBody({
   // (close, ⋯ menu) comes in through renderHeroActions; the desktop back
   // passes none because its card header already carries those.
   const [photoIdx, setPhotoIdx] = useState(0);
+
+  // ── The three panes (mobile handoff 2026-07-30, section 6) ────────────────
+  //
+  // The card back was six screens of facts in one scroll. On the phone it is
+  // now three panes: Fit, Photos, Details. Nothing is removed; each fact moves
+  // into the pane it belongs to.
+  //
+  // PHONE ONLY. Kyle ruled on 2026-07-30: "dont implement on desktop yet". At
+  // 768px and wider this whole block is off and the card back renders exactly
+  // as it did before. To make the desktop pictures, set PANES_EVERYWHERE to
+  // true on a local copy. Never commit it as true.
+  const PANES_EVERYWHERE = false;
+  const phone = useIsPhone();
+  const panes = PANES_EVERYWHERE || phone;
+  const [pane, setPane] = useState("fit");
+  // The pane choice is per open item. It resets to Fit on every open.
+  useEffect(() => {
+    setPane("fit");
+  }, [item.id]);
   // Round 4 point 7 (2026-07-29): a failed photo draws the brand tile, never
   // the browser's broken-image mark. Tracked per photo URL — one bad photo
   // must not hide the good ones.
@@ -2340,6 +2371,51 @@ export default function DetailBody({
     </div>
   );
 
+  // The photo strip and the album links. In the three-pane layout they are the
+  // Photos pane, so the shelf card, the strip and the gallery link stop
+  // competing for the same screen (section 6.4).
+  const photoTailBlock = heroPager ? (
+    <div className="cz-detail-photo-tail">
+      <div className="cz-detail-photos">
+        <EditPhotosManager
+          item={item}
+          onAttachPhoto={onAttachPhoto}
+          onOpenPhoto={(i) => setPhotoView({ startIndex: i })}
+        />
+      </div>
+      <AlbumLinksRow item={item} />
+      {panes ? (
+        <p className="cz-detail-pane-note">
+          Cover is the photo the shelf card shows. QC photos land here once your agent sends them.
+        </p>
+      ) : null}
+    </div>
+  ) : null;
+
+  const qcPromptBlock = showQcPrompt ? (
+    /* QC prompt (§9). It asks about a moment that has not happened yet, so it
+       appears only while the order is with the agent and no QC photo has
+       arrived. A standing "add QC photos" box on a WANT item asks for
+       something that cannot exist. */
+    <div className="cz-detail-qc-prompt">
+      <Camera size={17} strokeWidth={1.9} aria-hidden="true" />
+      <span className="cz-detail-qc-prompt-text">
+        Add QC photos when your order arrives at the agent
+      </span>
+      <label className="cz-detail-qc-prompt-btn">
+        Add
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            onAttachQcPhoto(item.id, e.target.files && e.target.files[0]);
+            e.target.value = "";
+          }}
+        />
+      </label>
+    </div>
+  ) : null;
+
   const commandBarBlock = (
     <CommandBar
       item={item}
@@ -2475,18 +2551,7 @@ export default function DetailBody({
             the rail. The desktop panel has no hero of its own here: it draws
             its stage and strip in the left column and mounts the same row
             there, so this block stays tied to the hero that owns it. */}
-        {heroPager ? (
-          <div className="cz-detail-photo-tail">
-            <div className="cz-detail-photos">
-              <EditPhotosManager
-                item={item}
-                onAttachPhoto={onAttachPhoto}
-                onOpenPhoto={(i) => setPhotoView({ startIndex: i })}
-              />
-            </div>
-            <AlbumLinksRow item={item} />
-          </div>
-        ) : null}
+        {panes ? null : photoTailBlock}
 
         {/* Title. The text itself is the tap target — there is no Title
             field and no Save button. Blur commits through the debounce. */}
@@ -2496,12 +2561,41 @@ export default function DetailBody({
             ? null
             : createPortal(titleBlock, titleTarget)}
 
+        {/* The pane picker (section 6.2). It stays under the title at every
+            scroll position, so the customer can change pane without scrolling
+            back up. Phone only. */}
+        {panes ? (
+          <div className="cz-detail-panes" role="tablist" aria-label="Item detail panes">
+            {[
+              { key: "fit", label: "Fit" },
+              { key: "photos", label: photos.length ? "Photos · " + photos.length : "Photos" },
+              { key: "details", label: "Details" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={pane === tab.key}
+                className={"cz-detail-pane-tab" + (pane === tab.key ? " is-active" : "")}
+                onClick={() => setPane(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {panes && pane !== "photos" ? null : panes ? photoTailBlock : null}
+
         {/* The bar is inline on the phone sheet and the tablet band. On the
             desktop panel it portals to a full-width slot above both columns
             (handoff §3) — five chips do not fit one row inside the decision
-            column. See commandBarBlock above. */}
+            column. See commandBarBlock above. In the three-pane layout it is
+            the top of the Details pane. */}
         {commandBarTarget === undefined
-          ? commandBarBlock
+          ? panes && pane !== "details"
+            ? null
+            : commandBarBlock
           : commandBarTarget === null
             ? null
             : createPortal(commandBarBlock, commandBarTarget)}
@@ -2509,6 +2603,7 @@ export default function DetailBody({
         {/* Split rail: the four detail tabs are gone. Size, colorway, weight
             and haul are always-visible facts — three of them hidden behind a
             tab bar made the card a guessing game. */}
+        {panes && pane !== "fit" ? null : (
         <div className="cz-detail-facts">
           <section className="cz-detail-facts-section" aria-label="Size and fit">
             {askingMeasures && onSaveBodyProfile ? (
@@ -2716,7 +2811,7 @@ export default function DetailBody({
                 className="cz-detail-chart-upload"
                 onClick={() => chartRead.startTyping(item.category)}
               >
-                Type the numbers
+                Input sizing chart manually
               </button>
               <input
                 ref={chartInputRef}
@@ -2750,42 +2845,31 @@ export default function DetailBody({
               marked no longer exists. */}
 
         </div>
+        )}
 
         {lowerEditing ? <div ref={editorSlotRef}>{renderPriceEditor()}</div> : null}
 
-        {logNotesTarget === undefined
-          ? timelineBlock
-          : logNotesTarget === null
-            ? null
-            : createPortal(timelineBlock, logNotesTarget)}
-        {/* Notes stay inline even on the desktop panel — the bottom of the
-            right side, above the footer (Kyle 2026-07-30). */}
-        {notesBlock}
-
-        {/* QC prompt (§9). It is the LAST block, after the notes, because it
-            asks about a moment that has not happened yet. It appears only
-            while the order is actually with the agent and no QC photo has
-            arrived — a standing "add QC photos" box on a WANT item is asking
-            for something that cannot exist. */}
-        {showQcPrompt ? (
-          <div className="cz-detail-qc-prompt">
-            <Camera size={17} strokeWidth={1.9} aria-hidden="true" />
-            <span className="cz-detail-qc-prompt-text">
-              Add QC photos when your order arrives at the agent
-            </span>
-            <label className="cz-detail-qc-prompt-btn">
-              Add
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  onAttachQcPhoto(item.id, e.target.files && e.target.files[0]);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          </div>
-        ) : null}
+        {/* The timeline, the notes and the QC prompt are the tail of the
+            Details pane. Off the phone they keep their old place at the
+            bottom of one long scroll. */}
+        {panes && pane !== "details" ? null : (
+          <>
+            {logNotesTarget === undefined
+              ? timelineBlock
+              : logNotesTarget === null
+                ? null
+                : createPortal(timelineBlock, logNotesTarget)}
+            {/* Notes stay inline even on the desktop panel — the bottom of the
+                right side, above the footer (Kyle 2026-07-30). */}
+            {notesBlock}
+            {qcPromptBlock}
+            {panes ? (
+              <p className="cz-detail-pane-note">
+                Everything here is yours and stays on this device. Nothing you saved is deleted.
+              </p>
+            ) : null}
+          </>
+        )}
 
       </div>
 

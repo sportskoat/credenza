@@ -4352,7 +4352,9 @@ function useNotification() {
 }
 
 // Live ≤767px check — the app's phone/desktop split in one place.
-function useIsPhone() {
+// Exported because the item sheet's three panes are a PHONE change only. At
+// 768px and wider the card back stays exactly as it was (Kyle 2026-07-30).
+export function useIsPhone() {
   const [phone, setPhone] = useState(
     () =>
       typeof window !== "undefined" &&
