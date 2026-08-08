@@ -1516,26 +1516,32 @@ export default function DetailBody({
   // title, size · price, close. It only exists where the shell gives us a
   // close action, which is the phone sheet.
   const heroRef = useRef(null);
+  const titleRowRef = useRef(null);
   const scrollRef = useRef(null);
   const [heroGone, setHeroGone] = useState(false);
   const wantsStickyBar = heroPager && typeof onRequestClose === "function";
   useEffect(() => {
     if (!wantsStickyBar) return undefined;
-    const hero = heroRef.current;
+    // Kyle 2026-07-29: the bar used to watch the PHOTO, so between "photo
+    // gone" and "title gone" the sheet printed the item name twice — once in
+    // the bar and once in the big title right under it. Watch the TITLE ROW
+    // instead: the bar only takes the name over once the big one has left.
+    // The hero stays the fallback for a caller with no inline title row.
+    const watched = titleRowRef.current || heroRef.current;
     const root = scrollRef.current;
     // jsdom has no IntersectionObserver, and neither does an old iOS. No
     // observer means no bar — the sheet reads exactly as it did before §9.
-    if (!hero || !root || typeof IntersectionObserver === "undefined") return undefined;
+    if (!watched || !root || typeof IntersectionObserver === "undefined") return undefined;
     const io = new IntersectionObserver(
       (entries) => {
         const e = entries[0];
         if (e) setHeroGone(!e.isIntersecting);
       },
-      // The bar arrives as the LAST of the photo leaves, not the first: a
-      // threshold of 0 flips the moment one pixel is gone.
+      // The bar arrives as the LAST of the watched block leaves, not the
+      // first: a threshold of 0 flips the moment one pixel is gone.
       { root, threshold: 0 }
     );
-    io.observe(hero);
+    io.observe(watched);
     return () => io.disconnect();
   }, [wantsStickyBar, item.id]);
 
@@ -2060,7 +2066,7 @@ export default function DetailBody({
      the title portals into the full-width header above the command bar
      (handoff section 3); everywhere else it stays inline. */
   const titleBlock = (
-    <div className="cz-detail-title-row">
+    <div className="cz-detail-title-row" ref={titleRowRef}>
       <div className="cz-detail-title-col">
         {editingTitle ? (
           <input
